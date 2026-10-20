@@ -1,0 +1,58 @@
+class Counter {
+    int count = 0;
+    private int step;
+
+    Counter(int step) {
+        this.step = step;
+    }
+
+    void tick() {
+        count += step;
+    }
+
+    int get() {
+        return count;
+    }
+
+    static Counter byOne() {
+        return new Counter(1);
+    }
+}
+
+class Pair {
+    Counter first;
+    Counter second;
+
+    Pair(Counter first, Counter second) {
+        this.first = first;
+        this.second = second;
+    }
+}
+
+void bump(Counter c) {
+    c.tick();
+}
+
+void main() {
+    var a = new Counter(2);
+    a.tick();
+    bump(a);
+    print(a.get());                 // output: 4
+
+    // References share the object.
+    Counter b = a;
+    b.tick();
+    print(a.count);                 // output: 6
+    print(a == b);                  // output: true
+    print(a == new Counter(2));     // output: false
+
+    var one = Counter.byOne();
+    one.tick();
+    print(one.get());               // output: 1
+
+    var pair = new Pair(a, one);
+    pair.first.tick();
+    pair.second = pair.first;
+    print(pair.second.get());       // output: 8
+    print(pair.first == pair.second);   // output: true
+}

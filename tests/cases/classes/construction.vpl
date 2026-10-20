@@ -1,0 +1,59 @@
+int trace(String s, int value) {
+    print(s);
+    return value;
+}
+
+class Base {
+    int a = trace("base field", 1);
+
+    Base(int x) {
+        print("base body");
+        describe();
+    }
+
+    virtual void describe() {
+        print("as base");
+    }
+}
+
+class Derived extends Base {
+    int b = trace("derived field", 2);
+    Base other;
+
+    Derived() {
+        super(trace("super argument", 0));
+        print("derived body");
+        other = new Base(1);
+        // Every field is assigned, so `this` may be used.
+        describe();
+    }
+
+    override void describe() {
+        print("as derived");
+    }
+}
+
+class Defaults {
+    int count;
+    Base? maybe;
+    String name = "defaults";
+}
+
+void main() {
+    var d = new Derived();
+    // output: super argument
+    // output: base field
+    // output: base body
+    // output: as base
+    // output: derived field
+    // output: derived body
+    // output: base field
+    // output: base body
+    // output: as base
+    // output: as derived
+
+    var defaults = new Defaults();
+    print(defaults.count);                  // output: 0
+    print(defaults.maybe == null);          // output: true
+    print(defaults.name);                   // output: defaults
+}

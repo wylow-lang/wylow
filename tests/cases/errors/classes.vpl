@@ -1,0 +1,75 @@
+abstract class Weapon {
+    abstract void fire();
+    virtual int ammo() { return 0; }
+    int weight() { return 1; }
+}
+
+class Gun extends Weapon {               // error: 'Gun' must implement abstract method 'Weapon.fire()'
+    int ammo() { return 1; }            // error: must be marked 'override' to override 'Weapon.ammo()'
+    int weight() { return 2; }          // error: hides inherited method 'Weapon.weight()'
+    override int missing() { return 0; }    // error: does not override anything
+}
+
+class Rifle extends Weapon {
+    override void fire() { }
+    override long ammo() { return 1L; }     // error: must have the same parameter and return types as 'Weapon.ammo'
+}
+
+final class Sealed {
+    virtual void m() { }
+}
+
+class Breaks extends Sealed { }         // error: cannot extend final class 'Sealed'
+
+class Pistol extends Weapon {
+    final override void fire() { }
+}
+
+class Derringer extends Pistol {
+    override void fire() { }            // error: cannot override 'Pistol.fire' because it is final
+}
+
+class NotAbstract {
+    abstract void m();                  // error: 'NotAbstract' must be declared 'abstract'
+}
+
+struct Point { int x; }
+
+class FromStruct extends Point { }      // error: 'Point' is not a class and cannot be extended
+
+class A extends B { }                   // error: 'A' inherits from itself
+class B extends A { }
+
+class Field {
+    int x;
+}
+
+class FieldChild extends Field {
+    int x;                              // error: field 'x' is already defined in base class 'Field'
+}
+
+class Secretive {
+    private int hidden;
+    private void quiet() { }
+    private Secretive(int x) { }
+    Secretive() { }
+}
+
+class Generic {
+    virtual void m<T>(T x) { }          // error: generic methods cannot be 'virtual'
+}
+
+void main() {
+    var w = new Weapon();               // error: cannot create an instance of abstract class 'Weapon'
+    var p = Point(1);                   // error: no constructor of 'Point' takes 1 argument
+    var q = new Point();                // error: structs are created without 'new'
+    var g = Gun();                      // error: classes are created with 'new'
+    var s = new Secretive();
+    print(s.hidden);                    // error: field 'Secretive.hidden' is private
+    s.quiet();                          // error: method 'Secretive.quiet' is private
+    var s2 = new Secretive(1);          // error: constructor 'Secretive(int)' is private
+    Point pt = Point { x = 1 };
+    print(s == pt);                     // error: operator '==' cannot be applied to 'Secretive' and 'Point'
+    print(s == new Field());            // error: operator '==' cannot be applied to 'Secretive' and 'Field'
+    var nope = Field { x = 1 };         // error: 'Field' is not a struct
+}

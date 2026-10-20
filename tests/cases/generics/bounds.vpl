@@ -1,0 +1,101 @@
+interface Comparable<T> {
+    int compareTo(T other);
+}
+
+struct Score implements Comparable<Score> {
+    int points;
+
+    int compareTo(Score other) {
+        return points - other.points;
+    }
+}
+
+class Version implements Comparable<Version> {
+    int number;
+
+    Version(int number) {
+        this.number = number;
+    }
+
+    int compareTo(Version other) {
+        return number - other.number;
+    }
+}
+
+T max<T extends Comparable<T>>(T a, T b) {
+    return a.compareTo(b) >= 0 ? a : b;
+}
+
+interface Shape {
+    float area();
+}
+
+struct Square implements Shape {
+    float side;
+
+    float area() {
+        return side * side;
+    }
+}
+
+class Circle implements Shape {
+    float radius = 1;
+
+    float area() {
+        return 3 * radius * radius;
+    }
+}
+
+// A generic struct whose methods use the bound, for structs and classes alike.
+struct Pair<A extends Shape, B extends Shape> {
+    A first;
+    B second;
+
+    Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    float total() {
+        return first.area() + second.area();
+    }
+}
+
+class Box<T> {
+    T value;
+    Box<T>? next;
+
+    Box(T value) {
+        this.value = value;
+    }
+
+    T get() {
+        return value;
+    }
+}
+
+class Labeled<T> extends Box<T> {
+    String label;
+
+    Labeled(String label, T value) {
+        super(value);
+        this.label = label;
+    }
+}
+
+void main() {
+    print(max(Score { points = 3 }, Score { points = 7 }).points);  // output: 7
+    print(max(new Version(4), new Version(2)).number);            // output: 4
+
+    var pair = Pair<Square, Circle>(Square { side = 2 }, new Circle());
+    print(pair.total());                                          // output: 7.0
+
+    var box = new Box<int>(5);
+    box.next = new Box<int>(6);
+    print(box.get() + box.next!.get());                           // output: 11
+
+    var labeled = new Labeled<Circle>("c", new Circle());
+    Box<Circle> asBox = labeled;
+    print(asBox.get().area());                                    // output: 3.0
+    print(labeled.label);                                         // output: c
+}

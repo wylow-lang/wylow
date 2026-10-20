@@ -1,0 +1,79 @@
+interface Named {
+    String name();
+}
+
+interface Damageable extends Named {
+    void damage(int amount);
+    int health();
+}
+
+class Crate implements Damageable {
+    int hp = 30;
+
+    String name() {
+        return "crate";
+    }
+
+    void damage(int amount) {
+        hp -= amount;
+    }
+
+    int health() {
+        return hp;
+    }
+}
+
+class Unit {
+    int hp = 100;
+
+    void damage(int amount) {
+        hp -= amount * 2;
+    }
+
+    int health() {
+        return hp;
+    }
+}
+
+// The interface is implemented with methods inherited from Unit.
+class Soldier extends Unit implements Damageable {
+    String name() {
+        return "soldier";
+    }
+}
+
+// Damageable through an interface reference: dynamic dispatch.
+void hit(Damageable target) {
+    target.damage(5);
+    print(target.name());
+    print(target.health());
+}
+
+// Through a bound: static dispatch, for structs and classes alike.
+struct Counter implements Named {
+    int n;
+
+    String name() {
+        return "counter";
+    }
+}
+
+void describe<T extends Named>(T value) {
+    print(value.name());
+}
+
+void main() {
+    hit(new Crate());
+    // output: crate
+    // output: 25
+    hit(new Soldier());
+    // output: soldier
+    // output: 90
+
+    Named n = new Soldier();
+    print(n.name());              // output: soldier
+
+    describe(new Crate());        // output: crate
+    describe(Counter { n = 1 });  // output: counter
+    describe<Named>(n);           // output: soldier
+}

@@ -24,6 +24,33 @@ releasing any class references it contains.
 - The destructor runs immediately when the last reference is released. This makes classes the
   right place for owning resources (GPU buffers, files, sockets).
 
+### When references are released
+
+- A local or parameter releases its reference when it goes out of scope; fields when their object
+  is destroyed, after its destructor body has run (fields first, then the base class's destructor).
+- A temporary, such as an object returned by a call and not stored, is released by the end of the
+  statement that created it. The exact point within the statement may vary by statement but is the
+  same on every platform and C++ compiler.
+- **Assignment stores the new value before releasing the old one**, so a destructor triggered by an
+  assignment sees the new value in the assigned place. Assigning a struct stores every field before
+  releasing any old field.
+- A destructor may use `this` freely, but must not keep a reference to its object: if a reference
+  to it still exists when the destructor finishes, the program panics.
+
+> ⚠️ **Long chains are destroyed recursively.** Releasing the head of a long linked list destroys
+> each node from inside the previous node's destruction, which can overflow the stack (an abort, see
+> [01-safety.md](01-safety.md#12-how-each-source-of-c-ub-is-handled)). Break up very long chains
+> manually for now.
+
+### Implementation
+
+Every class object starts with a header holding a non-atomic reference count and the head of a
+list of weak references. In C++, classes and interfaces derive virtually from one `vpl::Object`, so
+an object has one count however many interfaces it implements. References are `vpl::Ref<T>`, an
+intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count starts at 1, owned by
+the `new` expression, so a constructor that hands out and drops references to `this` cannot destroy
+the object early.
+
 ### Cycles and `weak`
 
 Reference cycles are never freed. Break them with `weak` references:
@@ -38,6 +65,14 @@ class Node {
 A `weak` reference must be nullable. It becomes `null` automatically when its target is
 destroyed. To use it, test it: `if (parent is Node p) { ... }` (this produces a strong reference
 for the block's duration).
+
+- `weak` is allowed on class fields only (not struct fields, locals, or parameters), and a weak
+  field cannot be passed by `ref`. Reading it gives a strong `T?`.
+- A weak reference reads as `null` from the moment its target's count reaches zero, before the
+  target's destructor runs.
+- Implementation: each weak reference is linked into a list kept by its target, and the target
+  clears the list when it dies. Memory is freed immediately; there is no separate weak count or
+  control block. A weak field costs three pointers.
 
 ## 3.3 Pools and handles
 
@@ -150,6 +185,25 @@ Taking a reference into a field of a class object holds a strong reference to th
 reference's scope, so the object cannot be destroyed while referenced. The compiler omits this
 when it can prove it unnecessary (for example, the object is held by a local that is never
 reassigned).
+
+The same applies to the receiver of a method call: in `player.weapon.fire()`, the call holds the
+weapon, so `fire` may replace `player.weapon` without destroying the object it is running on.
+
+The current rule: the compiler pins (holds a strong reference for the duration of the call) the
+receiver of a method call, and the object owning the place passed as a `ref`/`in` argument or used
+as a struct method's receiver, unless that object is `this` or a local or parameter. Locals are
+safe without a pin because nothing but the function itself can assign them, and a class-typed local
+cannot even be passed by `ref`. `this` is safe because whoever called the method has pinned it. A
+pin costs one count increment and decrement.
+
+### Evaluation order and the heap
+
+Operands are evaluated left to right ([06-syntax.md](06-syntax.md#evaluation-order)). Since any call
+can modify any object, reading a field of an object counts as conflicting with every call in the
+same expression: in `obj.x + f()`, `obj.x` is read before `f` runs. The same holds for reads
+through `ref`/`in` parameters and a struct method's `this`, which may point into an object. In an
+assignment, the object holding the target is evaluated before the value: in
+`a.b.x = f()`, `a.b` is read before `f` runs.
 
 ### Borrow counters on containers
 

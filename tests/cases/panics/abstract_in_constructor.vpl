@@ -1,0 +1,18 @@
+abstract class Shape {
+    Shape() {
+        print(area());
+    }
+
+    abstract int area();
+}
+
+class Square extends Shape {
+    override int area() {
+        return 4;
+    }
+}
+
+void main() {
+    // While Shape's constructor runs, the object is still a Shape.
+    var s = new Square();       // panic: abstract method 'Shape.area' called during construction or destruction
+}

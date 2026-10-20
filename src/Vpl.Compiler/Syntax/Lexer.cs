@@ -34,22 +34,34 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["this"] = TokenKind.ThisKeyword,
         ["ref"] = TokenKind.RefKeyword,
         ["in"] = TokenKind.InKeyword,
+        ["class"] = TokenKind.ClassKeyword,
+        ["interface"] = TokenKind.InterfaceKeyword,
+        ["extends"] = TokenKind.ExtendsKeyword,
+        ["implements"] = TokenKind.ImplementsKeyword,
+        ["new"] = TokenKind.NewKeyword,
+        ["null"] = TokenKind.NullKeyword,
+        ["super"] = TokenKind.SuperKeyword,
+        ["is"] = TokenKind.IsKeyword,
+        ["virtual"] = TokenKind.VirtualKeyword,
+        ["override"] = TokenKind.OverrideKeyword,
+        ["abstract"] = TokenKind.AbstractKeyword,
+        ["final"] = TokenKind.FinalKeyword,
+        ["weak"] = TokenKind.WeakKeyword,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "abstract", "byte", "case", "char", "class", "const", "default", "defer", "do", "enum",
-        "extends", "extern", "final", "implements", "import", "interface", "is", "new", "nint",
-        "nuint", "null", "operator", "override", "package", "sbyte", "shared", "short", "super",
-        "switch", "try", "uint", "ulong", "unsafe", "ushort", "virtual", "weak",
+        "byte", "case", "char", "const", "default", "defer", "do", "enum", "extern", "import", "nint",
+        "nuint", "operator", "package", "sbyte", "shared", "short", "switch", "try", "uint", "ulong",
+        "unsafe", "ushort",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
     static readonly (string Text, TokenKind Kind)[] Punctuators =
     [
         ("<<=", TokenKind.LessLessAssign), (">>=", TokenKind.GreaterGreaterAssign),
-        ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
+        ("??", TokenKind.QuestionQuestion), ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
         ("!=", TokenKind.BangEqual), ("<=", TokenKind.LessEqual), (">=", TokenKind.GreaterEqual),
         ("<<", TokenKind.LessLess), (">>", TokenKind.GreaterGreater), ("++", TokenKind.PlusPlus),
         ("--", TokenKind.MinusMinus), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
@@ -134,6 +146,12 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             return LexIdentifierOrKeyword();
         if (c == '"')
             return LexString();
+        // Like C#, `c ?.5 : x` stays a conditional.
+        if (c == '?' && Peek(1) == '.' && !char.IsAsciiDigit(Peek(2)))
+        {
+            position += 2;
+            return Make(TokenKind.QuestionDot, start);
+        }
 
         foreach (var (punctuator, kind) in Punctuators)
         {

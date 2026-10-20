@@ -1,4 +1,4 @@
-class Player {                // error: 'class' is not supported yet
+enum Player {                 // error: 'enum' is not supported yet
 }
 
 void main() {

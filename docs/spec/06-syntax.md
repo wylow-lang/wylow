@@ -85,6 +85,10 @@ class Shotgun extends Weapon {
 }
 ```
 
+Classes are always created with `new`, and structs never are. The order of construction and what a
+constructor may do before its fields are assigned are in
+[02-types.md](02-types.md#construction). `this(...)` chaining is not implemented yet.
+
 ## 6.4 Methods and parameters
 
 ### Parameter modes
@@ -205,7 +209,7 @@ accessors like a property.
 | Kind | `==` means |
 |---|---|
 | Struct | Memberwise equality, **generated automatically** if every field supports `==` (can be overridden) |
-| Class | **Reference identity** (same object), as in Java. Value equality is `equals()` |
+| Class, interface | **Reference identity** (same object), as in Java. Value equality is `equals()`. Allowed only when one side could be the other (or is `null`) |
 | Enum | Same variant and equal data |
 
 ## 6.7 Lambdas and function types
@@ -268,7 +272,8 @@ postfix with the same meaning.
 
 ### Evaluation order
 
-Operands and arguments are evaluated left to right.
+Operands and arguments are evaluated left to right. This includes reads of object fields relative
+to calls; see [03-memory-model.md](03-memory-model.md#evaluation-order-and-the-heap).
 
 ### Mandatory braces
 

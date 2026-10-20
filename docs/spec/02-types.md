@@ -79,6 +79,34 @@ int? cachedIndex = null;         // value + presence flag
 | `a?.b` | `null` if `a` is null, else `a.b` (result is nullable) |
 | `a!` | `a`, or panic if null |
 
+> Implemented so far: nullable **class and interface** types only. Nullable value types (`int?`,
+> `Vec3?`) and type parameters (`T?`, since `T` may be a struct) are errors for now.
+
+### Rules
+
+- **Members of a nullable value** can only be reached through `?.` or `!`, or through a narrowed
+  local. `a.b` on any other nullable expression is an error.
+- **Narrowing** (flow typing) applies to locals and parameters only, since nothing else can change
+  them behind the code's back. A local is non-null where flow analysis proves it:
+  - in the branch where `x != null` or `x == null` is known, including after `&&`, `||`, `!`, and
+    `?:`, and after an `if` whose other branch cannot complete (`if (x == null) { return; }`);
+  - after assigning it a non-null value, until it is assigned something nullable;
+  - in a loop, only if the loop does not assign it (each iteration starts without narrowing the loop
+    could undo), or after a condition in the loop narrows it again: `while (x != null) { x = x.next; }`.
+- `x is T name` binds `name` (non-null, type `T`) where the test succeeded. It also narrows `x`.
+  A name bound in an `if` or `while` condition is in scope for the whole statement, but definitely
+  assigned only where the test is known to have succeeded.
+- `a?.b` chains like Kotlin: `a?.b.c` is an error when `a?.b` is nullable; write `a?.b?.c`. The
+  result must be a reference type (or `void` for a call), since `int?` does not exist yet. When `a`
+  is null, a call's arguments are not evaluated.
+- `a ?? b` requires a nullable `a`. Its type is `a`'s non-null type (or a supertype both convert to)
+  when `b` is non-null, otherwise nullable. `b` is evaluated only when `a` is null.
+- `!` and `?.` on a value that is not nullable are errors, so that redundant checks don't accumulate.
+- `null` converts to any nullable type; `var x = null;` is an error. Any reference can be compared
+  with `null`.
+- Overloads cannot differ only in nullability (`f(Player)` and `f(Player?)`), since both are the
+  same type at runtime.
+
 ## 2.6 Type inference
 
 `var` declares a local with an inferred type: `var enemies = new Pool<Enemy>();`
@@ -192,6 +220,55 @@ final class Shotgun extends Weapon {
   the last reference is released.
 - Standard library collections and strings are classes: `List<T>`, `Map<K, V>`, `T[]`, `String`.
 
+### Inheritance rules
+
+- **Upcasts are implicit**: a class converts to its base classes and to the interfaces it
+  implements. **Downcasts only go through `is`**: `if (weapon is Shotgun s) { ... }`. There is no
+  unchecked cast.
+- `override` must match the overridden method's parameter types (including nullability) and return
+  type exactly. Return types are not covariant.
+- **No hiding.** A method with the signature of an inherited non-private method must be an
+  `override`; if the inherited method isn't `virtual`, that is an error. A field may not have the
+  name of an inherited field.
+- `super.method(...)` calls the base class's implementation without dispatch; it cannot call an
+  abstract method.
+- A non-abstract class must implement every inherited abstract method and every method of every
+  interface it implements, directly or through a base class. An `abstract` class may leave them to
+  its subclasses.
+- Generic methods cannot be `virtual`, `override`, or `abstract` (they compile to C++ templates).
+- A class that declares no constructor gets a public parameterless one. That is an error if a field
+  needs a value (see construction below) or the base class has no parameterless constructor.
+- Access: `private` members are visible only inside their class, and are not inherited for
+  overriding. `protected` and package access are not restricted yet: every program is a single
+  file, which is a single package.
+
+### Construction
+
+Construction follows Java's order, and C++'s rule for what the object is while it is built:
+
+1. The base class constructor runs first. `super(...)` must be the first statement of the
+   constructor; without it, the base's parameterless constructor is called. Its arguments cannot use
+   `this`.
+2. Field initializers run in declaration order. They cannot use `this`.
+3. The constructor body runs.
+
+A field *needs a value* if it has no initializer and its type has no default (a non-null reference,
+a type parameter, or a struct containing one). In the body, **until every such field of the class
+is assigned, `this` can only be used to assign fields and to read fields already assigned**: no
+method calls on it, no passing it anywhere. Every such field must be assigned before the
+constructor returns, on every path. Flow analysis checks both. The same rule applies to struct
+constructors.
+
+**While a base class's constructor or destructor runs, the object is an instance of that base
+class**, as in C++: virtual calls dispatch to the base class's implementations, so they can never
+see the derived class's fields before they are assigned or after they are destroyed. Calling an
+abstract method at that point panics.
+
+This is the simplest sound rule: each class can only observe its own fields (fully assigned before
+`this` escapes) and its base's (completely constructed). Java and Kotlin dispatch to the derived
+class during construction and can observe unassigned fields; Swift avoids that with a two-phase rule
+that requires a derived class to assign its fields *before* calling `super`.
+
 ### Strings
 
 `String` is an immutable, UTF-8, reference-counted `shared class` (it may cross threads; see
@@ -245,6 +322,23 @@ var grid = new Box<Tile[65536]>();
   be stored in an interface-typed variable, since that would require hidden boxing. Wrap it in a
   class if that is needed.
 
+```java
+interface Damageable extends Named {
+    void damage(int amount);
+}
+
+class Crate implements Damageable { ... }
+struct Counter implements Named { ... }
+```
+
+- Interfaces contain only method signatures: no fields, constructors, bodies, static methods, or
+  type parameters on methods. An interface may `extend` other interfaces.
+- A class or struct implements an interface method with a non-private method of the same name and
+  exactly the same parameter and return types, declared in it or inherited from a base class. No
+  `override` is needed (as in C#). Implementing an interface method does not make the method
+  overridable: mark it `virtual` for that.
+- An interface may not be listed twice, and a method may not be redeclared by an extending interface.
+
 ## 2.13 Generics
 
 Java syntax, C++ template semantics: generics are **monomorphized** (one copy per instantiation,
@@ -286,21 +380,35 @@ var y = identity<long>(5);                // ...or written explicitly
 - `Name<...>` in an expression is read as type arguments when followed by `(`, `.` or `{`. As in C#,
   `f(a < b, c > (d))` is therefore a call to the generic `a<b, c>`.
 
+### Bounds
+
+`T extends A & B` requires every type argument for `T` to implement the interfaces `A` and `B`
+(bounds must be interfaces). Inside the generic, `T` has the bounds' methods. A bound may mention the
+type parameters, as in `T extends Comparable<T>`.
+
+- Both structs and classes satisfy a bound by implementing the interface. Calls through a bound use
+  static dispatch for structs. For classes they go through the interface.
+- A nullable type such as `Player?` does not satisfy a bound, since its methods could not be called
+  on null.
+- A bound does not make `T` convert to the interface (`T` might be a struct).
+
 ### Unbounded type parameters
 
-Without bounds (interfaces, not yet designed), a type parameter `T` supports only what every type
-supports: declaring, copying, passing (including by `ref`/`in`), and returning values. In particular:
+Without bounds, a type parameter `T` supports only what every type supports: declaring, copying,
+passing (including by `ref`/`in`), and returning values. In particular:
 
 - `==` is not available on `T`, and no function overload accepts a `T` unless it is generic itself.
-- `T()` is an error: `T` has no default value (it could later be a non-null class reference).
+- `T()` is an error: `T` has no default value (it could be a non-null class reference).
 - A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an
   error, while `Pair<T, int> { first = x }` is fine, since it sets every field that lacks a default.
   From non-generic code, `Pair<int, int>()` works because `int` has a default.
 
 ### Default values
 
-A type is *defaultable* if it has a default value: primitives, `String`, and structs whose fields
-each either have an initializer or a defaultable type. Type parameters are not defaultable. A
+A type is *defaultable* if it has a default value: primitives, `String`, nullable references
+(`null`), and structs whose fields each either have an initializer or a defaultable type. Type
+parameters and non-null class and interface references are not defaultable, so a struct with a
+`Player` field and no initializer for it has no default value. A
 struct's default constructor and `{ ... }` initializers require any field that is not set
 explicitly to be defaultable.
 

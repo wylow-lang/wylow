@@ -2,12 +2,14 @@ namespace Vpl.Compiler.Syntax;
 
 public static class SyntaxFacts
 {
+    public const int RelationalPrecedence = 7;
+
     public static int BinaryPrecedence(TokenKind kind) => kind switch
     {
         TokenKind.Star or TokenKind.Slash or TokenKind.Percent => 10,
         TokenKind.Plus or TokenKind.Minus => 9,
         TokenKind.LessLess or TokenKind.GreaterGreater => 8,
-        TokenKind.Less or TokenKind.LessEqual or TokenKind.Greater or TokenKind.GreaterEqual => 7,
+        TokenKind.Less or TokenKind.LessEqual or TokenKind.Greater or TokenKind.GreaterEqual => RelationalPrecedence,
         TokenKind.EqualEqual or TokenKind.BangEqual => 6,
         TokenKind.Ampersand => 5,
         TokenKind.Caret => 4,
@@ -66,6 +68,7 @@ public static class SyntaxFacts
         TokenKind.GreaterEqual => ">=",
         TokenKind.EqualEqual => "==",
         TokenKind.BangEqual => "!=",
+        TokenKind.QuestionQuestion => "??",
         _ => kind.ToString(),
     };
 }

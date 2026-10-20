@@ -1,0 +1,21 @@
+class Keeper {
+    Ghost? kept;
+}
+
+class Ghost {
+    Keeper keeper;
+
+    Ghost(Keeper keeper) {
+        this.keeper = keeper;
+    }
+
+    ~Ghost() {
+        keeper.kept = this;
+    }
+}
+
+void main() {
+    var keeper = new Keeper();
+    var g = new Ghost(keeper);
+    g = new Ghost(new Keeper());    // panic: an object's destructor kept a reference to the object
+}

@@ -1,0 +1,50 @@
+class Node {
+    int value;
+    Node? next;
+    weak Node? parent;
+    weak Node strong;                   // error: a 'weak' field must have a nullable class or interface type
+}
+
+struct Vec { int x; }
+
+class Animal { }
+class Dog extends Animal { }
+class Car { }
+
+void take(Node n) { }
+void takeRef(ref Node n) { }            // error: 'ref' cannot be used on a parameter of type 'Node'
+
+void main() {
+    Node? maybe = null;
+    print(maybe.value);                 // error: 'maybe' might be null here
+    take(maybe);                        // error: 'maybe' might be null here
+    var n = new Node();
+    print(n.next.value);                // error: 'n.next' might be null; use '?.' or '!'
+    Node definite = n.next;             // error: cannot implicitly convert 'Node?' to 'Node'; check it for null first, or use '!'
+    print(n!.value);                    // error: '!' can only be applied to a nullable value
+    print(n?.value);                    // error: '?.' is only needed on nullable values
+    print(maybe?.value);                // error: '?.' cannot produce a nullable 'int'
+    var x = null;                       // error: cannot infer a type from 'null'
+    Vec? v;                             // error: 'Vec?' is not supported
+    Node m = null;                      // error: cannot implicitly convert 'null' to 'Node'
+    var k = n ?? n;                     // error: the left side of '??' must be nullable
+    print(1 == null);                   // error: operator '==' cannot be applied to 'int' and 'null'
+    Animal a = new Dog();
+    if (a is Car c) { }                 // error: a 'Animal' can never be a 'Car'
+    if (1 is Node q) { }                // error: 'is' can only test class or interface values
+    Dog d = a;                          // error: cannot implicitly convert 'Animal' to 'Dog'
+
+    // Narrowing ends when the local may be reassigned to null.
+    Node? cur = n;
+    while (cur != null) {
+        cur = cur.next;
+    }
+    Node? loop = n;
+    if (loop != null) {
+        while (true) {
+            print(loop.value);          // error: 'loop' might be null here
+            loop = loop.next;           // error: 'loop' might be null here
+        }
+    }
+    if (maybe != null || maybe.value == 1) { }  // error: 'maybe' might be null here
+}

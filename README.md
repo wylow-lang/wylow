@@ -14,6 +14,10 @@ The language is described in [docs/spec](docs/spec/README.md).
   instance/static/`readonly` methods, `private`, memberwise `==`, and `ref`/`in` parameters.
 - **Milestone 3:** generics: generic structs, functions, and methods, type argument inference,
   default-value rules for type parameters, and recursive-struct detection through type arguments.
+- **Milestone 4:** classes: `new`, reference counting, destructors, single inheritance with
+  `virtual`/`override`/`abstract`/`final`, `super`, interfaces (dynamic dispatch for classes, generic
+  bounds for structs and classes), nullable references with `?.`, `??`, `!`, `is` patterns and flow
+  narrowing, `weak` fields, and pinning of receivers and `ref` arguments that live inside objects.
 
 ## Requirements
 

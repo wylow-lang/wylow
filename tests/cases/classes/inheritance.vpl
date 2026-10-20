@@ -1,0 +1,111 @@
+abstract class Weapon {
+    int shots = 0;
+    String name;
+
+    Weapon(String name) {
+        this.name = name;
+    }
+
+    abstract int damage();
+
+    virtual float cooldown() {
+        return 0.5;
+    }
+
+    // Non-virtual, but calls virtual methods.
+    void fire() {
+        shots++;
+        print(name);
+        print(damage());
+    }
+
+    ~Weapon() {
+        print("weapon destroyed");
+    }
+}
+
+class Pistol extends Weapon {
+    Pistol() {
+        super("pistol");
+    }
+
+    override int damage() {
+        return 10;
+    }
+}
+
+class Shotgun extends Weapon {
+    int pellets;
+
+    Shotgun(int pellets) {
+        super("shotgun");
+        this.pellets = pellets;
+    }
+
+    override int damage() {
+        return pellets * 5;
+    }
+
+    override float cooldown() {
+        return super.cooldown() * 2;
+    }
+
+    ~Shotgun() {
+        print("shotgun destroyed");
+    }
+}
+
+final class DoubleShotgun extends Shotgun {
+    DoubleShotgun() {
+        super(8);
+    }
+
+    final override int damage() {
+        return super.damage() * 2;
+    }
+}
+
+class Base {
+    int value = 1;
+}
+
+class Derived extends Base {
+    int extra = 2;
+
+    int sum() {
+        return value + extra;
+    }
+}
+
+int total(Weapon w) {
+    return w.damage();
+}
+
+void main() {
+    Weapon w = new Pistol();
+    w.fire();
+    // output: pistol
+    // output: 10
+    print(w.cooldown());          // output: 0.5
+
+    w = new Shotgun(3);
+    // output: weapon destroyed
+    w.fire();
+    // output: shotgun
+    // output: 15
+    print(w.cooldown());          // output: 1.0
+    print(w.shots);               // output: 1
+
+    print(total(new DoubleShotgun()));
+    // output: 80
+    // output: shotgun destroyed
+    // output: weapon destroyed
+
+    var d = new Derived();
+    print(d.sum());               // output: 3
+    Base b = d;
+    print(b.value);               // output: 1
+    print(b == d);                // output: true
+}
+// output: shotgun destroyed
+// output: weapon destroyed

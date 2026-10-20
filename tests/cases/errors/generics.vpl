@@ -20,7 +20,7 @@ struct Grow<T> {                  // error: struct 'Grow' has field types that n
 }
 
 struct Shadow<T> {
-    void method<T>() {            // error: type parameter 'T' hides the struct's type parameter
+    void method<T>() {            // error: type parameter 'T' hides the type parameter of the same name
     }
 }
 

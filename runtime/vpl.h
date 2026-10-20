@@ -6,12 +6,14 @@
 #include <charconv>
 #include <cinttypes>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 #ifndef VPL_DEBUG
 #define VPL_DEBUG 0
@@ -158,6 +160,257 @@ inline float d2f(double x) {
     if (x > FLT_MAX) return FLT_MAX;
     if (x < -FLT_MAX) return -FLT_MAX;
     return static_cast<float>(x);
+}
+
+// ---- Objects ----
+//
+// Class objects derive virtually from Object, so every object has exactly one reference count
+// however many interfaces it implements. The count is non-atomic: objects are thread-confined.
+
+class Object;
+
+// A weak reference, linked into its target's list so the target can clear it when it dies.
+struct WeakLink {
+    WeakLink* prev = nullptr;
+    WeakLink* next = nullptr;
+    Object* target = nullptr;
+};
+
+template <class T>
+class Weak;
+
+class Object {
+    // Starts at 1 for the `new` expression that creates the object, so a constructor can hand out
+    // and drop references to `this` without the count reaching 0.
+    uintptr_t refs = 1;
+    WeakLink* weak = nullptr;
+
+    template <class>
+    friend class Weak;
+
+    void clear_weak() {
+        while (weak != nullptr) {
+            WeakLink* link = weak;
+            weak = link->next;
+            link->prev = link->next = nullptr;
+            link->target = nullptr;
+        }
+    }
+
+public:
+    Object() = default;
+    Object(const Object&) = delete;
+    Object& operator=(const Object&) = delete;
+
+    virtual ~Object() {
+        // Weak references taken by the destructor itself would otherwise dangle.
+        clear_weak();
+        if (refs != 1) panic("an object's destructor kept a reference to the object", "<destructor>");
+    }
+
+    void retain() { ++refs; }
+
+    void release() {
+        if (--refs == 0) {
+            // Holding the count at 1 lets the destructor create and drop temporary references to
+            // `this` without destroying it twice; ~Object checks that none outlive it.
+            refs = 1;
+            clear_weak();
+            delete this;
+        }
+    }
+};
+
+template <class T>
+class Ref {
+    T* ptr = nullptr;
+
+    template <class>
+    friend class Ref;
+
+    static void retain(T* p) {
+        if (p != nullptr) static_cast<Object*>(p)->retain();
+    }
+    static void release(T* p) {
+        if (p != nullptr) static_cast<Object*>(p)->release();
+    }
+
+public:
+    Ref() = default;
+    Ref(std::nullptr_t) {}
+    explicit Ref(T* p) : ptr(p) { retain(p); }
+    Ref(const Ref& other) : ptr(other.ptr) { retain(ptr); }
+    Ref(Ref&& other) noexcept : ptr(other.ptr) { other.ptr = nullptr; }
+
+    template <class U>
+        requires std::is_convertible_v<U*, T*>
+    Ref(const Ref<U>& other) : ptr(other.ptr) {
+        retain(ptr);
+    }
+
+    template <class U>
+        requires std::is_convertible_v<U*, T*>
+    Ref(Ref<U>&& other) noexcept : ptr(other.ptr) {
+        other.ptr = nullptr;
+    }
+
+    ~Ref() { release(ptr); }
+
+    // Takes over the reference that `new` starts every object with.
+    static Ref adopt(T* p) {
+        Ref result;
+        result.ptr = p;
+        return result;
+    }
+
+    // The new value is stored before the old one is released, since the old object's destructor
+    // may read this reference. Nothing touches `this` afterwards: that destructor may free it.
+    void operator=(const Ref& other) {
+        T* old = ptr;
+        retain(other.ptr);
+        ptr = other.ptr;
+        release(old);
+    }
+
+    // Swapping releases nothing; the old value dies with `other`, after the store.
+    Ref& operator=(Ref&& other) noexcept {
+        std::swap(ptr, other.ptr);
+        return *this;
+    }
+
+    T* operator->() const {
+        if constexpr (VPL_DEBUG != 0) {
+            if (ptr == nullptr) panic("internal compiler error: null dereference", "<runtime>");
+        }
+        return ptr;
+    }
+
+    T* get() const { return ptr; }
+    explicit operator bool() const { return ptr != nullptr; }
+
+    friend bool operator==(const Ref& a, const Ref& b) {
+        return static_cast<const Object*>(a.ptr) == static_cast<const Object*>(b.ptr);
+    }
+};
+
+template <class T>
+class Weak : WeakLink {
+    T* ptr = nullptr;
+
+    void unlink() {
+        if (target == nullptr) return;
+        if (prev != nullptr) {
+            prev->next = next;
+        } else {
+            target->weak = next;
+        }
+        if (next != nullptr) next->prev = prev;
+        prev = next = nullptr;
+        target = nullptr;
+    }
+
+public:
+    Weak() = default;
+    Weak(const Weak&) = delete;
+    Weak& operator=(const Weak&) = delete;
+    ~Weak() { unlink(); }
+
+    void operator=(Ref<T> value) {
+        unlink();
+        ptr = value.get();
+        if (ptr == nullptr) return;
+        target = ptr;
+        next = target->weak;
+        if (next != nullptr) next->prev = this;
+        target->weak = this;
+    }
+
+    Ref<T> get() const { return target != nullptr ? Ref<T>(ptr) : Ref<T>(); }
+};
+
+template <class T>
+struct is_ref : std::false_type {};
+template <class T>
+struct is_ref<Ref<T>> : std::true_type {};
+
+template <class T>
+inline Ref<T> adopt(T* object) {
+    return Ref<T>::adopt(object);
+}
+
+template <class T>
+inline const Object* identity(const Ref<T>& value) {
+    return value.get();
+}
+inline const Object* identity(std::nullptr_t) { return nullptr; }
+
+// A strong copy that keeps an object alive while a method runs on it or a reference into it is used.
+template <class T>
+inline Ref<T> pin(const Ref<T>& value) {
+    return value;
+}
+
+// In generic code a value may be a struct, which lives in its place and needs no pin.
+template <class T>
+    requires(!is_ref<std::remove_cv_t<T>>::value)
+inline T& pin(T& value) {
+    return value;
+}
+
+// Passes a by-value argument as a copy of a caller-owned temporary. C++ ABIs differ on whether a
+// parameter dies when the callee returns or at the end of the caller's statement; the temporary
+// always lives to the end of the statement, so objects are destroyed at the same point everywhere.
+template <class T>
+inline const T& keep(const T& value) {
+    return value;
+}
+
+// Calls go through the class that declares the method, so C++ name hiding and ambiguity between
+// bases cannot pick a different overload than VPL did.
+template <class B, class T>
+inline B* as(const Ref<T>& value) {
+    return value.operator->();
+}
+
+// A call through a generic bound: objects through the bound interface, structs directly.
+template <class I, class T>
+inline decltype(auto) bound(T&& value) {
+    if constexpr (is_ref<std::remove_cvref_t<T>>::value) {
+        return static_cast<I&>(*value.operator->());
+    } else {
+        return (value);
+    }
+}
+
+template <class T, class U>
+inline bool is(const Ref<U>& value) {
+    return dynamic_cast<T*>(value.get()) != nullptr;
+}
+
+template <class T, class U>
+inline bool is(const Ref<U>& value, Ref<T>& out) {
+    T* p = dynamic_cast<T*>(value.get());
+    if (p == nullptr) return false;
+    out = Ref<T>(p);
+    return true;
+}
+
+template <class T>
+inline Ref<T> unwrap(Ref<T> value, const char* location) {
+    if (!value) panic("null value unwrapped with '!'", location);
+    return value;
+}
+
+// Stores every part of the new value before releasing any part of the old one: a memberwise copy
+// could run a destructor between two fields, and that destructor may read or free the target.
+template <class T>
+inline void assign(T& target, T value) {
+    if constexpr (std::is_trivially_copyable_v<T>) {
+        target = value;
+    } else {
+        using std::swap;
+        swap(target, value);
+    }
 }
 
 inline void print(int32_t value) { std::printf("%" PRId32 "\n", value); }

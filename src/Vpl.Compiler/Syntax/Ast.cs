@@ -11,9 +11,16 @@ public enum Modifiers
     Protected = 4,
     Static = 8,
     ReadOnly = 16,
+    Virtual = 32,
+    Override = 64,
+    Abstract = 128,
+    Final = 256,
+    Weak = 512,
 }
 
 public enum RefKind { None, Ref, In }
+
+public enum TypeKind { Struct, Class, Interface }
 
 public abstract record Node(Location Location);
 
@@ -21,21 +28,30 @@ public sealed record CompilationUnit(SourceText Source, IReadOnlyList<Declaratio
 
 public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location);
 
-public sealed record TypeParameterSyntax(Location Location, string Name) : Node(Location);
+/// <summary><see cref="Bounds"/> are the interfaces after <c>extends</c>, joined by <c>&amp;</c>.</summary>
+public sealed record TypeParameterSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> Bounds) : Node(Location);
 
-public sealed record StructDecl(
+/// <summary>A struct, class, or interface. Only classes have a <see cref="BaseType"/> or <see cref="Destructor"/>.</summary>
+public sealed record TypeDecl(
     Location Location,
     Modifiers Modifiers,
+    TypeKind Kind,
     string Name,
     Location NameLocation,
     IReadOnlyList<TypeParameterSyntax> TypeParameters,
+    TypeSyntax? BaseType,
+    IReadOnlyList<TypeSyntax> Interfaces,
     IReadOnlyList<FieldDecl> Fields,
-    IReadOnlyList<FunctionDecl> Methods) : Declaration(Location, Modifiers);
+    IReadOnlyList<FunctionDecl> Methods,
+    DestructorDecl? Destructor) : Declaration(Location, Modifiers);
 
 public sealed record FieldDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation, Expr? Initializer)
     : Declaration(Location, Modifiers);
 
-/// <summary>A free function, method, or constructor. Constructors have no <see cref="ReturnType"/>.</summary>
+/// <summary>
+/// A free function, method, or constructor. Constructors have no <see cref="ReturnType"/>;
+/// abstract and interface methods have no <see cref="Body"/>.
+/// </summary>
 public sealed record FunctionDecl(
     Location Location,
     Modifiers Modifiers,
@@ -44,12 +60,15 @@ public sealed record FunctionDecl(
     Location NameLocation,
     IReadOnlyList<TypeParameterSyntax> TypeParameters,
     IReadOnlyList<ParameterSyntax> Parameters,
-    BlockStmt Body) : Declaration(Location, Modifiers)
+    BlockStmt? Body) : Declaration(Location, Modifiers)
 {
     public bool IsConstructor => ReturnType is null;
 }
 
-public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments) : Node(Location);
+public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);
+
+public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
+    : Node(Location);
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location);
 
@@ -91,23 +110,41 @@ public sealed record BoolLiteralExpr(Location Location, bool Value) : Expr(Locat
 
 public sealed record StringLiteralExpr(Location Location, string Value) : Expr(Location);
 
+public sealed record NullLiteralExpr(Location Location) : Expr(Location);
+
 /// <summary><see cref="TypeArguments"/> is non-empty for generic calls and constructions, like <c>max&lt;int&gt;(...)</c>.</summary>
 public sealed record NameExpr(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments) : Expr(Location);
 
 public sealed record ThisExpr(Location Location) : Expr(Location);
 
+/// <summary><c>super</c>, as the callee of <c>super(...)</c> or the target of <c>super.method(...)</c>.</summary>
+public sealed record SuperExpr(Location Location) : Expr(Location);
+
 public sealed record MemberAccessExpr(Location Location, Expr Target, string Name, Location NameLocation, IReadOnlyList<TypeSyntax> TypeArguments)
     : Expr(Location);
 
+/// <summary><c>target?.name</c>; a call <c>target?.name(...)</c> is a <see cref="CallExpr"/> with this as its callee.</summary>
+public sealed record ConditionalAccessExpr(Location Location, Expr Target, string Name, Location NameLocation) : Expr(Location);
+
 public sealed record UnaryExpr(Location Location, TokenKind Operator, Expr Operand) : Expr(Location);
+
+/// <summary>Postfix <c>operand!</c>.</summary>
+public sealed record NonNullExpr(Location Location, Expr Operand) : Expr(Location);
 
 public sealed record BinaryExpr(Location Location, Expr Left, TokenKind Operator, Location OperatorLocation, Expr Right)
     : Expr(Location);
+
+public sealed record CoalesceExpr(Location Location, Expr Left, Location OperatorLocation, Expr Right) : Expr(Location);
+
+/// <summary><c>operand is Type</c> or <c>operand is Type name</c>.</summary>
+public sealed record IsExpr(Location Location, Expr Operand, TypeSyntax Type, string? Name, Location NameLocation) : Expr(Location);
 
 public sealed record CallExpr(Location Location, Expr Callee, IReadOnlyList<Expr> Arguments) : Expr(Location);
 
 /// <summary>A call argument written with <c>ref</c>.</summary>
 public sealed record RefArgExpr(Location Location, Expr Operand) : Expr(Location);
+
+public sealed record NewExpr(Location Location, TypeSyntax Type, IReadOnlyList<Expr> Arguments) : Expr(Location);
 
 /// <summary><c>Type { field = value, ... }</c> or <c>Type(args) { field = value, ... }</c>.</summary>
 public sealed record InitializerExpr(Location Location, Expr Target, IReadOnlyList<FieldInit> Fields) : Expr(Location);

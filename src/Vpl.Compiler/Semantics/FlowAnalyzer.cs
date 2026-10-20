@@ -3,20 +3,27 @@ using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Semantics;
 
-/// <summary>Definite assignment and reachability: no read of an unassigned local, no falling off a non-void function.</summary>
+/// <summary>
+/// Flow-sensitive checks: definite assignment, reachability, null narrowing of locals, and that a
+/// constructor assigns every field without a default before using <c>this</c> or returning.
+/// </summary>
 public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 {
     sealed class State
     {
         public bool Reachable = true;
         public HashSet<LocalSymbol> Assigned = [];
+        public HashSet<LocalSymbol> NonNull = [];
+        public HashSet<FieldSymbol> AssignedFields = [];
 
         public static State Unreachable() => new() { Reachable = false };
 
-        public State Clone() => new() { Reachable = Reachable, Assigned = [.. Assigned] };
+        public State Clone() => new() { Reachable = Reachable, Assigned = [.. Assigned], NonNull = [.. NonNull], AssignedFields = [.. AssignedFields] };
 
-        // Unreachable code may assume anything is assigned.
+        // Unreachable code may assume anything.
         public bool IsAssigned(LocalSymbol local) => !Reachable || Assigned.Contains(local);
+        public bool IsNonNull(LocalSymbol local) => !Reachable || NonNull.Contains(local);
+        public bool IsAssigned(FieldSymbol field) => !Reachable || AssignedFields.Contains(field);
 
         public static State Join(State a, State b)
         {
@@ -26,6 +33,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 return a.Clone();
             var result = a.Clone();
             result.Assigned.IntersectWith(b.Assigned);
+            result.NonNull.IntersectWith(b.NonNull);
+            result.AssignedFields.IntersectWith(b.AssignedFields);
             return result;
         }
     }
@@ -38,21 +47,35 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     readonly Stack<Loop> loops = new();
     readonly HashSet<LocalSymbol> reported = [];
+    readonly HashSet<object> reportedAt = [];
+
+    /// <summary>In a constructor, the fields it must assign; empty elsewhere.</summary>
+    List<FieldSymbol> requiredFields = [];
 
     public void Analyze(BoundFunction function)
     {
+        var symbol = function.Symbol;
+        // The implicit constructor of a class with such fields is reported by the binder.
+        requiredFields = symbol.IsConstructor && !symbol.IsImplicit ? [.. symbol.ContainingType!.Fields.Where(f => f.RequiresAssignment)] : [];
+
         var state = new State();
-        state.Assigned.UnionWith(function.Symbol.Parameters);
+        state.Assigned.UnionWith(symbol.Parameters);
         state = Statement(function.Body, state);
 
-        var returnType = function.Symbol.ReturnType;
-        if (state.Reachable && !function.Symbol.IsConstructor && returnType != VplType.Void && returnType != VplType.Error)
-        {
-            var body = function.Body.Location;
-            diagnostics.Error(
-                new Location(body.Source, new TextSpan(body.Span.End - 1, 1)),
-                $"'{function.Symbol.Name}' must return a value on every path");
-        }
+        var body = function.Body.Location;
+        var end = new Location(body.Source, new TextSpan(Math.Max(body.Span.End - 1, body.Span.Start), body.Span.Length > 0 ? 1 : 0));
+        var returnType = symbol.ReturnType;
+        if (state.Reachable && !symbol.IsConstructor && returnType != VplType.Void && returnType != VplType.Error)
+            diagnostics.Error(end, $"'{symbol.Name}' must return a value on every path");
+        if (state.Reachable)
+            CheckFieldsAssigned(state, end);
+        requiredFields = [];
+    }
+
+    void CheckFieldsAssigned(State state, Location location)
+    {
+        if (requiredFields.FirstOrDefault(f => !state.IsAssigned(f)) is { } field)
+            diagnostics.Error(location, $"field '{field.Name}' must be assigned before the constructor returns");
     }
 
     State Statement(BoundStatement statement, State state)
@@ -67,37 +90,53 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             case BoundVariableDeclaration declaration:
                 if (declaration.Initializer is not null)
                 {
-                    Expression(declaration.Initializer, state);
+                    state = Expression(declaration.Initializer, state);
                     state.Assigned.Add(declaration.Local);
+                    SetNullability(state, declaration.Local, declaration.Initializer);
                 }
                 return state;
 
             case BoundAssignment assignment:
-                Expression(assignment.Value, state);
+                state = Expression(assignment.Value, state);
                 // Assigning a whole local initializes it; assigning a field requires its root to be initialized.
                 if (assignment.Target is BoundLocalAccess target)
+                {
                     state.Assigned.Add(target.Local);
+                    SetNullability(state, target.Local, assignment.Value);
+                }
+                else if (assignment.Target is BoundFieldAccess { Receiver: BoundThis } field && requiredFields.Count > 0)
+                {
+                    state.AssignedFields.Add(field.Field);
+                }
                 else
-                    Expression(assignment.Target, state);
+                {
+                    state = Expression(assignment.Target, state);
+                }
                 return state;
 
             case BoundExpressionStatement expressionStatement:
-                Expression(expressionStatement.Expression, state);
+                state = Expression(expressionStatement.Expression, state);
                 return expressionStatement.Expression is BoundCall { Method.Symbol.IsNoReturn: true } ? State.Unreachable() : state;
+
+            case BoundSuperCall super:
+                foreach (var argument in super.Arguments)
+                    state = Expression(argument, state);
+                return state;
 
             case BoundIf ifStatement:
             {
-                Expression(ifStatement.Condition, state);
-                var afterThen = Statement(ifStatement.Then, state.Clone());
-                var afterElse = ifStatement.Else is null ? state : Statement(ifStatement.Else, state.Clone());
+                var (whenTrue, whenFalse) = Condition(ifStatement.Condition, state);
+                var afterThen = Statement(ifStatement.Then, whenTrue);
+                var afterElse = ifStatement.Else is null ? whenFalse : Statement(ifStatement.Else, whenFalse);
                 return State.Join(afterThen, afterElse);
             }
 
             case BoundWhile whileStatement:
             {
-                Expression(whileStatement.Condition, state);
-                var loop = AnalyzeLoopBody(whileStatement.Body, state);
-                var exit = IsConstantTrue(whileStatement.Condition) ? State.Unreachable() : state;
+                var entry = LoopEntry(state, whileStatement.Body);
+                var (whenTrue, whenFalse) = Condition(whileStatement.Condition, entry);
+                var loop = AnalyzeLoopBody(whileStatement.Body, whenTrue);
+                var exit = IsConstantTrue(whileStatement.Condition) ? State.Unreachable() : whenFalse;
                 return loop.Breaks.Aggregate(exit, State.Join);
             }
 
@@ -105,23 +144,27 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             {
                 if (forStatement.Initializer is not null)
                     state = Statement(forStatement.Initializer, state);
-                if (forStatement.Condition is not null)
-                    Expression(forStatement.Condition, state);
+                var entry = forStatement.Update is null
+                    ? LoopEntry(state, forStatement.Body)
+                    : LoopEntry(LoopEntry(state, forStatement.Update), forStatement.Body);
+                var (whenTrue, whenFalse) = forStatement.Condition is null ? (entry, State.Unreachable()) : Condition(forStatement.Condition, entry);
 
                 var loop = new Loop();
                 loops.Push(loop);
-                var endOfBody = Statement(forStatement.Body, state.Clone());
+                var endOfBody = Statement(forStatement.Body, whenTrue.Clone());
                 loops.Pop();
                 if (forStatement.Update is not null)
                     Statement(forStatement.Update, loop.Continues.Aggregate(endOfBody, State.Join));
 
-                bool infinite = forStatement.Condition is null || IsConstantTrue(forStatement.Condition);
-                return loop.Breaks.Aggregate(infinite ? State.Unreachable() : state, State.Join);
+                var exit = forStatement.Condition is null || IsConstantTrue(forStatement.Condition) ? State.Unreachable() : whenFalse;
+                return loop.Breaks.Aggregate(exit, State.Join);
             }
 
             case BoundReturn returnStatement:
                 if (returnStatement.Value is not null)
-                    Expression(returnStatement.Value, state);
+                    state = Expression(returnStatement.Value, state);
+                if (state.Reachable)
+                    CheckFieldsAssigned(state, returnStatement.Location);
                 return State.Unreachable();
 
             case BoundBreak:
@@ -139,10 +182,52 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         }
     }
 
+    static void SetNullability(State state, LocalSymbol local, BoundExpression value)
+    {
+        if (IsNonNull(value, state))
+            state.NonNull.Add(local);
+        else
+            state.NonNull.Remove(local);
+    }
+
+    static bool IsNonNull(BoundExpression value, State state) => value switch
+    {
+        BoundConversion conversion => IsNonNull(conversion.Operand, state),
+        BoundLocalAccess access => !access.Type.IsNullable || state.IsNonNull(access.Local),
+        _ => !value.Type.IsNullable && value.Type != VplType.Null,
+    };
+
+    /// <summary>
+    /// The loop is analyzed once, so narrowing must not depend on the iteration: a local assigned
+    /// anywhere in the loop might be null again when the next iteration starts.
+    /// </summary>
+    static State LoopEntry(State state, BoundStatement body)
+    {
+        var entry = state.Clone();
+        foreach (var local in AssignedLocals(body))
+            entry.NonNull.Remove(local);
+        return entry;
+    }
+
+    static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) => statement switch
+    {
+        BoundBlock block => block.Statements.SelectMany(AssignedLocals),
+        BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
+        BoundIf ifStatement => [.. AssignedLocals(ifStatement.Then), .. ifStatement.Else is null ? [] : AssignedLocals(ifStatement.Else)],
+        BoundWhile whileStatement => AssignedLocals(whileStatement.Body),
+        BoundFor forStatement => [
+            .. forStatement.Initializer is null ? [] : AssignedLocals(forStatement.Initializer),
+            .. AssignedLocals(forStatement.Body),
+            .. forStatement.Update is null ? [] : AssignedLocals(forStatement.Update),
+        ],
+        _ => [],
+    };
+
     Loop AnalyzeLoopBody(BoundStatement body, State entry)
     {
-        // Analyzing the body once from the entry state is sound: assignments only ever add to the
-        // set, so every later iteration starts with at least what the first one had.
+        // Analyzing the body once is sound: assignments only ever add to the assigned sets, every
+        // later iteration starts with at least what the first one had, and LoopEntry has removed
+        // narrowing that an iteration could undo.
         var loop = new Loop();
         loops.Push(loop);
         Statement(body, entry.Clone());
@@ -152,44 +237,135 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     static bool IsConstantTrue(BoundExpression expression) => expression is BoundLiteral { Value: true };
 
-    void Expression(BoundExpression expression, State state)
+    /// <summary>The states after a condition evaluates to true and to false.</summary>
+    (State WhenTrue, State WhenFalse) Condition(BoundExpression condition, State state)
+    {
+        switch (condition)
+        {
+            case BoundUnary { Operator: BoundUnaryOperator.LogicalNot } not:
+            {
+                var (whenTrue, whenFalse) = Condition(not.Operand, state);
+                return (whenFalse, whenTrue);
+            }
+            case BoundBinary { Operator: BoundBinaryOperator.LogicalAnd } and:
+            {
+                var (leftTrue, leftFalse) = Condition(and.Left, state);
+                var (rightTrue, rightFalse) = Condition(and.Right, leftTrue);
+                return (rightTrue, State.Join(leftFalse, rightFalse));
+            }
+            case BoundBinary { Operator: BoundBinaryOperator.LogicalOr } or:
+            {
+                var (leftTrue, leftFalse) = Condition(or.Left, state);
+                var (rightTrue, rightFalse) = Condition(or.Right, leftFalse);
+                return (State.Join(leftTrue, rightTrue), rightFalse);
+            }
+            case BoundBinary { Operator: BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual } comparison
+                when NullTestedLocal(comparison) is { } local:
+            {
+                state = Expression(comparison, state);
+                var nonNull = state.Clone();
+                nonNull.NonNull.Add(local);
+                return comparison.Operator == BoundBinaryOperator.NotEqual ? (nonNull, state) : (state, nonNull);
+            }
+            case BoundIs pattern:
+            {
+                state = Expression(pattern.Operand, state);
+                var matched = state.Clone();
+                if (pattern.Binding is { } binding)
+                    matched.Assigned.Add(binding);
+                if (pattern.Operand is BoundLocalAccess access)
+                    matched.NonNull.Add(access.Local);
+                return (matched, state);
+            }
+            case BoundLiteral { Value: bool value }:
+                return value ? (state, State.Unreachable()) : (State.Unreachable(), state);
+            default:
+            {
+                state = Expression(condition, state);
+                return (state, state.Clone());
+            }
+        }
+    }
+
+    static LocalSymbol? NullTestedLocal(BoundBinary comparison) => (comparison.Left, comparison.Right) switch
+    {
+        (BoundLocalAccess local, BoundNullLiteral) => local.Local,
+        (BoundNullLiteral, BoundLocalAccess local) => local.Local,
+        _ => null,
+    };
+
+    void ReportOnce(object key, Location location, string message)
+    {
+        if (reportedAt.Add(key))
+            diagnostics.Error(location, message);
+    }
+
+    /// <summary>Checks an expression and returns the state after it; the given state may be updated in place.</summary>
+    State Expression(BoundExpression expression, State state)
     {
         switch (expression)
         {
             case BoundLocalAccess access:
                 if (!state.IsAssigned(access.Local) && reported.Add(access.Local))
                     diagnostics.Error(access.Location, $"'{access.Local.Name}' might not have been assigned");
-                break;
-            case BoundUnary unary:
-                Expression(unary.Operand, state);
-                break;
-            case BoundBinary binary:
-                Expression(binary.Left, state);
-                Expression(binary.Right, state);
-                break;
-            case BoundCall call:
-                if (call.Receiver is not null)
-                    Expression(call.Receiver, state);
-                foreach (var argument in call.Arguments)
-                    Expression(argument, state);
-                break;
-            case BoundConstruction construction:
-                foreach (var argument in construction.Arguments)
-                    Expression(argument, state);
-                foreach (var initializer in construction.Initializers)
-                    Expression(initializer.Value, state);
-                break;
-            case BoundFieldAccess field:
-                Expression(field.Receiver, state);
-                break;
-            case BoundConversion conversion:
-                Expression(conversion.Operand, state);
-                break;
+                else if (access.AssumesNonNull && !state.IsNonNull(access.Local))
+                {
+                    ReportOnce(access, access.Location,
+                        $"'{access.Local.Name}' might be null here; check it with 'if ({access.Local.Name} != null)', or use '?.' or '!'");
+                }
+                return state;
+            case BoundThis:
+                if (requiredFields.FirstOrDefault(f => !state.IsAssigned(f)) is { } unassigned)
+                {
+                    ReportOnce(expression, expression.Location,
+                        $"'this' cannot be used until every field is assigned, and '{unassigned.Name}' might not be");
+                }
+                return state;
+            // Reading a field is not a use of `this`; only reading an unassigned required field is an error.
+            case BoundFieldAccess { Receiver: BoundThis } field:
+                if (requiredFields.Contains(field.Field) && !state.IsAssigned(field.Field))
+                    ReportOnce(field, field.Location, $"field '{field.Field.Name}' might not have been assigned");
+                return state;
+            case BoundBinary { Operator: BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr }:
+            case BoundIs:
+            {
+                var (whenTrue, whenFalse) = Condition(expression, state);
+                return State.Join(whenTrue, whenFalse);
+            }
             case BoundConditional conditional:
-                Expression(conditional.Condition, state);
-                Expression(conditional.WhenTrue, state);
-                Expression(conditional.WhenFalse, state);
-                break;
+            {
+                var (whenTrue, whenFalse) = Condition(conditional.Condition, state);
+                return State.Join(Expression(conditional.WhenTrue, whenTrue), Expression(conditional.WhenFalse, whenFalse));
+            }
+            case BoundCoalesce coalesce:
+            {
+                state = Expression(coalesce.Left, state);
+                return State.Join(state, Expression(coalesce.Right, state.Clone()));
+            }
+            case BoundConditionalAccess access:
+            {
+                state = Expression(access.Receiver, state);
+                var whenNotNull = state.Clone();
+                whenNotNull.Assigned.Add(access.Value);
+                return State.Join(state, Expression(access.WhenNotNull, whenNotNull));
+            }
+            default:
+                foreach (var child in Children(expression))
+                    state = Expression(child, state);
+                return state;
         }
     }
+
+    static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
+    {
+        BoundUnary unary => [unary.Operand],
+        BoundBinary binary => [binary.Left, binary.Right],
+        BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
+        BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
+        BoundNew creation => creation.Arguments,
+        BoundFieldAccess field => [field.Receiver],
+        BoundConversion conversion => [conversion.Operand],
+        BoundNonNull nonNull => [nonNull.Operand],
+        _ => [],
+    };
 }

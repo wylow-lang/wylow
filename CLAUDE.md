@@ -56,3 +56,7 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 - Visual Studio updates temporarily remove the .NET SDK and MSVC. If `dotnet` reports no SDKs, check
   for a running VS installer and wait for it rather than changing anything.
 - Python isn't installed; use the editing tools, PowerShell, or bash.
+- `record with { ... }` copies computed base-constructor arguments instead of recomputing them:
+  `access with { AssumesNonNull = true }` keeps the old `Type`. Construct a new bound node instead.
+- Tests compile against the copy of `runtime/vpl.h` in the build output, so run `dotnet build`
+  after changing the runtime.

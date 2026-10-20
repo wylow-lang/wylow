@@ -1,0 +1,62 @@
+// Assigning a reference stores the new value before releasing the old one, so a destructor that
+// reads the assigned field sees the new value.
+
+class Holder {
+    Item item;
+    Pair pair;
+
+    Holder() {
+        item = new Item("first", null);
+        pair = Pair(new Item("a", null), new Item("b", null));
+    }
+}
+
+class Item {
+    String name;
+    weak Holder? holder;
+
+    Item(String name, Holder? holder) {
+        this.name = name;
+        this.holder = holder;
+    }
+
+    ~Item() {
+        if (holder is Holder h) {
+            print(h.item.name);
+            print(h.pair.second.name);
+        }
+    }
+}
+
+struct Pair {
+    Item first;
+    Item second;
+
+    Pair(Item first, Item second) {
+        this.first = first;
+        this.second = second;
+    }
+}
+
+void main() {
+    var h = new Holder();
+    h.item = new Item("second", h);
+    h.pair = Pair(new Item("c", h), new Item("d", h));
+
+    h.item = new Item("third", h);
+    // output: third
+    // output: d
+
+    // Copying from a variable works the same way.
+    var next = new Item("fourth", null);
+    h.item = next;
+    // output: fourth
+    // output: d
+
+    // Every field of a struct is stored before any old field is released.
+    h.pair = Pair(new Item("e", null), new Item("f", null));
+    // output: fourth
+    // output: f
+    // output: fourth
+    // output: f
+}

@@ -1,0 +1,39 @@
+class Box {
+    int x = 1;
+}
+
+int bump(Box b) {
+    b.x = 10;
+    return 1;
+}
+
+int sum(int a, int b) {
+    return a + b;
+}
+
+class Holder {
+    Box box = new Box();
+}
+
+Box replace(Holder h) {
+    h.box = new Box();
+    h.box.x = 50;
+    return h.box;
+}
+
+void main() {
+    // Any call may write any object, so the field is read before the call.
+    var b = new Box();
+    print(b.x + bump(b));           // output: 2
+    b.x = 1;
+    print(sum(b.x, bump(b)));       // output: 2
+    b.x = 1;
+    print(bump(b) + b.x);           // output: 11
+
+    // The assignment target's object is evaluated before the value.
+    var h = new Holder();
+    var old = h.box;
+    h.box.x = replace(h).x + 1;
+    print(old.x);                   // output: 51
+    print(h.box.x);                 // output: 50
+}

@@ -1,0 +1,52 @@
+class Parent {
+    String name;
+    Child? child;
+
+    Parent(String name) {
+        this.name = name;
+    }
+
+    ~Parent() {
+        print("parent destroyed");
+    }
+}
+
+class Child {
+    weak Parent? parent;
+
+    void greet() {
+        if (parent is Parent p) {
+            print(p.name);
+        } else {
+            print("orphan");
+        }
+    }
+
+    ~Child() {
+        print("child destroyed");
+    }
+}
+
+void main() {
+    var child = new Child();
+    if (true) {
+        var parent = new Parent("mom");
+        parent.child = child;
+        child.parent = parent;
+        child.greet();          // output: mom
+    }
+    // The weak reference did not keep the parent alive, and became null.
+    // output: parent destroyed
+    child.greet();              // output: orphan
+    print(child.parent == null);    // output: true
+
+    // A cycle through a weak reference is freed.
+    var p = new Parent("dad");
+    p.child = new Child();
+    p.child!.parent = p;
+    p = new Parent("other");
+    // output: parent destroyed
+    // output: child destroyed
+}
+// output: parent destroyed
+// output: child destroyed

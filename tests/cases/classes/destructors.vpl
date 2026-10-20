@@ -1,0 +1,75 @@
+class Noisy {
+    String name;
+
+    Noisy(String name) {
+        this.name = name;
+        print("create");
+        print(name);
+    }
+
+    ~Noisy() {
+        print("destroy");
+        print(name);
+    }
+}
+
+class Holder {
+    Noisy item;
+
+    Holder(Noisy item) {
+        this.item = item;
+    }
+
+    ~Holder() {
+        print("destroy holder");
+    }
+}
+
+Noisy make(String name) {
+    return new Noisy(name);
+}
+
+void scope() {
+    var a = new Noisy("a");
+    print("end of scope");
+}
+
+void main() {
+    scope();
+    // output: create
+    // output: a
+    // output: end of scope
+    // output: destroy
+    // output: a
+
+    var b = new Noisy("b");
+    // output: create
+    // output: b
+    b = new Noisy("c");
+    // output: create
+    // output: c
+    // output: destroy
+    // output: b
+
+    // A temporary dies at the end of the statement.
+    print(make("t").name);
+    // output: create
+    // output: t
+    // output: t
+    // output: destroy
+    // output: t
+
+    // The holder's destructor runs before its fields are released.
+    var h = new Holder(new Noisy("held"));
+    // output: create
+    // output: held
+    h = new Holder(b);
+    // output: destroy holder
+    // output: destroy
+    // output: held
+    print("end");
+    // output: end
+}
+// output: destroy holder
+// output: destroy
+// output: c
