@@ -1,0 +1,10 @@
+class Player {
+    int health;
+
+    bool isDead { get => health <= 0; }        // error: a getter is written 'get -> value', with '->'
+    int score { set -> 1; }                    // error: properties with 'set' are not supported yet
+    int lives { get -> 3; }
+}
+
+void main() {
+}

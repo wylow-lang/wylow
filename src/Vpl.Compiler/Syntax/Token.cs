@@ -74,7 +74,6 @@ public enum TokenKind
     QuestionQuestion,
     QuestionDot,
     Arrow,
-    FatArrow,
     At,
 
     Plus,

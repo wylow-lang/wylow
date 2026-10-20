@@ -35,7 +35,7 @@ final class Array<T> implements Spannable<T> {
         }
     }
 
-    int length { get => count; }
+    int length { get -> count; }
 
     @CallerLocation
     ref T this[int index] {

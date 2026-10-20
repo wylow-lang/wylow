@@ -249,14 +249,21 @@ public sealed partial class Parser
                 : "expected 'get'");
             for (int depth = 1; depth > 0 && !At(TokenKind.EndOfFile); Advance())
                 depth += At(TokenKind.OpenBrace) ? 1 : At(TokenKind.CloseBrace) ? -1 : 0;
+            // An empty body keeps the property from also being reported as missing one.
+            body = new BlockStmt(LocationFrom(start), []);
         }
         else
         {
             Advance();
-            if (At(TokenKind.FatArrow))
+            bool csharpArrow = At(TokenKind.Assign) && Peek(1).Kind == TokenKind.Greater;
+            if (csharpArrow)
+                Error(TextSpan.FromBounds(Current.Span.Start, Peek(1).Span.End), "a getter is written 'get -> value', with '->'");
+            if (At(TokenKind.Arrow) || csharpArrow)
             {
                 int valueStart = position;
                 Advance();
+                if (csharpArrow)
+                    Advance();
                 var value = ParseExpression();
                 body = new BlockStmt(LocationFrom(valueStart), [new ReturnStmt(LocationFrom(valueStart), value)]);
                 Expect(TokenKind.Semicolon, "';'");

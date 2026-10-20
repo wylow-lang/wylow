@@ -8,8 +8,8 @@ final class List<T> implements Borrowable, Spannable<T> {
     private int space;
     private int borrows;
 
-    int count { get => size; }
-    int capacity { get => space; }
+    int count { get -> size; }
+    int capacity { get -> space; }
 
     @CallerLocation
     ref T this[int index] {

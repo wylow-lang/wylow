@@ -50,7 +50,7 @@ class Holder {
         return ref size;
     }
 
-    int count { get => size; }
+    int count { get -> size; }
 
     static void report() {
         print(count);                   // error: 'count' is an instance property; static methods cannot use

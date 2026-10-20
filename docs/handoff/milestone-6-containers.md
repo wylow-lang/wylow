@@ -1,6 +1,6 @@
 # Milestone 6: containers (done)
 
-> Implemented as proposed, with these additions: `=>` for property getters, `T?[]` for arrays of
+> Implemented as proposed, with these additions: `get -> value` property getters, `T?[]` for arrays of
 > nullable elements, `Result.orPanic`, and a `// panic-here:` test directive. The spec chapters are
 > now the reference; this file records the plan.
 
@@ -44,7 +44,7 @@ handles, `Map`, and `Box` follow in milestone 7, on the same hooks.
 7. **`@CallerLocation`** on a function makes panics inside it report the caller's source location,
    so a failed `list[i]` points at the user's line, not `List.vpl`. This also unblocks
    `Result.orPanic`.
-8. **Get-only properties** (`int count { get => size; }`, 06-syntax.md 6.5), so `list.count` and
+8. **Get-only properties** (`int count { get -> size; }`, 06-syntax.md 6.5), so `list.count` and
    `array.length` don't need to change from methods later.
 
 ## Types

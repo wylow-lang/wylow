@@ -12,7 +12,7 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
         count = length;
     }
 
-    readonly int length { get => count; }
+    readonly int length { get -> count; }
 
     @CallerLocation
     readonly ref T this[int index] {
@@ -48,7 +48,7 @@ ref struct ReadOnlySpan<T> {
         count = length;
     }
 
-    readonly int length { get => count; }
+    readonly int length { get -> count; }
 
     @CallerLocation
     readonly in T this[int index] {

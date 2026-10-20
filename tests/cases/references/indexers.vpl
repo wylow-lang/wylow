@@ -9,7 +9,7 @@ struct Mat2 {
         return ref m[i];
     }
 
-    readonly float trace { get => m[0] + m[3]; }
+    readonly float trace { get -> m[0] + m[3]; }
 }
 
 struct Holder {
@@ -24,7 +24,7 @@ class Bag {
     int[3] items;
     int used;
 
-    int count { get => used; }
+    int count { get -> used; }
 
     bool isEmpty {
         get {

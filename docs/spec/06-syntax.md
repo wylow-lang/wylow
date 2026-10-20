@@ -154,10 +154,10 @@ C#-style properties:
 ```java
 class Player {
     int health { get; private set; } = 100;     // auto-property with initializer
-    bool isDead { get => health <= 0; }         // computed, read-only
+    bool isDead { get -> health <= 0; }         // computed, read-only
 
     float speed {
-        get => _speed;
+        get -> _speed;
         set { _speed = clamp(value, 0, MAX_SPEED); }   // `value` is the assigned value
     }
     private float _speed;
@@ -166,10 +166,10 @@ class Player {
 
 - Accessors may have their own access modifier (`private set`).
 - On structs, a `get` accessor that doesn't mutate may be marked `readonly`:
-  `readonly bool isDead { get => health <= 0; }`.
+  `readonly bool isDead { get -> health <= 0; }`.
 - Simple accessors are inlined by the C++ compiler and cost nothing.
 
-> Implemented so far: get-only properties, `T name { get => value; }` or `T name { get { ... } }`,
+> Implemented so far: get-only properties, `T name { get -> value; }` or `T name { get { ... } }`,
 > and in interfaces and abstract classes `T name { get; }`. A property is read without parentheses
 > and cannot be assigned. Auto-properties, `set`, and static properties are not implemented.
 
@@ -463,7 +463,7 @@ public struct Enemy {
     int health = 100;
     AiState state = AiState.Idle;
 
-    readonly bool isDead { get => health <= 0; }
+    readonly bool isDead { get -> health <= 0; }
 }
 
 public class EnemySystem {

@@ -72,7 +72,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ("??", TokenKind.QuestionQuestion), ("..", TokenKind.DotDot), ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
         ("!=", TokenKind.BangEqual), ("<=", TokenKind.LessEqual), (">=", TokenKind.GreaterEqual),
         ("<<", TokenKind.LessLess), (">>", TokenKind.GreaterGreater), ("++", TokenKind.PlusPlus),
-        ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("=>", TokenKind.FatArrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
+        ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
         ("*=", TokenKind.StarAssign), ("/=", TokenKind.SlashAssign), ("%=", TokenKind.PercentAssign),
         ("&=", TokenKind.AmpersandAssign), ("|=", TokenKind.PipeAssign), ("^=", TokenKind.CaretAssign),
         ("(", TokenKind.OpenParen), (")", TokenKind.CloseParen), ("{", TokenKind.OpenBrace),
