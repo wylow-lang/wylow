@@ -1,0 +1,341 @@
+using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
+
+namespace Vpl.Compiler.Semantics;
+
+public sealed partial class Binder
+{
+    BoundBlock BindBody(FunctionSymbol function)
+    {
+        currentFunction = function;
+        currentType = function.ContainingType;
+        typeParameters = [.. currentType?.TypeParameters ?? [], .. function.TypeParameters];
+        hasThis = currentType is not null && !function.IsStatic;
+        scope = new Scope(null);
+        foreach (var parameter in function.Parameters)
+            scope.Add(parameter);
+
+        var body = function.IsConstructor && currentType!.Kind == TypeKind.Class
+            ? BindClassConstructorBody(function)
+            : BindBlock(function.Body!);
+
+        currentFunction = null;
+        currentType = null;
+        typeParameters = [];
+        hasThis = false;
+        scope = null;
+        return body;
+    }
+
+    /// <summary>Binds a class constructor, whose first statement is always the call to the base class constructor.</summary>
+    BoundBlock BindClassConstructorBody(FunctionSymbol constructor)
+    {
+        var block = constructor.Body!;
+        var statements = new List<BoundStatement>();
+        var rest = block.Statements;
+        if (block.Statements.FirstOrDefault() is ExprStmt { Expression: CallExpr { Callee: SuperExpr } call })
+        {
+            if (BindSuperCall(call) is { } super)
+                statements.Add(super);
+            rest = [.. block.Statements.Skip(1)];
+        }
+        else if (ImplicitSuperCall(currentType!, constructor.Declaration!.NameLocation) is { } super)
+        {
+            statements.Add(super);
+        }
+
+        scope = new Scope(scope);
+        statements.AddRange(rest.Select(BindStatement));
+        scope = scope.Parent;
+        return new BoundBlock(block.Location, statements);
+    }
+
+    BoundSuperCall? BindSuperCall(CallExpr call)
+    {
+        hasThis = false;
+        noThisContext = NoThisContext.SuperArguments;
+        var arguments = BindArguments(call.Arguments);
+        hasThis = true;
+        noThisContext = NoThisContext.Static;
+
+        if (currentType!.Type.BaseType is not { } baseType)
+        {
+            Error(call.Callee.Location, $"'{currentType.Name}' has no base class, so it cannot call 'super(...)'");
+            return null;
+        }
+        if (arguments.Any(a => a.Expression.Type == VplType.Error))
+            return null;
+        var constructor = Resolve(call.Location, $"constructor of '{baseType}'", ConstructorsOf(baseType), null, arguments);
+        if (constructor is null)
+            return null;
+        CheckAccessible(call.Location, baseType.Symbol!, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        return new BoundSuperCall(call.Location, constructor, ConvertArguments(constructor, arguments));
+    }
+
+    /// <summary>The base constructor call of a constructor without <c>super(...)</c>: the base's parameterless constructor.</summary>
+    BoundSuperCall? ImplicitSuperCall(TypeSymbol s, Location location)
+    {
+        if (s.Type.BaseType is not { } baseType)
+            return null;
+        var constructor = ConstructorsOf(baseType).FirstOrDefault(c => c.Symbol.Parameters.Count == 0);
+        if (constructor is null)
+        {
+            Error(location, $"'{baseType}' has no parameterless constructor, so this constructor must start with 'super(...)'");
+            return null;
+        }
+        var reference = new MethodReference(constructor.Symbol, baseType, []);
+        CheckAccessible(location, baseType.Symbol!, reference.Symbol.IsPrivate, $"constructor '{reference}'");
+        return new BoundSuperCall(location, reference, []);
+    }
+
+    static List<Candidate> ConstructorsOf(VplType type)
+    {
+        var s = type.Symbol!;
+        if (s.Kind == TypeKind.Struct)
+            return [.. s.Constructors.Append(s.DefaultConstructor).Select(c => new Candidate(c, type))];
+        return [.. (s.Constructors.Count > 0 ? s.Constructors : [s.DefaultConstructor]).Select(c => new Candidate(c, type))];
+    }
+
+    BoundFunction BindImplicitConstructor(TypeSymbol s)
+    {
+        var location = s.Declaration.NameLocation;
+        foreach (var field in s.Fields.Where(f => f.RequiresAssignment))
+        {
+            Error(field.Declaration.NameLocation,
+                $"field '{field.Name}' of type '{field.Type}' has no default value; give it an initializer or assign it in a constructor");
+        }
+        currentType = s;
+        var super = ImplicitSuperCall(s, location);
+        currentType = null;
+        return new BoundFunction(s.DefaultConstructor, new BoundBlock(location, super is null ? [] : [super]));
+    }
+
+    void Declare(LocalSymbol local, Location location)
+    {
+        // Like Java, a local may not shadow another local or parameter (it may shadow a field).
+        if (scope!.Lookup(local.Name) is not null)
+            Error(location, $"'{local.Name}' is already defined");
+        else
+            scope.Add(local);
+    }
+
+    BoundStatement BindStatement(Stmt statement) => statement switch
+    {
+        BlockStmt s => BindBlock(s),
+        VarDeclStmt s => BindVariableDeclaration(s),
+        IfStmt s => BindIf(s),
+        WhileStmt s => BindWhile(s),
+        ForStmt s => BindFor(s),
+        ReturnStmt s => BindReturn(s),
+        BreakStmt s => BindJump(s.Location, "break", new BoundBreak(s.Location)),
+        ContinueStmt s => BindJump(s.Location, "continue", new BoundContinue(s.Location)),
+        ExprStmt s => BindExpressionStatement(s),
+        AssignStmt s => BindAssignment(s),
+        IncDecStmt s => BindIncDec(s),
+        DiscardStmt s => BindDiscard(s),
+        SwitchStmt s => BindSwitch(s),
+        _ => throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}"),
+    };
+
+    static BoundStatement ErrorStatement(Location location) =>
+        new BoundExpressionStatement(location, new BoundErrorExpression(location));
+
+    BoundBlock BindBlock(BlockStmt block)
+    {
+        scope = new Scope(scope);
+        var statements = block.Statements.Select(BindStatement).ToList();
+        scope = scope.Parent;
+        return new BoundBlock(block.Location, statements);
+    }
+
+    // Names bound by `is` patterns in a condition are in scope for the whole statement.
+    BoundStatement BindIf(IfStmt s)
+    {
+        scope = new Scope(scope);
+        var result = new BoundIf(s.Location, BindCondition(s.Condition), BindBlock(s.Then), s.Else is null ? null : BindStatement(s.Else));
+        scope = scope.Parent;
+        return result;
+    }
+
+    BoundStatement BindVariableDeclaration(VarDeclStmt s)
+    {
+        var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
+        var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
+        VplType type;
+        if (declared is not null)
+        {
+            type = declared;
+            if (initializer is not null)
+                initializer = Convert(initializer, type);
+        }
+        else if (initializer is null)
+        {
+            Error(s.Location, "'var' declarations require an initializer");
+            type = VplType.Error;
+        }
+        else if (initializer.Type == VplType.Void)
+        {
+            Error(initializer.Location, "cannot assign a 'void' value to a variable");
+            type = VplType.Error;
+        }
+        else if (initializer.Type == VplType.Null)
+        {
+            Error(initializer.Location, "cannot infer a type from 'null'; declare the variable with a nullable type instead of 'var'");
+            type = VplType.Error;
+        }
+        else
+        {
+            type = initializer.Type;
+        }
+
+        var local = new LocalSymbol(s.Name, type, isParameter: false);
+        Declare(local, s.NameLocation);
+        return new BoundVariableDeclaration(s.Location, local, initializer);
+    }
+
+    BoundStatement BindWhile(WhileStmt s)
+    {
+        scope = new Scope(scope);
+        var condition = BindCondition(s.Condition);
+        loopDepth++;
+        var body = BindBlock(s.Body);
+        loopDepth--;
+        scope = scope.Parent;
+        return new BoundWhile(s.Location, condition, body);
+    }
+
+    BoundStatement BindFor(ForStmt s)
+    {
+        scope = new Scope(scope);
+        var initializer = s.Initializer is null ? null : BindStatement(s.Initializer);
+        var condition = s.Condition is null ? null : BindCondition(s.Condition);
+        loopDepth++;
+        var body = BindBlock(s.Body);
+        loopDepth--;
+        var update = s.Update is null ? null : BindStatement(s.Update);
+        // The update runs inside the C++ `for` header, where an early return can't be placed.
+        var updateValue = update switch
+        {
+            BoundAssignment assignment => assignment.Value,
+            BoundExpressionStatement statement => statement.Expression,
+            _ => null,
+        };
+        if (updateValue is not null && IsTry(updateValue))
+            Error(s.Update!.Location, "'try' cannot be used in a 'for' update");
+        scope = scope.Parent;
+        return new BoundFor(s.Location, initializer, condition, update, body);
+    }
+
+    BoundStatement BindReturn(ReturnStmt s)
+    {
+        var function = currentFunction!;
+        if (s.Value is null)
+        {
+            if (function.ReturnType != VplType.Void && function.ReturnType != VplType.Error)
+                Error(s.Location, $"'{function.Name}' must return a value of type '{function.ReturnType}'");
+            return new BoundReturn(s.Location, null);
+        }
+
+        var value = BindValue(s.Value, function.IsConstructor || function.IsDestructor ? null : function.ReturnType);
+        if (function.IsConstructor || function.IsDestructor)
+        {
+            Error(s.Value.Location, function.IsConstructor ? "constructors cannot return a value" : "destructors cannot return a value");
+            return new BoundReturn(s.Location, null);
+        }
+        if (function.ReturnType == VplType.Void)
+        {
+            Error(s.Value.Location, $"'{function.Name}' returns 'void' and cannot return a value");
+            return new BoundReturn(s.Location, null);
+        }
+        return new BoundReturn(s.Location, Convert(value, function.ReturnType));
+    }
+
+    BoundStatement BindJump(Location location, string keyword, BoundStatement jump)
+    {
+        if (loopDepth == 0)
+            Error(location, $"'{keyword}' can only be used inside a loop");
+        return jump;
+    }
+
+    BoundStatement BindExpressionStatement(ExprStmt s)
+    {
+        var expression = BindValue(s.Expression, null);
+        if (expression is not (BoundCall or BoundNew or BoundTry or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != VplType.Error)
+            Error(s.Location, "only calls can be used as statements");
+        else if (expression is BoundCall call && IsResult(call.Type))
+            Error(s.Location, $"the 'Result' returned by '{call.Method.Symbol.Name}' is not used; handle it, or discard it with '_ = ...'");
+        return new BoundExpressionStatement(s.Location, expression);
+    }
+
+    BoundStatement BindDiscard(DiscardStmt s)
+    {
+        var value = BindValue(s.Value, null);
+        if (value.Type == VplType.Void)
+            Error(s.Value.Location, "there is no value to discard; call it without '_ ='");
+        return new BoundExpressionStatement(s.Location, value, IsDiscard: true);
+    }
+
+    BoundStatement BindAssignment(AssignStmt s)
+    {
+        var target = BindExpression(s.Target);
+        var value = s.Operator == TokenKind.Assign ? BindValue(s.Value, target.Type) : BindExpression(s.Value);
+        if (target.Type == VplType.Error || !CheckAssignable(target))
+            return ErrorStatement(s.Location);
+
+        if (s.Operator != TokenKind.Assign)
+            value = BindBinaryOperation(s.OperatorLocation, target, SyntaxFacts.CompoundToBinary(s.Operator), value);
+        return new BoundAssignment(s.Location, target, Convert(value, target.Type));
+    }
+
+    BoundStatement BindIncDec(IncDecStmt s)
+    {
+        var target = BindExpression(s.Target);
+        if (target.Type == VplType.Error || !CheckAssignable(target))
+            return ErrorStatement(s.Location);
+        if (!target.Type.IsNumeric)
+        {
+            Error(s.Location, $"'{(s.IsIncrement ? "++" : "--")}' requires a numeric variable");
+            return ErrorStatement(s.Location);
+        }
+
+        object one = target.Type == VplType.Int ? (object)1
+            : target.Type == VplType.Long ? (object)1L
+            : target.Type == VplType.Float ? (object)1f
+            : (object)1d;
+        var value = BindBinaryOperation(
+            s.Location, target, s.IsIncrement ? TokenKind.Plus : TokenKind.Minus, new BoundLiteral(s.Location, target.Type, one));
+        return new BoundAssignment(s.Location, target, value);
+    }
+
+    (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => expression switch
+    {
+        BoundLocalAccess { Local.RefKind: RefKind.In } access => (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' parameter"),
+        BoundLocalAccess => (PlaceKind.Mutable, ""),
+        BoundThis { Type.IsReference: true } => (PlaceKind.Temporary, ""),
+        BoundThis when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
+        BoundThis => (PlaceKind.Mutable, ""),
+        // Fields of an object live on the heap, however the reference to it was obtained.
+        BoundFieldAccess { Receiver.Type.IsReference: true } => (PlaceKind.Mutable, ""),
+        BoundFieldAccess field => ClassifyPlace(field.Receiver),
+        _ => (PlaceKind.Temporary, ""),
+    };
+
+    bool CheckAssignable(BoundExpression target)
+    {
+        var (kind, reason) = ClassifyPlace(target);
+        switch (kind)
+        {
+            case PlaceKind.Temporary:
+                Error(target.Location, target is BoundFieldAccess
+                    ? "cannot assign to a field of a temporary value"
+                    : "cannot assign to this expression");
+                return false;
+            case PlaceKind.ReadOnly:
+                Error(target.Location, $"cannot assign to '{TextOf(target.Location)}' because {reason}");
+                return false;
+            default:
+                return true;
+        }
+    }
+}

@@ -1,0 +1,317 @@
+using System.Globalization;
+using System.Text;
+using Vpl.Compiler.Semantics;
+using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
+
+namespace Vpl.Compiler.CodeGen;
+
+public sealed partial class CppEmitter
+{
+    string Expression(BoundExpression expression)
+    {
+        if (replacements.TryGetValue(expression, out var replacement))
+            return replacement;
+        return expression switch
+        {
+            BoundLiteral literal => Literal(literal),
+            BoundNullLiteral => "nullptr",
+            BoundLocalAccess access => LocalName(access.Local),
+            BoundThis => This(),
+            BoundFieldAccess field => FieldAccess(field) + (field.Field.IsWeak ? ".get()" : ""),
+            BoundUnary unary => Unary(unary),
+            BoundBinary binary => Binary(binary),
+            BoundCall call => Call(call),
+            BoundConstruction construction => Construction(construction),
+            BoundNew creation => New(creation),
+            BoundConversion conversion => Conversion(conversion),
+            BoundConditional conditional =>
+                $"({Expression(conditional.Condition)} ? {Expression(conditional.WhenTrue)} : {Expression(conditional.WhenFalse)})",
+            BoundNonNull nonNull => $"vpl::unwrap({Expression(nonNull.Operand)}, {SourceLocation(nonNull.Location)})",
+            BoundCoalesce coalesce => Coalesce(coalesce),
+            BoundConditionalAccess access => ConditionalAccess(access),
+            BoundIs pattern => Is(pattern),
+            BoundSwitchExpression switchExpression => SwitchExpression(switchExpression),
+            BoundVariant variant => Variant(variant),
+            _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
+        };
+    }
+
+    /// <summary>An expression used as a place to store to or bind a reference to; weak fields stay <c>vpl::Weak</c>.</summary>
+    string Place(BoundExpression expression) =>
+        expression is BoundFieldAccess field && !replacements.ContainsKey(expression) ? FieldAccess(field) : Expression(expression);
+
+    string This() => context switch
+    {
+        Context.StructConstructor => "self",
+        Context.ClassMember => $"vpl::Ref<{ObjectType(currentType!.Type)}>(this)",
+        _ => "(*this)",
+    };
+
+    string FieldAccess(BoundFieldAccess field)
+    {
+        if (field.Receiver is BoundThis && !replacements.ContainsKey(field.Receiver))
+            return (context == Context.StructConstructor ? "self." : "this->") + FieldName(field.Field);
+        var receiver = Expression(field.Receiver);
+        return receiver + (field.Receiver.Type.IsReference ? "->" : ".") + FieldName(field.Field);
+    }
+
+    string Unary(BoundUnary unary)
+    {
+        var operand = Expression(unary.Operand);
+        return unary.Operator switch
+        {
+            BoundUnaryOperator.Negate when unary.Type.IsInteger => $"vpl::neg({operand}, {SourceLocation(unary.Location)})",
+            BoundUnaryOperator.Negate => $"(-{operand})",
+            BoundUnaryOperator.LogicalNot => $"(!{operand})",
+            BoundUnaryOperator.BitwiseNot => $"static_cast<{CppType(unary.Type)}>(~{operand})",
+            _ => throw new InvalidOperationException($"unexpected unary operator {unary.Operator}"),
+        };
+    }
+
+    string Binary(BoundBinary binary)
+    {
+        if (binary.Operator is BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr)
+        {
+            var symbol = binary.Operator == BoundBinaryOperator.LogicalAnd ? "&&" : "||";
+            return $"({Expression(binary.Left)} {symbol} {Expression(binary.Right)})";
+        }
+        if (binary.Left.Type.IsReference || binary.Left.Type == VplType.Null)
+        {
+            var symbol = binary.Operator == BoundBinaryOperator.Equal ? "==" : "!=";
+            return Ordered(binary.Left, binary.Right, operands => $"(vpl::identity({operands[0]}) {symbol} vpl::identity({operands[1]}))");
+        }
+        return Ordered(binary.Left, binary.Right, operands => BinaryText(binary, operands[0], operands[1]));
+    }
+
+    string BinaryText(BoundBinary binary, string left, string right)
+    {
+        var operandType = binary.Left.Type;
+        var location = SourceLocation(binary.Location);
+        if (operandType.IsInteger)
+        {
+            switch (binary.Operator)
+            {
+                case BoundBinaryOperator.Add: return $"vpl::add({left}, {right}, {location})";
+                case BoundBinaryOperator.Subtract: return $"vpl::sub({left}, {right}, {location})";
+                case BoundBinaryOperator.Multiply: return $"vpl::mul({left}, {right}, {location})";
+                case BoundBinaryOperator.Divide: return $"vpl::div({left}, {right}, {location})";
+                case BoundBinaryOperator.Remainder: return $"vpl::rem({left}, {right}, {location})";
+                case BoundBinaryOperator.ShiftLeft: return $"vpl::shl({left}, {right})";
+                case BoundBinaryOperator.ShiftRight: return $"vpl::shr({left}, {right})";
+            }
+        }
+        if (operandType.IsFloatingPoint && binary.Operator == BoundBinaryOperator.Remainder)
+            return $"std::fmod({left}, {right})";
+
+        var cppOperator = binary.Operator switch
+        {
+            BoundBinaryOperator.Add => "+",
+            BoundBinaryOperator.Subtract => "-",
+            BoundBinaryOperator.Multiply => "*",
+            BoundBinaryOperator.Divide => "/",
+            BoundBinaryOperator.BitwiseAnd => "&",
+            BoundBinaryOperator.BitwiseOr => "|",
+            BoundBinaryOperator.BitwiseXor => "^",
+            BoundBinaryOperator.Equal => "==",
+            BoundBinaryOperator.NotEqual => "!=",
+            BoundBinaryOperator.Less => "<",
+            BoundBinaryOperator.LessOrEqual => "<=",
+            BoundBinaryOperator.Greater => ">",
+            BoundBinaryOperator.GreaterOrEqual => ">=",
+            _ => throw new InvalidOperationException($"unexpected binary operator {binary.Operator}"),
+        };
+
+        // C++ promotes bitwise operands to int; cast back so overloads see the VPL type.
+        if (binary.Operator is BoundBinaryOperator.BitwiseAnd or BoundBinaryOperator.BitwiseOr or BoundBinaryOperator.BitwiseXor)
+            return $"static_cast<{CppType(binary.Type)}>({left} {cppOperator} {right})";
+        return $"({left} {cppOperator} {right})";
+    }
+
+    Operand ReceiverOperand(BoundExpression receiver)
+    {
+        var type = receiver.Type;
+        if (type.IsReference || type.IsTypeParameter)
+            return new Operand(receiver, ByReference: true, PinRoot(receiver), PinValue: !IsStable(receiver));
+        return new Operand(receiver, ByReference: true, PinRoot(receiver));
+    }
+
+    Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
+        refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
+        : new Operand(argument, false, Keep: !IsStable(argument) && MayHoldReferences(argument.Type));
+
+    string Call(BoundCall call)
+    {
+        var method = call.Method;
+        var function = method.Symbol;
+        var operands = new List<Operand>();
+        // `this` is never reassigned, so it needs no operand of its own.
+        bool receiverOperand = call.Receiver is not null && call.Receiver is not BoundThis;
+        if (receiverOperand)
+            operands.Add(ReceiverOperand(call.Receiver!));
+        operands.AddRange(call.Arguments.Select((argument, i) => ArgumentOperand(argument, method.ParameterRefKind(i))));
+        var location = function.PassesLocation ? SourceLocation(call.Location) : null;
+
+        // Explicit template arguments keep C++ from deducing differently than VPL resolved.
+        var typeArguments = TypeArgumentList(method.TypeArguments);
+        // `.template` is required for a member template of a dependent type and harmless otherwise.
+        var memberName = (typeArguments.Length > 0 ? "template " : "") + MethodName(function) + typeArguments;
+
+        return Ordered(operands, parts =>
+        {
+            var arguments = parts.Skip(receiverOperand ? 1 : 0);
+            if (location is not null)
+                arguments = arguments.Append(location);
+            var argumentText = string.Join(", ", arguments);
+
+            if (function.BuiltinCppName is { } builtin)
+                return $"{builtin}({argumentText})";
+            if (function.ContainingType is null)
+                return $"{FunctionName(function)}{typeArguments}({argumentText})";
+            if (function.IsStatic)
+                return $"{ObjectType(method.Owner!)}::{memberName}({argumentText})";
+            return $"{(receiverOperand ? ReceiverText(call, parts[0]) : ThisReceiverText(call))}{memberName}({argumentText})";
+        });
+    }
+
+    /// <summary>The receiver and member operator. Calls go through the declaring type; see <c>vpl::as</c>.</summary>
+    string ReceiverText(BoundCall call, string receiver)
+    {
+        var receiverType = call.Receiver!.Type;
+        var declaring = ObjectType(call.Method.Owner!);
+        if (receiverType.IsTypeParameter)
+            return $"vpl::bound<{declaring}>({receiver}).";
+        if (receiverType.IsReference)
+            return receiverType.NonNull.Symbol == call.Method.Owner!.Symbol ? $"{receiver}->" : $"vpl::as<{declaring}>({receiver})->";
+        return receiver + ".";
+    }
+
+    string ThisReceiverText(BoundCall call)
+    {
+        var declaring = ObjectType(call.Method.Owner!);
+        if (call.IsSuperCall)
+            return $"this->{declaring}::";
+        if (context == Context.StructConstructor)
+            return "self.";
+        if (call.Method.Owner!.Symbol == currentType)
+            return "this->";
+        return $"static_cast<{declaring}*>(this)->";
+    }
+
+    string Construction(BoundConstruction construction)
+    {
+        var type = CppType(construction.Type);
+        var constructor = construction.Constructor;
+        var operands = construction.Arguments
+            .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
+            .ToList();
+        var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
+            ? DefaultValue(construction.Type)
+            : $"{type}::make({string.Join(", ", arguments)})");
+        if (construction.Initializers.Count == 0)
+            return created;
+
+        var temp = NewTemp();
+        var body = new StringBuilder($"[&] {{ {type} {temp} = {created}; ");
+        foreach (var initializer in construction.Initializers)
+            body.Append($"{temp}.{FieldName(initializer.Field)} = {Expression(initializer.Value)}; ");
+        return body.Append($"return {temp}; }}()").ToString();
+    }
+
+    string New(BoundNew creation)
+    {
+        var constructor = creation.Constructor;
+        var operands = creation.Arguments
+            .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
+            .ToList();
+        return Ordered(operands, arguments => $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", arguments)}))");
+    }
+
+    string Coalesce(BoundCoalesce coalesce)
+    {
+        var temp = NewTemp();
+        return $"[&]() -> {CppType(coalesce.Type)} {{ auto {temp} = {Expression(coalesce.Left)}; if ({temp}) {{ return {temp}; }} return {Expression(coalesce.Right)}; }}()";
+    }
+
+    string ConditionalAccess(BoundConditionalAccess access)
+    {
+        var value = LocalName(access.Value);
+        var receiver = Expression(access.Receiver);
+        var member = Expression(access.WhenNotNull);
+        if (access.Type == VplType.Void)
+            return $"[&] {{ auto {value} = {receiver}; if ({value}) {{ {member}; }} }}()";
+        return $"[&]() -> {CppType(access.Type)} {{ auto {value} = {receiver}; if (!{value}) {{ return nullptr; }} return {member}; }}()";
+    }
+
+    string Variant(BoundVariant variant)
+    {
+        var operands = variant.Arguments.Select(a => new Operand(a, false)).ToList();
+        return Ordered(operands, arguments => $"{CppType(variant.Type)}::{VariantFactory(variant.Variant)}({string.Join(", ", arguments)})");
+    }
+
+    string Conversion(BoundConversion conversion)
+    {
+        var from = conversion.Operand.Type;
+        var to = conversion.Type;
+        var operand = Expression(conversion.Operand);
+        if (from == VplType.Null)
+            return $"{CppType(to)}()";
+        if (to.IsReference)
+            return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
+        if (to.IsEnum)
+            return $"{ObjectType(to)}::from_value({operand}, {SourceLocation(conversion.Location)})";
+        if (from.IsEnum)
+            return $"static_cast<{CppType(to)}>({operand}.tag)";
+        if (from.IsFloatingPoint && to.IsInteger)
+            return $"vpl::f2i<{CppType(to)}>({operand})";
+        if (from == VplType.Double && to == VplType.Float)
+            return $"vpl::d2f({operand})";
+        return $"static_cast<{CppType(to)}>({operand})";
+    }
+
+    static string Literal(BoundLiteral literal) => literal.Value switch
+    {
+        bool b => b ? "true" : "false",
+        int i when i == int.MinValue => "INT32_MIN",
+        int i => i < 0 ? $"({i})" : i.ToString(CultureInfo.InvariantCulture),
+        long l when l == long.MinValue => "INT64_MIN",
+        long l => l < 0 ? $"(-INT64_C({-l}))" : $"INT64_C({l})",
+        float f => FloatText(f.ToString("R", CultureInfo.InvariantCulture)) + "f",
+        double d => FloatText(d.ToString("R", CultureInfo.InvariantCulture)),
+        string s => $"vpl::String{{{CppStringLiteral(s)}, {Encoding.UTF8.GetByteCount(s)}}}",
+        _ => throw new InvalidOperationException($"unexpected literal {literal.Value.GetType().Name}"),
+    };
+
+    static string FloatText(string text) => text.Contains('.') || text.Contains('E') ? text : text + ".0";
+
+    static string SourceLocation(Location location)
+    {
+        var (line, column) = location.LineColumn;
+        return CppStringLiteral($"{location.Source.FileName}:{line}:{column}");
+    }
+
+    static string CppStringLiteral(string value)
+    {
+        var result = new StringBuilder("\"");
+        foreach (byte b in Encoding.UTF8.GetBytes(value))
+        {
+            switch (b)
+            {
+                case (byte)'"':
+                    result.Append("\\\"");
+                    break;
+                case (byte)'\\':
+                    result.Append("\\\\");
+                    break;
+                case >= 0x20 and < 0x7F:
+                    result.Append((char)b);
+                    break;
+                default:
+                    // Octal escapes stop after three digits; hex escapes would swallow following hex characters.
+                    result.Append('\\').Append(System.Convert.ToString(b, 8).PadLeft(3, '0'));
+                    break;
+            }
+        }
+        return result.Append('"').ToString();
+    }
+}
