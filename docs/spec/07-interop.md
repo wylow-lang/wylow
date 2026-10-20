@@ -35,6 +35,11 @@ extern {
 - `@Include("path")` names the header that provides the declarations. Include paths and libraries
   to link are configured in the project's build file (*open*, see compiler design).
 
+> Implemented so far: only the standard library may declare extern functions, one at a time:
+> `static extern void check(int index, int length);` in a struct, or a free `extern` function.
+> The C++ runtime (`runtime/vpl.h`) implements them, as `vpl::name`, or `vpl::type::name` for a
+> method of a type (the type's name in lower camel case). Extern blocks and `@Include` are not
+> implemented.
 ### C++ names
 
 Since the output is C++ source, a declaration can map to any C++ name, including namespaced and

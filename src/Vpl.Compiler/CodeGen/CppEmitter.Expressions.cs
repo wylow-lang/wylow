@@ -19,6 +19,11 @@ public sealed partial class CppEmitter
             BoundLocalAccess access => LocalName(access.Local),
             BoundThis => This(),
             BoundFieldAccess field => FieldAccess(field) + (field.Field.IsWeak ? ".get()" : ""),
+            BoundIndex index => Index(index),
+            BoundArrayLength length => $"vpl::length({Expression(length.Operand)})",
+            BoundArrayData data => $"const_cast<{CppType(data.Type)}>({Place(data.Array)}.data())",
+            // Braces evaluate the elements left to right.
+            BoundArrayLiteral literal => $"{CppType(literal.Type)}{{{string.Join(", ", literal.Elements.Select(Expression))}}}",
             BoundUnary unary => Unary(unary),
             BoundBinary binary => Binary(binary),
             BoundCall call => Call(call),
@@ -54,6 +59,22 @@ public sealed partial class CppEmitter
             return (context == Context.StructConstructor ? "self." : "this->") + FieldName(field.Field);
         var receiver = Expression(field.Receiver);
         return receiver + (field.Receiver.Type.IsReference ? "->" : ".") + FieldName(field.Field);
+    }
+
+    /// <summary>
+    /// An element is a place, so it can't come from <see cref="Ordered"/>'s lambda, which returns a
+    /// copy. When the index must be evaluated after the array, <c>vpl::at</c> evaluates it itself.
+    /// C++ already evaluates a pointer before its subscript.
+    /// </summary>
+    string Index(BoundIndex index)
+    {
+        if (index.Target.Type.IsPointer)
+            return $"{Expression(index.Target)}[{Expression(index.Index)}]";
+        var location = SourceLocation(index.Location);
+        Operand array = new(index.Target, ByReference: true, PinRoot(index.Target));
+        if (NeedsOrdering([array, new Operand(index.Index, false)]))
+            return Ordered([array], parts => $"vpl::at({parts[0]}, [&] {{ return {Expression(index.Index)}; }}, {location})");
+        return Ordered([array, new Operand(index.Index, false)], parts => $"vpl::at({parts[0]}, {parts[1]}, {location})");
     }
 
     string Unary(BoundUnary unary)
@@ -138,6 +159,7 @@ public sealed partial class CppEmitter
 
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
         refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
+        : argument.Type.IsRefStruct ? new Operand(argument, false, PinRoot(argument))
         : new Operand(argument, false, Keep: !IsStable(argument) && MayHoldReferences(argument.Type));
 
     string Call(BoundCall call)
@@ -157,7 +179,7 @@ public sealed partial class CppEmitter
         // `.template` is required for a member template of a dependent type and harmless otherwise.
         var memberName = (typeArguments.Length > 0 ? "template " : "") + MethodName(function) + typeArguments;
 
-        return Ordered(operands, parts =>
+        string Combine(IReadOnlyList<string> parts)
         {
             var arguments = parts.Skip(receiverOperand ? 1 : 0);
             if (location is not null)
@@ -165,13 +187,35 @@ public sealed partial class CppEmitter
             var argumentText = string.Join(", ", arguments);
 
             if (function.BuiltinCppName is { } builtin)
-                return $"{builtin}({argumentText})";
+                return $"{builtin}{typeArguments}({argumentText})";
             if (function.ContainingType is null)
                 return $"{FunctionName(function)}{typeArguments}({argumentText})";
             if (function.IsStatic)
                 return $"{ObjectType(method.Owner!)}::{memberName}({argumentText})";
             return $"{(receiverOperand ? ReceiverText(call, parts[0]) : ThisReceiverText(call))}{memberName}({argumentText})";
-        });
+        }
+
+        if (function.ReturnRefKind != RefKind.None && NeedsOrdering(operands))
+            return OrderedReferenceCall(receiverOperand, operands, Combine);
+        return Ordered(operands, Combine);
+    }
+
+    /// <summary>
+    /// A returned reference can't come out of <see cref="Ordered"/>'s lambda, which returns a copy.
+    /// C++17 evaluates the object of a member call before its arguments, so the object is passed to
+    /// a lambda that evaluates the arguments in order and returns the reference.
+    /// </summary>
+    string OrderedReferenceCall(bool hasReceiverOperand, List<Operand> operands, Func<IReadOnlyList<string>, string> combine)
+    {
+        if (!hasReceiverOperand)
+        {
+            var (declarations, temps) = OrderedTemporaries(operands);
+            return $"[&]() -> decltype(auto) {{ {declarations}return {combine(temps)}; }}()";
+        }
+        var receiver = InlineOperandText(operands[0]);
+        var (argumentDeclarations, argumentTemps) = OrderedTemporaries([.. operands.Skip(1)]);
+        var self = NewTemp();
+        return $"vpl::with({receiver}, [&](auto&& {self}) -> decltype(auto) {{ {argumentDeclarations}return {combine([self, .. argumentTemps])}; }})";
     }
 
     /// <summary>The receiver and member operator. Calls go through the declaring type; see <c>vpl::as</c>.</summary>
@@ -207,7 +251,7 @@ public sealed partial class CppEmitter
             .ToList();
         var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
             ? DefaultValue(construction.Type)
-            : $"{type}::make({string.Join(", ", arguments)})");
+            : $"{type}::make({string.Join(", ", WithLocation(constructor.Symbol, arguments, construction.Location))})");
         if (construction.Initializers.Count == 0)
             return created;
 
@@ -224,8 +268,12 @@ public sealed partial class CppEmitter
         var operands = creation.Arguments
             .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
             .ToList();
-        return Ordered(operands, arguments => $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", arguments)}))");
+        return Ordered(operands, arguments =>
+            $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", WithLocation(constructor.Symbol, arguments, creation.Location))}))");
     }
+
+    IEnumerable<string> WithLocation(FunctionSymbol function, IEnumerable<string> arguments, Location location) =>
+        function.PassesLocation ? arguments.Append(SourceLocation(location)) : arguments;
 
     string Coalesce(BoundCoalesce coalesce)
     {
@@ -255,7 +303,7 @@ public sealed partial class CppEmitter
         var to = conversion.Type;
         var operand = Expression(conversion.Operand);
         if (from == VplType.Null)
-            return $"{CppType(to)}()";
+            return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
         if (to.IsReference)
             return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
         if (to.IsEnum)
@@ -284,8 +332,13 @@ public sealed partial class CppEmitter
 
     static string FloatText(string text) => text.Contains('.') || text.Contains('E') ? text : text + ".0";
 
-    static string SourceLocation(Location location)
+    const string CallerLocationParameter = "vpl_location";
+
+    /// <summary>Where a panic is reported: in a function with <c>@CallerLocation</c>, wherever it was called from.</summary>
+    string SourceLocation(Location location)
     {
+        if (currentFunction?.PassesLocation == true)
+            return CallerLocationParameter;
         var (line, column) = location.LineColumn;
         return CppStringLiteral($"{location.Source.FileName}:{line}:{column}");
     }

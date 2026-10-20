@@ -1,0 +1,24 @@
+// Raw memory, for building containers. Everything here is unsafe: the compiler cannot check how
+// it is used, and misusing it is undefined behavior, as in C++.
+
+struct Memory {
+    // Uninitialized storage for `count` values. Panics if `count` is negative or too large.
+    @CallerLocation
+    static unsafe extern T* allocate<T>(int count);
+
+    // Frees storage from `allocate`. Its values must already have been dropped.
+    static unsafe extern void free<T>(T* data);
+
+    // Stores a value in uninitialized storage.
+    static unsafe extern void initialize<T>(T* place, T value);
+
+    // Stores the default value in each of `count` places. The caller must check that `T` has one.
+    static unsafe extern void initializeDefault<T>(T* data, int count);
+
+    // Destroys a value, leaving its storage uninitialized.
+    static unsafe extern void drop<T>(T* place);
+
+    // Moves `count` values into uninitialized storage, leaving the source uninitialized. The two
+    // ranges may overlap.
+    static unsafe extern void moveTo<T>(T* from, T* to, int count);
+}

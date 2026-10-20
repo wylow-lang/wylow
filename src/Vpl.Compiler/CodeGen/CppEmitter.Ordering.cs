@@ -9,21 +9,56 @@ namespace Vpl.Compiler.CodeGen;
 public sealed partial class CppEmitter
 {
     /// <summary>
-    /// The object whose storage holds a place, when it may die while the place is in use: the
-    /// nearest object in a field path, unless it is <c>this</c> or a local. Locals are safe because
-    /// nothing else can assign them; object locals can't even be passed by <c>ref</c>.
+    /// The object holding the storage that a place, or a span's view, lies in: the nearest object
+    /// on the path to it. <c>Borrowed</c> when the object handed the storage out from a method, so
+    /// it may move or free that storage unless it is borrowed while the place or view is used.
     /// </summary>
-    static BoundExpression? PinRoot(BoundExpression place)
+    static (BoundExpression Root, bool Borrowed)? StorageRoot(BoundExpression expression)
     {
-        var current = place;
-        while (current is BoundFieldAccess field)
+        var current = expression;
+        while (true)
         {
-            if (field.Receiver.Type.IsReference)
-                return IsStable(field.Receiver) ? null : field.Receiver;
-            current = field.Receiver;
+            switch (current)
+            {
+                case BoundFieldAccess field when field.Receiver.Type.IsReference:
+                    return (field.Receiver, false);
+                case BoundFieldAccess field:
+                    current = field.Receiver;
+                    break;
+                case BoundIndex { Target.Type.IsFixedArray: true } index:
+                    current = index.Target;
+                    break;
+                case BoundCall { Receiver: { } receiver } call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct:
+                    if (receiver.Type.IsReference)
+                        return (receiver, true);
+                    current = receiver;
+                    break;
+                case BoundConstruction { Type.IsRefStruct: true } construction when construction.Arguments.OfType<BoundArrayData>().FirstOrDefault() is { } data:
+                    current = data.Array;
+                    break;
+                default:
+                    return null;
+            }
         }
-        return null;
     }
+
+    /// <summary>
+    /// The object to hold while a place is used by one operation. Locals and <c>this</c> need no
+    /// hold, since nothing else can assign them; object locals can't even be passed by <c>ref</c>.
+    /// </summary>
+    static BoundExpression? PinRoot(BoundExpression place) =>
+        StorageRoot(place) is var (root, borrowed) && (borrowed || !IsStable(root)) ? root : null;
+
+    /// <summary>
+    /// The object to hold for the scope of a <c>ref</c> or span variable: even a local, since the
+    /// function itself may reassign it, but not <c>this</c>, which the caller holds.
+    /// </summary>
+    static BoundExpression? ScopeRoot(BoundExpression place) =>
+        StorageRoot(place) is var (root, borrowed) && (borrowed || root is not BoundThis) ? root : null;
+
+    /// <summary>A strong reference to <paramref name="root"/> for as long as <paramref name="place"/> is used, which also borrows it if needed.</summary>
+    string Hold(BoundExpression place, BoundExpression root) =>
+        StorageRoot(place) is (_, true) ? $"vpl::borrow({Expression(root)})" : $"vpl::pin({Expression(root)})";
 
     static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess;
 
@@ -34,6 +69,8 @@ public sealed partial class CppEmitter
     {
         if (type.IsReference || type.IsTypeParameter)
             return true;
+        if (type.IsFixedArray)
+            return MayHoldReferences(type.ElementType!, visiting);
         if (!type.IsStructOrEnum || !visiting.Add(type))
             return false;
         var map = TypeMap.For(type);
@@ -49,16 +86,22 @@ public sealed partial class CppEmitter
     string Ordered(IReadOnlyList<Operand> operands, Func<IReadOnlyList<string>, string> combine)
     {
         if (!NeedsOrdering(operands))
-        {
-            // A temporary pin lives until the end of the full expression, which includes the call.
-            return combine([.. operands.Select(o =>
-            {
-                var text = OperandText(o, o.PinRoot is { } root ? $"vpl::pin({Expression(root)})" : null);
-                return o.Keep ? $"vpl::keep({text})" : text;
-            })]);
-        }
+            return combine([.. operands.Select(InlineOperandText)]);
+        var (declarations, temps) = OrderedTemporaries(operands);
+        return $"[&] {{ {declarations}return {combine(temps)}; }}()";
+    }
 
-        var body = new StringBuilder("[&] { ");
+    // A temporary pin lives until the end of the full expression, which includes the call.
+    string InlineOperandText(Operand operand)
+    {
+        var text = OperandText(operand, operand.PinRoot is { } root ? HoldOperand(operand, root) : null);
+        return operand.Keep ? $"vpl::keep({text})" : text;
+    }
+
+    /// <summary>Declarations that evaluate the operands in order, and the temporaries holding them.</summary>
+    (string Declarations, List<string> Temporaries) OrderedTemporaries(IReadOnlyList<Operand> operands)
+    {
+        var body = new StringBuilder();
         var temps = new List<string>();
         foreach (var operand in operands)
         {
@@ -66,14 +109,18 @@ public sealed partial class CppEmitter
             if (operand.PinRoot is { } root)
             {
                 pin = NewTemp();
-                body.Append($"auto {pin} = {Expression(root)}; ");
+                body.Append($"auto {pin} = {HoldOperand(operand, root)}; ");
             }
             var temp = NewTemp();
             body.Append($"{(operand.ByReference ? "auto&&" : "auto")} {temp} = {OperandText(operand, pin)}; ");
             temps.Add(temp);
         }
-        return body.Append($"return {combine(temps)}; }}()").ToString();
+        return (body.ToString(), temps);
     }
+
+    // An object receiver is copied into a pin before the call, so its container need not stay borrowed.
+    string HoldOperand(Operand operand, BoundExpression root) =>
+        operand.PinValue ? $"vpl::pin({Expression(root)})" : Hold(operand.Expression, root);
 
     string OperandText(Operand operand, string? pinRootText)
     {
@@ -82,7 +129,8 @@ public sealed partial class CppEmitter
         var text = operand.ByReference ? Place(operand.Expression) : Expression(operand.Expression);
         if (pinRootText is not null)
             replacements.Remove(operand.PinRoot!);
-        return operand.PinValue ? $"vpl::pin({text})" : text;
+        // A replaced receiver is already held by a pin.
+        return operand.PinValue && !replacements.ContainsKey(operand.Expression) ? $"vpl::pin({text})" : text;
     }
 
     string Ordered(BoundExpression left, BoundExpression right, Func<IReadOnlyList<string>, string> combine) =>
@@ -134,6 +182,10 @@ public sealed partial class CppEmitter
         BoundConversion conversion => [conversion.Operand],
         BoundConditional conditional => [conditional.Condition, conditional.WhenTrue, conditional.WhenFalse],
         BoundFieldAccess field => [field.Receiver],
+        BoundIndex index => [index.Target, index.Index],
+        BoundArrayLength length => [length.Operand],
+        BoundArrayData data => [data.Array],
+        BoundArrayLiteral literal => literal.Elements,
         BoundNonNull nonNull => [nonNull.Operand],
         BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],
         BoundConditionalAccess access => [access.Receiver, access.WhenNotNull],
@@ -152,6 +204,7 @@ public sealed partial class CppEmitter
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit
             || NeedsDefaultCode(construction.Type) => true,
         BoundBinary binary when MayPanic(binary) => true,
+        BoundIndex { Target.Type.IsFixedArray: true, Index: not BoundLiteral } => true,
         BoundUnary { Operator: BoundUnaryOperator.Negate } unary when unary.Type.IsInteger => true,
         _ => Children(expression).Any(HasEffects),
     };
@@ -170,13 +223,13 @@ public sealed partial class CppEmitter
     /// <summary>Whether evaluating the expression may run user code, which can modify any object.</summary>
     static bool WritesHeap(BoundExpression expression) => expression switch
     {
-        BoundCall { Method.Symbol.IsBuiltin: false } or BoundNew => true,
+        BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit => true,
         _ => Children(expression).Any(WritesHeap),
     };
 
     static bool ReadsState(BoundExpression expression) =>
-        expression is BoundLocalAccess or BoundThis or BoundFieldAccess || Children(expression).Any(ReadsState);
+        expression is BoundLocalAccess or BoundThis or BoundFieldAccess or BoundIndex || Children(expression).Any(ReadsState);
 
     /// <summary>
     /// Whether the expression reads storage that a call could change: fields of objects, and
@@ -187,6 +240,7 @@ public sealed partial class CppEmitter
     {
         BoundFieldAccess { Receiver.Type.IsReference: true } => true,
         BoundLocalAccess { Local.RefKind: not RefKind.None } => true,
+        BoundIndex { Target.Type.IsPointer: true } => true,
         BoundThis { Type.IsStructOrEnum: true } => true,
         _ => Children(expression).Any(ReadsHeap),
     };

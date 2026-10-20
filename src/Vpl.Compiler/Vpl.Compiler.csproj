@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <None Include="..\..\runtime\**\*" LinkBase="runtime" CopyToOutputDirectory="PreserveNewest" />
-    <EmbeddedResource Include="Prelude.vpl" LogicalName="Vpl.Compiler.Prelude.vpl" />
+    <EmbeddedResource Include="Stdlib/*.vpl" LogicalName="Vpl.Compiler.Stdlib.%(Filename).vpl" />
   </ItemGroup>
 
 </Project>

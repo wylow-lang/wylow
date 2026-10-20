@@ -16,6 +16,11 @@ public enum Modifiers
     Abstract = 128,
     Final = 256,
     Weak = 512,
+    Unsafe = 1024,
+    Extern = 2048,
+
+    /// <summary>On a struct: <c>ref struct</c>, a second-class type.</summary>
+    Ref = 4096,
 }
 
 public enum RefKind { None, Ref, In }
@@ -26,7 +31,13 @@ public abstract record Node(Location Location);
 
 public sealed record CompilationUnit(SourceText Source, IReadOnlyList<Declaration> Declarations);
 
-public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location);
+public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
+
+/// <summary><c>@Name</c> before a declaration.</summary>
+public sealed record AnnotationSyntax(Location Location, string Name) : Node(Location);
 
 /// <summary><see cref="Bounds"/> are the interfaces after <c>extends</c>, joined by <c>&amp;</c>.</summary>
 public sealed record TypeParameterSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> Bounds) : Node(Location);
@@ -72,12 +83,31 @@ public sealed record FunctionDecl(
     BlockStmt? Body) : Declaration(Location, Modifiers)
 {
     public bool IsConstructor => ReturnType is null;
+
+    /// <summary>For <c>ref T name(...)</c> or <c>in T name(...)</c>, which return a reference.</summary>
+    public RefKind ReturnRefKind { get; init; }
+
+    /// <summary>A get-only property, <c>T name { get => value; }</c>, declared as a method without parameters.</summary>
+    public bool IsProperty { get; init; }
 }
 
 public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);
 
+public enum TypeShape { Named, FixedArray, Array, Pointer }
+
+/// <summary>
+/// A type as written. A <see cref="TypeShape.Named"/> type has a <see cref="Name"/> and type
+/// arguments; the other shapes are built from their <see cref="Element"/>: <c>T[N]</c>, <c>T[]</c>, <c>T*</c>.
+/// </summary>
 public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
-    : Node(Location);
+    : Node(Location)
+{
+    public TypeShape Shape { get; init; }
+    public TypeSyntax? Element { get; init; }
+
+    /// <summary>The <c>N</c> of <c>T[N]</c>.</summary>
+    public ulong Length { get; init; }
+}
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location);
 
@@ -85,8 +115,10 @@ public abstract record Stmt(Location Location) : Node(Location);
 
 public sealed record BlockStmt(Location Location, IReadOnlyList<Stmt> Statements) : Stmt(Location);
 
-/// <summary><see cref="Type"/> is null for <c>var</c>.</summary>
-public sealed record VarDeclStmt(Location Location, TypeSyntax? Type, string Name, Location NameLocation, Expr? Initializer)
+public sealed record UnsafeStmt(Location Location, BlockStmt Body) : Stmt(Location);
+
+/// <summary><see cref="Type"/> is null for <c>var</c>. A <c>ref</c> or <c>in</c> local refers to the place it is initialized with.</summary>
+public sealed record VarDeclStmt(Location Location, TypeSyntax? Type, string Name, Location NameLocation, Expr? Initializer, RefKind RefKind = RefKind.None)
     : Stmt(Location);
 
 public sealed record IfStmt(Location Location, Expr Condition, BlockStmt Then, Stmt? Else) : Stmt(Location);
@@ -96,7 +128,24 @@ public sealed record WhileStmt(Location Location, Expr Condition, BlockStmt Body
 public sealed record ForStmt(Location Location, Stmt? Initializer, Expr? Condition, Stmt? Update, BlockStmt Body)
     : Stmt(Location);
 
-public sealed record ReturnStmt(Location Location, Expr? Value) : Stmt(Location);
+/// <summary>A for-each loop variable; <see cref="Type"/> is null for <c>var</c>.</summary>
+public sealed record ForEachVariable(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation) : Node(Location);
+
+/// <summary>
+/// <c>for (element : iterable)</c>, or with <see cref="Index"/>, <c>for (int i, element : iterable)</c>.
+/// With <see cref="RangeEnd"/>, the loop runs over the integers from <see cref="Iterable"/> to it.
+/// </summary>
+public sealed record ForEachStmt(
+    Location Location,
+    ForEachVariable? Index,
+    ForEachVariable Element,
+    Expr Iterable,
+    Expr? RangeEnd,
+    bool IsInclusive,
+    BlockStmt Body) : Stmt(Location);
+
+/// <summary><see cref="IsRef"/> for <c>return ref place;</c>, which returns a reference.</summary>
+public sealed record ReturnStmt(Location Location, Expr? Value, bool IsRef = false) : Stmt(Location);
 
 public sealed record BreakStmt(Location Location) : Stmt(Location);
 
@@ -167,10 +216,19 @@ public sealed record TryExpr(Location Location, Expr Operand) : Expr(Location);
 
 public sealed record CallExpr(Location Location, Expr Callee, IReadOnlyList<Expr> Arguments) : Expr(Location);
 
+/// <summary><c>target[arguments]</c>: an element of an array, or a call of an indexer.</summary>
+public sealed record IndexExpr(Location Location, Expr Target, IReadOnlyList<Expr> Arguments) : Expr(Location);
+
+/// <summary><c>[a, b, c]</c>, a fixed array.</summary>
+public sealed record ArrayLiteralExpr(Location Location, IReadOnlyList<Expr> Elements) : Expr(Location);
+
 /// <summary>A call argument written with <c>ref</c>.</summary>
 public sealed record RefArgExpr(Location Location, Expr Operand) : Expr(Location);
 
 public sealed record NewExpr(Location Location, TypeSyntax Type, IReadOnlyList<Expr> Arguments) : Expr(Location);
+
+/// <summary><c>new T[length]</c>, a heap array.</summary>
+public sealed record NewArrayExpr(Location Location, TypeSyntax ElementType, Expr Length) : Expr(Location);
 
 /// <summary><c>Type { field = value, ... }</c> or <c>Type(args) { field = value, ... }</c>.</summary>
 public sealed record InitializerExpr(Location Location, Expr Target, IReadOnlyList<FieldInit> Fields) : Expr(Location);

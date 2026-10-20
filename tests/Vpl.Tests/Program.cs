@@ -10,6 +10,7 @@ using Vpl.Compiler.Text;
 //   // output: <line>     expected stdout line (in order of appearance)
 //   // error: <text>      an error on this line whose message contains <text>
 //   // panic: <text>      the program panics with a message starting with <text>
+//   // panic-here: <text> the same, reported at this line
 //   // mode: release      build with --release
 // Usage: Vpl.Tests [--cc msvc|gcc] [filter]
 
@@ -69,11 +70,11 @@ static string FindRepositoryRoot()
 
 sealed record TestResult(string Name, string? Failure);
 
-sealed record Expectations(List<string> Output, List<(int Line, string Text)> Errors, string? Panic, bool Release);
+sealed record Expectations(List<string> Output, List<(int Line, string Text)> Errors, string? Panic, int? PanicLine, bool Release);
 
 static partial class TestCase
 {
-    [GeneratedRegex(@"//\s*(output|error|panic|mode):(.*)$")]
+    [GeneratedRegex(@"//\s*(output|error|panic|panic-here|mode):(.*)$")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain)
@@ -91,7 +92,7 @@ static partial class TestCase
 
     static Expectations Parse(string file)
     {
-        var expectations = new Expectations([], [], null, false);
+        var expectations = new Expectations([], [], null, null, false);
         var lines = File.ReadAllLines(file);
         for (int i = 0; i < lines.Length; i++)
         {
@@ -105,6 +106,7 @@ static partial class TestCase
                 case "output": expectations.Output.Add(value); break;
                 case "error": expectations.Errors.Add((i + 1, value)); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
+                case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
                 case "mode": expectations = expectations with { Release = value == "release" }; break;
             }
         }
@@ -147,11 +149,12 @@ static partial class TestCase
             problems.Add("  actual:   " + string.Join(" | ", actualOutput));
         }
 
-        var stderr = run.StandardError.Trim();
+        var stderr = run.StandardError.Trim().Replace("\r\n", "\n");
         if (expected.Panic is not null)
         {
-            if (run.ExitCode == 0 || !stderr.Contains("panic: " + expected.Panic))
-                problems.Add($"expected panic '{expected.Panic}', got exit code {run.ExitCode} and stderr: {stderr}");
+            var at = expected.PanicLine is { } line ? $"\n    at {Path.GetFileName(file)}:{line}:" : "";
+            if (run.ExitCode == 0 || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
+                problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got exit code {run.ExitCode} and stderr: {stderr}");
         }
         else if (run.ExitCode != 0)
         {

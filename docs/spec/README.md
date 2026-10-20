@@ -60,8 +60,19 @@ Each is explained in detail in its chapter.
    but a call argument needs `f(Direction.East)`. See [02-types.md](02-types.md#creating-values).
 9. **`break` in a `switch` case leaves the enclosing loop**, since a switch has no fallthrough to
    stop. See [06-syntax.md](06-syntax.md#switch).
+10. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into
+   it, or an assignment like `list[0] = f()` borrows it, and `add` or `removeAt` meanwhile panics.
+   See [03-memory-model.md](03-memory-model.md#borrow-counters-on-containers).
+
+## Standard library
+
+The standard library is VPL source in `src/Vpl.Compiler/Stdlib/`, compiled with every program, so
+what it does can be read like any other VPL code. The compiler knows its types only through narrow
+hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
+loops), `Spannable`, `ReadOnlySpannable`, and `Borrowable`. Until packages exist, a program cannot
+declare a type with the name of a standard library type.
 
 ## Not yet designed
 
 - Compiler architecture and implementation language.
-- Standard library contents.
+- The rest of the standard library: pools and handles, `Map`, `Box`, strings.

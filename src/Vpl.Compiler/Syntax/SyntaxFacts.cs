@@ -2,6 +2,9 @@ namespace Vpl.Compiler.Syntax;
 
 public static class SyntaxFacts
 {
+    /// <summary>The name an indexer is declared under, which no method can have.</summary>
+    public const string IndexerName = "this[]";
+
     public const int RelationalPrecedence = 7;
 
     public static int BinaryPrecedence(TokenKind kind) => kind switch

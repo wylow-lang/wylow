@@ -1,0 +1,61 @@
+struct Holder {
+    Span<int> held;                         // error: 'Span<int>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
+}
+
+enum Choice {
+    Some(Span<int> view),                   // error: 'Span<int>' cannot be the type of a variant's field
+    None;
+}
+
+struct Samples {
+    int[2] values;
+
+    Span<int> edit() {
+        return values;
+    }
+
+    Span<int> other(Span<int> given) {
+        return given;                       // error: a returned 'Span<int>' must view the method's receiver
+    }
+
+    static Span<int> make() {               // error: only instance methods can return 'Span<int>', which views the method's receiver
+        return Span<int>();
+    }
+}
+
+Span<int> free() {                          // error: only instance methods can return 'Span<int>'
+    return Span<int>();
+}
+
+int[3] makeArray() {
+    return [1, 2, 3];
+}
+
+Samples makeSamples() {
+    return Samples();
+}
+
+void readOnly(in int[2] values) {
+    Span<int> s = values;                   // error: cannot implicitly convert 'int[2]' to 'Span<int>'; the array is read-only, so view it with a 'ReadOnlySpan'
+    ReadOnlySpan<int> r = values;
+}
+
+void main() {
+    int[2] a = [1, 2];
+    int[2] b = [3, 4];
+    Span<int> s = a;
+    s = b;                                  // error: 's' cannot be reassigned: a 'Span<int>' views what it was initialized with
+    Span<int> later;                        // error: a 'Span<int>' variable must be initialized where it is declared
+    Span<int> t = makeArray();              // error: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
+    Span<int> u = makeSamples().edit();     // error: this 'Span<int>' would view a temporary value
+    for (int x : makeSamples().edit()) {    // error: cannot loop over a temporary value's elements
+    }
+    bool flag = true;
+    var either = flag ? s : s;              // error: '?:' cannot choose between two 'Span<int>'s
+    Span<int>[2] spans;                     // error: 'Span<int>' cannot be an array's element
+    Result<Span<int>, int> r;               // error: 'Span<int>' cannot be a type argument
+    Span<long> wide = a;                    // error: cannot implicitly convert 'int[2]' to 'Span<long>'
+    switch (s) {                            // error: a 'Span<int>' cannot be matched against patterns
+        default -> print(1);
+    }
+}

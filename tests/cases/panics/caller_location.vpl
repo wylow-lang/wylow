@@ -1,0 +1,15 @@
+struct Pair {
+    int[2] values;
+
+    @CallerLocation
+    int get(int index) {
+        Bounds.check(index, 2);
+        return values[index];
+    }
+}
+
+void main() {
+    Pair p = Pair();
+    print(p.get(1));            // output: 0
+    print(p.get(2));            // panic-here: index 2 is out of bounds for length 2
+}

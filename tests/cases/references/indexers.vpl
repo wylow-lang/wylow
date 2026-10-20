@@ -1,0 +1,89 @@
+struct Mat2 {
+    float[4] m;
+
+    ref float this[int row, int col] {
+        return ref m[row * 2 + col];
+    }
+
+    readonly in float at(int i) {
+        return ref m[i];
+    }
+
+    readonly float trace { get => m[0] + m[3]; }
+}
+
+struct Holder {
+    Mat2 mat;
+
+    ref Mat2 inner() {
+        return ref mat;
+    }
+}
+
+class Bag {
+    int[3] items;
+    int used;
+
+    int count { get => used; }
+
+    bool isEmpty {
+        get {
+            return used == 0;
+        }
+    }
+
+    ref int this[int i] {
+        return ref items[i];
+    }
+
+    int total() {
+        int sum = 0;
+        for (int i : 0..count) {
+            sum += this[i];
+        }
+        return sum;
+    }
+}
+
+int order(int value) {
+    print(value);
+    return value;
+}
+
+void main() {
+    Mat2 m = Mat2();
+    m[0, 0] = 1;
+    m[1, 1] = 4;
+    m[0, 1] += 2;
+    print(m.trace);             // output: 5.0
+    print(m.at(1));             // output: 2.0
+    ref float corner = m[1, 0];
+    corner = 7;
+    print(m.m[2]);              // output: 7.0
+
+    var bag = new Bag();
+    print(bag.isEmpty);         // output: true
+    bag[0] = 10;
+    bag[1] = 20;
+    bag.used = 2;
+    print(bag.count);           // output: 2
+    print(bag.isEmpty);         // output: false
+    ref int slot = bag[1];
+    slot += 5;
+    print(bag.items[1]);        // output: 25
+    print(bag.total());         // output: 35
+
+    Holder h = Holder();
+    h.inner()[0, 1] = 9;
+    print(h.mat.m[1]);          // output: 9.0
+
+    // The element is found before the value is evaluated, and its index is evaluated once.
+    bag[order(2)] = order(3);
+    // output: 2
+    // output: 3
+    print(bag.items[2]);        // output: 3
+    bag[order(0)] += order(1);
+    // output: 0
+    // output: 1
+    print(bag.items[0]);        // output: 11
+}

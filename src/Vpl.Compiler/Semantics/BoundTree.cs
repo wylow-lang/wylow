@@ -7,7 +7,8 @@ public sealed record BoundProgram(
     SourceText Source,
     IReadOnlyList<TypeSymbol> Types,
     IReadOnlyList<BoundFunction> Functions,
-    FunctionSymbol? Main);
+    FunctionSymbol? Main,
+    StdlibSymbols Stdlib);
 
 public sealed record BoundFunction(FunctionSymbol Symbol, BoundBlock Body);
 
@@ -39,6 +40,18 @@ public sealed record BoundFor(
     BoundStatement Body) : BoundStatement(Location);
 
 public sealed record BoundReturn(Location Location, BoundExpression? Value) : BoundStatement(Location);
+
+/// <summary>
+/// A loop over the integers from <see cref="Start"/> to <see cref="End"/>, which are evaluated once, in
+/// that order. <see cref="Local"/> holds a copy of the counter in each iteration.
+/// </summary>
+public sealed record BoundForRange(
+    Location Location,
+    LocalSymbol Local,
+    BoundExpression Start,
+    BoundExpression End,
+    bool IsInclusive,
+    BoundStatement Body) : BoundStatement(Location);
 
 public sealed record BoundBreak(Location Location) : BoundStatement(Location);
 
@@ -126,6 +139,19 @@ public sealed record BoundThis(Location Location, VplType Type) : BoundExpressio
 /// <summary><see cref="BoundExpression.Type"/> is the field's type with the receiver's type arguments applied.</summary>
 public sealed record BoundFieldAccess(Location Location, BoundExpression Receiver, FieldSymbol Field, VplType Type)
     : BoundExpression(Location, Type);
+
+/// <summary>An element of a fixed array, which is bounds-checked, or of a pointer, which is not.</summary>
+public sealed record BoundIndex(Location Location, BoundExpression Target, BoundExpression Index)
+    : BoundExpression(Location, Target.Type.ElementType!);
+
+/// <summary>The length of a fixed array, after evaluating it.</summary>
+public sealed record BoundArrayLength(Location Location, BoundExpression Operand) : BoundExpression(Location, VplType.Int);
+
+public sealed record BoundArrayLiteral(Location Location, VplType Type, IReadOnlyList<BoundExpression> Elements) : BoundExpression(Location, Type);
+
+/// <summary>A pointer to the first element of a fixed array, which a span then views.</summary>
+public sealed record BoundArrayData(Location Location, BoundExpression Array)
+    : BoundExpression(Location, Array.Type.ElementType!.PointerTo);
 
 /// <summary>
 /// <see cref="Receiver"/> is set for instance methods. A <c>ref</c> argument is the place itself.

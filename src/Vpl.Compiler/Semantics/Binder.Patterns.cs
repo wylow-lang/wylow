@@ -17,6 +17,11 @@ public sealed partial class Binder
                 : new BoundErrorExpression(e.Location);
         }
 
+        if (CheckMatchable(operand).Type == VplType.Error)
+        {
+            DeclareErrorBindings(e.Pattern);
+            return new BoundErrorExpression(e.Location);
+        }
         bool isTypeTest = e.Pattern is TypePatternSyntax || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } && !operand.Type.IsEnum);
         if (e.Pattern is DiscardPatternSyntax or VarPatternSyntax)
             Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
@@ -190,8 +195,14 @@ public sealed partial class Binder
     BoundExpression BindSwitchValue(Expr syntax)
     {
         var value = BindExpression(syntax);
-        return value.Type == VplType.Void ? ErrorExpression(syntax.Location, "cannot switch on a 'void' value") : value;
+        if (value.Type == VplType.Void)
+            return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
+        return CheckMatchable(value);
     }
+
+    /// <summary>A matched value is read while patterns bind its parts, which a span's view could not be held through.</summary>
+    BoundExpression CheckMatchable(BoundExpression value) =>
+        value.Type.IsRefStruct ? ErrorExpression(value.Location, $"a '{value.Type}' cannot be matched against patterns") : value;
 
     BoundStatement BindSwitch(SwitchStmt s)
     {
@@ -240,12 +251,14 @@ public sealed partial class Binder
             var found = string.Join(", ", producing.Select(v => $"'{v.Type}'").Distinct());
             return ErrorExpression(e.Location, $"the cases of the switch have incompatible types {found}");
         }
+        if (type.IsRefStruct)
+            return ErrorExpression(e.Location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
         var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type)));
         return new BoundSwitchExpression(e.Location, value, [.. cases], type);
     }
 
     /// <summary>The first case's type, or a later one, that every case converts to; references may become nullable for a <c>null</c> case.</summary>
-    static VplType? CommonType(IReadOnlyList<BoundExpression> values)
+    VplType? CommonType(IReadOnlyList<BoundExpression> values)
     {
         var candidates = values
             .Select(v => v.Type)
@@ -351,6 +364,8 @@ public sealed partial class Binder
                     $"cannot infer type argument '{missing.Name}' of '{s.Name}' from '{variant.Name}'; use it where a '{s.Name}' is expected, or write '{s.Name}<...>.{variant.Name}'");
             }
             constructor = Resolve(location, $"variant '{name}'", [new Candidate(variant.InferringConstructor, null)], null, arguments);
+            if (constructor is not null && !CheckTypeArguments(constructor.TypeArguments, location))
+                return new BoundErrorExpression(location);
             if (constructor is not null)
             {
                 type = s.Construct(constructor.TypeArguments);

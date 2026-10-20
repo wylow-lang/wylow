@@ -110,10 +110,11 @@ applyDamage(ref enemy, info);
 such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error.
 
-- A `ref` argument must be a mutable place: a local, a parameter, or a field path rooted at one
-  (`ref enemy.position`). Its type must match the parameter exactly; no conversions apply.
+- A `ref` argument must be a mutable place: a local, a parameter, a field path rooted at one
+  (`ref enemy.position`), an element (`ref points[i]`), or a reference a method returned. Its
+  type must match the parameter exactly; no conversions apply.
 - A place is read-only, and cannot be assigned or passed by `ref`, if it is rooted at an `in`
-  parameter or at `this` inside a `readonly` method.
+  parameter or variable, at `this` inside a `readonly` method, or at a call that returns `in`.
 - Arguments are evaluated left to right, and a `ref` argument is a reference to the place, not a
   snapshot of its value: in `x + increment(ref x)`, the left `x` is read before the call.
 
@@ -168,6 +169,10 @@ class Player {
   `readonly bool isDead { get => health <= 0; }`.
 - Simple accessors are inlined by the C++ compiler and cost nothing.
 
+> Implemented so far: get-only properties, `T name { get => value; }` or `T name { get { ... } }`,
+> and in interfaces and abstract classes `T name { get; }`. A property is read without parentheses
+> and cannot be assigned. Auto-properties, `set`, and static properties are not implemented.
+
 ## 6.6 Operator overloading
 
 Operators are `static` methods named `operator <symbol>`:
@@ -201,8 +206,11 @@ struct Mat4 {
 ```
 
 An indexer returning `ref` gives mutable access to an element (see the `ref` return rule in
-[03-memory-model.md](03-memory-model.md#34-references)). An indexer may instead define `get`/`set`
-accessors like a property.
+[03-memory-model.md](03-memory-model.md#returning-references)), and one returning `in` gives
+read-only access. An indexer may instead define `get`/`set` accessors like a property.
+
+> Implemented so far: indexers returning `ref`, `in`, or a value, with any number of parameters.
+> Indexers with `get`/`set` are not implemented.
 
 ### Equality
 
@@ -291,6 +299,12 @@ for (int i : 0..n)  { ... }    // 0, 1, ..., n-1
 for (int i : 0..=n) { ... }    // 0, 1, ..., n
 ```
 
+- The bounds are integers, evaluated once, start first. The variable has their common type (or
+  its declared `int` or `long` type) and is a copy: assigning it doesn't change the iteration.
+- A range whose end is before its start runs no iterations. `a..=b` stops without overflowing when
+  `b` is the type's maximum value.
+- Ranges are only valid in a for-each.
+
 ### For-each with keys
 
 Collections that have keys allow a two-variable for-each:
@@ -301,6 +315,22 @@ for (Handle<Enemy> h, ref Enemy e : enemies) { ... }      // Pool: handle + valu
 for (int i, ref Bullet b : bullets) { ... }               // List / arrays / spans: index + value
 for (String name, int score : scores) { ... }             // Map: key + value
 ```
+
+A for-each loops over a range, a fixed array, a span, or a value that converts to a span
+([02-types.md](02-types.md#spans)), such as an `Array` or a `List`:
+
+- `T x` copies each element, `ref T x` refers to it, and `in T x` refers to it read-only. `var x`
+  copies with the element's type. A `ref` loop needs a mutable source: not an `in` parameter or a
+  `ReadOnlySpan`.
+- `int i, ... x` adds the element's index, a copy of the position.
+- The loop holds what it iterates for its whole duration, as a span variable would, so a list is
+  borrowed until the loop ends ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)).
+  A fixed array is referred to, not copied, unless it is a temporary.
+- A loop over a value that converts to a span iterates a `ReadOnlySpan` unless its variable is a
+  `ref`, so read-only loops work on read-only sources.
+
+> Implemented so far: ranges, fixed arrays, spans, and `Spannable` types (`Array`, `List`).
+> Pools and maps don't exist yet.
 
 ### `switch`
 
@@ -385,12 +415,23 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 
 | Annotation | Meaning | Chapter |
 |---|---|---|
+| `@CallerLocation` | A panic inside the function reports where it was called from | below |
 | `@Unchecked` | Remove runtime checks | [01-safety.md](01-safety.md) |
 | `@AllowLargeStack` | Suppress the large-stack warning | [01-safety.md](01-safety.md) |
 | `@Align(n)`, `@Pad(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
 | `@Escaping` | Function parameter may be stored | §6.7 |
 
 User-defined annotations (and reflection) are *open*.
+
+> Implemented so far: `@CallerLocation`, without arguments. Any other annotation is an error.
+
+### `@CallerLocation`
+
+Every panic inside a function marked `@CallerLocation`, including those of the checks it calls
+and of other `@CallerLocation` functions it calls, reports the location of the call to it. The
+standard library uses it so that a failed `list[i]` points at the user's line rather than into
+`List`. It applies to functions, methods, constructors, indexers, and properties, but not yet to
+virtual, abstract, or interface methods.
 
 ## 6.11 Naming conventions
 

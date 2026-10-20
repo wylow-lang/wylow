@@ -51,6 +51,9 @@ public sealed partial class Parser
             }
             case TokenKind.ForKeyword:
                 return ParseFor();
+            case TokenKind.UnsafeKeyword when Peek(1).Kind == TokenKind.OpenBrace:
+                Advance();
+                return new UnsafeStmt(LocationFrom(start), ParseBlock());
             case TokenKind.SwitchKeyword:
             {
                 var (value, cases) = ParseSwitch(isExpression: false);
@@ -60,9 +63,10 @@ public sealed partial class Parser
             {
                 Advance();
                 int errors = diagnostics.Count;
-                var value = At(TokenKind.Semicolon) ? null : ParseExpression();
+                bool isRef = Accept(TokenKind.RefKeyword);
+                var value = At(TokenKind.Semicolon) && !isRef ? null : ParseExpression();
                 FinishStatement(errors);
-                return new ReturnStmt(LocationFrom(start), value);
+                return new ReturnStmt(LocationFrom(start), value, isRef);
             }
             case TokenKind.BreakKeyword:
                 Advance();
@@ -72,10 +76,15 @@ public sealed partial class Parser
                 Advance();
                 Expect(TokenKind.Semicolon, "';'");
                 return new ContinueStmt(LocationFrom(start));
-            case TokenKind.ReservedKeyword or TokenKind.RefKeyword:
-                Error(Current.Span, At(TokenKind.RefKeyword)
-                    ? "'ref' locals are not supported yet"
-                    : $"'{Current.Text}' is not supported yet");
+            case TokenKind.RefKeyword or TokenKind.InKeyword:
+            {
+                int errors = diagnostics.Count;
+                var declaration = ParseVariableDeclaration();
+                FinishStatement(errors);
+                return declaration;
+            }
+            case TokenKind.ReservedKeyword:
+                Error(Current.Span, $"'{Current.Text}' is not supported yet");
                 SkipStatement();
                 return new BlockStmt(LocationFrom(start), []);
             default:
@@ -120,11 +129,13 @@ public sealed partial class Parser
         return new IfStmt(LocationFrom(start), condition, then, elseStatement);
     }
 
-    ForStmt ParseFor()
+    Stmt ParseFor()
     {
         int start = position;
         Advance();
         Expect(TokenKind.OpenParen, "'('");
+        if (IsForEachHeader())
+            return ParseForEach(start);
         var initializer = At(TokenKind.Semicolon) ? null : ParseSimpleStatement(allowDeclaration: true);
         Expect(TokenKind.Semicolon, "';'");
         var condition = At(TokenKind.Semicolon) ? null : ParseExpression();
@@ -179,7 +190,7 @@ public sealed partial class Parser
     {
         TokenKind.VarKeyword => true,
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
-        TokenKind.Identifier => IsDeclarationAfterTypeName(ScanTypeArguments(position + 1) is > 0 and var end ? end : position + 1),
+        TokenKind.Identifier => IsDeclarationAfterTypeName(ScanType(position)),
         _ => false,
     };
 
@@ -199,9 +210,61 @@ public sealed partial class Parser
     VarDeclStmt ParseVariableDeclaration()
     {
         int start = position;
+        var refKind = ParseRefKind();
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
         var name = Expect(TokenKind.Identifier, "a variable name");
         var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
-        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer);
+        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind);
+    }
+
+    RefKind ParseRefKind() =>
+        Accept(TokenKind.RefKeyword) ? RefKind.Ref : Accept(TokenKind.InKeyword) ? RefKind.In : RefKind.None;
+
+    /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>
+    bool IsForEachHeader()
+    {
+        TokenKind KindAt(int i) => tokens[Math.Min(i, tokens.Count - 1)].Kind;
+        int index = position;
+        if (KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword)
+            return true;
+        if (KindAt(index) == TokenKind.VarKeyword)
+            index++;
+        else if ((index = ScanType(index)) < 0)
+            return false;
+        else if (KindAt(index) == TokenKind.Question)
+            index++;
+        return KindAt(index) == TokenKind.Identifier && KindAt(index + 1) is TokenKind.Colon or TokenKind.Comma;
+    }
+
+    ForEachStmt ParseForEach(int start)
+    {
+        var element = ParseForEachVariable();
+        ForEachVariable? index = null;
+        if (Accept(TokenKind.Comma))
+        {
+            index = element;
+            element = ParseForEachVariable();
+        }
+        Expect(TokenKind.Colon, "':'");
+        var iterable = ParseExpression();
+        Expr? end = null;
+        bool inclusive = false;
+        if (At(TokenKind.DotDot) || At(TokenKind.DotDotEqual))
+        {
+            inclusive = Advance().Kind == TokenKind.DotDotEqual;
+            end = ParseExpression();
+        }
+        Expect(TokenKind.CloseParen, "')'");
+        var body = ParseBody("for");
+        return new ForEachStmt(LocationFrom(start), index, element, iterable, end, inclusive, body);
+    }
+
+    ForEachVariable ParseForEachVariable()
+    {
+        int start = position;
+        var refKind = ParseRefKind();
+        TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
+        var name = Expect(TokenKind.Identifier, "a variable name");
+        return new ForEachVariable(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
     }
 }

@@ -22,7 +22,9 @@ public sealed partial class Binder
 
     VplType BindType(TypeSyntax syntax, bool allowVoid)
     {
-        var type = BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location);
+        var type = syntax.Shape == TypeShape.Named
+            ? BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location)
+            : BindCompositeType(syntax);
         if (type == VplType.Void && !allowVoid)
         {
             Error(syntax.Location, "'void' cannot be used here");
@@ -36,6 +38,30 @@ public sealed partial class Binder
             ? $"type parameter '{type}' cannot be nullable, since it may stand for a struct"
             : $"'{type}?' is not supported: only class and interface types can be nullable for now");
         return VplType.Error;
+    }
+
+    VplType BindCompositeType(TypeSyntax syntax)
+    {
+        var element = BindType(syntax.Element!, allowVoid: false);
+        if (element == VplType.Error || !CheckStorable(element, syntax.Element!.Location, syntax.Shape == TypeShape.Pointer ? "pointed to" : "an array's element"))
+            return VplType.Error;
+        switch (syntax.Shape)
+        {
+            case TypeShape.Pointer:
+                return element.PointerTo;
+            case TypeShape.FixedArray when syntax.Length > int.MaxValue:
+                Error(syntax.Location, "a fixed array's length must fit in an 'int'");
+                return VplType.Error;
+            case TypeShape.FixedArray:
+                return element.FixedArrayOf((int)syntax.Length);
+            default:
+                if (stdlib.Array is not { } array)
+                {
+                    Error(syntax.Location, "'T[]' arrays are not supported yet");
+                    return VplType.Error;
+                }
+                return Construct(array, [element], syntax.Location);
+        }
     }
 
     VplType BindTypeName(string name, IReadOnlyList<TypeSyntax> typeArgumentSyntax, Location location)
@@ -63,6 +89,8 @@ public sealed partial class Binder
 
     VplType Construct(TypeSymbol s, IReadOnlyList<VplType> arguments, Location location)
     {
+        if (!CheckTypeArguments(arguments, location))
+            return VplType.Error;
         if (arguments.Count == s.TypeParameters.Count)
         {
             QueueBoundChecks(s.TypeParameters, arguments, location);
@@ -74,6 +102,9 @@ public sealed partial class Binder
         Error(location, $"'{s.Name}' requires {count} type argument{(count == 1 ? "" : "s")}");
         return VplType.Error;
     }
+
+    bool CheckTypeArguments(IReadOnlyList<VplType> arguments, Location location) =>
+        arguments.All(a => CheckStorable(a, location, "a type argument"));
 
     void QueueBoundChecks(IReadOnlyList<TypeParameterSymbol> parameters, IReadOnlyList<VplType> arguments, Location location)
     {

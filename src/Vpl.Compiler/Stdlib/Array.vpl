@@ -1,0 +1,59 @@
+// A fixed-length array on the heap, written `T[]` and created with `new T[length]`. It never
+// moves its elements, so a reference into it only keeps it alive and needs no borrow.
+
+final class Array<T> implements Spannable<T> {
+    private T* data;
+    private int count;
+
+    // Each element starts as `T`'s default value; the compiler checks that it has one.
+    @CallerLocation
+    Array(int length) {
+        unsafe {
+            data = Memory.allocate<T>(length);
+            Memory.initializeDefault(data, length);
+        }
+        count = length;
+    }
+
+    @CallerLocation
+    Array(int length, T value) {
+        unsafe {
+            data = Memory.allocate<T>(length);
+            for (int i : 0..length) {
+                Memory.initialize(data + i, value);
+            }
+        }
+        count = length;
+    }
+
+    ~Array() {
+        unsafe {
+            for (int i : 0..count) {
+                Memory.drop(data + i);
+            }
+            Memory.free(data);
+        }
+    }
+
+    int length { get => count; }
+
+    @CallerLocation
+    ref T this[int index] {
+        Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    Span<T> asSpan() {
+        unsafe {
+            return Span<T>(data, count);
+        }
+    }
+
+    ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(data, count);
+        }
+    }
+}

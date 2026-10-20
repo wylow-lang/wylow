@@ -123,10 +123,12 @@ public sealed partial class Binder
     BoundStatement BindStatement(Stmt statement) => statement switch
     {
         BlockStmt s => BindBlock(s),
+        UnsafeStmt s => BindUnsafe(s),
         VarDeclStmt s => BindVariableDeclaration(s),
         IfStmt s => BindIf(s),
         WhileStmt s => BindWhile(s),
         ForStmt s => BindFor(s),
+        ForEachStmt s => BindForEach(s),
         ReturnStmt s => BindReturn(s),
         BreakStmt s => BindJump(s.Location, "break", new BoundBreak(s.Location)),
         ContinueStmt s => BindJump(s.Location, "continue", new BoundContinue(s.Location)),
@@ -140,6 +142,14 @@ public sealed partial class Binder
 
     static BoundStatement ErrorStatement(Location location) =>
         new BoundExpressionStatement(location, new BoundErrorExpression(location));
+
+    BoundStatement BindUnsafe(UnsafeStmt s)
+    {
+        unsafeDepth++;
+        var body = BindBlock(s.Body);
+        unsafeDepth--;
+        return body;
+    }
 
     BoundBlock BindBlock(BlockStmt block)
     {
@@ -160,6 +170,8 @@ public sealed partial class Binder
 
     BoundStatement BindVariableDeclaration(VarDeclStmt s)
     {
+        if (s.RefKind != RefKind.None)
+            return BindRefLocal(s);
         var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
         var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         VplType type;
@@ -189,9 +201,61 @@ public sealed partial class Binder
             type = initializer.Type;
         }
 
+        if (type.IsRefStruct && initializer is null)
+            Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
+        else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
+            Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
         var local = new LocalSymbol(s.Name, type, isParameter: false);
         Declare(local, s.NameLocation);
         return new BoundVariableDeclaration(s.Location, local, initializer);
+    }
+
+    /// <summary><c>ref T x = place;</c> or <c>in T x = place;</c>, which name a place for the rest of the scope.</summary>
+    BoundStatement BindRefLocal(VarDeclStmt s)
+    {
+        var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim();
+        var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
+        var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
+        var type = declared ?? place?.Type ?? VplType.Error;
+        if (place is null)
+            Error(s.Location, $"a '{keyword}' variable must be initialized with the variable, field, or element it refers to");
+        else if (type != VplType.Error && place.Type != VplType.Error && CheckReference(place, s.RefKind, type, $"a '{keyword}' variable"))
+            type = place.Type;
+        else
+            place = null;
+
+        var local = new LocalSymbol(s.Name, type, isParameter: false, s.RefKind);
+        Declare(local, s.NameLocation);
+        return place is null ? ErrorStatement(s.Location) : new BoundVariableDeclaration(s.Location, local, place);
+    }
+
+    /// <summary>
+    /// Checks that <paramref name="place"/> can be referred to by a <c>ref</c> or <c>in</c> of type
+    /// <paramref name="type"/>; <paramref name="what"/> names the reference in messages.
+    /// </summary>
+    bool CheckReference(BoundExpression place, RefKind refKind, VplType type, string what)
+    {
+        var keyword = FunctionSymbol.RefPrefix(refKind).Trim();
+        if (type.IsReference)
+        {
+            Error(place.Location, $"'{keyword}' cannot be used with type '{type}'; class objects are already references");
+            return false;
+        }
+        if (place.Type != type)
+        {
+            Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");
+            return false;
+        }
+        var (kind, reason) = ClassifyPlace(place);
+        if (kind == PlaceKind.Temporary)
+            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
+        else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
+            Error(place.Location, $"cannot take a 'ref' to '{TextOf(place.Location)}' because {reason}; use 'in' instead");
+        else if (place is BoundFieldAccess { Field.IsWeak: true })
+            Error(place.Location, $"a 'weak' field cannot be referred to by '{keyword}'");
+        else
+            return true;
+        return false;
     }
 
     BoundStatement BindWhile(WhileStmt s)
@@ -237,6 +301,8 @@ public sealed partial class Binder
             return new BoundReturn(s.Location, null);
         }
 
+        if (function.ReturnRefKind != RefKind.None || s.IsRef)
+            return BindReturnReference(s, function);
         var value = BindValue(s.Value, function.IsConstructor || function.IsDestructor ? null : function.ReturnType);
         if (function.IsConstructor || function.IsDestructor)
         {
@@ -248,8 +314,48 @@ public sealed partial class Binder
             Error(s.Value.Location, $"'{function.Name}' returns 'void' and cannot return a value");
             return new BoundReturn(s.Location, null);
         }
-        return new BoundReturn(s.Location, Convert(value, function.ReturnType));
+        var converted = Convert(value, function.ReturnType);
+        if (function.ReturnType.IsRefStruct && converted.Type != VplType.Error && !IsThisDerived(converted))
+            Error(s.Value.Location, $"a returned '{function.ReturnType}' must view the method's receiver: fields or elements of 'this', or a span returned by its methods");
+        return new BoundReturn(s.Location, converted);
     }
+
+    /// <summary>
+    /// <c>return ref place;</c>. The caller treats the reference as borrowing the receiver, so it
+    /// must point into the receiver's own storage: <c>this</c>, its fields and elements, or, in
+    /// unsafe code, a pointer's target.
+    /// </summary>
+    BoundStatement BindReturnReference(ReturnStmt s, FunctionSymbol function)
+    {
+        var keyword = FunctionSymbol.RefPrefix(function.ReturnRefKind).Trim();
+        var place = BindExpression(s.Value!, function.ReturnType);
+        if (function.ReturnRefKind == RefKind.None)
+            Error(s.Location, "'return ref' can only be used in a method that returns 'ref' or 'in'");
+        else if (!s.IsRef)
+            Error(s.Location, $"'{function.Name}' returns a reference; return a place with 'return ref'");
+        // A return type that cannot be a reference was reported with the method.
+        else if (function.ReturnType.IsReference || function.ReturnType == VplType.Void)
+            return new BoundReturn(s.Location, null);
+        else if (place.Type != VplType.Error && CheckReference(place, function.ReturnRefKind, function.ReturnType, $"a returned '{keyword}'"))
+        {
+            if (IsThisRooted(place))
+                return new BoundReturn(s.Location, place);
+            Error(s.Value!.Location, $"a returned '{keyword}' must point into the method's receiver: a field or element of 'this'");
+        }
+        return new BoundReturn(s.Location, null);
+    }
+
+    /// <summary>Whether a place lies in <c>this</c> itself, not in another object it refers to.</summary>
+    static bool IsThisRooted(BoundExpression place) => place switch
+    {
+        BoundThis => true,
+        BoundFieldAccess field => field.Receiver is BoundThis || (!field.Receiver.Type.IsReference && IsThisRooted(field.Receiver)),
+        BoundIndex { Target.Type.IsPointer: true } => true,
+        BoundIndex index => IsThisRooted(index.Target),
+        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { } receiver } =>
+            receiver is BoundThis || (!receiver.Type.IsReference && IsThisRooted(receiver)),
+        _ => false,
+    };
 
     BoundStatement BindJump(Location location, string keyword, BoundStatement jump)
     {
@@ -310,7 +416,8 @@ public sealed partial class Binder
 
     (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => expression switch
     {
-        BoundLocalAccess { Local.RefKind: RefKind.In } access => (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' parameter"),
+        BoundLocalAccess { Local.RefKind: RefKind.In } access =>
+            (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' {(access.Local.IsParameter ? "parameter" : "variable")}"),
         BoundLocalAccess => (PlaceKind.Mutable, ""),
         BoundThis { Type.IsReference: true } => (PlaceKind.Temporary, ""),
         BoundThis when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
@@ -318,18 +425,40 @@ public sealed partial class Binder
         // Fields of an object live on the heap, however the reference to it was obtained.
         BoundFieldAccess { Receiver.Type.IsReference: true } => (PlaceKind.Mutable, ""),
         BoundFieldAccess field => ClassifyPlace(field.Receiver),
+        BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
+        BoundIndex index => ClassifyPlace(index.Target),
+        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call),
         _ => (PlaceKind.Temporary, ""),
     };
 
+    /// <summary>A returned reference points into the receiver, so a temporary struct receiver makes it temporary too.</summary>
+    (PlaceKind Kind, string Reason) ClassifyReturnedReference(BoundCall call)
+    {
+        if (call.Receiver is { Type.IsAggregate: true, Type.IsRefStruct: false } receiver && ClassifyPlace(receiver).Kind == PlaceKind.Temporary)
+            return (PlaceKind.Temporary, "");
+        if (call.Method.Symbol.ReturnRefKind == RefKind.In)
+            return (PlaceKind.ReadOnly, $"'{call.Method.Symbol.Signature}' returns 'in'");
+        return (PlaceKind.Mutable, "");
+    }
+
     bool CheckAssignable(BoundExpression target)
     {
+        if (target.Type.IsRefStruct)
+        {
+            Error(target.Location, $"'{TextOf(target.Location)}' cannot be reassigned: a '{target.Type}' views what it was initialized with for its whole scope; declare a new variable instead");
+            return false;
+        }
         var (kind, reason) = ClassifyPlace(target);
         switch (kind)
         {
             case PlaceKind.Temporary:
-                Error(target.Location, target is BoundFieldAccess
-                    ? "cannot assign to a field of a temporary value"
-                    : "cannot assign to this expression");
+                Error(target.Location, target switch
+                {
+                    BoundFieldAccess => "cannot assign to a field of a temporary value",
+                    BoundIndex => "cannot assign to an element of a temporary array",
+                    BoundCall { Method.Symbol.IsProperty: true } call => $"cannot assign to property '{call.Method.Symbol.Name}', which has no 'set'",
+                    _ => "cannot assign to this expression",
+                });
                 return false;
             case PlaceKind.ReadOnly:
                 Error(target.Location, $"cannot assign to '{TextOf(target.Location)}' because {reason}");

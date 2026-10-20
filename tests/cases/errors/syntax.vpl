@@ -1,4 +1,4 @@
-extern Player {               // error: 'extern' is not supported yet
+import Player {               // error: 'import' is not supported yet
 }
 
 void main() {

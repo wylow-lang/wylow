@@ -2,6 +2,7 @@
 // conversion and shifts as two's complement; everything here relies on that.
 #pragma once
 
+#include <array>
 #include <cfloat>
 #include <charconv>
 #include <cinttypes>
@@ -64,14 +65,49 @@ inline void init() {
 #endif
 }
 
+template <class T>
+struct is_std_array : std::false_type {};
+template <class T, size_t N>
+struct is_std_array<std::array<T, N>> : std::true_type {};
+
 // The VPL default value of T, for generic code: struct field initializers run via make_default.
 template <class T>
 inline T default_value() {
     if constexpr (requires { T::make_default(); }) {
         return T::make_default();
+    } else if constexpr (is_std_array<T>::value) {
+        T result{};
+        for (auto& element : result) element = default_value<typename T::value_type>();
+        return result;
     } else {
         return T{};
     }
+}
+
+[[noreturn]] inline void panic_index(int64_t index, int64_t length, const char* location) {
+    char message[96];
+    std::snprintf(message, sizeof message, "index %" PRId64 " is out of bounds for length %" PRId64, index, length);
+    panic(message, location);
+}
+
+// Fixed array indexing. The index may be given as a function, called after the array is found,
+// so that the element stays a place while VPL's left-to-right order is kept.
+template <class A, class I>
+inline decltype(auto) at(A&& array, I&& index, const char* location) {
+    int32_t i;
+    if constexpr (std::is_invocable_v<I>) {
+        i = index();
+    } else {
+        i = index;
+    }
+    constexpr size_t length = std::tuple_size_v<std::remove_cvref_t<A>>;
+    if (static_cast<uint32_t>(i) >= length) panic_index(i, static_cast<int64_t>(length), location);
+    return array[static_cast<size_t>(i)];
+}
+
+template <class T, size_t N>
+constexpr int32_t length(const std::array<T, N>&) {
+    return static_cast<int32_t>(N);
 }
 
 // Integer arithmetic: overflow panics when VPL_DEBUG, otherwise wraps. Unsigned math avoids
@@ -217,6 +253,11 @@ public:
         if (refs != 1) panic("an object's destructor kept a reference to the object", "<destructor>");
     }
 
+    // Called around every borrow of the object: for a class implementing the standard library's
+    // Borrowable, the generated override calls its beginBorrow and endBorrow.
+    virtual void vpl_begin_borrow() {}
+    virtual void vpl_end_borrow() {}
+
     void retain() { ++refs; }
 
     void release() {
@@ -359,6 +400,31 @@ inline Ref<T> pin(const Ref<T>& value) {
     return value;
 }
 
+// Holds an object and borrows it, for as long as a reference or span into its storage is used.
+template <class T>
+class Borrow {
+    Ref<T> ref;
+
+public:
+    explicit Borrow(Ref<T> value) : ref(std::move(value)) { static_cast<Object*>(ref.get())->vpl_begin_borrow(); }
+    Borrow(const Borrow&) = delete;
+    Borrow& operator=(const Borrow&) = delete;
+    ~Borrow() { static_cast<Object*>(ref.get())->vpl_end_borrow(); }
+
+    T* operator->() const { return ref.operator->(); }
+};
+
+template <class T>
+inline Borrow<T> borrow(Ref<T> value) {
+    return Borrow<T>(std::move(value));
+}
+
+// Calls f with value, so that value is evaluated before anything f evaluates.
+template <class T, class F>
+inline decltype(auto) with(T&& value, F&& f) {
+    return f(value);
+}
+
 // In generic code a value may be a struct, which lives in its place and needs no pin.
 template <class T>
     requires(!is_ref<std::remove_cv_t<T>>::value)
@@ -378,6 +444,11 @@ inline const T& keep(const T& value) {
 // bases cannot pick a different overload than VPL did.
 template <class B, class T>
 inline B* as(const Ref<T>& value) {
+    return value.operator->();
+}
+
+template <class B, class T>
+inline B* as(const Borrow<T>& value) {
     return value.operator->();
 }
 
@@ -426,6 +497,77 @@ inline void assign(T& target, T value) {
         swap(target, value);
     }
 }
+
+// ---- Standard library intrinsics ----
+//
+// The C++ side of extern functions in the standard library: vpl::memory is Memory, and vpl::bounds
+// is Bounds. Memory's functions are unsafe; misusing them is undefined behavior.
+
+namespace memory {
+
+// Uninitialized storage for count values of T.
+template <class T>
+inline T* allocate(int32_t count, const char* location) {
+    if (count < 0) panic("cannot allocate a negative number of elements", location);
+    if (static_cast<size_t>(count) > SIZE_MAX / sizeof(T)) panic("allocation is too large", location);
+    return static_cast<T*>(::operator new(sizeof(T) * static_cast<size_t>(count), std::align_val_t(alignof(T))));
+}
+
+template <class T>
+inline void free(T* data) {
+    ::operator delete(static_cast<void*>(data), std::align_val_t(alignof(T)));
+}
+
+template <class T>
+inline void initialize(T* place, T value) {
+    ::new (static_cast<void*>(place)) T(std::move(value));
+}
+
+template <class T>
+inline void initializeDefault(T* data, int32_t count) {
+    for (int32_t i = 0; i < count; ++i) ::new (static_cast<void*>(data + i)) T(default_value<T>());
+}
+
+template <class T>
+inline void drop(T* place) {
+    place->~T();
+}
+
+// Moves count values into uninitialized storage, leaving the source uninitialized. The ranges may
+// overlap: every step constructs into storage that is outside the source or was just vacated.
+template <class T>
+inline void moveTo(T* from, T* to, int32_t count) {
+    if (to < from) {
+        for (int32_t i = 0; i < count; ++i) {
+            ::new (static_cast<void*>(to + i)) T(std::move(from[i]));
+            from[i].~T();
+        }
+    } else if (to > from) {
+        for (int32_t i = count - 1; i >= 0; --i) {
+            ::new (static_cast<void*>(to + i)) T(std::move(from[i]));
+            from[i].~T();
+        }
+    }
+}
+
+}  // namespace memory
+
+namespace bounds {
+
+inline void check(int32_t index, int32_t length, const char* location) {
+    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) panic_index(index, length, location);
+}
+
+inline void checkRange(int32_t start, int32_t count, int32_t length, const char* location) {
+    if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > length) {
+        char message[128];
+        std::snprintf(message, sizeof message, "range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
+                      length);
+        panic(message, location);
+    }
+}
+
+}  // namespace bounds
 
 inline void print(int32_t value) { std::printf("%" PRId32 "\n", value); }
 inline void print(int64_t value) { std::printf("%" PRId64 "\n", value); }

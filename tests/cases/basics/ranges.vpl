@@ -1,0 +1,60 @@
+int next(int value) {
+    print(value);
+    return value;
+}
+
+void main() {
+    int total = 0;
+    for (int i : 0..5) {
+        total += i;
+    }
+    print(total);           // output: 10
+
+    for (var i : 3..=5) {
+        print(i);
+    }
+    // output: 3
+    // output: 4
+    // output: 5
+
+    for (int i : 5..2) {
+        print(i);
+    }
+    for (int i : 2..=1) {
+        print(i);
+    }
+
+    // The bounds are evaluated once, start first.
+    for (int i : next(1)..next(3)) {
+        if (i == 1) {
+            continue;
+        }
+        print(i * 100);
+    }
+    // output: 1
+    // output: 3
+    // output: 200
+
+    // An inclusive range up to the largest value ends without overflowing.
+    int count = 0;
+    for (int i : 2147483646..=2147483647) {
+        count++;
+    }
+    print(count);           // output: 2
+
+    for (long big : 0L..3) {
+        print(big);
+    }
+    // output: 0
+    // output: 1
+    // output: 2
+
+    for (int i : 0..10) {
+        if (i == 2) {
+            break;
+        }
+        print(i);
+    }
+    // output: 0
+    // output: 1
+}

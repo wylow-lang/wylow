@@ -1,0 +1,6 @@
+void main() {
+    var numbers = new List<int>();
+    numbers.add(1);
+    print(numbers[0]);          // output: 1
+    print(numbers[1]);          // panic-here: index 1 is out of bounds for length 1
+}

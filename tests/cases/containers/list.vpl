@@ -1,0 +1,84 @@
+class Enemy {
+    String name;
+
+    Enemy(String name) {
+        this.name = name;
+    }
+
+    ~Enemy() {
+        print(name);
+    }
+}
+
+struct Bullet {
+    float x;
+    bool hit;
+}
+
+int total(ReadOnlySpan<int> values) {
+    int sum = 0;
+    for (int v : values) {
+        sum += v;
+    }
+    return sum;
+}
+
+void enemies() {
+    var list = new List<Enemy>();
+    list.add(new Enemy("a"));
+    list.add(new Enemy("b"));
+    list.add(new Enemy("c"));
+    var removed = list.removeAt(1);
+    print(removed.name);
+    list.clear();
+    print(list.count);
+}
+
+void main() {
+    var numbers = new List<int>();
+    for (int i : 0..10) {
+        numbers.add(i);
+    }
+    print(numbers.count);       // output: 10
+    print(numbers.capacity >= 10); // output: true
+    print(numbers[9]);          // output: 9
+    numbers[0] = 100;
+    numbers.insert(1, 50);
+    print(numbers[1]);          // output: 50
+    print(numbers.removeAt(0)); // output: 100
+    print(total(numbers));      // output: 95
+    for (ref int n : numbers) {
+        n *= 2;
+    }
+    print(numbers[0]);          // output: 100
+    for (int i, int n : numbers) {
+        if (i == 9) {
+            print(n);           // output: 18
+        }
+    }
+    numbers.clear();
+    print(numbers.count);       // output: 0
+    numbers.reserve(100);
+    print(numbers.capacity);    // output: 100
+
+    enemies();
+    // output: b
+    // output: a
+    // output: c
+    // output: 0
+    // output: b
+
+    var bullets = new List<Bullet>();
+    bullets.add(Bullet { x = 1 });
+    bullets[0].x += 2;
+    print(bullets[0].x);        // output: 3.0
+    ref Bullet first = bullets[0];
+    first.hit = true;
+    print(bullets[0].hit);      // output: true
+
+    // A list of lists: the inner list is pinned while it is used.
+    var grid = new List<List<int>>();
+    grid.add(new List<int>());
+    grid[0].add(7);
+    print(grid[0][0]);          // output: 7
+}

@@ -1,0 +1,30 @@
+// The standard library's result type, for operations that can fail. See docs/spec/04-errors.md.
+
+enum Result<T, E> {
+    Ok(T value),
+    Err(E error);
+
+    bool isOk() {
+        return this is Ok;
+    }
+
+    bool isErr() {
+        return this is Err;
+    }
+
+    T orElse(T fallback) {
+        return switch (this) {
+            case Ok(var value) -> value;
+            case Err -> fallback;
+        };
+    }
+
+    // The value, or a panic with the message, reported where this was called.
+    @CallerLocation
+    T orPanic(String message) {
+        return switch (this) {
+            case Ok(var value) -> value;
+            case Err -> panic(message);
+        };
+    }
+}

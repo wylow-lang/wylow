@@ -161,19 +161,43 @@ Destroying a pool while it is borrowed panics.
 ## 3.4 References
 
 `ref T` is a reference to a value that lives somewhere else (a local, a struct field, an array
-element, a pool slot). References avoid copying and allow mutation in place.
+element, a pool slot). References avoid copying and allow mutation in place. An `in T` reference
+is the same but read-only.
 
 References are **second-class**:
 
 | Allowed | Not allowed |
 |---|---|
 | Method parameters: `void damage(ref Enemy e)` | Struct or class fields |
-| Local variables: `ref Transform t = player.transform;` | Return values (see note) |
+| Local variables: `ref Transform t = player.transform;` | Return values, except from a method into its receiver (below) |
 | Loop variables: `for (ref Enemy e : enemies)` | Capture by a closure that may outlive the call |
 | Pattern bindings: `if (pool.get(h) is ref Enemy e)` | Storing in any container |
 
-> Note: a function may return a `ref` derived from one of its `ref` parameters (this is how
-> `Pool.get` works). The exact rule is *open*.
+A `ref` or `in` variable must be initialized with the place it refers to: a variable, field, or
+element, never a temporary value. It cannot refer to a class object itself (objects are already
+references) or to a `weak` field. Assigning to it assigns to the place.
+
+### Returning references
+
+A method may return `ref T` or `in T`, using `return ref place;`. The returned reference
+**borrows the method's receiver**, so it must point into the receiver's own storage: `this`, a
+field or element of `this` (but not of another object a field refers to), a reference returned
+by a method of `this`, or, in unsafe code, the target of a pointer. Indexers are the usual case:
+
+```java
+struct Mat4 {
+    float[16] m;
+    ref float this[int row, int col] { return ref m[row * 4 + col]; }
+}
+```
+
+- Only instance methods return references, and for now they cannot be virtual or abstract.
+- A `ref` return must point into mutable storage, so a `readonly` method returns `in` (or a
+  pointer's target). Calling a method that returns `in` gives a read-only place.
+- The result is a place for as long as the receiver is: on a temporary struct, such as
+  `makeMatrix()[0, 0]`, it can be read but not assigned or referred to.
+- Free functions and static methods cannot return references yet. (`Pool.get`, which returns a
+  `ref T?`, will be a method.)
 
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms
@@ -196,6 +220,9 @@ safe without a pin because nothing but the function itself can assign them, and 
 cannot even be passed by `ref`. `this` is safe because whoever called the method has pinned it. A
 pin costs one count increment and decrement.
 
+A `ref` or `in` variable, and a span variable, holds the object for its whole scope, even when a
+local holds it: the function itself may reassign that local while the reference lives.
+
 ### Evaluation order and the heap
 
 Operands are evaluated left to right ([06-syntax.md](06-syntax.md#evaluation-order)). Since any call
@@ -203,7 +230,9 @@ can modify any object, reading a field of an object counts as conflicting with e
 same expression: in `obj.x + f()`, `obj.x` is read before `f` runs. The same holds for reads
 through `ref`/`in` parameters and a struct method's `this`, which may point into an object. In an
 assignment, the object holding the target is evaluated before the value: in
-`a.b.x = f()`, `a.b` is read before `f` runs.
+`a.b.x = f()`, `a.b` is read before `f` runs. An element target is found, including its index and
+bounds check, before the value: `list[i()] = f()` calls `i` before `f`, and `a[f()] += 1` calls
+`f` once.
 
 ### Borrow counters on containers
 
@@ -212,7 +241,7 @@ into the container increments it; the end of the reference's scope decrements it
 
 | Container | Operations that panic while borrowed |
 |---|---|
-| `List<T>` | `add`, `insert`, `remove`, `clear`, anything that may reallocate; destruction |
+| `List<T>` | `add`, `insert`, `removeAt`, `clear`, `reserve`: anything that changes its length or may reallocate |
 | `Pool<T>` | Destruction only (`remove` is deferred, `add` never moves elements) |
 | `T[]` | None (never reallocates; kept alive by pinning) |
 
@@ -225,10 +254,51 @@ for (ref Bullet b : bullets) {
 The usual fix is to collect changes in a second list and apply them after the loop, or to use a
 `Pool`, which supports adding and removing while iterating.
 
+Destroying a borrowed container cannot happen: a borrow also pins the container.
+
+A borrow starts when a reference or span into the container is taken from one of its methods (an
+indexer, `asSpan`) and lasts:
+
+| Where the reference or span is | Borrowed until |
+|---|---|
+| A `ref`, `in`, or span variable | The end of the variable's scope |
+| A for-each loop over the container | The end of the loop |
+| A `ref`/`in` argument, a span argument, or a struct method's receiver | The end of the statement |
+| An assignment's target, when the value runs code: `list[0] = f()` | The end of the assignment |
+
+Reading an element by value, or storing a value that runs no code, needs no borrow: the
+reference is used before anything else can happen. In an assignment like `list[0] = f()`, the
+element is found first, so `f` must not change the list's length.
+
+#### `Borrowable`
+
+The counting is ordinary standard library code. A class that implements the standard library's
+`Borrowable` interface has `beginBorrow()` called when a borrow of it starts and `endBorrow()`
+when it ends; `List` counts borrows in a field and checks it in each method that changes its
+length. The compiler makes these calls, including when the object is only known through an
+interface; code cannot call them directly. Only classes can be `Borrowable`.
+
 ### Spans
 
 `Span<T>` and `ReadOnlySpan<T>` follow exactly the same rules as `ref`: second-class, with the
-same borrowing and pinning behavior.
+same borrowing and pinning behavior. They are `ref struct`s, and any struct can be declared one:
+
+```java
+ref struct Cursor { ... }
+```
+
+A `ref struct` may be a local variable or a parameter, but not:
+
+- a field (of any type, including another `ref struct`), a variant's field, an array element, a
+  pointer's target, or a type argument;
+- assigned after its declaration, so a variable views one thing for its whole scope. It must be
+  initialized where it is declared;
+- the result of `?:` or a switch expression, or matched against patterns;
+- returned, except by an instance method, and then only a view of the receiver: its fields or
+  elements, or a span its methods return. A free function or static method cannot return one.
+
+A span variable cannot view a temporary struct, such as `makeSamples().view()`, since the struct
+is gone after the statement. A temporary object is fine: the span holds it.
 
 ## 3.5 What the checks cost
 

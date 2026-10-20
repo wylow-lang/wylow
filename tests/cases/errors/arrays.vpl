@@ -1,0 +1,58 @@
+struct Loop {                       // error: struct 'Loop' contains itself (Loop -> Loop)
+    Loop[2] inner;
+}
+
+class Box {
+    int value;
+}
+
+int[3] makeArray() {
+    return [1, 2, 3];
+}
+
+void readOnly(in int[2] values) {
+    for (ref int v : values) {      // error: cannot loop over 'values' by 'ref' because 'values' is an 'in' parameter; use 'in'
+    }
+    ref int first = values[0];      // error: cannot take a 'ref' to 'values[0]' because 'values' is an 'in' parameter; use 'in' instead
+    in int second = values[1];
+    second = 3;                     // error: cannot assign to 'second' because 'second' is an 'in' variable
+}
+
+void main() {
+    int[4] a = [1, 2, 3, 4];
+    print(a[4]);                    // error: index 4 is out of bounds for 'int[4]'
+    print(a[-1]);                   // error: index -1 is out of bounds for 'int[4]'
+    print(a[0, 1]);                 // error: an element of 'int[4]' is selected by a single index
+    print(a[1L]);                   // error: cannot implicitly convert 'long' to 'int'
+    print(a.size);                  // error: 'int[4]' has no member 'size'; fixed arrays only have 'length'
+    int n = 3;
+    print(n[0]);                    // error: 'int' cannot be indexed
+    int[3000000000] huge;           // error: a fixed array's length must fit in an 'int'
+    var empty = [];                 // error: cannot infer the type of an empty array
+    var mixed = [1, true];          // error: the elements of the array have incompatible types 'int', 'bool'
+    int[3] few = [1, 2];          // error: cannot implicitly convert 'int[2]' to 'int[3]'
+    makeArray()[0] = 5;             // error: cannot assign to an element of a temporary array
+    String[2] names = ["a", "b"];
+    print(names == names);          // error: operator '==' cannot be applied to 'String[2]', since 'String' does not support '=='
+
+    ref int r;                      // error: a 'ref' variable must be initialized
+    ref int five = 5;               // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value
+    ref long wide = n;              // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
+    var box = new Box();
+    ref Box b = box;                // error: 'ref' cannot be used with type 'Box'; class objects are already references
+
+    for (int x : n) {               // error: cannot loop over 'int'
+    }
+    for (var i : 0.5..2) {          // error: a range must be of integers, not 'float' and 'int'
+    }
+    for (float f : 0..2) {          // error: a range's values are integers, not 'float'
+    }
+    for (int i, int v : 0..2) {     // error: a range has no index
+    }
+    for (ref int v : 0..2) {        // error: the values of a range cannot be borrowed with 'ref'
+    }
+    for (long i, int v : a) {       // error: the index of a loop is an 'int', not 'long'
+    }
+    for (ref long v : a) {          // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
+    }
+}

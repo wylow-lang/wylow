@@ -122,6 +122,11 @@ public sealed partial class Parser
                 var typeArguments = ParseExpressionTypeArguments();
                 expression = new MemberAccessExpr(LocationFrom(start), expression, name.Text, Loc(name.Span), typeArguments);
             }
+            else if (At(TokenKind.OpenBracket))
+            {
+                var arguments = ParseDelimitedExpressions(TokenKind.OpenBracket, TokenKind.CloseBracket, "']'", ParseArgument);
+                expression = new IndexExpr(LocationFrom(start), expression, arguments);
+            }
             else if (At(TokenKind.QuestionDot))
             {
                 Advance();
@@ -146,18 +151,20 @@ public sealed partial class Parser
         }
     }
 
-    List<Expr> ParseArgumentList()
+    List<Expr> ParseArgumentList() => ParseDelimitedExpressions(TokenKind.OpenParen, TokenKind.CloseParen, "')'", ParseArgument);
+
+    List<Expr> ParseDelimitedExpressions(TokenKind open, TokenKind close, string closeDescription, Func<Expr> parse)
     {
-        Expect(TokenKind.OpenParen, "'('");
-        var arguments = new List<Expr>();
-        if (!At(TokenKind.CloseParen))
+        Expect(open, open == TokenKind.OpenParen ? "'('" : "'['");
+        var expressions = new List<Expr>();
+        if (!At(close))
         {
             do
-                arguments.Add(ParseArgument());
+                expressions.Add(parse());
             while (Accept(TokenKind.Comma));
         }
-        Expect(TokenKind.CloseParen, "')'");
-        return arguments;
+        Expect(close, closeDescription);
+        return expressions;
     }
 
     Expr ParseArgument()
@@ -231,7 +238,15 @@ public sealed partial class Parser
             {
                 int start = position;
                 Advance();
-                var type = ParseType(allowNullable: false);
+                var type = ParseType(allowNullable: false, allowArrays: false);
+                if (Accept(TokenKind.OpenBracket))
+                {
+                    var length = ParseExpression();
+                    Expect(TokenKind.CloseBracket, "']'");
+                    if (At(TokenKind.OpenBracket))
+                        Error(Current.Span, "arrays of arrays cannot be created with one 'new' yet; create the outer array, then each inner one");
+                    return new NewArrayExpr(LocationFrom(start), type, length);
+                }
                 var arguments = ParseArgumentList();
                 return new NewExpr(LocationFrom(start), type, arguments);
             }
@@ -241,6 +256,12 @@ public sealed partial class Parser
                 var inner = ParseExpression();
                 Expect(TokenKind.CloseParen, "')'");
                 return inner;
+            }
+            case TokenKind.OpenBracket:
+            {
+                int start = position;
+                var elements = ParseDelimitedExpressions(TokenKind.OpenBracket, TokenKind.CloseBracket, "']'", ParseExpression);
+                return new ArrayLiteralExpr(LocationFrom(start), elements);
             }
             case TokenKind.SwitchKeyword:
             {

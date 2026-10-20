@@ -94,6 +94,11 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                     state.Assigned.Add(declaration.Local);
                     SetNullability(state, declaration.Local, declaration.Initializer);
                 }
+                // Fixed arrays are often too large to initialize element by element.
+                else if (declaration.Local.Type.IsFixedArray && Conversions.IsDefaultable(declaration.Local.Type))
+                {
+                    state.Assigned.Add(declaration.Local);
+                }
                 return state;
 
             case BoundAssignment assignment:
@@ -158,6 +163,16 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
                 var exit = forStatement.Condition is null || IsConstantTrue(forStatement.Condition) ? State.Unreachable() : whenFalse;
                 return loop.Breaks.Aggregate(exit, State.Join);
+            }
+
+            case BoundForRange range:
+            {
+                state = Expression(range.End, Expression(range.Start, state));
+                var entry = LoopEntry(state, range.Body);
+                var body = entry.Clone();
+                body.Assigned.Add(range.Local);
+                var loop = AnalyzeLoopBody(range.Body, body);
+                return loop.Breaks.Aggregate(entry, State.Join);
             }
 
             case BoundReturn returnStatement:
@@ -232,6 +247,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
         BoundIf ifStatement => [.. AssignedLocals(ifStatement.Then), .. ifStatement.Else is null ? [] : AssignedLocals(ifStatement.Else)],
         BoundWhile whileStatement => AssignedLocals(whileStatement.Body),
+        BoundForRange range => AssignedLocals(range.Body),
         BoundSwitch switchStatement => switchStatement.Cases.SelectMany(c => AssignedLocals(c.Body)),
         BoundFor forStatement => [
             .. forStatement.Initializer is null ? [] : AssignedLocals(forStatement.Initializer),
@@ -392,6 +408,10 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
         BoundNew creation => creation.Arguments,
         BoundFieldAccess field => [field.Receiver],
+        BoundIndex index => [index.Target, index.Index],
+        BoundArrayLength length => [length.Operand],
+        BoundArrayData data => [data.Array],
+        BoundArrayLiteral literal => literal.Elements,
         BoundConversion conversion => [conversion.Operand],
         BoundNonNull nonNull => [nonNull.Operand],
         BoundVariant variant => variant.Arguments,

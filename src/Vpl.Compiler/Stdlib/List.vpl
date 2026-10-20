@@ -1,0 +1,136 @@
+// A growable array on the heap. Adding or removing elements may move the others, so while a
+// reference, span, or loop into the list exists, the list is borrowed, and changing its length
+// panics. See docs/spec/03-memory-model.md.
+
+final class List<T> implements Borrowable, Spannable<T> {
+    private T* data;
+    private int size;
+    private int space;
+    private int borrows;
+
+    int count { get => size; }
+    int capacity { get => space; }
+
+    @CallerLocation
+    ref T this[int index] {
+        Bounds.check(index, size);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    @CallerLocation
+    void add(T value) {
+        checkNotBorrowed();
+        if (size == space) {
+            grow(size + 1);
+        }
+        unsafe {
+            Memory.initialize(data + size, value);
+        }
+        size++;
+    }
+
+    @CallerLocation
+    void insert(int index, T value) {
+        checkNotBorrowed();
+        Bounds.check(index, size + 1);
+        if (size == space) {
+            grow(size + 1);
+        }
+        unsafe {
+            Memory.moveTo(data + index, data + index + 1, size - index);
+            Memory.initialize(data + index, value);
+        }
+        size++;
+    }
+
+    @CallerLocation
+    T removeAt(int index) {
+        checkNotBorrowed();
+        Bounds.check(index, size);
+        unsafe {
+            // A copy keeps the element alive, so no destructor runs while the list is rearranged.
+            T removed = data[index];
+            Memory.drop(data + index);
+            Memory.moveTo(data + index + 1, data + index, size - index - 1);
+            size--;
+            return removed;
+        }
+    }
+
+    @CallerLocation
+    void clear() {
+        checkNotBorrowed();
+        int old = size;
+        size = 0;
+        // Dropping an element may run a destructor, which must not change the list meanwhile.
+        borrows++;
+        unsafe {
+            for (int i : 0..old) {
+                Memory.drop(data + i);
+            }
+        }
+        borrows--;
+    }
+
+    // Makes room for at least `minimum` elements, so adding up to that many never moves them.
+    @CallerLocation
+    void reserve(int minimum) {
+        checkNotBorrowed();
+        if (minimum > space) {
+            grow(minimum);
+        }
+    }
+
+    void beginBorrow() {
+        borrows++;
+    }
+
+    void endBorrow() {
+        borrows--;
+    }
+
+    Span<T> asSpan() {
+        unsafe {
+            return Span<T>(data, size);
+        }
+    }
+
+    ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(data, size);
+        }
+    }
+
+    ~List() {
+        unsafe {
+            for (int i : 0..size) {
+                Memory.drop(data + i);
+            }
+            Memory.free(data);
+        }
+    }
+
+    @CallerLocation
+    private void checkNotBorrowed() {
+        if (borrows > 0) {
+            panic("cannot change the length of a list while it is borrowed by a reference, span, or loop");
+        }
+    }
+
+    @CallerLocation
+    private void grow(int minimum) {
+        int grown = space < 4 ? 4 : space * 2;
+        if (grown < minimum) {
+            grown = minimum;
+        }
+        unsafe {
+            T* bigger = Memory.allocate<T>(grown);
+            Memory.moveTo(data, bigger, size);
+            Memory.free(data);
+            data = bigger;
+        }
+        space = grown;
+    }
+}

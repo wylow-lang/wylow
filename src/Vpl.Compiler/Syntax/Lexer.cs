@@ -52,25 +52,27 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["case"] = TokenKind.CaseKeyword,
         ["default"] = TokenKind.DefaultKeyword,
         ["try"] = TokenKind.TryKeyword,
+        ["unsafe"] = TokenKind.UnsafeKeyword,
+        ["extern"] = TokenKind.ExternKeyword,
         ["_"] = TokenKind.Underscore,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "byte", "char", "const", "defer", "do", "extern", "import", "nint",
+        "byte", "char", "const", "defer", "do", "import", "nint",
         "nuint", "operator", "package", "sbyte", "shared", "short", "uint", "ulong",
-        "unsafe", "ushort",
+        "ushort",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
     static readonly (string Text, TokenKind Kind)[] Punctuators =
     [
-        ("<<=", TokenKind.LessLessAssign), (">>=", TokenKind.GreaterGreaterAssign),
-        ("??", TokenKind.QuestionQuestion), ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
+        ("<<=", TokenKind.LessLessAssign), (">>=", TokenKind.GreaterGreaterAssign), ("..=", TokenKind.DotDotEqual),
+        ("??", TokenKind.QuestionQuestion), ("..", TokenKind.DotDot), ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
         ("!=", TokenKind.BangEqual), ("<=", TokenKind.LessEqual), (">=", TokenKind.GreaterEqual),
         ("<<", TokenKind.LessLess), (">>", TokenKind.GreaterGreater), ("++", TokenKind.PlusPlus),
-        ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
+        ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("=>", TokenKind.FatArrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
         ("*=", TokenKind.StarAssign), ("/=", TokenKind.SlashAssign), ("%=", TokenKind.PercentAssign),
         ("&=", TokenKind.AmpersandAssign), ("|=", TokenKind.PipeAssign), ("^=", TokenKind.CaretAssign),
         ("(", TokenKind.OpenParen), (")", TokenKind.CloseParen), ("{", TokenKind.OpenBrace),
@@ -79,7 +81,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ("?", TokenKind.Question), ("+", TokenKind.Plus), ("-", TokenKind.Minus), ("*", TokenKind.Star),
         ("/", TokenKind.Slash), ("%", TokenKind.Percent), ("&", TokenKind.Ampersand), ("|", TokenKind.Pipe),
         ("^", TokenKind.Caret), ("~", TokenKind.Tilde), ("!", TokenKind.Bang), ("<", TokenKind.Less),
-        (">", TokenKind.Greater), ("=", TokenKind.Assign),
+        (">", TokenKind.Greater), ("=", TokenKind.Assign), ("@", TokenKind.At),
     ];
 
     readonly string text = source.Text;

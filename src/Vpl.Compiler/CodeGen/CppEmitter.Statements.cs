@@ -15,11 +15,16 @@ public sealed partial class CppEmitter
         _ => CppType(type),
     };
 
+    static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
+
     string Parameters(FunctionSymbol function) =>
-        string.Join(", ", function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
+        WithLocationParameter(function, function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
 
     string Parameters(MethodReference method) =>
-        string.Join(", ", method.Symbol.Parameters.Select((p, i) => $"{ParameterType(method.ParameterType(i), p.RefKind)} {LocalName(p)}"));
+        WithLocationParameter(method.Symbol, method.Symbol.Parameters.Select((p, i) => $"{ParameterType(method.ParameterType(i), p.RefKind)} {LocalName(p)}"));
+
+    static string WithLocationParameter(FunctionSymbol function, IEnumerable<string> parameters) =>
+        string.Join(", ", function.PassesLocation ? parameters.Append($"const char* {CallerLocationParameter}") : parameters);
 
     string MemberDeclaration(FunctionSymbol member)
     {
@@ -32,7 +37,7 @@ public sealed partial class CppEmitter
         }
         if (member.IsDestructor)
             return $"~{TypeName(owner)}() override";
-        var signature = $"{CppType(member.ReturnType)} {MethodName(member)}({Parameters(member)})";
+        var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
         if (member.IsVirtual)
@@ -55,7 +60,7 @@ public sealed partial class CppEmitter
         }
         if (function.IsDestructor)
             return $"{owner}::~{TypeName(s)}()";
-        var signature = $"{CppType(function.ReturnType)} {owner}::{MethodName(function)}({Parameters(function)})";
+        var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly ? signature + " const" : signature;
     }
 
@@ -82,8 +87,8 @@ public sealed partial class CppEmitter
         if (symbol.IsConstructor && isClassMember && statements.FirstOrDefault() is BoundSuperCall super)
         {
             // Braces evaluate the arguments left to right.
-            var arguments = string.Join(", ", super.Arguments.Select(a =>
-                !IsStable(a) && MayHoldReferences(a.Type) ? $"vpl::keep({Expression(a)})" : Expression(a)));
+            var arguments = string.Join(", ", WithLocation(super.Constructor.Symbol, super.Arguments.Select(a =>
+                !IsStable(a) && MayHoldReferences(a.Type) ? $"vpl::keep({Expression(a)})" : Expression(a)), super.Location));
             Line($"    : {ObjectType(super.Constructor.Owner!)}{{{arguments}}}");
             statements = [.. statements.Skip(1)];
         }
@@ -123,6 +128,7 @@ public sealed partial class CppEmitter
         Line("}");
         context = Context.Free;
         currentType = null;
+        currentFunction = null;
     }
 
     void Statement(BoundStatement statement)
@@ -137,10 +143,15 @@ public sealed partial class CppEmitter
                 indent--;
                 Line("}");
                 break;
+            case BoundVariableDeclaration { Initializer: { } held } declaration when declaration.Local.RefKind != RefKind.None || declaration.Local.Type.IsRefStruct:
+                DeclareHeld(declaration.Local, held);
+                break;
             case BoundVariableDeclaration declaration:
                 DeclarePatternLocals(declaration.Initializer);
                 HoistTry(declaration.Initializer);
-                var initializer = declaration.Initializer is null ? "{}" : " = " + Expression(declaration.Initializer);
+                var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
+                    : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
+                    : "{}";
                 Line($"{CppType(declaration.Local.Type)} {LocalName(declaration.Local)}{initializer};");
                 EndTry(declaration.Initializer);
                 break;
@@ -218,6 +229,9 @@ public sealed partial class CppEmitter
                 Statement(forStatement.Body);
                 indent--;
                 Line("}");
+                break;
+            case BoundForRange range:
+                ForRange(range);
                 break;
             case BoundReturn returnStatement:
                 DeclarePatternLocals(returnStatement.Value);
@@ -323,7 +337,10 @@ public sealed partial class CppEmitter
     string Assignment(BoundAssignment assignment)
     {
         var root = PinRoot(assignment.Target);
-        if (root is null || !(HasEffects(assignment.Value) || Writes(assignment.Value)))
+        bool valueMatters = HasEffects(assignment.Value) || Writes(assignment.Value);
+        if (!IsFieldPath(assignment.Target) && valueMatters)
+            return LocatedAssignment(assignment, root);
+        if (root is null || !valueMatters)
             return Store(assignment);
 
         var pin = NewTemp();
@@ -334,12 +351,96 @@ public sealed partial class CppEmitter
         return $"[&] {{ auto {pin} = {rootText}; {store}; }}()";
     }
 
-    string Store(BoundAssignment assignment)
+    static bool IsFieldPath(BoundExpression place) =>
+        place is BoundLocalAccess or BoundThis || (place is BoundFieldAccess field && IsFieldPath(field.Receiver));
+
+    /// <summary>
+    /// Finds the target, including its index checks, before evaluating the value, which reads the
+    /// found target in a compound assignment like <c>a[f()] += 1</c> instead of finding it again.
+    /// </summary>
+    string LocatedAssignment(BoundAssignment assignment, BoundExpression? root)
     {
-        var target = Place(assignment.Target);
-        var value = Expression(assignment.Value);
+        var body = new StringBuilder("[&] { ");
+        if (root is not null)
+        {
+            var pin = NewTemp();
+            body.Append($"auto {pin} = {Hold(assignment.Target, root)}; ");
+            replacements[root] = pin;
+        }
+        var target = NewTemp();
+        body.Append($"auto&& {target} = {Place(assignment.Target)}; ");
+        if (root is not null)
+            replacements.Remove(root);
+        replacements[assignment.Target] = target;
+        body.Append(StoreText(assignment, target, Expression(assignment.Value)));
+        replacements.Remove(assignment.Target);
+        return body.Append("; }()").ToString();
+    }
+
+    string Store(BoundAssignment assignment) => StoreText(assignment, Place(assignment.Target), Expression(assignment.Value));
+
+    static string StoreText(BoundAssignment assignment, string target, string value)
+    {
         var type = assignment.Target.Type;
-        bool plain = type.IsReference || !(type.IsStructOrEnum || type.IsTypeParameter) || assignment.Target is BoundFieldAccess { Field.IsWeak: true };
+        bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter) || assignment.Target is BoundFieldAccess { Field.IsWeak: true };
         return plain ? $"{target} = {value}" : $"vpl::assign({target}, {value})";
+    }
+
+    /// <summary>
+    /// A <c>ref</c>, <c>in</c>, or span variable holds the object whose storage it refers to for its
+    /// whole scope, even one held by a local: unlike a call, the function itself may reassign that
+    /// local while the reference lives.
+    /// </summary>
+    void DeclareHeld(LocalSymbol local, BoundExpression place)
+    {
+        DeclarePatternLocals(place);
+        var root = ScopeRoot(place);
+        if (root is not null)
+        {
+            var pin = NewTemp();
+            Line($"auto {pin} = {Hold(place, root)};");
+            replacements[root] = pin;
+        }
+        if (local.RefKind == RefKind.None)
+            Line($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {Expression(place)};");
+        else
+            Line($"[[maybe_unused]] {(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {LocalName(local)} = {Place(place)};");
+        if (root is not null)
+            replacements.Remove(root);
+    }
+
+    /// <summary>
+    /// The bounds are evaluated once, in order. An inclusive range stops by comparing before it
+    /// increments, so a range ending at the type's maximum value cannot overflow.
+    /// </summary>
+    void ForRange(BoundForRange range)
+    {
+        var type = CppType(range.Local.Type);
+        var (start, end, counter) = (NewTemp(), NewTemp(), NewTemp());
+        Line("{");
+        indent++;
+        DeclarePatternLocals(range.Start);
+        DeclarePatternLocals(range.End);
+        Line($"{type} {start} = {Expression(range.Start)};");
+        Line($"{type} {end} = {Expression(range.End)};");
+        if (range.IsInclusive)
+        {
+            var more = NewTemp();
+            Line($"bool {more} = {start} <= {end};");
+            Line($"for ({type} {counter} = {start}; {more}; {more} = {counter} != {end}, {counter} = {more} ? static_cast<{type}>({counter} + 1) : {counter})");
+        }
+        else
+        {
+            Line($"for ({type} {counter} = {start}; {counter} < {end}; ++{counter})");
+        }
+        Line("{");
+        indent++;
+        Line($"[[maybe_unused]] {type} {LocalName(range.Local)} = {counter};");
+        foreach (var statement in range.Body is BoundBlock block ? block.Statements : [range.Body])
+            Statement(statement);
+        indent--;
+        Line("}");
+        indent--;
+        Line("}");
     }
 }

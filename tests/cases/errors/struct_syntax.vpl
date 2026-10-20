@@ -10,5 +10,6 @@ static void g() {                  // error: 'static' is not valid on a function
 }
 
 void main() {
-    ref int r = 5;                 // error: 'ref' locals are not supported yet
+    for (int i : 0..) {            // error: expected an expression
+    }
 }

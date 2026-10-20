@@ -1,0 +1,74 @@
+class Node {
+    int value;
+}
+
+struct Mat2 {
+    float[4] m;
+
+    ref float this[int row, int col] {
+        return ref m[row * 2 + col];
+    }
+
+    readonly in float at(int i) {
+        return ref m[i];
+    }
+
+    ref float bad(int i) {
+        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref'
+    }
+
+    ref float other(ref Mat2 o) {
+        return ref o.m[0];              // error: a returned 'ref' must point into the method's receiver
+    }
+
+    ref float temporary() {
+        return ref 1.5;                 // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+    }
+
+    readonly ref float leak() {
+        return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a readonly method; use 'in' instead
+    }
+
+    float plain() {
+        return ref m[0];                // error: 'return ref' can only be used in a method that returns 'ref' or 'in'
+    }
+
+    static ref float global() {         // error: a static method cannot return 'ref'
+        return ref Mat2().m[0];         // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+    }
+}
+
+class Holder {
+    Node node = new Node();
+    int size;
+
+    ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
+        return ref node;
+    }
+
+    virtual ref int sizeRef() {         // error: methods returning 'ref' cannot be virtual or abstract yet
+        return ref size;
+    }
+
+    int count { get => size; }
+
+    static void report() {
+        print(count);                   // error: 'count' is an instance property; static methods cannot use
+    }
+}
+
+Mat2 makeMat() {
+    return Mat2();
+}
+
+void main() {
+    Mat2 m = Mat2();
+    m.at(0) = 3;                        // error: cannot assign to 'm.at(0)' because 'at(int)' returns 'in'
+    ref float r = m.at(0);              // error: cannot take a 'ref' to 'm.at(0)' because 'at(int)' returns 'in'; use 'in' instead
+    ref float t = makeMat()[0, 0];      // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value
+    print(m[0]);                        // error: no indexer of 'Mat2' takes 1 argument
+    var h = new Holder();
+    h.count = 3;                        // error: cannot assign to property 'count', which has no 'set'
+    print(h.count());                   // error: 'Holder.count' is a property; use it without '(...)'
+    print(h[0]);                        // error: 'Holder' cannot be indexed
+}

@@ -1,0 +1,68 @@
+struct Samples {
+    float[4] values;
+
+    readonly ReadOnlySpan<float> view() {
+        return values;
+    }
+
+    Span<float> edit() {
+        return values;
+    }
+}
+
+class Sensor {
+    float[3] readings;
+}
+
+float sum(ReadOnlySpan<float> values) {
+    float total = 0;
+    for (float v : values) {
+        total += v;
+    }
+    return total;
+}
+
+void scale(Span<float> values, float factor) {
+    for (ref float v : values) {
+        v *= factor;
+    }
+}
+
+T first<T>(ReadOnlySpan<T> values) {
+    return values[0];
+}
+
+void main() {
+    float[4] a = [1, 2, 3, 4];
+    print(sum(a));              // output: 10.0
+    scale(a, 2);
+    print(a[3]);                // output: 8.0
+    print(first(a));            // output: 2.0
+
+    Span<float> s = a;
+    print(s.length);            // output: 4
+    s[0] = 5;
+    print(a[0]);                // output: 5.0
+    var middle = s.slice(1, 2);
+    print(sum(middle));         // output: 10.0
+    ReadOnlySpan<float> view = s;
+    print(view[0]);             // output: 5.0
+    for (int i, in float v : view.slice(2, 2)) {
+        print((float)(i * 100) + v);
+    }
+    // output: 6.0
+    // output: 108.0
+
+    Samples samples = Samples();
+    samples.edit()[2] = 7;
+    print(samples.values[2]);   // output: 7.0
+    print(sum(samples.view())); // output: 7.0
+
+    var sensor = new Sensor();
+    sensor.readings[1] = 2.5;
+    print(sum(sensor.readings)); // output: 2.5
+    Span<float> readings = sensor.readings;
+    sensor = new Sensor();
+    readings[0] = 1;
+    print(readings[0] + readings[1]); // output: 3.5
+}

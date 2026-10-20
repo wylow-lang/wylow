@@ -1,0 +1,23 @@
+class Enemy {
+}
+
+struct Counter implements Borrowable {     // error: only classes can be 'Borrowable'
+    void beginBorrow() {
+    }
+
+    void endBorrow() {
+    }
+}
+
+void main() {
+    Enemy[] squad = new Enemy[3];           // error: 'Enemy' has no default value to fill a new array with; use 'new Array<Enemy>(length, value)'
+    var team = new Array<Enemy>(3);         // error: 'Enemy' has no default value to fill a new array with
+    var list = new List<int>();
+    list.beginBorrow();                     // error: 'beginBorrow' is called by the compiler around every borrow, and cannot be called directly
+    list.count = 3;                         // error: cannot assign to property 'count', which has no 'set'
+    print(list.size);                       // error: field 'List.size' is private
+    Span<int> view = list;
+    List<int> other = new List<int>();
+    view = other;                           // error: 'view' cannot be reassigned
+    long[] wide = new int[2];               // error: cannot implicitly convert 'Array<int>' to 'Array<long>'
+}

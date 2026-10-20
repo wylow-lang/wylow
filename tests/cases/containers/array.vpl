@@ -1,0 +1,53 @@
+class Tag {
+    String name;
+
+    Tag(String name) {
+        this.name = name;
+    }
+
+    ~Tag() {
+        print(name);
+    }
+}
+
+int total(ReadOnlySpan<int> values) {
+    int sum = 0;
+    for (int v : values) {
+        sum += v;
+    }
+    return sum;
+}
+
+void tags() {
+    Tag[] tags = new Array<Tag>(2, new Tag("shared"));
+    tags[1] = new Tag("own");
+    print(tags[0].name);
+}
+
+void main() {
+    int[] squares = new int[4];
+    for (int i : 0..squares.length) {
+        squares[i] = i * i;
+    }
+    print(total(squares));      // output: 14
+    for (ref int s : squares) {
+        s += 1;
+    }
+    print(squares[3]);          // output: 10
+
+    String[] names = new Array<String>(2, "x");
+    print(names[1]);            // output: x
+    Tag?[] maybe = new Tag?[3];
+    print(maybe[2] == null);    // output: true
+
+    // Arrays are objects: copying one shares it.
+    int[] alias = squares;
+    alias[0] = 42;
+    print(squares[0]);          // output: 42
+
+    // Destroying the array drops its elements in order.
+    tags();
+    // output: shared
+    // output: shared
+    // output: own
+}

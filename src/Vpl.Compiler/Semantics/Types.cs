@@ -26,6 +26,8 @@ public sealed class VplType
 
     string? name;
     VplType? nullable;
+    VplType? pointer;
+    Dictionary<int, VplType>? fixedArrays;
 
     VplType(string? name, TypeSymbol? symbol = null, IReadOnlyList<VplType>? typeArguments = null, TypeParameterSymbol? typeParameter = null)
     {
@@ -43,13 +45,30 @@ public sealed class VplType
         NonNull = nonNull;
     }
 
+    VplType(VplType element, int? length)
+    {
+        ElementType = element;
+        FixedLength = length ?? 0;
+        IsPointer = length is null;
+        TypeArguments = [];
+        NonNull = this;
+    }
+
     internal static VplType ForSymbol(TypeSymbol symbol, IReadOnlyList<VplType> typeArguments) =>
         new(typeArguments.Count == 0 ? symbol.Name : null, symbol, typeArguments);
 
     internal static VplType ForTypeParameter(TypeParameterSymbol parameter) => new(parameter.Name, typeParameter: parameter);
 
     // Built on demand: deeply nested generic types share structure, but their names would not.
-    public string Name => name ??= IsNullable ? NonNull.Name + "?" : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
+    public string Name => name ??=
+        IsNullable ? NonNull.Name + "?"
+        : IsPointer ? ElementType!.Name + "*"
+        : IsFixedArray ? ArrayBase.Name + ArraySuffix
+        : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
+
+    // Like C, the outer dimension comes first: `int[4][2]` is four `int[2]`s.
+    VplType ArrayBase => IsFixedArray ? ElementType!.ArrayBase : this;
+    string ArraySuffix => IsFixedArray ? $"[{FixedLength}]" + ElementType!.ArraySuffix : "";
 
     /// <summary>The declared struct, class, interface, or enum, also for its nullable form.</summary>
     public TypeSymbol? Symbol { get; }
@@ -58,6 +77,25 @@ public sealed class VplType
 
     /// <summary>The type without <c>?</c>; the type itself when it is not nullable.</summary>
     public VplType NonNull { get; }
+
+    /// <summary>The element type of a fixed array <c>T[N]</c> or a pointer <c>T*</c>.</summary>
+    public VplType? ElementType { get; }
+
+    /// <summary>The <c>N</c> of a fixed array <c>T[N]</c>.</summary>
+    public int FixedLength { get; }
+
+    public bool IsPointer { get; }
+    public bool IsFixedArray => ElementType is not null && !IsPointer;
+
+    public VplType FixedArrayOf(int length)
+    {
+        fixedArrays ??= new();
+        if (!fixedArrays.TryGetValue(length, out var type))
+            fixedArrays[length] = type = new VplType(this, length);
+        return type;
+    }
+
+    public VplType PointerTo => pointer ??= new VplType(this, null);
 
     public bool IsNullable => NonNull != this;
 
@@ -68,9 +106,13 @@ public sealed class VplType
     public bool IsClass => Symbol?.Kind == TypeKind.Class;
     public bool IsInterface => Symbol?.Kind == TypeKind.Interface;
     public bool IsEnum => Symbol?.Kind == TypeKind.Enum;
+    public bool IsRefStruct => Symbol?.IsRefStruct == true;
 
     /// <summary>Declared value types, which are stored inline and copied.</summary>
     public bool IsStructOrEnum => IsStruct || IsEnum;
+
+    /// <summary>Values stored inline that may contain other values: structs, enums, and fixed arrays.</summary>
+    public bool IsAggregate => IsStructOrEnum || IsFixedArray;
 
     /// <summary>Class and interface types, nullable or not: values that are references to heap objects.</summary>
     public bool IsReference => IsClass || IsInterface;
@@ -79,7 +121,7 @@ public sealed class VplType
     public bool IsInteger => this == Int || this == Long;
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => IsTypeParameter || TypeArguments.Any(a => a.ContainsTypeParameters);
+    public bool ContainsTypeParameters => IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters);
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
@@ -115,6 +157,8 @@ public sealed class TypeMap
 
     public VplType Apply(VplType type) =>
         type.IsNullable ? Apply(type.NonNull).Nullable
+        : type.IsPointer ? Apply(type.ElementType!).PointerTo
+        : type.IsFixedArray ? Apply(type.ElementType!).FixedArrayOf(type.FixedLength)
         : type.TypeParameter is { } parameter ? map.GetValueOrDefault(parameter, type)
         : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Apply)])
         : type;
@@ -148,7 +192,7 @@ public static class Conversions
         || to == VplType.Error
         || (from == VplType.Int && (to == VplType.Long || to == VplType.Double))
         || (from == VplType.Float && to == VplType.Double)
-        || (from == VplType.Null && to.IsNullable)
+        || (from == VplType.Null && (to.IsNullable || to.IsPointer))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
 
     /// <summary>Casts: between numbers, and between integers and enums without data.</summary>
@@ -204,8 +248,9 @@ public static class Conversions
     /// <summary>The first field of a struct type, or variant field of an enum type, whose type does not support <c>==</c>.</summary>
     public static FieldSymbol? FindNonEquatableField(VplType structType) => FindNonEquatableField(structType, []);
 
-    static bool SupportsEquality(VplType type, HashSet<VplType> visiting) => !type.IsStructOrEnum
-        ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
+    static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
+        type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
+        : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
         : FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(VplType structType, HashSet<VplType> visiting)
@@ -228,8 +273,9 @@ public static class Conversions
     public static FieldSymbol? FindNonDefaultableField(VplType structType) => FindNonDefaultableField(structType, []);
 
     static bool IsDefaultable(VplType type, HashSet<VplType> visiting) =>
-        type.IsNullable
-        || (type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
+        type.IsNullable || type.IsPointer
+        || (type.IsFixedArray ? IsDefaultable(type.ElementType!, visiting)
+            : type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
             : !type.IsTypeParameter && !type.IsReference && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
 
     static FieldSymbol? FindNonDefaultableField(VplType structType, HashSet<VplType> visiting)

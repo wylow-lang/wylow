@@ -50,6 +50,8 @@ public sealed partial class Binder
             var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, typeArguments, arguments);
             if (method is null)
                 return new BoundErrorExpression(e.Location);
+            if (method.Symbol.IsProperty)
+                return ErrorExpression(name.Location, $"'{name.Name}' is a property; use it without '(...)'");
             CheckAccessible(name.Location, method.Symbol.ContainingType!, method.Symbol.IsPrivate, $"method '{method.Symbol.ContainingType!.Name}.{name.Name}'");
             if (method.Symbol.IsStatic)
                 return MakeCall(e.Location, method, null, arguments);
@@ -137,7 +139,8 @@ public sealed partial class Binder
         string name,
         Location nameLocation,
         IReadOnlyList<VplType>? typeArguments,
-        List<Argument> arguments)
+        List<Argument> arguments,
+        bool asProperty = false)
     {
         var receiverType = receiver.Type;
         var candidates = receiverType.IsStructOrEnum || receiverType.IsReference || receiverType.IsTypeParameter
@@ -150,7 +153,8 @@ public sealed partial class Binder
                 : $"'{DisplayName(receiverType)}' has no method '{name}'");
         }
 
-        var method = Resolve(location, $"overload of '{DisplayName(receiverType)}.{name}'", candidates, typeArguments, arguments);
+        var description = name == SyntaxFacts.IndexerName ? $"indexer of '{receiverType}'" : $"overload of '{DisplayName(receiverType)}.{name}'";
+        var method = Resolve(location, description, candidates, typeArguments, arguments);
         if (method is null)
             return new BoundErrorExpression(location);
         var declaring = method.Symbol.ContainingType!;
@@ -159,6 +163,8 @@ public sealed partial class Binder
             return ErrorExpression(nameLocation,
                 $"static method '{name}' must be called through the type: '{declaring.Name}.{name}(...)'");
         }
+        if (method.Symbol.IsProperty && !asProperty)
+            return ErrorExpression(nameLocation, $"'{DisplayName(receiverType)}.{name}' is a property; use it without '(...)'");
         CheckAccessible(nameLocation, declaring, method.Symbol.IsPrivate, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
     }
@@ -240,8 +246,27 @@ public sealed partial class Binder
                     $"cannot call '{method.Symbol.Name}' on {what} because {reason}; only 'readonly' methods can be called on it");
             }
         }
+        if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))
+            return new BoundErrorExpression(location);
+        if (IsBorrowHook(method.Symbol))
+            return ErrorExpression(location, $"'{method.Symbol.Name}' is called by the compiler around every borrow, and cannot be called directly");
         QueueBoundChecks(method.Symbol.TypeParameters, method.TypeArguments, location);
         return new BoundCall(location, method, receiver, ConvertArguments(method, arguments), isSuperCall);
+    }
+
+    /// <summary>A call could unbalance the borrow count, so the borrow methods are left to the compiler.</summary>
+    bool IsBorrowHook(FunctionSymbol method) =>
+        stdlib.Borrowable is { } borrowable
+        && method is { Name: "beginBorrow" or "endBorrow", Parameters.Count: 0, ContainingType: { } owner }
+        && Conversions.IsSubtype(owner.Type, borrowable.Type);
+
+    bool CheckUnsafeCall(Location location, MethodReference method)
+    {
+        if (!method.Symbol.IsUnsafe || InUnsafe)
+            return true;
+        var what = method.Symbol.IsConstructor ? $"constructor '{method}'" : $"'{method.Symbol.Name}'";
+        Error(location, $"{what} is unsafe and can only be called from 'unsafe' code");
+        return false;
     }
 
     List<BoundExpression> ConvertArguments(MethodReference method, List<Argument> arguments)
@@ -353,6 +378,16 @@ public sealed partial class Binder
             {
                 found.Add((argument, argumentType));
             }
+            else if (stdlib.IsSpan(parameter) && parameter.Symbol != argumentType.Symbol
+                     && ViewedElement(argumentType, parameter.Symbol == stdlib.ReadOnlySpan) is { } viewed)
+            {
+                Unify(parameter.TypeArguments[0], null, viewed);
+            }
+            else if ((parameter.IsPointer && argumentType.IsPointer)
+                     || (parameter.IsFixedArray && argumentType.IsFixedArray && parameter.FixedLength == argumentType.FixedLength))
+            {
+                Unify(parameter.ElementType!, null, argumentType.ElementType!);
+            }
             else if (parameter.Symbol is not null && parameter.Symbol == argumentType.Symbol)
             {
                 // Inside a type argument there are no conversions, so these must match exactly.
@@ -386,7 +421,7 @@ public sealed partial class Binder
         return result;
     }
 
-    static bool IsApplicable(MethodReference method, List<Argument> arguments) =>
+    bool IsApplicable(MethodReference method, List<Argument> arguments) =>
         Enumerable.Range(0, arguments.Count).All(i => method.ParameterRefKind(i) == RefKind.Ref
             ? arguments[i].IsRef && arguments[i].Expression.Type == method.ParameterType(i)
             : !arguments[i].IsRef && CanConvert(arguments[i].Expression, method.ParameterType(i)));
@@ -426,12 +461,18 @@ public sealed partial class Binder
             return ErrorExpression(e.Type.Location, $"'{type}' cannot be created with 'new'");
         if (type.Symbol!.IsAbstract)
             return ErrorExpression(e.Type.Location, $"cannot create an instance of abstract class '{type}'");
+        return BindNewObject(e.Location, e.Type.Location, type, arguments);
+    }
 
-        var constructor = Resolve(e.Location, $"constructor of '{type}'", ConstructorsOf(type), null, arguments);
+    BoundExpression BindNewObject(Location location, Location typeLocation, VplType type, List<Argument> arguments)
+    {
+        var constructor = Resolve(location, $"constructor of '{type}'", ConstructorsOf(type), null, arguments);
         if (constructor is null)
-            return new BoundErrorExpression(e.Location);
-        CheckAccessible(e.Location, type.Symbol, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
-        return new BoundNew(e.Location, type, constructor, ConvertArguments(constructor, arguments));
+            return new BoundErrorExpression(location);
+        CheckAccessible(location, type.Symbol!, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        if (!CheckArrayElementsDefaultable(typeLocation, type, constructor) || !CheckUnsafeCall(location, constructor))
+            return new BoundErrorExpression(location);
+        return new BoundNew(location, type, constructor, ConvertArguments(constructor, arguments));
     }
 
     BoundExpression BindInitializer(InitializerExpr e)
@@ -459,6 +500,8 @@ public sealed partial class Binder
         if (constructor is null)
             return new BoundErrorExpression(location);
         CheckAccessible(location, s, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        if (!CheckUnsafeCall(location, constructor))
+            return new BoundErrorExpression(location);
 
         var map = TypeMap.For(type);
         var initializers = new List<BoundFieldInitializer>();

@@ -1,0 +1,10 @@
+int[3] values() {
+    return [1, 2, 3];
+}
+
+void main() {
+    int[3] a = values();
+    int i = 3;
+    print(a[i - 1]);                // output: 3
+    print(a[i]);                    // panic: index 3 is out of bounds for length 3
+}

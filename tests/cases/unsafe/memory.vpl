@@ -1,0 +1,97 @@
+class Tracked {
+    int id;
+
+    Tracked(int id) {
+        this.id = id;
+    }
+
+    ~Tracked() {
+        print(id * -1);
+    }
+}
+
+// A growable stack built on raw memory, the way the standard library's containers are.
+class Stack<T> {
+    T* data;
+    int size;
+    int capacity;
+
+    void push(T value) {
+        unsafe {
+            if (size == capacity) {
+                int grown = capacity == 0 ? 2 : capacity * 2;
+                T* bigger = Memory.allocate<T>(grown);
+                Memory.moveTo(data, bigger, size);
+                Memory.free(data);
+                data = bigger;
+                capacity = grown;
+            }
+            Memory.initialize(data + size, value);
+        }
+        size++;
+    }
+
+    @CallerLocation
+    ref T this[int index] {
+        Bounds.check(index, size);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    // Rotates the elements one place to the right, moving them onto themselves.
+    void shiftRight() {
+        unsafe {
+            Memory.drop(data + size - 1);
+            Memory.moveTo(data, data + 1, size - 1);
+            Memory.initialize(data, this[size - 1]);
+        }
+    }
+
+    ~Stack() {
+        unsafe {
+            for (int i : 0..size) {
+                Memory.drop(data + i);
+            }
+            Memory.free(data);
+        }
+    }
+}
+
+unsafe int third(int* values) {
+    return values[2];
+}
+
+void main() {
+    var numbers = new Stack<int>();
+    for (int i : 0..5) {
+        numbers.push(i * i);
+    }
+    print(numbers[4]);          // output: 16
+    numbers[0] = 7;
+    print(numbers[0]);          // output: 7
+    print(numbers.capacity);    // output: 8
+    unsafe {
+        print(third(numbers.data)); // output: 4
+        print(numbers.data == null); // output: false
+    }
+
+    int* nothing = null;
+    print(nothing == null);     // output: true
+
+    var objects = new Stack<Tracked>();
+    objects.push(new Tracked(1));
+    objects.push(new Tracked(2));
+    objects.push(new Tracked(3));
+    print(objects[2].id);       // output: 3
+    objects.shiftRight();
+    // output: -3
+    print(objects[0].id);       // output: 2
+    print(objects[1].id);       // output: 1
+    print(objects[2].id);       // output: 2
+    // Elements 0 and 2 share one object, so the stack releases 1 before 2.
+    objects = new Stack<Tracked>();
+    // output: -1
+    // output: -2
+    print(0);                   // output: 0
+}

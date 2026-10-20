@@ -1,0 +1,8 @@
+// A class that may move or free its elements implements this, so that references and spans into
+// it stay valid: the compiler calls `beginBorrow` when a reference, span, or loop into the object
+// starts and `endBorrow` when it ends. Only the compiler may call them.
+
+interface Borrowable {
+    void beginBorrow();
+    void endBorrow();
+}

@@ -1,0 +1,4 @@
+void main() {
+    int n = -1;
+    int[] values = new int[n];  // panic-here: cannot allocate a negative number of elements
+}

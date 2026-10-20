@@ -83,6 +83,16 @@ unsafe {
 Inside `unsafe` and `@Unchecked` code, violating the rules is undefined behavior and is the
 programmer's responsibility, as in C#.
 
+An `unsafe` method or constructor may only be called from unsafe code. Pointer types may be written
+anywhere (a struct may have a `T*` field); only using a pointer needs unsafe code.
+
+> Implemented so far: `unsafe` blocks, methods, and constructors; pointer types `T*`, which default
+> to `null` and compare with `==`; `p[i]`, an unchecked place; and `p + n` and `p - n`. There is no
+> address-of and no pointer casts yet, and unsafe code still has its runtime checks (`@Unchecked` is
+> not implemented). Memory comes from the standard library's `Memory`: `allocate<T>(count)`
+> (uninitialized), `free`, `initialize(place, value)`, `initializeDefault(data, count)`,
+> `drop(place)`, and `moveTo(from, to, count)`, which `Array` and `List` are written with.
+
 ## 1.5 Large stack objects
 
 Very large locals (e.g. `float[1_000_000]`) can overflow the stack. The compiler **warns** when a

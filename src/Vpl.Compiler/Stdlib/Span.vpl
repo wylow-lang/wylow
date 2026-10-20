@@ -1,0 +1,69 @@
+// Views of elements stored elsewhere: in a fixed array, an `Array`, or a `List`. Spans are
+// `ref struct`s, so like `ref` they can only be locals and parameters, and whatever a span views is
+// held and borrowed for as long as the span exists. See docs/spec/03-memory-model.md.
+
+ref struct Span<T> implements ReadOnlySpannable<T> {
+    private T* data;
+    private int count;
+
+    // The caller must keep the storage alive and unmoved while the span exists.
+    unsafe Span(T* data, int length) {
+        this.data = data;
+        count = length;
+    }
+
+    readonly int length { get => count; }
+
+    @CallerLocation
+    readonly ref T this[int index] {
+        Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    // The `length` elements starting at `start`.
+    @CallerLocation
+    readonly Span<T> slice(int start, int length) {
+        Bounds.checkRange(start, length, count);
+        unsafe {
+            return Span<T>(data + start, length);
+        }
+    }
+
+    readonly ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(data, count);
+        }
+    }
+}
+
+ref struct ReadOnlySpan<T> {
+    private T* data;
+    private int count;
+
+    // The caller must keep the storage alive and unmoved while the span exists.
+    unsafe ReadOnlySpan(T* data, int length) {
+        this.data = data;
+        count = length;
+    }
+
+    readonly int length { get => count; }
+
+    @CallerLocation
+    readonly in T this[int index] {
+        Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    // The `length` elements starting at `start`.
+    @CallerLocation
+    readonly ReadOnlySpan<T> slice(int start, int length) {
+        Bounds.checkRange(start, length, count);
+        unsafe {
+            return ReadOnlySpan<T>(data + start, length);
+        }
+    }
+}

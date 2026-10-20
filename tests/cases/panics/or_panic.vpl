@@ -1,0 +1,11 @@
+Result<int, String> half(int value) {
+    if (value % 2 != 0) {
+        return Err("odd");
+    }
+    return Ok(value / 2);
+}
+
+void main() {
+    print(half(8).orPanic("must be even"));    // output: 4
+    print(half(3).orPanic("must be even"));    // panic-here: must be even
+}

@@ -349,11 +349,12 @@ that requires a derived class to assign its fields *before* calling `super`.
 
 ```java
 float[16] matrix;                              // inline, compiles to std::array
-float[] heights = new float[width * height];   // heap, length fixed, zero-initialized
-List<Enemy> spawned = new List<>();            // heap, growable
+float[] heights = new float[width * height];   // heap, length fixed, default values
+List<Enemy> spawned = new List<Enemy>();       // heap, growable
 ```
 
-- All indexing is bounds-checked (unless `@Unchecked` / `unsafe`).
+- All indexing is bounds-checked (unless `@Unchecked` / `unsafe`); a failed check panics with the
+  index and the length.
 - `T[]` stores its length and elements in a single allocation and **never reallocates**, so
   references into it never need growth locking.
 - `T[N]`, `T[]`, and `List<T>` convert **implicitly** to `Span<T>` and `ReadOnlySpan<T>`.
@@ -368,6 +369,52 @@ sum(matrix);    // T[N]
 sum(heights);   // T[]
 sum(spawned);   // List (borrowed for the duration of the call)
 ```
+
+### Fixed arrays `T[N]`
+
+- `N` is an integer literal. Like C, the first length is the outer one: `int[4][2]` is four
+  `int[2]`s, indexed `a[i][j]` with `i < 4`.
+- A fixed array is a value: assignment and passing by value copy every element. `==` compares
+  the elements when their type supports `==`.
+- `a.length` is `N`. An index that is a constant outside `0..N` is a compile-time error.
+- Array literals create fixed arrays: `int[3] a = [1, 2, 3];`. The element type is the expected
+  one, or else the first element type that every element converts to. An empty literal `[]`
+  needs an expected type.
+- A fixed array's default value has each element's default. Unlike other locals, a fixed-array
+  local without an initializer holds that default rather than being unassigned, since writing out
+  a literal of every element is impractical; this requires the element type to have a default.
+
+### Heap arrays `T[]`
+
+- `T[]` is the standard library class `Array<T>`, and `new T[n]` calls its constructor
+  `Array(int length)`, which fills the array with default values. Only the compiler can check
+  that `T` has one, so `new T[n]`, and `new Array<T>(n)` written out, are errors for a `T`
+  without a default, such as a non-null class type. `new Array<T>(n, value)` fills it with copies
+  of `value` instead.
+- `T?[]` is an array of nullable elements; `T[]?` is a nullable reference to an array.
+- `a.length` is a property. `new T[n]` panics if `n` is negative.
+- Like any object, copying a `T[]` shares it.
+
+> Implemented so far: one dimension per `new`; `new T[2][3]` is not supported yet.
+
+### Spans
+
+`Span<T>` and `ReadOnlySpan<T>` are standard library `ref struct`s
+([03-memory-model.md](03-memory-model.md#spans)): a pointer and a length, with a bounds-checked
+indexer, `length`, and `slice(start, length)`. A `ReadOnlySpan`'s indexer returns `in T`, so its
+elements can be read but not changed.
+
+Conversions to spans are implicit, from:
+
+- a fixed array stored in a variable, field, or element. A temporary fixed array, such as one a
+  function returned, has no storage to view. A read-only fixed array (an `in` parameter, or a
+  field in a `readonly` method) converts only to `ReadOnlySpan`.
+- a value of a type implementing the standard library's `Spannable<T>`, by calling its `asSpan()`,
+  or `ReadOnlySpannable<T>`, by calling `asReadOnlySpan()`. `Array`, `List`, and `Span` implement
+  them, and so can user types.
+
+A generic function taking a span infers its element type from any of these:
+`T first<T>(ReadOnlySpan<T> values)` accepts an `int[4]` or a `List<int>`.
 
 ### `Box<T>`
 

@@ -29,6 +29,14 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public BlockStmt? Body { get; init; }
 
     public IReadOnlyList<TypeParameterSymbol> TypeParameters { get; init; } = [];
+
+    /// <summary>A method returning <c>ref</c> or <c>in</c> returns a reference into its receiver.</summary>
+    public RefKind ReturnRefKind { get; init; }
+
+    /// <summary>A get-only property, which is used without parentheses.</summary>
+    public bool IsProperty { get; init; }
+
+    public bool IsIndexer => Name == SyntaxFacts.IndexerName;
     public TypeSymbol? ContainingType { get; init; }
     public bool IsStatic { get; init; }
     public bool IsReadOnly { get; init; }
@@ -40,6 +48,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool IsAbstract { get; init; }
     public bool IsFinal { get; init; }
 
+    /// <summary>Declared <c>unsafe</c>: its body is unsafe code, and only unsafe code may call it.</summary>
+    public bool IsUnsafe { get; init; }
+
     /// <summary>The compiler-provided default constructor.</summary>
     public bool IsImplicit { get; init; }
 
@@ -50,6 +61,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool PassesLocation { get; init; }
 
     public bool IsBuiltin => BuiltinCppName is not null;
+
+    /// <summary>Declared <c>extern</c> in the standard library and implemented in the C++ runtime.</summary>
+    public bool IsExtern => IsBuiltin && Declaration is not null;
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
 
@@ -63,8 +77,11 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     {
         get
         {
+            if (IsProperty)
+                return Name;
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
-            return $"{Name}{typeParameters}({string.Join(", ", Parameters.Select(p => RefPrefix(p.RefKind) + p.Type))})";
+            var parameters = string.Join(", ", Parameters.Select(p => RefPrefix(p.RefKind) + p.Type));
+            return IsIndexer ? $"this[{parameters}]" : $"{Name}{typeParameters}({parameters})";
         }
     }
 
@@ -206,6 +223,9 @@ public sealed class TypeSymbol
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsAbstract => (Declaration.Modifiers & Modifiers.Abstract) != 0;
     public bool IsFinal => (Declaration.Modifiers & Modifiers.Final) != 0;
+
+    /// <summary>A <c>ref struct</c>: second-class, like a <c>ref</c>, so it can only be a local or parameter.</summary>
+    public bool IsRefStruct => (Declaration.Modifiers & Modifiers.Ref) != 0;
 
     /// <summary>The type of <c>this</c>: the type applied to its own type parameters.</summary>
     public VplType Type { get; }

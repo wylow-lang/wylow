@@ -1,0 +1,10 @@
+int grow(List<int> list) {
+    list.add(0);                // panic-here: cannot change the length of a list while it is borrowed
+    return 1;
+}
+
+void main() {
+    var numbers = new List<int>();
+    numbers.add(1);
+    numbers[0] = grow(numbers);
+}

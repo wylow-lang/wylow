@@ -19,8 +19,13 @@ public sealed partial class CppEmitter
 
         void VisitType(VplType type)
         {
-            if (type.IsReference)
+            if (type.IsReference || type.IsPointer)
                 return;
+            if (type.IsFixedArray)
+            {
+                VisitType(type.ElementType!);
+                return;
+            }
             if (type.Symbol is { } s)
                 Visit(s);
             foreach (var argument in type.TypeArguments)
@@ -61,11 +66,12 @@ public sealed partial class CppEmitter
     }
 
     bool NeedsDefaultCode(VplType type) =>
-        type.IsTypeParameter || (type.IsStruct && NeedsDefaultFunction(type.Symbol!));
+        type.IsFixedArray ? NeedsDefaultCode(type.ElementType!)
+        : type.IsTypeParameter || (type.IsStruct && NeedsDefaultFunction(type.Symbol!));
 
     string DefaultValue(VplType type)
     {
-        if (type.IsTypeParameter)
+        if (type.IsTypeParameter || (type.IsFixedArray && NeedsDefaultCode(type)))
             return $"vpl::default_value<{CppType(type)}>()";
         return type.IsStruct && NeedsDefaultFunction(type.Symbol!) ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
     }
@@ -82,7 +88,7 @@ public sealed partial class CppEmitter
             Line($"{CppType(field.Type)} {FieldName(field)}{{}};");
         if (NeedsDefaultFunction(s))
             Line($"static {name} make_default();");
-        foreach (var member in s.Members)
+        foreach (var member in s.Members.Where(m => !m.IsExtern))
             Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
         if (s.IsGeneric || Conversions.SupportsEquality(s.Type))
@@ -161,7 +167,7 @@ public sealed partial class CppEmitter
             EmitVariantFactory(name, variant);
         if (!s.HasData)
             EmitFromValue(s, name, tag);
-        foreach (var member in s.Members)
+        foreach (var member in s.Members.Where(m => !m.IsExtern))
             Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
 
         if (equatable && withData.Count == 0)
@@ -289,7 +295,7 @@ public sealed partial class CppEmitter
             if (s.Destructor is null)
                 Line($"~{TypeName(s)}() override;");
         }
-        foreach (var member in s.Members)
+        foreach (var member in s.Members.Where(m => !m.IsExtern))
         {
             if (member.IsAbstract)
                 EmitAbstractStub(member);
@@ -298,6 +304,13 @@ public sealed partial class CppEmitter
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
+        if (s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type)
+            && !(s.Type.BaseType is { } inherited && Conversions.IsSubtype(inherited, borrowable.Type)))
+        {
+            var hooks = $"static_cast<{ObjectType(borrowable.Type)}*>(this)";
+            Line($"void vpl_begin_borrow() override {{ {hooks}->m_beginBorrow(); }}");
+            Line($"void vpl_end_borrow() override {{ {hooks}->m_endBorrow(); }}");
+        }
         indent--;
         Line("};");
     }

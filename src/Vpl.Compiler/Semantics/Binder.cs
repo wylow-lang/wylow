@@ -12,8 +12,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     // Bounds may mention types whose own bounds are not bound yet, so satisfaction is checked last.
     readonly List<(VplType Argument, TypeParameterSymbol Parameter, TypeMap Map, Location Location)> boundChecks = [];
 
-    /// <summary>The prelude's <c>Result</c>, which <c>try</c> and the unused-result check know about.</summary>
-    TypeSymbol? resultSymbol;
+    readonly StdlibSymbols stdlib = new();
 
     FunctionSymbol? currentFunction;
     TypeSymbol? currentType;
@@ -22,6 +21,9 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     NoThisContext noThisContext;
     Scope? scope;
     int loopDepth;
+    int unsafeDepth;
+
+    bool InUnsafe => unsafeDepth > 0 || currentFunction?.IsUnsafe == true;
 
     sealed class Scope(Scope? parent)
     {
@@ -62,8 +64,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             if (DeclareType(decl) is not { } symbol)
                 continue;
             typeList.Add(symbol);
-            if (decl.Location.Source == Prelude.Source && decl.Name == "Result")
-                resultSymbol = symbol;
+            if (Stdlib.Contains(decl.Location.Source))
+                stdlib.Register(symbol);
         }
         foreach (var s in typeList)
         {
@@ -91,11 +93,11 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             if (s.Kind == TypeKind.Class && s.Constructors.Count == 0)
                 bodies.Add(BindImplicitConstructor(s));
         }
-        foreach (var function in functionList)
+        foreach (var function in functionList.Where(f => f.Body is not null))
             bodies.Add(new BoundFunction(function, BindBody(function)));
 
         CheckBounds();
-        return new BoundProgram(unit.Source, typeList, bodies, FindMain(unit.Source));
+        return new BoundProgram(unit.Source, typeList, bodies, FindMain(unit.Source), stdlib);
     }
 
     void Error(Location location, string message) => diagnostics.Error(location, message);

@@ -32,6 +32,9 @@ public sealed partial class Binder
         CoalesceExpr e => BindCoalesce(e),
         IsExpr e => BindIs(e),
         CallExpr e => BindCall(e, expected),
+        IndexExpr e => BindIndex(e),
+        ArrayLiteralExpr e => BindArrayLiteral(e, expected),
+        NewArrayExpr e => BindNewArray(e),
         NewExpr e => BindNew(e),
         InitializerExpr e => BindInitializer(e),
         CastExpr e => BindCast(e),
@@ -102,6 +105,12 @@ public sealed partial class Binder
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
+        if (currentType is not null && HasProperty(currentType.Type, e.Name))
+        {
+            if (!hasThis)
+                return ErrorExpression(e.Location, $"'{e.Name}' is an instance property; {NoInstanceReason}");
+            return BindMethodCall(e.Location, new BoundThis(e.Location, currentType.Type), e.Name, e.Location, null, [], asProperty: true);
+        }
         if (types.ContainsKey(e.Name) || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
         if (functions.ContainsKey(e.Name) || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
@@ -164,6 +173,14 @@ public sealed partial class Binder
         if (target.Type == VplType.Error)
             return new BoundErrorExpression(location);
 
+        if (HasProperty(target.Type, name))
+            return BindMethodCall(location, target, name, nameLocation, null, [], asProperty: true);
+        if (target.Type.IsFixedArray)
+        {
+            return name == "length"
+                ? new BoundArrayLength(location, target)
+                : ErrorExpression(nameLocation, $"'{target.Type}' has no member '{name}'; fixed arrays only have 'length'");
+        }
         if (!target.Type.IsStruct && !target.Type.IsClass)
         {
             return ErrorExpression(nameLocation, LookupMethods(target.Type, name).Count > 0
@@ -181,6 +198,9 @@ public sealed partial class Binder
         CheckAccessible(nameLocation, field.Owner, field.IsPrivate, $"field '{field.Owner.Name}.{name}'");
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
     }
+
+    static bool HasProperty(VplType type, string name) =>
+        (type.IsStructOrEnum || type.IsReference || type.IsTypeParameter) && LookupMethods(type, name).Any(c => c.Symbol.IsProperty);
 
     // Private members are visible only inside their declaring type. Protected and package access
     // need no checks yet: every program is a single file, which is a single package.
@@ -239,7 +259,7 @@ public sealed partial class Binder
         return new BoundCoalesce(e.Location, left, Convert(right, type), type);
     }
 
-    bool IsResult(VplType? type) => type?.Symbol is { } s && s == resultSymbol;
+    bool IsResult(VplType? type) => type?.Symbol is { } s && s == stdlib.Result;
 
     static bool IsTry(BoundExpression value) => value is BoundTry || (value is BoundConversion conversion && IsTry(conversion.Operand));
 
@@ -308,6 +328,9 @@ public sealed partial class Binder
         var symbol = SyntaxFacts.GetText(syntaxOperator);
         string Mismatch() => $"operator '{symbol}' cannot be applied to '{left.Type}' and '{right.Type}'";
 
+        if (left.Type.IsPointer || right.Type.IsPointer)
+            return BindPointerOperation(location, left, op, right, Mismatch());
+
         if (IsReferenceOrNull(left.Type) || IsReferenceOrNull(right.Type))
         {
             if (op is not (BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual) || !IsReferenceOrNull(left.Type) || !IsReferenceOrNull(right.Type))
@@ -321,15 +344,21 @@ public sealed partial class Binder
             return new BoundBinary(location, left, op, right, VplType.Bool);
         }
 
-        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type.IsStructOrEnum || right.Type.IsStructOrEnum))
+        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type.IsAggregate || right.Type.IsAggregate))
         {
             if (left.Type != right.Type)
                 return ErrorExpression(location, Mismatch());
-            if (Conversions.FindNonEquatableField(left.Type) is { } field)
+            var valueType = left.Type;
+            while (valueType.IsFixedArray)
+                valueType = valueType.ElementType!;
+            if (valueType.IsStructOrEnum && Conversions.FindNonEquatableField(valueType) is { } field)
             {
+                var owner = valueType == left.Type ? "its" : $"'{valueType}'s";
                 return ErrorExpression(location,
-                    $"operator '{symbol}' cannot be applied to '{left.Type}' because its field '{field.Name}' of type '{TypeMap.For(left.Type).Apply(field.Type)}' does not support '=='");
+                    $"operator '{symbol}' cannot be applied to '{left.Type}' because {owner} field '{field.Name}' of type '{TypeMap.For(valueType).Apply(field.Type)}' does not support '=='");
             }
+            if (!Conversions.SupportsEquality(left.Type))
+                return ErrorExpression(location, $"operator '{symbol}' cannot be applied to '{left.Type}', since '{valueType}' does not support '=='");
             return new BoundBinary(location, left, op, right, VplType.Bool);
         }
 
@@ -374,6 +403,23 @@ public sealed partial class Binder
         return new BoundBinary(location, Convert(left, operandType), op, Convert(right, operandType), resultType);
     }
 
+    /// <summary>Pointers compare by address, and in unsafe code move by a number of elements.</summary>
+    BoundExpression BindPointerOperation(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string mismatch)
+    {
+        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
+        {
+            var type = left.Type.IsPointer ? left.Type : right.Type;
+            if (!CanConvert(left, type) || !CanConvert(right, type))
+                return ErrorExpression(location, mismatch);
+            return new BoundBinary(location, Convert(left, type), op, Convert(right, type), VplType.Bool);
+        }
+        if (op is not (BoundBinaryOperator.Add or BoundBinaryOperator.Subtract) || !left.Type.IsPointer || !CanConvert(right, VplType.Int))
+            return ErrorExpression(location, mismatch);
+        if (!InUnsafe)
+            return ErrorExpression(location, "pointer arithmetic is only allowed in 'unsafe' code");
+        return new BoundBinary(location, left, op, Convert(right, VplType.Int), left.Type);
+    }
+
     VplType? CommonNumericType(BoundExpression left, BoundExpression right)
     {
         if (left.Type == right.Type)
@@ -385,8 +431,9 @@ public sealed partial class Binder
         return null;
     }
 
-    static bool CanConvert(BoundExpression expression, VplType to) =>
-        Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to);
+    bool CanConvert(BoundExpression expression, VplType to) =>
+        Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
+        || SpanConversion(expression, to) is not null;
 
     /// <summary>Integer literals convert implicitly to float or double when no precision is lost.</summary>
     static bool IsConvertibleConstant(BoundExpression expression, VplType to) =>
@@ -420,10 +467,12 @@ public sealed partial class Binder
 
         if (Conversions.IsImplicit(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
+        if (SpanConversion(expression, to) is { } span)
+            return span;
 
         var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"
             : expression.Type.IsNullable && Conversions.IsImplicit(expression.Type.NonNull, to) ? "; check it for null first, or use '!'"
-            : "";
+            : SpanConversionHint(expression, to);
         return ErrorExpression(expression.Location, $"cannot implicitly convert '{expression.Type}' to '{to}'{hint}");
     }
 
@@ -457,6 +506,8 @@ public sealed partial class Binder
             : null;
         if (type is null || type == VplType.Void || type == VplType.Null)
             return ErrorExpression(e.Location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
+        if (type.IsRefStruct)
+            return ErrorExpression(e.Location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
         return new BoundConditional(e.Location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }
