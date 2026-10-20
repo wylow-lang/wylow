@@ -1,0 +1,10 @@
+class Player {                // error: 'class' is not supported yet
+}
+
+void main() {
+    int x = 0;
+    if (x == 0) print(x);     // error: the body of 'if' must be enclosed in braces
+    int y = (x = 1);          // error: assignment is a statement
+    int z = 1                 // error: expected ';'
+    print(z);
+}

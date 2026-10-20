@@ -1,0 +1,22 @@
+int fib(int n) {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+void main() {
+    for (int i = 0; i < 10; i++) {
+        print(fib(i));
+    }
+}
+// output: 0
+// output: 1
+// output: 1
+// output: 2
+// output: 3
+// output: 5
+// output: 8
+// output: 13
+// output: 21
+// output: 34

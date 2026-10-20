@@ -1,0 +1,83 @@
+using Vpl.Compiler.Text;
+
+namespace Vpl.Compiler.Syntax;
+
+public enum TokenKind
+{
+    EndOfFile,
+    Identifier,
+    IntLiteral,
+    FloatLiteral,
+    StringLiteral,
+
+    VoidKeyword,
+    BoolKeyword,
+    IntKeyword,
+    LongKeyword,
+    FloatKeyword,
+    DoubleKeyword,
+    VarKeyword,
+    IfKeyword,
+    ElseKeyword,
+    WhileKeyword,
+    ForKeyword,
+    ReturnKeyword,
+    BreakKeyword,
+    ContinueKeyword,
+    TrueKeyword,
+    FalseKeyword,
+    ReservedKeyword,
+
+    OpenParen,
+    CloseParen,
+    OpenBrace,
+    CloseBrace,
+    OpenBracket,
+    CloseBracket,
+    Semicolon,
+    Comma,
+    Dot,
+    Colon,
+    Question,
+
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Ampersand,
+    Pipe,
+    Caret,
+    Tilde,
+    Bang,
+    AmpersandAmpersand,
+    PipePipe,
+    LessLess,
+    GreaterGreater,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    EqualEqual,
+    BangEqual,
+    PlusPlus,
+    MinusMinus,
+
+    Assign,
+    PlusAssign,
+    MinusAssign,
+    StarAssign,
+    SlashAssign,
+    PercentAssign,
+    AmpersandAssign,
+    PipeAssign,
+    CaretAssign,
+    LessLessAssign,
+    GreaterGreaterAssign,
+}
+
+public readonly record struct Token(TokenKind Kind, TextSpan Span, string Text, object? Value);
+
+public readonly record struct IntegerLiteralValue(ulong Value, bool IsLong);
+
+public readonly record struct FloatLiteralValue(double Value, bool IsDouble);

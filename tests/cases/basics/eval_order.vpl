@@ -1,0 +1,28 @@
+int a() {
+    print("a");
+    return 1;
+}
+
+int b() {
+    print("b");
+    return 2;
+}
+
+int add(int x, int y) {
+    return x + y;
+}
+
+void main() {
+    print(a() + b());
+    // output: a
+    // output: b
+    // output: 3
+    print(add(b(), a()));
+    // output: b
+    // output: a
+    // output: 3
+    print(a() < b());
+    // output: a
+    // output: b
+    // output: true
+}

@@ -1,0 +1,6 @@
+// panic: integer overflow
+void main() {
+    int x = 2147483647;
+    print(1); // output: 1
+    print(x + 1);
+}

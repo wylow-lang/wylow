@@ -1,0 +1,12 @@
+// panic: n must be positive
+int checked(int n) {
+    if (n > 0) {
+        return n;
+    }
+    panic("n must be positive");
+}
+
+void main() {
+    print(checked(3)); // output: 3
+    print(checked(-1));
+}

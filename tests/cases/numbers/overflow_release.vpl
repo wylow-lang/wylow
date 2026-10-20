@@ -1,0 +1,9 @@
+// mode: release
+void main() {
+    int x = 2147483647;
+    print(x + 1);     // output: -2147483648
+    long y = -9223372036854775808L;
+    print(-y);        // output: -9223372036854775808
+    int big = 65536;
+    print(big * big); // output: 0
+}

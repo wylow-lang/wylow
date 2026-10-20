@@ -1,0 +1,5 @@
+// panic: integer overflow
+void main() {
+    int min = -2147483648;
+    print(-min);
+}

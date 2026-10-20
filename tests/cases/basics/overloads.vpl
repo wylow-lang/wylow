@@ -1,0 +1,24 @@
+void show(int x) {
+    print("int");
+}
+
+void show(long x) {
+    print("long");
+}
+
+void show(float x) {
+    print("float");
+}
+
+void show(double x) {
+    print("double");
+}
+
+void main() {
+    show(1);    // output: int
+    show(1L);   // output: long
+    show(1.5);  // output: float
+    show(1.5d); // output: double
+    int i = 3;
+    show(i);    // output: int
+}

@@ -1,0 +1,8 @@
+void main() {
+    String s = "quote \" and backslash \\";
+    print(s);              // output: quote " and backslash \
+    print("héllo wörld");  // output: héllo wörld
+    print("a\nb");
+    // output: a
+    // output: b
+}

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vpl.Cli/Vpl.Cli.csproj" />
+    <Project Path="src/Vpl.Compiler/Vpl.Compiler.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vpl.Tests/Vpl.Tests.csproj" />
+  </Folder>
+</Solution>

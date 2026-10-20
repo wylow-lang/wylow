@@ -1,0 +1,28 @@
+void f(int n) {
+    int n = 2;                // error: 'n' is already defined
+}
+
+void f(int m) {               // error: function 'f(int)' is already defined
+}
+
+void print(int x) {           // error: conflicts with a built-in function
+}
+
+void pick(long x) {
+}
+
+void pick(float x) {
+}
+
+void main() {
+    {
+        int a = 1;
+    }
+    int a = 2;
+    print(a);
+    var v;                    // error: 'var' declarations require an initializer
+    var w = f(1);             // error: cannot assign a 'void' value
+    x = 3;                    // error: 'x' is not defined
+    pick(1);                  // error: call to 'pick' is ambiguous
+    int g = f;                // error: 'f' is a function
+}

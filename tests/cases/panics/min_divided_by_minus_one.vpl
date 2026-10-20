@@ -1,0 +1,7 @@
+// mode: release
+// panic: integer overflow
+void main() {
+    int min = -2147483648;
+    int minusOne = -1;
+    print(min / minusOne);
+}

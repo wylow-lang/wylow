@@ -1,0 +1,5 @@
+// panic: division by zero
+void main() {
+    int zero = 0;
+    print(10 / zero);
+}

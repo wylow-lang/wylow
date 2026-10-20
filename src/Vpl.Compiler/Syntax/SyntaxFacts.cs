@@ -1,0 +1,71 @@
+namespace Vpl.Compiler.Syntax;
+
+public static class SyntaxFacts
+{
+    public static int BinaryPrecedence(TokenKind kind) => kind switch
+    {
+        TokenKind.Star or TokenKind.Slash or TokenKind.Percent => 10,
+        TokenKind.Plus or TokenKind.Minus => 9,
+        TokenKind.LessLess or TokenKind.GreaterGreater => 8,
+        TokenKind.Less or TokenKind.LessEqual or TokenKind.Greater or TokenKind.GreaterEqual => 7,
+        TokenKind.EqualEqual or TokenKind.BangEqual => 6,
+        TokenKind.Ampersand => 5,
+        TokenKind.Caret => 4,
+        TokenKind.Pipe => 3,
+        TokenKind.AmpersandAmpersand => 2,
+        TokenKind.PipePipe => 1,
+        _ => 0,
+    };
+
+    public static bool IsAssignmentOperator(TokenKind kind) =>
+        kind is TokenKind.Assign or TokenKind.PlusAssign or TokenKind.MinusAssign or TokenKind.StarAssign
+            or TokenKind.SlashAssign or TokenKind.PercentAssign or TokenKind.AmpersandAssign
+            or TokenKind.PipeAssign or TokenKind.CaretAssign or TokenKind.LessLessAssign
+            or TokenKind.GreaterGreaterAssign;
+
+    public static TokenKind CompoundToBinary(TokenKind kind) => kind switch
+    {
+        TokenKind.PlusAssign => TokenKind.Plus,
+        TokenKind.MinusAssign => TokenKind.Minus,
+        TokenKind.StarAssign => TokenKind.Star,
+        TokenKind.SlashAssign => TokenKind.Slash,
+        TokenKind.PercentAssign => TokenKind.Percent,
+        TokenKind.AmpersandAssign => TokenKind.Ampersand,
+        TokenKind.PipeAssign => TokenKind.Pipe,
+        TokenKind.CaretAssign => TokenKind.Caret,
+        TokenKind.LessLessAssign => TokenKind.LessLess,
+        TokenKind.GreaterGreaterAssign => TokenKind.GreaterGreater,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
+    public static bool IsPrimitiveTypeKeyword(TokenKind kind) =>
+        kind is TokenKind.VoidKeyword or TokenKind.BoolKeyword or TokenKind.IntKeyword
+            or TokenKind.LongKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
+
+    public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind == TokenKind.Identifier;
+
+    public static string GetText(TokenKind kind) => kind switch
+    {
+        TokenKind.Plus => "+",
+        TokenKind.Minus => "-",
+        TokenKind.Star => "*",
+        TokenKind.Slash => "/",
+        TokenKind.Percent => "%",
+        TokenKind.Ampersand => "&",
+        TokenKind.Pipe => "|",
+        TokenKind.Caret => "^",
+        TokenKind.Tilde => "~",
+        TokenKind.Bang => "!",
+        TokenKind.AmpersandAmpersand => "&&",
+        TokenKind.PipePipe => "||",
+        TokenKind.LessLess => "<<",
+        TokenKind.GreaterGreater => ">>",
+        TokenKind.Less => "<",
+        TokenKind.Greater => ">",
+        TokenKind.LessEqual => "<=",
+        TokenKind.GreaterEqual => ">=",
+        TokenKind.EqualEqual => "==",
+        TokenKind.BangEqual => "!=",
+        _ => kind.ToString(),
+    };
+}

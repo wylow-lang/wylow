@@ -1,0 +1,3 @@
+float main() {                // error: 'main' must return 'void' or 'int'
+    return 1.0;
+}

@@ -1,0 +1,24 @@
+void takesFloat(float f) {
+}
+
+void main() {
+    int i = 1;
+    float f = 2.0;
+    float bad = i;            // error: cannot implicitly convert 'int' to 'float'; use an explicit cast
+    int alsoBad = f;          // error: cannot implicitly convert 'float' to 'int'
+    print(i + f);             // error: operator '+' cannot be applied to 'int' and 'float'
+    bool b = 1;               // error: cannot implicitly convert 'int' to 'bool'
+    if (i) {                  // error: cannot implicitly convert 'int' to 'bool'
+    }
+    print(undefinedThing);    // error: 'undefinedThing' is not defined
+    takesFloat(i);            // error: no overload of 'takesFloat' accepts (int)
+    takesFloat(1, 2);         // error: no overload of 'takesFloat' takes 2 arguments
+    int big = 2147483648;     // error: too large for 'int'
+    String s = "x";
+    print(s + s);             // error: operator '+' cannot be applied to 'String' and 'String'
+    i + 1;                    // error: only calls can be used as statements
+    print(-true);             // error: operator '-' cannot be applied to 'bool'
+    int c = (int)true;        // error: cannot convert 'bool' to 'int'
+    takesFloat(16777217);     // error: no overload of 'takesFloat' accepts (int)
+    takesFloat(1);
+}

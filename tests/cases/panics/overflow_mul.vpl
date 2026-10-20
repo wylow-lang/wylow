@@ -1,0 +1,5 @@
+// panic: integer overflow
+void main() {
+    int big = 65536;
+    print(big * big);
+}
