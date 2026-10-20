@@ -1,0 +1,14 @@
+protected struct A {              // error: 'protected' is not valid on a struct
+    protected int x;               // error: 'protected' is not valid on struct members
+    static int count;              // error: static fields are not supported yet
+    readonly int y;                // error: 'readonly' is only valid on methods
+    static readonly void f() {     // error: a static method cannot be 'readonly'
+    }
+}
+
+static void g() {                  // error: 'static' is not valid on a function
+}
+
+void main() {
+    ref int r = 5;                 // error: 'ref' locals are not supported yet
+}

@@ -15,10 +15,18 @@ public sealed class VplType
     /// <summary>The type of an expression that already produced an error; converts to anything to avoid cascades.</summary>
     public static readonly VplType Error = new("<error>");
 
-    VplType(string name) => Name = name;
+    VplType(string name, StructSymbol? @struct = null)
+    {
+        Name = name;
+        Struct = @struct;
+    }
+
+    internal static VplType ForStruct(StructSymbol symbol) => new(symbol.Name, symbol);
 
     public string Name { get; }
+    public StructSymbol? Struct { get; }
 
+    public bool IsStruct => Struct is not null;
     public bool IsInteger => this == Int || this == Long;
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
@@ -38,6 +46,11 @@ public static class Conversions
 
     public static bool IsExplicit(VplType from, VplType to) =>
         IsImplicit(from, to) || (from.IsNumeric && to.IsNumeric);
+
+    /// <summary>Whether <c>==</c> is defined: primitives other than String, and structs whose fields all are.</summary>
+    public static bool SupportsEquality(VplType type) => type.Struct is { } s
+        ? s.FindNonEquatableField() is null
+        : type != VplType.String && type != VplType.Void;
 
     public static bool IsExactlyRepresentable(long value, VplType floatingType) => floatingType == VplType.Float
         ? new BigInteger((float)value) == value

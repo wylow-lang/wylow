@@ -66,25 +66,79 @@ public sealed class Parser
 
     public CompilationUnit ParseCompilationUnit()
     {
-        var functions = new List<FunctionDecl>();
+        var declarations = new List<Declaration>();
         while (!At(TokenKind.EndOfFile))
         {
+            int start = position;
+            var modifiers = ParseModifiers();
+            if (At(TokenKind.StructKeyword))
+            {
+                Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private), token => $"'{token.Text}' is not valid on a struct");
+                declarations.Add(ParseStruct(start, modifiers.Flags));
+                continue;
+            }
             if (SyntaxFacts.IsTypeStart(Current.Kind))
             {
-                functions.Add(ParseFunction());
+                Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private), token => $"'{token.Text}' is not valid on a function");
+                var returnType = ParseType();
+                var name = Expect(TokenKind.Identifier, "a function name");
+                declarations.Add(ParseFunctionRest(start, modifiers.Flags, returnType, name));
                 continue;
             }
             Error(Current.Span, At(TokenKind.ReservedKeyword)
                 ? $"'{Current.Text}' is not supported yet"
-                : "expected a function declaration");
-            SkipTopLevelDeclaration();
+                : "expected a function or struct declaration");
+            SkipDeclaration();
+            if (position == start)
+                Advance();
         }
-        return new CompilationUnit(source, functions);
+        return new CompilationUnit(source, declarations);
     }
 
-    void SkipTopLevelDeclaration()
+    sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens);
+
+    ModifierList ParseModifiers()
     {
-        while (!At(TokenKind.EndOfFile))
+        var flags = Modifiers.None;
+        var tokens = new List<(Modifiers, Token)>();
+        while (true)
+        {
+            var flag = Current.Kind switch
+            {
+                TokenKind.PublicKeyword => Modifiers.Public,
+                TokenKind.PrivateKeyword => Modifiers.Private,
+                TokenKind.ProtectedKeyword => Modifiers.Protected,
+                TokenKind.StaticKeyword => Modifiers.Static,
+                TokenKind.ReadonlyKeyword => Modifiers.ReadOnly,
+                _ => Modifiers.None,
+            };
+            if (flag == Modifiers.None)
+                return new ModifierList(flags, tokens);
+
+            var token = Advance();
+            if ((flags & flag) != 0)
+                Error(token.Span, $"duplicate '{token.Text}' modifier");
+            else if (flag is Modifiers.Public or Modifiers.Private or Modifiers.Protected
+                     && (flags & (Modifiers.Public | Modifiers.Private | Modifiers.Protected)) != 0)
+                Error(token.Span, "only one access modifier is allowed");
+            flags |= flag;
+            tokens.Add((flag, token));
+        }
+    }
+
+    void Disallow(ModifierList modifiers, Modifiers disallowed, Func<Token, string> message)
+    {
+        foreach (var (flag, token) in modifiers.Tokens)
+        {
+            if ((flag & disallowed) != 0)
+                Error(token.Span, message(token));
+        }
+    }
+
+    /// <summary>Skips to the end of a declaration, leaving an enclosing '}' unconsumed.</summary>
+    void SkipDeclaration()
+    {
+        while (!At(TokenKind.EndOfFile) && !At(TokenKind.CloseBrace))
         {
             if (Accept(TokenKind.Semicolon))
                 return;
@@ -105,11 +159,73 @@ public sealed class Parser
         }
     }
 
-    FunctionDecl ParseFunction()
+    StructDecl ParseStruct(int start, Modifiers modifiers)
+    {
+        Advance();
+        var name = Expect(TokenKind.Identifier, "a struct name");
+        Expect(TokenKind.OpenBrace, "'{'");
+        var fields = new List<FieldDecl>();
+        var methods = new List<FunctionDecl>();
+        while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
+        {
+            int before = position;
+            ParseMember(name.Text, fields, methods);
+            if (position == before)
+                Advance();
+        }
+        Expect(TokenKind.CloseBrace, "'}'");
+        return new StructDecl(LocationFrom(start), modifiers, name.Text, Loc(name.Span), fields, methods);
+    }
+
+    void ParseMember(string structName, List<FieldDecl> fields, List<FunctionDecl> methods)
     {
         int start = position;
-        var returnType = ParseType();
-        var name = Expect(TokenKind.Identifier, "a function name");
+        var modifiers = ParseModifiers();
+        Disallow(modifiers, Modifiers.Protected, _ => "'protected' is not valid on struct members; structs cannot be inherited");
+
+        if (At(TokenKind.Identifier) && Current.Text == structName && Peek(1).Kind == TokenKind.OpenParen)
+        {
+            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly, token => $"'{token.Text}' is not valid on a constructor");
+            var constructorName = Advance();
+            methods.Add(ParseFunctionRest(start, modifiers.Flags, null, constructorName));
+            return;
+        }
+
+        if (!SyntaxFacts.IsTypeStart(Current.Kind))
+        {
+            Error(Current.Span, At(TokenKind.ReservedKeyword)
+                ? $"'{Current.Text}' is not supported yet"
+                : "expected a field, method, or constructor");
+            SkipDeclaration();
+            return;
+        }
+
+        var type = ParseType();
+        var name = Expect(TokenKind.Identifier, "a member name");
+        if (At(TokenKind.OpenParen))
+        {
+            if ((modifiers.Flags & Modifiers.Static) != 0)
+                Disallow(modifiers, Modifiers.ReadOnly, _ => "a static method cannot be 'readonly'");
+            methods.Add(ParseFunctionRest(start, modifiers.Flags, type, name));
+            return;
+        }
+
+        Disallow(modifiers, Modifiers.Static, _ => "static fields are not supported yet");
+        Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on methods");
+        int errors = diagnostics.Count;
+        while (true)
+        {
+            var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
+            fields.Add(new FieldDecl(LocationFrom(start), modifiers.Flags, type, name.Text, Loc(name.Span), initializer));
+            if (!Accept(TokenKind.Comma))
+                break;
+            name = Expect(TokenKind.Identifier, "a field name");
+        }
+        FinishStatement(errors);
+    }
+
+    FunctionDecl ParseFunctionRest(int start, Modifiers modifiers, TypeSyntax? returnType, Token name)
+    {
         Expect(TokenKind.OpenParen, "'('");
         var parameters = new List<ParameterSyntax>();
         if (!At(TokenKind.CloseParen))
@@ -117,14 +233,17 @@ public sealed class Parser
             do
             {
                 int parameterStart = position;
+                var refKind = Accept(TokenKind.RefKeyword) ? RefKind.Ref
+                    : Accept(TokenKind.InKeyword) ? RefKind.In
+                    : RefKind.None;
                 var type = ParseType();
                 var parameterName = Expect(TokenKind.Identifier, "a parameter name");
-                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), type, parameterName.Text));
+                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), refKind, type, parameterName.Text));
             } while (Accept(TokenKind.Comma));
         }
         Expect(TokenKind.CloseParen, "')'");
         var body = ParseBlock();
-        return new FunctionDecl(LocationFrom(start), returnType, name.Text, Loc(name.Span), parameters, body);
+        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), parameters, body);
     }
 
     TypeSyntax ParseType()
@@ -200,8 +319,10 @@ public sealed class Parser
                 Advance();
                 Expect(TokenKind.Semicolon, "';'");
                 return new ContinueStmt(LocationFrom(start));
-            case TokenKind.ReservedKeyword:
-                Error(Current.Span, $"'{Current.Text}' is not supported yet");
+            case TokenKind.ReservedKeyword or TokenKind.RefKeyword:
+                Error(Current.Span, At(TokenKind.RefKeyword)
+                    ? "'ref' locals are not supported yet"
+                    : $"'{Current.Text}' is not supported yet");
                 SkipStatement();
                 return new BlockStmt(LocationFrom(start), []);
             default:
@@ -372,7 +493,7 @@ public sealed class Parser
                 if (!At(TokenKind.CloseParen))
                 {
                     do
-                        arguments.Add(ParseExpression());
+                        arguments.Add(ParseArgument());
                     while (Accept(TokenKind.Comma));
                 }
                 Expect(TokenKind.CloseParen, "')'");
@@ -380,15 +501,48 @@ public sealed class Parser
             }
             else if (At(TokenKind.Dot))
             {
-                Error(Current.Span, "member access is not supported yet");
                 Advance();
-                Accept(TokenKind.Identifier);
+                var name = Expect(TokenKind.Identifier, "a member name");
+                expression = new MemberAccessExpr(LocationFrom(start), expression, name.Text, Loc(name.Span));
+            }
+            // `Name {` can only be an initializer: conditions are parenthesized and braces are mandatory,
+            // so a block never directly follows an identifier or call.
+            else if (At(TokenKind.OpenBrace) && expression is NameExpr or CallExpr { Callee: NameExpr })
+            {
+                expression = ParseInitializer(start, expression);
             }
             else
             {
                 return expression;
             }
         }
+    }
+
+    Expr ParseArgument()
+    {
+        int start = position;
+        if (!Accept(TokenKind.RefKeyword))
+            return ParseExpression();
+        var operand = ParseExpression();
+        return new RefArgExpr(LocationFrom(start), operand);
+    }
+
+    InitializerExpr ParseInitializer(int start, Expr target)
+    {
+        Advance();
+        var fields = new List<FieldInit>();
+        while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
+        {
+            int fieldStart = position;
+            var name = Expect(TokenKind.Identifier, "a field name");
+            Expect(TokenKind.Assign, "'='");
+            var value = ParseExpression();
+            fields.Add(new FieldInit(LocationFrom(fieldStart), name.Text, value));
+            if (!Accept(TokenKind.Comma) || position == fieldStart)
+                break;
+        }
+        Expect(TokenKind.CloseBrace, "'}'");
+        return new InitializerExpr(LocationFrom(start), target, fields);
     }
 
     Expr ParsePrimary()
@@ -418,6 +572,9 @@ public sealed class Parser
             case TokenKind.Identifier:
                 Advance();
                 return new NameExpr(location, token.Text);
+            case TokenKind.ThisKeyword:
+                Advance();
+                return new ThisExpr(location);
             case TokenKind.OpenParen:
             {
                 Advance();

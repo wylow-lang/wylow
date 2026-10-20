@@ -1,0 +1,46 @@
+struct Vec3 {
+    float x, y, z;
+
+    Vec3(float x, float y, float z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    readonly float lengthSquared() {
+        return x * x + y * y + z * z;
+    }
+
+    void scale(float s) {
+        x *= s;
+        y *= s;
+        z *= s;
+    }
+
+    static Vec3 add(Vec3 a, Vec3 b) {
+        return Vec3(a.x + b.x, a.y + b.y, a.z + b.z);
+    }
+}
+
+void main() {
+    Vec3 zero = Vec3();
+    print(zero.x);                    // output: 0.0
+
+    var v = Vec3(1, 2, 3);
+    print(v.lengthSquared());         // output: 14.0
+
+    var copy = v;
+    copy.x = 10;
+    print(v.x);                       // output: 1.0
+    print(copy.x);                    // output: 10.0
+
+    v.scale(2);
+    print(v.z);                       // output: 6.0
+
+    var sum = Vec3.add(v, Vec3 { x = 1 });
+    print(sum.x);                     // output: 3.0
+    print(sum.y);                     // output: 4.0
+
+    print(v == Vec3(2, 4, 6));        // output: true
+    print(v != copy);                 // output: true
+}

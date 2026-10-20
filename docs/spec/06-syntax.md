@@ -53,11 +53,16 @@ This makes every allocation visible: scanning for `new` finds them all.
 
 ### Struct constructors
 
-- A struct with **no declared constructor** gets a default constructor (all fields at their
-  default/initializer values).
+- **Every struct has a default constructor**, `T()`, which sets each field to its initializer, or
+  to zero / `false` / `""` / the field type's default. It cannot be declared explicitly; use field
+  initializers to customize it. (Arrays and pools rely on every struct having a default.)
+- Field initializers run in declaration order each time a value is default-constructed. They may
+  call functions but cannot use `this` or other fields.
+- A declared constructor starts from the default value, then runs its body. `this` refers to the
+  value being built, and `return;` ends construction early.
 - Any struct can be built with an **initializer**, `T { field = value, ... }`, which starts from the
-  default constructor and then assigns the listed fields. Initializers can also follow a constructor
-  call: `Enemy(pos) { health = 50 }`.
+  default constructor and then assigns the listed fields in the order written. Initializers can also
+  follow a constructor call: `Enemy(pos) { health = 50 }`.
 - Constructors are declared Java-style:
 
 ```java
@@ -100,6 +105,13 @@ applyDamage(ref enemy, info);
 [03-memory-model.md](03-memory-model.md#34-references). `in` is intended for large read-only structs
 such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error.
+
+- A `ref` argument must be a mutable place: a local, a parameter, or a field path rooted at one
+  (`ref enemy.position`). Its type must match the parameter exactly; no conversions apply.
+- A place is read-only, and cannot be assigned or passed by `ref`, if it is rooted at an `in`
+  parameter or at `this` inside a `readonly` method.
+- Arguments are evaluated left to right, and a `ref` argument is a reference to the place, not a
+  snapshot of its value: in `x + increment(ref x)`, the left `x` is read before the call.
 
 ### `readonly` struct methods
 

@@ -46,7 +46,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         state = Statement(function.Body, state);
 
         var returnType = function.Symbol.ReturnType;
-        if (state.Reachable && returnType != VplType.Void && returnType != VplType.Error)
+        if (state.Reachable && !function.Symbol.IsConstructor && returnType != VplType.Void && returnType != VplType.Error)
         {
             var body = function.Body.Location;
             diagnostics.Error(
@@ -74,7 +74,11 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
             case BoundAssignment assignment:
                 Expression(assignment.Value, state);
-                state.Assigned.Add(assignment.Target);
+                // Assigning a whole local initializes it; assigning a field requires its root to be initialized.
+                if (assignment.Target is BoundLocalAccess target)
+                    state.Assigned.Add(target.Local);
+                else
+                    Expression(assignment.Target, state);
                 return state;
 
             case BoundExpressionStatement expressionStatement:
@@ -164,8 +168,19 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 Expression(binary.Right, state);
                 break;
             case BoundCall call:
+                if (call.Receiver is not null)
+                    Expression(call.Receiver, state);
                 foreach (var argument in call.Arguments)
                     Expression(argument, state);
+                break;
+            case BoundConstruction construction:
+                foreach (var argument in construction.Arguments)
+                    Expression(argument, state);
+                foreach (var initializer in construction.Initializers)
+                    Expression(initializer.Value, state);
+                break;
+            case BoundFieldAccess field:
+                Expression(field.Receiver, state);
                 break;
             case BoundConversion conversion:
                 Expression(conversion.Operand, state);

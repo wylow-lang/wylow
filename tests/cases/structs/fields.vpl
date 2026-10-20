@@ -1,0 +1,40 @@
+int next(String label, int value) {
+    print(label);
+    return value;
+}
+
+struct Stats {
+    int health = 100;
+    int armor;
+    float speed = 2.5;
+}
+
+struct Enemy {
+    Stats stats;
+    int id = next("id initializer", 7);
+    bool alive = true;
+}
+
+void main() {
+    var s = Stats();
+    print(s.health);       // output: 100
+    print(s.armor);        // output: 0
+    print(s.speed);        // output: 2.5
+
+    var e = Enemy { alive = false };
+    // output: id initializer
+    print(e.stats.health); // output: 100
+    print(e.id);           // output: 7
+    print(e.alive);        // output: false
+
+    e.stats.armor = 5;
+    e.stats.health -= 30;
+    print(e.stats.armor);  // output: 5
+    print(e.stats.health); // output: 70
+
+    var ordered = Enemy { id = next("first", 1), alive = next("second", 2) > 1 };
+    // output: id initializer
+    // output: first
+    // output: second
+    print(ordered.id);     // output: 1
+}

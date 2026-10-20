@@ -23,6 +23,6 @@ void main() {
     var v;                    // error: 'var' declarations require an initializer
     var w = f(1);             // error: cannot assign a 'void' value
     x = 3;                    // error: 'x' is not defined
-    pick(1);                  // error: call to 'pick' is ambiguous
+    pick(1);                  // error: call is ambiguous between 'pick(long)' and 'pick(float)'
     int g = f;                // error: 'f' is a function
 }

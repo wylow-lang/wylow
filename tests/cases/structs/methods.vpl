@@ -1,0 +1,41 @@
+struct Box {
+    private int width;
+    private int height;
+
+    Box(int width, int height) {
+        this.width = width;
+        this.height = height;
+    }
+
+    readonly int area() {
+        return width * height;
+    }
+
+    readonly bool isBiggerThan(in Box other) {
+        return area() > other.area();
+    }
+
+    void grow() {
+        width = doubled(width);
+        height = doubled(height);
+    }
+
+    private static int doubled(int n) {
+        return n * 2;
+    }
+
+    static Box square(int size) {
+        return Box(size, size);
+    }
+}
+
+void main() {
+    var small = Box(2, 3);
+    var big = Box.square(4);
+    print(small.area());                    // output: 6
+    print(big.isBiggerThan(small));         // output: true
+    small.grow();
+    print(small.area());                    // output: 24
+    print(Box(1, 1).area());                // output: 1
+    print(Box.square(3).isBiggerThan(big)); // output: false
+}

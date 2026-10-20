@@ -2,7 +2,12 @@ using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Semantics;
 
-public sealed record BoundProgram(SourceText Source, IReadOnlyList<BoundFunction> Functions, FunctionSymbol? Main);
+/// <summary><see cref="Functions"/> holds free functions, methods, and constructors.</summary>
+public sealed record BoundProgram(
+    SourceText Source,
+    IReadOnlyList<StructSymbol> Structs,
+    IReadOnlyList<BoundFunction> Functions,
+    FunctionSymbol? Main);
 
 public sealed record BoundFunction(FunctionSymbol Symbol, BoundBlock Body);
 
@@ -15,7 +20,8 @@ public sealed record BoundBlock(Location Location, IReadOnlyList<BoundStatement>
 public sealed record BoundVariableDeclaration(Location Location, LocalSymbol Local, BoundExpression? Initializer)
     : BoundStatement(Location);
 
-public sealed record BoundAssignment(Location Location, LocalSymbol Target, BoundExpression Value) : BoundStatement(Location);
+/// <summary><see cref="Target"/> is a local, or a field path rooted at a local or <c>this</c>.</summary>
+public sealed record BoundAssignment(Location Location, BoundExpression Target, BoundExpression Value) : BoundStatement(Location);
 
 public sealed record BoundExpressionStatement(Location Location, BoundExpression Expression) : BoundStatement(Location);
 
@@ -93,8 +99,23 @@ public enum BoundBinaryOperator
 public sealed record BoundBinary(Location Location, BoundExpression Left, BoundBinaryOperator Operator, BoundExpression Right, VplType Type)
     : BoundExpression(Location, Type);
 
-public sealed record BoundCall(Location Location, FunctionSymbol Function, IReadOnlyList<BoundExpression> Arguments)
+public sealed record BoundThis(Location Location, VplType Type) : BoundExpression(Location, Type);
+
+public sealed record BoundFieldAccess(Location Location, BoundExpression Receiver, FieldSymbol Field)
+    : BoundExpression(Location, Field.Type);
+
+/// <summary><see cref="Receiver"/> is set for instance methods. A <c>ref</c> argument is the place itself.</summary>
+public sealed record BoundCall(Location Location, FunctionSymbol Function, BoundExpression? Receiver, IReadOnlyList<BoundExpression> Arguments)
     : BoundExpression(Location, Function.ReturnType);
+
+public sealed record BoundFieldInitializer(FieldSymbol Field, BoundExpression Value);
+
+public sealed record BoundConstruction(
+    Location Location,
+    VplType Type,
+    FunctionSymbol Constructor,
+    IReadOnlyList<BoundExpression> Arguments,
+    IReadOnlyList<BoundFieldInitializer> Initializers) : BoundExpression(Location, Type);
 
 public sealed record BoundConversion(Location Location, VplType Type, BoundExpression Operand) : BoundExpression(Location, Type);
 

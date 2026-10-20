@@ -25,16 +25,24 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["continue"] = TokenKind.ContinueKeyword,
         ["true"] = TokenKind.TrueKeyword,
         ["false"] = TokenKind.FalseKeyword,
+        ["struct"] = TokenKind.StructKeyword,
+        ["public"] = TokenKind.PublicKeyword,
+        ["private"] = TokenKind.PrivateKeyword,
+        ["protected"] = TokenKind.ProtectedKeyword,
+        ["static"] = TokenKind.StaticKeyword,
+        ["readonly"] = TokenKind.ReadonlyKeyword,
+        ["this"] = TokenKind.ThisKeyword,
+        ["ref"] = TokenKind.RefKeyword,
+        ["in"] = TokenKind.InKeyword,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
         "abstract", "byte", "case", "char", "class", "const", "default", "defer", "do", "enum",
-        "extends", "extern", "final", "implements", "import", "in", "interface", "is", "new", "nint",
-        "nuint", "null", "operator", "override", "package", "private", "protected", "public",
-        "readonly", "ref", "sbyte", "shared", "short", "static", "struct", "super", "switch", "this",
-        "try", "uint", "ulong", "unsafe", "ushort", "virtual", "weak",
+        "extends", "extern", "final", "implements", "import", "interface", "is", "new", "nint",
+        "nuint", "null", "operator", "override", "package", "sbyte", "shared", "short", "super",
+        "switch", "try", "uint", "ulong", "unsafe", "ushort", "virtual", "weak",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
