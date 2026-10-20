@@ -1,0 +1,41 @@
+T identity<T>(T value) {
+    return value;
+}
+
+void swap<T>(ref T a, ref T b) {
+    T t = a;
+    a = b;
+    b = t;
+}
+
+T pick<T>(bool first, T a, T b) {
+    return first ? a : b;
+}
+
+int describe(int x) {
+    print("int overload");
+    return x;
+}
+
+T describe<T>(T x) {
+    print("generic overload");
+    return x;
+}
+
+void main() {
+    print(identity(5));           // output: 5
+    print(identity<float>(2));    // output: 2.0
+    print(identity("text"));      // output: text
+
+    int a = 1;
+    int b = 2;
+    swap(ref a, ref b);
+    print(a);                     // output: 2
+
+    // T is inferred as long: the int argument converts to it, not the other way.
+    print(pick(false, 1, 2L));    // output: 2
+
+    describe(1);                  // output: int overload
+    describe(1L);                 // output: generic overload
+    describe<int>(1);             // output: generic overload
+}

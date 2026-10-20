@@ -259,3 +259,53 @@ T max<T extends Comparable<T>>(T a, T b) {
 Unlike C++ templates, a generic body is **type-checked against its bounds** when it is declared,
 not when it is instantiated. Calling a method not provided by a bound is a compile error in the
 generic itself.
+
+### Declaring and using generics
+
+```java
+struct Pair<A, B> {
+    A first;
+    B second;
+}
+
+T identity<T>(T value) { return value; }
+
+var p = Pair<int, float>(1, 2.5);         // struct type arguments are always written
+var s = Pair<String, bool> { first = "a", second = true };
+var x = identity(5);                      // function type arguments are inferred...
+var y = identity<long>(5);                // ...or written explicitly
+```
+
+- Type parameters go after the name, for structs, functions, and methods. A method's type
+  parameters may not reuse its struct's type parameter names.
+- **Function type arguments are inferred** from the arguments. When arguments disagree, the type the
+  others implicitly convert to is chosen: `max(1, 2L)` infers `long`. Inside type arguments there are
+  no conversions, so `Pair<int, int>` and `Pair<long, long>` never unify.
+- **Struct type arguments are always written.** There is no inference for construction.
+- When a generic and a non-generic overload are equally good, the non-generic one is chosen.
+- `Name<...>` in an expression is read as type arguments when followed by `(`, `.` or `{`. As in C#,
+  `f(a < b, c > (d))` is therefore a call to the generic `a<b, c>`.
+
+### Unbounded type parameters
+
+Without bounds (interfaces, not yet designed), a type parameter `T` supports only what every type
+supports: declaring, copying, passing (including by `ref`/`in`), and returning values. In particular:
+
+- `==` is not available on `T`, and no function overload accepts a `T` unless it is generic itself.
+- `T()` is an error: `T` has no default value (it could later be a non-null class reference).
+- A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an
+  error, while `Pair<T, int> { first = x }` is fine, since it sets every field that lacks a default.
+  From non-generic code, `Pair<int, int>()` works because `int` has a default.
+
+### Default values
+
+A type is *defaultable* if it has a default value: primitives, `String`, and structs whose fields
+each either have an initializer or a defaultable type. Type parameters are not defaultable. A
+struct's default constructor and `{ ... }` initializers require any field that is not set
+explicitly to be defaultable.
+
+### Recursive structs
+
+A struct cannot contain itself by value, including through type arguments
+(`struct Rec { Wrap<Rec> w; }`), and its field types cannot grow without end
+(`struct Grow<T> { Grow<Pair<T, T>> next; }`).

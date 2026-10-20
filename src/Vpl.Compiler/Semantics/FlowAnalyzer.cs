@@ -83,7 +83,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
             case BoundExpressionStatement expressionStatement:
                 Expression(expressionStatement.Expression, state);
-                return expressionStatement.Expression is BoundCall { Function.IsNoReturn: true } ? State.Unreachable() : state;
+                return expressionStatement.Expression is BoundCall { Method.Symbol.IsNoReturn: true } ? State.Unreachable() : state;
 
             case BoundIf ifStatement:
             {

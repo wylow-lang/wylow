@@ -1,0 +1,69 @@
+struct Pair<A, B> {
+    A first;
+    B second;
+
+    Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    readonly Pair<B, A> swapped() {
+        return Pair<B, A>(second, first);
+    }
+
+    static Pair<A, B> of(A a, B b) {
+        return Pair<A, B>(a, b);
+    }
+}
+
+struct Box<T> {
+    T value;
+    int reads = 0;
+
+    T get() {
+        reads++;
+        return value;
+    }
+
+    U convert<U>(U fallback) {
+        return fallback;
+    }
+}
+
+struct Stats {
+    int health = 100;
+}
+
+struct Holder {
+    Pair<int, Stats> pair;
+}
+
+Pair<B, A> flip<A, B>(Pair<A, B> p) {
+    return p.swapped();
+}
+
+void main() {
+    var p = Pair<int, float>(1, 2.5);
+    print(p.first);              // output: 1
+    print(p.second);             // output: 2.5
+    var q = p.swapped();
+    print(q.first);              // output: 2.5
+    var r = flip(q);
+    print(r == p);               // output: true
+
+    var s = Pair<String, bool>.of("hi", true);
+    print(s.first);              // output: hi
+
+    var b = Box<Box<int>> { value = Box<int> { value = 7 } };
+    print(b.get().get());        // output: 7
+    print(b.reads);              // output: 1
+    print(b.convert<long>(9));   // output: 9
+    print(b.convert(true));      // output: true
+
+    var h = Holder();
+    print(h.pair.second.health); // output: 100
+    print(h.pair.first);         // output: 0
+
+    var d = Pair<int, int>();
+    print(d.first + d.second);   // output: 0
+}

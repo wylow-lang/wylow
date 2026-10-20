@@ -163,6 +163,7 @@ public sealed class Parser
     {
         Advance();
         var name = Expect(TokenKind.Identifier, "a struct name");
+        var typeParameters = ParseTypeParameters();
         Expect(TokenKind.OpenBrace, "'{'");
         var fields = new List<FieldDecl>();
         var methods = new List<FunctionDecl>();
@@ -174,7 +175,82 @@ public sealed class Parser
                 Advance();
         }
         Expect(TokenKind.CloseBrace, "'}'");
-        return new StructDecl(LocationFrom(start), modifiers, name.Text, Loc(name.Span), fields, methods);
+        return new StructDecl(LocationFrom(start), modifiers, name.Text, Loc(name.Span), typeParameters, fields, methods);
+    }
+
+    List<TypeParameterSyntax> ParseTypeParameters()
+    {
+        var parameters = new List<TypeParameterSyntax>();
+        if (!Accept(TokenKind.Less))
+            return parameters;
+        do
+        {
+            var name = Expect(TokenKind.Identifier, "a type parameter name");
+            parameters.Add(new TypeParameterSyntax(Loc(name.Span), name.Text));
+        } while (Accept(TokenKind.Comma));
+        ExpectCloseAngle();
+        return parameters;
+    }
+
+    List<TypeSyntax> ParseTypeArguments()
+    {
+        var arguments = new List<TypeSyntax>();
+        Advance();
+        do
+            arguments.Add(ParseType());
+        while (Accept(TokenKind.Comma));
+        ExpectCloseAngle();
+        return arguments;
+    }
+
+    void ExpectCloseAngle()
+    {
+        // `Box<Box<int>>` lexes its end as '>>'; split it so each type argument list closes once.
+        if (At(TokenKind.GreaterGreater))
+        {
+            int start = Current.Span.Start;
+            tokens[position] = new Token(TokenKind.Greater, new TextSpan(start, 1), ">", null);
+            tokens.Insert(position + 1, new Token(TokenKind.Greater, new TextSpan(start + 1, 1), ">", null));
+        }
+        Expect(TokenKind.Greater, "'>'");
+    }
+
+    /// <summary>
+    /// Checks without consuming whether a type argument list starts at token <paramref name="index"/>,
+    /// and returns the index just past it, or -1. Like C#, <c>a &lt; b &gt; (c)</c> is read as a generic call.
+    /// </summary>
+    int ScanTypeArguments(int index)
+    {
+        if (index >= tokens.Count || tokens[index].Kind != TokenKind.Less)
+            return -1;
+        int depth = 0;
+        for (int i = index; i < tokens.Count; i++)
+        {
+            var kind = tokens[i].Kind;
+            if (kind == TokenKind.Less)
+                depth++;
+            else if (kind == TokenKind.Greater)
+                depth--;
+            else if (kind == TokenKind.GreaterGreater)
+                depth -= 2;
+            else if (kind != TokenKind.Comma && !SyntaxFacts.IsTypeStart(kind))
+                return -1;
+
+            if (depth == 0)
+                return i + 1;
+            if (depth < 0)
+                return -1;
+        }
+        return -1;
+    }
+
+    /// <summary>Type arguments directly after a name in an expression, only when followed by '(', '.' or '{'.</summary>
+    List<TypeSyntax> ParseExpressionTypeArguments()
+    {
+        int end = ScanTypeArguments(position);
+        if (end < 0 || tokens[Math.Min(end, tokens.Count - 1)].Kind is not (TokenKind.OpenParen or TokenKind.Dot or TokenKind.OpenBrace))
+            return [];
+        return ParseTypeArguments();
     }
 
     void ParseMember(string structName, List<FieldDecl> fields, List<FunctionDecl> methods)
@@ -202,7 +278,7 @@ public sealed class Parser
 
         var type = ParseType();
         var name = Expect(TokenKind.Identifier, "a member name");
-        if (At(TokenKind.OpenParen))
+        if (At(TokenKind.OpenParen) || At(TokenKind.Less))
         {
             if ((modifiers.Flags & Modifiers.Static) != 0)
                 Disallow(modifiers, Modifiers.ReadOnly, _ => "a static method cannot be 'readonly'");
@@ -226,6 +302,9 @@ public sealed class Parser
 
     FunctionDecl ParseFunctionRest(int start, Modifiers modifiers, TypeSyntax? returnType, Token name)
     {
+        var typeParameters = ParseTypeParameters();
+        if (returnType is null && typeParameters.Count > 0)
+            Error(typeParameters[0].Location.Span, "constructors cannot have type parameters");
         Expect(TokenKind.OpenParen, "'('");
         var parameters = new List<ParameterSyntax>();
         if (!At(TokenKind.CloseParen))
@@ -243,18 +322,20 @@ public sealed class Parser
         }
         Expect(TokenKind.CloseParen, "')'");
         var body = ParseBlock();
-        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), parameters, body);
+        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body);
     }
 
     TypeSyntax ParseType()
     {
         if (SyntaxFacts.IsTypeStart(Current.Kind))
         {
+            int start = position;
             var token = Advance();
-            return new TypeSyntax(Loc(token.Span), token.Text);
+            var arguments = At(TokenKind.Less) ? ParseTypeArguments() : [];
+            return new TypeSyntax(LocationFrom(start), token.Text, arguments);
         }
         Error(Current.Span, "expected a type");
-        return new TypeSyntax(Loc(new TextSpan(Current.Span.Start, 0)), "?");
+        return new TypeSyntax(Loc(new TextSpan(Current.Span.Start, 0)), "?", []);
     }
 
     BlockStmt ParseBlock()
@@ -418,7 +499,8 @@ public sealed class Parser
     {
         TokenKind.VarKeyword => true,
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
-        TokenKind.Identifier => Peek(1).Kind == TokenKind.Identifier,
+        TokenKind.Identifier => Peek(1).Kind == TokenKind.Identifier
+            || (ScanTypeArguments(position + 1) is > 0 and var end && tokens[Math.Min(end, tokens.Count - 1)].Kind == TokenKind.Identifier),
         _ => false,
     };
 
@@ -503,7 +585,8 @@ public sealed class Parser
             {
                 Advance();
                 var name = Expect(TokenKind.Identifier, "a member name");
-                expression = new MemberAccessExpr(LocationFrom(start), expression, name.Text, Loc(name.Span));
+                var typeArguments = ParseExpressionTypeArguments();
+                expression = new MemberAccessExpr(LocationFrom(start), expression, name.Text, Loc(name.Span), typeArguments);
             }
             // `Name {` can only be an initializer: conditions are parenthesized and braces are mandatory,
             // so a block never directly follows an identifier or call.
@@ -570,8 +653,12 @@ public sealed class Parser
                 Advance();
                 return new BoolLiteralExpr(location, token.Kind == TokenKind.TrueKeyword);
             case TokenKind.Identifier:
+            {
+                int start = position;
                 Advance();
-                return new NameExpr(location, token.Text);
+                var typeArguments = ParseExpressionTypeArguments();
+                return new NameExpr(LocationFrom(start), token.Text, typeArguments);
+            }
             case TokenKind.ThisKeyword:
                 Advance();
                 return new ThisExpr(location);

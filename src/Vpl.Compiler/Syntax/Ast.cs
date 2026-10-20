@@ -21,11 +21,14 @@ public sealed record CompilationUnit(SourceText Source, IReadOnlyList<Declaratio
 
 public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location);
 
+public sealed record TypeParameterSyntax(Location Location, string Name) : Node(Location);
+
 public sealed record StructDecl(
     Location Location,
     Modifiers Modifiers,
     string Name,
     Location NameLocation,
+    IReadOnlyList<TypeParameterSyntax> TypeParameters,
     IReadOnlyList<FieldDecl> Fields,
     IReadOnlyList<FunctionDecl> Methods) : Declaration(Location, Modifiers);
 
@@ -39,13 +42,14 @@ public sealed record FunctionDecl(
     TypeSyntax? ReturnType,
     string Name,
     Location NameLocation,
+    IReadOnlyList<TypeParameterSyntax> TypeParameters,
     IReadOnlyList<ParameterSyntax> Parameters,
     BlockStmt Body) : Declaration(Location, Modifiers)
 {
     public bool IsConstructor => ReturnType is null;
 }
 
-public sealed record TypeSyntax(Location Location, string Name) : Node(Location);
+public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments) : Node(Location);
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location);
 
@@ -87,11 +91,13 @@ public sealed record BoolLiteralExpr(Location Location, bool Value) : Expr(Locat
 
 public sealed record StringLiteralExpr(Location Location, string Value) : Expr(Location);
 
-public sealed record NameExpr(Location Location, string Name) : Expr(Location);
+/// <summary><see cref="TypeArguments"/> is non-empty for generic calls and constructions, like <c>max&lt;int&gt;(...)</c>.</summary>
+public sealed record NameExpr(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments) : Expr(Location);
 
 public sealed record ThisExpr(Location Location) : Expr(Location);
 
-public sealed record MemberAccessExpr(Location Location, Expr Target, string Name, Location NameLocation) : Expr(Location);
+public sealed record MemberAccessExpr(Location Location, Expr Target, string Name, Location NameLocation, IReadOnlyList<TypeSyntax> TypeArguments)
+    : Expr(Location);
 
 public sealed record UnaryExpr(Location Location, TokenKind Operator, Expr Operand) : Expr(Location);
 

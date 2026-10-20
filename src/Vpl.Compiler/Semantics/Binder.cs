@@ -11,6 +11,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     FunctionSymbol? currentFunction;
     StructSymbol? currentStruct;
+    IReadOnlyList<TypeParameterSymbol> typeParameters = [];
     bool hasThis;
     bool inFieldInitializer;
     Scope? scope;
@@ -78,6 +79,20 @@ public sealed class Binder(DiagnosticBag diagnostics)
         overloads.Add(function);
     }
 
+    List<TypeParameterSymbol> DeclareTypeParameters(IReadOnlyList<TypeParameterSyntax> syntax, IReadOnlyList<TypeParameterSymbol> outer)
+    {
+        var result = new List<TypeParameterSymbol>();
+        foreach (var parameter in syntax)
+        {
+            if (result.Any(p => p.Name == parameter.Name))
+                Error(parameter.Location, $"duplicate type parameter '{parameter.Name}'");
+            else if (outer.Any(p => p.Name == parameter.Name))
+                Error(parameter.Location, $"type parameter '{parameter.Name}' hides the struct's type parameter of the same name");
+            result.Add(new TypeParameterSymbol(parameter.Name));
+        }
+        return result;
+    }
+
     StructSymbol? DeclareStruct(StructDecl decl)
     {
         if (structs.ContainsKey(decl.Name) || BuiltinType(decl.Name) is not null)
@@ -85,17 +100,21 @@ public sealed class Binder(DiagnosticBag diagnostics)
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
             return null;
         }
-        var symbol = new StructSymbol(decl);
+        var symbol = new StructSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
         structs[decl.Name] = symbol;
         return symbol;
     }
 
     FunctionSymbol DeclareFunction(FunctionDecl decl)
     {
+        var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, []);
+        typeParameters = ownTypeParameters;
         var function = new FunctionSymbol(decl.Name, BindParameters(decl.Parameters), BindType(decl.ReturnType!, allowVoid: true))
         {
             Declaration = decl,
+            TypeParameters = ownTypeParameters,
         };
+        typeParameters = [];
 
         if (structs.ContainsKey(decl.Name))
         {
@@ -113,9 +132,18 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return function;
     }
 
+    /// <summary>Signatures match when parameters match, with each function's own type parameters compared by position.</summary>
+    static string SignatureKey(FunctionSymbol function)
+    {
+        string Key(VplType type) =>
+            type.TypeParameter is { } p && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
+            : type.Struct is { } s && type.TypeArguments.Count > 0 ? $"{s.Name}<{string.Join(",", type.TypeArguments.Select(Key))}>"
+            : type.Name;
+        return $"{function.TypeParameters.Count}|{string.Join(",", function.Parameters.Select(p => p.RefKind + Key(p.Type)))}";
+    }
+
     static FunctionSymbol? FindSameSignature(IEnumerable<FunctionSymbol>? candidates, FunctionSymbol function) =>
-        candidates?.FirstOrDefault(f => f.Parameters.Select(p => (p.Type, p.RefKind))
-            .SequenceEqual(function.Parameters.Select(p => (p.Type, p.RefKind))));
+        candidates?.FirstOrDefault(f => SignatureKey(f) == SignatureKey(function));
 
     List<LocalSymbol> BindParameters(IReadOnlyList<ParameterSyntax> parameters)
     {
@@ -131,6 +159,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     void DeclareMembers(StructSymbol s)
     {
+        typeParameters = s.TypeParameters;
         foreach (var decl in s.Declaration.Fields)
         {
             var field = new FieldSymbol(decl.Name, BindType(decl.Type, allowVoid: false), s, decl);
@@ -142,6 +171,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
         foreach (var decl in s.Declaration.Methods)
         {
+            var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, s.TypeParameters);
+            typeParameters = [.. s.TypeParameters, .. ownTypeParameters];
             var parameters = BindParameters(decl.Parameters);
             bool isPrivate = (decl.Modifiers & Modifiers.Private) != 0;
             if (decl.IsConstructor)
@@ -171,6 +202,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             var method = new FunctionSymbol(decl.Name, parameters, BindType(decl.ReturnType!, allowVoid: true))
             {
                 Declaration = decl,
+                TypeParameters = ownTypeParameters,
                 ContainingStruct = s,
                 IsStatic = (decl.Modifiers & Modifiers.Static) != 0,
                 IsReadOnly = (decl.Modifiers & Modifiers.ReadOnly) != 0,
@@ -191,36 +223,56 @@ public sealed class Binder(DiagnosticBag diagnostics)
             overloads.Add(method);
             s.Members.Add(method);
         }
+        typeParameters = [];
     }
 
+    /// <summary>
+    /// A struct may not contain itself by value, directly or through type arguments
+    /// (<c>struct Rec { Wrap&lt;Rec&gt; w; }</c>), and its field types may not grow forever.
+    /// </summary>
     void CheckStructCycles(List<StructSymbol> all)
     {
-        var done = new HashSet<StructSymbol>();
-        var path = new List<StructSymbol>();
+        const int maxDepth = 32;
+        var reported = new HashSet<StructSymbol>();
+        var acyclic = new HashSet<VplType>();
 
-        void Visit(StructSymbol s)
+        string? FindCycle(VplType type, List<VplType> path)
         {
-            if (done.Contains(s))
-                return;
-            int index = path.IndexOf(s);
+            if (acyclic.Contains(type))
+                return null;
+            int index = path.IndexOf(type);
             if (index >= 0)
             {
-                var cycle = path.Skip(index).Append(s).Select(x => x.Name);
-                Error(s.Declaration.NameLocation, $"struct '{s.Name}' contains itself ({string.Join(" -> ", cycle)}); a struct cannot hold itself by value");
-                return;
+                var cycle = path.Skip(index).Append(type).ToList();
+                foreach (var member in cycle)
+                    reported.Add(member.Struct!);
+                return $"contains itself ({string.Join(" -> ", cycle)}); a struct cannot hold itself by value";
             }
-            path.Add(s);
-            foreach (var field in s.Fields)
+            if (path.Count >= maxDepth)
             {
-                if (field.Type.Struct is { } nested)
-                    Visit(nested);
+                foreach (var member in path)
+                    reported.Add(member.Struct!);
+                return "has field types that nest without end";
+            }
+
+            path.Add(type);
+            var map = TypeMap.For(type);
+            foreach (var field in type.Struct!.Fields)
+            {
+                var fieldType = map.Apply(field.Type);
+                if (fieldType.IsStruct && FindCycle(fieldType, path) is { } problem)
+                    return problem;
             }
             path.RemoveAt(path.Count - 1);
-            done.Add(s);
+            acyclic.Add(type);
+            return null;
         }
 
         foreach (var s in all)
-            Visit(s);
+        {
+            if (!reported.Contains(s) && FindCycle(s.Type, []) is { } problem)
+                Error(s.Declaration.NameLocation, $"struct '{s.Name}' {problem}");
+        }
     }
 
     void BindFieldInitializers(StructSymbol s)
@@ -230,10 +282,12 @@ public sealed class Binder(DiagnosticBag diagnostics)
             if (field.Declaration.Initializer is not { } initializer)
                 continue;
             currentStruct = s;
+            typeParameters = s.TypeParameters;
             inFieldInitializer = true;
             scope = new Scope(null);
             field.Initializer = Convert(BindExpression(initializer), field.Type);
             currentStruct = null;
+            typeParameters = [];
             inFieldInitializer = false;
             scope = null;
         }
@@ -250,8 +304,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
         FunctionSymbol? main = null;
         foreach (var candidate in candidates)
         {
-            if (candidate.Parameters.Count != 0)
-                Error(candidate.Declaration!.NameLocation, "'main' must not take parameters");
+            if (candidate.Parameters.Count != 0 || candidate.IsGeneric)
+                Error(candidate.Declaration!.NameLocation, "'main' must not take parameters or type parameters");
             else if (candidate.ReturnType != VplType.Void && candidate.ReturnType != VplType.Int)
                 Error(candidate.Declaration!.NameLocation, "'main' must return 'void' or 'int'");
             else
@@ -259,6 +313,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
         }
         return main;
     }
+
+    // ---- Types ----
 
     static VplType? BuiltinType(string name) => name switch
     {
@@ -272,14 +328,11 @@ public sealed class Binder(DiagnosticBag diagnostics)
         _ => null,
     };
 
+    TypeParameterSymbol? LookupTypeParameter(string name) => typeParameters.LastOrDefault(p => p.Name == name);
+
     VplType BindType(TypeSyntax syntax, bool allowVoid)
     {
-        var type = BuiltinType(syntax.Name) ?? structs.GetValueOrDefault(syntax.Name)?.Type;
-        if (type is null)
-        {
-            Error(syntax.Location, $"unknown type '{syntax.Name}'");
-            return VplType.Error;
-        }
+        var type = BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location);
         if (type == VplType.Void && !allowVoid)
         {
             Error(syntax.Location, "'void' cannot be used here");
@@ -288,12 +341,50 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return type;
     }
 
+    VplType BindTypeName(string name, IReadOnlyList<TypeSyntax> typeArgumentSyntax, Location location)
+    {
+        var arguments = typeArgumentSyntax.Select(a => BindType(a, allowVoid: false)).ToList();
+        if (arguments.Contains(VplType.Error))
+            return VplType.Error;
+
+        if (LookupTypeParameter(name) is { } parameter)
+            return arguments.Count == 0 ? parameter.Type : NotGeneric(name, location);
+        if (BuiltinType(name) is { } builtin)
+            return arguments.Count == 0 ? builtin : NotGeneric(name, location);
+        if (structs.TryGetValue(name, out var s))
+            return Construct(s, arguments, location);
+
+        Error(location, $"unknown type '{name}'");
+        return VplType.Error;
+    }
+
+    VplType NotGeneric(string name, Location location)
+    {
+        Error(location, $"'{name}' is not generic");
+        return VplType.Error;
+    }
+
+    VplType Construct(StructSymbol s, IReadOnlyList<VplType> arguments, Location location)
+    {
+        if (arguments.Count == s.TypeParameters.Count)
+            return s.Construct(arguments);
+        if (!s.IsGeneric)
+            return NotGeneric(s.Name, location);
+        int count = s.TypeParameters.Count;
+        Error(location, $"'{s.Name}' requires {count} type argument{(count == 1 ? "" : "s")}");
+        return VplType.Error;
+    }
+
+    IReadOnlyList<VplType>? BindTypeArguments(IReadOnlyList<TypeSyntax> syntax) =>
+        syntax.Count == 0 ? null : [.. syntax.Select(a => BindType(a, allowVoid: false))];
+
     // ---- Bodies and statements ----
 
     BoundBlock BindBody(FunctionSymbol function)
     {
         currentFunction = function;
         currentStruct = function.ContainingStruct;
+        typeParameters = [.. currentStruct?.TypeParameters ?? [], .. function.TypeParameters];
         hasThis = currentStruct is not null && !function.IsStatic;
         scope = new Scope(null);
         foreach (var parameter in function.Parameters)
@@ -303,6 +394,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
         currentFunction = null;
         currentStruct = null;
+        typeParameters = [];
         hasThis = false;
         scope = null;
         return body;
@@ -549,16 +641,24 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return new BoundLiteral(location, VplType.Int, negated ? unchecked((int)(0U - (uint)e.Value)) : (int)e.Value);
     }
 
-    /// <summary>A name refers to a struct type only if no local or field hides it.</summary>
-    StructSymbol? AsTypeName(Expr expression) =>
-        expression is NameExpr name
-        && scope?.Lookup(name.Name) is null
-        && currentStruct?.FindField(name.Name) is null
-            ? structs.GetValueOrDefault(name.Name)
-            : null;
+    bool IsValueName(string name) => scope?.Lookup(name) is not null || currentStruct?.FindField(name) is not null;
+
+    /// <summary>
+    /// The struct type named by an expression like <c>Vec3</c> or <c>Pair&lt;int, float&gt;</c>, or null
+    /// when the expression is not a type name. A local or field hides a struct of the same name.
+    /// </summary>
+    VplType? AsTypeName(Expr expression)
+    {
+        if (expression is not NameExpr name || IsValueName(name.Name) || !structs.TryGetValue(name.Name, out var s))
+            return null;
+        return BindTypeName(s.Name, name.TypeArguments, name.Location);
+    }
 
     BoundExpression BindName(NameExpr e)
     {
+        if (e.TypeArguments.Count > 0)
+            return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
+
         if (scope!.Lookup(e.Name) is { } local)
             return new BoundLocalAccess(e.Location, local);
 
@@ -566,10 +666,10 @@ public sealed class Binder(DiagnosticBag diagnostics)
         {
             if (!hasThis)
                 return ErrorExpression(e.Location, $"'{e.Name}' is an instance field; {NoInstanceReason}");
-            return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentStruct.Type), field);
+            return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentStruct.Type), field, field.Type);
         }
 
-        if (structs.ContainsKey(e.Name))
+        if (structs.ContainsKey(e.Name) || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
         if (functions.ContainsKey(e.Name) || currentStruct?.Methods.ContainsKey(e.Name) == true)
             return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'");
@@ -589,27 +689,33 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     BoundExpression BindMemberAccess(MemberAccessExpr e)
     {
+        if (e.TypeArguments.Count > 0)
+            return ErrorExpression(e.NameLocation, "type arguments can only be used in a call");
+
         if (AsTypeName(e.Target) is { } typeName)
         {
-            return ErrorExpression(e.NameLocation, typeName.Methods.ContainsKey(e.Name)
-                ? $"'{typeName.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'"
-                : $"'{typeName.Name}' has no static member '{e.Name}'");
+            if (typeName == VplType.Error)
+                return new BoundErrorExpression(e.Location);
+            var s = typeName.Struct!;
+            return ErrorExpression(e.NameLocation, s.Methods.ContainsKey(e.Name)
+                ? $"'{s.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'"
+                : $"'{s.Name}' has no static member '{e.Name}'");
         }
 
         var target = BindExpression(e.Target);
         if (target.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
-        if (target.Type.Struct is not { } s)
+        if (target.Type.Struct is not { } owner)
             return ErrorExpression(e.NameLocation, $"'{target.Type}' has no member '{e.Name}'");
 
-        if (s.FindField(e.Name) is not { } field)
+        if (owner.FindField(e.Name) is not { } field)
         {
-            return ErrorExpression(e.NameLocation, s.Methods.ContainsKey(e.Name)
-                ? $"'{s.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'"
-                : $"'{s.Name}' has no field '{e.Name}'");
+            return ErrorExpression(e.NameLocation, owner.Methods.ContainsKey(e.Name)
+                ? $"'{owner.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'"
+                : $"'{owner.Name}' has no field '{e.Name}'");
         }
-        CheckAccessible(e.NameLocation, s, field.IsPrivate, $"field '{s.Name}.{e.Name}'");
-        return new BoundFieldAccess(e.Location, target, field);
+        CheckAccessible(e.NameLocation, owner, field.IsPrivate, $"field '{owner.Name}.{e.Name}'");
+        return new BoundFieldAccess(e.Location, target, field, TypeMap.For(target.Type).Apply(field.Type));
     }
 
     void CheckAccessible(Location location, StructSymbol owner, bool isPrivate, string description)
@@ -674,10 +780,10 @@ public sealed class Binder(DiagnosticBag diagnostics)
         {
             if (left.Type != right.Type)
                 return ErrorExpression(location, $"operator '{symbol}' cannot be applied to '{left.Type}' and '{right.Type}'");
-            if (left.Type.Struct!.FindNonEquatableField() is { } field)
+            if (Conversions.FindNonEquatableField(left.Type) is { } field)
             {
                 return ErrorExpression(location,
-                    $"operator '{symbol}' cannot be applied to '{left.Type}' because its field '{field.Name}' of type '{field.Type}' does not support '=='");
+                    $"operator '{symbol}' cannot be applied to '{left.Type}' because its field '{field.Name}' of type '{TypeMap.For(left.Type).Apply(field.Type)}' does not support '=='");
             }
             return new BoundBinary(location, left, op, right, VplType.Bool);
         }
@@ -783,17 +889,21 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     BoundExpression BindNameCall(CallExpr e, NameExpr name, List<Argument> arguments)
     {
-        if (scope!.Lookup(name.Name) is not null || currentStruct?.FindField(name.Name) is not null)
+        if (IsValueName(name.Name))
             return ErrorExpression(name.Location, $"'{name.Name}' is a variable, not a function");
-        if (arguments.Any(a => a.Expression.Type == VplType.Error))
+        if (LookupTypeParameter(name.Name) is not null)
+            return ErrorExpression(name.Location, $"'{name.Name}' is a type parameter and cannot be constructed");
+
+        var typeArguments = BindTypeArguments(name.TypeArguments);
+        if (arguments.Any(a => a.Expression.Type == VplType.Error) || typeArguments?.Contains(VplType.Error) == true)
             return new BoundErrorExpression(e.Location);
 
         if (currentStruct is { } s && s.Methods.TryGetValue(name.Name, out var methods))
         {
-            var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, arguments);
+            var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, s.Type, typeArguments, arguments);
             if (method is null)
                 return new BoundErrorExpression(e.Location);
-            if (method.IsStatic)
+            if (method.Symbol.IsStatic)
                 return MakeCall(e.Location, method, null, arguments);
             if (!hasThis)
                 return ErrorExpression(name.Location, $"'{name.Name}' is an instance method; {NoInstanceReason}");
@@ -801,78 +911,92 @@ public sealed class Binder(DiagnosticBag diagnostics)
         }
 
         if (structs.TryGetValue(name.Name, out var type))
-            return BindConstruction(e.Location, type, arguments, []);
+        {
+            var constructed = Construct(type, typeArguments ?? [], name.Location);
+            return constructed == VplType.Error
+                ? new BoundErrorExpression(e.Location)
+                : BindConstruction(e.Location, constructed, arguments, []);
+        }
 
         if (!functions.TryGetValue(name.Name, out var overloads))
             return ErrorExpression(name.Location, $"function '{name.Name}' is not defined");
-        var function = Resolve(e.Location, $"overload of '{name.Name}'", overloads, arguments);
+        var function = Resolve(e.Location, $"overload of '{name.Name}'", overloads, null, typeArguments, arguments);
         return function is null ? new BoundErrorExpression(e.Location) : MakeCall(e.Location, function, null, arguments);
     }
 
     BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, List<Argument> arguments)
     {
+        var typeArguments = BindTypeArguments(member.TypeArguments);
+        if (typeArguments?.Contains(VplType.Error) == true)
+            return new BoundErrorExpression(e.Location);
+
         if (AsTypeName(member.Target) is { } type)
         {
-            if (!type.Methods.TryGetValue(member.Name, out var staticCandidates))
-                return ErrorExpression(member.NameLocation, $"'{type.Name}' has no method '{member.Name}'");
-            if (arguments.Any(a => a.Expression.Type == VplType.Error))
+            if (type == VplType.Error || arguments.Any(a => a.Expression.Type == VplType.Error))
                 return new BoundErrorExpression(e.Location);
-            var staticMethod = Resolve(e.Location, $"overload of '{type.Name}.{member.Name}'", staticCandidates, arguments);
+            var s = type.Struct!;
+            if (!s.Methods.TryGetValue(member.Name, out var staticCandidates))
+                return ErrorExpression(member.NameLocation, $"'{s.Name}' has no method '{member.Name}'");
+            var staticMethod = Resolve(e.Location, $"overload of '{s.Name}.{member.Name}'", staticCandidates, type, typeArguments, arguments);
             if (staticMethod is null)
                 return new BoundErrorExpression(e.Location);
-            if (!staticMethod.IsStatic)
+            if (!staticMethod.Symbol.IsStatic)
             {
                 return ErrorExpression(member.NameLocation,
-                    $"'{type.Name}.{member.Name}' is an instance method; call it on a value of type '{type.Name}'");
+                    $"'{s.Name}.{member.Name}' is an instance method; call it on a value of type '{type}'");
             }
-            CheckAccessible(member.NameLocation, type, staticMethod.IsPrivate, $"method '{type.Name}.{member.Name}'");
+            CheckAccessible(member.NameLocation, s, staticMethod.Symbol.IsPrivate, $"method '{s.Name}.{member.Name}'");
             return MakeCall(e.Location, staticMethod, null, arguments);
         }
 
         var receiver = BindExpression(member.Target);
         if (receiver.Type == VplType.Error || arguments.Any(a => a.Expression.Type == VplType.Error))
             return new BoundErrorExpression(e.Location);
-        if (receiver.Type.Struct is not { } s)
+        if (receiver.Type.Struct is not { } owner)
             return ErrorExpression(member.NameLocation, $"'{receiver.Type}' has no method '{member.Name}'");
-        if (!s.Methods.TryGetValue(member.Name, out var candidates))
+        if (!owner.Methods.TryGetValue(member.Name, out var candidates))
         {
-            return ErrorExpression(member.NameLocation, s.FindField(member.Name) is not null
-                ? $"'{s.Name}.{member.Name}' is a field, not a method"
-                : $"'{s.Name}' has no method '{member.Name}'");
+            return ErrorExpression(member.NameLocation, owner.FindField(member.Name) is not null
+                ? $"'{owner.Name}.{member.Name}' is a field, not a method"
+                : $"'{owner.Name}' has no method '{member.Name}'");
         }
 
-        var method = Resolve(e.Location, $"overload of '{s.Name}.{member.Name}'", candidates, arguments);
+        var method = Resolve(e.Location, $"overload of '{owner.Name}.{member.Name}'", candidates, receiver.Type, typeArguments, arguments);
         if (method is null)
             return new BoundErrorExpression(e.Location);
-        if (method.IsStatic)
-            return ErrorExpression(member.NameLocation, $"static method '{member.Name}' must be called through the type: '{s.Name}.{member.Name}(...)'");
-        CheckAccessible(member.NameLocation, s, method.IsPrivate, $"method '{s.Name}.{member.Name}'");
+        if (method.Symbol.IsStatic)
+        {
+            return ErrorExpression(member.NameLocation,
+                $"static method '{member.Name}' must be called through the type: '{owner.Name}.{member.Name}(...)'");
+        }
+        CheckAccessible(member.NameLocation, owner, method.Symbol.IsPrivate, $"method '{owner.Name}.{member.Name}'");
         return MakeCall(e.Location, method, receiver, arguments);
     }
 
-    BoundExpression MakeCall(Location location, FunctionSymbol function, BoundExpression? receiver, List<Argument> arguments)
+    BoundExpression MakeCall(Location location, MethodReference method, BoundExpression? receiver, List<Argument> arguments)
     {
-        if (receiver is not null && !function.IsReadOnly)
+        if (receiver is not null && !method.Symbol.IsReadOnly)
         {
             var (kind, reason) = ClassifyPlace(receiver);
             if (kind == PlaceKind.ReadOnly)
             {
                 var what = receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'";
                 return ErrorExpression(location,
-                    $"cannot call '{function.Name}' on {what} because {reason}; only 'readonly' methods can be called on it");
+                    $"cannot call '{method.Symbol.Name}' on {what} because {reason}; only 'readonly' methods can be called on it");
             }
         }
-        return new BoundCall(location, function, receiver, ConvertArguments(function, arguments));
+        return new BoundCall(location, method, receiver, ConvertArguments(method, arguments));
     }
 
-    List<BoundExpression> ConvertArguments(FunctionSymbol function, List<Argument> arguments)
+    List<BoundExpression> ConvertArguments(MethodReference method, List<Argument> arguments)
     {
         var result = new List<BoundExpression>();
-        foreach (var (parameter, argument) in function.Parameters.Zip(arguments))
+        for (int i = 0; i < arguments.Count; i++)
         {
-            if (parameter.RefKind != RefKind.Ref)
+            var argument = arguments[i];
+            if (method.ParameterRefKind(i) != RefKind.Ref)
             {
-                result.Add(Convert(argument.Expression, parameter.Type));
+                result.Add(Convert(argument.Expression, method.ParameterType(i)));
                 continue;
             }
 
@@ -886,22 +1010,51 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return result;
     }
 
-    FunctionSymbol? Resolve(Location location, string description, IReadOnlyList<FunctionSymbol> candidates, List<Argument> arguments)
+    /// <summary>
+    /// Picks the overload to call. Type arguments are inferred from the arguments unless given explicitly.
+    /// Among equally good candidates a non-generic one wins.
+    /// </summary>
+    MethodReference? Resolve(
+        Location location,
+        string description,
+        IReadOnlyList<FunctionSymbol> candidates,
+        VplType? owner,
+        IReadOnlyList<VplType>? typeArguments,
+        List<Argument> arguments)
     {
-        var sameArity = candidates.Where(f => f.Parameters.Count == arguments.Count).ToList();
+        var sameArity = candidates
+            .Where(f => f.Parameters.Count == arguments.Count && (typeArguments is null || f.TypeParameters.Count == typeArguments.Count))
+            .ToList();
         if (sameArity.Count == 0)
         {
-            Error(location, $"no {description} takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
+            if (typeArguments is not null && candidates.Any(f => f.Parameters.Count == arguments.Count))
+                Error(location, $"no {description} takes {typeArguments.Count} type argument{(typeArguments.Count == 1 ? "" : "s")}");
+            else
+                Error(location, $"no {description} takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
             return null;
         }
 
-        if (sameArity.Count == 1 && ExplainRefMismatch(sameArity[0], arguments) is { } mismatch)
+        var instantiated = new List<MethodReference>();
+        string? inferenceError = null;
+        foreach (var candidate in sameArity)
+        {
+            var inferred = candidate.IsGeneric ? typeArguments ?? InferTypeArguments(candidate, owner, arguments, out inferenceError) : [];
+            if (inferred is not null)
+                instantiated.Add(new MethodReference(candidate, owner, inferred));
+        }
+        if (instantiated.Count == 0)
+        {
+            Error(location, inferenceError!);
+            return null;
+        }
+
+        if (sameArity.Count == 1 && ExplainRefMismatch(instantiated[0], arguments) is { } mismatch)
         {
             Error(mismatch.Location, mismatch.Message);
             return null;
         }
 
-        var applicable = sameArity.Where(f => IsApplicable(f, arguments)).ToList();
+        var applicable = instantiated.Where(m => IsApplicable(m, arguments)).ToList();
         if (applicable.Count == 0)
         {
             var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + a.Expression.Type));
@@ -909,42 +1062,94 @@ public sealed class Binder(DiagnosticBag diagnostics)
             return null;
         }
 
-        var exact = applicable.FirstOrDefault(f => f.Parameters.Zip(arguments).All(pair => pair.First.Type == pair.Second.Expression.Type));
-        if (exact is not null)
-            return exact;
+        var exact = applicable
+            .Where(m => Enumerable.Range(0, arguments.Count).All(i => m.ParameterType(i) == arguments[i].Expression.Type))
+            .ToList();
+        if (exact.Count > 0)
+            return exact.FirstOrDefault(m => !m.Symbol.IsGeneric) ?? exact[0];
 
         // Java's rule: pick the overload whose parameters all convert to every other candidate's parameters.
-        var mostSpecific = applicable.Where(f => applicable.All(g => g == f || IsMoreSpecific(f, g))).ToList();
+        var mostSpecific = applicable.Where(m => applicable.All(n => n == m || IsMoreSpecific(m, n))).ToList();
+        if (mostSpecific.Count > 1 && mostSpecific.Count(m => !m.Symbol.IsGeneric) == 1)
+            mostSpecific = [.. mostSpecific.Where(m => !m.Symbol.IsGeneric)];
         if (mostSpecific.Count == 1)
             return mostSpecific[0];
 
-        Error(location, $"call is ambiguous between {string.Join(" and ", applicable.Select(f => $"'{f.Signature}'"))}");
+        Error(location, $"call is ambiguous between {string.Join(" and ", applicable.Select(m => $"'{m}'"))}");
         return null;
     }
 
-    static bool IsApplicable(FunctionSymbol function, List<Argument> arguments) =>
-        function.Parameters.Zip(arguments).All(pair => pair.First.RefKind == RefKind.Ref
-            ? pair.Second.IsRef && pair.Second.Expression.Type == pair.First.Type
-            : !pair.Second.IsRef && CanConvert(pair.Second.Expression, pair.First.Type));
+    /// <summary>
+    /// Infers each type parameter from the arguments in its positions. When positions disagree, the
+    /// type that every argument converts to wins, so <c>max(1, 2L)</c> infers <c>long</c>.
+    /// </summary>
+    IReadOnlyList<VplType>? InferTypeArguments(FunctionSymbol function, VplType? owner, List<Argument> arguments, out string? error)
+    {
+        var ownerMap = owner is null ? TypeMap.Empty : TypeMap.For(owner);
+        var bindings = function.TypeParameters.ToDictionary(p => p, _ => new List<(BoundExpression? Expression, VplType Type)>());
 
-    static (Location Location, string Message)? ExplainRefMismatch(FunctionSymbol function, List<Argument> arguments)
+        void Unify(VplType parameter, BoundExpression? argument, VplType argumentType)
+        {
+            if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
+            {
+                found.Add((argument, argumentType));
+            }
+            else if (parameter.Struct is not null && parameter.Struct == argumentType.Struct)
+            {
+                // Inside a type argument there are no conversions, so these must match exactly.
+                for (int i = 0; i < parameter.TypeArguments.Count; i++)
+                    Unify(parameter.TypeArguments[i], null, argumentType.TypeArguments[i]);
+            }
+        }
+
+        for (int i = 0; i < arguments.Count; i++)
+            Unify(ownerMap.Apply(function.Parameters[i].Type), arguments[i].Expression, arguments[i].Expression.Type);
+
+        var result = new List<VplType>();
+        foreach (var parameter in function.TypeParameters)
+        {
+            var found = bindings[parameter];
+            if (found.Count == 0)
+            {
+                error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}'; specify it explicitly, as in '{function.Name}<...>(...)'";
+                return null;
+            }
+            var chosen = found.Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
+                found.All(b => b.Expression is not null ? CanConvert(b.Expression, candidate) : b.Type == candidate));
+            if (chosen is null)
+            {
+                error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}': it could be {string.Join(" or ", found.Select(b => $"'{b.Type}'").Distinct())}";
+                return null;
+            }
+            result.Add(chosen);
+        }
+        error = null;
+        return result;
+    }
+
+    static bool IsApplicable(MethodReference method, List<Argument> arguments) =>
+        Enumerable.Range(0, arguments.Count).All(i => method.ParameterRefKind(i) == RefKind.Ref
+            ? arguments[i].IsRef && arguments[i].Expression.Type == method.ParameterType(i)
+            : !arguments[i].IsRef && CanConvert(arguments[i].Expression, method.ParameterType(i)));
+
+    static (Location Location, string Message)? ExplainRefMismatch(MethodReference method, List<Argument> arguments)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
-            var parameter = function.Parameters[i];
             var argument = arguments[i];
-            if (parameter.RefKind == RefKind.Ref && !argument.IsRef)
+            bool isRefParameter = method.ParameterRefKind(i) == RefKind.Ref;
+            if (isRefParameter && !argument.IsRef)
                 return (argument.Location, $"argument {i + 1} must be passed with 'ref'");
-            if (parameter.RefKind != RefKind.Ref && argument.IsRef)
+            if (!isRefParameter && argument.IsRef)
                 return (argument.Location, $"argument {i + 1} must not be passed with 'ref'");
-            if (parameter.RefKind == RefKind.Ref && argument.Expression.Type != parameter.Type)
-                return (argument.Location, $"a 'ref' argument must have exactly type '{parameter.Type}', not '{argument.Expression.Type}'");
+            if (isRefParameter && argument.Expression.Type != method.ParameterType(i))
+                return (argument.Location, $"a 'ref' argument must have exactly type '{method.ParameterType(i)}', not '{argument.Expression.Type}'");
         }
         return null;
     }
 
-    static bool IsMoreSpecific(FunctionSymbol f, FunctionSymbol g) =>
-        f.Parameters.Zip(g.Parameters).All(pair => Conversions.IsImplicit(pair.First.Type, pair.Second.Type));
+    static bool IsMoreSpecific(MethodReference m, MethodReference n) =>
+        Enumerable.Range(0, m.Symbol.Parameters.Count).All(i => Conversions.IsImplicit(m.ParameterType(i), n.ParameterType(i)));
 
     BoundExpression BindInitializer(InitializerExpr e)
     {
@@ -956,28 +1161,30 @@ public sealed class Binder(DiagnosticBag diagnostics)
         };
         if (AsTypeName(typeName) is not { } type)
             return ErrorExpression(typeName.Location, $"'{typeName.Name}' is not a struct; '{{ ... }}' initializers can only follow a struct name");
-        if (arguments.Any(a => a.Expression.Type == VplType.Error))
+        if (type == VplType.Error)
             return new BoundErrorExpression(e.Location);
         return BindConstruction(e.Location, type, arguments, e.Fields);
     }
 
-    BoundExpression BindConstruction(Location location, StructSymbol type, List<Argument> arguments, IReadOnlyList<FieldInit> fieldInits)
+    BoundExpression BindConstruction(Location location, VplType type, List<Argument> arguments, IReadOnlyList<FieldInit> fieldInits)
     {
         if (arguments.Any(a => a.Expression.Type == VplType.Error))
             return new BoundErrorExpression(location);
 
-        var constructor = Resolve(location, $"constructor of '{type.Name}'", [.. type.Constructors, type.DefaultConstructor], arguments);
+        var s = type.Struct!;
+        var constructor = Resolve(location, $"constructor of '{type}'", [.. s.Constructors, s.DefaultConstructor], type, null, arguments);
         if (constructor is null)
             return new BoundErrorExpression(location);
-        CheckAccessible(location, type, constructor.IsPrivate, $"constructor '{constructor.Signature}'");
+        CheckAccessible(location, s, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
 
+        var map = TypeMap.For(type);
         var initializers = new List<BoundFieldInitializer>();
         foreach (var init in fieldInits)
         {
             var value = BindExpression(init.Value);
-            if (type.FindField(init.Name) is not { } field)
+            if (s.FindField(init.Name) is not { } field)
             {
-                Error(init.Location, $"'{type.Name}' has no field '{init.Name}'");
+                Error(init.Location, $"'{s.Name}' has no field '{init.Name}'");
                 continue;
             }
             if (initializers.Any(i => i.Field == field))
@@ -985,11 +1192,24 @@ public sealed class Binder(DiagnosticBag diagnostics)
                 Error(init.Location, $"field '{init.Name}' is initialized more than once");
                 continue;
             }
-            CheckAccessible(init.Location, type, field.IsPrivate, $"field '{type.Name}.{init.Name}'");
-            initializers.Add(new BoundFieldInitializer(field, Convert(value, field.Type)));
+            CheckAccessible(init.Location, s, field.IsPrivate, $"field '{s.Name}.{init.Name}'");
+            initializers.Add(new BoundFieldInitializer(field, Convert(value, map.Apply(field.Type))));
         }
 
-        return new BoundConstruction(location, type.Type, constructor, ConvertArguments(constructor, arguments), initializers);
+        if (constructor.Symbol.IsImplicit)
+        {
+            var missing = s.Fields.FirstOrDefault(f =>
+                f.Declaration.Initializer is null
+                && initializers.All(i => i.Field != f)
+                && !Conversions.IsDefaultable(map.Apply(f.Type)));
+            if (missing is not null)
+            {
+                return ErrorExpression(location,
+                    $"'{type}' has no default value because field '{missing.Name}' has type '{map.Apply(missing.Type)}'; initialize it explicitly, as in '{s.Name}{{ {missing.Name} = ... }}'");
+            }
+        }
+
+        return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments), initializers);
     }
 
     BoundExpression BindCast(CastExpr e)

@@ -13,6 +13,7 @@ namespace Vpl.Compiler.CodeGen;
 /// <remarks>
 /// Structs stay C++ aggregates: constructors become static <c>make</c> functions and field
 /// initializers run in <c>make_default</c>, so struct definitions only need their fields' types.
+/// Generics become C++ templates; the binder has already checked every instantiation is valid.
 /// </remarks>
 public sealed class CppEmitter
 {
@@ -37,12 +38,12 @@ public sealed class CppEmitter
         {
             Line();
             foreach (var s in program.Structs)
-                Line($"struct {StructName(s)};");
+                Line(TemplatePrefix(s.TypeParameters) + $"struct {StructName(s)};");
         }
 
         Line();
         foreach (var function in program.Functions.Where(f => f.Symbol.ContainingStruct is null))
-            Line(DefinitionSignature(function.Symbol) + ";");
+            Line(TemplatePrefix(function.Symbol.TypeParameters) + DefinitionSignature(function.Symbol) + ";");
 
         foreach (var s in DependencyOrder(program.Structs))
         {
@@ -96,10 +97,19 @@ public sealed class CppEmitter
     static string LocalName(LocalSymbol local) => "l_" + local.Name;
     static string FieldName(FieldSymbol field) => "f_" + field.Name;
     static string StructName(StructSymbol s) => "s_" + s.Name;
+    static string TypeParameterName(TypeParameterSymbol parameter) => "t_" + parameter.Name;
+
+    static string TemplatePrefix(IReadOnlyList<TypeParameterSymbol> parameters) => parameters.Count == 0
+        ? ""
+        : $"template <{string.Join(", ", parameters.Select(p => "class " + TypeParameterName(p)))}> ";
+
+    static string TypeArgumentList(IReadOnlyList<VplType> arguments) =>
+        arguments.Count == 0 ? "" : $"<{string.Join(", ", arguments.Select(CppType))}>";
 
     static string CppType(VplType type)
     {
-        if (type.Struct is { } s) return StructName(s);
+        if (type.TypeParameter is { } parameter) return TypeParameterName(parameter);
+        if (type.Struct is { } s) return StructName(s) + TypeArgumentList(type.TypeArguments);
         if (type == VplType.Void) return "void";
         if (type == VplType.Bool) return "bool";
         if (type == VplType.Int) return "int32_t";
@@ -112,20 +122,26 @@ public sealed class CppEmitter
 
     // ---- Structs ----
 
+    /// <summary>Orders struct definitions so each comes after every struct its fields mention, including in type arguments.</summary>
     static List<StructSymbol> DependencyOrder(IReadOnlyList<StructSymbol> structs)
     {
         var ordered = new List<StructSymbol>();
         var visited = new HashSet<StructSymbol>();
+
+        void VisitType(VplType type)
+        {
+            if (type.Struct is { } s)
+                Visit(s);
+            foreach (var argument in type.TypeArguments)
+                VisitType(argument);
+        }
 
         void Visit(StructSymbol s)
         {
             if (!visited.Add(s))
                 return;
             foreach (var field in s.Fields)
-            {
-                if (field.Type.Struct is { } nested)
-                    Visit(nested);
-            }
+                VisitType(field.Type);
             ordered.Add(s);
         }
 
@@ -134,22 +150,36 @@ public sealed class CppEmitter
         return ordered;
     }
 
-    /// <summary>Whether default construction must run code, rather than just zero-initialize.</summary>
+    /// <summary>
+    /// Whether default construction must run code rather than just zero-initialize. Generic structs
+    /// always get a <c>make_default</c>, since their type arguments may need one.
+    /// </summary>
     bool NeedsDefaultFunction(StructSymbol s)
     {
         if (!needsDefaultFunction.TryGetValue(s, out bool needs))
         {
-            needs = s.Fields.Any(f => f.Initializer is not null || (f.Type.Struct is { } nested && NeedsDefaultFunction(nested)));
+            needsDefaultFunction[s] = false;
+            needs = s.IsGeneric || s.Fields.Any(f => f.Initializer is not null || NeedsDefaultCode(f.Type));
             needsDefaultFunction[s] = needs;
         }
         return needs;
     }
 
-    string DefaultValue(StructSymbol s) => NeedsDefaultFunction(s) ? $"{StructName(s)}::make_default()" : $"{StructName(s)}{{}}";
+    bool NeedsDefaultCode(VplType type) =>
+        type.IsTypeParameter || (type.Struct is { } s && NeedsDefaultFunction(s));
+
+    string DefaultValue(VplType type)
+    {
+        if (type.IsTypeParameter)
+            return $"vpl::default_value<{CppType(type)}>()";
+        return NeedsDefaultFunction(type.Struct!) ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
+    }
 
     void EmitStructDefinition(StructSymbol s)
     {
         var name = StructName(s);
+        if (s.IsGeneric)
+            Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"struct {name}");
         Line("{");
         indent++;
@@ -158,8 +188,9 @@ public sealed class CppEmitter
         if (NeedsDefaultFunction(s))
             Line($"static {name} make_default();");
         foreach (var member in s.Members)
-            Line(MemberDeclaration(member) + ";");
-        if (s.FindNonEquatableField() is null)
+            Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
+        // In a template, a defaulted == whose members lack == is deleted rather than an error.
+        if (s.IsGeneric || Conversions.SupportsEquality(s.Type))
             Line($"bool operator==(const {name}&) const = default;");
         indent--;
         Line("};");
@@ -167,18 +198,20 @@ public sealed class CppEmitter
 
     void EmitDefaultFunction(StructSymbol s)
     {
-        var name = StructName(s);
+        var type = CppType(s.Type);
         context = Context.Free;
-        Line($"{name} {name}::make_default()");
+        if (s.IsGeneric)
+            Line(TemplatePrefix(s.TypeParameters).TrimEnd());
+        Line($"{type} {type}::make_default()");
         Line("{");
         indent++;
-        Line($"{name} self{{}};");
+        Line($"{type} self{{}};");
         foreach (var field in s.Fields)
         {
             if (field.Initializer is { } initializer)
                 Line($"self.{FieldName(field)} = {Expression(initializer)};");
-            else if (field.Type.Struct is { } nested && NeedsDefaultFunction(nested))
-                Line($"self.{FieldName(field)} = {DefaultValue(nested)};");
+            else if (NeedsDefaultCode(field.Type))
+                Line($"self.{FieldName(field)} = {DefaultValue(field.Type)};");
         }
         Line("return self;");
         indent--;
@@ -211,7 +244,7 @@ public sealed class CppEmitter
     {
         if (function.ContainingStruct is not { } s)
             return $"{CppType(function.ReturnType)} {FunctionName(function)}({Parameters(function)})";
-        var owner = StructName(s);
+        var owner = CppType(s.Type);
         if (function.IsConstructor)
             return $"{owner} {owner}::make({Parameters(function)})";
         var signature = $"{CppType(function.ReturnType)} {owner}::{MethodName(function)}({Parameters(function)})";
@@ -223,11 +256,18 @@ public sealed class CppEmitter
         var symbol = function.Symbol;
         context = symbol.IsConstructor ? Context.Constructor : symbol.IsInstanceMethod ? Context.Method : Context.Free;
 
+        if (symbol.ContainingStruct is { IsGeneric: true } owner)
+            Line(TemplatePrefix(owner.TypeParameters).TrimEnd());
+        if (symbol.IsGeneric)
+            Line(TemplatePrefix(symbol.TypeParameters).TrimEnd());
         Line(DefinitionSignature(symbol));
         Line("{");
         indent++;
         if (symbol.IsConstructor)
-            Line($"{StructName(symbol.ContainingStruct!)} self = {DefaultValue(symbol.ContainingStruct!)};");
+        {
+            var type = symbol.ContainingStruct!.Type;
+            Line($"{CppType(type)} self = {DefaultValue(type)};");
+        }
         foreach (var statement in function.Body.Statements)
             Statement(statement);
         if (symbol.IsConstructor)
@@ -410,8 +450,8 @@ public sealed class CppEmitter
     bool HasEffects(BoundExpression expression) => expression switch
     {
         BoundCall => true,
-        BoundConstruction construction when !construction.Constructor.IsImplicit
-            || NeedsDefaultFunction(construction.Type.Struct!) => true,
+        BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit
+            || NeedsDefaultCode(construction.Type) => true,
         BoundBinary binary when MayPanic(binary) => true,
         BoundUnary { Operator: BoundUnaryOperator.Negate } unary when unary.Type.IsInteger => true,
         _ => Children(expression).Any(HasEffects),
@@ -420,9 +460,9 @@ public sealed class CppEmitter
     /// <summary>Whether evaluating the expression may modify locals, parameters, or fields.</summary>
     static bool Writes(BoundExpression expression) => expression switch
     {
-        BoundCall call when call.Function.Parameters.Any(p => p.RefKind == RefKind.Ref)
-            || (call.Receiver is not null && !call.Function.IsReadOnly) => true,
-        BoundConstruction construction when construction.Constructor.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
+        BoundCall call when call.Method.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref)
+            || (call.Receiver is not null && !call.Method.Symbol.IsReadOnly) => true,
+        BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
         _ => Children(expression).Any(Writes),
     };
 
@@ -506,12 +546,18 @@ public sealed class CppEmitter
 
     string Call(BoundCall call)
     {
-        var function = call.Function;
+        var method = call.Method;
+        var function = method.Symbol;
         var operands = new List<Operand>();
         if (call.Receiver is not null)
             operands.Add(new Operand(call.Receiver, ByReference: true));
-        operands.AddRange(call.Arguments.Select((argument, i) => new Operand(argument, function.Parameters[i].RefKind != RefKind.None)));
+        operands.AddRange(call.Arguments.Select((argument, i) => new Operand(argument, method.ParameterRefKind(i) != RefKind.None)));
         var location = function.PassesLocation ? SourceLocation(call.Location) : null;
+
+        // Explicit template arguments keep C++ from deducing differently than VPL resolved.
+        var typeArguments = TypeArgumentList(method.TypeArguments);
+        // `.template` is required for a member template of a dependent type and harmless otherwise.
+        var memberName = (typeArguments.Length > 0 ? "template " : "") + MethodName(function) + typeArguments;
 
         return Ordered(operands, parts =>
         {
@@ -522,30 +568,30 @@ public sealed class CppEmitter
 
             if (function.BuiltinCppName is { } builtin)
                 return $"{builtin}({argumentText})";
-            if (function.ContainingStruct is not { } s)
-                return $"{FunctionName(function)}({argumentText})";
+            if (function.ContainingStruct is null)
+                return $"{FunctionName(function)}{typeArguments}({argumentText})";
             if (function.IsStatic)
-                return $"{StructName(s)}::{MethodName(function)}({argumentText})";
+                return $"{CppType(method.Owner!)}::{memberName}({argumentText})";
             var receiver = parts[0] == "(*this)" ? "this->" : parts[0] + ".";
-            return $"{receiver}{MethodName(function)}({argumentText})";
+            return $"{receiver}{memberName}({argumentText})";
         });
     }
 
     string Construction(BoundConstruction construction)
     {
-        var s = construction.Type.Struct!;
+        var type = CppType(construction.Type);
         var constructor = construction.Constructor;
         var operands = construction.Arguments
-            .Select((argument, i) => new Operand(argument, constructor.Parameters[i].RefKind != RefKind.None))
+            .Select((argument, i) => new Operand(argument, constructor.ParameterRefKind(i) != RefKind.None))
             .ToList();
-        var created = Ordered(operands, arguments => constructor.IsImplicit
-            ? DefaultValue(s)
-            : $"{StructName(s)}::make({string.Join(", ", arguments)})");
+        var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
+            ? DefaultValue(construction.Type)
+            : $"{type}::make({string.Join(", ", arguments)})");
         if (construction.Initializers.Count == 0)
             return created;
 
         var temp = NewTemp();
-        var body = new StringBuilder($"[&] {{ {StructName(s)} {temp} = {created}; ");
+        var body = new StringBuilder($"[&] {{ {type} {temp} = {created}; ");
         foreach (var initializer in construction.Initializers)
             body.Append($"{temp}.{FieldName(initializer.Field)} = {Expression(initializer.Value)}; ");
         return body.Append($"return {temp}; }}()").ToString();

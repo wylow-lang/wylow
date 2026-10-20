@@ -101,19 +101,20 @@ public sealed record BoundBinary(Location Location, BoundExpression Left, BoundB
 
 public sealed record BoundThis(Location Location, VplType Type) : BoundExpression(Location, Type);
 
-public sealed record BoundFieldAccess(Location Location, BoundExpression Receiver, FieldSymbol Field)
-    : BoundExpression(Location, Field.Type);
+/// <summary><see cref="BoundExpression.Type"/> is the field's type with the receiver's type arguments applied.</summary>
+public sealed record BoundFieldAccess(Location Location, BoundExpression Receiver, FieldSymbol Field, VplType Type)
+    : BoundExpression(Location, Type);
 
 /// <summary><see cref="Receiver"/> is set for instance methods. A <c>ref</c> argument is the place itself.</summary>
-public sealed record BoundCall(Location Location, FunctionSymbol Function, BoundExpression? Receiver, IReadOnlyList<BoundExpression> Arguments)
-    : BoundExpression(Location, Function.ReturnType);
+public sealed record BoundCall(Location Location, MethodReference Method, BoundExpression? Receiver, IReadOnlyList<BoundExpression> Arguments)
+    : BoundExpression(Location, Method.ReturnType);
 
 public sealed record BoundFieldInitializer(FieldSymbol Field, BoundExpression Value);
 
 public sealed record BoundConstruction(
     Location Location,
     VplType Type,
-    FunctionSymbol Constructor,
+    MethodReference Constructor,
     IReadOnlyList<BoundExpression> Arguments,
     IReadOnlyList<BoundFieldInitializer> Initializers) : BoundExpression(Location, Type);
 

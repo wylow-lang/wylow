@@ -53,6 +53,16 @@ inline void init() {
 #endif
 }
 
+// The VPL default value of T, for generic code: struct field initializers run via make_default.
+template <class T>
+inline T default_value() {
+    if constexpr (requires { T::make_default(); }) {
+        return T::make_default();
+    } else {
+        return T{};
+    }
+}
+
 // Integer arithmetic: overflow panics when VPL_DEBUG, otherwise wraps. Unsigned math avoids
 // UB; Wide<T> keeps small types from being promoted to signed int before the operation.
 template <class T>

@@ -21,6 +21,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public VplType ReturnType { get; } = returnType;
 
     public FunctionDecl? Declaration { get; init; }
+    public IReadOnlyList<TypeParameterSymbol> TypeParameters { get; init; } = [];
     public StructSymbol? ContainingStruct { get; init; }
     public bool IsStatic { get; init; }
     public bool IsReadOnly { get; init; }
@@ -37,10 +38,17 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool PassesLocation { get; init; }
 
     public bool IsBuiltin => BuiltinCppName is not null;
+    public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingStruct is not null && !IsStatic && !IsConstructor;
 
-    public string Signature =>
-        $"{Name}({string.Join(", ", Parameters.Select(p => RefPrefix(p.RefKind) + p.Type))})";
+    public string Signature
+    {
+        get
+        {
+            var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
+            return $"{Name}{typeParameters}({string.Join(", ", Parameters.Select(p => RefPrefix(p.RefKind) + p.Type))})";
+        }
+    }
 
     public static string RefPrefix(RefKind kind) => kind switch
     {
@@ -50,6 +58,46 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     };
 
     public override string ToString() => Signature;
+}
+
+public sealed class TypeParameterSymbol
+{
+    public TypeParameterSymbol(string name)
+    {
+        Name = name;
+        Type = VplType.ForTypeParameter(this);
+    }
+
+    public string Name { get; }
+    public VplType Type { get; }
+
+    public override string ToString() => Name;
+}
+
+/// <summary>
+/// A function as called: <see cref="Owner"/> is the struct type it is a member of, with type arguments,
+/// and <see cref="TypeArguments"/> are the function's own type arguments.
+/// </summary>
+public sealed class MethodReference
+{
+    public MethodReference(FunctionSymbol symbol, VplType? owner, IReadOnlyList<VplType> typeArguments)
+    {
+        Symbol = symbol;
+        Owner = owner;
+        TypeArguments = typeArguments;
+        Map = (owner is null ? TypeMap.Empty : TypeMap.For(owner)).With(symbol.TypeParameters, typeArguments);
+    }
+
+    public FunctionSymbol Symbol { get; }
+    public VplType? Owner { get; }
+    public IReadOnlyList<VplType> TypeArguments { get; }
+    public TypeMap Map { get; }
+
+    public VplType ParameterType(int index) => Map.Apply(Symbol.Parameters[index].Type);
+    public RefKind ParameterRefKind(int index) => Symbol.Parameters[index].RefKind;
+    public VplType ReturnType => Map.Apply(Symbol.ReturnType);
+
+    public override string ToString() => Symbol.Signature;
 }
 
 public sealed class FieldSymbol(string name, VplType type, StructSymbol owner, FieldDecl declaration)
@@ -66,11 +114,14 @@ public sealed class FieldSymbol(string name, VplType type, StructSymbol owner, F
 
 public sealed class StructSymbol
 {
-    public StructSymbol(StructDecl declaration)
+    readonly Dictionary<IReadOnlyList<VplType>, VplType> instances = new(TypeListComparer.Instance);
+
+    public StructSymbol(StructDecl declaration, IReadOnlyList<TypeParameterSymbol> typeParameters)
     {
         Name = declaration.Name;
         Declaration = declaration;
-        Type = VplType.ForStruct(this);
+        TypeParameters = typeParameters;
+        Type = Construct([.. typeParameters.Select(p => p.Type)]);
         DefaultConstructor = new FunctionSymbol(Name, [], VplType.Void)
         {
             ContainingStruct = this,
@@ -81,7 +132,18 @@ public sealed class StructSymbol
 
     public string Name { get; }
     public StructDecl Declaration { get; }
+    public IReadOnlyList<TypeParameterSymbol> TypeParameters { get; }
+    public bool IsGeneric => TypeParameters.Count > 0;
+
+    /// <summary>The type of <c>this</c>: the struct applied to its own type parameters.</summary>
     public VplType Type { get; }
+
+    public VplType Construct(IReadOnlyList<VplType> typeArguments)
+    {
+        if (!instances.TryGetValue(typeArguments, out var type))
+            instances[typeArguments] = type = VplType.ForStruct(this, typeArguments);
+        return type;
+    }
     public FunctionSymbol DefaultConstructor { get; }
     public List<FieldSymbol> Fields { get; } = [];
     public List<FunctionSymbol> Constructors { get; } = [];
@@ -91,25 +153,6 @@ public sealed class StructSymbol
     public List<FunctionSymbol> Members { get; } = [];
 
     public FieldSymbol? FindField(string name) => Fields.FirstOrDefault(f => f.Name == name);
-
-    /// <summary>The first field, possibly through nested structs, whose type has no <c>==</c>.</summary>
-    public FieldSymbol? FindNonEquatableField() => FindNonEquatableField([]);
-
-    FieldSymbol? FindNonEquatableField(HashSet<StructSymbol> visiting)
-    {
-        // A cycle is already a reported error; don't recurse forever on it.
-        if (!visiting.Add(this))
-            return null;
-        foreach (var field in Fields)
-        {
-            bool equatable = field.Type.Struct is { } nested
-                ? nested.FindNonEquatableField(visiting) is null
-                : Conversions.SupportsEquality(field.Type);
-            if (!equatable)
-                return field;
-        }
-        return null;
-    }
 
     public override string ToString() => Name;
 }
