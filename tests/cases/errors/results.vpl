@@ -1,0 +1,44 @@
+enum IoError { Missing }
+enum ParseError { Bad }
+
+Result<int, IoError> read() {
+    return Ok(1);
+}
+
+Result<int, ParseError> parse() {
+    int a = try read();                 // error: 'try' would return an error of type 'IoError' from 'parse', whose error type is 'ParseError'
+    return Ok(a);
+}
+
+int plain() {
+    int a = try read();                 // error: 'try' can only be used in a function that returns a 'Result'
+    return a;
+}
+
+struct Holder {
+    Result<int, IoError> result;
+}
+
+class Box {
+    Result<int, IoError> result;        // error: field 'result' of type 'Result<int, IoError>' has no default value
+}
+
+Result<int, IoError> uses() {
+    read();                             // error: the 'Result' returned by 'read' is not used; handle it, or discard it with '_ = ...'
+    _ = read();
+    _ = 1 + 2;
+    _ = print(1);                       // error: there is no value to discard
+    try read();
+    int b = try 5;                      // error: 'try' needs a 'Result', not 'int'
+    int c = 1 + try read();             // error: 'try' must be the whole value of a declaration, assignment, return, or expression statement
+    print(try read());                  // error: 'try' must be the whole value
+    int d = 0;
+    d += try read();                    // error: 'try' must be the whole value
+    var h = Holder();                   // error: 'Holder' has no default value because field 'result' has type 'Result<int, IoError>'
+    Result<int, IoError> r = read();
+    var e = Ok(1);                      // error: function 'Ok' is not defined; to create the 'Result' variant, write 'Result<...>.Ok', or use it where a 'Result' is expected
+    for (int i = 0; i < 3; i = try read()) { } // error: 'try' cannot be used in a 'for' update
+    return r;
+}
+
+void main() { }

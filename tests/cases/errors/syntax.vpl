@@ -1,4 +1,4 @@
-enum Player {                 // error: 'enum' is not supported yet
+extern Player {               // error: 'extern' is not supported yet
 }
 
 void main() {

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <None Include="..\..\runtime\**\*" LinkBase="runtime" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Prelude.vpl" LogicalName="Vpl.Compiler.Prelude.vpl" />
   </ItemGroup>
 
 </Project>

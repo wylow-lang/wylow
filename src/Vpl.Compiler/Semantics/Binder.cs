@@ -12,6 +12,9 @@ public sealed class Binder(DiagnosticBag diagnostics)
     // Bounds may mention types whose own bounds are not bound yet, so satisfaction is checked last.
     readonly List<(VplType Argument, TypeParameterSymbol Parameter, TypeMap Map, Location Location)> boundChecks = [];
 
+    /// <summary>The prelude's <c>Result</c>, which <c>try</c> and the unused-result check know about.</summary>
+    TypeSymbol? resultSymbol;
+
     FunctionSymbol? currentFunction;
     TypeSymbol? currentType;
     IReadOnlyList<TypeParameterSymbol> typeParameters = [];
@@ -56,8 +59,11 @@ public sealed class Binder(DiagnosticBag diagnostics)
         var typeList = new List<TypeSymbol>();
         foreach (var decl in unit.Declarations.OfType<TypeDecl>())
         {
-            if (DeclareType(decl) is { } symbol)
-                typeList.Add(symbol);
+            if (DeclareType(decl) is not { } symbol)
+                continue;
+            typeList.Add(symbol);
+            if (decl.Location.Source == Prelude.Source && decl.Name == "Result")
+                resultSymbol = symbol;
         }
         foreach (var s in typeList)
         {
@@ -73,7 +79,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             DeclareMembers(s);
         foreach (var s in typeList)
             CheckMembers(s);
-        CheckStructCycles([.. typeList.Where(s => s.Kind == TypeKind.Struct)]);
+        CheckStructCycles([.. typeList.Where(s => s.Kind is TypeKind.Struct or TypeKind.Enum)]);
         foreach (var s in typeList)
             BindFieldInitializers(s);
 
@@ -100,6 +106,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
     {
         TypeKind.Struct => "struct",
         TypeKind.Class => "class",
+        TypeKind.Enum => "enum",
         _ => "interface",
     };
 
@@ -288,6 +295,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
     void DeclareMembers(TypeSymbol s)
     {
         typeParameters = s.TypeParameters;
+        if (s.Kind == TypeKind.Enum)
+            DeclareVariants(s);
         foreach (var decl in s.Declaration.Fields)
         {
             var field = new FieldSymbol(decl.Name, BindType(decl.Type, allowVoid: false), s, decl);
@@ -340,7 +349,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
                 TypeParameters = ownTypeParameters,
                 ContainingType = s,
                 IsStatic = (modifiers & Modifiers.Static) != 0,
-                IsReadOnly = (modifiers & Modifiers.ReadOnly) != 0,
+                // An enum value cannot be modified, so its methods never modify `this`.
+                IsReadOnly = (modifiers & Modifiers.ReadOnly) != 0 || (s.Kind == TypeKind.Enum && (modifiers & Modifiers.Static) == 0),
                 IsPrivate = isPrivate,
                 IsVirtual = (modifiers & Modifiers.Virtual) != 0,
                 IsOverride = (modifiers & Modifiers.Override) != 0,
@@ -354,9 +364,9 @@ public sealed class Binder(DiagnosticBag diagnostics)
                 Error(decl.NameLocation, "generic methods cannot be 'virtual', 'override', or 'abstract'");
             if ((modifiers & Modifiers.Abstract) != 0 && !s.IsAbstract)
                 Error(decl.NameLocation, $"'{s.Name}' must be declared 'abstract' because it has abstract method '{decl.Name}'");
-            if (s.FindField(decl.Name) is not null)
+            if (s.FindField(decl.Name) is not null || s.FindVariant(decl.Name) is not null)
             {
-                Error(decl.NameLocation, $"'{decl.Name}' is already defined as a field");
+                Error(decl.NameLocation, $"'{decl.Name}' is already defined as a {(s.Kind == TypeKind.Enum ? "variant" : "field")}");
                 continue;
             }
             if (!s.Methods.TryGetValue(decl.Name, out var overloads))
@@ -381,6 +391,83 @@ public sealed class Binder(DiagnosticBag diagnostics)
             s.Members.Add(s.Destructor);
         }
         typeParameters = [];
+    }
+
+    void DeclareVariants(TypeSymbol s)
+    {
+        foreach (var decl in s.Declaration.Variants)
+        {
+            var fields = new List<FieldSymbol>();
+            foreach (var parameter in decl.Fields ?? [])
+            {
+                if (fields.Any(f => f.Name == parameter.Name))
+                    Error(parameter.Location, $"duplicate field '{parameter.Name}'");
+                var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null);
+                fields.Add(new FieldSymbol(parameter.Name, BindType(parameter.Type, allowVoid: false), s, fieldDecl));
+            }
+            if (s.FindVariant(decl.Name) is not null)
+                Error(decl.NameLocation, $"variant '{decl.Name}' is already defined");
+            else
+                s.Variants.Add(new VariantSymbol(decl.Name, s, s.Variants.Count, decl, fields));
+        }
+
+        if (s.Declaration.UnderlyingType is { } underlyingSyntax)
+        {
+            var underlying = BindType(underlyingSyntax, allowVoid: false);
+            if (s.HasData)
+                Error(underlyingSyntax.Location, "an enum whose variants carry data cannot have an underlying type");
+            else if (underlying != VplType.Error && !underlying.IsInteger)
+                Error(underlyingSyntax.Location, $"an enum's underlying type must be an integer type, not '{underlying}'");
+            else
+                s.UnderlyingType = underlying;
+        }
+
+        long next = 0;
+        var used = new Dictionary<long, VariantSymbol>();
+        foreach (var variant in s.Variants)
+        {
+            if (variant.Declaration.Value is { } valueSyntax)
+            {
+                if (s.HasData)
+                {
+                    Error(valueSyntax.Location, "only enums whose variants carry no data can give variants values");
+                    continue;
+                }
+                s.UnderlyingType ??= VplType.Int;
+                if (VariantValue(valueSyntax, s.UnderlyingType) is not { } value)
+                    continue;
+                next = value;
+            }
+            variant.Value = next;
+            if (used.TryGetValue(next, out var other))
+                Error(variant.Declaration.NameLocation, $"'{variant.Name}' has the same value as '{other.Name}'");
+            used.TryAdd(next, variant);
+            next = next == long.MaxValue ? next : next + 1;
+        }
+        if (s.UnderlyingType == VplType.Int && s.Variants.FirstOrDefault(v => v.Value is > int.MaxValue or < int.MinValue) is { } tooLarge)
+            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the underlying type 'int'");
+    }
+
+    long? VariantValue(Expr syntax, VplType underlying)
+    {
+        var (literal, negated) = syntax switch
+        {
+            IntLiteralExpr l => (l, false),
+            UnaryExpr { Operator: TokenKind.Minus, Operand: IntLiteralExpr l } => (l, true),
+            _ => ((IntLiteralExpr?)null, false),
+        };
+        if (literal is null)
+        {
+            Error(syntax.Location, "a variant's value must be an integer literal");
+            return null;
+        }
+        ulong limit = (underlying == VplType.Long ? (ulong)long.MaxValue : int.MaxValue) + (negated ? 1UL : 0UL);
+        if (literal.Value > limit)
+        {
+            Error(syntax.Location, $"the value does not fit in the underlying type '{underlying}'");
+            return null;
+        }
+        return negated ? unchecked((long)(0UL - literal.Value)) : (long)literal.Value;
     }
 
     /// <summary>Checks overriding and hiding against base classes, and that every abstract and interface method is implemented.</summary>
@@ -515,7 +602,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
     }
 
     /// <summary>
-    /// A struct may not contain itself by value, directly or through type arguments
+    /// A struct or enum may not contain itself by value, directly or through type arguments
     /// (<c>struct Rec { Wrap&lt;Rec&gt; w; }</c>), and its field types may not grow forever.
     /// </summary>
     void CheckStructCycles(List<TypeSymbol> all)
@@ -534,7 +621,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
                 var cycle = path.Skip(index).Append(type).ToList();
                 foreach (var member in cycle)
                     reported.Add(member.Symbol!);
-                return $"contains itself ({string.Join(" -> ", cycle)}); a struct cannot hold itself by value";
+                return $"contains itself ({string.Join(" -> ", cycle)}); a struct or enum cannot hold itself by value";
             }
             if (path.Count >= maxDepth)
             {
@@ -545,10 +632,10 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
             path.Add(type);
             var map = TypeMap.For(type);
-            foreach (var field in type.Symbol!.Fields)
+            foreach (var field in type.Symbol!.ValueFields)
             {
                 var fieldType = map.Apply(field.Type);
-                if (fieldType.IsStruct && FindCycle(fieldType, path) is { } problem)
+                if (fieldType.IsStructOrEnum && FindCycle(fieldType, path) is { } problem)
                     return problem;
             }
             path.RemoveAt(path.Count - 1);
@@ -559,7 +646,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
         foreach (var s in all)
         {
             if (!reported.Contains(s) && FindCycle(s.Type, []) is { } problem)
-                Error(s.Declaration.NameLocation, $"struct '{s.Name}' {problem}");
+                Error(s.Declaration.NameLocation, $"{KindName(s.Kind)} '{s.Name}' {problem}");
         }
     }
 
@@ -573,7 +660,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             typeParameters = s.TypeParameters;
             noThisContext = NoThisContext.FieldInitializer;
             scope = new Scope(null);
-            field.Initializer = Convert(BindExpression(initializer), field.Type);
+            field.Initializer = Convert(BindExpression(initializer, field.Type), field.Type);
             currentType = null;
             typeParameters = [];
             noThisContext = NoThisContext.Static;
@@ -862,6 +949,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
         ExprStmt s => BindExpressionStatement(s),
         AssignStmt s => BindAssignment(s),
         IncDecStmt s => BindIncDec(s),
+        DiscardStmt s => BindDiscard(s),
+        SwitchStmt s => BindSwitch(s),
         _ => throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}"),
     };
 
@@ -887,11 +976,12 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     BoundStatement BindVariableDeclaration(VarDeclStmt s)
     {
-        var initializer = s.Initializer is null ? null : BindExpression(s.Initializer);
+        var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
+        var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         VplType type;
-        if (s.Type is not null)
+        if (declared is not null)
         {
-            type = BindType(s.Type, allowVoid: false);
+            type = declared;
             if (initializer is not null)
                 initializer = Convert(initializer, type);
         }
@@ -940,6 +1030,15 @@ public sealed class Binder(DiagnosticBag diagnostics)
         var body = BindBlock(s.Body);
         loopDepth--;
         var update = s.Update is null ? null : BindStatement(s.Update);
+        // The update runs inside the C++ `for` header, where an early return can't be placed.
+        var updateValue = update switch
+        {
+            BoundAssignment assignment => assignment.Value,
+            BoundExpressionStatement statement => statement.Expression,
+            _ => null,
+        };
+        if (updateValue is not null && IsTry(updateValue))
+            Error(s.Update!.Location, "'try' cannot be used in a 'for' update");
         scope = scope.Parent;
         return new BoundFor(s.Location, initializer, condition, update, body);
     }
@@ -954,7 +1053,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             return new BoundReturn(s.Location, null);
         }
 
-        var value = BindExpression(s.Value);
+        var value = BindValue(s.Value, function.IsConstructor || function.IsDestructor ? null : function.ReturnType);
         if (function.IsConstructor || function.IsDestructor)
         {
             Error(s.Value.Location, function.IsConstructor ? "constructors cannot return a value" : "destructors cannot return a value");
@@ -977,16 +1076,26 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     BoundStatement BindExpressionStatement(ExprStmt s)
     {
-        var expression = BindExpression(s.Expression);
-        if (expression is not (BoundCall or BoundNew or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != VplType.Error)
+        var expression = BindValue(s.Expression, null);
+        if (expression is not (BoundCall or BoundNew or BoundTry or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != VplType.Error)
             Error(s.Location, "only calls can be used as statements");
+        else if (expression is BoundCall call && IsResult(call.Type))
+            Error(s.Location, $"the 'Result' returned by '{call.Method.Symbol.Name}' is not used; handle it, or discard it with '_ = ...'");
         return new BoundExpressionStatement(s.Location, expression);
+    }
+
+    BoundStatement BindDiscard(DiscardStmt s)
+    {
+        var value = BindValue(s.Value, null);
+        if (value.Type == VplType.Void)
+            Error(s.Value.Location, "there is no value to discard; call it without '_ ='");
+        return new BoundExpressionStatement(s.Location, value, IsDiscard: true);
     }
 
     BoundStatement BindAssignment(AssignStmt s)
     {
         var target = BindExpression(s.Target);
-        var value = BindExpression(s.Value);
+        var value = s.Operator == TokenKind.Assign ? BindValue(s.Value, target.Type) : BindExpression(s.Value);
         if (target.Type == VplType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
 
@@ -1052,7 +1161,11 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
     BoundExpression BindCondition(Expr condition) => Convert(BindExpression(condition), VplType.Bool);
 
-    BoundExpression BindExpression(Expr expression) => expression switch
+    /// <summary>
+    /// <paramref name="expected"/> is the type the value will be converted to, if known. It only lets
+    /// enum variants be written without their enum or type arguments; the caller still converts.
+    /// </summary>
+    BoundExpression BindExpression(Expr expression, VplType? expected = null) => expression switch
     {
         IntLiteralExpr e => BindIntegerLiteral(e, e.Location, negated: false),
         FloatLiteralExpr e => e.IsDouble
@@ -1061,21 +1174,23 @@ public sealed class Binder(DiagnosticBag diagnostics)
         BoolLiteralExpr e => new BoundLiteral(e.Location, VplType.Bool, e.Value),
         StringLiteralExpr e => new BoundLiteral(e.Location, VplType.String, e.Value),
         NullLiteralExpr e => new BoundNullLiteral(e.Location),
-        NameExpr e => BindName(e),
+        NameExpr e => BindName(e, expected),
         ThisExpr e => BindThis(e),
         SuperExpr e => ErrorExpression(e.Location, "'super' can only be used to call a base class constructor or method"),
-        MemberAccessExpr e => BindMemberAccess(e),
+        MemberAccessExpr e => BindMemberAccess(e, expected),
         ConditionalAccessExpr e => BindConditionalFieldAccess(e),
         UnaryExpr e => BindUnary(e),
         NonNullExpr e => BindNonNull(e),
-        BinaryExpr e => BindBinaryOperation(e.OperatorLocation, BindExpression(e.Left), e.Operator, BindExpression(e.Right)),
+        BinaryExpr e => BindBinary(e),
         CoalesceExpr e => BindCoalesce(e),
         IsExpr e => BindIs(e),
-        CallExpr e => BindCall(e),
+        CallExpr e => BindCall(e, expected),
         NewExpr e => BindNew(e),
         InitializerExpr e => BindInitializer(e),
         CastExpr e => BindCast(e),
-        ConditionalExpr e => BindConditional(e),
+        ConditionalExpr e => BindConditional(e, expected),
+        SwitchExpr e => BindSwitchExpression(e, expected),
+        TryExpr e => ErrorExpression(e.Location, "'try' must be the whole value of a declaration, assignment, return, or expression statement"),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
         ErrorExpr e => new BoundErrorExpression(e.Location),
         _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
@@ -1124,7 +1239,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return BindTypeName(s.Name, name.TypeArguments, name.Location);
     }
 
-    BoundExpression BindName(NameExpr e)
+    BoundExpression BindName(NameExpr e, VplType? expected)
     {
         if (e.TypeArguments.Count > 0)
             return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
@@ -1144,7 +1259,9 @@ public sealed class Binder(DiagnosticBag diagnostics)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
         if (functions.ContainsKey(e.Name) || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
             return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'");
-        return ErrorExpression(e.Location, $"'{e.Name}' is not defined");
+        if (ExpectedVariant(e.Name, expected) is { } variant)
+            return BindVariant(e.Location, variant.Owner, expected, variant, null);
+        return ErrorExpression(e.Location, $"'{e.Name}' is not defined{VariantHint(e.Name)}");
     }
 
     BoundExpression BindThis(ThisExpr e)
@@ -1171,12 +1288,14 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return ErrorExpression(receiver.Location, $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
     }
 
-    BoundExpression BindMemberAccess(MemberAccessExpr e)
+    BoundExpression BindMemberAccess(MemberAccessExpr e, VplType? expected)
     {
         if (e.TypeArguments.Count > 0)
             return ErrorExpression(e.NameLocation, "type arguments can only be used in a call");
         if (e.Target is SuperExpr)
             return ErrorExpression(e.NameLocation, $"'super' can only be used to call methods; use 'this.{e.Name}' for fields");
+        if (AsEnumName(e.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(e.Name) is { } variant)
+            return BindVariant(e.Location, enumSymbol, enumType, variant, null);
 
         if (AsTypeName(e.Target) is { } typeName)
         {
@@ -1202,6 +1321,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
         {
             return ErrorExpression(nameLocation, LookupMethods(target.Type, name).Count > 0
                 ? $"'{DisplayName(target.Type)}.{name}' is a method; call it with '{name}(...)'"
+                : target.Type.IsEnum && target.Type.Symbol!.ValueFields.Any(f => f.Name == name)
+                ? $"a variant's fields can only be read with a pattern, as in 'if (x is Variant(var {name}))'"
                 : $"'{target.Type}' has no member '{name}'");
         }
         if (LookupField(target.Type, name) is not var (field, owner))
@@ -1271,27 +1392,396 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return new BoundCoalesce(e.Location, left, Convert(right, type), type);
     }
 
+    // ---- Patterns and switch ----
+
     BoundExpression BindIs(IsExpr e)
     {
         var operand = BindExpression(e.Operand);
-        var target = BindType(e.Type, allowVoid: false);
-        LocalSymbol? binding = null;
-        if (e.Name is { } name)
+        if (operand.Type == VplType.Error || operand.Type == VplType.Void)
         {
-            binding = new LocalSymbol(name, target, isParameter: false);
-            Declare(binding, e.NameLocation);
+            DeclareErrorBindings(e.Pattern);
+            return operand.Type == VplType.Void
+                ? ErrorExpression(e.Operand.Location, "'is' cannot test a 'void' value")
+                : new BoundErrorExpression(e.Location);
         }
-        if (operand.Type == VplType.Error || target == VplType.Error)
-            return new BoundErrorExpression(e.Location);
 
-        if (!operand.Type.IsReference)
-            return ErrorExpression(e.Operand.Location, $"'is' can only test class or interface values, not '{operand.Type}'");
-        if (!target.IsReference)
-            return ErrorExpression(e.Type.Location, $"'is' can only test for a class or interface type, not '{target}'");
-        var from = operand.Type.NonNull;
-        if (from.IsClass && target.IsClass && !Conversions.IsSubtype(from, target) && !Conversions.IsSubtype(target, from))
-            return ErrorExpression(e.Type.Location, $"a '{from}' can never be a '{target}'");
-        return new BoundIs(e.Location, operand, target, binding);
+        bool isTypeTest = e.Pattern is TypePatternSyntax || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } && !operand.Type.IsEnum);
+        if (e.Pattern is DiscardPatternSyntax or VarPatternSyntax)
+            Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
+        else if (isTypeTest && !operand.Type.IsReference)
+        {
+            DeclareErrorBindings(e.Pattern);
+            return ErrorExpression(e.Operand.Location, $"'is' can only test the type of class or interface values, not '{operand.Type}'");
+        }
+        var pattern = BindPattern(e.Pattern, operand.Type, canBind: true);
+        return new BoundIs(e.Location, operand, pattern);
+    }
+
+    /// <summary>Binds a pattern matching values of <paramref name="type"/> and declares its names in the current scope.</summary>
+    BoundPattern BindPattern(PatternSyntax syntax, VplType type, bool canBind)
+    {
+        if (type == VplType.Error)
+        {
+            DeclareErrorBindings(syntax);
+            return new BoundDiscardPattern(syntax.Location, type);
+        }
+        switch (syntax)
+        {
+            case DiscardPatternSyntax:
+                return new BoundDiscardPattern(syntax.Location, type);
+            case VarPatternSyntax v:
+                return new BoundBindingPattern(v.Location, type, DeclareBinding(v.Name, type, v.NameLocation, canBind));
+            case ConstantPatternSyntax c:
+                return BindConstantPattern(c, type);
+            case TypePatternSyntax t:
+                return BindTypePattern(t.Location, t.Type, t.Name, t.NameLocation, type, canBind);
+            // Only a variant if the value is an enum: otherwise a lone name is a type test, as in `animal is Dog`.
+            case VariantPatternSyntax { Enum: null, Fields: null } v when !type.IsEnum:
+                return BindTypePattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), null, v.NameLocation, type, canBind);
+            case VariantPatternSyntax v:
+                return BindVariantPattern(v, type, canBind);
+            default:
+                throw new InvalidOperationException($"unexpected pattern {syntax.GetType().Name}");
+        }
+    }
+
+    LocalSymbol DeclareBinding(string name, VplType type, Location location, bool canBind)
+    {
+        if (!canBind)
+            Error(location, "a case with several patterns cannot bind names");
+        var local = new LocalSymbol(name, type, isParameter: false);
+        Declare(local, location);
+        return local;
+    }
+
+    /// <summary>Declares a broken pattern's names, so that their uses don't report them as undefined.</summary>
+    void DeclareErrorBindings(PatternSyntax syntax)
+    {
+        switch (syntax)
+        {
+            case VarPatternSyntax v:
+                Declare(new LocalSymbol(v.Name, VplType.Error, isParameter: false), v.NameLocation);
+                break;
+            case TypePatternSyntax { Name: { } name } t:
+                Declare(new LocalSymbol(name, VplType.Error, isParameter: false), t.NameLocation);
+                break;
+            case VariantPatternSyntax { Fields: { } fields }:
+                foreach (var field in fields)
+                    DeclareErrorBindings(field);
+                break;
+        }
+    }
+
+    BoundPattern ErrorPattern(PatternSyntax syntax, VplType type, string message)
+    {
+        Error(syntax.Location, message);
+        DeclareErrorBindings(syntax);
+        return new BoundDiscardPattern(syntax.Location, type);
+    }
+
+    BoundPattern BindConstantPattern(ConstantPatternSyntax c, VplType type)
+    {
+        var value = c.Value switch
+        {
+            IntLiteralExpr literal => BindIntegerLiteral(literal, c.Location, negated: false),
+            UnaryExpr { Operand: IntLiteralExpr literal } => BindIntegerLiteral(literal, c.Location, negated: true),
+            BoolLiteralExpr literal => new BoundLiteral(c.Location, VplType.Bool, literal.Value),
+            NullLiteralExpr => ErrorExpression(c.Location, "'null' cannot be a pattern; compare with '== null', or use 'default'"),
+            _ => ErrorExpression(c.Location, "only integer and 'bool' literals can be patterns"),
+        };
+        if (value is not BoundLiteral literalValue)
+            return new BoundDiscardPattern(c.Location, type);
+        if (literalValue.Type == type)
+            return new BoundConstantPattern(c.Location, literalValue);
+        if (type == VplType.Long && literalValue.Value is int small)
+            return new BoundConstantPattern(c.Location, new BoundLiteral(c.Location, VplType.Long, (long)small));
+        return ErrorPattern(c, type, $"a '{type}' can never be '{TextOf(c.Location)}'");
+    }
+
+    /// <summary>
+    /// For a reference, a test of its runtime type. For a value type, which has no subtypes, the
+    /// pattern only states the type, which must be exactly the value's.
+    /// </summary>
+    BoundPattern BindTypePattern(Location location, TypeSyntax typeSyntax, string? name, Location nameLocation, VplType type, bool canBind)
+    {
+        var target = BindType(typeSyntax, allowVoid: false);
+        LocalSymbol? Binding(VplType bindingType) => name is null ? null : DeclareBinding(name, bindingType, nameLocation, canBind);
+        if (target == VplType.Error)
+        {
+            Binding(VplType.Error);
+            return new BoundDiscardPattern(location, type);
+        }
+
+        if (type.IsReference)
+        {
+            var from = type.NonNull;
+            if (!target.IsReference || (from.IsClass && target.IsClass && !Conversions.IsSubtype(from, target) && !Conversions.IsSubtype(target, from)))
+            {
+                Binding(VplType.Error);
+                Error(typeSyntax.Location, $"a '{from}' can never be a '{target}'");
+                return new BoundDiscardPattern(location, type);
+            }
+            return new BoundTypePattern(location, type, target, Binding(target));
+        }
+
+        if (target != type)
+        {
+            Binding(VplType.Error);
+            Error(typeSyntax.Location, $"a '{type}' can never be a '{target}'");
+            return new BoundDiscardPattern(location, type);
+        }
+        return Binding(target) is { } local ? new BoundBindingPattern(location, type, local) : new BoundDiscardPattern(location, type);
+    }
+
+    BoundPattern BindVariantPattern(VariantPatternSyntax v, VplType type, bool canBind)
+    {
+        var written = v.Enum is null ? v.Name : $"{TextOf(v.Enum.Location)}.{v.Name}";
+        if (!type.IsEnum)
+            return ErrorPattern(v, type, $"a '{type}' can never be '{written}', since '{type}' is not an enum");
+
+        var s = type.Symbol!;
+        if (v.Enum is { } enumSyntax)
+        {
+            // `Result.Ok(...)` may leave out the type arguments, which the value determines.
+            bool sameEnum = enumSyntax.TypeArguments.Count == 0 && LookupTypeParameter(enumSyntax.Name) is null
+                ? types.GetValueOrDefault(enumSyntax.Name) == s
+                : BindType(enumSyntax, allowVoid: false) is var named && (named == type || named == VplType.Error);
+            if (!sameEnum)
+                return ErrorPattern(v, type, $"a '{type}' can never be '{written}'");
+        }
+        if (s.FindVariant(v.Name) is not { } variant)
+            return ErrorPattern(v, type, $"'{s.Name}' has no variant '{v.Name}'");
+
+        var map = TypeMap.For(type);
+        if (v.Fields is null)
+            return new BoundVariantPattern(v.Location, type, variant, [.. variant.Fields.Select(f => new BoundDiscardPattern(v.Location, map.Apply(f.Type)))]);
+        if (variant.Fields.Count == 0)
+            return ErrorPattern(v, type, $"'{variant.Name}' carries no data; match it without parentheses");
+        if (v.Fields.Count != variant.Fields.Count)
+        {
+            int count = variant.Fields.Count;
+            return ErrorPattern(v, type, $"'{variant.Name}' has {count} field{(count == 1 ? "" : "s")}, but the pattern lists {v.Fields.Count}");
+        }
+        var fields = v.Fields.Zip(variant.Fields, (field, symbol) => BindPattern(field, map.Apply(symbol.Type), canBind)).ToList();
+        return new BoundVariantPattern(v.Location, type, variant, fields);
+    }
+
+    /// <summary>Sets <paramref name="broken"/> if a pattern has an error, which would make coverage errors misleading.</summary>
+    List<BoundPattern> BindCasePatterns(SwitchCase c, VplType type, ref bool broken)
+    {
+        int errors = diagnostics.Count;
+        List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, type, canBind: c.Patterns.Count == 1))];
+        broken |= diagnostics.Count > errors;
+        return patterns;
+    }
+
+    BoundExpression BindSwitchValue(Expr syntax)
+    {
+        var value = BindExpression(syntax);
+        return value.Type == VplType.Void ? ErrorExpression(syntax.Location, "cannot switch on a 'void' value") : value;
+    }
+
+    BoundStatement BindSwitch(SwitchStmt s)
+    {
+        var value = BindSwitchValue(s.Value);
+        var cases = new List<BoundSwitchCase<BoundStatement>>();
+        bool broken = value.Type == VplType.Error;
+        foreach (var c in s.Cases)
+        {
+            scope = new Scope(scope);
+            var patterns = BindCasePatterns(c, value.Type, ref broken);
+            cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, BindStatement(c.Body!)));
+            scope = scope.Parent;
+        }
+        CheckCases(s.Location, value.Type, s.Cases, [.. cases.Select(c => c.Patterns)], broken);
+        return new BoundSwitch(s.Location, value, cases);
+    }
+
+    static bool IsNoReturn(BoundExpression expression) => expression is BoundCall { Method.Symbol.IsNoReturn: true };
+
+    BoundExpression BindSwitchExpression(SwitchExpr e, VplType? expected)
+    {
+        var value = BindSwitchValue(e.Value);
+        var bound = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value)>();
+        bool broken = value.Type == VplType.Error;
+        foreach (var c in e.Cases)
+        {
+            scope = new Scope(scope);
+            var patterns = BindCasePatterns(c, value.Type, ref broken);
+            bound.Add((c.Location, patterns, BindExpression(c.Value!, expected)));
+            scope = scope.Parent;
+        }
+        CheckCases(e.Location, value.Type, e.Cases, [.. bound.Select(b => b.Patterns)], broken);
+
+        // A case that cannot complete, such as `default -> panic(...)`, needs no value.
+        var producing = bound.Select(b => b.Value).Where(v => !IsNoReturn(v)).ToList();
+        foreach (var caseValue in producing.Where(v => v.Type == VplType.Void))
+            Error(caseValue.Location, "a switch expression's case must produce a value");
+        if (value.Type == VplType.Error || producing.Any(v => v.Type == VplType.Error || v.Type == VplType.Void))
+            return new BoundErrorExpression(e.Location);
+        if (producing.Count == 0)
+            return ErrorExpression(e.Location, "a switch expression needs a case that produces a value");
+
+        var type = expected ?? CommonType(producing);
+        if (type is null)
+        {
+            var found = string.Join(", ", producing.Select(v => $"'{v.Type}'").Distinct());
+            return ErrorExpression(e.Location, $"the cases of the switch have incompatible types {found}");
+        }
+        var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type)));
+        return new BoundSwitchExpression(e.Location, value, [.. cases], type);
+    }
+
+    /// <summary>The first case's type, or a later one, that every case converts to; references may become nullable for a <c>null</c> case.</summary>
+    static VplType? CommonType(IReadOnlyList<BoundExpression> values)
+    {
+        var candidates = values
+            .Select(v => v.Type)
+            .Where(t => t != VplType.Null)
+            .SelectMany(t => t.IsReference ? [t, t.Nullable] : new[] { t })
+            .Distinct();
+        return candidates.FirstOrDefault(t => values.All(v => CanConvert(v, t)));
+    }
+
+    /// <summary>Checks that <c>default</c> comes last, that every case can match something, and that the cases cover every value.</summary>
+    void CheckCases(Location location, VplType type, IReadOnlyList<SwitchCase> syntax, IReadOnlyList<IReadOnlyList<BoundPattern>> patterns, bool broken)
+    {
+        for (int i = 0; i < syntax.Count - 1; i++)
+        {
+            if (syntax[i].IsDefault)
+                Error(syntax[i].Location, "'default' must be the last case");
+        }
+        if (broken)
+            return;
+
+        var space = new MatchSpace(type);
+        for (int i = 0; i < syntax.Count; i++)
+        {
+            if (syntax[i].IsDefault)
+            {
+                if (!space.Add(null))
+                    Error(syntax[i].Location, "'default' can never be reached: the cases above match every value");
+                continue;
+            }
+            foreach (var pattern in patterns[i])
+            {
+                if (!space.Add(pattern))
+                    Error(pattern.Location, "this case can never be reached: the cases above match every value it matches");
+            }
+        }
+        if (space.Missing() is { } missing)
+        {
+            Error(location, missing == "_"
+                ? $"the switch does not handle every '{type}'; add a 'default' case"
+                : $"the switch does not handle every '{type}': '{missing}' is not covered");
+        }
+    }
+
+    // ---- Enum variants ----
+
+    /// <summary>
+    /// The enum named by the target of <c>Enum.Variant</c>. A generic enum written without type
+    /// arguments takes them from <paramref name="expected"/> if that is the same enum, and otherwise
+    /// has a null type, which is inferred from the variant's fields.
+    /// </summary>
+    (TypeSymbol Enum, VplType? Type)? AsEnumName(Expr target, VplType? expected)
+    {
+        if (target is not NameExpr name || IsValueName(name.Name) || !types.TryGetValue(name.Name, out var s) || s.Kind != TypeKind.Enum)
+            return null;
+        if (name.TypeArguments.Count == 0 && s.IsGeneric)
+            return (s, expected?.Symbol == s ? expected : null);
+        return (s, BindTypeName(s.Name, name.TypeArguments, name.Location));
+    }
+
+    /// <summary>A variant of the expected enum written without its enum, as in <c>return Ok(value);</c>.</summary>
+    static VariantSymbol? ExpectedVariant(string name, VplType? expected) =>
+        expected is { IsEnum: true } ? expected.Symbol!.FindVariant(name) : null;
+
+    /// <summary>A hint for an undefined name that is the name of a variant.</summary>
+    string VariantHint(string name)
+    {
+        if (types.Values.FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
+            return "";
+        return owner.IsGeneric
+            ? $"; to create the '{owner.Name}' variant, write '{owner.Name}<...>.{name}', or use it where a '{owner.Name}' is expected"
+            : $"; to create the '{owner.Name}' variant, write '{owner.Name}.{name}'";
+    }
+
+    /// <summary>
+    /// Creates a variant. <paramref name="type"/> is null for a generic enum whose type arguments
+    /// must be inferred; <paramref name="arguments"/> is null when no parentheses were written.
+    /// </summary>
+    BoundExpression BindVariant(Location location, TypeSymbol s, VplType? type, VariantSymbol variant, List<Argument>? arguments)
+    {
+        if (type == VplType.Error || arguments?.Any(a => a.Expression.Type == VplType.Error) == true)
+            return new BoundErrorExpression(location);
+        var name = $"{s.Name}.{variant.Name}";
+        if (arguments is null && variant.Fields.Count > 0)
+            return ErrorExpression(location, $"'{name}' carries data; create it with '{name}(...)'");
+        if (arguments is not null && variant.Fields.Count == 0)
+            return ErrorExpression(location, $"'{name}' carries no data; write it without parentheses");
+        arguments ??= [];
+        if (arguments.Count != variant.Fields.Count)
+        {
+            int count = variant.Fields.Count;
+            return ErrorExpression(location, $"'{name}' has {count} field{(count == 1 ? "" : "s")}, but {arguments.Count} value{(arguments.Count == 1 ? " was" : "s were")} given");
+        }
+
+        MethodReference? constructor;
+        if (type is not null)
+        {
+            constructor = Resolve(location, $"variant '{name}'", [new Candidate(variant.Constructor, type)], null, arguments);
+        }
+        else
+        {
+            var inferable = variant.Fields.SelectMany(f => TypeParametersIn(f.Type)).ToHashSet();
+            if (s.TypeParameters.FirstOrDefault(p => !inferable.Contains(p)) is { } missing)
+            {
+                return ErrorExpression(location,
+                    $"cannot infer type argument '{missing.Name}' of '{s.Name}' from '{variant.Name}'; use it where a '{s.Name}' is expected, or write '{s.Name}<...>.{variant.Name}'");
+            }
+            constructor = Resolve(location, $"variant '{name}'", [new Candidate(variant.InferringConstructor, null)], null, arguments);
+            if (constructor is not null)
+            {
+                type = s.Construct(constructor.TypeArguments);
+                QueueBoundChecks(s.TypeParameters, constructor.TypeArguments, location);
+            }
+        }
+        if (constructor is null)
+            return new BoundErrorExpression(location);
+        return new BoundVariant(location, type!, variant, ConvertArguments(constructor, arguments));
+    }
+
+    static IEnumerable<TypeParameterSymbol> TypeParametersIn(VplType type) =>
+        type.TypeParameter is { } parameter ? [parameter] : type.NonNull.TypeArguments.SelectMany(TypeParametersIn);
+
+    // ---- Results ----
+
+    bool IsResult(VplType? type) => type?.Symbol is { } s && s == resultSymbol;
+
+    static bool IsTry(BoundExpression value) => value is BoundTry || (value is BoundConversion conversion && IsTry(conversion.Operand));
+
+    /// <summary>The whole value of a statement, which unlike any other expression may be a <c>try</c>.</summary>
+    BoundExpression BindValue(Expr expression, VplType? expected) =>
+        expression is TryExpr t ? BindTry(t) : BindExpression(expression, expected == VplType.Error ? null : expected);
+
+    BoundExpression BindTry(TryExpr e)
+    {
+        var operand = BindExpression(e.Operand);
+        if (operand.Type == VplType.Error)
+            return new BoundErrorExpression(e.Location);
+        if (!IsResult(operand.Type))
+            return ErrorExpression(e.Operand.Location, $"'try' needs a 'Result', not '{operand.Type}'");
+        var function = currentFunction;
+        if (function is null || function.IsConstructor || function.IsDestructor || !IsResult(function.ReturnType))
+            return ErrorExpression(e.Location, "'try' can only be used in a function that returns a 'Result'");
+        var (error, expectedError) = (operand.Type.TypeArguments[1], function.ReturnType.TypeArguments[1]);
+        if (error != expectedError)
+        {
+            return ErrorExpression(e.Location,
+                $"'try' would return an error of type '{error}' from '{function.Name}', whose error type is '{expectedError}'; convert the error first");
+        }
+        return new BoundTry(e.Location, operand, operand.Type.TypeArguments[0]);
     }
 
     static BoundBinaryOperator BinaryOperatorFor(TokenKind kind) => kind switch
@@ -1317,6 +1807,14 @@ public sealed class Binder(DiagnosticBag diagnostics)
         _ => throw new InvalidOperationException($"unexpected binary operator {kind}"),
     };
 
+    /// <summary>An enum on the left of <c>==</c> or <c>!=</c> lets the right side name its variant alone, as in <c>this == Hearts</c>.</summary>
+    BoundExpression BindBinary(BinaryExpr e)
+    {
+        var left = BindExpression(e.Left);
+        var expected = e.Operator is TokenKind.EqualEqual or TokenKind.BangEqual && left.Type.IsEnum ? left.Type : null;
+        return BindBinaryOperation(e.OperatorLocation, left, e.Operator, BindExpression(e.Right, expected));
+    }
+
     static bool IsReferenceOrNull(VplType type) => type.IsReference || type == VplType.Null;
 
     BoundExpression BindBinaryOperation(Location location, BoundExpression left, TokenKind syntaxOperator, BoundExpression right)
@@ -1341,7 +1839,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             return new BoundBinary(location, left, op, right, VplType.Bool);
         }
 
-        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type.IsStruct || right.Type.IsStruct))
+        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type.IsStructOrEnum || right.Type.IsStructOrEnum))
         {
             if (left.Type != right.Type)
                 return ErrorExpression(location, Mismatch());
@@ -1456,7 +1954,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
             : new Argument(BindExpression(a), false, a.Location)),
     ];
 
-    BoundExpression BindCall(CallExpr e)
+    BoundExpression BindCall(CallExpr e, VplType? expected)
     {
         if (e.Callee is SuperExpr)
         {
@@ -1469,15 +1967,15 @@ public sealed class Binder(DiagnosticBag diagnostics)
         var arguments = BindArguments(e.Arguments);
         return e.Callee switch
         {
-            NameExpr name => BindNameCall(e, name, arguments),
-            MemberAccessExpr member => BindMemberCall(e, member, arguments),
+            NameExpr name => BindNameCall(e, name, arguments, expected),
+            MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
             ConditionalAccessExpr access => BindConditionalCall(e, access, arguments),
             ThisExpr => ErrorExpression(e.Callee.Location, "'this(...)' constructor chaining is not supported yet"),
             _ => ErrorExpression(e.Callee.Location, "this expression cannot be called"),
         };
     }
 
-    BoundExpression BindNameCall(CallExpr e, NameExpr name, List<Argument> arguments)
+    BoundExpression BindNameCall(CallExpr e, NameExpr name, List<Argument> arguments, VplType? expected)
     {
         if (IsValueName(name.Name))
             return ErrorExpression(name.Location, $"'{name.Name}' is a variable, not a function");
@@ -1505,9 +2003,12 @@ public sealed class Binder(DiagnosticBag diagnostics)
         {
             if (type.Kind != TypeKind.Struct)
             {
-                return ErrorExpression(name.Location, type.Kind == TypeKind.Class
-                    ? $"classes are created with 'new', as in 'new {name.Name}(...)'"
-                    : $"cannot create an instance of interface '{name.Name}'");
+                return ErrorExpression(name.Location, type.Kind switch
+                {
+                    TypeKind.Class => $"classes are created with 'new', as in 'new {name.Name}(...)'",
+                    TypeKind.Enum => $"enums are created from their variants, as in '{name.Name}.{type.Variants.FirstOrDefault()?.Name}'",
+                    _ => $"cannot create an instance of interface '{name.Name}'",
+                });
             }
             var constructed = Construct(type, typeArguments ?? [], name.Location);
             return constructed == VplType.Error
@@ -1516,12 +2017,16 @@ public sealed class Binder(DiagnosticBag diagnostics)
         }
 
         if (!functions.TryGetValue(name.Name, out var overloads))
-            return ErrorExpression(name.Location, $"function '{name.Name}' is not defined");
+        {
+            if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
+                return BindVariant(e.Location, variant.Owner, expected, variant, arguments);
+            return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name)}");
+        }
         var function = Resolve(e.Location, $"overload of '{name.Name}'", [.. overloads.Select(f => new Candidate(f, null))], typeArguments, arguments);
         return function is null ? new BoundErrorExpression(e.Location) : MakeCall(e.Location, function, null, arguments);
     }
 
-    BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, List<Argument> arguments)
+    BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, List<Argument> arguments, VplType? expected)
     {
         var typeArguments = BindTypeArguments(member.TypeArguments);
         if (typeArguments?.Contains(VplType.Error) == true)
@@ -1529,6 +2034,13 @@ public sealed class Binder(DiagnosticBag diagnostics)
 
         if (member.Target is SuperExpr super)
             return BindSuperMethodCall(e, super, member, typeArguments, arguments);
+
+        if (AsEnumName(member.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(member.Name) is { } variant)
+        {
+            if (typeArguments is not null)
+                return ErrorExpression(member.NameLocation, $"type arguments belong to the enum, as in '{enumSymbol.Name}<...>.{member.Name}(...)'");
+            return BindVariant(e.Location, enumSymbol, enumType, variant, arguments);
+        }
 
         if (AsTypeName(member.Target) is { } type)
         {
@@ -1569,7 +2081,7 @@ public sealed class Binder(DiagnosticBag diagnostics)
         List<Argument> arguments)
     {
         var receiverType = receiver.Type;
-        var candidates = receiverType.IsStruct || receiverType.IsReference || receiverType.IsTypeParameter
+        var candidates = receiverType.IsStructOrEnum || receiverType.IsReference || receiverType.IsTypeParameter
             ? LookupMethods(receiverType, name)
             : [];
         if (candidates.Count == 0)
@@ -1847,6 +2359,8 @@ public sealed class Binder(DiagnosticBag diagnostics)
             return new BoundErrorExpression(e.Location);
         if (type.IsStruct)
             return ErrorExpression(e.Type.Location, $"structs are created without 'new', as in '{e.Type.Name}(...)'");
+        if (type.IsEnum)
+            return ErrorExpression(e.Type.Location, $"enums are created from their variants without 'new', as in '{e.Type.Name}.{type.Symbol!.Variants.FirstOrDefault()?.Name}'");
         if (type.IsInterface)
             return ErrorExpression(e.Type.Location, $"cannot create an instance of interface '{type}'");
         if (!type.IsClass)
@@ -1891,8 +2405,9 @@ public sealed class Binder(DiagnosticBag diagnostics)
         var initializers = new List<BoundFieldInitializer>();
         foreach (var init in fieldInits)
         {
-            var value = BindExpression(init.Value);
-            if (s.FindField(init.Name) is not { } field)
+            var initField = s.FindField(init.Name);
+            var value = BindExpression(init.Value, initField is null ? null : map.Apply(initField.Type));
+            if (initField is not { } field)
             {
                 Error(init.Location, $"'{s.Name}' has no field '{init.Name}'");
                 continue;
@@ -1935,11 +2450,11 @@ public sealed class Binder(DiagnosticBag diagnostics)
         return new BoundConversion(e.Location, type, operand);
     }
 
-    BoundExpression BindConditional(ConditionalExpr e)
+    BoundExpression BindConditional(ConditionalExpr e, VplType? expected)
     {
         var condition = BindCondition(e.Condition);
-        var whenTrue = BindExpression(e.WhenTrue);
-        var whenFalse = BindExpression(e.WhenFalse);
+        var whenTrue = BindExpression(e.WhenTrue, expected);
+        var whenFalse = BindExpression(e.WhenFalse, expected);
         if (whenTrue.Type == VplType.Error || whenFalse.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
 

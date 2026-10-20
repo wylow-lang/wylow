@@ -48,6 +48,12 @@ public enum TokenKind
     AbstractKeyword,
     FinalKeyword,
     WeakKeyword,
+    EnumKeyword,
+    SwitchKeyword,
+    CaseKeyword,
+    DefaultKeyword,
+    TryKeyword,
+    Underscore,
     ReservedKeyword,
 
     OpenParen,
@@ -63,6 +69,7 @@ public enum TokenKind
     Question,
     QuestionQuestion,
     QuestionDot,
+    Arrow,
 
     Plus,
     Minus,

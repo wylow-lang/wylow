@@ -29,7 +29,10 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: `Types.cs` (interned `VplType`, `TypeMap` substitution,
-  conversions, equality/defaultability), `Symbols.cs`, `BoundTree.cs`, `Binder.cs`, `FlowAnalyzer.cs`.
+  conversions, equality/defaultability), `Symbols.cs`, `BoundTree.cs`, `Binder.cs`, `FlowAnalyzer.cs`,
+  `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
+- `src/Vpl.Compiler/Prelude.vpl`: VPL source compiled with every program (`Result`). Its
+  declarations come before the user's; the binder recognizes `Result` by its source.
 - `src/Vpl.Compiler/CodeGen/CppEmitter.cs`: bound tree to C++.
 - `runtime/vpl.h`: C++ support included by every generated program (checked arithmetic, panics, print).
 - `tests/cases/**/*.vpl`: each test is a program with `// output:`, `// error:` (on the erroring
@@ -60,3 +63,5 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
   `access with { AssumesNonNull = true }` keeps the old `Type`. Construct a new bound node instead.
 - Tests compile against the copy of `runtime/vpl.h` in the build output, so run `dotnet build`
   after changing the runtime.
+- The test filter matches paths with the OS separator: on Windows, `enums/values` matches nothing;
+  use `values` or `enums\values`.

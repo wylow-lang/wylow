@@ -107,6 +107,7 @@ public sealed class Parser
         TokenKind.StructKeyword => TypeKind.Struct,
         TokenKind.ClassKeyword => TypeKind.Class,
         TokenKind.InterfaceKeyword => TypeKind.Interface,
+        TokenKind.EnumKeyword => TypeKind.Enum,
         _ => null,
     };
 
@@ -114,6 +115,7 @@ public sealed class Parser
     {
         TypeKind.Struct => "a struct",
         TypeKind.Class => "a class",
+        TypeKind.Enum => "an enum",
         _ => "an interface",
     };
 
@@ -206,9 +208,14 @@ public sealed class Parser
         {
             TypeKind.Struct => "a struct name",
             TypeKind.Class => "a class name",
+            TypeKind.Enum => "an enum name",
             _ => "an interface name",
         });
         var typeParameters = ParseTypeParameters();
+
+        TypeSyntax? underlyingType = null;
+        if (kind == TypeKind.Enum && Accept(TokenKind.Colon))
+            underlyingType = ParseType(allowNullable: false);
 
         TypeSyntax? baseType = null;
         var interfaces = new List<TypeSyntax>();
@@ -223,8 +230,8 @@ public sealed class Parser
             }
             else
             {
-                if (kind == TypeKind.Struct)
-                    Error(extends.Span, "structs cannot inherit; they may only implement interfaces");
+                if (kind is TypeKind.Struct or TypeKind.Enum)
+                    Error(extends.Span, $"{(kind == TypeKind.Struct ? "structs" : "enums")} cannot inherit; they may only implement interfaces");
                 baseType = ParseType();
             }
         }
@@ -239,6 +246,7 @@ public sealed class Parser
         }
 
         Expect(TokenKind.OpenBrace, "'{'");
+        var variants = kind == TypeKind.Enum ? ParseVariants() : [];
         var members = new Members();
         while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
         {
@@ -248,8 +256,29 @@ public sealed class Parser
                 Advance();
         }
         Expect(TokenKind.CloseBrace, "'}'");
-        return new TypeDecl(LocationFrom(start), modifiers, kind, name.Text, Loc(name.Span), typeParameters, baseType, interfaces,
-            members.Fields, members.Methods, members.Destructor);
+        return new TypeDecl(LocationFrom(start), modifiers, kind, name.Text, Loc(name.Span), typeParameters,
+            kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants, underlyingType);
+    }
+
+    /// <summary>Variants separated by commas, then, if members follow, a ';' as in Java.</summary>
+    List<VariantDecl> ParseVariants()
+    {
+        var variants = new List<VariantDecl>();
+        while (At(TokenKind.Identifier))
+        {
+            int start = position;
+            var name = Advance();
+            var fields = At(TokenKind.OpenParen) ? ParseParameterList(allowRefKinds: false) : null;
+            var value = Accept(TokenKind.Assign) ? ParseExpression() : null;
+            variants.Add(new VariantDecl(LocationFrom(start), name.Text, Loc(name.Span), fields, value));
+            if (!Accept(TokenKind.Comma))
+                break;
+        }
+        if (variants.Count == 0)
+            Error(Current.Span, "expected an enum variant");
+        if (!Accept(TokenKind.Semicolon) && !At(TokenKind.CloseBrace))
+            Error(new TextSpan(Previous.Span.End, 0), "expected ',' or '}' after an enum variant, or ';' before the enum's methods");
+        return variants;
     }
 
     List<TypeParameterSyntax> ParseTypeParameters()
@@ -354,6 +383,19 @@ public sealed class Parser
             case TypeKind.Interface:
                 Disallow(modifiers, ~Modifiers.None, _ => "interface members cannot have modifiers");
                 break;
+            case TypeKind.Enum:
+                Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,
+                    token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
+                Disallow(modifiers, Modifiers.ReadOnly, _ => "enum methods are always readonly, since an enum value cannot be modified");
+                Disallow(modifiers, Modifiers.Weak, _ => "'weak' is only valid on class fields");
+                break;
+        }
+
+        if (kind == TypeKind.Enum && At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.Semicolon or TokenKind.CloseBrace)
+        {
+            Error(Current.Span, "enum variants must come before the enum's methods");
+            SkipDeclaration();
+            return;
         }
 
         if (At(TokenKind.Tilde) && Peek(1).Kind == TokenKind.Identifier && Peek(2).Kind == TokenKind.OpenParen)
@@ -369,6 +411,8 @@ public sealed class Parser
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
                 Error(constructorName.Span, "interfaces cannot have constructors");
+            else if (kind == TypeKind.Enum)
+                Error(constructorName.Span, "enums cannot have constructors; their values are created from variants");
             var constructor = ParseFunctionRest(start, modifiers.Flags, null, constructorName);
             RequireBody(constructor);
             members.Methods.Add(constructor);
@@ -410,6 +454,8 @@ public sealed class Parser
 
         if (kind == TypeKind.Interface)
             Error(name.Span, "interfaces cannot have fields");
+        else if (kind == TypeKind.Enum)
+            Error(name.Span, "enums cannot have fields; data belongs to variants, as in 'Name(int field)'");
         Disallow(modifiers, Modifiers.Static, _ => "static fields are not supported yet");
         Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on methods");
         Disallow(modifiers, InheritanceModifiers, token => $"'{token.Text}' is not valid on a field");
@@ -456,7 +502,12 @@ public sealed class Parser
         Advance();
         var name = Advance();
         if (kind != TypeKind.Class)
-            Error(name.Span, kind == TypeKind.Struct ? "structs cannot have destructors" : "interfaces cannot have destructors");
+            Error(name.Span, kind switch
+            {
+                TypeKind.Struct => "structs cannot have destructors",
+                TypeKind.Enum => "enums cannot have destructors",
+                _ => "interfaces cannot have destructors",
+            });
         else if (name.Text != typeName)
             Error(name.Span, $"a destructor must be named after its class, as in '~{typeName}()'");
         else if (members.Destructor is not null)
@@ -479,6 +530,14 @@ public sealed class Parser
         var typeParameters = ParseTypeParameters();
         if (returnType is null && typeParameters.Count > 0)
             Error(typeParameters[0].Location.Span, "constructors cannot have type parameters");
+        var parameters = ParseParameterList(allowRefKinds: true);
+        var body = Accept(TokenKind.Semicolon) ? null : ParseBlock();
+        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body);
+    }
+
+    /// <summary>Function parameters, or with <paramref name="allowRefKinds"/> false, the fields of an enum variant.</summary>
+    List<ParameterSyntax> ParseParameterList(bool allowRefKinds)
+    {
         Expect(TokenKind.OpenParen, "'('");
         var parameters = new List<ParameterSyntax>();
         if (!At(TokenKind.CloseParen))
@@ -486,17 +545,18 @@ public sealed class Parser
             do
             {
                 int parameterStart = position;
+                if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
+                    Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
                 var refKind = Accept(TokenKind.RefKeyword) ? RefKind.Ref
                     : Accept(TokenKind.InKeyword) ? RefKind.In
                     : RefKind.None;
                 var type = ParseType();
-                var parameterName = Expect(TokenKind.Identifier, "a parameter name");
-                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), refKind, type, parameterName.Text));
+                var parameterName = Expect(TokenKind.Identifier, allowRefKinds ? "a parameter name" : "a field name");
+                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text));
             } while (Accept(TokenKind.Comma));
         }
         Expect(TokenKind.CloseParen, "')'");
-        var body = Accept(TokenKind.Semicolon) ? null : ParseBlock();
-        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body);
+        return parameters;
     }
 
     TypeSyntax ParseType(bool allowNullable = true)
@@ -559,6 +619,11 @@ public sealed class Parser
             }
             case TokenKind.ForKeyword:
                 return ParseFor();
+            case TokenKind.SwitchKeyword:
+            {
+                var (value, cases) = ParseSwitch(isExpression: false);
+                return new SwitchStmt(LocationFrom(start), value, cases);
+            }
             case TokenKind.ReturnKeyword:
             {
                 Advance();
@@ -655,6 +720,14 @@ public sealed class Parser
             return new IncDecStmt(LocationFrom(start), target, increment);
         }
 
+        if (At(TokenKind.Underscore))
+        {
+            Advance();
+            Expect(TokenKind.Assign, "'=' after '_'");
+            var value = ParseExpression();
+            return new DiscardStmt(LocationFrom(start), value);
+        }
+
         var expression = ParseExpression();
         if (SyntaxFacts.IsAssignmentOperator(Current.Kind))
         {
@@ -738,16 +811,8 @@ public sealed class Parser
                 if (SyntaxFacts.RelationalPrecedence <= parentPrecedence)
                     return left;
                 Advance();
-                var type = ParseType(allowNullable: false);
-                string? name = null;
-                var nameLocation = type.Location;
-                if (At(TokenKind.Identifier))
-                {
-                    var nameToken = Advance();
-                    name = nameToken.Text;
-                    nameLocation = Loc(nameToken.Span);
-                }
-                left = new IsExpr(LocationFrom(start), left, type, name, nameLocation);
+                var pattern = ParsePattern();
+                left = new IsExpr(LocationFrom(start), left, pattern);
                 continue;
             }
 
@@ -769,15 +834,42 @@ public sealed class Parser
             var operand = ParseUnary();
             return new UnaryExpr(LocationFrom(start), op.Kind, operand);
         }
-        if (At(TokenKind.OpenParen) && SyntaxFacts.IsPrimitiveTypeKeyword(Peek(1).Kind) && Peek(2).Kind == TokenKind.CloseParen)
+        if (At(TokenKind.TryKeyword))
         {
             Advance();
-            var type = ParseType();
+            var operand = ParseUnary();
+            return new TryExpr(LocationFrom(start), operand);
+        }
+        if (IsCastStart())
+        {
             Advance();
+            var type = ParseType(allowNullable: false);
+            Expect(TokenKind.CloseParen, "')'");
             var operand = ParseUnary();
             return new CastExpr(LocationFrom(start), type, operand);
         }
         return ParsePostfix();
+    }
+
+    /// <summary>
+    /// A cast to a primitive type, or as in Java, a parenthesized name followed by something that
+    /// can only start an operand, so that <c>(a) - b</c> stays a subtraction.
+    /// </summary>
+    bool IsCastStart()
+    {
+        if (!At(TokenKind.OpenParen))
+            return false;
+        if (SyntaxFacts.IsPrimitiveTypeKeyword(Peek(1).Kind))
+            return Peek(2).Kind == TokenKind.CloseParen;
+        if (Peek(1).Kind != TokenKind.Identifier)
+            return false;
+        int end = ScanTypeArguments(position + 2) is > 0 and var afterArguments ? afterArguments : position + 2;
+        if (Peek(end - position).Kind != TokenKind.CloseParen)
+            return false;
+        return Peek(end - position + 1).Kind is TokenKind.Identifier or TokenKind.IntLiteral or TokenKind.FloatLiteral
+            or TokenKind.StringLiteral or TokenKind.TrueKeyword or TokenKind.FalseKeyword or TokenKind.NullKeyword
+            or TokenKind.ThisKeyword or TokenKind.SuperKeyword or TokenKind.NewKeyword or TokenKind.OpenParen
+            or TokenKind.Tilde or TokenKind.SwitchKeyword;
     }
 
     Expr ParsePostfix()
@@ -918,6 +1010,12 @@ public sealed class Parser
                 Expect(TokenKind.CloseParen, "')'");
                 return inner;
             }
+            case TokenKind.SwitchKeyword:
+            {
+                int start = position;
+                var (value, cases) = ParseSwitch(isExpression: true);
+                return new SwitchExpr(LocationFrom(start), value, cases);
+            }
             case TokenKind.ReservedKeyword:
                 Error(token.Span, $"'{token.Text}' is not supported yet");
                 Advance();
@@ -926,5 +1024,148 @@ public sealed class Parser
                 Error(token.Span, "expected an expression");
                 return new ErrorExpr(location);
         }
+    }
+
+    // ---- Switch and patterns ----
+
+    (Expr Value, List<SwitchCase> Cases) ParseSwitch(bool isExpression)
+    {
+        Advance();
+        Expect(TokenKind.OpenParen, "'('");
+        var value = ParseExpression();
+        Expect(TokenKind.CloseParen, "')'");
+        Expect(TokenKind.OpenBrace, "'{'");
+        var cases = new List<SwitchCase>();
+        while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
+        {
+            int start = position;
+            var patterns = new List<PatternSyntax>();
+            if (!Accept(TokenKind.DefaultKeyword))
+            {
+                if (!Accept(TokenKind.CaseKeyword))
+                {
+                    Error(Current.Span, "expected 'case' or 'default'");
+                    SkipStatement();
+                    continue;
+                }
+                do
+                    patterns.Add(ParsePattern());
+                while (Accept(TokenKind.Comma));
+            }
+
+            if (At(TokenKind.Colon))
+                Error(Current.Span, "cases are written with '->', as in 'case X -> ...'; there is no fallthrough");
+            else
+                Expect(TokenKind.Arrow, "'->'");
+            Accept(TokenKind.Colon);
+
+            if (isExpression)
+            {
+                if (At(TokenKind.OpenBrace))
+                {
+                    Error(Current.Span, "the cases of a switch expression must be expressions; use a switch statement for blocks");
+                    ParseBlock();
+                    cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))));
+                    continue;
+                }
+                int errors = diagnostics.Count;
+                var caseValue = ParseExpression();
+                FinishStatement(errors);
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue));
+            }
+            else
+            {
+                if (IsDeclarationStart())
+                    Error(Current.Span, "a variable cannot be declared here; use a block, as in 'case X -> { ... }'");
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null));
+            }
+        }
+        Expect(TokenKind.CloseBrace, "'}'");
+        return (value, cases);
+    }
+
+    PatternSyntax ParsePattern()
+    {
+        int start = position;
+        switch (Current.Kind)
+        {
+            case TokenKind.Underscore:
+                Advance();
+                return new DiscardPatternSyntax(LocationFrom(start));
+            case TokenKind.VarKeyword:
+            {
+                Advance();
+                var name = Expect(TokenKind.Identifier, "a variable name");
+                return new VarPatternSyntax(LocationFrom(start), name.Text, Loc(name.Span));
+            }
+            case TokenKind.IntLiteral or TokenKind.FloatLiteral or TokenKind.StringLiteral or TokenKind.TrueKeyword
+                or TokenKind.FalseKeyword or TokenKind.NullKeyword:
+            {
+                var literal = ParsePrimary();
+                return new ConstantPatternSyntax(literal.Location, literal);
+            }
+            case TokenKind.Minus when Peek(1).Kind is TokenKind.IntLiteral or TokenKind.FloatLiteral:
+            {
+                Advance();
+                var literal = ParsePrimary();
+                return new ConstantPatternSyntax(LocationFrom(start), new UnaryExpr(LocationFrom(start), TokenKind.Minus, literal));
+            }
+            case TokenKind.Identifier:
+                return ParseNamePattern();
+            case var kind when SyntaxFacts.IsPrimitiveTypeKeyword(kind):
+            {
+                var type = ParseType(allowNullable: false);
+                return FinishTypePattern(start, type);
+            }
+            default:
+                Error(Current.Span, "expected a pattern");
+                return new DiscardPatternSyntax(Loc(new TextSpan(Current.Span.Start, 0)));
+        }
+    }
+
+    /// <summary>
+    /// A pattern starting with a name: a variant, possibly qualified by its enum and followed by
+    /// field patterns, or a type test. A lone name is left for the binder to resolve.
+    /// </summary>
+    PatternSyntax ParseNamePattern()
+    {
+        int start = position;
+        var first = Advance();
+        var typeArguments = ScanTypeArguments(position) > 0 ? ParseTypeArguments() : [];
+        var type = new TypeSyntax(LocationFrom(start), first.Text, typeArguments);
+
+        if (Accept(TokenKind.Dot))
+        {
+            var variant = Expect(TokenKind.Identifier, "a variant name");
+            var qualifiedFields = At(TokenKind.OpenParen) ? ParsePatternList() : null;
+            return new VariantPatternSyntax(LocationFrom(start), type, variant.Text, Loc(variant.Span), qualifiedFields);
+        }
+        if (At(TokenKind.OpenParen) && typeArguments.Count == 0)
+            return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), ParsePatternList());
+        if (typeArguments.Count > 0 || At(TokenKind.Identifier))
+            return FinishTypePattern(start, type);
+        return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), null);
+    }
+
+    TypePatternSyntax FinishTypePattern(int start, TypeSyntax type)
+    {
+        if (!At(TokenKind.Identifier))
+            return new TypePatternSyntax(LocationFrom(start), type, null, type.Location);
+        var name = Advance();
+        return new TypePatternSyntax(LocationFrom(start), type, name.Text, Loc(name.Span));
+    }
+
+    List<PatternSyntax> ParsePatternList()
+    {
+        Expect(TokenKind.OpenParen, "'('");
+        var patterns = new List<PatternSyntax>();
+        if (!At(TokenKind.CloseParen))
+        {
+            do
+                patterns.Add(ParsePattern());
+            while (Accept(TokenKind.Comma));
+        }
+        Expect(TokenKind.CloseParen, "')'");
+        return patterns;
     }
 }

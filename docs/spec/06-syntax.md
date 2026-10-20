@@ -304,18 +304,72 @@ for (String name, int score : scores) { ... }             // Map: key + value
 
 ### `switch`
 
-- Arrow form only (`case X -> ...`). **No fallthrough.**
-- Usable as a statement or an expression.
-- Must be exhaustive over enums (otherwise a `default` case is required).
-- Cases may use patterns, with `_` to ignore a value.
-
 ```java
 var label = switch (state) {
     case Idle           -> "idle";
     case Chasing(var t) -> "chasing";
     case Fleeing(_, _)  -> "fleeing";
 };
+
+switch (state) {
+    case Idle -> wander();
+    case Chasing(var t) -> {
+        moveToward(t);
+        attack(t);
+    }
+    case Fleeing -> runFrom(threat);
+}
 ```
+
+- Arrow form only (`case X -> ...`). **No fallthrough.** `case A, B -> ...` matches either pattern;
+  such a case cannot bind names.
+- A **switch statement**'s case is a block or a single statement other than a declaration. A
+  **switch expression**'s case is an expression followed by `;`. A case that cannot complete, such
+  as `default -> panic("...")`, needs no value; the others must all convert to one type (the
+  expected type, if known, else the first case's type that every other converts to, as for `?:`).
+- **Every switch must be exhaustive**: its cases must match every value, or end with `default`.
+  Over an enum or `bool`, listing every variant (or both values) is enough; over integers and class
+  types, a `default` or a pattern that always matches is needed. The error names a value that no
+  case handles, such as `Pair(South, _)`.
+- `default` must be the last case. **A case that can never match is an error**: one whose values the
+  cases above all match, including a `default` after cases that already cover everything. A type
+  test on a class counts as possibly failing, so it never makes a later case unreachable unless it
+  always matches.
+- `break` and `continue` inside a case apply to the enclosing loop, as in Kotlin; a switch is not a
+  loop and needs no `break`.
+- The value is evaluated once, before any case is tried. Names a case binds are copies made before
+  the case runs, so a case may freely change the value it matched. If the value is a temporary, it
+  lives until the switch ends (for a switch expression, until the switch's value is produced).
+
+### Patterns
+
+Patterns appear in `case` and after `is`. A pattern either always matches or tests the value:
+
+| Pattern | Matches |
+|---|---|
+| `_` | Anything |
+| `var name` | Anything, and binds it to `name` |
+| `Variant`, `Enum.Variant` | That variant, whatever its fields |
+| `Variant(p1, p2)` | That variant, if each field matches its pattern; every field must be listed |
+| `Type name`, `Type` | A class or interface value that is non-null and a `Type`. For a value type, only its own type, which just states it |
+| `42`, `-1`, `true` | An integer or `bool` equal to the literal |
+
+- The enum qualifier in `Enum.Variant` must be the matched value's enum; type arguments may be left
+  out, since the value determines them: `case Result.Ok(var v)`.
+- A lone name is a variant when matching an enum, and otherwise a type: `x is Dog` tests a class.
+- `null`, floating-point, and string literals are not patterns.
+- `x is pattern` is `true` when the pattern matches. Patterns that always match (`_`, `var x`) are
+  errors after `is`. Names bound in an `if` or `while` condition follow the rules of §2.5: in scope
+  for the whole statement, definitely assigned where the test succeeded.
+
+```java
+if (state is Chasing(var target) && target.isAlive()) { ... }
+while (node is Some(var n)) { node = n.next; }
+```
+
+- Binding names in an `is` stores to existing locals, which releases their old values. Every bound
+  value is copied out of the matched value before any of those releases, since a destructor they run
+  may change it.
 
 ### String interpolation
 

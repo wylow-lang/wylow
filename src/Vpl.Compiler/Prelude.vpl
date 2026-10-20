@@ -1,0 +1,21 @@
+// Declarations every VPL program can use. Compiled with each program.
+
+enum Result<T, E> {
+    Ok(T value),
+    Err(E error);
+
+    bool isOk() {
+        return this is Ok;
+    }
+
+    bool isErr() {
+        return this is Err;
+    }
+
+    T orElse(T fallback) {
+        return switch (this) {
+            case Ok(var value) -> value;
+            case Err -> fallback;
+        };
+    }
+}

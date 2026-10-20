@@ -23,7 +23,8 @@ public sealed record BoundVariableDeclaration(Location Location, LocalSymbol Loc
 /// <summary><see cref="Target"/> is a local, or a field path rooted at a local, <c>this</c>, or an object.</summary>
 public sealed record BoundAssignment(Location Location, BoundExpression Target, BoundExpression Value) : BoundStatement(Location);
 
-public sealed record BoundExpressionStatement(Location Location, BoundExpression Expression) : BoundStatement(Location);
+/// <summary><see cref="IsDiscard"/> for <c>_ = value;</c>, which may discard any value.</summary>
+public sealed record BoundExpressionStatement(Location Location, BoundExpression Expression, bool IsDiscard = false) : BoundStatement(Location);
 
 public sealed record BoundIf(Location Location, BoundExpression Condition, BoundStatement Then, BoundStatement? Else)
     : BoundStatement(Location);
@@ -42,6 +43,13 @@ public sealed record BoundReturn(Location Location, BoundExpression? Value) : Bo
 public sealed record BoundBreak(Location Location) : BoundStatement(Location);
 
 public sealed record BoundContinue(Location Location) : BoundStatement(Location);
+
+/// <summary>A case of a switch; <see cref="Patterns"/> is empty for <c>default</c>. Each pattern is tried in turn.</summary>
+public sealed record BoundSwitchCase<T>(Location Location, IReadOnlyList<BoundPattern> Patterns, T Body);
+
+/// <summary>A switch statement. Its cases cover every value, which the binder has checked.</summary>
+public sealed record BoundSwitch(Location Location, BoundExpression Value, IReadOnlyList<BoundSwitchCase<BoundStatement>> Cases)
+    : BoundStatement(Location);
 
 /// <summary>
 /// A class constructor's call to its base class constructor, always its first statement. Implicit
@@ -152,9 +160,28 @@ public sealed record BoundConditionalAccess(
     BoundExpression WhenNotNull,
     VplType Type) : BoundExpression(Location, Type);
 
-/// <summary><c>operand is Target binding</c>: a type test, which on success assigns the operand to <see cref="Binding"/>.</summary>
-public sealed record BoundIs(Location Location, BoundExpression Operand, VplType Target, LocalSymbol? Binding)
-    : BoundExpression(Location, VplType.Bool);
+/// <summary><c>operand is pattern</c>, which on success assigns the pattern's bindings.</summary>
+public sealed record BoundIs(Location Location, BoundExpression Operand, BoundPattern Pattern) : BoundExpression(Location, VplType.Bool);
+
+/// <summary>
+/// A switch expression. A case whose value cannot complete, such as a call to <c>panic</c>, has type
+/// <c>void</c>; every other case's value has <see cref="BoundExpression.Type"/>.
+/// </summary>
+public sealed record BoundSwitchExpression(
+    Location Location,
+    BoundExpression Value,
+    IReadOnlyList<BoundSwitchCase<BoundExpression>> Cases,
+    VplType Type) : BoundExpression(Location, Type);
+
+/// <summary>Creates an enum value; <see cref="Arguments"/> are the variant's fields.</summary>
+public sealed record BoundVariant(Location Location, VplType Type, VariantSymbol Variant, IReadOnlyList<BoundExpression> Arguments)
+    : BoundExpression(Location, Type);
+
+/// <summary>
+/// <c>try operand</c>: the value of an <c>Ok</c> result, or for an <c>Err</c>, a return of the error
+/// from the enclosing function. Only the whole value of a statement can be a <c>try</c>.
+/// </summary>
+public sealed record BoundTry(Location Location, BoundExpression Operand, VplType Type) : BoundExpression(Location, Type);
 
 public sealed record BoundFieldInitializer(FieldSymbol Field, BoundExpression Value);
 
@@ -175,3 +202,33 @@ public sealed record BoundConditional(
     VplType Type) : BoundExpression(Location, Type);
 
 public sealed record BoundErrorExpression(Location Location) : BoundExpression(Location, VplType.Error);
+
+public abstract record BoundPattern(Location Location, VplType Type);
+
+/// <summary><c>_</c>, or a variant's fields when only the variant is named.</summary>
+public sealed record BoundDiscardPattern(Location Location, VplType Type) : BoundPattern(Location, Type);
+
+/// <summary>Matches anything and assigns it to <see cref="Local"/>, whose type the value converts to.</summary>
+public sealed record BoundBindingPattern(Location Location, VplType Type, LocalSymbol Local) : BoundPattern(Location, Type);
+
+/// <summary>Tests that a reference is non-null and refers to a <see cref="Target"/>, optionally binding it.</summary>
+public sealed record BoundTypePattern(Location Location, VplType Type, VplType Target, LocalSymbol? Binding)
+    : BoundPattern(Location, Type);
+
+/// <summary><see cref="Fields"/> has one pattern per field of the variant.</summary>
+public sealed record BoundVariantPattern(Location Location, VplType Type, VariantSymbol Variant, IReadOnlyList<BoundPattern> Fields)
+    : BoundPattern(Location, Type);
+
+/// <summary>Compares with a literal of the matched type.</summary>
+public sealed record BoundConstantPattern(Location Location, BoundLiteral Value) : BoundPattern(Location, Value.Type);
+
+public static class Patterns
+{
+    public static IEnumerable<LocalSymbol> Bindings(BoundPattern pattern) => pattern switch
+    {
+        BoundBindingPattern binding => [binding.Local],
+        BoundTypePattern { Binding: { } binding } => [binding],
+        BoundVariantPattern variant => variant.Fields.SelectMany(Bindings),
+        _ => [],
+    };
+}

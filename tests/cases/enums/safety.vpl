@@ -1,0 +1,122 @@
+// Items print their name when freed. An item may empty its holder's slot when freed, which
+// changes an enum while code may be reading it.
+class Item {
+    int id;
+    String name;
+    weak Holder? clears;
+
+    Item(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    ~Item() {
+        print(name);
+        if (clears is Holder h) {
+            print(h.slot is Holding ? "sees old value" : "sees new value");
+            h.slot = Slot.Empty;
+        }
+    }
+}
+
+enum Box {
+    Nothing,
+    Has(Item item),
+}
+
+enum Slot {
+    Empty,
+    Holding(Item item),
+    Pair(Box first, Box second),
+}
+
+class Holder {
+    Slot slot = Slot.Empty;
+
+    ~Holder() {
+        print("free holder");
+    }
+}
+
+Holder holding(int id) {
+    var h = new Holder();
+    h.slot = Slot.Holding(new Item(id, "free item"));
+    return h;
+}
+
+Item make(int id) {
+    print(id);
+    return new Item(id, "free made");
+}
+
+int take(Holder h) {
+    if (h.slot is Holding(var item)) {
+        h.slot = Slot.Empty;
+        return item.id;
+    }
+    return 0;
+}
+
+void main() {
+    // Assignment stores the new value before releasing the old one.
+    var h = new Holder();
+    var first = new Item(1, "free 1");
+    first.clears = h;
+    h.slot = Slot.Holding(first);
+    first = new Item(0, "free 0");
+    h.slot = Slot.Pair(Box.Nothing, Box.Nothing);   // output: free 1
+                                                    // output: sees new value
+
+    // Binding a name releases its old value, whose destructor may change the matched value; every
+    // bound value is copied before that happens.
+    var a1 = new Item(11, "free a1");
+    a1.clears = h;
+    h.slot = Slot.Pair(Box.Has(a1), Box.Has(new Item(12, "free b1")));
+    a1 = new Item(0, "free 0");
+    int round = 0;
+    while (h.slot is Pair(var a, var b)) {
+        print(round);
+        if (round == 0) {
+            h.slot = Slot.Pair(Box.Has(new Item(21, "free a2")), Box.Has(new Item(22, "free b2")));
+        } else {
+            h.slot = Slot.Empty;
+        }
+        round++;
+    }
+    // output: 0
+    // output: free a1
+    // output: sees new value
+    // output: free b1
+    // output: 1
+    // output: free b2
+    // output: free a2
+    print("loop done");                             // output: loop done
+
+    // A matched object held only by a temporary stays alive while the pattern binds.
+    if (holding(7).slot is Holding(var item)) {     // output: free holder
+        print(item.id);                             // output: 7
+    }                                               // output: free item
+
+    // A switch keeps a temporary value until the switch ends.
+    switch (holding(8).slot) {
+        case Holding(var item) -> print(item.id);   // output: 8
+        default -> print(0);
+    }                                               // output: free holder
+                                                    // output: free item
+
+    // A case may change the value it matched.
+    var t = holding(9);
+    print(take(t));                                 // output: free item
+                                                    // output: 9
+
+    // Fields are evaluated left to right.
+    var pair = Slot.Pair(Box.Has(make(1)), Box.Has(make(2)));   // output: 1
+                                                                // output: 2
+    print("end");                                   // output: end
+}
+// output: free made
+// output: free made
+// output: free holder
+// output: free 0
+// output: free 0
+// output: free holder

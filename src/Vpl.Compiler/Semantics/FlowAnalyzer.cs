@@ -167,6 +167,15 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                     CheckFieldsAssigned(state, returnStatement.Location);
                 return State.Unreachable();
 
+            case BoundSwitch switchStatement:
+            {
+                state = Expression(switchStatement.Value, state);
+                var exit = State.Unreachable();
+                foreach (var switchCase in switchStatement.Cases)
+                    exit = State.Join(exit, Statement(switchCase.Body, CaseEntry(state, switchCase.Patterns)));
+                return exit;
+            }
+
             case BoundBreak:
                 if (loops.TryPeek(out var breakLoop))
                     breakLoop.Breaks.Add(state.Clone());
@@ -180,6 +189,14 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             default:
                 throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}");
         }
+    }
+
+    /// <summary>A case starts where the switch value has been evaluated and its patterns' names are assigned.</summary>
+    static State CaseEntry(State afterValue, IEnumerable<BoundPattern> patterns)
+    {
+        var entry = afterValue.Clone();
+        entry.Assigned.UnionWith(patterns.SelectMany(Patterns.Bindings));
+        return entry;
     }
 
     static void SetNullability(State state, LocalSymbol local, BoundExpression value)
@@ -215,6 +232,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
         BoundIf ifStatement => [.. AssignedLocals(ifStatement.Then), .. ifStatement.Else is null ? [] : AssignedLocals(ifStatement.Else)],
         BoundWhile whileStatement => AssignedLocals(whileStatement.Body),
+        BoundSwitch switchStatement => switchStatement.Cases.SelectMany(c => AssignedLocals(c.Body)),
         BoundFor forStatement => [
             .. forStatement.Initializer is null ? [] : AssignedLocals(forStatement.Initializer),
             .. AssignedLocals(forStatement.Body),
@@ -271,8 +289,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             {
                 state = Expression(pattern.Operand, state);
                 var matched = state.Clone();
-                if (pattern.Binding is { } binding)
-                    matched.Assigned.Add(binding);
+                matched.Assigned.UnionWith(Patterns.Bindings(pattern.Pattern));
                 if (pattern.Operand is BoundLocalAccess access)
                     matched.NonNull.Add(access.Local);
                 return (matched, state);
@@ -342,6 +359,17 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 state = Expression(coalesce.Left, state);
                 return State.Join(state, Expression(coalesce.Right, state.Clone()));
             }
+            case BoundSwitchExpression switchExpression:
+            {
+                state = Expression(switchExpression.Value, state);
+                var exit = State.Unreachable();
+                foreach (var switchCase in switchExpression.Cases)
+                {
+                    var afterCase = Expression(switchCase.Body, CaseEntry(state, switchCase.Patterns));
+                    exit = State.Join(exit, switchCase.Body is BoundCall { Method.Symbol.IsNoReturn: true } ? State.Unreachable() : afterCase);
+                }
+                return exit;
+            }
             case BoundConditionalAccess access:
             {
                 state = Expression(access.Receiver, state);
@@ -366,6 +394,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         BoundFieldAccess field => [field.Receiver],
         BoundConversion conversion => [conversion.Operand],
         BoundNonNull nonNull => [nonNull.Operand],
+        BoundVariant variant => variant.Arguments,
+        BoundTry attempt => [attempt.Operand],
         _ => [],
     };
 }

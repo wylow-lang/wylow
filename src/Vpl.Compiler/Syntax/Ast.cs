@@ -20,7 +20,7 @@ public enum Modifiers
 
 public enum RefKind { None, Ref, In }
 
-public enum TypeKind { Struct, Class, Interface }
+public enum TypeKind { Struct, Class, Interface, Enum }
 
 public abstract record Node(Location Location);
 
@@ -31,7 +31,10 @@ public abstract record Declaration(Location Location, Modifiers Modifiers) : Nod
 /// <summary><see cref="Bounds"/> are the interfaces after <c>extends</c>, joined by <c>&amp;</c>.</summary>
 public sealed record TypeParameterSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> Bounds) : Node(Location);
 
-/// <summary>A struct, class, or interface. Only classes have a <see cref="BaseType"/> or <see cref="Destructor"/>.</summary>
+/// <summary>
+/// A struct, class, interface, or enum. Only classes have a <see cref="BaseType"/> or
+/// <see cref="Destructor"/>; only enums have <see cref="Variants"/> or an <see cref="UnderlyingType"/>.
+/// </summary>
 public sealed record TypeDecl(
     Location Location,
     Modifiers Modifiers,
@@ -43,7 +46,13 @@ public sealed record TypeDecl(
     IReadOnlyList<TypeSyntax> Interfaces,
     IReadOnlyList<FieldDecl> Fields,
     IReadOnlyList<FunctionDecl> Methods,
-    DestructorDecl? Destructor) : Declaration(Location, Modifiers);
+    DestructorDecl? Destructor,
+    IReadOnlyList<VariantDecl> Variants,
+    TypeSyntax? UnderlyingType) : Declaration(Location, Modifiers);
+
+/// <summary>An enum variant. <see cref="Fields"/> is null when the variant carries no data.</summary>
+public sealed record VariantDecl(Location Location, string Name, Location NameLocation, IReadOnlyList<ParameterSyntax>? Fields, Expr? Value)
+    : Node(Location);
 
 public sealed record FieldDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation, Expr? Initializer)
     : Declaration(Location, Modifiers);
@@ -100,6 +109,20 @@ public sealed record AssignStmt(Location Location, Expr Target, TokenKind Operat
 
 public sealed record IncDecStmt(Location Location, Expr Target, bool IsIncrement) : Stmt(Location);
 
+/// <summary><c>_ = value;</c>, which evaluates a value and ignores it.</summary>
+public sealed record DiscardStmt(Location Location, Expr Value) : Stmt(Location);
+
+public sealed record SwitchStmt(Location Location, Expr Value, IReadOnlyList<SwitchCase> Cases) : Stmt(Location);
+
+/// <summary>
+/// A <c>case</c> or, with no <see cref="Patterns"/>, a <c>default</c>. In a switch statement the
+/// body is <see cref="Body"/>; in a switch expression it is <see cref="Value"/>.
+/// </summary>
+public sealed record SwitchCase(Location Location, IReadOnlyList<PatternSyntax> Patterns, Stmt? Body, Expr? Value) : Node(Location)
+{
+    public bool IsDefault => Patterns.Count == 0;
+}
+
 public abstract record Expr(Location Location) : Node(Location);
 
 public sealed record IntLiteralExpr(Location Location, ulong Value, bool IsLong) : Expr(Location);
@@ -136,8 +159,11 @@ public sealed record BinaryExpr(Location Location, Expr Left, TokenKind Operator
 
 public sealed record CoalesceExpr(Location Location, Expr Left, Location OperatorLocation, Expr Right) : Expr(Location);
 
-/// <summary><c>operand is Type</c> or <c>operand is Type name</c>.</summary>
-public sealed record IsExpr(Location Location, Expr Operand, TypeSyntax Type, string? Name, Location NameLocation) : Expr(Location);
+public sealed record IsExpr(Location Location, Expr Operand, PatternSyntax Pattern) : Expr(Location);
+
+public sealed record SwitchExpr(Location Location, Expr Value, IReadOnlyList<SwitchCase> Cases) : Expr(Location);
+
+public sealed record TryExpr(Location Location, Expr Operand) : Expr(Location);
 
 public sealed record CallExpr(Location Location, Expr Callee, IReadOnlyList<Expr> Arguments) : Expr(Location);
 
@@ -156,3 +182,24 @@ public sealed record CastExpr(Location Location, TypeSyntax Type, Expr Operand) 
 public sealed record ConditionalExpr(Location Location, Expr Condition, Expr WhenTrue, Expr WhenFalse) : Expr(Location);
 
 public sealed record ErrorExpr(Location Location) : Expr(Location);
+
+public abstract record PatternSyntax(Location Location) : Node(Location);
+
+/// <summary><c>_</c>, which matches anything.</summary>
+public sealed record DiscardPatternSyntax(Location Location) : PatternSyntax(Location);
+
+/// <summary><c>var name</c>, which matches anything and binds it.</summary>
+public sealed record VarPatternSyntax(Location Location, string Name, Location NameLocation) : PatternSyntax(Location);
+
+/// <summary><c>Type</c> or <c>Type name</c>: a type test, or for a value type an annotated binding.</summary>
+public sealed record TypePatternSyntax(Location Location, TypeSyntax Type, string? Name, Location NameLocation) : PatternSyntax(Location);
+
+/// <summary>
+/// <c>Variant</c>, <c>Enum.Variant</c>, or either followed by field patterns in parentheses.
+/// <see cref="Fields"/> is null without parentheses. A bare name may also turn out to be a type test.
+/// </summary>
+public sealed record VariantPatternSyntax(Location Location, TypeSyntax? Enum, string Name, Location NameLocation, IReadOnlyList<PatternSyntax>? Fields)
+    : PatternSyntax(Location);
+
+/// <summary>A literal to compare with.</summary>
+public sealed record ConstantPatternSyntax(Location Location, Expr Value) : PatternSyntax(Location);

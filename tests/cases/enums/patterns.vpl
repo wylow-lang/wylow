@@ -1,0 +1,162 @@
+interface Named {
+    String name();
+}
+
+enum Suit implements Named {
+    Hearts, Spades;
+
+    String name() {
+        return switch (this) {
+            case Hearts -> "hearts";
+            case Spades -> "spades";
+        };
+    }
+
+    bool isRed() {
+        return this == Hearts;
+    }
+
+    static Suit fromRed(bool red) {
+        return red ? Hearts : Spades;
+    }
+}
+
+enum Card {
+    Joker,
+    Number(Suit suit, int rank),
+}
+
+enum Tree {
+    Leaf(int value),
+    Node(Card left, Card right),
+}
+
+class Animal { }
+
+class Dog extends Animal {
+    int tricks = 3;
+}
+
+enum Format : int {
+    Undefined = 0,
+    Rgba = 37,
+    Bgra,
+}
+
+String label<T extends Named>(T value) {
+    return value.name();
+}
+
+String score(Card card) {
+    return switch (card) {
+        case Joker -> "joker";
+        case Number(Suit.Hearts, 1) -> "ace of hearts";
+        case Number(_, 1) -> "an ace";
+        case Number(_, 11), Number(_, 12) -> "court";
+        case Number(Hearts, var rank) -> "red";
+        case Number(Spades, _) -> "black";
+    };
+}
+
+String rank(int n) {
+    return switch (n) {
+        case 1 -> "one";
+        case 2, 3 -> "few";
+        case -1 -> "minus one";
+        default -> "many";
+    };
+}
+
+int depth(Tree tree) {
+    switch (tree) {
+        case Leaf(0) -> { return 0; }
+        case Leaf(_) -> { return 1; }
+        case Node(Joker, Joker) -> { return 2; }
+        case Node(Joker, Number(_, var r)) -> { return r; }
+        case Node(Number(_, var r), _) -> { return -r; }
+    }
+}
+
+String kind(Animal a) {
+    return switch (a) {
+        case Dog d -> d.tricks > 2 ? "clever dog" : "dog";
+        default -> "animal";
+    };
+}
+
+void main() {
+    print(score(Card.Joker));                               // output: joker
+    print(score(Card.Number(Suit.Hearts, 1)));              // output: ace of hearts
+    print(score(Card.Number(Suit.Spades, 1)));              // output: an ace
+    print(score(Card.Number(Suit.Spades, 12)));             // output: court
+    print(score(Card.Number(Suit.Hearts, 5)));              // output: red
+    print(score(Card.Number(Suit.Spades, 5)));              // output: black
+
+    print(rank(1));                                         // output: one
+    print(rank(3));                                         // output: few
+    print(rank(-1));                                        // output: minus one
+    print(rank(9));                                         // output: many
+
+    print(depth(Tree.Leaf(0)));                             // output: 0
+    print(depth(Tree.Leaf(4)));                             // output: 1
+    print(depth(Tree.Node(Card.Joker, Card.Joker)));        // output: 2
+    print(depth(Tree.Node(Card.Joker, Card.Number(Suit.Hearts, 7)))); // output: 7
+    print(depth(Tree.Node(Card.Number(Suit.Hearts, 7), Card.Joker))); // output: -7
+
+    print(kind(new Dog()));                                 // output: clever dog
+    print(kind(new Animal()));                              // output: animal
+
+    // Enum methods, static methods, and interfaces as generic bounds.
+    print(Suit.Hearts.isRed());                             // output: true
+    print(Suit.fromRed(false).name());                      // output: spades
+    print(label(Suit.Hearts));                              // output: hearts
+
+    // Enums without data convert to and from integers.
+    print((int)Suit.Spades);                                // output: 1
+    print((int)Format.Bgra);                                // output: 38
+    print((long)Format.Rgba);                               // output: 37
+    var format = (Format)37;
+    print(format == Format.Rgba);                           // output: true
+
+    // Bools and nested switches.
+    bool flag = true;
+    print(switch (flag) {
+        case true -> switch (Suit.Spades) {
+            case Hearts -> 1;
+            case Spades -> 2;
+        };
+        case false -> 0;
+    });                                                     // output: 2
+
+    // break and continue belong to the enclosing loop.
+    for (int i = 0; i < 5; i++) {
+        switch (i) {
+            case 1 -> { continue; }
+            case 3 -> { break; }
+            default -> print(i);
+        }
+    }                                                       // output: 0
+                                                            // output: 2
+
+    // Names bound in a condition are assigned where the pattern matched.
+    var card = Card.Number(Suit.Hearts, 9);
+    if (!(card is Number(_, var r))) {
+        return;
+    } else {
+        print(r);                                           // output: 9
+    }
+
+    // A loop condition can bind a new value each time.
+    var tree = Tree.Node(Card.Number(Suit.Hearts, 2), Card.Joker);
+    while (tree is Node(Number(_, var n), _)) {
+        print(n);                                           // output: 2
+        tree = Tree.Leaf(n);
+    }
+
+    // Names in different cases may repeat.
+    int total = switch (tree) {
+        case Leaf(var v) -> v is 2 ? 10 : 0;
+        case Node(var v, _) -> v is Joker ? 1 : 0;
+    };
+    print(total);                                           // output: 10
+}

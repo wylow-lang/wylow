@@ -153,6 +153,13 @@ var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
 - Converting an integer to a non-`@Flags` enum with a cast (`(Format)i`) **panics** if the value is
   not a declared variant. `Format.tryFrom(i)` returns `Format?`. In `unsafe` code, `bitcast<Format>(i)`
   performs no check.
+- A variant without a value is one more than the previous variant, and the first is `0`. Two
+  variants may not have the same value. Values must be integer literals that fit the underlying
+  type, which is `int` when values are given without one.
+- Only enums whose variants carry no data can have an underlying type or values.
+
+> Implemented so far: underlying types `int` and `long` (the other integer types don't exist yet),
+> values, and casts both ways. `@Flags`, `tryFrom`, and `bitcast` are not implemented.
 
 Enum variant names keep their C spelling when bound from C (`R8G8B8A8_UNORM`); the naming-convention
 warning does not apply inside `extern` blocks or to enums with an explicit underlying type.

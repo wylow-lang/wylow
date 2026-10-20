@@ -51,6 +51,11 @@ representable, so `float x = 0;` and `velocity * 2` work. `float f = 16777217;` 
 | Signed ↔ unsigned (same size) | Reinterprets bits |
 | Float → integer | Saturates to the target range; NaN → 0 |
 | Double → float | Rounds to nearest |
+| Enum without data → integer | The variant's value, then as integer narrowing |
+| Integer → enum without data | Panics if no variant has the value |
+
+A cast to a named type, such as `(Format)i`, is recognized as in Java: `(Name)` followed by something
+that can only start an operand. `(Format)-1` is therefore a subtraction; write `(Format)(-1)`.
 
 **Checked conversions** return a nullable: `int.tryFrom(someLong)` → `int?`.
 
@@ -130,6 +135,57 @@ enum AiState {
 }
 ```
 
+- Variants are separated by commas, with an optional trailing comma. An enum may have methods
+  after its variants, separated from them by `;` as in Java. It has no fields, constructors, or
+  destructor: data belongs to variants.
+- An enum is a **value type**, like a struct: stored inline and copied on assignment. Copies are
+  shallow, as for structs. It cannot contain itself by value, directly or through other value types.
+- An enum value is **immutable**: there is no way to change the fields of a variant in place, only
+  to assign a whole new value. Its methods are therefore always `readonly`, and can be called
+  on `in` parameters.
+- Enums may be generic (`enum Option<T> { None, Some(T value) }`), and may implement interfaces for
+  use as generic bounds, as structs can (§2.12).
+- A variant's fields can only be read with a pattern ([06-syntax.md](06-syntax.md#patterns)).
+  `state.target` is an error.
+
+### Creating values
+
+```java
+var d = Direction.North;
+var s = AiState.Fleeing(pos, 2.5);
+Direction next = East;                 // the enum may be left out where its type is known
+var o = Option.Some(5);                // type arguments are inferred: Option<int>
+Option<Item> none = None;              // ...or taken from the expected type
+var n = Option<int>.None;              // ...or written
+```
+
+- `Enum.Variant` for a variant without data, `Enum.Variant(fields...)` for one with data; the
+  parentheses are required exactly when the variant carries data.
+- **Where a value's type is known**, the enum (and its type arguments) may be left out: in the
+  initializer of a declaration with a written type, the value of an assignment, a `return` value, a
+  field initializer, and the right side of `==`/`!=` with an enum on the left. The expected type
+  also reaches into `?:` branches and switch expression cases. Elsewhere, including call
+  arguments, write the enum: `f(Direction.East)`. A local, field, function, or type of the same
+  name takes precedence over the variant.
+- A generic enum written without type arguments takes them from the expected type if that is the
+  same enum, and otherwise infers them from the fields' values, as for generic functions (§2.13).
+  `Option.None` alone is an error, since nothing determines `T`.
+
+### Equality, defaults, conversions
+
+- `==` and `!=` compare the variant and then its fields, and are available when every field of
+  every variant supports `==` (so never when a field's type is a type parameter or `String`).
+  Enums are not ordered.
+- **An enum's default value is its first variant, if that variant carries no data.** Otherwise the
+  enum has no default value: a field of that type needs an initializer or, in a class, an assignment
+  in every constructor (§2.10, "Default values" in §2.13).
+- Enums without data convert to and from integers with a cast: `(int)Direction.East` is `1`, and
+  `(Direction)i` panics if `i` is not the value of a variant. A variant's value is its position, or
+  as in C, the value written for it or one more than the previous variant's
+  ([07-interop.md](07-interop.md#75-enums-with-underlying-types)).
+
+### `switch`
+
 `switch` over an enum must be **exhaustive**; a missing case is a compile error.
 
 ```java
@@ -140,7 +196,15 @@ switch (ai.state) {
 }
 ```
 
-Enums compile to a C++ struct containing a tag and a union (not `std::variant`).
+See [06-syntax.md](06-syntax.md#switch) for `switch` and patterns.
+
+### Representation
+
+Enums compile to a C++ struct containing a tag and a union (not `std::variant`). The tag is the
+smallest unsigned integer that numbers the variants, or the underlying type when one is given. When
+no variant can hold an object reference, the enum is trivially copyable; otherwise copying and
+destroying it copy and destroy only the active variant's fields, and assigning it stores the new
+value before releasing the old one, as for structs (§3.2).
 
 Enums without data may declare an explicit integer type and values (`enum Format : uint { ... }`)
 and may be marked `@Flags`; see [07-interop.md](07-interop.md#75-enums-with-underlying-types).
@@ -406,7 +470,8 @@ passing (including by `ref`/`in`), and returning values. In particular:
 ### Default values
 
 A type is *defaultable* if it has a default value: primitives, `String`, nullable references
-(`null`), and structs whose fields each either have an initializer or a defaultable type. Type
+(`null`), structs whose fields each either have an initializer or a defaultable type, and enums
+whose first variant carries no data (that variant is the default). Type
 parameters and non-null class and interface references are not defaultable, so a struct with a
 `Player` field and no initializer for it has no default value. A
 struct's default constructor and `{ ... }` initializers require any field that is not set

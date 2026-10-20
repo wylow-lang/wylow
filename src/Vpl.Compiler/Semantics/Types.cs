@@ -51,7 +51,7 @@ public sealed class VplType
     // Built on demand: deeply nested generic types share structure, but their names would not.
     public string Name => name ??= IsNullable ? NonNull.Name + "?" : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
 
-    /// <summary>The declared struct, class, or interface, also for its nullable form.</summary>
+    /// <summary>The declared struct, class, interface, or enum, also for its nullable form.</summary>
     public TypeSymbol? Symbol { get; }
     public IReadOnlyList<VplType> TypeArguments { get; }
     public TypeParameterSymbol? TypeParameter { get; }
@@ -67,6 +67,10 @@ public sealed class VplType
     public bool IsStruct => Symbol?.Kind == TypeKind.Struct;
     public bool IsClass => Symbol?.Kind == TypeKind.Class;
     public bool IsInterface => Symbol?.Kind == TypeKind.Interface;
+    public bool IsEnum => Symbol?.Kind == TypeKind.Enum;
+
+    /// <summary>Declared value types, which are stored inline and copied.</summary>
+    public bool IsStructOrEnum => IsStruct || IsEnum;
 
     /// <summary>Class and interface types, nullable or not: values that are references to heap objects.</summary>
     public bool IsReference => IsClass || IsInterface;
@@ -147,8 +151,12 @@ public static class Conversions
         || (from == VplType.Null && to.IsNullable)
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
 
+    /// <summary>Casts: between numbers, and between integers and enums without data.</summary>
     public static bool IsExplicit(VplType from, VplType to) =>
-        IsImplicit(from, to) || (from.IsNumeric && to.IsNumeric);
+        IsImplicit(from, to)
+        || (from.IsNumeric && to.IsNumeric)
+        || (from.IsInteger && to.IsEnum && !to.Symbol!.HasData)
+        || (from.IsEnum && !from.Symbol!.HasData && to.IsInteger);
 
     /// <summary>
     /// Whether <paramref name="type"/> is <paramref name="target"/> or inherits from or implements it.
@@ -188,15 +196,15 @@ public static class Conversions
         : new BigInteger((double)value) == value;
 
     /// <summary>
-    /// Whether <c>==</c> is defined: numbers, bools, references (identity), and structs whose fields
-    /// all support it.
+    /// Whether <c>==</c> is defined: numbers, bools, references (identity), and structs and enums
+    /// whose fields all support it.
     /// </summary>
     public static bool SupportsEquality(VplType type) => SupportsEquality(type, []);
 
-    /// <summary>The first field of a struct type whose type does not support <c>==</c>.</summary>
+    /// <summary>The first field of a struct type, or variant field of an enum type, whose type does not support <c>==</c>.</summary>
     public static FieldSymbol? FindNonEquatableField(VplType structType) => FindNonEquatableField(structType, []);
 
-    static bool SupportsEquality(VplType type, HashSet<VplType> visiting) => !type.IsStruct
+    static bool SupportsEquality(VplType type, HashSet<VplType> visiting) => !type.IsStructOrEnum
         ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
         : FindNonEquatableField(type, visiting) is null;
 
@@ -206,12 +214,13 @@ public static class Conversions
         if (!visiting.Add(structType))
             return null;
         var map = TypeMap.For(structType);
-        return structType.Symbol!.Fields.FirstOrDefault(f => !SupportsEquality(map.Apply(f.Type), visiting));
+        return structType.Symbol!.ValueFields.FirstOrDefault(f => !SupportsEquality(map.Apply(f.Type), visiting));
     }
 
     /// <summary>
     /// Whether a type has a default value. Non-null references do not, and neither do type
-    /// parameters, since they could stand for a non-null reference.
+    /// parameters, since they could stand for a non-null reference. An enum's default is its first
+    /// variant, so it has one only if that variant carries no data.
     /// </summary>
     public static bool IsDefaultable(VplType type) => IsDefaultable(type, []);
 
@@ -220,7 +229,8 @@ public static class Conversions
 
     static bool IsDefaultable(VplType type, HashSet<VplType> visiting) =>
         type.IsNullable
-        || (!type.IsTypeParameter && !type.IsReference && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
+        || (type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
+            : !type.IsTypeParameter && !type.IsReference && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
 
     static FieldSymbol? FindNonDefaultableField(VplType structType, HashSet<VplType> visiting)
     {

@@ -1,0 +1,69 @@
+enum ParseError {
+    Empty,
+    BadDigit(int position),
+    TooLong,
+}
+
+Result<int, ParseError> digit(int code, int position) {
+    if (code < 48 || code > 57) {
+        return Err(ParseError.BadDigit(position));
+    }
+    return Ok(code - 48);
+}
+
+// Parses up to three digit codes; -1 means "absent".
+Result<int, ParseError> parse(int a, int b, int c) {
+    if (a < 0) {
+        return Err(ParseError.Empty);
+    }
+    int value = try digit(a, 0);
+    if (b >= 0) {
+        var next = try digit(b, 1);
+        value = value * 10 + next;
+    }
+    if (c >= 0) {
+        value = value * 10 + digit(c, 2).orElse(0);
+    }
+    return Ok(value);
+}
+
+Result<long, ParseError> doubled(int a, int b) {
+    long value = try parse(a, b, -1);
+    return Result<long, ParseError>.Ok(value * 2);
+}
+
+class Counter {
+    int total;
+
+    Result<int, ParseError> add(int code) {
+        total = try digit(code, 0);
+        return Ok(total);
+    }
+}
+
+void report(Result<int, ParseError> result) {
+    switch (result) {
+        case Ok(var value) -> print(value);
+        case Err(ParseError.BadDigit(var position)) -> {
+            print("bad digit at");
+            print(position);
+        }
+        case Err(var error) -> print(error == ParseError.Empty ? "empty" : "other");
+    }
+}
+
+void main() {
+    report(parse(49, 50, -1));                  // output: 12
+    report(parse(49, 120, -1));                 // output: bad digit at
+                                                // output: 1
+    report(parse(-1, -1, -1));                  // output: empty
+    print(doubled(52, 50).orElse(0));           // output: 84
+    print(doubled(52, 0).isErr());              // output: true
+    print(parse(55, -1, -1).isOk());            // output: true
+
+    var counter = new Counter();
+    _ = counter.add(55);
+    print(counter.total);                       // output: 7
+    _ = counter.add(1);
+    print(counter.total);                       // output: 7
+}

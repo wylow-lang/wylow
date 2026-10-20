@@ -140,7 +140,46 @@ public sealed class FieldSymbol(string name, VplType type, TypeSymbol owner, Fie
     public override string ToString() => $"{Owner.Name}.{Name}";
 }
 
-/// <summary>A declared struct, class, or interface.</summary>
+/// <summary>
+/// An enum variant. Its fields are <see cref="FieldSymbol"/>s owned by the enum, reachable only
+/// through patterns. <see cref="Constructor"/> describes creating the variant like a call, with the
+/// fields as parameters.
+/// </summary>
+public sealed class VariantSymbol
+{
+    public VariantSymbol(string name, TypeSymbol owner, int index, VariantDecl declaration, IReadOnlyList<FieldSymbol> fields)
+    {
+        Name = name;
+        Owner = owner;
+        Index = index;
+        Declaration = declaration;
+        Fields = fields;
+        var parameters = fields.Select(f => new LocalSymbol(f.Name, f.Type, isParameter: true)).ToList();
+        Constructor = new FunctionSymbol(name, parameters, VplType.Void) { ContainingType = owner };
+        InferringConstructor = new FunctionSymbol(name, parameters, VplType.Void) { TypeParameters = owner.TypeParameters };
+    }
+
+    public string Name { get; }
+    public TypeSymbol Owner { get; }
+    public int Index { get; }
+    public VariantDecl Declaration { get; }
+    public IReadOnlyList<FieldSymbol> Fields { get; }
+
+    /// <summary>The integer the variant converts to, for enums without data.</summary>
+    public long Value { get; set; }
+
+    public FunctionSymbol Constructor { get; }
+
+    /// <summary>
+    /// The constructor of a generic enum as a function generic over the enum's type parameters, for
+    /// inferring the type arguments from the fields' values.
+    /// </summary>
+    public FunctionSymbol InferringConstructor { get; }
+
+    public override string ToString() => $"{Owner.Name}.{Name}";
+}
+
+/// <summary>A declared struct, class, interface, or enum.</summary>
 public sealed class TypeSymbol
 {
     readonly Dictionary<IReadOnlyList<VplType>, VplType> instances = new(TypeListComparer.Instance);
@@ -191,6 +230,19 @@ public sealed class TypeSymbol
     public FunctionSymbol DefaultConstructor { get; }
 
     public List<FieldSymbol> Fields { get; } = [];
+
+    public List<VariantSymbol> Variants { get; } = [];
+
+    /// <summary>For an enum, whether any variant carries data.</summary>
+    public bool HasData => Variants.Any(v => v.Fields.Count > 0);
+
+    /// <summary>The integer type an enum without data converts to; set when declared or values are given.</summary>
+    public VplType? UnderlyingType { get; set; }
+
+    /// <summary>The fields a value of this struct or enum holds: a struct's fields, or every variant's fields.</summary>
+    public IEnumerable<FieldSymbol> ValueFields => Kind == TypeKind.Enum ? Variants.SelectMany(v => v.Fields) : Fields;
+
+    public VariantSymbol? FindVariant(string name) => Variants.FirstOrDefault(v => v.Name == name);
 
     /// <summary>
     /// Interface methods this class implements with a method inherited from a base class that does

@@ -1,0 +1,46 @@
+enum Fields {
+    A, B;
+
+    int count;                          // error: enums cannot have fields; data belongs to variants
+    Fields(int x) { }                   // error: enums cannot have constructors
+    ~Fields() { }                       // error: enums cannot have destructors
+    readonly void look() { }            // error: enum methods are always readonly
+    virtual void spin() { }             // error: 'virtual' is not valid on enum members
+}
+
+enum Child extends Fields { C }         // error: enums cannot inherit
+
+enum Late {
+    A;
+    void f() { }
+    B,                                  // error: enum variants must come before the enum's methods
+}
+
+enum Missing {
+    A, B                                // error: expected ',' or '}' after an enum variant, or ';' before the enum's methods
+    void f() { }
+}
+
+enum Refs { A(ref int x) }              // error: 'ref' is only valid on parameters
+
+enum Empty { }                          // error: expected an enum variant
+
+void main() {
+    int n = 1;
+    switch (n) {
+        case 1: print(1);               // error: cases are written with '->'
+        default -> print(2);
+    }
+    var x = switch (n) {
+        case 1 -> { print(1); }         // error: the cases of a switch expression must be expressions
+        default -> 2;
+    };
+    switch (n) {
+        case 1 -> int y = 2;            // error: a variable cannot be declared here
+        default -> print(2);
+    }
+    switch (n) {
+        print(1);                       // error: expected 'case' or 'default'
+    }
+    _ print(1);                         // error: expected '=' after '_'
+}

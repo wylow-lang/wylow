@@ -31,7 +31,7 @@ void main() {
     print(1 == null);                   // error: operator '==' cannot be applied to 'int' and 'null'
     Animal a = new Dog();
     if (a is Car c) { }                 // error: a 'Animal' can never be a 'Car'
-    if (1 is Node q) { }                // error: 'is' can only test class or interface values
+    if (1 is Node q) { }                // error: 'is' can only test the type of class or interface values
     Dog d = a;                          // error: cannot implicitly convert 'Animal' to 'Dog'
 
     // Narrowing ends when the local may be reassigned to null.

@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <type_traits>
 #include <utility>
 
@@ -47,6 +48,14 @@ struct String {
 [[noreturn]] inline void unreachable(const char* location) {
     panic("reached the end of a non-void function", location);
 }
+
+// Exhaustiveness checking rules this out too.
+[[noreturn]] inline void no_match(const char* location) {
+    panic("internal compiler error: no switch case matched", location);
+}
+
+// Selects the constructor that sets an enum's tag and leaves its payload to be constructed.
+struct RawTag {};
 
 inline void init() {
 #if defined(_WIN32) && defined(_WRITE_ABORT_MSG)
@@ -393,6 +402,11 @@ inline bool is(const Ref<U>& value, Ref<T>& out) {
     if (p == nullptr) return false;
     out = Ref<T>(p);
     return true;
+}
+
+template <class T, class U>
+inline Ref<T> downcast(const Ref<U>& value) {
+    return Ref<T>(dynamic_cast<T*>(value.get()));
 }
 
 template <class T>

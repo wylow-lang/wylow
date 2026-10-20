@@ -47,13 +47,19 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["abstract"] = TokenKind.AbstractKeyword,
         ["final"] = TokenKind.FinalKeyword,
         ["weak"] = TokenKind.WeakKeyword,
+        ["enum"] = TokenKind.EnumKeyword,
+        ["switch"] = TokenKind.SwitchKeyword,
+        ["case"] = TokenKind.CaseKeyword,
+        ["default"] = TokenKind.DefaultKeyword,
+        ["try"] = TokenKind.TryKeyword,
+        ["_"] = TokenKind.Underscore,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "byte", "case", "char", "const", "default", "defer", "do", "enum", "extern", "import", "nint",
-        "nuint", "operator", "package", "sbyte", "shared", "short", "switch", "try", "uint", "ulong",
+        "byte", "char", "const", "defer", "do", "extern", "import", "nint",
+        "nuint", "operator", "package", "sbyte", "shared", "short", "uint", "ulong",
         "unsafe", "ushort",
     ];
 
@@ -64,7 +70,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ("??", TokenKind.QuestionQuestion), ("&&", TokenKind.AmpersandAmpersand), ("||", TokenKind.PipePipe), ("==", TokenKind.EqualEqual),
         ("!=", TokenKind.BangEqual), ("<=", TokenKind.LessEqual), (">=", TokenKind.GreaterEqual),
         ("<<", TokenKind.LessLess), (">>", TokenKind.GreaterGreater), ("++", TokenKind.PlusPlus),
-        ("--", TokenKind.MinusMinus), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
+        ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
         ("*=", TokenKind.StarAssign), ("/=", TokenKind.SlashAssign), ("%=", TokenKind.PercentAssign),
         ("&=", TokenKind.AmpersandAssign), ("|=", TokenKind.PipeAssign), ("^=", TokenKind.CaretAssign),
         ("(", TokenKind.OpenParen), (")", TokenKind.CloseParen), ("{", TokenKind.OpenBrace),

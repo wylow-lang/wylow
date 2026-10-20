@@ -1,0 +1,11 @@
+enum Format : int {
+    Undefined = 0,
+    Rgba = 37,
+}
+
+void main() {
+    int code = 36;
+    print((int)(Format)37);             // output: 37
+    var format = (Format)code;          // panic: integer is not a value of enum 'Format'
+    print(format == Format.Undefined);
+}

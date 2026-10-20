@@ -1,0 +1,62 @@
+enum Mode : int { Off = 5, On = 9 }
+
+enum Option<T> {
+    None,
+    Some(T value),
+}
+
+class Item {
+    int id = 3;
+}
+
+// The default of an enum is its first variant, when that variant carries no data.
+struct Settings {
+    Mode mode;
+    Option<Item> item;
+    Option<int> count = Option<int>.Some(1);
+}
+
+class Machine {
+    Mode mode;
+    Settings settings;
+}
+
+void toggle(ref Mode mode) {
+    mode = mode == Off ? Mode.On : Mode.Off;
+}
+
+void fill(ref Option<Item> slot) {
+    slot = Some(new Item());
+}
+
+T orDefault<T>(Option<T> option, T fallback) {
+    return switch (option) {
+        case Some(var value) -> value;
+        case None -> fallback;
+    };
+}
+
+void main() {
+    var s = Settings();
+    print((int)s.mode);                         // output: 5
+    print(s.item is None);                      // output: true
+    print(orDefault(s.count, 0));               // output: 1
+
+    toggle(ref s.mode);
+    print(s.mode == Mode.On);                   // output: true
+
+    var m = new Machine();
+    print((int)m.mode);                         // output: 5
+    toggle(ref m.mode);
+    toggle(ref m.settings.mode);
+    print((int)m.mode + (int)m.settings.mode);  // output: 18
+    fill(ref m.settings.item);
+    if (m.settings.item is Some(var item)) {
+        print(item.id);                         // output: 3
+    }
+
+    // Structs holding enums compare them memberwise.
+    var t = Settings { mode = Mode.On, count = Option<int>.Some(1) };
+    print(s.mode == t.mode && s.count == t.count);  // output: true
+    print(orDefault(Option<long>.None, 7L));    // output: 7
+}

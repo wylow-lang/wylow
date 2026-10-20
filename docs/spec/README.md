@@ -56,6 +56,10 @@ Each is explained in detail in its chapter.
 6. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](06-syntax.md#63-construction).
 7. **Class `==` is identity, struct `==` is memberwise.** See [06-syntax.md](06-syntax.md#equality).
+8. **A variant can leave out its enum only where the type is known.** `Direction d = East;` works,
+   but a call argument needs `f(Direction.East)`. See [02-types.md](02-types.md#creating-values).
+9. **`break` in a `switch` case leaves the enclosing loop**, since a switch has no fallthrough to
+   stop. See [06-syntax.md](06-syntax.md#switch).
 
 ## Not yet designed
 

@@ -1,0 +1,65 @@
+enum Direction { North, East, South, West }
+
+enum Repeated {
+    A,
+    A,                                  // error: variant 'A' is already defined
+    B(int x, int x),                    // error: duplicate field 'x'
+    ;
+
+    void B() { }                        // error: 'B' is already defined as a variant
+}
+
+enum Typed : int {
+    Zero,
+    Two = 2,
+    AlsoTwo = 2,                        // error: 'AlsoTwo' has the same value as 'Two'
+    Three,
+    Big = 3000000000,                   // error: the value does not fit in the underlying type 'int'
+    Computed = 1 + 1,                   // error: a variant's value must be an integer literal
+}
+
+enum Floating : float { A }             // error: an enum's underlying type must be an integer type, not 'float'
+
+enum DataWithType : long {              // error: an enum whose variants carry data cannot have an underlying type
+    A(int x),
+}
+
+enum DataWithValue {
+    A(int x),
+    B = 1,                              // error: only enums whose variants carry no data can give variants values
+}
+
+enum Chain { End, Link(Chain next) }    // error: enum 'Chain' contains itself (Chain -> Chain)
+
+enum Named { Label(String text) }
+
+enum Option<T> { None, Some(T value) }
+
+class Thing { }
+
+void main() {
+    var d = Direction();                // error: enums are created from their variants, as in 'Direction.North'
+    var n = new Direction();            // error: enums are created from their variants without 'new'
+    var u = Up;                         // error: 'Up' is not defined
+    var e = East;                       // error: 'East' is not defined; to create the 'Direction' variant, write 'Direction.East'
+    var none = None;                    // error: 'None' is not defined; to create the 'Option' variant, write 'Option<...>.None'
+    var some = Option.None;             // error: cannot infer type argument 'T' of 'Option' from 'None'
+    Direction p = Direction.Up;         // error: 'Direction' has no static member 'Up'
+    var l = Named.Label;                // error: 'Named.Label' carries data; create it with 'Named.Label(...)'
+    var x = Direction.North();          // error: 'Direction.North' carries no data; write it without parentheses
+    var two = Named.Label("a", "b");    // error: 'Named.Label' has 1 field, but 2 values were given
+    var wrong = Named.Label(1);         // error: no variant 'Named.Label' accepts (int)
+    var explicit = Option<int>.Some("s"); // error: no variant 'Option.Some' accepts (String)
+    var typed = Option.Some<int>(1);    // error: type arguments belong to the enum, as in 'Option<...>.Some(...)'
+    var label = Named.Label("a");
+    print(label.text);                  // error: a variant's fields can only be read with a pattern
+    print(label == label);              // error: operator '==' cannot be applied to 'Named' because its field 'text' of type 'String' does not support '=='
+    print(Direction.East == 1);         // error: operator '==' cannot be applied to 'Direction' and 'int'
+    print(Direction.North < Direction.East); // error: operator '<' cannot be applied to 'Direction' and 'Direction'
+    print((int)label);                  // error: cannot convert 'Named' to 'int'
+    print((Direction)1.5);              // error: cannot convert 'float' to 'Direction'
+    Option<int> o = Some(1);
+    Option<Thing> t = Some(1);          // error: no variant 'Option.Some' accepts (int)
+    Direction q = Direction.North;
+    q = Wesst;                          // error: 'Wesst' is not defined
+}

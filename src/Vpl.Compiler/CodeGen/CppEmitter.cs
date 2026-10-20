@@ -36,12 +36,14 @@ public sealed class CppEmitter
 
     readonly StringBuilder output = new();
     readonly Dictionary<TypeSymbol, bool> needsDefaultFunction = new();
-    readonly Dictionary<LocalSymbol, string> temporaryNames = new();
+    readonly Dictionary<LocalSymbol, string> localNames = new();
+    readonly HashSet<string> usedLocalNames = [];
     readonly Dictionary<BoundExpression, string> replacements = new(ReferenceEqualityComparer.Instance);
     int indent;
     int tempCounter;
     Context context;
     TypeSymbol? currentType;
+    FunctionSymbol? currentFunction;
 
     public string Emit(BoundProgram program)
     {
@@ -66,6 +68,8 @@ public sealed class CppEmitter
             Line();
             if (s.Kind == TypeKind.Struct)
                 EmitStructDefinition(s);
+            else if (s.Kind == TypeKind.Enum)
+                EmitEnumDefinition(s);
             else
                 EmitObjectDefinition(s);
         }
@@ -134,16 +138,31 @@ public sealed class CppEmitter
     static string TypeName(TypeSymbol s) => s.Kind switch
     {
         TypeKind.Struct => "s_" + s.Name,
+        TypeKind.Enum => "e_" + s.Name,
         TypeKind.Class => "c_" + s.Name,
         _ => "i_" + s.Name,
     };
 
+    /// <summary>
+    /// Parameters keep their names, so that declarations and definitions agree. Other locals get a
+    /// suffix where one function would otherwise declare a name twice in a C++ scope, as pattern
+    /// names hoisted out of different switch cases can.
+    /// </summary>
     string LocalName(LocalSymbol local)
     {
-        if (!local.IsTemporary)
-            return "l_" + local.Name;
-        if (!temporaryNames.TryGetValue(local, out var name))
-            temporaryNames[local] = name = NewTemp();
+        if (localNames.TryGetValue(local, out var name))
+            return name;
+        if (local.IsTemporary)
+        {
+            name = NewTemp();
+        }
+        else
+        {
+            name = "l_" + local.Name;
+            for (int i = 2; !local.IsParameter && !usedLocalNames.Add(name); i++)
+                name = $"l_{local.Name}_{i}";
+        }
+        localNames[local] = name;
         return name;
     }
 
@@ -161,7 +180,7 @@ public sealed class CppEmitter
     {
         if (type.TypeParameter is { } parameter) return TypeParameterName(parameter);
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
-        if (type.IsStruct) return ObjectType(type);
+        if (type.IsStructOrEnum) return ObjectType(type);
         if (type == VplType.Void) return "void";
         if (type == VplType.Bool) return "bool";
         if (type == VplType.Int) return "int32_t";
@@ -199,9 +218,9 @@ public sealed class CppEmitter
                 return;
             if (s.BaseType is { } baseType)
                 Visit(baseType.Symbol!);
-            foreach (var iface in s.Kind == TypeKind.Struct ? [] : s.Interfaces)
+            foreach (var iface in s.Kind is TypeKind.Struct or TypeKind.Enum ? [] : s.Interfaces)
                 Visit(iface.Symbol!);
-            foreach (var field in s.Fields)
+            foreach (var field in s.ValueFields)
                 VisitType(field.Type);
             ordered.Add(s);
         }
@@ -255,6 +274,175 @@ public sealed class CppEmitter
             Line($"bool operator==(const {name}&) const = default;");
         indent--;
         Line("};");
+    }
+
+    static string PayloadName(VariantSymbol variant) => "p_" + variant.Name;
+    static string UnionMember(VariantSymbol variant) => "v_" + variant.Name;
+    static string VariantFactory(VariantSymbol variant) => "make_" + variant.Name;
+
+    /// <summary>The tag's C++ type: the underlying type if there is one, else the smallest that numbers the variants.</summary>
+    static string TagType(TypeSymbol s) =>
+        s.UnderlyingType == VplType.Long ? "int64_t"
+        : s.UnderlyingType == VplType.Int ? "int32_t"
+        : s.Variants.Count <= 256 ? "uint8_t"
+        : s.Variants.Count <= 65536 ? "uint16_t"
+        : "uint32_t";
+
+    static string TagValue(VariantSymbol variant) =>
+        variant.Owner.UnderlyingType == VplType.Long ? Literal(new BoundLiteral(variant.Declaration.Location, VplType.Long, variant.Value))
+        : variant.Value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A tag and a union of one payload struct per variant with data. When a payload may hold an
+    /// object reference, the union needs copy, move, and destruction written out; otherwise every
+    /// member is trivially copyable and so is the enum.
+    /// </summary>
+    void EmitEnumDefinition(TypeSymbol s)
+    {
+        var name = TypeName(s);
+        var tag = TagType(s);
+        var withData = s.Variants.Where(v => v.Fields.Count > 0).ToList();
+        bool equatable = s.IsGeneric || Conversions.SupportsEquality(s.Type);
+        if (s.IsGeneric)
+            Line(TemplatePrefix(s.TypeParameters).TrimEnd());
+        Line($"struct {name}");
+        Line("{");
+        indent++;
+        foreach (var variant in withData)
+        {
+            Line($"struct {PayloadName(variant)}");
+            Line("{");
+            indent++;
+            foreach (var field in variant.Fields)
+                Line($"{CppType(field.Type)} {FieldName(field)};");
+            if (equatable)
+                Line($"bool operator==(const {PayloadName(variant)}&) const = default;");
+            indent--;
+            Line("};");
+        }
+        Line($"{tag} tag;");
+        if (withData.Count > 0)
+        {
+            Line("union");
+            Line("{");
+            indent++;
+            foreach (var variant in withData)
+                Line($"{PayloadName(variant)} {UnionMember(variant)};");
+            indent--;
+            Line("};");
+        }
+
+        // C++ needs a default constructor for placeholders such as unassigned locals. It makes the
+        // first variant, which is the VPL default when that variant has no data.
+        var first = s.Variants[0];
+        Line(first.Fields.Count > 0
+            ? $"{name}() : tag({TagValue(first)}), {UnionMember(first)}() {{}}"
+            : $"{name}() : tag({TagValue(first)}) {{}}");
+        Line($"explicit {name}(vpl::RawTag, {tag} value) : tag(value) {{}}");
+        if (withData.Count > 0 && MayHoldReferences(s.Type))
+            EmitEnumLifetime(name, withData);
+
+        foreach (var variant in s.Variants)
+            EmitVariantFactory(name, variant);
+        if (!s.HasData)
+            EmitFromValue(s, name, tag);
+        foreach (var member in s.Members)
+            Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
+
+        if (equatable && withData.Count == 0)
+        {
+            Line($"bool operator==(const {name}&) const = default;");
+        }
+        else if (equatable)
+        {
+            Line($"bool operator==(const {name}& other) const");
+            Line("{");
+            Line("    if (tag != other.tag) return false;");
+            EmitTagSwitch(withData, v => $"return {UnionMember(v)} == other.{UnionMember(v)};", "return true;");
+            Line("}");
+        }
+        indent--;
+        Line("};");
+    }
+
+    /// <summary>A switch over the tag with a case per variant with data; the variants without data go to the default.</summary>
+    void EmitTagSwitch(List<VariantSymbol> variants, Func<VariantSymbol, string> body, string otherwise)
+    {
+        Line("    switch (tag)");
+        Line("    {");
+        foreach (var variant in variants)
+            Line($"    case {TagValue(variant)}: {body(variant)}");
+        Line($"    default: {otherwise}");
+        Line("    }");
+    }
+
+    void EmitEnumLifetime(string name, List<VariantSymbol> withData)
+    {
+        string Construct(VariantSymbol v, string source) =>
+            $"::new (static_cast<void*>(&{UnionMember(v)})) {PayloadName(v)}({source}.{UnionMember(v)}); break;";
+
+        Line($"{name}(const {name}& other) : tag(other.tag)");
+        Line("{");
+        EmitTagSwitch(withData, v => Construct(v, "other"), "break;");
+        Line("}");
+        Line($"{name}({name}&& other) noexcept : tag(other.tag)");
+        Line("{");
+        EmitTagSwitch(withData, v => Construct(v, "std::move(other)"), "break;");
+        Line("}");
+        Line($"~{name}() {{ vpl_destroy(); }}");
+        Line($"void operator=(const {name}& other)");
+        Line("{");
+        Line($"    {name} copy(other);");
+        Line("    *this = std::move(copy);");
+        Line("}");
+        // Like vpl::Ref, the old value is released only after the new one is stored, since releasing
+        // it may run a destructor that reads this enum. Nothing touches `this` afterwards.
+        Line($"void operator=({name}&& other) noexcept");
+        Line("{");
+        Line("    if (this == &other) return;");
+        Line($"    {name} old(std::move(*this));");
+        Line("    vpl_destroy();");
+        Line("    tag = other.tag;");
+        EmitTagSwitch(withData, v => Construct(v, "std::move(other)"), "break;");
+        Line("}");
+        Line("void vpl_destroy()");
+        Line("{");
+        EmitTagSwitch(withData, v => $"{UnionMember(v)}.~{PayloadName(v)}(); break;", "break;");
+        Line("}");
+    }
+
+    void EmitVariantFactory(string name, VariantSymbol variant)
+    {
+        var parameters = variant.Constructor.Parameters;
+        var parameterList = string.Join(", ", parameters.Select(p => $"{CppType(p.Type)} {LocalName(p)}"));
+        if (parameters.Count == 0)
+        {
+            Line($"static {name} {VariantFactory(variant)}() {{ return {name}(vpl::RawTag{{}}, {TagValue(variant)}); }}");
+            return;
+        }
+        var values = string.Join(", ", parameters.Select(p => $"std::move({LocalName(p)})"));
+        Line($"static {name} {VariantFactory(variant)}({parameterList})");
+        Line("{");
+        Line($"    {name} result(vpl::RawTag{{}}, {TagValue(variant)});");
+        Line($"    ::new (static_cast<void*>(&result.{UnionMember(variant)})) {PayloadName(variant)}{{{values}}};");
+        Line("    return result;");
+        Line("}");
+    }
+
+    /// <summary>The checked conversion from an integer, for casts to an enum without data.</summary>
+    void EmitFromValue(TypeSymbol s, string name, string tag)
+    {
+        var message = CppStringLiteral($"integer is not a value of enum '{s.Name}'");
+        Line($"static {name} from_value(int64_t value, const char* location)");
+        Line("{");
+        Line("    switch (value)");
+        Line("    {");
+        foreach (var variant in s.Variants)
+            Line($"    case {Literal(new BoundLiteral(variant.Declaration.Location, VplType.Long, variant.Value))}:");
+        Line($"        return {name}(vpl::RawTag{{}}, static_cast<{tag}>(value));");
+        Line($"    default: vpl::panic({message}, location);");
+        Line("    }");
+        Line("}");
     }
 
     /// <summary>Classes and interfaces. Interfaces inherit virtually so that a class has one copy of each.</summary>
@@ -325,7 +513,10 @@ public sealed class CppEmitter
         foreach (var field in s.Fields)
         {
             if (field.Initializer is { } initializer)
+            {
+                DeclarePatternLocals(initializer);
                 Line($"self.{FieldName(field)} = {Expression(initializer)};");
+            }
             else if (NeedsDefaultCode(field.Type))
                 Line($"self.{FieldName(field)} = {DefaultValue(field.Type)};");
         }
@@ -409,7 +600,10 @@ public sealed class CppEmitter
     {
         var symbol = function.Symbol;
         currentType = symbol.ContainingType;
-        bool isClassMember = currentType is { Kind: not TypeKind.Struct };
+        currentFunction = symbol;
+        usedLocalNames.Clear();
+        usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
+        bool isClassMember = currentType is { Kind: TypeKind.Class or TypeKind.Interface };
         context = isClassMember && !symbol.IsStatic ? Context.ClassMember
             : symbol.IsConstructor ? Context.StructConstructor
             : symbol.IsInstanceMethod ? Context.Method
@@ -438,7 +632,10 @@ public sealed class CppEmitter
             foreach (var field in currentType!.Fields)
             {
                 if (field.Initializer is { } initializer)
+                {
+                    DeclarePatternLocals(initializer);
                     Line($"this->{FieldName(field)} = {Expression(initializer)};");
+                }
                 else if (!field.IsWeak && NeedsDefaultCode(field.Type) && !field.Type.IsTypeParameter)
                     Line($"this->{FieldName(field)} = {DefaultValue(field.Type)};");
             }
@@ -481,16 +678,49 @@ public sealed class CppEmitter
                 break;
             case BoundVariableDeclaration declaration:
                 DeclarePatternLocals(declaration.Initializer);
+                HoistTry(declaration.Initializer);
                 var initializer = declaration.Initializer is null ? "{}" : " = " + Expression(declaration.Initializer);
                 Line($"{CppType(declaration.Local.Type)} {LocalName(declaration.Local)}{initializer};");
+                EndTry(declaration.Initializer);
                 break;
+            case BoundAssignment assignment when FindTry(assignment.Value) is not null:
+            {
+                DeclarePatternLocals(assignment.Value);
+                // The object holding the target is read before the value, as in any assignment.
+                var root = PinRoot(assignment.Target);
+                if (root is not null)
+                {
+                    var pin = NewTemp();
+                    Line($"auto {pin} = {Expression(root)};");
+                    replacements[root] = pin;
+                }
+                HoistTry(assignment.Value);
+                Line(Store(assignment) + ";");
+                EndTry(assignment.Value);
+                if (root is not null)
+                    replacements.Remove(root);
+                break;
+            }
             case BoundAssignment assignment:
                 DeclarePatternLocals(assignment.Value);
                 Line(SimpleStatement(statement) + ";");
                 break;
+            // The unused value is released by the end of the statement, as other temporaries are.
+            case BoundExpressionStatement { Expression: var expression } when FindTry(expression) is not null:
+                Line("{");
+                indent++;
+                DeclarePatternLocals(expression);
+                HoistTry(expression);
+                EndTry(expression);
+                indent--;
+                Line("}");
+                break;
             case BoundExpressionStatement expressionStatement:
                 DeclarePatternLocals(expressionStatement.Expression);
                 Line(SimpleStatement(statement) + ";");
+                break;
+            case BoundSwitch switchStatement:
+                Switch(switchStatement);
                 break;
             case BoundIf ifStatement:
                 OpenPatternScope(ifStatement.Condition);
@@ -516,6 +746,12 @@ public sealed class CppEmitter
                     Statement(forStatement.Initializer);
                 DeclarePatternLocals(forStatement.Condition);
                 var condition = forStatement.Condition is null ? "" : Expression(forStatement.Condition);
+                DeclarePatternLocals(forStatement.Update switch
+                {
+                    BoundAssignment assignment => assignment.Value,
+                    BoundExpressionStatement expressionStatement => expressionStatement.Expression,
+                    _ => null,
+                });
                 var update = forStatement.Update is null ? "" : SimpleStatement(forStatement.Update);
                 Line($"for (; {condition}; {update})");
                 Statement(forStatement.Body);
@@ -524,10 +760,12 @@ public sealed class CppEmitter
                 break;
             case BoundReturn returnStatement:
                 DeclarePatternLocals(returnStatement.Value);
+                HoistTry(returnStatement.Value);
                 if (context == Context.StructConstructor)
                     Line("return self;");
                 else
                     Line(returnStatement.Value is null ? "return;" : $"return {Expression(returnStatement.Value)};");
+                EndTry(returnStatement.Value);
                 break;
             case BoundBreak:
                 Line("break;");
@@ -540,17 +778,54 @@ public sealed class CppEmitter
         }
     }
 
+    /// <summary>The <c>try</c> that is a statement's whole value, under any conversion of its result.</summary>
+    static BoundTry? FindTry(BoundExpression? value) => value switch
+    {
+        BoundTry attempt => attempt,
+        BoundConversion conversion => FindTry(conversion.Operand),
+        _ => null,
+    };
+
+    /// <summary>
+    /// C++ cannot return from inside an expression, so a statement's <c>try</c> runs first: an
+    /// <c>Err</c> returns, and the statement then uses the <c>Ok</c> value. Since the <c>try</c> is
+    /// the whole value, nothing else in the statement is evaluated before it, except an
+    /// assignment's target object, which the caller reads first.
+    /// </summary>
+    void HoistTry(BoundExpression? value)
+    {
+        if (FindTry(value) is not { } attempt)
+            return;
+        var result = attempt.Operand.Type.Symbol!;
+        var (ok, err) = (result.FindVariant("Ok")!, result.FindVariant("Err")!);
+        var temp = NewTemp();
+        Line($"auto {temp} = {Expression(attempt.Operand)};");
+        Line($"if ({temp}.tag == {TagValue(err)})");
+        Line("{");
+        Line($"    return {CppType(currentFunction!.ReturnType)}::{VariantFactory(err)}(std::move({temp}.{UnionMember(err)}.{FieldName(err.Fields[0])}));");
+        Line("}");
+        replacements[attempt] = $"std::move({temp}.{UnionMember(ok)}.{FieldName(ok.Fields[0])})";
+    }
+
+    void EndTry(BoundExpression? value)
+    {
+        if (FindTry(value) is { } attempt)
+            replacements.Remove(attempt);
+    }
+
     static IEnumerable<LocalSymbol> PatternLocals(BoundExpression? expression) => expression switch
     {
         null => [],
-        BoundIs { Binding: { } binding } pattern => [.. PatternLocals(pattern.Operand), binding],
+        BoundIs pattern => [.. PatternLocals(pattern.Operand), .. Patterns.Bindings(pattern.Pattern)],
+        // A switch expression declares its cases' names inside itself.
+        BoundSwitchExpression switchExpression => PatternLocals(switchExpression.Value),
         _ => Children(expression).SelectMany(PatternLocals),
     };
 
     void DeclarePatternLocals(BoundExpression? expression)
     {
         foreach (var local in PatternLocals(expression))
-            Line($"{CppType(local.Type)} {LocalName(local)};");
+            Line($"{CppType(local.Type)} {LocalName(local)}{{}};");
     }
 
     // Pattern names in a condition are scoped to the statement, as in VPL.
@@ -574,6 +849,7 @@ public sealed class CppEmitter
     string SimpleStatement(BoundStatement statement) => statement switch
     {
         BoundAssignment assignment => Assignment(assignment),
+        BoundExpressionStatement { IsDiscard: true } discard => $"static_cast<void>({Expression(discard.Expression)})",
         BoundExpressionStatement expressionStatement => Expression(expressionStatement.Expression),
         _ => throw new InvalidOperationException($"unexpected simple statement {statement.GetType().Name}"),
     };
@@ -602,7 +878,7 @@ public sealed class CppEmitter
         var target = Place(assignment.Target);
         var value = Expression(assignment.Value);
         var type = assignment.Target.Type;
-        bool plain = type.IsReference || !(type.IsStruct || type.IsTypeParameter) || assignment.Target is BoundFieldAccess { Field.IsWeak: true };
+        bool plain = type.IsReference || !(type.IsStructOrEnum || type.IsTypeParameter) || assignment.Target is BoundFieldAccess { Field.IsWeak: true };
         return plain ? $"{target} = {value}" : $"vpl::assign({target}, {value})";
     }
 
@@ -631,6 +907,8 @@ public sealed class CppEmitter
             BoundCoalesce coalesce => Coalesce(coalesce),
             BoundConditionalAccess access => ConditionalAccess(access),
             BoundIs pattern => Is(pattern),
+            BoundSwitchExpression switchExpression => SwitchExpression(switchExpression),
+            BoundVariant variant => Variant(variant),
             _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
         };
     }
@@ -680,10 +958,10 @@ public sealed class CppEmitter
     {
         if (type.IsReference || type.IsTypeParameter)
             return true;
-        if (!type.IsStruct || !visiting.Add(type))
+        if (!type.IsStructOrEnum || !visiting.Add(type))
             return false;
         var map = TypeMap.For(type);
-        return type.Symbol!.Fields.Any(f => MayHoldReferences(map.Apply(f.Type), visiting));
+        return type.Symbol!.ValueFields.Any(f => MayHoldReferences(map.Apply(f.Type), visiting));
     }
 
     /// <summary>
@@ -784,13 +1062,17 @@ public sealed class CppEmitter
         BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],
         BoundConditionalAccess access => [access.Receiver, access.WhenNotNull],
         BoundIs pattern => [pattern.Operand],
+        BoundSwitchExpression switchExpression => [switchExpression.Value, .. switchExpression.Cases.Select(c => c.Body)],
+        BoundVariant variant => variant.Arguments,
+        BoundTry attempt => [attempt.Operand],
         _ => [],
     };
 
     bool HasEffects(BoundExpression expression) => expression switch
     {
-        BoundCall or BoundNew or BoundNonNull => true,
-        BoundIs { Binding: not null } => true,
+        BoundCall or BoundNew or BoundNonNull or BoundTry => true,
+        BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
+        BoundConversion { Type.IsEnum: true } => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit
             || NeedsDefaultCode(construction.Type) => true,
         BoundBinary binary when MayPanic(binary) => true,
@@ -805,7 +1087,7 @@ public sealed class CppEmitter
             || (call.Receiver is not null && !call.Receiver.Type.IsReference && !call.Method.Symbol.IsReadOnly) => true,
         BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
         BoundNew creation when creation.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
-        BoundIs { Binding: not null } => true,
+        BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
         _ => Children(expression).Any(Writes),
     };
 
@@ -829,7 +1111,7 @@ public sealed class CppEmitter
     {
         BoundFieldAccess { Receiver.Type.IsReference: true } => true,
         BoundLocalAccess { Local.RefKind: not RefKind.None } => true,
-        BoundThis { Type.IsStruct: true } => true,
+        BoundThis { Type.IsStructOrEnum: true } => true,
         _ => Children(expression).Any(ReadsHeap),
     };
 
@@ -1028,13 +1310,209 @@ public sealed class CppEmitter
         return $"[&]() -> {CppType(access.Type)} {{ auto {value} = {receiver}; if (!{value}) {{ return nullptr; }} return {member}; }}()";
     }
 
+    // ---- Patterns ----
+
+    /// <summary>
+    /// What matching a pattern against <paramref name="value"/> takes: C++ conditions that are all
+    /// true when it matches, and the value each name is bound to. None of it runs VPL code.
+    /// </summary>
+    void PatternParts(BoundPattern pattern, string value, List<string> tests, List<(LocalSymbol Local, string Value)> bindings)
+    {
+        switch (pattern)
+        {
+            case BoundBindingPattern binding:
+                bindings.Add((binding.Local, value));
+                break;
+            case BoundTypePattern test:
+            {
+                bool always = !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target);
+                if (!always)
+                    tests.Add($"vpl::is<{ObjectType(test.Target)}>({value})");
+                if (test.Binding is { } local)
+                    bindings.Add((local, always ? value : $"vpl::downcast<{ObjectType(test.Target)}>({value})"));
+                break;
+            }
+            case BoundConstantPattern { Value.Value: bool b }:
+                tests.Add(b ? value : $"!{value}");
+                break;
+            case BoundConstantPattern constant:
+                tests.Add($"{value} == {Literal(constant.Value)}");
+                break;
+            case BoundVariantPattern variant:
+                tests.Add($"{value}.tag == {TagValue(variant.Variant)}");
+                for (int i = 0; i < variant.Fields.Count; i++)
+                    PatternParts(variant.Fields[i], $"{value}.{UnionMember(variant.Variant)}.{FieldName(variant.Variant.Fields[i])}", tests, bindings);
+                break;
+        }
+    }
+
+    static string Conjunction(List<string> tests) => tests.Count == 0 ? "true" : string.Join(" && ", tests);
+
+    /// <summary>
+    /// The declaration of a reference to a value being matched. Matching runs no VPL code, so an
+    /// object reached through places stays alive; one held only by a temporary is pinned first.
+    /// </summary>
+    string MatchedValue(BoundExpression value, string name)
+    {
+        if (PinRoot(value) is not { } root || IsPlace(root))
+            return $"auto&& {name} = {Expression(value)};";
+        var pin = NewTemp();
+        var rootText = Expression(root);
+        replacements[root] = pin;
+        var valueText = Expression(value);
+        replacements.Remove(root);
+        return $"auto {pin} = {rootText}; auto&& {name} = {valueText};";
+    }
+
+    /// <summary>
+    /// A top-level type test keeps the form <c>vpl::is</c>. Other patterns that bind names copy
+    /// every bound value before storing any: a store releases the local's old value, which may run a
+    /// destructor that changes the matched value.
+    /// </summary>
     string Is(BoundIs pattern)
     {
-        var target = ObjectType(pattern.Target);
-        var operand = Expression(pattern.Operand);
-        return pattern.Binding is { } binding
-            ? $"vpl::is<{target}>({operand}, {LocalName(binding)})"
-            : $"vpl::is<{target}>({operand})";
+        if (pattern.Pattern is BoundTypePattern test)
+        {
+            var target = ObjectType(test.Target);
+            var operand = Expression(pattern.Operand);
+            return test.Binding is { } binding
+                ? $"vpl::is<{target}>({operand}, {LocalName(binding)})"
+                : $"vpl::is<{target}>({operand})";
+        }
+
+        var tests = new List<string>();
+        var bindings = new List<(LocalSymbol Local, string Value)>();
+        if (IsStable(pattern.Operand))
+        {
+            PatternParts(pattern.Pattern, Expression(pattern.Operand), tests, bindings);
+            if (bindings.Count == 0)
+                return $"({Conjunction(tests)})";
+        }
+        var matched = NewTemp();
+        var body = new StringBuilder($"[&] {{ {MatchedValue(pattern.Operand, matched)} ");
+        tests.Clear();
+        bindings.Clear();
+        PatternParts(pattern.Pattern, matched, tests, bindings);
+        if (bindings.Count == 0)
+            return body.Append($"return {Conjunction(tests)}; }}()").ToString();
+
+        body.Append($"if (!({Conjunction(tests)})) {{ return false; }} ");
+        var copies = bindings.Select(b => (b.Local, Temp: NewTemp(), b.Value)).ToList();
+        foreach (var (local, temp, value) in copies)
+            body.Append($"{CppType(local.Type)} {temp} = {value}; ");
+        foreach (var (local, temp, _) in copies)
+            body.Append($"{LocalName(local)} = std::move({temp}); ");
+        return body.Append("return true; }()").ToString();
+    }
+
+    /// <summary>
+    /// Tests the cases in order. The value is evaluated once and the matching case's names are
+    /// declared fresh, copied from it, so nothing is released while it is read; a temporary value
+    /// lives until the switch ends.
+    /// </summary>
+    void Switch(BoundSwitch switchStatement)
+    {
+        DeclarePatternLocals(switchStatement.Value);
+        Line("{");
+        indent++;
+        var matched = NewTemp();
+        Line(MatchedValue(switchStatement.Value, matched));
+        var caseTests = switchStatement.Cases.Select(c => CaseTest(c.Patterns, matched)).ToList();
+        if (caseTests.All(t => t.Condition is null && t.Bindings.Count == 0))
+            Line($"static_cast<void>({matched});");
+
+        var keyword = "if";
+        bool exhausted = false;
+        foreach (var (switchCase, (condition, bindings)) in switchStatement.Cases.Zip(caseTests))
+        {
+            if (condition is null)
+            {
+                Line(keyword == "if" ? "{" : "else");
+                if (keyword != "if")
+                    Line("{");
+                exhausted = true;
+            }
+            else
+            {
+                Line($"{keyword} ({condition})");
+                Line("{");
+            }
+            indent++;
+            foreach (var (local, value) in bindings)
+                Line($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {value};");
+            var statements = switchCase.Body is BoundBlock block ? block.Statements : [switchCase.Body];
+            foreach (var statement in statements)
+                Statement(statement);
+            indent--;
+            Line("}");
+            if (exhausted)
+                break;
+            keyword = "else if";
+        }
+        if (!exhausted)
+        {
+            Line("else");
+            Line("{");
+            Line($"    vpl::no_match({SourceLocation(switchStatement.Location)});");
+            Line("}");
+        }
+        indent--;
+        Line("}");
+    }
+
+    /// <summary>
+    /// The condition under which a case matches, or null if it always does, and the values of the
+    /// names it binds. Only a case with one pattern binds names.
+    /// </summary>
+    (string? Condition, List<(LocalSymbol Local, string Value)> Bindings) CaseTest(IReadOnlyList<BoundPattern> patterns, string value)
+    {
+        var bindings = new List<(LocalSymbol Local, string Value)>();
+        if (patterns.Count == 0)
+            return (null, bindings);
+        var alternatives = new List<string>();
+        foreach (var pattern in patterns)
+        {
+            var tests = new List<string>();
+            PatternParts(pattern, value, tests, bindings);
+            if (tests.Count == 0)
+                return (null, bindings);
+            alternatives.Add(Conjunction(tests));
+        }
+        return (alternatives.Count == 1 ? alternatives[0] : string.Join(" || ", alternatives.Select(a => $"({a})")), bindings);
+    }
+
+    string SwitchExpression(BoundSwitchExpression switchExpression)
+    {
+        var matched = NewTemp();
+        var body = new StringBuilder($"[&]() -> {CppType(switchExpression.Type)} {{ {MatchedValue(switchExpression.Value, matched)} ");
+        var caseTests = switchExpression.Cases.Select(c => CaseTest(c.Patterns, matched)).ToList();
+        if (caseTests.All(t => t.Condition is null && t.Bindings.Count == 0))
+            body.Append($"static_cast<void>({matched}); ");
+        bool exhausted = false;
+        foreach (var (switchCase, (condition, bindings)) in switchExpression.Cases.Zip(caseTests))
+        {
+            body.Append(condition is null ? "{ " : $"if ({condition}) {{ ");
+            foreach (var (local, value) in bindings)
+                body.Append($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {value}; ");
+            foreach (var local in PatternLocals(switchCase.Body))
+                body.Append($"{CppType(local.Type)} {LocalName(local)}{{}}; ");
+            var caseValue = Expression(switchCase.Body);
+            body.Append(switchCase.Body.Type == VplType.Void ? $"{caseValue}; }} " : $"return {caseValue}; }} ");
+            if (condition is null)
+            {
+                exhausted = true;
+                break;
+            }
+        }
+        if (!exhausted)
+            body.Append($"vpl::no_match({SourceLocation(switchExpression.Location)}); ");
+        return body.Append("}()").ToString();
+    }
+
+    string Variant(BoundVariant variant)
+    {
+        var operands = variant.Arguments.Select(a => new Operand(a, false)).ToList();
+        return Ordered(operands, arguments => $"{CppType(variant.Type)}::{VariantFactory(variant.Variant)}({string.Join(", ", arguments)})");
     }
 
     string Conversion(BoundConversion conversion)
@@ -1046,6 +1524,10 @@ public sealed class CppEmitter
             return $"{CppType(to)}()";
         if (to.IsReference)
             return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
+        if (to.IsEnum)
+            return $"{ObjectType(to)}::from_value({operand}, {SourceLocation(conversion.Location)})";
+        if (from.IsEnum)
+            return $"static_cast<{CppType(to)}>({operand}.tag)";
         if (from.IsFloatingPoint && to.IsInteger)
             return $"vpl::f2i<{CppType(to)}>({operand})";
         if (from == VplType.Double && to == VplType.Float)
