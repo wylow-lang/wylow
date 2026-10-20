@@ -1,0 +1,107 @@
+// A call argument expects its parameter's type, so variants can leave out their enum.
+
+enum Direction {
+    North, East, South, West;
+}
+
+enum Shape {
+    Circle(float radius),
+    Square(float side),
+}
+
+enum Command {
+    Draw(Shape shape),
+    Turn(Direction direction),
+    Stop,
+}
+
+struct Order {
+    Result<int, String> amount;
+
+    Order(Result<int, String> amount) {
+        this.amount = amount;
+    }
+}
+
+class Job {
+    Result<int, String> outcome;
+
+    Job(Result<int, String> outcome) {
+        this.outcome = outcome;
+    }
+
+    void retry(Result<int, String> next) {
+        outcome = next;
+    }
+}
+
+class FailedJob extends Job {
+    FailedJob() {
+        super(Err("never ran"));
+    }
+}
+
+void describe(Result<int, String> result) {
+    switch (result) {
+        case Ok(var value) -> print(value);
+        case Err(var error) -> print(error);
+    }
+}
+
+void run(Command command) {
+    switch (command) {
+        case Draw(Circle(var r)) -> print(r);
+        case Draw(Square(var s)) -> print(s * s);
+        case Turn(var d) -> print((int)d);
+        case Stop -> print("stop");
+    }
+}
+
+// Overloads that differ elsewhere still agree on the first parameter.
+void face(Direction d) {
+    print((int)d);
+}
+
+void face(Direction d, int steps) {
+    print((int)d * steps);
+}
+
+Result<Result<int, String>, String> nested(int x) {
+    return x > 0 ? Ok(Ok(x)) : Err("negative");
+}
+
+void main() {
+    describe(Ok(1));                            // output: 1
+    describe(Result.Err("bad"));                // output: bad
+    run(Draw(Circle(2)));                       // output: 2.0
+    run(Command.Draw(Square(3)));               // output: 9.0
+    run(Turn(West));                            // output: 3
+    run(Stop);                                  // output: stop
+    face(East);                                 // output: 1
+    face(South, 2);                             // output: 4
+
+    print(Order(Ok(5)).amount.orElse(0));       // output: 5
+    var job = new Job(Err("pending"));
+    job.retry(Ok(7));
+    print(job.outcome.orElse(0));               // output: 7
+    Job? maybe = job;
+    maybe?.retry(Err("again"));
+    print(job.outcome.isErr());                 // output: true
+    print(new FailedJob().outcome.isErr());     // output: true
+
+    // The receiver's type arguments give the parameter its type.
+    var results = new List<Result<int, String>>();
+    results.add(Ok(3));
+    results.add(Err("x"));
+    print(results[0].orElse(0) + results.count); // output: 5
+
+    switch (nested(4)) {
+        case Ok(Ok(var v)) -> print(v);         // output: 4
+        case Ok(Err(_)) -> print("inner");
+        case Err(var e) -> print(e);
+    }
+
+    // A local of the same name still takes precedence.
+    int East = 10;
+    print(East);                                // output: 10
+}

@@ -1,0 +1,176 @@
+// Breadth-first and best-first search on a grid, with a user-written generic heap.
+
+interface Ordered<T> {
+    bool lessThan(in T other);
+}
+
+struct Point implements Ordered<Point> {
+    int x, y;
+
+    Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    readonly bool lessThan(in Point other) {
+        return x + y < other.x + other.y;
+    }
+}
+
+struct Scored<T> implements Ordered<Scored<T>> {
+    T value;
+    int score;
+
+    readonly bool lessThan(in Scored<T> other) {
+        return score < other.score;
+    }
+}
+
+final class Heap<T extends Ordered<T>> {
+    private List<T> items = new List<T>();
+
+    int count { get -> items.count; }
+
+    void push(T value) {
+        items.add(value);
+        int i = items.count - 1;
+        while (i > 0) {
+            int parent = (i - 1) / 2;
+            if (!items[i].lessThan(items[parent])) {
+                break;
+            }
+            swap(i, parent);
+            i = parent;
+        }
+    }
+
+    T pop() {
+        T top = items[0];
+        T last = items.removeAt(items.count - 1);
+        if (items.count > 0) {
+            items[0] = last;
+            int i = 0;
+            while (true) {
+                int left = i * 2 + 1;
+                int right = left + 1;
+                int smallest = i;
+                if (left < items.count && items[left].lessThan(items[smallest])) {
+                    smallest = left;
+                }
+                if (right < items.count && items[right].lessThan(items[smallest])) {
+                    smallest = right;
+                }
+                if (smallest == i) {
+                    break;
+                }
+                swap(i, smallest);
+                i = smallest;
+            }
+        }
+        return top;
+    }
+
+    private void swap(int a, int b) {
+        T temp = items[a];
+        items[a] = items[b];
+        items[b] = temp;
+    }
+}
+
+struct Grid {
+    bool[8][8] walls;
+
+    readonly bool open(Point p) {
+        return p.x >= 0 && p.y >= 0 && p.x < 8 && p.y < 8 && !walls[p.y][p.x];
+    }
+}
+
+Point[4] neighbors(Point p) {
+    return [Point(p.x + 1, p.y), Point(p.x - 1, p.y), Point(p.x, p.y + 1), Point(p.x, p.y - 1)];
+}
+
+int distance(Point a, Point b) {
+    int dx = a.x - b.x;
+    int dy = a.y - b.y;
+    return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
+}
+
+// Steps from start to goal, or -1 if unreachable.
+int bfs(in Grid grid, Point start, Point goal) {
+    int[8][8] dist;
+    for (ref int[8] row : dist) {
+        for (ref int d : row) {
+            d = -1;
+        }
+    }
+    var queue = new List<Point>();
+    queue.add(start);
+    dist[start.y][start.x] = 0;
+    int head = 0;
+    while (head < queue.count) {
+        Point p = queue[head];
+        head++;
+        if (p == goal) {
+            return dist[p.y][p.x];
+        }
+        for (Point n : neighbors(p)) {
+            if (grid.open(n) && dist[n.y][n.x] < 0) {
+                dist[n.y][n.x] = dist[p.y][p.x] + 1;
+                queue.add(n);
+            }
+        }
+    }
+    return -1;
+}
+
+// Greedy best-first: counts expanded nodes.
+int greedy(in Grid grid, Point start, Point goal) {
+    bool[8][8] seen;
+    var heap = new Heap<Scored<Point>>();
+    heap.push(Scored<Point> { value = start, score = distance(start, goal) });
+    int expanded = 0;
+    while (heap.count > 0) {
+        var current = heap.pop();
+        Point p = current.value;
+        if (seen[p.y][p.x]) {
+            continue;
+        }
+        seen[p.y][p.x] = true;
+        expanded++;
+        if (p == goal) {
+            return expanded;
+        }
+        for (Point n : neighbors(p)) {
+            if (grid.open(n) && !seen[n.y][n.x]) {
+                heap.push(Scored<Point> { value = n, score = distance(n, goal) });
+            }
+        }
+    }
+    return -1;
+}
+
+void main() {
+    var grid = Grid();
+    for (int y : 0..7) {
+        grid.walls[y][4] = true;
+    }
+    grid.walls[3][2] = true;
+
+    var start = Point(0, 0);
+    var goal = Point(7, 0);
+    print(bfs(grid, start, goal));       // 7 down, through the gap, 7 up
+    print(greedy(grid, start, goal) > 0);
+
+    grid.walls[7][4] = true;
+    print(bfs(grid, start, goal));
+
+    var heap = new Heap<Point>();
+    heap.push(Point(5, 5));
+    heap.push(Point(1, 0));
+    heap.push(Point(3, 3));
+    heap.push(Point(0, 0));
+    while (heap.count > 0) {
+        var p = heap.pop();
+        print(p.x + p.y);
+    }
+}

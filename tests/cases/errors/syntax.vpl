@@ -1,6 +1,10 @@
 import Player {               // error: 'import' is not supported yet
 }
 
+int counter = 0;                // error: top-level variables and constants are not supported yet; declare 'counter' inside a function or type
+int[3] cells;                   // error: top-level variables and constants are not supported yet; declare 'cells' inside a function or type
+var total = 1;                  // error: top-level variables and constants are not supported yet; declare 'total' inside a function or type
+
 void main() {
     int x = 0;
     if (x == 0) print(x);     // error: the body of 'if' must be enclosed in braces

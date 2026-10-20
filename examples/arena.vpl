@@ -1,0 +1,297 @@
+// A small turn-based arena: entities move on a grid, fight, and drop loot.
+// Written to exercise the language as a whole rather than one feature at a time.
+
+struct Vec2 {
+    int x, y;
+
+    Vec2(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    static Vec2 add(Vec2 a, Vec2 b) {
+        return Vec2(a.x + b.x, a.y + b.y);
+    }
+
+    readonly int manhattan(in Vec2 other) {
+        int dx = x - other.x;
+        int dy = y - other.y;
+        return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
+    }
+}
+
+// Deterministic xorshift so runs are reproducible.
+struct Rng {
+    int state;
+
+    int next() {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state & 0x7fffffff;
+    }
+
+    int range(int max) {
+        return next() % max;
+    }
+}
+
+enum Direction {
+    North, East, South, West;
+
+    Vec2 offset() {
+        return switch (this) {
+            case North -> Vec2(0, -1);
+            case East -> Vec2(1, 0);
+            case South -> Vec2(0, 1);
+            case West -> Vec2(-1, 0);
+        };
+    }
+}
+
+enum Item {
+    Gold(int amount),
+    Potion(int heal),
+    Nothing,
+}
+
+enum Event {
+    Moved(String who, Vec2 to),
+    Attacked(String who, String target, int damage),
+    Died(String who),
+    Looted(String who, Item item),
+}
+
+interface Describable {
+    String describe();
+}
+
+abstract class Entity implements Describable {
+    String name;
+    Vec2 position;
+    int health;
+
+    Entity(String name, Vec2 position, int health) {
+        this.name = name;
+        this.position = position;
+        this.health = health;
+    }
+
+    bool alive { get -> health > 0; }
+
+    abstract int attackPower();
+
+    virtual Item loot() {
+        return Item.Nothing;
+    }
+
+    virtual String describe() {
+        return name;
+    }
+}
+
+class Hero extends Entity {
+    int gold;
+    Entity? target;
+
+    Hero(String name, Vec2 position) {
+        super(name, position, 30);
+    }
+
+    override int attackPower() {
+        return 6;
+    }
+
+    void pickUp(Item item) {
+        switch (item) {
+            case Gold(var amount) -> gold += amount;
+            case Potion(var heal) -> health += heal;
+            case Nothing -> { }
+        }
+    }
+}
+
+class Goblin extends Entity {
+    Goblin(String name, Vec2 position) {
+        super(name, position, 10);
+    }
+
+    override int attackPower() {
+        return 3;
+    }
+
+    override Item loot() {
+        return Item.Gold(5);
+    }
+}
+
+final class Troll extends Goblin {
+    Troll(Vec2 position) {
+        super("troll", position);
+        health = 25;
+    }
+
+    override int attackPower() {
+        return 5;
+    }
+
+    override Item loot() {
+        return Item.Potion(10);
+    }
+
+    override String describe() {
+        return "a big troll";
+    }
+}
+
+// A fixed-capacity log that keeps the most recent events.
+struct EventLog {
+    Event[4] recent = [Event.Died(""), Event.Died(""), Event.Died(""), Event.Died("")];
+    int written;
+
+    void push(Event e) {
+        recent[written % recent.length] = e;
+        written++;
+    }
+}
+
+final class World {
+    int size = 8;
+
+    List<Entity> entities = new List<Entity>();
+    EventLog log;
+    Rng rng = Rng { state = 12345 };
+    int damageDealt;
+    int deaths;
+    int goldFound;
+    int potionsFound;
+
+    bool inBounds(Vec2 p) {
+        return p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
+    }
+
+    Entity? at(Vec2 p) {
+        for (Entity e : entities) {
+            if (e.alive && e.position == p) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    void record(Event e) {
+        log.push(e);
+        switch (e) {
+            case Moved(_, _) -> { }
+            case Attacked(_, _, var damage) -> damageDealt += damage;
+            case Died(_) -> deaths++;
+            case Looted(_, Gold(var amount)) -> goldFound += amount;
+            case Looted(_, Potion(_)) -> potionsFound++;
+            case Looted(_, Nothing) -> { }
+        }
+    }
+
+    void step(Entity actor) {
+        var dir = (Direction)rng.range(4);
+        var next = Vec2.add(actor.position, dir.offset());
+        if (!inBounds(next)) {
+            return;
+        }
+        if (at(next) is Entity other) {
+            if (other == actor) {
+                return;
+            }
+            other.health -= actor.attackPower();
+            record(Event.Attacked(actor.name, other.describe(), actor.attackPower()));
+            if (!other.alive) {
+                record(Event.Died(other.name));
+                var item = other.loot();
+                if (actor is Hero hero) {
+                    hero.pickUp(item);
+                    record(Event.Looted(hero.name, item));
+                }
+            }
+        } else {
+            actor.position = next;
+        }
+    }
+
+    int living() {
+        int n = 0;
+        for (Entity e : entities) {
+            if (e.alive) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    void removeDead() {
+        int i = 0;
+        while (i < entities.count) {
+            if (!entities[i].alive) {
+                entities.removeAt(i);
+            } else {
+                i++;
+            }
+        }
+    }
+}
+
+int sum(ReadOnlySpan<int> values) {
+    int total = 0;
+    for (int v : values) {
+        total += v;
+    }
+    return total;
+}
+
+Result<int, String> parseDigit(int c) {
+    if (c < 48 || c > 57) {
+        return Result.Err("not a digit");
+    }
+    return Result.Ok(c - 48);
+}
+
+void main() {
+    var world = new World();
+    var hero = new Hero("hero", Vec2(0, 0));
+    world.entities.add(hero);
+    world.entities.add(new Goblin("goblin", Vec2(1, 0)));
+    world.entities.add(new Goblin("grunt", Vec2(0, 1)));
+    world.entities.add(new Troll(Vec2(2, 2)));
+
+    for (int turn : 0..60) {
+        if (!hero.alive || world.living() == 1) {
+            break;
+        }
+        for (int i : 0..world.entities.count) {
+            var e = world.entities[i];
+            if (e.alive) {
+                world.step(e);
+            }
+        }
+        world.removeDead();
+    }
+
+    print(hero.alive);
+    print(hero.gold);
+    print(world.entities.count);
+    print(world.log.written);
+    print(world.damageDealt);
+    print(world.deaths);
+    print(world.goldFound);
+    print(world.potionsFound);
+
+    int[5] scores = [3, 1, 4, 1, 5];
+    print(sum(scores));
+
+    var healths = new int[world.entities.count];
+    for (int i, Entity e : world.entities) {
+        healths[i] = e.health;
+    }
+    print(sum(healths));
+
+    print(parseDigit(55).orElse(-1));
+    print(parseDigit(65).isErr());
+}

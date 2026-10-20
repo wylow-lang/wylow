@@ -18,6 +18,10 @@ The language is described in [docs/spec](docs/spec/README.md).
   `virtual`/`override`/`abstract`/`final`, `super`, interfaces (dynamic dispatch for classes, generic
   bounds for structs and classes), nullable references with `?.`, `??`, `!`, `is` patterns and flow
   narrowing, `weak` fields, and pinning of receivers and `ref` arguments that live inside objects.
+- **Milestone 5:** enums with and without data, exhaustive `switch` with patterns, and `Result`.
+- **Milestone 6:** containers: fixed arrays `T[N]`, `Span`/`ReadOnlySpan`, `Array` (`T[]`), `List`,
+  and for-each, written in a VPL standard library on `ref` locals and returns, indexers, get-only
+  properties, `unsafe` pointers, `@CallerLocation`, and borrow counting.
 
 ## Requirements
 

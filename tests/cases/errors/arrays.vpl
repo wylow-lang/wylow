@@ -40,6 +40,7 @@ void main() {
     ref long wide = n;              // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
     var box = new Box();
     ref Box b = box;                // error: 'ref' cannot be used with type 'Box'; class objects are already references
+    print(r + five + b.value);      // no cascade: the variables above count as assigned
 
     for (int x : n) {               // error: cannot loop over 'int'
     }
@@ -54,5 +55,6 @@ void main() {
     for (long i, int v : a) {       // error: the index of a loop is an 'int', not 'long'
     }
     for (ref long v : a) {          // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
+        print(v);
     }
 }

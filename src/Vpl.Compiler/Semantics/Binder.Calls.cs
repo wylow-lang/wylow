@@ -6,12 +6,48 @@ namespace Vpl.Compiler.Semantics;
 
 public sealed partial class Binder
 {
-    List<Argument> BindArguments(IEnumerable<Expr> arguments) =>
+    /// <summary>
+    /// Binds a call's arguments. An argument expects its parameter's type when every candidate taking
+    /// this many arguments agrees on it, so <c>f(Result.Ok(1))</c> and <c>f(East)</c> know their enum.
+    /// </summary>
+    List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null) =>
     [
-        .. arguments.Select(a => a is RefArgExpr r
+        .. arguments.Select((a, i) => a is RefArgExpr r
             ? new Argument(BindExpression(r.Operand), true, r.Location)
-            : new Argument(BindExpression(a), false, a.Location)),
+            : new Argument(BindExpression(a, candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i)), false, a.Location)),
     ];
+
+    /// <summary>
+    /// The type every candidate gives the argument at <paramref name="index"/>, or null if they differ.
+    /// A parameter typed by the method's own type parameters gives none, since those are inferred from the arguments.
+    /// </summary>
+    static VplType? ExpectedArgumentType(IReadOnlyList<Candidate> candidates, int count, int index)
+    {
+        VplType? agreed = null;
+        foreach (var candidate in candidates.Where(c => c.Symbol.Parameters.Count == count))
+        {
+            var parameter = candidate.Symbol.Parameters[index];
+            var type = (candidate.Owner is null ? TypeMap.Empty : TypeMap.For(candidate.Owner)).Apply(parameter.Type);
+            if (parameter.RefKind == RefKind.Ref || type == VplType.Error || (agreed is not null && agreed != type)
+                || TypeParametersIn(type).Any(p => candidate.Symbol.TypeParameters.Contains(p)))
+                return null;
+            agreed = type;
+        }
+        return agreed;
+    }
+
+    /// <summary>
+    /// Arguments are bound once the callee's candidates are known. A callee that fails first leaves
+    /// them unbound, and they are then bound without expected types to report their own errors.
+    /// </summary>
+    sealed class PendingArguments(Binder binder, IReadOnlyList<Expr> syntax)
+    {
+        List<Argument>? bound;
+
+        public List<Argument> Bind(IReadOnlyList<Candidate>? candidates) => bound ??= binder.BindArguments(syntax, candidates);
+    }
+
+    static bool AnyError(List<Argument> arguments) => arguments.Any(a => a.Expression.Type == VplType.Error);
 
     BoundExpression BindCall(CallExpr e, VplType? expected)
     {
@@ -23,8 +59,8 @@ public sealed partial class Binder
                 : "'super(...)' can only be used in a class constructor");
         }
 
-        var arguments = BindArguments(e.Arguments);
-        return e.Callee switch
+        var arguments = new PendingArguments(this, e.Arguments);
+        var call = e.Callee switch
         {
             NameExpr name => BindNameCall(e, name, arguments, expected),
             MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
@@ -32,9 +68,11 @@ public sealed partial class Binder
             ThisExpr => ErrorExpression(e.Callee.Location, "'this(...)' constructor chaining is not supported yet"),
             _ => ErrorExpression(e.Callee.Location, "this expression cannot be called"),
         };
+        arguments.Bind(null);
+        return call;
     }
 
-    BoundExpression BindNameCall(CallExpr e, NameExpr name, List<Argument> arguments, VplType? expected)
+    BoundExpression BindNameCall(CallExpr e, NameExpr name, PendingArguments pending, VplType? expected)
     {
         if (IsValueName(name.Name))
             return ErrorExpression(name.Location, $"'{name.Name}' is a variable, not a function");
@@ -42,11 +80,14 @@ public sealed partial class Binder
             return ErrorExpression(name.Location, $"'{name.Name}' is a type parameter and cannot be constructed");
 
         var typeArguments = BindTypeArguments(name.TypeArguments);
-        if (arguments.Any(a => a.Expression.Type == VplType.Error) || typeArguments?.Contains(VplType.Error) == true)
+        if (typeArguments?.Contains(VplType.Error) == true)
             return new BoundErrorExpression(e.Location);
 
         if (currentType is { } s && LookupMethods(s.Type, name.Name) is { Count: > 0 } methods)
         {
+            var arguments = pending.Bind(methods);
+            if (AnyError(arguments))
+                return new BoundErrorExpression(e.Location);
             var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, typeArguments, arguments);
             if (method is null)
                 return new BoundErrorExpression(e.Location);
@@ -74,43 +115,50 @@ public sealed partial class Binder
             var constructed = Construct(type, typeArguments ?? [], name.Location);
             return constructed == VplType.Error
                 ? new BoundErrorExpression(e.Location)
-                : BindConstruction(e.Location, constructed, arguments, []);
+                : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)), []);
         }
 
         if (!functions.TryGetValue(name.Name, out var overloads))
         {
             if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
-                return BindVariant(e.Location, variant.Owner, expected, variant, arguments);
+                return BindVariant(e.Location, variant.Owner, expected, variant, pending);
             return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name)}");
         }
-        var function = Resolve(e.Location, $"overload of '{name.Name}'", [.. overloads.Select(f => new Candidate(f, null))], typeArguments, arguments);
-        return function is null ? new BoundErrorExpression(e.Location) : MakeCall(e.Location, function, null, arguments);
+        List<Candidate> candidates = [.. overloads.Select(f => new Candidate(f, null))];
+        var functionArguments = pending.Bind(candidates);
+        if (AnyError(functionArguments))
+            return new BoundErrorExpression(e.Location);
+        var function = Resolve(e.Location, $"overload of '{name.Name}'", candidates, typeArguments, functionArguments);
+        return function is null ? new BoundErrorExpression(e.Location) : MakeCall(e.Location, function, null, functionArguments);
     }
 
-    BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, List<Argument> arguments, VplType? expected)
+    BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, PendingArguments pending, VplType? expected)
     {
         var typeArguments = BindTypeArguments(member.TypeArguments);
         if (typeArguments?.Contains(VplType.Error) == true)
             return new BoundErrorExpression(e.Location);
 
         if (member.Target is SuperExpr super)
-            return BindSuperMethodCall(e, super, member, typeArguments, arguments);
+            return BindSuperMethodCall(e, super, member, typeArguments, pending);
 
         if (AsEnumName(member.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(member.Name) is { } variant)
         {
             if (typeArguments is not null)
                 return ErrorExpression(member.NameLocation, $"type arguments belong to the enum, as in '{enumSymbol.Name}<...>.{member.Name}(...)'");
-            return BindVariant(e.Location, enumSymbol, enumType, variant, arguments);
+            return BindVariant(e.Location, enumSymbol, enumType, variant, pending);
         }
 
         if (AsTypeName(member.Target) is { } type)
         {
-            if (type == VplType.Error || arguments.Any(a => a.Expression.Type == VplType.Error))
+            if (type == VplType.Error)
                 return new BoundErrorExpression(e.Location);
             var s = type.Symbol!;
             var staticCandidates = LookupMethods(type, member.Name);
             if (staticCandidates.Count == 0)
                 return ErrorExpression(member.NameLocation, $"'{s.Name}' has no method '{member.Name}'");
+            var arguments = pending.Bind(staticCandidates);
+            if (AnyError(arguments))
+                return new BoundErrorExpression(e.Location);
             var staticMethod = Resolve(e.Location, $"overload of '{s.Name}.{member.Name}'", staticCandidates, typeArguments, arguments);
             if (staticMethod is null)
                 return new BoundErrorExpression(e.Location);
@@ -125,13 +173,21 @@ public sealed partial class Binder
         }
 
         var receiver = BindExpression(member.Target);
-        if (receiver.Type == VplType.Error || arguments.Any(a => a.Expression.Type == VplType.Error))
+        if (receiver.Type == VplType.Error)
+            return new BoundErrorExpression(e.Location);
+        var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.NonNull, member.Name));
+        if (AnyError(receiverArguments))
             return new BoundErrorExpression(e.Location);
         receiver = RequireNonNull(receiver);
         if (receiver.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
-        return BindMethodCall(e.Location, receiver, member.Name, member.NameLocation, typeArguments, arguments);
+        return BindMethodCall(e.Location, receiver, member.Name, member.NameLocation, typeArguments, receiverArguments);
     }
+
+    IReadOnlyList<Candidate> MethodCandidates(VplType receiverType, string name) =>
+        receiverType.IsStructOrEnum || receiverType.IsReference || receiverType.IsTypeParameter
+            ? LookupMethods(receiverType, name)
+            : [];
 
     BoundExpression BindMethodCall(
         Location location,
@@ -143,9 +199,7 @@ public sealed partial class Binder
         bool asProperty = false)
     {
         var receiverType = receiver.Type;
-        var candidates = receiverType.IsStructOrEnum || receiverType.IsReference || receiverType.IsTypeParameter
-            ? LookupMethods(receiverType, name)
-            : [];
+        var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
         {
             return ErrorExpression(nameLocation, LookupField(receiverType, name) is not null
@@ -169,7 +223,7 @@ public sealed partial class Binder
         return MakeCall(location, method, receiver, arguments);
     }
 
-    BoundExpression BindSuperMethodCall(CallExpr e, SuperExpr super, MemberAccessExpr member, IReadOnlyList<VplType>? typeArguments, List<Argument> arguments)
+    BoundExpression BindSuperMethodCall(CallExpr e, SuperExpr super, MemberAccessExpr member, IReadOnlyList<VplType>? typeArguments, PendingArguments pending)
     {
         if (!hasThis || currentType?.Type.BaseType is not { } baseType)
         {
@@ -177,11 +231,12 @@ public sealed partial class Binder
                 ? $"'{currentType!.Name}' has no base class"
                 : "'super' can only be used in instance methods and constructors of a class");
         }
-        if (arguments.Any(a => a.Expression.Type == VplType.Error))
-            return new BoundErrorExpression(e.Location);
         var candidates = LookupMethods(baseType, member.Name);
         if (candidates.Count == 0)
             return ErrorExpression(member.NameLocation, $"'{baseType.Symbol!.Name}' has no method '{member.Name}'");
+        var arguments = pending.Bind(candidates);
+        if (AnyError(arguments))
+            return new BoundErrorExpression(e.Location);
         var method = Resolve(e.Location, $"overload of '{baseType.Symbol!.Name}.{member.Name}'", candidates, typeArguments, arguments);
         if (method is null)
             return new BoundErrorExpression(e.Location);
@@ -216,9 +271,12 @@ public sealed partial class Binder
         return MakeConditionalAccess(e.Location, receiver, value, access);
     }
 
-    BoundExpression BindConditionalCall(CallExpr e, ConditionalAccessExpr access, List<Argument> arguments)
+    BoundExpression BindConditionalCall(CallExpr e, ConditionalAccessExpr access, PendingArguments pending)
     {
-        if (BindConditionalReceiver(access) is not var (receiver, value) || arguments.Any(a => a.Expression.Type == VplType.Error))
+        if (BindConditionalReceiver(access) is not var (receiver, value))
+            return new BoundErrorExpression(e.Location);
+        var arguments = pending.Bind(MethodCandidates(value.Type, access.Name));
+        if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
         var call = BindMethodCall(e.Location, new BoundLocalAccess(access.Target.Location, value), access.Name, access.NameLocation, null, arguments);
         return MakeConditionalAccess(e.Location, receiver, value, call);
@@ -447,9 +505,9 @@ public sealed partial class Binder
 
     BoundExpression BindNew(NewExpr e)
     {
-        var arguments = BindArguments(e.Arguments);
         var type = BindType(e.Type, allowVoid: false);
-        if (type == VplType.Error || arguments.Any(a => a.Expression.Type == VplType.Error))
+        var arguments = BindArguments(e.Arguments, type.IsClass ? ConstructorsOf(type) : null);
+        if (type == VplType.Error || AnyError(arguments))
             return new BoundErrorExpression(e.Location);
         if (type.IsStruct)
             return ErrorExpression(e.Type.Location, $"structs are created without 'new', as in '{e.Type.Name}(...)'");
@@ -477,13 +535,15 @@ public sealed partial class Binder
 
     BoundExpression BindInitializer(InitializerExpr e)
     {
-        var (typeName, arguments) = e.Target switch
+        var (typeName, argumentSyntax) = e.Target switch
         {
-            NameExpr n => (n, new List<Argument>()),
-            CallExpr { Callee: NameExpr n } call => (n, BindArguments(call.Arguments)),
+            NameExpr n => (n, []),
+            CallExpr { Callee: NameExpr n } call => (n, call.Arguments),
             _ => throw new InvalidOperationException("the parser only produces initializers on names and calls"),
         };
-        if (AsTypeName(typeName) is not { } type || (type != VplType.Error && !type.IsStruct))
+        var type = AsTypeName(typeName);
+        var arguments = BindArguments(argumentSyntax, type is { IsStruct: true } ? ConstructorsOf(type) : null);
+        if (type is null || (type != VplType.Error && !type.IsStruct))
             return ErrorExpression(typeName.Location, $"'{typeName.Name}' is not a struct; '{{ ... }}' initializers can only follow a struct name");
         if (type == VplType.Error)
             return new BoundErrorExpression(e.Location);

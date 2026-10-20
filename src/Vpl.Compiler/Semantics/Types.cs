@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vpl.Compiler.Syntax;
@@ -27,7 +28,7 @@ public sealed class VplType
     string? name;
     VplType? nullable;
     VplType? pointer;
-    Dictionary<int, VplType>? fixedArrays;
+    ConcurrentDictionary<int, VplType>? fixedArrays;
 
     VplType(string? name, TypeSymbol? symbol = null, IReadOnlyList<VplType>? typeArguments = null, TypeParameterSymbol? typeParameter = null)
     {
@@ -87,20 +88,20 @@ public sealed class VplType
     public bool IsPointer { get; }
     public bool IsFixedArray => ElementType is not null && !IsPointer;
 
-    public VplType FixedArrayOf(int length)
-    {
-        fixedArrays ??= new();
-        if (!fixedArrays.TryGetValue(length, out var type))
-            fixedArrays[length] = type = new VplType(this, length);
-        return type;
-    }
+    // The built-in types are shared by compilations running in parallel (as in the test runner),
+    // so their derived types must be created once, or two compilations' `int[3]`s would differ.
+    public VplType FixedArrayOf(int length) =>
+        LazyInitializer.EnsureInitialized(ref fixedArrays).GetOrAdd(length, n => new VplType(this, n));
 
-    public VplType PointerTo => pointer ??= new VplType(this, null);
+    public VplType PointerTo => pointer ?? Publish(ref pointer, new VplType(this, null));
 
     public bool IsNullable => NonNull != this;
 
     /// <summary>The <c>T?</c> form. Only class and interface types have one.</summary>
-    public VplType Nullable => IsNullable ? this : nullable ??= new VplType(this);
+    public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
+
+    static VplType Publish(ref VplType? field, VplType created) =>
+        Interlocked.CompareExchange(ref field, created, null) ?? created;
 
     public bool IsStruct => Symbol?.Kind == TypeKind.Struct;
     public bool IsClass => Symbol?.Kind == TypeKind.Class;

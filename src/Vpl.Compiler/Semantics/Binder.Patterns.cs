@@ -332,11 +332,14 @@ public sealed partial class Binder
 
     /// <summary>
     /// Creates a variant. <paramref name="type"/> is null for a generic enum whose type arguments
-    /// must be inferred; <paramref name="arguments"/> is null when no parentheses were written.
+    /// must be inferred; <paramref name="pending"/> is null when no parentheses were written.
     /// </summary>
-    BoundExpression BindVariant(Location location, TypeSymbol s, VplType? type, VariantSymbol variant, List<Argument>? arguments)
+    BoundExpression BindVariant(Location location, TypeSymbol s, VplType? type, VariantSymbol variant, PendingArguments? pending)
     {
-        if (type == VplType.Error || arguments?.Any(a => a.Expression.Type == VplType.Error) == true)
+        if (type == VplType.Error)
+            return new BoundErrorExpression(location);
+        var arguments = pending?.Bind([type is null ? new Candidate(variant.InferringConstructor, null) : new Candidate(variant.Constructor, type)]);
+        if (arguments is not null && AnyError(arguments))
             return new BoundErrorExpression(location);
         var name = $"{s.Name}.{variant.Name}";
         if (arguments is null && variant.Fields.Count > 0)

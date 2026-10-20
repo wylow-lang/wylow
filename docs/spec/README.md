@@ -56,8 +56,9 @@ Each is explained in detail in its chapter.
 6. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](06-syntax.md#63-construction).
 7. **Class `==` is identity, struct `==` is memberwise.** See [06-syntax.md](06-syntax.md#equality).
-8. **A variant can leave out its enum only where the type is known.** `Direction d = East;` works,
-   but a call argument needs `f(Direction.East)`. See [02-types.md](02-types.md#creating-values).
+8. **A variant can leave out its enum only where the type is known.** `Direction d = East;` and
+   `move(East)` work, but `var d = East;` doesn't, and neither does an argument to overloads that
+   disagree on its type. See [02-types.md](02-types.md#creating-values).
 9. **`break` in a `switch` case leaves the enclosing loop**, since a switch has no fallthrough to
    stop. See [06-syntax.md](06-syntax.md#switch).
 10. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into

@@ -55,7 +55,7 @@ public sealed partial class Binder
     {
         hasThis = false;
         noThisContext = NoThisContext.SuperArguments;
-        var arguments = BindArguments(call.Arguments);
+        var arguments = BindArguments(call.Arguments, currentType!.Type.BaseType is { } bindingBase ? ConstructorsOf(bindingBase) : null);
         hasThis = true;
         noThisContext = NoThisContext.Static;
 
@@ -226,7 +226,8 @@ public sealed partial class Binder
 
         var local = new LocalSymbol(s.Name, type, isParameter: false, s.RefKind);
         Declare(local, s.NameLocation);
-        return place is null ? ErrorStatement(s.Location) : new BoundVariableDeclaration(s.Location, local, place);
+        // Declared even after an error, so later uses aren't reported as unassigned.
+        return new BoundVariableDeclaration(s.Location, local, place ?? new BoundErrorExpression(s.Location));
     }
 
     /// <summary>

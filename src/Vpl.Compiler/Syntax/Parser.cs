@@ -93,9 +93,20 @@ public sealed partial class Parser
                 Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private | Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
+                if (name.Text != "" && (At(TokenKind.Assign) || At(TokenKind.Semicolon)))
+                {
+                    SkipTopLevelVariable(name);
+                    continue;
+                }
                 var function = ParseFunctionRest(start, modifiers.Flags, returnType, name);
                 RequireBody(function);
                 declarations.Add(function with { Annotations = annotations });
+                continue;
+            }
+            if (At(TokenKind.VarKeyword) && Peek(1).Kind == TokenKind.Identifier)
+            {
+                Advance();
+                SkipTopLevelVariable(Advance());
                 continue;
             }
             Error(Current.Span, At(TokenKind.ReservedKeyword)
@@ -124,6 +135,13 @@ public sealed partial class Parser
         TypeKind.Enum => "an enum",
         _ => "an interface",
     };
+
+    // Reported once at the name, rather than as a malformed function that confuses what follows.
+    void SkipTopLevelVariable(Token name)
+    {
+        Error(name.Span, $"top-level variables and constants are not supported yet; declare '{name.Text}' inside a function or type");
+        SkipDeclaration();
+    }
 
     void RequireBody(FunctionDecl function)
     {

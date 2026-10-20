@@ -163,10 +163,17 @@ var n = Option<int>.None;              // ...or written
   parentheses are required exactly when the variant carries data.
 - **Where a value's type is known**, the enum (and its type arguments) may be left out: in the
   initializer of a declaration with a written type, the value of an assignment, a `return` value, a
-  field initializer, and the right side of `==`/`!=` with an enum on the left. The expected type
-  also reaches into `?:` branches and switch expression cases. Elsewhere, including call
-  arguments, write the enum: `f(Direction.East)`. A local, field, function, or type of the same
-  name takes precedence over the variant.
+  field initializer, the right side of `==`/`!=` with an enum on the left, and a call argument
+  (below). The expected type also reaches into `?:` branches and switch expression cases.
+  Elsewhere, write the enum: `Direction.East`. A local, field, function, or type of the same name
+  takes precedence over the variant.
+- **A call argument's expected type is its parameter's type** when every overload taking that many
+  arguments has the same type there, after substituting the receiver's type arguments. This covers
+  functions, methods, constructors, `super(...)`, and a variant's fields, so `f(East)`,
+  `list.add(Ok(3))`, and `Ok(Ok(x))` returned as a `Result<Result<int, E>, E>` need no type
+  arguments. Where the overloads differ, or the parameter's type involves the called function's own
+  type parameters (which are inferred from the arguments), there is no expected type, so
+  `unwrap<T>(Result<T, E> r)` is called as `unwrap(Result<int, String>.Ok(1))`.
 - A generic enum written without type arguments takes them from the expected type if that is the
   same enum, and otherwise infers them from the fields' values, as for generic functions (§2.13).
   `Option.None` alone is an error, since nothing determines `T`.

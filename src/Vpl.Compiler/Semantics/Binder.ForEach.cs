@@ -144,7 +144,7 @@ public sealed partial class Binder
             value = null;
         var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind);
         Declare(local, elementSyntax.NameLocation);
-        declarations.Add(value is null ? ErrorStatement(elementSyntax.Location) : new BoundVariableDeclaration(elementSyntax.Location, local, value));
+        declarations.Add(new BoundVariableDeclaration(elementSyntax.Location, local, value ?? new BoundErrorExpression(elementSyntax.Location)));
 
         var body = BindLoopBody(s.Body);
         var start = new BoundVariableDeclaration(location, counter, new BoundLiteral(location, VplType.Int, 0));

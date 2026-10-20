@@ -41,4 +41,17 @@ Result<int, IoError> uses() {
     return r;
 }
 
+// Arguments get no expected type when the overloads disagree, or from a generic function's own type parameters.
+void store(Result<int, IoError> r) { }
+void store(Result<long, IoError> r) { }
+T unwrap<T>(Result<T, IoError> r) { return r.orPanic("none"); }
+
+void arguments() {
+    store(Ok(1));                       // error: function 'Ok' is not defined
+    store(Result.Ok(1));                // error: cannot infer type argument 'E' of 'Result' from 'Ok'
+    print(unwrap(Result.Ok(1)));        // error: cannot infer type argument 'E' of 'Result' from 'Ok'
+    store(Result<int, IoError>.Ok(1));
+    print(unwrap(Result<int, IoError>.Ok(2)));
+}
+
 void main() { }
