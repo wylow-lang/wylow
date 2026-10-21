@@ -230,6 +230,23 @@ public sealed record BoundConditional(
 
 public sealed record BoundErrorExpression(Location Location) : BoundExpression(Location, VplType.Error);
 
+/// <summary>A lambda with its function type. Creating it evaluates nothing; its body runs when the function is called.</summary>
+public sealed record BoundLambda(Location Location, VplType Type, FunctionSymbol Function, BoundBlock Body) : BoundExpression(Location, Type);
+
+/// <summary>
+/// A lambda argument whose function type is known only once overload resolution picks a parameter
+/// for it. <see cref="DeclaredParameters"/> are its parameter types, if it declares them.
+/// </summary>
+public sealed record BoundPendingLambda(Location Location, LambdaExpr Syntax, IReadOnlyList<FunctionParameterType>? DeclaredParameters)
+    : BoundExpression(Location, VplType.Lambda);
+
+/// <summary>
+/// A call of a function value. <see cref="Signature"/> describes the function type's parameters
+/// as a method's, so the checks of 'ref' arguments apply as for calls.
+/// </summary>
+public sealed record BoundInvocation(Location Location, BoundExpression Callee, MethodReference Signature, IReadOnlyList<BoundExpression> Arguments)
+    : BoundExpression(Location, Signature.ReturnType);
+
 public abstract record BoundPattern(Location Location, VplType Type);
 
 /// <summary><c>_</c>, or a variant's fields when only the variant is named.</summary>
@@ -294,6 +311,7 @@ public static class BoundTree
         BoundUnary unary => [unary.Operand],
         BoundBinary binary => [binary.Left, binary.Right],
         BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
+        BoundInvocation invocation => [invocation.Callee, .. invocation.Arguments],
         BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
         BoundNew creation => creation.Arguments,
         BoundConversion conversion => [conversion.Operand],

@@ -46,7 +46,9 @@ public sealed partial class Binder
         SwitchExpr e => BindSwitchExpression(e, expected),
         TryExpr e => ErrorExpression(e.Location, "'try' must be the whole value of a declaration, assignment, return, or expression statement"),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
-        LambdaExpr e => ErrorExpression(e.Location, "lambdas are not supported yet"),
+        LambdaExpr e => expected is { IsFunction: true } ? BindLambda(e, expected, null)
+            : expected == VplType.Error ? new BoundErrorExpression(e.Location)
+            : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'"),
         ErrorExpr e => new BoundErrorExpression(e.Location),
         _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
     };
@@ -281,7 +283,9 @@ public sealed partial class Binder
 
     /// <summary>The whole value of a statement, which unlike any other expression may be a <c>try</c>.</summary>
     BoundExpression BindValue(Expr expression, VplType? expected) =>
-        expression is TryExpr t ? BindTry(t) : BindExpression(expression, expected == VplType.Error ? null : expected);
+        expression is TryExpr t ? BindTry(t)
+        // A lambda can only be bound with a type, so it is left alone when that type has failed.
+        : BindExpression(expression, expected == VplType.Error && expression is not LambdaExpr ? null : expected);
 
     BoundExpression BindTry(TryExpr e)
     {
@@ -475,7 +479,8 @@ public sealed partial class Binder
     }
 
     bool CanConvert(BoundExpression expression, VplType to) =>
-        Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
+        expression is BoundPendingLambda lambda ? LambdaFits(lambda, to)
+        : Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
         || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to);
 
     /// <summary>A value converts to a nullable of any type it converts to, including by conversions only some values have.</summary>
@@ -498,6 +503,13 @@ public sealed partial class Binder
     {
         if (expression.Type == to || expression.Type == VplType.Error || to == VplType.Error)
             return expression;
+
+        if (expression is BoundPendingLambda lambda)
+        {
+            return to.NonNull.IsFunction
+                ? Convert(BindLambda(lambda.Syntax, to.NonNull, lambda.DeclaredParameters), to)
+                : ErrorExpression(expression.Location, $"a lambda cannot be converted to '{to}', which is not a function type");
+        }
 
         if (IsConvertibleConstant(expression, to))
         {

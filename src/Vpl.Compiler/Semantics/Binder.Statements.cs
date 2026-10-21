@@ -201,7 +201,7 @@ public sealed partial class Binder
             type = initializer.Type;
         }
 
-        if (type.IsRefStruct && initializer is null)
+        if ((type.IsRefStruct || type.NonNull.IsFunction) && initializer is null)
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
@@ -309,7 +309,7 @@ public sealed partial class Binder
         if (s.Value is null)
         {
             if (function.ReturnType != VplType.Void && function.ReturnType != VplType.Error)
-                Error(s.Location, $"'{function.Name}' must return a value of type '{function.ReturnType}'");
+                Error(s.Location, $"{Describe(function)} must return a value of type '{function.ReturnType}'");
             return new BoundReturn(s.Location, null);
         }
 
@@ -323,7 +323,7 @@ public sealed partial class Binder
         }
         if (function.ReturnType == VplType.Void)
         {
-            Error(s.Value.Location, $"'{function.Name}' returns 'void' and cannot return a value");
+            Error(s.Value.Location, $"{Describe(function)} returns 'void' and cannot return a value");
             return new BoundReturn(s.Location, null);
         }
         var converted = Convert(value, function.ReturnType);
@@ -379,10 +379,13 @@ public sealed partial class Binder
     BoundStatement BindExpressionStatement(ExprStmt s)
     {
         var expression = BindValue(s.Expression, null);
-        if (expression is not (BoundCall or BoundNew or BoundTry or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != VplType.Error)
+        if (expression is not (BoundCall or BoundInvocation or BoundNew or BoundTry or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != VplType.Error)
             Error(s.Location, "only calls can be used as statements");
-        else if (expression is BoundCall call && IsResult(call.Type))
-            Error(s.Location, $"the 'Result' returned by '{call.Method.Symbol.Name}' is not used; handle it, or discard it with '_ = ...'");
+        else if (expression is BoundCall or BoundInvocation && IsResult(expression.Type))
+        {
+            var name = expression is BoundCall call ? call.Method.Symbol.Name : TextOf(((BoundInvocation)expression).Callee.Location);
+            Error(s.Location, $"the 'Result' returned by '{name}' is not used; handle it, or discard it with '_ = ...'");
+        }
         return new BoundExpressionStatement(s.Location, expression);
     }
 
@@ -459,6 +462,12 @@ public sealed partial class Binder
         if (target.Type.IsRefStruct)
         {
             Error(target.Location, $"'{TextOf(target.Location)}' cannot be reassigned: a '{target.Type}' views what it was initialized with for its whole scope; declare a new variable instead");
+            return false;
+        }
+        // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
+        if (target is BoundLocalAccess { Local.Type.NonNull.IsFunction: true } function)
+        {
+            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a function-typed {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead");
             return false;
         }
         var (kind, reason) = ClassifyPlace(target);

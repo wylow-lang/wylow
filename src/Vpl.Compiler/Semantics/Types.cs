@@ -25,10 +25,14 @@ public sealed class VplType
     /// <summary>The type of an expression that already produced an error; converts to anything to avoid cascades.</summary>
     public static readonly VplType Error = new("<error>");
 
+    /// <summary>The type of a lambda argument before overload resolution gives it a function type.</summary>
+    public static readonly VplType Lambda = new("lambda");
+
     string? name;
     VplType? nullable;
     VplType? pointer;
     ConcurrentDictionary<int, VplType>? fixedArrays;
+    ConcurrentDictionary<IReadOnlyList<FunctionParameterType>, VplType>? functionTypes;
 
     VplType(string? name, TypeSymbol? symbol = null, IReadOnlyList<VplType>? typeArguments = null, TypeParameterSymbol? typeParameter = null)
     {
@@ -64,6 +68,14 @@ public sealed class VplType
         NonNull = this;
     }
 
+    VplType(IReadOnlyList<FunctionParameterType> parameters, VplType returnType)
+    {
+        FunctionParameters = parameters;
+        FunctionReturnType = returnType;
+        TypeArguments = [];
+        NonNull = this;
+    }
+
     internal static VplType ForSymbol(TypeSymbol symbol, IReadOnlyList<VplType> typeArguments) =>
         new(typeArguments.Count == 0 ? symbol.Name : null, symbol, typeArguments);
 
@@ -71,10 +83,14 @@ public sealed class VplType
 
     // Built on demand: deeply nested generic types share structure, but their names would not.
     public string Name => name ??=
-        IsNullable ? NonNull.Name + "?"
-        : IsPointer ? ElementType!.Name + "*"
-        : IsFixedArray ? ArrayBase.Name + ArraySuffix
+        IsNullable ? Grouped(NonNull) + "?"
+        : IsPointer ? Grouped(ElementType!) + "*"
+        : IsFixedArray ? Grouped(ArrayBase) + ArraySuffix
+        : IsFunction ? $"({string.Join(", ", FunctionParameters.Select(p => FunctionSymbol.RefPrefix(p.RefKind) + p.Type))}) -> {FunctionReturnType}"
         : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
+
+    // A suffix after a function type would belong to its return type.
+    static string Grouped(VplType type) => type.IsFunction ? $"({type.Name})" : type.Name;
 
     // Like C, the outer dimension comes first: `int[4][2]` is four `int[2]`s.
     VplType ArrayBase => IsFixedArray ? ElementType!.ArrayBase : this;
@@ -97,6 +113,23 @@ public sealed class VplType
     public bool IsPointer { get; }
     public bool IsFixedArray => ElementType is not null && !IsPointer;
 
+    /// <summary>The parameters of a function type <c>(A, ref B) -> R</c>; empty for other types.</summary>
+    public IReadOnlyList<FunctionParameterType> FunctionParameters { get; } = [];
+
+    /// <summary>The <c>R</c> of a function type <c>(A, ref B) -> R</c>.</summary>
+    public VplType? FunctionReturnType { get; }
+
+    /// <summary>
+    /// A function type. Its nullable form is not one: like <c>int?</c>, it is a nullable value
+    /// holding a function or nothing.
+    /// </summary>
+    public bool IsFunction => FunctionReturnType is not null;
+
+    /// <summary>The function type <c>(parameters) -> this</c>.</summary>
+    public VplType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) =>
+        LazyInitializer.EnsureInitialized(ref functionTypes, () => new(FunctionParameterListComparer.Instance))
+            .GetOrAdd(parameters, p => new VplType([.. p], this));
+
     // The built-in types are shared by compilations running in parallel (as in the test runner),
     // so their derived types must be created once, or two compilations' `int[3]`s would differ.
     public VplType FixedArrayOf(int length) =>
@@ -117,7 +150,7 @@ public sealed class VplType
     public bool IsNullableValue => IsNullable && !NonNull.IsReference;
 
     /// <summary>Pointers can already be null, and a <c>ref struct</c> can't be stored in a nullable.</summary>
-    public bool CanBeNullable => this != Void && this != Null && this != Error && !IsPointer && !IsRefStruct;
+    public bool CanBeNullable => this != Void && this != Null && this != Error && this != Lambda && !IsPointer && !IsRefStruct;
 
     static VplType Publish(ref VplType? field, VplType created) =>
         Interlocked.CompareExchange(ref field, created, null) ?? created;
@@ -141,7 +174,8 @@ public sealed class VplType
     public bool IsInteger => this == Int || this == Long;
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters);
+    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters)
+        || (NonNull.IsFunction && (NonNull.FunctionReturnType!.ContainsTypeParameters || NonNull.FunctionParameters.Any(p => p.Type.ContainsTypeParameters)));
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
@@ -179,9 +213,32 @@ public sealed class TypeMap
         type.IsNullable ? Apply(type.NonNull).Nullable
         : type.IsPointer ? Apply(type.ElementType!).PointerTo
         : type.IsFixedArray ? Apply(type.ElementType!).FixedArrayOf(type.FixedLength)
+        : type.IsFunction ? Apply(type.FunctionReturnType!).FunctionReturning([.. type.FunctionParameters.Select(p => p with { Type = Apply(p.Type) })])
         : type.TypeParameter is { } parameter ? map.GetValueOrDefault(parameter, type)
         : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Apply)])
         : type;
+}
+
+/// <summary>A parameter of a function type, which has a mode but no name.</summary>
+public readonly record struct FunctionParameterType(RefKind RefKind, VplType Type);
+
+sealed class FunctionParameterListComparer : IEqualityComparer<IReadOnlyList<FunctionParameterType>>
+{
+    public static readonly FunctionParameterListComparer Instance = new();
+
+    public bool Equals(IReadOnlyList<FunctionParameterType>? x, IReadOnlyList<FunctionParameterType>? y) =>
+        ReferenceEquals(x, y) || (x is not null && y is not null && x.SequenceEqual(y));
+
+    public int GetHashCode(IReadOnlyList<FunctionParameterType> list)
+    {
+        var hash = new HashCode();
+        foreach (var parameter in list)
+        {
+            hash.Add(parameter.RefKind);
+            hash.Add(RuntimeHelpers.GetHashCode(parameter.Type));
+        }
+        return hash.ToHashCode();
+    }
 }
 
 sealed class TypeListComparer : IEqualityComparer<IReadOnlyList<VplType>>
@@ -273,7 +330,7 @@ public static class Conversions
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
         type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
         : type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
-        : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
+        : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter && !type.IsFunction
         : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(VplType structType, HashSet<VplType> visiting)
@@ -299,7 +356,7 @@ public static class Conversions
         type.IsNullable || type.IsPointer
         || (type.IsFixedArray ? IsDefaultable(type.ElementType!, visiting)
             : type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
-            : !type.IsTypeParameter && !type.IsReference && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
+            : !type.IsTypeParameter && !type.IsReference && !type.IsFunction && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
 
     static FieldSymbol? FindNonDefaultableField(VplType structType, HashSet<VplType> visiting)
     {

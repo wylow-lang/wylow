@@ -1,0 +1,58 @@
+void first(() -> void f) {                          // error: lambdas and function types are checked, but cannot be compiled yet
+}
+
+class Widget {
+}
+
+int twice((int) -> int f, int x) {
+    return f(f(x));
+}
+
+int pick((int) -> int f) {
+    return f(1);
+}
+
+int pick((String) -> int f) {
+    return f("a");
+}
+
+void run(int value) {
+}
+
+void check() {
+    (int) -> int inc = x -> x;
+    var a = x -> x;                                 // error: a lambda needs a function type from where it is used
+    (int) -> int b = (x, y) -> x;                   // error: this lambda has 2 parameters, but '(int) -> int' takes 1 argument
+    (int) -> int c = (long x) -> 1;                 // error: 'x' is declared as 'long', but '(int) -> int' passes 'int'
+    (int) -> int d = x -> "text";                   // error: cannot implicitly convert 'String' to 'int'
+    () -> void e = () -> 5;                         // error: only calls can be used as statements
+    () -> void f = () -> {
+        return 1;                                   // error: this lambda returns 'void' and cannot return a value
+    };
+    (int) -> int g = x -> {
+        return;                                     // error: this lambda must return a value of type 'int'
+    };
+    int h = pick(x -> 1);                           // error: call is ambiguous
+    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts
+    run(() -> 1);                                   // error: no overload of 'run' accepts (lambda)
+    int j = inc(1, 2);                              // error: 'inc' takes 1 argument, but is given 2
+    int k = inc("a");                               // error: cannot implicitly convert 'String' to 'int'
+    inc(ref k);                                     // error: argument 1 must not be passed with 'ref'
+    inc = x -> x;                                   // error: 'inc' cannot be reassigned
+    (int) -> int l;                                 // error: a '(int) -> int' variable must be initialized where it is declared
+    int m = 5;
+    m(1);                                           // error: 'm' is a variable of type 'int', not a function
+    bool n = inc == inc;                            // error: operator '==' cannot be applied
+    (ref Widget) -> void o = w -> run(1);           // error: 'ref' cannot be used on a parameter of type 'Widget'
+    () -> Span<int> p = () -> p();                  // error: a function cannot return a 'Span<int>'
+    int q = 1;
+    (int) -> int r = q -> q;                        // error: 'q' is already defined
+    for (int s : 0..3) {
+        () -> void t = () -> {
+            break;                                  // error: 'break' can only be used inside a loop
+        };
+    }
+}
+
+void main() {
+}

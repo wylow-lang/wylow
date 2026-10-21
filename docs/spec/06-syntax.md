@@ -293,8 +293,25 @@ button.onClick(() -> { play(sound); });
   expression or a block.
 - As in Java, a lambda is never an operand: its body extends as far as an expression can, so
   `x -> x + 1` is a lambda returning `x + 1`.
+- A lambda has no type of its own: it takes one from where it's used (a declared variable, field,
+  parameter, or return), so `var f = x -> x;` is an error. Passed to overloaded functions, it
+  rules out those whose parameter takes a different number of arguments, or other types than it
+  declares; overloads that differ only in what an untyped lambda's parameters would be are
+  ambiguous. A generic function's type arguments are inferred from its other arguments, and then
+  give the lambda its parameter types.
+- A function value is called like a function, whether it's a local, a field (`button.onClick(5)`),
+  or the result of a call (`adder(2)(3)`).
+- `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.
+- A function type has no default value, so a field of one must be assigned by every constructor
+  or be nullable. `((int) -> int)?` is a nullable value, like `int?`, narrowed by null checks.
+  Function values have no `==`.
+- A lambda can use a local only if it is definitely assigned where the lambda is created. A null
+  check outside a lambda doesn't narrow inside it, since the code before the lambda runs could
+  change the local; and a local that any lambda assigns is never narrowed, since the lambda may
+  run during any call.
 
-> Implemented so far: parsing. Binding either is an error.
+> Implemented so far: parsing and checking. A program that uses lambdas or function types is
+> rejected after checking, until they can be compiled.
 
 ### Escaping and non-escaping
 

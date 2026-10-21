@@ -63,6 +63,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The compiler-provided default constructor.</summary>
     public bool IsImplicit { get; init; }
 
+    /// <summary>The parameters and return type of a lambda, whose body is a <see cref="BoundLambda"/>'s.</summary>
+    public bool IsLambda { get; init; }
+
     public string? BuiltinCppName { get; init; }
     public bool IsNoReturn { get; init; }
 

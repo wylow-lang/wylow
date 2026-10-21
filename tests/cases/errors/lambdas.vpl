@@ -1,49 +1,120 @@
-// Every form of function type and lambda parses; binding them comes next.
+// Everything here is valid. Until lambdas are compiled, only their first use is reported.
+void first(() -> void f) {                          // error: lambdas and function types are checked, but cannot be compiled yet
+}
+
 struct Vec3 {
     float x, y, z;
 }
 
 class Button {
-    (int) -> void onClick;                          // error: function types are not supported yet
-    ((int) -> int)? transform;                      // error: function types are not supported yet
-    List<(int, String) -> bool> filters;            // error: function types are not supported yet
-    (ref Vec3, in Vec3) -> (int) -> int curried;    // error: function types are not supported yet
-    () -> int[] makeAll;                            // error: function types are not supported yet
+    (int) -> void onClick;
+    ((int) -> int)? transform;
+    List<(int, String) -> bool> filters;
+    (ref Vec3, in Vec3) -> (int) -> int curried;
+
+    Button() {
+        onClick = code -> print(code);
+        filters = new List<(int, String) -> bool>();
+        curried = (a, b) -> n -> n;
+    }
+
+    void press(int code) {
+        onClick(code);
+        if (transform != null) {
+            print(transform!(code));
+        }
+    }
 }
 
-(int) -> int adder(int n) {                         // error: function types are not supported yet
-    return 0;
+class Counter {
+    int count;
+    (int) -> int step = x -> x + 1;
+
+    Counter() {
+        // `return` in a lambda leaves the lambda, not the constructor.
+        call(() -> { return; });
+        count = 0;
+    }
 }
 
-void apply(() -> void action) {                     // error: function types are not supported yet
+void call(() -> void f) {
+    f();
 }
 
-void run(int value) {
+int twice((int) -> int f, int x) {
+    return f(f(x));
 }
 
-void check(bool flag) {
-    ((int) -> int)? maybe;                          // error: function types are not supported yet
-    List<() -> void> handlers;                      // error: function types are not supported yet
-    var one = x -> x + 1;                           // error: lambdas are not supported yet
-    var none = () -> 1;                             // error: lambdas are not supported yet
-    var two = (a, b) -> a;                          // error: lambdas are not supported yet
-    var typed = (int a, int b) -> {                 // error: lambdas are not supported yet
-        return a + b;
+void each(int[3] items, (int) -> void action) {
+    for (int item : items) {
+        action(item);
+    }
+}
+
+void scale(ref Vec3 v, (ref Vec3) -> void change) {
+    change(ref v);
+}
+
+int pick((int) -> int f) {
+    return f(1);
+}
+
+int pick((String) -> int f) {
+    return f("a");
+}
+
+// Type arguments are inferred from the other arguments, then give the lambda its type.
+void eachOf<T>(T[3] items, (T) -> void action) {
+    for (T item : items) {
+        action(item);
+    }
+}
+
+T apply<T>((T) -> T f, T value) {
+    return f(value);
+}
+
+(int) -> int adder(int n) {
+    return x -> x + n;
+}
+
+void check() {
+    (int) -> int inc = x -> x + 1;
+    int a = twice(inc, 1);
+    int b = twice(x -> x * 2, 1);
+    int c = twice((int x) -> {
+        return x - 1;
+    }, 1);
+    int total = 0;
+    each([1, 2, 3], item -> {
+        total += item;
+    });
+    Vec3 v = Vec3(1, 2, 3);
+    scale(ref v, w -> {
+        w.x *= 2;
+    });
+    int d = pick((String s) -> 1);
+    ((int) -> int)? maybe = null;
+    if (maybe != null) {
+        int e = maybe(1);
+    }
+    int f = adder(2)(3);
+    () -> void nothing = () -> {
     };
-    var byRef = (ref Vec3 v) -> v.x;                // error: lambdas are not supported yet
-    var nested = x -> y -> x;                       // error: lambdas are not supported yet
-    var choice = flag
-        ? x -> 1                                    // error: lambdas are not supported yet
-        : y -> 2;                                   // error: lambdas are not supported yet
-    run(x -> x);                                    // error: lambdas are not supported yet
-    int picked = switch (1) {
-        case 1 -> run2(() -> 0);                    // error: lambdas are not supported yet
-        default -> 0;
-    };
-}
-
-int run2(int value) {
-    return value;
+    nothing();
+    (int) -> (int) -> int curried = x -> y -> x + y;
+    int g = curried(1)(2);
+    var h = inc;
+    eachOf([1.5, 2.5, 3.5], x -> print(x * 2));
+    long big = apply(x -> x * 2, 5L);
+    Button button = new Button();
+    button.onClick(5);
+    int? later = 1;
+    call(() -> {
+        if (later != null) {
+            int value = later;
+        }
+    });
 }
 
 void main() {

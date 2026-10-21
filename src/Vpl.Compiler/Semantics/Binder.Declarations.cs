@@ -185,11 +185,7 @@ public sealed partial class Binder
             if (result.Any(p => p.Name == parameter.Name))
                 Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
             var type = BindType(parameter.Type, allowVoid: false);
-            if (parameter.RefKind != RefKind.None && type.IsReference)
-            {
-                Error(parameter.Location,
-                    $"'{FunctionSymbol.RefPrefix(parameter.RefKind).Trim()}' cannot be used on a parameter of type '{type}'; class objects are already passed by reference");
-            }
+            CheckParameterMode(parameter.RefKind, type, parameter.Location);
             result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind));
         }
         return result;

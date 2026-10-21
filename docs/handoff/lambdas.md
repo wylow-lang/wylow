@@ -51,11 +51,12 @@ when it lands.
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
    call writes what any lambda or function reference in the program writes (their union), which is
    sound and simple.
-10. **Flow analysis.** A captured local must be definitely assigned where the lambda is. A narrowing
-   (`x != null`, `is`) of a captured local holds inside the lambda only if that local is
-   effectively final. This also keeps a lambda from referring into a nullable value
-   (`BoundTree.NullableValueRoot`): a local the lambda assigns is never narrowed inside it.
-   `return` in a lambda returns from the lambda. `break` and `continue` can't leave it.
+10. **Flow analysis** (done in step 2). A captured local must be definitely assigned where the
+   lambda is. No narrowing from outside holds inside a lambda, and a local any lambda assigns is
+   never narrowed, since the lambda may run during any call. This also keeps a lambda from
+   referring into a nullable value (`BoundTree.NullableValueRoot`). It is stricter than needed:
+   a narrowing of an effectively final local could carry into the lambda, if that turns out to
+   matter. `return` in a lambda returns from the lambda. `break` and `continue` can't leave it.
 11. **Cycles.** A closure that captures class references can form a cycle
     (`this.onHit = () -> react(this);`). Closures carry the object header and are visited by the
     cycle collector. `CyclicClasses` treats an escaping function type as able to reach every class,
@@ -71,12 +72,16 @@ when it lands.
 1. **Parsing** (done). Function types, including as type arguments and nullable. Lambdas: `x -> ...`,
    `() -> ...`, `(a, b) -> ...`, and `(int a) -> ...`, each with an expression or block body. To
    tell a lambda from a parenthesized expression, look ahead for `)` followed by `->`.
-2. **Types and binding.** Function types in `Types.cs` (interning, `TypeMap` substitution,
-   equality, not defaultable). Target typing, lambda bodies with their own return context, and
-   calling a function value.
-3. **Non-escaping.** Template and `FunctionRef` emission, non-escaping locals (decision 5),
-   by-reference captures, escape checks, and effects and ordering (decision 9).
-4. **Generic inference** with lambdas (decision 8).
+2. **Types and binding** (done). Function types in `Types.cs` (interning, `TypeMap` substitution,
+   equality, not defaultable), target typing (a lambda passed to overloads is a
+   `BoundPendingLambda` until resolution picks its type), lambda bodies with their own return
+   context, calling a function value (`BoundInvocation`), bind-once function-typed locals, and
+   flow analysis (decision 10). `Binder.RejectFunctionUses` then rejects the program; step 3
+   removes it.
+3. **Non-escaping.** Template and `FunctionRef` emission, by-reference captures, escape checks,
+   and effects and ordering (decision 9), including `ElementAliasing`.
+4. **Generic inference** with lambdas (decision 8). Inferring from the other arguments already
+   works; what's left is inferring from a lambda's body, as `Result.map<U>((T) -> U)` needs.
 5. **Escaping.** `@Escaping`, `vpl::Function`, by-copy captures and the effectively-final rule,
    cycle collector support. Run the cycles under ASan.
 6. **Function references.**

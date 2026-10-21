@@ -391,6 +391,16 @@ public sealed partial class Binder
         return new BoundVariant(location, type!, variant, ConvertArguments(constructor, arguments));
     }
 
-    static IEnumerable<TypeParameterSymbol> TypeParametersIn(VplType type) =>
-        type.TypeParameter is { } parameter ? [parameter] : type.NonNull.TypeArguments.SelectMany(TypeParametersIn);
+    static IEnumerable<TypeParameterSymbol> TypeParametersIn(VplType type)
+    {
+        var t = type.NonNull;
+        if (t.TypeParameter is { } parameter)
+            return [parameter];
+        IEnumerable<VplType> parts = [.. t.TypeArguments, .. t.FunctionParameters.Select(p => p.Type)];
+        if (t.ElementType is { } element)
+            parts = parts.Append(element);
+        if (t.FunctionReturnType is { } returnType)
+            parts = parts.Append(returnType);
+        return parts.SelectMany(TypeParametersIn);
+    }
 }

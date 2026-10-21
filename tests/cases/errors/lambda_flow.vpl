@@ -1,0 +1,43 @@
+void first(() -> void f) {                          // error: lambdas and function types are checked, but cannot be compiled yet
+}
+
+void call(() -> void f) {
+    f();
+}
+
+void check() {
+    int unassigned;
+    call(() -> {
+        print(unassigned);                          // error: 'unassigned' might not have been assigned
+    });
+
+    int? outside = 5;
+    if (outside != null) {
+        call(() -> {
+            int value = outside;                    // error: null checks outside a lambda don't narrow inside it
+        });
+    }
+
+    int? cleared = 5;
+    call(() -> {
+        cleared = null;
+    });
+    if (cleared != null) {
+        int value = cleared;                        // error: a lambda assigns it, so null checks don't narrow it
+    }
+
+    int assignedInside;
+    call(() -> {
+        assignedInside = 1;
+    });
+    print(assignedInside);                          // error: 'assignedInside' might not have been assigned
+
+    (int) -> int sign = x -> {
+        if (x > 0) {
+            return 1;
+        }
+    };                                              // error: this lambda must return a value on every path
+}
+
+void main() {
+}

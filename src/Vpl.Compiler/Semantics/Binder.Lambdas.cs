@@ -1,0 +1,152 @@
+using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
+
+namespace Vpl.Compiler.Semantics;
+
+public sealed partial class Binder
+{
+    // Until lambdas are compiled (docs/handoff/lambdas.md), a program using them is checked, then rejected here.
+    Location? firstFunctionUse;
+
+    void NoteFunctionUse(Location location)
+    {
+        if (firstFunctionUse is not { } first || location.Span.Start < first.Span.Start)
+            firstFunctionUse = location;
+    }
+
+    void RejectFunctionUses()
+    {
+        if (firstFunctionUse is { } location)
+            Error(location, "lambdas and function types are checked, but cannot be compiled yet");
+    }
+
+    VplType BindFunctionType(TypeSyntax syntax)
+    {
+        var parameters = new List<FunctionParameterType>();
+        bool failed = false;
+        foreach (var parameter in syntax.Parameters)
+        {
+            var type = BindType(parameter.Type, allowVoid: false);
+            failed |= type == VplType.Error || !CheckParameterMode(parameter.RefKind, type, parameter.Type.Location);
+            parameters.Add(new FunctionParameterType(parameter.RefKind, type));
+        }
+        var returnType = BindType(syntax.Element!, allowVoid: true);
+        if (returnType.IsRefStruct)
+        {
+            Error(syntax.Element!.Location, $"a function cannot return a '{returnType}', since there is nothing it could view");
+            return VplType.Error;
+        }
+        if (failed || returnType == VplType.Error)
+            return VplType.Error;
+        NoteFunctionUse(syntax.Location);
+        return returnType.FunctionReturning(parameters);
+    }
+
+    bool CheckParameterMode(RefKind refKind, VplType type, Location location)
+    {
+        if (refKind == RefKind.None || !type.IsReference)
+            return true;
+        Error(location, $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; class objects are already passed by reference");
+        return false;
+    }
+
+    /// <summary>The parameter types a lambda declares, or null if it leaves them to its target.</summary>
+    IReadOnlyList<FunctionParameterType>? BindDeclaredParameters(LambdaExpr e)
+    {
+        if (e.Parameters.Count == 0 || e.Parameters[0].Type is null)
+            return null;
+        return [.. e.Parameters.Select(p =>
+        {
+            var type = BindType(p.Type!, allowVoid: false);
+            return new FunctionParameterType(p.RefKind, CheckParameterMode(p.RefKind, type, p.Location) ? type : VplType.Error);
+        })];
+    }
+
+    static bool LambdaFits(BoundPendingLambda lambda, VplType to) =>
+        to.NonNull.IsFunction
+        && to.NonNull.FunctionParameters.Count == lambda.Syntax.Parameters.Count
+        && (lambda.DeclaredParameters is null
+            || lambda.DeclaredParameters.Zip(to.NonNull.FunctionParameters).All(p => p.First.Type == VplType.Error || p.First == p.Second));
+
+    BoundExpression BindLambda(LambdaExpr e, VplType type, IReadOnlyList<FunctionParameterType>? declared)
+    {
+        var expected = type.FunctionParameters;
+        if (e.Parameters.Count != expected.Count)
+        {
+            return ErrorExpression(e.Location,
+                $"this lambda has {Count(e.Parameters.Count, "parameter")}, but '{type}' takes {Count(expected.Count, "argument")}");
+        }
+
+        declared ??= BindDeclaredParameters(e);
+        var parameters = new List<LocalSymbol>();
+        for (int i = 0; i < expected.Count; i++)
+        {
+            var syntax = e.Parameters[i];
+            if (declared is not null && declared[i] != expected[i] && declared[i].Type != VplType.Error)
+            {
+                Error(syntax.Location, $"'{syntax.Name}' is declared as '{FunctionSymbol.RefPrefix(declared[i].RefKind)}{declared[i].Type}', "
+                    + $"but '{type}' passes '{FunctionSymbol.RefPrefix(expected[i].RefKind)}{expected[i].Type}'");
+            }
+            parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind));
+        }
+
+        var function = new FunctionSymbol("lambda", parameters, type.FunctionReturnType!)
+        {
+            IsLambda = true,
+            IsUnsafe = InUnsafe,
+            IsReadOnly = currentFunction?.IsReadOnly == true,
+        };
+        var body = e.Body ?? new BlockStmt(e.Value!.Location, [function.ReturnType == VplType.Void
+            ? new ExprStmt(e.Value.Location, e.Value)
+            : new ReturnStmt(e.Value.Location, e.Value)]);
+
+        // `break` and `continue` cannot leave the lambda, and `return` returns from it.
+        var (enclosingFunction, enclosingLoops) = (currentFunction, loopDepth);
+        currentFunction = function;
+        loopDepth = 0;
+        scope = new Scope(scope);
+        for (int i = 0; i < parameters.Count; i++)
+            Declare(parameters[i], e.Parameters[i].NameLocation);
+        var boundBody = BindBlock(body);
+        scope = scope.Parent;
+        (currentFunction, loopDepth) = (enclosingFunction, enclosingLoops);
+
+        NoteFunctionUse(e.Location);
+        return new BoundLambda(e.Location, type, function, boundBody);
+    }
+
+    static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+
+    /// <summary>The function or lambda being bound, as messages name it.</summary>
+    static string Describe(FunctionSymbol function) => function.IsLambda ? "this lambda" : $"'{function.Name}'";
+
+    /// <summary>Calls a function value: a local, parameter, field, or any expression of function type.</summary>
+    BoundExpression BindInvocation(CallExpr e, BoundExpression callee, PendingArguments pending)
+    {
+        if (callee.Type == VplType.Error)
+            return new BoundErrorExpression(e.Location);
+        callee = RequireNonNull(callee);
+        if (callee.Type == VplType.Error)
+            return new BoundErrorExpression(e.Location);
+
+        var type = callee.Type;
+        var signature = new MethodReference(
+            new FunctionSymbol(TextOf(callee.Location), [.. type.FunctionParameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.FunctionReturnType!),
+            null,
+            []);
+        var arguments = pending.Bind([new Candidate(signature.Symbol, null)]);
+        if (AnyError(arguments))
+            return new BoundErrorExpression(e.Location);
+        if (arguments.Count != type.FunctionParameters.Count)
+        {
+            return ErrorExpression(e.Location,
+                $"'{TextOf(callee.Location)}' takes {Count(type.FunctionParameters.Count, "argument")}, but is given {arguments.Count}");
+        }
+        if (ExplainRefMismatch(signature, arguments) is { } mismatch)
+            return ErrorExpression(mismatch.Location, mismatch.Message);
+
+        NoteFunctionUse(e.Location);
+        return new BoundInvocation(e.Location, callee, signature, ConvertArguments(signature, arguments));
+    }
+}

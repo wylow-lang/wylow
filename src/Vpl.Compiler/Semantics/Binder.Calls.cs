@@ -9,12 +9,19 @@ public sealed partial class Binder
     /// <summary>
     /// Binds a call's arguments. An argument expects its parameter's type when every candidate taking
     /// this many arguments agrees on it, so <c>f(Result.Ok(1))</c> and <c>f(East)</c> know their enum.
+    /// A lambda without an agreed function type is bound once overload resolution chooses one.
     /// </summary>
     List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null) =>
     [
-        .. arguments.Select((a, i) => a is RefArgExpr r
-            ? new Argument(BindExpression(r.Operand), true, r.Location)
-            : new Argument(BindExpression(a, candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i)), false, a.Location)),
+        .. arguments.Select((a, i) =>
+        {
+            if (a is RefArgExpr r)
+                return new Argument(BindExpression(r.Operand), true, r.Location);
+            var expected = candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i);
+            if (a is LambdaExpr lambda && expected?.NonNull.IsFunction != true)
+                return new Argument(new BoundPendingLambda(lambda.Location, lambda, BindDeclaredParameters(lambda)), false, a.Location);
+            return new Argument(BindExpression(a, expected), false, a.Location);
+        }),
     ];
 
     /// <summary>
@@ -66,16 +73,24 @@ public sealed partial class Binder
             MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
             ConditionalAccessExpr access => BindConditionalCall(e, access, arguments),
             ThisExpr => ErrorExpression(e.Callee.Location, "'this(...)' constructor chaining is not supported yet"),
-            _ => ErrorExpression(e.Callee.Location, "this expression cannot be called"),
+            _ => BindCalleeValue(e, BindExpression(e.Callee), arguments),
         };
         arguments.Bind(null);
         return call;
     }
 
+    /// <summary>A call of something other than a named function or method, which must be a function value.</summary>
+    BoundExpression BindCalleeValue(CallExpr e, BoundExpression callee, PendingArguments pending) =>
+        callee.Type.NonNull.IsFunction || callee.Type == VplType.Error
+            ? BindInvocation(e, callee, pending)
+            : ErrorExpression(e.Callee.Location, callee is BoundLocalAccess or BoundFieldAccess
+                ? $"'{TextOf(e.Callee.Location)}' is a variable of type '{callee.Type}', not a function"
+                : $"a value of type '{callee.Type}' cannot be called");
+
     BoundExpression BindNameCall(CallExpr e, NameExpr name, PendingArguments pending, VplType? expected)
     {
         if (IsValueName(name.Name))
-            return ErrorExpression(name.Location, $"'{name.Name}' is a variable, not a function");
+            return BindCalleeValue(e, BindName(name, null), pending);
         if (LookupTypeParameter(name.Name) is not null)
             return ErrorExpression(name.Location, $"'{name.Name}' is a type parameter and cannot be constructed");
 
@@ -175,6 +190,12 @@ public sealed partial class Binder
         var receiver = BindExpression(member.Target);
         if (receiver.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
+        // A field of function type is called like a method: `button.onClick(5)`.
+        if (MethodCandidates(receiver.Type.NonNull, member.Name).Count == 0
+            && LookupField(receiver.Type, member.Name) is var (field, owner) && TypeMap.For(owner).Apply(field.Type).NonNull.IsFunction)
+        {
+            return BindInvocation(e, BindFieldAccess(member.Location, receiver, member.Name, member.NameLocation), pending);
+        }
         var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.NonNull, member.Name));
         if (AnyError(receiverArguments))
             return new BoundErrorExpression(e.Location);
@@ -467,7 +488,10 @@ public sealed partial class Binder
         }
 
         for (int i = 0; i < arguments.Count; i++)
-            Unify(ownerMap.Apply(function.Parameters[i].Type), arguments[i].Expression, arguments[i].Expression.Type);
+        {
+            if (arguments[i].Expression is not BoundPendingLambda)
+                Unify(ownerMap.Apply(function.Parameters[i].Type), arguments[i].Expression, arguments[i].Expression.Type);
+        }
 
         var result = new List<VplType>();
         foreach (var parameter in function.TypeParameters)

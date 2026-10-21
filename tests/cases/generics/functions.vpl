@@ -22,6 +22,10 @@ T describe<T>(T x) {
     return x;
 }
 
+T middle<T>(T[3] items) {
+    return items[1];
+}
+
 void main() {
     print(identity(5));           // output: 5
     print(identity<float>(2));    // output: 2.0
@@ -38,4 +42,7 @@ void main() {
     describe(1);                  // output: int overload
     describe(1L);                 // output: generic overload
     describe<int>(1);             // output: generic overload
+
+    // An array literal infers T from its elements, rather than expecting a T[3].
+    print(middle([1.5, 2.5, 3.5])); // output: 2.5
 }

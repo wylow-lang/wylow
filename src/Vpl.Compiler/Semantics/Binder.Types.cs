@@ -22,14 +22,12 @@ public sealed partial class Binder
 
     VplType BindType(TypeSyntax syntax, bool allowVoid)
     {
-        if (syntax.Shape == TypeShape.Function)
+        var type = syntax.Shape switch
         {
-            Error(syntax.Location, "function types are not supported yet");
-            return VplType.Error;
-        }
-        var type = syntax.Shape == TypeShape.Named
-            ? BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location)
-            : BindCompositeType(syntax);
+            TypeShape.Named => BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location),
+            TypeShape.Function => BindFunctionType(syntax),
+            _ => BindCompositeType(syntax),
+        };
         if (type == VplType.Void && !allowVoid)
         {
             Error(syntax.Location, "'void' cannot be used here");

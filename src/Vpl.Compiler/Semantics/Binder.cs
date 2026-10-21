@@ -101,6 +101,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             bodies.Add(new BoundFunction(function, BindBody(function)));
 
         CheckBounds();
+        RejectFunctionUses();
         return new BoundProgram(unit.Source, typeList, bodies, FindMain(unit.Source), stdlib);
     }
 
