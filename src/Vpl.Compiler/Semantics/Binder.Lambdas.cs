@@ -76,7 +76,16 @@ public sealed partial class Binder
                 $"this lambda has {Count(e.Parameters.Count, "parameter")}, but '{type}' takes {Count(expected.Count, "argument")}");
         }
 
-        declared ??= BindDeclaredParameters(e);
+        var function = LambdaFunction(e, type, declared ?? BindDeclaredParameters(e), type.FunctionReturnType!);
+        var body = e.Body ?? new BlockStmt(e.Value!.Location, [function.ReturnType == VplType.Void
+            ? new ExprStmt(e.Value.Location, e.Value)
+            : new ReturnStmt(e.Value.Location, e.Value)]);
+        return new BoundLambda(e.Location, type, function, BindLambdaBody(e, function, () => BindBlock(body)));
+    }
+
+    FunctionSymbol LambdaFunction(LambdaExpr e, VplType type, IReadOnlyList<FunctionParameterType>? declared, VplType returnType)
+    {
+        var expected = type.FunctionParameters;
         var parameters = new List<LocalSymbol>();
         for (int i = 0; i < expected.Count; i++)
         {
@@ -88,28 +97,94 @@ public sealed partial class Binder
             }
             parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind));
         }
-
-        var function = new FunctionSymbol("lambda", parameters, type.FunctionReturnType!)
+        return new FunctionSymbol("lambda", parameters, returnType)
         {
             IsLambda = true,
             IsUnsafe = InUnsafe,
             IsReadOnly = currentFunction?.IsReadOnly == true,
         };
-        var body = e.Body ?? new BlockStmt(e.Value!.Location, [function.ReturnType == VplType.Void
-            ? new ExprStmt(e.Value.Location, e.Value)
-            : new ReturnStmt(e.Value.Location, e.Value)]);
+    }
 
+    BoundBlock BindLambdaBody(LambdaExpr e, FunctionSymbol function, Func<BoundBlock> bind)
+    {
         // `break` and `continue` cannot leave the lambda, and `return` returns from it.
         var (enclosingFunction, enclosingLoops) = (currentFunction, loopDepth);
         currentFunction = function;
         loopDepth = 0;
         scope = new Scope(scope);
-        for (int i = 0; i < parameters.Count; i++)
-            Declare(parameters[i], e.Parameters[i].NameLocation);
-        var boundBody = BindBlock(body);
+        for (int i = 0; i < function.Parameters.Count; i++)
+            Declare(function.Parameters[i], e.Parameters[i].NameLocation);
+        var body = bind();
         scope = scope.Parent;
         (currentFunction, loopDepth) = (enclosingFunction, enclosingLoops);
-        return new BoundLambda(e.Location, type, function, boundBody);
+        return body;
+    }
+
+    /// <summary>The lambda whose return type is being inferred from its returns, and the values they give.</summary>
+    (FunctionSymbol Function, List<BoundExpression> Values)? inferring;
+
+    /// <summary>
+    /// Binds a lambda's body before its return type is known, for generic inference. Its returns are
+    /// converted once the type is known, by <see cref="RetargetLambda"/>.
+    /// </summary>
+    InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters)
+    {
+        var e = lambda.Syntax;
+        // The return type stands in until it is inferred; returns don't look at it.
+        var function = LambdaFunction(e, VplType.Error.FunctionReturning(parameters), lambda.DeclaredParameters, VplType.Error);
+        var enclosing = inferring;
+        var values = new List<BoundExpression>();
+        inferring = (function, values);
+        var body = BindLambdaBody(e, function, () =>
+        {
+            if (e.Body is not null)
+                return BindBlock(e.Body);
+            // An expression body that has no value is a statement, as in a `void` lambda.
+            var value = BindValue(e.Value!, null);
+            if (value.Type == VplType.Void)
+                return new BoundBlock(e.Value!.Location, [new BoundExpressionStatement(e.Value.Location, value)]);
+            values.Add(value);
+            return new BoundBlock(e.Value!.Location, [new BoundReturn(e.Value.Location, value)]);
+        });
+        inferring = enclosing;
+        return new InferredLambda(function, body, values);
+    }
+
+    /// <summary>An inferred lambda fits a function type with its parameters that each returned value converts to.</summary>
+    bool InferredLambdaFits(InferredLambda lambda, VplType to) =>
+        to.NonNull.IsFunction
+        && to.NonNull.FunctionParameters.SequenceEqual(lambda.Function.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type)))
+        && (to.NonNull.FunctionReturnType == VplType.Void
+            ? lambda.Values.Count == 0
+            : lambda.Values.Count > 0 && lambda.Values.All(v => CanConvert(v, to.NonNull.FunctionReturnType!)));
+
+    /// <summary>Gives an inferred lambda its function type, converting what it returns.</summary>
+    BoundExpression RetargetLambda(BoundPendingLambda pending, InferredLambda lambda, VplType type)
+    {
+        if (!InferredLambdaFits(lambda, type))
+            return ErrorExpression(pending.Location, $"this lambda cannot be converted to '{type}'");
+        var old = lambda.Function;
+        var function = new FunctionSymbol(old.Name, old.Parameters, type.FunctionReturnType!) { IsLambda = true, IsUnsafe = old.IsUnsafe, IsReadOnly = old.IsReadOnly };
+        return new BoundLambda(pending.Location, type, function, (BoundBlock)ConvertReturns(lambda.Body, function));
+    }
+
+    BoundStatement ConvertReturns(BoundStatement statement, FunctionSymbol function) => statement switch
+    {
+        BoundReturn { Value: null } r when function.ReturnType != VplType.Void => ReportedReturn(r, $"this lambda must return a value of type '{function.ReturnType}'"),
+        BoundReturn { Value: { } value } r => new BoundReturn(r.Location, Convert(value, function.ReturnType)),
+        BoundBlock block => new BoundBlock(block.Location, [.. block.Statements.Select(s => ConvertReturns(s, function))]),
+        BoundIf s => new BoundIf(s.Location, s.Condition, ConvertReturns(s.Then, function), s.Else is null ? null : ConvertReturns(s.Else, function)),
+        BoundWhile s => new BoundWhile(s.Location, s.Condition, ConvertReturns(s.Body, function)),
+        BoundFor s => new BoundFor(s.Location, s.Initializer, s.Condition, s.Update, ConvertReturns(s.Body, function)),
+        BoundForRange s => new BoundForRange(s.Location, s.Local, s.Start, s.End, s.IsInclusive, ConvertReturns(s.Body, function)),
+        BoundSwitch s => new BoundSwitch(s.Location, s.Value, [.. s.Cases.Select(c => new BoundSwitchCase<BoundStatement>(c.Location, c.Patterns, ConvertReturns(c.Body, function)))]),
+        _ => statement,
+    };
+
+    BoundReturn ReportedReturn(BoundReturn r, string message)
+    {
+        Error(r.Location, message);
+        return new BoundReturn(r.Location, null);
     }
 
     static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";

@@ -320,6 +320,12 @@ public sealed partial class Binder
 
         if (function.ReturnRefKind != RefKind.None || s.IsRef)
             return BindReturnReference(s, function);
+        if (inferring is (var lambda, var values) && lambda == function)
+        {
+            var returned = BindValue(s.Value, null);
+            values.Add(returned);
+            return new BoundReturn(s.Location, returned);
+        }
         var value = BindValue(s.Value, function.IsConstructor || function.IsDestructor ? null : function.ReturnType);
         if (function.IsConstructor || function.IsDestructor)
         {

@@ -297,8 +297,20 @@ button.onClick(() -> { play(sound); });
   parameter, or return), so `var f = x -> x;` is an error. Passed to overloaded functions, it
   rules out those whose parameter takes a different number of arguments, or other types than it
   declares; overloads that differ only in what an untyped lambda's parameters would be are
-  ambiguous. A generic function's type arguments are inferred from its other arguments, and then
-  give the lambda its parameter types.
+  ambiguous.
+- A generic function's type arguments are inferred first from its other arguments and from the
+  parameter types lambdas declare. Those then give each lambda its parameter types, and a type
+  argument still unknown comes from what the lambdas return, each returned value counting like an
+  argument: `result.map(m -> m.name)` calls `map<String>`. Lambdas are taken in order, each once
+  its parameter types are known, so one lambda's result can type the next one's parameters
+  (`compose(2, x -> x * 0.5d, y -> y > 1d)`). Where lambdas disagree, the type they all convert to
+  wins, as for arguments: `pick(() -> 1, () -> 2L)` infers `long`. A type argument that a lambda's
+  parameters were bound with can't change after, so a later lambda that returns a wider type is an
+  error.
+- Inferring from a lambda's body needs the parameter types of the one overload being called, so it
+  happens only when one overload is left after the other arguments are checked. If others are
+  left too, the call is an error: specify the type arguments. A lambda returning nothing infers
+  nothing, and `try` can't be used in a lambda whose return type is being inferred.
 - A function value is called like a function, whether it's a local, a field (`button.onClick(5)`),
   or the result of a call (`adder(2)(3)`).
 - `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.

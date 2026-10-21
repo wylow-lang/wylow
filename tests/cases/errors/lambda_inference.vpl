@@ -1,0 +1,54 @@
+U apply<T, U>(T value, (T) -> U f) {
+    return f(value);
+}
+
+U run<U>(() -> U f) {
+    return f();
+}
+
+void make<T, U>((T) -> U f) {
+}
+
+U pick<U>(bool first, () -> U a, () -> U b) {
+    return first ? a() : b();
+}
+
+U chain<U>(() -> U a, (U) -> U b) {
+    return b(a());
+}
+
+void each<U>((int) -> U f) {
+}
+
+void each<U>((bool) -> U f) {
+}
+
+void both<U>((int) -> U f) {
+}
+
+void both((int) -> int f) {
+}
+
+Result<int, String> parse() {
+    return Result.Ok(1);
+}
+
+void main() {
+    print(apply(3, x -> x.name));                   // error: 'int' has no member 'name'
+    make(x -> 1);                                   // error: cannot infer type argument 'T' of 'make'
+    print(pick(true, () -> 1, () -> "a"));          // error: cannot infer type argument 'U' of 'pick': it could be 'int' or 'String'
+    print(chain(() -> 1, x -> 2L));                 // error: cannot infer type argument 'U' of 'chain': it could be 'int' or 'long'
+    run(() -> print(1));                            // error: this lambda returns no value, so it cannot give 'run' its type argument 'U'
+    each(x -> 1);                                   // error: cannot infer type argument 'U' of 'each' from a lambda, since other overloads also take these arguments
+    both(x -> 1);                                   // error: cannot infer type argument 'U' of 'both' from a lambda, since other overloads also take these arguments
+    print(run(() -> x -> x));                       // error: a lambda needs a function type from where it is used
+    print(run(() -> try parse()));                  // error: 'try' cannot be used in a lambda whose return type is inferred
+    print(run(() -> null));                         // error: cannot infer type argument 'U' of 'run' from 'null'
+    print(run(() -> {
+        if (true) {
+            return;                                 // error: this lambda must return a value of type 'int'
+        }
+        return 1;
+    }));
+    print(run<long>(() -> "a"));                    // error: cannot implicitly convert 'String' to 'long'
+}

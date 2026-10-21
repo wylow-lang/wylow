@@ -1,0 +1,99 @@
+// Type arguments inferred from what lambdas return.
+U apply<T, U>(T value, (T) -> U f) {
+    return f(value);
+}
+
+U pick<U>(bool first, () -> U a, () -> U b) {
+    return first ? a() : b();
+}
+
+C compose<A, B, C>(A a, (A) -> B f, (B) -> C g) {
+    return g(f(a));
+}
+
+U run<U>(() -> U f) {
+    return f();
+}
+
+U? whenPositive<U>(int x, (int) -> U? f) {
+    return x > 0 ? f(x) : null;
+}
+
+struct Mob {
+    String name;
+    int health;
+}
+
+class Bag<T> {
+    List<T> items = new List<T>();
+
+    void add(T item) {
+        items.add(item);
+    }
+
+    List<U> map<U>((T) -> U f) {
+        List<U> result = new List<U>();
+        for (T item : items) {
+            result.add(f(item));
+        }
+        return result;
+    }
+
+    // Inside a generic class, the lambda's type depends on the class's own type parameter.
+    List<String> names() {
+        return map(item -> "item");
+    }
+}
+
+Result<Mob, String> find(bool ok) {
+    if (ok) {
+        return Result.Ok(Mob("orc", 5));
+    }
+    return Result.Err("missing");
+}
+
+void main() {
+    Mob orc = Mob("orc", 5);
+    print(apply(orc, m -> m.name));                     // output: orc
+    print(apply(3, x -> x * 2L));                       // output: 6
+    print(apply(3, (int x) -> x > 2));                  // output: true
+    (int) -> String describe = x -> "number";
+    print(apply(3, describe));                          // output: number
+
+    // Lambdas that disagree take a type both convert to.
+    print(pick(false, () -> 1, () -> 2L));              // output: 2
+    print(run(() -> {
+        if (orc.health > 3) {
+            return 1;
+        }
+        return 2.5d;
+    }));                                                // output: 1.0
+
+    // Each lambda's parameters come from the lambdas before it.
+    print(compose(2, x -> x + 0.5d, y -> y * 2d));      // output: 5.0
+    print(compose(orc, m -> m.health, h -> h > 3));     // output: true
+
+    int calls = 0;
+    print(run(() -> {
+        calls++;
+        return calls * 10;
+    }));                                                // output: 10
+    print(calls);                                       // output: 1
+
+    int? half = whenPositive(4, x -> x / 2);
+    print(half ?? -1);                                  // output: 2
+
+    Bag<Mob> bag = new Bag<Mob>();
+    bag.add(orc);
+    bag.add(Mob("elf", 9));
+    List<int> healths = bag.map(m -> m.health);
+    print(healths[1]);                                  // output: 9
+    print(bag.names()[0]);                              // output: item
+
+    Result<String, String> name = find(true).map(m -> m.name);
+    print(name.orElse("?"));                            // output: orc
+    print(find(false).map(m -> m.health).orElse(-1));   // output: -1
+    print(find(false).mapErr(e -> 404).isErr());        // output: true
+    var total = find(true).map(m -> find(false).map(n -> n.health + m.health).orElse(m.health * 10));
+    print(total.orElse(0));                             // output: 50
+}

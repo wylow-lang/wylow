@@ -294,6 +294,8 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         if (!IsResult(operand.Type))
             return ErrorExpression(e.Operand.Location, $"'try' needs a 'Result', not '{operand.Type}'");
+        if (inferring is { } lambda && lambda.Function == currentFunction)
+            return ErrorExpression(e.Location, "'try' cannot be used in a lambda whose return type is inferred from what it returns; specify the call's type arguments");
         var function = currentFunction;
         if (function is null || function.IsConstructor || function.IsDestructor || !IsResult(function.ReturnType))
             return ErrorExpression(e.Location, "'try' can only be used in a function that returns a 'Result'");
@@ -479,7 +481,7 @@ public sealed partial class Binder
     }
 
     bool CanConvert(BoundExpression expression, VplType to) =>
-        expression is BoundPendingLambda lambda ? LambdaFits(lambda, to)
+        expression is BoundPendingLambda lambda ? (lambda.Inferred is { } inferred ? InferredLambdaFits(inferred, to) : LambdaFits(lambda, to))
         : Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
         || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to);
 
@@ -507,7 +509,7 @@ public sealed partial class Binder
         if (expression is BoundPendingLambda lambda)
         {
             return to.NonNull.IsFunction
-                ? Convert(BindLambda(lambda.Syntax, to.NonNull, lambda.DeclaredParameters), to)
+                ? Convert(lambda.Inferred is { } inferred ? RetargetLambda(lambda, inferred, to.NonNull) : BindLambda(lambda.Syntax, to.NonNull, lambda.DeclaredParameters), to)
                 : ErrorExpression(expression.Location, $"a lambda cannot be converted to '{to}', which is not a function type");
         }
 

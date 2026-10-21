@@ -238,7 +238,17 @@ public sealed record BoundLambda(Location Location, VplType Type, FunctionSymbol
 /// for it. <see cref="DeclaredParameters"/> are its parameter types, if it declares them.
 /// </summary>
 public sealed record BoundPendingLambda(Location Location, LambdaExpr Syntax, IReadOnlyList<FunctionParameterType>? DeclaredParameters)
-    : BoundExpression(Location, VplType.Lambda);
+    : BoundExpression(Location, VplType.Lambda)
+{
+    /// <summary>Its body, if generic inference has bound it to learn the return type.</summary>
+    public InferredLambda? Inferred { get; set; }
+}
+
+/// <summary>
+/// A lambda bound before its return type is known, as generic inference does. <see cref="Values"/>
+/// are the values its returns give, not yet converted to the return type.
+/// </summary>
+public sealed record InferredLambda(FunctionSymbol Function, BoundBlock Body, IReadOnlyList<BoundExpression> Values);
 
 /// <summary>
 /// A call of a function value. <see cref="Signature"/> describes the function type's parameters

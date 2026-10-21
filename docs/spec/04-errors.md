@@ -106,9 +106,8 @@ With helper methods:
 | `r.map(f)` | Converts the success value |
 | `r.isOk()` / `r.isErr()` | Tests |
 
-> Implemented so far: `orElse`, `orPanic`, `isOk`, and `isErr`. `orPanic` reports the caller's
-> location (through `@CallerLocation`), but not yet the error, which needs string formatting.
-> `map` and `mapErr` need lambdas.
+> Implemented so far: all of these. `orPanic` reports the caller's location (through
+> `@CallerLocation`), but not yet the error, which needs string formatting.
 
 ## 4.5 Panicking and non-panicking versions
 

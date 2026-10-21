@@ -29,28 +29,52 @@ public sealed partial class Binder
         }
 
         var instantiated = new List<MethodReference>();
+        var waiting = new List<(Inference Inference, MethodReference Partial)>();
         string? inferenceError = null;
         foreach (var candidate in sameArity)
         {
-            var inferred = candidate.Symbol.IsGeneric
-                ? typeArguments ?? InferTypeArguments(candidate.Symbol, candidate.Owner, arguments, out inferenceError)
-                : [];
-            if (inferred is not null)
-                instantiated.Add(new MethodReference(candidate.Symbol, candidate.Owner, inferred));
+            if (!candidate.Symbol.IsGeneric || typeArguments is not null)
+            {
+                instantiated.Add(new MethodReference(candidate.Symbol, candidate.Owner, typeArguments ?? []));
+                continue;
+            }
+            var inference = new Inference(this, candidate, arguments);
+            if (inference.Instantiate(arguments, out inferenceError) is not { } method)
+                continue;
+            if (inference.Unresolved.Count == 0)
+                instantiated.Add(method);
+            else
+                waiting.Add((inference, method));
         }
-        if (instantiated.Count == 0)
+        if (instantiated.Count == 0 && waiting.Count == 0)
         {
             Error(location, inferenceError!);
             return null;
         }
 
-        if (sameArity.Count == 1 && ExplainRefMismatch(instantiated[0], arguments) is { } mismatch)
+        if (sameArity.Count == 1 && ExplainRefMismatch(instantiated.FirstOrDefault() ?? waiting[0].Partial, arguments) is { } mismatch)
         {
             Error(mismatch.Location, mismatch.Message);
             return null;
         }
 
         var applicable = instantiated.Where(m => IsApplicable(m, arguments)).ToList();
+        waiting = [.. waiting.Where(w => w.Inference.CouldApply(w.Partial, arguments))];
+        if (waiting.Count > 0)
+        {
+            // A lambda's body is bound once, with the parameter types of the one candidate left.
+            if (waiting.Count + applicable.Count > 1)
+            {
+                var (inference, partial) = waiting[0];
+                var name = partial.Symbol.Name;
+                Error(location, $"cannot infer type argument '{inference.Unresolved[0].Name}' of '{name}' from a lambda, since other overloads also take these arguments; "
+                    + $"specify it explicitly, as in '{name}<...>(...)'");
+                return null;
+            }
+            if (waiting[0].Inference.FinishFromLambdas(arguments, location) is not { } finished)
+                return null;
+            applicable = IsApplicable(finished, arguments) ? [finished] : [];
+        }
         if (applicable.Count == 0)
         {
             var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + a.Expression.Type));
@@ -75,77 +99,13 @@ public sealed partial class Binder
         return null;
     }
 
-    /// <summary>
-    /// Infers each type parameter from the arguments in its positions. When positions disagree, the
-    /// type that every argument converts to wins, so <c>max(1, 2L)</c> infers <c>long</c>.
-    /// </summary>
-    IReadOnlyList<VplType>? InferTypeArguments(FunctionSymbol function, VplType? owner, List<Argument> arguments, out string? error)
-    {
-        var ownerMap = owner is null ? TypeMap.Empty : TypeMap.For(owner);
-        var bindings = function.TypeParameters.ToDictionary(p => p, _ => new List<(BoundExpression? Expression, VplType Type)>());
-
-        void Unify(VplType parameter, BoundExpression? argument, VplType argumentType)
-        {
-            if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
-            {
-                found.Add((argument, argumentType));
-            }
-            // A nullable argument gives `T?` its value type; null says nothing about `T`.
-            else if (parameter.IsNullableValue)
-            {
-                if (argumentType != VplType.Null)
-                    Unify(parameter.NonNull, argumentType.IsNullable ? null : argument, argumentType.NonNull);
-            }
-            else if (stdlib.IsSpan(parameter) && parameter.Symbol != argumentType.Symbol
-                     && ViewedElement(argumentType, parameter.Symbol == stdlib.ReadOnlySpan) is { } viewed)
-            {
-                Unify(parameter.TypeArguments[0], null, viewed);
-            }
-            else if ((parameter.IsPointer && argumentType.IsPointer)
-                     || (parameter.IsFixedArray && argumentType.IsFixedArray && parameter.FixedLength == argumentType.FixedLength))
-            {
-                Unify(parameter.ElementType!, null, argumentType.ElementType!);
-            }
-            else if (parameter.Symbol is not null && parameter.Symbol == argumentType.Symbol)
-            {
-                // Inside a type argument there are no conversions, so these must match exactly.
-                for (int i = 0; i < parameter.TypeArguments.Count; i++)
-                    Unify(parameter.TypeArguments[i], null, argumentType.TypeArguments[i]);
-            }
-        }
-
-        for (int i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].Expression is not BoundPendingLambda)
-                Unify(ownerMap.Apply(function.Parameters[i].Type), arguments[i].Expression, arguments[i].Expression.Type);
-        }
-
-        var result = new List<VplType>();
-        foreach (var parameter in function.TypeParameters)
-        {
-            var found = bindings[parameter];
-            if (found.Count == 0)
-            {
-                error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}'; specify it explicitly, as in '{function.Name}<...>(...)'";
-                return null;
-            }
-            var chosen = found.Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
-                candidate != VplType.Null && found.All(b => b.Expression is not null ? CanConvert(b.Expression, candidate) : b.Type == candidate));
-            if (chosen is null)
-            {
-                error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}': it could be {string.Join(" or ", found.Select(b => $"'{b.Type}'").Distinct())}";
-                return null;
-            }
-            result.Add(chosen);
-        }
-        error = null;
-        return result;
-    }
-
     bool IsApplicable(MethodReference method, List<Argument> arguments) =>
-        Enumerable.Range(0, arguments.Count).All(i => method.ParameterRefKind(i) == RefKind.Ref
+        Enumerable.Range(0, arguments.Count).All(i => IsApplicable(method, arguments, i));
+
+    bool IsApplicable(MethodReference method, List<Argument> arguments, int i) =>
+        method.ParameterRefKind(i) == RefKind.Ref
             ? arguments[i].IsRef && arguments[i].Expression.Type == method.ParameterType(i)
-            : !arguments[i].IsRef && CanConvert(arguments[i].Expression, method.ParameterType(i)));
+            : !arguments[i].IsRef && CanConvert(arguments[i].Expression, method.ParameterType(i));
 
     static (Location Location, string Message)? ExplainRefMismatch(MethodReference method, List<Argument> arguments)
     {

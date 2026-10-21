@@ -19,6 +19,22 @@ enum Result<T, E> {
         };
     }
 
+    // The value given by f, or the same error.
+    Result<U, E> map<U>((T) -> U f) {
+        return switch (this) {
+            case Ok(var value) -> Result.Ok(f(value));
+            case Err(var error) -> Result.Err(error);
+        };
+    }
+
+    // The same value, or the error given by f.
+    Result<T, F> mapErr<F>((E) -> F f) {
+        return switch (this) {
+            case Ok(var value) -> Result.Ok(value);
+            case Err(var error) -> Result.Err(f(error));
+        };
+    }
+
     // The value, or a panic with the message, reported where this was called.
     @CallerLocation
     T orPanic(String message) {
