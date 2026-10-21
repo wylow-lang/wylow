@@ -110,6 +110,7 @@ while (results.tryReceive() is LoadedMesh m) {
 - A thread's closure may capture **only sendable values**. (No refs or spans, since a thread can
   outlive its creator.)
 - Threads communicate through sendable values, typically over a `Channel<T>`.
+- A thread is an isolate (§5.6): a panic ends the thread, and joining it returns `Err(Panic)`.
 
 ### Freezing
 
@@ -148,10 +149,12 @@ stats.lock((ref Stats s) -> { s.frames++; });
 
 Because `ref` cannot escape (see [03-memory-model.md](03-memory-model.md#34-references)), protected
 data cannot be accessed after the lock is released.
+A lock held while a panic unwinds is poisoned (§5.6).
 
 ## 5.5 Statics
 
-> ⚠️ **Mutable statics are thread-local.** This differs from Java.
+> ⚠️ **Mutable statics are thread-local.** This differs from Java. More precisely, each isolate has
+> its own copy, and each thread is an isolate (§5.6).
 
 | Declaration | Meaning |
 |---|---|
@@ -161,9 +164,90 @@ data cannot be accessed after the lock is released.
 
 A job that calls a function which updates a mutable static updates the *worker thread's* copy.
 
-## 5.6 Panics
+## 5.6 Isolates and panics
 
-A panic on any thread, including inside a job, aborts the whole process.
+A panic stops the **isolate** it happens in ([01-safety.md](01-safety.md#13-panics)). An isolate is
+a set of objects and statics that nothing outside it can refer to. Each thread is one, and an
+`Isolate` is one that runs inside a call on the current thread: a way to run code that may panic,
+such as a mod, a script, or a game session in an editor, without stopping the program.
+
+```java
+class ModHost {
+    Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
+
+    void tick(FrameInput input) {                                       // FrameInput: plain data
+        switch (mod.call(state -> state.update(input))) {               // Result<ModOutput, Panic>
+            case Ok(ModOutput out) -> apply(out);
+            case Err(Panic p) -> {
+                log(p.message);
+                mod = Isolate.start(() -> new ModState(config));        // start over
+            }
+        }
+    }
+}
+```
+
+### How it works
+
+`Isolate.call` is an ordinary call on the current thread; nothing is scheduled or switched. What
+makes it an isolate are the rules for what crosses its boundary, the same as for a thread:
+
+- **In:** `start`'s and `call`'s lambdas may capture only sendable values, and `ReadOnlySpan<T>`s
+  of sendable `T`, which the isolate can read but not change. Nothing the isolate does can change
+  the caller's objects.
+- **Out:** `call` returns a sendable value, so no object created inside escapes.
+- **State:** `start` creates the state, an object of class `S`, inside the isolate. Only `call`'s
+  lambda receives it, and only for the call.
+
+So when code inside panics, the compiler has already ruled out two things: anything outside being
+half-changed, since the isolate couldn't change it, and anything outside referring to the
+isolate's half-changed objects, since none could leave it. The runtime needs no record of which
+objects belong to which isolate.
+
+### Using an isolate
+
+| Member | Does |
+|---|---|
+| `Isolate.start(() -> S)` | Creates an isolate whose state is the lambda's result, made inside it |
+| `call(S -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
+| `isAlive` | Whether the isolate has not panicked |
+
+- After a panic, the isolate is **dead**: its stack has unwound (running destructors and ending
+  borrows), and its state is released. Every later `call` returns `Err` with the same `Panic`
+  without running anything. To recover, start a new isolate. If `start`'s lambda panics, the
+  isolate starts out dead.
+- `Panic` is a sendable struct: the message, the source location, and the stack trace.
+- An `Isolate` is a normal object that belongs to the thread that created it.
+- Isolates nest. A panic stops the innermost isolate it is in.
+- Cycles among a dead isolate's objects are freed by the next `Memory.collectCycles` on the thread,
+  like any others ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)).
+
+### Statics
+
+Each isolate has its own copy of the mutable statics (§5.5), initialized when it starts, so a panic
+can't leave the caller's statics half-changed either. Code reaches the current isolate's copy
+through one pointer, which entering and leaving `call` switches.
+
+### Threads, jobs, and locks
+
+- A thread is an isolate running on its own OS thread. A panic ends the thread, and joining it
+  returns `Err(Panic)`. The main thread is the outermost isolate: a panic there, outside any
+  `Isolate.call`, aborts the process.
+- A job is part of the isolate that launched it, since it changes the launcher's data through spans
+  and `ref`s. A panic in a job is raised in the launching code once every job of the launch has
+  finished, and stops the launcher's isolate.
+- A lock (`Mutex<T>`, `RwLock<T>`) held while a panic unwinds is **poisoned**: whatever it
+  protects may be half-changed. Locking a poisoned lock panics; `isPoisoned` tests for it.
+  `Atomic<T>` and `Channel<T>` are never left half-changed, so they are not poisoned.
+
+### Implementation
+
+A panic inside an isolate is a C++ `throw` of a runtime type that only the boundary of `Isolate.call`
+or of a thread catches, after the runtime prints the message and the stack trace. Outside any
+isolate, a panic aborts directly. Code that doesn't panic pays nothing at run time, since C++
+unwinding is table-based; the tables make the program larger, and `--panic=abort` leaves them out.
+
+> Not implemented yet. Isolates need sendable types and lambdas, and come with threads.
 
 ## 5.7 Unsafe
 

@@ -19,7 +19,8 @@ overloading, layout control).
 ## Design principles
 
 1. **Safe by default, fast by opt-in.** Every check can be turned off, but only explicitly.
-2. **Failures are loud.** A failed safety check *panics*, and a panic always aborts the process.
+2. **Failures are loud.** A failed safety check *panics*. A panic stops the isolate it happens in and
+   discards its state: the whole process, unless the code runs in an `Isolate` or on another thread.
 3. **Errors are values.** No exceptions. Recoverable failures are `Result<T, E>`.
 4. **Simple ownership.** No borrow checker and no lifetime annotations. Safety comes from a small
    set of structural rules (second-class references, refcounting, generational handles).
@@ -34,7 +35,7 @@ overloading, layout control).
 | [02-types.md](02-types.md) | Primitives, conversions, nullability, enums, structs, classes, arrays, generics |
 | [03-memory-model.md](03-memory-model.md) | Values, refcounted objects, pools and handles, references, spans |
 | [04-errors.md](04-errors.md) | `Result<T, E>`, `try`, handling errors |
-| [05-concurrency.md](05-concurrency.md) | Thread confinement, `Sendable`, `shared class`, jobs, threads, statics |
+| [05-concurrency.md](05-concurrency.md) | Thread confinement, `Sendable`, `shared class`, jobs, threads, statics, isolates and panics |
 | [06-syntax.md](06-syntax.md) | Packages, construction, parameters, properties, operators, lambdas, `defer`, control flow |
 | [07-interop.md](07-interop.md) | `extern`, `@Safe`, blittable types, C enums and flags, strings/buffers/callbacks, native shims |
 

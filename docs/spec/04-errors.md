@@ -4,7 +4,7 @@ VPL has **no exceptions**. There are two kinds of failure:
 
 | Kind | Mechanism | Example |
 |---|---|---|
-| A bug | **Panic** (aborts the process) | Index out of bounds, `x!` on null |
+| A bug | **Panic** (stops the isolate; by default, the process) | Index out of bounds, `x!` on null |
 | An expected failure | **`Result<T, E>`** returned as a value | File not found, malformed asset |
 
 Panics are covered in [01-safety.md](01-safety.md#13-panics). This chapter covers `Result`.
@@ -109,3 +109,30 @@ With helper methods:
 > Implemented so far: `orElse`, `orPanic`, `isOk`, and `isErr`. `orPanic` reports the caller's
 > location (through `@CallerLocation`), but not yet the error, which needs string formatting.
 > `map` and `mapErr` need lambdas.
+
+## 4.5 Panicking and non-panicking versions
+
+A panic means a bug ([01-safety.md](01-safety.md#13-panics)), so an operation should panic only
+when its failure means the caller made a mistake. When a caller may reasonably not know whether an
+operation will succeed, because the index, handle, or text came from outside its control, it needs
+a version that reports failure as a value. This is C#'s `int.Parse` and `int.TryParse`, with `T?`
+or `Result` in place of an `out` parameter.
+
+**Rule:** every standard library operation that panics on a value its caller may not control has a
+non-panicking version. It returns `T?` when there is one way to fail, and `Result<T, E>` when the
+caller needs to know which way it failed. The panicking version stays the short, obvious one, for
+code where failure would be a bug.
+
+| Panics | Doesn't |
+|---|---|
+| `list[i]` | `list.get(i)`: a `ref T?`, null if `i` is out of bounds, like `pool.get(h)` |
+| `list.removeAt(i)` | `list.tryRemoveAt(i)`: a `T?` |
+| `(Direction)i` | `Direction.tryFrom(i)`: a `Direction?` |
+| `x!` | `x ?? fallback`, or `if (x is T v)` |
+| `r.orPanic("message")` | `r.orElse(fallback)`, `switch`, or `try` |
+
+Non-panicking versions are named `tryX` after the panicking `x`, except where a shorter name is
+established (`get` for indexers, `??` and patterns for nullable values).
+
+> Not implemented yet: `list.get`, `list.tryRemoveAt`, and `tryFrom` need nullable value types
+> (`int?`, `ref T?`).

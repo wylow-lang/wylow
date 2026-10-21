@@ -32,16 +32,39 @@ int32_t x = vpl::add(vpl::at(arr, i), y);   // checked index, defined overflow
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
 | Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`) or `unsafe` |
 | Data races | Prevented by the concurrency model ([05-concurrency.md](05-concurrency.md)) |
-| Stack overflow | OS guard page; process aborts (same as a panic) |
+| Stack overflow | OS guard page; process aborts, even inside an isolate |
 
 ## 1.3 Panics
 
 A **panic** is a failed safety check or an explicit `panic("message")` call.
 
-- A panic **always aborts the process**, in every build configuration, on every thread.
-- Before aborting, the runtime prints the message and a stack trace.
-- Panics cannot be caught or recovered from. Recoverable failures use `Result<T, E>`
-  ([04-errors.md](04-errors.md)).
+A panic means the code has a bug, so the state it was changing can't be trusted. It therefore
+**stops the whole isolate it happens in**, and everything that isolate owns is thrown away
+([05-concurrency.md](05-concurrency.md#56-isolates-and-panics)):
+
+- A panic on the main thread, outside any `Isolate.call`, **aborts the process**. A program that
+  uses no isolates or threads behaves exactly as if panics always aborted.
+- A panic inside `Isolate.call` stops that isolate: the stack unwinds to the call, which returns
+  `Err(Panic)`, and the isolate's objects are released. The caller continues.
+- A panic on a thread other than the main thread ends that thread, and joining it returns
+  `Err(Panic)`.
+- The runtime prints the message and a stack trace where the panic happens, before unwinding, and a
+  debugger stops there.
+- There is no way to catch a panic anywhere else, by type or otherwise, and no way to keep using
+  the state of an isolate that panicked.
+
+Some failures always abort the process, inside an isolate or not: a panic while unwinding from
+another (in a destructor), stack overflow, and running out of memory.
+
+The `--panic=abort` build option makes every panic abort the process, as if no code ran in an
+isolate, which leaves out the C++ unwinding tables.
+
+> Not implemented yet: today every panic aborts the process.
+
+Panics are not exceptions. Expected failures (a missing file, bad input, a lookup that may find
+nothing) are values: `T?` or `Result<T, E>`
+([04-errors.md](04-errors.md#45-panicking-and-non-panicking-versions)), and the standard library has a
+non-panicking version of every operation whose failure the caller may not control.
 
 ## 1.4 Opting out
 
