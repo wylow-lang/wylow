@@ -1,12 +1,13 @@
 # 3. Memory model
 
-VPL has no garbage collector and no borrow checker. Memory safety comes from four kinds of
-storage, each with one simple rule.
+VPL has no tracing garbage collector and no borrow checker. Memory safety comes from four kinds of
+storage, each with one simple rule. Objects are freed by reference counting, and cycles of objects
+by a collector that runs only when the program calls it.
 
 | Kind | Lives | Freed by | Safety mechanism |
 |---|---|---|---|
 | **Values** (primitives, `struct`, `T[N]`) | Inline | Whatever contains them | None needed |
-| **Objects** (`class`) | Heap | Reference counting | Refcount; `weak` for cycles |
+| **Objects** (`class`) | Heap | Reference counting | Refcount; `Weak<T>` and `Memory.collectCycles` for cycles |
 | **Pool slots** (`Pool<T>` + `Handle<T>`) | Stable chunks owned by the pool | The pool | Generation check |
 | **References** (`ref T`, `Span<T>`) | Local only | — (a view) | Cannot escape; runtime borrow tracking |
 
@@ -36,6 +37,7 @@ releasing any class references it contains.
   releasing any old field.
 - A destructor may use `this` freely, but must not keep a reference to its object: if a reference
   to it still exists when the destructor finishes, the program panics.
+- Objects in a cycle are released only by `Memory.collectCycles` ([below](#cycles-memorycollectcycles)).
 
 > ⚠️ **Long chains are destroyed recursively.** Releasing the head of a long linked list destroys
 > each node from inside the previous node's destruction, which can overflow the stack (an abort, see
@@ -44,35 +46,132 @@ releasing any class references it contains.
 
 ### Implementation
 
-Every class object starts with a header holding a non-atomic reference count and the head of a
-list of weak references. In C++, classes and interfaces derive virtually from one `vpl::Object`, so
-an object has one count however many interfaces it implements. References are `vpl::Ref<T>`, an
-intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count starts at 1, owned by
-the `new` expression, so a constructor that hands out and drops references to `this` cannot destroy
-the object early.
+Every class object starts with a header holding a non-atomic reference count and a pointer to its
+weak block (below), null until the object is first referred to weakly. The count's spare high bits
+hold the cycle collector's flags. In C++, classes and interfaces derive virtually from one
+`vpl::Object`, so an object has one count however many interfaces it implements. References are
+`vpl::Ref<T>`, an intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count
+starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
+`this` cannot destroy the object early.
 
-### Cycles and `weak`
+### Weak references: `Weak<T>`
 
-Reference cycles are never freed. Break them with `weak` references:
+`Weak<T>` refers to an object without keeping it alive. It is an ordinary value type from the
+standard library, so it can be a field (of a class or a struct), a local, a parameter, or an
+element: `List<Weak<Listener>>` works.
 
 ```java
 class Node {
     List<Node> children;
-    weak Node? parent;     // does not keep the parent alive
+    Weak<Node> parent;                     // does not keep the parent alive
+}
+
+child.parent = node;                       // a T or T? converts implicitly to Weak<T>
+if (child.parent.get() is Node p) { ... }  // get() returns T?: null once the target is gone
+child.parent = null;                       // refers to nothing
+```
+
+- `T` is a class or interface type, written without `?`. `Weak<T>` is defaultable: its default
+  refers to nothing.
+- `get()` returns a strong `T?`. Keep it in a local (or a pattern binding, as above) to use the
+  object for more than one operation.
+- A weak reference reads as null from the moment its target's count reaches zero, before the
+  target's destructor runs, whether the target was released or collected as part of a cycle.
+- `Weak<T>` is not sendable ([05-concurrency.md](05-concurrency.md)), since its target belongs to
+  one thread.
+- There is no `weak` modifier: `Weak<T>` is the only kind of weak reference.
+
+Use a weak reference when a reference should not keep its target alive: a parent pointer, an
+observer list, a cache, an enemy's current target. Cycles of strong references are also freed by the
+cycle collector (below), but only when the program asks; a weak reference lets the object be
+destroyed as soon as nothing else holds it.
+
+**Implementation.** The first time an object is referred to weakly, it allocates a small weak
+block `{ target, count }` and points its header at it. A `Weak<T>` is one pointer to the block, and
+copying one adds to the block's count. When the target's count reaches zero, the block's target is
+set to null; the block itself is freed when the target and the last `Weak` to it are gone. An
+object that is never referred to weakly costs nothing extra; one that is costs one small
+allocation, once.
+
+> Implemented so far: the old `weak` field modifier (`weak Node? parent;`), which `Weak<T>`
+> replaces. It is allowed on class fields only, links each weak reference into a list kept by its
+> target (three pointers per reference), and reads as a `T?` directly.
+
+### Cycles: `Memory.collectCycles`
+
+Reference counting alone never frees a cycle: objects that refer to each other keep each other's
+counts above zero. VPL frees them with a **cycle collector that runs only when the program calls
+it**:
+
+```java
+void endFrame() {
+    Memory.collectCycles(2000);            // visit at most 2000 objects, at this point in the frame
 }
 ```
 
-A `weak` reference must be nullable. It becomes `null` automatically when its target is
-destroyed. To use it, test it: `if (parent is Node p) { ... }` (this produces a strong reference
-for the block's duration).
+**It never runs on its own.** No allocation, release, or timer triggers it, and the program does not
+collect at exit. A game calls it at a point it chooses, typically once per frame or on a level
+transition, so collection shows up in a profiler exactly where it was called. A program that never
+calls it simply never frees its cycles, as in the past.
 
-- `weak` is allowed on class fields only (not struct fields, locals, or parameters), and a weak
-  field cannot be passed by `ref`. Reading it gives a strong `T?`.
-- A weak reference reads as `null` from the moment its target's count reaches zero, before the
-  target's destructor runs.
-- Implementation: each weak reference is linked into a list kept by its target, and the target
-  clears the list when it dies. Memory is freed immediately; there is no separate weak count or
-  control block. A weak field costs three pointers.
+| Call | Does |
+|---|---|
+| `Memory.collectCycles()` | Processes every buffered object (below) and frees every cycle found |
+| `Memory.collectCycles(int maxVisits)` | Stops after visiting about `maxVisits` objects; the rest wait for the next call |
+| `Memory.cycleStats()` | Counts since the last call: objects buffered, visited, and freed, by class in debug builds |
+
+The work done is the same on every run of the same program, on every machine: each thread collects
+only its own objects, and a budget counts objects, not time. `Memory.cycleStats()` reports how long
+visits take, to choose a budget.
+
+#### What the collector looks at
+
+The compiler finds the classes that **may be cyclic**: those that can reach an object of their own
+class through strong references in fields, including through structs, enums, fixed arrays, and
+container elements (`List<Node>`), and counting every class a field's type could refer to
+(subclasses, interface implementations). `Node` above is cyclic through `children`; a class holding
+`Vec3`s, a `List<int>`, a `String`, and a `Mesh` that holds no references back is not.
+
+- **Objects of acyclic classes cost nothing**, and are never buffered or visited. Most objects in a
+  game are values or acyclic.
+- When a reference to a **cyclic** object is released and its count stays above zero, the object may
+  have just become part of an unreachable cycle, so it is added to its thread's buffer (once, until
+  the next collection). That is one branch per such release, and an append the first time.
+- A collection runs trial deletion from the buffered objects: it subtracts the references the
+  objects reachable from them hold to each other, and objects left with no references from outside
+  that group are garbage. The work is proportional to what is reachable from the buffered objects,
+  never the whole heap. With a budget, a buffered object whose reachable group exceeds what is left
+  of the budget is put back for a later call rather than half-visited.
+- `@Acyclic` on a class declares that its objects never form cycles, so they are never buffered.
+  If that is wrong, the cycle leaks; it is never undefined behavior.
+- `shared class` objects ([05-concurrency.md](05-concurrency.md)) are not collected, since other
+  threads may refer to them. Their fields are limited to `final` values and synchronization types,
+  so cycles among them are rare; break any with `Weak<T>`.
+
+#### Destroying a cycle
+
+1. Every weak reference to every object in the cycle is cleared.
+2. Every object's destructor runs, in the order the collector found them, while all their fields are
+   still intact: each destructor sees the rest of the cycle undestroyed.
+3. Their fields are released and the memory is freed.
+
+As with any destructor, a destructor that stores a reference to its object, or to another object of
+the cycle, somewhere outside the cycle panics. Calling `collectCycles` from a destructor panics.
+
+Collection is always safe, wherever it is called. Every reference to an object held by running code
+(a local, a pin, the element a loop refers to in place) is counted, so an object still in use always
+has a reference from outside any cycle and is never freed.
+
+#### Diagnostics
+
+Debug builds report, as performance warnings:
+
+- a buffer that keeps growing across calls, meaning collections are not keeping up with the budget;
+- a class whose objects are freed by the collector again and again, where a `Weak<T>` would let them
+  be destroyed immediately instead;
+- at exit, the cycles still uncollected, by class (found without running destructors).
+
+> Not implemented yet. Until it is, cycles are never freed; break them with `weak` fields.
 
 ## 3.3 Pools and handles
 
@@ -175,7 +274,7 @@ References are **second-class**:
 
 A `ref` or `in` variable must be initialized with the place it refers to: a variable, field, or
 element, never a temporary value. It cannot refer to a class object itself (objects are already
-references) or to a `weak` field. Assigning to it assigns to the place.
+references). Assigning to it assigns to the place.
 
 ### Returning references
 
@@ -333,6 +432,9 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | `pool.get(h)` | 1 compare | 0 (`getUnchecked`) |
 | Copy a class reference | refcount inc/dec | same (pass by `ref` to avoid) |
 | For-each over class elements | refcount inc/dec per element only if the loop may store over one | same |
+| Release a reference to a cyclic class, count stays above 0 | 1 branch; a buffer append the first time | same |
+| Copy a `Weak<T>` | weak block count inc/dec | same |
+| Cycle collection | only where `Memory.collectCycles` is called, proportional to objects visited | same |
 | Borrow from class field | refcount inc/dec, often elided | 0 |
 | Borrow from container | counter inc/dec | 0 |
 | Pool iteration | skip dead slots | same |

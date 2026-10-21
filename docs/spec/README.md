@@ -3,7 +3,8 @@
 **VPL** (Videogame Programming Language) is a personal, purpose-built language for writing 3D games.
 
 - **Looks like Java:** naming, class syntax, packages, generics syntax.
-- **Performs like C++:** value types, inline arrays, explicit layout, no GC, zero-cost generics.
+- **Performs like C++:** value types, inline arrays, explicit layout, no tracing GC (cycles are
+  collected only where you call the collector), zero-cost generics.
 - **Compiles to C++:** the VPL compiler emits C++ which is then built by clang/MSVC/gcc.
 - **No undefined behavior by default:** everything the compiler generates is UB-free unless you
   explicitly opt out with `unsafe` or `@Unchecked`, similar to C#.
@@ -63,7 +64,10 @@ Each is explained in detail in its chapter.
    stop. See [06-syntax.md](06-syntax.md#switch).
 10. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into
    it, or an assignment like `list[0] = f()` borrows it, and `add` or `removeAt` meanwhile panics.
-   See [03-memory-model.md](03-memory-model.md#borrow-counters-on-containers).
+. **Cycles are freed only when you ask.** Reference counting frees everything else immediately, but
+   objects that refer to each other in a cycle stay alive until the program calls
+   `Memory.collectCycles`, which never runs on its own. Use `Weak<T>` for references that shouldn't
+   keep their target alive. See [03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles).
 
 ## Standard library
 
@@ -83,3 +87,5 @@ declare a type with the name of a standard library type.
   makes every loop over that type keep a reference count per element
   ([03-memory-model.md](03-memory-model.md#loop-elements)). It should name the destructor and the
   loops it affects.
+  Some are found at runtime instead, in debug builds: the cycle collector's
+  ([03-memory-model.md](03-memory-model.md#diagnostics)).

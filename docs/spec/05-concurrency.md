@@ -25,7 +25,7 @@ never written on structs.
 | Structs whose fields are all sendable ("plain data") | ✅ |
 | `T[N]` where `T` is sendable | ✅ |
 | References to a `shared class` (including `String`, `Frozen<T>`) | ✅ |
-| References to normal classes (`List<T>`, `T[]`, `Map`, user classes) | ❌ |
+| References to normal classes (`List<T>`, `T[]`, `Map`, user classes), and `Weak<T>` | ❌ |
 | Structs/enums containing any non-sendable field | ❌ |
 
 Wherever a sendable type is required, using a non-sendable one is a compile error naming the
