@@ -238,6 +238,16 @@ program. Assigning fields, including fields of the element's type, never counts,
 setters, and most methods don't prevent it. Reassigning `e` itself does. The program behaves the
 same either way; only the cost differs.
 
+> ⚠️ **One destructor can slow down unrelated loops.** A destructor runs wherever its object's last
+> reference is released, which can be almost anywhere, so the compiler assumes any destructor may
+> run during any loop. If a destructor anywhere in the program stores over an element of a type
+> (`~Squad() { members[0] = new Enemy(...); }`), every loop over elements of that type, such as
+> `for (Enemy e : enemies) { e.hp -= 1; }`, keeps its own reference to each element, even a loop that
+> never touches a `Squad`. Destructors that only assign fields, or store elements of other types,
+> don't affect it. Counting only destructors of objects the loop could actually release would be
+> more precise, but is much harder to analyze; a performance warning (see the
+> [README](README.md#not-yet-designed)) should point this out instead.
+
 ### Evaluation order and the heap
 
 Operands are evaluated left to right ([06-syntax.md](06-syntax.md#evaluation-order)). Since any call
