@@ -9,10 +9,10 @@
 - **No undefined behavior by default:** everything the compiler generates is UB-free unless you
   explicitly opt out with `unsafe` or `@Unchecked`, similar to C#.
 
-VPL is intentionally *not* general purpose. Game-specific functionality (vectors, matrices,
-rendering, etc.) lives in a small standard library rather than the language itself; the language
-provides the tools needed to make that library as fast as built-ins (value types, operator
-overloading, layout control).
+VPL is built for games and similar applications, but is not limited to them. Game-specific
+functionality (vectors, matrices, rendering, etc.) lives in a small standard library rather than
+the language itself; the language provides the tools needed to make that library as fast as
+built-ins (value types, operator overloading, layout control).
 
 > Status: **draft**. Sections marked *Open* are not yet decided.
 
