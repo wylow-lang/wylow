@@ -47,7 +47,6 @@ public enum TokenKind
     OverrideKeyword,
     AbstractKeyword,
     FinalKeyword,
-    WeakKeyword,
     EnumKeyword,
     SwitchKeyword,
     CaseKeyword,

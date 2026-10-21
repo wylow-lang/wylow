@@ -12,10 +12,10 @@ class Parent {
 }
 
 class Child {
-    weak Parent? parent;
+    Weak<Parent> parent;
 
     void greet() {
-        if (parent is Parent p) {
+        if (parent.get() is Parent p) {
             print(p.name);
         } else {
             print("orphan");
@@ -24,6 +24,54 @@ class Child {
 
     ~Child() {
         print("child destroyed");
+    }
+}
+
+interface Identified {
+    int key();
+}
+
+class Enemy implements Identified {
+    int id;
+
+    Enemy(int id) {
+        this.id = id;
+    }
+
+    int key() {
+        return id;
+    }
+
+    ~Enemy() {
+        print(id);
+    }
+}
+
+// A struct holding a weak reference is an ordinary value.
+struct Target {
+    Weak<Identified> who;
+    int priority = 1;
+}
+
+void describe(Weak<Identified> weak) {
+    if (weak.get() is Identified n) {
+        print(n.key());
+    } else {
+        print("gone");
+    }
+}
+
+Weak<Enemy> pick(Enemy e) {
+    return e;
+}
+
+class SelfWatcher {
+    Weak<SelfWatcher> self;
+
+    // A weak reference taken while being destroyed reads as null too.
+    ~SelfWatcher() {
+        self = this;
+        print(self.get() == null);
     }
 }
 
@@ -38,7 +86,7 @@ void main() {
     // The weak reference did not keep the parent alive, and became null.
     // output: parent destroyed
     child.greet();              // output: orphan
-    print(child.parent == null);    // output: true
+    print(child.parent.get() == null);  // output: true
 
     // A cycle through a weak reference is freed.
     var p = new Parent("dad");
@@ -47,6 +95,60 @@ void main() {
     p = new Parent("other");
     // output: parent destroyed
     // output: child destroyed
+
+    // Locals, parameters, return values, and copies, converting from a class to an interface.
+    var a = new Enemy(1);
+    Weak<Identified> w = a;
+    Weak<Identified> copy = w;
+    Weak<Identified> none = null;
+    describe(w);                // output: 1
+    describe(none);             // output: gone
+    describe(pick(a).get());    // output: 1
+    w = null;
+    describe(w);                // output: gone
+    describe(copy);             // output: 1
+    a = new Enemy(2);           // output: 1
+    describe(copy);             // output: gone
+
+    // In a struct.
+    Target t = Target();
+    t.who = a;
+    describe(t.who);            // output: 2
+    var moved = t;
+    t.who = null;
+    describe(moved.who);        // output: 2
+
+    // In a list, across growth.
+    var enemies = new List<Enemy>();
+    var watched = new List<Weak<Enemy>>();
+    for (int i : 0..10) {
+        var e = new Enemy(10 + i);
+        enemies.add(e);
+        watched.add(e);
+    }
+    enemies.removeAt(3);        // output: 13
+    int alive = 0;
+    for (Weak<Enemy> weak : watched) {
+        if (weak.get() is Enemy e) {
+            alive++;
+        }
+    }
+    print(alive);               // output: 9
+    print(watched[3].get() == null);    // output: true
+    print(watched[9].get()!.id);        // output: 19
+
+    _ = new SelfWatcher();
+    // output: true
 }
+// output: 10
+// output: 11
+// output: 12
+// output: 14
+// output: 15
+// output: 16
+// output: 17
+// output: 18
+// output: 19
+// output: 2
 // output: parent destroyed
 // output: child destroyed

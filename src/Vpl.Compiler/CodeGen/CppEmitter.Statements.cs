@@ -104,7 +104,7 @@ public sealed partial class CppEmitter
                     DeclarePatternLocals(initializer);
                     Line($"this->{FieldName(field)} = {Expression(initializer)};");
                 }
-                else if (!field.IsWeak && NeedsDefaultCode(field.Type) && !field.Type.IsTypeParameter)
+                else if (NeedsDefaultCode(field.Type) && !field.Type.IsTypeParameter)
                     Line($"this->{FieldName(field)} = {DefaultValue(field.Type)};");
             }
         }
@@ -147,7 +147,7 @@ public sealed partial class CppEmitter
                 DeclareHeld(declaration.Local, held);
                 break;
             case BoundVariableDeclaration { Local.AliasesElement: true, Initializer: { } element } declaration:
-                Line($"[[maybe_unused]] const {CppType(declaration.Local.Type)}& {LocalName(declaration.Local)} = {Place(element)};");
+                Line($"[[maybe_unused]] const {CppType(declaration.Local.Type)}& {LocalName(declaration.Local)} = {Expression(element)};");
                 break;
             case BoundVariableDeclaration declaration:
                 DeclarePatternLocals(declaration.Initializer);
@@ -371,7 +371,7 @@ public sealed partial class CppEmitter
             replacements[root] = pin;
         }
         var target = NewTemp();
-        body.Append($"auto&& {target} = {Place(assignment.Target)}; ");
+        body.Append($"auto&& {target} = {Expression(assignment.Target)}; ");
         if (root is not null)
             replacements.Remove(root);
         replacements[assignment.Target] = target;
@@ -380,12 +380,12 @@ public sealed partial class CppEmitter
         return body.Append("; }()").ToString();
     }
 
-    string Store(BoundAssignment assignment) => StoreText(assignment, Place(assignment.Target), Expression(assignment.Value));
+    string Store(BoundAssignment assignment) => StoreText(assignment, Expression(assignment.Target), Expression(assignment.Value));
 
     static string StoreText(BoundAssignment assignment, string target, string value)
     {
         var type = assignment.Target.Type;
-        bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter) || assignment.Target is BoundFieldAccess { Field.IsWeak: true };
+        bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter);
         return plain ? $"{target} = {value}" : $"vpl::assign({target}, {value})";
     }
 
@@ -407,7 +407,7 @@ public sealed partial class CppEmitter
         if (local.RefKind == RefKind.None)
             Line($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {Expression(place)};");
         else
-            Line($"[[maybe_unused]] {(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {LocalName(local)} = {Place(place)};");
+            Line($"[[maybe_unused]] {(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {LocalName(local)} = {Expression(place)};");
         if (root is not null)
             replacements.Remove(root);
     }

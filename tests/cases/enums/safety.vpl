@@ -3,7 +3,7 @@
 class Item {
     int id;
     String name;
-    weak Holder? clears;
+    Weak<Holder> clears;
 
     Item(int id, String name) {
         this.id = id;
@@ -12,7 +12,7 @@ class Item {
 
     ~Item() {
         print(name);
-        if (clears is Holder h) {
+        if (clears.get() is Holder h) {
             print(h.slot is Holding ? "sees old value" : "sees new value");
             h.slot = Slot.Empty;
         }

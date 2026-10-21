@@ -131,7 +131,7 @@ public sealed partial class CppEmitter
     {
         if (pinRootText is not null)
             replacements[operand.PinRoot!] = pinRootText;
-        var text = operand.ByReference ? Place(operand.Expression) : Expression(operand.Expression);
+        var text = Expression(operand.Expression);
         if (pinRootText is not null)
             replacements.Remove(operand.PinRoot!);
         // A replaced receiver is already held by a pin.

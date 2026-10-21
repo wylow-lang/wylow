@@ -46,7 +46,6 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["override"] = TokenKind.OverrideKeyword,
         ["abstract"] = TokenKind.AbstractKeyword,
         ["final"] = TokenKind.FinalKeyword,
-        ["weak"] = TokenKind.WeakKeyword,
         ["enum"] = TokenKind.EnumKeyword,
         ["switch"] = TokenKind.SwitchKeyword,
         ["case"] = TokenKind.CaseKeyword,

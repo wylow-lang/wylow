@@ -36,6 +36,9 @@ public sealed partial class CppEmitter
         {
             if (!visited.Add(s))
                 return;
+            // An extern struct is defined by the runtime.
+            if (s.IsExtern)
+                return;
             if (s.BaseType is { } baseType)
                 Visit(baseType.Symbol!);
             foreach (var iface in s.Kind is TypeKind.Struct or TypeKind.Enum ? [] : s.Interfaces)
@@ -59,7 +62,7 @@ public sealed partial class CppEmitter
         if (!needsDefaultFunction.TryGetValue(s, out bool needs))
         {
             needsDefaultFunction[s] = false;
-            needs = s.IsGeneric || s.Fields.Any(f => f.Initializer is not null || NeedsDefaultCode(f.Type));
+            needs = !s.IsExtern && (s.IsGeneric || s.Fields.Any(f => f.Initializer is not null || NeedsDefaultCode(f.Type)));
             needsDefaultFunction[s] = needs;
         }
         return needs;
@@ -282,11 +285,7 @@ public sealed partial class CppEmitter
         Line("{");
         indent++;
         foreach (var field in s.Fields)
-        {
-            Line(field.IsWeak
-                ? $"vpl::Weak<{ObjectType(field.Type)}> {FieldName(field)};"
-                : $"{CppType(field.Type)} {FieldName(field)}{{}};");
-        }
+            Line($"{CppType(field.Type)} {FieldName(field)}{{}};");
         if (s.Kind == TypeKind.Class)
         {
             if (s.Constructors.Count == 0)

@@ -52,6 +52,8 @@ public sealed partial class Binder
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
             return null;
         }
+        if ((decl.Modifiers & Modifiers.Extern) != 0 && !Stdlib.Contains(decl.Location.Source))
+            Error(decl.NameLocation, "extern structs are only supported in the standard library");
         HasCallerLocation(decl);
         var symbol = new TypeSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
         types[decl.Name] = symbol;
@@ -202,10 +204,9 @@ public sealed partial class Binder
         {
             HasCallerLocation(decl);
             var field = new FieldSymbol(decl.Name, BindType(decl.Type, allowVoid: false), s, decl);
-            CheckStorable(field.Type, decl.Type.Location, "the type of a field");
-            if (field.IsWeak && field.Type != VplType.Error && !(field.Type.IsReference && field.Type.IsNullable))
-                Error(decl.Type.Location, $"a 'weak' field must have a nullable class or interface type, such as '{field.Type}?'");
-            if (s.FindField(decl.Name) is not null)
+            if (s.IsExtern)
+                Error(decl.NameLocation, "an extern struct cannot declare fields; its C++ class holds its data");
+            CheckStorable(field.Type, decl.Type.Location, "the type of a field");            if (s.FindField(decl.Name) is not null)
                 Error(decl.NameLocation, $"field '{decl.Name}' is already defined");
             else
                 s.Fields.Add(field);
@@ -221,6 +222,11 @@ public sealed partial class Binder
             bool isPrivate = (modifiers & Modifiers.Private) != 0;
             if (decl.IsConstructor)
             {
+                if (s.IsExtern)
+                {
+                    Error(decl.NameLocation, "an extern struct cannot declare constructors");
+                    continue;
+                }
                 if (parameters.Count == 0 && s.Kind == TypeKind.Struct)
                 {
                     Error(decl.NameLocation, "structs cannot declare a parameterless constructor; use field initializers instead");
@@ -272,8 +278,10 @@ public sealed partial class Binder
             CheckReturnsView(method);
             if (method.PassesLocation && method.IsDispatched)
                 Error(decl.NameLocation, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods yet");
-            if (method.IsBuiltin && !method.IsStatic)
-                Error(decl.NameLocation, "extern methods must be static");
+            if (method.IsBuiltin && !method.IsStatic && !s.IsExtern)
+                Error(decl.NameLocation, "extern methods must be static, except in an extern struct");
+            else if (s.IsExtern && !method.IsBuiltin)
+                Error(decl.NameLocation, "the methods of an extern struct must be extern");
             if (method.IsProperty && method.IsStatic)
                 Error(decl.NameLocation, "static properties are not supported yet");
             // C++ templates cannot be virtual.
@@ -338,6 +346,8 @@ public sealed partial class Binder
             return null;
         if (!Stdlib.Contains(decl.Location.Source))
             Error(decl.NameLocation, "extern functions are only supported in the standard library for now");
+        if (owner is { IsExtern: true } && (decl.Modifiers & Modifiers.Static) == 0)
+            return decl.Name;
         return owner is null ? $"vpl::{decl.Name}" : $"vpl::{char.ToLowerInvariant(owner.Name[0])}{owner.Name[1..]}::{decl.Name}";
     }
 

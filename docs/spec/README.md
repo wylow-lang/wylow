@@ -65,7 +65,8 @@ Each is explained in detail in its chapter.
    stop. See [06-syntax.md](06-syntax.md#switch).
 10. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into
    it, or an assignment like `list[0] = f()` borrows it, and `add` or `removeAt` meanwhile panics.
-. **Cycles are freed only when you ask.** Reference counting frees everything else immediately, but
+   See [03-memory-model.md](03-memory-model.md#borrow-counters-on-containers).
+11. **Cycles are freed only when you ask.** Reference counting frees everything else immediately, but
    objects that refer to each other in a cycle stay alive until the program calls
    `Memory.collectCycles`, which never runs on its own. Use `Weak<T>` for references that shouldn't
    keep their target alive. See [03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles).

@@ -15,7 +15,6 @@ public enum Modifiers
     Override = 64,
     Abstract = 128,
     Final = 256,
-    Weak = 512,
     Unsafe = 1024,
     Extern = 2048,
 

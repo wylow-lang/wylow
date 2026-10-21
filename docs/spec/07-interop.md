@@ -40,6 +40,11 @@ extern {
 > The C++ runtime (`runtime/vpl.h`) implements them, as `vpl::name`, or `vpl::type::name` for a
 > method of a type (the type's name in lower camel case). Extern blocks and `@Include` are not
 > implemented.
+>
+> The standard library may also declare an `extern struct`, a value type implemented by the C++
+> class `vpl::Name` (`Weak<T>` is `vpl::Weak`). It has no fields or constructors, its default value
+> is the class's default constructor, it doesn't support `==`, and its methods are all `extern`:
+> instance methods call the C++ class's member function of the same name.
 ### C++ names
 
 Since the output is C++ source, a declaration can map to any C++ name, including namespaced and

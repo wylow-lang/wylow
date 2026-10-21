@@ -1,8 +1,6 @@
 class Node {
     int value;
     Node? next;
-    weak Node? parent;
-    weak Node strong;                   // error: a 'weak' field must have a nullable class or interface type
 }
 
 struct Vec { int x; }

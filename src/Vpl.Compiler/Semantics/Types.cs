@@ -252,7 +252,7 @@ public static class Conversions
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
         type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
         : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
-        : FindNonEquatableField(type, visiting) is null;
+        : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(VplType structType, HashSet<VplType> visiting)
     {

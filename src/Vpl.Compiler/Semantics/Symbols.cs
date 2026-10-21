@@ -155,13 +155,10 @@ public sealed class FieldSymbol(string name, VplType type, TypeSymbol owner, Fie
     public FieldDecl Declaration { get; } = declaration;
     public bool IsPrivate => (Declaration.Modifiers & Modifiers.Private) != 0;
 
-    /// <summary>A <c>weak</c> field does not keep its target alive and reads as null once the target is destroyed.</summary>
-    public bool IsWeak => (Declaration.Modifiers & Modifiers.Weak) != 0;
-
     public BoundExpression? Initializer { get; set; }
 
     /// <summary>Whether a constructor must assign it before using <c>this</c> and before returning.</summary>
-    public bool RequiresAssignment => Declaration.Initializer is null && !IsWeak && !Conversions.IsDefaultable(Type);
+    public bool RequiresAssignment => Declaration.Initializer is null && !Conversions.IsDefaultable(Type);
 
     public override string ToString() => $"{Owner.Name}.{Name}";
 }
@@ -235,6 +232,9 @@ public sealed class TypeSymbol
 
     /// <summary>A <c>ref struct</c>: second-class, like a <c>ref</c>, so it can only be a local or parameter.</summary>
     public bool IsRefStruct => (Declaration.Modifiers & Modifiers.Ref) != 0;
+
+    /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
+    public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 
     /// <summary>The type of <c>this</c>: the type applied to its own type parameters.</summary>
     public VplType Type { get; }

@@ -22,7 +22,7 @@ class Player {
 
 class Weapon {
     String name;
-    weak Player? owner;
+    Weak<Player> owner;
 
     Weapon(String name) {
         this.name = name;
@@ -31,7 +31,7 @@ class Weapon {
 
     // Replaces the owner's weapon, which is `this`, while running on it.
     void fire() {
-        if (owner is Player p) {
+        if (owner.get() is Player p) {
             p.weapon = new Weapon("new");
         }
         print(name);

@@ -32,7 +32,8 @@ public sealed partial class Binder
         }
         if (!syntax.IsNullable || type == VplType.Error)
             return type;
-        if (type.IsReference)
+        // Weak's type argument is always a class or interface type; see CheckWeakTarget.
+        if (type.IsReference || (type.TypeParameter is { } parameter && stdlib.Weak?.TypeParameters.Contains(parameter) == true))
             return type.Nullable;
         Error(syntax.Location, type.IsTypeParameter
             ? $"type parameter '{type}' cannot be nullable, since it may stand for a struct"
@@ -93,6 +94,8 @@ public sealed partial class Binder
             return VplType.Error;
         if (arguments.Count == s.TypeParameters.Count)
         {
+            if (s == stdlib.Weak && !CheckWeakTarget(arguments[0], location))
+                return VplType.Error;
             QueueBoundChecks(s.TypeParameters, arguments, location);
             return s.Construct(arguments);
         }
@@ -102,6 +105,24 @@ public sealed partial class Binder
         Error(location, $"'{s.Name}' requires {count} type argument{(count == 1 ? "" : "s")}");
         return VplType.Error;
     }
+
+    /// <summary>
+    /// A weak reference refers to an object, and can always be null. A type parameter is rejected,
+    /// since it may stand for a struct.
+    /// </summary>
+    bool CheckWeakTarget(VplType target, Location location)
+    {
+        if (target.IsReference && !target.IsNullable)
+            return true;
+        Error(location, target.IsReference
+            ? $"write 'Weak<{target.NonNull}>': a weak reference can always be null"
+            : $"'Weak' needs a class or interface type, not '{target}'");
+        return false;
+    }
+
+    /// <summary>A reference, or null, converts implicitly to a weak reference to it.</summary>
+    bool IsWeakConversion(VplType from, VplType to) =>
+        stdlib.IsWeak(to) && (from == VplType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable)));
 
     bool CheckTypeArguments(IReadOnlyList<VplType> arguments, Location location) =>
         arguments.All(a => CheckStorable(a, location, "a type argument"));

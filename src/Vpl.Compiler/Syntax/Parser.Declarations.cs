@@ -116,7 +116,6 @@ public sealed partial class Parser
             case TypeKind.Struct:
                 Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
-                Disallow(modifiers, Modifiers.Weak, _ => "'weak' is only valid on class fields");
                 break;
             case TypeKind.Class:
                 Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on struct methods");
@@ -128,7 +127,6 @@ public sealed partial class Parser
                 Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
                 Disallow(modifiers, Modifiers.ReadOnly, _ => "enum methods are always readonly, since an enum value cannot be modified");
-                Disallow(modifiers, Modifiers.Weak, _ => "'weak' is only valid on class fields");
                 break;
         }
 
@@ -147,7 +145,7 @@ public sealed partial class Parser
 
         if (At(TokenKind.Identifier) && Current.Text == typeName && Peek(1).Kind == TokenKind.OpenParen)
         {
-            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly | Modifiers.Weak | Modifiers.Extern | InheritanceModifiers,
+            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly | Modifiers.Extern | InheritanceModifiers,
                 token => $"'{token.Text}' is not valid on a constructor");
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
@@ -282,7 +280,6 @@ public sealed partial class Parser
     void CheckMethodModifiers(ModifierList modifiers)
     {
         var flags = modifiers.Flags;
-        Disallow(modifiers, Modifiers.Weak, _ => "'weak' is only valid on fields");
         if ((flags & Modifiers.Static) != 0)
         {
             Disallow(modifiers, Modifiers.ReadOnly | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");

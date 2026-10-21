@@ -7,7 +7,6 @@ struct S extends T { }                 // error: structs cannot inherit
 struct WithDestructor {
     ~WithDestructor() { }              // error: structs cannot have destructors
     virtual void m() { }               // error: 'virtual' is not valid on struct members
-    weak S? s;                         // error: 'weak' is only valid on class fields
 }
 
 interface I {

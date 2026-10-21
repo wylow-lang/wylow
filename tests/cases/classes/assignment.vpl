@@ -13,7 +13,7 @@ class Holder {
 
 class Item {
     String name;
-    weak Holder? holder;
+    Weak<Holder> holder;
 
     Item(String name, Holder? holder) {
         this.name = name;
@@ -21,7 +21,7 @@ class Item {
     }
 
     ~Item() {
-        if (holder is Holder h) {
+        if (holder.get() is Holder h) {
             print(h.item.name);
             print(h.pair.second.name);
         }

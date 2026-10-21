@@ -71,12 +71,14 @@ if (child.parent.get() is Node p) { ... }  // get() returns T?: null once the ta
 child.parent = null;                       // refers to nothing
 ```
 
-- `T` is a class or interface type, written without `?`. `Weak<T>` is defaultable: its default
-  refers to nothing.
+- `T` is a class or interface type, written without `?`; it cannot be a type parameter, which may
+  stand for a struct. `Weak<T>` is defaultable: its default refers to nothing. Weak references
+  don't support `==`; compare what `get()` returns.
 - `get()` returns a strong `T?`. Keep it in a local (or a pattern binding, as above) to use the
   object for more than one operation.
 - A weak reference reads as null from the moment its target's count reaches zero, before the
-  target's destructor runs, whether the target was released or collected as part of a cycle.
+  target's destructor runs, whether the target was released or collected as part of a cycle. A
+  weak reference to the object taken by its own destructor reads null too.
 - `Weak<T>` is not sendable ([05-concurrency.md](05-concurrency.md)), since its target belongs to
   one thread.
 - There is no `weak` modifier: `Weak<T>` is the only kind of weak reference.
@@ -87,15 +89,13 @@ cycle collector (below), but only when the program asks; a weak reference lets t
 destroyed as soon as nothing else holds it.
 
 **Implementation.** The first time an object is referred to weakly, it allocates a small weak
-block `{ target, count }` and points its header at it. A `Weak<T>` is one pointer to the block, and
-copying one adds to the block's count. When the target's count reaches zero, the block's target is
+block `{ target, count }` and points its header at it. A `Weak<T>` is a pointer to the block and
+one to the target (C++ can't cast the block's `vpl::Object*` back down to `T`), and copying one adds
+to the block's count. `Weak<T>` is an `extern struct` ([07-interop.md](07-interop.md)) implemented
+by `vpl::Weak` in the runtime. When the target's count reaches zero, the block's target is
 set to null; the block itself is freed when the target and the last `Weak` to it are gone. An
 object that is never referred to weakly costs nothing extra; one that is costs one small
 allocation, once.
-
-> Implemented so far: the old `weak` field modifier (`weak Node? parent;`), which `Weak<T>`
-> replaces. It is allowed on class fields only, links each weak reference into a list kept by its
-> target (three pointers per reference), and reads as a `T?` directly.
 
 ### Cycles: `Memory.collectCycles`
 
@@ -171,7 +171,7 @@ Debug builds report, as performance warnings:
   be destroyed immediately instead;
 - at exit, the cycles still uncollected, by class (found without running destructors).
 
-> Not implemented yet. Until it is, cycles are never freed; break them with `weak` fields.
+> Not implemented yet. Until it is, cycles are never freed; break them with `Weak<T>`.
 
 ## 3.3 Pools and handles
 

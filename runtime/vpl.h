@@ -214,32 +214,42 @@ inline float d2f(double x) {
 
 class Object;
 
-// A weak reference, linked into its target's list so the target can clear it when it dies.
-struct WeakLink {
-    WeakLink* prev = nullptr;
-    WeakLink* next = nullptr;
-    Object* target = nullptr;
+// Shared by an object and the weak references to it, so that they can tell when it is gone. The
+// object holds one count and each weak reference one; the last to let go frees the block.
+struct WeakBlock {
+    Object* target;
+    uintptr_t count;
 };
 
-template <class T>
+template <class R>
 class Weak;
 
 class Object {
     // Starts at 1 for the `new` expression that creates the object, so a constructor can hand out
     // and drop references to `this` without the count reaching 0.
     uintptr_t refs = 1;
-    WeakLink* weak = nullptr;
+    WeakBlock* weak = nullptr;
+    uint32_t flags = 0;
+
+    // Set once the count has reached zero: weak references to the object read null from then on.
+    static constexpr uint32_t dying = 1;
 
     template <class>
     friend class Weak;
 
+    // Null for a dying object, so that weak references taken by its destructor read null too.
+    WeakBlock* weak_block() {
+        if (flags & dying) return nullptr;
+        if (weak == nullptr) weak = new WeakBlock{this, 1};
+        return weak;
+    }
+
     void clear_weak() {
-        while (weak != nullptr) {
-            WeakLink* link = weak;
-            weak = link->next;
-            link->prev = link->next = nullptr;
-            link->target = nullptr;
-        }
+        flags |= dying;
+        if (weak == nullptr) return;
+        weak->target = nullptr;
+        if (--weak->count == 0) delete weak;
+        weak = nullptr;
     }
 
 public:
@@ -248,8 +258,6 @@ public:
     Object& operator=(const Object&) = delete;
 
     virtual ~Object() {
-        // Weak references taken by the destructor itself would otherwise dangle.
-        clear_weak();
         if (refs != 1) panic("an object's destructor kept a reference to the object", "<destructor>");
     }
 
@@ -343,39 +351,51 @@ public:
     }
 };
 
+// The standard library's Weak<T>, written Weak<Ref<T>> in C++ like any type argument. It keeps the
+// target as a T* too, since a pointer to the virtual base Object cannot be cast back down.
 template <class T>
-class Weak : WeakLink {
+class Weak<Ref<T>> {
+    WeakBlock* block = nullptr;
     T* ptr = nullptr;
-
-    void unlink() {
-        if (target == nullptr) return;
-        if (prev != nullptr) {
-            prev->next = next;
-        } else {
-            target->weak = next;
-        }
-        if (next != nullptr) next->prev = prev;
-        prev = next = nullptr;
-        target = nullptr;
-    }
 
 public:
     Weak() = default;
-    Weak(const Weak&) = delete;
-    Weak& operator=(const Weak&) = delete;
-    ~Weak() { unlink(); }
 
-    void operator=(Ref<T> value) {
-        unlink();
-        ptr = value.get();
+    template <class U>
+        requires std::is_convertible_v<U*, T*>
+    explicit Weak(const Ref<U>& target) : ptr(target.get()) {
         if (ptr == nullptr) return;
-        target = ptr;
-        next = target->weak;
-        if (next != nullptr) next->prev = this;
-        target->weak = this;
+        block = static_cast<Object*>(ptr)->weak_block();
+        if (block != nullptr) ++block->count;
     }
 
-    Ref<T> get() const { return target != nullptr ? Ref<T>(ptr) : Ref<T>(); }
+    Weak(const Weak& other) : block(other.block), ptr(other.ptr) {
+        if (block != nullptr) ++block->count;
+    }
+
+    Weak(Weak&& other) noexcept : block(other.block), ptr(other.ptr) {
+        other.block = nullptr;
+        other.ptr = nullptr;
+    }
+
+    Weak& operator=(const Weak& other) {
+        Weak copy(other);
+        std::swap(block, copy.block);
+        std::swap(ptr, copy.ptr);
+        return *this;
+    }
+
+    Weak& operator=(Weak&& other) noexcept {
+        std::swap(block, other.block);
+        std::swap(ptr, other.ptr);
+        return *this;
+    }
+
+    ~Weak() {
+        if (block != nullptr && --block->count == 0) delete block;
+    }
+
+    Ref<T> get() const { return block != nullptr && block->target != nullptr ? Ref<T>(ptr) : Ref<T>(); }
 };
 
 template <class T>

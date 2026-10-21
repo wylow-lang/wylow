@@ -59,7 +59,7 @@ public sealed partial class CppEmitter
         if (program.Types.Count > 0)
         {
             Line();
-            foreach (var s in program.Types)
+            foreach (var s in program.Types.Where(s => !s.IsExtern))
                 Line(TemplatePrefix(s.TypeParameters) + $"struct {TypeName(s)};");
         }
 
@@ -141,6 +141,7 @@ public sealed partial class CppEmitter
 
     static string TypeName(TypeSymbol s) => s.Kind switch
     {
+        TypeKind.Struct when s.IsExtern => "vpl::" + s.Name,
         TypeKind.Struct => "s_" + s.Name,
         TypeKind.Enum => "e_" + s.Name,
         TypeKind.Class => "c_" + s.Name,

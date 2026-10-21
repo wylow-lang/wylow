@@ -79,9 +79,12 @@ public sealed partial class Parser
             }
             if (TypeKeywordKind(Current.Kind) is { } kind)
             {
-                var allowed = kind == TypeKind.Class
-                    ? Modifiers.Public | Modifiers.Private | Modifiers.Abstract | Modifiers.Final
-                    : Modifiers.Public | Modifiers.Private | Modifiers.Ref;
+                var allowed = kind switch
+                {
+                    TypeKind.Class => Modifiers.Public | Modifiers.Private | Modifiers.Abstract | Modifiers.Final,
+                    TypeKind.Struct => Modifiers.Public | Modifiers.Private | Modifiers.Ref | Modifiers.Extern,
+                    _ => Modifiers.Public | Modifiers.Private | Modifiers.Ref,
+                };
                 Disallow(modifiers, ~allowed, token => $"'{token.Text}' is not valid on {Article(kind)}");
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
                     Error(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span, "a class cannot be both 'abstract' and 'final'");
@@ -184,7 +187,6 @@ public sealed partial class Parser
                 TokenKind.OverrideKeyword => Modifiers.Override,
                 TokenKind.AbstractKeyword => Modifiers.Abstract,
                 TokenKind.FinalKeyword => Modifiers.Final,
-                TokenKind.WeakKeyword => Modifiers.Weak,
                 TokenKind.UnsafeKeyword => Modifiers.Unsafe,
                 TokenKind.ExternKeyword => Modifiers.Extern,
                 _ => Modifiers.None,

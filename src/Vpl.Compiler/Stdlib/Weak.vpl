@@ -1,0 +1,7 @@
+// A reference that does not keep its target alive. A `T` or `T?` converts to it implicitly; its
+// default refers to nothing. See docs/spec/03-memory-model.md.
+
+extern struct Weak<T> {
+    // The target, or null once it has been destroyed.
+    readonly extern T? get();
+}

@@ -18,10 +18,10 @@ public sealed partial class CppEmitter
             BoundNullLiteral => "nullptr",
             BoundLocalAccess access => LocalName(access.Local),
             BoundThis => This(),
-            BoundFieldAccess field => FieldAccess(field) + (field.Field.IsWeak ? ".get()" : ""),
+            BoundFieldAccess field => FieldAccess(field),
             BoundIndex index => Index(index),
             BoundArrayLength length => $"vpl::length({Expression(length.Operand)})",
-            BoundArrayData data => $"const_cast<{CppType(data.Type)}>({Place(data.Array)}.data())",
+            BoundArrayData data => $"const_cast<{CppType(data.Type)}>({Expression(data.Array)}.data())",
             // Braces evaluate the elements left to right.
             BoundArrayLiteral literal => $"{CppType(literal.Type)}{{{string.Join(", ", literal.Elements.Select(Expression))}}}",
             BoundUnary unary => Unary(unary),
@@ -41,10 +41,6 @@ public sealed partial class CppEmitter
             _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
         };
     }
-
-    /// <summary>An expression used as a place to store to or bind a reference to; weak fields stay <c>vpl::Weak</c>.</summary>
-    string Place(BoundExpression expression) =>
-        expression is BoundFieldAccess field && !replacements.ContainsKey(expression) ? FieldAccess(field) : Expression(expression);
 
     string This() => context switch
     {
@@ -186,6 +182,9 @@ public sealed partial class CppEmitter
                 arguments = arguments.Append(location);
             var argumentText = string.Join(", ", arguments);
 
+            // An extern struct's instance methods are members of its C++ class.
+            if (function.IsExtern && function.IsInstanceMethod)
+                return $"{ReceiverText(call, parts[0])}{function.BuiltinCppName}({argumentText})";
             if (function.BuiltinCppName is { } builtin)
                 return $"{builtin}{typeArguments}({argumentText})";
             if (function.ContainingType is null)
@@ -306,6 +305,8 @@ public sealed partial class CppEmitter
             return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
         if (to.IsReference)
             return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
+        if (stdlib.IsWeak(to))
+            return $"{CppType(to)}({operand})";
         if (to.IsEnum)
             return $"{ObjectType(to)}::from_value({operand}, {SourceLocation(conversion.Location)})";
         if (from.IsEnum)

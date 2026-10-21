@@ -433,7 +433,7 @@ public sealed partial class Binder
 
     bool CanConvert(BoundExpression expression, VplType to) =>
         Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
-        || SpanConversion(expression, to) is not null;
+        || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null;
 
     /// <summary>Integer literals convert implicitly to float or double when no precision is lost.</summary>
     static bool IsConvertibleConstant(BoundExpression expression, VplType to) =>
@@ -465,7 +465,7 @@ public sealed partial class Binder
                 return expression;
         }
 
-        if (Conversions.IsImplicit(expression.Type, to))
+        if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (SpanConversion(expression, to) is { } span)
             return span;

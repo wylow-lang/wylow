@@ -252,8 +252,6 @@ public sealed partial class Binder
             Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
         else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
             Error(place.Location, $"cannot take a 'ref' to '{TextOf(place.Location)}' because {reason}; use 'in' instead");
-        else if (place is BoundFieldAccess { Field.IsWeak: true })
-            Error(place.Location, $"a 'weak' field cannot be referred to by '{keyword}'");
         else
             return true;
         return false;

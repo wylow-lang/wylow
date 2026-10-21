@@ -344,8 +344,6 @@ public sealed partial class Binder
                 Error(argument.Location, "a 'ref' argument must be a variable or field");
             else if (kind == PlaceKind.ReadOnly)
                 Error(argument.Location, $"cannot pass '{TextOf(argument.Expression.Location)}' by 'ref' because {reason}");
-            else if (argument.Expression is BoundFieldAccess { Field.IsWeak: true })
-                Error(argument.Location, "a 'weak' field cannot be passed by 'ref'");
             result.Add(argument.Expression);
         }
         return result;
