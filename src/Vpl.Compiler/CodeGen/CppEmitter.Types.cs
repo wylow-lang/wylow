@@ -271,14 +271,20 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
-    /// <summary>Classes and interfaces. Interfaces inherit virtually so that a class has one copy of each.</summary>
+    /// <summary>
+    /// Classes and interfaces. Interfaces inherit virtually so that a class has one copy of each,
+    /// and so does <c>vpl::Object</c> in a class hierarchy implementing any. Elsewhere it is a plain
+    /// base, which saves the object a pointer and each reference count a lookup of its offset.
+    /// </summary>
     void EmitObjectDefinition(TypeSymbol s)
     {
         var bases = new List<string>();
         if (s.BaseType is { } baseType)
             bases.Add(ObjectType(baseType));
-        else
+        else if (s.Kind == TypeKind.Interface || sharedObjectRoots.Contains(s))
             bases.Add("virtual vpl::Object");
+        else
+            bases.Add("vpl::Object");
         bases.AddRange(s.Interfaces.Select(i => "virtual " + ObjectType(i)));
 
         if (s.IsGeneric)
@@ -316,6 +322,8 @@ public sealed partial class CppEmitter
         indent--;
         Line("};");
     }
+
+    static TypeSymbol RootClass(TypeSymbol s) => s.BaseType?.Symbol is { } baseClass ? RootClass(baseClass) : s;
 
     /// <summary>
     /// Abstract methods get a body so that no call is ever a C++ pure virtual call: during a base

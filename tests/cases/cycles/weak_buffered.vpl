@@ -1,0 +1,56 @@
+// An object's weak block and its place in the cycle buffer share one word of its header: an object
+// with both still leaves the buffer when destroyed, and the collector still finds it.
+
+class Node {
+    int id;
+    Node? next;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    ~Node() {
+        print(id);
+    }
+}
+
+void main() {
+    // Buffered, then weakly referenced, then destroyed by its count.
+    var a = new Node(1);
+    var b = a;
+    b = new Node(2);
+    Weak<Node> first = a;
+    a = b;                              // output: 1
+    print(first.get() == null);         // output: true
+
+    // Weakly referenced, then buffered, then destroyed by its count.
+    var c = new Node(3);
+    Weak<Node> second = c;
+    var d = c;
+    d = new Node(4);
+    c = d;                              // output: 3
+    print(second.get() == null);        // output: true
+
+    // Put back in the buffer by a collection out of budget, then destroyed by its count.
+    var e = new Node(5);
+    var f = e;
+    f = new Node(6);
+    Weak<Node> third = e;
+    Memory.collectCycles(0);
+    e = f;                              // output: 5
+    print(third.get() == null);         // output: true
+
+    // Weakly referenced, then buffered, then collected.
+    Weak<Node> fourth = null;
+    if (true) {
+        var g = new Node(7);
+        fourth = g;
+        g.next = g;
+    }
+    print(fourth.get() != null);        // output: true
+    Memory.collectCycles();             // output: 7
+    print(fourth.get() == null);        // output: true
+}
+// output: 6
+// output: 4
+// output: 2

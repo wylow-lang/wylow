@@ -46,10 +46,14 @@ releasing any class references it contains.
 
 ### Implementation
 
-Every class object starts with a header holding a non-atomic reference count and a pointer to its
-weak block (below), null until the object is first referred to weakly, then two 32-bit words for
-the cycle collector: its flags, and the object's place in the collector's buffer. In C++, classes and interfaces derive virtually from one
-`vpl::Object`, so an object has one count however many interfaces it implements. References are
+Every class object starts with a 24-byte header (on 64-bit targets): the vtable pointer, a word
+holding the non-atomic reference count with the cycle collector's flags in its low bits, and a word
+holding the object's weak block (below) once it is referred to weakly, or else its place in the
+collector's buffer while it is buffered (an object with both keeps that place in the weak block).
+In C++, interfaces derive virtually from one `vpl::Object`, and so does the root of any class
+hierarchy in which some class implements an interface, so an object has one count however many
+interfaces it implements. Other classes derive from it directly, which saves each object a pointer
+and each count change a lookup of the base's offset. References are
 `vpl::Ref<T>`, an intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
 `this` cannot destroy the object early.
@@ -89,7 +93,7 @@ cycle collector (below), but only when the program asks; a weak reference lets t
 destroyed as soon as nothing else holds it.
 
 **Implementation.** The first time an object is referred to weakly, it allocates a small weak
-block `{ target, count }` and points its header at it. A `Weak<T>` is a pointer to the block and
+block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` is a pointer to the block and
 one to the target (C++ can't cast the block's `vpl::Object*` back down to `T`), and copying one adds
 to the block's count. `Weak<T>` is an `extern struct` ([07-interop.md](07-interop.md)) implemented
 by `vpl::Weak` in the runtime. When the target's count reaches zero, the block's target is
