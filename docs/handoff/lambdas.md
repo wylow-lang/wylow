@@ -120,6 +120,10 @@ stay explicit, optimizations come later).
    treated as writing every local, so operands around it get hoisted into an ordering lambda
    (`CppEmitter.Ordered`). Usually inlined away, but it can also force temporaries. Could track
    which locals each lambda writes.
+   - The wrapper also nests a C++ block, so each level of nested lambdas can cost two. About 25
+     levels exceed MSVC's limit on block nesting ("blocks nested too deeply"). Deeply nested
+     statements can hit the same limit; real code doesn't nest that deep, so this is a known
+     limit, not a planned fix.
 5. **Element aliasing is program-wide for function calls.** A call of a function value merges
    what *every* lambda in the program writes, so one lambda storing into elements of type `X`
    anywhere disables in-place loop elements in every loop over `X` that calls a function value.
