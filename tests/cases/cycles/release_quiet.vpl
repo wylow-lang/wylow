@@ -1,0 +1,17 @@
+// mode: release
+// Release builds report no performance warnings.
+
+class Node {
+    Node? next;
+}
+
+void main() {
+    for (int i : 0..10) {
+        var n = new Node();
+        n.next = n;
+        Memory.collectCycles();
+    }
+    var left = new Node();
+    left.next = left;
+    print(1);       // output: 1
+}

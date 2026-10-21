@@ -23,6 +23,23 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
 (unused-parameter warnings from test programs are fine).
 
+Run runtime changes (reference counting, `Weak`, the cycle collector) under AddressSanitizer: g++ here
+(MSYS2) can't link ASan, but clang-cl in `D:\LLVM\bin` can. From Git Bash, after the tests have
+generated `tests/.out`:
+
+```
+out=$(cygpath -w "$TEMP/asan"); mkdir -p "$TEMP/asan"; name=basics
+MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH \
+  -DVPL_DEBUG=1 -Iruntime "tests/.out/cycles/$name/$name.cpp" "-Fe$out/$name.exe" "-Fo$out/$name.obj"
+"$TEMP/asan/$name.exe"
+```
+
+- `_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`: the installed Clang 19 is older than this MSVC STL expects.
+- `MSYS_NO_PATHCONV=1` and dash-style flags (`-Fe`, not `/Fe`): Git Bash rewrites `/`-flags as paths.
+- Keep `-Fe$out/$name.exe` as written: `\\$name` escapes the `$`, so every build writes one literal file.
+- Check the program actually ran (its output appears) before calling it clean, and that ASan is live
+  at all: a deliberate use-after-free must report `heap-use-after-free`.
+
 ## Architecture
 
 `Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → ElementAliasing → CyclicClasses → CppEmitter → MSVC/g++`

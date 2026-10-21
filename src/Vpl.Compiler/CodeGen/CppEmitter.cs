@@ -64,7 +64,7 @@ public sealed partial class CppEmitter
             foreach (var s in program.Types.Where(s => !s.IsExtern))
                 Line(TemplatePrefix(s.TypeParameters) + $"struct {TypeName(s)};");
         }
-        EmitAcyclicInstantiations();
+        EmitInstantiationTraits();
 
         Line();
         foreach (var function in program.Functions.Where(f => f.Symbol.ContainingType is null))

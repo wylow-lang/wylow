@@ -1,0 +1,48 @@
+// Debug builds warn when the collector isn't keeping up with its budget, when it keeps freeing
+// objects of one class, and at exit about cycles never freed.
+
+class Node {
+    Node? next;
+}
+
+class Spark {
+    Spark? next;
+}
+
+class Item {
+    List<Item> others = new List<Item>();
+}
+
+void pair() {
+    var a = new Node();
+    var b = new Node();
+    a.next = b;
+    b.next = a;
+}
+
+void sparks() {
+    var a = new Spark();
+    a.next = a;
+    var b = new Spark();
+    b.next = b;
+}
+
+void main() {
+    // Freed by ten collections: a Weak<T> would have freed each pair at once.
+    for (int i : 0..10) {
+        pair();
+        Memory.collectCycles();
+    }
+    // warning: objects of class 'Node' were freed by 10 calls of Memory.collectCycles
+
+    // Two cycles made and one freed per call: the objects waiting keep growing.
+    for (int i : 0..6) {
+        sparks();
+        Memory.collectCycles(1);
+    }
+    // warning: objects are waiting for Memory.collectCycles, more after each of the last 5 calls
+
+    var item = new Item();
+    item.others.add(item);
+}
+// warning: at exit, 8 objects in cycles were never freed: 6 Spark, 1 Item, 1 List<Item>.

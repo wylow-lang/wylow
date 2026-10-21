@@ -11,6 +11,7 @@ using Vpl.Compiler.Text;
 //   // error: <text>      an error on this line whose message contains <text>
 //   // panic: <text>      the program panics with a message starting with <text>
 //   // panic-here: <text> the same, reported at this line
+//   // warning: <text>    the program reports a performance warning containing <text>; any other fails
 //   // mode: release      build with --release
 // Usage: Vpl.Tests [--cc msvc|gcc] [filter]
 
@@ -70,11 +71,11 @@ static string FindRepositoryRoot()
 
 sealed record TestResult(string Name, string? Failure);
 
-sealed record Expectations(List<string> Output, List<(int Line, string Text)> Errors, string? Panic, int? PanicLine, bool Release);
+sealed record Expectations(List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release);
 
 static partial class TestCase
 {
-    [GeneratedRegex(@"//\s*(output|error|panic|panic-here|mode):(.*)$")]
+    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode):(.*)$")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain)
@@ -92,7 +93,7 @@ static partial class TestCase
 
     static Expectations Parse(string file)
     {
-        var expectations = new Expectations([], [], null, null, false);
+        var expectations = new Expectations([], [], [], null, null, false);
         var lines = File.ReadAllLines(file);
         for (int i = 0; i < lines.Length; i++)
         {
@@ -105,6 +106,7 @@ static partial class TestCase
             {
                 case "output": expectations.Output.Add(value); break;
                 case "error": expectations.Errors.Add((i + 1, value)); break;
+                case "warning": expectations.Warnings.Add(value); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
                 case "mode": expectations = expectations with { Release = value == "release" }; break;
@@ -160,6 +162,18 @@ static partial class TestCase
         {
             problems.Add($"exit code {run.ExitCode}; stderr: {stderr}");
         }
+
+        const string warningPrefix = "performance warning: ";
+        var warnings = stderr.Split('\n').Where(l => l.StartsWith(warningPrefix)).Select(l => l[warningPrefix.Length..]).ToList();
+        foreach (var warning in expected.Warnings)
+        {
+            int index = warnings.FindIndex(w => w.Contains(warning, StringComparison.Ordinal));
+            if (index >= 0)
+                warnings.RemoveAt(index);
+            else
+                problems.Add($"missing warning: {warning}");
+        }
+        problems.AddRange(warnings.Select(w => $"unexpected warning: {w}"));
 
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }

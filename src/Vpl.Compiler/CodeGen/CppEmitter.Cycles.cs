@@ -12,18 +12,22 @@ public sealed partial class CppEmitter
 {
     /// <summary>
     /// Generic classes are cyclic per instantiation. <c>vpl::is_cyclic</c> is true unless specialized
-    /// here, for the instantiations that only C++ sees.
+    /// here, for the instantiations that only C++ sees. Known instantiations also get their VPL name.
     /// </summary>
-    void EmitAcyclicInstantiations()
+    void EmitInstantiationTraits()
     {
-        // `T` and `T?` are the same C++ type, and decided alike.
-        var acyclic = cycles.Classes.Where(c => c.Symbol!.IsGeneric && !cycles.IsCyclic(c)).Select(ObjectType).Distinct().ToList();
-        if (acyclic.Count == 0)
+        // Nullability is erased already: `T` and `T?` are the same C++ type.
+        var instances = cycles.Classes.Where(c => c.Symbol!.IsGeneric).ToList();
+        if (instances.Count == 0)
             return;
         Line();
         Line("namespace vpl {");
-        foreach (var type in acyclic)
-            Line($"template <> inline constexpr bool is_cyclic<{type}> = false;");
+        foreach (var type in instances)
+        {
+            Line($"template <> inline constexpr const char* class_name<{ObjectType(type)}> = {CppStringLiteral(type.Name)};");
+            if (!cycles.IsCyclic(type))
+                Line($"template <> inline constexpr bool is_cyclic<{ObjectType(type)}> = false;");
+        }
         Line("}");
     }
 
@@ -58,6 +62,16 @@ public sealed partial class CppEmitter
             Line($"void vpl_visit(vpl::Visitor& visitor){(isClass ? " override" : "")};");
         if (HasSeparateDestructor(s))
             Line("void vpl_finalize() override;");
+        if (isClass)
+            Line($"const char* vpl_class_name() const override {{ return {ClassName(s)}; }}");
+    }
+
+    string ClassName(TypeSymbol s)
+    {
+        if (!s.IsGeneric)
+            return CppStringLiteral(s.Name);
+        var name = $"vpl::class_name<{ObjectType(s.Type)}>";
+        return $"{name} != nullptr ? {name} : {CppStringLiteral(s.Name)}";
     }
 
     bool NeedsValueVisit(TypeSymbol s) => !s.IsRefStruct && (s.IsGeneric || MayHoldReferences(s.Type));

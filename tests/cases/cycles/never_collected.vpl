@@ -28,3 +28,4 @@ void main() {
     // output: 2
 }
 // output: 3
+// warning: at exit, 2000 objects in cycles were never freed: 2000 Node.

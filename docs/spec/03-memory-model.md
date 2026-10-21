@@ -179,7 +179,12 @@ Debug builds report, as performance warnings:
   be destroyed immediately instead;
 - at exit, the cycles still uncollected, by class (found without running destructors).
 
-> Implemented so far: everything above except the diagnostics, per-class counts and visit timing in
+They go to stderr as `performance warning: ...`. The buffer warning fires after it grows on 5
+consecutive calls, the class warning once a class has been freed by 10 calls, each once per program.
+Generic classes are named with their type arguments (`List<Node>`) where the compiler knows the
+instantiation.
+
+> Implemented so far: everything above except per-class counts and visit timing in
 > `Memory.cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).
 > Instantiations of generic classes that only C++ sees, through a generic function's type arguments,
 > are treated as cyclic, and a field whose type could refer to one as reaching every class; neither

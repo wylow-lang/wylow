@@ -46,6 +46,13 @@ struct String {
     std::abort();
 }
 
+// Reported in debug builds, when the program works but could be faster.
+inline void performance_warning(const char* message) {
+    std::fflush(stdout);
+    std::fprintf(stderr, "performance warning: %s\n", message);
+    std::fflush(stderr);
+}
+
 // Flow analysis rules this out; reaching it means a compiler bug, which must still not be UB.
 [[noreturn]] inline void unreachable(const char* location) {
     panic("reached the end of a non-void function", location);
@@ -242,6 +249,11 @@ class CycleCollector;
 template <class T>
 inline constexpr bool is_cyclic = true;
 
+// The VPL name of a generic class instantiation, for diagnostics; the compiler specializes it for the
+// instantiations it knows of.
+template <class T>
+inline constexpr const char* class_name = nullptr;
+
 class Object {
     // Starts at 1 for the `new` expression that creates the object, so a constructor can hand out
     // and drop references to `this` without the count reaching 0.
@@ -306,6 +318,9 @@ public:
     // Generated for classes with destructors: runs the object's destructors without releasing its
     // fields, for the collector.
     virtual void vpl_finalize() {}
+
+    // Generated for classes, for the collector's diagnostics.
+    virtual const char* vpl_class_name() const { return "object"; }
 
     void vpl_set_cyclic(bool value) { flags = value ? flags | cyclic : flags & ~cyclic; }
     bool vpl_finalized() const { return (flags & finalized) != 0; }
@@ -725,9 +740,108 @@ class CycleCollector {
         }
     }
 
+    // ---- Debug builds' diagnostics ----
+
+    static constexpr int growing_calls_to_warn = 5;
+    static constexpr int collections_to_warn = 10;
+    size_t last_waiting = 0;
+    int growing_calls = 0;
+    bool warned_growing = false;
+    // For each class whose objects collections have freed, how many collections did; negative once
+    // reported.
+    std::vector<std::pair<const char*, int>> freed_classes;
+
+    // A class's name, and how many objects of it.
+    struct ClassCount {
+        const char* name;
+        unsigned long long count;
+    };
+
+    static std::vector<ClassCount> count_by_class(const std::vector<Object*>& objects) {
+        std::vector<ClassCount> counts;
+        for (Object* object : objects) {
+            const char* name = object->vpl_class_name();
+            bool found = false;
+            for (auto& entry : counts) {
+                if (std::strcmp(entry.name, name) == 0) {
+                    ++entry.count;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) counts.push_back({name, 1});
+        }
+        return counts;
+    }
+
+    void note_waiting() {
+        size_t waiting = buffer.size() - holes;
+        growing_calls = waiting > last_waiting ? growing_calls + 1 : 0;
+        last_waiting = waiting;
+        if (growing_calls < growing_calls_to_warn || warned_growing) return;
+        warned_growing = true;
+        char message[256];
+        std::snprintf(message, sizeof message,
+                      "%llu objects are waiting for Memory.collectCycles, more after each of the last %d calls; its "
+                      "budget is too small to keep up",
+                      static_cast<unsigned long long>(waiting), growing_calls);
+        performance_warning(message);
+    }
+
+    void note_freed(const std::vector<Object*>& garbage) {
+        for (const ClassCount& freed : count_by_class(garbage)) {
+            std::pair<const char*, int>* entry = nullptr;
+            for (auto& existing : freed_classes) {
+                if (std::strcmp(existing.first, freed.name) == 0) entry = &existing;
+            }
+            if (entry == nullptr) entry = &freed_classes.emplace_back(freed.name, 0);
+            if (entry->second < 0 || ++entry->second < collections_to_warn) continue;
+            entry->second = -1;
+            char message[256];
+            std::snprintf(message, sizeof message,
+                          "objects of class '%s' were freed by %d calls of Memory.collectCycles; a Weak<T> in their "
+                          "cycles would let them be destroyed as soon as they are unreachable",
+                          freed.name, collections_to_warn);
+            performance_warning(message);
+        }
+    }
+
+    // Finds the garbage among the buffered objects without destroying it, at exit.
+    void report_uncollected() {
+        std::vector<Object*> marked;
+        std::vector<Object*> roots;
+        for (Object* root : buffer) {
+            if (root == nullptr) continue;
+            mark_gray(root, marked, SIZE_MAX);
+            roots.push_back(root);
+        }
+        std::vector<Object*> stack;
+        for (Object* root : roots) scan(root, stack);
+        std::vector<Object*> garbage;
+        for (Object* root : roots) collect_white(root, garbage);
+        if (garbage.empty()) return;
+
+        char message[1024];
+        int length = std::snprintf(message, sizeof message, "at exit, %llu objects in cycles were never freed:",
+                                   static_cast<unsigned long long>(garbage.size()));
+        const char* separator = " ";
+        for (const ClassCount& entry : count_by_class(garbage)) {
+            if (length < 0 || static_cast<size_t>(length) >= sizeof message - 128) break;
+            length += std::snprintf(message + length, sizeof message - static_cast<size_t>(length), "%s%llu %s", separator,
+                                    entry.count, entry.name);
+            separator = ", ";
+        }
+        if (length >= 0 && static_cast<size_t>(length) < sizeof message) {
+            std::snprintf(message + length, sizeof message - static_cast<size_t>(length),
+                          ". Call Memory.collectCycles to free them, or break the cycles with Weak<T>");
+        }
+        performance_warning(message);
+    }
+
     // Runs every destructor while every object of the garbage is intact, then frees it. The
     // collector holds a count on each object meanwhile, so no release can destroy one early.
     void destroy_garbage(std::vector<Object*>& garbage) {
+        if constexpr (VPL_DEBUG != 0) note_freed(garbage);
         for (Object* object : garbage) for_each_child(object, [](Object* child) { ++child->refs; });
         for (size_t i = 0; i < garbage.size(); ++i) {
             Object* object = garbage[i];
@@ -801,7 +915,16 @@ public:
         }
 
         if (!garbage.empty()) destroy_garbage(garbage);
+        if constexpr (VPL_DEBUG != 0) note_waiting();
         --destroying;
+    }
+
+    CycleCollector() = default;
+    CycleCollector(const CycleCollector&) = delete;
+    CycleCollector& operator=(const CycleCollector&) = delete;
+
+    ~CycleCollector() {
+        if constexpr (VPL_DEBUG != 0) report_uncollected();
     }
 
     CycleStats take_stats() { return std::exchange(stats, CycleStats{}); }
