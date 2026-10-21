@@ -1,0 +1,8 @@
+void main() {
+    var numbers = new List<int>();
+    numbers.add(1);
+    numbers.add(2);
+    for (int n : numbers) {
+        numbers.trim();         // panic-here: cannot change the length or capacity of a list while it is borrowed
+    }
+}

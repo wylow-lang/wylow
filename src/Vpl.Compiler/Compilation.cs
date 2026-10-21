@@ -29,6 +29,7 @@ public static class Compilation
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
 
+        new ElementAliasing(program).Run();
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program));
     }
 }

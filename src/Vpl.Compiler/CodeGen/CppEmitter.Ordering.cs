@@ -10,10 +10,11 @@ public sealed partial class CppEmitter
 {
     /// <summary>
     /// The object holding the storage that a place, or a span's view, lies in: the nearest object
-    /// on the path to it. <c>Borrowed</c> when the object handed the storage out from a method, so
-    /// it may move or free that storage unless it is borrowed while the place or view is used.
+    /// on the path to it. <c>Borrowed</c> when the object handed the storage out from a method and may
+    /// be <c>Borrowable</c>, so it may move or free that storage unless it is borrowed while the
+    /// place or view is used. Any other object only needs to be held.
     /// </summary>
-    static (BoundExpression Root, bool Borrowed)? StorageRoot(BoundExpression expression)
+    (BoundExpression Root, bool Borrowed)? StorageRoot(BoundExpression expression)
     {
         var current = expression;
         while (true)
@@ -30,7 +31,7 @@ public sealed partial class CppEmitter
                     break;
                 case BoundCall { Receiver: { } receiver } call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct:
                     if (receiver.Type.IsReference)
-                        return (receiver, true);
+                        return (receiver, MayBeBorrowable(receiver.Type));
                     current = receiver;
                     break;
                 case BoundConstruction { Type.IsRefStruct: true } construction when construction.Arguments.OfType<BoundArrayData>().FirstOrDefault() is { } data:
@@ -46,19 +47,23 @@ public sealed partial class CppEmitter
     /// The object to hold while a place is used by one operation. Locals and <c>this</c> need no
     /// hold, since nothing else can assign them; object locals can't even be passed by <c>ref</c>.
     /// </summary>
-    static BoundExpression? PinRoot(BoundExpression place) =>
+    BoundExpression? PinRoot(BoundExpression place) =>
         StorageRoot(place) is var (root, borrowed) && (borrowed || !IsStable(root)) ? root : null;
 
     /// <summary>
     /// The object to hold for the scope of a <c>ref</c> or span variable: even a local, since the
     /// function itself may reassign it, but not <c>this</c>, which the caller holds.
     /// </summary>
-    static BoundExpression? ScopeRoot(BoundExpression place) =>
+    BoundExpression? ScopeRoot(BoundExpression place) =>
         StorageRoot(place) is var (root, borrowed) && (borrowed || root is not BoundThis) ? root : null;
 
     /// <summary>A strong reference to <paramref name="root"/> for as long as <paramref name="place"/> is used, which also borrows it if needed.</summary>
     string Hold(BoundExpression place, BoundExpression root) =>
         StorageRoot(place) is (_, true) ? $"vpl::borrow({Expression(root)})" : $"vpl::pin({Expression(root)})";
+
+    /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
+    bool MayBeBorrowable(VplType type) =>
+        borrowableClasses.Any(c => c == type.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.Symbol));
 
     static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess;
 
@@ -172,30 +177,6 @@ public sealed partial class CppEmitter
         _ => false,
     };
 
-    static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
-    {
-        BoundUnary unary => [unary.Operand],
-        BoundBinary binary => [binary.Left, binary.Right],
-        BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
-        BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
-        BoundNew creation => creation.Arguments,
-        BoundConversion conversion => [conversion.Operand],
-        BoundConditional conditional => [conditional.Condition, conditional.WhenTrue, conditional.WhenFalse],
-        BoundFieldAccess field => [field.Receiver],
-        BoundIndex index => [index.Target, index.Index],
-        BoundArrayLength length => [length.Operand],
-        BoundArrayData data => [data.Array],
-        BoundArrayLiteral literal => literal.Elements,
-        BoundNonNull nonNull => [nonNull.Operand],
-        BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],
-        BoundConditionalAccess access => [access.Receiver, access.WhenNotNull],
-        BoundIs pattern => [pattern.Operand],
-        BoundSwitchExpression switchExpression => [switchExpression.Value, .. switchExpression.Cases.Select(c => c.Body)],
-        BoundVariant variant => variant.Arguments,
-        BoundTry attempt => [attempt.Operand],
-        _ => [],
-    };
-
     bool HasEffects(BoundExpression expression) => expression switch
     {
         BoundCall or BoundNew or BoundNonNull or BoundTry => true,
@@ -206,7 +187,7 @@ public sealed partial class CppEmitter
         BoundBinary binary when MayPanic(binary) => true,
         BoundIndex { Target.Type.IsFixedArray: true, Index: not BoundLiteral } => true,
         BoundUnary { Operator: BoundUnaryOperator.Negate } unary when unary.Type.IsInteger => true,
-        _ => Children(expression).Any(HasEffects),
+        _ => BoundTree.Children(expression).Any(HasEffects),
     };
 
     /// <summary>Whether evaluating the expression may modify locals, parameters, or fields of values.</summary>
@@ -217,7 +198,7 @@ public sealed partial class CppEmitter
         BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
         BoundNew creation when creation.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
         BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
-        _ => Children(expression).Any(Writes),
+        _ => BoundTree.Children(expression).Any(Writes),
     };
 
     /// <summary>Whether evaluating the expression may run user code, which can modify any object.</summary>
@@ -225,11 +206,11 @@ public sealed partial class CppEmitter
     {
         BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit => true,
-        _ => Children(expression).Any(WritesHeap),
+        _ => BoundTree.Children(expression).Any(WritesHeap),
     };
 
     static bool ReadsState(BoundExpression expression) =>
-        expression is BoundLocalAccess or BoundThis or BoundFieldAccess or BoundIndex || Children(expression).Any(ReadsState);
+        expression is BoundLocalAccess or BoundThis or BoundFieldAccess or BoundIndex || BoundTree.Children(expression).Any(ReadsState);
 
     /// <summary>
     /// Whether the expression reads storage that a call could change: fields of objects, and
@@ -242,7 +223,7 @@ public sealed partial class CppEmitter
         BoundLocalAccess { Local.RefKind: not RefKind.None } => true,
         BoundIndex { Target.Type.IsPointer: true } => true,
         BoundThis { Type.IsStructOrEnum: true } => true,
-        _ => Children(expression).Any(ReadsHeap),
+        _ => BoundTree.Children(expression).Any(ReadsHeap),
     };
 
     static bool MayPanic(BoundBinary binary) => binary.Left.Type.IsInteger && binary.Operator switch

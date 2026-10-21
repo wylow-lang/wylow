@@ -1,0 +1,105 @@
+// A loop element refers to the element in place unless something the loop runs may store over an
+// element of its type; then it holds its own reference, so the object it refers to stays the same.
+
+class Enemy {
+    String name;
+    Enemy? target;
+
+    Enemy(String name) {
+        this.name = name;
+    }
+
+    ~Enemy() {
+        print(name);
+    }
+
+    String label { get -> name; }
+
+    void aim(Enemy other) {
+        target = other;
+    }
+}
+
+class Visitor {
+    virtual void visit(List<Enemy> list) {
+    }
+}
+
+class Replacer extends Visitor {
+    override void visit(List<Enemy> list) {
+        list[0] = new Enemy("x");
+    }
+}
+
+void replaceFirst(List<Enemy> list) {
+    list[0] = new Enemy("new");
+}
+
+void setFirst<T>(List<T> list, T value) {
+    list[0] = value;
+}
+
+void main() {
+    var list = new List<Enemy>();
+    list.add(new Enemy("a"));
+    list.add(new Enemy("b"));
+
+    // Getters and setters of fields never store over an element.
+    for (Enemy e : list) {
+        e.aim(e);
+        print(e.label);
+        e.target = null;
+    }
+    // output: a
+    // output: b
+
+    for (Enemy e : list) {
+        replaceFirst(list);
+        print(e.name);
+    }
+    // output: a
+    // output: a
+    // output: new
+    // output: b
+
+    Visitor visitor = new Replacer();
+    for (Enemy e : list) {
+        visitor.visit(list);
+        print(e.name);
+    }
+    // output: new
+    // output: new
+    // output: x
+    // output: b
+
+    for (Enemy e : list) {
+        setFirst(list, new Enemy("g"));
+        print(e.name);
+    }
+    // output: x
+    // output: x
+    // output: g
+    // output: b
+
+    Enemy[2] pair = [new Enemy("p"), new Enemy("q")];
+    for (Enemy e : pair) {
+        pair[0] = e;
+        print(e.name);
+    }
+    // output: p
+    // output: p
+    // output: q
+
+    // Reassigning the loop variable makes it hold its own reference.
+    var other = new Enemy("o");
+    for (Enemy e : list) {
+        e = other;
+        print(e.name);
+    }
+    // output: o
+    // output: o
+}
+// output: o
+// output: q
+// output: g
+// output: b

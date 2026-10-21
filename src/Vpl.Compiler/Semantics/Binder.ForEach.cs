@@ -142,7 +142,7 @@ public sealed partial class Binder
             value = Convert(element, type);
         else if (!CheckReference(element, elementSyntax.RefKind, type, $"a '{FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim()}' variable"))
             value = null;
-        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind);
+        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind) { IsLoopElement = elementSyntax.RefKind == RefKind.None };
         Declare(local, elementSyntax.NameLocation);
         declarations.Add(new BoundVariableDeclaration(elementSyntax.Location, local, value ?? new BoundErrorExpression(elementSyntax.Location)));
 

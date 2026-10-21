@@ -1,0 +1,38 @@
+class Store {
+    int[4] items;
+
+    ref int this[int index] {
+        return ref items[index];
+    }
+}
+
+class Tracked extends Store implements Borrowable {
+    int borrows;
+
+    void beginBorrow() {
+        borrows++;
+    }
+
+    void endBorrow() {
+        borrows--;
+    }
+}
+
+void main() {
+    // Only a subclass is Borrowable, so a reference into a Store still borrows it.
+    Store store = new Tracked();
+    ref int first = store[0];
+    first = 5;
+    if (store is Tracked tracked) {
+        print(tracked.borrows);     // output: 1
+    }
+    print(store[0]);                // output: 5
+
+    // An Array is not Borrowable, but a span still holds it after the local moves on.
+    float[] heights = new float[2];
+    Span<float> view = heights;
+    heights = new float[1];
+    view[1] = 2.5f;
+    print(view[1]);                 // output: 2.5
+    print(heights.length);          // output: 1
+}

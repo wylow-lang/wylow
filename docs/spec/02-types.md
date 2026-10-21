@@ -362,12 +362,13 @@ List<Enemy> spawned = new List<Enemy>();       // heap, growable
 
 - All indexing is bounds-checked (unless `@Unchecked` / `unsafe`); a failed check panics with the
   index and the length.
-- `T[]` stores its length and elements in a single allocation and **never reallocates**, so
-  references into it never need growth locking.
+- `T[]` is an object holding its length and a pointer to its elements, which are allocated
+  separately (two allocations; the elements are stored inline, not as references to boxes as in
+  Java). It **never reallocates**, so references into it only need to keep the array alive.
 - `T[N]`, `T[]`, and `List<T>` convert **implicitly** to `Span<T>` and `ReadOnlySpan<T>`.
-- `Span<T>` follows the same rules as `ref` (cannot be a field, cannot be returned, cannot be
-  captured by an escaping closure). Taking a span of a `List` borrows the list
-  ([03-memory-model.md](03-memory-model.md#34-references)).
+- `Span<T>` follows the same rules as `ref` (cannot be a field, cannot be captured by an escaping
+  closure, and can be returned only by a method viewing its receiver). Taking a span of a `List`
+  borrows the list ([03-memory-model.md](03-memory-model.md#34-references)).
 
 ```java
 float sum(ReadOnlySpan<float> values) { ... }
@@ -403,6 +404,18 @@ sum(spawned);   // List (borrowed for the duration of the call)
 - Like any object, copying a `T[]` shares it.
 
 > Implemented so far: one dimension per `new`; `new T[2][3]` is not supported yet.
+
+### Lists `List<T>`
+
+- `List<T>` is a standard library class: a pointer to its elements, its count, and its capacity.
+  Adding past the capacity moves the elements to new storage, 4 elements at first and then twice
+  the old capacity.
+- The capacity never shrinks by itself: `clear` and `removeAt` keep the storage for reuse, which
+  suits lists refilled every frame. `reserve(n)` grows the capacity to at least `n`, and `trim()`
+  shrinks it to exactly `count`, freeing the storage entirely when the list is empty. Unlike C++'s
+  `shrink_to_fit`, `trim` always does so.
+- While a list is borrowed, changing its length or capacity panics
+  ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)).
 
 ### Spans
 

@@ -258,3 +258,31 @@ public static class Patterns
         _ => [],
     };
 }
+
+/// <summary>The expressions directly inside an expression, in evaluation order.</summary>
+public static class BoundTree
+{
+    public static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
+    {
+        BoundUnary unary => [unary.Operand],
+        BoundBinary binary => [binary.Left, binary.Right],
+        BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
+        BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
+        BoundNew creation => creation.Arguments,
+        BoundConversion conversion => [conversion.Operand],
+        BoundConditional conditional => [conditional.Condition, conditional.WhenTrue, conditional.WhenFalse],
+        BoundFieldAccess field => [field.Receiver],
+        BoundIndex index => [index.Target, index.Index],
+        BoundArrayLength length => [length.Operand],
+        BoundArrayData data => [data.Array],
+        BoundArrayLiteral literal => literal.Elements,
+        BoundNonNull nonNull => [nonNull.Operand],
+        BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],
+        BoundConditionalAccess access => [access.Receiver, access.WhenNotNull],
+        BoundIs pattern => [pattern.Operand],
+        BoundSwitchExpression switchExpression => [switchExpression.Value, .. switchExpression.Cases.Select(c => c.Body)],
+        BoundVariant variant => variant.Arguments,
+        BoundTry attempt => [attempt.Operand],
+        _ => [],
+    };
+}

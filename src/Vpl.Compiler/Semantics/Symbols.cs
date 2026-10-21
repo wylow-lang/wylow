@@ -12,6 +12,15 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>A compiler-introduced local, which has no source name.</summary>
     public bool IsTemporary { get; init; }
 
+    /// <summary>The variable a for-each loop copies each element into.</summary>
+    public bool IsLoopElement { get; init; }
+
+    /// <summary>
+    /// A loop element that refers to the element in place rather than copying it, because nothing
+    /// in the loop can store over the element; set by <see cref="ElementAliasing"/>.
+    /// </summary>
+    public bool AliasesElement { get; set; }
+
     public override string ToString() => Name;
 }
 

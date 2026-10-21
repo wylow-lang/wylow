@@ -223,6 +223,21 @@ pin costs one count increment and decrement.
 A `ref` or `in` variable, and a span variable, holds the object for its whole scope, even when a
 local holds it: the function itself may reassign that local while the reference lives.
 
+### Loop elements
+
+In `for (Enemy e : list)`, `e` holds its own reference to each element's object, like any local,
+unless nothing the loop can run may store over an element of that type: assign to an element
+(`list[i] = x`, `array[i] = x`, or through a `ref` in generic code), or to a value containing a fixed
+array of them. Then `e` refers to the element in place, saving a count increment and decrement per
+element. What the loop iterates is held and borrowed until it ends, so storing over the element is
+the only way its object could be destroyed.
+
+The compiler checks everything the loop's body may run: the functions it calls and the functions
+they call, every override of a virtual or interface method it calls, and every destructor in the
+program. Assigning fields, including fields of the element's type, never counts, so getters,
+setters, and most methods don't prevent it. Reassigning `e` itself does. The program behaves the
+same either way; only the cost differs.
+
 ### Evaluation order and the heap
 
 Operands are evaluated left to right ([06-syntax.md](06-syntax.md#evaluation-order)). Since any call
@@ -241,7 +256,7 @@ into the container increments it; the end of the reference's scope decrements it
 
 | Container | Operations that panic while borrowed |
 |---|---|
-| `List<T>` | `add`, `insert`, `removeAt`, `clear`, `reserve`: anything that changes its length or may reallocate |
+| `List<T>` | `add`, `insert`, `removeAt`, `clear`, `reserve`, `trim`: anything that changes its length or may reallocate |
 | `Pool<T>` | Destruction only (`remove` is deferred, `add` never moves elements) |
 | `T[]` | None (never reallocates; kept alive by pinning) |
 
@@ -307,6 +322,7 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | Array/span index | 1 compare | 0 |
 | `pool.get(h)` | 1 compare | 0 (`getUnchecked`) |
 | Copy a class reference | refcount inc/dec | same (pass by `ref` to avoid) |
+| For-each over class elements | refcount inc/dec per element only if the loop may store over one | same |
 | Borrow from class field | refcount inc/dec, often elided | 0 |
 | Borrow from container | counter inc/dec | 0 |
 | Pool iteration | skip dead slots | same |

@@ -4,7 +4,7 @@ void main() {
     numbers.add(2);
     for (int n : numbers) {
         if (n == 2) {
-            numbers.add(3);     // panic-here: cannot change the length of a list while it is borrowed
+            numbers.add(3);     // panic-here: cannot change the length or capacity of a list while it is borrowed
         }
     }
 }

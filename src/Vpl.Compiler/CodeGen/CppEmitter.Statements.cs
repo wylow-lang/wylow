@@ -146,6 +146,9 @@ public sealed partial class CppEmitter
             case BoundVariableDeclaration { Initializer: { } held } declaration when declaration.Local.RefKind != RefKind.None || declaration.Local.Type.IsRefStruct:
                 DeclareHeld(declaration.Local, held);
                 break;
+            case BoundVariableDeclaration { Local.AliasesElement: true, Initializer: { } element } declaration:
+                Line($"[[maybe_unused]] const {CppType(declaration.Local.Type)}& {LocalName(declaration.Local)} = {Place(element)};");
+                break;
             case BoundVariableDeclaration declaration:
                 DeclarePatternLocals(declaration.Initializer);
                 HoistTry(declaration.Initializer);
@@ -294,7 +297,7 @@ public sealed partial class CppEmitter
         BoundIs pattern => [.. PatternLocals(pattern.Operand), .. Patterns.Bindings(pattern.Pattern)],
         // A switch expression declares its cases' names inside itself.
         BoundSwitchExpression switchExpression => PatternLocals(switchExpression.Value),
-        _ => Children(expression).SelectMany(PatternLocals),
+        _ => BoundTree.Children(expression).SelectMany(PatternLocals),
     };
 
     void DeclarePatternLocals(BoundExpression? expression)

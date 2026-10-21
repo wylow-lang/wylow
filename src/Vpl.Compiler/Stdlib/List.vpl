@@ -83,6 +83,16 @@ final class List<T> implements Borrowable, Spannable<T> {
         }
     }
 
+    // Shrinks the capacity to exactly the count, always, unlike C++'s shrink_to_fit. An empty
+    // list frees its storage entirely.
+    @CallerLocation
+    void trim() {
+        checkNotBorrowed();
+        if (size < space) {
+            reallocate(size);
+        }
+    }
+
     void beginBorrow() {
         borrows++;
     }
@@ -115,7 +125,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     @CallerLocation
     private void checkNotBorrowed() {
         if (borrows > 0) {
-            panic("cannot change the length of a list while it is borrowed by a reference, span, or loop");
+            panic("cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop");
         }
     }
 
@@ -125,12 +135,20 @@ final class List<T> implements Borrowable, Spannable<T> {
         if (grown < minimum) {
             grown = minimum;
         }
+        reallocate(grown);
+    }
+
+    @CallerLocation
+    private void reallocate(int length) {
         unsafe {
-            T* bigger = Memory.allocate<T>(grown);
-            Memory.moveTo(data, bigger, size);
+            T* moved = null;
+            if (length > 0) {
+                moved = Memory.allocate<T>(length);
+                Memory.moveTo(data, moved, size);
+            }
             Memory.free(data);
-            data = bigger;
+            data = moved;
         }
-        space = grown;
+        space = length;
     }
 }

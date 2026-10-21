@@ -30,6 +30,8 @@ void enemies() {
     list.add(new Enemy("c"));
     var removed = list.removeAt(1);
     print(removed.name);
+    list.trim();
+    print(list.capacity);
     list.clear();
     print(list.count);
 }
@@ -60,9 +62,23 @@ void main() {
     print(numbers.count);       // output: 0
     numbers.reserve(100);
     print(numbers.capacity);    // output: 100
+    numbers.trim();
+    print(numbers.capacity);    // output: 0
+    numbers.add(1);
+    numbers.add(2);
+    numbers.add(3);
+    numbers.add(4);
+    numbers.add(5);
+    print(numbers.capacity);    // output: 8
+    numbers.trim();
+    print(numbers.capacity);    // output: 5
+    print(numbers[4]);          // output: 5
+    numbers.add(6);
+    print(numbers[5]);          // output: 6
 
     enemies();
     // output: b
+    // output: 2
     // output: a
     // output: c
     // output: 0

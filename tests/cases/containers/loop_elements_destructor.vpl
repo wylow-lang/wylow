@@ -1,0 +1,43 @@
+// A destructor may run whenever an object is released, so one that stores over an element keeps
+// every loop over elements of that type holding its own reference.
+
+class Enemy {
+    String name;
+
+    Enemy(String name) {
+        this.name = name;
+    }
+
+    ~Enemy() {
+        print(name);
+    }
+}
+
+class Owner {
+    List<Enemy> list;
+
+    Owner(List<Enemy> list) {
+        this.list = list;
+    }
+
+    ~Owner() {
+        list[0] = new Enemy("y");
+    }
+}
+
+void main() {
+    var list = new List<Enemy>();
+    list.add(new Enemy("a"));
+    list.add(new Enemy("b"));
+    for (Enemy e : list) {
+        Owner? owner = new Owner(list);
+        owner = null;
+        print(e.name);
+    }
+    // output: a
+    // output: a
+    // output: y
+    // output: b
+}
+// output: y
+// output: b
