@@ -209,7 +209,7 @@ objects belong to which isolate.
 | Member | Does |
 |---|---|
 | `Isolate.start(() -> S)` | Creates an isolate whose state is the lambda's result, made inside it |
-| `call(S -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
+| `call((S) -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
 | `isAlive` | Whether the isolate has not panicked |
 
 - After a panic, the isolate is **dead**: its stack has unwound (running destructors and ending

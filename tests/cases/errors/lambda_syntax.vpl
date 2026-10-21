@@ -1,0 +1,10 @@
+class Button {
+    (int, int) handler;                 // error: expected '->' after a function type's parameters
+    (int)? count;                       // error: expected '->' after a function type's parameters
+}
+
+void main() {
+    var mixed = (int a, b) -> a;        // error: a lambda's parameters must either all have types or all leave them out
+    var empty = x -> ;                  // error: expected an expression
+    var unnamed = (ref int) -> 1;       // error: expected a parameter name
+}

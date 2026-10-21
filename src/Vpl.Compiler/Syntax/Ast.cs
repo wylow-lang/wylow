@@ -92,11 +92,12 @@ public sealed record FunctionDecl(
 
 public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);
 
-public enum TypeShape { Named, FixedArray, Array, Pointer }
+public enum TypeShape { Named, FixedArray, Array, Pointer, Function }
 
 /// <summary>
 /// A type as written. A <see cref="TypeShape.Named"/> type has a <see cref="Name"/> and type
-/// arguments; the other shapes are built from their <see cref="Element"/>: <c>T[N]</c>, <c>T[]</c>, <c>T*</c>.
+/// arguments; the other shapes are built from their <see cref="Element"/>: <c>T[N]</c>, <c>T[]</c>,
+/// <c>T*</c>, and the return type of <c>(Parameters) -> T</c>.
 /// </summary>
 public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
     : Node(Location)
@@ -106,7 +107,12 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 
     /// <summary>The <c>N</c> of <c>T[N]</c>.</summary>
     public ulong Length { get; init; }
+
+    public IReadOnlyList<FunctionTypeParameter> Parameters { get; init; } = [];
 }
+
+/// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>(ref Vec3) -> void</c>.</summary>
+public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type);
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location);
 
@@ -237,6 +243,14 @@ public sealed record FieldInit(Location Location, string Name, Expr Value) : Nod
 public sealed record CastExpr(Location Location, TypeSyntax Type, Expr Operand) : Expr(Location);
 
 public sealed record ConditionalExpr(Location Location, Expr Condition, Expr WhenTrue, Expr WhenFalse) : Expr(Location);
+
+/// <summary>A lambda parameter. <see cref="Type"/> is null when it comes from the lambda's target, as in <c>x -> x + 1</c>.</summary>
+public sealed record LambdaParameterSyntax(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation)
+    : Node(Location);
+
+/// <summary><c>x -> value</c> or <c>(a, b) -> { ... }</c>. Exactly one of <see cref="Value"/> and <see cref="Body"/> is set.</summary>
+public sealed record LambdaExpr(Location Location, IReadOnlyList<LambdaParameterSyntax> Parameters, Expr? Value, BlockStmt? Body)
+    : Expr(Location);
 
 public sealed record ErrorExpr(Location Location) : Expr(Location);
 

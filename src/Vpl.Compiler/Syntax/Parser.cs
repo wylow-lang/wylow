@@ -22,6 +22,7 @@ public sealed partial class Parser
     Token Previous => tokens[Math.Max(position - 1, 0)];
     Token Peek(int offset) => tokens[Math.Min(position + offset, tokens.Count - 1)];
     bool At(TokenKind kind) => Current.Kind == kind;
+    TokenKind KindAt(int index) => tokens[Math.Min(index, tokens.Count - 1)].Kind;
 
     Token Advance()
     {

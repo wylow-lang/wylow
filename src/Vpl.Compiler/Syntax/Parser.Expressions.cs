@@ -5,7 +5,8 @@ namespace Vpl.Compiler.Syntax;
 
 public sealed partial class Parser
 {
-    Expr ParseExpression() => ParseConditional();
+    // As in Java, a lambda is never an operand: its body extends as far as an expression can.
+    Expr ParseExpression() => IsLambdaStart() ? ParseLambda() : ParseConditional();
 
     Expr ParseConditional()
     {
@@ -15,8 +16,75 @@ public sealed partial class Parser
             return condition;
         var whenTrue = ParseExpression();
         Expect(TokenKind.Colon, "':'");
-        var whenFalse = ParseConditional();
+        var whenFalse = ParseExpression();
         return new ConditionalExpr(LocationFrom(start), condition, whenTrue, whenFalse);
+    }
+
+    /// <summary><c>x -></c>, or parentheses whose match is followed by <c>-></c>.</summary>
+    bool IsLambdaStart()
+    {
+        if (At(TokenKind.Identifier))
+            return Peek(1).Kind == TokenKind.Arrow;
+        if (!At(TokenKind.OpenParen))
+            return false;
+        int depth = 0;
+        for (int i = position; i < tokens.Count; i++)
+        {
+            switch (tokens[i].Kind)
+            {
+                case TokenKind.OpenParen:
+                    depth++;
+                    break;
+                case TokenKind.CloseParen when --depth == 0:
+                    return KindAt(i + 1) == TokenKind.Arrow;
+                case TokenKind.Semicolon or TokenKind.OpenBrace or TokenKind.CloseBrace or TokenKind.EndOfFile:
+                    return false;
+            }
+        }
+        return false;
+    }
+
+    LambdaExpr ParseLambda()
+    {
+        int start = position;
+        var parameters = new List<LambdaParameterSyntax>();
+        if (At(TokenKind.Identifier))
+        {
+            var name = Advance();
+            parameters.Add(new LambdaParameterSyntax(Loc(name.Span), RefKind.None, null, name.Text, Loc(name.Span)));
+        }
+        else
+        {
+            Advance();
+            if (!At(TokenKind.CloseParen))
+            {
+                do
+                    parameters.Add(ParseLambdaParameter());
+                while (Accept(TokenKind.Comma));
+            }
+            Expect(TokenKind.CloseParen, "')'");
+            if (parameters.FirstOrDefault(p => (p.Type is null) != (parameters[0].Type is null)) is { } mixed)
+                Error(mixed.Location.Span, "a lambda's parameters must either all have types or all leave them out");
+        }
+        Expect(TokenKind.Arrow, "'->'");
+        if (At(TokenKind.OpenBrace))
+            return new LambdaExpr(LocationFrom(start), parameters, null, ParseBlock());
+        var value = ParseExpression();
+        return new LambdaExpr(LocationFrom(start), parameters, value, null);
+    }
+
+    LambdaParameterSyntax ParseLambdaParameter()
+    {
+        int start = position;
+        if (At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
+        {
+            var untyped = Advance();
+            return new LambdaParameterSyntax(Loc(untyped.Span), RefKind.None, null, untyped.Text, Loc(untyped.Span));
+        }
+        var refKind = ParseRefKind();
+        var type = ParseType();
+        var name = Expect(TokenKind.Identifier, "a parameter name");
+        return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
     }
 
     // `??` binds looser than `||` and groups to the right, as in C#.

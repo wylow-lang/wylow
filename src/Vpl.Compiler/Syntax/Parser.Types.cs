@@ -68,6 +68,13 @@ public sealed partial class Parser
                 depth--;
             else if (kind == TokenKind.GreaterGreater)
                 depth -= 2;
+            else if (kind == TokenKind.OpenParen)
+            {
+                int end = ScanType(i);
+                if (end < 0)
+                    return -1;
+                i = end - 1;
+            }
             else if (ScanArraySuffix(i) is >= 0 and var next)
                 i = next - 1;
             else if (kind is not (TokenKind.Comma or TokenKind.Question or TokenKind.Star) && !SyntaxFacts.IsTypeStart(kind))
@@ -103,9 +110,30 @@ public sealed partial class Parser
         }
 
         int start = position;
-        var token = Advance();
-        var arguments = At(TokenKind.Less) ? ParseTypeArguments() : [];
-        var type = new TypeSyntax(LocationFrom(start), token.Text, arguments);
+        TypeSyntax type;
+        if (At(TokenKind.OpenParen))
+        {
+            var parameters = ParseFunctionTypeParameters();
+            if (Accept(TokenKind.Arrow))
+            {
+                // The return type takes the suffixes: `(int) -> int?` returns an `int?`.
+                var returnType = ParseType(allowNullable, allowArrays);
+                return new TypeSyntax(LocationFrom(start), "", []) { Shape = TypeShape.Function, Element = returnType, Parameters = parameters };
+            }
+            // Otherwise the parentheses only group a function type for a suffix, as in `((int) -> int)?`.
+            if (parameters is not [{ RefKind: RefKind.None, Type.Shape: TypeShape.Function } parenthesized])
+            {
+                Error(new TextSpan(Previous.Span.End, 0), "expected '->' after a function type's parameters");
+                return new TypeSyntax(LocationFrom(start), "?", []);
+            }
+            type = parenthesized.Type with { Location = LocationFrom(start) };
+        }
+        else
+        {
+            var token = Advance();
+            var arguments = At(TokenKind.Less) ? ParseTypeArguments() : [];
+            type = new TypeSyntax(LocationFrom(start), token.Text, arguments);
+        }
         while (true)
         {
             // `T?[]` is an array of nullable elements; a final `?` makes the whole type nullable.
@@ -143,6 +171,22 @@ public sealed partial class Parser
         return type;
     }
 
+    List<FunctionTypeParameter> ParseFunctionTypeParameters()
+    {
+        Advance();
+        var parameters = new List<FunctionTypeParameter>();
+        if (!At(TokenKind.CloseParen))
+        {
+            do
+            {
+                var refKind = ParseRefKind();
+                parameters.Add(new FunctionTypeParameter(refKind, ParseType()));
+            } while (Accept(TokenKind.Comma));
+        }
+        Expect(TokenKind.CloseParen, "')'");
+        return parameters;
+    }
+
     /// <summary>The index just past <c>[]</c> or <c>[N]</c> at <paramref name="index"/>, or -1.</summary>
     int ScanArraySuffix(int index)
     {
@@ -159,9 +203,23 @@ public sealed partial class Parser
     {
         if (index >= tokens.Count || !SyntaxFacts.IsTypeStart(tokens[index].Kind))
             return -1;
-        index++;
-        if (ScanTypeArguments(index) is > 0 and var end)
+        if (KindAt(index) == TokenKind.OpenParen)
+        {
+            int end = ScanFunctionTypeParameters(index, out bool groupsFunctionType);
+            if (end < 0)
+                return -1;
+            if (KindAt(end) == TokenKind.Arrow)
+                return ScanType(end + 1);
+            if (!groupsFunctionType)
+                return -1;
             index = end;
+        }
+        else
+        {
+            index++;
+            if (ScanTypeArguments(index) is > 0 and var end)
+                index = end;
+        }
         while (true)
         {
             if (index + 1 < tokens.Count && tokens[index].Kind == TokenKind.Question && tokens[index + 1].Kind is TokenKind.OpenBracket or TokenKind.Star)
@@ -172,6 +230,37 @@ public sealed partial class Parser
                 index = next;
             else
                 return index;
+        }
+    }
+
+    /// <summary>
+    /// The index just past a function type's parenthesized parameters at <paramref name="index"/>, or -1.
+    /// <paramref name="groupsFunctionType"/> is whether they could instead be parentheses around one
+    /// function type, as in <c>((int) -> int)?</c>.
+    /// </summary>
+    int ScanFunctionTypeParameters(int index, out bool groupsFunctionType)
+    {
+        groupsFunctionType = false;
+        index++;
+        if (KindAt(index) == TokenKind.CloseParen)
+            return index + 1;
+        for (int count = 1; ; count++)
+        {
+            bool hasRefKind = KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword;
+            if (hasRefKind)
+                index++;
+            groupsFunctionType = count == 1 && !hasRefKind && KindAt(index) == TokenKind.OpenParen;
+            index = ScanType(index);
+            if (index < 0)
+                return -1;
+            if (KindAt(index) == TokenKind.Question)
+                index++;
+            if (KindAt(index) == TokenKind.CloseParen)
+                return index + 1;
+            if (KindAt(index) != TokenKind.Comma)
+                return -1;
+            groupsFunctionType = false;
+            index++;
         }
     }
 }

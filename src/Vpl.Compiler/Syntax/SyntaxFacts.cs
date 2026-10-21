@@ -47,7 +47,8 @@ public static class SyntaxFacts
         kind is TokenKind.VoidKeyword or TokenKind.BoolKeyword or TokenKind.IntKeyword
             or TokenKind.LongKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
 
-    public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind == TokenKind.Identifier;
+    /// <summary>Includes '(', which starts a function type, <c>(int) -> int</c>.</summary>
+    public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.OpenParen;
 
     public static string GetText(TokenKind kind) => kind switch
     {

@@ -283,14 +283,28 @@ list.sort((a, b) -> a.depth - b.depth);
 button.onClick(() -> { play(sound); });
 ```
 
+- A function type's parameters are always parenthesized, even one: `(Mob) -> bool`. They take
+  parameter modes, which are part of the type: `(ref Vec3) -> void`.
+- The return type takes any suffix: `(int) -> int?` returns an `int?`. To make the function itself
+  nullable, or an array of functions, parenthesize it: `((int) -> int)?`, `((int) -> int)?[]`.
+- `->` groups to the right: `(int) -> (int) -> int` returns a function.
+- A lambda's parameters are either all untyped, taking their types and modes from the target
+  (`x -> ...`, `(a, b) -> ...`), or all typed (`(int a, ref Vec3 v) -> ...`). Its body is an
+  expression or a block.
+- As in Java, a lambda is never an operand: its body extends as far as an expression can, so
+  `x -> x + 1` is a lambda returning `x + 1`.
+
+> Implemented so far: parsing. Binding either is an error.
+
 ### Escaping and non-escaping
 
-A function-typed **parameter** is **non-escaping** by default: the callee may call it but may not
-store it, return it, or pass it to an escaping parameter.
+A function-typed **parameter or local** is **non-escaping** by default: the function may call it
+and pass it to other non-escaping parameters, but may not store it, return it, or pass it to an
+escaping parameter. `@Escaping` on the parameter or local opts in.
 
 | | Non-escaping | Escaping |
 |---|---|---|
-| Where | Function-typed parameters | Fields, locals, return values, `@Escaping` parameters, containers |
+| Where | Parameters and locals | Fields, return values, `@Escaping` parameters and locals, containers |
 | Allocation | **None** (compiled to an inline template or function reference) | Heap-allocated, refcounted closure |
 | Captures | By reference: may capture `ref`s and `Span`s, and may **mutate** captured locals | By copy: captured locals must be effectively final (Java's rule) |
 
@@ -299,7 +313,16 @@ int count = 0;
 enemies.forEach(e -> { if (e.isDead) count++; });   // non-escaping: mutates local, no allocation
 
 void onEvent(@Escaping () -> void handler) { handlers.add(handler); }
+
+(Mob) -> bool isDead = m -> m.health <= threshold;   // non-escaping: no allocation
+@Escaping () -> void onDone = () -> play(sound);      // escaping: a heap closure, can be stored
+handlers.add(onDone);
 ```
+
+The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
+non-escaping local stays non-escaping, and storing it is an error that suggests `@Escaping`.
+Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
+reassigned, so it can't outlive what its lambda captures.
 
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
 ([05-concurrency.md](05-concurrency.md)).
@@ -489,7 +512,7 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 | `@Unchecked` | Remove runtime checks | [01-safety.md](01-safety.md) |
 | `@AllowLargeStack` | Suppress the large-stack warning | [01-safety.md](01-safety.md) |
 | `@Align(n)`, `@Pad(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
-| `@Escaping` | Function parameter may be stored | §6.7 |
+| `@Escaping` | Function-typed parameter or local may be stored | §6.7 |
 
 User-defined annotations (and reflection) are *open*.
 

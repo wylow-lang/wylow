@@ -46,6 +46,7 @@ public sealed partial class Binder
         SwitchExpr e => BindSwitchExpression(e, expected),
         TryExpr e => ErrorExpression(e.Location, "'try' must be the whole value of a declaration, assignment, return, or expression statement"),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
+        LambdaExpr e => ErrorExpression(e.Location, "lambdas are not supported yet"),
         ErrorExpr e => new BoundErrorExpression(e.Location),
         _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
     };

@@ -191,6 +191,7 @@ public sealed partial class Parser
         TokenKind.VarKeyword => true,
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
         TokenKind.Identifier => IsDeclarationAfterTypeName(ScanType(position)),
+        TokenKind.OpenParen => ScanType(position) is > 0 and var end && IsDeclarationAfterTypeName(end),
         _ => false,
     };
 
@@ -223,7 +224,6 @@ public sealed partial class Parser
     /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>
     bool IsForEachHeader()
     {
-        TokenKind KindAt(int i) => tokens[Math.Min(i, tokens.Count - 1)].Kind;
         int index = position;
         if (KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword)
             return true;

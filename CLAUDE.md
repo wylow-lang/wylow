@@ -87,7 +87,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
-- Commit after each milestone, ending the message with the `Co-Authored-By` line. Don't push.
+- Commit each coherent change once it passes the suite on both compilers (a step of a plan, not
+  only whole milestones), ending the message with the `Co-Authored-By` line. Don't push.
 
 ## Pitfalls already hit
 
