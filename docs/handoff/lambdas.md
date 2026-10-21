@@ -10,7 +10,8 @@ when it lands, and is then only listed here.
 
 Landed, and described in §6.7: 1 (function type syntax), 2 (a lambda takes its type from its
 target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C++ can't use one),
-5 (non-escaping locals), 7 (overloads), and 10 (flow analysis).
+5 (non-escaping locals), 7 (overloads), 8 (generic inference, including from lambda bodies), and
+10 (flow analysis).
 
 4. **Escaping values are `vpl::Function<R(A...)>`**, a reference-counted closure object.
    - Function types are not defaultable: a field of one must be set by every constructor, or be
@@ -26,9 +27,6 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
      lambda. They may not capture any of the things only non-escaping lambdas can capture.
    - A captured class reference, including `this`, keeps its object alive.
    - A lambda can't refer to the variable it initializes, since that variable isn't assigned yet.
-8. **Generic inference** has two phases. Type arguments are first inferred from the arguments that
-   aren't lambdas. Then each lambda is bound with its parameter types substituted, and its body's
-   type infers what's left. `Result.map<U>((T) -> U)` needs this.
 9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `ReadsState`) treats a call through a
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
    call writes what any lambda or function reference in the program writes (their union), which is
@@ -76,12 +74,18 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
    - `ElementAliasing` counts a lambda's writes in the function that creates it, and a call of a function
      value as writing what any lambda writes. Loops inside lambdas are checked too.
    - Field initializers are now flow-analyzed, since lambdas in them have bodies to check.
-4. **Generic inference** with lambdas (decision 8). Inferring from the other arguments already
-   works; what's left is inferring from a lambda's body, as `Result.map<U>((T) -> U)` needs.
+4. **Generic inference** with lambdas (done, decision 8). `Binder.Inference.cs`: a type argument
+   only a lambda's return type can give is inferred by binding the lambda's body
+   (`BindLambdaInferringReturn`) with its return type left open, once its parameter types are
+   known; `RetargetLambda` converts its returns once the type is chosen. Bodies are bound only for
+   the one candidate left, so each lambda is still bound once; if several candidates are left,
+   the call is an error asking for type arguments. A `?:` or switch expression of lambdas passed
+   as an argument is a `BoundPendingChoice` until resolution gives it a type (`Binder.Choose`).
+   `Result.map` and `mapErr` are written in VPL.
 5. **Escaping.** `@Escaping`, `vpl::Function`, by-copy captures and the effectively-final rule,
    cycle collector support. Run the cycles under ASan.
 6. **Function references.**
-7. **Standard library.** `Result.map` and `mapErr`, `List.removeWhere`, and a `sort` on spans that
+7. **Standard library.** `List.removeWhere`, and a `sort` on spans that
    takes a comparison, all written in VPL.
 
 Each step lands with tests (behavior and every error), passes on MSVC and g++, and updates the
@@ -136,9 +140,8 @@ stay explicit, optimizations come later).
 These were reasonable on paper; real programs (the voxel port) will show whether they get in the way.
 
 1. **Bind-once function locals** (decision 5). A function-typed local can't be reassigned; `?:`
-   and switch expressions cover choosing one. Lambdas inside them need a target type, unlike a
-   lambda argument, which waits for overload resolution and generic inference to give it one.
-   Step 4 should let a choice wait the same way, since it reworks that machinery.
+   and switch expressions cover choosing one. Since step 4, a choice passed as an argument waits
+   for overload resolution and generic inference as a lambda does.
 2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
    local into a lambda would be sound.
 3. **`F?` is a nullable value**, not reference-like. Only matters once functions can be stored.
@@ -150,3 +153,7 @@ These were reasonable on paper; real programs (the voxel port) will show whether
    be used as statements"), as for statements.
 7. **Which functions get `FunctionRef`** (performance note 1): the rules are simple and
    conservative, and could be wrong in the slow direction often enough to matter.
+8. **Inferring from a lambda's body needs one overload left** (step 4). Two generic overloads
+   whose lambdas take the same number of parameters, or a generic and a non-generic one, make
+   `x.map(m -> m.name)` an error asking for type arguments. Binding the body once per distinct
+   parameter-type list, and sharing it, would lift that if real overload sets need it.

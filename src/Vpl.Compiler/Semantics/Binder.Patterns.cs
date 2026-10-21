@@ -233,55 +233,66 @@ public sealed partial class Binder
 
     static bool IsNoReturn(BoundExpression expression) => expression is BoundCall { Method.Symbol.IsNoReturn: true };
 
-    BoundExpression BindSwitchExpression(SwitchExpr e, VplType? expected)
+    /// <summary>
+    /// <paramref name="mayWait"/>: a call argument whose cases include lambdas without a function type
+    /// is left pending until overload resolution gives it one (see <see cref="Choose"/>).
+    /// </summary>
+    BoundExpression BindSwitchExpression(SwitchExpr e, VplType? expected, bool mayWait = false)
     {
         var value = BindSwitchValue(e.Value);
-        var unbound = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression? Value, Scope Scope)>();
+        var options = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value, Scope Scope)>();
         bool broken = value.Type == VplType.Error;
         foreach (var c in e.Cases)
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            // Without a target type, a lambda takes another case's function type, bound below.
-            unbound.Add((c.Location, patterns, expected is null && c.Value is LambdaExpr ? null : BindExpression(c.Value!, expected), scope));
+            options.Add((c.Location, patterns, BindOption(c.Value!, expected), scope));
             scope = scope.Parent!;
         }
-        var otherType = unbound.Select(b => b.Value?.Type).FirstOrDefault(t => t is { IsFunction: true });
-        var bound = unbound.Zip(e.Cases, (b, c) =>
+        CheckCases(e.Location, value.Type, e.Cases, [.. options.Select(o => o.Patterns)], broken);
+        return Choose(e.Location, [.. options.Select(o => o.Value)], mayWait, type =>
         {
-            if (b.Value is { } caseValue)
-                return (b.Location, b.Patterns, Value: caseValue);
+            // Lambdas are bound in their case's scope, so that using a name it declares is reported as such.
             var enclosing = scope;
-            scope = b.Scope;
-            caseValue = BindExpression(c.Value!, otherType);
+            var bound = options.Select(o =>
+            {
+                scope = o.Scope;
+                return (o.Location, o.Patterns, Value: FinishOption(o.Value, type));
+            }).ToList();
             scope = enclosing;
-            return (b.Location, b.Patterns, Value: caseValue);
-        }).ToList();
-        CheckCases(e.Location, value.Type, e.Cases, [.. bound.Select(b => b.Patterns)], broken);
+            return MakeSwitchExpression(e.Location, value, bound, expected ?? type);
+        });
+    }
 
+    BoundExpression MakeSwitchExpression(
+        Location location,
+        BoundExpression value,
+        List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value)> bound,
+        VplType? expected)
+    {
         // A case that cannot complete, such as `default -> panic(...)`, needs no value.
         var producing = bound.Select(b => b.Value).Where(v => !IsNoReturn(v)).ToList();
         foreach (var caseValue in producing.Where(v => v.Type == VplType.Void))
             Error(caseValue.Location, "a switch expression's case must produce a value");
         if (value.Type == VplType.Error || producing.Any(v => v.Type == VplType.Error || v.Type == VplType.Void))
-            return new BoundErrorExpression(e.Location);
+            return new BoundErrorExpression(location);
         if (producing.Count == 0)
-            return ErrorExpression(e.Location, "a switch expression needs a case that produces a value");
+            return ErrorExpression(location, "a switch expression needs a case that produces a value");
 
         var type = expected ?? CommonType(producing);
         if (type is null)
         {
             var found = string.Join(", ", producing.Select(v => $"'{v.Type}'").Distinct());
-            return ErrorExpression(e.Location, $"the cases of the switch have incompatible types {found}");
+            return ErrorExpression(location, $"the cases of the switch have incompatible types {found}");
         }
         if (type.IsRefStruct)
-            return ErrorExpression(e.Location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
+            return ErrorExpression(location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
         if (type.IsNullable && type.NonNull.IsFunction)
-            return ErrorExpression(e.Location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
+            return ErrorExpression(location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
         var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type))).ToList();
         if (type.IsFunction)
             cases.ForEach(CheckCaseCaptures);
-        return new BoundSwitchExpression(e.Location, value, cases, type);
+        return new BoundSwitchExpression(location, value, cases, type);
     }
 
     /// <summary>

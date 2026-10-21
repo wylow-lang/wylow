@@ -1,0 +1,53 @@
+// A ?: or switch expression of lambdas passed as an argument waits for its type, as a lambda does.
+enum Op {
+    Add(int amount),
+    Neg,
+    Keep;
+}
+
+int twice((int) -> int f, int x) {
+    return f(f(x));
+}
+
+String twice((String) -> String f, String x) {
+    return f(f(x));
+}
+
+U apply<T, U>(T value, (T) -> U f) {
+    return f(value);
+}
+
+bool loud() {
+    print("loud");
+    return true;
+}
+
+void main() {
+    bool up = true;
+    // Overloads that disagree on the function type.
+    print(twice(up ? x -> x + 1 : x -> x - 1, 5));                  // output: 7
+    print(twice(up ? s -> s : s -> s, "hi"));                       // output: hi
+
+    // A generic parameter: the other argument types the lambdas, and their bodies type the result.
+    print(apply(3, up ? x -> x * 2 : x -> x + 1L));                 // output: 6
+    (int) -> int inc = x -> x + 1;
+    print(apply(4, !up ? inc : x -> x * 10));                       // output: 40
+    Op op = Op.Add(3);
+    print(apply(10, switch (op) {
+        case Add(var n) -> x -> x * 2;
+        case Neg -> x -> -x;
+        case Keep -> inc;
+    }));                                                            // output: 20
+    print(apply(10, switch (op) {
+        case Add(_) -> x -> x + 0.5d;
+        default -> x -> x;
+    }));                                                            // output: 10.5
+
+    // Nested choices.
+    print(twice(up ? (op is Neg ? x -> 0 : x -> x * 3) : inc, 2));  // output: 18
+
+    // Conditions are still evaluated only when they decide the choice.
+    print(twice(up ? x -> x : loud() ? x -> x : x -> x, 1));        // output: 1
+    print(twice(!up ? x -> x : loud() ? x -> x + 1 : x -> x, 1));   // output: loud
+                                                                    // output: 3
+}

@@ -9,7 +9,8 @@ public sealed partial class Binder
     /// <summary>
     /// Binds a call's arguments. An argument expects its parameter's type when every candidate taking
     /// this many arguments agrees on it, so <c>f(Result.Ok(1))</c> and <c>f(East)</c> know their enum.
-    /// A lambda without an agreed function type is bound once overload resolution chooses one.
+    /// A lambda without an agreed function type, or a choice between lambdas, is bound once overload
+    /// resolution chooses one.
     /// </summary>
     List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null) =>
     [
@@ -18,9 +19,7 @@ public sealed partial class Binder
             if (a is RefArgExpr r)
                 return new Argument(BindExpression(r.Operand), true, r.Location);
             var expected = candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i);
-            if (a is LambdaExpr lambda && expected?.NonNull.IsFunction != true)
-                return new Argument(new BoundPendingLambda(lambda.Location, lambda, BindDeclaredParameters(lambda)), false, a.Location);
-            return new Argument(BindExpression(a, expected), false, a.Location);
+            return new Argument(a is LambdaExpr or ConditionalExpr or SwitchExpr ? BindOption(a, expected) : BindExpression(a, expected), false, a.Location);
         }),
     ];
 

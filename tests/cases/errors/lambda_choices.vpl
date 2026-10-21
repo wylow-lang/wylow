@@ -17,7 +17,7 @@ void main() {
 
     var g = switch (op) {
         case Add(_) -> x -> x;                      // error: a lambda needs a function type from where it is used
-        case Stop -> y -> y;                        // error: a lambda needs a function type from where it is used
+        case Stop -> y -> y;
     };
 
     var h = switch (op) {                           // error: '((int) -> int)?' is not supported yet

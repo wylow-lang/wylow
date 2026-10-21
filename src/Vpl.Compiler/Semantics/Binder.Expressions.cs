@@ -482,6 +482,7 @@ public sealed partial class Binder
 
     bool CanConvert(BoundExpression expression, VplType to) =>
         expression is BoundPendingLambda lambda ? (lambda.Inferred is { } inferred ? InferredLambdaFits(inferred, to) : LambdaFits(lambda, to))
+        : expression is BoundPendingChoice choice ? to.NonNull.IsFunction && choice.Options.All(o => CanConvert(o, to))
         : Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
         || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to);
 
@@ -511,6 +512,12 @@ public sealed partial class Binder
             return to.NonNull.IsFunction
                 ? Convert(lambda.Inferred is { } inferred ? RetargetLambda(lambda, inferred, to.NonNull) : BindLambda(lambda.Syntax, to.NonNull, lambda.DeclaredParameters), to)
                 : ErrorExpression(expression.Location, $"a lambda cannot be converted to '{to}', which is not a function type");
+        }
+        if (expression is BoundPendingChoice choice)
+        {
+            return to.NonNull.IsFunction
+                ? Convert(choice.Finish(to.NonNull), to)
+                : ErrorExpression(expression.Location, $"a choice of lambdas cannot be converted to '{to}', which is not a function type");
         }
 
         if (IsConvertibleConstant(expression, to))
@@ -552,24 +559,20 @@ public sealed partial class Binder
         return new BoundConversion(e.Location, type, operand);
     }
 
-    BoundExpression BindConditional(ConditionalExpr e, VplType? expected)
+    /// <summary><paramref name="mayWait"/> as for <see cref="BindSwitchExpression"/>.</summary>
+    BoundExpression BindConditional(ConditionalExpr e, VplType? expected, bool mayWait = false)
     {
         var condition = BindCondition(e.Condition);
-        BoundExpression whenTrue, whenFalse;
-        // Without a target type, a lambda takes the other branch's function type.
-        if (expected is null && e.WhenTrue is LambdaExpr && e.WhenFalse is not LambdaExpr)
-        {
-            whenFalse = BindExpression(e.WhenFalse);
-            whenTrue = BindExpression(e.WhenTrue, whenFalse.Type.IsFunction ? whenFalse.Type : null);
-        }
-        else
-        {
-            whenTrue = BindExpression(e.WhenTrue, expected);
-            var otherType = whenTrue.Type.IsFunction || whenTrue.Type == VplType.Error ? whenTrue.Type : null;
-            whenFalse = BindExpression(e.WhenFalse, expected ?? (e.WhenFalse is LambdaExpr ? otherType : null));
-        }
+        var whenTrue = BindOption(e.WhenTrue, expected);
+        var whenFalse = BindOption(e.WhenFalse, expected);
+        return Choose(e.Location, [whenTrue, whenFalse], mayWait,
+            type => MakeConditional(e.Location, condition, FinishOption(whenTrue, type), FinishOption(whenFalse, type)));
+    }
+
+    BoundExpression MakeConditional(Location location, BoundExpression condition, BoundExpression whenTrue, BoundExpression whenFalse)
+    {
         if (whenTrue.Type == VplType.Error || whenFalse.Type == VplType.Error)
-            return new BoundErrorExpression(e.Location);
+            return new BoundErrorExpression(location);
 
         var (t, f) = (whenTrue.Type, whenFalse.Type);
         VplType? type = t == f ? t
@@ -579,11 +582,11 @@ public sealed partial class Binder
             : f == VplType.Null && t.CanBeNullable ? t.Nullable
             : null;
         if (type is null || type == VplType.Void || type == VplType.Null)
-            return ErrorExpression(e.Location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
+            return ErrorExpression(location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
-            return ErrorExpression(e.Location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
+            return ErrorExpression(location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
         if (type.IsNullable && type.NonNull.IsFunction)
-            return ErrorExpression(e.Location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
-        return new BoundConditional(e.Location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
+            return ErrorExpression(location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
+        return new BoundConditional(location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }

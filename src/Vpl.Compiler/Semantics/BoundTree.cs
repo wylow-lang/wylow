@@ -251,6 +251,15 @@ public sealed record BoundPendingLambda(Location Location, LambdaExpr Syntax, IR
 public sealed record InferredLambda(FunctionSymbol Function, BoundBlock Body, IReadOnlyList<BoundExpression> Values);
 
 /// <summary>
+/// A <c>?:</c> or switch expression passed as an argument, choosing between functions that include
+/// lambdas, whose function type is known only once overload resolution picks a parameter for it.
+/// Its conditions, patterns, and other options are bound already. <see cref="Options"/> are the
+/// functions it could be, through nested choices; <see cref="Finish"/> gives it its type.
+/// </summary>
+public sealed record BoundPendingChoice(Location Location, IReadOnlyList<BoundExpression> Options, Func<VplType, BoundExpression> Finish)
+    : BoundExpression(Location, VplType.Lambda);
+
+/// <summary>
 /// A call of a function value. <see cref="Signature"/> describes the function type's parameters
 /// as a method's, so the checks of 'ref' arguments apply as for calls.
 /// </summary>

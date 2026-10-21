@@ -187,6 +187,49 @@ public sealed partial class Binder
         return new BoundReturn(r.Location, null);
     }
 
+    /// <summary>
+    /// A branch or case of a <c>?:</c> or switch expression. Without a function type to expect, a
+    /// lambda waits for one, as does a nested choice that has lambdas.
+    /// </summary>
+    BoundExpression BindOption(Expr option, VplType? expected) =>
+        expected is not null && (expected.NonNull.IsFunction || expected == VplType.Error) ? BindExpression(option, expected)
+        : option switch
+        {
+            LambdaExpr lambda => new BoundPendingLambda(lambda.Location, lambda, BindDeclaredParameters(lambda)),
+            ConditionalExpr conditional => BindConditional(conditional, expected, mayWait: true),
+            SwitchExpr switchExpression => BindSwitchExpression(switchExpression, expected, mayWait: true),
+            _ => BindExpression(option, expected),
+        };
+
+    BoundExpression FinishOption(BoundExpression option, VplType? type) => option switch
+    {
+        BoundPendingLambda or BoundPendingChoice when type is null || type == VplType.Error => new BoundErrorExpression(option.Location),
+        BoundPendingLambda => Convert(option, type!),
+        BoundPendingChoice choice => choice.Finish(type!),
+        _ => option,
+    };
+
+    /// <summary>
+    /// Makes a <c>?:</c> or switch expression once its options are bound. If some are lambdas still
+    /// waiting for a type, an argument (<paramref name="mayWait"/>) waits for overload resolution
+    /// to give it one; anywhere else, the lambdas take another option's function type.
+    /// </summary>
+    BoundExpression Choose(Location location, IReadOnlyList<BoundExpression> options, bool mayWait, Func<VplType?, BoundExpression> make)
+    {
+        var leaves = options.SelectMany(Options).ToList();
+        if (!leaves.Any(o => o is BoundPendingLambda))
+            return make(null);
+        if (mayWait)
+            return new BoundPendingChoice(location, leaves, type => make(type));
+        var type = leaves.FirstOrDefault(o => o.Type.IsFunction || o.Type == VplType.Error)?.Type;
+        if (type is null)
+        {
+            Error(leaves.OfType<BoundPendingLambda>().First().Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'");
+            type = VplType.Error;
+        }
+        return make(type);
+    }
+
     static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
 
     /// <summary>The function or lambda being bound, as messages name it.</summary>

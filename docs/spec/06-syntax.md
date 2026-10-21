@@ -316,10 +316,14 @@ button.onClick(() -> { play(sound); });
 - `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.
 - `?:` and switch expressions choose between functions, wherever a function can be used:
   `(int) -> int f = up ? x -> x + 1 : x -> x - 1;`, or `sort(items, up ? ascending : descending)`.
-  The choice is made once, when the expression is evaluated. A lambda branch or case without a
-  target type takes another's function type. A lambda a switch expression chooses can't use a
-  name its case declares (`case Add(var n) -> x -> x + n` is an error), since the lambda is made
-  outside the case; use a switch statement.
+  The choice is made once, when the expression is evaluated. Passed as an argument, a choice
+  whose options include lambdas waits for its function type as a lambda does: overloads and
+  generic inference treat each option as the argument (`apply(3, up ? x -> x * 2 : x -> x + 1L)`
+  infers `long`), and an option that is a function-typed local constrains the type like any other
+  argument. Anywhere else, a lambda option without a target type takes another option's function
+  type. A lambda a switch expression chooses can't use a name its case declares
+  (`case Add(var n) -> x -> x + n` is an error), since the lambda is made outside the case; use a
+  switch statement.
 - A function type has no default value, so a field of one must be assigned by every constructor
   or be nullable. `((int) -> int)?` is a nullable value, like `int?`, narrowed by null checks.
   Function values have no `==`.
@@ -339,8 +343,7 @@ and each lambda can still be inlined.
 
 > Implemented so far: non-escaping functions, as parameters and locals, and `?:` and switch
 > expressions over them. Functions can't yet be fields, return values, type arguments, array
-> elements, or nullable. Lambdas in a `?:` or switch expression need a target type: one passed to
-> overloads that disagree on it, or to a generic parameter, is an error.
+> elements, or nullable.
 
 ### Escaping and non-escaping
 

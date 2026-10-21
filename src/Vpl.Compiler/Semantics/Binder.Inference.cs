@@ -216,5 +216,5 @@ public sealed partial class Binder
     /// The functions an argument could be: itself, or each option of a <c>?:</c> or switch expression
     /// still waiting for its function type.
     /// </summary>
-    static IEnumerable<BoundExpression> Options(BoundExpression argument) => [argument];
+    static IEnumerable<BoundExpression> Options(BoundExpression argument) => argument is BoundPendingChoice choice ? choice.Options : [argument];
 }
