@@ -51,6 +51,20 @@ void main() {
     print(numbers.tryRemoveAt(numbers.count));  // output: null
     numbers.add(7);
     print(numbers.tryRemoveAt(numbers.count - 1));  // output: 7
+    var stack = new List<String>();
+    print(stack.removeLast());              // output: null
+    print(stack.first);                     // output: null
+    stack.add("a");
+    stack.add("b");
+    print(stack.first);                     // output: a
+    print(stack.last);                      // output: b
+    print(stack.removeLast());              // output: b
+    print(stack.removeLast());              // output: a
+    print(stack.count);                     // output: 0
+    var nodes = new List<List<int>>();
+    print(nodes.last == null);              // output: true
+    nodes.add(numbers);
+    print(nodes.last?.count == numbers.count);  // output: true
     print(total(numbers));      // output: 95
     for (ref int n : numbers) {
         n *= 2;

@@ -11,6 +11,10 @@ final class List<T> implements Borrowable, Spannable<T> {
     int count { get -> size; }
     int capacity { get -> space; }
 
+    // Copies of the first and last elements, or null when the list is empty.
+    T? first { get -> size == 0 ? null : this[0]; }
+    T? last { get -> size == 0 ? null : this[size - 1]; }
+
     @CallerLocation
     ref T this[int index] {
         Bounds.check(index, size);
@@ -66,6 +70,15 @@ final class List<T> implements Borrowable, Spannable<T> {
             return null;
         }
         return removeAt(index);
+    }
+
+    // Removes and returns the last element, or null when the list is empty: a stack's pop.
+    @CallerLocation
+    T? removeLast() {
+        if (size == 0) {
+            return null;
+        }
+        return removeAt(size - 1);
     }
 
     @CallerLocation

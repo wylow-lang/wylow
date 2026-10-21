@@ -127,6 +127,7 @@ code where failure would be a bug.
 |---|---|
 | `list[i]` | `list.get(i)`: a `ref T?`, null if `i` is out of bounds, like `pool.get(h)` |
 | `list.removeAt(i)` | `list.tryRemoveAt(i)`: a `T?` |
+| `list.insert(i, v)` | none: an insertion index is the caller's own arithmetic, so a bad one is a bug |
 | `(Direction)i` | `Direction.tryFrom(i)`: a `Direction?` |
 | `x!` | `x ?? fallback`, or `if (x is T v)` |
 | `r.orPanic("message")` | `r.orElse(fallback)`, `switch`, or `try` |
@@ -134,5 +135,15 @@ code where failure would be a bug.
 Non-panicking versions are named `tryX` after the panicking `x`, except where a shorter name is
 established (`get` for indexers, `??` and patterns for nullable values).
 
-> Implemented so far: `list.tryRemoveAt`. `list.get` needs `ref T?`, a reference that can be null,
-> and `tryFrom` needs a static method the compiler generates for each enum.
+Panics on state the caller controls itself, such as changing a borrowed list, have no
+non-panicking version: they are always bugs.
+
+`get` is kept for the nullable reference. No by-value `T? get(i)` is added before it exists, since
+its return kind could not change later without breaking callers; until then, check `i < list.count`.
+
+> Implemented so far: `list.tryRemoveAt`. `list.get` needs nullable references (below), and
+> `tryFrom` needs a static method the compiler generates for each enum.
+
+> *Open*: the spelling of a nullable reference. `ref T?` already means a reference to a `T?`
+> variable (`void reset(ref int? value)`), so `list.get` and `pool.get` need another, such as
+> `ref? T` or `(ref T)?`.

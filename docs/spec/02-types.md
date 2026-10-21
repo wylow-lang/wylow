@@ -459,6 +459,8 @@ sum(spawned);   // List (borrowed for the duration of the call)
   `shrink_to_fit`, `trim` always does so.
 - While a list is borrowed, changing its length or capacity panics
   ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)).
+- `first` and `last` are copies of the first and last elements, and `removeLast()` removes and
+  returns the last one, as a stack's pop; all three are null when the list is empty.
 
 ### Spans
 
