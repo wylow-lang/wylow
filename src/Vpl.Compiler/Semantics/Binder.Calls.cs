@@ -286,9 +286,17 @@ public sealed partial class Binder
     {
         if (access.Type == VplType.Error)
             return access;
-        if (access.Type == VplType.Void || access.Type.IsReference)
-            return new BoundConditionalAccess(location, receiver, value, access, access.Type == VplType.Void ? access.Type : access.Type.Nullable);
-        return ErrorExpression(location, $"'?.' cannot produce a nullable '{access.Type}': only class and interface types can be nullable for now");
+        // The member of a nullable value is reached through a copy, which a method would change in vain.
+        if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: BoundLocalAccess { Local: var local }, Method.Symbol: { IsReadOnly: false, IsProperty: false } method } && local == value)
+        {
+            return ErrorExpression(location,
+                $"'?.' would call '{method.Name}' on a copy of '{TextOf(receiver.Location)}', so its changes would be lost; check it for null and call '{method.Name}' on a variable");
+        }
+        if (access.Type == VplType.Void)
+            return new BoundConditionalAccess(location, receiver, value, access, access.Type);
+        if (access.Type.CanBeNullable)
+            return new BoundConditionalAccess(location, receiver, value, access, access.Type.Nullable);
+        return ErrorExpression(location, $"'?.' cannot produce a nullable '{access.Type}'");
     }
 
     BoundExpression MakeCall(Location location, MethodReference method, BoundExpression? receiver, List<Argument> arguments, bool isSuperCall = false)
@@ -433,6 +441,12 @@ public sealed partial class Binder
             if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
             {
                 found.Add((argument, argumentType));
+            }
+            // A nullable argument gives `T?` its value type; null says nothing about `T`.
+            else if (parameter.IsNullableValue)
+            {
+                if (argumentType != VplType.Null)
+                    Unify(parameter.NonNull, argumentType.IsNullable ? null : argument, argumentType.NonNull);
             }
             else if (stdlib.IsSpan(parameter) && parameter.Symbol != argumentType.Symbol
                      && ViewedElement(argumentType, parameter.Symbol == stdlib.ReadOnlySpan) is { } viewed)

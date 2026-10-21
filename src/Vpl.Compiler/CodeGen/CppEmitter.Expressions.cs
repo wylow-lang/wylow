@@ -16,6 +16,7 @@ public sealed partial class CppEmitter
         {
             BoundLiteral literal => Literal(literal),
             BoundNullLiteral => "nullptr",
+            BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableValue: true } access => $"vpl::assume_value({LocalName(access.Local)})",
             BoundLocalAccess access => LocalName(access.Local),
             BoundThis => This(),
             BoundFieldAccess field => FieldAccess(field),
@@ -93,6 +94,11 @@ public sealed partial class CppEmitter
             var symbol = binary.Operator == BoundBinaryOperator.LogicalAnd ? "&&" : "||";
             return $"({Expression(binary.Left)} {symbol} {Expression(binary.Right)})";
         }
+        if (NullTested(binary) is { } tested)
+        {
+            var test = $"vpl::has_value({Expression(tested)})";
+            return binary.Operator == BoundBinaryOperator.Equal ? $"(!{test})" : test;
+        }
         if (binary.Left.Type.IsReference || binary.Left.Type == VplType.Null)
         {
             var symbol = binary.Operator == BoundBinaryOperator.Equal ? "==" : "!=";
@@ -100,6 +106,14 @@ public sealed partial class CppEmitter
         }
         return Ordered(binary.Left, binary.Right, operands => BinaryText(binary, operands[0], operands[1]));
     }
+
+    /// <summary>The nullable value compared with the <c>null</c> literal, if that is the comparison.</summary>
+    static BoundExpression? NullTested(BoundBinary binary) => (binary.Left, binary.Right) switch
+    {
+        ({ Type.IsNullableValue: true } value, BoundNullLiteral) => value,
+        (BoundNullLiteral, { Type.IsNullableValue: true } value) => value,
+        _ => null,
+    };
 
     string BinaryText(BoundBinary binary, string left, string right)
     {
@@ -277,7 +291,8 @@ public sealed partial class CppEmitter
     string Coalesce(BoundCoalesce coalesce)
     {
         var temp = NewTemp();
-        return $"[&]() -> {CppType(coalesce.Type)} {{ auto {temp} = {Expression(coalesce.Left)}; if ({temp}) {{ return {temp}; }} return {Expression(coalesce.Right)}; }}()";
+        var value = coalesce.Left.Type.IsNullableValue ? $"vpl::assume_value({temp})" : temp;
+        return $"[&]() -> {CppType(coalesce.Type)} {{ auto {temp} = {Expression(coalesce.Left)}; if (vpl::has_value({temp})) {{ return {value}; }} return {Expression(coalesce.Right)}; }}()";
     }
 
     string ConditionalAccess(BoundConditionalAccess access)
@@ -285,9 +300,13 @@ public sealed partial class CppEmitter
         var value = LocalName(access.Value);
         var receiver = Expression(access.Receiver);
         var member = Expression(access.WhenNotNull);
+        // A nullable value is copied, and the member reached through the value in the copy.
+        var held = access.Receiver.Type.IsNullableValue ? NewTemp() : value;
+        var start = $"auto {held} = {receiver}; if (!vpl::has_value({held}))";
+        var bind = held == value ? "" : $"auto& {value} = vpl::assume_value({held}); ";
         if (access.Type == VplType.Void)
-            return $"[&] {{ auto {value} = {receiver}; if ({value}) {{ {member}; }} }}()";
-        return $"[&]() -> {CppType(access.Type)} {{ auto {value} = {receiver}; if (!{value}) {{ return nullptr; }} return {member}; }}()";
+            return $"[&] {{ {start} {{ return; }} {bind}{member}; }}()";
+        return $"[&]() -> {CppType(access.Type)} {{ {start} {{ return {CppType(access.Type)}(); }} {bind}return {member}; }}()";
     }
 
     string Variant(BoundVariant variant)
@@ -303,6 +322,8 @@ public sealed partial class CppEmitter
         var operand = Expression(conversion.Operand);
         if (from == VplType.Null)
             return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
+        if (to.IsNullableValue)
+            return $"{CppType(to)}({operand})";
         if (to.IsReference)
             return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
         if (stdlib.IsWeak(to))

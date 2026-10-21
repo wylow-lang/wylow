@@ -1,3 +1,4 @@
+using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Semantics;
@@ -262,6 +263,32 @@ public static class Patterns
 /// <summary>The expressions directly inside an expression, in evaluation order.</summary>
 public static class BoundTree
 {
+    /// <summary>
+    /// The local whose nullable value a place lies in, reached through narrowing, as <c>v.x</c> is in
+    /// a <c>Vec3? v</c>. Assigning the local null destroys that value, so a reference to the place
+    /// must not outlive the operation using it.
+    /// </summary>
+    public static LocalSymbol? NullableValueRoot(BoundExpression place) => place switch
+    {
+        BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableValue: true } access => access.Local,
+        BoundFieldAccess { Receiver.Type.IsReference: false } field => NullableValueRoot(field.Receiver),
+        BoundIndex { Target.Type.IsFixedArray: true } index => NullableValueRoot(index.Target),
+        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { Type.IsReference: false } receiver } => NullableValueRoot(receiver),
+        _ => null,
+    };
+
+    /// <summary>The local whose nullable value a span or other <c>ref struct</c> views, as <see cref="NullableValueRoot"/>.</summary>
+    public static LocalSymbol? ViewedNullableValue(BoundExpression view) => view switch
+    {
+        BoundConversion conversion => ViewedNullableValue(conversion.Operand),
+        BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
+            receiver.Type.IsRefStruct ? ViewedNullableValue(receiver) : receiver.Type.IsReference ? null : NullableValueRoot(receiver),
+        BoundConstruction { Type.IsRefStruct: true } construction => construction.Arguments
+            .Select(a => a is BoundArrayData data ? NullableValueRoot(data.Array) : a.Type.IsRefStruct ? ViewedNullableValue(a) : null)
+            .FirstOrDefault(root => root is not null),
+        _ => null,
+    };
+
     public static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
     {
         BoundUnary unary => [unary.Operand],

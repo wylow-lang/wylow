@@ -70,6 +70,9 @@ Each is explained in detail in its chapter.
    objects that refer to each other in a cycle stay alive until the program calls
    `Memory.collectCycles`, which never runs on its own. Use `Weak<T>` for references that shouldn't
    keep their target alive. See [03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles).
+12. **`T?` is `T` when `T` is already nullable.** A generic `T? find()` on a `List<int?>` returns
+   an `int?` that is null both when nothing was found and when a null was. See
+   [02-types.md](02-types.md#nullable-type-parameters).
 
 ## Standard library
 

@@ -490,8 +490,9 @@ public sealed partial class Binder
             foreach (var field in type.Symbol!.ValueFields)
             {
                 var fieldType = map.Apply(field.Type);
-                while (fieldType.IsFixedArray)
-                    fieldType = fieldType.ElementType!;
+                // A nullable value holds its value inline too.
+                while (fieldType.IsFixedArray || fieldType.IsNullableValue)
+                    fieldType = fieldType.IsFixedArray ? fieldType.ElementType! : fieldType.NonNull;
                 if (fieldType.IsStructOrEnum && FindCycle(fieldType, path) is { } problem)
                     return problem;
             }

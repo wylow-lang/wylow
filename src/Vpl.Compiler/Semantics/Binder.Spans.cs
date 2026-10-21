@@ -51,9 +51,10 @@ public sealed partial class Binder
 
         var location = expression.Location;
         var (kind, _) = ClassifyPlace(expression);
+        bool inNullable = BoundTree.NullableValueRoot(expression) is not null;
         if (from.IsFixedArray)
         {
-            if (kind == PlaceKind.Temporary || (kind == PlaceKind.ReadOnly && !readOnly))
+            if (kind == PlaceKind.Temporary || inNullable || (kind == PlaceKind.ReadOnly && !readOnly))
                 return null;
             var constructor = to.Symbol!.Constructors.FirstOrDefault(c => c.Parameters.Count == 2);
             if (constructor is null)
@@ -63,13 +64,16 @@ public sealed partial class Binder
         }
 
         var method = LookupMethods(from, readOnly ? "asReadOnlySpan" : "asSpan").FirstOrDefault(c => c.Symbol.Parameters.Count == 0);
-        if (method is null || (!from.IsReference && !method.Symbol.IsReadOnly && kind == PlaceKind.ReadOnly))
+        if (method is null || (!from.IsReference && (inNullable || (!method.Symbol.IsReadOnly && kind == PlaceKind.ReadOnly))))
             return null;
         return new BoundCall(location, new MethodReference(method.Symbol, method.Owner, []), expression, []);
     }
 
     string SpanConversionHint(BoundExpression expression, VplType to)
     {
+        if (stdlib.IsSpan(to) && BoundTree.NullableValueRoot(expression) is { } root
+            && ViewedElement(expression.Type, to.Symbol == stdlib.ReadOnlySpan) == to.TypeArguments[0])
+            return $"; a span cannot view inside the nullable '{root.Name}', since assigning it null would destroy what it views; copy the value to a variable first";
         if (!stdlib.IsSpan(to) || !expression.Type.IsFixedArray || expression.Type.ElementType != to.TypeArguments[0])
             return "";
         return ClassifyPlace(expression).Kind switch
@@ -127,6 +131,11 @@ public sealed partial class Binder
         if (ViewsTemporary(span))
         {
             Error(location, "cannot loop over a temporary value's elements; store the value in a variable first");
+            span = new BoundErrorExpression(location);
+        }
+        else if (BoundTree.ViewedNullableValue(span) is { } root)
+        {
+            Error(location, $"cannot loop over elements inside the nullable '{root.Name}', since assigning it null would destroy them; copy the value to a variable first");
             span = new BoundErrorExpression(location);
         }
 

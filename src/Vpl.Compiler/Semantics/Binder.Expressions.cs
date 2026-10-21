@@ -10,9 +10,13 @@ public sealed partial class Binder
 
     /// <summary>
     /// <paramref name="expected"/> is the type the value will be converted to, if known. It only lets
-    /// enum variants be written without their enum or type arguments; the caller still converts.
+    /// enum variants be written without their enum or type arguments; the caller still converts,
+    /// so a nullable value expects the value inside it.
     /// </summary>
-    BoundExpression BindExpression(Expr expression, VplType? expected = null) => expression switch
+    BoundExpression BindExpression(Expr expression, VplType? expected = null) =>
+        BindExpressionExpecting(expression, expected is { IsNullableValue: true } ? expected.NonNull : expected);
+
+    BoundExpression BindExpressionExpecting(Expr expression, VplType? expected) => expression switch
     {
         IntLiteralExpr e => BindIntegerLiteral(e, e.Location, negated: false),
         FloatLiteralExpr e => e.IsDouble
@@ -139,10 +143,19 @@ public sealed partial class Binder
     {
         if (!receiver.Type.IsNullable)
             return receiver;
-        if (receiver is BoundLocalAccess { AssumesNonNull: false } local)
-            return new BoundLocalAccess(local.Location, local.Local, AssumesNonNull: true);
+        if (receiver is BoundLocalAccess)
+            return AssumeNonNull(receiver);
         return ErrorExpression(receiver.Location, $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
     }
+
+    /// <summary>A nullable local used where only a value will do; flow analysis checks that it was narrowed.</summary>
+    static BoundExpression AssumeNonNull(BoundExpression expression) =>
+        expression is BoundLocalAccess { AssumesNonNull: false, Type.IsNullable: true } local
+            ? new BoundLocalAccess(local.Location, local.Local, AssumesNonNull: true)
+            : expression;
+
+    static string NullableOperandHint(params BoundExpression[] operands) =>
+        operands.Any(o => o.Type.IsNullableValue) ? "; check it for null first, or use '!' or '??'" : "";
 
     BoundExpression BindMemberAccess(MemberAccessExpr e, VplType? expected)
     {
@@ -218,6 +231,8 @@ public sealed partial class Binder
         var operand = BindExpression(e.Operand);
         if (operand.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
+        if (operand.Type.IsNullableValue)
+            operand = AssumeNonNull(operand);
 
         var (op, valid) = e.Operator switch
         {
@@ -227,7 +242,7 @@ public sealed partial class Binder
             _ => throw new InvalidOperationException($"unexpected unary operator {e.Operator}"),
         };
         if (!valid)
-            return ErrorExpression(e.Location, $"operator '{SyntaxFacts.GetText(e.Operator)}' cannot be applied to '{operand.Type}'");
+            return ErrorExpression(e.Location, $"operator '{SyntaxFacts.GetText(e.Operator)}' cannot be applied to '{operand.Type}'{NullableOperandHint(operand)}");
         return new BoundUnary(e.Location, op, operand);
     }
 
@@ -313,7 +328,7 @@ public sealed partial class Binder
     BoundExpression BindBinary(BinaryExpr e)
     {
         var left = BindExpression(e.Left);
-        var expected = e.Operator is TokenKind.EqualEqual or TokenKind.BangEqual && left.Type.IsEnum ? left.Type : null;
+        var expected = e.Operator is TokenKind.EqualEqual or TokenKind.BangEqual && left.Type.NonNull.IsEnum ? left.Type.NonNull : null;
         return BindBinaryOperation(e.OperatorLocation, left, e.Operator, BindExpression(e.Right, expected));
     }
 
@@ -330,6 +345,16 @@ public sealed partial class Binder
 
         if (left.Type.IsPointer || right.Type.IsPointer)
             return BindPointerOperation(location, left, op, right, Mismatch());
+
+        if (left.Type.IsNullableValue || right.Type.IsNullableValue)
+        {
+            if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
+                return BindNullableEquality(location, left, op, right, Mismatch());
+            var (narrowedLeft, narrowedRight) = (AssumeNonNull(left), AssumeNonNull(right));
+            if (narrowedLeft.Type.IsNullableValue || narrowedRight.Type.IsNullableValue)
+                return ErrorExpression(location, Mismatch() + NullableOperandHint(left, right));
+            return BindBinaryOperation(location, narrowedLeft, syntaxOperator, narrowedRight);
+        }
 
         if (IsReferenceOrNull(left.Type) || IsReferenceOrNull(right.Type))
         {
@@ -403,6 +428,23 @@ public sealed partial class Binder
         return new BoundBinary(location, Convert(left, operandType), op, Convert(right, operandType), resultType);
     }
 
+    /// <summary>
+    /// A nullable value is equal to null only when it is null. Otherwise both sides become nullables
+    /// of the type their values compare as, and null equals only null.
+    /// </summary>
+    BoundExpression BindNullableEquality(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string mismatch)
+    {
+        if (left.Type == VplType.Null || right.Type == VplType.Null)
+            return new BoundBinary(location, left, op, right, VplType.Bool);
+        VplType[] candidates = [left.Type.NonNull, right.Type.NonNull];
+        var type = candidates.FirstOrDefault(t => !t.IsReference && t.CanBeNullable && CanConvert(left, t.Nullable) && CanConvert(right, t.Nullable));
+        if (type is null)
+            return ErrorExpression(location, mismatch);
+        if (!Conversions.SupportsEquality(type))
+            return ErrorExpression(location, $"{mismatch}, since '{type}' does not support '=='");
+        return new BoundBinary(location, Convert(left, type.Nullable), op, Convert(right, type.Nullable), VplType.Bool);
+    }
+
     /// <summary>Pointers compare by address, and in unsafe code move by a number of elements.</summary>
     BoundExpression BindPointerOperation(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string mismatch)
     {
@@ -433,7 +475,11 @@ public sealed partial class Binder
 
     bool CanConvert(BoundExpression expression, VplType to) =>
         Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
-        || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null;
+        || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to);
+
+    /// <summary>A value converts to a nullable of any type it converts to, including by conversions only some values have.</summary>
+    bool IsNullableWrapping(BoundExpression expression, VplType to) =>
+        to.IsNullableValue && !expression.Type.IsNullable && expression.Type != VplType.Null && CanConvert(expression, to.NonNull);
 
     /// <summary>Integer literals convert implicitly to float or double when no precision is lost.</summary>
     static bool IsConvertibleConstant(BoundExpression expression, VplType to) =>
@@ -465,6 +511,8 @@ public sealed partial class Binder
                 return expression;
         }
 
+        if (IsNullableWrapping(expression, to))
+            return new BoundConversion(expression.Location, to, Convert(expression, to.NonNull));
         if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (SpanConversion(expression, to) is { } span)
@@ -501,8 +549,8 @@ public sealed partial class Binder
         VplType? type = t == f ? t
             : Conversions.IsImplicit(t, f) || IsConvertibleConstant(whenTrue, f) ? f
             : Conversions.IsImplicit(f, t) || IsConvertibleConstant(whenFalse, t) ? t
-            : t == VplType.Null && f.IsReference ? f.Nullable
-            : f == VplType.Null && t.IsReference ? t.Nullable
+            : t == VplType.Null && f.CanBeNullable ? f.Nullable
+            : f == VplType.Null && t.CanBeNullable ? t.Nullable
             : null;
         if (type is null || type == VplType.Void || type == VplType.Null)
             return ErrorExpression(e.Location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");

@@ -195,6 +195,8 @@ public sealed partial class CppEmitter
         if (type.IsPointer) return CppType(type.ElementType!) + "*";
         if (type.IsFixedArray) return $"std::array<{CppType(type.ElementType!)}, {type.FixedLength}>";
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
+        // `T?` is a reference or an Optional depending on what `T` stands for.
+        if (type.IsNullableValue) return type.NonNull.IsTypeParameter ? $"vpl::Nullable<{CppType(type.NonNull)}>" : $"vpl::Optional<{CppType(type.NonNull)}>";
         if (type.IsStructOrEnum) return ObjectType(type);
         if (type == VplType.Void) return "void";
         if (type == VplType.Bool) return "bool";

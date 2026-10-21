@@ -32,12 +32,11 @@ public sealed partial class Binder
         }
         if (!syntax.IsNullable || type == VplType.Error)
             return type;
-        // Weak's type argument is always a class or interface type; see CheckWeakTarget.
-        if (type.IsReference || (type.TypeParameter is { } parameter && stdlib.Weak?.TypeParameters.Contains(parameter) == true))
+        if (type.CanBeNullable)
             return type.Nullable;
-        Error(syntax.Location, type.IsTypeParameter
-            ? $"type parameter '{type}' cannot be nullable, since it may stand for a struct"
-            : $"'{type}?' is not supported: only class and interface types can be nullable for now");
+        Error(syntax.Location, type.IsPointer
+            ? $"'{type}?' is not needed: a pointer can already be null"
+            : $"'{type}' cannot be nullable, since it is a 'ref struct'");
         return VplType.Error;
     }
 

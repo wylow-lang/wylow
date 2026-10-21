@@ -184,15 +184,17 @@ public sealed class ElementAliasing
 
     /// <summary>Whether a write may store over an element whose type is <paramref name="element"/>.</summary>
     static bool MayStoreOver(Write write, VplType element) =>
-        (write.Element && (write.Type.NonNull == element || write.Type.IsTypeParameter)) || ContainsElements(write.Type, element, []);
+        (write.Element && (write.Type.NonNull == element || write.Type.NonNull.IsTypeParameter)) || ContainsElements(write.Type, element, []);
 
     /// <summary>Whether a value of the type may contain elements of type <paramref name="element"/>: a fixed array of them, directly or in a field.</summary>
     static bool ContainsElements(VplType type, VplType element, HashSet<VplType> visiting)
     {
+        if (type.IsNullableValue)
+            return ContainsElements(type.NonNull, element, visiting);
         if (type.IsTypeParameter)
             return true;
         if (type.IsFixedArray)
-            return type.ElementType!.NonNull == element || type.ElementType.IsTypeParameter || ContainsElements(type.ElementType, element, visiting);
+            return type.ElementType!.NonNull == element || type.ElementType.NonNull.IsTypeParameter || ContainsElements(type.ElementType, element, visiting);
         if (!type.IsStructOrEnum || !visiting.Add(type))
             return false;
         var map = TypeMap.For(type);

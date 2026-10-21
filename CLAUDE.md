@@ -79,6 +79,9 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - **Whatever a reference or span points into must stay alive and unmoved while it is used.**
   `CppEmitter.StorageRoot` finds the object to hold, and whether to borrow it (`vpl::borrow`) or
   just pin it. A new way to produce a place or a view must be handled there.
+- **Nothing may keep referring into a nullable value** (`int?`, `Vec3?`, `T?`), since assigning the
+  variable null destroys it: `BoundTree.NullableValueRoot` finds the narrowed local a place lies in,
+  and a new way to hold a place or a view beyond one operation must reject such places.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite on
   both MSVC and g++ before committing.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
@@ -101,3 +104,5 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   use `values` or `enums\values`.
 - In a perl substitution, `$1` followed by a digit (`$110.`) is read as a later group and silently
   drops the text; write `${1}`.
+- In perl replacement text, escape the `$` of C# interpolated strings as `\$"`: `$"` is perl's list
+  separator (a space), and `$"{what}` a hash element, so both silently drop text.

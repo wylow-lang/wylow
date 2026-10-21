@@ -302,8 +302,8 @@ public static class Builtins
     {
         get
         {
-            VplType[] printable = [VplType.Int, VplType.Long, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
-            foreach (var type in printable)
+            VplType[] values = [VplType.Int, VplType.Long, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
+            foreach (var type in values.Concat(values.Select(v => v.Nullable)))
             {
                 yield return new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], VplType.Void)
                 {

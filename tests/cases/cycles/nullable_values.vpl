@@ -1,0 +1,51 @@
+// A cycle through a nullable struct is found only when the value is there, and a class holding
+// only nullable numbers is never buffered.
+
+class Room {
+    int number;
+    Door? door;
+
+    Room(int number) {
+        this.number = number;
+    }
+
+    ~Room() {
+        print(number);
+    }
+}
+
+struct Door {
+    Room to;
+    int? lock;
+
+    Door(Room to) {
+        this.to = to;
+    }
+}
+
+class Counter {
+    int? best;
+    List<int?> history = new List<int?>();
+}
+
+void main() {
+    var a = new Room(1);
+    var b = new Room(2);
+    a.door = Door(b);
+    b.door = Door(a);
+    a = new Room(3);
+    b = a;
+    print(0);                           // output: 0
+    Memory.collectCycles();
+    // output: 2
+    // output: 1
+    print(Memory.cycleStats().freed);   // output: 2
+
+    var c = new Counter();
+    c.history.add(1);
+    var d = c;
+    d = new Counter();
+    c = d;
+    print(Memory.cycleStats().buffered);    // output: 0
+}
+// output: 3

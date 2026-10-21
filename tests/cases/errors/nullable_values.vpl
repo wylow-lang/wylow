@@ -1,0 +1,106 @@
+struct Vec {
+    int x;
+    int[2] pair;
+
+    void move(int dx) {
+        x += dx;
+    }
+
+    void moveWith(ref Vec? other) {
+        other = null;
+        x += 1;
+    }
+}
+
+enum Direction { North, East }
+
+struct Link {                           // error: struct 'Link' contains itself (Link -> Link)
+    Link? next;
+}
+
+struct Span2 {
+    Span<int>? view;                    // error: 'Span<int>' cannot be nullable, since it is a 'ref struct'
+}
+
+int? maybe() {
+    return null;
+}
+
+Direction? heading() {
+    return null;
+}
+
+void reset(ref int? value) {
+    value = null;
+}
+
+void read(in Vec v, ref Vec? other) { }
+
+int clear(ref Vec? v) {
+    v = null;
+    return 0;
+}
+
+void narrowParameter(ref int? value) {
+    if (value != null) {
+        print(value + 1);               // error: a 'ref' parameter is not narrowed by null checks
+    }
+}
+
+bool same<T>(T? a, T? b) {
+    return a == b;                      // error: since 'T' does not support '=='
+}
+
+void main() {
+    int? x = maybe();
+    print(x + 1);                       // error: 'x' might be null here
+    print(maybe() + 1);                 // error: operator '+' cannot be applied to 'int?' and 'int'; check it for null first
+    print(-maybe());                    // error: operator '-' cannot be applied to 'int?'; check it for null first
+    if (x is long n) { }                // error: a 'int?' can never be a 'long'
+    switch (heading()) {                // error: cannot switch on a nullable 'Direction?'
+        case North -> print(0);
+        case East -> print(1);
+    }
+    String? s = null;
+    print(s == s);                      // error: since 'String' does not support '=='
+    var none = 1 == 2 ? null : null;    // error: the branches of '?:' have incompatible types 'null' and 'null'
+
+    // Narrowing ends where the local may be assigned through a 'ref'.
+    int? y = 1;
+    reset(ref y);
+    print(y + 1);                       // error: 'y' might be null here
+    int? z = 1;
+    while (z != null) {
+        print(z + 1);
+        reset(ref z);
+    }
+    int? w = 1;
+    for (int i : 0..3) {
+        print(w + 1);                   // error: 'w' might be null here
+        reset(ref w);
+    }
+    ref int? alias = x;                 // error: a 'ref' variable cannot refer to the nullable variable 'x'
+
+    // Nothing may keep referring into a nullable value that could be destroyed meanwhile.
+    Vec? v = Vec { x = 1 };
+    if (v != null) {
+        v.move(1);
+        v.moveWith(ref v);              // error: 'v' is passed by 'ref' while its value is in use here
+    }
+    if (v != null) {
+        read(v, ref v);                 // error: 'v' is passed by 'ref' while its value is in use here
+        ref int r = v.x;                // error: a 'ref' variable cannot refer into the nullable 'v'
+        in int[2] p = v.pair;           // error: a 'in' variable cannot refer into the nullable 'v'
+        Span<int> span = v.pair;        // error: a span cannot view inside the nullable 'v'
+        for (int e : v.pair) { }        // error: cannot loop over elements inside the nullable 'v'
+    }
+    if (v != null) {
+        v.x = clear(ref v);             // error: 'v' is passed by 'ref' while its value is in use here
+    }
+    if (v != null) {
+        v.pair[clear(ref v)] = 1;       // error: 'v' is passed by 'ref' while its value is in use here
+    }
+    v?.move(1);                         // error: '?.' would call 'move' on a copy of 'v'
+    print(v!.x);
+    v!.x = 2;                           // error: cannot assign to a field of a temporary value
+}

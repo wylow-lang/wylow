@@ -25,7 +25,7 @@ public sealed partial class Binder
         bool isTypeTest = e.Pattern is TypePatternSyntax || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } && !operand.Type.IsEnum);
         if (e.Pattern is DiscardPatternSyntax or VarPatternSyntax)
             Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
-        else if (isTypeTest && !operand.Type.IsReference)
+        else if (isTypeTest && !operand.Type.IsReference && !operand.Type.IsNullableValue)
         {
             DeclareErrorBindings(e.Pattern);
             return ErrorExpression(e.Operand.Location, $"'is' can only test the type of class or interface values, not '{operand.Type}'");
@@ -116,8 +116,9 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// For a reference, a test of its runtime type. For a value type, which has no subtypes, the
-    /// pattern only states the type, which must be exactly the value's.
+    /// For a reference, a test of its runtime type. For a nullable value, a test that it is not null.
+    /// For another value type, which has no subtypes, the pattern only states the type, which must
+    /// be exactly the value's.
     /// </summary>
     BoundPattern BindTypePattern(Location location, TypeSyntax typeSyntax, string? name, Location nameLocation, VplType type, bool canBind)
     {
@@ -141,6 +142,9 @@ public sealed partial class Binder
             return new BoundTypePattern(location, type, target, Binding(target));
         }
 
+        // A nullable value is a value of its type exactly when it is not null.
+        if (type.IsNullableValue && target == type.NonNull)
+            return new BoundTypePattern(location, type, target, Binding(target));
         if (target != type)
         {
             Binding(VplType.Error);
@@ -197,6 +201,13 @@ public sealed partial class Binder
         var value = BindExpression(syntax);
         if (value.Type == VplType.Void)
             return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
+        // Patterns match values, not null: a nullable local is narrowed, as for a member access.
+        if (value.Type.IsNullableValue)
+        {
+            value = AssumeNonNull(value);
+            if (value.Type.IsNullableValue)
+                return ErrorExpression(syntax.Location, $"cannot switch on a nullable '{value.Type}'; check it for null first, or use '!' or '??'");
+        }
         return CheckMatchable(value);
     }
 
@@ -257,13 +268,13 @@ public sealed partial class Binder
         return new BoundSwitchExpression(e.Location, value, [.. cases], type);
     }
 
-    /// <summary>The first case's type, or a later one, that every case converts to; references may become nullable for a <c>null</c> case.</summary>
+    /// <summary>The first case's type, or a later one, that every case converts to; a type may become nullable for a <c>null</c> case.</summary>
     VplType? CommonType(IReadOnlyList<BoundExpression> values)
     {
         var candidates = values
             .Select(v => v.Type)
             .Where(t => t != VplType.Null)
-            .SelectMany(t => t.IsReference ? [t, t.Nullable] : new[] { t })
+            .SelectMany(t => t.CanBeNullable ? [t, t.Nullable] : new[] { t })
             .Distinct();
         return candidates.FirstOrDefault(t => values.All(v => CanConvert(v, t)));
     }

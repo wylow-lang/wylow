@@ -205,6 +205,8 @@ public sealed partial class Binder
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
+        else if (type.IsRefStruct && initializer is not null && BoundTree.ViewedNullableValue(initializer) is { } root)
+            Error(initializer.Location, $"this '{type}' would view inside the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first");
         var local = new LocalSymbol(s.Name, type, isParameter: false);
         Declare(local, s.NameLocation);
         return new BoundVariableDeclaration(s.Location, local, initializer);
@@ -245,6 +247,17 @@ public sealed partial class Binder
         if (place.Type != type)
         {
             Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");
+            return false;
+        }
+        if (BoundTree.NullableValueRoot(place) is { } root)
+        {
+            Error(place.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
+            return false;
+        }
+        // Through such a reference the variable could become null after a null check narrowed it.
+        if (refKind == RefKind.Ref && type.IsNullableValue && place is BoundLocalAccess { Local.RefKind: RefKind.None } local)
+        {
+            Error(place.Location, $"{what} cannot refer to the nullable variable '{local.Local.Name}'; pass it by 'ref' to a function instead");
             return false;
         }
         var (kind, reason) = ClassifyPlace(place);
@@ -398,19 +411,20 @@ public sealed partial class Binder
         var target = BindExpression(s.Target);
         if (target.Type == VplType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
-        if (!target.Type.IsNumeric)
+        var operand = target.Type.IsNullableValue ? AssumeNonNull(target) : target;
+        if (!operand.Type.IsNumeric)
         {
-            Error(s.Location, $"'{(s.IsIncrement ? "++" : "--")}' requires a numeric variable");
+            Error(s.Location, $"'{(s.IsIncrement ? "++" : "--")}' requires a numeric variable{NullableOperandHint(operand)}");
             return ErrorStatement(s.Location);
         }
 
-        object one = target.Type == VplType.Int ? (object)1
-            : target.Type == VplType.Long ? (object)1L
-            : target.Type == VplType.Float ? (object)1f
+        object one = operand.Type == VplType.Int ? (object)1
+            : operand.Type == VplType.Long ? (object)1L
+            : operand.Type == VplType.Float ? (object)1f
             : (object)1d;
         var value = BindBinaryOperation(
-            s.Location, target, s.IsIncrement ? TokenKind.Plus : TokenKind.Minus, new BoundLiteral(s.Location, target.Type, one));
-        return new BoundAssignment(s.Location, target, value);
+            s.Location, operand, s.IsIncrement ? TokenKind.Plus : TokenKind.Minus, new BoundLiteral(s.Location, operand.Type, one));
+        return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 
     (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => expression switch

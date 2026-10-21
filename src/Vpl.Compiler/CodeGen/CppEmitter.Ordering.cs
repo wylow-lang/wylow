@@ -72,6 +72,8 @@ public sealed partial class CppEmitter
 
     static bool MayHoldReferences(VplType type, HashSet<VplType> visiting)
     {
+        if (type.IsNullableValue)
+            return MayHoldReferences(type.NonNull, visiting);
         if (type.IsReference || type.IsTypeParameter)
             return true;
         if (type.IsFixedArray)

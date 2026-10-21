@@ -48,6 +48,9 @@ void main() {
     numbers.insert(1, 50);
     print(numbers[1]);          // output: 50
     print(numbers.removeAt(0)); // output: 100
+    print(numbers.tryRemoveAt(numbers.count));  // output: null
+    numbers.add(7);
+    print(numbers.tryRemoveAt(numbers.count - 1));  // output: 7
     print(total(numbers));      // output: 95
     for (ref int n : numbers) {
         n *= 2;

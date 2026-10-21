@@ -21,6 +21,11 @@ public sealed partial class CppEmitter
         {
             if (type.IsReference || type.IsPointer)
                 return;
+            if (type.IsNullableValue)
+            {
+                VisitType(type.NonNull);
+                return;
+            }
             if (type.IsFixedArray)
             {
                 VisitType(type.ElementType!);

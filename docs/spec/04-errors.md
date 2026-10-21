@@ -134,5 +134,5 @@ code where failure would be a bug.
 Non-panicking versions are named `tryX` after the panicking `x`, except where a shorter name is
 established (`get` for indexers, `??` and patterns for nullable values).
 
-> Not implemented yet: `list.get`, `list.tryRemoveAt`, and `tryFrom` need nullable value types
-> (`int?`, `ref T?`).
+> Implemented so far: `list.tryRemoveAt`. `list.get` needs `ref T?`, a reference that can be null,
+> and `tryFrom` needs a static method the compiler generates for each enum.

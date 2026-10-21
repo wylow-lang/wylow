@@ -1,0 +1,8 @@
+int? lookup(bool found) {
+    return found ? 1 : null;
+}
+
+void main() {
+    print(lookup(true)!);       // output: 1
+    print(lookup(false)!);      // panic-here: null value unwrapped with '!'
+}

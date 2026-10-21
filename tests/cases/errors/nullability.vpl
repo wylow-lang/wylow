@@ -21,9 +21,7 @@ void main() {
     Node definite = n.next;             // error: cannot implicitly convert 'Node?' to 'Node'; check it for null first, or use '!'
     print(n!.value);                    // error: '!' can only be applied to a nullable value
     print(n?.value);                    // error: '?.' is only needed on nullable values
-    print(maybe?.value);                // error: '?.' cannot produce a nullable 'int'
     var x = null;                       // error: cannot infer a type from 'null'
-    Vec? v;                             // error: 'Vec?' is not supported
     Node m = null;                      // error: cannot implicitly convert 'null' to 'Node'
     var k = n ?? n;                     // error: the left side of '??' must be nullable
     print(1 == null);                   // error: operator '==' cannot be applied to 'int' and 'null'

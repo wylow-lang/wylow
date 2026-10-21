@@ -1,0 +1,131 @@
+struct Vec {
+    int x;
+    int y;
+
+    Vec(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    void move(int dx) {
+        x += dx;
+    }
+
+    readonly int sum() {
+        return x + y;
+    }
+}
+
+class Token {
+    String name;
+
+    Token(String name) {
+        this.name = name;
+    }
+
+    ~Token() {
+        print(name);
+    }
+}
+
+struct Holder {
+    Token token;
+    int? count;
+
+    Holder(Token token, int? count) {
+        this.token = token;
+        this.count = count;
+    }
+}
+
+enum Shape {
+    Empty,
+    Point(Vec? at),
+}
+
+enum Slot {
+    Free,
+    Taken(Holder? holder),
+}
+
+class Body {
+    Vec? velocity;
+    Holder? held;
+}
+
+Vec? offset(bool some) {
+    return some ? Vec(1, 2) : null;
+}
+
+void main() {
+    Vec? v = Vec(3, 4);
+    print(v?.x);                            // output: 3
+    print(v?.sum());                        // output: 7
+    print(v!.y);                            // output: 4
+
+    // A narrowed local is changed in place.
+    if (v != null) {
+        v.x = 10;
+        v.move(5);
+        print(v.x);                         // output: 15
+    }
+    print(v?.x);                            // output: 15
+
+    Vec? none = null;
+    print(none?.x);                         // output: null
+    print(none?.sum() ?? -1);               // output: -1
+    print(offset(true)?.y);                 // output: 2
+    print(offset(false) == null);           // output: true
+    print(v == Vec(15, 4));                 // output: true
+    print(v == none);                       // output: false
+
+    // Fields of nullable type default to null.
+    var body = new Body();
+    print(body.velocity == null);           // output: true
+    body.velocity = Vec(1, 1);
+    print(body.velocity?.sum());            // output: 2
+
+    // Assigning null destroys the value inside, releasing what it holds.
+    Holder? holder = Holder(new Token("first"), null);
+    print(holder?.count);                   // output: null
+    holder = Holder(new Token("second"), 2);    // output: first
+    print(holder?.token?.name);             // output: second
+    print(holder?.count);                   // output: 2
+    holder = null;                          // output: second
+    print(holder == null);                  // output: true
+
+    body.held = Holder(new Token("field"), 1);
+    body = new Body();                      // output: field
+
+    // Containers hold nullable values.
+    List<int?> list = new List<int?>();
+    for (int i : 0..6) {
+        list.add(i % 2 == 0 ? i : null);
+    }
+    int total = 0;
+    for (int? item : list) {
+        total += item ?? 100;
+    }
+    print(total);                           // output: 306
+    int?[] slots = new int?[3];
+    print(slots[1]);                        // output: null
+    slots[1] = 5;
+    print(slots[1]);                        // output: 5
+
+    Shape shape = Shape.Point(null);
+    if (shape is Point(var at)) {
+        print(at == null);                  // output: true
+    }
+    shape = Shape.Point(Vec(2, 2));
+    if (shape is Point(Vec at)) {
+        print(at.sum());                    // output: 4
+    }
+
+    Slot slot = Slot.Taken(Holder(new Token("slot"), null));
+    Slot copy = slot;
+    slot = Slot.Free;
+    print(copy is Taken(Holder held));      // output: true
+    copy = Slot.Taken(null);
+    print(copy is Taken(Holder h2));        // output: false
+}
+// output: slot

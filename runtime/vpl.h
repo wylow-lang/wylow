@@ -597,6 +597,158 @@ inline Ref<T> unwrap(Ref<T> value, const char* location) {
     return value;
 }
 
+// A nullable value type: the value, if any, and whether there is one. Copying, moving, and
+// destroying it are trivial when they are for T, so `int?` is as cheap as an int and a bool.
+template <class T>
+class Optional {
+    union {
+        char empty_;
+        T value_;
+    };
+    bool has_ = false;
+
+    template <class>
+    friend class Optional;
+
+    void reset() noexcept {
+        if (has_) {
+            has_ = false;
+            value_.~T();
+        }
+    }
+
+public:
+    Optional() noexcept : empty_() {}
+    Optional(std::nullptr_t) noexcept : empty_() {}
+    Optional(const T& value) : value_(value), has_(true) {}
+    Optional(T&& value) : value_(std::move(value)), has_(true) {}
+
+    // Between nullables of numbers whose conversion VPL makes implicit, such as `int?` to `long?`.
+    template <class U>
+    explicit Optional(const Optional<U>& other) : empty_() {
+        if (other.has_) {
+            ::new (static_cast<void*>(&value_)) T(static_cast<T>(other.value_));
+            has_ = true;
+        }
+    }
+
+    Optional(const Optional&) requires std::is_trivially_copy_constructible_v<T> = default;
+    Optional(const Optional& other) requires(!std::is_trivially_copy_constructible_v<T>) : empty_() {
+        if (other.has_) {
+            ::new (static_cast<void*>(&value_)) T(other.value_);
+            has_ = true;
+        }
+    }
+
+    Optional(Optional&&) requires std::is_trivially_move_constructible_v<T> = default;
+    Optional(Optional&& other) noexcept requires(!std::is_trivially_move_constructible_v<T>) : empty_() {
+        if (other.has_) {
+            ::new (static_cast<void*>(&value_)) T(std::move(other.value_));
+            has_ = true;
+        }
+    }
+
+    ~Optional() requires std::is_trivially_destructible_v<T> = default;
+    ~Optional() requires(!std::is_trivially_destructible_v<T>) { reset(); }
+
+    // As for Ref, swapping releases nothing: the old value dies with `other`, after the store.
+    Optional& operator=(Optional&&) requires std::is_trivially_move_assignable_v<T> = default;
+    Optional& operator=(Optional&& other) noexcept requires(!std::is_trivially_move_assignable_v<T>) {
+        if (has_ && other.has_) {
+            using std::swap;
+            swap(value_, other.value_);
+        } else if (other.has_) {
+            ::new (static_cast<void*>(&value_)) T(std::move(other.value_));
+            has_ = true;
+            other.reset();
+        } else if (has_) {
+            ::new (static_cast<void*>(&other.value_)) T(std::move(value_));
+            other.has_ = true;
+            reset();
+        }
+        return *this;
+    }
+
+    Optional& operator=(const Optional&) requires std::is_trivially_copy_assignable_v<T> = default;
+    Optional& operator=(const Optional& other) requires(!std::is_trivially_copy_assignable_v<T>) {
+        Optional copy(other);
+        *this = std::move(copy);
+        return *this;
+    }
+
+    bool has_value() const { return has_; }
+
+    // Flow analysis proved there is a value.
+    T& assumed() {
+        if constexpr (VPL_DEBUG != 0) {
+            if (!has_) panic("internal compiler error: null value used as narrowed", "<runtime>");
+        }
+        return value_;
+    }
+    const T& assumed() const { return const_cast<Optional*>(this)->assumed(); }
+
+    friend bool operator==(const Optional& a, const Optional& b)
+        requires requires(const T& x) { x == x; }
+    {
+        return a.has_ == b.has_ && (!a.has_ || a.value_ == b.value_);
+    }
+};
+
+// `T?` in generic code, for whatever T stands for: a nullable reference is a Ref, and a nullable
+// of a nullable is the same type.
+template <class T>
+struct nullable_of {
+    using type = Optional<T>;
+};
+template <class T>
+struct nullable_of<Ref<T>> {
+    using type = Ref<T>;
+};
+template <class T>
+struct nullable_of<Optional<T>> {
+    using type = Optional<T>;
+};
+template <class T>
+using Nullable = typename nullable_of<T>::type;
+
+template <class T>
+inline bool has_value(const Ref<T>& value) {
+    return static_cast<bool>(value);
+}
+
+template <class T>
+inline bool has_value(const Optional<T>& value) {
+    return value.has_value();
+}
+
+// The value of a nullable that flow analysis proved is not null; a Ref is its own value.
+template <class T>
+inline Ref<T>& assume_value(Ref<T>& value) {
+    return value;
+}
+
+template <class T>
+inline const Ref<T>& assume_value(const Ref<T>& value) {
+    return value;
+}
+
+template <class T>
+inline T& assume_value(Optional<T>& value) {
+    return value.assumed();
+}
+
+template <class T>
+inline const T& assume_value(const Optional<T>& value) {
+    return value.assumed();
+}
+
+// A copy: a reference into the nullable could outlive its value.
+template <class T>
+inline T unwrap(const Optional<T>& value, const char* location) {
+    if (!value.has_value()) panic("null value unwrapped with '!'", location);
+    return value.assumed();
+}
+
 // Stores every part of the new value before releasing any part of the old one: a memberwise copy
 // could run a destructor between two fields, and that destructor may read or free the target.
 template <class T>
@@ -619,6 +771,11 @@ inline void assign(T& target, T value) {
 template <class T>
 inline void visit(Visitor& visitor, Ref<T>& reference) {
     if (reference && visitor.visit(reference.get())) reference = nullptr;
+}
+
+template <class T>
+inline void visit(Visitor& visitor, Optional<T>& value) {
+    if (value.has_value()) visit(visitor, value.assumed());
 }
 
 // Fixed arrays, and structs and enums through their generated vpl_visit; other values hold no references.
@@ -1098,5 +1255,14 @@ inline void print_float(F value) {
 
 inline void print(float value) { print_float(value); }
 inline void print(double value) { print_float(value); }
+
+template <class T>
+inline void print(const Optional<T>& value) {
+    if (value.has_value()) {
+        print(value.assumed());
+    } else {
+        std::puts("null");
+    }
+}
 
 }  // namespace vpl

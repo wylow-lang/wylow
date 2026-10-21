@@ -1,0 +1,99 @@
+enum Direction { North, East, South, West }
+
+int? find(int[4] values, int wanted) {
+    for (int i, int value : values) {
+        if (value == wanted) {
+            return i;
+        }
+    }
+    return null;
+}
+
+int? half(int value) {
+    return value % 2 == 0 ? value / 2 : null;
+}
+
+long widen(long? value) {
+    return value ?? -1L;
+}
+
+void main() {
+    int? missing = null;
+    int? present = 4;
+    print(missing);                         // output: null
+    print(present);                         // output: 4
+    print(missing == null);                 // output: true
+    print(present != null);                 // output: true
+
+    // A null check narrows a local, as for references.
+    if (present != null) {
+        print(present + 1);                 // output: 5
+        int plain = present;
+        print(plain * 2);                   // output: 8
+    }
+    if (missing == null) {
+        print("missing");                   // output: missing
+    }
+
+    // Assigning a value narrows too, until the local may be null again.
+    int? counter = 0;
+    counter++;
+    counter += 10;
+    print(counter);                         // output: 11
+    counter = half(7);
+    print(counter ?? -1);                   // output: -1
+
+    print(present! * 3);                    // output: 12
+    print(missing ?? 7);                    // output: 7
+    print(half(10) ?? 0);                   // output: 5
+
+    int[4] values = [3, 1, 4, 1];
+    print(find(values, 4));                 // output: 2
+    print(find(values, 9));                 // output: null
+    if (find(values, 1) is int index) {
+        print(index);                       // output: 1
+    }
+    print(find(values, 9) is int);          // output: false
+
+    // Equality compares values, and null equals only null.
+    int? other = 4;
+    print(present == other);                // output: true
+    print(present == 4);                    // output: true
+    print(missing == other);                // output: false
+    int? alsoMissing = null;
+    print(missing == alsoMissing);          // output: true
+    float? scale = 2;
+    print(scale == 2);                      // output: true
+    print(scale);                           // output: 2.0
+
+    // Implicit conversions widen the value inside.
+    long? wide = present;
+    print(wide);                            // output: 4
+    print(widen(missing));                  // output: -1
+    print(widen(9));                        // output: 9
+    double? precise = scale;
+    print(precise);                         // output: 2.0
+
+    bool? flag = null;
+    print(flag);                            // output: null
+    flag = true;
+    if (flag) {
+        print("flag");                      // output: flag
+    }
+
+    // A variant can still leave out its enum.
+    Direction? heading = East;
+    print(heading == East);                 // output: true
+    print(heading == Direction.West);       // output: false
+    if (heading != null) {
+        switch (heading) {
+            case North, South -> print("vertical");
+            case East, West -> print("horizontal");  // output: horizontal
+        }
+    }
+    heading = null;
+    print(heading == null);                 // output: true
+
+    var chosen = present != null ? present : null;
+    print(chosen);                          // output: 4
+}

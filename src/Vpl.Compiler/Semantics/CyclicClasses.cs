@@ -35,11 +35,11 @@ public sealed class CyclicClasses
     public bool IsCyclic(VplType classType) => cyclic.Contains(Erase(classType));
 
     /// <summary>
-    /// The type without nullability anywhere in its type arguments: `List<Node>` and `List<Node?>` are
-    /// one C++ type, so they must be decided alike.
+    /// The type without the nullability of references anywhere in its type arguments: `List<Node>`
+    /// and `List<Node?>` are one C++ type, so they must be decided alike. `List<int?>` is another.
     /// </summary>
     static VplType Erase(VplType type) =>
-        type.IsNullable ? Erase(type.NonNull)
+        type.IsNullable ? (type.IsNullableValue ? Erase(type.NonNull).Nullable : Erase(type.NonNull))
         : type.IsPointer ? Erase(type.ElementType!).PointerTo
         : type.IsFixedArray ? Erase(type.ElementType!).FixedArrayOf(type.FixedLength)
         : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Erase)])
@@ -91,7 +91,9 @@ public sealed class CyclicClasses
     /// <summary>Adds the class and interface types a value of the type may hold strong references to.</summary>
     void Hold(VplType type, HashSet<VplType> references, HashSet<VplType> visiting)
     {
-        if (type.IsReference)
+        if (type.IsNullableValue)
+            Hold(type.NonNull, references, visiting);
+        else if (type.IsReference)
             references.Add(Erase(type));
         else if (type.IsTypeParameter)
             references.Add(type);

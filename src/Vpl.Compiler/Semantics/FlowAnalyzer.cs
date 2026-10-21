@@ -1,4 +1,5 @@
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Semantics;
@@ -102,22 +103,27 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 return state;
 
             case BoundAssignment assignment:
+            {
+                // Assigning a whole local initializes it; assigning a field requires its root to be
+                // initialized. Like evaluation, analysis finds the target before the value.
+                bool initializesField = assignment.Target is BoundFieldAccess { Receiver: BoundThis } && requiredFields.Count > 0;
+                if (assignment.Target is not BoundLocalAccess && !initializesField)
+                {
+                    CheckNullableValueKept(assignment.Target, RefPassedLocals(assignment.Value));
+                    state = Expression(assignment.Target, state);
+                }
                 state = Expression(assignment.Value, state);
-                // Assigning a whole local initializes it; assigning a field requires its root to be initialized.
                 if (assignment.Target is BoundLocalAccess target)
                 {
                     state.Assigned.Add(target.Local);
                     SetNullability(state, target.Local, assignment.Value);
                 }
-                else if (assignment.Target is BoundFieldAccess { Receiver: BoundThis } field && requiredFields.Count > 0)
+                else if (initializesField)
                 {
-                    state.AssignedFields.Add(field.Field);
-                }
-                else
-                {
-                    state = Expression(assignment.Target, state);
+                    state.AssignedFields.Add(((BoundFieldAccess)assignment.Target).Field);
                 }
                 return state;
+            }
 
             case BoundExpressionStatement expressionStatement:
                 state = Expression(expressionStatement.Expression, state);
@@ -126,6 +132,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             case BoundSuperCall super:
                 foreach (var argument in super.Arguments)
                     state = Expression(argument, state);
+                foreach (var local in RefArguments(super.Constructor, super.Arguments))
+                    state.NonNull.Remove(local);
                 return state;
 
             case BoundIf ifStatement:
@@ -217,9 +225,19 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     static void SetNullability(State state, LocalSymbol local, BoundExpression value)
     {
         if (IsNonNull(value, state))
-            state.NonNull.Add(local);
+            Narrow(state, local);
         else
             state.NonNull.Remove(local);
+    }
+
+    /// <summary>
+    /// Only a variable that nothing else refers to can be narrowed: through another reference to
+    /// the same variable, a 'ref' or 'in' one could become null after the check.
+    /// </summary>
+    static void Narrow(State state, LocalSymbol local)
+    {
+        if (local.RefKind == RefKind.None)
+            state.NonNull.Add(local);
     }
 
     static bool IsNonNull(BoundExpression value, State state) => value switch
@@ -241,10 +259,15 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         return entry;
     }
 
-    static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) => statement switch
+    /// <summary>The locals a statement may assign, directly or by passing them by 'ref'.</summary>
+    static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) =>
+        OwnExpressions(statement).SelectMany(RefPassedLocals).Concat(DirectlyAssignedLocals(statement));
+
+    static IEnumerable<LocalSymbol> DirectlyAssignedLocals(BoundStatement statement) => statement switch
     {
         BoundBlock block => block.Statements.SelectMany(AssignedLocals),
         BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
+        BoundSuperCall super => RefArguments(super.Constructor, super.Arguments),
         BoundIf ifStatement => [.. AssignedLocals(ifStatement.Then), .. ifStatement.Else is null ? [] : AssignedLocals(ifStatement.Else)],
         BoundWhile whileStatement => AssignedLocals(whileStatement.Body),
         BoundForRange range => AssignedLocals(range.Body),
@@ -256,6 +279,75 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         ],
         _ => [],
     };
+
+    /// <summary>The expressions a statement evaluates itself, not those of the statements inside it.</summary>
+    static IEnumerable<BoundExpression> OwnExpressions(BoundStatement statement) => statement switch
+    {
+        BoundVariableDeclaration { Initializer: { } initializer } => [initializer],
+        BoundAssignment assignment => [assignment.Target, assignment.Value],
+        BoundExpressionStatement expressionStatement => [expressionStatement.Expression],
+        BoundSuperCall super => super.Arguments,
+        BoundIf ifStatement => [ifStatement.Condition],
+        BoundWhile whileStatement => [whileStatement.Condition],
+        BoundFor { Condition: { } condition } => [condition],
+        BoundForRange range => [range.Start, range.End],
+        BoundReturn { Value: { } value } => [value],
+        BoundSwitch switchStatement => [switchStatement.Value],
+        _ => [],
+    };
+
+    static IEnumerable<LocalSymbol> RefPassedLocals(BoundExpression expression) =>
+        RefArguments(expression).Concat(BoundTree.Children(expression).SelectMany(RefPassedLocals));
+
+    /// <summary>The locals a call, construction, or 'new' itself passes by 'ref'.</summary>
+    static IEnumerable<LocalSymbol> RefArguments(BoundExpression expression) => expression switch
+    {
+        BoundCall call => RefArguments(call.Method, call.Arguments),
+        BoundNew creation => RefArguments(creation.Constructor, creation.Arguments),
+        BoundConstruction construction => RefArguments(construction.Constructor, construction.Arguments),
+        _ => [],
+    };
+
+    static IEnumerable<LocalSymbol> RefArguments(MethodReference method, IReadOnlyList<BoundExpression> arguments) =>
+        arguments.Where((a, i) => method.ParameterRefKind(i) == RefKind.Ref).OfType<BoundLocalAccess>().Select(a => a.Local);
+
+    /// <summary>
+    /// A place inside a narrowed nullable value is referred to while the rest of an operation runs,
+    /// as the receiver or a 'ref' or 'in' argument of a call, or the target of an assignment.
+    /// Passing the nullable by 'ref' meanwhile could set it to null and destroy the place.
+    /// </summary>
+    void CheckNullableValueKept(BoundExpression place, IEnumerable<LocalSymbol> passedByRef)
+    {
+        var root = place.Type.IsRefStruct ? BoundTree.ViewedNullableValue(place) : BoundTree.NullableValueRoot(place);
+        if (root is not null && passedByRef.Contains(root))
+        {
+            ReportOnce(place, place.Location,
+                $"'{root.Name}' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first");
+        }
+    }
+
+    /// <summary>Checks the operands of a call or index that refer to places against the others evaluated with them.</summary>
+    void CheckNullableValuesKept(BoundExpression expression)
+    {
+        var (method, receiver, arguments) = expression switch
+        {
+            BoundCall call => (call.Method, call.Receiver, call.Arguments),
+            BoundNew creation => (creation.Constructor, null, creation.Arguments),
+            BoundConstruction construction => (construction.Constructor, null, construction.Arguments),
+            BoundIndex { Target.Type.IsFixedArray: true } index => (null, index.Target, [index.Index]),
+            _ => ((MethodReference?)null, (BoundExpression?)null, (IReadOnlyList<BoundExpression>)[]),
+        };
+        List<BoundExpression> operands = receiver is null ? [.. arguments] : [receiver, .. arguments];
+        for (int i = 0; i < operands.Count; i++)
+        {
+            int argument = receiver is null ? i : i - 1;
+            bool kept = argument < 0
+                ? !operands[i].Type.IsReference
+                : method is not null && (operands[i].Type.IsRefStruct || method.ParameterRefKind(argument) != RefKind.None);
+            if (kept)
+                CheckNullableValueKept(operands[i], RefArguments(expression).Concat(operands.Where((_, j) => j != i).SelectMany(RefPassedLocals)));
+        }
+    }
 
     Loop AnalyzeLoopBody(BoundStatement body, State entry)
     {
@@ -298,7 +390,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             {
                 state = Expression(comparison, state);
                 var nonNull = state.Clone();
-                nonNull.NonNull.Add(local);
+                Narrow(nonNull, local);
                 return comparison.Operator == BoundBinaryOperator.NotEqual ? (nonNull, state) : (state, nonNull);
             }
             case BoundIs pattern:
@@ -307,7 +399,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 var matched = state.Clone();
                 matched.Assigned.UnionWith(Patterns.Bindings(pattern.Pattern));
                 if (pattern.Operand is BoundLocalAccess access)
-                    matched.NonNull.Add(access.Local);
+                    Narrow(matched, access.Local);
                 return (matched, state);
             }
             case BoundLiteral { Value: bool value }:
@@ -343,8 +435,10 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                     diagnostics.Error(access.Location, $"'{access.Local.Name}' might not have been assigned");
                 else if (access.AssumesNonNull && !state.IsNonNull(access.Local))
                 {
-                    ReportOnce(access, access.Location,
-                        $"'{access.Local.Name}' might be null here; check it with 'if ({access.Local.Name} != null)', or use '?.' or '!'");
+                    var local = access.Local;
+                    ReportOnce(access, access.Location, local.RefKind == RefKind.None
+                        ? $"'{local.Name}' might be null here; check it with 'if ({local.Name} != null)', or use '?.' or '!'"
+                        : $"'{local.Name}' might be null here: a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {(local.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'");
                 }
                 return state;
             case BoundThis:
@@ -394,8 +488,11 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 return State.Join(state, Expression(access.WhenNotNull, whenNotNull));
             }
             default:
+                CheckNullableValuesKept(expression);
                 foreach (var child in Children(expression))
                     state = Expression(child, state);
+                foreach (var local in RefArguments(expression))
+                    state.NonNull.Remove(local);
                 return state;
         }
     }

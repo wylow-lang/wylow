@@ -59,6 +59,15 @@ final class List<T> implements Borrowable, Spannable<T> {
         }
     }
 
+    // Like `removeAt`, but null instead of a panic when `index` is out of bounds.
+    @CallerLocation
+    T? tryRemoveAt(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        return removeAt(index);
+    }
+
     @CallerLocation
     void clear() {
         checkNotBorrowed();

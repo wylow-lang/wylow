@@ -19,6 +19,11 @@ public sealed partial class CppEmitter
             case BoundBindingPattern binding:
                 bindings.Add((binding.Local, value));
                 break;
+            case BoundTypePattern { Type.IsNullableValue: true } test:
+                tests.Add($"vpl::has_value({value})");
+                if (test.Binding is { } valueBinding)
+                    bindings.Add((valueBinding, $"vpl::assume_value({value})"));
+                break;
             case BoundTypePattern test:
             {
                 bool always = !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target);
@@ -67,7 +72,7 @@ public sealed partial class CppEmitter
     /// </summary>
     string Is(BoundIs pattern)
     {
-        if (pattern.Pattern is BoundTypePattern test)
+        if (pattern.Pattern is BoundTypePattern { Type.IsNullableValue: false } test)
         {
             var target = ObjectType(test.Target);
             var operand = Expression(pattern.Operand);

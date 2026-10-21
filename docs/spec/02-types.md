@@ -59,6 +59,9 @@ that can only start an operand. `(Format)-1` is therefore a subtraction; write `
 
 **Checked conversions** return a nullable: `int.tryFrom(someLong)` → `int?`.
 
+> Not implemented yet: `tryFrom`, and the `wrapping` and `checked` operations below, since
+> primitive types have no methods yet.
+
 ## 2.4 Integer overflow
 
 - Arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds.
@@ -84,33 +87,73 @@ int? cachedIndex = null;         // value + presence flag
 | `a?.b` | `null` if `a` is null, else `a.b` (result is nullable) |
 | `a!` | `a`, or panic if null |
 
-> Implemented so far: nullable **class and interface** types only. Nullable value types (`int?`,
-> `Vec3?`) and type parameters (`T?`, since `T` may be a struct) are errors for now.
-
 ### Rules
 
 - **Members of a nullable value** can only be reached through `?.` or `!`, or through a narrowed
   local. `a.b` on any other nullable expression is an error.
-- **Narrowing** (flow typing) applies to locals and parameters only, since nothing else can change
-  them behind the code's back. A local is non-null where flow analysis proves it:
+- **Narrowing** (flow typing) applies to locals and by-value parameters only, since nothing else can
+  change them behind the code's back. A `ref` or `in` parameter or variable is not narrowed: another
+  reference to the same variable could set it to null after the check. A local is non-null where
+  flow analysis proves it:
   - in the branch where `x != null` or `x == null` is known, including after `&&`, `||`, `!`, and
     `?:`, and after an `if` whose other branch cannot complete (`if (x == null) { return; }`);
   - after assigning it a non-null value, until it is assigned something nullable;
   - in a loop, only if the loop does not assign it (each iteration starts without narrowing the loop
     could undo), or after a condition in the loop narrows it again: `while (x != null) { x = x.next; }`.
+  - passing it by `ref` ends its narrowing, since the callee may assign it null.
 - `x is T name` binds `name` (non-null, type `T`) where the test succeeded. It also narrows `x`.
   A name bound in an `if` or `while` condition is in scope for the whole statement, but definitely
   assigned only where the test is known to have succeeded.
 - `a?.b` chains like Kotlin: `a?.b.c` is an error when `a?.b` is nullable; write `a?.b?.c`. The
-  result must be a reference type (or `void` for a call), since `int?` does not exist yet. When `a`
-  is null, a call's arguments are not evaluated.
+  result is `b`'s type made nullable (`void` for a call returning nothing), so `node?.count` is an
+  `int?`. When `a` is null, a call's arguments are not evaluated.
 - `a ?? b` requires a nullable `a`. Its type is `a`'s non-null type (or a supertype both convert to)
   when `b` is non-null, otherwise nullable. `b` is evaluated only when `a` is null.
 - `!` and `?.` on a value that is not nullable are errors, so that redundant checks don't accumulate.
-- `null` converts to any nullable type; `var x = null;` is an error. Any reference can be compared
-  with `null`.
-- Overloads cannot differ only in nullability (`f(Player)` and `f(Player?)`), since both are the
-  same type at runtime.
+- `null` converts to any nullable type; `var x = null;` is an error. Any reference and any nullable
+  value can be compared with `null`.
+- Overloads cannot differ only in nullability (`f(Player)` and `f(Player?)`): for references both
+  are the same type at runtime, and in generic code `f(T)` and `f(T?)` could be too.
+
+### Nullable value types
+
+`int?`, `Vec3?`, `Direction?`, and `int[4]?` are values like the type they make nullable, stored
+inline with a presence flag (a C++ `vpl::Optional<T>`; `int?` costs an `int` and a `bool`). Any type
+can be made nullable except a pointer, which can already be null, and a `ref struct`, which can't be
+stored. Nullable values follow the rules above, and also:
+
+- **Conversions**: a value converts implicitly to a nullable of any type it converts to (`int` to
+  `long?`, an integer constant to `float?`), and a nullable value to a nullable of a wider type
+  (`int?` to `long?`), which stays null if it was null.
+- **Default**: a nullable type's default value is `null`, so it is always defaultable (§2.13).
+- **Operators**: `==` and `!=` compare a nullable value with `null`, with another nullable value,
+  or with a value, when the value type supports `==`: both sides become nullables of the type the
+  values compare as, and `null` equals only `null`. No other operator accepts a nullable value (no
+  lifted `+` or `<` as in C#): narrow it first, or use `!` or `??`. Where an operator, a condition,
+  a `switch`, or `++` needs a value, a nullable local is narrowed as for member access, and flow
+  analysis checks that it was checked.
+- `x is int n` tests that `x` is not null and binds its value. The type must be exactly the value
+  type: an `int?` can never be a `long`.
+- `print` accepts the nullable primitive types and prints `null` for null.
+- **Changing it in place**: a narrowed local's value is a variable, so `if (v != null) { v.x = 1;
+  v.move(); }` changes `v`. Nothing may keep referring into that value, since assigning `v` null
+  destroys it: a `ref` or `in` variable, a span, or a `for` loop over its elements is an error
+  (copy the value to a variable first), as is passing `v` by `ref` in the same call or assignment
+  that uses its value by reference (`v.moveWith(ref v)`). A `ref` variable can't refer to a nullable
+  local itself either, since the local could then change after a null check.
+- `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
+  error when `m` is a struct method that isn't `readonly`, since its changes would be lost.
+- A struct cannot contain itself through a nullable (`struct Link { Link? next; }`), since the
+  value would be stored inline; use a class.
+
+### Nullable type parameters
+
+`T?` is allowed for any type parameter. It is a nullable value or a nullable reference, whichever
+`T` stands for, so `T? first<T>(List<T> items)` returns an `int?` from a `List<int>` and a `Node?`
+from a `List<Node>`. When `T` is itself nullable, `T?` is the same type as `T` (as in Kotlin):
+`first` on a `List<int?>` returns an `int?`, which is null both for an empty list and for a null
+first element. A call infers `T` from a `T?` parameter through the value type of its argument, so
+`orElse(x, 0)` with an `int? x` infers `int`.
 
 ## 2.6 Type inference
 
@@ -536,8 +579,7 @@ passing (including by `ref`/`in`), and returning values. In particular:
 
 ### Default values
 
-A type is *defaultable* if it has a default value: primitives, `String`, nullable references
-(`null`), structs whose fields each either have an initializer or a defaultable type, and enums
+A type is *defaultable* if it has a default value: primitives, `String`, nullable types (`null`), structs whose fields each either have an initializer or a defaultable type, and enums
 whose first variant carries no data (that variant is the default). Type
 parameters and non-null class and interface references are not defaultable, so a struct with a
 `Player` field and no initializer for it has no default value. A

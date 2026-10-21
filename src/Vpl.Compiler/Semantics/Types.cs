@@ -39,10 +39,19 @@ public sealed class VplType
         NonNull = this;
     }
 
+    // A nullable reference is still a reference to the same class, so it keeps the symbol; a
+    // nullable value is a different type, which must not be mistaken for its struct or enum.
     VplType(VplType nonNull)
     {
-        Symbol = nonNull.Symbol;
-        TypeArguments = nonNull.TypeArguments;
+        if (nonNull.IsReference)
+        {
+            Symbol = nonNull.Symbol;
+            TypeArguments = nonNull.TypeArguments;
+        }
+        else
+        {
+            TypeArguments = [];
+        }
         NonNull = nonNull;
     }
 
@@ -97,8 +106,18 @@ public sealed class VplType
 
     public bool IsNullable => NonNull != this;
 
-    /// <summary>The <c>T?</c> form. Only class and interface types have one.</summary>
+    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>.</summary>
     public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
+
+    /// <summary>
+    /// A nullable type that is not a reference: <c>int?</c>, <c>Vec3?</c>, and <c>T?</c>, since
+    /// <c>T</c> may be a struct. It is a value with a presence flag, so the value inside it is
+    /// destroyed when null is assigned.
+    /// </summary>
+    public bool IsNullableValue => IsNullable && !NonNull.IsReference;
+
+    /// <summary>Pointers can already be null, and a <c>ref struct</c> can't be stored in a nullable.</summary>
+    public bool CanBeNullable => this != Void && this != Null && this != Error && !IsPointer && !IsRefStruct;
 
     static VplType Publish(ref VplType? field, VplType created) =>
         Interlocked.CompareExchange(ref field, created, null) ?? created;
@@ -122,7 +141,7 @@ public sealed class VplType
     public bool IsInteger => this == Int || this == Long;
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters);
+    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters);
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
@@ -185,7 +204,8 @@ public static class Conversions
 {
     /// <summary>
     /// Only conversions that can never lose information are implicit: numeric widening, and for
-    /// references, upcasts and adding nullability.
+    /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
+    /// to, and a nullable value to another nullable whose value type it converts to.
     /// </summary>
     public static bool IsImplicit(VplType from, VplType to) =>
         from == to
@@ -194,6 +214,7 @@ public static class Conversions
         || (from == VplType.Int && (to == VplType.Long || to == VplType.Double))
         || (from == VplType.Float && to == VplType.Double)
         || (from == VplType.Null && (to.IsNullable || to.IsPointer))
+        || (to.IsNullableValue && from != VplType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
 
     /// <summary>Casts: between numbers, and between integers and enums without data.</summary>
@@ -250,7 +271,8 @@ public static class Conversions
     public static FieldSymbol? FindNonEquatableField(VplType structType) => FindNonEquatableField(structType, []);
 
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
-        type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
+        type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
+        : type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
         : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter
         : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 
