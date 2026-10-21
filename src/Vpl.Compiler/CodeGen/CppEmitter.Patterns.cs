@@ -182,10 +182,14 @@ public sealed partial class CppEmitter
         return (alternatives.Count == 1 ? alternatives[0] : string.Join(" || ", alternatives.Select(a => $"({a})")), bindings);
     }
 
-    string SwitchExpression(BoundSwitchExpression switchExpression)
+    string SwitchExpression(BoundSwitchExpression switchExpression) =>
+        SwitchExpression(switchExpression, CppType(switchExpression.Type), Expression);
+
+    /// <summary>A switch expression producing <paramref name="caseValue"/> of each case that completes.</summary>
+    string SwitchExpression(BoundSwitchExpression switchExpression, string resultType, Func<BoundExpression, string> caseValue)
     {
         var matched = NewTemp();
-        var body = new StringBuilder($"[&]() -> {CppType(switchExpression.Type)} {{ {MatchedValue(switchExpression.Value, matched)} ");
+        var body = new StringBuilder($"[&]() -> {resultType} {{ {MatchedValue(switchExpression.Value, matched)} ");
         var caseTests = switchExpression.Cases.Select(c => CaseTest(c.Patterns, matched)).ToList();
         if (caseTests.All(t => t.Condition is null && t.Bindings.Count == 0))
             body.Append($"static_cast<void>({matched}); ");
@@ -197,8 +201,7 @@ public sealed partial class CppEmitter
                 body.Append($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {value}; ");
             foreach (var local in PatternLocals(switchCase.Body))
                 body.Append($"{CppType(local.Type)} {LocalName(local)}{{}}; ");
-            var caseValue = Expression(switchCase.Body);
-            body.Append(switchCase.Body.Type == VplType.Void ? $"{caseValue}; }} " : $"return {caseValue}; }} ");
+            body.Append(switchCase.Body.Type == VplType.Void ? $"{Expression(switchCase.Body)}; }} " : $"return {caseValue(switchCase.Body)}; }} ");
             if (condition is null)
             {
                 exhausted = true;

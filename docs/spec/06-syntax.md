@@ -302,10 +302,12 @@ button.onClick(() -> { play(sound); });
 - A function value is called like a function, whether it's a local, a field (`button.onClick(5)`),
   or the result of a call (`adder(2)(3)`).
 - `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.
-- `?:` chooses between functions, wherever a function can be used:
+- `?:` and switch expressions choose between functions, wherever a function can be used:
   `(int) -> int f = up ? x -> x + 1 : x -> x - 1;`, or `sort(items, up ? ascending : descending)`.
-  The choice is made once, when the `?:` is evaluated. A lambda branch without a target type
-  takes the other branch's.
+  The choice is made once, when the expression is evaluated. A lambda branch or case without a
+  target type takes another's function type. A lambda a switch expression chooses can't use a
+  name its case declares (`case Add(var n) -> x -> x + n` is an error), since the lambda is made
+  outside the case; use a switch statement.
 - A function type has no default value, so a field of one must be assigned by every constructor
   or be nullable. `((int) -> int)?` is a nullable value, like `int?`, narrowed by null checks.
   Function values have no `==`.
@@ -319,14 +321,14 @@ inlined into the function. Where C++ can't use a template, it is instead a non-o
 to the lambda, called indirectly: in a virtual or interface method, a class's implementation of
 an interface method, a recursive function (which could otherwise instantiate itself without end),
 a constructor, or a function type's own parameters. Overloads that differ only in function types
-are told apart by the C++ name. A function chosen by `?:` holds every function it could be and
-the index of the chosen one, so calling it branches to a direct call, and each lambda can still be
-inlined.
+are told apart by the C++ name. A function chosen by `?:` or a switch expression holds every
+function it could be and the index of the chosen one, so calling it branches to a direct call,
+and each lambda can still be inlined.
 
-> Implemented so far: non-escaping functions, as parameters and locals, and `?:` over them.
-> Functions can't yet be fields, return values, type arguments, array elements, or nullable, and
-> switch expressions can't choose between them. Lambdas in a `?:` need a target type: one passed
-> to overloads that disagree on it, or to a generic parameter, is an error.
+> Implemented so far: non-escaping functions, as parameters and locals, and `?:` and switch
+> expressions over them. Functions can't yet be fields, return values, type arguments, array
+> elements, or nullable. Lambdas in a `?:` or switch expression need a target type: one passed to
+> overloads that disagree on it, or to a generic parameter, is an error.
 
 ### Escaping and non-escaping
 

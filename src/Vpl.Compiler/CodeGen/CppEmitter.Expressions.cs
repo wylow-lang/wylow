@@ -38,6 +38,7 @@ public sealed partial class CppEmitter
             BoundCoalesce coalesce => Coalesce(coalesce),
             BoundConditionalAccess access => ConditionalAccess(access),
             BoundIs pattern => Is(pattern),
+            BoundSwitchExpression { Type.IsFunction: true } switchExpression => Choice(switchExpression),
             BoundSwitchExpression switchExpression => SwitchExpression(switchExpression),
             BoundVariant variant => Variant(variant),
             BoundLambda lambda => Lambda(lambda),

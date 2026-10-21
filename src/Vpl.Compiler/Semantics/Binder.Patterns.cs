@@ -236,15 +236,27 @@ public sealed partial class Binder
     BoundExpression BindSwitchExpression(SwitchExpr e, VplType? expected)
     {
         var value = BindSwitchValue(e.Value);
-        var bound = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value)>();
+        var unbound = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression? Value, Scope Scope)>();
         bool broken = value.Type == VplType.Error;
         foreach (var c in e.Cases)
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            bound.Add((c.Location, patterns, BindExpression(c.Value!, expected)));
-            scope = scope.Parent;
+            // Without a target type, a lambda takes another case's function type, bound below.
+            unbound.Add((c.Location, patterns, expected is null && c.Value is LambdaExpr ? null : BindExpression(c.Value!, expected), scope));
+            scope = scope.Parent!;
         }
+        var otherType = unbound.Select(b => b.Value?.Type).FirstOrDefault(t => t is { IsFunction: true });
+        var bound = unbound.Zip(e.Cases, (b, c) =>
+        {
+            if (b.Value is { } caseValue)
+                return (b.Location, b.Patterns, Value: caseValue);
+            var enclosing = scope;
+            scope = b.Scope;
+            caseValue = BindExpression(c.Value!, otherType);
+            scope = enclosing;
+            return (b.Location, b.Patterns, Value: caseValue);
+        }).ToList();
         CheckCases(e.Location, value.Type, e.Cases, [.. bound.Select(b => b.Patterns)], broken);
 
         // A case that cannot complete, such as `default -> panic(...)`, needs no value.
@@ -264,11 +276,35 @@ public sealed partial class Binder
         }
         if (type.IsRefStruct)
             return ErrorExpression(e.Location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
-        if (type.NonNull.IsFunction)
-            return ErrorExpression(e.Location, "a switch expression cannot choose between functions yet; call each one in its own case of a switch statement");
-        var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type)));
-        return new BoundSwitchExpression(e.Location, value, [.. cases], type);
+        if (type.IsNullable && type.NonNull.IsFunction)
+            return ErrorExpression(e.Location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
+        var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type))).ToList();
+        if (type.IsFunction)
+            cases.ForEach(CheckCaseCaptures);
+        return new BoundSwitchExpression(e.Location, value, cases, type);
     }
+
+    /// <summary>
+    /// A switch expression that chooses a function makes the functions it chooses from outside its
+    /// cases, so their lambdas can't use the names a case declares.
+    /// </summary>
+    void CheckCaseCaptures(BoundSwitchCase<BoundExpression> c)
+    {
+        var declared = c.Patterns.SelectMany(Patterns.Bindings).Concat(IsBindings(c.Body)).ToHashSet();
+        var use = BoundTree.FunctionOptions(c.Body).OfType<BoundLambda>()
+            .SelectMany(BoundTree.AllExpressions).OfType<BoundLocalAccess>()
+            .FirstOrDefault(a => declared.Contains(a.Local));
+        if (use is not null)
+            Error(use.Location, $"a lambda chosen by a switch expression cannot use '{use.Local.Name}', which its case declares; use a switch statement");
+    }
+
+    /// <summary>The names declared by <c>is</c> patterns in an expression, but not inside its lambdas.</summary>
+    static IEnumerable<LocalSymbol> IsBindings(BoundExpression expression) => expression switch
+    {
+        BoundLambda => [],
+        BoundIs pattern => [.. IsBindings(pattern.Operand), .. Patterns.Bindings(pattern.Pattern)],
+        _ => BoundTree.Children(expression).SelectMany(IsBindings),
+    };
 
     /// <summary>The first case's type, or a later one, that every case converts to; a type may become nullable for a <c>null</c> case.</summary>
     VplType? CommonType(IReadOnlyList<BoundExpression> values)

@@ -1,0 +1,61 @@
+// Function values passed on between template parameters and FunctionRefs, and nested lambdas.
+abstract class Base {
+    abstract int run((int) -> int f);
+}
+
+class Impl extends Base {
+    override int run((int) -> int f) {
+        return twice(f, 1);
+    }
+}
+
+int twice((int) -> int f, int x) {
+    return f(f(x));
+}
+
+int viaVirtual(Base b, (int) -> int f) {
+    return b.run(f);
+}
+
+int recurse(int n, (int) -> int f) {
+    if (n == 0) {
+        return f(0);
+    }
+    return recurse(n - 1, f) + twice(f, n);
+}
+
+// A lambda inside a lambda captures the outer one's parameter.
+int nested((int) -> int outer) {
+    return twice(x -> outer(x) + twice(y -> y + x, 0), 1);
+}
+
+int curried(int a) {
+    return twice(x -> twice(y -> x + y + a, x), 1);
+}
+
+// super(...) takes a lambda capturing a constructor parameter.
+class Scaled {
+    int seed;
+
+    Scaled((int) -> int f) {
+        seed = f(2);
+    }
+}
+
+class Tripled extends Scaled {
+    Tripled(int k) {
+        super(x -> x * k);
+    }
+}
+
+void main() {
+    Impl impl = new Impl();
+    print(viaVirtual(impl, x -> x * 3));            // output: 9
+    print(recurse(2, x -> x + 1));                  // output: 8
+    print(nested(x -> x * 10));                     // output: 144
+    print(curried(1));                              // output: 17
+    (int) -> int square = x -> x * x;
+    print(twice(x -> square(x) + 1, 2));            // output: 26
+    print(viaVirtual(impl, square));                // output: 1
+    print(new Tripled(5).seed);                     // output: 10
+}

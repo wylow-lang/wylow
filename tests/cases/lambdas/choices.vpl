@@ -1,4 +1,10 @@
-// '?:' chooses between functions: lambdas, function-typed locals, and parameters.
+// '?:' and switch expressions choose between functions: lambdas, function-typed locals, and parameters.
+
+enum Op {
+    Add(int amount),
+    Double,
+    Stop,
+}
 
 int apply((int) -> int f, int x) {
     return f(x);
@@ -65,4 +71,40 @@ void main() {
     bump(ref z);
     bump(ref z);
     print(z);                                               // output: 2
+
+    // A switch expression runs only the matching case, which may use what it declares outside lambdas.
+    Op op = Op.Add(3);
+    int amount = 3;
+    (int) -> int step = switch (op) {
+        case Add(var a) -> a > 2 ? x -> x + amount : x -> x + 1;
+        case Double -> x -> x * 2;
+        case Stop -> add;
+    };
+    print(step(10));                                        // output: 13
+
+    (int) -> int twice = switch (Op.Double) {
+        case Add(_) -> add;
+        // A lambda may declare names inside itself.
+        case Double -> x -> op is Add(var factor) ? x * factor : x * 2;
+        case Stop -> panic("stopped");
+    };
+    print(twice(7));                                        // output: 21
+
+    var w = switch (n) {
+        case 1 -> add;
+        default -> x -> -x;
+    };
+    print(w(4));                                            // output: -4
+
+    print(apply(switch (op) {
+        case Add(_) -> x -> x + 100;
+        default -> add;
+    }, 1));                                                 // output: 101
+
+    // A switch in a ?: is only matched if the ?: chooses it.
+    (int) -> int nested = n > 5 ? switch (note("s", true)) {
+        case true -> x -> 1;
+        case false -> x -> 2;
+    } : x -> 3;
+    print(nested(0));                                       // output: 3
 }

@@ -1,0 +1,15 @@
+// A lambda can't grow a list while a 'ref' into it is in use.
+void bump(ref int v, () -> void during) {
+    during();
+    v += 1;
+}
+
+void main() {
+    List<int> list = new List<int>();
+    list.add(1);
+    bump(ref list[0], () -> {
+        for (int i = 0; i < 100; i++) {
+            list.add(i);            // panic-here: cannot change the length or capacity of a list while it is borrowed
+        }
+    });
+}

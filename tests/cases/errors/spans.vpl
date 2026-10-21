@@ -53,6 +53,7 @@ void main() {
     bool flag = true;
     var either = flag ? s : s;              // error: '?:' cannot choose between two 'Span<int>'s
     Span<int>[2] spans;                     // error: 'Span<int>' cannot be an array's element
+    var viewed = [s, s];                    // error: 'Span<int>' cannot be an array's element
     Result<Span<int>, int> r;               // error: 'Span<int>' cannot be a type argument
     Span<long> wide = a;                    // error: cannot implicitly convert 'int[2]' to 'Span<long>'
     switch (s) {                            // error: a 'Span<int>' cannot be matched against patterns

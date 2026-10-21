@@ -78,6 +78,8 @@ public sealed partial class Binder
                 ? "cannot infer the type of an empty array; use it where a fixed array type is expected"
                 : $"the elements of the array have incompatible types {string.Join(", ", elements.Select(v => $"'{v.Type}'").Distinct())}");
         }
+        if (!CheckStorable(elementType, e.Location, "an array's element"))
+            return new BoundErrorExpression(e.Location);
         return new BoundArrayLiteral(e.Location, elementType.FixedArrayOf(elements.Count), [.. elements.Select(element => Convert(element, elementType))]);
     }
 }

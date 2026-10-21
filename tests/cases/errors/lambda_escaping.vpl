@@ -29,14 +29,11 @@ void check(bool flag, ref (int) -> int byRef) {     // error: 'ref' cannot be us
     (int) -> int inc = x -> x + 1;
     ((int) -> int)? maybe = inc;                    // error: '((int) -> int)?' is not supported yet
     ((int) -> int)[3] table;                        // error: a function cannot be an array's element yet
+    var listed = [inc, inc];                        // error: a function cannot be an array's element yet
+    ref (int) -> int alias = inc;                   // error: 'ref' cannot be used with type '(int) -> int'; functions are already passed without copying
     (int) -> (int) -> int curried = x -> y -> x + y; // error: a function cannot be returned yet
     var same = identity(inc);                       // error: a function cannot be a type argument yet
     var maybeInc = flag ? inc : null;               // error: '((int) -> int)?' is not supported yet
-    var untyped = flag ? x -> x : y -> y;           // error: a lambda needs a function type from where it is used
-    (int) -> int picked = switch (flag) {           // error: a switch expression cannot choose between functions yet
-        case true -> inc;
-        case false -> inc;
-    };
 }
 
 void main() {

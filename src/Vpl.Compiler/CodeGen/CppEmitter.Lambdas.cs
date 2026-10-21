@@ -149,12 +149,14 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// A function chosen by <c>?:</c> is a <c>vpl::Choice</c> of every function it could be, with the
-    /// conditions evaluated, in order, to the index of the chosen one. The functions themselves are
-    /// all made up front, which no one can observe: each is a lambda or a function-typed local, and
-    /// neither making one nor copying the other has effects.
+    /// A function chosen by <c>?:</c> or a switch expression is a <c>vpl::Choice</c> of every function
+    /// it could be (<see cref="BoundTree.FunctionOptions"/>), with the conditions and cases evaluated,
+    /// in order, to the index of the chosen one. The functions themselves are all made up front, which
+    /// no one can observe: each is a lambda or a function-typed local, and neither making one nor
+    /// copying the other has effects. A switch's cases run in a C++ lambda, so the binder keeps the
+    /// lambdas chosen from out of what a case declares.
     /// </summary>
-    string Choice(BoundConditional conditional)
+    string Choice(BoundExpression choice)
     {
         var options = new List<string>();
         string Index(BoundExpression expression)
@@ -163,14 +165,16 @@ public sealed partial class CppEmitter
             {
                 case BoundConditional nested:
                     return $"({Expression(nested.Condition)} ? {Index(nested.WhenTrue)} : {Index(nested.WhenFalse)})";
+                case BoundSwitchExpression nested:
+                    return SwitchExpression(nested, "int", Index);
                 case BoundLambda or BoundLocalAccess:
                     options.Add(Expression(expression));
                     return (options.Count - 1).ToString(CultureInfo.InvariantCulture);
                 default:
-                    throw new InvalidOperationException($"a function chosen by '?:' cannot be a {expression.GetType().Name}");
+                    throw new InvalidOperationException($"a chosen function cannot be a {expression.GetType().Name}");
             }
         }
-        var index = Index(conditional);
+        var index = Index(choice);
         return $"vpl::choose({index}, {string.Join(", ", options)})";
     }
 

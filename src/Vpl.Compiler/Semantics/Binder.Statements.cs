@@ -244,6 +244,11 @@ public sealed partial class Binder
             Error(place.Location, $"'{keyword}' cannot be used with type '{type}'; class objects are already references");
             return false;
         }
+        if (type.IsFunction)
+        {
+            Error(place.Location, $"'{keyword}' cannot be used with type '{type}'; functions are already passed without copying");
+            return false;
+        }
         if (place.Type != type)
         {
             Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");

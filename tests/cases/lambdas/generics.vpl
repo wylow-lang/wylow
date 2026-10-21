@@ -1,0 +1,62 @@
+// Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
+interface Visitor<T> {
+    void visit((T) -> void f);
+}
+
+class Bag<T> implements Visitor<T> {
+    List<T> items = new List<T>();
+
+    void add(T item) {
+        items.add(item);
+    }
+
+    void visit((T) -> void f) {
+        for (T item : items) {
+            f(item);
+        }
+    }
+
+    static Bag<T> of(T a, T b) {
+        Bag<T> bag = new Bag<T>();
+        bag.add(a);
+        bag.add(b);
+        return bag;
+    }
+
+    U fold<U>(U start, (U, T) -> U step) {
+        U acc = start;
+        visit(item -> {
+            acc = step(acc, item);
+        });
+        return acc;
+    }
+}
+
+int total<V extends Visitor<int>>(V v) {
+    int t = 0;
+    v.visit(x -> {
+        t += x;
+    });
+    return t;
+}
+
+int sumAll(Visitor<int> v) {
+    int t = 0;
+    v.visit(x -> {
+        t += x;
+    });
+    return t;
+}
+
+void main() {
+    Bag<int> bag = Bag<int>.of(3, 4);
+    print(total(bag));                              // output: 7
+    print(sumAll(bag));                             // output: 7
+    print(bag.fold(10, (acc, x) -> acc + x));       // output: 17
+    print(bag.fold(1L, (acc, x) -> acc * x));       // output: 12
+    Bag<int>? none = null;
+    none?.visit(x -> print(x));
+    Bag<int>? some = bag;
+    some?.visit(x -> print(x));                     // output: 3
+                                                    // output: 4
+}

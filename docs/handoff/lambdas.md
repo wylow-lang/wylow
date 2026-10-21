@@ -60,13 +60,14 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
    Functions with function-typed parameters get a name suffix encoding them, so overloads
    differing only in function types stay distinct in C++.
    - Escape checks: until step 5, only parameters and locals hold functions (`Binder.CheckNotStored`).
-     Fields, returns, type arguments, arrays, `F?`, and switch expressions over functions are errors.
-     That is what makes capturing by reference safe.
-   - `?:` over functions (added after step 3) is a `vpl::Choice` (`CppEmitter.Choice`): every
-     lambda or local it could be, and the index the conditions pick. Only the conditions are
-     evaluated lazily, which is unobservable because making a lambda or copying a local has no
-     effects. Escaping values (fields, calls) would break that; `Choice` throws on them until
-     step 5 handles them.
+     Fields, returns, type arguments, arrays (also inferred by array literals), and `F?` are
+     errors. That is what makes capturing by reference safe.
+   - `?:` and switch expressions over functions (added after step 3) are a `vpl::Choice`
+     (`CppEmitter.Choice`): every lambda or local it could be, and the index the conditions and
+     cases pick. A switch's cases run in a C++ lambda, so a chosen lambda can't use a name its
+     case declares (`Binder.CheckCaseCaptures`). Only the conditions are evaluated lazily, which is
+     unobservable because making a lambda or copying a local has no effects. Escaping values
+     (fields, calls) would break that; `Choice` throws on them until step 5 handles them.
    - A local a lambda assigns is marked `LocalSymbol.IsAssignedByLambda`. It is not "stable", so it is
      pinned while in use as a receiver or argument (`tests/cases/lambdas/safety.vpl` would otherwise
      read freed memory).
@@ -135,8 +136,9 @@ stay explicit, optimizations come later).
 These were reasonable on paper; real programs (the voxel port) will show whether they get in the way.
 
 1. **Bind-once function locals** (decision 5). A function-typed local can't be reassigned; `?:`
-   covers choosing one. Lambdas inside a `?:` need a target type, unlike a lambda argument, which
-   waits for overload resolution and generic inference to give it one.
+   and switch expressions cover choosing one. Lambdas inside them need a target type, unlike a
+   lambda argument, which waits for overload resolution and generic inference to give it one.
+   Step 4 should let a choice wait the same way, since it reworks that machinery.
 2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
    local into a lambda would be sound.
 3. **`F?` is a nullable value**, not reference-like. Only matters once functions can be stored.

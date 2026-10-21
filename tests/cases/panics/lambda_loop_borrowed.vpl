@@ -1,0 +1,12 @@
+// A lambda can't grow a list while a loop is iterating it.
+void call(() -> void f) {
+    f();
+}
+
+void main() {
+    List<int> list = new List<int>();
+    list.add(1);
+    for (int x : list) {
+        call(() -> list.add(x));    // panic-here: cannot change the length or capacity of a list while it is borrowed
+    }
+}

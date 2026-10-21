@@ -341,6 +341,17 @@ public static class BoundTree
     public static IEnumerable<BoundExpression> AllExpressions(BoundExpression expression) =>
         [expression, .. expression is BoundLambda lambda ? AllExpressions(lambda.Body) : Children(expression).SelectMany(AllExpressions)];
 
+    /// <summary>
+    /// The functions a function-valued <c>?:</c> or switch expression chooses from: lambdas and
+    /// function-typed locals, neither of which has effects to make or copy.
+    /// </summary>
+    public static IEnumerable<BoundExpression> FunctionOptions(BoundExpression expression) => expression switch
+    {
+        BoundConditional conditional => [.. FunctionOptions(conditional.WhenTrue), .. FunctionOptions(conditional.WhenFalse)],
+        BoundSwitchExpression switchExpression => switchExpression.Cases.Select(c => c.Body).Where(b => b.Type.IsFunction).SelectMany(FunctionOptions),
+        _ => [expression],
+    };
+
     public static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
     {
         BoundUnary unary => [unary.Operand],
