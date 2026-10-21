@@ -320,6 +320,28 @@ public sealed partial class Binder
         typeParameters = [];
     }
 
+    /// <summary>
+    /// The constructor a struct without declared constructors gets, taking every field in order.
+    /// Its body is written as source, <c>this.f = f;</c> for each field, so it is checked like any constructor.
+    /// </summary>
+    static void DeclareMemberwiseConstructor(TypeSymbol s)
+    {
+        var location = s.Declaration.NameLocation;
+        var body = new BlockStmt(location, [.. s.Fields.Select(f => new AssignStmt(location,
+            new MemberAccessExpr(location, new ThisExpr(location), f.Name, location, []),
+            TokenKind.Assign, location, new NameExpr(location, f.Name, [])))]);
+        var constructor = new FunctionSymbol(s.Name, [.. s.Fields.Select(f => new LocalSymbol(f.Name, f.Type, isParameter: true))], VplType.Void)
+        {
+            Body = body,
+            ContainingType = s,
+            IsConstructor = true,
+            // Private fields can't be set from outside, so neither can this set them.
+            IsPrivate = s.Fields.Any(f => f.IsPrivate),
+        };
+        s.Constructors.Add(constructor);
+        s.Members.Add(constructor);
+    }
+
     /// <summary>Reports annotations that don't apply to the declaration, and returns whether it has <c>@CallerLocation</c>.</summary>
     bool HasCallerLocation(Declaration decl)
     {
@@ -458,9 +480,10 @@ public sealed partial class Binder
 
     /// <summary>
     /// A struct or enum may not contain itself by value, directly or through type arguments
-    /// (<c>struct Rec { Wrap&lt;Rec&gt; w; }</c>), and its field types may not grow forever.
+    /// (<c>struct Rec { Wrap&lt;Rec&gt; w; }</c>), and its field types may not grow forever. Returns the
+    /// types reported.
     /// </summary>
-    void CheckStructCycles(List<TypeSymbol> all)
+    HashSet<TypeSymbol> CheckStructCycles(List<TypeSymbol> all)
     {
         const int maxDepth = 32;
         var reported = new HashSet<TypeSymbol>();
@@ -506,6 +529,7 @@ public sealed partial class Binder
             if (!reported.Contains(s) && FindCycle(s.Type, []) is { } problem)
                 Error(s.Declaration.NameLocation, $"{KindName(s.Kind)} '{s.Name}' {problem}");
         }
+        return reported;
     }
 
     void BindFieldInitializers(TypeSymbol s)

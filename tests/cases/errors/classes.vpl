@@ -61,7 +61,7 @@ class Generic {
 
 void main() {
     var w = new Weapon();               // error: cannot create an instance of abstract class 'Weapon'
-    var p = Point(1);                   // error: no constructor of 'Point' takes 1 argument
+    var p = Point(1, 2);                // error: no constructor of 'Point' takes 2 arguments
     var q = new Point();                // error: structs are created without 'new'
     var g = Gun();                      // error: classes are created with 'new'
     var s = new Secretive();

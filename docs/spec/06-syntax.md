@@ -43,13 +43,18 @@ Java's four levels:
 > **`new` appears only where memory is heap-allocated.** Structs are constructed without `new`.
 
 ```java
-Vec3 v = Vec3(1, 2, 3);                        // struct constructor, no allocation
+var v = Vec3(1, 2, 3);                         // struct constructor, no allocation
 var e = Enemy { health = 50, position = v };   // struct initializer
 var list = new List<Enemy>();                  // class: heap allocation
 var arr = new float[1024];                     // heap array
 ```
 
 This makes every allocation visible: scanning for `new` finds them all.
+
+A local must be assigned before it is read, even when its type has a default value, so that a
+branch that forgets to assign it is an error rather than a silent zero. `var` keeps this short where
+the type is visible, as in `var v = Vec3();`; write the type out where the value doesn't show it, as
+in `Vec3 target = path.last();`.
 
 ### Struct constructors
 
@@ -60,6 +65,13 @@ This makes every allocation visible: scanning for `new` finds them all.
   call functions but cannot use `this` or other fields.
 - A declared constructor starts from the default value, then runs its body. `this` refers to the
   value being built, and `return;` ends construction early.
+- A struct that declares no constructor gets a **memberwise constructor**, which takes every field
+  in declaration order: `Vec2(1, 2)` for `struct Vec2 { float x, y; }`. Like a declared constructor
+  it starts from the default value, then assigns each field. It is private if any field is, and
+  declaring any constructor removes it.
+
+  > Until default parameter values are implemented, fields with initializers are required
+  > arguments too; they will become optional, defaulting to their initializers.
 - Any struct can be built with an **initializer**, `T { field = value, ... }`, which starts from the
   default constructor and then assigns the listed fields in the order written. Initializers can also
   follow a constructor call: `Enemy(pos) { health = 50 }`.

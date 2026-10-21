@@ -1,0 +1,74 @@
+struct Vec2 {
+    float x, y;
+}
+
+struct Transform {
+    Vec2 position;
+    float scale = 1;
+}
+
+struct Pair<A, B> {
+    A first;
+    B second;
+}
+
+class Player {
+    String name;
+    Player(String name) { this.name = name; }
+}
+
+// Without a default value, a memberwise constructor is the only way to build it positionally.
+struct Hit {
+    Player target;
+    int damage = 10;
+}
+
+struct Samples {
+    int[2] values;
+}
+
+struct Hidden {
+    private int secret;
+
+    static Hidden make(int secret) { return Hidden(secret); }
+    int reveal() { return secret; }
+}
+
+float next(float value) {
+    print(value);
+    return value;
+}
+
+void main() {
+    var v = Vec2(1, 2);
+    print(v.x);                       // output: 1.0
+    print(v.y);                       // output: 2.0
+    print(Vec2() == Vec2(0, 0));      // output: true
+
+    var t = Transform(Vec2(3, 4), 2);
+    print(t.position.y);              // output: 4.0
+    print(t.scale);                   // output: 2.0
+    print(Transform().scale);         // output: 1.0
+
+    var moved = Transform(v, 5) { scale = 6 };
+    print(moved.scale);               // output: 6.0
+
+    var p = Pair<int, String>(1, "one");
+    print(p.second);                  // output: one
+
+    var hit = Hit(new Player("Ana"), 3);
+    print(hit.target.name);           // output: Ana
+    print(hit.damage);                // output: 3
+
+    int[2] values = [4, 5];
+    var samples = Samples(values);
+    values[0] = 9;
+    print(samples.values[0]);         // output: 4
+
+    print(Hidden.make(7).reveal());   // output: 7
+
+    var ordered = Vec2(next(1), next(2));
+    // output: 1.0
+    // output: 2.0
+    print(ordered.y);                 // output: 2.0
+}
