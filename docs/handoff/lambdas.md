@@ -10,8 +10,7 @@ when it lands, and is then only listed here.
 
 Landed, and described in §6.7: 1 (function type syntax), 2 (a lambda takes its type from its
 target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C++ can't use one),
-5 (non-escaping locals), 7 (overloads), and 10 (flow analysis). How a non-escaping local holds
-a `?:` over two lambdas (5) is not built yet.
+5 (non-escaping locals), 7 (overloads), and 10 (flow analysis).
 
 4. **Escaping values are `vpl::Function<R(A...)>`**, a reference-counted closure object.
    - Function types are not defaultable: a field of one must be set by every constructor, or be
@@ -19,11 +18,6 @@ a `?:` over two lambdas (5) is not built yet.
    - Function values have no `==`.
    - A non-escaping value never converts to an escaping one. An escaping value can be passed to a
      non-escaping parameter or bind a non-escaping local.
-5. **Non-escaping locals.** Like a `ref` local, a non-escaping local must be initialized at its
-   declaration and can't be reassigned, so it never outlives what its lambda captures by reference.
-   Initialized with a lambda, it compiles to the C++ lambda itself (`auto`). Otherwise (from a
-   parameter, or `?:` over two lambdas) it is a `vpl::FunctionRef`, with each lambda the `?:`
-   chooses from stored in an unnamed local beside it.
 6. **Captures.**
    - Non-escaping lambdas capture by reference. They may mutate captured locals and capture `ref`s,
      spans, ref structs, non-escaping parameters and locals, and a struct method's `this`.
@@ -66,8 +60,13 @@ a `?:` over two lambdas (5) is not built yet.
    Functions with function-typed parameters get a name suffix encoding them, so overloads
    differing only in function types stay distinct in C++.
    - Escape checks: until step 5, only parameters and locals hold functions (`Binder.CheckNotStored`).
-     Fields, returns, type arguments, arrays, `F?`, and `?:` or switch expressions over functions are
-     errors. That is what makes capturing by reference safe.
+     Fields, returns, type arguments, arrays, `F?`, and switch expressions over functions are errors.
+     That is what makes capturing by reference safe.
+   - `?:` over functions (added after step 3) is a `vpl::Choice` (`CppEmitter.Choice`): every
+     lambda or local it could be, and the index the conditions pick. Only the conditions are
+     evaluated lazily, which is unobservable because making a lambda or copying a local has no
+     effects. Escaping values (fields, calls) would break that; `Choice` throws on them until
+     step 5 handles them.
    - A local a lambda assigns is marked `LocalSymbol.IsAssignedByLambda`. It is not "stable", so it is
      pinned while in use as a receiver or argument (`tests/cases/lambdas/safety.vpl` would otherwise
      read freed memory).
@@ -135,10 +134,9 @@ stay explicit, optimizations come later).
 
 These were reasonable on paper; real programs (the voxel port) will show whether they get in the way.
 
-1. **Bind-once function locals** (decision 5). A function-typed local can't be reassigned, and
-   until step 5 `?:` can't choose between lambdas either, so choosing a function needs separate
-   calls in each branch. Allowing `?:` (as a `FunctionRef` to lambdas stored beside the local) is
-   the planned fix.
+1. **Bind-once function locals** (decision 5). A function-typed local can't be reassigned; `?:`
+   covers choosing one. Lambdas inside a `?:` need a target type, unlike a lambda argument, which
+   waits for overload resolution and generic inference to give it one.
 2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
    local into a lambda would be sound.
 3. **`F?` is a nullable value**, not reference-like. Only matters once functions can be stored.

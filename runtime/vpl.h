@@ -15,6 +15,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -1168,6 +1169,37 @@ public:
 
     R operator()(A... arguments) const { return call(callable, std::forward<A>(arguments)...); }
 };
+
+// A function chosen by ?: from several. It holds every callable it could be and calls the chosen
+// one directly, so each can still be inlined where the choice is passed to a template.
+template <class... F>
+class Choice {
+    std::tuple<F...> callables;
+    int chosen;
+
+    template <int I, class... A>
+    auto call(A&&... arguments) const {
+        if constexpr (I + 1 == static_cast<int>(sizeof...(F))) {
+            return std::get<I>(callables)(std::forward<A>(arguments)...);
+        } else {
+            if (chosen == I) return std::get<I>(callables)(std::forward<A>(arguments)...);
+            return call<I + 1>(std::forward<A>(arguments)...);
+        }
+    }
+
+public:
+    Choice(int index, F... options) : callables(std::move(options)...), chosen(index) {}
+
+    template <class... A>
+    auto operator()(A&&... arguments) const {
+        return call<0>(std::forward<A>(arguments)...);
+    }
+};
+
+template <class... F>
+Choice<F...> choose(int index, F... options) {
+    return Choice<F...>(index, std::move(options)...);
+}
 
 // ---- Standard library intrinsics ----
 //

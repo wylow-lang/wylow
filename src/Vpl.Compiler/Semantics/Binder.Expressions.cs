@@ -553,8 +553,19 @@ public sealed partial class Binder
     BoundExpression BindConditional(ConditionalExpr e, VplType? expected)
     {
         var condition = BindCondition(e.Condition);
-        var whenTrue = BindExpression(e.WhenTrue, expected);
-        var whenFalse = BindExpression(e.WhenFalse, expected);
+        BoundExpression whenTrue, whenFalse;
+        // Without a target type, a lambda takes the other branch's function type.
+        if (expected is null && e.WhenTrue is LambdaExpr && e.WhenFalse is not LambdaExpr)
+        {
+            whenFalse = BindExpression(e.WhenFalse);
+            whenTrue = BindExpression(e.WhenTrue, whenFalse.Type.IsFunction ? whenFalse.Type : null);
+        }
+        else
+        {
+            whenTrue = BindExpression(e.WhenTrue, expected);
+            var otherType = whenTrue.Type.IsFunction || whenTrue.Type == VplType.Error ? whenTrue.Type : null;
+            whenFalse = BindExpression(e.WhenFalse, expected ?? (e.WhenFalse is LambdaExpr ? otherType : null));
+        }
         if (whenTrue.Type == VplType.Error || whenFalse.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
 
@@ -569,8 +580,8 @@ public sealed partial class Binder
             return ErrorExpression(e.Location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
             return ErrorExpression(e.Location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
-        if (type.NonNull.IsFunction)
-            return ErrorExpression(e.Location, "'?:' cannot choose between functions yet; call each one in its own branch of an 'if'");
+        if (type.IsNullable && type.NonNull.IsFunction)
+            return ErrorExpression(e.Location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
         return new BoundConditional(e.Location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }

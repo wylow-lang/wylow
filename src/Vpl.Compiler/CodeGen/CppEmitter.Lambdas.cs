@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
@@ -145,6 +146,32 @@ public sealed partial class CppEmitter
         (output, indent, currentFunction) = (enclosingOutput, enclosingIndent, enclosingFunction);
 
         return $"[&]({parameters}) -> {CppType(function.ReturnType)} {{\n{bodyText}{new string(' ', indent * 4)}}}";
+    }
+
+    /// <summary>
+    /// A function chosen by <c>?:</c> is a <c>vpl::Choice</c> of every function it could be, with the
+    /// conditions evaluated, in order, to the index of the chosen one. The functions themselves are
+    /// all made up front, which no one can observe: each is a lambda or a function-typed local, and
+    /// neither making one nor copying the other has effects.
+    /// </summary>
+    string Choice(BoundConditional conditional)
+    {
+        var options = new List<string>();
+        string Index(BoundExpression expression)
+        {
+            switch (expression)
+            {
+                case BoundConditional nested:
+                    return $"({Expression(nested.Condition)} ? {Index(nested.WhenTrue)} : {Index(nested.WhenFalse)})";
+                case BoundLambda or BoundLocalAccess:
+                    options.Add(Expression(expression));
+                    return (options.Count - 1).ToString(CultureInfo.InvariantCulture);
+                default:
+                    throw new InvalidOperationException($"a function chosen by '?:' cannot be a {expression.GetType().Name}");
+            }
+        }
+        var index = Index(conditional);
+        return $"vpl::choose({index}, {string.Join(", ", options)})";
     }
 
     string Invocation(BoundInvocation invocation)

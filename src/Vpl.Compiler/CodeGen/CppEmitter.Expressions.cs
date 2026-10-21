@@ -31,6 +31,7 @@ public sealed partial class CppEmitter
             BoundConstruction construction => Construction(construction),
             BoundNew creation => New(creation),
             BoundConversion conversion => Conversion(conversion),
+            BoundConditional { Type.IsFunction: true } conditional => Choice(conditional),
             BoundConditional conditional =>
                 $"({Expression(conditional.Condition)} ? {Expression(conditional.WhenTrue)} : {Expression(conditional.WhenFalse)})",
             BoundNonNull nonNull => $"vpl::unwrap({Expression(nonNull.Operand)}, {SourceLocation(nonNull.Location)})",

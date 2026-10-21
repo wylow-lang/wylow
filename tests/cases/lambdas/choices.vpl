@@ -1,0 +1,68 @@
+// '?:' chooses between functions: lambdas, function-typed locals, and parameters.
+
+int apply((int) -> int f, int x) {
+    return f(x);
+}
+
+class Runner {
+    virtual int run((int) -> int f) {
+        return f(1);
+    }
+}
+
+int pick(bool first, (int) -> int a, (int) -> int b) {
+    (int) -> int chosen = first ? a : b;
+    return chosen(10);
+}
+
+bool note(String what, bool value) {
+    print(what);
+    return value;
+}
+
+void main() {
+    int base = 100;
+    (int) -> int add = x -> x + base;
+    bool flag = true;
+
+    // The choice is made once, where the local is declared.
+    (int) -> int f = flag ? add : x -> x * 2;
+    print(f(1));                                            // output: 101
+    flag = false;
+    print(f(1));                                            // output: 101
+
+    // As an argument, to a template parameter and to a FunctionRef one.
+    print(apply(flag ? add : x -> x * 2, 5));               // output: 10
+    print(new Runner().run(flag ? x -> x + 7 : add));       // output: 101
+
+    print(pick(true, x -> x + 1, x -> x - 1));              // output: 11
+    print(pick(false, x -> x + 1, x -> x - 1));             // output: 9
+
+    // Only the conditions on the chosen path are evaluated, in order.
+    int n = 2;
+    (int) -> int g = note("a", n > 1) ? (note("b", n > 5) ? x -> 1 : x -> 2) : x -> 3;
+    // output: a
+    // output: b
+    print(g(0));                                            // output: 2
+    (int) -> int h = note("c", n > 5) ? (note("d", true) ? x -> 1 : x -> 2) : x -> 3;
+    // output: c
+    print(h(0));                                            // output: 3
+
+    // The chosen lambda still captures by reference.
+    int total = 0;
+    (int) -> void sink = flag ? x -> { total += x; } : x -> { total -= x; };
+    sink(5);
+    print(total);                                           // output: -5
+
+    // A lambda takes its type from the other branch.
+    var k = flag ? add : x -> x + 1000;
+    print(k(1));                                            // output: 1001
+
+    print((flag ? add : x -> 0)(1));                        // output: 0
+
+    (ref int) -> void bump = n > 1 ? v -> { v += 1; } : v -> { v += 2; };
+    int z = 0;
+    bump(ref z);
+    bump(ref z);
+    print(z);                                               // output: 2
+}
