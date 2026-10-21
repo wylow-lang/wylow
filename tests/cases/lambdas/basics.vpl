@@ -1,0 +1,109 @@
+struct Vec3 {
+    float x, y, z;
+}
+
+class Counter {
+    int count;
+    int doubled = twice(x -> x * 2, 1);
+
+    Counter() {
+        // `return` in a lambda leaves the lambda, not the constructor.
+        call(() -> {
+            return;
+        });
+        count = 0;
+    }
+
+    void add(int amount) {
+        call(() -> {
+            count += amount;
+        });
+    }
+}
+
+void call(() -> void f) {
+    f();
+}
+
+int twice((int) -> int f, int x) {
+    return f(f(x));
+}
+
+void each(int[3] items, (int) -> void action) {
+    for (int item : items) {
+        action(item);
+    }
+}
+
+void scale(ref Vec3 v, (ref Vec3) -> void change) {
+    change(ref v);
+}
+
+// Overloads that differ only in a function type: a lambda that declares its parameter types picks one.
+int pick((int) -> int f) {
+    return f(1);
+}
+
+int pick((String) -> int f) {
+    return f("a");
+}
+
+// Type arguments are inferred from the other arguments, then give the lambda its types.
+void eachOf<T>(T[3] items, (T) -> void action) {
+    for (T item : items) {
+        action(item);
+    }
+}
+
+T apply<T>((T) -> T f, T value) {
+    return f(value);
+}
+
+// Passing a function value on doesn't copy what its lambda captured.
+int forward((int) -> int f) {
+    return twice(f, 10);
+}
+
+void main() {
+    (int) -> int inc = x -> x + 1;
+    print(twice(inc, 1));                       // output: 3
+    print(twice(x -> x * 2, 1));                // output: 4
+    print(twice((int x) -> {
+        return x - 1;
+    }, 1));                                     // output: -1
+
+    int total = 0;
+    each([1, 2, 3], item -> {
+        total += item;
+    });
+    print(total);                               // output: 6
+
+    Vec3 v = Vec3(1, 2, 3);
+    scale(ref v, w -> {
+        w.x *= 10;
+    });
+    print(v.x);                                 // output: 10.0
+
+    print(pick((String s) -> 7));               // output: 7
+    print(pick((int i) -> i + 7));              // output: 8
+
+    () -> void hello = () -> print("hello");
+    hello();                                    // output: hello
+
+    var same = inc;
+    print(same(41));                            // output: 42
+
+    eachOf([1.5, 2.5, 3.5], x -> print(x * 2)); // output: 3.0
+                                                // output: 5.0
+                                                // output: 7.0
+    print(apply(x -> x * 2, 5L));               // output: 10
+
+    int offset = 5;
+    print(forward(x -> x + offset));            // output: 20
+
+    Counter counter = new Counter();
+    counter.add(3);
+    counter.add(4);
+    print(counter.count);                       // output: 7
+    print(counter.doubled);                     // output: 4
+}

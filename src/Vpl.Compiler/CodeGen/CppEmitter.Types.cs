@@ -98,7 +98,7 @@ public sealed partial class CppEmitter
             Line($"static {name} make_default();");
         DeclareCollectorMembers(s);
         foreach (var member in s.Members.Where(m => !m.IsExtern))
-            Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
+            Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
         if (s.IsGeneric || Conversions.SupportsEquality(s.Type))
             Line($"bool operator==(const {name}&) const = default;");
@@ -178,7 +178,7 @@ public sealed partial class CppEmitter
             EmitFromValue(s, name, tag);
         DeclareCollectorMembers(s);
         foreach (var member in s.Members.Where(m => !m.IsExtern))
-            Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
+            Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
 
         if (equatable && withData.Count == 0)
         {
@@ -312,7 +312,7 @@ public sealed partial class CppEmitter
             if (member.IsAbstract)
                 EmitAbstractStub(member);
             else
-                Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
+                Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");

@@ -53,12 +53,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// <summary>In a constructor, the fields it must assign; empty elsewhere.</summary>
     List<FieldSymbol> requiredFields = [];
 
-    /// <summary>
-    /// Locals a lambda in the function assigns. A null check can't narrow them: the lambda may run
-    /// during any call after it is created.
-    /// </summary>
-    HashSet<LocalSymbol> lambdaAssigned = [];
-
     int lambdaDepth;
 
     /// <summary>Inside a lambda, the locals narrowed where it was created, for explaining why they aren't inside.</summary>
@@ -69,7 +63,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         var symbol = function.Symbol;
         // The implicit constructor of a class with such fields is reported by the binder.
         requiredFields = symbol.IsConstructor && !symbol.IsImplicit ? [.. symbol.ContainingType!.Fields.Where(f => f.RequiresAssignment)] : [];
-        lambdaAssigned = [.. LambdasIn(function.Body).SelectMany(l => AssignedLocals(l.Body))];
+        MarkAssignedByLambdas(BoundTree.AllExpressions(function.Body));
 
         var state = new State();
         state.Assigned.UnionWith(symbol.Parameters);
@@ -82,6 +76,22 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         if (state.Reachable)
             CheckFieldsAssigned(state, end);
         requiredFields = [];
+    }
+
+    /// <summary>A field initializer, which can't use locals, but may contain lambdas with bodies to check.</summary>
+    public void Analyze(BoundExpression initializer)
+    {
+        MarkAssignedByLambdas(BoundTree.AllExpressions(initializer));
+        Expression(initializer, new State());
+    }
+
+    static void MarkAssignedByLambdas(IEnumerable<BoundExpression> expressions)
+    {
+        foreach (var lambda in expressions.OfType<BoundLambda>())
+        {
+            foreach (var local in AssignedLocals(lambda.Body))
+                local.IsAssignedByLambda = true;
+        }
     }
 
     static Location EndOf(Location body) =>
@@ -106,23 +116,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             diagnostics.Error(EndOf(lambda.Body.Location), "this lambda must return a value on every path");
     }
 
-    static IEnumerable<BoundLambda> LambdasIn(BoundStatement statement) =>
-        OwnExpressions(statement).SelectMany(LambdasIn).Concat(InnerStatements(statement).SelectMany(LambdasIn));
-
-    static IEnumerable<BoundLambda> LambdasIn(BoundExpression expression) => expression is BoundLambda lambda
-        ? [lambda, .. LambdasIn(lambda.Body)]
-        : BoundTree.Children(expression).SelectMany(LambdasIn);
-
-    static IEnumerable<BoundStatement> InnerStatements(BoundStatement statement) => statement switch
-    {
-        BoundBlock block => block.Statements,
-        BoundIf ifStatement => ifStatement.Else is null ? [ifStatement.Then] : [ifStatement.Then, ifStatement.Else],
-        BoundWhile whileStatement => [whileStatement.Body],
-        BoundFor forStatement => [.. new[] { forStatement.Initializer, forStatement.Update }.OfType<BoundStatement>(), forStatement.Body],
-        BoundForRange range => [range.Body],
-        BoundSwitch switchStatement => switchStatement.Cases.Select(c => c.Body),
-        _ => [],
-    };
 
     void CheckFieldsAssigned(State state, Location location)
     {
@@ -273,7 +266,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         return entry;
     }
 
-    void SetNullability(State state, LocalSymbol local, BoundExpression value)
+    static void SetNullability(State state, LocalSymbol local, BoundExpression value)
     {
         if (IsNonNull(value, state))
             Narrow(state, local);
@@ -286,9 +279,9 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// the same variable, a 'ref' or 'in' one could become null after the check, and so could one
     /// a lambda assigns.
     /// </summary>
-    void Narrow(State state, LocalSymbol local)
+    static void Narrow(State state, LocalSymbol local)
     {
-        if (local.RefKind == RefKind.None && !lambdaAssigned.Contains(local))
+        if (local.RefKind == RefKind.None && !local.IsAssignedByLambda)
             state.NonNull.Add(local);
     }
 
@@ -313,7 +306,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     /// <summary>The locals a statement may assign, directly or by passing them by 'ref'.</summary>
     static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) =>
-        OwnExpressions(statement).SelectMany(RefPassedLocals).Concat(DirectlyAssignedLocals(statement));
+        BoundTree.OwnExpressions(statement).SelectMany(RefPassedLocals).Concat(DirectlyAssignedLocals(statement));
 
     static IEnumerable<LocalSymbol> DirectlyAssignedLocals(BoundStatement statement) => statement switch
     {
@@ -329,22 +322,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             .. AssignedLocals(forStatement.Body),
             .. forStatement.Update is null ? [] : AssignedLocals(forStatement.Update),
         ],
-        _ => [],
-    };
-
-    /// <summary>The expressions a statement evaluates itself, not those of the statements inside it.</summary>
-    static IEnumerable<BoundExpression> OwnExpressions(BoundStatement statement) => statement switch
-    {
-        BoundVariableDeclaration { Initializer: { } initializer } => [initializer],
-        BoundAssignment assignment => [assignment.Target, assignment.Value],
-        BoundExpressionStatement expressionStatement => [expressionStatement.Expression],
-        BoundSuperCall super => super.Arguments,
-        BoundIf ifStatement => [ifStatement.Condition],
-        BoundWhile whileStatement => [whileStatement.Condition],
-        BoundFor { Condition: { } condition } => [condition],
-        BoundForRange range => [range.Start, range.End],
-        BoundReturn { Value: { } value } => [value],
-        BoundSwitch switchStatement => [switchStatement.Value],
         _ => [],
     };
 
@@ -492,7 +469,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                     var local = access.Local;
                     ReportOnce(access, access.Location, local.RefKind != RefKind.None
                         ? $"'{local.Name}' might be null here: a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {(local.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
-                        : lambdaAssigned.Contains(local)
+                        : local.IsAssignedByLambda
                         ? $"'{local.Name}' might be null here: a lambda assigns it, so null checks don't narrow it; copy it to a local first, or use '!'"
                         : narrowedOutside.Contains(local)
                         ? $"'{local.Name}' might be null here: null checks outside a lambda don't narrow inside it; check it inside, or copy it to a local first"

@@ -310,8 +310,15 @@ button.onClick(() -> { play(sound); });
   change the local; and a local that any lambda assigns is never narrowed, since the lambda may
   run during any call.
 
-> Implemented so far: parsing and checking. A program that uses lambdas or function types is
-> rejected after checking, until they can be compiled.
+A function-typed parameter compiles to a C++ template parameter, so each lambda passed to it is
+inlined into the function. Where C++ can't use a template, it is instead a non-owning reference
+to the lambda, called indirectly: in a virtual or interface method, a recursive function (which
+could otherwise instantiate itself without end), a constructor, or a function type's own
+parameters. Overloads that differ only in function types are told apart by the C++ name.
+
+> Implemented so far: non-escaping functions, as parameters and locals. Functions can't yet be
+> fields, return values, type arguments, array elements, or nullable, and `?:` and switch
+> expressions can't choose between them; those come with escaping functions.
 
 ### Escaping and non-escaping
 

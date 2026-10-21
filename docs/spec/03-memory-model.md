@@ -506,3 +506,6 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | Borrow from class field | refcount inc/dec, often elided | 0 |
 | Borrow from container | counter inc/dec | 0 |
 | Pool iteration | skip dead slots | same |
+| Pass a lambda to a function parameter | nothing: inlined, like a hand-written loop | same |
+| Pass a lambda to a virtual, interface, or recursive method, or a constructor | an indirect call per call of it | same |
+| Use a local that a lambda assigns, as a receiver or argument | refcount inc/dec while in use, if it holds objects | same |

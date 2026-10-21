@@ -34,7 +34,7 @@ public sealed partial class CppEmitter
         bool PinValue = false,
         bool Keep = false);
 
-    readonly StringBuilder output = new();
+    StringBuilder output = new();
     readonly Dictionary<TypeSymbol, bool> needsDefaultFunction = new();
     readonly Dictionary<LocalSymbol, string> localNames = new();
     readonly HashSet<string> usedLocalNames = [];
@@ -52,6 +52,7 @@ public sealed partial class CppEmitter
     public string Emit(BoundProgram program, CyclicClasses cycles)
     {
         this.cycles = cycles;
+        recursive = FindRecursive(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];
@@ -70,7 +71,7 @@ public sealed partial class CppEmitter
 
         Line();
         foreach (var function in program.Functions.Where(f => f.Symbol.ContainingType is null))
-            Line(TemplatePrefix(function.Symbol.TypeParameters) + DefinitionSignature(function.Symbol) + ";");
+            Line(FunctionTemplatePrefix(function.Symbol) + DefinitionSignature(function.Symbol) + ";");
 
         foreach (var s in DependencyOrder(program.Types))
         {
@@ -142,8 +143,8 @@ public sealed partial class CppEmitter
     string NewTemp() => $"tmp_{tempCounter++}";
 
     // Prefixes keep VPL names from colliding with C++ keywords, the runtime, and each other.
-    static string FunctionName(FunctionSymbol function) => "fn_" + function.Name;
-    static string MethodName(FunctionSymbol method) => method.IsIndexer ? "vpl_index" : "m_" + method.Name;
+    static string FunctionName(FunctionSymbol function) => "fn_" + function.Name + OverloadSuffix(function);
+    static string MethodName(FunctionSymbol method) => (method.IsIndexer ? "vpl_index" : "m_" + method.Name) + OverloadSuffix(method);
     static string FieldName(FieldSymbol field) => "f_" + field.Name;
     static string TypeParameterName(TypeParameterSymbol parameter) => "t_" + parameter.Name;
 
@@ -195,6 +196,8 @@ public sealed partial class CppEmitter
         if (type.IsPointer) return CppType(type.ElementType!) + "*";
         if (type.IsFixedArray) return $"std::array<{CppType(type.ElementType!)}, {type.FixedLength}>";
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
+        // A local holding a lambda is `auto`, and a template parameter its own type; see CppEmitter.Lambdas.cs.
+        if (type.IsFunction) return $"vpl::FunctionRef<{FunctionSignature(type)}>";
         // `T?` is a reference or an Optional depending on what `T` stands for.
         if (type.IsNullableValue) return type.NonNull.IsTypeParameter ? $"vpl::Nullable<{CppType(type.NonNull)}>" : $"vpl::Optional<{CppType(type.NonNull)}>";
         if (type.IsStructOrEnum) return ObjectType(type);

@@ -569,6 +569,8 @@ public sealed partial class Binder
             return ErrorExpression(e.Location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
             return ErrorExpression(e.Location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
+        if (type.NonNull.IsFunction)
+            return ErrorExpression(e.Location, "'?:' cannot choose between functions yet; call each one in its own branch of an 'if'");
         return new BoundConditional(e.Location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }

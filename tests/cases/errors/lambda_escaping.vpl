@@ -1,0 +1,42 @@
+// Until escaping functions are implemented, a function can only be held by a parameter or a local,
+// which can't outlive what its lambda captures.
+class Button {
+    (int) -> void onClick;                          // error: a function cannot be the type of a field yet
+    List<() -> void> handlers;                      // error: a function cannot be a type argument yet
+}
+
+struct Pair {
+    () -> int first;                                // error: a function cannot be the type of a field yet
+}
+
+enum Event {
+    Click(() -> void handler),                      // error: a function cannot be the type of a variant's field yet
+    None,
+}
+
+(int) -> int adder(int n) {                         // error: a function cannot be returned yet
+    return x -> x + n;
+}
+
+T identity<T>(T value) {
+    return value;
+}
+
+void run((ref Pair) -> void f, (in Pair) -> void g) {
+}
+
+void check(bool flag, ref (int) -> int byRef) {     // error: 'ref' cannot be used on a parameter of type '(int) -> int'
+    (int) -> int inc = x -> x + 1;
+    ((int) -> int)? maybe = inc;                    // error: '((int) -> int)?' is not supported yet
+    ((int) -> int)[3] table;                        // error: a function cannot be an array's element yet
+    (int) -> (int) -> int curried = x -> y -> x + y; // error: a function cannot be returned yet
+    var same = identity(inc);                       // error: a function cannot be a type argument yet
+    (int) -> int chosen = flag ? inc : x -> x;      // error: '?:' cannot choose between functions yet
+    (int) -> int picked = switch (flag) {           // error: a switch expression cannot choose between functions yet
+        case true -> inc;
+        case false -> inc;
+    };
+}
+
+void main() {
+}

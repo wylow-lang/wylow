@@ -306,6 +306,41 @@ public static class BoundTree
         _ => null,
     };
 
+    /// <summary>The statements directly inside a statement.</summary>
+    public static IEnumerable<BoundStatement> InnerStatements(BoundStatement statement) => statement switch
+    {
+        BoundBlock block => block.Statements,
+        BoundIf ifStatement => ifStatement.Else is null ? [ifStatement.Then] : [ifStatement.Then, ifStatement.Else],
+        BoundWhile whileStatement => [whileStatement.Body],
+        BoundFor forStatement => [.. new[] { forStatement.Initializer, forStatement.Update }.OfType<BoundStatement>(), forStatement.Body],
+        BoundForRange range => [range.Body],
+        BoundSwitch switchStatement => switchStatement.Cases.Select(c => c.Body),
+        _ => [],
+    };
+
+    /// <summary>The expressions a statement evaluates itself, not those of the statements inside it.</summary>
+    public static IEnumerable<BoundExpression> OwnExpressions(BoundStatement statement) => statement switch
+    {
+        BoundVariableDeclaration { Initializer: { } initializer } => [initializer],
+        BoundAssignment assignment => [assignment.Target, assignment.Value],
+        BoundExpressionStatement expressionStatement => [expressionStatement.Expression],
+        BoundSuperCall super => super.Arguments,
+        BoundIf ifStatement => [ifStatement.Condition],
+        BoundWhile whileStatement => [whileStatement.Condition],
+        BoundFor { Condition: { } condition } => [condition],
+        BoundForRange range => [range.Start, range.End],
+        BoundReturn { Value: { } value } => [value],
+        BoundSwitch switchStatement => [switchStatement.Value],
+        _ => [],
+    };
+
+    /// <summary>Every expression in a statement, including in the statements and lambda bodies inside it.</summary>
+    public static IEnumerable<BoundExpression> AllExpressions(BoundStatement statement) =>
+        OwnExpressions(statement).SelectMany(AllExpressions).Concat(InnerStatements(statement).SelectMany(AllExpressions));
+
+    public static IEnumerable<BoundExpression> AllExpressions(BoundExpression expression) =>
+        [expression, .. expression is BoundLambda lambda ? AllExpressions(lambda.Body) : Children(expression).SelectMany(AllExpressions)];
+
     public static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
     {
         BoundUnary unary => [unary.Operand],

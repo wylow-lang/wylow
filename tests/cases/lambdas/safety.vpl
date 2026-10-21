@@ -1,0 +1,79 @@
+// A lambda may assign the locals it captures during any call it is passed to. Each case here
+// would read freed memory or the wrong value if the compiler assumed a call can't change a local.
+
+class Box {
+    int value;
+
+    Box(int value) {
+        this.value = value;
+    }
+
+    int add(int amount) {
+        value += amount;
+        return value;
+    }
+
+    ~Box() {
+        print("box freed");
+    }
+}
+
+class Enemy {
+    int hp;
+
+    Enemy(int hp) {
+        this.hp = hp;
+    }
+
+    ~Enemy() {
+        print("enemy freed");
+    }
+}
+
+int run(() -> int f) {
+    return f();
+}
+
+int add(int a, int b) {
+    return a + b;
+}
+
+void main() {
+    // The receiver is held while the argument's lambda replaces it, until the call returns.
+    Box box = new Box(1);
+    print(box.add(run(() -> {
+        box = new Box(100);
+        return 5;
+    })));
+    // output: box freed
+    // output: 6
+
+    // Operands are evaluated left to right, though the lambda changes `x`.
+    int x = 1;
+    print(add(x, run(() -> {
+        x = 10;
+        return 0;
+    })));
+    // output: 1
+
+    // A loop element keeps its own reference, since a function value it calls may store over it.
+    List<Enemy> enemies = new List<Enemy>();
+    enemies.add(new Enemy(1));
+    enemies.add(new Enemy(2));
+    () -> void replace = () -> {
+        enemies[0] = new Enemy(99);
+    };
+    for (Enemy e : enemies) {
+        replace();
+        print(e.hp);
+    }
+    // output: 1
+    // output: enemy freed
+    // output: enemy freed
+    // output: 2
+    print(enemies[0].hp);
+    // output: 99
+}
+// output: enemy freed
+// output: enemy freed
+// output: box freed

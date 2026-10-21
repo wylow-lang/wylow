@@ -49,6 +49,12 @@ public sealed class ElementAliasing
     readonly ILookup<(string, int), FunctionSymbol> overridesByName;
     readonly Summary destructors = new();
 
+    /// <summary>
+    /// Every lambda in the program, as one unit: a call of a function value may run any of them.
+    /// Each lambda is also part of the unit that creates it, since it runs during that unit's calls.
+    /// </summary>
+    readonly FunctionSymbol lambdas = new("<lambdas>", [], VplType.Void) { IsLambda = true };
+
     public ElementAliasing(BoundProgram program)
     {
         this.program = program;
@@ -56,6 +62,8 @@ public sealed class ElementAliasing
             units[function.Symbol] = new Unit(function.Symbol, [function.Body], InitializersRunBy(function.Symbol));
         foreach (var type in program.Types.Where(t => !units.ContainsKey(t.DefaultConstructor)))
             units[type.DefaultConstructor] = new Unit(type.DefaultConstructor, [], InitializersRunBy(type.DefaultConstructor));
+        var code = units.Values.SelectMany(u => u.Statements.SelectMany(BoundTree.AllExpressions).Concat(u.Expressions.SelectMany(BoundTree.AllExpressions)));
+        units[lambdas] = new Unit(lambdas, [.. code.OfType<BoundLambda>().Distinct().Select(l => l.Body)], []);
         overridesByName = program.Functions.Select(f => f.Symbol).Where(f => f.IsInstanceMethod)
             .ToLookup(f => (f.Name, f.Parameters.Count));
     }
@@ -68,6 +76,8 @@ public sealed class ElementAliasing
             Merge(destructors, summaries[unit.Symbol], TypeMap.Empty);
         foreach (var function in program.Functions)
             FindLoops(function.Body);
+        foreach (var body in units[lambdas].Statements)
+            FindLoops(body);
     }
 
     static IReadOnlyList<BoundExpression> InitializersRunBy(FunctionSymbol function) =>
@@ -278,6 +288,12 @@ public sealed class ElementAliasing
                     break;
                 case BoundConstruction construction:
                     Call(construction.Constructor, direct: true);
+                    break;
+                case BoundInvocation:
+                    Merge(Summary, analysis.summaries[analysis.lambdas], TypeMap.Empty);
+                    break;
+                case BoundLambda lambda:
+                    Statement(lambda.Body);
                     break;
             }
             foreach (var child in BoundTree.Children(expression))

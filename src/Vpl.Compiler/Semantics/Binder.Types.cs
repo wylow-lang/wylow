@@ -35,6 +35,11 @@ public sealed partial class Binder
         }
         if (!syntax.IsNullable || type == VplType.Error)
             return type;
+        if (type.IsFunction)
+        {
+            Error(syntax.Location, $"'({type})?' is not supported yet; nullable functions come with escaping functions");
+            return VplType.Error;
+        }
         if (type.CanBeNullable)
             return type.Nullable;
         Error(syntax.Location, type.IsPointer

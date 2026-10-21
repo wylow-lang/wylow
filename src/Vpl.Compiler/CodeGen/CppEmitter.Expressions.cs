@@ -39,6 +39,8 @@ public sealed partial class CppEmitter
             BoundIs pattern => Is(pattern),
             BoundSwitchExpression switchExpression => SwitchExpression(switchExpression),
             BoundVariant variant => Variant(variant),
+            BoundLambda lambda => Lambda(lambda),
+            BoundInvocation invocation => Invocation(invocation),
             _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
         };
     }
@@ -191,7 +193,7 @@ public sealed partial class CppEmitter
 
         string Combine(IReadOnlyList<string> parts)
         {
-            var arguments = parts.Skip(receiverOperand ? 1 : 0);
+            var arguments = FunctionArguments(method, parts.Skip(receiverOperand ? 1 : 0));
             if (location is not null)
                 arguments = arguments.Append(location);
             var argumentText = string.Join(", ", arguments);
@@ -264,7 +266,7 @@ public sealed partial class CppEmitter
             .ToList();
         var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
             ? DefaultValue(construction.Type)
-            : $"{type}::make({string.Join(", ", WithLocation(constructor.Symbol, arguments, construction.Location))})");
+            : $"{type}::make({string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), construction.Location))})");
         if (construction.Initializers.Count == 0)
             return created;
 
@@ -282,7 +284,7 @@ public sealed partial class CppEmitter
             .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
             .ToList();
         return Ordered(operands, arguments =>
-            $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", WithLocation(constructor.Symbol, arguments, creation.Location))}))");
+            $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), creation.Location))}))");
     }
 
     IEnumerable<string> WithLocation(FunctionSymbol function, IEnumerable<string> arguments, Location location) =>

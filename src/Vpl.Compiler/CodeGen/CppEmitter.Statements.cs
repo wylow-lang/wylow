@@ -18,10 +18,10 @@ public sealed partial class CppEmitter
     static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
 
     string Parameters(FunctionSymbol function) =>
-        WithLocationParameter(function, function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
+        WithLocationParameter(function, function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type)));
 
     string Parameters(MethodReference method) =>
-        WithLocationParameter(method.Symbol, method.Symbol.Parameters.Select((p, i) => $"{ParameterType(method.ParameterType(i), p.RefKind)} {LocalName(p)}"));
+        WithLocationParameter(method.Symbol, method.Symbol.Parameters.Select((p, i) => ParameterDeclaration(method.Symbol, p, method.ParameterType(i))));
 
     static string WithLocationParameter(FunctionSymbol function, IEnumerable<string> parameters) =>
         string.Join(", ", function.PassesLocation ? parameters.Append($"const char* {CallerLocationParameter}") : parameters);
@@ -79,16 +79,16 @@ public sealed partial class CppEmitter
 
         if (currentType is { IsGeneric: true } owner)
             Line(TemplatePrefix(owner.TypeParameters).TrimEnd());
-        if (symbol.IsGeneric)
-            Line(TemplatePrefix(symbol.TypeParameters).TrimEnd());
+        if (FunctionTemplatePrefix(symbol) is { Length: > 0 } prefix)
+            Line(prefix.TrimEnd());
         Line(DefinitionSignature(symbol));
 
         var statements = function.Body.Statements;
         if (symbol.IsConstructor && isClassMember && statements.FirstOrDefault() is BoundSuperCall super)
         {
             // Braces evaluate the arguments left to right.
-            var arguments = string.Join(", ", WithLocation(super.Constructor.Symbol, super.Arguments.Select(a =>
-                !IsStable(a) && MayHoldReferences(a.Type) ? $"vpl::keep({Expression(a)})" : Expression(a)), super.Location));
+            var arguments = string.Join(", ", WithLocation(super.Constructor.Symbol, FunctionArguments(super.Constructor, super.Arguments.Select(a =>
+                !IsStable(a) && MayHoldReferences(a.Type) ? $"vpl::keep({Expression(a)})" : Expression(a))), super.Location));
             Line($"    : {ObjectType(super.Constructor.Owner!)}{{{arguments}}}");
             statements = [.. statements.Skip(1)];
         }
@@ -156,7 +156,9 @@ public sealed partial class CppEmitter
                 var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
                     : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
                     : "{}";
-                Line($"{CppType(declaration.Local.Type)} {LocalName(declaration.Local)}{initializer};");
+                // A function-typed local owns the lambda it is initialized with, or copies a reference to one.
+                var type = declaration.Local.Type.IsFunction ? "auto" : CppType(declaration.Local.Type);
+                Line($"{type} {LocalName(declaration.Local)}{initializer};");
                 EndTry(declaration.Initializer);
                 break;
             case BoundAssignment assignment when FindTry(assignment.Value) is not null:
@@ -240,7 +242,7 @@ public sealed partial class CppEmitter
             case BoundReturn returnStatement:
                 DeclarePatternLocals(returnStatement.Value);
                 HoistTry(returnStatement.Value);
-                if (context == Context.StructConstructor)
+                if (context == Context.StructConstructor && lambdaDepth == 0)
                     Line("return self;");
                 else
                     Line(returnStatement.Value is null ? "return;" : $"return {Expression(returnStatement.Value)};");

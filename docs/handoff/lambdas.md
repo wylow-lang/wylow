@@ -76,10 +76,23 @@ when it lands.
    equality, not defaultable), target typing (a lambda passed to overloads is a
    `BoundPendingLambda` until resolution picks its type), lambda bodies with their own return
    context, calling a function value (`BoundInvocation`), bind-once function-typed locals, and
-   flow analysis (decision 10). `Binder.RejectFunctionUses` then rejects the program; step 3
-   removes it.
-3. **Non-escaping.** Template and `FunctionRef` emission, by-reference captures, escape checks,
-   and effects and ordering (decision 9), including `ElementAliasing`.
+   flow analysis (decision 10).
+3. **Non-escaping** (done). Lambdas are C++ `[&]` lambdas (`CppEmitter.Lambdas.cs`).
+   Function-typed parameters are template parameters, or `vpl::FunctionRef` in methods that are
+   dispatched or may implement an interface's, in recursive functions, in constructors, and in
+   function types. Functions with function-typed parameters get a name suffix encoding them, so
+   overloads differing only in function types stay distinct in C++.
+   - Escape checks: until step 5, only parameters and locals hold functions (`Binder.CheckNotStored`).
+     Fields, returns, type arguments, arrays, `F?`, and `?:` or switch expressions over functions are
+     errors. That is what makes capturing by reference safe.
+   - A local a lambda assigns is marked `LocalSymbol.IsAssignedByLambda`. It is not "stable", so it is
+     pinned while in use as a receiver or argument (`tests/cases/lambdas/safety.vpl` would otherwise
+     read freed memory).
+   - Effects and ordering (decision 9): calling a function value, or calling anything with a function
+     argument, counts as writing locals.
+   - `ElementAliasing` counts a lambda's writes in the function that creates it, and a call of a function
+     value as writing what any lambda writes. Loops inside lambdas are checked too.
+   - Field initializers are now flow-analyzed, since lambdas in them have bodies to check.
 4. **Generic inference** with lambdas (decision 8). Inferring from the other arguments already
    works; what's left is inferring from a lambda's body, as `Result.map<U>((T) -> U)` needs.
 5. **Escaping.** `@Escaping`, `vpl::Function`, by-copy captures and the effectively-final rule,
@@ -97,7 +110,61 @@ Extension methods and queries (they come next, on top of this), lambdas held by 
 the capture rules for jobs, threads, and isolates, references to instance methods, and converting
 lambdas to C callbacks (07-interop.md §7.6 forbids it).
 
-Also not in this milestone: escaping lambdas that capture nothing skipping allocation. This is an
-optimization that never changes behavior, so it can come any time. The likely form is to make
-`vpl::Function` a code pointer plus a closure pointer that is null when nothing is captured, so
-copying and releasing one only test for null.
+## Performance notes
+
+Costs the current design adds, and what could remove them. None of these changes behavior, so each
+can be done when profiling shows it matters (see the analysis-based optimizations note: semantics
+stay explicit, optimizations come later).
+
+1. **Indirect calls where templates can't be used.** Virtual and interface methods, methods that
+   may implement an interface's, recursive functions, constructors, and function types' own
+   function parameters take a `vpl::FunctionRef`: one indirect call per call of the function, and
+   no inlining of the lambda. Could use: devirtualizing calls whose receiver type is known; for
+   recursion, detecting that the recursive call only passes its own parameter on (the common
+   case), which can't instantiate without end; for constructors, mangling a tag argument instead.
+   The "may implement an interface" rule matches by name only, so it's broader than needed.
+2. **Code size.** Each distinct lambda passed to a template instantiates the callee again, as
+   generics do per type. Large functions called with many lambdas grow the binary; a performance
+   warning could point out large instantiation counts.
+3. **Pins for locals a lambda assigns.** Such a local is no longer "stable", so using it as a
+   receiver or argument holds an extra reference (refcount inc/dec) for the call, even when the
+   lambda that assigns it can't run during that call. Could be precise: only calls that are
+   passed (directly or through forwarding) a lambda assigning the local can change it.
+4. **Evaluation order is conservative.** Any call given a function value, and any call of one, is
+   treated as writing every local, so operands around it get hoisted into an ordering lambda
+   (`CppEmitter.Ordered`). Usually inlined away, but it can also force temporaries. Could track
+   which locals each lambda writes.
+5. **Element aliasing is program-wide for function calls.** A call of a function value merges
+   what *every* lambda in the program writes, so one lambda storing into elements of type `X`
+   anywhere disables in-place loop elements in every loop over `X` that calls a function value.
+   Could narrow to the lambdas that can reach that call.
+6. **Narrowing is conservative** (decision 10): a null check outside a lambda doesn't carry in,
+   and a local any lambda assigns is never narrowed, which can force `!` (a check) where it isn't
+   needed.
+7. **`vpl::unreachable` after each non-void lambda body**, as after functions; dead code the C++
+   compiler removes.
+8. **Escaping lambdas that capture nothing** (step 5) needn't allocate. The likely form is to make
+   `vpl::Function` a code pointer plus a closure pointer that is null when nothing is captured, so
+   copying and releasing one only test for null.
+9. **Nullable functions** (step 5) are nullable values, `vpl::Optional<...>`, with a separate
+   presence flag; a null closure pointer could stand for null instead.
+
+## Decisions to review once lambdas are in use
+
+These were reasonable on paper; real programs (the voxel port) will show whether they get in the way.
+
+1. **Bind-once function locals** (decision 5). A function-typed local can't be reassigned, and
+   until step 5 `?:` can't choose between lambdas either, so choosing a function needs separate
+   calls in each branch. Allowing `?:` (as a `FunctionRef` to lambdas stored beside the local) is
+   the planned fix.
+2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
+   local into a lambda would be sound.
+3. **`F?` is a nullable value**, not reference-like. Only matters once functions can be stored.
+4. **Untyped lambdas are ambiguous between overloads** that differ only in function parameter
+   types (decision 7), rather than trying each overload.
+5. **Parameter modes are part of a function type**, and an untyped lambda takes them from its
+   target; function-typed parameters can't be `ref` or `in`.
+6. **Expression-bodied lambdas returning `void`** must have a call as their body ("only calls can
+   be used as statements"), as for statements.
+7. **Which functions get `FunctionRef`** (performance note 1): the rules are simple and
+   conservative, and could be wrong in the slow direction often enough to matter.

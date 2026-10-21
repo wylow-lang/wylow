@@ -264,6 +264,8 @@ public sealed partial class Binder
         }
         if (type.IsRefStruct)
             return ErrorExpression(e.Location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
+        if (type.NonNull.IsFunction)
+            return ErrorExpression(e.Location, "a switch expression cannot choose between functions yet; call each one in its own case of a switch statement");
         var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type)));
         return new BoundSwitchExpression(e.Location, value, [.. cases], type);
     }

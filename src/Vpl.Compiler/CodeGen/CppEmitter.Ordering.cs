@@ -45,7 +45,8 @@ public sealed partial class CppEmitter
 
     /// <summary>
     /// The object to hold while a place is used by one operation. Locals and <c>this</c> need no
-    /// hold, since nothing else can assign them; object locals can't even be passed by <c>ref</c>.
+    /// hold, since nothing else can assign them (except locals a lambda assigns, which any call
+    /// may); object locals can't even be passed by <c>ref</c>.
     /// </summary>
     BoundExpression? PinRoot(BoundExpression place) =>
         StorageRoot(place) is var (root, borrowed) && (borrowed || !IsStable(root)) ? root : null;
@@ -65,7 +66,7 @@ public sealed partial class CppEmitter
     bool MayBeBorrowable(VplType type) =>
         borrowableClasses.Any(c => c == type.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.Symbol));
 
-    static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess;
+    static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess { Local.IsAssignedByLambda: false };
 
     /// <summary>Whether releasing a value of the type may destroy an object.</summary>
     static bool MayHoldReferences(VplType type) => MayHoldReferences(type, []);
@@ -181,7 +182,7 @@ public sealed partial class CppEmitter
 
     bool HasEffects(BoundExpression expression) => expression switch
     {
-        BoundCall or BoundNew or BoundNonNull or BoundTry => true,
+        BoundCall or BoundInvocation or BoundNew or BoundNonNull or BoundTry => true,
         BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
         BoundConversion { Type.IsEnum: true } => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit
@@ -192,9 +193,17 @@ public sealed partial class CppEmitter
         _ => BoundTree.Children(expression).Any(HasEffects),
     };
 
-    /// <summary>Whether evaluating the expression may modify locals, parameters, or fields of values.</summary>
+    /// <summary>
+    /// Whether evaluating the expression may modify locals, parameters, or fields of values. A
+    /// lambda may modify the locals it captures, and runs when a function value is called, which
+    /// a call given a function value may do.
+    /// </summary>
     static bool Writes(BoundExpression expression) => expression switch
     {
+        BoundInvocation => true,
+        BoundCall call when call.Arguments.Any(a => a.Type.IsFunction) => true,
+        BoundConstruction construction when construction.Arguments.Any(a => a.Type.IsFunction) => true,
+        BoundNew creation when creation.Arguments.Any(a => a.Type.IsFunction) => true,
         BoundCall call when call.Method.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref)
             || (call.Receiver is not null && !call.Receiver.Type.IsReference && !call.Method.Symbol.IsReadOnly) => true,
         BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
@@ -206,7 +215,7 @@ public sealed partial class CppEmitter
     /// <summary>Whether evaluating the expression may run user code, which can modify any object.</summary>
     static bool WritesHeap(BoundExpression expression) => expression switch
     {
-        BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew => true,
+        BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew or BoundInvocation => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit => true,
         _ => BoundTree.Children(expression).Any(WritesHeap),
     };

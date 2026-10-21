@@ -1,6 +1,3 @@
-void first(() -> void f) {                          // error: lambdas and function types are checked, but cannot be compiled yet
-}
-
 void call(() -> void f) {
     f();
 }

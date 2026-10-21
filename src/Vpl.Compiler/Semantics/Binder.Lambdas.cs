@@ -6,19 +6,16 @@ namespace Vpl.Compiler.Semantics;
 
 public sealed partial class Binder
 {
-    // Until lambdas are compiled (docs/handoff/lambdas.md), a program using them is checked, then rejected here.
-    Location? firstFunctionUse;
-
-    void NoteFunctionUse(Location location)
+    /// <summary>
+    /// Until escaping functions exist (step 5 of docs/handoff/lambdas.md), only parameters and
+    /// locals hold functions, which a lambda's captures outlive since it can't leave the call.
+    /// </summary>
+    bool CheckNotStored(VplType type, Location location, string what)
     {
-        if (firstFunctionUse is not { } first || location.Span.Start < first.Span.Start)
-            firstFunctionUse = location;
-    }
-
-    void RejectFunctionUses()
-    {
-        if (firstFunctionUse is { } location)
-            Error(location, "lambdas and function types are checked, but cannot be compiled yet");
+        if (!type.NonNull.IsFunction)
+            return true;
+        Error(location, $"a function cannot be {what} yet; until escaping functions are implemented, only parameters and local variables can hold one");
+        return false;
     }
 
     VplType BindFunctionType(TypeSyntax syntax)
@@ -37,17 +34,18 @@ public sealed partial class Binder
             Error(syntax.Element!.Location, $"a function cannot return a '{returnType}', since there is nothing it could view");
             return VplType.Error;
         }
-        if (failed || returnType == VplType.Error)
+        if (failed || returnType == VplType.Error || !CheckNotStored(returnType, syntax.Element!.Location, "returned"))
             return VplType.Error;
-        NoteFunctionUse(syntax.Location);
         return returnType.FunctionReturning(parameters);
     }
 
     bool CheckParameterMode(RefKind refKind, VplType type, Location location)
     {
-        if (refKind == RefKind.None || !type.IsReference)
+        if (refKind == RefKind.None || !(type.IsReference || type.IsFunction))
             return true;
-        Error(location, $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; class objects are already passed by reference");
+        Error(location, type.IsFunction
+            ? $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; functions are already passed without copying"
+            : $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; class objects are already passed by reference");
         return false;
     }
 
@@ -111,8 +109,6 @@ public sealed partial class Binder
         var boundBody = BindBlock(body);
         scope = scope.Parent;
         (currentFunction, loopDepth) = (enclosingFunction, enclosingLoops);
-
-        NoteFunctionUse(e.Location);
         return new BoundLambda(e.Location, type, function, boundBody);
     }
 
@@ -145,8 +141,6 @@ public sealed partial class Binder
         }
         if (ExplainRefMismatch(signature, arguments) is { } mismatch)
             return ErrorExpression(mismatch.Location, mismatch.Message);
-
-        NoteFunctionUse(e.Location);
         return new BoundInvocation(e.Location, callee, signature, ConvertArguments(signature, arguments));
     }
 }

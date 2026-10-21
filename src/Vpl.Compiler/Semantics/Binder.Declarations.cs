@@ -199,10 +199,14 @@ public sealed partial class Binder
         foreach (var decl in s.Declaration.Fields)
         {
             HasCallerLocation(decl);
-            var field = new FieldSymbol(decl.Name, BindType(decl.Type, allowVoid: false), s, decl);
+            var type = BindType(decl.Type, allowVoid: false);
+            // A rejected function type would also be reported as having no default value.
+            if (!CheckStorable(type, decl.Type.Location, "the type of a field") && type.IsFunction)
+                type = VplType.Error;
+            var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)
                 Error(decl.NameLocation, "an extern struct cannot declare fields; its C++ class holds its data");
-            CheckStorable(field.Type, decl.Type.Location, "the type of a field");            if (s.FindField(decl.Name) is not null)
+            if (s.FindField(decl.Name) is not null)
                 Error(decl.NameLocation, $"field '{decl.Name}' is already defined");
             else
                 s.Fields.Add(field);
@@ -378,6 +382,7 @@ public sealed partial class Binder
     {
         if (function.ReturnType.IsRefStruct && !function.IsInstanceMethod)
             Error(function.Declaration!.NameLocation, $"only instance methods can return '{function.ReturnType}', which views the method's receiver");
+        CheckNotStored(function.ReturnType, function.Declaration!.ReturnType!.Location, "returned");
     }
 
     /// <summary>A returned reference borrows the receiver, so only instance methods that the caller calls directly may return one.</summary>

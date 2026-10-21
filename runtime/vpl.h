@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -1143,6 +1144,30 @@ inline void Object::add_to_buffer() {
     cycles.add(this);
     ++cycles.stats.buffered;
 }
+
+// ---- Functions ----
+
+// A non-escaping function value where its callable's type can't be a template parameter: a
+// parameter of a virtual or recursive function, or of a function type. It refers to the callable
+// without owning it, which VPL's rules make safe: the callable is a lambda or function value the
+// caller holds until the call returns.
+template <class Signature>
+class FunctionRef;
+
+template <class R, class... A>
+class FunctionRef<R(A...)> {
+    const void* callable;
+    R (*call)(const void*, A...);
+
+public:
+    template <class F>
+        requires(!std::is_same_v<std::remove_cvref_t<F>, FunctionRef>)
+    FunctionRef(const F& f) noexcept
+        : callable(std::addressof(f)),
+          call([](const void* c, A... arguments) -> R { return (*static_cast<const F*>(c))(std::forward<A>(arguments)...); }) {}
+
+    R operator()(A... arguments) const { return call(callable, std::forward<A>(arguments)...); }
+};
 
 // ---- Standard library intrinsics ----
 //

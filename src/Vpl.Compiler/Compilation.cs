@@ -26,6 +26,11 @@ public static class Compilation
         var flow = new FlowAnalyzer(diagnostics);
         foreach (var function in program.Functions)
             flow.Analyze(function);
+        foreach (var field in program.Types.SelectMany(t => t.Fields))
+        {
+            if (field.Initializer is { } initializer)
+                flow.Analyze(initializer);
+        }
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
 
