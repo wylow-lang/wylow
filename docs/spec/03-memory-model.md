@@ -198,8 +198,14 @@ instantiation.
 ## 3.3 Pools and handles
 
 `Pool<T>` stores many values of a **struct** type `T` and hands out `Handle<T>` values to refer to
-them. Pools are the intended way to store entities and anything numerous that refers to other
-things. **Classes cannot be stored in pools.**
+them. **Classes cannot be stored in pools.**
+
+A pool is one way to store many things that refer to each other, suited to data-oriented code
+where that number is large: handles replace references, so there is no reference counting and no
+cycles, and the values stay together in memory. Classes, with inheritance and references between
+objects, are just as good a way to model entities when there are fewer of them. `Pool` is a
+standard library type built on general features (`ref? T`, borrow counting, `unsafe` storage), with
+no compiler support of its own.
 
 ```java
 Pool<Enemy> enemies = new Pool<>();
