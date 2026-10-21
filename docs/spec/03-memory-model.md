@@ -233,7 +233,7 @@ if (enemies.get(target) is ref Enemy e) {
 
 | Method | Behavior |
 |---|---|
-| `get(h)` | `ref T?`; null if `h` is stale |
+| `get(h)` | `ref? T`; null if `h` is stale |
 | `contains(h)` | `true` if `h` is live |
 | `getUnchecked(h)` | No generation check (`@Unchecked` / `unsafe` only) |
 
@@ -318,7 +318,42 @@ struct Mat4 {
 - The result is a place for as long as the receiver is: on a temporary struct, such as
   `makeMatrix()[0, 0]`, it can be read but not assigned or referred to.
 - Free functions and static methods cannot return references yet. (`Pool.get`, which returns a
-  `ref T?`, will be a method.)
+  `ref? T`, will be a method.)
+
+### Nullable references: `ref? T`
+
+`ref? T` (and `in? T`) is a reference that may refer to nothing, for lookups that can fail without
+copying what they find: `pool.get(h)` is null for a stale handle, and `list.get(i)` for an index
+out of bounds.
+
+```java
+if (enemies.get(target) is ref Enemy e) {
+    e.health -= 10;
+}
+ref? Enemy found = enemies.get(target);
+if (found != null) {
+    found.health -= 10;
+}
+```
+
+- It is not `ref T?`, which is a reference to a variable of type `T?` (`void reset(ref int? v)`).
+  The two combine: `ref? int?` may refer to an `int?` variable.
+- It is allowed where `ref` is (parameters, locals, pattern bindings, and returns into the
+  receiver) and follows the same rules: second-class, and the storage it points into is held or
+  borrowed while it is used (see `CppEmitter.StorageRoot`).
+- A method returns one with `return ref place;` or `return null;`.
+- It can only be used as a place after a check, as for nullable types (§2.5): `x is ref T name`
+  (or `in T name`) binds the place, and `x != null` narrows a `ref?` local or parameter. Narrowing
+  is always sound here, since a reference can't be made to refer elsewhere: assigning to it
+  assigns to the place. `x!` gives the place or panics.
+- It converts implicitly from `ref T` to `ref? T`, and from `ref` to `in`, never the other way.
+- It compiles to a C++ pointer that is null when there is no place, so it costs nothing over `ref`.
+
+C# has no such type: `CollectionsMarshal.GetValueRefOrNullRef` returns a plain `ref` that may be
+null, which the caller must remember to test with `Unsafe.IsNullRef`. Rust's `Option<&mut T>` is
+the model.
+
+> Not implemented yet.
 
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms

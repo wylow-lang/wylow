@@ -66,7 +66,7 @@ ranges (`0..n`, `0..=n`), `T[N]`, spans, and `Spannable` types. Iterating borrow
 
 ## Not in this milestone
 
-Pools and handles (they also need `ref T?` and `is ref` patterns), `Map` (needs a hashing and
+Pools and handles (they also need `ref? T` and `is ref` patterns), `Map` (needs a hashing and
 equality protocol), `Box`, moving `String` and `print` into the stdlib, `@Unchecked`, ref returns
 from free functions, and array literals beyond `T[N]` initializers.
 

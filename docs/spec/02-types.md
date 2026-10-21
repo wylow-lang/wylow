@@ -114,6 +114,8 @@ int? cachedIndex = null;         // value + presence flag
   value can be compared with `null`.
 - Overloads cannot differ only in nullability (`f(Player)` and `f(Player?)`): for references both
   are the same type at runtime, and in generic code `f(T)` and `f(T?)` could be too.
+- A `ref` to a nullable variable is `ref T?`; a reference that may refer to nothing is `ref? T`
+  ([03-memory-model.md](03-memory-model.md#nullable-references-ref-t)).
 
 ### Nullable value types
 
