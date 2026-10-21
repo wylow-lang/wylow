@@ -1,0 +1,10 @@
+class Node {
+    ~Node() {
+        Memory.collectCycles();     // panic-here: Memory.collectCycles cannot be called from a destructor
+    }
+}
+
+void main() {
+    var n = new Node();
+    n = new Node();
+}

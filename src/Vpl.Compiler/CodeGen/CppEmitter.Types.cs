@@ -91,6 +91,7 @@ public sealed partial class CppEmitter
             Line($"{CppType(field.Type)} {FieldName(field)}{{}};");
         if (NeedsDefaultFunction(s))
             Line($"static {name} make_default();");
+        DeclareCollectorMembers(s);
         foreach (var member in s.Members.Where(m => !m.IsExtern))
             Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
@@ -170,6 +171,7 @@ public sealed partial class CppEmitter
             EmitVariantFactory(name, variant);
         if (!s.HasData)
             EmitFromValue(s, name, tag);
+        DeclareCollectorMembers(s);
         foreach (var member in s.Members.Where(m => !m.IsExtern))
             Line(TemplatePrefix(member.TypeParameters) + MemberDeclaration(member) + ";");
 
@@ -291,7 +293,7 @@ public sealed partial class CppEmitter
             if (s.Constructors.Count == 0)
                 Line($"{TypeName(s)}();");
             // Declared here and defined after every type, where the field types are complete.
-            if (s.Destructor is null)
+            if (s.Destructor is null || HasSeparateDestructor(s))
                 Line($"~{TypeName(s)}() override;");
         }
         foreach (var member in s.Members.Where(m => !m.IsExtern))
@@ -303,6 +305,7 @@ public sealed partial class CppEmitter
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
+        DeclareCollectorMembers(s);
         if (s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type)
             && !(s.Type.BaseType is { } inherited && Conversions.IsSubtype(inherited, borrowable.Type)))
         {

@@ -30,6 +30,6 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         new ElementAliasing(program).Run();
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program));
+        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, CyclicClasses.Find(program)));
     }
 }

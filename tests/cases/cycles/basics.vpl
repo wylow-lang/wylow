@@ -1,0 +1,106 @@
+// Cycles are freed only by Memory.collectCycles, all of a cycle's destructors run before any of its
+// fields are released, and weak references to its objects read null once it is found.
+
+class Node {
+    int id;
+    Node? next;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    // Prints this node's id and the next one's, which is still intact even if it was destroyed first.
+    ~Node() {
+        if (next is Node n) {
+            print(id * 100 + n.id);
+        } else {
+            print(id * 100);
+        }
+    }
+}
+
+// A cycle of `count` nodes numbered from `first`.
+Node ring(int first, int count) {
+    var head = new Node(first);
+    var tail = head;
+    for (int i : 1..count) {
+        var node = new Node(first + i);
+        tail.next = node;
+        tail = node;
+    }
+    tail.next = head;
+    return head;
+}
+
+class Tree {
+    int id;
+    Tree? parent;
+    List<Tree> children = new List<Tree>();
+
+    Tree(int id) {
+        this.id = id;
+    }
+
+    Tree add(int id) {
+        var child = new Tree(id);
+        child.parent = this;
+        children.add(child);
+        return child;
+    }
+
+    ~Tree() {
+        print(id * 100 + children.count);
+    }
+}
+
+void main() {
+    // Unreachable, but nothing frees it until the collector runs.
+    Weak<Node> watched = null;
+    if (true) {
+        var a = ring(1, 2);
+        watched = a;
+    }
+    print(watched.get() != null);       // output: true
+    Memory.collectCycles();
+    // output: 102
+    // output: 201
+    print(watched.get() == null);       // output: true
+
+    // A cycle still referenced from a local is live.
+    var kept = ring(3, 3);
+    Memory.collectCycles();
+    print(kept.next!.next!.id);         // output: 5
+    kept = new Node(9);
+    print(0);                           // output: 0
+    Memory.collectCycles();
+    // output: 503
+    // output: 304
+    // output: 405
+
+    // An object referring to itself.
+    var self = new Node(6);
+    self.next = self;
+    self = new Node(7);
+    Memory.collectCycles();
+    // output: 606
+
+    // A cycle through a list: each child refers to its parent, and the parent's list to the children.
+    var root = new Tree(1);
+    root.add(2).add(3);
+    root.add(4);
+    root = new Tree(5);
+    Memory.collectCycles();
+    // output: 201
+    // output: 102
+    // output: 300
+    // output: 400
+
+    // Nothing left to free.
+    _ = Memory.cycleStats();
+    Memory.collectCycles();
+    var stats = Memory.cycleStats();
+    print(stats.freed);                 // output: 0
+}
+// output: 500
+// output: 700
+// output: 900

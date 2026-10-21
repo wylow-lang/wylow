@@ -236,6 +236,12 @@ public sealed class TypeSymbol
     /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
     public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 
+    /// <summary>A class declared <c>@Acyclic</c>, whose objects the cycle collector never looks at.</summary>
+    public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
+
+    /// <summary>Every instantiation constructed so far, including ones with type parameters as arguments.</summary>
+    public IReadOnlyCollection<VplType> Instances => instances.Values;
+
     /// <summary>The type of <c>this</c>: the type applied to its own type parameters.</summary>
     public VplType Type { get; }
 

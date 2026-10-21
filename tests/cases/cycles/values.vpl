@@ -1,0 +1,116 @@
+// The collector follows references inside structs, enums, fixed arrays, and list elements, and
+// through interface types. A destructor may change its cycle or let go of other objects.
+
+interface Part {
+    int id();
+}
+
+struct Edge {
+    Part? to;
+    int weight;
+}
+
+enum Slot {
+    Empty,
+    Holding(Edge edge),
+}
+
+class Joint implements Part {
+    int number;
+    Slot[2] slots;
+
+    Joint(int number) {
+        this.number = number;
+    }
+
+    int id() {
+        return number;
+    }
+
+    ~Joint() {
+        print(number);
+    }
+}
+
+class Bag implements Part {
+    int number;
+    List<Edge> edges = new List<Edge>();
+    Leaf leaf;
+
+    Bag(int number) {
+        this.number = number;
+        leaf = new Leaf(number + 1);
+    }
+
+    int id() {
+        return number;
+    }
+
+    // Breaks the cycle and releases its own objects, which the collection must allow.
+    ~Bag() {
+        print(number);
+        edges.clear();
+        leaf = new Leaf(0);
+    }
+}
+
+class Leaf {
+    int number;
+
+    Leaf(int number) {
+        this.number = number;
+    }
+
+    ~Leaf() {
+        print(number);
+    }
+}
+
+class Chain {
+    Chain? next;
+}
+
+Edge edge(Part to) {
+    Edge e = Edge();
+    e.to = to;
+    e.weight = 1;
+    return e;
+}
+
+void main() {
+    var a = new Joint(1);
+    var b = new Joint(2);
+    var bag = new Bag(10);
+    a.slots[1] = Slot.Holding(edge(b));
+    b.slots[0] = Slot.Holding(edge(bag));
+    bag.edges.add(edge(a));
+    a = new Joint(3);
+    b = a;
+    bag = new Bag(20);
+    print(0);                           // output: 0
+    Memory.collectCycles();
+    // output: 2
+    // output: 10
+    // output: 11
+    // output: 1
+    // output: 0
+
+    // A long cycle is traversed without recursion.
+    var head = new Chain();
+    var tail = head;
+    for (int i : 0..100000) {
+        var next = new Chain();
+        tail.next = next;
+        tail = next;
+    }
+    tail.next = head;
+    tail = new Chain();
+    head = tail;
+    _ = Memory.cycleStats();
+    Memory.collectCycles();
+    print(Memory.cycleStats().freed);   // output: 100001
+}
+// output: 20
+// output: 21
+// output: 0
+// output: 3

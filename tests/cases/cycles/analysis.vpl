@@ -1,0 +1,144 @@
+// Only objects of classes that may be cyclic are buffered when a release leaves their count above
+// zero. Each `drop` below makes one such release.
+
+class Leaf {
+    int value;
+}
+
+// Holds references, but none that can lead back to a Holder.
+class Holder {
+    Leaf leaf = new Leaf();
+    List<int> numbers = new List<int>();
+    List<Leaf> leaves = new List<Leaf>();
+    Weak<Holder> self;
+}
+
+class Node {
+    Node? next;
+}
+
+// Cyclic through a struct, an enum, a fixed array, and a list.
+struct Link {
+    Linked? target;
+}
+
+enum Slot {
+    Empty,
+    Full(Slotted item),
+}
+
+class Linked {
+    Link link;
+}
+
+class Slotted {
+    Slot[2] slots;
+}
+
+// Holds Linked objects, but can't reach another Holds.
+class Holds {
+    Link link;
+}
+
+class Listed {
+    List<Listed> others = new List<Listed>();
+}
+
+// Cyclic through a subclass: an Animal field may hold a Pet, which holds an Animal.
+class Animal {
+}
+
+class Pet extends Animal {
+    Animal? friend;
+}
+
+// Cyclic through an interface's implementation.
+interface Shape {
+}
+
+class Group implements Shape {
+    Shape? first;
+}
+
+// Decided per instantiation: Wrapper<Owner> is cyclic, Wrapper<int> is not.
+class Wrapper<T> {
+    T value;
+
+    Wrapper(T value) {
+        this.value = value;
+    }
+}
+
+class Owner {
+    Wrapper<Owner>? wrapper;
+}
+
+@Acyclic
+class Declared {
+    Declared? next;
+}
+
+void drop<T>(T value) {
+}
+
+void report(String name) {
+    var stats = Memory.cycleStats();
+    print(name);
+    print(stats.buffered);
+}
+
+void main() {
+    var holder = new Holder();
+    drop(holder);
+    drop(holder.leaf);
+    drop(holder.numbers);
+    drop(holder.leaves);
+    report("acyclic");                  // output: acyclic
+    // output: 0
+
+    var node = new Node();
+    drop(node);
+    drop(node);
+    report("buffered once");            // output: buffered once
+    // output: 1
+
+    var linked = new Linked();
+    var slotted = new Slotted();
+    var listed = new Listed();
+    drop(linked);
+    drop(slotted);
+    drop(listed);
+    drop(listed.others);
+    var holds = new Holds();
+    drop(holds);
+    report("through values and lists"); // output: through values and lists
+    // output: 4
+
+    var pet = new Pet();
+    var animal = new Animal();
+    var group = new Group();
+    drop(pet);
+    drop(animal);
+    drop(group);
+    report("through subtypes");         // output: through subtypes
+    // output: 2
+
+    var owned = new Wrapper<Owner>(new Owner());
+    var number = new Wrapper<int>(1);
+    _ = Memory.cycleStats();
+    drop(owned);
+    drop(number);
+    report("generic");                  // output: generic
+    // output: 1
+
+    var declared = new Declared();
+    drop(declared);
+    report("declared acyclic");         // output: declared acyclic
+    // output: 0
+
+    // A collection leaves nothing buffered, so the object is buffered again.
+    Memory.collectCycles();
+    drop(node);
+    report("after collecting");         // output: after collecting
+    // output: 1
+}

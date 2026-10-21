@@ -1,0 +1,26 @@
+@Acyclic
+class Tree {
+    Tree? next;
+}
+
+@Acyclic                            // error: '@Acyclic' can only be used on classes
+struct Point {
+    int x;
+}
+
+@Acyclic                            // error: '@Acyclic' can only be used on classes
+interface Shape {
+}
+
+class Holder {
+    @Acyclic                        // error: '@Acyclic' can only be used on classes
+    Tree? tree;
+
+    @Acyclic                        // error: '@Acyclic' can only be used on classes
+    void run() {
+    }
+}
+
+void main() {
+    Memory.collectCycles(1L);       // error: no overload of 'Memory.collectCycles' accepts (long)
+}

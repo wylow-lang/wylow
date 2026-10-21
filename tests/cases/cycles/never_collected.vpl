@@ -1,0 +1,30 @@
+// Without a call to Memory.collectCycles, a cycle is never freed, not even at exit, while
+// everything else is still freed as soon as nothing refers to it.
+
+class Node {
+    int id;
+    Node? next;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    ~Node() {
+        print(id);
+    }
+}
+
+void main() {
+    for (int i : 0..1000) {
+        var a = new Node(-1);
+        var b = new Node(-2);
+        a.next = b;
+        b.next = a;
+    }
+    var chain = new Node(1);
+    chain.next = new Node(2);
+    chain = new Node(3);
+    // output: 1
+    // output: 2
+}
+// output: 3

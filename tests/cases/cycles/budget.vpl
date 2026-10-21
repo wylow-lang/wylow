@@ -1,0 +1,56 @@
+// A budget limits how many objects a collection visits. A cycle that doesn't fit in what is left
+// of the budget waits for a later call rather than being half-visited.
+
+class Node {
+    int id;
+    Node? next;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    ~Node() {
+        print(id);
+    }
+}
+
+void pair(int first) {
+    var a = new Node(first);
+    var b = new Node(first + 1);
+    a.next = b;
+    b.next = a;
+}
+
+void report() {
+    var stats = Memory.cycleStats();
+    print(stats.visited * 100 + stats.freed);
+}
+
+void main() {
+    pair(10);
+    pair(20);
+    pair(30);
+    _ = Memory.cycleStats();
+
+    Memory.collectCycles(2);
+    // output: 11
+    // output: 10
+    report();                       // output: 202
+
+    // A cycle of two doesn't fit in a budget of one, so nothing is visited.
+    Memory.collectCycles(1);
+    report();                       // output: 0
+    Memory.collectCycles(0);
+    report();                       // output: 0
+
+    Memory.collectCycles(3);
+    // output: 21
+    // output: 20
+    report();                       // output: 202
+
+    Memory.collectCycles();
+    // output: 31
+    // output: 30
+    report();                       // output: 202
+    Memory.collectCycles(-1);       // panic-here: cannot visit a negative number of objects
+}

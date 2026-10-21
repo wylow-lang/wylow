@@ -1,0 +1,28 @@
+// A destructor run by the collector may not leave a reference to an object of its cycle anywhere
+// outside the cycle.
+
+class Keeper {
+    Node? kept;
+}
+
+class Node {
+    Node? next;
+    Keeper keeper;
+
+    Node(Keeper keeper) {
+        this.keeper = keeper;
+    }
+
+    ~Node() {
+        keeper.kept = next;
+    }
+}
+
+void main() {
+    var keeper = new Keeper();
+    var a = new Node(keeper);
+    a.next = new Node(keeper);
+    a.next!.next = a;
+    a = new Node(new Keeper());
+    Memory.collectCycles();         // panic: a destructor kept a reference to an object of the cycle being collected
+}

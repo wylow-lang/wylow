@@ -36,7 +36,7 @@ public sealed partial class CppEmitter
                 : $"{TypeName(owner)}({Parameters(member)})";
         }
         if (member.IsDestructor)
-            return $"~{TypeName(owner)}() override";
+            return HasSeparateDestructor(owner) ? "void vpl_destructor()" : $"~{TypeName(owner)}() override";
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
@@ -59,7 +59,7 @@ public sealed partial class CppEmitter
                 : $"{owner}::{TypeName(s)}({Parameters(function)})";
         }
         if (function.IsDestructor)
-            return $"{owner}::~{TypeName(s)}()";
+            return HasSeparateDestructor(s) ? $"void {owner}::vpl_destructor()" : $"{owner}::~{TypeName(s)}()";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly ? signature + " const" : signature;
     }
@@ -97,6 +97,7 @@ public sealed partial class CppEmitter
         indent++;
         if (symbol.IsConstructor && isClassMember)
         {
+            Line($"this->vpl_set_cyclic({CyclicFlag(currentType!)});");
             foreach (var field in currentType!.Fields)
             {
                 if (field.Initializer is { } initializer)

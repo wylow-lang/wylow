@@ -16,6 +16,7 @@
 #include <new>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #ifndef VPL_DEBUG
 #define VPL_DEBUG 0
@@ -224,18 +225,51 @@ struct WeakBlock {
 template <class R>
 class Weak;
 
+// Called by the cycle collector for each strong reference an object holds, through the generated
+// vpl_visit; returning true clears the reference.
+class Visitor {
+public:
+    virtual bool visit(Object* target) = 0;
+
+protected:
+    ~Visitor() = default;
+};
+
+class CycleCollector;
+
+// Whether objects of a generic class instantiation may be part of a cycle. The compiler specializes it
+// to false for the instantiations it knows are acyclic; others only C++ sees are assumed cyclic.
+template <class T>
+inline constexpr bool is_cyclic = true;
+
 class Object {
     // Starts at 1 for the `new` expression that creates the object, so a constructor can hand out
     // and drop references to `this` without the count reaching 0.
     uintptr_t refs = 1;
     WeakBlock* weak = nullptr;
     uint32_t flags = 0;
+    // While buffered, one more than the object's index in the cycle buffer, so that it can leave
+    // the buffer when destroyed; while being collected, one more than its index among the garbage.
+    uint32_t slot = 0;
 
-    // Set once the count has reached zero: weak references to the object read null from then on.
+    // Set once the count has reached zero, or once the collector has found the object to be
+    // garbage: weak references to the object read null from then on.
     static constexpr uint32_t dying = 1;
+    // The object's class may be part of a cycle; set by its constructor.
+    static constexpr uint32_t cyclic = 2;
+    static constexpr uint32_t buffered = 4;
+    // Trial deletion's marks; an object with neither is black.
+    static constexpr uint32_t gray = 8;
+    static constexpr uint32_t white = 16;
+    // The collector has run the object's destructors, which its C++ destructor then skips.
+    static constexpr uint32_t finalized = 32;
 
     template <class>
     friend class Weak;
+    friend class CycleCollector;
+
+    void destroy();
+    void add_to_buffer();
 
     // Null for a dying object, so that weak references taken by its destructor read null too.
     WeakBlock* weak_block() {
@@ -266,15 +300,25 @@ public:
     virtual void vpl_begin_borrow() {}
     virtual void vpl_end_borrow() {}
 
+    // Generated for classes: visits each strong reference the object holds, for the collector.
+    virtual void vpl_visit(Visitor&) {}
+
+    // Generated for classes with destructors: runs the object's destructors without releasing its
+    // fields, for the collector.
+    virtual void vpl_finalize() {}
+
+    void vpl_set_cyclic(bool value) { flags = value ? flags | cyclic : flags & ~cyclic; }
+    bool vpl_finalized() const { return (flags & finalized) != 0; }
+
     void retain() { ++refs; }
 
+    // A release that leaves a cyclic object's count above zero may have left it in an unreachable
+    // cycle, so it is buffered for the collector, once until the next collection.
     void release() {
         if (--refs == 0) {
-            // Holding the count at 1 lets the destructor create and drop temporary references to
-            // `this` without destroying it twice; ~Object checks that none outlive it.
-            refs = 1;
-            clear_weak();
-            delete this;
+            destroy();
+        } else if (flags == cyclic) {
+            add_to_buffer();
         }
     }
 };
@@ -518,6 +562,270 @@ inline void assign(T& target, T value) {
     }
 }
 
+// ---- Cycle collector ----
+//
+// Synchronous trial deletion (Bacon and Rajan, "Concurrent Cycle Collection in Reference Counted
+// Systems", 2001), run only when the program calls Memory.collectCycles. Traversals use explicit
+// stacks, since a cycle may be a long chain. A reference vpl_visit misses only makes its target
+// look referenced from outside, so the collector frees less, never something in use.
+
+template <class T>
+inline void visit(Visitor& visitor, Ref<T>& reference) {
+    if (reference && visitor.visit(reference.get())) reference = nullptr;
+}
+
+// Fixed arrays, and structs and enums through their generated vpl_visit; other values hold no references.
+template <class T>
+inline void visit(Visitor& visitor, T& value) {
+    if constexpr (is_std_array<T>::value) {
+        for (auto& element : value) visit(visitor, element);
+    } else if constexpr (requires { value.vpl_visit(visitor); }) {
+        value.vpl_visit(visitor);
+    }
+}
+
+template <class F>
+class FunctionVisitor final : public Visitor {
+    F function;
+
+public:
+    explicit FunctionVisitor(F f) : function(std::move(f)) {}
+    bool visit(Object* target) override { return function(target); }
+};
+
+struct CycleStats {
+    size_t buffered = 0;
+    size_t visited = 0;
+    size_t freed = 0;
+};
+
+class CycleCollector {
+    // Objects whose count dropped without reaching zero since the last collection. An entry is
+    // null where its object was destroyed meanwhile.
+    std::vector<Object*> buffer;
+    size_t holes = 0;
+    // Destructors running, outside or inside a collection, which may not start one.
+    int destroying = 0;
+    CycleStats stats;
+
+    friend class Object;
+
+    // Calls f on each cyclic object the object refers to. Objects of acyclic classes are never on a
+    // cycle, so references to them are left out, and references they hold count as from outside.
+    template <class F>
+    static void for_each_child(Object* object, F f) {
+        FunctionVisitor visitor([&](Object* target) {
+            if (target->flags & Object::cyclic) f(target);
+            return false;
+        });
+        object->vpl_visit(visitor);
+    }
+
+    void add(Object* object) {
+        if (buffer.size() == buffer.capacity() && holes * 2 >= buffer.size()) compact();
+        if (buffer.size() >= UINT32_MAX) panic("too many objects are waiting for Memory.collectCycles", "<runtime>");
+        buffer.push_back(object);
+        object->slot = static_cast<uint32_t>(buffer.size());
+        object->flags |= Object::buffered;
+    }
+
+    void remove(Object* object) {
+        buffer[object->slot - 1] = nullptr;
+        ++holes;
+        object->slot = 0;
+        object->flags &= ~Object::buffered;
+    }
+
+    void compact() {
+        size_t kept = 0;
+        for (Object* object : buffer) {
+            if (object == nullptr) continue;
+            buffer[kept++] = object;
+            object->slot = static_cast<uint32_t>(kept);
+        }
+        buffer.resize(kept);
+        holes = 0;
+    }
+
+    // Subtracts the references among the objects reachable from root, marking them gray, breadth
+    // first so that `marked` from `start` on is both the group and the queue. Fails, undoing every
+    // mark and subtraction of the group, once more than `budget` objects are marked in all.
+    static bool mark_gray(Object* root, std::vector<Object*>& marked, size_t budget) {
+        if (root->flags & Object::gray) return true;
+        size_t start = marked.size();
+        if (start >= budget) return false;
+        root->flags |= Object::gray;
+        marked.push_back(root);
+        size_t expanded = start;
+        while (expanded < marked.size()) {
+            for_each_child(marked[expanded++], [&](Object* child) {
+                --child->refs;
+                if (!(child->flags & Object::gray)) {
+                    child->flags |= Object::gray;
+                    marked.push_back(child);
+                }
+            });
+            if (marked.size() > budget) {
+                for (size_t i = start; i < expanded; ++i) for_each_child(marked[i], [](Object* child) { ++child->refs; });
+                for (size_t i = start; i < marked.size(); ++i) marked[i]->flags &= ~Object::gray;
+                marked.resize(start);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Gray objects still referenced from outside the group are live, and so is everything they
+    // reach; the rest turn white.
+    static void scan(Object* root, std::vector<Object*>& stack) {
+        stack.push_back(root);
+        while (!stack.empty()) {
+            Object* object = stack.back();
+            stack.pop_back();
+            if (!(object->flags & Object::gray)) continue;
+            if (object->refs > 0) {
+                scan_black(object, stack);
+            } else {
+                object->flags = (object->flags & ~Object::gray) | Object::white;
+                for_each_child(object, [&](Object* child) { stack.push_back(child); });
+            }
+        }
+    }
+
+    // Restores the references a live object and everything it reaches hold.
+    static void scan_black(Object* root, std::vector<Object*>& stack) {
+        size_t base = stack.size();
+        root->flags &= ~(Object::gray | Object::white);
+        stack.push_back(root);
+        while (stack.size() > base) {
+            Object* object = stack.back();
+            stack.pop_back();
+            for_each_child(object, [&](Object* child) {
+                ++child->refs;
+                if (child->flags & (Object::gray | Object::white)) {
+                    child->flags &= ~(Object::gray | Object::white);
+                    stack.push_back(child);
+                }
+            });
+        }
+    }
+
+    static void collect_white(Object* root, std::vector<Object*>& garbage) {
+        if (!(root->flags & Object::white)) return;
+        size_t next = garbage.size();
+        root->flags = (root->flags & ~Object::white) | Object::dying;
+        garbage.push_back(root);
+        while (next < garbage.size()) {
+            for_each_child(garbage[next++], [&](Object* child) {
+                if (child->flags & Object::white) {
+                    child->flags = (child->flags & ~Object::white) | Object::dying;
+                    garbage.push_back(child);
+                }
+            });
+        }
+    }
+
+    // Runs every destructor while every object of the garbage is intact, then frees it. The
+    // collector holds a count on each object meanwhile, so no release can destroy one early.
+    void destroy_garbage(std::vector<Object*>& garbage) {
+        for (Object* object : garbage) for_each_child(object, [](Object* child) { ++child->refs; });
+        for (size_t i = 0; i < garbage.size(); ++i) {
+            Object* object = garbage[i];
+            ++object->refs;
+            object->flags &= ~Object::buffered;
+            object->slot = static_cast<uint32_t>(i + 1);
+            object->clear_weak();
+        }
+
+        for (Object* object : garbage) {
+            object->flags |= Object::finalized;
+            object->vpl_finalize();
+        }
+
+        // Destructors may have changed references among the garbage, but none may have left one
+        // to it anywhere else.
+        std::vector<uintptr_t> internal(garbage.size());
+        for (Object* object : garbage) {
+            for_each_child(object, [&](Object* child) {
+                if ((child->flags & Object::dying) && child->slot != 0 && child->slot <= garbage.size() && garbage[child->slot - 1] == child) {
+                    ++internal[child->slot - 1];
+                }
+            });
+        }
+        for (size_t i = 0; i < garbage.size(); ++i) {
+            if (garbage[i]->refs != internal[i] + 1) panic("a destructor kept a reference to an object of the cycle being collected", "<destructor>");
+        }
+
+        FunctionVisitor clear([](Object*) { return true; });
+        for (Object* object : garbage) object->vpl_visit(clear);
+        for (Object* object : garbage) {
+            object->slot = 0;
+            delete object;
+        }
+        stats.freed += garbage.size();
+    }
+
+public:
+    void collect(size_t budget, const char* location) {
+        if (destroying > 0) panic("Memory.collectCycles cannot be called from a destructor", location);
+        ++destroying;
+        std::vector<Object*> roots;
+        roots.swap(buffer);
+        holes = 0;
+
+        std::vector<Object*> marked;
+        std::vector<Object*> processed;
+        size_t next = 0;
+        for (; next < roots.size(); ++next) {
+            Object* root = roots[next];
+            if (root == nullptr) continue;
+            if (!mark_gray(root, marked, budget)) break;
+            processed.push_back(root);
+        }
+        stats.visited += marked.size();
+
+        std::vector<Object*> stack;
+        for (Object* root : processed) scan(root, stack);
+        for (Object* root : processed) {
+            root->flags &= ~Object::buffered;
+            root->slot = 0;
+        }
+        std::vector<Object*> garbage;
+        for (Object* root : processed) collect_white(root, garbage);
+
+        // Back in the buffer before any destructor runs, since one may destroy them.
+        for (; next < roots.size(); ++next) {
+            Object* root = roots[next];
+            if (root == nullptr || (root->flags & Object::dying)) continue;
+            add(root);
+        }
+
+        if (!garbage.empty()) destroy_garbage(garbage);
+        --destroying;
+    }
+
+    CycleStats take_stats() { return std::exchange(stats, CycleStats{}); }
+};
+
+// Objects belong to one thread, and so will the collector's state once VPL has threads.
+inline CycleCollector cycles;
+
+inline void Object::destroy() {
+    // Holding the count at 1 lets the destructor create and drop temporary references to `this`
+    // without destroying it twice; ~Object checks that none outlive it.
+    refs = 1;
+    clear_weak();
+    if (flags & buffered) cycles.remove(this);
+    ++cycles.destroying;
+    delete this;
+    --cycles.destroying;
+}
+
+inline void Object::add_to_buffer() {
+    cycles.add(this);
+    ++cycles.stats.buffered;
+}
+
 // ---- Standard library intrinsics ----
 //
 // The C++ side of extern functions in the standard library: vpl::memory is Memory, and vpl::bounds
@@ -568,6 +876,21 @@ inline void moveTo(T* from, T* to, int32_t count) {
             from[i].~T();
         }
     }
+}
+
+inline void collectCycles(const char* location) { cycles.collect(SIZE_MAX, location); }
+
+inline void collectCycles(int32_t maxVisits, const char* location) {
+    if (maxVisits < 0) panic("cannot visit a negative number of objects", location);
+    cycles.collect(static_cast<size_t>(maxVisits), location);
+}
+
+inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) {
+    auto clamp = [](size_t count) { return static_cast<int32_t>(count < INT32_MAX ? count : INT32_MAX); };
+    CycleStats stats = cycles.take_stats();
+    buffered = clamp(stats.buffered);
+    visited = clamp(stats.visited);
+    freed = clamp(stats.freed);
 }
 
 }  // namespace memory

@@ -25,13 +25,15 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → ElementAliasing → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → ElementAliasing → CyclicClasses → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: `Types.cs` (interned `VplType`, `TypeMap` substitution,
   conversions, equality/defaultability), `Symbols.cs`, `BoundTree.cs`, `Binder*.cs`, `FlowAnalyzer.cs`,
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases), `ElementAliasing.cs` (which loop
   elements can skip their reference count, from a whole-program summary of what each function writes).
+  `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
+  visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow

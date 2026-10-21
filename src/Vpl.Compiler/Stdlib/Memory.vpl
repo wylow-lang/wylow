@@ -1,5 +1,6 @@
-// Raw memory, for building containers. Everything here is unsafe: the compiler cannot check how
-// it is used, and misusing it is undefined behavior, as in C++.
+// Raw memory, for building containers, and the cycle collector. The raw memory functions are
+// unsafe: the compiler cannot check how they are used, and misusing them is undefined behavior, as
+// in C++.
 
 struct Memory {
     // Uninitialized storage for `count` values. Panics if `count` is negative or too large.
@@ -21,4 +22,33 @@ struct Memory {
     // Moves `count` values into uninitialized storage, leaving the source uninitialized. The two
     // ranges may overlap.
     static unsafe extern void moveTo<T>(T* from, T* to, int count);
+
+    // Frees every cycle of objects that nothing outside the cycle refers to. Reference counting
+    // alone never frees them, and this never runs on its own. Panics in a destructor. See
+    // docs/spec/03-memory-model.md.
+    @CallerLocation
+    static extern void collectCycles();
+
+    // Like `collectCycles()`, but stops after visiting about `maxVisits` objects; the rest wait
+    // for the next call.
+    @CallerLocation
+    static extern void collectCycles(int maxVisits);
+
+    // What the cycle collector did since the last call.
+    static CycleStats cycleStats() {
+        var stats = CycleStats();
+        takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
+        return stats;
+    }
+
+    private static extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);
+}
+
+struct CycleStats {
+    // Objects that may have been left in a cycle, to be looked at by the next collection.
+    int buffered;
+    // Objects the collector looked at.
+    int visited;
+    // Objects in cycles the collector freed.
+    int freed;
 }

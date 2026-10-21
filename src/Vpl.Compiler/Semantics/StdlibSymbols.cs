@@ -1,3 +1,5 @@
+using Vpl.Compiler.Syntax;
+
 namespace Vpl.Compiler.Semantics;
 
 /// <summary>
@@ -44,4 +46,18 @@ public sealed class StdlibSymbols
     public bool IsSpan(VplType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 
     public bool IsWeak(VplType type) => type.Symbol is { } s && s == Weak;
+
+    /// <summary>
+    /// The element type of a standard library container: a class implementing <see cref="ReadOnlySpannable"/>,
+    /// which stores its elements behind a pointer rather than in fields. The cycle collector visits
+    /// them through <c>asReadOnlySpan</c>. A user's class may return a span of its own fields, whose
+    /// references would then be counted twice, so only the standard library's classes qualify.
+    /// </summary>
+    public VplType? ContainerElement(VplType type)
+    {
+        if (type.Symbol is not { Kind: TypeKind.Class } s || ReadOnlySpannable is not { } hook || !Stdlib.Contains(s.Declaration.Location.Source))
+            return null;
+        IEnumerable<VplType> candidates = [type, .. Conversions.Supertypes(type)];
+        return candidates.FirstOrDefault(t => t.Symbol == hook)?.TypeArguments[0];
+    }
 }

@@ -46,9 +46,11 @@ public sealed partial class CppEmitter
     FunctionSymbol? currentFunction;
     StdlibSymbols stdlib = new();
     List<TypeSymbol> borrowableClasses = [];
+    CyclicClasses cycles = null!;
 
-    public string Emit(BoundProgram program)
+    public string Emit(BoundProgram program, CyclicClasses cycles)
     {
+        this.cycles = cycles;
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];
@@ -62,6 +64,7 @@ public sealed partial class CppEmitter
             foreach (var s in program.Types.Where(s => !s.IsExtern))
                 Line(TemplatePrefix(s.TypeParameters) + $"struct {TypeName(s)};");
         }
+        EmitAcyclicInstantiations();
 
         Line();
         foreach (var function in program.Functions.Where(f => f.Symbol.ContainingType is null))
@@ -98,6 +101,9 @@ public sealed partial class CppEmitter
                 EmitForwarder(s, implementation);
             }
         }
+
+        foreach (var s in program.Types.Where(s => !s.IsExtern))
+            EmitCollectorMembers(s);
 
         foreach (var function in program.Functions)
         {

@@ -330,6 +330,10 @@ public sealed partial class Binder
                 found = true;
             else if (annotation.Name == "CallerLocation")
                 Error(annotation.Location, "'@CallerLocation' can only be used on functions, methods, and constructors");
+            else if (annotation.Name == "Acyclic" && decl is not TypeDecl { Kind: TypeKind.Class })
+                Error(annotation.Location, "'@Acyclic' can only be used on classes");
+            else if (annotation.Name == "Acyclic")
+                continue;
             else
                 Error(annotation.Location, $"unknown annotation '@{annotation.Name}'");
         }

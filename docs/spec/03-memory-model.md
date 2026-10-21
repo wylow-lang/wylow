@@ -47,8 +47,8 @@ releasing any class references it contains.
 ### Implementation
 
 Every class object starts with a header holding a non-atomic reference count and a pointer to its
-weak block (below), null until the object is first referred to weakly. The count's spare high bits
-hold the cycle collector's flags. In C++, classes and interfaces derive virtually from one
+weak block (below), null until the object is first referred to weakly, then two 32-bit words for
+the cycle collector: its flags, and the object's place in the collector's buffer. In C++, classes and interfaces derive virtually from one
 `vpl::Object`, so an object has one count however many interfaces it implements. References are
 `vpl::Ref<T>`, an intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
@@ -118,7 +118,7 @@ calls it simply never frees its cycles, as in the past.
 |---|---|
 | `Memory.collectCycles()` | Processes every buffered object (below) and frees every cycle found |
 | `Memory.collectCycles(int maxVisits)` | Stops after visiting about `maxVisits` objects; the rest wait for the next call |
-| `Memory.cycleStats()` | Counts since the last call: objects buffered, visited, and freed, by class in debug builds |
+| `Memory.cycleStats()` | Counts since the last call: objects buffered, visited, and freed, as a `CycleStats` struct |
 
 The work done is the same on every run of the same program, on every machine: each thread collects
 only its own objects, and a budget counts objects, not time. `Memory.cycleStats()` reports how long
@@ -131,6 +131,12 @@ class through strong references in fields, including through structs, enums, fix
 container elements (`List<Node>`), and counting every class a field's type could refer to
 (subclasses, interface implementations). `Node` above is cyclic through `children`; a class holding
 `Vec3`s, a `List<int>`, a `String`, and a `Mesh` that holds no references back is not.
+
+Generic classes are decided per instantiation: `List<Node>` is cyclic, `List<int>` is not. Container
+elements are those of the standard library's containers, `List` and `Array`, which store them behind
+a pointer; a class of the program is looked at only through its fields, even if it is `Spannable`.
+A field's references are looked at whatever their class, but objects of acyclic classes are never
+visited, so the references they hold count as references from outside.
 
 - **Objects of acyclic classes cost nothing**, and are never buffered or visited. Most objects in a
   game are values or acyclic.
@@ -153,7 +159,9 @@ container elements (`List<Node>`), and counting every class a field's type could
 1. Every weak reference to every object in the cycle is cleared.
 2. Every object's destructor runs, in the order the collector found them, while all their fields are
    still intact: each destructor sees the rest of the cycle undestroyed.
-3. Their fields are released and the memory is freed.
+3. Their fields are released and the memory is freed. The standard library's containers release their
+   elements here, with the fields: their destructors only release storage, so they run after every
+   destructor of the cycle, which sees every container of the cycle still full.
 
 As with any destructor, a destructor that stores a reference to its object, or to another object of
 the cycle, somewhere outside the cycle panics. Calling `collectCycles` from a destructor panics.
@@ -171,7 +179,12 @@ Debug builds report, as performance warnings:
   be destroyed immediately instead;
 - at exit, the cycles still uncollected, by class (found without running destructors).
 
-> Not implemented yet. Until it is, cycles are never freed; break them with `Weak<T>`.
+> Implemented so far: everything above except the diagnostics, per-class counts and visit timing in
+> `Memory.cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).
+> Instantiations of generic classes that only C++ sees, through a generic function's type arguments,
+> are treated as cyclic, and a field whose type could refer to one as reaching every class; neither
+> affects correctness, only how much is buffered. `visited` counts the objects of the groups that
+> fit in the budget.
 
 ## 3.3 Pools and handles
 
