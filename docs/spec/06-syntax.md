@@ -147,6 +147,47 @@ spawn(pos, spread: 2.0);     // named argument
 - Parameters may have **default values** (compile-time constants or struct constructors).
 - Arguments may be passed **by name**; named arguments must come after positional ones.
 
+### Extension methods
+
+A function whose first parameter is marked `this` can be called like a method of that parameter's
+type, as in C#. It adds methods to types its author can't change, and to interfaces, which can't
+have method bodies or generic methods themselves (§2.12).
+
+```java
+bool any<T>(this ReadOnlySpan<T> items, (T) -> bool test) {
+    for (in T item : items) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void scale(this ref Vec3 v, float factor) { v.x *= factor; v.y *= factor; v.z *= factor; }
+
+if (mobs.any(m -> m.health <= 0)) { ... }
+position.scale(2);
+```
+
+- The receiver takes a parameter mode: `this T` (a copy, or a reference for a class), `this in T`,
+  or `this ref T`, which needs a mutable place, as calling a mutating struct method does, but no
+  `ref` at the call. `this ref` and `this in` can't be used with class types, as for parameters.
+- **Members win.** If the receiver's type has a method, field, or property of that name, its
+  extensions are not considered, so an extension can never change what existing code calls. Among
+  extensions, overload resolution chooses as for functions.
+- The receiver converts to the `this` parameter's type by identity, upcasts, and the implicit span
+  conversions (§2.11), so one extension on `ReadOnlySpan<T>` serves fixed arrays, `T[]`, `List`,
+  and spans. No other conversions apply. Type arguments are inferred from the receiver as from any
+  argument.
+- A nullable receiver needs `?.` or a check, as for members, unless the `this` parameter's type
+  is itself nullable: `bool isNullOrEmpty(this String? s)` can be called on a `String?` directly.
+- An extension is an ordinary function: it sees only the receiver's public members, is statically
+  dispatched (never virtual), and can also be called as `any(mobs, test)`.
+- Once packages exist, an extension is found only where its package is imported. Until then, every
+  extension in the program and the standard library is visible.
+
+> Not implemented yet.
+
 ## 6.5 Properties
 
 C#-style properties:
@@ -250,6 +291,23 @@ void onEvent(@Escaping () -> void handler) { handlers.add(handler); }
 
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
 ([05-concurrency.md](05-concurrency.md)).
+
+### Lambdas held by `ref struct`s
+
+A `ref struct` may have fields of function type, which hold non-escaping lambdas: the struct is
+second-class ([03-memory-model.md](03-memory-model.md#spans)), so it can't outlive the lambda's
+captures either. A function may return such a struct holding its own function-typed parameters,
+where it may return a `ref struct` at all. This is what lets a lazy query such as
+`mobs.where(m -> m.health < 5)` store its lambda without allocating
+([02-types.md](02-types.md#queries)).
+
+Each such field is compiled as a C++ template parameter of the struct, so the optimizer can inline
+the lambda into the loop that calls it: `Where<T>` in VPL is `Where<T, F>` in C++, one type per
+lambda. A `ref struct` can't be reassigned or chosen by `?:`, so a variable never needs to hold two
+of them; a function taking one as a parameter is compiled once per lambda, as a generic function
+is once per type argument.
+
+> Not implemented yet, like lambdas themselves.
 
 ## 6.8 `defer`
 

@@ -487,6 +487,11 @@ A `ref struct` may be a local variable or a parameter, but not:
 A span variable cannot view a temporary struct, such as `makeSamples().view()`, since the struct
 is gone after the statement. A temporary object is fine: the span holds it.
 
+> Planned, for lazy queries ([02-types.md](02-types.md#queries)): a `ref struct` may have fields
+> of `ref struct` and function types, a generic `ref struct` may take a `ref struct` type argument,
+> and an extension method may return a `ref struct` that views its `this` parameter and holds its
+> function-typed parameters.
+
 ## 3.5 What the checks cost
 
 | Operation | Checked | `@Unchecked` |

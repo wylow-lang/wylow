@@ -483,6 +483,37 @@ Conversions to spans are implicit, from:
 A generic function taking a span infers its element type from any of these:
 `T first<T>(ReadOnlySpan<T> values)` accepts an `int[4]` or a `List<int>`.
 
+### Queries
+
+The standard library has LINQ-style queries, as extension methods on `ReadOnlySpan<T>`
+([06-syntax.md](06-syntax.md#extension-methods)), so they work on fixed arrays, `T[]`, `List`, and
+spans. There is no query syntax, only calls:
+
+```java
+var weak = mobs.where(m -> m.health < 5).select(m -> m.position).toList();
+int alive = mobs.count(m -> m.health > 0);
+Mob? target = mobs.where(m -> m.isHostile).first();
+```
+
+- **Adapters are lazy**: `where`, `select`, `take`, and `skip` return a `ref struct` that does
+  nothing until a terminal operation or a `for` loop consumes it, and that holds its lambdas
+  without allocating ([06-syntax.md](06-syntax.md#lambdas-held-by-ref-structs)). Like a span, it
+  borrows the list it reads for as long as it exists, and it can't be stored; call `toList()` to
+  keep a result.
+- **Terminal operations** run the query: `toList()`, `count()`, `any(f)`, `all(f)`, `sum()`, and
+  ones that return null when there is no answer: `first()`, `first(f)`, and `min()` and `max()`
+  for `T extends Comparable<T>`.
+- A chain compiles to one loop with the lambdas inlined, like a hand-written `for`.
+
+Lazy adapters need two changes to the `ref struct` rules
+([03-memory-model.md](03-memory-model.md#spans)): a `ref struct` may have fields of `ref struct`
+type, as an adapter holds its source, and a generic `ref struct` may take a `ref struct` type
+argument, as `Select<Where<...>>` does. Both stay second-class, so neither can outlive what it
+views.
+
+> Not implemented yet. Terminal operations come first, since they need only non-escaping lambdas
+> and extension methods; adapters need lambdas held by `ref struct`s and the two rule changes.
+
 ### `Box<T>`
 
 `Box<T>` is a standard library class holding a single value of type `T` on the heap. Use it to
