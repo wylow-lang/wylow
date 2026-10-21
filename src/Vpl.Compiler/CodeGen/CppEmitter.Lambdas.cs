@@ -9,8 +9,8 @@ namespace Vpl.Compiler.CodeGen;
 /// A lambda is a C++ lambda capturing by reference, which is safe because it can't outlive the
 /// call it is passed to. A function-typed parameter is a template parameter, so the C++ optimizer
 /// can inline each lambda into the function it is passed to. Where a template can't be used, it is
-/// a <c>vpl::FunctionRef</c>, which calls the lambda indirectly: in a virtual method, which C++
-/// can't make a template; in a recursive function, which could instantiate itself without end by
+/// a <c>vpl::FunctionRef</c>, which calls the lambda indirectly: in a virtual method or a class's
+/// implementation of an interface method, which C++ can't make a template; in a recursive function, which could instantiate itself without end by
 /// passing itself a new lambda; in a constructor, whose name can't tell overloads apart; and in a
 /// function type's own parameters.
 /// </remarks>
@@ -24,13 +24,8 @@ public sealed partial class CppEmitter
     /// <summary>Whether the function's function-typed parameters are template parameters, rather than <c>vpl::FunctionRef</c>s.</summary>
     bool TakesCallables(FunctionSymbol function) =>
         function.Parameters.Any(p => p.Type.IsFunction)
-        && !function.IsDispatched && !MayImplementInterface(function)
+        && !function.IsDispatched && !function.ImplementsInterface
         && !function.IsConstructor && !function.IsLambda && !recursive.Contains(function);
-
-    /// <summary>A method implementing an interface's overrides it in C++ without being declared <c>override</c>.</summary>
-    static bool MayImplementInterface(FunctionSymbol function) =>
-        function is { IsInstanceMethod: true, ContainingType: { } owner }
-        && Conversions.Supertypes(owner.Type).Any(t => t.IsInterface && t.Symbol!.Methods.ContainsKey(function.Name));
 
     static string CallableTypeName(LocalSymbol parameter) => "vpl_F_" + parameter.Name;
 

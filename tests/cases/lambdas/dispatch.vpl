@@ -32,6 +32,38 @@ class Square extends Shape implements Visitor {
     void visit((int) -> void action) {
         action(side);
     }
+
+    // Shares a name with Visitor.visit without implementing it, so it can be a template.
+    void visit(() -> int size) {
+        print(size() + side);
+    }
+}
+
+// Implements Visitor.visit only through Floor, which overrides it in C++ by forwarding here.
+class Tile {
+    void visit((int) -> void action) {
+        action(7);
+    }
+}
+
+class Floor extends Tile implements Visitor {
+}
+
+// A struct implements an interface only as a generic bound, so its method can be a template.
+struct Stack implements Visitor {
+    int height;
+
+    void visit((int) -> void action) {
+        action(height);
+    }
+}
+
+int deepest<T extends Visitor>(T visited) {
+    int found = 0;
+    visited.visit(n -> {
+        found = n;
+    });
+    return found;
 }
 
 class Logger {
@@ -72,6 +104,14 @@ void main() {
         seen = side;
     });
     print(seen);                                     // output: 3
+    square.visit(() -> 10);                          // output: 13
+
+    Floor floor = new Floor();
+    visitor = floor;
+    visitor.visit(n -> print(n));                    // output: 7
+    floor.visit(n -> print(n + 1));                  // output: 8
+    print(deepest(Stack(4)));                    // output: 4
+    print(deepest(floor));                           // output: 7
 
     print(new Logger((int i) -> i + 1).lines);       // output: 2
     print(new Logger((String s) -> 5).lines);        // output: 105

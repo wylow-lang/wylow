@@ -1,4 +1,7 @@
-# Weak references and the cycle collector
+# Weak references and the cycle collector (done)
+
+> Implemented. The spec ([03-memory-model.md](../spec/03-memory-model.md) §3.2) is now the reference; this
+> file records the plan.
 
 Goal: replace the `weak` field modifier with the standard library value type `Weak<T>`, and add a
 cycle collector that runs only when the program calls `Memory.collectCycles`. The design is in

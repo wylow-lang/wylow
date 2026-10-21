@@ -71,10 +71,14 @@ public sealed partial class Binder
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' implements {description} and cannot be private");
                 else if (!HasSameTypes(implementation, required))
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it");
-                else if (s.Kind == TypeKind.Class && implementation.Owner!.Symbol != s
-                         && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface)
-                         && !s.InheritedImplementations.Any(m => m.Symbol == implementation.Symbol))
-                    s.InheritedImplementations.Add(implementation);
+                else if (s.Kind == TypeKind.Class)
+                {
+                    implementation.Symbol.ImplementsInterface = true;
+                    if (implementation.Owner!.Symbol != s
+                        && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface)
+                        && !s.InheritedImplementations.Any(m => m.Symbol == implementation.Symbol))
+                        s.InheritedImplementations.Add(implementation);
+                }
             }
         }
     }

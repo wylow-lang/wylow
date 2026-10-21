@@ -88,6 +88,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>Whether a call dispatches on the receiver's runtime type. Interface methods always do.</summary>
     public bool IsDispatched => IsVirtual || IsOverride || IsAbstract || ContainingType?.Kind == TypeKind.Interface;
 
+    /// <summary>
+    /// A class method implementing an interface's, which overrides it in C++ without being declared
+    /// <c>override</c>, or is called by a forwarder that does.
+    /// </summary>
+    public bool ImplementsInterface { get; set; }
+
     /// <summary>Whether a subclass may override it.</summary>
     public bool IsOverridable => (IsVirtual || IsAbstract || IsOverride) && !IsFinal;
 

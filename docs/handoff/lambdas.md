@@ -4,31 +4,23 @@ Goal: function types `(A, B) -> R`, Java-style lambdas, non-escaping function pa
 allocate nothing, and escaping closures for fields, locals, return values, and containers. The
 design is in [06-syntax.md](../spec/06-syntax.md#67-lambdas-and-function-types) (§6.7); this file
 fills in what the spec leaves open and orders the work. Each decision below goes into the spec
-when it lands.
+when it lands, and is then only listed here.
 
-## Decisions the spec doesn't cover yet
+## Decisions
 
-1. **Function type syntax always has parentheses**: `(T) -> bool`, `() -> void`, nullable
-   `((int) -> int)?`. A bare `T -> bool` would be ambiguous in declarations. Parameter modes are
-   part of the type: `(ref Vec3) -> void`. (Done, with step 1.)
-2. **A lambda has no type of its own.** It takes one from its target: a declared variable, field,
-   parameter, return, or another lambda's body. `var f = x -> x;` is an error. Parameter types
-   come from the target, or may be written (`(int a, int b) -> a + b`) to choose between overloads.
-3. **How non-escaping parameters compile.** In a non-virtual function, a function-typed parameter
-   is a template parameter of the C++ function (one instantiation per lambda, so the optimizer can
-   inline it), as generic functions are. A `virtual`, `abstract`, or interface method can't be a
-   template (the reason generic methods can't be virtual, 02-types.md §2.10), so its non-escaping
-   parameters are `vpl::FunctionRef<R(A...)>`, a non-owning callable pointer like
-   `llvm::function_ref`. VPL code can't tell the two apart.
+Landed, and described in §6.7: 1 (function type syntax), 2 (a lambda takes its type from its
+target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C++ can't use one),
+5 (non-escaping locals), 7 (overloads), and 10 (flow analysis). How a non-escaping local holds
+a `?:` over two lambdas (5) is not built yet.
+
 4. **Escaping values are `vpl::Function<R(A...)>`**, a reference-counted closure object.
    - Function types are not defaultable: a field of one must be set by every constructor, or be
      nullable. `new ((int) -> int)[n]` is an error; use `((int) -> int)?[]`.
    - Function values have no `==`.
    - A non-escaping value never converts to an escaping one. An escaping value can be passed to a
      non-escaping parameter or bind a non-escaping local.
-5. **Non-escaping locals** (decided: locals follow the parameters' rule, and `@Escaping` opts in;
-   now in §6.7). Like a `ref` local, a non-escaping local must be initialized at its declaration
-   and can't be reassigned, so it never outlives what its lambda captures by reference.
+5. **Non-escaping locals.** Like a `ref` local, a non-escaping local must be initialized at its
+   declaration and can't be reassigned, so it never outlives what its lambda captures by reference.
    Initialized with a lambda, it compiles to the C++ lambda itself (`auto`). Otherwise (from a
    parameter, or `?:` over two lambdas) it is a `vpl::FunctionRef`, with each lambda the `?:`
    chooses from stored in an unnamed local beside it.
@@ -40,10 +32,6 @@ when it lands.
      lambda. They may not capture any of the things only non-escaping lambdas can capture.
    - A captured class reference, including `this`, keeps its object alive.
    - A lambda can't refer to the variable it initializes, since that variable isn't assigned yet.
-7. **Overloads.** Candidates whose function-typed parameter doesn't match a lambda's parameter
-   count are discarded. If more than one candidate is left and they differ only in that function
-   type's parameter types, the call is ambiguous unless the lambda declares its parameter types.
-   Each lambda is bound once, never once per candidate.
 8. **Generic inference** has two phases. Type arguments are first inferred from the arguments that
    aren't lambdas. Then each lambda is bound with its parameter types substituted, and its body's
    type infers what's left. `Result.map<U>((T) -> U)` needs this.
@@ -51,12 +39,6 @@ when it lands.
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
    call writes what any lambda or function reference in the program writes (their union), which is
    sound and simple.
-10. **Flow analysis** (done in step 2). A captured local must be definitely assigned where the
-   lambda is. No narrowing from outside holds inside a lambda, and a local any lambda assigns is
-   never narrowed, since the lambda may run during any call. This also keeps a lambda from
-   referring into a nullable value (`BoundTree.NullableValueRoot`). It is stricter than needed:
-   a narrowing of an effectively final local could carry into the lambda, if that turns out to
-   matter. `return` in a lambda returns from the lambda. `break` and `continue` can't leave it.
 11. **Cycles.** A closure that captures class references can form a cycle
     (`this.onHit = () -> react(this);`). Closures carry the object header and are visited by the
     cycle collector. `CyclicClasses` treats an escaping function type as able to reach every class,
@@ -79,9 +61,10 @@ when it lands.
    flow analysis (decision 10).
 3. **Non-escaping** (done). Lambdas are C++ `[&]` lambdas (`CppEmitter.Lambdas.cs`).
    Function-typed parameters are template parameters, or `vpl::FunctionRef` in methods that are
-   dispatched or may implement an interface's, in recursive functions, in constructors, and in
-   function types. Functions with function-typed parameters get a name suffix encoding them, so
-   overloads differing only in function types stay distinct in C++.
+   dispatched or implement an interface's (`FunctionSymbol.ImplementsInterface`, including one
+   inherited from a base class), in recursive functions, in constructors, and in function types.
+   Functions with function-typed parameters get a name suffix encoding them, so overloads
+   differing only in function types stay distinct in C++.
    - Escape checks: until step 5, only parameters and locals hold functions (`Binder.CheckNotStored`).
      Fields, returns, type arguments, arrays, `F?`, and `?:` or switch expressions over functions are
      errors. That is what makes capturing by reference safe.
@@ -116,13 +99,12 @@ Costs the current design adds, and what could remove them. None of these changes
 can be done when profiling shows it matters (see the analysis-based optimizations note: semantics
 stay explicit, optimizations come later).
 
-1. **Indirect calls where templates can't be used.** Virtual and interface methods, methods that
-   may implement an interface's, recursive functions, constructors, and function types' own
+1. **Indirect calls where templates can't be used.** Virtual and interface methods, class methods
+   implementing an interface's, recursive functions, constructors, and function types' own
    function parameters take a `vpl::FunctionRef`: one indirect call per call of the function, and
    no inlining of the lambda. Could use: devirtualizing calls whose receiver type is known; for
    recursion, detecting that the recursive call only passes its own parameter on (the common
    case), which can't instantiate without end; for constructors, mangling a tag argument instead.
-   The "may implement an interface" rule matches by name only, so it's broader than needed.
 2. **Code size.** Each distinct lambda passed to a template instantiates the callee again, as
    generics do per type. Large functions called with many lambdas grow the binary; a performance
    warning could point out large instantiation counts.

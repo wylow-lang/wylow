@@ -1,4 +1,7 @@
-# Task: implement classes (milestone 4)
+# Milestone 4: classes (done)
+
+> Implemented. `weak` fields were later replaced by `Weak<T>` ([weak-and-cycles.md](weak-and-cycles.md)).
+> The spec chapters are now the reference; this file records the task as it was given.
 
 You're continuing work on VPL, a language that compiles to C++. Milestones 1–3 are done: functions
 and primitives, structs with `ref`/`in` parameters, and generics. Read `CLAUDE.md` and
