@@ -36,7 +36,7 @@ public sealed class StackObjects
     readonly BoundProgram program;
     readonly Dictionary<FunctionSymbol, Unit> units = [];
     readonly Dictionary<FunctionSymbol, Summary> summaries = [];
-    readonly ILookup<(string, int), FunctionSymbol> overridesByName;
+    readonly Overrides overrides;
     readonly IReadOnlyList<BoundLambda> lambdas;
     readonly Dictionary<VplType, List<FunctionSymbol>> lambdasOfType = [];
     readonly Dictionary<BoundStatement, List<StackObject>> made = new(ReferenceEqualityComparer.Instance);
@@ -51,8 +51,7 @@ public sealed class StackObjects
         lambdas = FunctionValues.Lambdas(program);
         foreach (var lambda in lambdas)
             units[lambda.Function] = new Unit(lambda.Function, [lambda.Body], []);
-        overridesByName = program.Functions.Select(f => f.Symbol).Where(f => f.IsInstanceMethod)
-            .ToLookup(f => (f.Name, f.Parameters.Count));
+        overrides = new Overrides(program);
     }
 
     public static StackObjects Find(BoundProgram program)
@@ -136,7 +135,7 @@ public sealed class StackObjects
             return null;
         IEnumerable<FunctionSymbol> functions = direct || !symbol.IsDispatched
             ? [symbol]
-            : [symbol, .. overridesByName[(symbol.Name, symbol.Parameters.Count)]];
+            : overrides.Targets(symbol);
         var found = new List<Summary>();
         foreach (var function in functions)
         {

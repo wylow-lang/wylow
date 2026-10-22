@@ -51,6 +51,34 @@ class Storer implements Visitor {
     }
 }
 
+// Only the methods a call may dispatch to count: Bin.put keeps its argument, but no Shelf is a Bin.
+class Shelf {
+    virtual void put(Noisy n) {
+        print(n.label());
+    }
+}
+
+class Bin {
+    Noisy? kept;
+
+    virtual void put(Noisy n) {
+        kept = n;
+    }
+}
+
+class Ledger {
+    virtual void put(Noisy n) {
+    }
+}
+
+class Hoard extends Ledger {
+    Noisy? kept;
+
+    override void put(Noisy n) {
+        kept = n;
+    }
+}
+
 class Box<T> {
     T value;
 
@@ -195,6 +223,16 @@ void main() {
     var changing = new Noisy("first"); // stack: 0
     changing = new Noisy("second"); // stack: 0
     // output: first
+
+    {
+        var shelf = new Shelf(); // stack: 1
+        shelf.put(new Noisy("shelved")); // stack: 1
+        Ledger ledger = new Hoard(); // stack: 1
+        ledger.put(new Noisy("hoarded")); // stack: 0
+    }
+    // output: shelved
+    // output: shelved
+    // output: hoarded
 
     // Generic classes, and objects too large for the stack, which stay on the heap at run time.
     var box = new Box<Noisy>(new Noisy("boxed")); // stack: 1

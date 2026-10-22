@@ -71,13 +71,18 @@ public sealed partial class Binder
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' implements {description} and cannot be private");
                 else if (!HasSameTypes(implementation, required))
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it{EscapingDifference(implementation, required, description)}");
-                else if (s.Kind == TypeKind.Class)
+                else
                 {
-                    implementation.Symbol.ImplementsInterface = true;
-                    if (implementation.Owner!.Symbol != s
-                        && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface)
-                        && !s.InheritedImplementations.Any(m => m.Symbol == implementation.Symbol))
-                        s.InheritedImplementations.Add(implementation);
+                    if (!implementation.Symbol.Overridden.Contains(method))
+                        implementation.Symbol.Overridden.Add(method);
+                    if (s.Kind == TypeKind.Class)
+                    {
+                        implementation.Symbol.ImplementsInterface = true;
+                        if (implementation.Owner!.Symbol != s
+                            && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface)
+                            && !s.InheritedImplementations.Any(m => m.Symbol == implementation.Symbol))
+                            s.InheritedImplementations.Add(implementation);
+                    }
                 }
             }
         }
@@ -111,6 +116,7 @@ public sealed partial class Binder
             Error(location, $"'{method.Signature}' does not override anything; no base class has a method with these parameters");
             return;
         }
+        method.Overridden.Add(inherited.Symbol);
         var overridden = $"'{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}'";
         if (inherited.Symbol.IsFinal)
             Error(location, $"cannot override {overridden} because it is final");

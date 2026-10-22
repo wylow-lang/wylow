@@ -53,6 +53,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
   `StackObjects.cs` (which `new`s can be on the stack, from a whole-program summary of which
   parameters each function lets escape; `vpl::StackSlot` holds them). Tests mark their lines with `// stack: <n>`.
+  `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
+  implementations the binder records), which the whole-program analyses share.
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow

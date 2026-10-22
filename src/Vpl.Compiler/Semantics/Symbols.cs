@@ -117,6 +117,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// </summary>
     public bool ImplementsInterface { get; set; }
 
+    /// <summary>The methods it overrides, and the interface methods it implements for some class or struct; set by the binder.</summary>
+    public List<FunctionSymbol> Overridden { get; } = [];
+
     /// <summary>Whether a subclass may override it.</summary>
     public bool IsOverridable => (IsVirtual || IsAbstract || IsOverride) && !IsFinal;
 

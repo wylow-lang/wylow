@@ -46,7 +46,7 @@ public sealed class ElementAliasing
     readonly BoundProgram program;
     readonly Dictionary<FunctionSymbol, Unit> units = [];
     readonly Dictionary<FunctionSymbol, Summary> summaries = [];
-    readonly ILookup<(string, int), FunctionSymbol> overridesByName;
+    readonly Overrides overrides;
     readonly Summary destructors = new();
 
     /// <summary>
@@ -67,8 +67,7 @@ public sealed class ElementAliasing
         lambdas = FunctionValues.Lambdas(program);
         foreach (var lambda in lambdas)
             units[lambda.Function] = new Unit(lambda.Function, [lambda.Body], []);
-        overridesByName = program.Functions.Select(f => f.Symbol).Where(f => f.IsInstanceMethod)
-            .ToLookup(f => (f.Name, f.Parameters.Count));
+        overrides = new Overrides(program);
     }
 
     /// <summary>The lambdas a function value of the type may be.</summary>
@@ -317,7 +316,7 @@ public sealed class ElementAliasing
             var symbol = method.Symbol;
             IEnumerable<FunctionSymbol> targets = direct || !symbol.IsDispatched
                 ? [symbol]
-                : [symbol, .. analysis.overridesByName[(symbol.Name, symbol.Parameters.Count)]];
+                : analysis.overrides.Targets(symbol);
             foreach (var target in targets)
             {
                 if (analysis.summaries.TryGetValue(target, out var callee))

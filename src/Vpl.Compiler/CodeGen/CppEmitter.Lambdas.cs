@@ -48,13 +48,12 @@ public sealed partial class CppEmitter
 
     static HashSet<FunctionSymbol> FindUnoverridden(BoundProgram program)
     {
-        var methods = program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m)).ToList();
+        var overrides = new Overrides(program);
         return
         [
-            .. methods.Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false, ContainingType: { } owner }
-                && m.Parameters.Any(p => IsNonEscaping(p.Type))
-                && !methods.Any(o => o.IsOverride && o.Name == m.Name && o.Parameters.Count == m.Parameters.Count
-                    && o.ContainingType is { } subclass && subclass != owner && Conversions.Supertypes(subclass.Type).Any(t => t.Symbol == owner))),
+            .. program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
+                .Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false }
+                    && m.Parameters.Any(p => IsNonEscaping(p.Type)) && overrides.Targets(m).Count == 1),
         ];
     }
 
