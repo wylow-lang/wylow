@@ -121,7 +121,7 @@ signatures and extern struct fields. This is checked at compile time.
 | `nint`, `nuint` | `intptr_t`, `uintptr_t` | ✅ |
 | `char` | `char32_t` | ✅ |
 | `T*`, `void*` | `T*`, `void*` | ✅ |
-| Enums with an explicit underlying type and no data (§7.5) | Integer / C enum | ✅ |
+| Enums with `@Repr` and no data (§7.5) | Integer / C enum | ✅ |
 | Structs whose fields are all blittable | Same layout | ✅ |
 | `T[N]` with blittable `T` | `T[N]` | ✅ |
 | `@CCallback` function pointers (§7.6) | Function pointer | ✅ |
@@ -141,16 +141,18 @@ static_assert(offsetof(SDL_Rect, w) == 8);
 
 If the VPL declaration does not match the real header, **the build fails**.
 
-## 7.5 Enums with underlying types
+## 7.5 Enums with integer representations
 
 ```java
-enum Format : uint {
+@Repr(uint)
+enum Format {
     Undefined = 0,
     R8G8B8A8_UNORM = 37,
 }
 
 @Flags
-enum WindowFlags : ulong {
+@Repr(ulong)
+enum WindowFlags {
     Fullscreen = 0x1,
     Resizable  = 0x20,
 }
@@ -158,21 +160,23 @@ enum WindowFlags : ulong {
 var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
 ```
 
-- `enum Name : T` gives the enum an explicit integer representation. Variants may have explicit values.
+- `@Repr(T)` gives the enum an explicit integer representation `T`, as Rust's `#[repr(u32)]`.
+  It is an annotation like the struct layout ones (§2.9), not a supertype: the enum doesn't
+  convert to `T` implicitly. Variants may have explicit values.
 - `@Flags` enums support `|`, `&`, `^`, `~` and `has(flag)`. Any combination of bits is a valid value.
 - Converting an integer to a non-`@Flags` enum with a cast (`(Format)i`) **panics** if the value is
   not a declared variant. `Format.tryFrom(i)` returns `Format?`. In `unsafe` code, `bitcast<Format>(i)`
   performs no check.
 - A variant without a value is one more than the previous variant, and the first is `0`. Two
-  variants may not have the same value. Values must be integer literals that fit the underlying
-  type, which is `int` when values are given without one.
-- Only enums whose variants carry no data can have an underlying type or values.
+  variants may not have the same value. Values must be integer literals that fit the enum's
+  integer type, which is `int` when values are given without `@Repr`.
+- Only enums whose variants carry no data can have `@Repr` or values.
 
-> Implemented so far: underlying types, values, and casts both ways. `@Flags`, `tryFrom`, and
-> `bitcast` are not implemented.
+> Implemented so far: `@Repr`, values, and casts both ways. `@Flags`, `tryFrom`, and `bitcast` are
+> not implemented.
 
 Enum variant names keep their C spelling when bound from C (`R8G8B8A8_UNORM`); the naming-convention
-warning does not apply inside `extern` blocks or to enums with an explicit underlying type.
+warning does not apply inside `extern` blocks or to enums with `@Repr`.
 
 ## 7.6 Passing data across the boundary
 

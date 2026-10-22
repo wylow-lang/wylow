@@ -1,4 +1,5 @@
-enum Format : int {
+@Repr(int)
+enum Format {
     Undefined = 0,
     Rgba = 37,
 }

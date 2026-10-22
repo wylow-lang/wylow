@@ -9,20 +9,36 @@ enum Repeated {
     void B() { }                        // error: 'B' is already defined as a variant
 }
 
-enum Typed : int {
+@Repr(int)
+enum Typed {
     Zero,
     Two = 2,
     AlsoTwo = 2,                        // error: 'AlsoTwo' has the same value as 'Two'
     Three,
-    Big = 3000000000,                   // error: the value does not fit in the underlying type 'int'
+    Big = 3000000000,                   // error: the value does not fit in the enum's integer type 'int'
     Computed = 1 + 1,                   // error: a variant's value must be an integer literal
 }
 
-enum Floating : float { A }             // error: an enum's underlying type must be an integer type, not 'float'
+@Repr(float)                            // error: '@Repr' takes an integer type, not 'float'
+enum Floating { A }
 
-enum DataWithType : long {              // error: an enum whose variants carry data cannot have an underlying type
+@Repr(long)                             // error: an enum whose variants carry data cannot have '@Repr'
+enum DataWithType {
     A(int x),
 }
+
+@Repr                                   // error: '@Repr' takes one integer type, as in '@Repr(uint)'
+enum NoType { A }
+
+@Repr(int)
+@Repr(long)                             // error: '@Repr' can only be given once
+enum Twice { A }
+
+@Repr(int)                              // error: '@Repr' can only be used on enums
+struct NotEnum { }
+
+@Acyclic(1)                             // error: '@Acyclic' takes no arguments
+class Annotated { }
 
 enum DataWithValue {
     A(int x),

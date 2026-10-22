@@ -334,7 +334,7 @@ var n = Option<int>.None;              // ...or written
 - Enums without data convert to and from integers with a cast: `(int)Direction.East` is `1`, and
   `(Direction)i` panics if `i` is not the value of a variant. A variant's value is its position, or
   as in C, the value written for it or one more than the previous variant's
-  ([07-interop.md](07-interop.md#75-enums-with-underlying-types)).
+  ([07-interop.md](07-interop.md#75-enums-with-integer-representations)).
 
 ### `switch`
 
@@ -353,13 +353,13 @@ See [06-syntax.md](06-syntax.md#switch) for `switch` and patterns.
 ### Representation
 
 Enums compile to a C++ struct containing a tag and a union (not `std::variant`). The tag is the
-smallest unsigned integer that numbers the variants, or the underlying type when one is given. When
+smallest unsigned integer that numbers the variants, or the `@Repr` type when one is given. When
 no variant can hold an object reference, the enum is trivially copyable; otherwise copying and
 destroying it copy and destroy only the active variant's fields, and assigning it stores the new
 value before releasing the old one, as for structs (§3.2).
 
-Enums without data may declare an explicit integer type and values (`enum Format : uint { ... }`)
-and may be marked `@Flags`; see [07-interop.md](07-interop.md#75-enums-with-underlying-types).
+Enums without data may declare an explicit integer type with `@Repr(uint)` and give variants values,
+and may be marked `@Flags`; see [07-interop.md](07-interop.md#75-enums-with-integer-representations).
 
 ## 2.9 Structs
 

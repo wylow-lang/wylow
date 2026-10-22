@@ -1,13 +1,16 @@
-enum TooBig : byte {
-    A = 256,                      // error: the value does not fit in the underlying type 'byte'
+@Repr(byte)
+enum TooBig {
+    A = 256,                      // error: the value does not fit in the enum's integer type 'byte'
 }
 
-enum Overflows : byte {
+@Repr(byte)
+enum Overflows {
     A = 255,
-    B,                            // error: the value of 'B' does not fit in the underlying type 'byte'
+    B,                            // error: the value of 'B' does not fit in the enum's integer type 'byte'
 }
 
-enum NotInteger : char {          // error: an enum's underlying type must be an integer type, not 'char'
+@Repr(char)                       // error: '@Repr' takes an integer type, not 'char'
+enum NotInteger {
     A,
 }
 

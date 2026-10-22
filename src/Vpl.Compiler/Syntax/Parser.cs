@@ -164,10 +164,47 @@ public sealed partial class Parser
             int start = position;
             Advance();
             var name = Expect(TokenKind.Identifier, "an annotation name");
-            annotations.Add(new AnnotationSyntax(LocationFrom(start), name.Text));
+            var arguments = new List<Node>();
+            if (At(TokenKind.OpenParen) && !StartsParenthesizedType())
+            {
+                Advance();
+                if (!At(TokenKind.CloseParen))
+                {
+                    do
+                        arguments.Add(ParseAnnotationArgument());
+                    while (Accept(TokenKind.Comma));
+                }
+                Expect(TokenKind.CloseParen, "')'");
+            }
+            annotations.Add(new AnnotationSyntax(LocationFrom(start), name.Text, arguments));
         }
         return annotations;
     }
+
+    /// <summary>
+    /// Whether the parenthesis here opens the type an annotation is on, as in
+    /// <c>@Escaping (int) -> int</c> or <c>@Escaping ((int) -> int)?</c>, rather than its arguments.
+    /// Parentheses in a type are always followed by one of these, and an annotation's arguments never are.
+    /// </summary>
+    bool StartsParenthesizedType()
+    {
+        int depth = 0;
+        for (int i = position; i < tokens.Count; i++)
+        {
+            var kind = tokens[i].Kind;
+            if (kind == TokenKind.OpenParen)
+                depth++;
+            else if (kind == TokenKind.CloseParen && --depth == 0)
+                return i + 1 < tokens.Count && tokens[i + 1].Kind is TokenKind.Arrow or TokenKind.Question or TokenKind.OpenBracket or TokenKind.Star;
+            else if (kind is TokenKind.EndOfFile or TokenKind.Semicolon or TokenKind.OpenBrace or TokenKind.CloseBrace)
+                return false;
+        }
+        return false;
+    }
+
+    // A name is read as a type: annotations take types and literals, and no constant has a name yet.
+    Node ParseAnnotationArgument() =>
+        SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) || At(TokenKind.Identifier) ? ParseType(allowNullable: false) : ParseExpression();
 
     sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens);
 

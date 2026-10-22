@@ -347,9 +347,19 @@ public sealed partial class Binder
         foreach (var annotation in decl.Annotations)
         {
             if (annotation.Name == "CallerLocation" && decl is FunctionDecl)
+            {
                 found = true;
-            else if (annotation.Name != "Acyclic" || decl is not TypeDecl { Kind: TypeKind.Class })
+                CheckNoArguments(annotation);
+            }
+            else if (annotation.Name == "Acyclic" && decl is TypeDecl { Kind: TypeKind.Class })
+            {
+                CheckNoArguments(annotation);
+            }
+            // '@Repr' is checked with the enum's variants.
+            else if (annotation.Name != "Repr" || decl is not TypeDecl { Kind: TypeKind.Enum })
+            {
                 ReportMisplacedAnnotation(annotation);
+            }
         }
         return found;
     }
@@ -413,13 +423,20 @@ public sealed partial class Binder
                 s.Variants.Add(new VariantSymbol(decl.Name, s, s.Variants.Count, decl, fields));
         }
 
-        if (s.Declaration.UnderlyingType is { } underlyingSyntax)
+        foreach (var repr in s.Declaration.Annotations.Where(a => a.Name == "Repr"))
         {
+            if (repr.Arguments is not [TypeSyntax underlyingSyntax])
+            {
+                Error(repr.Location, "'@Repr' takes one integer type, as in '@Repr(uint)'");
+                continue;
+            }
             var underlying = BindType(underlyingSyntax, allowVoid: false);
-            if (s.HasData)
-                Error(underlyingSyntax.Location, "an enum whose variants carry data cannot have an underlying type");
+            if (s.UnderlyingType is not null)
+                Error(repr.Location, "'@Repr' can only be given once");
+            else if (s.HasData)
+                Error(repr.Location, "an enum whose variants carry data cannot have '@Repr'");
             else if (underlying != VplType.Error && !underlying.IsInteger)
-                Error(underlyingSyntax.Location, $"an enum's underlying type must be an integer type, not '{underlying}'");
+                Error(underlyingSyntax.Location, $"'@Repr' takes an integer type, not '{underlying}'");
             else
                 s.UnderlyingType = underlying;
         }
@@ -447,7 +464,7 @@ public sealed partial class Binder
             next++;
         }
         if (s.UnderlyingType is { } type && s.Variants.FirstOrDefault(v => !type.HeldRange!.Value.Contains(v.Value)) is { } tooLarge)
-            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the underlying type '{type}'");
+            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the enum's integer type '{type}'");
     }
 
     Int128? VariantValue(Expr syntax, VplType underlying)
@@ -466,7 +483,7 @@ public sealed partial class Binder
         Int128 value = negated ? -(Int128)literal.Value : literal.Value;
         if (!underlying.HeldRange!.Value.Contains(value))
         {
-            Error(syntax.Location, $"the value does not fit in the underlying type '{underlying}'");
+            Error(syntax.Location, $"the value does not fit in the enum's integer type '{underlying}'");
             return null;
         }
         return value;

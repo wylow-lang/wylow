@@ -36,15 +36,19 @@ public abstract record Declaration(Location Location, Modifiers Modifiers) : Nod
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
 }
 
-/// <summary><c>@Name</c> before a declaration, a parameter, or a local variable.</summary>
-public sealed record AnnotationSyntax(Location Location, string Name) : Node(Location);
+/// <summary>
+/// <c>@Name</c> or <c>@Name(arguments)</c> before a declaration, a parameter, or a local variable.
+/// Each argument is a <see cref="TypeSyntax"/>, as in <c>@Repr(uint)</c>, or an <see cref="Expr"/>,
+/// as in <c>@Align(16)</c>.
+/// </summary>
+public sealed record AnnotationSyntax(Location Location, string Name, IReadOnlyList<Node> Arguments) : Node(Location);
 
 /// <summary><see cref="Bounds"/> are the interfaces after <c>extends</c>, joined by <c>&amp;</c>.</summary>
 public sealed record TypeParameterSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> Bounds) : Node(Location);
 
 /// <summary>
 /// A struct, class, interface, or enum. Only classes have a <see cref="BaseType"/> or
-/// <see cref="Destructor"/>; only enums have <see cref="Variants"/> or an <see cref="UnderlyingType"/>.
+/// <see cref="Destructor"/>; only enums have <see cref="Variants"/>.
 /// </summary>
 public sealed record TypeDecl(
     Location Location,
@@ -58,8 +62,7 @@ public sealed record TypeDecl(
     IReadOnlyList<FieldDecl> Fields,
     IReadOnlyList<FunctionDecl> Methods,
     DestructorDecl? Destructor,
-    IReadOnlyList<VariantDecl> Variants,
-    TypeSyntax? UnderlyingType) : Declaration(Location, Modifiers);
+    IReadOnlyList<VariantDecl> Variants) : Declaration(Location, Modifiers);
 
 /// <summary>An enum variant. <see cref="Fields"/> is null when the variant carries no data.</summary>
 public sealed record VariantDecl(Location Location, string Name, Location NameLocation, IReadOnlyList<ParameterSyntax>? Fields, Expr? Value)

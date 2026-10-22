@@ -698,12 +698,23 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 | `@Unchecked` | Remove runtime checks | [01-safety.md](01-safety.md) |
 | `@AllowLargeStack` | Suppress the large-stack warning | [01-safety.md](01-safety.md) |
 | `@Align(n)`, `@Pad(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
+| `@Repr(T)` | An enum's integer representation | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
+| `@Flags` | An enum whose values combine as bits | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
 | `@Escaping` | Function-typed parameter or local may be stored | §6.7 |
+| `@Acyclic` | A class's objects never form cycles | [03-memory-model.md](03-memory-model.md) |
+
+An argument is a type, as in `@Repr(uint)`, or a literal, as in `@Align(16)`. Settings that
+change how a declaration is laid out or treated, rather than what it is, are annotations rather
+than new syntax.
+
+Parentheses right after an annotation are its arguments unless they belong to the type it
+annotates, which they do when followed by `->`, `?`, `[`, or `*`: `@Escaping (int) -> int f` and
+`@Escaping ((int) -> int)? f` annotate a function type.
 
 User-defined annotations (and reflection) are *open*.
 
-> Implemented so far: `@CallerLocation`, without arguments, `@Escaping`, and `@Acyclic`
-> ([03-memory-model.md](03-memory-model.md)). Any other annotation is an error.
+> Implemented so far: `@CallerLocation`, `@Escaping`, `@Acyclic`, and `@Repr`. Any other
+> annotation is an error.
 
 ### `@CallerLocation`
 

@@ -1,20 +1,24 @@
-enum Small : byte {
+@Repr(byte)
+enum Small {
     A = 1,
     B = 255,
 }
 
-enum Signed : sbyte {
+@Repr(sbyte)
+enum Signed {
     Low = -128,
     High = 127,
 }
 
-enum Wide : ulong {
+@Repr(ulong)
+enum Wide {
     Low = 1,
     High = 0x8000000000000000,
     Top,
 }
 
-enum Format : uint {
+@Repr(uint)
+enum Format {
     Undefined = 0,
     Rgba = 4000000000,
 }

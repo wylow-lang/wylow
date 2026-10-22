@@ -37,7 +37,8 @@ class Dog extends Animal {
     int tricks = 3;
 }
 
-enum Format : int {
+@Repr(int)
+enum Format {
     Undefined = 0,
     Rgba = 37,
     Bgra,

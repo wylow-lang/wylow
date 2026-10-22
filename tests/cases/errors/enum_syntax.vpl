@@ -25,6 +25,8 @@ enum Refs { A(ref int x) }              // error: 'ref' is only valid on paramet
 
 enum Empty { }                          // error: expected an enum variant
 
+enum Colon : uint { A }                 // error: an enum's integer type is given with an annotation, as in '@Repr(uint) enum Colon'
+
 void main() {
     int n = 1;
     switch (n) {

@@ -24,9 +24,15 @@ public sealed partial class Parser
         });
         var typeParameters = ParseTypeParameters();
 
-        TypeSyntax? underlyingType = null;
-        if (kind == TypeKind.Enum && Accept(TokenKind.Colon))
-            underlyingType = ParseType(allowNullable: false);
+        if (kind == TypeKind.Enum && At(TokenKind.Colon))
+        {
+            int colon = position;
+            Advance();
+            ParseType(allowNullable: false);
+            var type = source.Text[tokens[colon + 1].Span.Start..Previous.Span.End];
+            Error(TextSpan.FromBounds(tokens[colon].Span.Start, Previous.Span.End),
+                $"an enum's integer type is given with an annotation, as in '@Repr({type}) enum {name.Text}'");
+        }
 
         TypeSyntax? baseType = null;
         var interfaces = new List<TypeSyntax>();
@@ -68,7 +74,7 @@ public sealed partial class Parser
         }
         Expect(TokenKind.CloseBrace, "'}'");
         return new TypeDecl(LocationFrom(start), modifiers, kind, name.Text, Loc(name.Span), typeParameters,
-            kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants, underlyingType);
+            kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants);
     }
 
     /// <summary>Variants separated by commas, then, if members follow, a ';' as in Java.</summary>

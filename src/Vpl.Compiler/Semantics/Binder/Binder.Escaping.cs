@@ -77,9 +77,14 @@ public sealed partial class Binder
         foreach (var annotation in annotations)
         {
             if (annotation.Name != "Escaping")
+            {
                 ReportMisplacedAnnotation(annotation);
+            }
             else if (type.NonNull.IsFunction || type == VplType.Error)
+            {
                 escaping = true;
+                CheckNoArguments(annotation);
+            }
             else
                 Error(annotation.Location, $"'@Escaping' can only be used on a {what} of function type, not '{type}'");
         }
@@ -92,8 +97,15 @@ public sealed partial class Binder
         "Escaping" => "'@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping",
         "CallerLocation" => "'@CallerLocation' can only be used on functions, methods, and constructors",
         "Acyclic" => "'@Acyclic' can only be used on classes",
+        "Repr" => "'@Repr' can only be used on enums",
         _ => $"unknown annotation '@{annotation.Name}'",
     });
+
+    void CheckNoArguments(AnnotationSyntax annotation)
+    {
+        if (annotation.Arguments.Count > 0)
+            Error(annotation.Location, $"'@{annotation.Name}' takes no arguments");
+    }
 
     /// <summary>
     /// Reports why a non-escaping function can't be converted to the escaping form, at the variable
