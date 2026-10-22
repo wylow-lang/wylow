@@ -175,14 +175,29 @@ public sealed partial class Parser
         }
 
         var type = ParseType();
-        if (At(TokenKind.ThisKeyword))
+        if (At(TokenKind.OperatorKeyword))
         {
+            int operatorStart = position;
+            Advance();
+            if (!Accept(TokenKind.OpenBracket) || !Accept(TokenKind.CloseBracket))
+            {
+                Error(TextSpan.FromBounds(tokens[operatorStart].Span.Start, Current.Span.End),
+                    "only the indexer, 'operator []', can be declared; overloading other operators is not supported yet");
+                SkipDeclaration();
+                return;
+            }
             CheckMethodModifiers(modifiers);
-            var indexerName = Advance();
-            var indexerParameters = ParseParameterList(allowRefKinds: true, brackets: true);
+            var indexerName = LocationFrom(operatorStart);
+            var indexerParameters = ParseParameterList(allowRefKinds: true);
             var indexerBody = Accept(TokenKind.Semicolon) ? null : ParseBlock();
             AddMethod(kind, modifiers, members, new FunctionDecl(LocationFrom(start), modifiers.Flags, type, SyntaxFacts.IndexerName,
-                Loc(indexerName.Span), [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind });
+                indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind });
+            return;
+        }
+        if (At(TokenKind.ThisKeyword) && Peek(1).Kind == TokenKind.OpenBracket)
+        {
+            Error(Current.Span, "an indexer is declared as 'operator []', as in 'ref T operator [](int index)'");
+            SkipDeclaration();
             return;
         }
 
@@ -347,12 +362,11 @@ public sealed partial class Parser
     }
 
     /// <summary>Function parameters, or with <paramref name="allowRefKinds"/> false, the fields of an enum variant.</summary>
-    List<ParameterSyntax> ParseParameterList(bool allowRefKinds, bool brackets = false)
+    List<ParameterSyntax> ParseParameterList(bool allowRefKinds)
     {
-        var close = brackets ? TokenKind.CloseBracket : TokenKind.CloseParen;
-        Expect(brackets ? TokenKind.OpenBracket : TokenKind.OpenParen, brackets ? "'['" : "'('");
+        Expect(TokenKind.OpenParen, "'('");
         var parameters = new List<ParameterSyntax>();
-        if (!At(close))
+        if (!At(TokenKind.CloseParen))
         {
             do
             {
@@ -368,7 +382,7 @@ public sealed partial class Parser
                 parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text) { Annotations = annotations });
             } while (Accept(TokenKind.Comma));
         }
-        Expect(close, brackets ? "']'" : "')'");
+        Expect(TokenKind.CloseParen, "')'");
         return parameters;
     }
 }

@@ -228,7 +228,8 @@ class Player {
 
 ## 6.6 Operator overloading
 
-Operators are `static` methods named `operator <symbol>`:
+Operators are `static` methods named `operator <symbol>`, except indexers, which are instance
+methods (below):
 
 ```java
 struct Vec3 {
@@ -243,7 +244,7 @@ struct Vec3 {
 
 | Category | Operators |
 |---|---|
-| Overloadable | `+ - * / %`, unary `- ! ~`, `& \| ^ << >>`, `== != < > <= >=`, indexers |
+| Overloadable | `+ - * / %`, unary `- ! ~`, `& \| ^ << >>`, `== != < > <= >=`, `[]` and `[]=` (indexers) |
 | Not overloadable | `&& \|\| = . ?? ?.`, casts, `new` |
 
 - **Compound assignment** (`+=`, `*=`, ...) is derived automatically from the binary operator.
@@ -254,16 +255,30 @@ struct Vec3 {
 ```java
 struct Mat4 {
     float[16] m;
-    ref float this[int row, int col] { return ref m[row * 4 + col]; }
+    ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
 }
 ```
 
-An indexer returning `ref` gives mutable access to an element (see the `ref` return rule in
-[03-memory-model.md](03-memory-model.md#returning-references)), and one returning `in` gives
-read-only access. An indexer may instead define `get`/`set` accessors like a property.
+An indexer is an instance method named `operator []`, as in C++, so `m[1, 2]` calls
+`m.operator [](1, 2)`. One returning `ref` gives mutable access to an element (see the `ref` return
+rule in [03-memory-model.md](03-memory-model.md#returning-references)), and one returning `in`
+gives read-only access.
 
-> Implemented so far: indexers returning `ref`, `in`, or a value, with any number of parameters.
-> Indexers with `get`/`set` are not implemented.
+Where there is no element to refer to, such as in a packed array of 4-bit values, `operator []=`
+handles assignment: it takes the indices and then the assigned value, and returns `void`.
+`grid[i] = v` calls it, and `grid[i] += v` reads with `operator []` and writes with `operator []=`.
+A type may not declare both `operator []=` and an `operator []` that returns `ref`.
+
+```java
+struct Nibbles {
+    byte[2048] bytes;
+    byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
+    void operator []=(int i, byte value) { ... }
+}
+```
+
+> Implemented so far: `operator []` returning `ref`, `in`, or a value, with any number of
+> parameters. `operator []=` is not implemented.
 
 ### Equality
 
@@ -683,10 +698,15 @@ while (node is Some(var n)) { node = n.next; }
 ### String interpolation
 
 ```java
-log($"hp: {player.health}, pos: {player.position}");
+log("hp: \{player.health}, pos: \{player.position}");
 ```
 
-Interpolated values must have a `toString()` (all primitives and stdlib types do).
+`\{expression}` inside an ordinary string literal is replaced by the expression's value, as in
+Java's string templates preview. It is an escape (§2.2) rather than a separate kind of literal, so
+every string can interpolate and `{` needs no escaping. Interpolated values must have a
+`toString()` (all primitives and stdlib types do).
+
+> Not implemented yet.
 
 ## 6.10 Annotations
 
@@ -784,7 +804,7 @@ public class EnemySystem {
                 enemies.remove(h);
             }
         }
-        log($"{enemies.count} enemies alive");
+        log("\{enemies.count} enemies alive");
     }
 }
 ```

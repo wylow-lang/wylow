@@ -48,6 +48,7 @@ String and character literals accept these escapes:
 | `\0` | The code point 0 |
 | `\\`, `\"`, `\'` | Backslash, double quote, single quote |
 | `\u{1F600}` | The code point with that hex value, written with 1 to 6 digits |
+| `\{expression}` | In a string only: the expression's value ([string interpolation](06-syntax.md#string-interpolation)) |
 
 Any other escape is an error, as is a `\u{...}` that is not a Unicode scalar value (above
 `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`), the same values a cast to `char` rejects. Unlike

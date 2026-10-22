@@ -1,7 +1,7 @@
 class Store {
     int[4] items;
 
-    ref int this[int index] {
+    ref int operator [](int index) {
         return ref items[index];
     }
 }

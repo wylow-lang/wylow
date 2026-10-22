@@ -5,7 +5,7 @@ class Node {
 struct Mat2 {
     float[4] m;
 
-    ref float this[int row, int col] {
+    ref float operator [](int row, int col) {
         return ref m[row * 2 + col];
     }
 

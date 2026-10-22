@@ -422,7 +422,7 @@ by a method of `this`, or, in unsafe code, the target of a pointer. Indexers are
 ```java
 struct Mat4 {
     float[16] m;
-    ref float this[int row, int col] { return ref m[row * 4 + col]; }
+    ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
 }
 ```
 

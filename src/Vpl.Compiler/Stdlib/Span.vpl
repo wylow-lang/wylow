@@ -15,7 +15,7 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
     readonly int length { get -> count; }
 
     @CallerLocation
-    readonly ref T this[int index] {
+    readonly ref T operator [](int index) {
         Bounds.check(index, count);
         unsafe {
             return ref data[index];
@@ -51,7 +51,7 @@ ref struct ReadOnlySpan<T> {
     readonly int length { get -> count; }
 
     @CallerLocation
-    readonly in T this[int index] {
+    readonly in T operator [](int index) {
         Bounds.check(index, count);
         unsafe {
             return ref data[index];

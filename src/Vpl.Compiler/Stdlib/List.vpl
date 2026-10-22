@@ -16,7 +16,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     T? last { get -> size == 0 ? null : this[size - 1]; }
 
     @CallerLocation
-    ref T this[int index] {
+    ref T operator [](int index) {
         Bounds.check(index, size);
         unsafe {
             return ref data[index];

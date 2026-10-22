@@ -6,6 +6,19 @@ protected struct A {              // error: 'protected' is not valid on a struct
     }
 }
 
+struct Grid {
+    int[4] cells;
+    ref int this[int i] {          // error: an indexer is declared as 'operator []', as in 'ref T operator [](int index)'
+        return ref cells[i];
+    }
+    static Grid operator +(Grid a, Grid b) {   // error: only the indexer, 'operator []', can be declared; overloading other operators is not supported yet
+        return a;
+    }
+    int size() {
+        return 4;
+    }
+}
+
 static void g() {                  // error: 'static' is not valid on a function
 }
 

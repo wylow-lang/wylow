@@ -125,7 +125,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
                 return Name;
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
             var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + RefPrefix(p.RefKind) + p.Type));
-            return IsIndexer ? $"this[{parameters}]" : $"{Name}{typeParameters}({parameters})";
+            return $"{Name}{typeParameters}({parameters})";
         }
     }
 

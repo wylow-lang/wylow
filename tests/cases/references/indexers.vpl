@@ -1,7 +1,7 @@
 struct Mat2 {
     float[4] m;
 
-    ref float this[int row, int col] {
+    ref float operator [](int row, int col) {
         return ref m[row * 2 + col];
     }
 
@@ -32,7 +32,7 @@ class Bag {
         }
     }
 
-    ref int this[int i] {
+    ref int operator [](int i) {
         return ref items[i];
     }
 

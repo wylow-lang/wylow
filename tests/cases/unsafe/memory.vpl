@@ -32,7 +32,7 @@ class Stack<T> {
     }
 
     @CallerLocation
-    ref T this[int index] {
+    ref T operator [](int index) {
         Bounds.check(index, size);
         unsafe {
             return ref data[index];

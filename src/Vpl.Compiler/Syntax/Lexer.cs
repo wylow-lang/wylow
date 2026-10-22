@@ -62,13 +62,14 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["try"] = TokenKind.TryKeyword,
         ["unsafe"] = TokenKind.UnsafeKeyword,
         ["extern"] = TokenKind.ExternKeyword,
+        ["operator"] = TokenKind.OperatorKeyword,
         ["_"] = TokenKind.Underscore,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "const", "defer", "do", "import", "operator", "package", "shared",
+        "const", "defer", "do", "import", "package", "shared",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.

@@ -64,6 +64,7 @@ public enum TokenKind
     TryKeyword,
     UnsafeKeyword,
     ExternKeyword,
+    OperatorKeyword,
     Underscore,
     ReservedKeyword,
 
