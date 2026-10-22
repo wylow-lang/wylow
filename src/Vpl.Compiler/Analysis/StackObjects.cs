@@ -14,7 +14,8 @@ public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);
 /// if a reference to it may be stored anywhere but a local declared within that scope, returned,
 /// captured by an escaping lambda, or given to a function that may do any of these with it. Each
 /// function is summarized by which of its parameters, and whether its <c>this</c>, may escape,
-/// including through the functions it calls.
+/// including through the functions it calls, and which it may return, which makes the call's value
+/// that argument.
 /// </summary>
 /// <remarks>
 /// A temporary is looked for only in a statement that evaluates each of its expressions at most
@@ -23,10 +24,15 @@ public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);
 /// </remarks>
 public sealed class StackObjects
 {
-    /// <summary>What a function may let escape: its parameters, by index, and its <c>this</c>.</summary>
-    sealed record Summary(IReadOnlySet<int> Parameters, bool This)
+    /// <summary>
+    /// What a function may let escape, its parameters by index and its <c>this</c>, and which of
+    /// them it may return.
+    /// </summary>
+    sealed record Summary(IReadOnlySet<int> Parameters, bool This, IReadOnlySet<int> ReturnedParameters, bool ReturnsThis)
     {
-        public int Size => Parameters.Count + (This ? 1 : 0);
+        public static Summary Empty() => new(new HashSet<int>(), false, new HashSet<int>(), false);
+
+        public int Size => Parameters.Count + (This ? 1 : 0) + ReturnedParameters.Count + (ReturnsThis ? 1 : 0);
     }
 
     readonly WholeProgram whole;
@@ -38,7 +44,7 @@ public sealed class StackObjects
     {
         this.whole = whole;
         this.elements = elements;
-        summaries = new Summaries<Summary>(whole.Units, () => new Summary(new HashSet<int>(), false), s => s.Size);
+        summaries = new Summaries<Summary>(whole.Units, Summary.Empty, s => s.Size);
     }
 
     public static StackObjects Find(WholeProgram whole, ElementAliasing elements)
@@ -59,7 +65,7 @@ public sealed class StackObjects
     Summary SummaryOf(Unit unit)
     {
         var function = unit.Symbol;
-        var flow = new Flow(this);
+        var flow = new Flow(this, summarizing: true);
         foreach (var parameter in function.Parameters)
             flow.Declare(parameter);
         foreach (var statement in unit.Statements)
@@ -70,7 +76,9 @@ public sealed class StackObjects
             flow.Call(baseConstructor, [Flow.This], [], direct: true);
         return new Summary(
             function.Parameters.Index().Where(p => flow.Escapes(p.Item)).Select(p => p.Index).ToHashSet(),
-            flow.Escapes(Flow.This));
+            flow.Escapes(Flow.This),
+            function.Parameters.Index().Where(p => flow.IsReturned(p.Item)).Select(p => p.Index).ToHashSet(),
+            flow.IsReturned(Flow.This));
     }
 
     /// <summary>The summaries of the functions a call may run, or null if one of them has none, such as an extern function.</summary>
@@ -86,10 +94,20 @@ public sealed class StackObjects
         return found;
     }
 
-    /// <summary>Whether an object of the type is <c>Borrowable</c>, and the calls around its borrows may let it escape.</summary>
-    bool BorrowsLetEscape(VplType type) =>
-        whole.Program.Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type)
-        && borrowable.Methods.Values.SelectMany(m => m).Any(m => Targets(m, direct: false) is not { } targets || targets.Any(t => t.This));
+    /// <summary>
+    /// Whether an object of exactly the type is <c>Borrowable</c>, and the calls around its borrows
+    /// may let it escape: the implementations of its class or the classes it extends.
+    /// </summary>
+    bool BorrowsLetEscape(VplType type)
+    {
+        if (whole.Program.Stdlib.Borrowable is not { } borrowable || !Conversions.IsSubtype(type, borrowable.Type))
+            return false;
+        HashSet<TypeSymbol?> classes = [type.Symbol, .. Conversions.Supertypes(type).Select(t => t.Symbol)];
+        return borrowable.Methods.Values.SelectMany(m => m)
+            .SelectMany(m => whole.Targets(m, direct: false))
+            .Where(f => classes.Contains(f.ContainingType))
+            .Any(f => summaries[f] is not { } summary || summary.This);
+    }
 
     void FindIn(BoundStatement statement)
     {
@@ -109,7 +127,7 @@ public sealed class StackObjects
             if (statement is BoundVariableDeclaration { Local: { IsModified: false, RefKind: RefKind.None }, Initializer: { } initializer }
                 && Created(initializer) is { } creation)
             {
-                var flow = new Flow(this);
+                var flow = new Flow(this, summarizing: false);
                 foreach (var s in statements.Skip(i))
                     flow.Statement(s);
                 if (!flow.Escapes(creation))
@@ -121,7 +139,7 @@ public sealed class StackObjects
                 : [];
             if (temporaries.Count > 0 && temporaries.Distinct(ReferenceEqualityComparer.Instance).Count() == temporaries.Count)
             {
-                var flow = new Flow(this);
+                var flow = new Flow(this, summarizing: false);
                 flow.Statement(statement);
                 if (statement is BoundVariableDeclaration declaration)
                     flow.Undeclare(declaration.Local);
@@ -161,19 +179,31 @@ public sealed class StackObjects
     /// Where the values some code is given may go: the locals each may be stored in, and the values
     /// that escape. The values are locals, <see cref="This"/>, and objects the code makes. A value
     /// stored in a local the code doesn't declare escapes too, since that local outlives the code.
+    /// When <paramref name="summarizing"/> a function, what it returns goes to <see cref="Result"/>,
+    /// which its callers see as the call's value; any other code lets what it returns escape.
     /// </summary>
-    sealed class Flow(StackObjects analysis)
+    sealed class Flow(StackObjects analysis, bool summarizing)
     {
         public static readonly object This = new();
+        static readonly object Result = new();
 
-        readonly Dictionary<object, List<LocalSymbol>> stores = new(ReferenceEqualityComparer.Instance);
+        readonly Dictionary<object, List<object>> stores = new(ReferenceEqualityComparer.Instance);
         readonly HashSet<object> escaping = new(ReferenceEqualityComparer.Instance);
         readonly HashSet<LocalSymbol> declared = [];
+
+        /// <summary>The non-escaping lambdas being walked as part of the code, whose returns go to whatever runs them.</summary>
+        int lambdaDepth;
 
         public void Declare(LocalSymbol local) => declared.Add(local);
         public void Undeclare(LocalSymbol local) => declared.Remove(local);
 
-        public bool Escapes(object value)
+        public bool Escapes(object value) =>
+            Reachable(value).Any(v => escaping.Contains(v) || (v is LocalSymbol local && !declared.Contains(local)));
+
+        public bool IsReturned(object value) => Reachable(value).Contains(Result);
+
+        /// <summary>The value and everything it may be stored in.</summary>
+        IEnumerable<object> Reachable(object value)
         {
             var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
             var pending = new Stack<object>([value]);
@@ -181,12 +211,10 @@ public sealed class StackObjects
             {
                 if (!seen.Add(next))
                     continue;
-                if (escaping.Contains(next) || (next is LocalSymbol local && !declared.Contains(local)))
-                    return true;
+                yield return next;
                 foreach (var target in stores.GetValueOrDefault(next) ?? [])
                     pending.Push(target);
             }
-            return false;
         }
 
         public void Statement(BoundStatement statement)
@@ -203,6 +231,9 @@ public sealed class StackObjects
                 case BoundAssignment assignment:
                     Use(assignment.Target);
                     Escape(assignment.Value);
+                    break;
+                case BoundReturn ret when summarizing && lambdaDepth == 0:
+                    Store(Value(ret.Value), Result);
                     break;
                 case BoundReturn ret:
                     Escape(ret.Value);
@@ -234,13 +265,13 @@ public sealed class StackObjects
 
         void Use(BoundExpression? expression) => Value(expression);
 
-        void Store(List<object> values, LocalSymbol local)
+        void Store(List<object> values, object target)
         {
             foreach (var value in values)
             {
                 if (!stores.TryGetValue(value, out var targets))
                     stores[value] = targets = [];
-                targets.Add(local);
+                targets.Add(target);
             }
         }
 
@@ -280,12 +311,10 @@ public sealed class StackObjects
                     Match(choice.Value, choice.Cases.SelectMany(c => c.Patterns));
                     return [.. choice.Cases.SelectMany(c => Value(c.Body))];
                 case BoundCall call:
-                    Call(call.Method, call.Receiver is null ? null : Value(call.Receiver), call.Arguments, call.IsSuperCall);
-                    return [];
+                    return Call(call.Method, call.Receiver is null ? null : Value(call.Receiver), call.Arguments, call.IsSuperCall);
                 case BoundInvocation invocation:
                     Use(invocation.Callee);
-                    Arguments(invocation.Arguments, [.. analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l]!)]);
-                    return [];
+                    return Arguments(invocation.Arguments, [.. analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l]!)]);
                 case BoundConstruction construction:
                     Call(construction.Constructor, null, construction.Arguments, direct: true);
                     foreach (var initializer in construction.Initializers)
@@ -307,22 +336,35 @@ public sealed class StackObjects
             }
         }
 
-        public void Call(MethodReference method, List<object>? receiver, IReadOnlyList<BoundExpression> arguments, bool direct)
+        /// <summary>Walks a call, and returns the values the call's value may be: the arguments it may return.</summary>
+        public List<object> Call(MethodReference method, List<object>? receiver, IReadOnlyList<BoundExpression> arguments, bool direct)
         {
             var targets = analysis.Targets(method.Symbol, direct);
-            if (receiver is not null && (targets is null || targets.Any(t => t.This)))
-                escaping.UnionWith(receiver);
-            Arguments(arguments, targets);
+            List<object> returned = [];
+            if (receiver is not null)
+                Pass(receiver, targets, t => t.This, t => t.ReturnsThis, returned);
+            returned.AddRange(Arguments(arguments, targets));
+            return returned;
         }
 
-        void Arguments(IReadOnlyList<BoundExpression> arguments, List<Summary>? targets)
+        List<object> Arguments(IReadOnlyList<BoundExpression> arguments, List<Summary>? targets)
         {
+            List<object> returned = [];
             for (int i = 0; i < arguments.Count; i++)
             {
-                var values = Value(arguments[i]);
-                if (targets is null || targets.Any(t => t.Parameters.Contains(i)))
-                    escaping.UnionWith(values);
+                int index = i;
+                Pass(Value(arguments[i]), targets, t => t.Parameters.Contains(index), t => t.ReturnedParameters.Contains(index), returned);
             }
+            return returned;
+        }
+
+        /// <summary>Gives values to a parameter, or the <c>this</c>, of the functions a call may run; <paramref name="targets"/> is null if one is unknown.</summary>
+        void Pass(List<object> values, List<Summary>? targets, Func<Summary, bool> escapes, Func<Summary, bool> isReturned, List<object> returned)
+        {
+            if (targets is null || targets.Any(escapes))
+                escaping.UnionWith(values);
+            else if (targets.Any(isReturned))
+                returned.AddRange(values);
         }
 
         /// <summary>
@@ -341,7 +383,9 @@ public sealed class StackObjects
             }
             foreach (var parameter in lambda.Function.Parameters)
                 declared.Add(parameter);
+            lambdaDepth++;
             Statement(lambda.Body);
+            lambdaDepth--;
         }
 
         void Match(BoundExpression value, IEnumerable<BoundPattern> patterns)

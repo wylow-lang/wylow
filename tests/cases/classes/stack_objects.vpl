@@ -91,6 +91,19 @@ class Big {
     int[200] values;
 }
 
+// Its borrows keep it, so it escapes; other Borrowable classes, such as List, don't.
+class Clinging implements Borrowable {
+    Clinging? self;
+
+    void beginBorrow() {
+        self = this;
+    }
+
+    void endBorrow() {
+        self = null;
+    }
+}
+
 String read(Noisy n) {
     return n.name;
 }
@@ -113,6 +126,32 @@ int depth(Noisy n, int count) {
 
 void run(() -> void f) {
     f();
+}
+
+Noisy give(() -> Noisy f) {
+    return f();
+}
+
+// A function that returns its argument gives the caller the object, which escapes only if the
+// caller lets it.
+void returnedBriefly() {
+    var n = new Noisy("brief"); // stack: 1
+    var same = n.self();
+    print(pass(same).label());
+}
+
+Noisy passedOn() {
+    return pass(new Noisy("passed on")); // stack: 0
+}
+
+void storeResult(Keeper keeper) {
+    keeper.kept = pass(new Noisy("kept")); // stack: 0
+}
+
+// What a lambda returns goes to whatever calls it, which may keep it.
+void lend(Keeper keeper) {
+    var lent = new Noisy("lent"); // stack: 0
+    keeper.kept = give(() -> lent);
 }
 
 void scope() {
@@ -177,23 +216,36 @@ void main() {
     // output: x
     // output: x
 
-    // Escapes: returned, stored, given to code that stores it, or to a function that returns it.
+    // A function's result that is only used briefly, even when it is the object itself.
+    print(pass(new Noisy("passed")).name); // stack: 1
+    // output: passed
+    // output: passed
+    print(new Noisy("self").self().name); // stack: 1
+    // output: self
+    // output: self
+    returnedBriefly();
+    // output: brief
+    // output: brief
+
+    // Escapes: returned, stored, given to code that stores it, or returned to code that does.
     print(returned().name);
     // output: returned
     // output: returned
+    print(passedOn().name);
+    // output: passed on
+    // output: passed on
+    storeResult(new Keeper()); // stack: 1
+    // output: kept
+    lend(new Keeper()); // stack: 1
+    // output: lent
     // Objects can be on the stack while the objects they refer to are not.
     var keeper = new Keeper(); // stack: 1
     var stored = new Noisy("stored"); // stack: 0
     keeper.kept = stored;
     var given = new Noisy("given"); // stack: 0
     keep(keeper, given);
-    print(pass(new Noisy("passed")).name); // stack: 0
-    // output: passed
-    // output: passed
-    print(new Noisy("self").self().name); // stack: 0
-    // output: self
-    // output: self
     var list = new List<Noisy>(); // stack: 1
+    var clinging = new Clinging(); // stack: 0
     var element = new Noisy("element"); // stack: 0
     list.add(element);
     @Escaping () -> String f = () -> element.name;

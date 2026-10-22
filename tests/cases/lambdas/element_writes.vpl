@@ -1,6 +1,7 @@
 // A call of a function value may run any lambda of its type, so a loop calling one keeps its own
-// reference to each element if such a lambda may store over an element. Each loop below would
-// print the replacing element, or read a freed one, if its element referred to the list in place.
+// reference to each element if such a lambda may store over an element. Each loop below that calls
+// one would print the replacing element, or read a freed one, if its element referred to the list
+// in place.
 
 class Enemy {
     int hp;
@@ -33,6 +34,13 @@ void tick(() -> void f) {
     f();
 }
 
+// Making a lambda doesn't run it: only a call of a function value of its type can.
+Hooks replacer(List<Enemy> list) {
+    return new Hooks(() -> {
+        list[0] = new Enemy(60);
+    });
+}
+
 void main() {
     var enemies = new List<Enemy>();
     enemies.add(new Enemy(1));
@@ -59,6 +67,13 @@ void main() {
     // output: 7
     // output: 50
     // output: -50
+
+    for (Enemy e : enemies) { // in-place: 1
+        var unused = replacer(enemies);
+        print(e.hp);
+    }
+    // output: 7
+    // output: 50
 }
 // output: -7
 // output: -50

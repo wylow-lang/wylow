@@ -14,6 +14,7 @@ using Vpl.Compiler.Text;
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
 //   // mode: release      build with --release
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
+//   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
 // Usage: Vpl.Tests [--cc msvc|gcc] [filter]
 
 Toolchain? toolchain = null;
@@ -73,11 +74,12 @@ static string FindRepositoryRoot()
 sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
-    List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release, Dictionary<int, int> Stack);
+    List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
+    Dictionary<int, int> Stack, Dictionary<int, int> InPlace);
 
 static partial class TestCase
 {
-    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack):(.*)$")]
+    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack|in-place):(.*)$")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain)
@@ -95,7 +97,7 @@ static partial class TestCase
 
     static Expectations Parse(string file)
     {
-        var expectations = new Expectations([], [], [], null, null, false, []);
+        var expectations = new Expectations([], [], [], null, null, false, [], []);
         var lines = File.ReadAllLines(file);
         for (int i = 0; i < lines.Length; i++)
         {
@@ -113,6 +115,7 @@ static partial class TestCase
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
                 case "mode": expectations = expectations with { Release = value == "release" }; break;
                 case "stack": expectations.Stack[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
+                case "in-place": expectations.InPlace[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
             }
         }
         return expectations;
@@ -146,7 +149,9 @@ static partial class TestCase
 
         var problems = new List<string>();
         if (expected.Stack.Count > 0)
-            problems.AddRange(CompareStack(expected.Stack, compilation.StackObjects.Where(l => l.Source == source)));
+            problems.AddRange(CompareCounts("objects on the stack", expected.Stack, compilation.StackObjects.Where(l => l.Source == source)));
+        if (expected.InPlace.Count > 0)
+            problems.AddRange(CompareCounts("loop elements in place", expected.InPlace, compilation.InPlaceElements.Where(l => l.Source == source)));
         var actualOutput = run.StandardOutput.Replace("\r\n", "\n").Split('\n').ToList();
         if (actualOutput[^1] == "")
             actualOutput.RemoveAt(actualOutput.Count - 1);
@@ -184,12 +189,12 @@ static partial class TestCase
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }
 
-    static IEnumerable<string> CompareStack(Dictionary<int, int> expected, IEnumerable<Location> actual)
+    static IEnumerable<string> CompareCounts(string what, Dictionary<int, int> expected, IEnumerable<Location> actual)
     {
         var counts = actual.GroupBy(l => l.LineColumn.Line).ToDictionary(g => g.Key, g => g.Count());
         return expected.Keys.Union(counts.Keys).Order()
             .Where(line => expected.GetValueOrDefault(line) != counts.GetValueOrDefault(line))
-            .Select(line => $"line {line}: expected {expected.GetValueOrDefault(line)} objects on the stack, got {counts.GetValueOrDefault(line)}");
+            .Select(line => $"line {line}: expected {expected.GetValueOrDefault(line)} {what}, got {counts.GetValueOrDefault(line)}");
     }
 
     static string? CompareErrors(List<(int Line, string Text)> expected, List<Diagnostic> actual)

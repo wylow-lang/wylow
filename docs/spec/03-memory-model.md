@@ -79,7 +79,7 @@ An object **escapes**, and stays on the heap, if a reference to it may exist aft
 if it is stored in a field, an element, or a static; returned; captured by an escaping lambda;
 referred to by a `Weak` (whose block would point into the stack); or passed (as an argument or as
 `this`) to a function that may do any of these with it. That last needs a summary of each function:
-which of its parameters, and whether its `this`, may escape, found over the whole program as
+which of its parameters, and whether its `this`, may escape or be returned, found over the whole program as
 [loop elements](#loop-elements) are, counting every override of a dispatched method. A function
 whose summary isn't known, such as an `extern` one, lets everything it is given escape. An object
 storing a reference to itself (`this.self = this`) escapes.
@@ -87,10 +87,12 @@ storing a reference to itself (`this.self = this`) escapes.
 Copying the reference to another local doesn't make an object escape if that local is declared
 within the object's scope (including a pattern binding, or a local of a non-escaping lambda, which
 runs only during the scope); storing it in a local declared before the scope does. A function that
-returns its argument counts as letting it escape, even where the caller only uses the result
-briefly. Destructors aren't summarized: one that keeps a reference to its object panics, on the
-stack as on the heap. A `Borrowable` object escapes if a `beginBorrow` or `endBorrow` may let its
-`this` escape, since the compiler calls them around every borrow.
+returns its argument (or its `this`) hands the object back as the call's value, which escapes only
+if the caller lets it: `print(pass(new Path(a, b)).length())` can keep the object on the stack.
+What a lambda returns escapes, since whatever calls the lambda may keep it. Destructors aren't
+summarized: one that keeps a reference to its object panics, on the stack as on the heap. A
+`Borrowable` object escapes if its class's `beginBorrow` or `endBorrow`, its own or inherited, may
+let its `this` escape, since the compiler calls them around every borrow.
 
 Implementation constraints:
 

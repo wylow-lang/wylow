@@ -45,7 +45,7 @@ void main() {
     list.add(new Enemy("b"));
 
     // Getters and setters of fields never store over an element.
-    for (Enemy e : list) {
+    for (Enemy e : list) { // in-place: 1
         e.aim(e);
         print(e.label);
         e.target = null;

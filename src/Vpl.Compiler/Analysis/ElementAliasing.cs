@@ -1,5 +1,6 @@
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Analysis;
 
@@ -43,7 +44,7 @@ public sealed class ElementAliasing
     readonly WholeProgram whole;
     readonly Summaries<Summary> summaries;
     readonly Summary destructors = new();
-    readonly HashSet<LocalSymbol> aliasing = [];
+    readonly Dictionary<LocalSymbol, Location> aliasing = [];
 
     ElementAliasing(WholeProgram whole)
     {
@@ -66,11 +67,14 @@ public sealed class ElementAliasing
     /// Whether a loop's element variable refers to the element in place rather than copying it,
     /// because nothing in the loop can store over the element.
     /// </summary>
-    public bool AliasesElement(LocalSymbol element) => aliasing.Contains(element);
+    public bool AliasesElement(LocalSymbol element) => aliasing.ContainsKey(element);
+
+    /// <summary>Where each loop element that refers to its element in place is declared.</summary>
+    public IEnumerable<Location> Locations => aliasing.Values;
 
     /// <summary>
-    /// A lambda is part of the unit that creates it, since it runs during that unit's calls, as
-    /// well as a unit of its own, which a call of a function value of its type may run.
+    /// A lambda's writes count where it may run, at each call of a function value of its type, not
+    /// in the code that makes it: no other code runs a lambda.
     /// </summary>
     Summary Collect(Unit unit)
     {
@@ -116,7 +120,7 @@ public sealed class ElementAliasing
         var summary = collector.Summary;
         Merge(summary, destructors, TypeMap.Empty);
         if (!summary.Unknown && !summary.Writes.Any(w => MayStoreOver(w, element.Type.NonNull)))
-            aliasing.Add(element);
+            aliasing[element] = declaration.Location;
     }
 
     /// <summary>Whether a write may store over an element whose type is <paramref name="element"/>.</summary>
@@ -164,9 +168,6 @@ public sealed class ElementAliasing
                 case BoundInvocation invocation:
                     foreach (var lambda in analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull))
                         Merge(Summary, analysis.summaries[lambda]!, TypeMap.Empty);
-                    break;
-                case BoundLambda lambda:
-                    Statement(lambda.Body);
                     break;
             }
             foreach (var child in BoundTree.Children(expression))

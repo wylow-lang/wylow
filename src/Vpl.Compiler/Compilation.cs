@@ -13,6 +13,9 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
 
     /// <summary>Where each object that is on the stack instead of the heap is made, for tests.</summary>
     public IReadOnlyList<Location> StackObjects { get; init; } = [];
+
+    /// <summary>Where each loop element that refers to its element in place is declared, for tests.</summary>
+    public IReadOnlyList<Location> InPlaceElements { get; init; } = [];
 }
 
 public static class Compilation
@@ -42,6 +45,7 @@ public static class Compilation
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses))
         {
             StackObjects = [.. analyses.StackObjects.Locations],
+            InPlaceElements = [.. analyses.Elements.Locations],
         };
     }
 }

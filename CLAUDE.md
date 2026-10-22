@@ -55,7 +55,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   run. `Summaries.cs` finds a summary per unit that depends on its callees' (with a worklist, so a
   summary must only grow as those it reads do).
   `ElementAliasing.cs` (which loop elements can skip their reference count, from a whole-program
-  summary of what each function writes).
+  summary of what each function writes). Tests mark their loops with `// in-place: <n>`.
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
   `StackObjects.cs` (which `new`s can be on the stack, from a whole-program summary of which
