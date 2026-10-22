@@ -128,31 +128,39 @@ public sealed partial class CppEmitter
     static BoundExpression PassedValue(VplType parameter, BoundExpression argument) =>
         IsNullableNonEscaping(parameter) && argument is BoundConversion { Operand: var value } && value.Type != VplType.Null ? value : argument;
 
-    /// <summary>The functions with function-typed parameters that can reach themselves through calls.</summary>
+    /// <summary>
+    /// The functions with function-typed parameters that a template would instantiate without end:
+    /// those on a cycle of calls where one call passes a function parameter something whose C++
+    /// type is made by the caller, such as a lambda or a choice. A function that only passes its own
+    /// parameters on (or escaping values, whose type is fixed) instantiates the same template again.
+    /// </summary>
     static HashSet<FunctionSymbol> FindRecursive(BoundProgram program)
     {
         var calls = new Dictionary<FunctionSymbol, HashSet<FunctionSymbol>>();
+        var growing = new List<(FunctionSymbol Caller, FunctionSymbol Callee)>();
         foreach (var function in program.Functions)
         {
             IEnumerable<BoundExpression> code = BoundTree.AllExpressions(function.Body);
             if (function.Symbol is { IsConstructor: true, ContainingType: { } owner })
                 code = code.Concat(owner.Fields.Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
-            var callees = code.Select(e => e switch
+            var edges = code.Select(e => e switch
             {
-                BoundCall call => call.Method.Symbol,
-                BoundNew creation => creation.Constructor.Symbol,
-                BoundConstruction construction => construction.Constructor.Symbol,
-                _ => null,
-            }).OfType<FunctionSymbol>().ToHashSet();
+                BoundCall call => (call.Method.Symbol, call.Arguments),
+                BoundNew creation => (creation.Constructor.Symbol, creation.Arguments),
+                BoundConstruction construction => (construction.Constructor.Symbol, construction.Arguments),
+                _ => ((FunctionSymbol, IReadOnlyList<BoundExpression>)?)null,
+            }).OfType<(FunctionSymbol Callee, IReadOnlyList<BoundExpression> Arguments)>().ToList();
             if (function.Body.Statements.FirstOrDefault() is BoundSuperCall super)
-                callees.Add(super.Constructor.Symbol);
-            calls[function.Symbol] = callees;
+                edges.Add((super.Constructor.Symbol, super.Arguments));
+            calls[function.Symbol] = [.. edges.Select(e => e.Callee)];
+            growing.AddRange(edges.Where(e => e.Arguments.Where((a, i) => i < e.Callee.Parameters.Count && IsNonEscaping(e.Callee.Parameters[i].Type)).Any(MakesCallableType))
+                .Select(e => (function.Symbol, e.Callee)));
         }
 
         bool Reaches(FunctionSymbol from, FunctionSymbol target)
         {
             var seen = new HashSet<FunctionSymbol>();
-            var pending = new Stack<FunctionSymbol>(calls.GetValueOrDefault(from) ?? []);
+            var pending = new Stack<FunctionSymbol>([from]);
             while (pending.TryPop(out var next))
             {
                 if (next == target)
@@ -166,8 +174,11 @@ public sealed partial class CppEmitter
             return false;
         }
 
-        return [.. calls.Keys.Where(f => f.Parameters.Any(p => IsNonEscaping(p.Type)) && Reaches(f, f))];
+        return [.. calls.Keys.Where(f => f.Parameters.Any(p => IsNonEscaping(p.Type)) && growing.Any(e => Reaches(f, e.Caller) && Reaches(e.Callee, f)))];
     }
+
+    static bool MakesCallableType(BoundExpression argument) =>
+        argument is not (BoundLocalAccess { Local.IsParameter: true } or { Type.IsEscaping: true } or BoundConversion { Operand.Type.IsEscaping: true });
 
     string Lambda(BoundLambda lambda)
     {

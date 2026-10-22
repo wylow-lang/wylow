@@ -1,0 +1,89 @@
+// Recursive functions that only pass their function parameters on are templates, as others are;
+// one that passes itself a new lambda on some cycle would instantiate without end, so it isn't.
+
+class Node {
+    int value;
+    List<Node> children = new List<Node>();
+
+    Node(int value) {
+        this.value = value;
+    }
+
+    Node add(Node child) {
+        children.add(child);
+        return this;
+    }
+}
+
+void walk(Node node, (Node) -> void visit) {
+    visit(node);
+    for (Node child : node.children) {
+        walk(child, visit);
+    }
+}
+
+// Mutual recursion, forwarding.
+int even(int n, (int) -> int f) {
+    if (n == 0) {
+        return f(0);
+    }
+    return odd(n - 1, f) + 1;
+}
+
+int odd(int n, (int) -> int f) {
+    if (n == 0) {
+        return f(1);
+    }
+    return even(n - 1, f) + 1;
+}
+
+// An escaping value has one C++ type, however often it is passed.
+int depth(int n, (int) -> int f, @Escaping (int) -> int g) {
+    if (n == 0) {
+        return f(0);
+    }
+    return depth(n - 1, g, g) + f(n);
+}
+
+// A new lambda passed to a function outside the cycle makes no new instantiation of the cycle.
+int twice((int) -> int f, int x) {
+    return f(f(x));
+}
+
+int sumDown(int n, (int) -> int f) {
+    if (n == 0) {
+        return 0;
+    }
+    return twice(x -> f(x) + 1, n) + sumDown(n - 1, f);
+}
+
+// A new lambda passed around the cycle: these take a FunctionRef.
+int ping(int n, (int) -> int f) {
+    if (n == 0) {
+        return f(0);
+    }
+    return pong(n - 1, x -> f(x) + 1);
+}
+
+int pong(int n, (int) -> int f) {
+    return ping(n, f) * 2;
+}
+
+void main() {
+    var root = new Node(1).add(new Node(2).add(new Node(3))).add(new Node(4));
+    int total = 0;
+    walk(root, n -> {
+        total += n.value;
+    });
+    print(total);                                   // output: 10
+
+    print(even(4, x -> x + 10));                    // output: 14
+    print(even(3, x -> x + 10));                    // output: 14
+
+    @Escaping (int) -> int doubled = x -> x * 2;
+    print(depth(2, x -> x + 100, doubled));         // output: 104
+
+    print(sumDown(2, x -> x * 3));                  // output: 35
+
+    print(ping(2, x -> x + 1));                     // output: 12
+}

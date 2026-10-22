@@ -344,11 +344,13 @@ button.onClick(() -> { play(sound); });
 A function-typed parameter compiles to a C++ template parameter, so each lambda passed to it is
 inlined into the function. Where C++ can't use a template, it is instead a non-owning reference
 to the lambda, called indirectly: in a virtual or interface method, a class's implementation of
-an interface method, a recursive function (which could otherwise instantiate itself without end),
-a constructor, or a function type's own parameters. Overloads that differ only in function types
-are told apart by the C++ name. A function chosen by `?:` or a switch expression holds every
-function it could be and the index of the chosen one, so calling it branches to a direct call,
-and each lambda can still be inlined.
+an interface method, a recursive function that passes itself a new lambda (or a choice) on some
+cycle of calls, which would otherwise instantiate itself without end, a constructor, or a function
+type's own parameters. A recursive function that only passes its function parameters on, or
+escaping values, is still a template: `walk(child, visit)` instantiates the same one again.
+Overloads that differ only in function types are told apart by the C++ name. A function chosen by
+`?:` or a switch expression holds every function it could be and the index of the chosen one, so
+calling it branches to a direct call, and each lambda can still be inlined.
 
 > Implemented so far: everything above.
 
@@ -478,9 +480,7 @@ be done when profiling shows it matters.
 
 - **Indirect calls where templates can't be used.** A `vpl::FunctionRef` costs an indirect call
   and keeps the lambda from being inlined. It could be avoided by devirtualizing calls whose
-  receiver type is known; for recursion, by noticing that the recursive call only passes its own
-  parameter on (the common case), which can't instantiate without end; and for constructors, by
-  telling overloads apart with a tag argument.
+  receiver type is known, and for constructors, by telling overloads apart with a tag argument.
 - **Code size.** Each distinct lambda passed to a template instantiates the callee again, as
   generics do per type. A performance warning could point out large instantiation counts.
 - **Pins for locals a lambda assigns.** Such a local is held while in use as a receiver or
