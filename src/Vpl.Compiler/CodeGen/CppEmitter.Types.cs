@@ -112,14 +112,13 @@ public sealed partial class CppEmitter
 
     /// <summary>The tag's C++ type: the underlying type if there is one, else the smallest that numbers the variants.</summary>
     static string TagType(TypeSymbol s) =>
-        s.UnderlyingType == VplType.Long ? "int64_t"
-        : s.UnderlyingType == VplType.Int ? "int32_t"
+        s.UnderlyingType is { } underlying ? CppType(underlying)
         : s.Variants.Count <= 256 ? "uint8_t"
         : s.Variants.Count <= 65536 ? "uint16_t"
         : "uint32_t";
 
     static string TagValue(VariantSymbol variant) =>
-        variant.Owner.UnderlyingType == VplType.Long ? Literal(new BoundLiteral(variant.Declaration.Location, VplType.Long, variant.Value))
+        variant.Owner.UnderlyingType is { } underlying ? Literal(BoundLiteral.Number(variant.Declaration.Location, underlying, variant.Value))
         : variant.Value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
@@ -260,19 +259,28 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
-    /// <summary>The checked conversion from an integer, for casts to an enum without data.</summary>
+    /// <summary>
+    /// The checked conversion from an integer of any type, for casts to an enum without data. The
+    /// value is compared in a type that holds every variant, once it is known to fit in it.
+    /// </summary>
     void EmitFromValue(TypeSymbol s, string name, string tag)
     {
         var message = CppStringLiteral($"integer is not a value of enum '{s.Name}'");
-        Line($"static {name} from_value(int64_t value, const char* location)");
+        var compared = s.UnderlyingType == VplType.ULong ? VplType.ULong : VplType.Long;
+        Line("template <class T>");
+        Line($"static {name} from_value(T value, const char* location)");
         Line("{");
-        Line("    switch (value)");
+        Line($"    if (std::in_range<{CppType(compared)}>(value))");
         Line("    {");
+        Line($"        switch (static_cast<{CppType(compared)}>(value))");
+        Line("        {");
         foreach (var variant in s.Variants)
-            Line($"    case {Literal(new BoundLiteral(variant.Declaration.Location, VplType.Long, variant.Value))}:");
-        Line($"        return {name}(vpl::RawTag{{}}, static_cast<{tag}>(value));");
-        Line($"    default: vpl::panic({message}, location);");
+            Line($"        case {Literal(BoundLiteral.Number(variant.Declaration.Location, compared, variant.Value))}:");
+        Line($"            return {name}(vpl::RawTag{{}}, static_cast<{tag}>(value));");
+        Line("        default: break;");
+        Line("        }");
         Line("    }");
+        Line($"    vpl::panic({message}, location);");
         Line("}");
     }
 

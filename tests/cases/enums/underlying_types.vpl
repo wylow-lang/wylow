@@ -1,0 +1,36 @@
+enum Small : byte {
+    A = 1,
+    B = 255,
+}
+
+enum Signed : sbyte {
+    Low = -128,
+    High = 127,
+}
+
+enum Wide : ulong {
+    Low = 1,
+    High = 0x8000000000000000,
+    Top,
+}
+
+enum Format : uint {
+    Undefined = 0,
+    Rgba = 4000000000,
+}
+
+void main() {
+    print((int)Small.B);              // output: 255
+    print((byte)Small.A);             // output: 1
+    print((int)Signed.Low);           // output: -128
+    print((ulong)Wide.High);          // output: 9223372036854775808
+    print((ulong)Wide.Top);           // output: 9223372036854775809
+    ulong code = 9223372036854775808uL;
+    print((Wide)code == Wide.High);   // output: true
+    uint rgba = 4000000000u;
+    print((Format)rgba == Format.Rgba); // output: true
+    byte small = 255;
+    print((Small)small == Small.B);   // output: true
+    long negative = -128L;
+    print((Signed)negative == Signed.Low); // output: true
+}

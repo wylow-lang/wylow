@@ -424,8 +424,8 @@ public sealed partial class Binder
                 s.UnderlyingType = underlying;
         }
 
-        long next = 0;
-        var used = new Dictionary<long, VariantSymbol>();
+        Int128 next = 0;
+        var used = new Dictionary<Int128, VariantSymbol>();
         foreach (var variant in s.Variants)
         {
             if (variant.Declaration.Value is { } valueSyntax)
@@ -444,13 +444,13 @@ public sealed partial class Binder
             if (used.TryGetValue(next, out var other))
                 Error(variant.Declaration.NameLocation, $"'{variant.Name}' has the same value as '{other.Name}'");
             used.TryAdd(next, variant);
-            next = next == long.MaxValue ? next : next + 1;
+            next++;
         }
-        if (s.UnderlyingType == VplType.Int && s.Variants.FirstOrDefault(v => v.Value is > int.MaxValue or < int.MinValue) is { } tooLarge)
-            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the underlying type 'int'");
+        if (s.UnderlyingType is { } type && s.Variants.FirstOrDefault(v => !type.HeldRange!.Value.Contains(v.Value)) is { } tooLarge)
+            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the underlying type '{type}'");
     }
 
-    long? VariantValue(Expr syntax, VplType underlying)
+    Int128? VariantValue(Expr syntax, VplType underlying)
     {
         var (literal, negated) = syntax switch
         {
@@ -463,13 +463,13 @@ public sealed partial class Binder
             Error(syntax.Location, "a variant's value must be an integer literal");
             return null;
         }
-        ulong limit = (underlying == VplType.Long ? (ulong)long.MaxValue : int.MaxValue) + (negated ? 1UL : 0UL);
-        if (literal.Value > limit)
+        Int128 value = negated ? -(Int128)literal.Value : literal.Value;
+        if (!underlying.HeldRange!.Value.Contains(value))
         {
             Error(syntax.Location, $"the value does not fit in the underlying type '{underlying}'");
             return null;
         }
-        return negated ? unchecked((long)(0UL - literal.Value)) : (long)literal.Value;
+        return value;
     }
 
     /// <summary>

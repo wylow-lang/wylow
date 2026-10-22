@@ -1,0 +1,6 @@
+// panic: integer overflow
+void main() {
+    uint x = 0u;
+    print(1);   // output: 1
+    print(x - 1);
+}

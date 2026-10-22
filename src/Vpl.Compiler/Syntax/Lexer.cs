@@ -11,8 +11,17 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     {
         ["void"] = TokenKind.VoidKeyword,
         ["bool"] = TokenKind.BoolKeyword,
+        ["sbyte"] = TokenKind.SByteKeyword,
+        ["byte"] = TokenKind.ByteKeyword,
+        ["short"] = TokenKind.ShortKeyword,
+        ["ushort"] = TokenKind.UShortKeyword,
         ["int"] = TokenKind.IntKeyword,
+        ["uint"] = TokenKind.UIntKeyword,
         ["long"] = TokenKind.LongKeyword,
+        ["ulong"] = TokenKind.ULongKeyword,
+        ["nint"] = TokenKind.NIntKeyword,
+        ["nuint"] = TokenKind.NUIntKeyword,
+        ["char"] = TokenKind.CharKeyword,
         ["float"] = TokenKind.FloatKeyword,
         ["double"] = TokenKind.DoubleKeyword,
         ["var"] = TokenKind.VarKeyword,
@@ -59,9 +68,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "byte", "char", "const", "defer", "do", "import", "nint",
-        "nuint", "operator", "package", "sbyte", "shared", "short", "uint", "ulong",
-        "ushort",
+        "const", "defer", "do", "import", "operator", "package", "shared",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
@@ -236,13 +243,20 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         if (raw.StartsWith('_') || raw.EndsWith('_') || raw.Contains("_.") || raw.Contains("._"))
             Error(span, "misplaced '_' in number literal");
 
-        bool isLong = false, isDouble = false;
+        var integerSuffix = IntegerSuffix.None;
+        bool isDouble = false;
         switch (suffix)
         {
             case "":
                 break;
             case "L" or "l" when !isFloat:
-                isLong = true;
+                integerSuffix = IntegerSuffix.Long;
+                break;
+            case "u" or "U" when !isFloat:
+                integerSuffix = IntegerSuffix.Unsigned;
+                break;
+            case "uL" or "UL" or "ul" or "Ul" when !isFloat:
+                integerSuffix = IntegerSuffix.UnsignedLong;
                 break;
             case "f" or "F" when radix == 10:
                 isFloat = true;
@@ -250,9 +264,6 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             case "d" or "D" when radix == 10:
                 isFloat = true;
                 isDouble = true;
-                break;
-            case "u" or "U" or "uL" or "UL" when !isFloat:
-                Error(span, "unsigned integer types are not supported yet");
                 break;
             default:
                 Error(span, $"invalid suffix '{suffix}' on number literal");
@@ -262,7 +273,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         if (digits.Length == 0)
         {
             Error(span, "number literal has no digits");
-            return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(0, isLong));
+            return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(0, integerSuffix));
         }
 
         if (isFloat)
@@ -286,7 +297,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
 
         if (!TryParseInteger(digits, radix, out ulong integer))
             Error(span, "integer literal is too large");
-        return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(integer, isLong));
+        return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(integer, integerSuffix));
     }
 
     static int DigitValue(char c) => c switch

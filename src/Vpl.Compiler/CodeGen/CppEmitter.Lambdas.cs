@@ -74,17 +74,24 @@ public sealed partial class CppEmitter
         $"{CppType(type.FunctionReturnType!)}({string.Join(", ", type.FunctionParameters.Select(p => ParameterType(p.Type, p.RefKind)))})";
 
     /// <summary>
-    /// Overloads that differ only in their function types would be the same C++ template, so a
-    /// function with function-typed parameters gets a suffix that encodes them, if it may have such
-    /// an overload (<see cref="FindOverloaded"/>).
+    /// Overloads that differ only in their function types would be the same C++ template, and ones
+    /// that differ only in <c>nint</c> and <c>long</c> (or <c>nuint</c> and <c>ulong</c>) the same
+    /// C++ function on 64-bit targets. So a function with such parameters gets a suffix that encodes
+    /// them, if it may have such an overload (<see cref="FindOverloaded"/>).
     /// </summary>
     string OverloadSuffix(FunctionSymbol function)
     {
         if (!overloaded.Contains(function))
             return "";
-        var parts = function.Parameters.Select((p, i) => p.Type.IsFunction ? $"{i}{Mangle(p.Type)}" : "").ToList();
+        var parts = function.Parameters.Select((p, i) => p.Type.IsFunction || MentionsPointerSized(p.Type) ? $"{i}{Mangle(p.Type)}" : "").ToList();
         return parts.Any(p => p.Length > 0) ? "_" + string.Concat(parts) : "";
     }
+
+    static bool MentionsPointerSized(VplType type) =>
+        type == VplType.NInt || type == VplType.NUInt
+        || (type.IsNullable && MentionsPointerSized(type.NonNull))
+        || (type.ElementType is { } element && MentionsPointerSized(element))
+        || type.TypeArguments.Any(MentionsPointerSized);
 
     /// <summary>Functions and methods that share their name and parameter count with another.</summary>
     HashSet<FunctionSymbol> overloaded = [];

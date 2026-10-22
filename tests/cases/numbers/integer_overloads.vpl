@@ -1,0 +1,28 @@
+// nint and long are the same C++ type on 64-bit targets, so these overloads need distinct names.
+void show(nint value) {
+    print(1);
+}
+
+void show(long value) {
+    print(2);
+}
+
+void pick(byte value) {
+    print(3);
+}
+
+void pick(int value) {
+    print(4);
+}
+
+void main() {
+    nint n = 5;
+    show(n);       // output: 1
+    show(5L);      // output: 2
+    show(5);       // output: 1
+    byte b = 1;
+    pick(b);       // output: 3
+    pick(1);       // output: 4
+    short s = 1;
+    pick(s);       // output: 4
+}

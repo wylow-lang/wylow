@@ -110,8 +110,8 @@ public sealed partial class Binder
             return new BoundDiscardPattern(c.Location, type);
         if (literalValue.Type == type)
             return new BoundConstantPattern(c.Location, literalValue);
-        if (type == VplType.Long && literalValue.Value is int small)
-            return new BoundConstantPattern(c.Location, new BoundLiteral(c.Location, VplType.Long, (long)small));
+        if (type.IsInteger && IsConvertibleConstant(literalValue, type))
+            return new BoundConstantPattern(c.Location, BoundLiteral.Number(c.Location, type, literalValue.Integer!.Value));
         return ErrorPattern(c, type, $"a '{type}' can never be '{TextOf(c.Location)}'");
     }
 

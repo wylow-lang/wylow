@@ -1,6 +1,6 @@
 void main() {
     int a = 12abc;            // error: invalid suffix 'abc'
-    int b = 5u;               // error: unsigned integer types are not supported yet
+    int b = 5lu;              // error: invalid suffix 'lu'
     int c = 1 # + 2;          // error: unexpected character '#'
     String s = "\q";          // error: unknown escape sequence
 }

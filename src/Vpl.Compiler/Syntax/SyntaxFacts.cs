@@ -44,8 +44,10 @@ public static class SyntaxFacts
     };
 
     public static bool IsPrimitiveTypeKeyword(TokenKind kind) =>
-        kind is TokenKind.VoidKeyword or TokenKind.BoolKeyword or TokenKind.IntKeyword
-            or TokenKind.LongKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
+        kind is TokenKind.VoidKeyword or TokenKind.BoolKeyword or TokenKind.SByteKeyword or TokenKind.ByteKeyword
+            or TokenKind.ShortKeyword or TokenKind.UShortKeyword or TokenKind.IntKeyword or TokenKind.UIntKeyword
+            or TokenKind.LongKeyword or TokenKind.ULongKeyword or TokenKind.NIntKeyword or TokenKind.NUIntKeyword
+            or TokenKind.CharKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
 
     /// <summary>Includes '(', which starts a function type, <c>(int) -> int</c>.</summary>
     public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.OpenParen;

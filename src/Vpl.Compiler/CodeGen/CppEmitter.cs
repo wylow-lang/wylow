@@ -215,8 +215,17 @@ public sealed partial class CppEmitter
         if (type.IsStructOrEnum) return ObjectType(type);
         if (type == VplType.Void) return "void";
         if (type == VplType.Bool) return "bool";
+        if (type == VplType.SByte) return "int8_t";
+        if (type == VplType.Byte) return "uint8_t";
+        if (type == VplType.Short) return "int16_t";
+        if (type == VplType.UShort) return "uint16_t";
         if (type == VplType.Int) return "int32_t";
+        if (type == VplType.UInt) return "uint32_t";
         if (type == VplType.Long) return "int64_t";
+        if (type == VplType.ULong) return "uint64_t";
+        if (type == VplType.NInt) return "intptr_t";
+        if (type == VplType.NUInt) return "uintptr_t";
+        if (type == VplType.Char) return "char32_t";
         if (type == VplType.Float) return "float";
         if (type == VplType.Double) return "double";
         if (type == VplType.String) return "vpl::String";

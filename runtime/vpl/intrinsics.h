@@ -88,9 +88,51 @@ inline void checkRange(int32_t start, int32_t count, int32_t length, const char*
 
 }  // namespace bounds
 
-inline void print(int32_t value) { std::printf("%" PRId32 "\n", value); }
-inline void print(int64_t value) { std::printf("%" PRId64 "\n", value); }
+template <class I>
+inline void print_integer(I value) {
+    char buffer[24];
+    auto result = std::to_chars(buffer, buffer + sizeof buffer, value);
+    std::fwrite(buffer, 1, static_cast<size_t>(result.ptr - buffer), stdout);
+    std::fputc('\n', stdout);
+}
+
+// nint and nuint print through the overload of the fixed-size type they are.
+inline void print(int8_t value) { print_integer(value); }
+inline void print(uint8_t value) { print_integer(value); }
+inline void print(int16_t value) { print_integer(value); }
+inline void print(uint16_t value) { print_integer(value); }
+inline void print(int32_t value) { print_integer(value); }
+inline void print(uint32_t value) { print_integer(value); }
+inline void print(int64_t value) { print_integer(value); }
+inline void print(uint64_t value) { print_integer(value); }
 inline void print(bool value) { std::puts(value ? "true" : "false"); }
+
+inline void print(char32_t value) {
+    char buffer[5];
+    auto c = static_cast<uint32_t>(value);
+    size_t length;
+    if (c < 0x80) {
+        buffer[0] = static_cast<char>(c);
+        length = 1;
+    } else if (c < 0x800) {
+        buffer[0] = static_cast<char>(0xC0 | (c >> 6));
+        buffer[1] = static_cast<char>(0x80 | (c & 0x3F));
+        length = 2;
+    } else if (c < 0x10000) {
+        buffer[0] = static_cast<char>(0xE0 | (c >> 12));
+        buffer[1] = static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        buffer[2] = static_cast<char>(0x80 | (c & 0x3F));
+        length = 3;
+    } else {
+        buffer[0] = static_cast<char>(0xF0 | (c >> 18));
+        buffer[1] = static_cast<char>(0x80 | ((c >> 12) & 0x3F));
+        buffer[2] = static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        buffer[3] = static_cast<char>(0x80 | (c & 0x3F));
+        length = 4;
+    }
+    buffer[length] = '\n';
+    std::fwrite(buffer, 1, length + 1, stdout);
+}
 
 inline void print(String value) {
     std::fwrite(value.data, 1, static_cast<size_t>(value.length), stdout);

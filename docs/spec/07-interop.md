@@ -168,8 +168,8 @@ var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
   type, which is `int` when values are given without one.
 - Only enums whose variants carry no data can have an underlying type or values.
 
-> Implemented so far: underlying types `int` and `long` (the other integer types don't exist yet),
-> values, and casts both ways. `@Flags`, `tryFrom`, and `bitcast` are not implemented.
+> Implemented so far: underlying types, values, and casts both ways. `@Flags`, `tryFrom`, and
+> `bitcast` are not implemented.
 
 Enum variant names keep their C spelling when bound from C (`R8G8B8A8_UNORM`); the naming-convention
 warning does not apply inside `extern` blocks or to enums with an explicit underlying type.

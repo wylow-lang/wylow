@@ -188,7 +188,7 @@ public sealed record SwitchCase(Location Location, IReadOnlyList<PatternSyntax> 
 
 public abstract record Expr(Location Location) : Node(Location);
 
-public sealed record IntLiteralExpr(Location Location, ulong Value, bool IsLong) : Expr(Location);
+public sealed record IntLiteralExpr(Location Location, ulong Value, IntegerSuffix Suffix) : Expr(Location);
 
 public sealed record FloatLiteralExpr(Location Location, double Value, bool IsDouble) : Expr(Location);
 

@@ -46,7 +46,8 @@ public sealed class MatchSpace(VplType type)
         BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target) ? Wildcard.Instance : Opaque.Instance,
         BoundVariantPattern variant => new Constructor(variant.Variant, [.. variant.Fields.Select(Simplify)]),
         BoundConstantPattern { Value.Value: bool b } => new Constructor(b, []),
-        BoundConstantPattern constant => new Constructor(System.Convert.ToInt64(constant.Value.Value), []),
+        BoundConstantPattern { Value.Integer: { } integer } => new Constructor(integer, []),
+        BoundConstantPattern constant => new Constructor(constant.Value.Value, []),
         _ => throw new InvalidOperationException($"unexpected pattern {pattern.GetType().Name}"),
     };
 

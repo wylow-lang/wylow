@@ -12,8 +12,17 @@ public enum TokenKind
 
     VoidKeyword,
     BoolKeyword,
+    SByteKeyword,
+    ByteKeyword,
+    ShortKeyword,
+    UShortKeyword,
     IntKeyword,
+    UIntKeyword,
     LongKeyword,
+    ULongKeyword,
+    NIntKeyword,
+    NUIntKeyword,
+    CharKeyword,
     FloatKeyword,
     DoubleKeyword,
     VarKeyword,
@@ -113,6 +122,8 @@ public enum TokenKind
 
 public readonly record struct Token(TokenKind Kind, TextSpan Span, string Text, object? Value);
 
-public readonly record struct IntegerLiteralValue(ulong Value, bool IsLong);
+public enum IntegerSuffix { None, Unsigned, Long, UnsignedLong }
+
+public readonly record struct IntegerLiteralValue(ulong Value, IntegerSuffix Suffix);
 
 public readonly record struct FloatLiteralValue(double Value, bool IsDouble);

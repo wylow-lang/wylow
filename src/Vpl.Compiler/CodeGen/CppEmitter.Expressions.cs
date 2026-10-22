@@ -360,6 +360,8 @@ public sealed partial class CppEmitter
             return $"{ObjectType(to)}::from_value({operand}, {SourceLocation(conversion.Location)})";
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";
+        if (from.IsInteger && to == VplType.Char)
+            return $"vpl::to_char({operand}, {SourceLocation(conversion.Location)})";
         if (from.IsFloatingPoint && to.IsInteger)
             return $"vpl::f2i<{CppType(to)}>({operand})";
         if (from == VplType.Double && to == VplType.Float)
@@ -374,6 +376,11 @@ public sealed partial class CppEmitter
         int i => i < 0 ? $"({i})" : i.ToString(CultureInfo.InvariantCulture),
         long l when l == long.MinValue => "INT64_MIN",
         long l => l < 0 ? $"(-INT64_C({-l}))" : $"INT64_C({l})",
+        uint u => $"UINT32_C({u})",
+        ulong u => $"UINT64_C({u})",
+        // Typed, so that templates like vpl::add deduce the VPL type rather than int.
+        sbyte or byte or short or ushort or nint or nuint => $"{CppType(literal.Type)}{{{literal.Integer!.Value.ToString(CultureInfo.InvariantCulture)}}}",
+        Rune r => $"char32_t{{0x{r.Value:X}}}",
         float f => FloatText(f.ToString("R", CultureInfo.InvariantCulture)) + "f",
         double d => FloatText(d.ToString("R", CultureInfo.InvariantCulture)),
         string s => $"vpl::String{{{CppStringLiteral(s)}, {Encoding.UTF8.GetByteCount(s)}}}",

@@ -224,7 +224,7 @@ public sealed class VariantSymbol
     public IReadOnlyList<FieldSymbol> Fields { get; }
 
     /// <summary>The integer the variant converts to, for enums without data.</summary>
-    public long Value { get; set; }
+    public Int128 Value { get; set; }
 
     public FunctionSymbol Constructor { get; }
 
@@ -337,7 +337,7 @@ public static class Builtins
     {
         get
         {
-            VplType[] values = [VplType.Int, VplType.Long, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
+            VplType[] values = [.. VplType.Integers, VplType.Char, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
             foreach (var type in values.Concat(values.Select(v => v.Nullable)))
             {
                 yield return new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], VplType.Void)

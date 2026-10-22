@@ -6,4 +6,12 @@ void main() {
     print(-y);        // output: -9223372036854775808
     int big = 65536;
     print(big * big); // output: 0
+    byte b = 255;
+    print(b + 1);     // output: 0
+    uint zero = 0u;
+    print(zero - 1);  // output: 4294967295
+    ushort us = 300;
+    print(us * us);   // output: 24464
+    sbyte s = -128;
+    print(-s);        // output: -128
 }

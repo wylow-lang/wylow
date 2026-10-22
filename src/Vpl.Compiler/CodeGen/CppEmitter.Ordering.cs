@@ -192,6 +192,7 @@ public sealed partial class CppEmitter
         BoundCall or BoundInvocation or BoundNew or BoundNonNull or BoundTry => true,
         BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
         BoundConversion { Type.IsEnum: true } => true,
+        BoundConversion { Operand.Type.IsInteger: true } conversion when conversion.Type == VplType.Char => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit
             || NeedsDefaultCode(construction.Type) => true,
         BoundBinary binary when MayPanic(binary) => true,
@@ -261,7 +262,7 @@ public sealed partial class CppEmitter
     {
         BoundBinaryOperator.Add or BoundBinaryOperator.Subtract or BoundBinaryOperator.Multiply => true,
         BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder =>
-            binary.Right is not BoundLiteral { Value: int and not 0 and not -1 } and not BoundLiteral { Value: long and not 0L and not -1L },
+            binary.Right is not BoundLiteral { Integer: { } divisor } || divisor == 0 || divisor == -1,
         _ => false,
     };
 }

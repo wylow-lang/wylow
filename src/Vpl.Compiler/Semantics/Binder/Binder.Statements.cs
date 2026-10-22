@@ -448,12 +448,8 @@ public sealed partial class Binder
             return ErrorStatement(s.Location);
         }
 
-        object one = operand.Type == VplType.Int ? (object)1
-            : operand.Type == VplType.Long ? (object)1L
-            : operand.Type == VplType.Float ? (object)1f
-            : (object)1d;
         var value = BindBinaryOperation(
-            s.Location, operand, s.IsIncrement ? TokenKind.Plus : TokenKind.Minus, new BoundLiteral(s.Location, operand.Type, one));
+            s.Location, operand, s.IsIncrement ? TokenKind.Plus : TokenKind.Minus, BoundLiteral.Number(s.Location, operand.Type, 1));
         return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 

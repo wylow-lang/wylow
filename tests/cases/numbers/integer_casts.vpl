@@ -1,0 +1,28 @@
+void main() {
+    print((byte)300);             // output: 44
+    print((sbyte)200);            // output: -56
+    print((ushort)70000);         // output: 4464
+    print((short)40000);          // output: -25536
+    print((uint)-1);              // output: 4294967295
+    print((ulong)-1L);            // output: 18446744073709551615
+    print((int)4000000000u);      // output: -294967296
+    print((long)18446744073709551615uL); // output: -1
+
+    // Float to integer saturates to the target's range.
+    print((byte)-1.5);            // output: 0
+    print((byte)1e10);            // output: 255
+    print((uint)-7.0);            // output: 0
+    print((ulong)1e30d);          // output: 18446744073709551615
+    print((sbyte)-1000.0);        // output: -128
+
+    print((float)(byte)255);      // output: 255.0
+    print((double)4000000001u);   // output: 4000000001.0
+
+    char c = (char)65;
+    print(c);                     // output: A
+    int code = c;
+    print(code);                  // output: 65
+    print((byte)(char)300);       // output: 44
+    print(c == (char)65);         // output: true
+    print(c < (char)66);          // output: true
+}

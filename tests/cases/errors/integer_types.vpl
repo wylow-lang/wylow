@@ -1,0 +1,53 @@
+enum TooBig : byte {
+    A = 256,                      // error: the value does not fit in the underlying type 'byte'
+}
+
+enum Overflows : byte {
+    A = 255,
+    B,                            // error: the value of 'B' does not fit in the underlying type 'byte'
+}
+
+enum NotInteger : char {          // error: an enum's underlying type must be an integer type, not 'char'
+    A,
+}
+
+void main() {
+    byte b = 300;                 // error: cannot implicitly convert 'int' to 'byte'; use an explicit cast
+    int i = 1L;                   // error: cannot implicitly convert 'long' to 'int'; use an explicit cast
+    uint u = -1;                  // error: cannot implicitly convert 'int' to 'uint'; use an explicit cast
+    int big = 3000000000;         // error: integer literal is too large for 'int'; add a 'u' suffix to make it a 'uint', or an 'L' suffix to make it a 'long'
+    int huge = 5000000000;        // error: integer literal is too large for 'int'; add an 'L' suffix to make it a 'long'
+    uint ubig = 5000000000u;      // error: integer literal is too large for 'uint'; add a 'uL' suffix to make it a 'ulong'
+    var negated = -5u;            // error: operator '-' cannot be applied to 'uint'
+    uint x = 5u;
+    var y = -x;                   // error: operator '-' cannot be applied to 'uint'
+
+    byte hi = 1;
+    var packed = hi << 8;         // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
+    hi <<= 8;                     // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
+    int n = 1;
+    var tooFar = n << 32;         // error: a shift count of 32 is out of range for 'int', which can shift by 0 to 31
+    var negative = n >> -1;       // error: a shift count of -1 is out of range for 'int', which can shift by 0 to 31
+
+    long l = 1;
+    ulong ul = 1uL;
+    var mixed = l + ul;           // error: operator '+' cannot be applied to 'long' and 'ulong'; use an explicit cast to convert one side
+    byte small = 1;
+    small += n;                   // error: cannot implicitly convert 'int' to 'byte'; use an explicit cast
+
+    uint uv = 1u;
+    nint fromUint = uv;           // error: cannot implicitly convert 'uint' to 'nint'; use an explicit cast
+    nint ni = 1;
+    int fromNint = ni;            // error: cannot implicitly convert 'nint' to 'int'; use an explicit cast
+    nuint nu = 1u;
+    long fromNuint = nu;          // error: cannot implicitly convert 'nuint' to 'long'; use an explicit cast
+    double fromLong = l;          // error: cannot implicitly convert 'long' to 'double'; use an explicit cast
+    float fromShortOk = (short)1;
+    float fromInt = n;            // error: cannot implicitly convert 'int' to 'float'; use an explicit cast
+
+    char c = 65;                  // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
+    char d = (char)65;
+    var next = d + 1;             // error: operator '+' cannot be applied to 'char' and 'int'
+    float f = (float)d;           // error: cannot convert 'char' to 'float'
+    bool flag = (bool)d;          // error: cannot convert 'char' to 'bool'
+}

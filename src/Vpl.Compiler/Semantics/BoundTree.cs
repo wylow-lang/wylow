@@ -1,3 +1,4 @@
+using System.Text;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
@@ -74,7 +75,11 @@ public sealed record BoundSuperCall(Location Location, MethodReference Construct
 
 public abstract record BoundExpression(Location Location, VplType Type) : BoundNode(Location);
 
-/// <summary><see cref="Value"/> is an int, long, float, double, bool or string matching <see cref="BoundExpression.Type"/>.</summary>
+/// <summary>
+/// <see cref="Value"/> is the C# value of the same type as <see cref="BoundExpression.Type"/>: an
+/// <c>int</c> for an <c>int</c>, a <c>byte</c> for a <c>byte</c>, a <see cref="Rune"/> for a
+/// <c>char</c>, and so on. Build numbers with <see cref="Number"/>.
+/// </summary>
 public sealed record BoundLiteral(Location Location, VplType Type, object Value) : BoundExpression(Location, Type)
 {
     public object Value { get; } = Validate(Type, Value);
@@ -83,8 +88,17 @@ public sealed record BoundLiteral(Location Location, VplType Type, object Value)
     {
         bool matches = value switch
         {
+            sbyte => type == VplType.SByte,
+            byte => type == VplType.Byte,
+            short => type == VplType.Short,
+            ushort => type == VplType.UShort,
             int => type == VplType.Int,
+            uint => type == VplType.UInt,
             long => type == VplType.Long,
+            ulong => type == VplType.ULong,
+            nint => type == VplType.NInt,
+            nuint => type == VplType.NUInt,
+            Rune => type == VplType.Char,
             float => type == VplType.Float,
             double => type == VplType.Double,
             bool => type == VplType.Bool,
@@ -92,6 +106,43 @@ public sealed record BoundLiteral(Location Location, VplType Type, object Value)
             _ => false,
         };
         return matches ? value : throw new ArgumentException($"literal value {value} ({value.GetType().Name}) does not match type '{type}'");
+    }
+
+    /// <summary>The value of an integer literal.</summary>
+    public Int128? Integer => Type.IsInteger ? IntegerValue(Value) : null;
+
+    static Int128 IntegerValue(object value) => value switch
+    {
+        sbyte v => v,
+        byte v => v,
+        short v => v,
+        ushort v => v,
+        int v => v,
+        uint v => v,
+        long v => v,
+        ulong v => v,
+        nint v => v,
+        nuint v => v,
+        _ => throw new InvalidOperationException($"not an integer: {value.GetType().Name}"),
+    };
+
+    /// <summary>A literal of a numeric type, which must represent <paramref name="value"/>.</summary>
+    public static BoundLiteral Number(Location location, VplType type, Int128 value)
+    {
+        object boxed = type == VplType.SByte ? (object)(sbyte)value
+            : type == VplType.Byte ? (object)(byte)value
+            : type == VplType.Short ? (object)(short)value
+            : type == VplType.UShort ? (object)(ushort)value
+            : type == VplType.Int ? (object)(int)value
+            : type == VplType.UInt ? (object)(uint)value
+            : type == VplType.Long ? (object)(long)value
+            : type == VplType.ULong ? (object)(ulong)value
+            : type == VplType.NInt ? (object)(nint)(long)value
+            : type == VplType.NUInt ? (object)(nuint)(ulong)value
+            : type == VplType.Float ? (object)(float)value
+            : type == VplType.Double ? (object)(double)value
+            : throw new ArgumentException($"'{type}' is not a numeric type");
+        return new BoundLiteral(location, type, boxed);
     }
 }
 

@@ -20,8 +20,7 @@ All sizes are fixed on every platform.
 
 `char` is not a number: it has no arithmetic or bitwise operators (§2.4).
 
-> Implemented so far: `bool`, `int`, `long`, `float`, and `double`. The other primitives, the `u`
-> and `uL` suffixes, and character literals are not implemented yet.
+> Not implemented yet: character literals.
 
 ## 2.2 Literals
 
@@ -85,11 +84,12 @@ is exactly a value of the target type:
 - `char` converts to its code point, which fits in every integer type of 32 bits or more. Nothing
   converts implicitly to `char`.
 
-**Integer constants** (an integer literal, optionally negated) convert implicitly to any integer type
-that holds their value, so `byte b = 200;` works and `byte b = 300;` is an error. For `nint` and
-`nuint`, the value must fit in `int` or `uint`, so the conversion holds on every target. A constant
-also converts to `float` or `double` when the value is exactly representable, so `float x = 0;` and
-`velocity * 2` work. `float f = 16777217;` is an error (2^24 + 1 has no exact `float`).
+**Integer constants** (an integer literal, optionally negated) without a suffix convert implicitly to
+any integer type that holds their value, so `byte b = 200;` works and `byte b = 300;` is an error. A
+suffix chooses the type, so `int i = 1L;` is an error. For `nint` and `nuint`, the value must fit in
+`int` or `uint`, so the conversion holds on every target. Any integer constant also converts to
+`float` or `double` when the value is exactly representable, so `float x = 0;` and `velocity * 2`
+work. `float f = 16777217;` is an error (2^24 + 1 has no exact `float`).
 
 **All other conversions require a cast** `(T)x`, and every cast has defined behavior:
 
@@ -123,8 +123,8 @@ promoted to `int` as in C, Java, and C#.
 
 - A binary operator on two numbers first converts both operands to one type:
   - the operands' type, if they have the same type;
-  - otherwise, if one operand is an integer constant that the other operand's type holds, the other
-    operand's type: `light - 1` with a `byte light` is a `byte`;
+  - otherwise, if one operand is a constant that converts to the other operand's type (§2.3), the
+    other operand's type: `light - 1` with a `byte light` is a `byte`, and `1 + 2u` is a `uint`;
   - otherwise, the type one operand converts to implicitly. Between two integer types that don't
     convert to each other, it is the smallest integer type both convert to: `int + uint` is a `long`.
   - If there is none, the operation is an error, and one side needs a cast: `long + ulong`,

@@ -72,18 +72,27 @@ public sealed partial class Binder
 
     BoundExpression BindIntegerLiteral(IntLiteralExpr e, Location location, bool negated)
     {
-        // Negation is folded into the literal so that int.MinValue and long.MinValue can be written.
-        ulong limit = (e.IsLong ? (ulong)long.MaxValue : int.MaxValue) + (negated ? 1UL : 0UL);
-        if (e.Value > limit)
+        var type = e.Suffix switch
         {
-            return ErrorExpression(location, e.IsLong
-                ? "integer literal is too large for 'long'"
-                : "integer literal is too large for 'int'; add an 'L' suffix to make it a 'long'");
-        }
+            IntegerSuffix.Unsigned => VplType.UInt,
+            IntegerSuffix.Long => VplType.Long,
+            IntegerSuffix.UnsignedLong => VplType.ULong,
+            _ => VplType.Int,
+        };
+        if (negated && !type.IsSigned)
+            return ErrorExpression(location, $"operator '-' cannot be applied to '{type}'");
 
-        if (e.IsLong)
-            return new BoundLiteral(location, VplType.Long, negated ? unchecked((long)(0UL - e.Value)) : (long)e.Value);
-        return new BoundLiteral(location, VplType.Int, negated ? unchecked((int)(0U - (uint)e.Value)) : (int)e.Value);
+        // Negation is folded into the literal so that int.MinValue and long.MinValue can be written.
+        Int128 value = negated ? -(Int128)e.Value : e.Value;
+        if (!type.Range!.Value.Contains(value))
+        {
+            var hint = type == VplType.Int && value > 0 && value <= uint.MaxValue ? "; add a 'u' suffix to make it a 'uint', or an 'L' suffix to make it a 'long'"
+                : type == VplType.Int ? "; add an 'L' suffix to make it a 'long'"
+                : type == VplType.UInt ? "; add a 'uL' suffix to make it a 'ulong'"
+                : "";
+            return ErrorExpression(location, $"integer literal is too large for '{type}'{hint}");
+        }
+        return BoundLiteral.Number(location, type, value);
     }
 
     bool IsValueName(string name) =>
@@ -247,7 +256,7 @@ public sealed partial class Binder
 
         var (op, valid) = e.Operator switch
         {
-            TokenKind.Minus => (BoundUnaryOperator.Negate, operand.Type.IsNumeric),
+            TokenKind.Minus => (BoundUnaryOperator.Negate, operand.Type.IsFloatingPoint || operand.Type.IsSigned),
             TokenKind.Bang => (BoundUnaryOperator.LogicalNot, operand.Type == VplType.Bool),
             TokenKind.Tilde => (BoundUnaryOperator.BitwiseNot, operand.Type.IsInteger),
             _ => throw new InvalidOperationException($"unexpected unary operator {e.Operator}"),
@@ -406,6 +415,7 @@ public sealed partial class Binder
         }
 
         bool bothBool = left.Type == VplType.Bool && right.Type == VplType.Bool;
+        bool bothChar = left.Type == VplType.Char && right.Type == VplType.Char;
         bool bothNumeric = left.Type.IsNumeric && right.Type.IsNumeric;
         bool bothInteger = left.Type.IsInteger && right.Type.IsInteger;
 
@@ -414,9 +424,16 @@ public sealed partial class Binder
         switch (op)
         {
             case BoundBinaryOperator.ShiftLeft or BoundBinaryOperator.ShiftRight:
-                if (bothInteger)
-                    return new BoundBinary(location, left, op, right, left.Type);
-                break;
+                if (!bothInteger)
+                    break;
+                // The count is masked, so an out-of-range constant would silently shift by something else.
+                if (right is BoundLiteral { Integer: { } count } && (count < 0 || count >= left.Type.ShiftWidth))
+                {
+                    var widen = left.Type.ShiftWidth < 32 ? $"; widen it first, as in '(int)x {symbol} {count}'" : "";
+                    return ErrorExpression(right.Location,
+                        $"a shift count of {count} is out of range for '{left.Type}', which can shift by 0 to {left.Type.ShiftWidth - 1}{widen}");
+                }
+                return new BoundBinary(location, left, op, right, left.Type);
             case BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr:
                 operandType = bothBool ? VplType.Bool : null;
                 break;
@@ -424,12 +441,12 @@ public sealed partial class Binder
                 operandType = bothBool ? VplType.Bool : bothInteger ? CommonNumericType(left, right) : null;
                 break;
             case BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual:
-                operandType = bothBool ? VplType.Bool : bothNumeric ? CommonNumericType(left, right) : null;
+                operandType = bothBool || bothChar ? left.Type : bothNumeric ? CommonNumericType(left, right) : null;
                 producesBool = true;
                 break;
             case BoundBinaryOperator.Less or BoundBinaryOperator.LessOrEqual
                 or BoundBinaryOperator.Greater or BoundBinaryOperator.GreaterOrEqual:
-                operandType = bothNumeric ? CommonNumericType(left, right) : null;
+                operandType = bothChar ? VplType.Char : bothNumeric ? CommonNumericType(left, right) : null;
                 producesBool = true;
                 break;
             default:
@@ -480,14 +497,25 @@ public sealed partial class Binder
         return new BoundBinary(location, left, op, Convert(right, VplType.Int), left.Type);
     }
 
+    /// <summary>
+    /// The type two numbers operate in. A constant takes the other side's type, so <c>light - 1</c>
+    /// stays a <c>byte</c>. Two integer types that don't convert to each other meet in the smallest
+    /// integer type both convert to, so <c>int + uint</c> is a <c>long</c>.
+    /// </summary>
     VplType? CommonNumericType(BoundExpression left, BoundExpression right)
     {
         if (left.Type == right.Type)
             return left.Type;
-        if (CanConvert(left, right.Type))
-            return right.Type;
-        if (CanConvert(right, left.Type))
+        if (IsConvertibleConstant(right, left.Type))
             return left.Type;
+        if (IsConvertibleConstant(left, right.Type))
+            return right.Type;
+        if (Conversions.IsImplicit(left.Type, right.Type))
+            return right.Type;
+        if (Conversions.IsImplicit(right.Type, left.Type))
+            return left.Type;
+        if (left.Type.IsInteger && right.Type.IsInteger)
+            return VplType.Integers.FirstOrDefault(t => Conversions.IsImplicit(left.Type, t) && Conversions.IsImplicit(right.Type, t));
         return null;
     }
 
@@ -501,11 +529,15 @@ public sealed partial class Binder
     bool IsNullableWrapping(BoundExpression expression, VplType to) =>
         to.IsNullableValue && !expression.Type.IsNullable && expression.Type != VplType.Null && CanConvert(expression, to.NonNull);
 
-    /// <summary>Integer literals convert implicitly to float or double when no precision is lost.</summary>
+    /// <summary>
+    /// Unsuffixed integer literals convert implicitly to any integer type that holds them on every
+    /// target; a suffix already chose the type. Any integer literal converts to float or double
+    /// when no precision is lost.
+    /// </summary>
     static bool IsConvertibleConstant(BoundExpression expression, VplType to) =>
-        to.IsFloatingPoint
-        && expression is BoundLiteral { Value: int or long } literal
-        && Conversions.IsExactlyRepresentable(System.Convert.ToInt64(literal.Value), to);
+        expression is BoundLiteral { Integer: { } value } literal
+        && (to.IsInteger ? literal.Type == VplType.Int && to.HeldRange!.Value.Contains(value)
+            : to.IsFloatingPoint && Conversions.IsExactlyRepresentable(value, to));
 
     /// <summary>A nullable local converts to a non-null type if flow analysis proves it is not null there.</summary>
     static bool IsNarrowable(BoundExpression expression, VplType to) =>
@@ -536,10 +568,7 @@ public sealed partial class Binder
         }
 
         if (IsConvertibleConstant(expression, to))
-        {
-            long value = System.Convert.ToInt64(((BoundLiteral)expression).Value);
-            return new BoundLiteral(expression.Location, to, to == VplType.Float ? (object)(float)value : (object)(double)value);
-        }
+            return BoundLiteral.Number(expression.Location, to, ((BoundLiteral)expression).Integer!.Value);
 
         if (IsNarrowable(expression, to))
         {
@@ -599,9 +628,12 @@ public sealed partial class Binder
             return new BoundErrorExpression(location);
 
         var (t, f) = (whenTrue.Type, whenFalse.Type);
+        // As for operators, a constant takes the other branch's type: `c ? b : 0` is a byte.
         VplType? type = t == f ? t
-            : Conversions.IsImplicit(t, f) || IsConvertibleConstant(whenTrue, f) ? f
-            : Conversions.IsImplicit(f, t) || IsConvertibleConstant(whenFalse, t) ? t
+            : IsConvertibleConstant(whenFalse, t) ? t
+            : IsConvertibleConstant(whenTrue, f) ? f
+            : Conversions.IsImplicit(t, f) ? f
+            : Conversions.IsImplicit(f, t) ? t
             : t == VplType.Null && f.CanBeNullable ? f.Nullable
             : f == VplType.Null && t.CanBeNullable ? t.Nullable
             : null;

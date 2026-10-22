@@ -13,7 +13,11 @@ template <class T>
 inline T add(T a, T b, const char* location) {
     T r = static_cast<T>(static_cast<Wide<T>>(a) + static_cast<Wide<T>>(b));
     if constexpr (VPL_DEBUG != 0) {
-        if (((a ^ r) & (b ^ r)) < 0) panic("integer overflow", location);
+        if constexpr (std::is_signed_v<T>) {
+            if (((a ^ r) & (b ^ r)) < 0) panic("integer overflow", location);
+        } else {
+            if (r < a) panic("integer overflow", location);
+        }
     }
     return r;
 }
@@ -22,7 +26,11 @@ template <class T>
 inline T sub(T a, T b, const char* location) {
     T r = static_cast<T>(static_cast<Wide<T>>(a) - static_cast<Wide<T>>(b));
     if constexpr (VPL_DEBUG != 0) {
-        if (((a ^ b) & (a ^ r)) < 0) panic("integer overflow", location);
+        if constexpr (std::is_signed_v<T>) {
+            if (((a ^ b) & (a ^ r)) < 0) panic("integer overflow", location);
+        } else {
+            if (a < b) panic("integer overflow", location);
+        }
     }
     return r;
 }
@@ -30,10 +38,14 @@ inline T sub(T a, T b, const char* location) {
 template <class T>
 inline bool mul_overflows(T a, T b) {
     constexpr T max = std::numeric_limits<T>::max();
-    constexpr T min = std::numeric_limits<T>::min();
     if (a == 0 || b == 0) return false;
-    if (a > 0) return b > 0 ? a > max / b : b < min / a;
-    return b > 0 ? a < min / b : a < max / b;
+    if constexpr (!std::is_signed_v<T>) {
+        return a > max / b;
+    } else {
+        constexpr T min = std::numeric_limits<T>::min();
+        if (a > 0) return b > 0 ? a > max / b : b < min / a;
+        return b > 0 ? a < min / b : a < max / b;
+    }
 }
 
 template <class T>
@@ -56,15 +68,19 @@ inline T neg(T a, const char* location) {
 template <class T>
 inline T div(T a, T b, const char* location) {
     if (b == 0) panic("division by zero", location);
-    if (b == -1 && a == std::numeric_limits<T>::min()) panic("integer overflow", location);
-    return a / b;
+    if constexpr (std::is_signed_v<T>) {
+        if (b == -1 && a == std::numeric_limits<T>::min()) panic("integer overflow", location);
+    }
+    return static_cast<T>(a / b);
 }
 
 template <class T>
 inline T rem(T a, T b, const char* location) {
     if (b == 0) panic("division by zero", location);
-    if (b == -1) return 0;
-    return a % b;
+    if constexpr (std::is_signed_v<T>) {
+        if (b == -1) return 0;
+    }
+    return static_cast<T>(a % b);
 }
 
 template <class T, class N>
@@ -88,6 +104,16 @@ inline T f2i(F x) {
     if (x <= static_cast<F>(min)) return min;
     if (x >= static_cast<F>(max)) return max;
     return static_cast<T>(x);
+}
+
+// A char holds a Unicode scalar value: at most 0x10FFFF, and not a surrogate.
+template <class T>
+inline char32_t to_char(T value, const char* location) {
+    if (std::in_range<uint32_t>(value)) {
+        auto v = static_cast<uint32_t>(value);
+        if (v <= 0x10FFFFu && (v < 0xD800u || v > 0xDFFFu)) return static_cast<char32_t>(v);
+    }
+    panic("integer is not a Unicode scalar value", location);
 }
 
 // Rounds to nearest like IEEE, including overflow to infinity; a plain C++ cast is UB out of range.

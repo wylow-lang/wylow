@@ -112,7 +112,9 @@ public sealed partial class Binder
                     continue;
                 }
                 // A non-escaping function can't convert to its escaping form, and is reported as that once the call is checked.
-                var chosen = found.Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
+                // An unsuffixed literal's type comes last, so the literal takes another argument's type when it fits.
+                var chosen = found.OrderBy(b => b.Expression is BoundLiteral { Integer: not null } literal && literal.Type == VplType.Int)
+                    .Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
                     candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || IsEscapingMismatch(b.Expression.Type, candidate) : b.Type == candidate));
                 if (found.All(b => b.Type == VplType.Null))
                 {

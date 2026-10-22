@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using Vpl.Compiler.Syntax;
 
@@ -13,11 +12,27 @@ public sealed class VplType
 {
     public static readonly VplType Void = new("void");
     public static readonly VplType Bool = new("bool");
-    public static readonly VplType Int = new("int");
-    public static readonly VplType Long = new("long");
+    public static readonly VplType SByte = Integer("sbyte", sbyte.MinValue, sbyte.MaxValue);
+    public static readonly VplType Byte = Integer("byte", byte.MinValue, byte.MaxValue);
+    public static readonly VplType Short = Integer("short", short.MinValue, short.MaxValue);
+    public static readonly VplType UShort = Integer("ushort", ushort.MinValue, ushort.MaxValue);
+    public static readonly VplType Int = Integer("int", int.MinValue, int.MaxValue);
+    public static readonly VplType UInt = Integer("uint", uint.MinValue, uint.MaxValue);
+    public static readonly VplType Long = Integer("long", long.MinValue, long.MaxValue);
+    public static readonly VplType ULong = Integer("ulong", ulong.MinValue, ulong.MaxValue);
+    public static readonly VplType NInt = Integer("nint", long.MinValue, long.MaxValue, new(int.MinValue, int.MaxValue));
+    public static readonly VplType NUInt = Integer("nuint", ulong.MinValue, ulong.MaxValue, new(uint.MinValue, uint.MaxValue));
     public static readonly VplType Float = new("float");
     public static readonly VplType Double = new("double");
     public static readonly VplType String = new("String");
+
+    /// <summary>A Unicode scalar value. It converts to the integer types like one, but is not a number.</summary>
+    public static readonly VplType Char = new("char") { Range = new(0, 0x10FFFF), HeldRange = new(0, 0x10FFFF) };
+
+    public static IReadOnlyList<VplType> Integers { get; } = [SByte, Byte, Short, UShort, Int, UInt, Long, ULong, NInt, NUInt];
+
+    static VplType Integer(string name, Int128 min, Int128 max, IntegerRange? held = null) =>
+        new(name) { Range = new(min, max), HeldRange = held ?? new(min, max) };
 
     /// <summary>The type of the <c>null</c> literal, which converts to every nullable type.</summary>
     public static readonly VplType Null = new("null");
@@ -198,7 +213,22 @@ public sealed class VplType
     public bool IsReference => IsClass || IsInterface;
 
     public bool IsTypeParameter => TypeParameter is not null;
-    public bool IsInteger => this == Int || this == Long;
+
+    /// <summary>
+    /// The values of an integer type or <c>char</c> on some target. <c>nint</c> and <c>nuint</c>
+    /// have 64-bit ranges here, and only 32-bit ones in <see cref="HeldRange"/>.
+    /// </summary>
+    public IntegerRange? Range { get; private init; }
+
+    /// <summary>The values an integer type or <c>char</c> holds on every target.</summary>
+    public IntegerRange? HeldRange { get; private init; }
+
+    public bool IsInteger => Range is not null && this != Char;
+    public bool IsSigned => Range?.Min < 0;
+
+    /// <summary>The bits a shift count may select on every target.</summary>
+    public int ShiftWidth => this == SByte || this == Byte ? 8 : this == Short || this == UShort ? 16 : this == Long || this == ULong ? 64 : 32;
+
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
     public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters)
@@ -242,6 +272,12 @@ public sealed class VplType
     public IEnumerable<VplType> Interfaces => Symbol is { } s ? s.Interfaces.Select(TypeMap.For(this).Apply) : [];
 
     public override string ToString() => Name;
+}
+
+public readonly record struct IntegerRange(Int128 Min, Int128 Max)
+{
+    public bool Contains(Int128 value) => value >= Min && value <= Max;
+    public bool Contains(IntegerRange other) => other.Min >= Min && other.Max <= Max;
 }
 
 /// <summary>A substitution of type parameters by types.</summary>
@@ -332,16 +368,29 @@ public static class Conversions
         || from == VplType.Error
         || to == VplType.Error
         || (from.IsEscaping && to == from.NonEscaping)
-        || (from == VplType.Int && (to == VplType.Long || to == VplType.Double))
-        || (from == VplType.Float && to == VplType.Double)
+        || IsNumericWidening(from, to)
         || (from == VplType.Null && (to.IsNullable || to.IsPointer))
         || (to.IsNullableValue && from != VplType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
 
-    /// <summary>Casts: between numbers, and between integers and enums without data.</summary>
+    /// <summary>
+    /// An integer or <c>char</c> converts to an integer type that holds all its values on every
+    /// target, and an integer to a floating-point type that represents all of them exactly.
+    /// </summary>
+    static bool IsNumericWidening(VplType from, VplType to) =>
+        (from == VplType.Float && to == VplType.Double)
+        || (from.Range is { } range && (to.IsInteger ? to.HeldRange!.Value.Contains(range)
+            : from.IsInteger && to.IsFloatingPoint && ExactIntegers(to).Contains(range)));
+
+    static IntegerRange ExactIntegers(VplType floatingType) =>
+        floatingType == VplType.Float ? new(-(1 << 24), 1 << 24) : new(-(1L << 53), 1L << 53);
+
+    /// <summary>Casts: between numbers, between integers and <c>char</c>, and between integers and enums without data.</summary>
     public static bool IsExplicit(VplType from, VplType to) =>
         IsImplicit(from, to)
         || (from.IsNumeric && to.IsNumeric)
+        || (from.IsInteger && to == VplType.Char)
+        || (from == VplType.Char && to.IsInteger)
         || (from.IsInteger && to.IsEnum && !to.Symbol!.HasData)
         || (from.IsEnum && !from.Symbol!.HasData && to.IsInteger);
 
@@ -378,9 +427,9 @@ public static class Conversions
         return type.BaseType is { } baseType ? [baseType, .. type.Interfaces] : type.Interfaces;
     }
 
-    public static bool IsExactlyRepresentable(long value, VplType floatingType) => floatingType == VplType.Float
-        ? new BigInteger((float)value) == value
-        : new BigInteger((double)value) == value;
+    public static bool IsExactlyRepresentable(Int128 value, VplType floatingType) => floatingType == VplType.Float
+        ? (Int128)(float)value == value
+        : (Int128)(double)value == value;
 
     /// <summary>
     /// Whether <c>==</c> is defined: numbers, bools, references (identity), and structs and enums

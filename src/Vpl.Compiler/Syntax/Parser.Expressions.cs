@@ -273,7 +273,7 @@ public sealed partial class Parser
             {
                 Advance();
                 var value = (IntegerLiteralValue)token.Value!;
-                return new IntLiteralExpr(location, value.Value, value.IsLong);
+                return new IntLiteralExpr(location, value.Value, value.Suffix);
             }
             case TokenKind.FloatLiteral:
             {
