@@ -331,6 +331,7 @@ public sealed partial class Binder
                 return ErrorExpression(location,
                     $"cannot call '{method.Symbol.Name}' on {what} because {reason}; only 'readonly' methods can be called on it");
             }
+            NoteModified(receiver);
         }
         if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))
             return new BoundErrorExpression(location);
@@ -372,6 +373,8 @@ public sealed partial class Binder
                 Error(argument.Location, "a 'ref' argument must be a variable or field");
             else if (kind == PlaceKind.ReadOnly)
                 Error(argument.Location, $"cannot pass '{TextOf(argument.Expression.Location)}' by 'ref' because {reason}");
+            else
+                NoteModified(argument.Expression);
             result.Add(argument.Expression);
         }
         return result;

@@ -184,7 +184,7 @@ public sealed partial class Binder
         {
             if (result.Any(p => p.Name == parameter.Name))
                 Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
-            var type = BindType(parameter.Type, allowVoid: false);
+            var type = BindVariableType(parameter.Type, parameter.Annotations, "parameter");
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind));
         }
@@ -200,9 +200,7 @@ public sealed partial class Binder
         {
             HasCallerLocation(decl);
             var type = BindType(decl.Type, allowVoid: false);
-            // A rejected function type would also be reported as having no default value.
-            if (!CheckStorable(type, decl.Type.Location, "the type of a field") && type.IsFunction)
-                type = VplType.Error;
+            CheckStorable(type, decl.Type.Location, "the type of a field");
             var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)
                 Error(decl.NameLocation, "an extern struct cannot declare fields; its C++ class holds its data");
@@ -350,14 +348,8 @@ public sealed partial class Binder
         {
             if (annotation.Name == "CallerLocation" && decl is FunctionDecl)
                 found = true;
-            else if (annotation.Name == "CallerLocation")
-                Error(annotation.Location, "'@CallerLocation' can only be used on functions, methods, and constructors");
-            else if (annotation.Name == "Acyclic" && decl is not TypeDecl { Kind: TypeKind.Class })
-                Error(annotation.Location, "'@Acyclic' can only be used on classes");
-            else if (annotation.Name == "Acyclic")
-                continue;
-            else
-                Error(annotation.Location, $"unknown annotation '@{annotation.Name}'");
+            else if (annotation.Name != "Acyclic" || decl is not TypeDecl { Kind: TypeKind.Class })
+                ReportMisplacedAnnotation(annotation);
         }
         return found;
     }
@@ -382,7 +374,6 @@ public sealed partial class Binder
     {
         if (function.ReturnType.IsRefStruct && !function.IsInstanceMethod)
             Error(function.Declaration!.NameLocation, $"only instance methods can return '{function.ReturnType}', which views the method's receiver");
-        CheckNotStored(function.ReturnType, function.Declaration!.ReturnType!.Location, "returned");
     }
 
     /// <summary>A returned reference borrows the receiver, so only instance methods that the caller calls directly may return one.</summary>
@@ -410,6 +401,8 @@ public sealed partial class Binder
                 if (fields.Any(f => f.Name == parameter.Name))
                     Error(parameter.Location, $"duplicate field '{parameter.Name}'");
                 var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null);
+                foreach (var annotation in parameter.Annotations)
+                    ReportMisplacedAnnotation(annotation);
                 var fieldType = BindType(parameter.Type, allowVoid: false);
                 CheckStorable(fieldType, parameter.Type.Location, "the type of a variant's field");
                 fields.Add(new FieldSymbol(parameter.Name, fieldType, s, fieldDecl));

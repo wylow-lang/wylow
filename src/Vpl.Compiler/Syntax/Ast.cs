@@ -35,7 +35,7 @@ public abstract record Declaration(Location Location, Modifiers Modifiers) : Nod
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
 }
 
-/// <summary><c>@Name</c> before a declaration.</summary>
+/// <summary><c>@Name</c> before a declaration, a parameter, or a local variable.</summary>
 public sealed record AnnotationSyntax(Location Location, string Name) : Node(Location);
 
 /// <summary><see cref="Bounds"/> are the interfaces after <c>extends</c>, joined by <c>&amp;</c>.</summary>
@@ -114,7 +114,10 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 /// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>(ref Vec3) -> void</c>.</summary>
 public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type);
 
-public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location);
+public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
 
 public abstract record Stmt(Location Location) : Node(Location);
 
@@ -124,7 +127,10 @@ public sealed record UnsafeStmt(Location Location, BlockStmt Body) : Stmt(Locati
 
 /// <summary><see cref="Type"/> is null for <c>var</c>. A <c>ref</c> or <c>in</c> local refers to the place it is initialized with.</summary>
 public sealed record VarDeclStmt(Location Location, TypeSyntax? Type, string Name, Location NameLocation, Expr? Initializer, RefKind RefKind = RefKind.None)
-    : Stmt(Location);
+    : Stmt(Location)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
 
 public sealed record IfStmt(Location Location, Expr Condition, BlockStmt Then, Stmt? Else) : Stmt(Location);
 

@@ -360,9 +360,60 @@ public static class BoundTree
     public static IEnumerable<BoundExpression> AllExpressions(BoundExpression expression) =>
         [expression, .. expression is BoundLambda lambda ? AllExpressions(lambda.Body) : Children(expression).SelectMany(AllExpressions)];
 
+    /// <summary>Every statement in a statement, including in the statements and lambda bodies inside it.</summary>
+    public static IEnumerable<BoundStatement> AllStatements(BoundStatement statement) =>
+        [statement, .. InnerStatements(statement).SelectMany(AllStatements),
+            .. OwnExpressions(statement).SelectMany(AllExpressions).OfType<BoundLambda>().SelectMany(l => AllStatements(l.Body))];
+
     /// <summary>
-    /// The functions a function-valued <c>?:</c> or switch expression chooses from: lambdas and
-    /// function-typed locals, neither of which has effects to make or copy.
+    /// What a lambda uses of the code around it: the first use of each local or parameter declared
+    /// outside it, in order, and the first use of <c>this</c>. Lambdas inside it count too.
+    /// </summary>
+    public static (IReadOnlyList<BoundLocalAccess> Locals, BoundThis? This) Captures(BoundLambda lambda)
+    {
+        var expressions = AllExpressions(lambda.Body).ToList();
+        var declared = new HashSet<LocalSymbol>(lambda.Function.Parameters);
+        foreach (var statement in AllStatements(lambda.Body))
+        {
+            switch (statement)
+            {
+                case BoundVariableDeclaration declaration:
+                    declared.Add(declaration.Local);
+                    break;
+                case BoundForRange range:
+                    declared.Add(range.Local);
+                    break;
+                case BoundSwitch switchStatement:
+                    declared.UnionWith(switchStatement.Cases.SelectMany(c => c.Patterns).SelectMany(Patterns.Bindings));
+                    break;
+            }
+        }
+        foreach (var expression in expressions)
+        {
+            switch (expression)
+            {
+                case BoundLambda nested:
+                    declared.UnionWith(nested.Function.Parameters);
+                    break;
+                case BoundIs pattern:
+                    declared.UnionWith(Patterns.Bindings(pattern.Pattern));
+                    break;
+                case BoundSwitchExpression switchExpression:
+                    declared.UnionWith(switchExpression.Cases.SelectMany(c => c.Patterns).SelectMany(Patterns.Bindings));
+                    break;
+                case BoundConditionalAccess access:
+                    declared.Add(access.Value);
+                    break;
+            }
+        }
+        var seen = new HashSet<LocalSymbol>();
+        var locals = expressions.OfType<BoundLocalAccess>().Where(a => !declared.Contains(a.Local) && seen.Add(a.Local)).ToList();
+        return (locals, expressions.OfType<BoundThis>().FirstOrDefault());
+    }
+
+    /// <summary>
+    /// The functions a function-valued <c>?:</c> or switch expression chooses from, through nested
+    /// choices.
     /// </summary>
     public static IEnumerable<BoundExpression> FunctionOptions(BoundExpression expression) => expression switch
     {

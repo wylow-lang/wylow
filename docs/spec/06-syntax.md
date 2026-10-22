@@ -341,9 +341,7 @@ are told apart by the C++ name. A function chosen by `?:` or a switch expression
 function it could be and the index of the chosen one, so calling it branches to a direct call,
 and each lambda can still be inlined.
 
-> Implemented so far: non-escaping functions, as parameters and locals, and `?:` and switch
-> expressions over them. Functions can't yet be fields, return values, type arguments, array
-> elements, or nullable.
+> Implemented so far: everything above except function references (`list.sort(byDepth)`).
 
 ### Escaping and non-escaping
 
@@ -371,10 +369,68 @@ handlers.add(onDone);
 The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
 non-escaping local stays non-escaping, and storing it is an error that suggests `@Escaping`.
 Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
-reassigned, so it can't outlive what its lambda captures.
+reassigned, so it can't outlive what its lambda captures. An escaping local can be reassigned.
+
+- **Escaping is part of the function type.** Each function type has a non-escaping and an
+  escaping form, written the same way. Written as the type of a parameter or local, it is
+  non-escaping unless the declaration is `@Escaping`; anywhere else (a field, a return type, a
+  type argument, an array element, a nullable function, or a function type's return type) it is
+  escaping. A function type's own parameters are non-escaping. `var` takes the form of its
+  initializer. An escaping value converts to the non-escaping form, so it can be passed to a
+  non-escaping parameter or bind a non-escaping local; nothing converts the other way.
+- **A lambda is escaping when its target is**: the variable, field, parameter, or return type it
+  is converted to, or the type of the `?:` or switch expression it is an option of. A lambda
+  passed as an argument takes the form of the parameter that overload resolution picks.
+- **Type arguments are always escaping**, so a type argument inferred from a function is its
+  escaping form: `identity(f)` needs `f` to be `@Escaping`.
+- **Nullable functions** are escaping: a parameter or local of type `((int) -> int)?` must be
+  declared `@Escaping`.
+- **Captures.** An escaping lambda copies the locals and parameters it uses when it is created,
+  so each must be *effectively final*: never changed after its declaration, anywhere in the
+  function. Assigning it or any part of it changes it, and so do passing it or a part of it by
+  `ref`, binding a `ref` variable to it, calling a non-`readonly` method on it, looping over it by
+  `ref`, and viewing it with a `Span`. A local declared without an initializer and assigned later
+  is not effectively final. Inside the lambda, the copies are read-only. A for-each or range
+  loop's variable is a new variable in each iteration, so it can be captured, but the counter of a
+  `for (int i = 0; ...; i++)` loop can't; copy it to a local in the body.
+- An escaping lambda can't capture a `ref` or `in` local or parameter, a span or other
+  `ref struct`, a non-escaping function, or `this` in a struct's method or constructor (copy what it
+  needs to a local first). A captured class reference, including `this`, keeps its object alive.
+  So a closure can be part of a cycle, as in `this.onHit = () -> react(this);`, which
+  `Memory.collectCycles` collects like any other.
+- **Choices.** A `?:` or switch expression of escaping type evaluates only the option it chooses,
+  like any other. One of non-escaping type makes its lambdas and copies its non-escaping locals
+  up front, which no one can observe, and evaluates an escaping option (a field, a call, an
+  escaping local) only when it is chosen.
+- **Signatures.** An override or interface implementation must declare the same parameters
+  `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
+  parameters are `@Escaping`.
+- A type pattern can't name a function type (`f is (int) -> int g`); narrow a nullable function
+  with a null check.
+
+```java
+for (Mob m : mobs) {
+    handlers.add(() -> m.hit());            // fine: each iteration has its own 'm'
+}
+int total = 0;
+@Escaping () -> int f = () -> total;        // error: 'total' changes after its declaration
+total++;
+```
+
+An escaping function is a `vpl::Function`: a reference to a closure object, with the same header
+and reference count as a class object, that holds copies of what its lambda captured and calls the
+lambda's body indirectly. Copying a function value copies the reference. The cycle collector
+visits the class references a closure holds. A call of a function value stored where the call
+could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
+closure until the call returns.
 
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
 ([05-concurrency.md](05-concurrency.md)).
+
+> Implemented so far: everything above. Planned: a non-escaping nullable parameter, so that an
+> optional callback needn't allocate (`((int) -> int)?` without `@Escaping`, compiled to an
+> optional `vpl::FunctionRef`); and `@Escaping` on a function type's own parameters,
+> `(@Escaping () -> void) -> void`, which today are always non-escaping.
 
 ### Lambdas held by `ref struct`s
 
@@ -565,7 +621,8 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 
 User-defined annotations (and reflection) are *open*.
 
-> Implemented so far: `@CallerLocation`, without arguments. Any other annotation is an error.
+> Implemented so far: `@CallerLocation`, without arguments, `@Escaping`, and `@Acyclic`
+> ([03-memory-model.md](03-memory-model.md)). Any other annotation is an error.
 
 ### `@CallerLocation`
 

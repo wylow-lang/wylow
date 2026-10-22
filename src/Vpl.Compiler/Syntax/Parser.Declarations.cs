@@ -351,6 +351,7 @@ public sealed partial class Parser
             do
             {
                 int parameterStart = position;
+                var annotations = ParseAnnotations();
                 if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
                     Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
                 var refKind = Accept(TokenKind.RefKeyword) ? RefKind.Ref
@@ -358,7 +359,7 @@ public sealed partial class Parser
                     : RefKind.None;
                 var type = ParseType();
                 var parameterName = Expect(TokenKind.Identifier, allowRefKinds ? "a parameter name" : "a field name");
-                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text));
+                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text) { Annotations = annotations });
             } while (Accept(TokenKind.Comma));
         }
         Expect(close, brackets ? "']'" : "')'");

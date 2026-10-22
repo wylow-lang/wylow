@@ -1,0 +1,111 @@
+// Escaping functions: stored in fields, returned, and held by containers and nullable values.
+
+class Button {
+    String name;
+    () -> void onClick;
+    ((int) -> int)? transform = null;
+
+    Button(String name, @Escaping () -> void onClick) {
+        this.name = name;
+        this.onClick = onClick;
+    }
+
+    void click() {
+        onClick();
+    }
+
+    int apply(int value) {
+        // A field isn't narrowed, so copy it to a local first.
+        var f = transform;
+        if (f != null) {
+            return f(value);
+        }
+        return value;
+    }
+}
+
+(int) -> int makeAdder(int n) {
+    return x -> x + n;
+}
+
+(int) -> (int) -> int curry() {
+    return x -> y -> x * 10 + y;
+}
+
+int twice((int) -> int f, int value) {
+    return f(f(value));
+}
+
+T identity<T>(T value) {
+    return value;
+}
+
+void register(List<() -> int> into, @Escaping () -> int f) {
+    into.add(f);
+}
+
+void main() {
+    // A closure outlives the call that made it, keeping its own copy of `n`.
+    var add5 = makeAdder(5);
+    var add7 = makeAdder(7);
+    print(add5(1));                                 // output: 6
+    print(add7(1));                                 // output: 8
+    print(makeAdder(2)(3));                         // output: 5
+    print(curry()(4)(2));                           // output: 42
+
+    // An escaping value passes to a non-escaping parameter.
+    print(twice(add5, 0));                          // output: 10
+
+    var button = new Button("ok", () -> print(1));
+    button.click();                                 // output: 1
+    button.onClick = () -> print(2);
+    button.click();                                 // output: 2
+    print(button.apply(3));                         // output: 3
+    button.transform = x -> x * x;
+    print(button.apply(3));                         // output: 9
+    button.transform = null;
+    print(button.apply(4));                         // output: 4
+
+    // Containers of functions.
+    var handlers = new List<() -> int>();
+    for (int i : 0..3) {
+        handlers.add(() -> i * 100);
+    }
+    register(handlers, () -> 7);
+    for (() -> int h : handlers) {
+        print(h());                                 // output: 0
+                                                    // output: 100
+                                                    // output: 200
+                                                    // output: 7
+    }
+
+    ((int) -> int)?[] table = new ((int) -> int)?[3];
+    table[1] = makeAdder(10);
+    for (((int) -> int)? entry : table) {
+        int value = -1;
+        if (entry != null) {
+            value = entry(1);
+        }
+        print(value);                               // output: -1
+                                                    // output: 11
+                                                    // output: -1
+    }
+    var listed = [add5, add7];
+    print(listed[1](0));                            // output: 7
+
+    // Escaping locals can be reassigned, and `var` keeps the form of its initializer.
+    @Escaping (int) -> int current = add5;
+    print(current(0));                              // output: 5
+    current = add7;
+    print(current(0));                              // output: 7
+    @Escaping var copied = add5;
+    print(identity(copied)(9));                     // output: 14
+
+    @Escaping ((int) -> int)? maybe = null;
+    print(maybe == null);                           // output: true
+    maybe = add5;
+    if (maybe != null) {
+        print(maybe(1));                            // output: 6
+    }
+    print(maybe!(2));                               // output: 7
+}

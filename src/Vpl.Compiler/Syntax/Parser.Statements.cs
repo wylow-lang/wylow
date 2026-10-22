@@ -83,6 +83,14 @@ public sealed partial class Parser
                 FinishStatement(errors);
                 return declaration;
             }
+            case TokenKind.At:
+            {
+                int errors = diagnostics.Count;
+                var annotations = ParseAnnotations();
+                var declaration = ParseVariableDeclaration(start) with { Annotations = annotations };
+                FinishStatement(errors);
+                return declaration;
+            }
             case TokenKind.ReservedKeyword:
                 Error(Current.Span, $"'{Current.Text}' is not supported yet");
                 SkipStatement();
@@ -208,9 +216,9 @@ public sealed partial class Parser
             && Peek(index - position + 2).Kind is TokenKind.Assign or TokenKind.Semicolon;
     }
 
-    VarDeclStmt ParseVariableDeclaration()
+    VarDeclStmt ParseVariableDeclaration(int? annotated = null)
     {
-        int start = position;
+        int start = annotated ?? position;
         var refKind = ParseRefKind();
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
         var name = Expect(TokenKind.Identifier, "a variable name");

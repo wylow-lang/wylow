@@ -6,9 +6,8 @@ namespace Vpl.Compiler.Semantics;
 public sealed partial class Binder
 {
     /// <summary>
-    /// The type arguments of a generic candidate, inferred from a call's arguments (decision 8 in
-    /// docs/handoff/lambdas.md). The arguments that aren't lambdas, and the parameter types lambdas
-    /// declare, are used at once. A type parameter only a lambda's return type can give waits for
+    /// The type arguments of a generic candidate, inferred from a call's arguments (§6.7). The
+    /// arguments that aren't lambdas, and the parameter types lambdas declare, are used at once. A type parameter only a lambda's return type can give waits for
     /// <see cref="FinishFromLambdas"/>, which binds the lambda's body and is run only for the one
     /// candidate left, so each lambda is still bound once.
     /// </summary>
@@ -55,9 +54,10 @@ public sealed partial class Binder
 
         void Unify(VplType parameter, BoundExpression? argument, VplType argumentType)
         {
+            // Type arguments are escaping, so a non-escaping argument is an error once it is converted.
             if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
             {
-                found.Add((argument, argumentType));
+                found.Add((argument, argumentType.IsFunction ? argumentType.Escaping : argumentType));
             }
             // A nullable argument gives `T?` its value type; null says nothing about `T`.
             else if (parameter.IsNullableValue)
@@ -111,7 +111,7 @@ public sealed partial class Binder
                     continue;
                 }
                 var chosen = found.Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
-                    candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) : b.Type == candidate));
+                    candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || b.Type == candidate : b.Type == candidate));
                 if (found.All(b => b.Type == VplType.Null))
                 {
                     error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}' from 'null'; specify it explicitly, as in '{function.Name}<...>(...)'";
@@ -184,7 +184,7 @@ public sealed partial class Binder
                     {
                         foreach (var p in target.FunctionParameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))
                             fixedTypes.TryAdd(p, current.Map.Apply(p.Type));
-                        var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters);
+                        var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters, target.IsEscaping);
                         if (inferred.Values.Any(v => v.Type == VplType.Error))
                             return null;
                         if (inferred.Values.Count == 0)

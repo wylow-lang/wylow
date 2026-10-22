@@ -14,11 +14,15 @@ public sealed partial class Binder
         hasThis = currentType is not null && !function.IsStatic;
         scope = new Scope(null);
         foreach (var parameter in function.Parameters)
+        {
+            parameter.Owner = function;
             scope.Add(parameter);
+        }
 
         var body = function.IsConstructor && currentType!.Kind == TypeKind.Class
             ? BindClassConstructorBody(function)
             : BindBlock(function.Body!);
+        CheckEscapingCaptures(body);
 
         currentFunction = null;
         currentType = null;
@@ -114,6 +118,7 @@ public sealed partial class Binder
     void Declare(LocalSymbol local, Location location)
     {
         // Like Java, a local may not shadow another local or parameter (it may shadow a field).
+        local.Owner ??= currentFunction;
         if (scope!.Lookup(local.Name) is not null)
             Error(location, $"'{local.Name}' is already defined");
         else
@@ -172,7 +177,7 @@ public sealed partial class Binder
     {
         if (s.RefKind != RefKind.None)
             return BindRefLocal(s);
-        var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
+        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Annotations, "variable");
         var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         VplType type;
         if (declared is not null)
@@ -199,9 +204,11 @@ public sealed partial class Binder
         else
         {
             type = initializer.Type;
+            if (s.Annotations.Count > 0)
+                (type, initializer) = AnnotateInferred(s.Annotations, initializer);
         }
 
-        if ((type.IsRefStruct || type.NonNull.IsFunction) && initializer is null)
+        if ((type.IsRefStruct || (type.IsFunction && !type.IsEscaping)) && initializer is null)
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
@@ -215,6 +222,8 @@ public sealed partial class Binder
     /// <summary><c>ref T x = place;</c> or <c>in T x = place;</c>, which name a place for the rest of the scope.</summary>
     BoundStatement BindRefLocal(VarDeclStmt s)
     {
+        foreach (var annotation in s.Annotations)
+            ReportMisplacedAnnotation(annotation);
         var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim();
         var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
         var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
@@ -271,7 +280,11 @@ public sealed partial class Binder
         else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
             Error(place.Location, $"cannot take a 'ref' to '{TextOf(place.Location)}' because {reason}; use 'in' instead");
         else
+        {
+            if (refKind == RefKind.Ref)
+                NoteModified(place);
             return true;
+        }
         return false;
     }
 
@@ -443,6 +456,8 @@ public sealed partial class Binder
 
     (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => expression switch
     {
+        BoundLocalAccess access when IsCopiedByEscapingLambda(access.Local) =>
+            (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{access.Local.Name}'"),
         BoundLocalAccess { Local.RefKind: RefKind.In } access =>
             (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' {(access.Local.IsParameter ? "parameter" : "variable")}"),
         BoundLocalAccess => (PlaceKind.Mutable, ""),
@@ -476,9 +491,9 @@ public sealed partial class Binder
             return false;
         }
         // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
-        if (target is BoundLocalAccess { Local.Type.NonNull.IsFunction: true } function)
+        if (target is BoundLocalAccess { Local.Type: { IsFunction: true, IsEscaping: false } } function)
         {
-            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a function-typed {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead");
+            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'");
             return false;
         }
         var (kind, reason) = ClassifyPlace(target);
@@ -497,6 +512,7 @@ public sealed partial class Binder
                 Error(target.Location, $"cannot assign to '{TextOf(target.Location)}' because {reason}");
                 return false;
             default:
+                NoteModified(target);
                 return true;
         }
     }

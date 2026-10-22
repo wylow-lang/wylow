@@ -1,0 +1,114 @@
+// An escaping lambda copies what it captures, so each captured local must never change after its
+// declaration, and can't be something only valid during the call.
+struct Point {
+    int x;
+
+    void move() {
+        x++;
+    }
+
+    readonly int get() {
+        return x;
+    }
+
+    () -> int getter() {
+        return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
+    }
+}
+
+void bump(ref int value) {
+    value++;
+}
+
+void each((int) -> void f) {
+    f(1);
+}
+
+void keep(@Escaping () -> int f) {
+}
+
+void parameters(ref int r, in int i, () -> int g, Span<int> view) {
+    keep(() -> r);                                  // error: an escaping lambda cannot capture 'r', which is a 'ref' parameter; copy its value to a local first
+    keep(() -> i);                                  // error: an escaping lambda cannot capture 'i', which is an 'in' parameter; copy its value to a local first
+    keep(() -> g());                                // error: an escaping lambda cannot capture 'g', which is a non-escaping parameter; declare it '@Escaping'
+    keep(() -> view[0]);                            // error: an escaping lambda cannot capture 'view', a 'Span<int>' that may not outlive what it views
+}
+
+void changes() {
+    int assigned = 1;
+    keep(() -> assigned);                           // error: an escaping lambda cannot capture 'assigned', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    assigned = 2;
+
+    int incremented = 1;
+    incremented++;
+    keep(() -> incremented);                        // error: an escaping lambda cannot capture 'incremented', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    int byRef = 1;
+    bump(ref byRef);
+    keep(() -> byRef);                              // error: an escaping lambda cannot capture 'byRef', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    int aliased = 1;
+    ref int alias = aliased;
+    keep(() -> aliased);                            // error: an escaping lambda cannot capture 'aliased', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    keep(() -> alias);                              // error: an escaping lambda cannot capture 'alias', which is a 'ref' variable; copy its value to a local first
+
+    var moved = Point(1);
+    moved.move();
+    keep(() -> moved.get());                        // error: an escaping lambda cannot capture 'moved', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    var read = Point(1);
+    keep(() -> read.get() + read.x);
+
+    int[3] looped = [1, 2, 3];
+    for (ref int element : looped) {
+        element = 0;
+    }
+    keep(() -> looped[0]);                          // error: an escaping lambda cannot capture 'looped', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    int[3] viewed = [1, 2, 3];
+    Span<int> span = viewed;
+    keep(() -> viewed[0]);                          // error: an escaping lambda cannot capture 'viewed', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    int late;
+    late = 1;
+    keep(() -> late);                               // error: an escaping lambda cannot capture 'late', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    for (int i = 0; i < 2; i++) {
+        keep(() -> i);                              // error: an escaping lambda cannot capture 'i', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    }
+
+    // A non-escaping lambda changing a local counts too.
+    int counted = 0;
+    each(x -> {
+        counted += x;
+    });
+    keep(() -> counted);                            // error: an escaping lambda cannot capture 'counted', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+
+    // An escaping lambda inside a non-escaping one.
+    int outer = 0;
+    each(x -> {
+        keep(() -> outer + x);                      // error: an escaping lambda cannot capture 'outer', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+        outer = x;
+    });
+}
+
+void copies() {
+    int value = 1;
+    var point = Point(1);
+    keep(() -> {
+        value = 2;                                  // error: cannot assign to 'value' because an escaping lambda only has a copy of 'value'
+        point.x = 3;                                // error: cannot assign to 'point.x' because an escaping lambda only has a copy of 'point'
+        point.move();                               // error: cannot call 'move' on 'point' because an escaping lambda only has a copy of 'point'; only 'readonly' methods can be called on it
+        bump(ref value);                            // error: cannot pass 'value' by 'ref' because an escaping lambda only has a copy of 'value'
+        return value + point.get();
+    });
+    // A local the lambda declares is its own.
+    keep(() -> {
+        int own = 1;
+        own++;
+        return own;
+    });
+}
+
+void main() {
+}

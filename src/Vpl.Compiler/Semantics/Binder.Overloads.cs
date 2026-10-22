@@ -77,6 +77,11 @@ public sealed partial class Binder
         }
         if (applicable.Count == 0)
         {
+            if (NonEscapingArgument(instantiated, arguments) is { } nonEscaping)
+            {
+                ReportNotEscaping(nonEscaping.Expression);
+                return null;
+            }
             var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + a.Expression.Type));
             Error(location, $"no {description} accepts ({types})");
             return null;

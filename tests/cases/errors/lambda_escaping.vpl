@@ -1,39 +1,96 @@
-// Until escaping functions are implemented, a function can only be held by a parameter or a local,
-// which can't outlive what its lambda captures.
+// Parameters and locals hold non-escaping functions unless declared '@Escaping'; fields, returns,
+// type arguments, array elements, and nullable functions are escaping.
 class Button {
-    (int) -> void onClick;                          // error: a function cannot be the type of a field yet
-    List<() -> void> handlers;                      // error: a function cannot be a type argument yet
-}
+    (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
+    @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
+    () -> void stored = () -> {};
 
-struct Pair {
-    () -> int first;                                // error: a function cannot be the type of a field yet
+    void set(() -> void f) {
+        stored = f;                                 // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    }
 }
 
 enum Event {
-    Click(() -> void handler),                      // error: a function cannot be the type of a variant's field yet
+    Click(@Escaping () -> void handler),            // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
     None,
 }
 
-(int) -> int adder(int n) {                         // error: a function cannot be returned yet
-    return x -> x + n;
+@Escaping void annotated() {                        // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
+}
+
+void wrongType(@Escaping int x) {                   // error: '@Escaping' can only be used on a parameter of function type, not 'int'
+}
+
+void unknown(@Fast () -> void f) {                  // error: unknown annotation '@Fast'
+}
+
+void nullableParameter(((int) -> int)? f) {         // error: a nullable function is always escaping, so this parameter must be declared '@Escaping'
+}
+
+void keep(@Escaping () -> void f) {
+}
+
+void keep(() -> void f) {                          // error: function 'keep(() -> void)' is already defined
 }
 
 T identity<T>(T value) {
     return value;
 }
 
-void run((ref Pair) -> void f, (in Pair) -> void g) {
+(int) -> int give((int) -> int f) {
+    return f;                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
 }
 
-void check(bool flag, ref (int) -> int byRef) {     // error: 'ref' cannot be used on a parameter of type '(int) -> int'
+void check(bool flag, () -> void g) {
     (int) -> int inc = x -> x + 1;
-    ((int) -> int)? maybe = inc;                    // error: '((int) -> int)?' is not supported yet
-    ((int) -> int)[3] table;                        // error: a function cannot be an array's element yet
-    var listed = [inc, inc];                        // error: a function cannot be an array's element yet
-    ref (int) -> int alias = inc;                   // error: 'ref' cannot be used with type '(int) -> int'; functions are already passed without copying
-    (int) -> (int) -> int curried = x -> y -> x + y; // error: a function cannot be returned yet
-    var same = identity(inc);                       // error: a function cannot be a type argument yet
-    var maybeInc = flag ? inc : null;               // error: '((int) -> int)?' is not supported yet
+    @Escaping (int) -> int dec = x -> x - 1;
+    @Escaping int number = 1;                       // error: '@Escaping' can only be used on a variable of function type, not 'int'
+    @Escaping var text = "a";                       // error: '@Escaping' can only be used on a variable of function type, not 'String'
+    @Escaping ref int alias = number;               // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
+    ((int) -> int)? maybe = dec;                    // error: a nullable function is always escaping, so this variable must be declared '@Escaping'
+    @Escaping ((int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    (int) -> int later;                             // error: a '(int) -> int' variable must be initialized where it is declared, since it cannot be reassigned
+
+    inc = dec;                                      // error: 'inc' cannot be reassigned: a non-escaping variable keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
+    g = () -> {};                                   // error: 'g' cannot be reassigned: a non-escaping parameter keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
+    dec = inc;                                      // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+
+    keep(g);                                        // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    var same = identity(inc);                       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    var handlers = new List<() -> void>();
+    handlers.add(g);                                // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    var listed = [dec, inc];                        // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    ((int) -> int)?[] table = new ((int) -> int)?[2];
+    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    var functions = new ((int) -> int)[2];          // error: '(int) -> int' has no default value to fill a new array with; use 'new Array<(int) -> int>(length, value)'
+    @Escaping (int) -> int chosen = flag ? dec : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    @Escaping (int) -> int lambda = flag ? x -> x : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+}
+
+class Base {
+    virtual void on(@Escaping () -> void f) {
+    }
+
+    virtual void off(() -> void f) {
+    }
+}
+
+class Derived extends Base {
+    override void on(() -> void f) {                // error: 'on' must have the same parameter and return types as 'Base.on' to override it; parameter 'f' is '@Escaping' in 'Base.on' but not here
+    }
+
+    override void off(@Escaping () -> void f) {     // error: 'off' must have the same parameter and return types as 'Base.off' to override it; parameter 'f' is '@Escaping' here but not in 'Base.off'
+    }
+}
+
+interface Listener {
+    void listen(@Escaping () -> void f);
+}
+
+class Quiet implements Listener {
+    void listen(() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(() -> void)' to implement it; parameter 'f' is '@Escaping' in 'Listener.listen(() -> void)' but not here
+    }
 }
 
 void main() {

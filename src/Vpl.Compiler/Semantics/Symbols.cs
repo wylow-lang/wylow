@@ -27,6 +27,15 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// </summary>
     public bool IsAssignedByLambda { get; set; }
 
+    /// <summary>The function or lambda that declares it; null for compiler temporaries, which no other function uses.</summary>
+    public FunctionSymbol? Owner { get; set; }
+
+    /// <summary>
+    /// Changed after its declaration: assigned, wholly or in part, or used where it could be changed,
+    /// such as by 'ref'. An escaping lambda can only capture a local that isn't. Set by the binder.
+    /// </summary>
+    public bool IsModified { get; set; }
+
     public override string ToString() => Name;
 }
 
@@ -72,6 +81,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The parameters and return type of a lambda, whose body is a <see cref="BoundLambda"/>'s.</summary>
     public bool IsLambda { get; init; }
 
+    /// <summary>A lambda converted to an escaping function type, which copies what it captures.</summary>
+    public bool IsEscaping { get; init; }
+
+    /// <summary>For a lambda, the function or lambda whose body creates it.</summary>
+    public FunctionSymbol? Enclosing { get; init; }
+
     public string? BuiltinCppName { get; init; }
     public bool IsNoReturn { get; init; }
 
@@ -104,7 +119,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
             if (IsProperty)
                 return Name;
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
-            var parameters = string.Join(", ", Parameters.Select(p => RefPrefix(p.RefKind) + p.Type));
+            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + RefPrefix(p.RefKind) + p.Type));
             return IsIndexer ? $"this[{parameters}]" : $"{Name}{typeParameters}({parameters})";
         }
     }

@@ -72,6 +72,9 @@ public sealed partial class Binder
             return ErrorExpression(empty.Location, "an array element must have a value");
 
         var elementType = elementExpected ?? (elements.Count == 0 ? null : CommonType(elements));
+        // An element is stored, so a function is escaping; converting a non-escaping one reports why it can't be.
+        if (elementType is { IsFunction: true })
+            elementType = elementType.Escaping;
         if (elementType is null)
         {
             return ErrorExpression(e.Location, elements.Count == 0

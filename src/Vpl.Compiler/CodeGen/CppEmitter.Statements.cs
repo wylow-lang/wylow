@@ -156,8 +156,8 @@ public sealed partial class CppEmitter
                 var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
                     : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
                     : "{}";
-                // A function-typed local owns the lambda it is initialized with, or copies a reference to one.
-                var type = declaration.Local.Type.IsFunction ? "auto" : CppType(declaration.Local.Type);
+                // A non-escaping local owns the lambda it is initialized with, or copies a reference to one.
+                var type = IsNonEscaping(declaration.Local.Type) ? "auto" : CppType(declaration.Local.Type);
                 Line($"{type} {LocalName(declaration.Local)}{initializer};");
                 EndTry(declaration.Initializer);
                 break;

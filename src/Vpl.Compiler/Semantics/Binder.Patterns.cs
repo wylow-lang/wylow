@@ -287,17 +287,15 @@ public sealed partial class Binder
         }
         if (type.IsRefStruct)
             return ErrorExpression(location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
-        if (type.IsNullable && type.NonNull.IsFunction)
-            return ErrorExpression(location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
         var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type))).ToList();
-        if (type.IsFunction)
+        if (type.IsFunction && !type.IsEscaping)
             cases.ForEach(CheckCaseCaptures);
         return new BoundSwitchExpression(location, value, cases, type);
     }
 
     /// <summary>
-    /// A switch expression that chooses a function makes the functions it chooses from outside its
-    /// cases, so their lambdas can't use the names a case declares.
+    /// A switch expression that chooses a non-escaping function makes the functions it chooses from
+    /// outside its cases, so their lambdas can't use the names a case declares.
     /// </summary>
     void CheckCaseCaptures(BoundSwitchCase<BoundExpression> c)
     {
@@ -325,7 +323,8 @@ public sealed partial class Binder
             .Where(t => t != VplType.Null)
             .SelectMany(t => t.CanBeNullable ? [t, t.Nullable] : new[] { t })
             .Distinct();
-        return candidates.FirstOrDefault(t => values.All(v => CanConvert(v, t)));
+        // A non-escaping function that can't be converted is reported as that, once the type is chosen.
+        return candidates.FirstOrDefault(t => values.All(v => CanConvert(v, t) || IsEscapingMismatch(v.Type, t)));
     }
 
     /// <summary>Checks that <c>default</c> comes last, that every case can match something, and that the cases cover every value.</summary>

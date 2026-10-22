@@ -538,8 +538,17 @@ public sealed partial class Binder
         if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (SpanConversion(expression, to) is { } span)
+        {
+            if (to.Symbol == stdlib.Span)
+                NoteModified(expression);
             return span;
+        }
 
+        if (IsEscapingMismatch(expression.Type, to))
+        {
+            ReportNotEscaping(expression);
+            return new BoundErrorExpression(expression.Location);
+        }
         var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"
             : expression.Type.IsNullable && Conversions.IsImplicit(expression.Type.NonNull, to) ? "; check it for null first, or use '!'"
             : SpanConversionHint(expression, to);
@@ -585,8 +594,6 @@ public sealed partial class Binder
             return ErrorExpression(location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
             return ErrorExpression(location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
-        if (type.IsNullable && type.NonNull.IsFunction)
-            return ErrorExpression(location, $"'({type.NonNull})?' is not supported yet; nullable functions come with escaping functions");
         return new BoundConditional(location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }

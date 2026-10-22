@@ -70,7 +70,7 @@ public sealed partial class Binder
                 else if (implementation.Symbol.IsPrivate)
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' implements {description} and cannot be private");
                 else if (!HasSameTypes(implementation, required))
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it");
+                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it{EscapingDifference(implementation, required, description)}");
                 else if (s.Kind == TypeKind.Class)
                 {
                     implementation.Symbol.ImplementsInterface = true;
@@ -117,7 +117,7 @@ public sealed partial class Binder
         else if (!inherited.Symbol.IsOverridable || inherited.Symbol.IsStatic)
             Error(location, $"cannot override {overridden} because it is not 'virtual'");
         else if (!HasSameTypes(new MethodReference(method, s.Type, []), inherited))
-            Error(location, $"'{method.Name}' must have the same parameter and return types as {overridden} to override it");
+            Error(location, $"'{method.Name}' must have the same parameter and return types as {overridden} to override it{EscapingDifference(new MethodReference(method, s.Type, []), inherited, overridden)}");
     }
 
     /// <summary>A method of <paramref name="type"/> itself (not inherited) with the given <see cref="MethodKey"/>.</summary>

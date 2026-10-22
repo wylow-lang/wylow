@@ -496,6 +496,14 @@ struct is_ref : std::false_type {};
 template <class T>
 struct is_ref<Ref<T>> : std::true_type {};
 
+template <class Signature>
+class Function;
+
+template <class T>
+struct is_function_value : std::false_type {};
+template <class S>
+struct is_function_value<Function<S>> : std::true_type {};
+
 template <class T>
 inline Ref<T> adopt(T* object) {
     return Ref<T>::adopt(object);
@@ -540,7 +548,7 @@ inline decltype(auto) with(T&& value, F&& f) {
 
 // In generic code a value may be a struct, which lives in its place and needs no pin.
 template <class T>
-    requires(!is_ref<std::remove_cv_t<T>>::value)
+    requires(!is_ref<std::remove_cv_t<T>>::value && !is_function_value<std::remove_cv_t<T>>::value)
 inline T& pin(T& value) {
     return value;
 }
@@ -1170,6 +1178,71 @@ public:
     R operator()(A... arguments) const { return call(callable, std::forward<A>(arguments)...); }
 };
 
+// An escaping function's closure: an object holding copies of what its lambda captured. It is
+// called through vpl_call, since a Function's type names only the signature.
+template <class Signature>
+class Callable;
+
+template <class R, class... A>
+class Callable<R(A...)> : public Object {
+public:
+    virtual R vpl_call(A... arguments) = 0;
+};
+
+// The closure of one lambda: Body is a C++ lambda that captures nothing and takes the captured
+// values as its first parameters, so that the collector can visit them here.
+template <class Signature, class Body, class... C>
+class Closure;
+
+template <class R, class... A, class Body, class... C>
+class Closure<R(A...), Body, C...> final : public Callable<R(A...)> {
+    const char* name;
+    Body body;
+    std::tuple<C...> captures;
+
+public:
+    Closure(const char* closure_name, Body function, C... values) : name(closure_name), body(std::move(function)), captures(std::move(values)...) {}
+
+    R vpl_call(A... arguments) override {
+        return std::apply([&](const C&... values) -> R { return body(values..., std::forward<A>(arguments)...); }, captures);
+    }
+
+    void vpl_visit([[maybe_unused]] Visitor& visitor) override {
+        std::apply([&](C&... values) { (visit(visitor, values), ...); }, captures);
+    }
+
+    const char* vpl_class_name() const override { return name; }
+};
+
+// An escaping function value: a reference to a closure. Default-constructed, it is null, which only
+// storage that VPL assigns before reading ever holds.
+template <class R, class... A>
+class Function<R(A...)> {
+    Ref<Callable<R(A...)>> callable;
+
+public:
+    Function() = default;
+    explicit Function(Ref<Callable<R(A...)>> value) : callable(std::move(value)) {}
+
+    R operator()(A... arguments) const { return callable->vpl_call(std::forward<A>(arguments)...); }
+
+    void vpl_visit(Visitor& visitor) { visit(visitor, callable); }
+};
+
+// A closure that captures no reference can't be on a cycle, so `cyclic` is false for it.
+template <class Signature, class Body, class... C>
+inline Function<Signature> closure(bool cyclic, const char* name, Body body, C... captures) {
+    auto* created = new Closure<Signature, Body, C...>(name, std::move(body), std::move(captures)...);
+    created->vpl_set_cyclic(cyclic);
+    return Function<Signature>(Ref<Callable<Signature>>::adopt(created));
+}
+
+// A strong copy that keeps a closure alive while it runs, as pin does for an object.
+template <class S>
+inline Function<S> pin(const Function<S>& value) {
+    return value;
+}
+
 // A function chosen by ?: from several. It holds every callable it could be and calls the chosen
 // one directly, so each can still be inlined where the choice is passed to a template.
 template <class... F>
@@ -1199,6 +1272,15 @@ public:
 template <class... F>
 Choice<F...> choose(int index, F... options) {
     return Choice<F...>(index, std::move(options)...);
+}
+
+// A choice that may also pick an escaping function, which `index` evaluates into `held` only when it
+// chooses it: unlike making a lambda, evaluating a field or a call can be observed.
+template <class Signature, class I, class... F>
+Choice<F..., Function<Signature>> choose_held(I index, F... options) {
+    Function<Signature> held;
+    int chosen = index(held);
+    return Choice<F..., Function<Signature>>(chosen, std::move(options)..., std::move(held));
 }
 
 // ---- Standard library intrinsics ----

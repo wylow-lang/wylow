@@ -75,7 +75,7 @@ public sealed partial class CppEmitter
     {
         if (type.IsNullableValue)
             return MayHoldReferences(type.NonNull, visiting);
-        if (type.IsReference || type.IsTypeParameter)
+        if (type.IsReference || type.IsTypeParameter || type.IsEscaping)
             return true;
         if (type.IsFixedArray)
             return MayHoldReferences(type.ElementType!, visiting);

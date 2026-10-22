@@ -31,14 +31,14 @@ public sealed partial class CppEmitter
             BoundConstruction construction => Construction(construction),
             BoundNew creation => New(creation),
             BoundConversion conversion => Conversion(conversion),
-            BoundConditional { Type.IsFunction: true } conditional => Choice(conditional),
+            BoundConditional { Type.IsFunction: true, Type.IsEscaping: false } conditional => Choice(conditional),
             BoundConditional conditional =>
                 $"({Expression(conditional.Condition)} ? {Expression(conditional.WhenTrue)} : {Expression(conditional.WhenFalse)})",
             BoundNonNull nonNull => $"vpl::unwrap({Expression(nonNull.Operand)}, {SourceLocation(nonNull.Location)})",
             BoundCoalesce coalesce => Coalesce(coalesce),
             BoundConditionalAccess access => ConditionalAccess(access),
             BoundIs pattern => Is(pattern),
-            BoundSwitchExpression { Type.IsFunction: true } switchExpression => Choice(switchExpression),
+            BoundSwitchExpression { Type.IsFunction: true, Type.IsEscaping: false } switchExpression => Choice(switchExpression),
             BoundSwitchExpression switchExpression => SwitchExpression(switchExpression),
             BoundVariant variant => Variant(variant),
             BoundLambda lambda => Lambda(lambda),
@@ -47,7 +47,7 @@ public sealed partial class CppEmitter
         };
     }
 
-    string This() => context switch
+    string This() => capturedThis ?? context switch
     {
         Context.StructConstructor => "self",
         Context.ClassMember => $"vpl::Ref<{ObjectType(currentType!.Type)}>(this)",
@@ -57,7 +57,7 @@ public sealed partial class CppEmitter
     string FieldAccess(BoundFieldAccess field)
     {
         if (field.Receiver is BoundThis && !replacements.ContainsKey(field.Receiver))
-            return (context == Context.StructConstructor ? "self." : "this->") + FieldName(field.Field);
+            return (capturedThis is not null ? capturedThis + "->" : context == Context.StructConstructor ? "self." : "this->") + FieldName(field.Field);
         var receiver = Expression(field.Receiver);
         return receiver + (field.Receiver.Type.IsReference ? "->" : ".") + FieldName(field.Field);
     }
@@ -250,13 +250,14 @@ public sealed partial class CppEmitter
     string ThisReceiverText(BoundCall call)
     {
         var declaring = ObjectType(call.Method.Owner!);
+        var self = capturedThis is not null ? $"{capturedThis}.get()" : "this";
         if (call.IsSuperCall)
-            return $"this->{declaring}::";
+            return $"{self}->{declaring}::";
         if (context == Context.StructConstructor)
             return "self.";
         if (call.Method.Owner!.Symbol == currentType)
-            return "this->";
-        return $"static_cast<{declaring}*>(this)->";
+            return $"{self}->";
+        return $"static_cast<{declaring}*>({self})->";
     }
 
     string Construction(BoundConstruction construction)
@@ -326,6 +327,10 @@ public sealed partial class CppEmitter
         var operand = Expression(conversion.Operand);
         if (from == VplType.Null)
             return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
+        // A non-escaping function is used during the call it is passed to, while the value it was
+        // converted from could be replaced; the copy lives until the end of the statement.
+        if (IsNonEscaping(to))
+            return IsStable(conversion.Operand) ? operand : $"{CppType(from)}({operand})";
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)

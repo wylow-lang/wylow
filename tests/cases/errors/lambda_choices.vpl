@@ -20,8 +20,9 @@ void main() {
         case Stop -> y -> y;
     };
 
-    var h = switch (op) {                           // error: '((int) -> int)?' is not supported yet
-        case Add(_) -> inc;
+    // A nullable function is escaping.
+    var h = switch (op) {
+        case Add(_) -> inc;                         // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
         case Stop -> null;
     };
 }

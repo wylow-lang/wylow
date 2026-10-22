@@ -1,0 +1,124 @@
+// What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
+
+class Counter {
+    int count = 0;
+    String name;
+
+    Counter(String name) {
+        this.name = name;
+    }
+
+    () -> int reader() {
+        return () -> count;
+    }
+
+    () -> void incrementer(int by) {
+        return () -> {
+            count += by;
+            bump();
+        };
+    }
+
+    void bump() {
+        count += 1000;
+    }
+
+    ~Counter() {
+        print(name);
+    }
+}
+
+struct Labeled {
+    String label;
+    () -> String describe;
+}
+
+enum Action {
+    Run(() -> int task),
+    Skip,
+}
+
+interface Runner {
+    int run(() -> int task);
+}
+
+class TwiceRunner implements Runner {
+    int run(() -> int task) {
+        return task() + task();
+    }
+}
+
+int callTemplate(() -> int f) {
+    return f();
+}
+
+int perform(Action action) {
+    return switch (action) {
+        case Run(var task) -> task();
+        case Skip -> -1;
+    };
+}
+
+() -> () -> int nested(int base) {
+    int offset = base * 2;
+    return () -> {
+        int inner = offset + 1;
+        return () -> base + offset + inner;
+    };
+}
+
+void main() {
+    // A captured `this` keeps the object alive after every other reference is gone.
+    @Escaping () -> int read;
+    @Escaping () -> void increment;
+    if (true) {
+        var counter = new Counter("counter freed");
+        read = counter.reader();
+        increment = counter.incrementer(5);
+    }
+    increment();
+    increment();
+    print(read());                                  // output: 2010
+    read = () -> 0;
+    increment = () -> print(0);                     // output: counter freed
+
+    // Each iteration's variable is its own.
+    var fs = new List<() -> String>();
+    for (String s : ["a", "b"]) {
+        fs.add(() -> s);
+    }
+    for (() -> String f : fs) {
+        print(f());                                 // output: a
+                                                    // output: b
+    }
+    var ns = new List<() -> int>();
+    for (int i : 0..2) {
+        int copy = i * 3;
+        ns.add(() -> copy);
+    }
+    for (() -> int n : ns) {
+        print(n());                                 // output: 0
+                                                    // output: 3
+    }
+
+    // A closure captures the value at its creation.
+    String greeting = "hi";
+    @Escaping () -> String greet = () -> greeting;
+    print(greet());                                 // output: hi
+
+    print(nested(1)()());                           // output: 6
+
+    var labeled = Labeled("x", () -> "described");
+    var copy = labeled;
+    print(copy.describe());                         // output: described
+
+    print(perform(Run(() -> 42)));                  // output: 42
+    print(perform(Skip));                           // output: -1
+
+    // Escaping values passed to non-escaping parameters: a template, and a FunctionRef.
+    () -> int seven = () -> 7;
+    print(callTemplate(seven));                     // output: 7
+    Runner runner = new TwiceRunner();
+    print(runner.run(seven));                       // output: 14
+    print(runner.run(() -> 1));                     // output: 2
+}

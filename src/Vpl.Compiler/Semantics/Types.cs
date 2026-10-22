@@ -76,6 +76,17 @@ public sealed class VplType
         NonNull = this;
     }
 
+    // The escaping form of a non-escaping function type, which is the other's twin.
+    VplType(VplType nonEscaping, bool escaping)
+    {
+        FunctionParameters = nonEscaping.FunctionParameters;
+        FunctionReturnType = nonEscaping.FunctionReturnType;
+        TypeArguments = [];
+        NonNull = this;
+        IsEscaping = escaping;
+        twin = nonEscaping;
+    }
+
     internal static VplType ForSymbol(TypeSymbol symbol, IReadOnlyList<VplType> typeArguments) =>
         new(typeArguments.Count == 0 ? symbol.Name : null, symbol, typeArguments);
 
@@ -125,7 +136,23 @@ public sealed class VplType
     /// </summary>
     public bool IsFunction => FunctionReturnType is not null;
 
-    /// <summary>The function type <c>(parameters) -> this</c>.</summary>
+    /// <summary>
+    /// The escaping form of a function type, written the same way: a heap closure that may be
+    /// stored. The other form may only be called and passed on during the call it was given to.
+    /// </summary>
+    public bool IsEscaping { get; }
+
+    VplType? twin;
+
+    /// <summary>The escaping form of a function type.</summary>
+    public VplType Escaping => IsEscaping ? this : twin ?? Publish(ref twin, new VplType(this, escaping: true));
+
+    /// <summary>The non-escaping form of a function type.</summary>
+    public VplType NonEscaping => IsEscaping ? twin! : this;
+
+    public VplType WithEscaping(bool escaping) => escaping ? Escaping : NonEscaping;
+
+    /// <summary>The non-escaping function type <c>(parameters) -> this</c>.</summary>
     public VplType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) =>
         LazyInitializer.EnsureInitialized(ref functionTypes, () => new(FunctionParameterListComparer.Instance))
             .GetOrAdd(parameters, p => new VplType([.. p], this));
@@ -139,8 +166,8 @@ public sealed class VplType
 
     public bool IsNullable => NonNull != this;
 
-    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>.</summary>
-    public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
+    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>. A nullable function is escaping.</summary>
+    public VplType Nullable => IsNullable ? this : IsFunction && !IsEscaping ? Escaping.Nullable : nullable ?? Publish(ref nullable, new VplType(this));
 
     /// <summary>
     /// A nullable type that is not a reference: <c>int?</c>, <c>Vec3?</c>, and <c>T?</c>, since
@@ -213,7 +240,7 @@ public sealed class TypeMap
         type.IsNullable ? Apply(type.NonNull).Nullable
         : type.IsPointer ? Apply(type.ElementType!).PointerTo
         : type.IsFixedArray ? Apply(type.ElementType!).FixedArrayOf(type.FixedLength)
-        : type.IsFunction ? Apply(type.FunctionReturnType!).FunctionReturning([.. type.FunctionParameters.Select(p => p with { Type = Apply(p.Type) })])
+        : type.IsFunction ? Apply(type.FunctionReturnType!).FunctionReturning([.. type.FunctionParameters.Select(p => p with { Type = Apply(p.Type) })]).WithEscaping(type.IsEscaping)
         : type.TypeParameter is { } parameter ? map.GetValueOrDefault(parameter, type)
         : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Apply)])
         : type;
@@ -262,12 +289,14 @@ public static class Conversions
     /// <summary>
     /// Only conversions that can never lose information are implicit: numeric widening, and for
     /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
-    /// to, and a nullable value to another nullable whose value type it converts to.
+    /// to, and a nullable value to another nullable whose value type it converts to. An escaping
+    /// function converts to its non-escaping form.
     /// </summary>
     public static bool IsImplicit(VplType from, VplType to) =>
         from == to
         || from == VplType.Error
         || to == VplType.Error
+        || (from.IsEscaping && to == from.NonEscaping)
         || (from == VplType.Int && (to == VplType.Long || to == VplType.Double))
         || (from == VplType.Float && to == VplType.Double)
         || (from == VplType.Null && (to.IsNullable || to.IsPointer))

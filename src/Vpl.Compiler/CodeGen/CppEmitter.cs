@@ -197,7 +197,7 @@ public sealed partial class CppEmitter
         if (type.IsFixedArray) return $"std::array<{CppType(type.ElementType!)}, {type.FixedLength}>";
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
         // A local holding a lambda is `auto`, and a template parameter its own type; see CppEmitter.Lambdas.cs.
-        if (type.IsFunction) return $"vpl::FunctionRef<{FunctionSignature(type)}>";
+        if (type.IsFunction) return $"vpl::{(type.IsEscaping ? "Function" : "FunctionRef")}<{FunctionSignature(type)}>";
         // `T?` is a reference or an Optional depending on what `T` stands for.
         if (type.IsNullableValue) return type.NonNull.IsTypeParameter ? $"vpl::Nullable<{CppType(type.NonNull)}>" : $"vpl::Optional<{CppType(type.NonNull)}>";
         if (type.IsStructOrEnum) return ObjectType(type);

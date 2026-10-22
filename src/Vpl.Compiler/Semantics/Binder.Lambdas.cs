@@ -7,24 +7,16 @@ namespace Vpl.Compiler.Semantics;
 public sealed partial class Binder
 {
     /// <summary>
-    /// Until escaping functions exist (step 5 of docs/handoff/lambdas.md), only parameters and
-    /// locals hold functions, which a lambda's captures outlive since it can't leave the call.
+    /// A function type as written, which is escaping; see <see cref="BindVariableType"/> for
+    /// parameters and locals. Its own parameters are non-escaping.
     /// </summary>
-    bool CheckNotStored(VplType type, Location location, string what)
-    {
-        if (!type.NonNull.IsFunction)
-            return true;
-        Error(location, $"a function cannot be {what} yet; until escaping functions are implemented, only parameters and local variables can hold one");
-        return false;
-    }
-
     VplType BindFunctionType(TypeSyntax syntax)
     {
         var parameters = new List<FunctionParameterType>();
         bool failed = false;
         foreach (var parameter in syntax.Parameters)
         {
-            var type = BindType(parameter.Type, allowVoid: false);
+            var type = NonEscaping(BindType(parameter.Type, allowVoid: false));
             failed |= type == VplType.Error || !CheckParameterMode(parameter.RefKind, type, parameter.Type.Location);
             parameters.Add(new FunctionParameterType(parameter.RefKind, type));
         }
@@ -34,9 +26,9 @@ public sealed partial class Binder
             Error(syntax.Element!.Location, $"a function cannot return a '{returnType}', since there is nothing it could view");
             return VplType.Error;
         }
-        if (failed || returnType == VplType.Error || !CheckNotStored(returnType, syntax.Element!.Location, "returned"))
+        if (failed || returnType == VplType.Error)
             return VplType.Error;
-        return returnType.FunctionReturning(parameters);
+        return returnType.FunctionReturning(parameters).Escaping;
     }
 
     bool CheckParameterMode(RefKind refKind, VplType type, Location location)
@@ -56,7 +48,7 @@ public sealed partial class Binder
             return null;
         return [.. e.Parameters.Select(p =>
         {
-            var type = BindType(p.Type!, allowVoid: false);
+            var type = NonEscaping(BindType(p.Type!, allowVoid: false));
             return new FunctionParameterType(p.RefKind, CheckParameterMode(p.RefKind, type, p.Location) ? type : VplType.Error);
         })];
     }
@@ -100,6 +92,8 @@ public sealed partial class Binder
         return new FunctionSymbol("lambda", parameters, returnType)
         {
             IsLambda = true,
+            IsEscaping = type.IsEscaping,
+            Enclosing = currentFunction,
             IsUnsafe = InUnsafe,
             IsReadOnly = currentFunction?.IsReadOnly == true,
         };
@@ -127,11 +121,11 @@ public sealed partial class Binder
     /// Binds a lambda's body before its return type is known, for generic inference. Its returns are
     /// converted once the type is known, by <see cref="RetargetLambda"/>.
     /// </summary>
-    InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters)
+    InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters, bool escaping)
     {
         var e = lambda.Syntax;
         // The return type stands in until it is inferred; returns don't look at it.
-        var function = LambdaFunction(e, VplType.Error.FunctionReturning(parameters), lambda.DeclaredParameters, VplType.Error);
+        var function = LambdaFunction(e, VplType.Error.FunctionReturning(parameters).WithEscaping(escaping), lambda.DeclaredParameters, VplType.Error);
         var enclosing = inferring;
         var values = new List<BoundExpression>();
         inferring = (function, values);
@@ -164,7 +158,14 @@ public sealed partial class Binder
         if (!InferredLambdaFits(lambda, type))
             return ErrorExpression(pending.Location, $"this lambda cannot be converted to '{type}'");
         var old = lambda.Function;
-        var function = new FunctionSymbol(old.Name, old.Parameters, type.FunctionReturnType!) { IsLambda = true, IsUnsafe = old.IsUnsafe, IsReadOnly = old.IsReadOnly };
+        var function = new FunctionSymbol(old.Name, old.Parameters, type.FunctionReturnType!)
+        {
+            IsLambda = true,
+            IsEscaping = old.IsEscaping,
+            Enclosing = old.Enclosing,
+            IsUnsafe = old.IsUnsafe,
+            IsReadOnly = old.IsReadOnly,
+        };
         return new BoundLambda(pending.Location, type, function, (BoundBlock)ConvertReturns(lambda.Body, function));
     }
 
