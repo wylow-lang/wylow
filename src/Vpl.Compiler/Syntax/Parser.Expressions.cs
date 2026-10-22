@@ -1,3 +1,4 @@
+using System.Text;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Text;
 
@@ -168,7 +169,7 @@ public sealed partial class Parser
         if (Peek(end - position).Kind != TokenKind.CloseParen)
             return false;
         return Peek(end - position + 1).Kind is TokenKind.Identifier or TokenKind.IntLiteral or TokenKind.FloatLiteral
-            or TokenKind.StringLiteral or TokenKind.TrueKeyword or TokenKind.FalseKeyword or TokenKind.NullKeyword
+            or TokenKind.CharLiteral or TokenKind.StringLiteral or TokenKind.TrueKeyword or TokenKind.FalseKeyword or TokenKind.NullKeyword
             or TokenKind.ThisKeyword or TokenKind.SuperKeyword or TokenKind.NewKeyword or TokenKind.OpenParen
             or TokenKind.Tilde or TokenKind.SwitchKeyword;
     }
@@ -281,6 +282,9 @@ public sealed partial class Parser
                 var value = (FloatLiteralValue)token.Value!;
                 return new FloatLiteralExpr(location, value.Value, value.IsDouble);
             }
+            case TokenKind.CharLiteral:
+                Advance();
+                return new CharLiteralExpr(location, (Rune)token.Value!);
             case TokenKind.StringLiteral:
                 Advance();
                 return new StringLiteralExpr(location, (string)token.Value!);

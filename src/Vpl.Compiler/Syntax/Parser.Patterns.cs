@@ -75,7 +75,7 @@ public sealed partial class Parser
                 var name = Expect(TokenKind.Identifier, "a variable name");
                 return new VarPatternSyntax(LocationFrom(start), name.Text, Loc(name.Span));
             }
-            case TokenKind.IntLiteral or TokenKind.FloatLiteral or TokenKind.StringLiteral or TokenKind.TrueKeyword
+            case TokenKind.IntLiteral or TokenKind.FloatLiteral or TokenKind.CharLiteral or TokenKind.StringLiteral or TokenKind.TrueKeyword
                 or TokenKind.FalseKeyword or TokenKind.NullKeyword:
             {
                 var literal = ParsePrimary();

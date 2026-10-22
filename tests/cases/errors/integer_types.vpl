@@ -47,7 +47,14 @@ void main() {
 
     char c = 65;                  // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
     char d = (char)65;
-    var next = d + 1;             // error: operator '+' cannot be applied to 'char' and 'int'
+    char next = d + 1;            // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
+    d++;                          // error: '++' requires a numeric variable
+    var negatedChar = -d;           // error: operator '-' cannot be applied to 'char'
+    print(d == 65);               // error: operator '==' cannot be applied to 'char' and 'int'
+    switch (d) {
+        case 1 -> print(1);       // error: a 'char' can never be '1'
+        default -> print(2);
+    }
     float f = (float)d;           // error: cannot convert 'char' to 'float'
     bool flag = (bool)d;          // error: cannot convert 'char' to 'bool'
 }

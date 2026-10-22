@@ -18,9 +18,8 @@ All sizes are fixed on every platform.
 **Lengths and indices are `int`.** Signed lengths avoid the classic unsigned-underflow bug
 (`i < length - 1` when `length == 0`).
 
-`char` is not a number: it has no arithmetic or bitwise operators (§2.4).
-
-> Not implemented yet: character literals.
+`char` is not a number: it has no arithmetic of its own, and in arithmetic it is its code point,
+an `int` (§2.4).
 
 ## 2.2 Literals
 
@@ -54,8 +53,6 @@ Any other escape is an error, as is a `\u{...}` that is not a Unicode scalar val
 `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`), the same values a cast to `char` rejects. Unlike
 Java and C#'s `é`, the braces reach every code point directly, so no character needs a
 surrogate pair. There is no `\x` escape for raw bytes, since a `String` is always valid UTF-8.
-
-> Not implemented yet: `\u{...}`.
 
 ## 2.3 Conversions
 
@@ -157,9 +154,11 @@ stored. Debug builds panic in this case rather than producing a wrong value.
 
 ### `char`
 
-`char` supports `==`, `!=`, and the ordering comparisons (by code point), and character literals in
-`switch` and patterns. It has no arithmetic or bitwise operators. Convert explicitly to compute with
-code points: `(char)(c + 1)`, where `c` converts to `int` implicitly and the cast checks the result.
+`char` supports `==`, `!=`, and the ordering comparisons (by code point) with another `char`, and
+character literals in `switch` and patterns. It has no arithmetic of its own: an arithmetic,
+bitwise, or shift operator converts a `char` operand to its code point as an `int`, so `c - '0'` is
+an `int`, and `(char)(c + 1)` is the next character, checked by the cast. Unary `-` and `~`, `++`,
+and `--` are errors, and `c == 65` is an error (compare with `'A'`).
 
 ### Overflow
 

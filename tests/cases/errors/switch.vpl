@@ -65,7 +65,7 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
         case Color.Red -> print(1);             // error: a 'Shape' can never be 'Color.Red'
         case Circle(1, 2) -> print(1);          // error: 'Circle' has 1 field, but the pattern lists 2
         case Point() -> print(1);               // error: 'Point' carries no data; match it without parentheses
-        case Circle(1.5) -> print(1);           // error: only integer and 'bool' literals can be patterns
+        case Circle(1.5) -> print(1);           // error: only integer, character, and 'bool' literals can be patterns
         case Circle(int r) -> print(1);         // error: a 'float' can never be a 'int'
         case Pair(1, _) -> print(1);            // error: a 'Direction' can never be '1'
         default -> print(2);

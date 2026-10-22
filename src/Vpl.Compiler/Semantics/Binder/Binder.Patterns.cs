@@ -103,8 +103,9 @@ public sealed partial class Binder
             IntLiteralExpr literal => BindIntegerLiteral(literal, c.Location, negated: false),
             UnaryExpr { Operand: IntLiteralExpr literal } => BindIntegerLiteral(literal, c.Location, negated: true),
             BoolLiteralExpr literal => new BoundLiteral(c.Location, VplType.Bool, literal.Value),
+            CharLiteralExpr literal => new BoundLiteral(c.Location, VplType.Char, literal.Value),
             NullLiteralExpr => ErrorExpression(c.Location, "'null' cannot be a pattern; compare with '== null', or use 'default'"),
-            _ => ErrorExpression(c.Location, "only integer and 'bool' literals can be patterns"),
+            _ => ErrorExpression(c.Location, "only integer, character, and 'bool' literals can be patterns"),
         };
         if (value is not BoundLiteral literalValue)
             return new BoundDiscardPattern(c.Location, type);

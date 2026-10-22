@@ -1,3 +1,4 @@
+using System.Text;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Syntax;
@@ -193,6 +194,8 @@ public sealed record IntLiteralExpr(Location Location, ulong Value, IntegerSuffi
 public sealed record FloatLiteralExpr(Location Location, double Value, bool IsDouble) : Expr(Location);
 
 public sealed record BoolLiteralExpr(Location Location, bool Value) : Expr(Location);
+
+public sealed record CharLiteralExpr(Location Location, Rune Value) : Expr(Location);
 
 public sealed record StringLiteralExpr(Location Location, string Value) : Expr(Location);
 

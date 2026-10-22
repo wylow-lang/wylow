@@ -160,6 +160,8 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             return LexIdentifierOrKeyword();
         if (c == '"')
             return LexString();
+        if (c == '\'')
+            return LexChar();
         // Like C#, `c ?.5 : x` stays a conditional.
         if (c == '?' && Peek(1) == '.' && !char.IsAsciiDigit(Peek(2)))
         {
@@ -338,29 +340,118 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                 position++;
                 break;
             }
-            if (Current == '\\')
-            {
-                char? escaped = Peek(1) switch
-                {
-                    'n' => '\n',
-                    't' => '\t',
-                    'r' => '\r',
-                    '0' => '\0',
-                    '\\' => '\\',
-                    '"' => '"',
-                    '\'' => '\'',
-                    _ => null,
-                };
-                if (escaped is null)
-                    Error(new TextSpan(position, 2), $"unknown escape sequence '\\{Peek(1)}'");
-                else
-                    value.Append(escaped.Value);
-                position += 2;
-                continue;
-            }
-            value.Append(Current);
-            position++;
+            if (LexCharacter() is { } character)
+                value.Append(character.ToString());
         }
         return Make(TokenKind.StringLiteral, start, value.ToString());
+    }
+
+    Token LexChar()
+    {
+        int start = position;
+        position++;
+        Rune? value = null;
+        bool reported = false;
+        if (Current == '\'')
+        {
+            Error(TextSpan.FromBounds(start, position + 1), "a character literal must hold a character");
+            reported = true;
+        }
+        else if (!AtLineEnd)
+        {
+            value = LexCharacter();
+            reported = value is null;
+        }
+
+        if (Current == '\'')
+        {
+            position++;
+        }
+        else
+        {
+            int afterCharacter = position;
+            while (!AtLineEnd && Current != '\'')
+                position++;
+            if (AtLineEnd)
+            {
+                // Without a closing quote, the rest of the line is more likely code than characters.
+                position = afterCharacter;
+                Error(TextSpan.FromBounds(start, position), "unterminated character literal");
+            }
+            else
+            {
+                position++;
+                // The rest of a malformed escape isn't another character.
+                if (!reported)
+                    Error(TextSpan.FromBounds(start, position), "a character literal holds exactly one character; use a string for more");
+            }
+        }
+        return Make(TokenKind.CharLiteral, start, value ?? new Rune(0));
+    }
+
+    bool AtLineEnd => position >= text.Length || Current is '\n' or '\r';
+
+    /// <summary>One character of a string or character literal, or null after reporting an invalid one.</summary>
+    Rune? LexCharacter()
+    {
+        int start = position;
+        if (Current != '\\')
+        {
+            if (Rune.DecodeFromUtf16(text.AsSpan(position), out var rune, out int length) == System.Buffers.OperationStatus.Done)
+            {
+                position += length;
+                return rune;
+            }
+            position++;
+            Error(new TextSpan(start, 1), "invalid character: an unpaired surrogate");
+            return null;
+        }
+
+        if (Peek(1) == 'u')
+            return LexUnicodeEscape();
+        char? escaped = Peek(1) switch
+        {
+            'n' => '\n',
+            't' => '\t',
+            'r' => '\r',
+            '0' => '\0',
+            '\\' => '\\',
+            '"' => '"',
+            '\'' => '\'',
+            _ => null,
+        };
+        position += 2;
+        if (escaped is null)
+            Error(new TextSpan(start, 2), $"unknown escape sequence '\\{text[start + 1]}'");
+        return escaped is { } c ? new Rune(c) : null;
+    }
+
+    /// <summary><c>\u{1F600}</c>: a code point in hex, with 1 to 6 digits.</summary>
+    Rune? LexUnicodeEscape()
+    {
+        int start = position;
+        position += 2;
+        bool braced = Current == '{';
+        int digitsStart = position + 1;
+        if (braced)
+        {
+            position++;
+            while (DigitValue(Current) < 16)
+                position++;
+        }
+        int digits = position - digitsStart;
+        if (!braced || Current != '}' || digits is < 1 or > 6)
+        {
+            Error(TextSpan.FromBounds(start, position), "'\\u' must be followed by 1 to 6 hex digits in braces, as in '\\u{1F600}'");
+            return null;
+        }
+        position++;
+        int value = int.Parse(text.AsSpan(digitsStart, digits), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        if (!Rune.IsValid(value))
+        {
+            Error(TextSpan.FromBounds(start, position), $"'\\u{{{text[digitsStart..(digitsStart + digits)]}}}' is not a Unicode scalar value");
+            return null;
+        }
+        return new Rune(value);
     }
 }

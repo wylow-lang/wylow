@@ -27,6 +27,7 @@ public sealed partial class Binder
             ? new BoundLiteral(e.Location, VplType.Double, e.Value)
             : new BoundLiteral(e.Location, VplType.Float, (float)e.Value),
         BoolLiteralExpr e => new BoundLiteral(e.Location, VplType.Bool, e.Value),
+        CharLiteralExpr e => new BoundLiteral(e.Location, VplType.Char, e.Value),
         StringLiteralExpr e => new BoundLiteral(e.Location, VplType.String, e.Value),
         NullLiteralExpr e => new BoundNullLiteral(e.Location),
         NameExpr e => BindName(e, expected),
@@ -368,7 +369,8 @@ public sealed partial class Binder
 
         var op = BinaryOperatorFor(syntaxOperator);
         var symbol = SyntaxFacts.GetText(syntaxOperator);
-        string Mismatch() => $"operator '{symbol}' cannot be applied to '{left.Type}' and '{right.Type}'";
+        var (leftType, rightType) = (left.Type, right.Type);
+        string Mismatch() => $"operator '{symbol}' cannot be applied to '{leftType}' and '{rightType}'";
 
         if (left.Type.IsPointer || right.Type.IsPointer)
             return BindPointerOperation(location, left, op, right, Mismatch());
@@ -412,6 +414,16 @@ public sealed partial class Binder
             if (!Conversions.SupportsEquality(left.Type))
                 return ErrorExpression(location, $"operator '{symbol}' cannot be applied to '{left.Type}', since '{valueType}' does not support '=='");
             return new BoundBinary(location, left, op, right, VplType.Bool);
+        }
+
+        // A char has no arithmetic of its own; in arithmetic it is its code point, so `c - '0'` is an int.
+        if (op is not (BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual or BoundBinaryOperator.Less or BoundBinaryOperator.LessOrEqual
+            or BoundBinaryOperator.Greater or BoundBinaryOperator.GreaterOrEqual or BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr))
+        {
+            if (left.Type == VplType.Char)
+                left = Convert(left, VplType.Int);
+            if (right.Type == VplType.Char)
+                right = Convert(right, VplType.Int);
         }
 
         bool bothBool = left.Type == VplType.Bool && right.Type == VplType.Bool;

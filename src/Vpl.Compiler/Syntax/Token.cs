@@ -8,6 +8,7 @@ public enum TokenKind
     Identifier,
     IntLiteral,
     FloatLiteral,
+    CharLiteral,
     StringLiteral,
 
     VoidKeyword,
