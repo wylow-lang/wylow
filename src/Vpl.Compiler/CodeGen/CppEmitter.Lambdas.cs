@@ -47,16 +47,12 @@ public sealed partial class CppEmitter
     /// <summary>Virtual methods with function parameters that nothing overrides, which are emitted as ordinary methods so that they can be templates.</summary>
     HashSet<FunctionSymbol> unoverridden = [];
 
-    static HashSet<FunctionSymbol> FindUnoverridden(BoundProgram program)
-    {
-        var overrides = new Overrides(program);
-        return
-        [
-            .. program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
-                .Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false }
-                    && m.Parameters.Any(p => IsNonEscaping(p.Type)) && overrides.Targets(m).Count == 1),
-        ];
-    }
+    static HashSet<FunctionSymbol> FindUnoverridden(WholeProgram whole) =>
+    [
+        .. whole.Program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
+            .Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false }
+                && m.Parameters.Any(p => IsNonEscaping(p.Type)) && whole.Overrides.Targets(m).Count == 1),
+    ];
 
     static string CallableTypeName(LocalSymbol parameter) => "vpl_F_" + parameter.Name;
 
@@ -157,15 +153,14 @@ public sealed partial class CppEmitter
     /// type is made by the caller, such as a lambda or a choice. A function that only passes its own
     /// parameters on (or escaping values, whose type is fixed) instantiates the same template again.
     /// </summary>
-    static HashSet<FunctionSymbol> FindRecursive(BoundProgram program)
+    static HashSet<FunctionSymbol> FindRecursive(WholeProgram whole)
     {
         var calls = new Dictionary<FunctionSymbol, HashSet<FunctionSymbol>>();
         var growing = new List<(FunctionSymbol Caller, FunctionSymbol Callee)>();
-        foreach (var function in program.Functions)
+        foreach (var function in whole.Program.Functions)
         {
-            IEnumerable<BoundExpression> code = BoundTree.AllExpressions(function.Body);
-            if (function.Symbol is { IsConstructor: true, ContainingType: { } owner })
-                code = code.Concat(owner.Fields.Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
+            var code = BoundTree.AllExpressions(function.Body)
+                .Concat(whole.UnitOf(function.Symbol)!.Initializers.SelectMany(BoundTree.AllExpressions));
             var edges = code.Select(e => e switch
             {
                 BoundCall call => (call.Method.Symbol, call.Arguments),

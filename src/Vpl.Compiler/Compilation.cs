@@ -38,11 +38,10 @@ public static class Compilation
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
 
-        new ElementAliasing(program).Run();
-        var stackObjects = StackObjects.Find(program);
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, CyclicClasses.Find(program), stackObjects))
+        var analyses = Analyses.Run(program);
+        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses))
         {
-            StackObjects = [.. stackObjects.Locations],
+            StackObjects = [.. analyses.StackObjects.Locations],
         };
     }
 }

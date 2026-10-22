@@ -29,11 +29,11 @@ public sealed class CyclicClasses
     readonly Dictionary<FunctionSymbol, HashSet<VplType>> captured = [];
     readonly HashSet<FunctionSymbol> cyclicClosures = [];
 
-    CyclicClasses(BoundProgram program)
+    CyclicClasses(WholeProgram whole)
     {
-        stdlib = program.Stdlib;
-        types = program.Types;
-        closures = [.. FunctionValues.Lambdas(program).Where(l => l.Type.IsEscaping)];
+        stdlib = whole.Program.Stdlib;
+        types = whole.Program.Types;
+        closures = [.. whole.Lambdas.Where(l => l.Type.IsEscaping)];
     }
 
     /// <summary>Every class instantiation the program is known to create objects of.</summary>
@@ -55,9 +55,9 @@ public sealed class CyclicClasses
         : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Erase)])
         : type;
 
-    public static CyclicClasses Find(BoundProgram program)
+    public static CyclicClasses Find(WholeProgram whole)
     {
-        var result = new CyclicClasses(program);
+        var result = new CyclicClasses(whole);
         result.Discover();
         result.MarkCycles();
         return result;

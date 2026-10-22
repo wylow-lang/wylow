@@ -16,12 +16,6 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     public bool IsLoopElement { get; init; }
 
     /// <summary>
-    /// A loop element that refers to the element in place rather than copying it, because nothing
-    /// in the loop can store over the element; set by <see cref="Analysis.ElementAliasing"/>.
-    /// </summary>
-    public bool AliasesElement { get; set; }
-
-    /// <summary>
     /// A lambda assigns it, so any call after the lambda is created may change it: it is never
     /// narrowed, and is held while in use like an object's field. Set by <see cref="FlowAnalyzer"/>.
     /// </summary>

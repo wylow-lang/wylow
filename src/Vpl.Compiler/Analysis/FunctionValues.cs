@@ -9,15 +9,6 @@ namespace Vpl.Compiler.Analysis;
 /// </summary>
 public static class FunctionValues
 {
-    /// <summary>Every lambda in the program, including those in lambdas and field initializers.</summary>
-    public static IReadOnlyList<BoundLambda> Lambdas(BoundProgram program) =>
-    [
-        .. program.Functions.SelectMany(f => BoundTree.AllExpressions(f.Body))
-            .Concat(program.Types.SelectMany(t => t.Fields).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions))
-            .OfType<BoundLambda>()
-            .Distinct(),
-    ];
-
     /// <summary>
     /// Whether a value of type <paramref name="value"/> may be a lambda of type <paramref name="lambda"/>.
     /// Escaping is ignored, since it converts, and so is the nullability of references, which C++

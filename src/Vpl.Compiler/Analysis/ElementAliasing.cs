@@ -17,7 +17,6 @@ namespace Vpl.Compiler.Analysis;
 /// </remarks>
 public sealed class ElementAliasing
 {
-    const int MaxRounds = 32;
     const int MaxWrites = 64;
 
     /// <summary>
@@ -41,108 +40,48 @@ public sealed class ElementAliasing
         }
     }
 
-    /// <summary>Code summarized together: a function's body, plus the field initializers a constructor runs.</summary>
-    sealed record Unit(FunctionSymbol Symbol, IReadOnlyList<BoundStatement> Statements, IReadOnlyList<BoundExpression> Expressions);
-
-    readonly BoundProgram program;
-    readonly Dictionary<FunctionSymbol, Unit> units = [];
-    readonly Dictionary<FunctionSymbol, Summary> summaries = [];
-    readonly Overrides overrides;
+    readonly WholeProgram whole;
+    readonly Summaries<Summary> summaries;
     readonly Summary destructors = new();
+    readonly HashSet<LocalSymbol> aliasing = [];
+
+    ElementAliasing(WholeProgram whole)
+    {
+        this.whole = whole;
+        summaries = new Summaries<Summary>(whole.Units, () => new Summary(), s => s.Size);
+    }
+
+    public static ElementAliasing Find(WholeProgram whole)
+    {
+        var result = new ElementAliasing(whole);
+        result.summaries.Solve(result.Collect);
+        foreach (var unit in whole.Units.Where(u => u.Symbol.IsDestructor))
+            Merge(result.destructors, result.summaries[unit.Symbol]!, TypeMap.Empty);
+        foreach (var body in whole.Bodies)
+            result.FindLoops(body);
+        return result;
+    }
 
     /// <summary>
-    /// Every lambda in the program, each a unit of its own: a call of a function value may run any
-    /// lambda of its type (<see cref="FunctionValues.MayBe"/>). Each lambda is also part of the unit
-    /// that creates it, since it runs during that unit's calls.
+    /// Whether a loop's element variable refers to the element in place rather than copying it,
+    /// because nothing in the loop can store over the element.
     /// </summary>
-    readonly IReadOnlyList<BoundLambda> lambdas;
-    readonly Dictionary<VplType, List<FunctionSymbol>> lambdasOfType = [];
+    public bool AliasesElement(LocalSymbol element) => aliasing.Contains(element);
 
-    public ElementAliasing(BoundProgram program)
+    /// <summary>
+    /// A lambda is part of the unit that creates it, since it runs during that unit's calls, as
+    /// well as a unit of its own, which a call of a function value of its type may run.
+    /// </summary>
+    Summary Collect(Unit unit)
     {
-        this.program = program;
-        foreach (var function in program.Functions)
-            units[function.Symbol] = new Unit(function.Symbol, [function.Body], InitializersRunBy(function.Symbol));
-        foreach (var type in program.Types.Where(t => !units.ContainsKey(t.DefaultConstructor)))
-            units[type.DefaultConstructor] = new Unit(type.DefaultConstructor, [], InitializersRunBy(type.DefaultConstructor));
-        lambdas = FunctionValues.Lambdas(program);
-        foreach (var lambda in lambdas)
-            units[lambda.Function] = new Unit(lambda.Function, [lambda.Body], []);
-        overrides = new Overrides(program);
-    }
-
-    /// <summary>The lambdas a function value of the type may be.</summary>
-    List<FunctionSymbol> LambdasOfType(VplType type)
-    {
-        if (!lambdasOfType.TryGetValue(type, out var found))
-            lambdasOfType[type] = found = [.. lambdas.Where(l => FunctionValues.MayBe(type, l.Type)).Select(l => l.Function)];
-        return found;
-    }
-
-    /// <summary>Marks every loop element variable that can refer to its element in place.</summary>
-    public void Run()
-    {
-        Summarize();
-        foreach (var unit in units.Values.Where(u => u.Symbol.IsDestructor))
-            Merge(destructors, summaries[unit.Symbol], TypeMap.Empty);
-        foreach (var function in program.Functions)
-            FindLoops(function.Body);
-        foreach (var lambda in lambdas)
-            FindLoops(lambda.Body);
-    }
-
-    static IReadOnlyList<BoundExpression> InitializersRunBy(FunctionSymbol function) =>
-        function.IsConstructor && function.ContainingType is { } type
-            ? [.. type.Fields.Select(f => f.Initializer).OfType<BoundExpression>()]
-            : [];
-
-    /// <summary>Summarizes every unit, repeating until no summary grows; recursion makes that take several rounds.</summary>
-    void Summarize()
-    {
-        foreach (var symbol in units.Keys)
-            summaries[symbol] = new Summary();
-        for (int round = 0; ; round++)
-        {
-            bool changed = false;
-            foreach (var unit in units.Values)
-            {
-                var summary = Collect(unit.Symbol, unit.Statements, unit.Expressions);
-                var old = summaries[unit.Symbol];
-                if (summary.Size != old.Size)
-                {
-                    summaries[unit.Symbol] = summary;
-                    changed = true;
-                }
-            }
-            if (!changed)
-                return;
-            if (round == MaxRounds)
-            {
-                foreach (var summary in summaries.Values)
-                    summary.Unknown = true;
-                return;
-            }
-        }
-    }
-
-    Summary Collect(FunctionSymbol? function, IEnumerable<BoundStatement> statements, IEnumerable<BoundExpression> expressions)
-    {
-        var collector = new Collector(this, function, new Summary());
-        foreach (var statement in statements)
+        var collector = new Collector(this, unit.Symbol, new Summary());
+        foreach (var statement in unit.Statements)
             collector.Statement(statement);
-        foreach (var expression in expressions)
-            collector.Expression(expression);
-        if (function is { IsConstructor: true, ContainingType: { } type, Declaration: null } && type.BaseType is { } baseType)
-            collector.Call(BaseConstructor(type, baseType), direct: true);
+        foreach (var initializer in unit.Initializers)
+            collector.Expression(initializer);
+        if (unit.ImplicitBaseConstructor is { } baseConstructor)
+            collector.Call(baseConstructor, direct: true);
         return collector.Summary;
-    }
-
-    /// <summary>The base constructor an implicit constructor calls, which takes no arguments.</summary>
-    internal static MethodReference BaseConstructor(TypeSymbol type, VplType baseType)
-    {
-        var symbol = baseType.Symbol!;
-        var constructor = symbol.Constructors.FirstOrDefault(c => c.Parameters.Count == 0) ?? symbol.DefaultConstructor;
-        return new MethodReference(constructor, baseType, []);
     }
 
     static void Merge(Summary into, Summary from, TypeMap map)
@@ -200,7 +139,7 @@ public sealed class ElementAliasing
         var summary = collector.Summary;
         Merge(summary, destructors, TypeMap.Empty);
         if (!summary.Unknown && !summary.Writes.Any(w => MayStoreOver(w, element.Type.NonNull)))
-            element.AliasesElement = true;
+            aliasing.Add(element);
     }
 
     /// <summary>Whether a write may store over an element whose type is <paramref name="element"/>.</summary>
@@ -301,8 +240,8 @@ public sealed class ElementAliasing
                     Call(construction.Constructor, direct: true);
                     break;
                 case BoundInvocation invocation:
-                    foreach (var lambda in analysis.LambdasOfType(invocation.Callee.Type.NonNull))
-                        Merge(Summary, analysis.summaries[lambda], TypeMap.Empty);
+                    foreach (var lambda in analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull))
+                        Merge(Summary, analysis.summaries[lambda]!, TypeMap.Empty);
                     break;
                 case BoundLambda lambda:
                     Statement(lambda.Body);
@@ -314,13 +253,9 @@ public sealed class ElementAliasing
 
         public void Call(MethodReference method, bool direct)
         {
-            var symbol = method.Symbol;
-            IEnumerable<FunctionSymbol> targets = direct || !symbol.IsDispatched
-                ? [symbol]
-                : analysis.overrides.Targets(symbol);
-            foreach (var target in targets)
+            foreach (var target in analysis.whole.Targets(method.Symbol, direct))
             {
-                if (analysis.summaries.TryGetValue(target, out var callee))
+                if (analysis.summaries[target] is { } callee)
                     Merge(Summary, callee, method.Map);
             }
         }

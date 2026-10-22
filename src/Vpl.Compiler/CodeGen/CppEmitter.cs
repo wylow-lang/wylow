@@ -53,16 +53,18 @@ public sealed partial class CppEmitter
     HashSet<TypeSymbol> sharedObjectRoots = [];
     CyclicClasses cycles = null!;
     StackObjects stackObjects = null!;
+    ElementAliasing elements = null!;
     readonly Dictionary<BoundNew, string> slots = new(ReferenceEqualityComparer.Instance);
 
-    public string Emit(BoundProgram program, CyclicClasses cycles, StackObjects stackObjects)
+    public string Emit(BoundProgram program, Analyses analyses)
     {
-        this.cycles = cycles;
-        this.stackObjects = stackObjects;
-        recursive = FindRecursive(program);
+        cycles = analyses.Cycles;
+        stackObjects = analyses.StackObjects;
+        elements = analyses.Elements;
+        recursive = FindRecursive(analyses.Whole);
         overloaded = FindOverloaded(program);
-        unoverridden = FindUnoverridden(program);
-        lambdaChanged = FindLambdaChanged(program);
+        unoverridden = FindUnoverridden(analyses.Whole);
+        lambdaChanged = FindLambdaChanged(analyses.Whole);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];

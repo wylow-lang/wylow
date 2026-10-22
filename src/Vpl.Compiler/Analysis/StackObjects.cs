@@ -23,46 +23,30 @@ public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);
 /// </remarks>
 public sealed class StackObjects
 {
-    const int MaxRounds = 32;
-
     /// <summary>What a function may let escape: its parameters, by index, and its <c>this</c>.</summary>
     sealed record Summary(IReadOnlySet<int> Parameters, bool This)
     {
         public int Size => Parameters.Count + (This ? 1 : 0);
     }
 
-    /// <summary>Code summarized together: a function's body, plus the field initializers a constructor runs.</summary>
-    sealed record Unit(FunctionSymbol Symbol, IReadOnlyList<BoundStatement> Statements, IReadOnlyList<BoundExpression> Initializers);
-
-    readonly BoundProgram program;
-    readonly Dictionary<FunctionSymbol, Unit> units = [];
-    readonly Dictionary<FunctionSymbol, Summary> summaries = [];
-    readonly Overrides overrides;
-    readonly IReadOnlyList<BoundLambda> lambdas;
-    readonly Dictionary<VplType, List<FunctionSymbol>> lambdasOfType = [];
+    readonly WholeProgram whole;
+    readonly ElementAliasing elements;
+    readonly Summaries<Summary> summaries;
     readonly Dictionary<BoundStatement, List<StackObject>> made = new(ReferenceEqualityComparer.Instance);
 
-    StackObjects(BoundProgram program)
+    StackObjects(WholeProgram whole, ElementAliasing elements)
     {
-        this.program = program;
-        foreach (var function in program.Functions)
-            units[function.Symbol] = new Unit(function.Symbol, [function.Body], InitializersRunBy(function.Symbol));
-        foreach (var type in program.Types.Where(t => !units.ContainsKey(t.DefaultConstructor)))
-            units[type.DefaultConstructor] = new Unit(type.DefaultConstructor, [], InitializersRunBy(type.DefaultConstructor));
-        lambdas = FunctionValues.Lambdas(program);
-        foreach (var lambda in lambdas)
-            units[lambda.Function] = new Unit(lambda.Function, [lambda.Body], []);
-        overrides = new Overrides(program);
+        this.whole = whole;
+        this.elements = elements;
+        summaries = new Summaries<Summary>(whole.Units, () => new Summary(new HashSet<int>(), false), s => s.Size);
     }
 
-    public static StackObjects Find(BoundProgram program)
+    public static StackObjects Find(WholeProgram whole, ElementAliasing elements)
     {
-        var result = new StackObjects(program);
-        result.Summarize();
-        foreach (var function in program.Functions)
-            result.FindIn(function.Body);
-        foreach (var lambda in result.lambdas)
-            result.FindIn(lambda.Body);
+        var result = new StackObjects(whole, elements);
+        result.summaries.Solve(result.SummaryOf);
+        foreach (var body in whole.Bodies)
+            result.FindIn(body);
         return result;
     }
 
@@ -71,46 +55,6 @@ public sealed class StackObjects
 
     /// <summary>Where each object on the stack is made.</summary>
     public IEnumerable<Location> Locations => made.Values.SelectMany(m => m).Select(m => m.Creation.Location);
-
-    static IReadOnlyList<BoundExpression> InitializersRunBy(FunctionSymbol function) =>
-        function.IsConstructor && function.ContainingType is { } type
-            ? [.. type.Fields.Select(f => f.Initializer).OfType<BoundExpression>()]
-            : [];
-
-    List<FunctionSymbol> LambdasOfType(VplType type)
-    {
-        if (!lambdasOfType.TryGetValue(type, out var found))
-            lambdasOfType[type] = found = [.. lambdas.Where(l => FunctionValues.MayBe(type, l.Type)).Select(l => l.Function)];
-        return found;
-    }
-
-    /// <summary>Summarizes every unit, repeating until no summary grows; recursion makes that take several rounds.</summary>
-    void Summarize()
-    {
-        foreach (var symbol in units.Keys)
-            summaries[symbol] = new Summary(new HashSet<int>(), false);
-        for (int round = 0; ; round++)
-        {
-            bool changed = false;
-            foreach (var unit in units.Values)
-            {
-                var summary = SummaryOf(unit);
-                if (summary.Size != summaries[unit.Symbol].Size)
-                {
-                    summaries[unit.Symbol] = summary;
-                    changed = true;
-                }
-            }
-            if (!changed)
-                return;
-            if (round == MaxRounds)
-            {
-                foreach (var symbol in units.Keys)
-                    summaries[symbol] = new Summary(Enumerable.Range(0, symbol.Parameters.Count).ToHashSet(), true);
-                return;
-            }
-        }
-    }
 
     Summary SummaryOf(Unit unit)
     {
@@ -122,8 +66,8 @@ public sealed class StackObjects
             flow.Statement(statement);
         foreach (var initializer in unit.Initializers)
             flow.Escape(initializer);
-        if (function is { IsConstructor: true, ContainingType: { } type, Declaration: null } && type.BaseType is { } baseType)
-            flow.Call(ElementAliasing.BaseConstructor(type, baseType), [Flow.This], [], direct: true);
+        if (unit.ImplicitBaseConstructor is { } baseConstructor)
+            flow.Call(baseConstructor, [Flow.This], [], direct: true);
         return new Summary(
             function.Parameters.Index().Where(p => flow.Escapes(p.Item)).Select(p => p.Index).ToHashSet(),
             flow.Escapes(Flow.This));
@@ -132,25 +76,19 @@ public sealed class StackObjects
     /// <summary>The summaries of the functions a call may run, or null if one of them has none, such as an extern function.</summary>
     List<Summary>? Targets(FunctionSymbol symbol, bool direct)
     {
-        if (symbol.IsBuiltin)
-            return null;
-        IEnumerable<FunctionSymbol> functions = direct || !symbol.IsDispatched
-            ? [symbol]
-            : overrides.Targets(symbol);
         var found = new List<Summary>();
-        foreach (var function in functions)
+        foreach (var function in whole.Targets(symbol, direct))
         {
-            if (summaries.TryGetValue(function, out var summary))
-                found.Add(summary);
-            else if (!function.IsAbstract && function.ContainingType?.Kind != TypeKind.Interface)
+            if (summaries[function] is not { } summary)
                 return null;
+            found.Add(summary);
         }
         return found;
     }
 
     /// <summary>Whether an object of the type is <c>Borrowable</c>, and the calls around its borrows may let it escape.</summary>
     bool BorrowsLetEscape(VplType type) =>
-        program.Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type)
+        whole.Program.Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type)
         && borrowable.Methods.Values.SelectMany(m => m).Any(m => Targets(m, direct: false) is not { } targets || targets.Any(t => t.This));
 
     void FindIn(BoundStatement statement)
@@ -197,9 +135,9 @@ public sealed class StackObjects
         }
     }
 
-    static bool MayHoldTemporaries(BoundStatement statement) => statement switch
+    bool MayHoldTemporaries(BoundStatement statement) => statement switch
     {
-        BoundVariableDeclaration { Local: var local } => local.RefKind == RefKind.None && !local.Type.IsRefStruct && !local.AliasesElement,
+        BoundVariableDeclaration { Local: var local } => local.RefKind == RefKind.None && !local.Type.IsRefStruct && !elements.AliasesElement(local),
         BoundAssignment or BoundExpressionStatement or BoundReturn => true,
         _ => false,
     } && !BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundTry>().Any();
@@ -346,7 +284,7 @@ public sealed class StackObjects
                     return [];
                 case BoundInvocation invocation:
                     Use(invocation.Callee);
-                    Arguments(invocation.Arguments, [.. analysis.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l])]);
+                    Arguments(invocation.Arguments, [.. analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l]!)]);
                     return [];
                 case BoundConstruction construction:
                     Call(construction.Constructor, null, construction.Arguments, direct: true);

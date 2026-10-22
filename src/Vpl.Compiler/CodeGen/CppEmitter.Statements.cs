@@ -162,7 +162,7 @@ public sealed partial class CppEmitter
             case BoundVariableDeclaration { Initializer: { } held } declaration when declaration.Local.RefKind != RefKind.None || declaration.Local.Type.IsRefStruct:
                 DeclareHeld(declaration.Local, held);
                 break;
-            case BoundVariableDeclaration { Local.AliasesElement: true, Initializer: { } element } declaration:
+            case BoundVariableDeclaration { Initializer: { } element } declaration when elements.AliasesElement(declaration.Local):
                 Line($"[[maybe_unused]] const {CppType(declaration.Local.Type)}& {LocalName(declaration.Local)} = {Expression(element)};");
                 break;
             case BoundVariableDeclaration declaration:

@@ -244,9 +244,9 @@ public sealed partial class CppEmitter
     /// <summary>Locals that a non-escaping lambda captures and that are changed anywhere, so that running a lambda may change them.</summary>
     HashSet<LocalSymbol> lambdaChanged = [];
 
-    static HashSet<LocalSymbol> FindLambdaChanged(BoundProgram program) =>
+    static HashSet<LocalSymbol> FindLambdaChanged(WholeProgram whole) =>
     [
-        .. FunctionValues.Lambdas(program).Where(l => !l.Type.IsEscaping)
+        .. whole.Lambdas.Where(l => !l.Type.IsEscaping)
             .SelectMany(l => BoundTree.Captures(l).Locals.Select(a => a.Local))
             .Where(l => l.IsModified),
     ];
