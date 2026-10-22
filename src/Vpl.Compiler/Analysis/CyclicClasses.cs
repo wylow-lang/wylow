@@ -87,9 +87,9 @@ public sealed class CyclicClasses
             var references = captured[closure.Function] = [];
             var (locals, self) = BoundTree.Captures(closure);
             foreach (var local in locals)
-                Hold(local.Local.Type, references, []);
+                Hold(local.Local.Type, references);
             if (self is not null)
-                Hold(self.Type, references, []);
+                Hold(self.Type, references);
             foreach (var reference in references)
                 Add(reference);
         }
@@ -100,31 +100,24 @@ public sealed class CyclicClasses
             {
                 var map = TypeMap.For(t);
                 foreach (var field in t.Symbol!.Fields)
-                    Hold(map.Apply(field.Type), references, []);
+                    Hold(map.Apply(field.Type), references);
             }
             if (stdlib.ContainerElement(type) is { } element)
-                Hold(element, references, []);
+                Hold(element, references);
             foreach (var reference in references)
                 Add(reference);
         }
     }
 
     /// <summary>Adds the class and interface types a value of the type may hold strong references to.</summary>
-    void Hold(VplType type, HashSet<VplType> references, HashSet<VplType> visiting)
+    static void Hold(VplType type, HashSet<VplType> references)
     {
-        if (type.IsNullableValue)
-            Hold(type.NonNull, references, visiting);
-        else if (type.IsReference)
-            references.Add(Erase(type));
-        else if (type.IsTypeParameter || type.IsFunction)
-            references.Add(type);
-        else if (type.IsFixedArray)
-            Hold(type.ElementType!, references, visiting);
-        else if (type.IsStructOrEnum && !type.Symbol!.IsExtern && visiting.Add(type))
+        foreach (var inline in type.InlineTypes())
         {
-            var map = TypeMap.For(type);
-            foreach (var field in type.Symbol.ValueFields)
-                Hold(map.Apply(field.Type), references, visiting);
+            if (inline.IsReference)
+                references.Add(Erase(inline));
+            else if (inline.IsTypeParameter || inline.IsFunction)
+                references.Add(inline);
         }
     }
 

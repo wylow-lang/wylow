@@ -84,6 +84,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - **Evaluation order is left to right.** C++ doesn't guarantee it, so `CppEmitter.Ordered` (`CppEmitter.Ordering.cs`) hoists
   operands into an immediately-invoked lambda when they conflict. Any new expression kind that can
   read or write state must be described correctly in `HasEffects`, `Writes`, `RunsLambdas`, and `ReadsState`.
+  A new kind of call also belongs in `BoundTree.CallOf`, which the checks and analyses use to see calls.
 - **Places can't come out of `Ordered`'s lambda**, which returns a copy. Anything that may be
   assigned or referred to (`vpl::at`, a method returning `ref`) keeps its order another way; see
   `CppEmitter.Index` and `OrderedReferenceCall`.

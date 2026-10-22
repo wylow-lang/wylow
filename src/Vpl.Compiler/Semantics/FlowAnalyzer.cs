@@ -306,22 +306,17 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     /// <summary>The locals a statement may assign, directly or by passing them by 'ref'.</summary>
     static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) =>
-        BoundTree.OwnExpressions(statement).SelectMany(RefPassedLocals).Concat(DirectlyAssignedLocals(statement));
+    [
+        .. BoundTree.OwnExpressions(statement).SelectMany(RefPassedLocals),
+        .. OwnAssignedLocals(statement),
+        .. BoundTree.InnerStatements(statement).SelectMany(AssignedLocals),
+    ];
 
-    static IEnumerable<LocalSymbol> DirectlyAssignedLocals(BoundStatement statement) => statement switch
+    /// <summary>The locals a statement assigns itself, rather than in its expressions or the statements inside it.</summary>
+    static IEnumerable<LocalSymbol> OwnAssignedLocals(BoundStatement statement) => statement switch
     {
-        BoundBlock block => block.Statements.SelectMany(AssignedLocals),
         BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
         BoundSuperCall super => RefArguments(super.Constructor, super.Arguments),
-        BoundIf ifStatement => [.. AssignedLocals(ifStatement.Then), .. ifStatement.Else is null ? [] : AssignedLocals(ifStatement.Else)],
-        BoundWhile whileStatement => AssignedLocals(whileStatement.Body),
-        BoundForRange range => AssignedLocals(range.Body),
-        BoundSwitch switchStatement => switchStatement.Cases.SelectMany(c => AssignedLocals(c.Body)),
-        BoundFor forStatement => [
-            .. forStatement.Initializer is null ? [] : AssignedLocals(forStatement.Initializer),
-            .. AssignedLocals(forStatement.Body),
-            .. forStatement.Update is null ? [] : AssignedLocals(forStatement.Update),
-        ],
         _ => [],
     };
 
@@ -329,14 +324,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         RefArguments(expression).Concat(BoundTree.Children(expression).SelectMany(RefPassedLocals));
 
     /// <summary>The locals a call, construction, or 'new' itself passes by 'ref'.</summary>
-    static IEnumerable<LocalSymbol> RefArguments(BoundExpression expression) => expression switch
-    {
-        BoundCall call => RefArguments(call.Method, call.Arguments),
-        BoundInvocation invocation => RefArguments(invocation.Signature, invocation.Arguments),
-        BoundNew creation => RefArguments(creation.Constructor, creation.Arguments),
-        BoundConstruction construction => RefArguments(construction.Constructor, construction.Arguments),
-        _ => [],
-    };
+    static IEnumerable<LocalSymbol> RefArguments(BoundExpression expression) =>
+        BoundTree.CallOf(expression) is { } call ? RefArguments(call.Method, call.Arguments) : [];
 
     static IEnumerable<LocalSymbol> RefArguments(MethodReference method, IReadOnlyList<BoundExpression> arguments) =>
         arguments.Where((a, i) => method.ParameterRefKind(i) == RefKind.Ref).OfType<BoundLocalAccess>().Select(a => a.Local);
@@ -359,15 +348,14 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// <summary>Checks the operands of a call or index that refer to places against the others evaluated with them.</summary>
     void CheckNullableValuesKept(BoundExpression expression)
     {
-        var (method, receiver, arguments) = expression switch
-        {
-            BoundCall call => (call.Method, call.Receiver, call.Arguments),
-            BoundInvocation invocation => (invocation.Signature, null, invocation.Arguments),
-            BoundNew creation => (creation.Constructor, null, creation.Arguments),
-            BoundConstruction construction => (construction.Constructor, null, construction.Arguments),
-            BoundIndex { Target.Type.IsFixedArray: true } index => (null, index.Target, [index.Index]),
-            _ => ((MethodReference?)null, (BoundExpression?)null, (IReadOnlyList<BoundExpression>)[]),
-        };
+        if (BoundTree.CallOf(expression) is { } call)
+            CheckNullableValuesKept(expression, call.Method, call.Receiver, call.Arguments);
+        else if (expression is BoundIndex { Target.Type.IsFixedArray: true } index)
+            CheckNullableValuesKept(expression, null, index.Target, [index.Index]);
+    }
+
+    void CheckNullableValuesKept(BoundExpression expression, MethodReference? method, BoundExpression? receiver, IReadOnlyList<BoundExpression> arguments)
+    {
         List<BoundExpression> operands = receiver is null ? [.. arguments] : [receiver, .. arguments];
         for (int i = 0; i < operands.Count; i++)
         {
@@ -525,33 +513,14 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 whenNotNull.Assigned.Add(access.Value);
                 return State.Join(state, Expression(access.WhenNotNull, whenNotNull));
             }
+            // The expressions with their own cases above are the only ones that don't run every child in order.
             default:
                 CheckNullableValuesKept(expression);
-                foreach (var child in Children(expression))
+                foreach (var child in BoundTree.Children(expression))
                     state = Expression(child, state);
                 foreach (var local in RefArguments(expression))
                     state.NonNull.Remove(local);
                 return state;
         }
     }
-
-    static IEnumerable<BoundExpression> Children(BoundExpression expression) => expression switch
-    {
-        BoundUnary unary => [unary.Operand],
-        BoundBinary binary => [binary.Left, binary.Right],
-        BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
-        BoundInvocation invocation => [invocation.Callee, .. invocation.Arguments],
-        BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
-        BoundNew creation => creation.Arguments,
-        BoundFieldAccess field => [field.Receiver],
-        BoundIndex index => [index.Target, index.Index],
-        BoundArrayLength length => [length.Operand],
-        BoundArrayData data => [data.Array],
-        BoundArrayLiteral literal => literal.Elements,
-        BoundConversion conversion => [conversion.Operand],
-        BoundNonNull nonNull => [nonNull.Operand],
-        BoundVariant variant => variant.Arguments,
-        BoundTry attempt => [attempt.Operand],
-        _ => [],
-    };
 }

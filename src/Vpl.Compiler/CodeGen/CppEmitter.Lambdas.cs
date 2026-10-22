@@ -161,13 +161,9 @@ public sealed partial class CppEmitter
         {
             var code = BoundTree.AllExpressions(function.Body)
                 .Concat(whole.UnitOf(function.Symbol)!.Initializers.SelectMany(BoundTree.AllExpressions));
-            var edges = code.Select(e => e switch
-            {
-                BoundCall call => (call.Method.Symbol, call.Arguments),
-                BoundNew creation => (creation.Constructor.Symbol, creation.Arguments),
-                BoundConstruction construction => (construction.Constructor.Symbol, construction.Arguments),
-                _ => ((FunctionSymbol, IReadOnlyList<BoundExpression>)?)null,
-            }).OfType<(FunctionSymbol Callee, IReadOnlyList<BoundExpression> Arguments)>().ToList();
+            // A function value's call has no callee of its own here; the lambdas it may run are part of their creators.
+            var edges = code.Where(e => e is not BoundInvocation).Select(BoundTree.CallOf).OfType<CallSite>()
+                .Select(c => (Callee: c.Method.Symbol, c.Arguments)).ToList();
             if (function.Body.Statements.FirstOrDefault() is BoundSuperCall super)
                 edges.Add((super.Constructor.Symbol, super.Arguments));
             calls[function.Symbol] = [.. edges.Select(e => e.Callee)];

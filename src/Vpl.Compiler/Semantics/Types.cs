@@ -204,6 +204,37 @@ public sealed class VplType
     public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters)
         || (NonNull.IsFunction && (NonNull.FunctionReturnType!.ContainsTypeParameters || NonNull.FunctionParameters.Any(p => p.Type.ContainsTypeParameters)));
 
+    /// <summary>
+    /// The type and the types of the values stored inline in a value of it: a nullable value's
+    /// value, a fixed array's elements, and the fields of a struct or enum, with type arguments
+    /// applied, recursively. Nullable values themselves are left out, as are the fields of an
+    /// extern struct, whose storage is the runtime's.
+    /// </summary>
+    public IEnumerable<VplType> InlineTypes()
+    {
+        var seen = new HashSet<VplType>();
+        var pending = new Stack<VplType>([this]);
+        while (pending.TryPop(out var type))
+        {
+            if (!seen.Add(type))
+                continue;
+            if (type.IsNullableValue)
+            {
+                pending.Push(type.NonNull);
+                continue;
+            }
+            yield return type;
+            if (type.IsFixedArray)
+                pending.Push(type.ElementType!);
+            else if (type.IsStructOrEnum && !type.Symbol!.IsExtern)
+            {
+                var map = TypeMap.For(type);
+                foreach (var field in type.Symbol.ValueFields)
+                    pending.Push(map.Apply(field.Type));
+            }
+        }
+    }
+
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
 

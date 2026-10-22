@@ -304,9 +304,24 @@ public static class Patterns
     };
 }
 
+/// <summary>
+/// What a call, a call of a function value, a construction, or a <c>new</c> runs, and what it
+/// passes. A function value's call is described by its <see cref="BoundInvocation.Signature"/>.
+/// </summary>
+public readonly record struct CallSite(MethodReference Method, BoundExpression? Receiver, IReadOnlyList<BoundExpression> Arguments);
+
 /// <summary>The expressions directly inside an expression, in evaluation order.</summary>
 public static class BoundTree
 {
+    public static CallSite? CallOf(BoundExpression expression) => expression switch
+    {
+        BoundCall call => new CallSite(call.Method, call.Receiver, call.Arguments),
+        BoundInvocation invocation => new CallSite(invocation.Signature, null, invocation.Arguments),
+        BoundNew creation => new CallSite(creation.Constructor, null, creation.Arguments),
+        BoundConstruction construction => new CallSite(construction.Constructor, null, construction.Arguments),
+        _ => null,
+    };
+
     /// <summary>
     /// The local whose nullable value a place lies in, reached through narrowing, as <c>v.x</c> is in
     /// a <c>Vec3? v</c>. Assigning the local null destroys that value, so a reference to the place

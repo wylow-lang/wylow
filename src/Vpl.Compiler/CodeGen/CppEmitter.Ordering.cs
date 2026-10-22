@@ -77,7 +77,8 @@ public sealed partial class CppEmitter
         or BoundCall { Method.Symbol: { ReturnRefKind: RefKind.None, IsBuiltin: false } });
 
     /// <summary>Whether releasing a value of the type may destroy an object.</summary>
-    static bool MayHoldReferences(VplType type) => MayHoldReferences(type, []);
+    static bool MayHoldReferences(VplType type) =>
+        type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
 
     /// <summary>Whether releasing the value may destroy an object: a new closure only may if what it captures may.</summary>
     static bool MayOwnObjects(BoundExpression value)
@@ -86,20 +87,6 @@ public sealed partial class CppEmitter
             return MayHoldReferences(value.Type);
         var (locals, self) = BoundTree.Captures(lambda);
         return self is not null || locals.Any(a => MayHoldReferences(a.Local.Type));
-    }
-
-    static bool MayHoldReferences(VplType type, HashSet<VplType> visiting)
-    {
-        if (type.IsNullableValue)
-            return MayHoldReferences(type.NonNull, visiting);
-        if (type.IsReference || type.IsTypeParameter || type.IsEscaping)
-            return true;
-        if (type.IsFixedArray)
-            return MayHoldReferences(type.ElementType!, visiting);
-        if (!type.IsStructOrEnum || !visiting.Add(type))
-            return false;
-        var map = TypeMap.For(type);
-        return type.Symbol!.ValueFields.Any(f => MayHoldReferences(map.Apply(f.Type), visiting));
     }
 
     /// <summary>
@@ -214,30 +201,21 @@ public sealed partial class CppEmitter
     };
 
     /// <summary>Whether evaluating the expression may modify locals, parameters, or fields of values, other than by running a lambda.</summary>
-    static bool Writes(BoundExpression expression) => expression switch
-    {
-        BoundInvocation invocation when invocation.Callee.Type.NonNull.FunctionParameters.Any(p => p.RefKind == RefKind.Ref) => true,
-        BoundCall call when call.Method.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref)
-            || (call.Receiver is not null && !call.Receiver.Type.IsReference && !call.Method.Symbol.IsReadOnly) => true,
-        BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
-        BoundNew creation when creation.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
-        BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
-        _ => BoundTree.Children(expression).Any(Writes),
-    };
+    static bool Writes(BoundExpression expression) =>
+        (BoundTree.CallOf(expression) is { } call && (call.Method.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref)
+            || (call.Receiver is { Type.IsReference: false } && !call.Method.Symbol.IsReadOnly)))
+        || (expression is BoundIs pattern && Patterns.Bindings(pattern.Pattern).Any())
+        || BoundTree.Children(expression).Any(Writes);
 
     /// <summary>
     /// Whether evaluating the expression may run a lambda: a call of a function value, or a call
     /// given one. Only a non-escaping lambda can change a local, and it can only run while a call it
     /// was passed to, or a call of it, runs.
     /// </summary>
-    static bool RunsLambdas(BoundExpression expression) => expression switch
-    {
-        BoundInvocation => true,
-        BoundCall call when call.Arguments.Any(IsFunctionValue) => true,
-        BoundConstruction construction when construction.Arguments.Any(IsFunctionValue) => true,
-        BoundNew creation when creation.Arguments.Any(IsFunctionValue) => true,
-        _ => BoundTree.Children(expression).Any(RunsLambdas),
-    };
+    static bool RunsLambdas(BoundExpression expression) =>
+        expression is BoundInvocation
+        || (BoundTree.CallOf(expression) is { } call && call.Arguments.Any(IsFunctionValue))
+        || BoundTree.Children(expression).Any(RunsLambdas);
 
     static bool IsFunctionValue(BoundExpression expression) => expression.Type.NonNull.IsFunction;
 

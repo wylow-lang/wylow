@@ -94,33 +94,10 @@ public sealed class ElementAliasing
 
     void FindLoops(BoundStatement statement)
     {
-        switch (statement)
-        {
-            case BoundBlock block:
-                foreach (var s in block.Statements)
-                    FindLoops(s);
-                break;
-            case BoundIf branch:
-                FindLoops(branch.Then);
-                if (branch.Else is not null)
-                    FindLoops(branch.Else);
-                break;
-            case BoundWhile loop:
-                FindLoops(loop.Body);
-                break;
-            case BoundForRange range:
-                FindLoops(range.Body);
-                break;
-            case BoundSwitch choice:
-                foreach (var switchCase in choice.Cases)
-                    FindLoops(switchCase.Body);
-                break;
-            case BoundFor loop:
-                if (loop.Body is BoundBlock body)
-                    CheckLoopElement(body);
-                FindLoops(loop.Body);
-                break;
-        }
+        if (statement is BoundFor { Body: BoundBlock body })
+            CheckLoopElement(body);
+        foreach (var inner in BoundTree.InnerStatements(statement))
+            FindLoops(inner);
     }
 
     void CheckLoopElement(BoundBlock body)
@@ -144,22 +121,13 @@ public sealed class ElementAliasing
 
     /// <summary>Whether a write may store over an element whose type is <paramref name="element"/>.</summary>
     static bool MayStoreOver(Write write, VplType element) =>
-        (write.Element && (write.Type.NonNull == element || write.Type.NonNull.IsTypeParameter)) || ContainsElements(write.Type, element, []);
+        (write.Element && IsElementOf(write.Type, element)) || ContainsElements(write.Type, element);
+
+    static bool IsElementOf(VplType type, VplType element) => type.NonNull == element || type.NonNull.IsTypeParameter;
 
     /// <summary>Whether a value of the type may contain elements of type <paramref name="element"/>: a fixed array of them, directly or in a field.</summary>
-    static bool ContainsElements(VplType type, VplType element, HashSet<VplType> visiting)
-    {
-        if (type.IsNullableValue)
-            return ContainsElements(type.NonNull, element, visiting);
-        if (type.IsTypeParameter)
-            return true;
-        if (type.IsFixedArray)
-            return type.ElementType!.NonNull == element || type.ElementType.NonNull.IsTypeParameter || ContainsElements(type.ElementType, element, visiting);
-        if (!type.IsStructOrEnum || !visiting.Add(type))
-            return false;
-        var map = TypeMap.For(type);
-        return type.Symbol!.ValueFields.Any(f => ContainsElements(map.Apply(f.Type), element, visiting));
-    }
+    static bool ContainsElements(VplType type, VplType element) =>
+        type.InlineTypes().Any(t => t.IsTypeParameter || (t.IsFixedArray && IsElementOf(t.ElementType!, element)));
 
     sealed class Collector(ElementAliasing analysis, FunctionSymbol? function, Summary summary)
     {
@@ -168,60 +136,14 @@ public sealed class ElementAliasing
 
         public void Statement(BoundStatement statement)
         {
-            switch (statement)
-            {
-                case BoundBlock block:
-                    foreach (var s in block.Statements)
-                        Statement(s);
-                    break;
-                case BoundVariableDeclaration declaration:
-                    Expression(declaration.Initializer);
-                    break;
-                case BoundAssignment assignment:
-                    Assigned(assignment.Target);
-                    Expression(assignment.Target);
-                    Expression(assignment.Value);
-                    break;
-                case BoundExpressionStatement expression:
-                    Expression(expression.Expression);
-                    break;
-                case BoundIf branch:
-                    Expression(branch.Condition);
-                    Statement(branch.Then);
-                    if (branch.Else is not null)
-                        Statement(branch.Else);
-                    break;
-                case BoundWhile loop:
-                    Expression(loop.Condition);
-                    Statement(loop.Body);
-                    break;
-                case BoundFor loop:
-                    if (loop.Initializer is not null)
-                        Statement(loop.Initializer);
-                    Expression(loop.Condition);
-                    if (loop.Update is not null)
-                        Statement(loop.Update);
-                    Statement(loop.Body);
-                    break;
-                case BoundForRange range:
-                    Expression(range.Start);
-                    Expression(range.End);
-                    Statement(range.Body);
-                    break;
-                case BoundReturn ret:
-                    Expression(ret.Value);
-                    break;
-                case BoundSwitch choice:
-                    Expression(choice.Value);
-                    foreach (var switchCase in choice.Cases)
-                        Statement(switchCase.Body);
-                    break;
-                case BoundSuperCall super:
-                    Call(super.Constructor, direct: true);
-                    foreach (var argument in super.Arguments)
-                        Expression(argument);
-                    break;
-            }
+            if (statement is BoundAssignment assignment)
+                Assigned(assignment.Target);
+            else if (statement is BoundSuperCall super)
+                Call(super.Constructor, direct: true);
+            foreach (var expression in BoundTree.OwnExpressions(statement))
+                Expression(expression);
+            foreach (var inner in BoundTree.InnerStatements(statement))
+                Statement(inner);
         }
 
         public void Expression(BoundExpression? expression)
