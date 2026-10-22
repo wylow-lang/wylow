@@ -8,7 +8,7 @@ public sealed partial class Binder
 {
     /// <summary>
     /// A function type as written, which is escaping; see <see cref="BindVariableType"/> for
-    /// parameters and locals. Its own parameters are non-escaping.
+    /// parameters and locals. Its own parameters are non-escaping unless declared <c>@Escaping</c>.
     /// </summary>
     VplType BindFunctionType(TypeSyntax syntax)
     {
@@ -16,7 +16,7 @@ public sealed partial class Binder
         bool failed = false;
         foreach (var parameter in syntax.Parameters)
         {
-            var type = NonEscaping(BindType(parameter.Type, allowVoid: false));
+            var type = BindVariableType(parameter.Type, parameter.Annotations, isParameter: true);
             failed |= type == VplType.Error || !CheckParameterMode(parameter.RefKind, type, parameter.Type.Location);
             parameters.Add(new FunctionParameterType(parameter.RefKind, type));
         }
@@ -48,7 +48,7 @@ public sealed partial class Binder
             return null;
         return [.. e.Parameters.Select(p =>
         {
-            var type = NonEscaping(BindType(p.Type!, allowVoid: false));
+            var type = BindVariableType(p.Type!, p.Annotations, isParameter: true);
             return new FunctionParameterType(p.RefKind, CheckParameterMode(p.RefKind, type, p.Location) ? type : VplType.Error);
         })];
     }
@@ -82,10 +82,12 @@ public sealed partial class Binder
         for (int i = 0; i < expected.Count; i++)
         {
             var syntax = e.Parameters[i];
+            if (syntax.Type is null && syntax.Annotations.Count > 0)
+                Error(syntax.Annotations[0].Location, "an untyped lambda parameter takes its form from the lambda's type, so it can't be annotated; give it a type");
             if (declared is not null && declared[i] != expected[i] && declared[i].Type != VplType.Error)
             {
-                Error(syntax.Location, $"'{syntax.Name}' is declared as '{FunctionSymbol.RefPrefix(declared[i].RefKind)}{declared[i].Type}', "
-                    + $"but '{type}' passes '{FunctionSymbol.RefPrefix(expected[i].RefKind)}{expected[i].Type}'");
+                Error(syntax.Location, $"'{syntax.Name}' is declared as '{declared[i]}', "
+                    + $"but '{type}' passes '{expected[i]}'");
             }
             parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind) { IsTemporary = e.IsFunctionReference });
         }

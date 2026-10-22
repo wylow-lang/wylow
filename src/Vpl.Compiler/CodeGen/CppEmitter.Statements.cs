@@ -87,8 +87,13 @@ public sealed partial class CppEmitter
         if (symbol.IsConstructor && isClassMember && statements.FirstOrDefault() is BoundSuperCall super)
         {
             // Braces evaluate the arguments left to right.
-            var arguments = string.Join(", ", WithLocation(super.Constructor.Symbol, FunctionArguments(super.Constructor, super.Arguments.Select(a =>
-                !IsStable(a) && MayHoldReferences(a.Type) ? $"vpl::keep({Expression(a)})" : Expression(a))), super.Location));
+            var arguments = string.Join(", ", WithLocation(super.Constructor.Symbol, FunctionArguments(super.Constructor, super.Arguments.Select((argument, i) =>
+            {
+                var value = PassedValue(super.Constructor.ParameterType(i), argument);
+                var text = Expression(value);
+                return IsCopiedForReference(argument, value) ? $"{CppType(value.Type)}({text})"
+                    : !IsStable(value) && MayHoldReferences(value.Type) ? $"vpl::keep({text})" : text;
+            })), super.Location));
             Line($"    : {ObjectType(super.Constructor.Owner!)}{{{arguments}}}");
             statements = [.. statements.Skip(1)];
         }

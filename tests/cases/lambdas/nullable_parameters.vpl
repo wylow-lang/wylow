@@ -1,0 +1,100 @@
+// A nullable function parameter is non-escaping unless declared '@Escaping': it is passed a lambda,
+// a function value, or null without allocating, and is narrowed by null checks like other values.
+
+class Holder {
+    (int) -> int f = x -> x * 10;
+    ((int) -> int)? maybe = null;
+    int calls = 0;
+
+    int next() {
+        calls++;
+        return calls;
+    }
+}
+
+int run(int value, ((int) -> int)? transform) {
+    if (transform != null) {
+        return transform(value);
+    }
+    return value;
+}
+
+int forward(int value, ((int) -> int)? transform) {
+    return run(value, transform) + 1;
+}
+
+int unwrapped(((int) -> int)? f) {
+    return f!(3);
+}
+
+int twice((int) -> int f) {
+    return f(f(1));
+}
+
+int narrowed(((int) -> int)? f) {
+    if (f == null) {
+        return -1;
+    }
+    return twice(f);
+}
+
+int three(int a, ((int) -> int)? f, int b) {
+    return run(a, f) * 10 + b;
+}
+
+int replacing(Holder holder, ((int) -> int)? f) {
+    holder.maybe = null;
+    holder.f = x -> 0;
+    return run(1, f);
+}
+
+class Visitor {
+    virtual int visit(((int) -> int)? f) {
+        return run(2, f);
+    }
+}
+
+void main() {
+    // A lambda, null, and passing on.
+    int total = 0;
+    print(run(1, null));                            // output: 1
+    print(run(1, x -> x + 1));                      // output: 2
+    print(run(2, x -> {
+        total += x;
+        return total;
+    }));                                            // output: 2
+    print(forward(3, x -> x * 2));                  // output: 7
+    print(forward(3, null));                        // output: 4
+    print(unwrapped(x -> x * 3));                   // output: 9
+    print(narrowed(x -> x + 2));                    // output: 5
+    print(narrowed(null));                          // output: -1
+    print(new Visitor().visit(x -> x * 7));         // output: 14
+
+    // Escaping values: a field, a nullable field, and a non-escaping local.
+    var holder = new Holder();
+    print(run(4, holder.f));                        // output: 40
+    print(run(4, holder.maybe));                    // output: 4
+    holder.maybe = x -> -x;
+    print(run(4, holder.maybe));                    // output: -4
+    (int) -> int local = x -> x + 100;
+    print(run(1, local));                           // output: 101
+
+    // The function passed stays alive when the place it came from is replaced during the call.
+    holder.maybe = x -> x + holder.calls;
+    print(replacing(holder, holder.maybe));         // output: 1
+    holder.f = x -> x * 10;
+    print(replacing(holder, holder.f));             // output: 10
+
+    // Arguments evaluated in order, each into its own temporary, the lambda included.
+    print(three(holder.next(), x -> x + 1, holder.next()));    // output: 22
+
+    // A choice of nullable function type is escaping, so its lambda is a closure.
+    bool flag = holder.calls == 2;
+    print(run(1, flag ? x -> x + 1 : null));        // output: 2
+    print(run(1, !flag ? x -> x + 1 : null));       // output: 1
+
+    // A function type's nullable parameters are non-escaping too.
+    (((int) -> int)?) -> int g = h -> h == null ? 7 : h(1);
+    print(g(null));                                 // output: 7
+    print(g(x -> x + 8));                           // output: 9
+}

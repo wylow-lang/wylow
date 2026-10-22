@@ -13,8 +13,12 @@ public sealed partial class Binder
     /// enum variants be written without their enum or type arguments; the caller still converts,
     /// so a nullable value expects the value inside it.
     /// </summary>
-    BoundExpression BindExpression(Expr expression, VplType? expected = null) =>
-        BindExpressionExpecting(expression, expected is { IsNullableValue: true } ? expected.NonNull : expected);
+    BoundExpression BindExpression(Expr expression, VplType? expected = null)
+    {
+        if (expression is ConditionalExpr or SwitchExpr)
+            expected = ChoiceTarget(expected);
+        return BindExpressionExpecting(expression, expected is { IsNullableValue: true } ? expected.NonNull : expected);
+    }
 
     BoundExpression BindExpressionExpecting(Expr expression, VplType? expected) => expression switch
     {
@@ -271,6 +275,9 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         if (!left.Type.IsNullable)
             return ErrorExpression(e.Left.Location, $"the left side of '??' must be nullable, and '{left.Type}' is not");
+        // Its result would refer to a function that may be made only for this operation.
+        if (IsNullableNonEscaping(left.Type))
+            return ErrorExpression(e.OperatorLocation, "'??' cannot be applied to a nullable non-escaping function; check it for null with 'if' instead");
 
         // Prefer a non-null result: `a ?? b` is non-null when `b` is.
         VplType[] candidates = [left.Type.NonNull, right.Type, left.Type];
@@ -520,7 +527,7 @@ public sealed partial class Binder
         if (expression is BoundPendingChoice choice)
         {
             return to.NonNull.IsFunction
-                ? Convert(choice.Finish(to.NonNull), to)
+                ? Convert(choice.Finish(ChoiceTarget(to)!.NonNull), to)
                 : ErrorExpression(expression.Location, $"a choice of lambdas cannot be converted to '{to}', which is not a function type");
         }
 
@@ -550,7 +557,7 @@ public sealed partial class Binder
 
         if (IsEscapingMismatch(expression.Type, to))
         {
-            ReportNotEscaping(expression, to);
+            ReportNotEscaping(expression);
             return new BoundErrorExpression(expression.Location);
         }
         var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"
@@ -598,6 +605,9 @@ public sealed partial class Binder
             return ErrorExpression(location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
             return ErrorExpression(location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
+        // A nullable non-escaping choice would refer to a function made only for the choice.
+        if (IsNullableNonEscaping(type))
+            type = EscapingForm(type);
         return new BoundConditional(location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }
 }

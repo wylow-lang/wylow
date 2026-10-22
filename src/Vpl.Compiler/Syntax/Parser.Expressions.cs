@@ -76,15 +76,16 @@ public sealed partial class Parser
     LambdaParameterSyntax ParseLambdaParameter()
     {
         int start = position;
+        var annotations = ParseAnnotations();
         if (At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
         {
             var untyped = Advance();
-            return new LambdaParameterSyntax(Loc(untyped.Span), RefKind.None, null, untyped.Text, Loc(untyped.Span));
+            return new LambdaParameterSyntax(LocationFrom(start), RefKind.None, null, untyped.Text, Loc(untyped.Span)) { Annotations = annotations };
         }
         var refKind = ParseRefKind();
         var type = ParseType();
         var name = Expect(TokenKind.Identifier, "a parameter name");
-        return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
+        return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span)) { Annotations = annotations };
     }
 
     // `??` binds looser than `||` and groups to the right, as in C#.

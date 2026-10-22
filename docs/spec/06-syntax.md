@@ -381,19 +381,24 @@ Like a `ref` local, a non-escaping local is bound once, at its declaration, and 
 reassigned, so it can't outlive what its lambda captures. An escaping local can be reassigned.
 
 - **Escaping is part of the function type.** Each function type has a non-escaping and an
-  escaping form, written the same way. Written as the type of a parameter or local, it is
-  non-escaping unless the declaration is `@Escaping`; anywhere else (a field, a return type, a
-  type argument, an array element, a nullable function, or a function type's return type) it is
-  escaping. A function type's own parameters are non-escaping. `var` takes the form of its
-  initializer. An escaping value converts to the non-escaping form, so it can be passed to a
+  escaping form, written the same way. Written as the type of a parameter, a local, or a function
+  type's own parameter, it is non-escaping unless that is declared `@Escaping`, as in
+  `(@Escaping () -> void) -> void`; anywhere else (a field, a return type, a type argument, an
+  array element, or a function type's return type) it is escaping. A nullable function follows the
+  same rule, except where noted below. `var` takes the form of its initializer. An escaping value converts to the non-escaping form, so it can be passed to a
   non-escaping parameter or bind a non-escaping local; nothing converts the other way.
 - **A lambda is escaping when its target is**: the variable, field, parameter, or return type it
   is converted to, or the type of the `?:` or switch expression it is an option of. A lambda
   passed as an argument takes the form of the parameter that overload resolution picks.
 - **Type arguments are always escaping**, so a type argument inferred from a function is its
   escaping form: `identity(f)` needs `f` to be `@Escaping`.
-- **Nullable functions** are escaping: a parameter or local of type `((int) -> int)?` must be
-  declared `@Escaping`.
+- **Nullable functions.** A parameter of type `((int) -> int)?` is non-escaping unless declared
+  `@Escaping`, so an optional callback is passed without allocating. Like any non-escaping
+  parameter it is bound once, and it is narrowed by null checks. Only a parameter can hold one: a
+  local of nullable function type must be `@Escaping`, since a non-escaping local owns the lambda
+  it holds and a null one holds none. For the same reason a `?:` or switch expression of nullable
+  function type is escaping, so its lambdas are closures, and `??` can't be applied to a nullable
+  non-escaping function; check it with `if`.
 - **Captures.** An escaping lambda copies the locals and parameters it uses when it is created,
   so each must be *effectively final*: never changed after its declaration, anywhere in the
   function. Assigning it or any part of it changes it, and so do passing it or a part of it by
@@ -413,7 +418,9 @@ reassigned, so it can't outlive what its lambda captures. An escaping local can 
   escaping local) only when it is chosen.
 - **Signatures.** An override or interface implementation must declare the same parameters
   `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
-  parameters are `@Escaping`.
+  parameters are `@Escaping`. A function type's `@Escaping` parameters are part of the type, and
+  print as written: `(@Escaping () -> void) -> void` and `(() -> void) -> void` are different
+  types, and neither converts to the other. A lambda of the first may store its argument.
 - A type pattern can't name a function type (`f is (int) -> int g`); narrow a nullable function
   with a null check.
 
@@ -433,13 +440,14 @@ visits the class references a closure holds. A call of a function value stored w
 could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
 closure until the call returns.
 
+A nullable non-escaping parameter is a `vpl::Optional` of a `vpl::FunctionRef`, made where the call
+is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
+returns.
+
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
 ([05-concurrency.md](05-concurrency.md)).
 
-> Implemented so far: everything above. Planned: a non-escaping nullable parameter, so that an
-> optional callback needn't allocate (`((int) -> int)?` without `@Escaping`, compiled to an
-> optional `vpl::FunctionRef`); and `@Escaping` on a function type's own parameters,
-> `(@Escaping () -> void) -> void`, which today are always non-escaping.
+> Implemented so far: everything above.
 
 ### Lambdas held by `ref struct`s
 

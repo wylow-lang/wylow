@@ -1,0 +1,72 @@
+// A function type's parameter declared '@Escaping' is escaping in the lambdas of that type, so they
+// can store what they are passed.
+
+class Bus {
+    List<() -> void> handlers = new List<() -> void>();
+    (@Escaping () -> void) -> void subscribe;
+
+    Bus() {
+        subscribe = h -> handlers.add(h);
+    }
+
+    void fire() {
+        for (() -> void h : handlers) {
+            h();
+        }
+    }
+}
+
+interface Registry {
+    void each((@Escaping (int) -> int) -> void visit);
+}
+
+class Doubler implements Registry {
+    void each((@Escaping (int) -> int) -> void visit) {
+        visit(x -> x * 2);
+        visit(x -> x * 3);
+    }
+}
+
+int apply(((int) -> int)? f, int value) {
+    return f == null ? value : f(value);
+}
+
+void subscribed() {
+    var bus = new Bus();
+    bus.subscribe(() -> print(1));
+    int two = 2;
+    bus.subscribe(() -> print(two));
+    bus.fire();
+}
+
+void main() {
+    // Stored by a lambda held in a field, then called later. The lambda captures its bus, a cycle.
+    subscribed();                                   // output: 1
+                                                    // output: 2
+    Memory.collectCycles();
+
+    // A typed lambda declares the parameter '@Escaping' too, and is passed through an interface.
+    var kept = new List<(int) -> int>();
+    Registry registry = new Doubler();
+    registry.each((@Escaping (int) -> int f) -> kept.add(f));
+    for ((int) -> int f : kept) {
+        print(f(5));                                // output: 10
+                                                    // output: 15
+    }
+
+    // A nullable parameter of a function type is non-escaping unless declared '@Escaping'.
+    (((int) -> int)?, int) -> int borrowed = apply;
+    print(borrowed(x -> x + 1, 1));                 // output: 2
+    print(borrowed(null, 1));                       // output: 1
+    var maybes = new List<((int) -> int)?>();
+    (@Escaping ((int) -> int)?) -> void store = m -> maybes.add(m);
+    store(x -> x * 4);
+    store(null);
+    print(apply(maybes[0], 2));                     // output: 8
+    print(apply(maybes[1], 2));                     // output: 2
+
+    // An escaping value passed where a function type's parameter is non-escaping.
+    (() -> void) -> void call = h -> h();
+    @Escaping () -> void stored = () -> print(9);
+    call(stored);                                   // output: 9
+}

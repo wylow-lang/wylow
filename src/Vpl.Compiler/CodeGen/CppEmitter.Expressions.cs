@@ -171,6 +171,20 @@ public sealed partial class CppEmitter
         return new Operand(receiver, ByReference: true, PinRoot(receiver));
     }
 
+    Operand ArgumentOperand(MethodReference method, int index, BoundExpression argument)
+    {
+        var value = PassedValue(method.ParameterType(index), argument);
+        var operand = ArgumentOperand(value, method.ParameterRefKind(index));
+        return IsCopiedForReference(argument, value) ? operand with { Keep = false, Copy = true } : operand;
+    }
+
+    /// <summary>
+    /// Whether a stored function passed to a nullable non-escaping parameter must be copied: the
+    /// parameter refers to it, while the call could replace it where it is stored.
+    /// </summary>
+    static bool IsCopiedForReference(BoundExpression argument, BoundExpression value) =>
+        value != argument && value.Type.NonNull.IsEscaping && !IsStable(value);
+
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
         refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
         : argument.Type.IsRefStruct ? new Operand(argument, false, PinRoot(argument))
@@ -185,7 +199,7 @@ public sealed partial class CppEmitter
         bool receiverOperand = call.Receiver is not null && call.Receiver is not BoundThis;
         if (receiverOperand)
             operands.Add(ReceiverOperand(call.Receiver!));
-        operands.AddRange(call.Arguments.Select((argument, i) => ArgumentOperand(argument, method.ParameterRefKind(i))));
+        operands.AddRange(call.Arguments.Select((argument, i) => ArgumentOperand(method, i, argument)));
         var location = function.PassesLocation ? SourceLocation(call.Location) : null;
 
         // Explicit template arguments keep C++ from deducing differently than VPL resolved.
@@ -265,7 +279,7 @@ public sealed partial class CppEmitter
         var type = CppType(construction.Type);
         var constructor = construction.Constructor;
         var operands = construction.Arguments
-            .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
+            .Select((argument, i) => ArgumentOperand(constructor, i, argument))
             .ToList();
         var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
             ? DefaultValue(construction.Type)
@@ -284,7 +298,7 @@ public sealed partial class CppEmitter
     {
         var constructor = creation.Constructor;
         var operands = creation.Arguments
-            .Select((argument, i) => ArgumentOperand(argument, constructor.ParameterRefKind(i)))
+            .Select((argument, i) => ArgumentOperand(constructor, i, argument))
             .ToList();
         return Ordered(operands, arguments =>
             $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), creation.Location))}))");
@@ -327,6 +341,8 @@ public sealed partial class CppEmitter
         var operand = Expression(conversion.Operand);
         if (from == VplType.Null)
             return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
+        if (IsNullableNonEscaping(to))
+            throw new InvalidOperationException("a nullable non-escaping function is only made from an argument, by OptionalFunctionArgument");
         // A non-escaping function is used during the call it is passed to, while the value it was
         // converted from could be replaced; the copy lives until the end of the statement.
         if (IsNonEscaping(to))

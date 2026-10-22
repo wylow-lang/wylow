@@ -1,5 +1,5 @@
 // Parameters and locals hold non-escaping functions unless declared '@Escaping'; fields, returns,
-// type arguments, array elements, and nullable functions are escaping.
+// type arguments, array elements, and nullable variables are escaping.
 class Button {
     (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
     @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
@@ -24,9 +24,6 @@ void wrongType(@Escaping int x) {                   // error: '@Escaping' can on
 void unknown(@Fast () -> void f) {                  // error: unknown annotation '@Fast'
 }
 
-void nullableParameter(((int) -> int)? f) {         // error: a nullable function is always escaping, so this parameter must be declared '@Escaping'
-}
-
 void keep(@Escaping () -> void f) {
 }
 
@@ -47,8 +44,8 @@ void check(bool flag, () -> void g) {
     @Escaping int number = 1;                       // error: '@Escaping' can only be used on a variable of function type, not 'int'
     @Escaping var text = "a";                       // error: '@Escaping' can only be used on a variable of function type, not 'String'
     @Escaping ref int alias = number;               // error: '@Escaping' cannot be used on a 'ref' variable, which refers to a place rather than holding a function
-    ((int) -> int)? maybe = dec;                    // error: a nullable function is always escaping, so this variable must be declared '@Escaping'
-    @Escaping ((int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
+    ((int) -> int)? maybe = dec;                    // error: a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function
+    @Escaping ((int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
     (int) -> int later;                             // error: a '(int) -> int' variable must be initialized where it is declared, since it cannot be reassigned
 
     inc = dec;                                      // error: 'inc' cannot be reassigned: a non-escaping variable keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
@@ -61,10 +58,10 @@ void check(bool flag, () -> void g) {
     handlers.add(g);                                // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     var listed = [dec, inc];                        // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
     ((int) -> int)?[] table = new ((int) -> int)?[2];
-    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
+    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
     var functions = new ((int) -> int)[2];          // error: '(int) -> int' has no default value to fill a new array with; use 'new Array<(int) -> int>(length, value)'
     @Escaping (int) -> int chosen = flag ? dec : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
+    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
     @Escaping (int) -> int lambda = flag ? x -> x : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 }
 

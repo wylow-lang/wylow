@@ -1,0 +1,18 @@
+// A function type's own parameters are non-escaping unless declared '@Escaping', which is part of
+// the type: a lambda of the type may store such a parameter, and must be passed an escaping value.
+class Bus {
+    List<() -> void> handlers = new List<() -> void>();
+}
+
+void main() {
+    var bus = new Bus();
+    (() -> void) -> void plain = h -> bus.handlers.add(h);              // error: 'h' is a non-escaping parameter, so it cannot be stored or returned; declare the parameter '@Escaping' in the lambda's function type, as in '(@Escaping () -> void) -> void'
+    (@Escaping () -> void) -> void escaping = h -> h();
+    () -> void local = () -> print(1);
+    escaping(local);                                                    // error: 'local' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    (@Escaping () -> void) -> void typed = (() -> void f) -> f();       // error: 'f' is declared as '() -> void', but '(@Escaping () -> void) -> void' passes '@Escaping () -> void'
+    (@Escaping () -> void) -> void untyped = (@Escaping f) -> f();      // error: an untyped lambda parameter takes its form from the lambda's type, so it can't be annotated; give it a type
+    (@Escaping int) -> void number = x -> print(x);                     // error: '@Escaping' can only be used on a parameter of function type, not 'int'
+    (@Fast int) -> void fast = x -> print(x);                           // error: unknown annotation '@Fast'
+    (() -> void) -> void converted = escaping;                          // error: cannot implicitly convert '(@Escaping () -> void) -> void' to '(() -> void) -> void'
+}

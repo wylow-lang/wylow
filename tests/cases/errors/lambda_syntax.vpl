@@ -3,12 +3,6 @@ class Button {
     (int)? count;                       // error: expected '->' after a function type's parameters
 }
 
-void escapingOwnParameter((@Escaping () -> void) -> void f) {    // error: '@Escaping' on a function type's parameters is not supported yet; they are always non-escaping
-}
-
-void annotatedOwnParameter((@Fast int) -> void g) {              // error: annotations cannot be used on a function type's parameters
-}
-
 void main() {
     var mixed = (int a, b) -> a;        // error: a lambda's parameters must either all have types or all leave them out
     var empty = x -> ;                  // error: expected an expression

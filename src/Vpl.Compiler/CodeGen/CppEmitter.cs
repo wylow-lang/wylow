@@ -26,13 +26,16 @@ public sealed partial class CppEmitter
     /// <see cref="PinRoot"/> is an object owning that place, and <see cref="PinValue"/> marks an
     /// object receiver; both are held by a strong reference while the operation runs.
     /// <see cref="Keep"/> marks a by-value argument whose copy must be owned by the caller; see <c>vpl::keep</c>.
+    /// <see cref="Copy"/> marks a value that must be copied out of its place, since what it is passed
+    /// to refers to it while the place may change.
     /// </summary>
     readonly record struct Operand(
         BoundExpression Expression,
         bool ByReference,
         BoundExpression? PinRoot = null,
         bool PinValue = false,
-        bool Keep = false);
+        bool Keep = false,
+        bool Copy = false);
 
     StringBuilder output = new();
     readonly Dictionary<TypeSymbol, bool> needsDefaultFunction = new();

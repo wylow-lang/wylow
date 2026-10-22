@@ -112,7 +112,10 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 }
 
 /// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>(ref Vec3) -> void</c>.</summary>
-public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type);
+public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location)
 {
@@ -252,7 +255,10 @@ public sealed record ConditionalExpr(Location Location, Expr Condition, Expr Whe
 
 /// <summary>A lambda parameter. <see cref="Type"/> is null when it comes from the lambda's target, as in <c>x -> x + 1</c>.</summary>
 public sealed record LambdaParameterSyntax(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation)
-    : Node(Location);
+    : Node(Location)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
 
 /// <summary><c>x -> value</c> or <c>(a, b) -> { ... }</c>. Exactly one of <see cref="Value"/> and <see cref="Body"/> is set.</summary>
 public sealed record LambdaExpr(Location Location, IReadOnlyList<LambdaParameterSyntax> Parameters, Expr? Value, BlockStmt? Body)

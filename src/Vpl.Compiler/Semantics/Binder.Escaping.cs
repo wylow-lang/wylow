@@ -11,14 +11,38 @@ namespace Vpl.Compiler.Semantics;
 /// </summary>
 public sealed partial class Binder
 {
-    static VplType NonEscaping(VplType type) => type.IsFunction ? type.NonEscaping : type;
+    /// <summary>The non-escaping form of a function type or nullable function type; any other type itself.</summary>
+    static VplType NonEscaping(VplType type) =>
+        type.IsNullable && type.NonNull.IsFunction ? type.NonNull.NonEscaping.Nullable : type.IsFunction ? type.NonEscaping : type;
+
+    /// <summary>The escaping form of a function type or nullable function type; any other type itself.</summary>
+    static VplType EscapingForm(VplType type) =>
+        type.IsNullable && type.NonNull.IsFunction ? type.NonNull.Escaping.Nullable : type.IsFunction ? type.Escaping : type;
+
+    static bool IsNonEscapingFunction(VplType type) => type.NonNull.IsFunction && !type.NonNull.IsEscaping;
 
     /// <summary>
-    /// The type of a parameter or local, <paramref name="what"/>: a function type is non-escaping
-    /// unless the declaration is <c>@Escaping</c>, and a nullable one must be.
+    /// Only a parameter can hold a nullable non-escaping function: a variable would have to own the
+    /// lambda it may hold, as a non-escaping variable does, while one that is null holds none.
     /// </summary>
-    VplType BindVariableType(TypeSyntax syntax, IReadOnlyList<AnnotationSyntax> annotations, string what)
+    static bool IsNullableNonEscaping(VplType type) => type.IsNullable && IsNonEscapingFunction(type);
+
+    /// <summary>
+    /// The type a <c>?:</c> or switch expression's options are bound with: a choice of nullable
+    /// function type is escaping, since a non-escaping one would refer to a function made only for it.
+    /// </summary>
+    static VplType? ChoiceTarget(VplType? type) => type is not null && IsNullableNonEscaping(type) ? EscapingForm(type) : type;
+
+    const string NullableVariableMessage =
+        "a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function";
+
+    /// <summary>
+    /// The type of a parameter or local: a function type, nullable or not, is non-escaping unless
+    /// the declaration is <c>@Escaping</c>; a nullable local must be.
+    /// </summary>
+    VplType BindVariableType(TypeSyntax syntax, IReadOnlyList<AnnotationSyntax> annotations, bool isParameter)
     {
+        var what = isParameter ? "parameter" : "variable";
         var type = BindType(syntax, allowVoid: false);
         bool escaping = false;
         foreach (var annotation in annotations)
@@ -30,26 +54,39 @@ public sealed partial class Binder
             else
                 Error(annotation.Location, $"'@Escaping' can only be used on a {what} of function type, not '{type}'");
         }
-        if (type.IsNullable && type.NonNull.IsFunction && !escaping)
+        if (escaping)
+            return type;
+        if (!isParameter && type.IsNullable && type.NonNull.IsFunction)
         {
-            Error(syntax.Location, $"a nullable function is always escaping, so this {what} must be declared '@Escaping'");
+            Error(syntax.Location, NullableVariableMessage);
             return VplType.Error;
         }
-        return escaping ? type : NonEscaping(type);
+        return NonEscaping(type);
     }
 
-    /// <summary>A <c>var</c> local declared <c>@Escaping</c> takes the escaping form of its initializer's function type.</summary>
-    (VplType Type, BoundExpression Initializer) AnnotateInferred(IReadOnlyList<AnnotationSyntax> annotations, BoundExpression initializer)
+    /// <summary>
+    /// The type of a <c>var</c> local: its initializer's, in the escaping form if it is declared
+    /// <c>@Escaping</c>. A nullable function must be.
+    /// </summary>
+    (VplType Type, BoundExpression Initializer) InferVariableType(VarDeclStmt s, BoundExpression initializer)
     {
         var type = initializer.Type;
-        foreach (var annotation in annotations)
+        bool escaping = false;
+        foreach (var annotation in s.Annotations)
         {
             if (annotation.Name != "Escaping")
                 ReportMisplacedAnnotation(annotation);
-            else if (type.IsFunction)
-                type = type.Escaping;
-            else if (!type.NonNull.IsFunction && type != VplType.Error)
+            else if (type.NonNull.IsFunction || type == VplType.Error)
+                escaping = true;
+            else
                 Error(annotation.Location, $"'@Escaping' can only be used on a variable of function type, not '{type}'");
+        }
+        if (escaping)
+            type = EscapingForm(type);
+        else if (IsNullableNonEscaping(type))
+        {
+            Error(s.Location, NullableVariableMessage);
+            return (VplType.Error, initializer);
         }
         return (type, Convert(initializer, type));
     }
@@ -67,18 +104,20 @@ public sealed partial class Binder
     /// Reports why a non-escaping function can't be converted to the escaping form, at the variable
     /// that makes it non-escaping where there is one, such as an option of a choice.
     /// </summary>
-    void ReportNotEscaping(BoundExpression function, VplType to)
+    void ReportNotEscaping(BoundExpression function)
     {
-        var fate = to.IsNullable ? "made nullable, since a nullable function is always escaping" : "stored or returned";
         // A lambda option is non-escaping only because a variable option made the choice so.
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
-            .Where(o => o.Type.NonNull.IsFunction && !o.Type.NonNull.IsEscaping)
+            .Where(o => IsNonEscapingFunction(o.Type))
             .OrderBy(o => o is BoundLocalAccess ? 0 : 1)
             .FirstOrDefault() ?? function;
         Error(culprit.Location, culprit is BoundLocalAccess { Local: var local }
-            ? $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be {fate}; declare it '@Escaping'"
-            : $"a non-escaping function cannot be {fate}; only '@Escaping' parameters and variables can");
+            ? $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
+                + (local.IsParameter && local.Owner?.IsLambda == true
+                    ? "declare the parameter '@Escaping' in the lambda's function type, as in '(@Escaping () -> void) -> void'"
+                    : "declare it '@Escaping'")
+            : "a non-escaping function cannot be stored or returned; only '@Escaping' parameters and variables can");
     }
 
     /// <summary>
@@ -115,20 +154,20 @@ public sealed partial class Binder
 
     /// <summary>Whether a value of type <paramref name="from"/> fails to convert only because it is non-escaping.</summary>
     static bool IsEscapingMismatch(VplType from, VplType to) =>
-        from.IsFunction && !from.IsEscaping && to.NonNull == from.Escaping;
+        IsNonEscapingFunction(from) && to.NonNull == from.NonNull.Escaping && (to.IsNullable || !from.IsNullable);
 
     /// <summary>
     /// The first argument that keeps a candidate from applying only by being non-escaping, if one
     /// does: saying so explains more than that no overload accepts the arguments.
     /// </summary>
-    (Argument Argument, VplType Parameter)? NonEscapingArgument(IEnumerable<MethodReference> candidates, List<Argument> arguments)
+    Argument? NonEscapingArgument(IEnumerable<MethodReference> candidates, List<Argument> arguments)
     {
         foreach (var method in candidates)
         {
             var failing = Enumerable.Range(0, arguments.Count).Where(i => !IsApplicable(method, arguments, i)).ToList();
             if (failing.Count > 0 && failing.All(i => !arguments[i].IsRef && method.ParameterRefKind(i) != RefKind.Ref
                     && IsEscapingMismatch(arguments[i].Expression.Type, method.ParameterType(i))))
-                return (arguments[failing[0]], method.ParameterType(failing[0]));
+                return arguments[failing[0]];
         }
         return null;
     }
@@ -196,7 +235,7 @@ public sealed partial class Binder
             return $"which is {(local.RefKind == RefKind.In ? "an" : "a")} '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {what}; copy its value to a local first";
         if (local.Type.IsRefStruct)
             return $"a '{local.Type}' that may not outlive what it views";
-        if (local.Type.IsFunction && !local.Type.IsEscaping)
+        if (IsNonEscapingFunction(local.Type))
             return $"which is a non-escaping {what}; declare it '@Escaping'";
         if (local.IsModified)
             return "since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change";

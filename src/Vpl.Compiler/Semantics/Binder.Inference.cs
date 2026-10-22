@@ -57,7 +57,7 @@ public sealed partial class Binder
             // Type arguments are escaping, so a non-escaping argument is an error once it is converted.
             if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
             {
-                found.Add((argument, argumentType.IsFunction ? argumentType.Escaping : argumentType));
+                found.Add((argument, EscapingForm(argumentType)));
             }
             // A nullable argument gives `T?` its value type; null says nothing about `T`.
             else if (parameter.IsNullableValue)

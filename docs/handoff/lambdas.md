@@ -68,8 +68,9 @@ references), and 13 (`@Escaping`).
    `vpl::Ref`. Effectively final is `LocalSymbol.IsModified`, set at every mutating use, and checked
    once the whole body is bound (`CheckEscapingCaptures`). Calls of a stored function pin the
    closure; a non-escaping choice evaluates an escaping option only when chosen
-   (`vpl::choose_held`). Queued, with designs in §6.7: non-escaping nullable parameters and
-   `@Escaping` on a function type's own parameters.
+   (`vpl::choose_held`). Since then: nullable non-escaping parameters (`vpl::optional_ref`, made
+   where the call is, so the reference outlives no temporary), and `@Escaping` on a function
+   type's own parameters.
 6. **Function references** (done). A function's name used as a value is bound as the lambda that
    calls it (`Binder.FunctionReferences.cs`), so it needs nothing of its own past binding.
 7. **Standard library.** `List.removeWhere`, and a `sort` on spans that
@@ -135,9 +136,10 @@ These were reasonable on paper; real programs (the voxel port) will show whether
    for overload resolution and generic inference as a lambda does.
 2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
    local into a lambda would be sound.
-3. **`F?` is a nullable value** (`vpl::Optional<vpl::Function>`), not reference-like, and always
-   escaping. Performance note 9 could make null a null closure pointer; a non-escaping `F?`
-   parameter is planned (§6.7).
+3. **`F?` is a nullable value** (`vpl::Optional<vpl::Function>`), not reference-like. Performance
+   note 9 could make null a null closure pointer. Only parameters can be non-escaping `F?`:
+   locals, choices, and `??` would need an optional that owns a lambda, which locals and choices
+   of non-escaping functions avoid by being bound once or holding every option.
 4. **Untyped lambdas are ambiguous between overloads** that differ only in function parameter
    types (decision 7), rather than trying each overload.
 5. **Parameter modes are part of a function type**, and an untyped lambda takes them from its

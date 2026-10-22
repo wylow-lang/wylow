@@ -103,7 +103,7 @@ public sealed partial class CppEmitter
     string InlineOperandText(Operand operand)
     {
         var text = OperandText(operand, operand.PinRoot is { } root ? HoldOperand(operand, root) : null);
-        return operand.Keep ? $"vpl::keep({text})" : text;
+        return operand.Copy ? $"{CppType(operand.Expression.Type)}({text})" : operand.Keep ? $"vpl::keep({text})" : text;
     }
 
     /// <summary>Declarations that evaluate the operands in order, and the temporaries holding them.</summary>

@@ -84,11 +84,28 @@ public sealed partial class CppEmitter
     string FunctionArgument(MethodReference method, int index, string argument)
     {
         var type = method.ParameterType(index);
+        if (IsNullableNonEscaping(type))
+            return OptionalFunctionArgument(type, argument);
         return IsNonEscaping(type) && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(type)}>({argument})" : argument;
     }
 
     IEnumerable<string> FunctionArguments(MethodReference method, IEnumerable<string> arguments) =>
         arguments.Select((argument, i) => FunctionArgument(method, i, argument));
+
+    static bool IsNullableNonEscaping(VplType type) => type.IsNullable && IsNonEscaping(type.NonNull);
+
+    /// <summary>
+    /// An argument for a nullable non-escaping parameter, a <c>vpl::Optional</c> of a
+    /// <c>vpl::FunctionRef</c>. It is made here, from the value <see cref="PassedValue"/> gives,
+    /// rather than where the argument is evaluated, which may be a statement of its own
+    /// (<see cref="Ordered"/>) that a lambda made in it wouldn't outlive.
+    /// </summary>
+    string OptionalFunctionArgument(VplType type, string argument) =>
+        $"vpl::optional_ref<{FunctionSignature(type.NonNull)}>({argument})";
+
+    /// <summary>What is evaluated for an argument: for a nullable non-escaping parameter, the function or nullable before its conversion.</summary>
+    static BoundExpression PassedValue(VplType parameter, BoundExpression argument) =>
+        IsNullableNonEscaping(parameter) && argument is BoundConversion { Operand: var value } && value.Type != VplType.Null ? value : argument;
 
     /// <summary>The functions with function-typed parameters that can reach themselves through calls.</summary>
     static HashSet<FunctionSymbol> FindRecursive(BoundProgram program)
@@ -248,7 +265,9 @@ public sealed partial class CppEmitter
         // A closure stored where the call could replace it is held until the call returns, as an object receiver is.
         var callee = invocation.Callee;
         var operands = new List<Operand> { new(callee, ByReference: true, PinRoot(callee), PinValue: callee.Type.IsEscaping && !IsStable(callee)) };
-        operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(argument, invocation.Signature.ParameterRefKind(i))));
-        return Ordered(operands, parts => $"{parts[0]}({string.Join(", ", parts.Skip(1))})");
+        operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(invocation.Signature, i, argument)));
+        var signature = invocation.Signature;
+        return Ordered(operands, parts => $"{parts[0]}({string.Join(", ", parts.Skip(1).Select((p, i) =>
+            IsNullableNonEscaping(signature.ParameterType(i)) ? OptionalFunctionArgument(signature.ParameterType(i), p) : p))})");
     }
 }

@@ -97,7 +97,7 @@ public sealed class VplType
         IsNullable ? Grouped(NonNull) + "?"
         : IsPointer ? Grouped(ElementType!) + "*"
         : IsFixedArray ? Grouped(ArrayBase) + ArraySuffix
-        : IsFunction ? $"({string.Join(", ", FunctionParameters.Select(p => FunctionSymbol.RefPrefix(p.RefKind) + p.Type))}) -> {FunctionReturnType}"
+        : IsFunction ? $"({string.Join(", ", FunctionParameters)}) -> {FunctionReturnType}"
         : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
 
     // A suffix after a function type would belong to its return type.
@@ -166,8 +166,8 @@ public sealed class VplType
 
     public bool IsNullable => NonNull != this;
 
-    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>. A nullable function is escaping.</summary>
-    public VplType Nullable => IsNullable ? this : IsFunction && !IsEscaping ? Escaping.Nullable : nullable ?? Publish(ref nullable, new VplType(this));
+    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>. A nullable function keeps its form, escaping or not.</summary>
+    public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
 
     /// <summary>
     /// A nullable type that is not a reference: <c>int?</c>, <c>Vec3?</c>, and <c>T?</c>, since
@@ -247,7 +247,11 @@ public sealed class TypeMap
 }
 
 /// <summary>A parameter of a function type, which has a mode but no name.</summary>
-public readonly record struct FunctionParameterType(RefKind RefKind, VplType Type);
+/// <summary>A parameter of a function type, which prints @Escaping since its two forms print alike.</summary>
+public readonly record struct FunctionParameterType(RefKind RefKind, VplType Type)
+{
+    public override string ToString() => (Type.NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.RefPrefix(RefKind) + Type;
+}
 
 sealed class FunctionParameterListComparer : IEqualityComparer<IReadOnlyList<FunctionParameterType>>
 {

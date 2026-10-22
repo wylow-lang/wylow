@@ -177,7 +177,7 @@ public sealed partial class Binder
     {
         if (s.RefKind != RefKind.None)
             return BindRefLocal(s);
-        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Annotations, "variable");
+        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Annotations, isParameter: false);
         var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         VplType type;
         if (declared is not null)
@@ -203,9 +203,7 @@ public sealed partial class Binder
         }
         else
         {
-            type = initializer.Type;
-            if (s.Annotations.Count > 0)
-                (type, initializer) = AnnotateInferred(s.Annotations, initializer);
+            (type, initializer) = InferVariableType(s, initializer);
         }
 
         if ((type.IsRefStruct || (type.IsFunction && !type.IsEscaping)) && initializer is null)
@@ -496,7 +494,7 @@ public sealed partial class Binder
             return false;
         }
         // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
-        if (target is BoundLocalAccess { Local.Type: { IsFunction: true, IsEscaping: false } } function)
+        if (target is BoundLocalAccess function && IsNonEscapingFunction(function.Local.Type))
         {
             Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'");
             return false;

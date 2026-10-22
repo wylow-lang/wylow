@@ -184,7 +184,7 @@ public sealed partial class Binder
         {
             if (result.Any(p => p.Name == parameter.Name))
                 Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
-            var type = BindVariableType(parameter.Type, parameter.Annotations, "parameter");
+            var type = BindVariableType(parameter.Type, parameter.Annotations, isParameter: true);
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind));
         }

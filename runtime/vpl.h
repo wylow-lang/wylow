@@ -1237,6 +1237,24 @@ inline Function<Signature> closure(bool cyclic, const char* name, Body body, C..
     return Function<Signature>(Ref<Callable<Signature>>::adopt(created));
 }
 
+// A nullable non-escaping function argument, made where the call is: what it refers to (a lambda, or
+// a copy of an escaping function) lives until the end of the full expression, which the call is in.
+template <class S>
+inline Optional<FunctionRef<S>> optional_ref(const Optional<FunctionRef<S>>& f) {
+    return f;
+}
+
+template <class S>
+inline Optional<FunctionRef<S>> optional_ref(const Optional<Function<S>>& f) {
+    if (!f.has_value()) return nullptr;
+    return FunctionRef<S>(f.assumed());
+}
+
+template <class S, class F>
+inline Optional<FunctionRef<S>> optional_ref(const F& f) {
+    return FunctionRef<S>(f);
+}
+
 // A strong copy that keeps a closure alive while it runs, as pin does for an object.
 template <class S>
 inline Function<S> pin(const Function<S>& value) {
