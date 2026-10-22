@@ -234,7 +234,7 @@ public sealed partial class CppEmitter
         var (line, column) = lambda.Location.LineColumn;
         var name = CppStringLiteral($"lambda at {lambda.Location.Source.FileName}:{line}:{column}");
         var function = $"[]({string.Join(", ", parameters)}) -> {CppType(lambda.Function.ReturnType)} {body}";
-        return $"vpl::closure<{FunctionSignature(lambda.Type)}>({(cyclic ? "true" : "false")}, {name}, {string.Join(", ", [function, .. values])})";
+        return $"vpl::closure<{FunctionSignature(lambda.Type)}, {name}>({(cyclic ? "true" : "false")}, {string.Join(", ", [function, .. values])})";
     }
 
     /// <summary>
@@ -281,7 +281,7 @@ public sealed partial class CppEmitter
     {
         // A closure stored where the call could replace it is held until the call returns, as an object receiver is.
         var callee = invocation.Callee;
-        var operands = new List<Operand> { new(callee, ByReference: true, PinRoot(callee), PinValue: callee.Type.IsEscaping && !IsStable(callee)) };
+        var operands = new List<Operand> { new(callee, ByReference: true, PinRoot(callee), PinValue: callee.Type.IsEscaping && MayBeReplaced(callee)) };
         operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(invocation.Signature, i, argument)));
         var signature = invocation.Signature;
         return Ordered(operands, parts =>

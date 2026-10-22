@@ -68,6 +68,13 @@ public sealed partial class CppEmitter
 
     static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess { Local.IsAssignedByLambda: false };
 
+    /// <summary>
+    /// Whether a value used by one operation could be replaced while it runs, so it must be held.
+    /// A temporary can't be: the full expression owns it until the operation is done.
+    /// </summary>
+    static bool MayBeReplaced(BoundExpression value) => !IsStable(value) && value is not (BoundNew or BoundInvocation or BoundLambda
+        or BoundCall { Method.Symbol: { ReturnRefKind: RefKind.None, IsBuiltin: false } });
+
     /// <summary>Whether releasing a value of the type may destroy an object.</summary>
     static bool MayHoldReferences(VplType type) => MayHoldReferences(type, []);
 

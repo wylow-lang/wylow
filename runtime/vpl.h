@@ -1189,29 +1189,38 @@ public:
     virtual R vpl_call(A... arguments) = 0;
 };
 
+// A closure's name for diagnostics, as a template argument so that closures don't store it.
+template <size_t N>
+struct ClosureName {
+    char text[N];
+    consteval ClosureName(const char (&name)[N]) {
+        for (size_t i = 0; i < N; ++i) text[i] = name[i];
+    }
+};
+
 // The closure of one lambda: Body is a C++ lambda that captures nothing and takes the captured
-// values as its first parameters, so that the collector can visit them here.
-template <class Signature, class Body, class... C>
+// values as its first parameters, so that the collector can visit them here. Capturing nothing, it
+// can be default-constructed where it is called, so only the captures are stored.
+template <class Signature, ClosureName Name, class Body, class... C>
 class Closure;
 
-template <class R, class... A, class Body, class... C>
-class Closure<R(A...), Body, C...> final : public Callable<R(A...)> {
-    const char* name;
-    Body body;
+template <class R, class... A, ClosureName Name, class Body, class... C>
+class Closure<R(A...), Name, Body, C...> final : public Callable<R(A...)> {
     std::tuple<C...> captures;
 
 public:
-    Closure(const char* closure_name, Body function, C... values) : name(closure_name), body(std::move(function)), captures(std::move(values)...) {}
+    template <class... V>
+    explicit Closure(V&&... values) : captures(std::forward<V>(values)...) {}
 
     R vpl_call(A... arguments) override {
-        return std::apply([&](const C&... values) -> R { return body(values..., std::forward<A>(arguments)...); }, captures);
+        return std::apply([&](const C&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, captures);
     }
 
     void vpl_visit([[maybe_unused]] Visitor& visitor) override {
         std::apply([&](C&... values) { (visit(visitor, values), ...); }, captures);
     }
 
-    const char* vpl_class_name() const override { return name; }
+    const char* vpl_class_name() const override { return Name.text; }
 };
 
 // An escaping function value: a reference to a closure. Default-constructed, it is null, which only
@@ -1230,9 +1239,9 @@ public:
 };
 
 // A closure that captures no reference can't be on a cycle, so `cyclic` is false for it.
-template <class Signature, class Body, class... C>
-inline Function<Signature> closure(bool cyclic, const char* name, Body body, C... captures) {
-    auto* created = new Closure<Signature, Body, C...>(name, std::move(body), std::move(captures)...);
+template <class Signature, ClosureName Name, class Body, class... C>
+inline Function<Signature> closure(bool cyclic, Body, C&&... captures) {
+    auto* created = new Closure<Signature, Name, Body, std::remove_cvref_t<C>...>(std::forward<C>(captures)...);
     created->vpl_set_cyclic(cyclic);
     return Function<Signature>(Ref<Callable<Signature>>::adopt(created));
 }

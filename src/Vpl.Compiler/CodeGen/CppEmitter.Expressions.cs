@@ -167,7 +167,7 @@ public sealed partial class CppEmitter
     {
         var type = receiver.Type;
         if (type.IsReference || type.IsTypeParameter)
-            return new Operand(receiver, ByReference: true, PinRoot(receiver), PinValue: !IsStable(receiver));
+            return new Operand(receiver, ByReference: true, PinRoot(receiver), PinValue: MayBeReplaced(receiver));
         return new Operand(receiver, ByReference: true, PinRoot(receiver));
     }
 
@@ -183,7 +183,7 @@ public sealed partial class CppEmitter
     /// parameter refers to it, while the call could replace it where it is stored.
     /// </summary>
     static bool IsCopiedForReference(BoundExpression argument, BoundExpression value) =>
-        value != argument && value.Type.NonNull.IsEscaping && !IsStable(value);
+        value != argument && value.Type.NonNull.IsEscaping && MayBeReplaced(value);
 
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
         refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
