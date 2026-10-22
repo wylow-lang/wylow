@@ -578,8 +578,8 @@ for (int i : 0..n)  { ... }    // 0, 1, ..., n-1
 for (int i : 0..=n) { ... }    // 0, 1, ..., n
 ```
 
-- The bounds are integers, evaluated once, start first. The variable has their common type (or
-  its declared `int` or `long` type) and is a copy: assigning it doesn't change the iteration.
+- The bounds are integers, evaluated once, start first. The variable has their common type (§2.4),
+  or its declared integer type, and is a copy: assigning it doesn't change the iteration.
 - A range whose end is before its start runs no iterations. `a..=b` stops without overflowing when
   `b` is the type's maximum value.
 - Ranges are only valid in a for-each.
@@ -661,7 +661,7 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 | `Variant`, `Enum.Variant` | That variant, whatever its fields |
 | `Variant(p1, p2)` | That variant, if each field matches its pattern; every field must be listed |
 | `Type name`, `Type` | A class or interface value that is non-null and a `Type`. For a value type, only its own type, which just states it |
-| `42`, `-1`, `true` | An integer or `bool` equal to the literal |
+| `42`, `-1`, `'a'`, `true` | An integer, `char`, or `bool` equal to the literal |
 
 - The enum qualifier in `Enum.Variant` must be the matched value's enum; type arguments may be left
   out, since the value determines them: `case Result.Ok(var v)`.
