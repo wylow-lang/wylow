@@ -675,7 +675,7 @@ struct Pair<A, B> {
 T identity<T>(T value) { return value; }
 
 var p = Pair<int, float>(1, 2.5);         // struct type arguments are always written
-var s = Pair<String, bool> { first = "a", second = true };
+var s = Pair<String, bool>(second: true, first: "a");
 var x = identity(5);                      // function type arguments are inferred...
 var y = identity<long>(5);                // ...or written explicitly
 ```
@@ -689,7 +689,7 @@ var y = identity<long>(5);                // ...or written explicitly
   no conversions, so `Pair<int, int>` and `Pair<long, long>` never unify.
 - **Struct type arguments are always written.** There is no inference for construction.
 - When a generic and a non-generic overload are equally good, the non-generic one is chosen.
-- `Name<...>` in an expression is read as type arguments when followed by `(`, `.` or `{`. As in C#,
+- `Name<...>` in an expression is read as type arguments when followed by `(` or `.`. As in C#,
   `f(a < b, c > (d))` is therefore a call to the generic `a<b, c>`.
 
 ### Bounds
@@ -712,7 +712,7 @@ passing (including by `ref`/`in`), and returning values. In particular:
 - `==` is not available on `T`, and no function overload accepts a `T` unless it is generic itself.
 - `T()` is an error: `T` has no default value (it could be a non-null class reference).
 - A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an
-  error, while `Pair<T, int> { first = x }` is fine, since it sets every field that lacks a default.
+  error, while `Pair<T, int>(first: x)` is fine, since it passes every field that lacks a default.
   From non-generic code, `Pair<int, int>()` works because `int` has a default.
 
 ### Default values
@@ -720,9 +720,8 @@ passing (including by `ref`/`in`), and returning values. In particular:
 A type is *defaultable* if it has a default value: primitives, `String`, nullable types (`null`), structs whose fields each either have an initializer or a defaultable type, and enums
 whose first variant carries no data (that variant is the default). Type
 parameters and non-null class and interface references are not defaultable, so a struct with a
-`Player` field and no initializer for it has no default value. A
-struct's default constructor and `{ ... }` initializers require any field that is not set
-explicitly to be defaultable.
+`Player` field and no initializer for it has no default value. A struct's memberwise constructor
+requires an argument for each such field, and `T()` exists only when there are none (§6.3).
 
 ### Recursive structs
 

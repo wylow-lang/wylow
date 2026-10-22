@@ -44,7 +44,7 @@ Java's four levels:
 
 ```java
 var v = Vec3(1, 2, 3);                         // struct constructor, no allocation
-var e = Enemy { health = 50, position = v };   // struct initializer
+var e = Enemy(health: 50, position: v);        // fields by name
 var list = new List<Enemy>();                  // class: heap allocation
 var arr = new float[1024];                     // heap array
 ```
@@ -58,23 +58,43 @@ in `Vec3 target = path.last();`.
 
 ### Struct constructors
 
-- **Every struct has a default constructor**, `T()`, which sets each field to its initializer, or
-  to zero / `false` / `""` / the field type's default. It cannot be declared explicitly; use field
-  initializers to customize it. (Arrays and pools rely on every struct having a default.)
-- Field initializers run in declaration order each time a value is default-constructed. They may
-  call functions but cannot use `this` or other fields.
-- A declared constructor starts from the default value, then runs its body. `this` refers to the
-  value being built, and `return;` ends construction early.
-- A struct that declares no constructor gets a **memberwise constructor**, which takes every field
-  in declaration order: `Vec2(1, 2)` for `struct Vec2 { float x, y; }`. Like a declared constructor
-  it starts from the default value, then assigns each field. It is private if any field is, and
-  declaring any constructor removes it.
+A struct is built one way: by calling a constructor. There is no separate initializer syntax such
+as C#'s `T { field = value }`; the memberwise constructor with named arguments does that job, so
+default values, positional construction, and setting fields by name are all the same call.
 
-  > Until default parameter values are implemented, fields with initializers are required
-  > arguments too; they will become optional, defaulting to their initializers.
-- Any struct can be built with an **initializer**, `T { field = value, ... }`, which starts from the
-  default constructor and then assigns the listed fields in the order written. Initializers can also
-  follow a constructor call: `Enemy(pos) { health = 50 }`.
+- A struct that declares no constructor gets a **memberwise constructor**, which takes every field
+  in declaration order: `Vec2(1, 2)` for `struct Vec2 { float x, y; }`. Each parameter defaults to
+  its field's initializer, or else to the field type's default value, so arguments may be left out
+  or passed by name (§6.4):
+
+  ```java
+  struct Enemy {
+      Vec3 position;
+      int health = 100;
+      Player? target;
+  }
+
+  Enemy()                    // every field defaulted
+  Enemy(pos)                 // health 100, no target
+  Enemy(health: 50)          // position defaulted
+  ```
+
+  A field with no initializer whose type has no default (a non-null reference, a type parameter, or
+  a struct containing one) is a required argument. The memberwise constructor is private if any
+  field is.
+- Arguments are evaluated in the order written, as in any call. Then each field is set, in
+  declaration order, to its argument or, for one left out, to its initializer. Initializers may call
+  functions but cannot use `this` or other fields.
+- **`T()` is the default value.** It exists for a struct whose fields all have defaults, including
+  one that declares constructors, since arrays and pools rely on it, and it cannot be declared.
+- Declaring any constructor removes the memberwise one, apart from `T()`. A declared constructor
+  starts from the default value, then runs its body. `this` refers to the value being built, and
+  `return;` ends construction early. To set fields its parameters don't cover, assign them after the
+  call: `var e = Enemy(pos); e.health = 50;`.
+
+  > Not implemented yet: default and named arguments. Until they are, the memberwise constructor
+  > takes every field positionally, and the C#-style initializer `T { field = value }` remains; it
+  > will be removed once named arguments exist.
 - Constructors are declared Java-style:
 
 ```java
@@ -157,7 +177,8 @@ spawn(pos, spread: 2.0);     // named argument
 
 - Methods may be **overloaded** by parameter types, as in Java.
 - Parameters may have **default values** (compile-time constants or struct constructors).
-- Arguments may be passed **by name**; named arguments must come after positional ones.
+- Arguments may be passed **by name**; named arguments must come after positional ones. A struct's
+  memberwise constructor uses both, which is how a struct is built with some fields named (§6.3).
 
 ### Extension methods
 
@@ -783,7 +804,7 @@ public class EnemySystem {
     Pool<Enemy> enemies = new Pool<>();
 
     public Handle<Enemy> spawn(Vec3 at) {
-        return enemies.add(Enemy { position = at });
+        return enemies.add(Enemy(position: at));
     }
 
     public void tick(float dt) {
