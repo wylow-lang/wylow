@@ -501,6 +501,10 @@ be done when profiling shows it matters.
   ([03-memory-model.md](03-memory-model.md#loop-elements)); likewise, a function field may hold
   any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
   that call or field.
+- **Closures that don't escape** are still allocated on the heap: an `@Escaping` local that is only
+  called, or a closure passed to an `@Escaping` parameter that the callee never stores. Escape
+  analysis could put them on the stack, as it could class objects
+  ([03-memory-model.md](03-memory-model.md#stack-allocation)).
 - **Narrowing.** A null check outside a lambda doesn't carry into it, and a local declared outside
   any lambda that assigns it is never narrowed, which can force a `!` (and its check).
 

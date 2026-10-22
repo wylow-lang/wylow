@@ -19,7 +19,8 @@ releasing any class references it contains.
 
 ## 3.2 Objects (classes)
 
-- Allocated with `new`, always on the heap.
+- Allocated with `new`, on the heap (an object that can't outlive its scope may one day be on the
+  stack instead, which no program can observe; see [Stack allocation](#stack-allocation)).
 - **Reference counted** with an intrusive (in-object) count. Normal classes use a non-atomic count;
   `shared class` uses an atomic one ([05-concurrency.md](05-concurrency.md)).
 - The destructor runs immediately when the last reference is released. This makes classes the
@@ -57,6 +58,59 @@ and each count change a lookup of the base's offset. References are
 `vpl::Ref<T>`, an intrusive smart pointer; non-null is enforced by VPL, not by `Ref`. The count
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
 `this` cannot destroy the object early.
+
+### Stack allocation
+
+An object made by `new` that provably can't outlive the scope that makes it may be placed in that
+scope's stack frame instead of on the heap, saving the allocation and the free:
+
+```java
+var hit = new RayHit(origin, dir);      // only used here: could be on the stack
+if (raycast(world, hit)) { print(hit.distance); }
+print(new Path(a, b).length());         // a temporary: could be on the stack
+```
+
+No program can tell the difference. An object is destroyed when its last reference is released,
+and for such an object that is where its local goes out of scope or is reassigned, or, for a
+temporary, the end of its statement: exactly where a stack object would be destroyed. Panics abort
+without unwinding, so there is no other way out of the scope.
+
+An object **escapes**, and stays on the heap, if a reference to it may exist after its scope ends:
+if it is stored in a field, an element, or a static; returned; captured by an escaping lambda;
+referred to by a `Weak` (whose block would point into the stack); or passed (as an argument or as
+`this`) to a function that may do any of these with it. That last needs a summary of each function:
+which of its parameters, and whether its `this`, may escape, found over the whole program as
+[loop elements](#loop-elements) are, counting every override of a dispatched method. A function
+whose summary isn't known, such as an `extern` one, lets everything it is given escape. An object
+storing a reference to itself (`this.self = this`) escapes.
+
+Implementation constraints, worked out ahead of time:
+
+- **Each `new` gets its own slot.** Reassigning a local releases the object it held there, so the
+  slot's object is destroyed at the assignment. A first version can handle only locals that are
+  never reassigned, and temporaries, which covers most uses. A `new` in a loop body gets a slot in
+  the body's scope, so each iteration has its own object.
+- **The reference count still works.** The slot holds the reference `new` starts the object with, so
+  passing the object to functions that hold and release it never brings the count to 0 early. At the
+  end of the slot's scope its destructors run, but nothing is freed. A debug build checks that the
+  count is then back to 1, which a correct analysis guarantees.
+- **The cycle collector never sees a stack object.** Buffering one would leave the collector's
+  buffer pointing into a frame that is gone. It can't be part of an unreachable cycle anyway, since
+  nothing outside its scope refers to it, so a stack object is never cyclic, whatever its class.
+- **Size is capped.** A large object, or many in a deeply recursive function, could overflow the
+  stack, so objects over a size limit stay on the heap. A
+  [performance warning](README.md#not-yet-designed) could point out a `new` that escapes only
+  through one call, or that is just over the limit.
+- **Closures are objects too.** An escaping lambda whose closure provably doesn't escape (an
+  `@Escaping` local that is only called, or a closure passed to an `@Escaping` parameter that the
+  callee never stores) can be on the stack in the same way
+  ([06-syntax.md](06-syntax.md#costs-to-remove-later)).
+
+This covers the object itself, not storage it holds: a local `List` could be on the stack, but its
+elements stay on the heap, since the list can grow. Avoiding that is a separate technique (inline
+storage for a few elements, or arenas).
+
+> Not implemented yet.
 
 ### Weak references: `Weak<T>`
 
