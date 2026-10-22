@@ -16,8 +16,7 @@ references), and 13 (`@Escaping`).
 
 9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `ReadsState`) treats a call through a
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
-   call writes what any lambda or function reference in the program writes (their union), which is
-   sound and simple.
+   call writes what any lambda or function reference of its type writes (their union).
 
 ## Order of work
 
@@ -51,7 +50,7 @@ references), and 13 (`@Escaping`).
    - Effects and ordering (decision 9): calling a function value, or calling anything with a function
      argument, counts as writing locals.
    - `ElementAliasing` counts a lambda's writes in the function that creates it, and a call of a function
-     value as writing what any lambda writes. Loops inside lambdas are checked too.
+     value as writing what any lambda of its type writes. Loops inside lambdas are checked too.
    - Field initializers are now flow-analyzed, since lambdas in them have bodies to check.
 4. **Generic inference** with lambdas (done, decision 8). `Binder.Inference.cs`: a type argument
    only a lambda's return type can give is inferred by binding the lambda's body

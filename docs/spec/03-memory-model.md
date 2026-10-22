@@ -136,11 +136,13 @@ container elements (`List<Node>`), and counting every class a field's type could
 (subclasses, interface implementations). `Node` above is cyclic through `children`; a class holding
 `Vec3`s, a `List<int>`, a `String`, and a `Mesh` that holds no references back is not.
 
-An escaping function ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) is a closure object
-that may hold any class reference it captured, so a class with a field holding one (or a
-`List<() -> void>`) counts as able to reach every class, and is cyclic if any class can reach it
-back. A closure that captures class references is visited like an object; one that captures only
-values is never buffered.
+An escaping function ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) holds a closure
+object with copies of what its lambda captured, and can only be a lambda of its own type. So a
+function field (or a `List<() -> void>`) counts as able to reach what any lambda of that type
+captures, and each lambda's closures are decided like a class: cyclic only if what it captures can
+reach one of them back. A lambda in generic code may capture anything, and counts for every type it
+could be: `() -> T` for any `() -> X`. A class holding `() -> void` handlers whose lambdas capture
+only values, or objects that can't lead back to it, is not cyclic, and neither are those closures.
 
 Generic classes are decided per instantiation: `List<Node>` is cyclic, `List<int>` is not. Container
 elements are those of the standard library's containers, `List` and `Array`, which store them behind
@@ -401,8 +403,9 @@ element. What the loop iterates is held and borrowed until it ends, so storing o
 the only way its object could be destroyed.
 
 The compiler checks everything the loop's body may run: the functions it calls and the functions
-they call, every override of a virtual or interface method it calls, and every destructor in the
-program. Assigning fields, including fields of the element's type, never counts, so getters,
+they call, every override of a virtual or interface method it calls, every lambda of the type of
+a function value it calls (a lambda in generic code counts for every type it could be), and every
+destructor in the program. Assigning fields, including fields of the element's type, never counts, so getters,
 setters, and most methods don't prevent it. Reassigning `e` itself does. The program behaves the
 same either way; only the cost differs.
 
@@ -516,7 +519,7 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | Pass a lambda to a virtual, interface, or recursive method, or a constructor | an indirect call per call of it | same |
 | Choose a function with `?:` | a branch on the choice per call; every lambda it could be is still inlined | same |
 | Use a local that a lambda assigns, as a receiver or argument | refcount inc/dec while in use, if it holds objects | same |
-| Make an escaping lambda | a heap allocation holding copies of what it captures | same |
+| Make an escaping lambda | a heap allocation holding copies of what it captures; nothing if it captures nothing | same |
 | Call an escaping function | an indirect call; refcount inc/dec on the closure if it is stored where the call could replace it (a field, a container element, a local a lambda assigns) | same |
 | Copy an escaping function | refcount inc/dec, as a class reference | same |
 | Pass an escaping function to a non-escaping parameter | refcount inc/dec for the call, unless it comes from a local that can't change meanwhile | same |

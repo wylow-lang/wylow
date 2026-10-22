@@ -7,13 +7,15 @@ namespace Vpl.Compiler.Semantics;
 /// reach an object of their own class through fields, including through structs, enums, fixed
 /// arrays, and the elements of standard library containers, counting every class a field's type
 /// could refer to. Only their objects are buffered and visited by the cycle collector. Generic
-/// classes are decided per instantiation, since that is what the C++ instantiates.
+/// classes are decided per instantiation, since that is what the C++ instantiates. An escaping
+/// lambda's closures are decided the same way, as objects holding what the lambda captures, and a
+/// function value may hold the closure of any lambda of its type.
 /// </summary>
 /// <remarks>
 /// The program's instantiations are those the binder constructed, closed over the types of their
 /// fields. Generic code can still instantiate others that only C++ sees, through a generic
 /// function's type arguments; the runtime treats those as cyclic, and a field whose type could
-/// refer to one is assumed to reach every class.
+/// refer to one is assumed to reach every class and closure.
 /// </remarks>
 public sealed class CyclicClasses
 {
@@ -22,17 +24,24 @@ public sealed class CyclicClasses
     readonly List<VplType> classes = [];
     readonly Dictionary<VplType, HashSet<VplType>> held = [];
     readonly HashSet<VplType> cyclic = [];
+    readonly IReadOnlyList<BoundLambda> closures;
+    readonly Dictionary<FunctionSymbol, HashSet<VplType>> captured = [];
+    readonly HashSet<FunctionSymbol> cyclicClosures = [];
 
     CyclicClasses(BoundProgram program)
     {
         stdlib = program.Stdlib;
         types = program.Types;
+        closures = [.. FunctionValues.Lambdas(program).Where(l => l.Type.IsEscaping)];
     }
 
     /// <summary>Every class instantiation the program is known to create objects of.</summary>
     public IReadOnlyList<VplType> Classes => classes;
 
     public bool IsCyclic(VplType classType) => cyclic.Contains(Erase(classType));
+
+    /// <summary>Whether the closures of an escaping lambda may be part of a cycle; one the analysis didn't see is assumed to be.</summary>
+    public bool IsCyclic(BoundLambda lambda) => !captured.ContainsKey(lambda.Function) || cyclicClosures.Contains(lambda.Function);
 
     /// <summary>
     /// The type without the nullability of references anywhere in its type arguments: `List<Node>`
@@ -72,6 +81,17 @@ public sealed class CyclicClasses
             foreach (var instance in s.Instances.ToList())
                 Add(instance);
         }
+        foreach (var closure in closures)
+        {
+            var references = captured[closure.Function] = [];
+            var (locals, self) = BoundTree.Captures(closure);
+            foreach (var local in locals)
+                Hold(local.Local.Type, references, []);
+            if (self is not null)
+                Hold(self.Type, references, []);
+            foreach (var reference in references)
+                Add(reference);
+        }
         while (pending.TryDequeue(out var type))
         {
             var references = held[type];
@@ -95,7 +115,6 @@ public sealed class CyclicClasses
             Hold(type.NonNull, references, visiting);
         else if (type.IsReference)
             references.Add(Erase(type));
-        // A closure may capture anything, as an instantiation only C++ sees may (§6.7).
         else if (type.IsTypeParameter || type.IsFunction)
             references.Add(type);
         else if (type.IsFixedArray)
@@ -112,15 +131,26 @@ public sealed class CyclicClasses
     void MarkCycles()
     {
         var nodes = classes.Where(c => !c.Symbol!.IsAcyclic).ToList();
+        int closuresStart = nodes.Count;
         // Stands for the instantiations only C++ sees, which may hold anything.
-        int unknown = nodes.Count;
-        var edges = new List<int>[nodes.Count + 1];
-        for (int i = 0; i < nodes.Count; i++)
+        int unknown = closuresStart + closures.Count;
+        var edges = new List<int>[unknown + 1];
+        for (int i = 0; i < unknown; i++)
         {
             edges[i] = [];
             bool reachesUnknown = false;
-            foreach (var reference in held[nodes[i]])
+            foreach (var reference in i < closuresStart ? held[nodes[i]] : captured[closures[i - closuresStart].Function])
             {
+                if (reference.IsFunction)
+                {
+                    for (int j = 0; j < closures.Count; j++)
+                    {
+                        if (FunctionValues.MayBe(reference, closures[j].Type))
+                            edges[i].Add(closuresStart + j);
+                    }
+                    reachesUnknown |= reference.ContainsTypeParameters;
+                    continue;
+                }
                 for (int j = 0; j < nodes.Count; j++)
                 {
                     if (IsSubtype(nodes[j], reference))
@@ -131,14 +161,18 @@ public sealed class CyclicClasses
             if (reachesUnknown)
                 edges[i].Add(unknown);
         }
-        edges[unknown] = [.. Enumerable.Range(0, nodes.Count)];
+        edges[unknown] = [.. Enumerable.Range(0, unknown)];
 
         foreach (var component in StronglyConnectedComponents(edges))
         {
             foreach (int node in component)
             {
-                if (node != unknown && (component.Count > 1 || edges[node].Contains(node)))
+                if (node == unknown || (component.Count == 1 && !edges[node].Contains(node)))
+                    continue;
+                if (node < closuresStart)
                     cyclic.Add(nodes[node]);
+                else
+                    cyclicClosures.Add(closures[node - closuresStart].Function);
             }
         }
     }
@@ -146,9 +180,9 @@ public sealed class CyclicClasses
     static bool IsSubtype(VplType type, VplType target) =>
         type == target || Conversions.Supertypes(type).Any(t => Erase(t) == target);
 
-    /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees, or to a closure.</summary>
+    /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees.</summary>
     bool MayReferToUnknown(VplType reference) =>
-        reference.IsTypeParameter || reference.IsFunction
+        reference.IsTypeParameter
         || types.Any(s => s is { Kind: TypeKind.Class, IsGeneric: true, IsAcyclic: false }
             && Conversions.Supertypes(s.Type).Any(t => t.Symbol == reference.Symbol));
 

@@ -491,11 +491,12 @@ be done when profiling shows it matters.
   inlined away but can force temporaries; tracking which locals each lambda writes would avoid it.
   Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
   block nesting. Real code doesn't nest that deep, so this is a known limit, not a planned fix.
-- **Element aliasing.** A call of a function value counts as writing what every lambda in the
-  program writes, so one lambda storing into elements of type `X` anywhere makes every loop over
-  `X` that calls a function value count references per element
-  ([03-memory-model.md](03-memory-model.md#loop-elements)). It could count only the lambdas that
-  can reach that call.
+- **Element aliasing and cycles.** A call of a function value counts as writing what every lambda
+  of its type writes, so one `(Mob) -> void` lambda storing into elements of type `X` anywhere
+  makes every loop over `X` that calls a `(Mob) -> void` count references per element
+  ([03-memory-model.md](03-memory-model.md#loop-elements)); likewise, a function field may hold
+  any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
+  that call or field.
 - **Narrowing.** A null check outside a lambda doesn't carry into it, and a local declared outside
   any lambda that assigns it is never narrowed, which can force a `!` (and its check).
 

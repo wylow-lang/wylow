@@ -1,0 +1,64 @@
+// A call of a function value may run any lambda of its type, so a loop calling one keeps its own
+// reference to each element if such a lambda may store over an element. Each loop below would
+// print the replacing element, or read a freed one, if its element referred to the list in place.
+
+class Enemy {
+    int hp;
+
+    Enemy(int hp) {
+        this.hp = hp;
+    }
+
+    ~Enemy() {
+        print(-hp);
+    }
+}
+
+class Hooks {
+    () -> void onTick;
+
+    Hooks(@Escaping () -> void onTick) {
+        this.onTick = onTick;
+    }
+}
+
+// A lambda of generic type, `(T) -> void`, may be any `(X) -> void`.
+(T) -> void storer<T>(List<T> list, T value) {
+    return x -> {
+        list[0] = value;
+    };
+}
+
+void tick(() -> void f) {
+    f();
+}
+
+void main() {
+    var enemies = new List<Enemy>();
+    enemies.add(new Enemy(1));
+    enemies.add(new Enemy(2));
+
+    var store = storer(enemies, new Enemy(7));
+    for (Enemy e : enemies) {
+        store(e);
+        print(e.hp);
+    }
+    // output: 1
+    // output: -1
+    // output: 2
+
+    // An escaping lambda runs through a non-escaping parameter.
+    var hooks = new Hooks(() -> {
+        enemies[1] = new Enemy(50);
+    });
+    for (Enemy e : enemies) {
+        tick(hooks.onTick);
+        print(e.hp);
+    }
+    // output: -2
+    // output: 7
+    // output: 50
+    // output: -50
+}
+// output: -7
+// output: -50

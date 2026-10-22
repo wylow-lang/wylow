@@ -1293,7 +1293,7 @@ public:
     const char* vpl_class_name() const override { return Name.text; }
 };
 
-// A closure that captures no reference can't be on a cycle, so `cyclic` is false for it.
+// `cyclic` is whether the compiler found that the lambda's closures may be part of a cycle.
 template <class Signature, ClosureName Name, class Body, class... C>
 inline Function<Signature> closure([[maybe_unused]] bool cyclic, Body, C&&... captures) {
     if constexpr (sizeof...(C) == 0) {

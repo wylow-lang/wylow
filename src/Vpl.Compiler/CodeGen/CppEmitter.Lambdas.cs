@@ -230,7 +230,7 @@ public sealed partial class CppEmitter
         foreach (var (local, outer) in renamed)
             localNames[local] = outer;
 
-        bool cyclic = self is not null || locals.Any(a => MayHoldReferences(a.Local.Type));
+        bool cyclic = cycles.IsCyclic(lambda);
         var (line, column) = lambda.Location.LineColumn;
         var name = CppStringLiteral($"lambda at {lambda.Location.Source.FileName}:{line}:{column}");
         var function = $"[]({string.Join(", ", parameters)}) -> {CppType(lambda.Function.ReturnType)} {body}";

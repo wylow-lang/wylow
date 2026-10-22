@@ -50,10 +50,12 @@ public sealed class ElementAliasing
     readonly Summary destructors = new();
 
     /// <summary>
-    /// Every lambda in the program, as one unit: a call of a function value may run any of them.
-    /// Each lambda is also part of the unit that creates it, since it runs during that unit's calls.
+    /// Every lambda in the program, each a unit of its own: a call of a function value may run any
+    /// lambda of its type (<see cref="FunctionValues.MayBe"/>). Each lambda is also part of the unit
+    /// that creates it, since it runs during that unit's calls.
     /// </summary>
-    readonly FunctionSymbol lambdas = new("<lambdas>", [], VplType.Void) { IsLambda = true };
+    readonly IReadOnlyList<BoundLambda> lambdas;
+    readonly Dictionary<VplType, List<FunctionSymbol>> lambdasOfType = [];
 
     public ElementAliasing(BoundProgram program)
     {
@@ -62,10 +64,19 @@ public sealed class ElementAliasing
             units[function.Symbol] = new Unit(function.Symbol, [function.Body], InitializersRunBy(function.Symbol));
         foreach (var type in program.Types.Where(t => !units.ContainsKey(t.DefaultConstructor)))
             units[type.DefaultConstructor] = new Unit(type.DefaultConstructor, [], InitializersRunBy(type.DefaultConstructor));
-        var code = units.Values.SelectMany(u => u.Statements.SelectMany(BoundTree.AllExpressions).Concat(u.Expressions.SelectMany(BoundTree.AllExpressions)));
-        units[lambdas] = new Unit(lambdas, [.. code.OfType<BoundLambda>().Distinct().Select(l => l.Body)], []);
+        lambdas = FunctionValues.Lambdas(program);
+        foreach (var lambda in lambdas)
+            units[lambda.Function] = new Unit(lambda.Function, [lambda.Body], []);
         overridesByName = program.Functions.Select(f => f.Symbol).Where(f => f.IsInstanceMethod)
             .ToLookup(f => (f.Name, f.Parameters.Count));
+    }
+
+    /// <summary>The lambdas a function value of the type may be.</summary>
+    List<FunctionSymbol> LambdasOfType(VplType type)
+    {
+        if (!lambdasOfType.TryGetValue(type, out var found))
+            lambdasOfType[type] = found = [.. lambdas.Where(l => FunctionValues.MayBe(type, l.Type)).Select(l => l.Function)];
+        return found;
     }
 
     /// <summary>Marks every loop element variable that can refer to its element in place.</summary>
@@ -76,8 +87,8 @@ public sealed class ElementAliasing
             Merge(destructors, summaries[unit.Symbol], TypeMap.Empty);
         foreach (var function in program.Functions)
             FindLoops(function.Body);
-        foreach (var body in units[lambdas].Statements)
-            FindLoops(body);
+        foreach (var lambda in lambdas)
+            FindLoops(lambda.Body);
     }
 
     static IReadOnlyList<BoundExpression> InitializersRunBy(FunctionSymbol function) =>
@@ -289,8 +300,9 @@ public sealed class ElementAliasing
                 case BoundConstruction construction:
                     Call(construction.Constructor, direct: true);
                     break;
-                case BoundInvocation:
-                    Merge(Summary, analysis.summaries[analysis.lambdas], TypeMap.Empty);
+                case BoundInvocation invocation:
+                    foreach (var lambda in analysis.LambdasOfType(invocation.Callee.Type.NonNull))
+                        Merge(Summary, analysis.summaries[lambda], TypeMap.Empty);
                     break;
                 case BoundLambda lambda:
                     Statement(lambda.Body);
