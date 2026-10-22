@@ -95,7 +95,8 @@ public sealed class CyclicClasses
             Hold(type.NonNull, references, visiting);
         else if (type.IsReference)
             references.Add(Erase(type));
-        else if (type.IsTypeParameter)
+        // A closure may capture anything, as an instantiation only C++ sees may (§6.7).
+        else if (type.IsTypeParameter || type.IsFunction)
             references.Add(type);
         else if (type.IsFixedArray)
             Hold(type.ElementType!, references, visiting);
@@ -145,9 +146,9 @@ public sealed class CyclicClasses
     static bool IsSubtype(VplType type, VplType target) =>
         type == target || Conversions.Supertypes(type).Any(t => Erase(t) == target);
 
-    /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees.</summary>
+    /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees, or to a closure.</summary>
     bool MayReferToUnknown(VplType reference) =>
-        reference.IsTypeParameter
+        reference.IsTypeParameter || reference.IsFunction
         || types.Any(s => s is { Kind: TypeKind.Class, IsGeneric: true, IsAcyclic: false }
             && Conversions.Supertypes(s.Type).Any(t => t.Symbol == reference.Symbol));
 

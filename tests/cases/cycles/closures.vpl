@@ -1,0 +1,101 @@
+// A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
+
+class Enemy {
+    int id;
+    () -> void onHit = () -> print(0);
+
+    Enemy(int id) {
+        this.id = id;
+    }
+
+    void arm() {
+        onHit = () -> react(this);
+    }
+
+    ~Enemy() {
+        print(id);
+    }
+}
+
+void react(Enemy enemy) {
+    print(enemy.id * 10);
+}
+
+class Bus {
+    List<() -> void> handlers = new List<() -> void>();
+
+    ~Bus() {
+        print(-1);
+    }
+}
+
+class Listener {
+    int id;
+    Bus bus;
+
+    Listener(int id, Bus bus) {
+        this.id = id;
+        this.bus = bus;
+        // Through a captured local rather than `this`: bus -> closure -> listener -> bus.
+        var self = this;
+        bus.handlers.add(() -> print(self.id));
+    }
+
+    ~Listener() {
+        print(id * 100);
+    }
+}
+
+class Box {
+    ((int) -> int)? f = null;
+
+    ~Box() {
+        print(-2);
+    }
+}
+
+void main() {
+    // A closure capturing `this`, stored in a field of the same object.
+    if (true) {
+        var enemy = new Enemy(1);
+        enemy.arm();
+        enemy.onHit();                              // output: 10
+    }
+    print(-9);                                      // output: -9
+    Memory.collectCycles();                         // output: 1
+
+    // A cycle through a list of closures.
+    if (true) {
+        var bus = new Bus();
+        _ = new Listener(2, bus);
+        _ = new Listener(3, bus);
+        for (() -> void h : bus.handlers) {
+            h();                                    // output: 2
+                                                    // output: 3
+        }
+    }
+    Memory.collectCycles();                         // output: 200
+                                                    // output: -1
+                                                    // output: 300
+
+    // A closure capturing its holder through a nullable field.
+    if (true) {
+        var box = new Box();
+        var held = box;
+        box.f = x -> x + (held.f != null ? 1 : 0);
+        print(box.f!(1));                           // output: 2
+    }
+    Memory.collectCycles();                         // output: -2
+
+    // Breaking the cycle by hand frees it without the collector.
+    var enemy = new Enemy(4);
+    enemy.arm();
+    enemy.onHit = () -> print(5);
+    print(-9);                                      // output: -9
+    enemy = new Enemy(6);                           // output: 4
+
+    _ = Memory.cycleStats();
+    Memory.collectCycles();
+    print(Memory.cycleStats().freed);               // output: 0
+}
+// output: 6

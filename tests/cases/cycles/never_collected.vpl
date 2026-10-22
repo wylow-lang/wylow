@@ -4,6 +4,7 @@
 class Node {
     int id;
     Node? next;
+    ((int) -> int)? onVisit = null;
 
     Node(int id) {
         this.id = id;
@@ -21,6 +22,9 @@ void main() {
         a.next = b;
         b.next = a;
     }
+    // A closure capturing its holder.
+    var watched = new Node(-3);
+    watched.onVisit = x -> x + watched.id;
     var chain = new Node(1);
     chain.next = new Node(2);
     chain = new Node(3);
@@ -28,4 +32,4 @@ void main() {
     // output: 2
 }
 // output: 3
-// warning: at exit, 2000 objects in cycles were never freed: 2000 Node.
+// warning: at exit, 2002 objects in cycles were never freed: 2001 Node, 1 lambda at never_collected.vpl:27:23.

@@ -10,36 +10,17 @@ when it lands, and is then only listed here.
 
 Landed, and described in §6.7: 1 (function type syntax), 2 (a lambda takes its type from its
 target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C++ can't use one),
-5 (non-escaping locals), 7 (overloads), 8 (generic inference, including from lambda bodies), and
-10 (flow analysis).
+4 (escaping values are `vpl::Function`), 5 (non-escaping locals), 6 (captures), 7 (overloads), 8
+(generic inference, including from lambda bodies), 10 (flow analysis), 11 (cycles), and 13
+(`@Escaping`).
 
-4. **Escaping values are `vpl::Function<R(A...)>`**, a reference-counted closure object.
-   - Function types are not defaultable: a field of one must be set by every constructor, or be
-     nullable. `new ((int) -> int)[n]` is an error; use `((int) -> int)?[]`.
-   - Function values have no `==`.
-   - A non-escaping value never converts to an escaping one. An escaping value can be passed to a
-     non-escaping parameter or bind a non-escaping local.
-6. **Captures.**
-   - Non-escaping lambdas capture by reference. They may mutate captured locals and capture `ref`s,
-     spans, ref structs, non-escaping parameters and locals, and a struct method's `this`.
-   - Escaping lambdas capture by copy. Every local or parameter they capture must be effectively
-     final (assigned only at its declaration and never passed by `ref`), and is read-only in the
-     lambda. They may not capture any of the things only non-escaping lambdas can capture.
-   - A captured class reference, including `this`, keeps its object alive.
-   - A lambda can't refer to the variable it initializes, since that variable isn't assigned yet.
 9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `ReadsState`) treats a call through a
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
    call writes what any lambda or function reference in the program writes (their union), which is
    sound and simple.
-11. **Cycles.** A closure that captures class references can form a cycle
-    (`this.onHit = () -> react(this);`). Closures carry the object header and are visited by the
-    cycle collector. `CyclicClasses` treats an escaping function type as able to reach every class,
-    as it already does for generic instantiations that only C++ sees. A precise version can come
-    later.
 12. **Function references.** A free function or static method's name converts to a function type
     (`list.sort(byDepth)`). If the name is overloaded, the target type picks the overload.
     References to a method on an instance (`enemy::update`) are not in this milestone.
-13. **`@Escaping`** is the second accepted annotation, allowed only on function-typed parameters and locals.
 
 ## Order of work
 
@@ -57,9 +38,8 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
    inherited from a base class), in recursive functions, in constructors, and in function types.
    Functions with function-typed parameters get a name suffix encoding them, so overloads
    differing only in function types stay distinct in C++.
-   - Escape checks: until step 5, only parameters and locals hold functions (`Binder.CheckNotStored`).
-     Fields, returns, type arguments, arrays (also inferred by array literals), and `F?` are
-     errors. That is what makes capturing by reference safe.
+   - Escape checks: until step 5, only parameters and locals held functions, which is what made
+     capturing by reference safe. Step 5 replaced this with the escaping form of function types.
    - `?:` and switch expressions over functions (added after step 3) are a `vpl::Choice`
      (`CppEmitter.Choice`): every lambda or local it could be, and the index the conditions and
      cases pick. A switch's cases run in a C++ lambda, so a chosen lambda can't use a name its
@@ -82,8 +62,16 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
    the call is an error asking for type arguments. A `?:` or switch expression of lambdas passed
    as an argument is a `BoundPendingChoice` until resolution gives it a type (`Binder.Choose`).
    `Result.map` and `mapErr` are written in VPL.
-5. **Escaping.** `@Escaping`, `vpl::Function`, by-copy captures and the effectively-final rule,
-   cycle collector support. Run the cycles under ASan.
+5. **Escaping** (done). Escaping-ness is part of the function type (`VplType.IsEscaping`), so
+   storing, returning, or inferring a type argument from a non-escaping value fails at
+   conversion, with an error naming the variable to declare `@Escaping` (`Binder.Escaping.cs`).
+   An escaping lambda is a `vpl::closure` (`CppEmitter.Closure`): its captures are copied into a
+   reference-counted closure object that the cycle collector visits, and `this` is passed as a
+   `vpl::Ref`. Effectively final is `LocalSymbol.IsModified`, set at every mutating use, and checked
+   once the whole body is bound (`CheckEscapingCaptures`). Calls of a stored function pin the
+   closure; a non-escaping choice evaluates an escaping option only when chosen
+   (`vpl::choose_held`). Queued, with designs in §6.7: non-escaping nullable parameters and
+   `@Escaping` on a function type's own parameters.
 6. **Function references.**
 7. **Standard library.** `List.removeWhere`, and a `sort` on spans that
    takes a comparison, all written in VPL.
@@ -148,7 +136,9 @@ These were reasonable on paper; real programs (the voxel port) will show whether
    for overload resolution and generic inference as a lambda does.
 2. **Narrowing rules** (decision 10): stricter than needed; carrying a check on an effectively final
    local into a lambda would be sound.
-3. **`F?` is a nullable value**, not reference-like. Only matters once functions can be stored.
+3. **`F?` is a nullable value** (`vpl::Optional<vpl::Function>`), not reference-like, and always
+   escaping. Performance note 9 could make null a null closure pointer; a non-escaping `F?`
+   parameter is planned (§6.7).
 4. **Untyped lambdas are ambiguous between overloads** that differ only in function parameter
    types (decision 7), rather than trying each overload.
 5. **Parameter modes are part of a function type**, and an untyped lambda takes them from its
