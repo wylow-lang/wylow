@@ -57,6 +57,7 @@ public sealed partial class CppEmitter
         this.cycles = cycles;
         recursive = FindRecursive(program);
         overloaded = FindOverloaded(program);
+        unoverridden = FindUnoverridden(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];

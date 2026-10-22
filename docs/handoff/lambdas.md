@@ -30,9 +30,10 @@ references), and 13 (`@Escaping`).
    flow analysis (decision 10).
 3. **Non-escaping** (done). Lambdas are C++ `[&]` lambdas (`CppEmitter.Lambdas.cs`).
    Function-typed parameters are template parameters, or `vpl::FunctionRef` in methods that are
-   dispatched or implement an interface's (`FunctionSymbol.ImplementsInterface`, including one
-   inherited from a base class), in recursive functions that pass themselves new lambdas, in
-   constructors, and in function types.
+   dispatched (unless virtual and never overridden) or implement an interface's
+   (`FunctionSymbol.ImplementsInterface`, including one inherited from a base class), in recursive
+   functions that pass themselves new lambdas, in constructors sharing a parameter count, and in
+   function types.
    Functions with function-typed parameters that share their name and parameter count with
    another get a name suffix encoding them, so overloads differing only in function types stay
    distinct in C++.

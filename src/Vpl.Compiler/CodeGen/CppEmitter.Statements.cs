@@ -40,7 +40,7 @@ public sealed partial class CppEmitter
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
-        if (member.IsVirtual)
+        if (member.IsVirtual && !unoverridden.Contains(member))
             return "virtual " + signature;
         if (member.IsOverride)
             return signature + (member.IsFinal ? " override final" : " override");

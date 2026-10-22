@@ -11,11 +11,12 @@ namespace Vpl.Compiler.CodeGen;
 /// outlive the call it is passed to; an escaping one is a <c>vpl::Function</c>, code to call and a
 /// closure object holding copies of what it captures, if anything. A non-escaping function-typed
 /// parameter is a template parameter, so the C++ optimizer can inline each lambda into the
-/// function it is passed to. Where a template can't be used, it is a <c>vpl::FunctionRef</c>, which calls the lambda
-/// indirectly: in a virtual method or a class's implementation of an interface method, which C++
-/// can't make a template; in a recursive function, which could instantiate itself without end by
-/// passing itself a new lambda; in a constructor, whose name can't tell overloads apart; and in a
-/// function type's own parameters.
+/// function it is passed to. Where a template can't be used, it is a <c>vpl::FunctionRef</c>, which
+/// calls the lambda indirectly: in an overridden virtual method or a class's implementation of an
+/// interface method, which C++ can't make a template; in a recursive function that passes itself
+/// a new lambda, which would instantiate itself without end; in a constructor sharing its
+/// parameter count with another, whose name can't tell them apart; and in a function type's own
+/// parameters.
 /// </remarks>
 public sealed partial class CppEmitter
 {
@@ -32,8 +33,30 @@ public sealed partial class CppEmitter
     /// <summary>Whether the function's non-escaping function parameters are template parameters, rather than <c>vpl::FunctionRef</c>s.</summary>
     bool TakesCallables(FunctionSymbol function) =>
         function.Parameters.Any(p => IsNonEscaping(p.Type))
-        && !function.IsDispatched && !function.ImplementsInterface
-        && !function.IsConstructor && !function.IsLambda && !recursive.Contains(function);
+        && (!function.IsDispatched || unoverridden.Contains(function)) && !function.ImplementsInterface
+        && !(function.IsConstructor && HasSameCountConstructor(function)) && !function.IsLambda && !recursive.Contains(function);
+
+    /// <summary>
+    /// Constructors of a type share their C++ name, and a template parameter would accept any
+    /// argument, so C++ could pick a different one of the same parameter count than VPL did.
+    /// </summary>
+    static bool HasSameCountConstructor(FunctionSymbol constructor) =>
+        constructor.ContainingType!.Constructors.Any(c => c != constructor && c.Parameters.Count == constructor.Parameters.Count);
+
+    /// <summary>Virtual methods with function parameters that nothing overrides, which are emitted as ordinary methods so that they can be templates.</summary>
+    HashSet<FunctionSymbol> unoverridden = [];
+
+    static HashSet<FunctionSymbol> FindUnoverridden(BoundProgram program)
+    {
+        var methods = program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m)).ToList();
+        return
+        [
+            .. methods.Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false, ContainingType: { } owner }
+                && m.Parameters.Any(p => IsNonEscaping(p.Type))
+                && !methods.Any(o => o.IsOverride && o.Name == m.Name && o.Parameters.Count == m.Parameters.Count
+                    && o.ContainingType is { } subclass && subclass != owner && Conversions.Supertypes(subclass.Type).Any(t => t.Symbol == owner))),
+        ];
+    }
 
     static string CallableTypeName(LocalSymbol parameter) => "vpl_F_" + parameter.Name;
 

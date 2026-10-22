@@ -516,7 +516,7 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | Borrow from container | counter inc/dec | 0 |
 | Pool iteration | skip dead slots | same |
 | Pass a lambda to a function parameter | nothing: inlined, like a hand-written loop | same |
-| Pass a lambda to a virtual, interface, or recursive method, or a constructor | an indirect call per call of it | same |
+| Pass a lambda to an overridden or interface method, a recursive function passing itself new lambdas, or an overloaded constructor | an indirect call per call of it | same |
 | Choose a function with `?:` | a branch on the choice per call; every lambda it could be is still inlined | same |
 | Use a local that a lambda assigns, as a receiver or argument | refcount inc/dec while in use, if it holds objects | same |
 | Make an escaping lambda | a heap allocation holding copies of what it captures; nothing if it captures nothing | same |
