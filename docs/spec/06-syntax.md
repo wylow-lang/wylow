@@ -313,6 +313,15 @@ button.onClick(() -> { play(sound); });
   nothing, and `try` can't be used in a lambda whose return type is being inferred.
 - A function value is called like a function, whether it's a local, a field (`button.onClick(5)`),
   or the result of a call (`adder(2)(3)`).
+- A free function or static method used as a value, where a function type is expected, is a
+  **function reference**: the lambda that calls it with its arguments, so `list.sort(Mob.byDepth)`
+  passes `(a, b) -> Mob.byDepth(a, b)`. The function type's parameters pick the overload as a call's
+  arguments would, and the result converts to its return type, or is discarded if that is `void`.
+  Otherwise it is a lambda: it is escaping when its target is, a generic function's type argument
+  can be inferred from what it returns, and `?:` can choose it. Passed to overloaded functions, it
+  is an untyped lambda taking as many parameters as the function does, so it needs a function type
+  from where it is used if the function's overloads take different numbers. An instance method
+  can't be used as a value (`enemy::update` may come later); use a lambda that calls it.
 - `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.
 - `?:` and switch expressions choose between functions, wherever a function can be used:
   `(int) -> int f = up ? x -> x + 1 : x -> x - 1;`, or `sort(items, up ? ascending : descending)`.
@@ -341,7 +350,7 @@ are told apart by the C++ name. A function chosen by `?:` or a switch expression
 function it could be and the index of the chosen one, so calling it branches to a direct call,
 and each lambda can still be inlined.
 
-> Implemented so far: everything above except function references (`list.sort(byDepth)`).
+> Implemented so far: everything above.
 
 ### Escaping and non-escaping
 

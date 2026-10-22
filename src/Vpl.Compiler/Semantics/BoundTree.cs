@@ -242,6 +242,14 @@ public sealed record BoundPendingLambda(Location Location, LambdaExpr Syntax, IR
 {
     /// <summary>Its body, if generic inference has bound it to learn the return type.</summary>
     public InferredLambda? Inferred { get; set; }
+
+    /// <summary>
+    /// For a function reference, the lambda calling the function, which passes by <c>ref</c> the
+    /// parameters its type takes by <c>ref</c>. <see cref="Syntax"/> is that lambda for no such parameters.
+    /// </summary>
+    public Func<IReadOnlyList<FunctionParameterType>, LambdaExpr>? Reference { get; init; }
+
+    public LambdaExpr SyntaxFor(IReadOnlyList<FunctionParameterType> parameters) => Reference?.Invoke(parameters) ?? Syntax;
 }
 
 /// <summary>

@@ -98,6 +98,8 @@ public sealed partial class Binder
 
     BoundExpression BindName(NameExpr e, VplType? expected)
     {
+        if (expected is { NonNull.IsFunction: true } && ReferencedFunctions(e) is { } referenced)
+            return BindFunctionReference(e, referenced, expected.NonNull);
         if (e.TypeArguments.Count > 0)
             return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
 
@@ -121,7 +123,7 @@ public sealed partial class Binder
         if (types.ContainsKey(e.Name) || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
         if (functions.ContainsKey(e.Name) || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
-            return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'");
+            return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'{ReferenceHint(e)}");
         if (ExpectedVariant(e.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, null);
         return ErrorExpression(e.Location, $"'{e.Name}' is not defined{VariantHint(e.Name)}");
@@ -168,13 +170,15 @@ public sealed partial class Binder
             return ErrorExpression(e.NameLocation, $"'super' can only be used to call methods; use 'this.{e.Name}' for fields");
         if (AsEnumName(e.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(e.Name) is { } variant)
             return BindVariant(e.Location, enumSymbol, enumType, variant, null);
+        if (expected is { NonNull.IsFunction: true } && ReferencedFunctions(e) is { } referenced)
+            return BindFunctionReference(e, referenced, expected.NonNull);
 
         if (AsTypeName(e.Target) is { } typeName)
         {
             if (typeName == VplType.Error)
                 return new BoundErrorExpression(e.Location);
             return ErrorExpression(e.NameLocation, LookupMethods(typeName, e.Name).Count > 0
-                ? $"'{typeName.Symbol!.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'"
+                ? $"'{typeName.Symbol!.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'{ReferenceHint(e)}"
                 : $"'{typeName.Symbol!.Name}' has no static member '{e.Name}'");
         }
 
@@ -510,8 +514,8 @@ public sealed partial class Binder
         if (expression is BoundPendingLambda lambda)
         {
             return to.NonNull.IsFunction
-                ? Convert(lambda.Inferred is { } inferred ? RetargetLambda(lambda, inferred, to.NonNull) : BindLambda(lambda.Syntax, to.NonNull, lambda.DeclaredParameters), to)
-                : ErrorExpression(expression.Location, $"a lambda cannot be converted to '{to}', which is not a function type");
+                ? Convert(lambda.Inferred is { } inferred ? RetargetLambda(lambda, inferred, to.NonNull) : BindLambda(lambda.SyntaxFor(to.NonNull.FunctionParameters), to.NonNull, lambda.DeclaredParameters), to)
+                : ErrorExpression(expression.Location, $"{(lambda.Syntax.IsFunctionReference ? "a function" : "a lambda")} cannot be converted to '{to}', which is not a function type");
         }
         if (expression is BoundPendingChoice choice)
         {

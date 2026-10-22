@@ -87,7 +87,7 @@ public sealed partial class Binder
                 Error(syntax.Location, $"'{syntax.Name}' is declared as '{FunctionSymbol.RefPrefix(declared[i].RefKind)}{declared[i].Type}', "
                     + $"but '{type}' passes '{FunctionSymbol.RefPrefix(expected[i].RefKind)}{expected[i].Type}'");
             }
-            parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind));
+            parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind) { IsTemporary = e.IsFunctionReference });
         }
         return new FunctionSymbol("lambda", parameters, returnType)
         {
@@ -123,7 +123,7 @@ public sealed partial class Binder
     /// </summary>
     InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters, bool escaping)
     {
-        var e = lambda.Syntax;
+        var e = lambda.SyntaxFor(parameters);
         // The return type stands in until it is inferred; returns don't look at it.
         var function = LambdaFunction(e, VplType.Error.FunctionReturning(parameters).WithEscaping(escaping), lambda.DeclaredParameters, VplType.Error);
         var enclosing = inferring;
@@ -190,6 +190,7 @@ public sealed partial class Binder
         : option switch
         {
             LambdaExpr lambda => new BoundPendingLambda(lambda.Location, lambda, BindDeclaredParameters(lambda)),
+            _ when ReferencedFunctions(option) is { } referenced => BindFunctionReference(option, referenced, null),
             ConditionalExpr conditional => BindConditional(conditional, expected, mayWait: true),
             SwitchExpr switchExpression => BindSwitchExpression(switchExpression, expected, mayWait: true),
             _ => BindExpression(option, expected),
@@ -218,7 +219,10 @@ public sealed partial class Binder
         var type = leaves.FirstOrDefault(o => o.Type.IsFunction || o.Type == VplType.Error)?.Type;
         if (type is null)
         {
-            Error(leaves.OfType<BoundPendingLambda>().First().Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'");
+            var lambda = leaves.OfType<BoundPendingLambda>().First();
+            Error(lambda.Location, lambda.Syntax.IsFunctionReference
+                ? $"'{TextOf(lambda.Location)}' is a function, which can only be used as a value where a function type is expected"
+                : "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'");
             type = VplType.Error;
         }
         return make(type);

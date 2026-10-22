@@ -1,0 +1,64 @@
+// A function used as a value needs a function type to be converted to, and can only be a free
+// function or static method.
+class Mob {
+    int score(int x) {
+        return x;
+    }
+
+    void test() {
+        (int) -> int f = score;                     // error: 'score' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it
+        var g = score;                              // error: 'score' is a function; call it with 'score(...)'
+    }
+
+    static int rank(int x) {
+        return x;
+    }
+}
+
+int inc(int x) {
+    return x + 1;
+}
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int add(int a) {
+    return a;
+}
+
+String name(Mob m) {
+    return "mob";
+}
+
+int apply((int) -> int f, int value) {
+    return f(value);
+}
+
+long apply((long) -> long f, long value) {
+    return f(value);
+}
+
+int applyInt((int) -> int f, int value) {
+    return f(value);
+}
+
+int pair(int a, (int, int) -> int f) {
+    return f(a, a);
+}
+
+int pair(long a, (int) -> int f) {
+    return f(1);
+}
+
+void main() {
+    var f = inc;                                    // error: 'inc' is a function; call it with 'inc(...)', or use it where a function type is expected
+    var r = Mob.rank;                               // error: 'Mob.rank' is a method; call it with 'rank(...)', or use it where a function type is expected
+    int n = inc;                                    // error: 'inc' is a function; call it with 'inc(...)', or use it where a function type is expected
+    print(applyInt(name, 1));                       // error: no overload of 'name' accepts (int)
+    (int, int) -> int two = inc;                    // error: no overload of 'inc' takes 2 arguments
+    (int) -> String text = inc;                     // error: cannot implicitly convert 'int' to 'String'
+    print(apply(inc, 1));                           // error: call is ambiguous between 'apply((int) -> int, int)' and 'apply((long) -> long, long)'
+    print(pair(1, add));                            // error: 'add' has overloads taking different numbers of arguments, so it can only be used where a function type is expected; use a lambda that calls it
+    var chosen = n > 0 ? inc : inc;                 // error: 'inc' is a function, which can only be used as a value where a function type is expected
+}

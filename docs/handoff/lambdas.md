@@ -11,16 +11,13 @@ when it lands, and is then only listed here.
 Landed, and described in §6.7: 1 (function type syntax), 2 (a lambda takes its type from its
 target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C++ can't use one),
 4 (escaping values are `vpl::Function`), 5 (non-escaping locals), 6 (captures), 7 (overloads), 8
-(generic inference, including from lambda bodies), 10 (flow analysis), 11 (cycles), and 13
-(`@Escaping`).
+(generic inference, including from lambda bodies), 10 (flow analysis), 11 (cycles), 12 (function
+references), and 13 (`@Escaping`).
 
 9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `ReadsState`) treats a call through a
    function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
    call writes what any lambda or function reference in the program writes (their union), which is
    sound and simple.
-12. **Function references.** A free function or static method's name converts to a function type
-    (`list.sort(byDepth)`). If the name is overloaded, the target type picks the overload.
-    References to a method on an instance (`enemy::update`) are not in this milestone.
 
 ## Order of work
 
@@ -73,7 +70,8 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
    closure; a non-escaping choice evaluates an escaping option only when chosen
    (`vpl::choose_held`). Queued, with designs in §6.7: non-escaping nullable parameters and
    `@Escaping` on a function type's own parameters.
-6. **Function references.**
+6. **Function references** (done). A function's name used as a value is bound as the lambda that
+   calls it (`Binder.FunctionReferences.cs`), so it needs nothing of its own past binding.
 7. **Standard library.** `List.removeWhere`, and a `sort` on spans that
    takes a comparison, all written in VPL.
 

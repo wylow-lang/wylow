@@ -256,7 +256,11 @@ public sealed record LambdaParameterSyntax(Location Location, RefKind RefKind, T
 
 /// <summary><c>x -> value</c> or <c>(a, b) -> { ... }</c>. Exactly one of <see cref="Value"/> and <see cref="Body"/> is set.</summary>
 public sealed record LambdaExpr(Location Location, IReadOnlyList<LambdaParameterSyntax> Parameters, Expr? Value, BlockStmt? Body)
-    : Expr(Location);
+    : Expr(Location)
+{
+    /// <summary>Made by the binder for a function used as a value, which this lambda calls; see <c>Binder.FunctionReferences.cs</c>.</summary>
+    public bool IsFunctionReference { get; init; }
+}
 
 public sealed record ErrorExpr(Location Location) : Expr(Location);
 

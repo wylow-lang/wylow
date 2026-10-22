@@ -19,7 +19,7 @@ public sealed partial class Binder
             if (a is RefArgExpr r)
                 return new Argument(BindExpression(r.Operand), true, r.Location);
             var expected = candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i);
-            return new Argument(a is LambdaExpr or ConditionalExpr or SwitchExpr ? BindOption(a, expected) : BindExpression(a, expected), false, a.Location);
+            return new Argument(a is LambdaExpr or ConditionalExpr or SwitchExpr || ReferencedFunctions(a) is not null ? BindOption(a, expected) : BindExpression(a, expected), false, a.Location);
         }),
     ];
 
