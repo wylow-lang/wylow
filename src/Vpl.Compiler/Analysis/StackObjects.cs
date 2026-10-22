@@ -1,7 +1,8 @@
+using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
-namespace Vpl.Compiler.Semantics;
+namespace Vpl.Compiler.Analysis;
 
 /// <summary>An object made by <c>new</c> on the stack; a temporary's lives until the end of its statement.</summary>
 public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);

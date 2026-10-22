@@ -1,4 +1,6 @@
-namespace Vpl.Compiler.Semantics;
+using Vpl.Compiler.Semantics;
+
+namespace Vpl.Compiler.Analysis;
 
 /// <summary>
 /// Which lambdas a function value may be, for whole-program analyses: every function value is a

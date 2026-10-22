@@ -17,7 +17,7 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
 
     /// <summary>
     /// A loop element that refers to the element in place rather than copying it, because nothing
-    /// in the loop can store over the element; set by <see cref="ElementAliasing"/>.
+    /// in the loop can store over the element; set by <see cref="Analysis.ElementAliasing"/>.
     /// </summary>
     public bool AliasesElement { get; set; }
 

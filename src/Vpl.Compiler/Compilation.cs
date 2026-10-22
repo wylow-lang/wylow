@@ -1,3 +1,4 @@
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.CodeGen;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Semantics;

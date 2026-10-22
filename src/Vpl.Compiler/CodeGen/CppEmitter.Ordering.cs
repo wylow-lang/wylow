@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;

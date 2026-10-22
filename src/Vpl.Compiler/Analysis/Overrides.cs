@@ -1,4 +1,6 @@
-namespace Vpl.Compiler.Semantics;
+using Vpl.Compiler.Semantics;
+
+namespace Vpl.Compiler.Analysis;
 
 /// <summary>
 /// The methods a dispatched call may run, for whole-program analyses: the method called, and every

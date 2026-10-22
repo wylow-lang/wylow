@@ -1,6 +1,7 @@
+using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 
-namespace Vpl.Compiler.Semantics;
+namespace Vpl.Compiler.Analysis;
 
 /// <summary>
 /// Finds the classes whose objects may be part of a cycle of strong references: those that can

@@ -1,6 +1,7 @@
+using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 
-namespace Vpl.Compiler.Semantics;
+namespace Vpl.Compiler.Analysis;
 
 /// <summary>
 /// Finds for-each loops whose element variable can refer to the element in place instead of

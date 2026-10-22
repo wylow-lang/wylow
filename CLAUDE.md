@@ -45,16 +45,21 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 `Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → ElementAliasing → StackObjects → CyclicClasses → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
-- `src/Vpl.Compiler/Semantics`: `Types.cs` (interned `VplType`, `TypeMap` substitution,
-  conversions, equality/defaultability), `Symbols.cs`, `BoundTree.cs`, `Binder*.cs`, `FlowAnalyzer.cs`,
-  `MatchSpace.cs` (switch exhaustiveness and unreachable cases), `ElementAliasing.cs` (which loop
-  elements can skip their reference count, from a whole-program summary of what each function writes).
+- `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
+  `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions, equality/defaultability),
+  `Symbols.cs`, `BoundTree.cs`, `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
+  `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
+- `src/Vpl.Compiler/Analysis`: whole-program facts the emitter uses to optimize, found after every
+  check has passed; they report no errors.
+  `ElementAliasing.cs` (which loop elements can skip their reference count, from a whole-program
+  summary of what each function writes).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
   `StackObjects.cs` (which `new`s can be on the stack, from a whole-program summary of which
   parameters each function lets escape; `vpl::StackSlot` holds them). Tests mark their lines with `// stack: <n>`.
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
-  implementations the binder records), which the whole-program analyses share.
+  implementations the binder records) and `FunctionValues.cs` (the lambdas a function value may
+  be), which the analyses share.
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
