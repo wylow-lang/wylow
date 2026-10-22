@@ -55,6 +55,8 @@ Each is explained in detail in its chapter.
    See [05-concurrency.md](05-concurrency.md#55-statics).
 4. **`1.5` is a `float`.** Use `1.5d` for `double`. See [02-types.md](02-types.md#22-literals).
 5. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
+   **Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, not an `int`, so it can
+   overflow. Widen first where it might: `((int)a + b) / 2`. See [02-types.md](02-types.md#24-arithmetic).
 6. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](06-syntax.md#63-construction).
 7. **Class `==` is identity, struct `==` is memberwise.** See [06-syntax.md](06-syntax.md#equality).

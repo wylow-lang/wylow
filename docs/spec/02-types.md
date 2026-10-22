@@ -18,6 +18,11 @@ All sizes are fixed on every platform.
 **Lengths and indices are `int`.** Signed lengths avoid the classic unsigned-underflow bug
 (`i < length - 1` when `length == 0`).
 
+`char` is not a number: it has no arithmetic or bitwise operators (§2.4).
+
+> Implemented so far: `bool`, `int`, `long`, `float`, and `double`. The other primitives, the `u`
+> and `uL` suffixes, and character literals are not implemented yet.
+
 ## 2.2 Literals
 
 | Literal | Type |
@@ -33,15 +38,58 @@ All sizes are fixed on every platform.
 Unlike Java, an unsuffixed floating-point literal is a `float`, since almost all game math is
 single precision.
 
+An integer literal too large for its type is an error, also in hex: `0xFFFFFFFF` needs a `u` suffix.
+A literal still converts to narrower types where it fits (§2.3), so there is no suffix for `byte` or
+`short`. A character literal holds exactly one code point.
+
+String and character literals accept these escapes:
+
+| Escape | Character |
+|---|---|
+| `\n`, `\t`, `\r` | Newline, tab, carriage return |
+| `\0` | The code point 0 |
+| `\\`, `\"`, `\'` | Backslash, double quote, single quote |
+| `\u{1F600}` | The code point with that hex value, written with 1 to 6 digits |
+
+Any other escape is an error, as is a `\u{...}` that is not a Unicode scalar value (above
+`0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`), the same values a cast to `char` rejects. Unlike
+Java and C#'s `é`, the braces reach every code point directly, so no character needs a
+surrogate pair. There is no `\x` escape for raw bytes, since a `String` is always valid UTF-8.
+
+> Not implemented yet: `\u{...}`.
+
 ## 2.3 Conversions
 
-**Implicit conversions are allowed only when lossless:**
-`byte → int`, `int → long`, `int → double`, `float → double`, and similar widenings.
-`int → float` is *not* implicit (it can lose precision).
+**Implicit conversions are allowed only when lossless**, which means every value of the source type
+is exactly a value of the target type:
 
-**Integer constants** convert implicitly to `float` or `double` when the value is exactly
-representable, so `float x = 0;` and `velocity * 2` work. `float f = 16777217;` is an error
-(2^24 + 1 has no exact `float`).
+| From | Implicitly to |
+|---|---|
+| `sbyte` | `short`, `int`, `long`, `nint` |
+| `byte` | `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
+| `short` | `int`, `long`, `nint` |
+| `ushort` | `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
+| `int` | `long`, `nint` |
+| `uint` | `long`, `ulong`, `nuint` |
+| `nint` | `long` |
+| `nuint` | `ulong` |
+| `char` | `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
+| 8- and 16-bit integers | `float`, `double` |
+| `int`, `uint` | `double` |
+| `float` | `double` |
+
+- `int → float` is *not* implicit: a `float` holds integers exactly only up to 2^24. Neither are
+  `long` and `ulong` to `double`.
+- `nint` and `nuint` convert only where the conversion is lossless on both 32- and 64-bit targets,
+  so code that compiles on one compiles on the other.
+- `char` converts to its code point, which fits in every integer type of 32 bits or more. Nothing
+  converts implicitly to `char`.
+
+**Integer constants** (an integer literal, optionally negated) convert implicitly to any integer type
+that holds their value, so `byte b = 200;` works and `byte b = 300;` is an error. For `nint` and
+`nuint`, the value must fit in `int` or `uint`, so the conversion holds on every target. A constant
+also converts to `float` or `double` when the value is exactly representable, so `float x = 0;` and
+`velocity * 2` work. `float f = 16777217;` is an error (2^24 + 1 has no exact `float`).
 
 **All other conversions require a cast** `(T)x`, and every cast has defined behavior:
 
@@ -51,8 +99,12 @@ representable, so `float x = 0;` and `velocity * 2` work. `float f = 16777217;` 
 | Signed ↔ unsigned (same size) | Reinterprets bits |
 | Float → integer | Saturates to the target range; NaN → 0 |
 | Double → float | Rounds to nearest |
+| `char` → integer below 32 bits | The code point, then as integer narrowing |
+| Integer → `char` | Panics if the value is not a Unicode scalar value (above `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`) |
 | Enum without data → integer | The variant's value, then as integer narrowing |
 | Integer → enum without data | Panics if no variant has the value |
+
+Only integers cast to `char`; there is no cast between `char` and `bool` or floating-point types.
 
 A cast to a named type, such as `(Format)i`, is recognized as in Java: `(Name)` followed by something
 that can only start an operand. `(Format)-1` is therefore a subtraction; write `(Format)(-1)`.
@@ -62,12 +114,61 @@ that can only start an operand. `(Format)-1` is therefore a subtraction; write `
 > Not implemented yet: `tryFrom`, and the `wrapping` and `checked` operations below, since
 > primitive types have no methods yet.
 
-## 2.4 Integer overflow
+## 2.4 Arithmetic
 
-- Arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds.
+### Operand and result types
+
+**Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, as in Rust. Small types are not
+promoted to `int` as in C, Java, and C#.
+
+- A binary operator on two numbers first converts both operands to one type:
+  - the operands' type, if they have the same type;
+  - otherwise, if one operand is an integer constant that the other operand's type holds, the other
+    operand's type: `light - 1` with a `byte light` is a `byte`;
+  - otherwise, the type one operand converts to implicitly. Between two integer types that don't
+    convert to each other, it is the smallest integer type both convert to: `int + uint` is a `long`.
+  - If there is none, the operation is an error, and one side needs a cast: `long + ulong`,
+    `int + float` (an `int` converts to `double`, but mixed math should not silently become `double`).
+- Arithmetic (`+ - * / %`) and bitwise (`& | ^`) operators produce that type, and comparisons
+  compare in it.
+- `++`, `--`, and compound assignment work in the variable's type. `b += 1` is fine for a `byte b`;
+  `b += i` with an `int i` is an error, since `b + i` is an `int`.
+- Unary `-` is an error on unsigned types. `~` works on every integer type.
+
+Promotion would make `byte c = a + b;` an error, and the cast everyone would write to fix it,
+`(byte)(a + b)`, wraps silently, which would hide the overflow that debug builds otherwise catch.
+Keeping the type keeps every integer operation checked, and generic code, compound assignment, and
+`++` need no special cases.
+
+The cost is that an intermediate result can overflow even where the final one would fit:
+`(a + b) / 2` with two `byte`s overflows when `a + b` exceeds 255, also when the result is stored in
+an `int`. Widen one operand first: `((int)a + b) / 2`. The type never depends on where the result is
+stored. Debug builds panic in this case rather than producing a wrong value.
+
+### Shifts
+
+- `a << n` and `a >> n` have `a`'s type; `n` may be any integer type. `>>` is arithmetic for signed
+  types and logical for unsigned ones.
+- The count is masked to the width of `a`'s type, as in Java and C#: an `int` shifts by `n & 31`.
+  Shifts never panic.
+- A constant count outside `0` to width − 1 is an error. This catches the classic packing mistake
+  `hi << 8 | lo` with a `byte hi`, which would shift every bit out (and, masked, not shift at all):
+  write `(int)hi << 8 | lo`.
+
+### `char`
+
+`char` supports `==`, `!=`, and the ordering comparisons (by code point), and character literals in
+`switch` and patterns. It has no arithmetic or bitwise operators. Convert explicitly to compute with
+code points: `(char)(c + 1)`, where `c` converts to `int` implicitly and the cast checks the result.
+
+### Overflow
+
+- Arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds. For
+  unsigned types, a result below zero is an overflow.
+- Division by zero panics in every build, as does `MIN / -1` for signed types.
 - Explicit operations are available when the behavior matters:
   - `a.wrappingAdd(b)`, `wrappingSub`, `wrappingMul`: always wrap (hashing, RNG).
-  - `a.checkedAdd(b)` etc.: return `int?`, null on overflow.
+  - `a.checkedAdd(b)` etc.: return a nullable of `a`'s type (`int?` for `int`), null on overflow.
 
 ## 2.5 Nullability
 
@@ -582,7 +683,9 @@ var y = identity<long>(5);                // ...or written explicitly
 - Type parameters go after the name, for structs, functions, and methods. A method's type
   parameters may not reuse its struct's type parameter names.
 - **Function type arguments are inferred** from the arguments. When arguments disagree, the type the
-  others implicitly convert to is chosen: `max(1, 2L)` infers `long`. Inside type arguments there are
+  others implicitly convert to is chosen: `max(1, 2L)` infers `long`. As for operators (§2.4), an
+  integer constant takes another argument's type when that type holds it: `max(b, 1)` with a
+  `byte b` infers `byte`. Inside type arguments there are
   no conversions, so `Pair<int, int>` and `Pair<long, long>` never unify.
 - **Struct type arguments are always written.** There is no inference for construction.
 - When a generic and a non-generic overload are equally good, the non-generic one is chosen.
