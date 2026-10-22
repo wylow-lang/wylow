@@ -434,16 +434,20 @@ int total = 0;
 total++;
 ```
 
-An escaping function is a `vpl::Function`: a reference to a closure object, with the same header
-and reference count as a class object, that holds copies of what its lambda captured and calls the
-lambda's body indirectly. Copying a function value copies the reference. The cycle collector
+An escaping function is a `vpl::Function`, two words: a pointer to the code that runs the lambda's
+body, and a reference to a closure object, with the same header and reference count as a class
+object, that holds copies of what its lambda captured. A lambda that captures nothing has no
+closure, so making one allocates nothing, and copying it only tests for null; a function reference
+captures nothing. Calling a function value is one indirect call. Copying it copies the reference. A
+nullable function needs no flag: its null is a null code pointer. The cycle collector
 visits the class references a closure holds. A call of a function value stored where the call
 could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
 closure until the call returns.
 
 A nullable non-escaping parameter is a `vpl::Optional` of a `vpl::FunctionRef`, made where the call
 is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
-returns.
+returns. A `vpl::FunctionRef` made from a stored function refers to its closure and calls its code,
+so the call is no more indirect than the stored function's.
 
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
 ([05-concurrency.md](05-concurrency.md)).
@@ -494,11 +498,6 @@ be done when profiling shows it matters.
   can reach that call.
 - **Narrowing.** A null check outside a lambda doesn't carry into it, and a local declared outside
   any lambda that assigns it is never narrowed, which can force a `!` (and its check).
-- **Escaping lambdas that capture nothing** still allocate. `vpl::Function` could be a code pointer
-  plus a closure pointer that is null when nothing is captured, so copying and releasing one only
-  test for null.
-- **Nullable functions** are `vpl::Optional`s with a separate presence flag; a null closure pointer
-  could stand for null instead.
 
 ### Decisions to revisit
 

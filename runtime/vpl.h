@@ -704,6 +704,30 @@ public:
     }
 };
 
+// A nullable function needs no flag: its null code pointer is the Optional's null.
+template <class T>
+    requires requires(const T& value) { value.vpl_is_null(); }
+class Optional<T> {
+    T value_;
+
+public:
+    Optional() noexcept = default;
+    Optional(std::nullptr_t) noexcept {}
+    Optional(const T& value) : value_(value) {}
+    Optional(T&& value) : value_(std::move(value)) {}
+
+    bool has_value() const { return !value_.vpl_is_null(); }
+
+    // Flow analysis proved there is a value.
+    T& assumed() {
+        if constexpr (VPL_DEBUG != 0) {
+            if (value_.vpl_is_null()) panic("internal compiler error: null value used as narrowed", "<runtime>");
+        }
+        return value_;
+    }
+    const T& assumed() const { return const_cast<Optional*>(this)->assumed(); }
+};
+
 // `T?` in generic code, for whatever T stands for: a nullable reference is a Ref, and a nullable
 // of a nullable is the same type.
 template <class T>
@@ -1156,39 +1180,6 @@ inline void Object::add_to_buffer() {
 
 // ---- Functions ----
 
-// A non-escaping function value where its callable's type can't be a template parameter: a
-// parameter of a virtual or recursive function, or of a function type. It refers to the callable
-// without owning it, which VPL's rules make safe: the callable is a lambda or function value the
-// caller holds until the call returns.
-template <class Signature>
-class FunctionRef;
-
-template <class R, class... A>
-class FunctionRef<R(A...)> {
-    const void* callable;
-    R (*call)(const void*, A...);
-
-public:
-    template <class F>
-        requires(!std::is_same_v<std::remove_cvref_t<F>, FunctionRef>)
-    FunctionRef(const F& f) noexcept
-        : callable(std::addressof(f)),
-          call([](const void* c, A... arguments) -> R { return (*static_cast<const F*>(c))(std::forward<A>(arguments)...); }) {}
-
-    R operator()(A... arguments) const { return call(callable, std::forward<A>(arguments)...); }
-};
-
-// An escaping function's closure: an object holding copies of what its lambda captured. It is
-// called through vpl_call, since a Function's type names only the signature.
-template <class Signature>
-class Callable;
-
-template <class R, class... A>
-class Callable<R(A...)> : public Object {
-public:
-    virtual R vpl_call(A... arguments) = 0;
-};
-
 // A closure's name for diagnostics, as a template argument so that closures don't store it.
 template <size_t N>
 struct ClosureName {
@@ -1198,22 +1189,101 @@ struct ClosureName {
     }
 };
 
-// The closure of one lambda: Body is a C++ lambda that captures nothing and takes the captured
-// values as its first parameters, so that the collector can visit them here. Capturing nothing, it
-// can be default-constructed where it is called, so only the captures are stored.
+// An escaping function value: the code to call, and the closure it is called with, which holds
+// copies of what its lambda captured and is null when the lambda captures nothing, so that such a
+// function allocates nothing and copying it only tests for null. A null code pointer is a null
+// function, which only storage that VPL assigns before reading ever holds, and Optional's null.
+template <class R, class... A>
+class Function<R(A...)> {
+public:
+    using Code = R (*)(const void*, A...);
+
+private:
+    // Declared first, so that an assignment stores the new code before releasing the old closure,
+    // whose destructor may read this function.
+    Code code = nullptr;
+    Ref<Object> closure;
+
+public:
+    Function() = default;
+    Function(Code function, Ref<Object> captured) : code(function), closure(std::move(captured)) {}
+
+    // As for Ref, a move swaps, so the old value dies with `other`, after the store.
+    Function(const Function&) = default;
+    Function(Function&& other) noexcept : code(other.code), closure(std::move(other.closure)) { other.code = nullptr; }
+    Function& operator=(const Function&) = default;
+    Function& operator=(Function&& other) noexcept {
+        std::swap(code, other.code);
+        closure = std::move(other.closure);
+        return *this;
+    }
+
+    R operator()(A... arguments) const {
+        if constexpr (VPL_DEBUG != 0) {
+            if (code == nullptr) panic("internal compiler error: null function called", "<runtime>");
+        }
+        return code(closure.get(), std::forward<A>(arguments)...);
+    }
+
+    Code vpl_code() const { return code; }
+    const void* vpl_closure() const { return closure.get(); }
+    bool vpl_is_null() const { return code == nullptr; }
+
+    void vpl_visit(Visitor& visitor) { visit(visitor, closure); }
+};
+
+// A non-escaping function value where its callable's type can't be a template parameter: a
+// parameter of a virtual or recursive function, or of a function type. It refers to the callable
+// without owning it, which VPL's rules make safe: the callable is a lambda or function value the
+// caller holds until the call returns. Made from a Function, it refers to the same closure and calls
+// the same code, so that the call is no more indirect than the Function's.
+template <class Signature>
+class FunctionRef;
+
+template <class R, class... A>
+class FunctionRef<R(A...)> {
+    const void* callable = nullptr;
+    R (*call)(const void*, A...) = nullptr;
+
+public:
+    // Null, only as Optional's null.
+    FunctionRef() = default;
+
+    FunctionRef(const Function<R(A...)>& f) noexcept : callable(f.vpl_closure()), call(f.vpl_code()) {}
+
+    template <class F>
+        requires(!std::is_same_v<std::remove_cvref_t<F>, FunctionRef> && !std::is_same_v<std::remove_cvref_t<F>, Function<R(A...)>>)
+    FunctionRef(const F& f) noexcept
+        : callable(std::addressof(f)),
+          call([](const void* c, A... arguments) -> R { return (*static_cast<const F*>(c))(std::forward<A>(arguments)...); }) {}
+
+    R operator()(A... arguments) const { return call(callable, std::forward<A>(arguments)...); }
+
+    bool vpl_is_null() const { return call == nullptr; }
+};
+
+// The closure of one lambda that captures something: Body is a C++ lambda that captures nothing
+// and takes the captured values as its first parameters, so that the collector can visit them
+// here. Capturing nothing, it can be default-constructed where it is called, so only the captures
+// are stored.
 template <class Signature, ClosureName Name, class Body, class... C>
 class Closure;
 
 template <class R, class... A, ClosureName Name, class Body, class... C>
-class Closure<R(A...), Name, Body, C...> final : public Callable<R(A...)> {
+class Closure<R(A...), Name, Body, C...> final : public Object {
     std::tuple<C...> captures;
 
 public:
     template <class... V>
     explicit Closure(V&&... values) : captures(std::forward<V>(values)...) {}
 
-    R vpl_call(A... arguments) override {
-        return std::apply([&](const C&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, captures);
+    static R call([[maybe_unused]] const void* self, A... arguments) {
+        if constexpr (sizeof...(C) == 0) {
+            return Body{}(std::forward<A>(arguments)...);
+        } else {
+            const auto* closure = static_cast<const Closure*>(static_cast<const Object*>(self));
+            return std::apply([&](const C&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, closure->captures);
+        }
     }
 
     void vpl_visit([[maybe_unused]] Visitor& visitor) override {
@@ -1223,27 +1293,17 @@ public:
     const char* vpl_class_name() const override { return Name.text; }
 };
 
-// An escaping function value: a reference to a closure. Default-constructed, it is null, which only
-// storage that VPL assigns before reading ever holds.
-template <class R, class... A>
-class Function<R(A...)> {
-    Ref<Callable<R(A...)>> callable;
-
-public:
-    Function() = default;
-    explicit Function(Ref<Callable<R(A...)>> value) : callable(std::move(value)) {}
-
-    R operator()(A... arguments) const { return callable->vpl_call(std::forward<A>(arguments)...); }
-
-    void vpl_visit(Visitor& visitor) { visit(visitor, callable); }
-};
-
 // A closure that captures no reference can't be on a cycle, so `cyclic` is false for it.
 template <class Signature, ClosureName Name, class Body, class... C>
-inline Function<Signature> closure(bool cyclic, Body, C&&... captures) {
-    auto* created = new Closure<Signature, Name, Body, std::remove_cvref_t<C>...>(std::forward<C>(captures)...);
-    created->vpl_set_cyclic(cyclic);
-    return Function<Signature>(Ref<Callable<Signature>>::adopt(created));
+inline Function<Signature> closure([[maybe_unused]] bool cyclic, Body, C&&... captures) {
+    if constexpr (sizeof...(C) == 0) {
+        return Function<Signature>(&Closure<Signature, Name, Body>::call, nullptr);
+    } else {
+        using Created = Closure<Signature, Name, Body, std::remove_cvref_t<C>...>;
+        auto* created = new Created(std::forward<C>(captures)...);
+        created->vpl_set_cyclic(cyclic);
+        return Function<Signature>(&Created::call, Ref<Object>::adopt(created));
+    }
 }
 
 // A nullable non-escaping function argument, made where the call is: what it refers to (a lambda, or

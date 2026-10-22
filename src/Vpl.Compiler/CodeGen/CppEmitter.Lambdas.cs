@@ -8,10 +8,10 @@ namespace Vpl.Compiler.CodeGen;
 
 /// <remarks>
 /// A non-escaping lambda is a C++ lambda capturing by reference, which is safe because it can't
-/// outlive the call it is passed to; an escaping one is a <c>vpl::Function</c>, a reference to a
-/// closure object holding copies of what it captures. A non-escaping function-typed parameter is a
-/// template parameter, so the C++ optimizer can inline each lambda into the function it is passed
-/// to. Where a template can't be used, it is a <c>vpl::FunctionRef</c>, which calls the lambda
+/// outlive the call it is passed to; an escaping one is a <c>vpl::Function</c>, code to call and a
+/// closure object holding copies of what it captures, if anything. A non-escaping function-typed
+/// parameter is a template parameter, so the C++ optimizer can inline each lambda into the
+/// function it is passed to. Where a template can't be used, it is a <c>vpl::FunctionRef</c>, which calls the lambda
 /// indirectly: in a virtual method or a class's implementation of an interface method, which C++
 /// can't make a template; in a recursive function, which could instantiate itself without end by
 /// passing itself a new lambda; in a constructor, whose name can't tell overloads apart; and in a
@@ -197,7 +197,7 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// An escaping lambda is a closure object made by <c>vpl::closure</c>, which copies the captured
+    /// An escaping lambda is a <c>vpl::Function</c> made by <c>vpl::closure</c>, which copies the captured
     /// values, evaluated here, and passes them to the body ahead of the arguments. The body is a C++
     /// lambda capturing nothing, so it can't use anything it wasn't given. Its parameters for the
     /// captured values get new names, so they don't shadow the variables they copy.
