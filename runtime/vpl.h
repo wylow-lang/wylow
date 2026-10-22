@@ -1356,6 +1356,26 @@ public:
     }
 };
 
+// A choice's option that is a non-escaping local or parameter: it can't be reassigned and outlives
+// the choice, so the choice refers to it rather than copying it.
+template <class F>
+class Borrowed {
+    const F* callable;
+
+public:
+    explicit Borrowed(const F& f) : callable(std::addressof(f)) {}
+
+    template <class... A>
+    decltype(auto) operator()(A&&... arguments) const {
+        return (*callable)(std::forward<A>(arguments)...);
+    }
+};
+
+template <class F>
+Borrowed<F> borrowed(const F& f) {
+    return Borrowed<F>(f);
+}
+
 template <class... F>
 Choice<F...> choose(int index, F... options) {
     return Choice<F...>(index, std::move(options)...);

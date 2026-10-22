@@ -188,7 +188,7 @@ public sealed partial class CppEmitter
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
         refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
         : argument.Type.IsRefStruct ? new Operand(argument, false, PinRoot(argument))
-        : new Operand(argument, false, Keep: !IsStable(argument) && MayHoldReferences(argument.Type));
+        : new Operand(argument, false, Keep: !IsStable(argument) && MayOwnObjects(argument));
 
     string Call(BoundCall call)
     {

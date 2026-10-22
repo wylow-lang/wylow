@@ -274,11 +274,11 @@ public sealed partial class CppEmitter
     /// <summary>
     /// A non-escaping function chosen by <c>?:</c> or a switch expression is a <c>vpl::Choice</c> of
     /// every function it could be (<see cref="BoundTree.FunctionOptions"/>), with the conditions and
-    /// cases evaluated, in order, to the index of the chosen one. Its lambdas and non-escaping locals
-    /// are made up front, which no one can observe, since neither making the one nor copying the
-    /// other has effects. An escaping option, such as a field or a call, is evaluated only when it is
-    /// chosen, into the one slot that all of them share (<c>vpl::choose_held</c>). A switch's cases
-    /// run in a C++ lambda, so the binder keeps the lambdas chosen from out of what a case declares.
+    /// cases evaluated, in order, to the index of the chosen one. Its lambdas are made up front, and
+    /// its non-escaping locals referred to, which no one can observe, since neither has effects. An
+    /// escaping option, such as a field or a call, is evaluated only when it is chosen, into the one
+    /// slot that all of them share (<c>vpl::choose_held</c>). A switch's cases run in a C++ lambda,
+    /// so the binder keeps the lambdas chosen from out of what a case declares.
     /// </summary>
     string Choice(BoundExpression choice)
     {
@@ -295,6 +295,9 @@ public sealed partial class CppEmitter
                     return $"({Expression(nested.Condition)} ? {Index(nested.WhenTrue)} : {Index(nested.WhenFalse)})";
                 case BoundSwitchExpression nested:
                     return SwitchExpression(nested, "int", Index);
+                case BoundLocalAccess { Type.IsEscaping: false }:
+                    options.Add($"vpl::borrowed({Expression(expression)})");
+                    return (options.Count - 1).ToString(CultureInfo.InvariantCulture);
                 case BoundLambda or BoundLocalAccess:
                     options.Add(Expression(expression));
                     return (options.Count - 1).ToString(CultureInfo.InvariantCulture);

@@ -45,7 +45,7 @@ references), and 13 (`@Escaping`).
      (`CppEmitter.Choice`): every lambda or local it could be, and the index the conditions and
      cases pick. A switch's cases run in a C++ lambda, so a chosen lambda can't use a name its
      case declares (`Binder.CheckCaseCaptures`). Only the conditions are evaluated lazily, which is
-     unobservable because making a lambda or copying a local has no effects. Escaping options
+     unobservable because making a lambda or referring to a local has no effects. Escaping options
      (fields, calls) are observable, so since step 5 they are evaluated only when chosen
      (`vpl::choose_held`).
    - A local a lambda assigns is marked `LocalSymbol.IsAssignedByLambda`. It is not "stable", so it is

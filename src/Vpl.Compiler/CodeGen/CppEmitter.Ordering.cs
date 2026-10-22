@@ -78,6 +78,15 @@ public sealed partial class CppEmitter
     /// <summary>Whether releasing a value of the type may destroy an object.</summary>
     static bool MayHoldReferences(VplType type) => MayHoldReferences(type, []);
 
+    /// <summary>Whether releasing the value may destroy an object: a new closure only may if what it captures may.</summary>
+    static bool MayOwnObjects(BoundExpression value)
+    {
+        if (value is not BoundLambda { Type.IsEscaping: true } lambda)
+            return MayHoldReferences(value.Type);
+        var (locals, self) = BoundTree.Captures(lambda);
+        return self is not null || locals.Any(a => MayHoldReferences(a.Local.Type));
+    }
+
     static bool MayHoldReferences(VplType type, HashSet<VplType> visiting)
     {
         if (type.IsNullableValue)

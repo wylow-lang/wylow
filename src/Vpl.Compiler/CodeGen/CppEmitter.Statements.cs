@@ -92,7 +92,7 @@ public sealed partial class CppEmitter
                 var value = PassedValue(super.Constructor.ParameterType(i), argument);
                 var text = Expression(value);
                 return IsCopiedForReference(argument, value) ? $"{CppType(value.Type)}({text})"
-                    : !IsStable(value) && MayHoldReferences(value.Type) ? $"vpl::keep({text})" : text;
+                    : !IsStable(value) && MayOwnObjects(value) ? $"vpl::keep({text})" : text;
             })), super.Location));
             Line($"    : {ObjectType(super.Constructor.Owner!)}{{{arguments}}}");
             statements = [.. statements.Skip(1)];
@@ -170,8 +170,11 @@ public sealed partial class CppEmitter
                 var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
                     : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
                     : "{}";
-                // A non-escaping local owns the lambda it is initialized with, or copies a reference to one.
-                var type = IsNonEscaping(declaration.Local.Type) ? "auto" : CppType(declaration.Local.Type);
+                // A non-escaping local owns the lambda it is initialized with, or copies a stored function. Another
+                // non-escaping local or parameter can't be reassigned and outlives it, so it is referred to instead.
+                var type = !IsNonEscaping(declaration.Local.Type) ? CppType(declaration.Local.Type)
+                    : declaration.Initializer is BoundLocalAccess { Type.IsEscaping: false } ? "const auto&"
+                    : "auto";
                 Line($"{type} {LocalName(declaration.Local)}{initializer};");
                 EndTry(declaration.Initializer);
                 break;

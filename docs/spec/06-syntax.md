@@ -418,8 +418,8 @@ reassigned, so it can't outlive what its lambda captures. An escaping local can 
   So a closure can be part of a cycle, as in `this.onHit = () -> react(this);`, which
   `Memory.collectCycles` collects like any other.
 - **Choices.** A `?:` or switch expression of escaping type evaluates only the option it chooses,
-  like any other. One of non-escaping type makes its lambdas and copies its non-escaping locals
-  up front, which no one can observe, and evaluates an escaping option (a field, a call, an
+  like any other. One of non-escaping type makes its lambdas and refers to its non-escaping
+  locals up front, which no one can observe, and evaluates an escaping option (a field, a call, an
   escaping local) only when it is chosen.
 - **Signatures.** An override or interface implementation must declare the same parameters
   `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
