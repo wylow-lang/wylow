@@ -50,7 +50,7 @@ Options: `--release` (optimized; integer overflow wraps instead of panicking), `
 |---|---|
 | `src/Vpl.Compiler` | Lexer → parser → binder → flow analysis → C++ emitter, plus the native build driver |
 | `src/Vpl.Cli` | The `vpl` command |
-| `runtime/vpl.h` | C++ support code included by every generated program |
+| `runtime/vpl.h` | C++ support code included by every generated program, split by topic into `runtime/vpl/` |
 | `tests/cases` | Test programs; expectations are `// output:`, `// error:`, `// panic:` comments |
 
 ## Tests

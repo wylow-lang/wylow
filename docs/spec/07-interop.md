@@ -37,7 +37,7 @@ extern {
 
 > Implemented so far: only the standard library may declare extern functions, one at a time:
 > `static extern void check(int index, int length);` in a struct, or a free `extern` function.
-> The C++ runtime (`runtime/vpl.h`) implements them, as `vpl::name`, or `vpl::type::name` for a
+> The C++ runtime (`runtime/vpl/intrinsics.h`) implements them, as `vpl::name`, or `vpl::type::name` for a
 > method of a type (the type's name in lower camel case). Extern blocks and `@Include` are not
 > implemented.
 >

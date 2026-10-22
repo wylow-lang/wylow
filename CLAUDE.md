@@ -66,12 +66,14 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
-  (stdlib only) are implemented in `runtime/vpl.h`.
+  (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
 - `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: bound tree to C++.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Ordering.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
-- `runtime/vpl.h`: C++ support included by every generated program (checked arithmetic, panics, print).
+- `runtime/vpl.h`: C++ support included by every generated program, which includes one file per
+  topic from `runtime/vpl/` (`arithmetic.h`, `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...).
+  Each file includes what it depends on and compiles on its own.
 - `tests/cases/**/*.vpl`: each test is a program with `// output:`, `// error:` (on the erroring
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
   and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
@@ -111,7 +113,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - Python isn't installed; use the editing tools, PowerShell, or bash.
 - `record with { ... }` copies computed base-constructor arguments instead of recomputing them:
   `access with { AssumesNonNull = true }` keeps the old `Type`. Construct a new bound node instead.
-- Tests compile against the copy of `runtime/vpl.h` in the build output, so run `dotnet build`
+- Tests compile against the copy of `runtime/` in the build output, so run `dotnet build`
   after changing the runtime.
 - The test filter matches paths with the OS separator: on Windows, `enums/values` matches nothing;
   use `values` or `enums\values`.
