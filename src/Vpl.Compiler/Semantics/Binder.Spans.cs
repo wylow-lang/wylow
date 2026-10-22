@@ -16,7 +16,7 @@ public sealed partial class Binder
     bool CheckStorable(VplType type, Location location, string what)
     {
         if (!type.IsRefStruct)
-            return CheckNotStored(type, location, what);
+            return true;
         Error(location, $"'{type}' cannot be {what}; like a 'ref', it can only be a local variable or parameter");
         return false;
     }

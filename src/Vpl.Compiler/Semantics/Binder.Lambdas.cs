@@ -157,16 +157,9 @@ public sealed partial class Binder
     {
         if (!InferredLambdaFits(lambda, type))
             return ErrorExpression(pending.Location, $"this lambda cannot be converted to '{type}'");
-        var old = lambda.Function;
-        var function = new FunctionSymbol(old.Name, old.Parameters, type.FunctionReturnType!)
-        {
-            IsLambda = true,
-            IsEscaping = old.IsEscaping,
-            Enclosing = old.Enclosing,
-            IsUnsafe = old.IsUnsafe,
-            IsReadOnly = old.IsReadOnly,
-        };
-        return new BoundLambda(pending.Location, type, function, (BoundBlock)ConvertReturns(lambda.Body, function));
+        // The body's locals and lambdas refer to this symbol, so it keeps being the lambda's.
+        lambda.Function.InferReturnType(type.FunctionReturnType!);
+        return new BoundLambda(pending.Location, type, lambda.Function, (BoundBlock)ConvertReturns(lambda.Body, lambda.Function));
     }
 
     BoundStatement ConvertReturns(BoundStatement statement, FunctionSymbol function) => statement switch

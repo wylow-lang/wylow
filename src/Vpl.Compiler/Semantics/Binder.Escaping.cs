@@ -11,18 +11,6 @@ namespace Vpl.Compiler.Semantics;
 /// </summary>
 public sealed partial class Binder
 {
-    /// <summary>
-    /// Only parameters and locals can hold a non-escaping function. A function type written anywhere
-    /// else is escaping, so only a type inferred from a non-escaping value can get here.
-    /// </summary>
-    bool CheckNotStored(VplType type, Location location, string what)
-    {
-        if (!type.NonNull.IsFunction || type.NonNull.IsEscaping)
-            return true;
-        Error(location, $"a non-escaping function cannot be {what}; only an '@Escaping' parameter or variable can be stored");
-        return false;
-    }
-
     static VplType NonEscaping(VplType type) => type.IsFunction ? type.NonEscaping : type;
 
     /// <summary>
@@ -79,8 +67,9 @@ public sealed partial class Binder
     /// Reports why a non-escaping function can't be converted to the escaping form, at the variable
     /// that makes it non-escaping where there is one, such as an option of a choice.
     /// </summary>
-    void ReportNotEscaping(BoundExpression function)
+    void ReportNotEscaping(BoundExpression function, VplType to)
     {
+        var fate = to.IsNullable ? "made nullable, since a nullable function is always escaping" : "stored or returned";
         // A lambda option is non-escaping only because a variable option made the choice so.
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
@@ -88,9 +77,20 @@ public sealed partial class Binder
             .OrderBy(o => o is BoundLocalAccess ? 0 : 1)
             .FirstOrDefault() ?? function;
         Error(culprit.Location, culprit is BoundLocalAccess { Local: var local }
-            ? $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; declare it '@Escaping'"
-            : "a non-escaping function cannot be stored or returned; only '@Escaping' parameters and variables can");
+            ? $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be {fate}; declare it '@Escaping'"
+            : $"a non-escaping function cannot be {fate}; only '@Escaping' parameters and variables can");
     }
+
+    /// <summary>
+    /// For a duplicate overload, a hint when it differs from <paramref name="existing"/> only in
+    /// which parameters are '@Escaping', since the two forms of a function type print alike.
+    /// </summary>
+    static string OverloadEscapingHint(FunctionSymbol function, FunctionSymbol existing) =>
+        function.Parameters.Zip(existing.Parameters).Any(p => p.First.Type != p.Second.Type
+            && p.First.Type.NonNull.IsFunction && p.Second.Type.NonNull.IsFunction
+            && p.First.Type.NonNull.NonEscaping == p.Second.Type.NonNull.NonEscaping)
+            ? $" as '{existing.Signature}'; overloads cannot differ only in which parameters are '@Escaping'"
+            : "";
 
     /// <summary>
     /// For signatures that must match, a hint naming a parameter that is '@Escaping' in only one of
@@ -121,14 +121,14 @@ public sealed partial class Binder
     /// The first argument that keeps a candidate from applying only by being non-escaping, if one
     /// does: saying so explains more than that no overload accepts the arguments.
     /// </summary>
-    Argument? NonEscapingArgument(IEnumerable<MethodReference> candidates, List<Argument> arguments)
+    (Argument Argument, VplType Parameter)? NonEscapingArgument(IEnumerable<MethodReference> candidates, List<Argument> arguments)
     {
         foreach (var method in candidates)
         {
             var failing = Enumerable.Range(0, arguments.Count).Where(i => !IsApplicable(method, arguments, i)).ToList();
             if (failing.Count > 0 && failing.All(i => !arguments[i].IsRef && method.ParameterRefKind(i) != RefKind.Ref
                     && IsEscapingMismatch(arguments[i].Expression.Type, method.ParameterType(i))))
-                return arguments[failing[0]];
+                return (arguments[failing[0]], method.ParameterType(failing[0]));
         }
         return null;
     }

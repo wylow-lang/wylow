@@ -30,7 +30,7 @@ void nullableParameter(((int) -> int)? f) {         // error: a nullable functio
 void keep(@Escaping () -> void f) {
 }
 
-void keep(() -> void f) {                          // error: function 'keep(() -> void)' is already defined
+void keep(() -> void f) {                          // error: function 'keep(() -> void)' is already defined as 'keep(@Escaping () -> void)'; overloads cannot differ only in which parameters are '@Escaping'
 }
 
 T identity<T>(T value) {
@@ -46,9 +46,9 @@ void check(bool flag, () -> void g) {
     @Escaping (int) -> int dec = x -> x - 1;
     @Escaping int number = 1;                       // error: '@Escaping' can only be used on a variable of function type, not 'int'
     @Escaping var text = "a";                       // error: '@Escaping' can only be used on a variable of function type, not 'String'
-    @Escaping ref int alias = number;               // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
+    @Escaping ref int alias = number;               // error: '@Escaping' cannot be used on a 'ref' variable, which refers to a place rather than holding a function
     ((int) -> int)? maybe = dec;                    // error: a nullable function is always escaping, so this variable must be declared '@Escaping'
-    @Escaping ((int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    @Escaping ((int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
     (int) -> int later;                             // error: a '(int) -> int' variable must be initialized where it is declared, since it cannot be reassigned
 
     inc = dec;                                      // error: 'inc' cannot be reassigned: a non-escaping variable keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
@@ -61,10 +61,10 @@ void check(bool flag, () -> void g) {
     handlers.add(g);                                // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     var listed = [dec, inc];                        // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
     ((int) -> int)?[] table = new ((int) -> int)?[2];
-    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
     var functions = new ((int) -> int)[2];          // error: '(int) -> int' has no default value to fill a new array with; use 'new Array<(int) -> int>(length, value)'
     @Escaping (int) -> int chosen = flag ? dec : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be made nullable, since a nullable function is always escaping; declare it '@Escaping'
     @Escaping (int) -> int lambda = flag ? x -> x : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 }
 
@@ -89,7 +89,15 @@ interface Listener {
 }
 
 class Quiet implements Listener {
-    void listen(() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(() -> void)' to implement it; parameter 'f' is '@Escaping' in 'Listener.listen(() -> void)' but not here
+    void listen(() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(@Escaping () -> void)' to implement it; parameter 'f' is '@Escaping' in 'Listener.listen(@Escaping () -> void)' but not here
+    }
+}
+
+class Events {
+    void on(() -> void f) {
+    }
+
+    void on(@Escaping () -> void f) {               // error: method 'on(@Escaping () -> void)' is already defined as 'on(() -> void)'; overloads cannot differ only in which parameters are '@Escaping'
     }
 }
 

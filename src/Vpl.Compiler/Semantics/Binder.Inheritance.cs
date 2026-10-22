@@ -85,7 +85,7 @@ public sealed partial class Binder
 
     static string ParameterList(MethodReference method) =>
         string.Join(", ", Enumerable.Range(0, method.Symbol.Parameters.Count)
-            .Select(i => FunctionSymbol.RefPrefix(method.ParameterRefKind(i)) + method.ParameterType(i)));
+            .Select(i => (method.ParameterType(i).NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.RefPrefix(method.ParameterRefKind(i)) + method.ParameterType(i)));
 
     void CheckOverride(TypeSymbol s, FunctionSymbol method)
     {

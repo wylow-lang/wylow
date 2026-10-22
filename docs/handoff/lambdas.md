@@ -44,8 +44,9 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
      (`CppEmitter.Choice`): every lambda or local it could be, and the index the conditions and
      cases pick. A switch's cases run in a C++ lambda, so a chosen lambda can't use a name its
      case declares (`Binder.CheckCaseCaptures`). Only the conditions are evaluated lazily, which is
-     unobservable because making a lambda or copying a local has no effects. Escaping values
-     (fields, calls) would break that; `Choice` throws on them until step 5 handles them.
+     unobservable because making a lambda or copying a local has no effects. Escaping options
+     (fields, calls) are observable, so since step 5 they are evaluated only when chosen
+     (`vpl::choose_held`).
    - A local a lambda assigns is marked `LocalSymbol.IsAssignedByLambda`. It is not "stable", so it is
      pinned while in use as a receiver or argument (`tests/cases/lambdas/safety.vpl` would otherwise
      read freed memory).

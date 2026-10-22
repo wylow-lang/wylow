@@ -222,9 +222,14 @@ public sealed partial class Binder
     /// <summary><c>ref T x = place;</c> or <c>in T x = place;</c>, which name a place for the rest of the scope.</summary>
     BoundStatement BindRefLocal(VarDeclStmt s)
     {
-        foreach (var annotation in s.Annotations)
-            ReportMisplacedAnnotation(annotation);
         var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim();
+        foreach (var annotation in s.Annotations)
+        {
+            if (annotation.Name == "Escaping")
+                Error(annotation.Location, $"'@Escaping' cannot be used on a '{keyword}' variable, which refers to a place rather than holding a function");
+            else
+                ReportMisplacedAnnotation(annotation);
+        }
         var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
         var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
         var type = declared ?? place?.Type ?? VplType.Error;

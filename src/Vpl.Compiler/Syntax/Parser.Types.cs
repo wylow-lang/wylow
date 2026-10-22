@@ -179,6 +179,12 @@ public sealed partial class Parser
         {
             do
             {
+                foreach (var annotation in ParseAnnotations())
+                {
+                    Error(annotation.Location.Span, annotation.Name == "Escaping"
+                        ? "'@Escaping' on a function type's parameters is not supported yet; they are always non-escaping"
+                        : "annotations cannot be used on a function type's parameters");
+                }
                 var refKind = ParseRefKind();
                 parameters.Add(new FunctionTypeParameter(refKind, ParseType()));
             } while (Accept(TokenKind.Comma));
@@ -246,6 +252,9 @@ public sealed partial class Parser
             return index + 1;
         for (int count = 1; ; count++)
         {
+            // Annotations are reported when the parameters are parsed.
+            while (KindAt(index) == TokenKind.At && KindAt(index + 1) == TokenKind.Identifier)
+                index += 2;
             bool hasRefKind = KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword;
             if (hasRefKind)
                 index++;

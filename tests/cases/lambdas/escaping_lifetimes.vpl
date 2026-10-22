@@ -1,5 +1,6 @@
 // A closure stays alive while it runs, and while a non-escaping copy of it is in use, even when the
-// place it came from is replaced meanwhile.
+// place it came from is replaced meanwhile. Each closure reads a capture after its place is
+// replaced, which AddressSanitizer reports if the closure was freed.
 
 class Holder {
     () -> void action = () -> print(0);
@@ -13,10 +14,6 @@ class Visitor {
     }
 }
 
-String label(String text) {
-    return text;
-}
-
 int viaTemplate(Holder holder, (int) -> int f) {
     holder.f = x -> -x;
     return f(1);
@@ -26,7 +23,7 @@ void main() {
     var holder = new Holder();
 
     // The closure replaces itself, then still reads its own captures.
-    String text = label("still here");
+    String text = "still here";
     holder.action = () -> {
         holder.action = () -> print(1);
         print(text);
@@ -36,7 +33,7 @@ void main() {
 
     // A list cleared during a call of one of its closures.
     var handlers = new List<() -> void>();
-    String other = label("cleared");
+    String other = "cleared";
     handlers.add(() -> {
         handlers.clear();
         print(other);
@@ -44,20 +41,18 @@ void main() {
     handlers[0]();                                  // output: cleared
     print(handlers.count);                          // output: 0
 
-    // A non-escaping parameter given a field, which the callee replaces before calling it.
-    var captured = new List<int>();
-    captured.add(1);
-    captured.add(2);
-    captured.add(3);
-    holder.f = x -> x + captured.count;
+    // A non-escaping parameter given a field, which the callee replaces before calling it: a
+    // template parameter, and a FunctionRef.
+    int offset = 3;
+    holder.f = x -> x + offset;
     print(viaTemplate(holder, holder.f));           // output: 4
-    holder.f = x -> x + captured.count;
+    holder.f = x -> x + offset;
     print(new Visitor().visit(holder, holder.f));   // output: 4
     print(holder.f(1));                             // output: -1
 
     // A choice holds what it chose, though the field changes.
-    holder.f = x -> x + captured.count * 2;
-    bool flag = captured.count == 3;
+    holder.f = x -> x + offset * 2;
+    bool flag = offset == 3;
     (int) -> int chosen = flag ? holder.f : x -> 0;
     holder.f = x -> -x;
     print(chosen(1));                               // output: 7

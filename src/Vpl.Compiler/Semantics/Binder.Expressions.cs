@@ -546,7 +546,7 @@ public sealed partial class Binder
 
         if (IsEscapingMismatch(expression.Type, to))
         {
-            ReportNotEscaping(expression);
+            ReportNotEscaping(expression, to);
             return new BoundErrorExpression(expression.Location);
         }
         var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"

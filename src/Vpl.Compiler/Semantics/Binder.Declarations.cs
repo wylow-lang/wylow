@@ -149,7 +149,7 @@ public sealed partial class Binder
         else if (existing.IsBuiltin)
             Error(decl.NameLocation, $"'{function.Signature}' conflicts with a built-in function");
         else
-            Error(decl.NameLocation, $"function '{function.Signature}' is already defined");
+            Error(decl.NameLocation, $"function '{function.Signature}' is already defined{OverloadEscapingHint(function, existing)}");
         return function;
     }
 
@@ -240,9 +240,9 @@ public sealed partial class Binder
                     IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
                     PassesLocation = HasCallerLocation(decl),
                 };
-                if (FindSameSignature(s.Constructors, constructor) is not null)
+                if (FindSameSignature(s.Constructors, constructor) is { } existingConstructor)
                 {
-                    Error(decl.NameLocation, $"constructor '{constructor.Signature}' is already defined");
+                    Error(decl.NameLocation, $"constructor '{constructor.Signature}' is already defined{OverloadEscapingHint(constructor, existingConstructor)}");
                     continue;
                 }
                 s.Constructors.Add(constructor);
@@ -296,9 +296,9 @@ public sealed partial class Binder
             }
             if (!s.Methods.TryGetValue(decl.Name, out var overloads))
                 s.Methods[decl.Name] = overloads = [];
-            if (FindSameSignature(overloads, method) is not null)
+            if (FindSameSignature(overloads, method) is { } existingMethod)
             {
-                Error(decl.NameLocation, $"method '{method.Signature}' is already defined");
+                Error(decl.NameLocation, $"method '{method.Signature}' is already defined{OverloadEscapingHint(method, existingMethod)}");
                 continue;
             }
             overloads.Add(method);

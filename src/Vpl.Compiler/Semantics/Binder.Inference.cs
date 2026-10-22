@@ -110,8 +110,9 @@ public sealed partial class Binder
                     result.Add(parameter.Type);
                     continue;
                 }
+                // A non-escaping function can't convert to its escaping form, and is reported as that once the call is checked.
                 var chosen = found.Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
-                    candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || b.Type == candidate : b.Type == candidate));
+                    candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || IsEscapingMismatch(b.Expression.Type, candidate) : b.Type == candidate));
                 if (found.All(b => b.Type == VplType.Null))
                 {
                     error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}' from 'null'; specify it explicitly, as in '{function.Name}<...>(...)'";

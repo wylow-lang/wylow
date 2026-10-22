@@ -45,7 +45,15 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public IReadOnlyList<LocalSymbol> Parameters { get; } = parameters;
 
     /// <summary>Constructors and destructors return <c>void</c>; the construction expression has the type itself.</summary>
-    public VplType ReturnType { get; } = returnType;
+    public VplType ReturnType { get; private set; } = returnType;
+
+    /// <summary>Gives a lambda bound before its return type was known the type that generic inference chose.</summary>
+    public void InferReturnType(VplType type)
+    {
+        if (!IsLambda || ReturnType != VplType.Error)
+            throw new InvalidOperationException("only a lambda whose return type is being inferred can be given one");
+        ReturnType = type;
+    }
 
     public FunctionDecl? Declaration { get; init; }
 
