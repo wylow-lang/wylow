@@ -128,6 +128,10 @@ Frozen<float[]> data = verts.freeze();
 - Only available when the element type is sendable.
 - Available on `T[]` and `List<T>`. `Frozen<T>` is a `shared class` offering read-only access
   (including `ReadOnlySpan<T>`).
+- What isn't copied is the elements: `freeze()` makes a new `Frozen<T>` object that takes over the
+  container's element storage, and the emptied container stays on its thread. The container itself
+  came from its thread's pools ([03-memory-model.md](03-memory-model.md#allocation)), which only that
+  thread may free into, while the element storage is on the global heap, which any thread may free.
 
 ## 5.4 Synchronization types
 

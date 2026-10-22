@@ -59,6 +59,31 @@ and each count change a lookup of the base's offset. References are
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
 `this` cannot destroy the object early.
 
+### Allocation
+
+Objects, closures, and weak blocks up to 512 bytes come from the runtime's **pools** rather than the
+C++ global heap; larger ones, and over-aligned ones, use the global heap. A pool is a size class:
+slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned to their size.
+
+- **Allocating** takes a slot from the size class's current chunk: its free list, or else its
+  uncarved end. When the current chunk is full, the fullest chunk of the class that has room
+  becomes current, so that new objects fill few chunks while the others drain. Partial chunks are
+  kept in 8 bins by how full they are, which makes the choice constant-time.
+- **Freeing** pushes the slot onto its own chunk's free list, found by masking its address, so a
+  slot needs no header. The size comes from C++'s sized delete through the virtual destructor.
+- **Memory goes back to the OS** when a chunk is left with no live slots, except that one empty
+  chunk per size class is kept, so that a count of objects hovering at a chunk's edge doesn't map
+  and unmap a chunk each time. A chunk with any live object stays mapped: objects never move, so a
+  few long-lived objects scattered over many chunks keep all of those chunks. Choosing the fullest
+  chunk only reduces this.
+- **Pools are per thread, with no synchronization.** An object is freed on the thread that made
+  it, since it never leaves that thread ([05-concurrency.md](05-concurrency.md#51-thread-confinement)).
+  `shared class` objects, which may be freed on any thread, cannot use these pools.
+- Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
+  after free.
+
+> Implemented: everything above, except that the pools are global, since threads don't exist yet.
+
 ### Stack allocation
 
 An object made by `new` that provably can't outlive the scope that makes it is placed in that
