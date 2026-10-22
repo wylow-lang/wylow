@@ -385,8 +385,9 @@ reassigned, so it can't outlive what its lambda captures. An escaping local can 
   type's own parameter, it is non-escaping unless that is declared `@Escaping`, as in
   `(@Escaping () -> void) -> void`; anywhere else (a field, a return type, a type argument, an
   array element, or a function type's return type) it is escaping. A nullable function follows the
-  same rule, except where noted below. `var` takes the form of its initializer. An escaping value converts to the non-escaping form, so it can be passed to a
-  non-escaping parameter or bind a non-escaping local; nothing converts the other way.
+  same rule, except where noted below. `var` takes the form of its initializer. An escaping value
+  converts to the non-escaping form, so it can be passed to a non-escaping parameter or bind a
+  non-escaping local; nothing converts the other way.
 - **A lambda is escaping when its target is**: the variable, field, parameter, or return type it
   is converted to, or the type of the `?:` or switch expression it is an option of. A lambda
   passed as an argument takes the form of the parameter that overload resolution picks.
@@ -465,6 +466,61 @@ of them; a function taking one as a parameter is compiled once per lambda, as a 
 is once per type argument.
 
 > Not implemented yet.
+
+### Costs to remove later
+
+What the implementation above pays that it needn't. None of these changes behavior, so each can
+be done when profiling shows it matters.
+
+- **Indirect calls where templates can't be used.** A `vpl::FunctionRef` costs an indirect call
+  and keeps the lambda from being inlined. It could be avoided by devirtualizing calls whose
+  receiver type is known; for recursion, by noticing that the recursive call only passes its own
+  parameter on (the common case), which can't instantiate without end; and for constructors, by
+  telling overloads apart with a tag argument.
+- **Code size.** Each distinct lambda passed to a template instantiates the callee again, as
+  generics do per type. A performance warning could point out large instantiation counts.
+- **Pins for locals a lambda assigns.** Such a local is held while in use as a receiver or
+  argument (a reference count increment and decrement) even when no lambda that assigns it can
+  run during that call. Only calls passed such a lambda, directly or by forwarding, can change it.
+- **Evaluation order.** Any call given a function value, and any call of one, is treated as
+  writing every local, so operands around it are hoisted into an ordering lambda. This is usually
+  inlined away but can force temporaries; tracking which locals each lambda writes would avoid it.
+  Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
+  block nesting. Real code doesn't nest that deep, so this is a known limit, not a planned fix.
+- **Element aliasing.** A call of a function value counts as writing what every lambda in the
+  program writes, so one lambda storing into elements of type `X` anywhere makes every loop over
+  `X` that calls a function value count references per element
+  ([03-memory-model.md](03-memory-model.md#loop-elements)). It could count only the lambdas that
+  can reach that call.
+- **Narrowing.** A null check outside a lambda doesn't carry into it, and a local declared outside
+  any lambda that assigns it is never narrowed, which can force a `!` (and its check).
+- **Escaping lambdas that capture nothing** still allocate. `vpl::Function` could be a code pointer
+  plus a closure pointer that is null when nothing is captured, so copying and releasing one only
+  test for null.
+- **Nullable functions** are `vpl::Optional`s with a separate presence flag; a null closure pointer
+  could stand for null instead.
+
+### Decisions to revisit
+
+*Open*: reasonable on paper; real programs will show whether they get in the way.
+
+- **Bind-once function locals.** A non-escaping local can't be reassigned; `?:` and switch
+  expressions cover choosing one.
+- **Narrowing.** Carrying a null check on an effectively final local into a lambda would be sound.
+- **`F?` is a nullable value**, not reference-like. Only parameters can be non-escaping `F?`:
+  locals, choices, and `??` would need an optional that owns a lambda, which non-escaping locals
+  and choices avoid by being bound once or holding every option.
+- **Untyped lambdas are ambiguous between overloads** that differ only in function parameter
+  types, rather than each overload being tried.
+- **Parameter modes are part of a function type**, and an untyped lambda takes them from its
+  target; function-typed parameters can't be `ref` or `in`.
+- **Expression-bodied `void` lambdas** must have a call as their body, as statements must.
+- **Which functions take a `vpl::FunctionRef`**: the rules are simple and conservative, and could
+  be wrong in the slow direction often enough to matter.
+- **Inferring from a lambda's body needs one overload left.** Two generic overloads whose lambdas
+  take the same number of parameters, or a generic and a non-generic one, make
+  `x.map(m -> m.name)` an error asking for type arguments. Binding the body once per distinct
+  parameter-type list, and sharing it, would lift that.
 
 ## 6.8 `defer`
 

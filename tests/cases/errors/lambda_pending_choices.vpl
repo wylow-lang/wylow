@@ -28,6 +28,6 @@ void main() {
     print(run(up ? x -> 1 : y -> 2));               // error: call is ambiguous between 'run((int) -> int)' and 'run((String) -> int)'
     print(apply(1, up ? x -> 1 : x -> "a"));        // error: cannot infer type argument 'U' of 'apply': it could be 'int' or 'String'
     print(apply(1, up ? inc : x -> "a"));           // error: cannot implicitly convert 'String' to 'int'
-    print(up ? x -> x : y -> y);                    // error: no overload of 'print' accepts (lambda)
+    print(up ? x -> x : y -> y);                    // error: no overload of 'print' accepts (choice of lambdas)
     print(apply(1, up ? x -> x.name : inc));        // error: 'int' has no member 'name'
 }

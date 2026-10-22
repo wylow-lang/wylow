@@ -7,9 +7,10 @@ public sealed partial class Binder
 {
     /// <summary>
     /// The type arguments of a generic candidate, inferred from a call's arguments (§6.7). The
-    /// arguments that aren't lambdas, and the parameter types lambdas declare, are used at once. A type parameter only a lambda's return type can give waits for
-    /// <see cref="FinishFromLambdas"/>, which binds the lambda's body and is run only for the one
-    /// candidate left, so each lambda is still bound once.
+    /// arguments that aren't lambdas, and the parameter types lambdas declare, are used at once. A
+    /// type parameter only a lambda's return type can give waits for <see cref="FinishFromLambdas"/>,
+    /// which binds the lambda's body and is run only for the one candidate left, so each lambda is
+    /// still bound once.
     /// </summary>
     sealed class Inference
     {
@@ -155,8 +156,8 @@ public sealed partial class Binder
 
         /// <summary>
         /// Binds, in turn, each lambda whose parameter types are known and whose return type has a type
-        /// parameter only lambdas can give, and infers from the values it returns as if they were arguments. Reports its
-        /// own errors.
+        /// parameter only lambdas can give, and infers from the values it returns as if they were
+        /// arguments. Reports its own errors.
         /// </summary>
         public MethodReference? FinishFromLambdas(List<Argument> arguments, Location location)
         {
@@ -181,10 +182,14 @@ public sealed partial class Binder
                     var parameters = current.ParameterType(i).FunctionParameters;
                     if (parameters.Any(p => TypeParametersIn(p.Type).Any(unresolved.Contains)))
                         continue;
-                    foreach (var lambda in Options(arguments[i].Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList())
+                    var lambdas = Options(arguments[i].Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList();
+                    if (lambdas.Count > 0)
                     {
                         foreach (var p in target.FunctionParameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))
                             fixedTypes.TryAdd(p, current.Map.Apply(p.Type));
+                    }
+                    foreach (var lambda in lambdas)
+                    {
                         var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters, target.IsEscaping);
                         if (inferred.Values.Any(v => v.Type == VplType.Error))
                             return null;

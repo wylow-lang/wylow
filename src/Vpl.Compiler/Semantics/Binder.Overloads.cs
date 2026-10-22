@@ -82,7 +82,15 @@ public sealed partial class Binder
                 ReportNotEscaping(nonEscaping.Expression);
                 return null;
             }
-            var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + a.Expression.Type));
+            // With one candidate, converting the lambda says what is wrong with it.
+            if (sameArity.Count == 1 && instantiated is [var only]
+                && Enumerable.Range(0, arguments.Count).FirstOrDefault(i => !IsApplicable(only, arguments, i)) is var failing
+                && arguments[failing].Expression is BoundPendingLambda or BoundPendingChoice)
+            {
+                Convert(arguments[failing].Expression, only.ParameterType(failing));
+                return null;
+            }
+            var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + DescribeArgument(a.Expression)));
             Error(location, $"no {description} accepts ({types})");
             return null;
         }

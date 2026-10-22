@@ -56,6 +56,7 @@ public sealed partial class CppEmitter
     {
         this.cycles = cycles;
         recursive = FindRecursive(program);
+        overloaded = FindOverloaded(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];
@@ -146,8 +147,8 @@ public sealed partial class CppEmitter
     string NewTemp() => $"tmp_{tempCounter++}";
 
     // Prefixes keep VPL names from colliding with C++ keywords, the runtime, and each other.
-    static string FunctionName(FunctionSymbol function) => "fn_" + function.Name + OverloadSuffix(function);
-    static string MethodName(FunctionSymbol method) => (method.IsIndexer ? "vpl_index" : "m_" + method.Name) + OverloadSuffix(method);
+    string FunctionName(FunctionSymbol function) => "fn_" + function.Name + OverloadSuffix(function);
+    string MethodName(FunctionSymbol method) => (method.IsIndexer ? "vpl_index" : "m_" + method.Name) + OverloadSuffix(method);
     static string FieldName(FieldSymbol field) => "f_" + field.Name;
     static string TypeParameterName(TypeParameterSymbol parameter) => "t_" + parameter.Name;
 

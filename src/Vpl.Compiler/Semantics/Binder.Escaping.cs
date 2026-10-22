@@ -42,19 +42,8 @@ public sealed partial class Binder
     /// </summary>
     VplType BindVariableType(TypeSyntax syntax, IReadOnlyList<AnnotationSyntax> annotations, bool isParameter)
     {
-        var what = isParameter ? "parameter" : "variable";
         var type = BindType(syntax, allowVoid: false);
-        bool escaping = false;
-        foreach (var annotation in annotations)
-        {
-            if (annotation.Name != "Escaping")
-                ReportMisplacedAnnotation(annotation);
-            else if (type.NonNull.IsFunction || type == VplType.Error)
-                escaping = true;
-            else
-                Error(annotation.Location, $"'@Escaping' can only be used on a {what} of function type, not '{type}'");
-        }
-        if (escaping)
+        if (IsDeclaredEscaping(annotations, type, isParameter ? "parameter" : "variable"))
             return type;
         if (!isParameter && type.IsNullable && type.NonNull.IsFunction)
         {
@@ -71,17 +60,7 @@ public sealed partial class Binder
     (VplType Type, BoundExpression Initializer) InferVariableType(VarDeclStmt s, BoundExpression initializer)
     {
         var type = initializer.Type;
-        bool escaping = false;
-        foreach (var annotation in s.Annotations)
-        {
-            if (annotation.Name != "Escaping")
-                ReportMisplacedAnnotation(annotation);
-            else if (type.NonNull.IsFunction || type == VplType.Error)
-                escaping = true;
-            else
-                Error(annotation.Location, $"'@Escaping' can only be used on a variable of function type, not '{type}'");
-        }
-        if (escaping)
+        if (IsDeclaredEscaping(s.Annotations, type, "variable"))
             type = EscapingForm(type);
         else if (IsNullableNonEscaping(type))
         {
@@ -89,6 +68,22 @@ public sealed partial class Binder
             return (VplType.Error, initializer);
         }
         return (type, Convert(initializer, type));
+    }
+
+    /// <summary>Whether a parameter or local of the type is declared <c>@Escaping</c>; reports annotations that don't apply.</summary>
+    bool IsDeclaredEscaping(IReadOnlyList<AnnotationSyntax> annotations, VplType type, string what)
+    {
+        bool escaping = false;
+        foreach (var annotation in annotations)
+        {
+            if (annotation.Name != "Escaping")
+                ReportMisplacedAnnotation(annotation);
+            else if (type.NonNull.IsFunction || type == VplType.Error)
+                escaping = true;
+            else
+                Error(annotation.Location, $"'@Escaping' can only be used on a {what} of function type, not '{type}'");
+        }
+        return escaping;
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
@@ -109,6 +104,7 @@ public sealed partial class Binder
         // A lambda option is non-escaping only because a variable option made the choice so.
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
+            .Select(o => o is BoundNonNull nonNull ? nonNull.Operand : o)
             .Where(o => IsNonEscapingFunction(o.Type))
             .OrderBy(o => o is BoundLocalAccess ? 0 : 1)
             .FirstOrDefault() ?? function;
@@ -214,7 +210,8 @@ public sealed partial class Binder
     /// </summary>
     void CheckEscapingCaptures(BoundBlock body)
     {
-        var reported = new HashSet<object>();
+        var reported = new HashSet<LocalSymbol>();
+        bool reportedThis = false;
         foreach (var lambda in BoundTree.AllExpressions(body).OfType<BoundLambda>().Where(l => l.Function.IsEscaping))
         {
             var (locals, self) = BoundTree.Captures(lambda);
@@ -223,8 +220,11 @@ public sealed partial class Binder
                 if (CaptureProblem(use.Local) is { } problem && reported.Add(use.Local))
                     Error(use.Location, $"an escaping lambda cannot capture '{use.Local.Name}', {problem}");
             }
-            if (self is { Type.IsReference: false } && reported.Add(self.Type))
+            if (self is { Type.IsReference: false } && !reportedThis)
+            {
+                reportedThis = true;
                 Error(self.Location, "an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first");
+            }
         }
     }
 

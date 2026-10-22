@@ -250,7 +250,7 @@ public sealed partial class Binder
             scope = scope.Parent!;
         }
         CheckCases(e.Location, value.Type, e.Cases, [.. options.Select(o => o.Patterns)], broken);
-        return Choose(e.Location, [.. options.Select(o => o.Value)], mayWait, type =>
+        return Choose(e.Location, [.. options.Select(o => o.Value)], expected, mayWait, type =>
         {
             // Lambdas are bound in their case's scope, so that using a name it declares is reported as such.
             var enclosing = scope;

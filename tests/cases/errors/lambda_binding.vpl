@@ -13,6 +13,14 @@ int pick((String) -> int f) {
     return f("a");
 }
 
+int mix((int) -> int f, int x) {
+    return f(x);
+}
+
+int mix((long) -> int f, int x) {
+    return 0;
+}
+
 void run(int value) {
 }
 
@@ -30,8 +38,15 @@ void check() {
         return;                                     // error: this lambda must return a value of type 'int'
     };
     int h = pick(x -> 1);                           // error: call is ambiguous
-    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts
-    run(() -> 1);                                   // error: no overload of 'run' accepts (lambda)
+    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts ((int) -> int, String)
+    int i2 = mix(x -> x, "no");                     // error: no overload of 'mix' accepts (lambda taking 1 argument, String)
+    int i3 = mix((int x) -> x, "no");               // error: no overload of 'mix' accepts (lambda taking (int), String)
+    run(() -> 1);                                   // error: a lambda cannot be converted to 'int', which is not a function type
+    (int) -> void calls = x -> run(x);
+    calls(y -> y);                                  // error: a lambda cannot be converted to 'int', which is not a function type
+    calls(true ? y -> y : y -> 1);                  // error: a choice of lambdas cannot be converted to 'int', which is not a function type
+    int chosen = true ? y -> y : 5;                 // error: a lambda cannot be converted to 'int', which is not a function type
+    (ref (int) -> int) -> void byRef = g -> run(1); // error: 'ref' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
     int j = inc(1, 2);                              // error: 'inc' takes 1 argument, but is given 2
     int k = inc("a");                               // error: cannot implicitly convert 'String' to 'int'
     inc(ref k);                                     // error: argument 1 must not be passed with 'ref'

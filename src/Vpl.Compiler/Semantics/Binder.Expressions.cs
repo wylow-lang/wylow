@@ -314,7 +314,7 @@ public sealed partial class Binder
         if (error != expectedError)
         {
             return ErrorExpression(e.Location,
-                $"'try' would return an error of type '{error}' from '{function.Name}', whose error type is '{expectedError}'; convert the error first");
+                $"'try' would return an error of type '{error}' from {Describe(function)}, whose error type is '{expectedError}'; convert the error first");
         }
         return new BoundTry(e.Location, operand, operand.Type.TypeArguments[0]);
     }
@@ -520,9 +520,13 @@ public sealed partial class Binder
 
         if (expression is BoundPendingLambda lambda)
         {
-            return to.NonNull.IsFunction
-                ? Convert(lambda.Inferred is { } inferred ? RetargetLambda(lambda, inferred, to.NonNull) : BindLambda(lambda.SyntaxFor(to.NonNull.FunctionParameters), to.NonNull, lambda.DeclaredParameters), to)
-                : ErrorExpression(expression.Location, $"{(lambda.Syntax.IsFunctionReference ? "a function" : "a lambda")} cannot be converted to '{to}', which is not a function type");
+            if (!to.NonNull.IsFunction)
+                return ErrorExpression(expression.Location, NotFunctionTypeMessage(lambda, to));
+            var function = to.NonNull;
+            var bound = lambda.Inferred is { } inferred
+                ? RetargetLambda(lambda, inferred, function)
+                : BindLambda(lambda.SyntaxFor(function.FunctionParameters), function, lambda.DeclaredParameters);
+            return Convert(bound, to);
         }
         if (expression is BoundPendingChoice choice)
         {
@@ -585,7 +589,7 @@ public sealed partial class Binder
         var condition = BindCondition(e.Condition);
         var whenTrue = BindOption(e.WhenTrue, expected);
         var whenFalse = BindOption(e.WhenFalse, expected);
-        return Choose(e.Location, [whenTrue, whenFalse], mayWait,
+        return Choose(e.Location, [whenTrue, whenFalse], expected, mayWait,
             type => MakeConditional(e.Location, condition, FinishOption(whenTrue, type), FinishOption(whenFalse, type)));
     }
 

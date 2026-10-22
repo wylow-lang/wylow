@@ -16,6 +16,7 @@ void uses(bool flag, ((int) -> int)? f, (int) -> int g, Holder holder) {
     @Escaping var escaping = f;                     // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     holder.stored = f;                              // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     keep(f);                                        // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    keep(f!);                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     f = null;                                       // error: 'f' cannot be reassigned: a non-escaping parameter keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
     var fallback = f ?? g;                          // error: '??' cannot be applied to a nullable non-escaping function; check it for null with 'if' instead
     keep(x -> f!(x));                               // error: an escaping lambda cannot capture 'f', which is a non-escaping parameter; declare it '@Escaping'

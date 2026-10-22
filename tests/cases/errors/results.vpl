@@ -10,6 +10,14 @@ Result<int, ParseError> parse() {
     return Ok(a);
 }
 
+Result<int, ParseError> parseLater() {
+    () -> Result<int, ParseError> later = () -> {
+        int a = try read();             // error: 'try' would return an error of type 'IoError' from this lambda, whose error type is 'ParseError'
+        return Ok(a);
+    };
+    return later();
+}
+
 int plain() {
     int a = try read();                 // error: 'try' can only be used in a function that returns a 'Result'
     return a;

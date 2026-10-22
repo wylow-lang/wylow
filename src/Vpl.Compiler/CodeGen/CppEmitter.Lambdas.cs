@@ -9,11 +9,11 @@ namespace Vpl.Compiler.CodeGen;
 /// <remarks>
 /// A non-escaping lambda is a C++ lambda capturing by reference, which is safe because it can't
 /// outlive the call it is passed to; an escaping one is a <c>vpl::Function</c>, a reference to a
-/// closure object holding copies of what it captures. A non-escaping function-typed parameter is
-/// a template parameter, so the C++ optimizer
-/// can inline each lambda into the function it is passed to. Where a template can't be used, it is
-/// a <c>vpl::FunctionRef</c>, which calls the lambda indirectly: in a virtual method or a class's
-/// implementation of an interface method, which C++ can't make a template; in a recursive function, which could instantiate itself without end by
+/// closure object holding copies of what it captures. A non-escaping function-typed parameter is a
+/// template parameter, so the C++ optimizer can inline each lambda into the function it is passed
+/// to. Where a template can't be used, it is a <c>vpl::FunctionRef</c>, which calls the lambda
+/// indirectly: in a virtual method or a class's implementation of an interface method, which C++
+/// can't make a template; in a recursive function, which could instantiate itself without end by
 /// passing itself a new lambda; in a constructor, whose name can't tell overloads apart; and in a
 /// function type's own parameters.
 /// </remarks>
@@ -56,13 +56,33 @@ public sealed partial class CppEmitter
 
     /// <summary>
     /// Overloads that differ only in their function types would be the same C++ template, so a
-    /// function with function-typed parameters gets a suffix that encodes them.
+    /// function with function-typed parameters gets a suffix that encodes them, if it may have such
+    /// an overload (<see cref="FindOverloaded"/>).
     /// </summary>
-    static string OverloadSuffix(FunctionSymbol function)
+    string OverloadSuffix(FunctionSymbol function)
     {
+        if (!overloaded.Contains(function))
+            return "";
         var parts = function.Parameters.Select((p, i) => p.Type.IsFunction ? $"{i}{Mangle(p.Type)}" : "").ToList();
         return parts.Any(p => p.Length > 0) ? "_" + string.Concat(parts) : "";
     }
+
+    /// <summary>Functions and methods that share their name and parameter count with another.</summary>
+    HashSet<FunctionSymbol> overloaded = [];
+
+    /// <summary>
+    /// Grouped across the whole program, so that a method and the methods that override or implement
+    /// it, which share their name and parameter count, are named alike.
+    /// </summary>
+    static HashSet<FunctionSymbol> FindOverloaded(BoundProgram program) =>
+    [
+        .. program.Functions.Select(f => f.Symbol).Where(f => f.ContainingType is null)
+            .Concat(program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m)))
+            .Distinct()
+            .GroupBy(f => (f.Name, f.Parameters.Count))
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g),
+    ];
 
     /// <summary>A name for a type made only of identifier characters, which no other type has.</summary>
     static string Mangle(VplType type)
@@ -98,10 +118,11 @@ public sealed partial class CppEmitter
     /// An argument for a nullable non-escaping parameter, a <c>vpl::Optional</c> of a
     /// <c>vpl::FunctionRef</c>. It is made here, from the value <see cref="PassedValue"/> gives,
     /// rather than where the argument is evaluated, which may be a statement of its own
-    /// (<see cref="Ordered"/>) that a lambda made in it wouldn't outlive.
+    /// (<see cref="Ordered"/>) that a lambda made in it wouldn't outlive. Any other argument is
+    /// passed as it is.
     /// </summary>
-    string OptionalFunctionArgument(VplType type, string argument) =>
-        $"vpl::optional_ref<{FunctionSignature(type.NonNull)}>({argument})";
+    string OptionalFunctionArgument(VplType parameter, string argument) =>
+        IsNullableNonEscaping(parameter) ? $"vpl::optional_ref<{FunctionSignature(parameter.NonNull)}>({argument})" : argument;
 
     /// <summary>What is evaluated for an argument: for a nullable non-escaping parameter, the function or nullable before its conversion.</summary>
     static BoundExpression PassedValue(VplType parameter, BoundExpression argument) =>
@@ -168,11 +189,7 @@ public sealed partial class CppEmitter
         lambdaDepth++;
         foreach (var statement in lambda.Body.Statements)
             Statement(statement);
-        if (function.ReturnType != VplType.Void)
-        {
-            var body = lambda.Body.Location;
-            Line($"vpl::unreachable({SourceLocation(body with { Span = new TextSpan(body.Span.End - 1, 1) })});");
-        }
+        EndBody(lambda.Body, function.ReturnType);
         var bodyText = output.ToString();
         lambdaDepth--;
         (output, indent, currentFunction) = (enclosingOutput, enclosingIndent, enclosingFunction);
@@ -267,7 +284,7 @@ public sealed partial class CppEmitter
         var operands = new List<Operand> { new(callee, ByReference: true, PinRoot(callee), PinValue: callee.Type.IsEscaping && !IsStable(callee)) };
         operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(invocation.Signature, i, argument)));
         var signature = invocation.Signature;
-        return Ordered(operands, parts => $"{parts[0]}({string.Join(", ", parts.Skip(1).Select((p, i) =>
-            IsNullableNonEscaping(signature.ParameterType(i)) ? OptionalFunctionArgument(signature.ParameterType(i), p) : p))})");
+        return Ordered(operands, parts =>
+            $"{parts[0]}({string.Join(", ", parts.Skip(1).Select((p, i) => OptionalFunctionArgument(signature.ParameterType(i), p)))})");
     }
 }

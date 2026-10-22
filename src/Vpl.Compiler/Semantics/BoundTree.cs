@@ -384,7 +384,7 @@ public static class BoundTree
     /// Whether a function or lambda enclosing <paramref name="lambda"/> declares <paramref name="local"/>.
     /// Compiler temporaries have no owner, since only the code that makes one uses it.
     /// </summary>
-    static bool IsDeclaredAround(LocalSymbol local, FunctionSymbol lambda)
+    public static bool IsDeclaredAround(LocalSymbol local, FunctionSymbol lambda)
     {
         for (var function = lambda.Enclosing; function is not null; function = function.Enclosing)
         {

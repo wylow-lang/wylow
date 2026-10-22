@@ -85,11 +85,12 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         Expression(initializer, new State());
     }
 
+    /// <summary>A lambda's own locals and parameters change only while it runs, so only those declared around it count.</summary>
     static void MarkAssignedByLambdas(IEnumerable<BoundExpression> expressions)
     {
         foreach (var lambda in expressions.OfType<BoundLambda>())
         {
-            foreach (var local in AssignedLocals(lambda.Body))
+            foreach (var local in AssignedLocals(lambda.Body).Where(l => BoundTree.IsDeclaredAround(l, lambda.Function)))
                 local.IsAssignedByLambda = true;
         }
     }
@@ -115,7 +116,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         if (state.Reachable && returnType != VplType.Void && returnType != VplType.Error)
             diagnostics.Error(EndOf(lambda.Body.Location), "this lambda must return a value on every path");
     }
-
 
     void CheckFieldsAssigned(State state, Location location)
     {

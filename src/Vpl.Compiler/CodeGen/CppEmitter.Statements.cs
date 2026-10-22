@@ -125,16 +125,25 @@ public sealed partial class CppEmitter
         {
             Line("return self;");
         }
-        else if (symbol.ReturnType != VplType.Void)
-        {
-            var body = function.Body.Location;
-            Line($"vpl::unreachable({SourceLocation(body with { Span = new TextSpan(body.Span.End - 1, 1) })});");
-        }
+        else
+            EndBody(function.Body, symbol.ReturnType);
         indent--;
         Line("}");
         context = Context.Free;
         currentType = null;
         currentFunction = null;
+    }
+
+    /// <summary>
+    /// Flow analysis has checked that a function returning a value can't reach the end of its body,
+    /// but C++ can't always tell, so the end is marked unreachable unless the body ends in a return.
+    /// </summary>
+    void EndBody(BoundBlock body, VplType returnType)
+    {
+        if (returnType == VplType.Void || body.Statements.LastOrDefault() is BoundReturn)
+            return;
+        var location = body.Location;
+        Line($"vpl::unreachable({SourceLocation(location with { Span = new TextSpan(location.Span.End - 1, 1) })});");
     }
 
     void Statement(BoundStatement statement)

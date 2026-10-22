@@ -154,11 +154,11 @@ public sealed partial class Binder
             ? lambda.Values.Count == 0
             : lambda.Values.Count > 0 && lambda.Values.All(v => CanConvert(v, to.NonNull.FunctionReturnType!)));
 
-    /// <summary>Gives an inferred lambda its function type, converting what it returns.</summary>
-    BoundExpression RetargetLambda(BoundPendingLambda pending, InferredLambda lambda, VplType type)
+    /// <summary>Gives an inferred lambda its function type, converting what it returns. Overload resolution has checked that it fits.</summary>
+    BoundLambda RetargetLambda(BoundPendingLambda pending, InferredLambda lambda, VplType type)
     {
         if (!InferredLambdaFits(lambda, type))
-            return ErrorExpression(pending.Location, $"this lambda cannot be converted to '{type}'");
+            throw new InvalidOperationException($"an inferred lambda was converted to '{type}', which it doesn't fit");
         // The body's locals and lambdas refer to this symbol, so it keeps being the lambda's.
         lambda.Function.InferReturnType(type.FunctionReturnType!);
         return new BoundLambda(pending.Location, type, lambda.Function, (BoundBlock)ConvertReturns(lambda.Body, lambda.Function));
@@ -174,6 +174,8 @@ public sealed partial class Binder
         BoundFor s => new BoundFor(s.Location, s.Initializer, s.Condition, s.Update, ConvertReturns(s.Body, function)),
         BoundForRange s => new BoundForRange(s.Location, s.Local, s.Start, s.End, s.IsInclusive, ConvertReturns(s.Body, function)),
         BoundSwitch s => new BoundSwitch(s.Location, s.Value, [.. s.Cases.Select(c => new BoundSwitchCase<BoundStatement>(c.Location, c.Patterns, ConvertReturns(c.Body, function)))]),
+        // A statement kind added later could hold returns that would otherwise be left unconverted.
+        _ when BoundTree.InnerStatements(statement).Any() => throw new InvalidOperationException($"returns in a {statement.GetType().Name} are not converted"),
         _ => statement,
     };
 
@@ -211,7 +213,7 @@ public sealed partial class Binder
     /// waiting for a type, an argument (<paramref name="mayWait"/>) waits for overload resolution
     /// to give it one; anywhere else, the lambdas take another option's function type.
     /// </summary>
-    BoundExpression Choose(Location location, IReadOnlyList<BoundExpression> options, bool mayWait, Func<VplType?, BoundExpression> make)
+    BoundExpression Choose(Location location, IReadOnlyList<BoundExpression> options, VplType? expected, bool mayWait, Func<VplType?, BoundExpression> make)
     {
         var leaves = options.SelectMany(Options).ToList();
         if (!leaves.Any(o => o is BoundPendingLambda))
@@ -222,7 +224,8 @@ public sealed partial class Binder
         if (type is null)
         {
             var lambda = leaves.OfType<BoundPendingLambda>().First();
-            Error(lambda.Location, lambda.Syntax.IsFunctionReference
+            Error(lambda.Location, expected is not null && expected != VplType.Error ? NotFunctionTypeMessage(lambda, expected)
+                : lambda.Syntax.IsFunctionReference
                 ? $"'{TextOf(lambda.Location)}' is a function, which can only be used as a value where a function type is expected"
                 : "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'");
             type = VplType.Error;
@@ -230,7 +233,19 @@ public sealed partial class Binder
         return make(type);
     }
 
+    static string NotFunctionTypeMessage(BoundPendingLambda lambda, VplType to) =>
+        $"{(lambda.Syntax.IsFunctionReference ? "a function" : "a lambda")} cannot be converted to '{to}', which is not a function type";
+
     static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+
+    /// <summary>An argument as a message lists it: its type, or what a lambda still waiting for one takes.</summary>
+    static string DescribeArgument(BoundExpression argument) => argument switch
+    {
+        BoundPendingLambda { DeclaredParameters: { } declared } => $"lambda taking ({string.Join(", ", declared)})",
+        BoundPendingLambda lambda => $"lambda taking {Count(lambda.Syntax.Parameters.Count, "argument")}",
+        BoundPendingChoice => "choice of lambdas",
+        _ => argument.Type.ToString(),
+    };
 
     /// <summary>The function or lambda being bound, as messages name it.</summary>
     static string Describe(FunctionSymbol function) => function.IsLambda ? "this lambda" : $"'{function.Name}'";
