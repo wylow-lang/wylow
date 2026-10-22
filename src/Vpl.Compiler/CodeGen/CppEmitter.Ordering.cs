@@ -165,11 +165,14 @@ public sealed partial class CppEmitter
     }
 
     // Two effects (calls, panics) must stay in order, and so must a write and a read of the same
-    // state. Any call may write any object, so object fields count as read by every call.
+    // state. Any call may write any object, so object fields count as read by every call; a call
+    // that may run a lambda may also write the locals lambdas change.
     bool Conflicts(Operand a, Operand b) =>
         (HasEffects(a.Expression) && HasEffects(b.Expression))
         || (Writes(a.Expression) && Reads(b, ReadsState))
         || (Writes(b.Expression) && Reads(a, ReadsState))
+        || (RunsLambdas(a.Expression) && Reads(b, ReadsLambdaChanged))
+        || (RunsLambdas(b.Expression) && Reads(a, ReadsLambdaChanged))
         || (WritesHeap(a.Expression) && Reads(b, ReadsHeap))
         || (WritesHeap(b.Expression) && Reads(a, ReadsHeap));
 
@@ -200,17 +203,10 @@ public sealed partial class CppEmitter
         _ => BoundTree.Children(expression).Any(HasEffects),
     };
 
-    /// <summary>
-    /// Whether evaluating the expression may modify locals, parameters, or fields of values. A
-    /// lambda may modify the locals it captures, and runs when a function value is called, which
-    /// a call given a function value may do.
-    /// </summary>
+    /// <summary>Whether evaluating the expression may modify locals, parameters, or fields of values, other than by running a lambda.</summary>
     static bool Writes(BoundExpression expression) => expression switch
     {
-        BoundInvocation => true,
-        BoundCall call when call.Arguments.Any(a => a.Type.IsFunction) => true,
-        BoundConstruction construction when construction.Arguments.Any(a => a.Type.IsFunction) => true,
-        BoundNew creation when creation.Arguments.Any(a => a.Type.IsFunction) => true,
+        BoundInvocation invocation when invocation.Callee.Type.NonNull.FunctionParameters.Any(p => p.RefKind == RefKind.Ref) => true,
         BoundCall call when call.Method.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref)
             || (call.Receiver is not null && !call.Receiver.Type.IsReference && !call.Method.Symbol.IsReadOnly) => true,
         BoundConstruction construction when construction.Constructor.Symbol.Parameters.Any(p => p.RefKind == RefKind.Ref) => true,
@@ -219,8 +215,37 @@ public sealed partial class CppEmitter
         _ => BoundTree.Children(expression).Any(Writes),
     };
 
+    /// <summary>
+    /// Whether evaluating the expression may run a lambda: a call of a function value, or a call
+    /// given one. Only a non-escaping lambda can change a local, and it can only run while a call it
+    /// was passed to, or a call of it, runs.
+    /// </summary>
+    static bool RunsLambdas(BoundExpression expression) => expression switch
+    {
+        BoundInvocation => true,
+        BoundCall call when call.Arguments.Any(IsFunctionValue) => true,
+        BoundConstruction construction when construction.Arguments.Any(IsFunctionValue) => true,
+        BoundNew creation when creation.Arguments.Any(IsFunctionValue) => true,
+        _ => BoundTree.Children(expression).Any(RunsLambdas),
+    };
+
+    static bool IsFunctionValue(BoundExpression expression) => expression.Type.NonNull.IsFunction;
+
+    /// <summary>Locals that a non-escaping lambda captures and that are changed anywhere, so that running a lambda may change them.</summary>
+    HashSet<LocalSymbol> lambdaChanged = [];
+
+    static HashSet<LocalSymbol> FindLambdaChanged(BoundProgram program) =>
+    [
+        .. FunctionValues.Lambdas(program).Where(l => !l.Type.IsEscaping)
+            .SelectMany(l => BoundTree.Captures(l).Locals.Select(a => a.Local))
+            .Where(l => l.IsModified),
+    ];
+
+    bool ReadsLambdaChanged(BoundExpression expression) =>
+        expression is BoundLocalAccess access && lambdaChanged.Contains(access.Local) || BoundTree.Children(expression).Any(ReadsLambdaChanged);
+
     /// <summary>Whether evaluating the expression may run user code, which can modify any object.</summary>
-    static bool WritesHeap(BoundExpression expression) => expression switch
+    static bool WritesHeap(BoundExpression expression) => RunsLambdas(expression) || expression switch
     {
         BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew or BoundInvocation => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit => true,

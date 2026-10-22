@@ -357,7 +357,7 @@ public sealed partial class CppEmitter
     string Assignment(BoundAssignment assignment)
     {
         var root = PinRoot(assignment.Target);
-        bool valueMatters = HasEffects(assignment.Value) || Writes(assignment.Value);
+        bool valueMatters = HasEffects(assignment.Value) || Writes(assignment.Value) || RunsLambdas(assignment.Value);
         if (!IsFieldPath(assignment.Target) && valueMatters)
             return LocatedAssignment(assignment, root);
         if (root is null || !valueMatters)

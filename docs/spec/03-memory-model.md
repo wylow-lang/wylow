@@ -430,6 +430,11 @@ assignment, the object holding the target is evaluated before the value: in
 bounds check, before the value: `list[i()] = f()` calls `i` before `f`, and `a[f()] += 1` calls
 `f` once.
 
+A call that may run a lambda (a call of a function value, or a call given one) counts as
+conflicting with reading a local that a lambda captures and that is changed anywhere, since only a
+non-escaping lambda can change a local, and only while such a call runs: in `x + run(() -> x = 5)`,
+`x` is read before `run`. Other locals are read wherever C++ reads them.
+
 ### Borrow counters on containers
 
 Containers that can move or free their elements keep a **borrow count**. Taking a `ref` or `Span`

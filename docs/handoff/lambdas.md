@@ -14,9 +14,11 @@ target), 3 (non-escaping parameters are templates, or `vpl::FunctionRef` where C
 (generic inference, including from lambda bodies), 10 (flow analysis), 11 (cycles), 12 (function
 references), and 13 (`@Escaping`).
 
-9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `ReadsState`) treats a call through a
-   function value as able to write anything. For `ElementAliasing`'s whole-program summary, such a
-   call writes what any lambda or function reference of its type writes (their union).
+9. **Effects.** Evaluation order (`HasEffects`, `Writes`, `RunsLambdas`) treats a call that may run
+   a lambda (of a function value, or given one) as able to write the heap and any local that a
+   non-escaping lambda captures and that is changed anywhere. For `ElementAliasing`'s
+   whole-program summary, such a call writes what any lambda or function reference of its type
+   writes (their union).
 
 ## Order of work
 
@@ -50,7 +52,7 @@ references), and 13 (`@Escaping`).
      pinned while in use as a receiver or argument (`tests/cases/lambdas/safety.vpl` would otherwise
      read freed memory).
    - Effects and ordering (decision 9): calling a function value, or calling anything with a function
-     argument, counts as writing locals.
+     argument, counts as writing the locals lambdas capture and change.
    - `ElementAliasing` counts a lambda's writes in the function that creates it, and a call of a function
      value as writing what any lambda of its type writes. Loops inside lambdas are checked too.
    - Field initializers are now flow-analyzed, since lambdas in them have bodies to check.

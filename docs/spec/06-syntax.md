@@ -490,9 +490,10 @@ be done when profiling shows it matters.
   argument (a reference count increment and decrement) even when no lambda that assigns it can
   run during that call. Only calls passed such a lambda, directly or by forwarding, can change it.
 - **Evaluation order.** Any call given a function value, and any call of one, is treated as
-  writing every local, so operands around it are hoisted into an ordering lambda. This is usually
-  inlined away but can force temporaries; tracking which locals each lambda writes would avoid it.
-  Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
+  writing every local that a non-escaping lambda captures and that is changed anywhere, so operands
+  reading one are hoisted into an ordering lambda, though the lambda the call can run may not change
+  it. Tracking which locals each lambda changes, and which lambdas each call can run, would avoid
+  that. Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
   block nesting. Real code doesn't nest that deep, so this is a known limit, not a planned fix.
 - **Element aliasing and cycles.** A call of a function value counts as writing what every lambda
   of its type writes, so one `(Mob) -> void` lambda storing into elements of type `X` anywhere
