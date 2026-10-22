@@ -1,0 +1,25 @@
+// An object on the stack whose destructor keeps a reference to it panics as one on the heap does.
+
+class Keeper {
+    Ghost? kept;
+}
+
+class Ghost {
+    Keeper keeper;
+
+    Ghost(Keeper keeper) {
+        this.keeper = keeper;
+    }
+
+    ~Ghost() {
+        keeper.kept = this;
+    }
+}
+
+void scope(Keeper keeper) {
+    var g = new Ghost(keeper); // stack: 1
+}
+
+void main() {
+    scope(new Keeper());    // panic: an object's destructor kept a reference to the object
+}

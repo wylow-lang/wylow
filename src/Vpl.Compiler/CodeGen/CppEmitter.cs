@@ -51,10 +51,13 @@ public sealed partial class CppEmitter
     List<TypeSymbol> borrowableClasses = [];
     HashSet<TypeSymbol> sharedObjectRoots = [];
     CyclicClasses cycles = null!;
+    StackObjects stackObjects = null!;
+    readonly Dictionary<BoundNew, string> slots = new(ReferenceEqualityComparer.Instance);
 
-    public string Emit(BoundProgram program, CyclicClasses cycles)
+    public string Emit(BoundProgram program, CyclicClasses cycles, StackObjects stackObjects)
     {
         this.cycles = cycles;
+        this.stackObjects = stackObjects;
         recursive = FindRecursive(program);
         overloaded = FindOverloaded(program);
         unoverridden = FindUnoverridden(program);

@@ -1,5 +1,5 @@
 // Only objects of classes that may be cyclic are buffered when a release leaves their count above
-// zero. Each `drop` below makes one such release.
+// zero, and only on the heap. Each `onHeap` and `drop` below makes one such release.
 
 class Leaf {
     int value;
@@ -81,6 +81,11 @@ class Declared {
 void drop<T>(T value) {
 }
 
+// Returning an object keeps it on the heap; an object that can be on the stack is never buffered.
+T onHeap<T>(T value) {
+    return value;
+}
+
 void report(String name) {
     var stats = Memory.cycleStats();
     print(name);
@@ -88,7 +93,7 @@ void report(String name) {
 }
 
 void main() {
-    var holder = new Holder();
+    var holder = onHeap(new Holder());
     drop(holder);
     drop(holder.leaf);
     drop(holder.numbers);
@@ -96,44 +101,51 @@ void main() {
     report("acyclic");                  // output: acyclic
     // output: 0
 
-    var node = new Node();
+    var node = onHeap(new Node());
     drop(node);
     drop(node);
     report("buffered once");            // output: buffered once
     // output: 1
 
-    var linked = new Linked();
-    var slotted = new Slotted();
-    var listed = new Listed();
+    var linked = onHeap(new Linked());
+    var slotted = onHeap(new Slotted());
+    var listed = onHeap(new Listed());
     drop(linked);
     drop(slotted);
     drop(listed);
     drop(listed.others);
-    var holds = new Holds();
+    var holds = onHeap(new Holds());
     drop(holds);
     report("through values and lists"); // output: through values and lists
     // output: 4
 
-    var pet = new Pet();
-    var animal = new Animal();
-    var group = new Group();
+    var pet = onHeap(new Pet());
+    var animal = onHeap(new Animal());
+    var group = onHeap(new Group());
     drop(pet);
     drop(animal);
     drop(group);
     report("through subtypes");         // output: through subtypes
     // output: 2
 
-    var owned = new Wrapper<Owner>(new Owner());
-    var number = new Wrapper<int>(1);
+    var owned = onHeap(new Wrapper<Owner>(new Owner()));
+    var number = onHeap(new Wrapper<int>(1));
+    // Collecting empties the buffer, which onHeap added to, so that only the drops count.
+    Memory.collectCycles();
     _ = Memory.cycleStats();
     drop(owned);
     drop(number);
     report("generic");                  // output: generic
     // output: 1
 
-    var declared = new Declared();
+    var declared = onHeap(new Declared());
     drop(declared);
     report("declared acyclic");         // output: declared acyclic
+    // output: 0
+
+    var local = new Node();             // stack: 1
+    drop(local);
+    report("on the stack");             // output: on the stack
     // output: 0
 
     // A collection leaves nothing buffered, so the object is buffered again.

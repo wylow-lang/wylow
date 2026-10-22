@@ -42,6 +42,11 @@ class Cell {
 void drop<T>(T value) {
 }
 
+// Returning an object keeps it on the heap; an object that can be on the stack is never buffered.
+T onHeap<T>(T value) {
+    return value;
+}
+
 void report(String name) {
     var stats = Memory.cycleStats();
     print(name);
@@ -50,8 +55,8 @@ void report(String name) {
 
 void main() {
     int base = 3;
-    var leaf = new Leaf();
-    var button = new Button(() -> base + 1);
+    var leaf = onHeap(new Leaf());
+    var button = onHeap(new Button(() -> base + 1));
     button.extra.add(() -> leaf.value);
     button.extra.add(() -> 7);
     @Escaping () -> int read = () -> leaf.value;
@@ -61,7 +66,7 @@ void main() {
     report("acyclic closures");         // output: acyclic closures
     // output: 0
 
-    var widget = new Widget();
+    var widget = onHeap(new Widget());
     widget.arm();
     drop(widget);
     drop(widget.check);
@@ -69,7 +74,7 @@ void main() {
     // output: 2
 
     // The closure is released once too, after the constructor copies it.
-    var cell = new Cell(constant(5L));
+    var cell = onHeap(new Cell(constant(5L)));
     drop(cell);
     report("generic lambda");           // output: generic lambda
     // output: 2

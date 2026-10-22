@@ -333,6 +333,18 @@ public static class BoundTree
         _ => null,
     };
 
+    /// <summary>
+    /// The names an expression's patterns bind, which a statement evaluating it declares in the
+    /// enclosing block. A switch expression declares its cases' names inside itself.
+    /// </summary>
+    public static IEnumerable<LocalSymbol> PatternLocals(BoundExpression? expression) => expression switch
+    {
+        null => [],
+        BoundIs pattern => [.. PatternLocals(pattern.Operand), .. Patterns.Bindings(pattern.Pattern)],
+        BoundSwitchExpression switchExpression => PatternLocals(switchExpression.Value),
+        _ => Children(expression).SelectMany(PatternLocals),
+    };
+
     /// <summary>The statements directly inside a statement.</summary>
     public static IEnumerable<BoundStatement> InnerStatements(BoundStatement statement) => statement switch
     {

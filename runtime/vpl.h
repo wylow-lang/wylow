@@ -290,9 +290,13 @@ class Object {
     template <class>
     friend class Weak;
     friend class CycleCollector;
+    template <class>
+    friend class StackSlot;
 
     void destroy();
     void add_to_buffer();
+    void leave_collector();
+    void destroy_in_slot(bool in_place);
 
     uint64_t refs() const { return state >> flag_bits; }
     // Only for the collector, which balances every one of these.
@@ -1177,6 +1181,70 @@ inline void Object::add_to_buffer() {
     cycles.add(this);
     ++cycles.stats.buffered;
 }
+
+// Its slot holds a reference for the object's whole life, so a release never frees it and could
+// only buffer it, leaving the buffer pointing into a frame that will be gone. Nothing outside its
+// scope refers to it, so it is never part of an unreachable cycle anyway. Its constructor may have
+// buffered it already, by releasing a reference to `this`.
+inline void Object::leave_collector() {
+    state &= ~cyclic;
+    if (state & buffered) cycles.remove(this);
+}
+
+// As destroy(), except that the slot's reference is still held: it is the 1 that ~Object checks for.
+inline void Object::destroy_in_slot(bool in_place) {
+    if constexpr (VPL_DEBUG != 0) {
+        if (refs() != 1) panic("internal compiler error: an object on the stack outlived its scope", "<runtime>");
+    }
+    clear_weak();
+    if (state & buffered) cycles.remove(this);
+    ++cycles.destroying;
+    if (in_place) {
+        this->~Object();
+    } else {
+        delete this;
+    }
+    --cycles.destroying;
+}
+
+// Holds an object made by a `new` that the compiler has proved can't outlive the scope declaring
+// the slot: in the slot itself, or, for an object too large for the stack, on the heap as usual.
+// The slot owns the reference that `new` starts the object with, so the count never reaches 0
+// before the slot's end, which runs the destructors. The compiler ends a slot for a temporary at
+// the end of its statement, and one for a local where the local goes out of scope.
+inline constexpr size_t stack_object_limit = 512;
+
+template <class T>
+class StackSlot {
+    static constexpr bool in_place = sizeof(T) <= stack_object_limit;
+    alignas(T) unsigned char storage[in_place ? sizeof(T) : 1];
+    T* object = nullptr;
+
+public:
+    StackSlot() = default;
+    StackSlot(const StackSlot&) = delete;
+    StackSlot& operator=(const StackSlot&) = delete;
+    ~StackSlot() { end(); }
+
+    template <class... A>
+    Ref<T> make(A&&... arguments) {
+        if constexpr (VPL_DEBUG != 0) {
+            if (object != nullptr) panic("internal compiler error: a stack slot was filled twice", "<runtime>");
+        }
+        if constexpr (in_place) {
+            object = new (storage) T(std::forward<A>(arguments)...);
+        } else {
+            object = new T(std::forward<A>(arguments)...);
+        }
+        static_cast<Object*>(object)->leave_collector();
+        return Ref<T>(object);
+    }
+
+    void end() {
+        if (object == nullptr) return;
+        static_cast<Object*>(std::exchange(object, nullptr))->destroy_in_slot(in_place);
+    }
+};
 
 // ---- Functions ----
 

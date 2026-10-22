@@ -1,0 +1,230 @@
+// An object that no reference can outlive its scope is on the stack, which no program can observe:
+// it is destroyed exactly where it would have been released. `stack:` counts the objects of a line
+// that are; every other object made in the program is on the heap.
+
+class Noisy {
+    String name;
+    Noisy? other;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print(name);
+    }
+
+    String label() {
+        return name;
+    }
+
+    Noisy self() {
+        return this;
+    }
+}
+
+class Registered {
+    Registered(List<Registered> all) {
+        all.add(this);
+    }
+}
+
+class Keeper {
+    Noisy? kept;
+}
+
+interface Visitor {
+    void visit(Noisy n);
+}
+
+class Reader implements Visitor {
+    void visit(Noisy n) {
+        print(n.label());
+    }
+}
+
+class Storer implements Visitor {
+    Keeper keeper = new Keeper();
+
+    void visit(Noisy n) {
+        keeper.kept = n;
+    }
+}
+
+class Box<T> {
+    T value;
+
+    Box(T value) {
+        this.value = value;
+    }
+}
+
+class Big {
+    int[200] values;
+}
+
+String read(Noisy n) {
+    return n.name;
+}
+
+Noisy pass(Noisy n) {
+    return n;
+}
+
+void keep(Keeper keeper, Noisy n) {
+    keeper.kept = n;
+}
+
+// Recursion passes the object on without storing it.
+int depth(Noisy n, int count) {
+    if (count == 0) {
+        return 0;
+    }
+    return 1 + depth(n, count - 1);
+}
+
+void run(() -> void f) {
+    f();
+}
+
+void scope() {
+    var a = new Noisy("a"); // stack: 1
+    var b = new Noisy("b"); // stack: 1
+    print(read(a));
+    print(b.label());
+    print("end of scope");
+}
+
+Noisy returned() {
+    var n = new Noisy("returned"); // stack: 0
+    return n;
+}
+
+void visitWith(Visitor v) {
+    var n = new Noisy("visited"); // stack: 0
+    v.visit(n);
+}
+
+void main() {
+    scope();
+    // output: a
+    // output: b
+    // output: end of scope
+    // output: b
+    // output: a
+
+    // A temporary is destroyed at the end of its statement.
+    print(new Noisy("t").label()); // stack: 1
+    // output: t
+    // output: t
+    print(depth(new Noisy("u"), 1)); // stack: 1
+    // output: 1
+    // output: u
+    var length = new Noisy("v").label(); // stack: 1
+    // output: v
+    print(length);
+    // output: v
+
+    // One object per iteration, each destroyed at the end of its iteration.
+    for (int i : 0..2) {
+        var item = new Noisy("item"); // stack: 1
+        print(depth(item, 3));
+    }
+    // output: 3
+    // output: item
+    // output: 3
+    // output: item
+
+    // Locals the object is copied to, pattern bindings, and non-escaping lambdas don't outlive it.
+    {
+        var x = new Noisy("x"); // stack: 1
+        var y = x;
+        Noisy? z = x;
+        if (z is Noisy w) {
+            print(w.label());
+        }
+        run(() -> print(y.label()));
+    }
+    // output: x
+    // output: x
+    // output: x
+
+    // Escapes: returned, stored, given to code that stores it, or to a function that returns it.
+    print(returned().name);
+    // output: returned
+    // output: returned
+    // Objects can be on the stack while the objects they refer to are not.
+    var keeper = new Keeper(); // stack: 1
+    var stored = new Noisy("stored"); // stack: 0
+    keeper.kept = stored;
+    var given = new Noisy("given"); // stack: 0
+    keep(keeper, given);
+    print(pass(new Noisy("passed")).name); // stack: 0
+    // output: passed
+    // output: passed
+    print(new Noisy("self").self().name); // stack: 0
+    // output: self
+    // output: self
+    var list = new List<Noisy>(); // stack: 1
+    var element = new Noisy("element"); // stack: 0
+    list.add(element);
+    @Escaping () -> String f = () -> element.name;
+    var captured = new Noisy("captured"); // stack: 0
+    @Escaping () -> String g = () -> captured.name;
+    print(g());
+    // output: captured
+    Weak<Noisy> weak = new Noisy("weak"); // stack: 0
+    // output: weak
+    Noisy? outer = null;
+    {
+        var inner = new Noisy("inner"); // stack: 0
+        outer = inner;
+    }
+    var looped = new Noisy("looped"); // stack: 0
+    run(() -> { keeper.kept = looped; });
+
+    // A constructor that stores `this`, a call that may dispatch to a method that stores its
+    // argument, and a variable that is reassigned.
+    var all = new List<Registered>(); // stack: 1
+    var registered = new Registered(all); // stack: 0
+    visitWith(new Reader()); // stack: 1
+    // output: visited
+    // output: visited
+    visitWith(new Storer()); // stack: 1
+    // output: visited
+    var changing = new Noisy("first"); // stack: 0
+    changing = new Noisy("second"); // stack: 0
+    // output: first
+
+    // Generic classes, and objects too large for the stack, which stay on the heap at run time.
+    var box = new Box<Noisy>(new Noisy("boxed")); // stack: 1
+    print(box.value.name);
+    // output: boxed
+    var big = new Big(); // stack: 1
+    big.values[3] = 4;
+    print(big.values[3]);
+    // output: 4
+
+    // A cyclic class on the stack is never buffered: collecting finds nothing.
+    {
+        var node = new Noisy("node"); // stack: 1
+        node.other = new Noisy("next"); // stack: 0
+        print(read(node));
+        Memory.collectCycles();
+        print(Memory.cycleStats().freed);
+    }
+    // output: node
+    // output: 0
+    // output: node
+    // output: next
+    print("end");
+    // output: end
+}
+// output: boxed
+// output: second
+// output: inner
+// output: captured
+// output: element
+// output: given
+// output: stored
+// output: looped

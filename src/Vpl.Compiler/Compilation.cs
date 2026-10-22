@@ -9,6 +9,9 @@ namespace Vpl.Compiler;
 public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, string? Cpp)
 {
     public bool Success => Cpp is not null;
+
+    /// <summary>Where each object that is on the stack instead of the heap is made, for tests.</summary>
+    public IReadOnlyList<Location> StackObjects { get; init; } = [];
 }
 
 public static class Compilation
@@ -35,6 +38,10 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         new ElementAliasing(program).Run();
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, CyclicClasses.Find(program)));
+        var stackObjects = StackObjects.Find(program);
+        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, CyclicClasses.Find(program), stackObjects))
+        {
+            StackObjects = [.. stackObjects.Locations],
+        };
     }
 }

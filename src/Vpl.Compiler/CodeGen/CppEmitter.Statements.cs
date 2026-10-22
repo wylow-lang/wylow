@@ -167,6 +167,7 @@ public sealed partial class CppEmitter
             case BoundVariableDeclaration declaration:
                 DeclarePatternLocals(declaration.Initializer);
                 HoistTry(declaration.Initializer);
+                DeclareSlots(statement);
                 var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
                     : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
                     : "{}";
@@ -177,6 +178,7 @@ public sealed partial class CppEmitter
                     : "auto";
                 Line($"{type} {LocalName(declaration.Local)}{initializer};");
                 EndTry(declaration.Initializer);
+                EndSlots(statement);
                 break;
             case BoundAssignment assignment when FindTry(assignment.Value) is not null:
             {
@@ -198,7 +200,9 @@ public sealed partial class CppEmitter
             }
             case BoundAssignment assignment:
                 DeclarePatternLocals(assignment.Value);
+                DeclareSlots(statement);
                 Line(SimpleStatement(statement) + ";");
+                EndSlots(statement);
                 break;
             // The unused value is released by the end of the statement, as other temporaries are.
             case BoundExpressionStatement { Expression: var expression } when FindTry(expression) is not null:
@@ -212,7 +216,9 @@ public sealed partial class CppEmitter
                 break;
             case BoundExpressionStatement expressionStatement:
                 DeclarePatternLocals(expressionStatement.Expression);
+                DeclareSlots(statement);
                 Line(SimpleStatement(statement) + ";");
+                EndSlots(statement);
                 break;
             case BoundSwitch switchStatement:
                 Switch(switchStatement);
@@ -259,6 +265,7 @@ public sealed partial class CppEmitter
             case BoundReturn returnStatement:
                 DeclarePatternLocals(returnStatement.Value);
                 HoistTry(returnStatement.Value);
+                DeclareSlots(statement);
                 if (context == Context.StructConstructor && lambdaDepth == 0)
                     Line("return self;");
                 else
@@ -311,25 +318,42 @@ public sealed partial class CppEmitter
             replacements.Remove(attempt);
     }
 
-    static IEnumerable<LocalSymbol> PatternLocals(BoundExpression? expression) => expression switch
+    /// <summary>
+    /// Declares a slot for each object on the stack that the statement makes, just before the
+    /// statement's own line, so that a local's slot is destroyed right after the local, as the
+    /// local's release would have destroyed the object; see <see cref="StackObjects"/>.
+    /// </summary>
+    void DeclareSlots(BoundStatement statement)
     {
-        null => [],
-        BoundIs pattern => [.. PatternLocals(pattern.Operand), .. Patterns.Bindings(pattern.Pattern)],
-        // A switch expression declares its cases' names inside itself.
-        BoundSwitchExpression switchExpression => PatternLocals(switchExpression.Value),
-        _ => BoundTree.Children(expression).SelectMany(PatternLocals),
-    };
+        foreach (var made in stackObjects.MadeBy(statement))
+        {
+            var slot = NewTemp();
+            Line($"vpl::StackSlot<{ObjectType(made.Creation.Type)}> {slot};");
+            slots[made.Creation] = slot;
+        }
+    }
+
+    /// <summary>
+    /// Destroys the statement's temporaries, at the end of the statement, where they would have
+    /// been released. A return leaves them to be destroyed with its other locals, first, since
+    /// they were declared last.
+    /// </summary>
+    void EndSlots(BoundStatement statement)
+    {
+        foreach (var made in stackObjects.MadeBy(statement).Where(m => m.IsTemporary))
+            Line($"{slots[made.Creation]}.end();");
+    }
 
     void DeclarePatternLocals(BoundExpression? expression)
     {
-        foreach (var local in PatternLocals(expression))
+        foreach (var local in BoundTree.PatternLocals(expression))
             Line($"{CppType(local.Type)} {LocalName(local)}{{}};");
     }
 
     // Pattern names in a condition are scoped to the statement, as in VPL.
     void OpenPatternScope(BoundExpression condition)
     {
-        if (!PatternLocals(condition).Any())
+        if (!BoundTree.PatternLocals(condition).Any())
             return;
         Line("{");
         indent++;
@@ -338,7 +362,7 @@ public sealed partial class CppEmitter
 
     void ClosePatternScope(BoundExpression condition)
     {
-        if (!PatternLocals(condition).Any())
+        if (!BoundTree.PatternLocals(condition).Any())
             return;
         indent--;
         Line("}");

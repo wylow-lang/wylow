@@ -1,0 +1,140 @@
+// Objects on the stack are destroyed exactly where they would have been released, whatever the
+// statement making them, and only objects that can't outlive their scope are on the stack.
+
+class Noisy {
+    String name;
+    Vec pos;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print(name);
+    }
+
+    String label() {
+        return name;
+    }
+}
+
+struct Vec {
+    int x;
+}
+
+interface Visitor {
+    void visit(Noisy n);
+}
+
+class Reader implements Visitor {
+    void visit(Noisy n) {
+        print(n.label());
+    }
+}
+
+class Storer implements Visitor {
+    Noisy? kept;
+
+    void visit(Noisy n) {
+        kept = n;
+    }
+}
+
+int one(Noisy n) {
+    return 1;
+}
+
+void run(() -> void f) {
+    f();
+}
+
+// The temporary is destroyed at the end of the return, before the function's locals.
+int returnsTemporary() {
+    var before = new Noisy("local"); // stack: 1
+    return one(new Noisy("temporary")); // stack: 1
+}
+
+// Leaving a loop's body destroys the object made in it.
+void leaves() {
+    int i = 0;
+    while (true) {
+        var w = new Noisy("iteration"); // stack: 1
+        i += 1;
+        if (i == 2) {
+            break;
+        }
+        print("again");
+    }
+    print("left");
+}
+
+void main() {
+    print(returnsTemporary());
+    // output: temporary
+    // output: local
+    // output: 1
+
+    leaves();
+    // output: again
+    // output: iteration
+    // output: iteration
+    // output: left
+
+    // Only the chosen object is made.
+    bool yes = true;
+    print(yes ? one(new Noisy("yes")) : one(new Noisy("no"))); // stack: 2
+    // output: 1
+    // output: yes
+
+    // A pattern binding holds its object until the end of the block, so the object is on the heap.
+    bool matched = new Noisy("matched") is Noisy m && one(m) == 1; // stack: 0
+    print(matched);
+    // output: true
+
+    // Conditional access, nullable locals, and references into the object.
+    Noisy? maybe = new Noisy("maybe"); // stack: 1
+    print(maybe?.label());
+    // output: maybe
+    var body = new Noisy("body"); // stack: 1
+    ref Vec p = body.pos;
+    p.x = 5;
+    print(body.pos.x);
+    // output: 5
+
+    // A closure's own objects can be on the stack of its call.
+    @Escaping () -> int counter = () -> {
+        var inside = new Noisy("in closure"); // stack: 1
+        return one(inside);
+    };
+    print(counter());
+    // output: in closure
+    // output: 1
+
+    // A non-escaping lambda storing an object in a variable outside it lets it escape.
+    Noisy? last = null;
+    run(() -> {
+        var made = new Noisy("made"); // stack: 0
+        last = made;
+    });
+
+    // An interface call may dispatch to any implementation: Storer.visit keeps its argument.
+    Visitor reader = new Reader(); // stack: 1
+    reader.visit(new Noisy("visited")); // stack: 0
+    // output: visited
+    // output: visited
+
+    switch (1) {
+        case 1 -> {
+            var chosen = new Noisy("case"); // stack: 1
+            print(chosen.label());
+        }
+        default -> {
+        }
+    }
+    // output: case
+    // output: case
+}
+// output: made
+// output: body
+// output: maybe
+// output: matched

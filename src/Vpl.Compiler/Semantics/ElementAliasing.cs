@@ -138,7 +138,7 @@ public sealed class ElementAliasing
     }
 
     /// <summary>The base constructor an implicit constructor calls, which takes no arguments.</summary>
-    static MethodReference BaseConstructor(TypeSymbol type, VplType baseType)
+    internal static MethodReference BaseConstructor(TypeSymbol type, VplType baseType)
     {
         var symbol = baseType.Symbol!;
         var constructor = symbol.Constructors.FirstOrDefault(c => c.Parameters.Count == 0) ?? symbol.DefaultConstructor;

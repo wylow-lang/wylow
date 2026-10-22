@@ -19,8 +19,8 @@ releasing any class references it contains.
 
 ## 3.2 Objects (classes)
 
-- Allocated with `new`, on the heap (an object that can't outlive its scope may one day be on the
-  stack instead, which no program can observe; see [Stack allocation](#stack-allocation)).
+- Allocated with `new`, on the heap (an object that can't outlive its scope is on the stack
+  instead, which no program can observe; see [Stack allocation](#stack-allocation)).
 - **Reference counted** with an intrusive (in-object) count. Normal classes use a non-atomic count;
   `shared class` uses an atomic one ([05-concurrency.md](05-concurrency.md)).
 - The destructor runs immediately when the last reference is released. This makes classes the
@@ -61,7 +61,7 @@ starts at 1, owned by the `new` expression, so a constructor that hands out and 
 
 ### Stack allocation
 
-An object made by `new` that provably can't outlive the scope that makes it may be placed in that
+An object made by `new` that provably can't outlive the scope that makes it is placed in that
 scope's stack frame instead of on the heap, saving the allocation and the free:
 
 ```java
@@ -84,7 +84,15 @@ which of its parameters, and whether its `this`, may escape, found over the whol
 whose summary isn't known, such as an `extern` one, lets everything it is given escape. An object
 storing a reference to itself (`this.self = this`) escapes.
 
-Implementation constraints, worked out ahead of time:
+Copying the reference to another local doesn't make an object escape if that local is declared
+within the object's scope (including a pattern binding, or a local of a non-escaping lambda, which
+runs only during the scope); storing it in a local declared before the scope does. A function that
+returns its argument counts as letting it escape, even where the caller only uses the result
+briefly. Destructors aren't summarized: one that keeps a reference to its object panics, on the
+stack as on the heap. A `Borrowable` object escapes if a `beginBorrow` or `endBorrow` may let its
+`this` escape, since the compiler calls them around every borrow.
+
+Implementation constraints:
 
 - **Each `new` gets its own slot.** Reassigning a local releases the object it held there, so the
   slot's object is destroyed at the assignment. A first version can handle only locals that are
@@ -110,7 +118,18 @@ This covers the object itself, not storage it holds: a local `List` could be on 
 elements stay on the heap, since the list can grow. Avoiding that is a separate technique (inline
 storage for a few elements, or arenas).
 
-> Not implemented yet.
+**Implementation.** `StackObjects` finds the objects, and a C++ `vpl::StackSlot<T>` holds each,
+declared just before the statement that makes it, so that a local's slot is destroyed right after
+the local. A temporary's slot is ended after its statement; in a `return`, it is destroyed first
+among the function's locals, as the temporary would have been released. Temporaries are looked
+for only in declarations, assignments, expression statements, and returns without a `try`. The
+slot clears the object's cyclic flag after its constructor runs, and takes it out of the buffer if
+the constructor's releases put it there. The size limit is 512 bytes, checked by C++, which knows
+the size: a slot for a larger object puts it on the heap but otherwise behaves the same.
+
+> Implemented so far: objects held by a local that is never reassigned, and temporaries. Not yet:
+> reassigned locals, closures, results of functions that return their argument, and the
+> performance warnings.
 
 ### Weak references: `Weak<T>`
 

@@ -199,7 +199,7 @@ public sealed partial class CppEmitter
             body.Append(condition is null ? "{ " : $"if ({condition}) {{ ");
             foreach (var (local, value) in bindings)
                 body.Append($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {value}; ");
-            foreach (var local in PatternLocals(switchCase.Body))
+            foreach (var local in BoundTree.PatternLocals(switchCase.Body))
                 body.Append($"{CppType(local.Type)} {LocalName(local)}{{}}; ");
             body.Append(switchCase.Body.Type == VplType.Void ? $"{Expression(switchCase.Body)}; }} " : $"return {caseValue(switchCase.Body)}; }} ");
             if (condition is null)

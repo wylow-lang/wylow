@@ -301,7 +301,10 @@ public sealed partial class CppEmitter
             .Select((argument, i) => ArgumentOperand(constructor, i, argument))
             .ToList();
         return Ordered(operands, arguments =>
-            $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), creation.Location))}))");
+        {
+            var passed = string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), creation.Location));
+            return slots.TryGetValue(creation, out var slot) ? $"{slot}.make({passed})" : $"vpl::adopt(new {ObjectType(creation.Type)}({passed}))";
+        });
     }
 
     IEnumerable<string> WithLocation(FunctionSymbol function, IEnumerable<string> arguments, Location location) =>
