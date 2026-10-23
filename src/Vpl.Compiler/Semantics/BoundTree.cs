@@ -381,7 +381,7 @@ public static class BoundTree
     /// </summary>
     public static LocalSymbol? NullableValueRoot(BoundExpression place) => place switch
     {
-        BoundLocalAccess { AssumesNonNull: true, Local: { Type.IsNullableValue: true, IsMutable: false, IsTemporary: false, RefKind: RefKind.None } } => null,
+        BoundLocalAccess { AssumesNonNull: true, Local: { Type.IsNullableValue: true, IsWritable: false, RefKind: RefKind.None } } => null,
         BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableValue: true } access => access.Local,
         BoundFieldAccess { Receiver.Type.IsReference: false } field => NullableValueRoot(field.Receiver),
         BoundIndex { Target.Type.IsFixedArray: true } index => NullableValueRoot(index.Target),

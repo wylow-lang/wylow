@@ -238,14 +238,14 @@ public sealed partial class CppEmitter
 
     static bool IsFunctionValue(BoundExpression expression) => expression.Type.NonNull.IsFunction;
 
-    /// <summary>Locals that a non-escaping lambda captures and that are changed anywhere, so that running a lambda may change them.</summary>
+    /// <summary>Locals that a non-escaping lambda captures and can change, so that running a lambda may change them.</summary>
     HashSet<LocalSymbol> lambdaChanged = [];
 
     static HashSet<LocalSymbol> FindLambdaChanged(WholeProgram whole) =>
     [
         .. whole.Lambdas.Where(l => !l.Type.IsEscaping)
             .SelectMany(l => BoundTree.Captures(l).Locals.Select(a => a.Local))
-            .Where(l => l.IsModified),
+            .Where(l => l.IsWritable),
     ];
 
     bool ReadsLambdaChanged(BoundExpression expression) =>

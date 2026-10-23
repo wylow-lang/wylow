@@ -199,26 +199,6 @@ public sealed partial class Binder
         return false;
     }
 
-    /// <summary>Marks the local that a place being changed lies in, if any; see <see cref="LocalSymbol.IsModified"/>.</summary>
-    static void NoteModified(BoundExpression place)
-    {
-        switch (place)
-        {
-            case BoundLocalAccess access:
-                access.Local.IsModified = true;
-                break;
-            case BoundFieldAccess { Receiver.Type.IsReference: false } field:
-                NoteModified(field.Receiver);
-                break;
-            case BoundIndex { Target.Type.IsFixedArray: true } index:
-                NoteModified(index.Target);
-                break;
-            case BoundCall { Method.Symbol.ReturnRefKind: RefKind.Ref, Receiver: { Type.IsReference: false } receiver }:
-                NoteModified(receiver);
-                break;
-        }
-    }
-
     /// <summary>Checks what the escaping lambdas in a body capture (§6.7).</summary>
     void CheckEscapingCaptures(BoundBlock body)
     {

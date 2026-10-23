@@ -114,8 +114,6 @@ public sealed partial class Binder
         bool readOnly = kind == PlaceKind.ReadOnly && s.Element.RefKind == RefKind.Ref;
         if (readOnly)
             Error(location, $"cannot loop over '{TextOf(location)}' by 'ref' because {ClassifyPlace(iterable).Reason}; use 'in'");
-        else if (s.Element.RefKind == RefKind.Ref)
-            NoteModified(iterable);
 
         var loop = BindCountingLoop(s, counter, new BoundLiteral(location, VplType.Int, iterable.Type.FixedLength), readOnly ? null : element);
         return new BoundBlock(s.Location, [new BoundVariableDeclaration(location, array, iterable), loop]);

@@ -295,6 +295,16 @@ void main() {
     print(big.values[3]);
     // output: 4
 
+    // Changing what an object holds, even through a 'ref' or a span, doesn't change the variable.
+    var counts = new int[3]; // stack: 1
+    for (ref int c : counts) {
+        c += 2;
+    }
+    Span<int> view = counts;
+    view[0] = 5;
+    print(counts[0] + counts[1]);
+    // output: 7
+
     // A cyclic class on the stack is never buffered: collecting finds nothing.
     {
         var node = new Noisy("node"); // stack: 1

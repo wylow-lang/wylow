@@ -285,11 +285,7 @@ public sealed partial class Binder
         else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
             Error(place.Location, $"cannot take a 'ref' to '{TextOf(place.Location)}' because {reason}; use 'in' instead");
         else
-        {
-            if (refKind == RefKind.Ref)
-                NoteModified(place);
             return true;
-        }
         return false;
     }
 
@@ -461,7 +457,7 @@ public sealed partial class Binder
             (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{access.Local.Name}'"),
         BoundLocalAccess { Local.RefKind: RefKind.In } access =>
             (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' {(access.Local.IsParameter ? "parameter" : "variable")}"),
-        BoundLocalAccess { Local: { RefKind: RefKind.None, IsMutable: false, IsTemporary: false } local } =>
+        BoundLocalAccess { Local: { IsWritable: false } local } =>
             (PlaceKind.ReadOnly, $"{(local.IsParameter ? "parameter" : "variable")} '{local.Name}' is not 'mut'"),
         BoundLocalAccess => (PlaceKind.Mutable, ""),
         BoundThis { Type.IsReference: true } => (PlaceKind.Temporary, ""),
@@ -509,10 +505,7 @@ public sealed partial class Binder
         if (target is BoundLocalAccess { Local: { IsDeferred: true, IsMutable: false } deferred })
         {
             if (deferred.Owner == currentFunction)
-            {
-                NoteModified(target);
                 return true;
-            }
             if (!IsCopiedByEscapingLambda(deferred))
             {
                 Error(target.Location, $"cannot assign to '{deferred.Name}' in a lambda, which may run more than once, because variable '{deferred.Name}' is not 'mut'");
@@ -535,7 +528,6 @@ public sealed partial class Binder
                 Error(target.Location, $"cannot assign to '{TextOf(target.Location)}' because {reason}");
                 return false;
             default:
-                NoteModified(target);
                 return true;
         }
     }

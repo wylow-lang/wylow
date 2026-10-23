@@ -594,11 +594,7 @@ public sealed partial class Binder
         if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (SpanConversion(expression, to) is { } span)
-        {
-            if (to.Symbol == stdlib.Span)
-                NoteModified(expression);
             return span;
-        }
 
         if (IsEscapingMismatch(expression.Type, to))
         {

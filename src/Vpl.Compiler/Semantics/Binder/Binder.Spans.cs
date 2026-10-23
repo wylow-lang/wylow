@@ -139,8 +139,6 @@ public sealed partial class Binder
             span = new BoundErrorExpression(location);
         }
 
-        if (span.Type.Symbol == stdlib.Span)
-            NoteModified(iterable);
         var spanLocal = new LocalSymbol("span", span.Type, isParameter: false) { IsTemporary = true };
         var counter = new LocalSymbol("i", VplType.Int, isParameter: false) { IsTemporary = true, IsMutable = true };
         BoundExpression Span() => new BoundLocalAccess(location, spanLocal);

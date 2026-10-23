@@ -124,7 +124,7 @@ public sealed class StackObjects
             var statement = statements[i];
             var found = new List<StackObject>();
             BoundNew? held = null;
-            if (statement is BoundVariableDeclaration { Local: { IsModified: false, RefKind: RefKind.None }, Initializer: { } initializer }
+            if (statement is BoundVariableDeclaration { Local: { IsWritable: false, RefKind: RefKind.None }, Initializer: { } initializer }
                 && Created(initializer) is { } creation)
             {
                 var flow = new Flow(this, summarizing: false);

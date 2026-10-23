@@ -34,10 +34,10 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     public FunctionSymbol? Owner { get; set; }
 
     /// <summary>
-    /// Changed after its declaration: assigned, wholly or in part, or used where it could be changed,
-    /// such as by 'ref'. Set by the binder.
+    /// Whether code can change it after it is initialized, reassigning it or changing its value in
+    /// place: it is <c>mut</c>, a <c>ref</c>, or a compiler temporary.
     /// </summary>
-    public bool IsModified { get; set; }
+    public bool IsWritable => IsMutable || IsTemporary || RefKind == RefKind.Ref;
 
     public override string ToString() => Name;
 }
