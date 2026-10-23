@@ -220,6 +220,9 @@ public sealed partial class CppEmitter
                 arguments = arguments.Append(location);
             var argumentText = string.Join(", ", arguments);
 
+            // Formatted types satisfy a Printable bound without implementing it, so the runtime writes those itself.
+            if (call.Receiver is { Type.IsTypeParameter: true } && stdlib.IsPrintableToString(function))
+                return $"vpl::to_string<{ObjectType(method.Owner!)}>({parts[0]})";
             // An extern struct's instance methods are members of its C++ class.
             if (function.IsExtern && function.IsInstanceMethod)
                 return $"{ReceiverText(call, parts[0])}{function.BuiltinCppName}({argumentText})";

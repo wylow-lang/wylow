@@ -28,6 +28,9 @@ public sealed class StdlibSymbols
     /// <summary>Weak references, which <c>T</c> and <c>T?</c> convert to.</summary>
     public TypeSymbol? Weak { get; private set; }
 
+    /// <summary>Types string interpolation can write, which the runtime's formatted types satisfy without implementing.</summary>
+    public TypeSymbol? Printable { get; private set; }
+
     public void Register(TypeSymbol symbol)
     {
         switch (symbol.Name)
@@ -40,8 +43,15 @@ public sealed class StdlibSymbols
             case "ReadOnlySpannable": ReadOnlySpannable = symbol; break;
             case "Borrowable": Borrowable = symbol; break;
             case "Weak": Weak = symbol; break;
+            case "Printable": Printable = symbol; break;
         }
     }
+
+    /// <summary>Whether a type is printable: formatted by the runtime, or implementing <see cref="Printable"/>.</summary>
+    public bool IsPrintable(VplType type) =>
+        Builtins.FormattedTypes.Contains(type) || (Printable is { } printable && Conversions.IsSubtype(type, printable.Type));
+
+    public bool IsPrintableToString(FunctionSymbol method) => method.Name == "toString" && method.ContainingType is { } s && s == Printable;
 
     public bool IsSpan(VplType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 

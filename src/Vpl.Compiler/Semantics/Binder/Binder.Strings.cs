@@ -26,7 +26,7 @@ public sealed partial class Binder
         return new BoundCall(e.Location, new MethodReference(interpolate, null, []), null, parts);
     }
 
-    /// <summary>A value the runtime can format: the value itself if it is a formatted type, otherwise its <c>toString()</c>.</summary>
+    /// <summary>A value the runtime can format: the value itself if it is a formatted type, otherwise its <c>Printable.toString()</c>.</summary>
     BoundExpression BindInterpolatedValue(Expr syntax)
     {
         var value = BindExpression(syntax);
@@ -35,23 +35,17 @@ public sealed partial class Binder
 
         var location = syntax.Location;
         var type = value.Type.NonNull;
-        if (!MethodCandidates(type, "toString").Any(c => c.Symbol.Parameters.Count == 0))
-            return ErrorExpression(location, $"cannot interpolate a value of type '{value.Type}', which has no 'toString()'");
-
-        BoundExpression text;
-        if (value.Type.IsNullable)
+        if (!stdlib.IsPrintable(type))
         {
-            var nonNull = new LocalSymbol("value", type, isParameter: false) { IsTemporary = true };
-            var call = BindMethodCall(location, new BoundLocalAccess(location, nonNull), "toString", location, null, []);
-            text = MakeConditionalAccess(location, value, nonNull, call);
+            var hint = type.Symbol is { } s && MethodCandidates(type, "toString").Any(c => c.Symbol.Parameters.Count == 0)
+                ? $"; its 'toString()' is used once '{s.Name}' declares 'implements Printable'"
+                : "";
+            return ErrorExpression(location, $"cannot interpolate a value of type '{value.Type}', which does not implement 'Printable'{hint}");
         }
-        else
-        {
-            text = BindMethodCall(location, value, "toString", location, null, []);
-        }
-
-        if (text.Type != VplType.Error && text.Type.NonNull != VplType.String)
-            return ErrorExpression(location, $"'{DisplayName(type)}.toString()' returns '{text.Type.NonNull}', but interpolating a value needs it to return 'String'");
-        return text;
+        if (!value.Type.IsNullable)
+            return BindMethodCall(location, value, "toString", location, null, []);
+        var nonNull = new LocalSymbol("value", type, isParameter: false) { IsTemporary = true };
+        var call = BindMethodCall(location, new BoundLocalAccess(location, nonNull), "toString", location, null, []);
+        return MakeConditionalAccess(location, value, nonNull, call);
     }
 }

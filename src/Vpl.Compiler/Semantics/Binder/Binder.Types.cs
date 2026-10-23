@@ -151,7 +151,8 @@ public sealed partial class Binder
         {
             foreach (var bound in parameter.Bounds.Select(map.Apply))
             {
-                if (argument != VplType.Error && !Conversions.IsSubtype(argument, bound))
+                bool satisfied = Conversions.IsSubtype(argument, bound) || (bound.Symbol == stdlib.Printable && stdlib.IsPrintable(argument));
+                if (argument != VplType.Error && !satisfied)
                     Error(location, $"'{argument}' does not implement '{bound}', which type parameter '{parameter.Name}' requires");
             }
         }

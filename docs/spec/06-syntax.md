@@ -732,18 +732,41 @@ in ordinary strings mean nothing special.
 - The parts are evaluated left to right, each exactly once.
 - A hole holds any expression on one line, including other strings, but a conditional
   `a ? b : c` must be parenthesized, since `:` is reserved to start a format specifier, as in C#.
-- Primitives and `String` are written as `print` writes them (`3.0`, `true`, a `char` as its
-  character), and a nullable value as its value or `null`.
-- A value of any other type is written by calling its `toString()`, which must take no arguments
-  and return `String`. A nullable value of such a type is written as `null` when it is null, and
-  calls `toString()` otherwise.
+- An interpolated value must be *printable*. Primitives and `String` are, and are written as
+  `print` writes them (`3.0`, `true`, a `char` as its character), a nullable one as its value or
+  `null`.
+- Any other type is printable when it implements the standard library's `Printable` interface,
+  and is written by its `toString()`. A nullable value of such a type is written as `null` when
+  it is null. There is no default `toString()`: a type opts in, so printing never silently shows
+  something like Java's `Player@1b6d3586`.
+
+```java
+interface Printable {
+    readonly String toString();
+}
+
+struct Vec3 implements Printable {
+    float x;
+    float y;
+    float z;
+
+    readonly String toString() { return $"({x}, {y}, {z})"; }
+}
+```
+
+- Primitives, `String`, and their nullables satisfy a `T extends Printable` bound without
+  implementing it, so generic code can print any printable value, including an `int`, with
+  `$"{value}"` or `value.toString()`.
 
 > Implemented so far: everything above. Not yet implemented:
 > - format specifiers and alignment (`{x:F2}`, `{x,8}`);
-> - `toString()` as a method of primitives and `String` (`x.toString()`). Interpolation formats
->   them itself, and a primitive's `toString()` should share that formatting when it arrives;
-> - `toString()` for stdlib types (`List`, `Array`, `Span`, `Result`, ...). Collections need a way
->   to require that their element type has a `toString()`;
+> - `toString()` as a method of primitives and `String` outside generic code (`5.toString()`).
+>   Interpolation formats them itself, and that method should share the formatting when it arrives;
+> - `Printable` stdlib types (`List`, `Array`, `Span`, `Result`, ...). A collection should be
+>   printable when its element type is, which needs conditional implementations, or a `toString()`
+>   with its own `T extends Printable` bound;
+> - a generated field dump for debugging, like Rust's `#[derive(Debug)]`, so small types needn't
+>   write `toString()` by hand;
 > - other ways to build strings: `+` on strings and `StringBuilder` (§2.10). Interpolation builds
 >   strings with the runtime's `vpl::StringBuffer`, which a `StringBuilder` could wrap.
 

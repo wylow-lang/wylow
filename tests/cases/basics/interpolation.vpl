@@ -1,4 +1,4 @@
-struct Vec3 {
+struct Vec3 implements Printable {
     float x;
     float y;
     float z;
@@ -6,14 +6,16 @@ struct Vec3 {
     readonly String toString() { return $"({x}, {y}, {z})"; }
 }
 
-interface Named {
-    readonly String toString();
+interface Named extends Printable {
+    readonly String title();
 }
 
 class Animal implements Named {
     String name;
 
     Animal(String name) { this.name = name; }
+
+    String title() { return name; }
 
     virtual String toString() { return $"animal {name}"; }
 }
@@ -24,7 +26,7 @@ class Dog extends Animal {
     override String toString() { return $"dog {name}"; }
 }
 
-enum Shape {
+enum Shape implements Printable {
     Circle(float radius),
     Square(float side);
 
@@ -51,7 +53,7 @@ class Counter {
     }
 }
 
-String describe<T extends Named>(T value) { return $"<{value}>"; }
+String describe<T extends Printable>(T value) { return $"<{value}> {value.toString()}"; }
 
 String label(int i) { return $"item {i}"; }
 
@@ -73,14 +75,19 @@ void main() {
     String? noText = null;
     print($"{none} {some} {noText}");                                    // output: null 4 null
 
-    // Anything else calls toString(): on structs, classes (dispatched), enums, interfaces, and type parameters.
+    // A Printable value is written by its toString(): structs, classes (dispatched), enums, interfaces, and type parameters.
     var v = Vec3(1, 2.5, -3);
     print($"at {v}");                                                    // output: at (1.0, 2.5, -3.0)
     Animal pet = new Dog("Rex");
     print($"{pet} and {new Animal("Tom")}");                             // output: dog Rex and animal Tom
     Named named = pet;
     print($"{named}");                                                   // output: dog Rex
-    print(describe(pet));                                                // output: <dog Rex>
+    print(describe(pet));                                                // output: <dog Rex> dog Rex
+    print(describe(v));                                                  // output: <(1.0, 2.5, -3.0)> (1.0, 2.5, -3.0)
+    // Formatted types satisfy a Printable bound without implementing it.
+    print(describe(42));                                                 // output: <42> 42
+    print(describe("text"));                                             // output: <text> text
+    print(describe(none));                                               // output: <null> null
     print($"{Shape.Circle(2)}, {Shape.Square(1.5)}");                    // output: circle of radius 2.0, square of side 1.5
     Vec3? noVec = null;
     Vec3? someVec = Vec3(0, 0, 0);
