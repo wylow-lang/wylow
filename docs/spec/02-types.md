@@ -243,7 +243,8 @@ stored. Nullable values follow the rules above, and also:
   destroys it: a `ref` or `in` variable, a span, or a `for` loop over its elements is an error
   (copy the value to a variable first), as is passing `v` by `ref` in the same call or assignment
   that uses its value by reference (`v.moveWith(ref v)`). A `ref` variable can't refer to a nullable
-  local itself either, since the local could then change after a null check.
+  local itself either, since the local could then change after a null check. A narrowed local that
+  isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
   error when `m` is a struct method that isn't `readonly`, since its changes would be lost.
 - A struct cannot contain itself through a nullable (`struct Link { Link? next; }`), since the

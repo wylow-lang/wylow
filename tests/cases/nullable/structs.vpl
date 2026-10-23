@@ -48,6 +48,14 @@ enum Slot {
     Taken(Holder? holder),
 }
 
+struct Grid {
+    int[3] cells;
+}
+
+int total(in int[3] cells) {
+    return cells[0] + cells[1] + cells[2];
+}
+
 class Body {
     mut Vec? velocity;
     mut Holder? held;
@@ -93,6 +101,19 @@ void main() {
     print(holder?.count);                   // output: 2
     holder = null;                          // output: second
     print(holder == null);                  // output: true
+
+    // A narrowed local that isn't 'mut' is never set to null, so it can be referred into.
+    Grid? grid = Grid { cells = [1, 2, 3] };
+    if (grid != null) {
+        in int first = grid.cells[0];
+        in int[3] cells = grid.cells;
+        ReadOnlySpan<int> view = grid.cells;
+        mut int sum = 0;
+        for (int c : grid.cells) {
+            sum += c;
+        }
+        print(first + cells[1] + view[2] + sum + total(grid.cells));   // output: 18
+    }
 
     body.held = Holder(new Token("field"), 1);
     body = new Body();                      // output: field

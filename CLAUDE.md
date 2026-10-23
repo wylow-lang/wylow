@@ -94,7 +94,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `CppEmitter.StorageRoot` finds the object to hold, and whether to borrow it (`vpl::borrow`) or
   just pin it. A new way to produce a place or a view must be handled there.
 - **Nothing may keep referring into a nullable value** (`int?`, `Vec3?`, `T?`), since assigning the
-  variable null destroys it: `BoundTree.NullableValueRoot` finds the narrowed local a place lies in,
+  variable null destroys it: `BoundTree.NullableValueRoot` finds the narrowed `mut` local a place lies in,
   and a new way to hold a place or a view beyond one operation must reject such places.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite on
   both MSVC and g++ before committing.
