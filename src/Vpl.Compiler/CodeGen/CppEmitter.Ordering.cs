@@ -98,6 +98,9 @@ public sealed partial class CppEmitter
     static bool MayHoldReferences(VplType type) =>
         type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
 
+    /// <summary>Whether copying or destroying a value of the type runs code: references are counted, and so are built strings.</summary>
+    static bool HasCountedParts(VplType type) => MayHoldReferences(type) || type.InlineTypes().Contains(VplType.String);
+
     /// <summary>Whether releasing the value may destroy an object: a new closure only may if what it captures may.</summary>
     static bool MayOwnObjects(BoundExpression value)
     {

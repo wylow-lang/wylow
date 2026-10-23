@@ -1,0 +1,10 @@
+void main() {
+    int x = 1;
+    bool c = true;
+    print($"a } b");          // error: a '}' in an interpolated string is written '}}'
+    print($"{c ? 1 : 2}");    // error: format specifiers are not supported yet; to use a conditional expression in an interpolated string, parenthesize it
+    print($"{x:F2}");         // error: format specifiers are not supported yet; to use a conditional expression in an interpolated string, parenthesize it
+    print($"{}");             // error: expected an expression
+    print($"{x x}");          // error: expected '}' to end the interpolated value
+    print("\{x}");            // error: unknown escape sequence '\{'
+}

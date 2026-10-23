@@ -345,12 +345,27 @@ public sealed class TypeSymbol
 
 public static class Builtins
 {
+    static readonly VplType[] FormattedValues = [.. VplType.Integers, VplType.Char, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
+
+    /// <summary>The types the runtime writes as text itself (<c>vpl::format</c>), for <c>print</c> and string interpolation.</summary>
+    public static IEnumerable<VplType> FormattedTypes => FormattedValues.Concat(FormattedValues.Select(v => v.Nullable));
+
+    /// <summary>
+    /// The runtime function an interpolated string calls with its parts in order, each a string or
+    /// a formatted type, so that it is ordered and analyzed like any call.
+    /// </summary>
+    public static FunctionSymbol Interpolate(IEnumerable<VplType> partTypes) =>
+        new("interpolate", [.. partTypes.Select(t => new LocalSymbol("part", t, isParameter: true))], VplType.String)
+        {
+            BuiltinCppName = "vpl::interpolate",
+            PassesLocation = true,
+        };
+
     public static IEnumerable<FunctionSymbol> All
     {
         get
         {
-            VplType[] values = [.. VplType.Integers, VplType.Char, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
-            foreach (var type in values.Concat(values.Select(v => v.Nullable)))
+            foreach (var type in FormattedTypes)
             {
                 yield return new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], VplType.Void)
                 {

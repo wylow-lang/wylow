@@ -10,4 +10,5 @@
 #include "vpl/cycles.h"
 #include "vpl/stack_slot.h"
 #include "vpl/functions.h"
+#include "vpl/strings.h"
 #include "vpl/intrinsics.h"

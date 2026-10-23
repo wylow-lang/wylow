@@ -48,7 +48,8 @@ String and character literals accept these escapes:
 | `\0` | The code point 0 |
 | `\\`, `\"`, `\'` | Backslash, double quote, single quote |
 | `\u{1F600}` | The code point with that hex value, written with 1 to 6 digits |
-| `\{expression}` | In a string only: the expression's value ([string interpolation](06-syntax.md#string-interpolation)) |
+
+A string prefixed with `$` interpolates values: `$"hp: {health}"` ([string interpolation](06-syntax.md#string-interpolation)).
 
 Any other escape is an error, as is a `\u{...}` that is not a Unicode scalar value (above
 `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`), the same values a cast to `char` rejects. Unlike
@@ -536,6 +537,12 @@ that requires a derived class to assign its fields *before* calling `super`.
 
 `String` is an immutable, UTF-8, reference-counted `shared class` (it may cross threads; see
 [05-concurrency.md](05-concurrency.md)). Use `StringBuilder` to build strings.
+
+A literal refers to static text and never allocates; a string built at run time, as by
+[interpolation](06-syntax.md#string-interpolation), is one counted allocation shared by its copies.
+
+> Implemented so far: literals, interpolation, and `print`. The count is not atomic yet, since
+> there are no threads. `+`, `StringBuilder`, comparison, length, and indexing are not implemented.
 
 ## 2.11 Arrays and spans
 

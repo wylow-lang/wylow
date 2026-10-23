@@ -1,0 +1,48 @@
+struct Plain {
+    int x;
+}
+
+struct Counted {
+    int x;
+
+    int toString() { return x; }
+}
+
+struct Formatted {
+    String toString(int digits) { return "?"; }
+}
+
+struct Changing {
+    int calls;
+
+    String toString() {
+        calls++;
+        return "changing";
+    }
+}
+
+class Secret {
+    private String toString() { return "secret"; }
+}
+
+class Shared {
+    static String toString() { return "shared"; }
+}
+
+void nothing() {
+}
+
+void main() {
+    var plain = Plain(1);
+    print($"{plain}");                  // error: cannot interpolate a value of type 'Plain', which has no 'toString()'
+    print($"{null}");                   // error: cannot interpolate a value of type 'null', which has no 'toString()'
+    print($"{nothing()}");              // error: cannot interpolate a value of type 'void', which has no 'toString()'
+    print($"{Counted(1)}");             // error: 'Counted.toString()' returns 'int', but interpolating a value needs it to return 'String'
+    print($"{Formatted()}");            // error: cannot interpolate a value of type 'Formatted', which has no 'toString()'
+    var changing = Changing(0);
+    print($"{changing}");               // error: cannot call 'toString' on 'changing' because variable 'changing' is not 'mut'; only 'readonly' methods can be called on it
+    Changing? maybe = Changing(0);
+    print($"{maybe}");                  // error: '?.' would call 'toString' on a copy of 'maybe', so its changes would be lost; check it for null and call 'toString' on a variable
+    print($"{new Secret()}");           // error: method 'Secret.toString' is private
+    print($"{new Shared()}");           // error: static method 'toString' must be called through the type: 'Shared.toString(...)'
+}

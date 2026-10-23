@@ -12,10 +12,15 @@ public sealed partial class Parser
     int lastErrorPosition = -1;
 
     public Parser(SourceText source, DiagnosticBag diagnostics)
+        : this(source, diagnostics, new Lexer(source, diagnostics).Lex())
+    {
+    }
+
+    Parser(SourceText source, DiagnosticBag diagnostics, List<Token> tokens)
     {
         this.source = source;
         this.diagnostics = diagnostics;
-        tokens = new Lexer(source, diagnostics).Lex();
+        this.tokens = tokens;
     }
 
     Token Current => tokens[position];

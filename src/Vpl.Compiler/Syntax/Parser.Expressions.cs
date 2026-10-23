@@ -272,6 +272,15 @@ public sealed partial class Parser
         return new InitializerExpr(LocationFrom(start), target, fields);
     }
 
+    Expr ParseHole(IReadOnlyList<Token> holeTokens)
+    {
+        var parser = new Parser(source, diagnostics, [.. holeTokens]);
+        var value = parser.ParseExpression();
+        if (!parser.At(TokenKind.EndOfFile))
+            parser.Error(parser.Current.Span, "expected '}' to end the interpolated value");
+        return value;
+    }
+
     Expr ParsePrimary()
     {
         var token = Current;
@@ -295,6 +304,8 @@ public sealed partial class Parser
                 return new CharLiteralExpr(location, (Rune)token.Value!);
             case TokenKind.StringLiteral:
                 Advance();
+                if (token.Value is InterpolatedText interpolated)
+                    return new InterpolatedStringExpr(location, interpolated.Texts, [.. interpolated.Holes.Select(h => h is null ? new ErrorExpr(location) : ParseHole(h))]);
                 return new StringLiteralExpr(location, (string)token.Value!);
             case TokenKind.TrueKeyword or TokenKind.FalseKeyword:
                 Advance();

@@ -720,15 +720,32 @@ while (node is Some(var n)) { node = n.next; }
 ### String interpolation
 
 ```java
-log("hp: \{player.health}, pos: \{player.position}");
+log($"hp: {player.health}, pos: {player.position}");
 ```
 
-`\{expression}` inside an ordinary string literal is replaced by the expression's value, as in
-Java's string templates preview. It is an escape (§2.2) rather than a separate kind of literal, so
-every string can interpolate and `{` needs no escaping. Interpolated values must have a
-`toString()` (all primitives and stdlib types do).
+A string literal prefixed with `$` is interpolated, as in C#: each `{expression}` in it is replaced
+by the expression's value, and the result is a new `String`. Only `$` strings interpolate, so braces
+in ordinary strings mean nothing special.
 
-> Not implemented yet.
+- In a `$` string, `{{` and `}}` stand for `{` and `}`. A lone `}` is an error. Escapes (§2.2)
+  work as in any string.
+- The parts are evaluated left to right, each exactly once.
+- A hole holds any expression on one line, including other strings, but a conditional
+  `a ? b : c` must be parenthesized, since `:` is reserved to start a format specifier, as in C#.
+- Primitives and `String` are written as `print` writes them (`3.0`, `true`, a `char` as its
+  character), and a nullable value as its value or `null`.
+- A value of any other type is written by calling its `toString()`, which must take no arguments
+  and return `String`. A nullable value of such a type is written as `null` when it is null, and
+  calls `toString()` otherwise.
+
+> Implemented so far: everything above. Not yet implemented:
+> - format specifiers and alignment (`{x:F2}`, `{x,8}`);
+> - `toString()` as a method of primitives and `String` (`x.toString()`). Interpolation formats
+>   them itself, and a primitive's `toString()` should share that formatting when it arrives;
+> - `toString()` for stdlib types (`List`, `Array`, `Span`, `Result`, ...). Collections need a way
+>   to require that their element type has a `toString()`;
+> - other ways to build strings: `+` on strings and `StringBuilder` (§2.10). Interpolation builds
+>   strings with the runtime's `vpl::StringBuffer`, which a `StringBuilder` could wrap.
 
 ## 6.10 Annotations
 
@@ -826,7 +843,7 @@ public class EnemySystem {
                 enemies.remove(h);
             }
         }
-        log("\{enemies.count} enemies alive");
+        log($"{enemies.count} enemies alive");
     }
 }
 ```

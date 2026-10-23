@@ -27,11 +27,6 @@ static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<doubl
 
 namespace vpl {
 
-struct String {
-    const char* data;
-    int32_t length;
-};
-
 [[noreturn]] inline void panic(const char* message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);
@@ -39,9 +34,65 @@ struct String {
     std::abort();
 }
 
-[[noreturn]] inline void panic(String message, const char* location) {
+// An immutable, null-terminated UTF-8 string. A literal points at static bytes and owns nothing, so
+// literals never allocate; a built string shares one counted block among its copies.
+// The count is non-atomic like objects' (object.h). String is a shared class, so it must become
+// atomic once threads exist.
+class String {
+public:
+    struct Block {
+        size_t count;
+        // The bytes follow the header, then a null terminator.
+        char* bytes() { return reinterpret_cast<char*>(this + 1); }
+    };
+
+    String() : String("", 0) {}
+    String(const char* data, int32_t length) : data_(data), length_(length), block_(nullptr) {}
+
+    // Takes over a block holding one count, with length bytes and their terminator written.
+    static String adopt(Block* block, int32_t length) { return String(block->bytes(), length, block); }
+
+    String(const String& other) : data_(other.data_), length_(other.length_), block_(other.block_) {
+        if (block_ != nullptr) ++block_->count;
+    }
+    String(String&& other) noexcept : data_(other.data_), length_(other.length_), block_(other.block_) {
+        other.block_ = nullptr;
+    }
+    ~String() { release(); }
+
+    String& operator=(const String& other) {
+        String copy(other);
+        return *this = std::move(copy);
+    }
+    String& operator=(String&& other) noexcept {
+        if (this != &other) {
+            release();
+            data_ = other.data_;
+            length_ = other.length_;
+            block_ = other.block_;
+            other.block_ = nullptr;
+        }
+        return *this;
+    }
+
+    const char* data() const { return data_; }
+    int32_t length() const { return length_; }
+
+private:
+    String(const char* data, int32_t length, Block* block) : data_(data), length_(length), block_(block) {}
+
+    void release() {
+        if (block_ != nullptr && --block_->count == 0) ::operator delete(block_);
+    }
+
+    const char* data_;
+    int32_t length_;
+    Block* block_;
+};
+
+[[noreturn]] inline void panic(const String& message, const char* location) {
     std::fflush(stdout);
-    std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.length), message.data, location);
+    std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.length()), message.data(), location);
     std::fflush(stderr);
     std::abort();
 }

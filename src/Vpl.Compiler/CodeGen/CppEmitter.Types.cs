@@ -123,7 +123,7 @@ public sealed partial class CppEmitter
 
     /// <summary>
     /// A tag and a union of one payload struct per variant with data. When a payload may hold an
-    /// object reference, the union needs copy, move, and destruction written out; otherwise every
+    /// object reference or a string, the union needs copy, move, and destruction written out; otherwise every
     /// member is trivially copyable and so is the enum.
     /// </summary>
     void EmitEnumDefinition(TypeSymbol s)
@@ -168,7 +168,7 @@ public sealed partial class CppEmitter
             ? $"{name}() : tag({TagValue(first)}), {UnionMember(first)}() {{}}"
             : $"{name}() : tag({TagValue(first)}) {{}}");
         Line($"explicit {name}(vpl::RawTag, {tag} value) : tag(value) {{}}");
-        if (withData.Count > 0 && MayHoldReferences(s.Type))
+        if (withData.Count > 0 && HasCountedParts(s.Type))
             EmitEnumLifetime(name, withData);
 
         foreach (var variant in s.Variants)

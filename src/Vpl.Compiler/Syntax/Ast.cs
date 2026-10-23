@@ -210,6 +210,9 @@ public sealed record CharLiteralExpr(Location Location, Rune Value) : Expr(Locat
 
 public sealed record StringLiteralExpr(Location Location, string Value) : Expr(Location);
 
+/// <summary><c>$"a{b}c"</c>: <see cref="Texts"/> surround the <see cref="Values"/>, one more of them than values.</summary>
+public sealed record InterpolatedStringExpr(Location Location, IReadOnlyList<string> Texts, IReadOnlyList<Expr> Values) : Expr(Location);
+
 public sealed record NullLiteralExpr(Location Location) : Expr(Location);
 
 /// <summary><see cref="TypeArguments"/> is non-empty for generic calls and constructions, like <c>max&lt;int&gt;(...)</c>.</summary>

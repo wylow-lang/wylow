@@ -29,6 +29,7 @@ public sealed partial class Binder
         BoolLiteralExpr e => new BoundLiteral(e.Location, VplType.Bool, e.Value),
         CharLiteralExpr e => new BoundLiteral(e.Location, VplType.Char, e.Value),
         StringLiteralExpr e => new BoundLiteral(e.Location, VplType.String, e.Value),
+        InterpolatedStringExpr e => BindInterpolatedString(e),
         NullLiteralExpr e => new BoundNullLiteral(e.Location),
         NameExpr e => BindName(e, expected),
         ThisExpr e => BindThis(e),

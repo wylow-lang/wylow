@@ -130,3 +130,9 @@ public enum IntegerSuffix { None, Unsigned, Long, UnsignedLong }
 public readonly record struct IntegerLiteralValue(ulong Value, IntegerSuffix Suffix);
 
 public readonly record struct FloatLiteralValue(double Value, bool IsDouble);
+
+/// <summary>
+/// An interpolated string's text around its holes, one more than the holes, and each hole's tokens,
+/// ending in <c>EndOfFile</c>, or null for a hole whose error the lexer reported.
+/// </summary>
+public sealed record InterpolatedText(IReadOnlyList<string> Texts, IReadOnlyList<IReadOnlyList<Token>?> Holes);

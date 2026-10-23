@@ -161,7 +161,9 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         if (char.IsAsciiLetter(c) || c == '_')
             return LexIdentifierOrKeyword();
         if (c == '"')
-            return LexString();
+            return LexString(interpolated: false);
+        if (c == '$' && Peek(1) == '"')
+            return LexString(interpolated: true);
         if (c == '\'')
             return LexChar();
         // Like C#, `c ?.5 : x` stays a conditional.
@@ -325,14 +327,20 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         return true;
     }
 
-    Token LexString()
+    /// <summary>
+    /// A string literal, whose value is its text, or for a <c>$</c> string with holes an
+    /// <see cref="InterpolatedText"/>.
+    /// </summary>
+    Token LexString(bool interpolated)
     {
         int start = position;
-        position++;
+        position += interpolated ? 2 : 1;
         var value = new StringBuilder();
+        var texts = new List<string>();
+        var holes = new List<IReadOnlyList<Token>?>();
         while (true)
         {
-            if (position >= text.Length || Current is '\n' or '\r')
+            if (AtLineEnd)
             {
                 Error(TextSpan.FromBounds(start, position), "unterminated string literal");
                 break;
@@ -342,10 +350,76 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                 position++;
                 break;
             }
-            if (LexCharacter() is { } character)
+            if (interpolated && Current is '{' or '}' && Peek(1) == Current)
+            {
+                value.Append(Current);
+                position += 2;
+            }
+            else if (interpolated && Current == '{')
+            {
+                texts.Add(value.ToString());
+                value.Clear();
+                holes.Add(LexHole());
+            }
+            else if (interpolated && Current == '}')
+            {
+                Error(new TextSpan(position, 1), "a '}' in an interpolated string is written '}}'");
+                position++;
+            }
+            else if (LexCharacter() is { } character)
+            {
                 value.Append(character.ToString());
+            }
         }
-        return Make(TokenKind.StringLiteral, start, value.ToString());
+        if (holes.Count == 0)
+            return Make(TokenKind.StringLiteral, start, value.ToString());
+        texts.Add(value.ToString());
+        return Make(TokenKind.StringLiteral, start, new InterpolatedText(texts, holes));
+    }
+
+    /// <summary>
+    /// The tokens of a hole in an interpolated string, from its '{' to its matching '}', which the
+    /// parser parses as an expression, or null for a hole with an error already reported. A hole
+    /// ends with its line, like the string around it.
+    /// </summary>
+    IReadOnlyList<Token>? LexHole()
+    {
+        position++;
+        var tokens = new List<Token>();
+        int depth = 0;
+        while (true)
+        {
+            while (Current is ' ' or '\t')
+                position++;
+            // The string reports being unterminated.
+            if (AtLineEnd || (Current == '/' && Peek(1) == '/'))
+                return null;
+            if (depth == 0 && Current == '}')
+                break;
+            if (LexToken() is not { } token)
+                continue;
+            if (token.Kind is TokenKind.OpenParen or TokenKind.OpenBracket or TokenKind.OpenBrace)
+            {
+                depth++;
+            }
+            else if (token.Kind is TokenKind.CloseParen or TokenKind.CloseBracket or TokenKind.CloseBrace)
+            {
+                depth = Math.Max(depth - 1, 0);
+            }
+            else if (depth == 0 && token.Kind == TokenKind.Colon)
+            {
+                Error(token.Span, "format specifiers are not supported yet; to use a conditional expression in an interpolated string, parenthesize it");
+                while (!AtLineEnd && Current is not ('}' or '"'))
+                    position++;
+                if (Current == '}')
+                    position++;
+                return null;
+            }
+            tokens.Add(token);
+        }
+        tokens.Add(new Token(TokenKind.EndOfFile, new TextSpan(position, 0), "", null));
+        position++;
+        return tokens;
     }
 
     Token LexChar()
