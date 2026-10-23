@@ -1,5 +1,5 @@
 interface Named {
-    String name();
+    readonly String name();
 }
 
 interface Damageable extends Named {
@@ -53,12 +53,12 @@ void hit(Damageable target) {
 struct Counter implements Named {
     int n;
 
-    String name() {
+    readonly String name() {
         return "counter";
     }
 }
 
-void describe<T extends Named>(mut T value) {
+void describe<T extends Named>(T value) {
     print(value.name());
 }
 

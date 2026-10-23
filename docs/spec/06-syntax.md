@@ -154,7 +154,8 @@ by reference) and are a compile error.
 ### `readonly` struct methods
 
 In a struct method, `this` is a `ref`, so methods may mutate the struct. A method marked `readonly`
-cannot mutate `this`. Only `readonly` methods (and properties) can be called on a read-only place:
+cannot mutate `this`. Interface methods may be `readonly` too
+([02-types.md](02-types.md#212-interfaces)). Only `readonly` methods (and properties) can be called on a read-only place:
 through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `mut`.
 
 ```java

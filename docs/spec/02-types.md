@@ -693,6 +693,12 @@ struct Counter implements Named { ... }
   `override` is needed (as in C#). Implementing an interface method does not make the method
   overridable: mark it `virtual` for that.
 - An interface may not be listed twice, and a method may not be redeclared by an extending interface.
+- An interface method may be declared `readonly`, as in `readonly int compareTo(T other);`. A
+  struct implements it only with a `readonly` method; a class may use any method, since calling a
+  class's method never changes the reference it is called through. A generic body can call a
+  `readonly` interface method on any value, including one that isn't `mut` (§2.7) or is an `in`
+  parameter; calling any other interface method on a type parameter's value needs a mutable place,
+  since the type argument may be a struct.
 
 ## 2.13 Generics
 
@@ -700,6 +706,10 @@ Java syntax, C++ template semantics: generics are **monomorphized** (one copy pe
 zero overhead).
 
 ```java
+interface Comparable<T> {
+    readonly int compareTo(T other);
+}
+
 T max<T extends Comparable<T>>(T a, T b) {
     return a.compareTo(b) > 0 ? a : b;
 }

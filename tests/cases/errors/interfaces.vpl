@@ -3,7 +3,7 @@ interface Shape {
 }
 
 interface Named {
-    String name();
+    readonly String name();
 }
 
 class Square implements Shape {         // error: 'Square' does not implement 'Shape.area()'
@@ -18,7 +18,16 @@ class Wrong implements Shape {
 }
 
 struct Point implements Named {
-    String name() { return "p"; }
+    readonly String name() { return "p"; }
+}
+
+struct Changing implements Named {
+    String name() { return "c"; }      // error: 'Changing.name' must be 'readonly', since it implements the 'readonly' method 'Named.name()'
+}
+
+// A class method never changes the reference it is called through.
+class Label implements Named {
+    String name() { return "l"; }
 }
 
 class Twice implements Shape, Shape {   // error: 'Shape' is listed more than once
@@ -35,7 +44,7 @@ interface Generic {
     void m<T>(T x);                     // error: interface methods cannot have type parameters
 }
 
-void describe<T extends Named>(mut T value) {
+void describe<T extends Named>(T value) {
     print(value.name());
 }
 

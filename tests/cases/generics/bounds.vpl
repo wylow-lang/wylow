@@ -1,11 +1,11 @@
 interface Comparable<T> {
-    int compareTo(T other);
+    readonly int compareTo(T other);
 }
 
 struct Score implements Comparable<Score> {
     int points;
 
-    int compareTo(Score other) {
+    readonly int compareTo(Score other) {
         return points - other.points;
     }
 }
@@ -22,18 +22,18 @@ class Version implements Comparable<Version> {
     }
 }
 
-T max<T extends Comparable<T>>(mut T a, T b) {
+T max<T extends Comparable<T>>(T a, T b) {
     return a.compareTo(b) >= 0 ? a : b;
 }
 
 interface Shape {
-    float area();
+    readonly float area();
 }
 
 struct Square implements Shape {
     float side;
 
-    float area() {
+    readonly float area() {
         return side * side;
     }
 }

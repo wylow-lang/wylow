@@ -2,7 +2,7 @@
 // span, by a call of the method below, and a for-each loop iterates over it through that span.
 
 interface ReadOnlySpannable<T> {
-    ReadOnlySpan<T> asReadOnlySpan();
+    readonly ReadOnlySpan<T> asReadOnlySpan();
 }
 
 interface Spannable<T> extends ReadOnlySpannable<T> {

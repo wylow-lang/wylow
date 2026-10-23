@@ -124,10 +124,10 @@ public sealed partial class Parser
                     token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
                 break;
             case TypeKind.Class:
-                Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on struct methods");
+                Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on struct and interface methods");
                 break;
             case TypeKind.Interface:
-                Disallow(modifiers, ~Modifiers.None, _ => "interface members cannot have modifiers");
+                Disallow(modifiers, ~Modifiers.ReadOnly, _ => "interface members cannot have modifiers other than 'readonly'");
                 break;
             case TypeKind.Enum:
                 Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,

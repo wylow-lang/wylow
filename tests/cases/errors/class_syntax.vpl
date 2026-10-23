@@ -24,7 +24,7 @@ class C {
     void r();                          // error: 'r' must have a body
     ~D() { }                           // error: a destructor must be named after its class
     ~C(int x) { }                      // error: destructors cannot have parameters
-    readonly void s() { }              // error: 'readonly' is only valid on struct methods
+    readonly void s() { }              // error: 'readonly' is only valid on struct and interface methods
     virtual int field;                 // error: 'virtual' is not valid on a field
 }
 

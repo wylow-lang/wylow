@@ -1,5 +1,5 @@
 interface Named {
-    String name();
+    readonly String name();
 }
 
 enum Suit implements Named {
@@ -44,7 +44,7 @@ enum Format {
     Bgra,
 }
 
-String label<T extends Named>(mut T value) {
+String label<T extends Named>(T value) {
     return value.name();
 }
 

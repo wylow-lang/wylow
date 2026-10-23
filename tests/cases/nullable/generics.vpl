@@ -1,5 +1,5 @@
 interface Comparable<T> {
-    int compareTo(T other);
+    readonly int compareTo(T other);
 }
 
 struct Score implements Comparable<Score> {
@@ -9,7 +9,7 @@ struct Score implements Comparable<Score> {
         this.points = points;
     }
 
-    int compareTo(Score other) {
+    readonly int compareTo(Score other) {
         return points - other.points;
     }
 }
@@ -39,7 +39,7 @@ T orElse<T>(T? value, T fallback) {
 
 T? largest<T extends Comparable<T>>(List<T> items) {
     mut T? best = null;
-    for (mut T item : items) {
+    for (T item : items) {
         if (best == null || item.compareTo(best) > 0) {
             best = item;
         }

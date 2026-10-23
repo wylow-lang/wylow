@@ -1,6 +1,6 @@
 // Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
 interface Visitor<T> {
-    void visit((T) -> void f);
+    readonly void visit((T) -> void f);
 }
 
 class Bag<T> implements Visitor<T> {
@@ -32,7 +32,7 @@ class Bag<T> implements Visitor<T> {
     }
 }
 
-int total<V extends Visitor<int>>(mut V v) {
+int total<V extends Visitor<int>>(V v) {
     mut int t = 0;
     v.visit(x -> {
         t += x;
