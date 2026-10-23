@@ -45,19 +45,23 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// The object to hold while a place is used by one operation. Locals and <c>this</c> need no
-    /// hold, since nothing else can assign them (except locals a lambda assigns, which any call
-    /// may); object locals can't even be passed by <c>ref</c>.
+    /// The object to hold while a place is used by one operation. Locals, <c>this</c>, and fields
+    /// that aren't <c>mut</c> of those need no hold, since nothing else can assign them (except
+    /// locals a lambda assigns, which any call may); object locals can't even be passed by <c>ref</c>.
     /// </summary>
     BoundExpression? PinRoot(BoundExpression place) =>
         StorageRoot(place) is var (root, borrowed) && (borrowed || !IsStable(root)) ? root : null;
 
     /// <summary>
     /// The object to hold for the scope of a <c>ref</c> or span variable: even a local, since the
-    /// function itself may reassign it, but not <c>this</c>, which the caller holds.
+    /// function itself may reassign it, but not <c>this</c>, which the caller holds, or a field of
+    /// it that isn't <c>mut</c>.
     /// </summary>
     BoundExpression? ScopeRoot(BoundExpression place) =>
-        StorageRoot(place) is var (root, borrowed) && (borrowed || root is not BoundThis) ? root : null;
+        StorageRoot(place) is var (root, borrowed) && (borrowed || !IsHeldByCaller(root)) ? root : null;
+
+    bool IsHeldByCaller(BoundExpression expression) =>
+        expression is BoundThis || (expression is BoundFieldAccess { Receiver.Type.IsReference: true } field && IsFixedField(field) && IsHeldByCaller(field.Receiver));
 
     /// <summary>A strong reference to <paramref name="root"/> for as long as <paramref name="place"/> is used, which also borrows it if needed.</summary>
     string Hold(BoundExpression place, BoundExpression root) =>
@@ -67,13 +71,27 @@ public sealed partial class CppEmitter
     bool MayBeBorrowable(VplType type) =>
         borrowableClasses.Any(c => c == type.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.Symbol));
 
-    static bool IsStable(BoundExpression expression) => expression is BoundThis or BoundLocalAccess { Local.IsAssignedByLambda: false };
+    /// <summary>
+    /// Whether nothing but the function itself can replace the value while an operation uses it:
+    /// <c>this</c>, a local no lambda assigns, or a field that isn't <c>mut</c> of an object held
+    /// that way. Only the field's own class's constructors can assign it.
+    /// </summary>
+    bool IsStable(BoundExpression expression) => expression switch
+    {
+        BoundThis or BoundLocalAccess { Local.IsAssignedByLambda: false } => true,
+        BoundFieldAccess { Receiver.Type.IsReference: true } field => IsFixedField(field) && IsStable(field.Receiver),
+        _ => false,
+    };
+
+    /// <summary>A field that keeps its value for the rest of its object's life once the code running can see it.</summary>
+    bool IsFixedField(BoundFieldAccess field) =>
+        !field.Field.IsMutable && !(currentFunction is { IsConstructor: true } constructor && constructor.ContainingType == field.Field.Owner);
 
     /// <summary>
     /// Whether a value used by one operation could be replaced while it runs, so it must be held.
     /// A temporary can't be: the full expression owns it until the operation is done.
     /// </summary>
-    static bool MayBeReplaced(BoundExpression value) => !IsStable(value) && value is not (BoundNew or BoundInvocation or BoundLambda
+    bool MayBeReplaced(BoundExpression value) => !IsStable(value) && value is not (BoundNew or BoundInvocation or BoundLambda
         or BoundCall { Method.Symbol: { ReturnRefKind: RefKind.None, IsBuiltin: false } });
 
     /// <summary>Whether releasing a value of the type may destroy an object.</summary>

@@ -166,10 +166,16 @@ public sealed partial class CppEmitter
     Operand ReceiverOperand(BoundExpression receiver)
     {
         var type = receiver.Type;
-        if (type.IsReference || type.IsTypeParameter)
-            return new Operand(receiver, ByReference: true, PinRoot(receiver), PinValue: MayBeReplaced(receiver));
-        return new Operand(receiver, ByReference: true, PinRoot(receiver));
+        return HeldOperand(receiver, (type.IsReference || type.IsTypeParameter) && MayBeReplaced(receiver));
     }
+
+    /// <summary>
+    /// An operand passed by reference, which is pinned itself when <paramref name="pinValue"/>. Then
+    /// its container no longer needs to be borrowed, only alive until the value is copied.
+    /// </summary>
+    Operand HeldOperand(BoundExpression value, bool pinValue) => pinValue
+        ? new Operand(value, ByReference: true, StorageRoot(value) is (var root, _) && !IsStable(root) ? root : null, PinValue: true)
+        : new Operand(value, ByReference: true, PinRoot(value));
 
     Operand ArgumentOperand(MethodReference method, int index, BoundExpression argument)
     {
@@ -182,7 +188,7 @@ public sealed partial class CppEmitter
     /// Whether a stored function passed to a nullable non-escaping parameter must be copied: the
     /// parameter refers to it, while the call could replace it where it is stored.
     /// </summary>
-    static bool IsCopiedForReference(BoundExpression argument, BoundExpression value) =>
+    bool IsCopiedForReference(BoundExpression argument, BoundExpression value) =>
         value != argument && value.Type.NonNull.IsEscaping && MayBeReplaced(value);
 
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>

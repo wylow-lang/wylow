@@ -50,6 +50,25 @@ class World {
     }
 }
 
+class Team {
+    Player leader;
+
+    // Its constructors can still replace a field that isn't 'mut', so `s` holds the first leader.
+    Team() {
+        leader = new Player("x");
+        ref Stats s = leader.stats;
+        leader = new Player("y");
+        s.hp = 3;
+        print(s.hp);
+    }
+
+    // Elsewhere it is never replaced, so nothing holds it while `heal` runs.
+    void rally(World world) {
+        heal(ref leader.stats, world);
+        print(leader.name);
+    }
+}
+
 // Replaces the player that `s` points into.
 void heal(ref Stats s, World world) {
     world.player = new Player("b");
@@ -74,6 +93,20 @@ void main() {
     // output: player destroyed
     // output: weapon destroyed
     print(world.player.stats.hp);       // output: 0
+
+    {
+        var team = new Team();
+        // output: 3
+        // output: player destroyed
+        // output: weapon destroyed
+        team.rally(world);
+        // output: player destroyed
+        // output: weapon destroyed
+        // output: 5
+        // output: y
+    }
+    // output: player destroyed
+    // output: weapon destroyed
 }
 // output: player destroyed
 // output: weapon destroyed

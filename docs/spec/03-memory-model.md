@@ -485,13 +485,18 @@ weapon, so `fire` may replace `player.weapon` without destroying the object it i
 
 The current rule: the compiler pins (holds a strong reference for the duration of the call) the
 receiver of a method call, and the object owning the place passed as a `ref`/`in` argument or used
-as a struct method's receiver, unless that object is `this` or a local or parameter. Locals are
-safe without a pin because nothing but the function itself can assign them, and a class-typed local
-cannot even be passed by `ref`. `this` is safe because whoever called the method has pinned it. A
-pin costs one count increment and decrement.
+as a struct method's receiver, unless that object is `this` or a local or parameter, or is held by
+a field that isn't `mut` of such an object. Locals are safe without a pin because nothing but the
+function itself can assign them, and a class-typed local cannot even be passed by `ref`. `this` is
+safe because whoever called the method has pinned it. A field that isn't `mut` (§2.7) is never
+reassigned once its object is constructed, so it holds its object as long as the object holding it
+lives; inside its own class's constructors, which may still assign it, it is pinned like a `mut`
+field. A pin costs one count increment and decrement.
 
 A `ref` or `in` variable, and a span variable, holds the object for its whole scope, even when a
-local holds it: the function itself may reassign that local while the reference lives.
+local holds it: the function itself may reassign that local while the reference lives. An object
+held by `this`, or by a field that isn't `mut` of `this` (outside its class's constructors), needs
+no hold.
 
 ### Loop elements
 

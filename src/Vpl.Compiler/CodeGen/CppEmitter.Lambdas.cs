@@ -316,7 +316,7 @@ public sealed partial class CppEmitter
     {
         // A closure stored where the call could replace it is held until the call returns, as an object receiver is.
         var callee = invocation.Callee;
-        var operands = new List<Operand> { new(callee, ByReference: true, PinRoot(callee), PinValue: callee.Type.IsEscaping && MayBeReplaced(callee)) };
+        var operands = new List<Operand> { HeldOperand(callee, callee.Type.IsEscaping && MayBeReplaced(callee)) };
         operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(invocation.Signature, i, argument)));
         var signature = invocation.Signature;
         return Ordered(operands, parts =>
