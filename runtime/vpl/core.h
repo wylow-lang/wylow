@@ -101,7 +101,7 @@ inline T default_value() {
 // Fixed array indexing. The index may be given as a function, called after the array is found,
 // so that the element stays a place while VPL's left-to-right order is kept.
 template <class A, class I>
-inline decltype(auto) at(A&& array, I&& index, const char* location) {
+inline decltype(auto) at(A&& array, I index, const char* location) {
     int32_t i;
     if constexpr (std::is_invocable_v<I>) {
         i = index();
