@@ -3,7 +3,7 @@
 
 class Enemy {
     String name;
-    Enemy? target;
+    mut Enemy? target;
 
     Enemy(String name) {
         this.name = name;
@@ -81,7 +81,7 @@ void main() {
     // output: g
     // output: b
 
-    Enemy[2] pair = [new Enemy("p"), new Enemy("q")];
+    mut Enemy[2] pair = [new Enemy("p"), new Enemy("q")];
     for (Enemy e : pair) {
         pair[0] = e;
         print(e.name);
@@ -92,7 +92,7 @@ void main() {
 
     // Reassigning the loop variable makes it hold its own reference.
     var other = new Enemy("o");
-    for (Enemy e : list) {
+    for (mut Enemy e : list) {
         e = other;
         print(e.name);
     }

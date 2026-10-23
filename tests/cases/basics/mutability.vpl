@@ -1,0 +1,99 @@
+// Variables, parameters, and class fields are immutable unless declared 'mut'.
+struct Vec {
+    float x;
+    float y;
+
+    void scale(float by) {
+        x *= by;
+        y *= by;
+    }
+}
+
+class Body {
+    String name;
+    mut Vec position;
+    mut int moves;
+
+    Body(String name) {
+        this.name = "unnamed";
+        this.name = name;
+        position = Vec(1, 2);
+    }
+
+    void move() {
+        position.x += 10;
+        position.scale(2);
+        moves++;
+    }
+}
+
+int countDown(mut int n) {
+    mut int steps = 0;
+    while (n > 0) {
+        n--;
+        steps++;
+    }
+    return steps;
+}
+
+String describe(int value) {
+    String text;
+    if (value < 0) {
+        text = "negative";
+    } else if (value == 0) {
+        text = "zero";
+    } else {
+        text = "positive";
+    }
+    return text;
+}
+
+void call(@Escaping () -> void f) {
+    f();
+}
+
+void main() {
+    var body = new Body("crate");
+    body.move();
+    print(body.name);                       // output: crate
+    print(body.position.x);                 // output: 22.0
+    print(body.moves);                      // output: 1
+
+    // The variable can't be reassigned, but the object it refers to can change.
+    List<int> list = new List<int>();
+    list.add(4);
+    print(list.count);                      // output: 1
+
+    print(countDown(3));                    // output: 3
+    print(describe(-2));                    // output: negative
+    print(describe(5));                     // output: positive
+
+    mut Vec v = Vec(1, 1);
+    v.scale(3);
+    print(v.y);                             // output: 3.0
+
+    mut int[3] values = [1, 2, 3];
+    for (ref int value : values) {
+        value *= 2;
+    }
+    for (mut int value : values) {
+        value++;
+        print(value);                       // output: 3
+                                            // output: 5
+                                            // output: 7
+    }
+    print(values[0]);                       // output: 2
+
+    // A variable assigned once after its declaration can be captured.
+    int late;
+    late = 7;
+    call(() -> print(late));                // output: 7
+
+    (int) -> int clamp = (mut x) -> {
+        if (x > 10) {
+            x = 10;
+        }
+        return x;
+    };
+    print(clamp(50));                       // output: 10
+}

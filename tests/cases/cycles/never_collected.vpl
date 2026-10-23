@@ -3,8 +3,8 @@
 
 class Node {
     int id;
-    Node? next;
-    ((int) -> int)? onVisit = null;
+    mut Node? next;
+    mut ((int) -> int)? onVisit = null;
 
     Node(int id) {
         this.id = id;
@@ -25,7 +25,7 @@ void main() {
     // A closure capturing its holder.
     var watched = new Node(-3);
     watched.onVisit = x -> x + watched.id;
-    var chain = new Node(1);
+    mut var chain = new Node(1);
     chain.next = new Node(2);
     chain = new Node(3);
     // output: 1

@@ -1,5 +1,5 @@
-// An escaping lambda copies what it captures, so each captured local must never change after its
-// declaration, and can't be something only valid during the call.
+// An escaping lambda copies what it captures, so each captured local must not be 'mut', and can't be
+// something only valid during the call.
 struct Point {
     int x;
 
@@ -35,59 +35,34 @@ void parameters(ref int r, in int i, () -> int g, Span<int> view) {
 }
 
 void changes() {
-    int assigned = 1;
-    keep(() -> assigned);                           // error: an escaping lambda cannot capture 'assigned', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    mut int assigned = 1;
+    keep(() -> assigned);                           // error: an escaping lambda cannot capture 'assigned', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
     assigned = 2;
 
-    int incremented = 1;
-    incremented++;
-    keep(() -> incremented);                        // error: an escaping lambda cannot capture 'incremented', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    // Only 'mut' decides, not whether the local actually changes.
+    mut int unchanged = 1;
+    keep(() -> unchanged);                          // error: an escaping lambda cannot capture 'unchanged', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
 
-    int byRef = 1;
-    bump(ref byRef);
-    keep(() -> byRef);                              // error: an escaping lambda cannot capture 'byRef', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
-
-    int aliased = 1;
-    ref int alias = aliased;
-    keep(() -> aliased);                            // error: an escaping lambda cannot capture 'aliased', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
-    keep(() -> alias);                              // error: an escaping lambda cannot capture 'alias', which is a 'ref' variable; copy its value to a local first
-
-    var moved = Point(1);
+    mut var moved = Point(1);
     moved.move();
-    keep(() -> moved.get());                        // error: an escaping lambda cannot capture 'moved', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    keep(() -> moved.get());                        // error: an escaping lambda cannot capture 'moved', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
 
     var read = Point(1);
     keep(() -> read.get() + read.x);
 
-    int[3] looped = [1, 2, 3];
-    for (ref int element : looped) {
-        element = 0;
-    }
-    keep(() -> looped[0]);                          // error: an escaping lambda cannot capture 'looped', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
-
-    int[3] viewed = [1, 2, 3];
-    Span<int> span = viewed;
-    keep(() -> viewed[0]);                          // error: an escaping lambda cannot capture 'viewed', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
-
+    // Assigned once after its declaration, so not 'mut'.
     int late;
     late = 1;
-    keep(() -> late);                               // error: an escaping lambda cannot capture 'late', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    keep(() -> late);
 
-    for (int i = 0; i < 2; i++) {
-        keep(() -> i);                              // error: an escaping lambda cannot capture 'i', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+    for (mut int i = 0; i < 2; i++) {
+        keep(() -> i);                              // error: an escaping lambda cannot capture 'i', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
     }
 
-    // A non-escaping lambda changing a local counts too.
-    int counted = 0;
-    each(x -> {
-        counted += x;
-    });
-    keep(() -> counted);                            // error: an escaping lambda cannot capture 'counted', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
-
     // An escaping lambda inside a non-escaping one.
-    int outer = 0;
+    mut int outer = 0;
     each(x -> {
-        keep(() -> outer + x);                      // error: an escaping lambda cannot capture 'outer', since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change
+        keep(() -> outer + x);                      // error: an escaping lambda cannot capture 'outer', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
         outer = x;
     });
 }
@@ -104,7 +79,7 @@ void copies() {
     });
     // A local the lambda declares is its own.
     keep(() -> {
-        int own = 1;
+        mut int own = 1;
         own++;
         return own;
     });

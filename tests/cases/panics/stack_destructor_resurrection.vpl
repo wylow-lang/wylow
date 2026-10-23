@@ -1,7 +1,7 @@
 // An object on the stack whose destructor keeps a reference to it panics as one on the heap does.
 
 class Keeper {
-    Ghost? kept;
+    mut Ghost? kept;
 }
 
 class Ghost {

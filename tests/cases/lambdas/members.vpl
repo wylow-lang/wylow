@@ -41,7 +41,7 @@ class Stack<T> {
     }
 
     int count((T) -> bool test) {
-        int found = 0;
+        mut int found = 0;
         forEach(item -> {
             if (test(item)) {
                 found++;
@@ -62,7 +62,7 @@ void each(int[3] values, (int) -> void action) {
 }
 
 void main() {
-    Accumulator accumulator = Accumulator([1, 2, 3]);
+    mut Accumulator accumulator = Accumulator([1, 2, 3]);
     print(accumulator.total);                       // output: 6
     accumulator.addAll([10, 20, 30]);
     print(accumulator.total);                       // output: 66

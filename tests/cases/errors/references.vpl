@@ -40,7 +40,7 @@ struct Mat2 {
 
 class Holder {
     Node node = new Node();
-    int size;
+    mut int size;
 
     ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
         return ref node;

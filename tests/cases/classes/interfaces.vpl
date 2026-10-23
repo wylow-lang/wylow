@@ -8,7 +8,7 @@ interface Damageable extends Named {
 }
 
 class Crate implements Damageable {
-    int hp = 30;
+    mut int hp = 30;
 
     String name() {
         return "crate";
@@ -24,7 +24,7 @@ class Crate implements Damageable {
 }
 
 class Unit {
-    int hp = 100;
+    mut int hp = 100;
 
     void damage(int amount) {
         hp -= amount * 2;
@@ -58,7 +58,7 @@ struct Counter implements Named {
     }
 }
 
-void describe<T extends Named>(T value) {
+void describe<T extends Named>(mut T value) {
     print(value.name());
 }
 

@@ -2,8 +2,8 @@
 
 class Button {
     String name;
-    () -> void onClick;
-    ((int) -> int)? transform = null;
+    mut () -> void onClick;
+    mut ((int) -> int)? transform = null;
 
     Button(String name, @Escaping () -> void onClick) {
         this.name = name;
@@ -82,7 +82,7 @@ void main() {
     ((int) -> int)?[] table = new ((int) -> int)?[3];
     table[1] = makeAdder(10);
     for (((int) -> int)? entry : table) {
-        int value = -1;
+        mut int value = -1;
         if (entry != null) {
             value = entry(1);
         }
@@ -94,14 +94,14 @@ void main() {
     print(listed[1](0));                            // output: 7
 
     // Escaping locals can be reassigned, and `var` keeps the form of its initializer.
-    @Escaping (int) -> int current = add5;
+    @Escaping mut (int) -> int current = add5;
     print(current(0));                              // output: 5
     current = add7;
     print(current(0));                              // output: 7
     @Escaping var copied = add5;
     print(identity(copied)(9));                     // output: 14
 
-    @Escaping ((int) -> int)? maybe = null;
+    @Escaping mut ((int) -> int)? maybe = null;
     print(maybe == null);                           // output: true
     maybe = add5;
     if (maybe != null) {

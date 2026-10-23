@@ -21,6 +21,9 @@ public enum Modifiers
 
     /// <summary>On a struct: <c>ref struct</c>, a second-class type.</summary>
     Ref = 4096,
+
+    /// <summary>On a class field: assignable after construction.</summary>
+    Mut = 8192,
 }
 
 public enum RefKind { None, Ref, In }
@@ -124,6 +127,7 @@ public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type)
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+    public bool IsMutable { get; init; }
 }
 
 public abstract record Stmt(Location Location) : Node(Location);
@@ -137,6 +141,7 @@ public sealed record VarDeclStmt(Location Location, TypeSyntax? Type, string Nam
     : Stmt(Location)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+    public bool IsMutable { get; init; }
 }
 
 public sealed record IfStmt(Location Location, Expr Condition, BlockStmt Then, Stmt? Else) : Stmt(Location);
@@ -147,7 +152,10 @@ public sealed record ForStmt(Location Location, Stmt? Initializer, Expr? Conditi
     : Stmt(Location);
 
 /// <summary>A for-each loop variable; <see cref="Type"/> is null for <c>var</c>.</summary>
-public sealed record ForEachVariable(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation) : Node(Location);
+public sealed record ForEachVariable(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation) : Node(Location)
+{
+    public bool IsMutable { get; init; }
+}
 
 /// <summary>
 /// <c>for (element : iterable)</c>, or with <see cref="Index"/>, <c>for (int i, element : iterable)</c>.
@@ -264,6 +272,7 @@ public sealed record LambdaParameterSyntax(Location Location, RefKind RefKind, T
     : Node(Location)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+    public bool IsMutable { get; init; }
 }
 
 /// <summary><c>x -> value</c> or <c>(a, b) -> { ... }</c>. Exactly one of <see cref="Value"/> and <see cref="Body"/> is set.</summary>

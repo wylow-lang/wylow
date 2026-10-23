@@ -238,8 +238,8 @@ stored. Nullable values follow the rules above, and also:
 - `x is int n` tests that `x` is not null and binds its value. The type must be exactly the value
   type: an `int?` can never be a `long`.
 - `print` accepts the nullable primitive types and prints `null` for null.
-- **Changing it in place**: a narrowed local's value is a variable, so `if (v != null) { v.x = 1;
-  v.move(); }` changes `v`. Nothing may keep referring into that value, since assigning `v` null
+- **Changing it in place**: a narrowed `mut` local's value is a variable, so `if (v != null) {
+  v.x = 1; v.move(); }` changes `v`. Nothing may keep referring into that value, since assigning `v` null
   destroys it: a `ref` or `in` variable, a span, or a `for` loop over its elements is an error
   (copy the value to a variable first), as is passing `v` by `ref` in the same call or assignment
   that uses its value by reference (`v.moveWith(ref v)`). A `ref` variable can't refer to a nullable
@@ -262,10 +262,55 @@ first element. A call infers `T` from a `T?` parameter through the value type of
 
 `var` declares a local with an inferred type: `var enemies = new Pool<Enemy>();`
 
-## 2.7 Constants
+## 2.7 Mutability and constants
 
-- `const` — compile-time constant: `const float PI = 3.14159;`
-- `final` — assigned exactly once, at runtime.
+Variables, parameters, and class fields are **immutable unless declared `mut`**, as in Rust. Most
+never change, so the marker goes on the exception.
+
+```java
+int lives = 3;                         // can't be assigned again
+mut int score = 0;
+score += 10;
+mut var target = enemies.first;
+```
+
+- **A variable that isn't `mut` always holds the same value, but an object it refers to can still
+  change.** `List<int> list = new List<int>(); list.add(1);` is fine; `list = other;` is not.
+  Whether an object's own fields can change depends on their declarations (below).
+- **A value follows its variable.** A struct, enum, or fixed array is stored in its variable, so when
+  the variable isn't `mut`, nothing in it can change. Its fields and elements can't be assigned, it
+  can't be passed by `ref` or bound to a `ref` variable, only its `readonly` methods can be called,
+  and a fixed array converts only to `ReadOnlySpan`. These are the rules of an `in` parameter
+  ([06-syntax.md](06-syntax.md#parameter-modes)). For the same reason, struct fields take no `mut`.
+- **Class fields** are immutable unless declared `mut`. The class's own constructors may assign
+  them through `this` any number of times; nothing else can: not a method, not a subclass's
+  constructor, and not a lambda created in a constructor. A struct stored in a field follows the
+  field, so `body.position.x = 1` needs `position` to be `mut`.
+- **A variable declared without a value is assigned once, later.** Assigning it where it might
+  already have been assigned, including in a loop or a lambda, is an error unless it is `mut`:
+
+  ```java
+  String label;
+  if (hp > 0) {
+      label = "alive";
+  } else {
+      label = "dead";
+  }
+  ```
+- **`mut` goes first**, after any annotations and access modifiers: `private mut int count;`,
+  `void aim(mut Vec3 dir)`, `for (mut int i = 0; i < n; i++)`, `for (mut Vec3 p : points)`,
+  `(mut x) -> ...`. It is not allowed on:
+  - `ref` and `in` parameters and variables, which always refer to the same place. Through a `ref`,
+    the place can be changed, since it had to be mutable to be referred to;
+  - non-escaping function parameters and variables, which can't be reassigned (§6.7);
+  - struct fields and variant fields, which follow their value;
+  - pattern bindings, which are copies; copy one to a `mut` variable to change it.
+
+  A `ref struct` variable may be `mut`, which allows calling its non-`readonly` methods, but it
+  still can't be reassigned ([03-memory-model.md](03-memory-model.md#spans)).
+- `mut` is not part of a function's signature: an override may declare its parameters `mut` or not
+  regardless of the method it overrides.
+- `const` declares a compile-time constant: `const float PI = 3.14159;`.
 
 ## 2.8 Enums
 

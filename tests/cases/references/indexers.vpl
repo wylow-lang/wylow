@@ -21,8 +21,8 @@ struct Holder {
 }
 
 class Bag {
-    int[3] items;
-    int used;
+    mut int[3] items;
+    mut int used;
 
     int count { get -> used; }
 
@@ -37,7 +37,7 @@ class Bag {
     }
 
     int total() {
-        int sum = 0;
+        mut int sum = 0;
         for (int i : 0..count) {
             sum += this[i];
         }
@@ -51,7 +51,7 @@ int order(int value) {
 }
 
 void main() {
-    Mat2 m = Mat2();
+    mut Mat2 m = Mat2();
     m[0, 0] = 1;
     m[1, 1] = 4;
     m[0, 1] += 2;
@@ -73,7 +73,7 @@ void main() {
     print(bag.items[1]);        // output: 25
     print(bag.total());         // output: 35
 
-    Holder h = Holder();
+    mut Holder h = Holder();
     h.inner()[0, 1] = 9;
     print(h.mat.m[1]);          // output: 9.0
 

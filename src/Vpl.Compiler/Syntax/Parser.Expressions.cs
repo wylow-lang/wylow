@@ -78,15 +78,23 @@ public sealed partial class Parser
     {
         int start = position;
         var annotations = ParseAnnotations();
-        if (At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
+        var (isMutable, refKind) = ParseBindingMode("parameter");
+        if (refKind == RefKind.None && At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
         {
             var untyped = Advance();
-            return new LambdaParameterSyntax(LocationFrom(start), RefKind.None, null, untyped.Text, Loc(untyped.Span)) { Annotations = annotations };
+            return new LambdaParameterSyntax(LocationFrom(start), RefKind.None, null, untyped.Text, Loc(untyped.Span))
+            {
+                Annotations = annotations,
+                IsMutable = isMutable,
+            };
         }
-        var refKind = ParseRefKind();
         var type = ParseType();
         var name = Expect(TokenKind.Identifier, "a parameter name");
-        return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span)) { Annotations = annotations };
+        return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span))
+        {
+            Annotations = annotations,
+            IsMutable = isMutable,
+        };
     }
 
     // `??` binds looser than `||` and groups to the right, as in C#.

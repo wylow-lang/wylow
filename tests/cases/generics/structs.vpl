@@ -54,7 +54,7 @@ void main() {
     var s = Pair<String, bool>.of("hi", true);
     print(s.first);              // output: hi
 
-    var b = Box<Box<int>> { value = Box<int> { value = 7 } };
+    mut var b = Box<Box<int>> { value = Box<int> { value = 7 } };
     print(b.get().get());        // output: 7
     print(b.reads);              // output: 1
     print(b.convert<long>(9));   // output: 9

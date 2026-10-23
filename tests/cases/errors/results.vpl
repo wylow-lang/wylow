@@ -40,12 +40,12 @@ Result<int, IoError> uses() {
     int b = try 5;                      // error: 'try' needs a 'Result', not 'int'
     int c = 1 + try read();             // error: 'try' must be the whole value of a declaration, assignment, return, or expression statement
     print(try read());                  // error: 'try' must be the whole value
-    int d = 0;
+    mut int d = 0;
     d += try read();                    // error: 'try' must be the whole value
     var h = Holder();                   // error: 'Holder' has no default value because field 'result' has type 'Result<int, IoError>'
     Result<int, IoError> r = read();
     var e = Ok(1);                      // error: function 'Ok' is not defined; to create the 'Result' variant, write 'Result<...>.Ok', or use it where a 'Result' is expected
-    for (int i = 0; i < 3; i = try read()) { } // error: 'try' cannot be used in a 'for' update
+    for (mut int i = 0; i < 3; i = try read()) { } // error: 'try' cannot be used in a 'for' update
     return r;
 }
 

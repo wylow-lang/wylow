@@ -42,7 +42,7 @@ void main() {
     // output: destroy
     // output: a
 
-    var b = new Noisy("b");
+    mut var b = new Noisy("b");
     // output: create
     // output: b
     b = new Noisy("c");
@@ -60,7 +60,7 @@ void main() {
     // output: t
 
     // The holder's destructor runs before its fields are released.
-    var h = new Holder(new Noisy("held"));
+    mut var h = new Holder(new Noisy("held"));
     // output: create
     // output: held
     h = new Holder(b);

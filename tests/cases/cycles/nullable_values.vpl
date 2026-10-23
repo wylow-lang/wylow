@@ -3,7 +3,7 @@
 
 class Room {
     int number;
-    Door? door;
+    mut Door? door;
 
     Room(int number) {
         this.number = number;
@@ -29,8 +29,8 @@ class Counter {
 }
 
 void main() {
-    var a = new Room(1);
-    var b = new Room(2);
+    mut var a = new Room(1);
+    mut var b = new Room(2);
     a.door = Door(b);
     b.door = Door(a);
     a = new Room(3);
@@ -41,9 +41,9 @@ void main() {
     // output: 1
     print(Memory.cycleStats().freed);   // output: 2
 
-    var c = new Counter();
+    mut var c = new Counter();
     c.history.add(1);
-    var d = c;
+    mut var d = c;
     d = new Counter();
     c = d;
     print(Memory.cycleStats().buffered);    // output: 0

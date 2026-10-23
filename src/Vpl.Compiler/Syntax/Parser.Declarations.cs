@@ -151,7 +151,7 @@ public sealed partial class Parser
 
         if (At(TokenKind.Identifier) && Current.Text == typeName && Peek(1).Kind == TokenKind.OpenParen)
         {
-            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly | Modifiers.Extern | InheritanceModifiers,
+            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers,
                 token => $"'{token.Text}' is not valid on a constructor");
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
@@ -223,6 +223,8 @@ public sealed partial class Parser
             Error(name.Span, "enums cannot have fields; data belongs to variants, as in 'Name(int field)'");
         Disallow(modifiers, Modifiers.Static, _ => "static fields are not supported yet");
         Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on methods");
+        if (kind == TypeKind.Struct)
+            Disallow(modifiers, Modifiers.Mut, _ => "struct fields cannot be 'mut'; they can be changed wherever the struct itself can be");
         Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => $"'{token.Text}' is not valid on a field");
         int errors = diagnostics.Count;
         while (true)
@@ -301,6 +303,7 @@ public sealed partial class Parser
     void CheckMethodModifiers(ModifierList modifiers)
     {
         var flags = modifiers.Flags;
+        Disallow(modifiers, Modifiers.Mut, _ => "'mut' is only valid on fields, variables, and parameters");
         if ((flags & Modifiers.Static) != 0)
         {
             Disallow(modifiers, Modifiers.ReadOnly | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");
@@ -372,14 +375,18 @@ public sealed partial class Parser
             {
                 int parameterStart = position;
                 var annotations = ParseAnnotations();
-                if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
+                if (!allowRefKinds && At(TokenKind.MutKeyword))
+                    Error(Current.Span, "a variant's fields cannot be 'mut'; an enum value is only ever replaced as a whole");
+                else if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
                     Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
-                var refKind = Accept(TokenKind.RefKeyword) ? RefKind.Ref
-                    : Accept(TokenKind.InKeyword) ? RefKind.In
-                    : RefKind.None;
+                var (isMutable, refKind) = ParseBindingMode("parameter");
                 var type = ParseType();
                 var parameterName = Expect(TokenKind.Identifier, allowRefKinds ? "a parameter name" : "a field name");
-                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text) { Annotations = annotations });
+                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text)
+                {
+                    Annotations = annotations,
+                    IsMutable = allowRefKinds && isMutable,
+                });
             } while (Accept(TokenKind.Comma));
         }
         Expect(TokenKind.CloseParen, "')'");

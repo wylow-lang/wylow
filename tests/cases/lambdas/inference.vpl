@@ -73,7 +73,7 @@ void main() {
     print(compose(2, x -> x + 0.5d, y -> y * 2d));      // output: 5.0
     print(compose(orc, m -> m.health, h -> h > 3));     // output: true
 
-    int calls = 0;
+    mut int calls = 0;
     print(run(() -> {
         calls++;
         return calls * 10;

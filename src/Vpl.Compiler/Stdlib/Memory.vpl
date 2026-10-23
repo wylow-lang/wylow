@@ -36,7 +36,7 @@ struct Memory {
 
     // What the cycle collector did since the last call.
     static CycleStats cycleStats() {
-        var stats = CycleStats();
+        mut var stats = CycleStats();
         takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
         return stats;
     }

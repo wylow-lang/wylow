@@ -50,8 +50,8 @@ Each is explained in detail in its chapter.
 2. **Copying a struct shares what's inside it.** Struct copies are shallow: class references in the
    copy point at the same objects (same `List`, same `String`). Use `.clone()` for a deep copy.
    See [02-types.md](02-types.md#29-structs).
-3. **Mutable statics are per-thread.** Unlike Java, each thread has its own copy of a mutable
-   `static` field. Use `static shared` for a true process-wide global.
+3. **Mutable statics are per-thread.** Unlike Java, each thread has its own copy of a
+   `static mut` field. Use `static shared` for a true process-wide global.
    See [05-concurrency.md](05-concurrency.md#55-statics).
 4. **`1.5` is a `float`.** Use `1.5d` for `double`. See [02-types.md](02-types.md#22-literals).
 5. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
@@ -75,9 +75,12 @@ Each is explained in detail in its chapter.
 12. **`T?` is `T` when `T` is already nullable.** A generic `T? find()` on a `List<int?>` returns
    an `int?` that is null both when nothing was found and when a null was. See
    [02-types.md](02-types.md#nullable-type-parameters).
-13. **A null check doesn't narrow a local that a lambda assigns**, anywhere in the function, since
-   the lambda may run during any call. Copy it to another local and check that. See
+13. **A null check doesn't narrow a `mut` local that a lambda assigns**, anywhere in the function,
+   since the lambda may run during any call. Copy it to another local and check that. See
    [06-syntax.md](06-syntax.md#67-lambdas-and-function-types).
+14. **Variables, parameters, and fields are immutable unless declared `mut`**, as in Rust. For a
+   class reference, this means the variable can't be reassigned; the object itself can still
+   change. See [02-types.md](02-types.md#27-mutability-and-constants).
 
 ## Standard library
 

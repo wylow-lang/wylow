@@ -9,7 +9,7 @@ struct Pair {
 }
 
 void main() {
-    Pair p = Pair();
+    mut Pair p = Pair();
     print(p.get(1));            // output: 0
     print(p.get(2));            // panic-here: index 2 is out of bounds for length 2
 }

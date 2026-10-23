@@ -24,7 +24,7 @@ class Bag<T> implements Visitor<T> {
     }
 
     U fold<U>(U start, (U, T) -> U step) {
-        U acc = start;
+        mut U acc = start;
         visit(item -> {
             acc = step(acc, item);
         });
@@ -32,8 +32,8 @@ class Bag<T> implements Visitor<T> {
     }
 }
 
-int total<V extends Visitor<int>>(V v) {
-    int t = 0;
+int total<V extends Visitor<int>>(mut V v) {
+    mut int t = 0;
     v.visit(x -> {
         t += x;
     });
@@ -41,7 +41,7 @@ int total<V extends Visitor<int>>(V v) {
 }
 
 int sumAll(Visitor<int> v) {
-    int t = 0;
+    mut int t = 0;
     v.visit(x -> {
         t += x;
     });

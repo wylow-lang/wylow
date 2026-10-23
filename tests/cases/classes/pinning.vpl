@@ -6,8 +6,8 @@ struct Stats {
 
 class Player {
     String name;
-    Weapon weapon;
-    Stats stats;
+    mut Weapon weapon;
+    mut Stats stats;
 
     Player(String name) {
         weapon = new Weapon("old");
@@ -22,7 +22,7 @@ class Player {
 
 class Weapon {
     String name;
-    Weak<Player> owner;
+    mut Weak<Player> owner;
 
     Weapon(String name) {
         this.name = name;
@@ -43,7 +43,7 @@ class Weapon {
 }
 
 class World {
-    Player player;
+    mut Player player;
 
     World(Player player) {
         this.player = player;

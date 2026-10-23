@@ -1,5 +1,5 @@
 abstract class Weapon {
-    int shots = 0;
+    mut int shots = 0;
     String name;
 
     Weapon(String name) {
@@ -82,7 +82,7 @@ int total(Weapon w) {
 }
 
 void main() {
-    Weapon w = new Pistol();
+    mut Weapon w = new Pistol();
     w.fire();
     // output: pistol
     // output: 10

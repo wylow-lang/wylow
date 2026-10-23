@@ -2,7 +2,7 @@
 
 class Enemy {
     int id;
-    () -> void onHit = () -> print(0);
+    mut () -> void onHit = () -> print(0);
 
     Enemy(int id) {
         this.id = id;
@@ -47,7 +47,7 @@ class Listener {
 }
 
 class Box {
-    ((int) -> int)? f = null;
+    mut ((int) -> int)? f = null;
 
     ~Box() {
         print(-2);
@@ -88,7 +88,7 @@ void main() {
     Memory.collectCycles();                         // output: -2
 
     // Breaking the cycle by hand frees it without the collector.
-    var enemy = new Enemy(4);
+    mut var enemy = new Enemy(4);
     enemy.arm();
     enemy.onHit = () -> print(5);
     print(-9);                                      // output: -9

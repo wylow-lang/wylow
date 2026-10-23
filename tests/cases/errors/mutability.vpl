@@ -1,0 +1,132 @@
+// Only what is declared 'mut' can be reassigned or changed in place.
+struct Vec {
+    float x;
+
+    void grow() {
+        x++;
+    }
+
+    readonly float get() {
+        return x;
+    }
+}
+
+class Body {
+    Vec position;
+    mut Vec velocity;
+    int id;
+
+    Body(int id) {
+        this.id = id;
+        this.id = id + 1;                   // a constructor may assign its fields any number of times
+        position.x = 1;
+        Body other = this;
+        other.id = 2;                       // error: cannot assign to 'other.id' because field 'id' is not 'mut'
+        run(() -> {
+            this.id = 3;                    // error: cannot assign to 'this.id' because field 'id' is not 'mut'
+        });
+    }
+
+    void move() {
+        velocity.x = 1;
+        position.x = 1;                     // error: cannot assign to 'position.x' because field 'position' is not 'mut'
+        position.grow();                    // error: cannot call 'grow' on 'position' because field 'position' is not 'mut'
+        id = 4;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+    }
+}
+
+class Ball extends Body {
+    Ball() {
+        super(1);
+        id = 5;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+    }
+}
+
+void run(() -> void f) {
+    f();
+}
+
+void bump(ref float value) {
+    value++;
+}
+
+void sum(Span<float> values) {
+}
+
+void parameters(int count, Vec v, mut Vec w) {
+    count = 1;                              // error: cannot assign to 'count' because parameter 'count' is not 'mut'
+    v.x = 1;                                // error: cannot assign to 'v.x' because parameter 'v' is not 'mut'
+    w.x = 1;
+}
+
+void locals() {
+    int n = 0;
+    n = 1;                                  // error: cannot assign to 'n' because variable 'n' is not 'mut'
+    n++;                                    // error: cannot assign to 'n' because variable 'n' is not 'mut'
+    n += 2;                                 // error: cannot assign to 'n' because variable 'n' is not 'mut'
+
+    Vec v = Vec();
+    v.x = 1;                                // error: cannot assign to 'v.x' because variable 'v' is not 'mut'
+    v.grow();                               // error: cannot call 'grow' on 'v' because variable 'v' is not 'mut'
+    print(v.get());
+    bump(ref v.x);                          // error: cannot pass 'v.x' by 'ref' because variable 'v' is not 'mut'
+    ref Vec r = v;                          // error: cannot take a 'ref' to 'v' because variable 'v' is not 'mut'; use 'in' instead
+    in Vec i = v;
+
+    float[2] values = [1, 2];
+    values[0] = 3;                          // error: cannot assign to 'values[0]' because variable 'values' is not 'mut'
+    sum(values);                            // error: no overload of 'sum' accepts (float[2])
+    for (ref float e : values) {            // error: cannot loop over 'values' by 'ref' because variable 'values' is not 'mut'; use 'in'
+    }
+    for (float e : values) {
+        e = 0;                              // error: cannot assign to 'e' because variable 'e' is not 'mut'
+    }
+    for (int k : 0..2) {
+        k = 0;                              // error: cannot assign to 'k' because variable 'k' is not 'mut'
+    }
+
+    // An object's own fields are not part of the variable.
+    List<int> list = new List<int>();
+    list.add(1);
+    list = new List<int>();                 // error: cannot assign to 'list' because variable 'list' is not 'mut'
+}
+
+// A variable declared without a value can be assigned once.
+void deferred(bool c) {
+    int once;
+    once = 1;
+    once = 2;                               // error: 'once' might already have been assigned; declare it 'mut' to assign it more than once
+
+    int branches;
+    if (c) {
+        branches = 1;
+    }
+    branches = 2;                           // error: 'branches' might already have been assigned
+
+    int looped;
+    while (c) {
+        looped = 1;                         // error: 'looped' might already have been assigned
+    }
+
+    int inLambda;
+    run(() -> {
+        inLambda = 1;                       // error: cannot assign to 'inLambda' in a lambda, which may run more than once, because variable 'inLambda' is not 'mut'
+    });
+
+    // Each iteration declares a new one.
+    while (c) {
+        int fresh;
+        fresh = 1;
+        print(fresh);
+    }
+}
+
+void functions(mut () -> void f) {          // error: a non-escaping function cannot be 'mut'
+    mut () -> void g = () -> {};            // error: a non-escaping function cannot be 'mut'
+    (ref Vec) -> void reset = (mut v) -> {  // error: 'v' is passed as 'ref', so it cannot be 'mut'
+        v.x = 0;
+    };
+}
+
+void main() {
+}

@@ -60,7 +60,7 @@ void main() {
     print(hit.target.name);           // output: Ana
     print(hit.damage);                // output: 3
 
-    int[2] values = [4, 5];
+    mut int[2] values = [4, 5];
     var samples = Samples(values);
     values[0] = 9;
     print(samples.values[0]);         // output: 4

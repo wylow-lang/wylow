@@ -67,7 +67,7 @@ U map<T, U>(T value, (T) -> U f) {
 }
 
 int callRef((ref int) -> void f) {
-    int n = 1;
+    mut int n = 1;
     f(ref n);
     return n;
 }
@@ -87,7 +87,7 @@ class Direct implements Transform {
 }
 
 class Holder {
-    (int) -> int f = inc;
+    mut (int) -> int f = inc;
 }
 
 (int) -> int pick(bool up) {

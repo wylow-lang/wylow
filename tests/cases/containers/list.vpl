@@ -16,7 +16,7 @@ struct Bullet {
 }
 
 int total(ReadOnlySpan<int> values) {
-    int sum = 0;
+    mut int sum = 0;
     for (int v : values) {
         sum += v;
     }

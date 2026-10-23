@@ -21,6 +21,9 @@ public sealed partial class Binder
 
     static bool IsNonEscapingFunction(VplType type) => type.NonNull.IsFunction && !type.NonNull.IsEscaping;
 
+    const string NonEscapingMutMessage =
+        "a non-escaping function cannot be 'mut', since it keeps the function it was given; declare it '@Escaping' to reassign it";
+
     /// <summary>
     /// Only a parameter can hold a nullable non-escaping function: a variable would have to own the
     /// lambda it may hold, as a non-escaping variable does, while one that is null holds none.
@@ -216,10 +219,7 @@ public sealed partial class Binder
         }
     }
 
-    /// <summary>
-    /// Checks what the escaping lambdas in a body capture, once the whole body is bound and so every
-    /// change to a local is known (§6.7).
-    /// </summary>
+    /// <summary>Checks what the escaping lambdas in a body capture (§6.7).</summary>
     void CheckEscapingCaptures(BoundBlock body)
     {
         var reported = new HashSet<LocalSymbol>();
@@ -249,8 +249,8 @@ public sealed partial class Binder
             return $"a '{local.Type}' that may not outlive what it views";
         if (IsNonEscapingFunction(local.Type))
             return $"which is a non-escaping {what}; declare it '@Escaping'";
-        if (local.IsModified)
-            return "since it changes after its declaration and the lambda would have only a copy; copy it to a variable that doesn't change";
+        if (local.IsMutable)
+            return "which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'";
         return null;
     }
 }

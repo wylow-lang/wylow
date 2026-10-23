@@ -89,7 +89,15 @@ public sealed partial class Binder
                 Error(syntax.Location, $"'{syntax.Name}' is declared as '{declared[i]}', "
                     + $"but '{type}' passes '{expected[i]}'");
             }
-            parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind) { IsTemporary = e.IsFunctionReference });
+            if (syntax.IsMutable && expected[i].RefKind != RefKind.None)
+                Error(syntax.Location, $"'{syntax.Name}' is passed as '{FunctionSymbol.RefPrefix(expected[i].RefKind).Trim()}', so it cannot be 'mut'");
+            else if (syntax.IsMutable && IsNonEscapingFunction(expected[i].Type))
+                Error(syntax.Location, NonEscapingMutMessage);
+            parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind)
+            {
+                IsTemporary = e.IsFunctionReference,
+                IsMutable = syntax.IsMutable && expected[i].RefKind == RefKind.None,
+            });
         }
         return new FunctionSymbol("lambda", parameters, returnType)
         {

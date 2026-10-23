@@ -37,15 +37,16 @@ A `shared class` may be referenced from multiple threads.
 
 ```java
 shared class TextureCache {
-    final String rootPath;
+    String rootPath;
     Mutex<Map<String, TextureId>> entries;
     Atomic<int> hits;
 }
 ```
 
 - Uses an **atomic** reference count.
-- Every field must be either `final` and sendable, or a synchronization type (`Mutex<T>`,
-  `RwLock<T>`, `Atomic<T>`, `Channel<T>`, ...). The compiler enforces this.
+- No field may be `mut` ([02-types.md](02-types.md#27-mutability-and-constants)), and every field
+  must be sendable or a synchronization type (`Mutex<T>`, `RwLock<T>`, `Atomic<T>`,
+  `Channel<T>`, ...), through which the shared state changes. The compiler enforces this.
 - `String` is a `shared class`.
 
 ## 5.2 Jobs
@@ -162,8 +163,8 @@ A lock held while a panic unwinds is poisoned (§5.6).
 
 | Declaration | Meaning |
 |---|---|
-| `static int frameCount;` | **One copy per thread.** No races possible |
-| `static final int MAX = 64;` / `const` | Shared constant |
+| `static mut int frameCount;` | **One copy per thread.** No races possible |
+| `static int MAX = 64;` / `const` | Shared constant |
 | `static shared Atomic<int> totalFrames;` | One process-wide copy. Type must be sendable, mutation only through sync types |
 
 A job that calls a function which updates a mutable static updates the *worker thread's* copy.
@@ -177,7 +178,7 @@ such as a mod, a script, or a game session in an editor, without stopping the pr
 
 ```java
 class ModHost {
-    Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
+    mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
 
     void tick(FrameInput input) {                                       // FrameInput: plain data
         switch (mod.call(state -> state.update(input))) {               // Result<ModOutput, Panic>

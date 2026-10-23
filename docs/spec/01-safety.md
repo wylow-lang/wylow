@@ -97,7 +97,7 @@ An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plu
 ```java
 unsafe {
     Vertex* v = vertices.data();
-    for (int i = 0; i < count; i++) {
+    for (mut int i = 0; i < count; i++) {
         v[i].position *= scale;
     }
 }

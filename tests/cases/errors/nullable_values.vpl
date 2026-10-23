@@ -66,15 +66,15 @@ void main() {
     var none = 1 == 2 ? null : null;    // error: the branches of '?:' have incompatible types 'null' and 'null'
 
     // Narrowing ends where the local may be assigned through a 'ref'.
-    int? y = 1;
+    mut int? y = 1;
     reset(ref y);
     print(y + 1);                       // error: 'y' might be null here
-    int? z = 1;
+    mut int? z = 1;
     while (z != null) {
         print(z + 1);
         reset(ref z);
     }
-    int? w = 1;
+    mut int? w = 1;
     for (int i : 0..3) {
         print(w + 1);                   // error: 'w' might be null here
         reset(ref w);
@@ -82,7 +82,7 @@ void main() {
     ref int? alias = x;                 // error: a 'ref' variable cannot refer to the nullable variable 'x'
 
     // Nothing may keep referring into a nullable value that could be destroyed meanwhile.
-    Vec? v = Vec { x = 1 };
+    mut Vec? v = Vec { x = 1 };
     if (v != null) {
         v.move(1);
         v.moveWith(ref v);              // error: 'v' is passed by 'ref' while its value is in use here

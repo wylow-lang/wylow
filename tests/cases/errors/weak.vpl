@@ -14,7 +14,7 @@ extern struct Native { }                // error: extern structs are only suppor
 
 void main() {
     var n = new Node();
-    Weak<Node> w = n;
+    mut Weak<Node> w = n;
     Node strong = w;                    // error: cannot implicitly convert 'Weak<Node>' to 'Node'
     Node? read = n.parent;              // error: cannot implicitly convert 'Weak<Node>' to 'Node?'
     Weak<Vec> v;                        // error: 'Weak' needs a class or interface type, not 'Vec'

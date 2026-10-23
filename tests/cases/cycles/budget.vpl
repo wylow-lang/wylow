@@ -3,7 +3,7 @@
 
 class Node {
     int id;
-    Node? next;
+    mut Node? next;
 
     Node(int id) {
         this.id = id;

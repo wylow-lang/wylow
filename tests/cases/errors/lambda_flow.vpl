@@ -15,7 +15,7 @@ void check() {
         });
     }
 
-    int? cleared = 5;
+    mut int? cleared = 5;
     call(() -> {
         cleared = null;
     });
@@ -23,7 +23,7 @@ void check() {
         int value = cleared;                        // error: a lambda assigns it, so null checks don't narrow it
     }
 
-    int assignedInside;
+    mut int assignedInside;
     call(() -> {
         assignedInside = 1;
     });

@@ -30,7 +30,7 @@ void main() {
     list.add(new Enemy("a"));
     list.add(new Enemy("b"));
     for (Enemy e : list) {
-        Owner? owner = new Owner(list);
+        mut Owner? owner = new Owner(list);
         owner = null;
         print(e.name);
     }

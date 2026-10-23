@@ -20,7 +20,7 @@ enum Slot {
 }
 
 class Holder {
-    Slot slot = Slot.Empty;
+    mut Slot slot = Slot.Empty;
 }
 
 enum Option<T> {
@@ -42,8 +42,8 @@ Option<T> wrap<T>(T a) {
 
 void main() {
     // Copies share the object; it is freed when the last copy goes.
-    var a = Slot.Holding(new Item(1, "free a"));
-    var b = a;
+    mut var a = Slot.Holding(new Item(1, "free a"));
+    mut var b = a;
     a = Slot.Empty;
     print(describe(b));                     // output: 1
     b = Slot.Empty;                         // output: free a

@@ -3,7 +3,7 @@
 
 class Noisy {
     String name;
-    Vec pos;
+    mut Vec pos;
 
     Noisy(String name) {
         this.name = name;
@@ -33,7 +33,7 @@ class Reader implements Visitor {
 }
 
 class Storer implements Visitor {
-    Noisy? kept;
+    mut Noisy? kept;
 
     void visit(Noisy n) {
         kept = n;
@@ -56,7 +56,7 @@ int returnsTemporary() {
 
 // Leaving a loop's body destroys the object made in it.
 void leaves() {
-    int i = 0;
+    mut int i = 0;
     while (true) {
         var w = new Noisy("iteration"); // stack: 1
         i += 1;
@@ -111,7 +111,7 @@ void main() {
     // output: 1
 
     // A non-escaping lambda storing an object in a variable outside it lets it escape.
-    Noisy? last = null;
+    mut Noisy? last = null;
     run(() -> {
         var made = new Noisy("made"); // stack: 0
         last = made;

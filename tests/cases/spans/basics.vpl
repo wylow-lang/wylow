@@ -11,11 +11,11 @@ struct Samples {
 }
 
 class Sensor {
-    float[3] readings;
+    mut float[3] readings;
 }
 
 float sum(ReadOnlySpan<float> values) {
-    float total = 0;
+    mut float total = 0;
     for (float v : values) {
         total += v;
     }
@@ -33,7 +33,7 @@ T first<T>(ReadOnlySpan<T> values) {
 }
 
 void main() {
-    float[4] a = [1, 2, 3, 4];
+    mut float[4] a = [1, 2, 3, 4];
     print(sum(a));              // output: 10.0
     scale(a, 2);
     print(a[3]);                // output: 8.0
@@ -53,12 +53,12 @@ void main() {
     // output: 6.0
     // output: 108.0
 
-    Samples samples = Samples();
+    mut Samples samples = Samples();
     samples.edit()[2] = 7;
     print(samples.values[2]);   // output: 7.0
     print(sum(samples.view())); // output: 7.0
 
-    var sensor = new Sensor();
+    mut var sensor = new Sensor();
     sensor.readings[1] = 2.5;
     print(sum(sensor.readings)); // output: 2.5
     Span<float> readings = sensor.readings;

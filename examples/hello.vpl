@@ -7,7 +7,7 @@ int fib(int n) {
 
 void main() {
     print("Hello, VPL!");
-    for (int i = 0; i < 10; i++) {
+    for (mut int i = 0; i < 10; i++) {
         print(fib(i));
     }
 }

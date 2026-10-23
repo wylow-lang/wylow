@@ -15,6 +15,15 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>The variable a for-each loop copies each element into.</summary>
     public bool IsLoopElement { get; init; }
 
+    /// <summary>Declared <c>mut</c>: it may be reassigned, and a value in it changed in place.</summary>
+    public bool IsMutable { get; init; }
+
+    /// <summary>
+    /// Declared without a value, so its first assignment initializes it. Unless it is mutable, that
+    /// is its only assignment, which <see cref="FlowAnalyzer"/> checks.
+    /// </summary>
+    public bool IsDeferred { get; init; }
+
     /// <summary>
     /// A lambda assigns it, so any call after the lambda is created may change it: it is never
     /// narrowed, and is held while in use like an object's field. Set by <see cref="FlowAnalyzer"/>.
@@ -26,7 +35,7 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
 
     /// <summary>
     /// Changed after its declaration: assigned, wholly or in part, or used where it could be changed,
-    /// such as by 'ref'. An escaping lambda can only capture a local that isn't. Set by the binder.
+    /// such as by 'ref'. Set by the binder.
     /// </summary>
     public bool IsModified { get; set; }
 
@@ -189,6 +198,9 @@ public sealed class FieldSymbol(string name, VplType type, TypeSymbol owner, Fie
     public TypeSymbol Owner { get; } = owner;
     public FieldDecl Declaration { get; } = declaration;
     public bool IsPrivate => (Declaration.Modifiers & Modifiers.Private) != 0;
+
+    /// <summary>Declared <c>mut</c>, so it may be assigned after construction.</summary>
+    public bool IsMutable => (Declaration.Modifiers & Modifiers.Mut) != 0;
 
     public BoundExpression? Initializer { get; set; }
 

@@ -19,7 +19,7 @@ class Button {
 // A `() -> bool` lambda captures a Widget, so Widgets and those closures are cyclic.
 class Widget {
     bool ready;
-    (() -> bool)? check = null;
+    mut (() -> bool)? check = null;
 
     void arm() {
         check = () -> ready;

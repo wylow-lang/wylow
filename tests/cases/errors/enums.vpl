@@ -76,6 +76,6 @@ void main() {
     print((Direction)1.5);              // error: cannot convert 'float' to 'Direction'
     Option<int> o = Some(1);
     Option<Thing> t = Some(1);          // error: no variant 'Option.Some' accepts (int)
-    Direction q = Direction.North;
+    mut Direction q = Direction.North;
     q = Wesst;                          // error: 'Wesst' is not defined
 }

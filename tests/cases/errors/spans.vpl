@@ -41,7 +41,7 @@ void readOnly(in int[2] values) {
 }
 
 void main() {
-    int[2] a = [1, 2];
+    mut int[2] a = [1, 2];
     int[2] b = [3, 4];
     Span<int> s = a;
     s = b;                                  // error: 's' cannot be reassigned: a 'Span<int>' views what it was initialized with

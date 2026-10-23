@@ -186,7 +186,9 @@ public sealed partial class Binder
                 Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
             var type = BindVariableType(parameter.Type, parameter.Annotations, isParameter: true);
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
-            result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind));
+            if (parameter.IsMutable && IsNonEscapingFunction(type))
+                Error(parameter.Location, NonEscapingMutMessage);
+            result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind) { IsMutable = parameter.IsMutable });
         }
         return result;
     }

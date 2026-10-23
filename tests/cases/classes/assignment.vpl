@@ -2,8 +2,8 @@
 // reads the assigned field sees the new value.
 
 class Holder {
-    Item item;
-    Pair pair;
+    mut Item item;
+    mut Pair pair;
 
     Holder() {
         item = new Item("first", null);

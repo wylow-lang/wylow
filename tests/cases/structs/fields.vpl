@@ -21,7 +21,7 @@ void main() {
     print(s.armor);        // output: 0
     print(s.speed);        // output: 2.5
 
-    var e = Enemy { alive = false };
+    mut var e = Enemy { alive = false };
     // output: id initializer
     print(e.stats.health); // output: 100
     print(e.id);           // output: 7

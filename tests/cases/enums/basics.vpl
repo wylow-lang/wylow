@@ -54,7 +54,7 @@ void describe(Shape s) {
 }
 
 void main() {
-    var d = Direction.North;
+    mut var d = Direction.North;
     print(name(d));                                 // output: north
     d = turnRight(turnRight(d));
     print(name(d));                                 // output: south

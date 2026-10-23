@@ -167,7 +167,7 @@ element: `List<Weak<Listener>>` works.
 ```java
 class Node {
     List<Node> children;
-    Weak<Node> parent;                     // does not keep the parent alive
+    mut Weak<Node> parent;                 // does not keep the parent alive
 }
 
 child.parent = node;                       // a T or T? converts implicitly to Weak<T>
@@ -263,8 +263,8 @@ visited, so the references they hold count as references from outside.
 - `@Acyclic` on a class declares that its objects never form cycles, so they are never buffered.
   If that is wrong, the cycle leaks; it is never undefined behavior.
 - `shared class` objects ([05-concurrency.md](05-concurrency.md)) are not collected, since other
-  threads may refer to them. Their fields are limited to `final` values and synchronization types,
-  so cycles among them are rare; break any with `Weak<T>`.
+  threads may refer to them. Their fields can't be `mut`, and only synchronization types let
+  them change, so cycles among them are rare; break any with `Weak<T>`.
 
 #### Destroying a cycle
 

@@ -3,7 +3,7 @@
 
 class Node {
     int id;
-    Node? next;
+    mut Node? next;
 
     Node(int id) {
         this.id = id;
@@ -22,7 +22,7 @@ class Node {
 // A cycle of `count` nodes numbered from `first`.
 Node ring(int first, int count) {
     var head = new Node(first);
-    var tail = head;
+    mut var tail = head;
     for (int i : 1..count) {
         var node = new Node(first + i);
         tail.next = node;
@@ -34,7 +34,7 @@ Node ring(int first, int count) {
 
 class Tree {
     int id;
-    Tree? parent;
+    mut Tree? parent;
     List<Tree> children = new List<Tree>();
 
     Tree(int id) {
@@ -55,7 +55,7 @@ class Tree {
 
 void main() {
     // Unreachable, but nothing frees it until the collector runs.
-    Weak<Node> watched = null;
+    mut Weak<Node> watched = null;
     if (true) {
         var a = ring(1, 2);
         watched = a;
@@ -67,7 +67,7 @@ void main() {
     print(watched.get() == null);       // output: true
 
     // A cycle still referenced from a local is live.
-    var kept = ring(3, 3);
+    mut var kept = ring(3, 3);
     Memory.collectCycles();
     print(kept.next!.next!.id);         // output: 5
     kept = new Node(9);
@@ -78,14 +78,14 @@ void main() {
     // output: 405
 
     // An object referring to itself.
-    var self = new Node(6);
+    mut var self = new Node(6);
     self.next = self;
     self = new Node(7);
     Memory.collectCycles();
     // output: 606
 
     // A cycle through a list: each child refers to its parent, and the parent's list to the children.
-    var root = new Tree(1);
+    mut var root = new Tree(1);
     root.add(2).add(3);
     root.add(4);
     root = new Tree(5);

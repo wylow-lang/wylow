@@ -2,7 +2,7 @@
 // would read freed memory or the wrong value if the compiler assumed a call can't change a local.
 
 class Box {
-    int value;
+    mut int value;
 
     Box(int value) {
         this.value = value;
@@ -40,7 +40,7 @@ int add(int a, int b) {
 
 void main() {
     // The receiver is held while the argument's lambda replaces it, until the call returns.
-    Box box = new Box(1);
+    mut Box box = new Box(1);
     print(box.add(run(() -> {
         box = new Box(100);
         return 5;
@@ -49,7 +49,7 @@ void main() {
     // output: 6
 
     // Operands are evaluated left to right, though the lambda changes `x`.
-    int x = 1;
+    mut int x = 1;
     print(add(x, run(() -> {
         x = 10;
         return 0;

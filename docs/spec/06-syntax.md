@@ -90,7 +90,7 @@ default values, positional construction, and setting fields by name are all the 
 - Declaring any constructor removes the memberwise one, apart from `T()`. A declared constructor
   starts from the default value, then runs its body. `this` refers to the value being built, and
   `return;` ends construction early. To set fields its parameters don't cover, assign them after the
-  call: `var e = Enemy(pos); e.health = 50;`.
+  call: `mut var e = Enemy(pos); e.health = 50;`.
 
   > Not implemented yet: default and named arguments. Until they are, the memberwise constructor
   > takes every field positionally, and the C#-style initializer `T { field = value }` remains; it
@@ -142,19 +142,20 @@ applyDamage(ref enemy, info);
 such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error.
 
-- A `ref` argument must be a mutable place: a local, a parameter, a field path rooted at one
-  (`ref enemy.position`), an element (`ref points[i]`), or a reference a method returned. Its
+- A `ref` argument must be a mutable place: a `mut` local or parameter, a field path rooted at
+  one (`ref enemy.position`), an element (`ref points[i]`), or a reference a method returned. Its
   type must match the parameter exactly; no conversions apply.
 - A place is read-only, and cannot be assigned or passed by `ref`, if it is rooted at an `in`
-  parameter or variable, at `this` inside a `readonly` method, or at a call that returns `in`.
+  parameter or variable, a variable, parameter, or field that isn't `mut` (§2.7), `this` inside a
+  `readonly` method, or a call that returns `in`.
 - Arguments are evaluated left to right, and a `ref` argument is a reference to the place, not a
   snapshot of its value: in `x + increment(ref x)`, the left `x` is read before the call.
 
 ### `readonly` struct methods
 
 In a struct method, `this` is a `ref`, so methods may mutate the struct. A method marked `readonly`
-cannot mutate `this`. Only `readonly` methods (and properties) can be called through an `in`
-parameter or a `ReadOnlySpan<T>`.
+cannot mutate `this`. Only `readonly` methods (and properties) can be called on a read-only place:
+through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `mut`.
 
 ```java
 struct Vec3 {
@@ -402,10 +403,10 @@ escaping parameter. `@Escaping` on the parameter or local opts in.
 |---|---|---|
 | Where | Parameters and locals | Fields, return values, `@Escaping` parameters and locals, containers |
 | Allocation | **None** (compiled to an inline template or function reference) | Heap-allocated, refcounted closure |
-| Captures | By reference: may capture `ref`s and `Span`s, and may **mutate** captured locals | By copy: captured locals must be effectively final (Java's rule) |
+| Captures | By reference: may capture `ref`s and `Span`s, and may **mutate** captured locals | By copy: captured locals can't be `mut` |
 
 ```java
-int count = 0;
+mut int count = 0;
 enemies.forEach(e -> { if (e.isDead) count++; });   // non-escaping: mutates local, no allocation
 
 void onEvent(@Escaping () -> void handler) { handlers.add(handler); }
@@ -418,7 +419,8 @@ handlers.add(onDone);
 The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
 non-escaping local stays non-escaping, and storing it is an error that suggests `@Escaping`.
 Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
-reassigned, so it can't outlive what its lambda captures. An escaping local can be reassigned.
+reassigned or declared `mut`, so it can't outlive what its lambda captures. An escaping local can
+be reassigned if it is `mut`.
 
 - **Escaping is part of the function type.** Each function type has a non-escaping and an
   escaping form, written the same way. Written as the type of a parameter, a local, or a function
@@ -441,13 +443,12 @@ reassigned, so it can't outlive what its lambda captures. An escaping local can 
   function type is escaping, so its lambdas are closures, and `??` can't be applied to a nullable
   non-escaping function; check it with `if`.
 - **Captures.** An escaping lambda copies the locals and parameters it uses when it is created,
-  so each must be *effectively final*: never changed after its declaration, anywhere in the
-  function. Assigning it or any part of it changes it, and so do passing it or a part of it by
-  `ref`, binding a `ref` variable to it, calling a non-`readonly` method on it, looping over it by
-  `ref`, and viewing it with a `Span`. A local declared without an initializer and assigned later
-  is not effectively final. Inside the lambda, the copies are read-only. A for-each or range
-  loop's variable is a new variable in each iteration, so it can be captured, but the counter of a
-  `for (int i = 0; ...; i++)` loop can't; copy it to a local in the body.
+  so none may be `mut` (§2.7): the copy and the variable could then differ. Whether a `mut` local
+  actually changes doesn't matter; the declaration decides. A local declared without a value and
+  assigned once later can be captured, since it must be assigned before the lambda is created.
+  Inside the lambda, the copies are read-only. A for-each or range loop's variable is a new
+  variable in each iteration, so it can be captured, but the `mut` counter of a
+  `for (mut int i = 0; ...; i++)` loop can't; copy it to a local in the body.
 - An escaping lambda can't capture a `ref` or `in` local or parameter, a span or other
   `ref struct`, a non-escaping function, or `this` in a struct's method or constructor (copy what it
   needs to a local first). A captured class reference, including `this`, keeps its object alive.
@@ -469,8 +470,8 @@ reassigned, so it can't outlive what its lambda captures. An escaping local can 
 for (Mob m : mobs) {
     handlers.add(() -> m.hit());            // fine: each iteration has its own 'm'
 }
-int total = 0;
-@Escaping () -> int f = () -> total;        // error: 'total' changes after its declaration
+mut int total = 0;
+@Escaping () -> int f = () -> total;        // error: 'total' is 'mut'
 total++;
 ```
 
@@ -550,7 +551,7 @@ be done when profiling shows it matters.
 
 - **Bind-once function locals.** A non-escaping local can't be reassigned; `?:` and switch
   expressions cover choosing one.
-- **Narrowing.** Carrying a null check on an effectively final local into a lambda would be sound.
+- **Narrowing.** Carrying a null check on a local that isn't `mut` into a lambda would be sound.
 - **`F?` is a nullable value**, not reference-like. Only parameters can be non-escaping `F?`:
   locals, choices, and `??` would need an optional that owns a lambda, which non-escaping locals
   and choices avoid by being bound once or holding every option.
@@ -635,8 +636,10 @@ A for-each loops over a range, a fixed array, a span, or a value that converts t
 ([02-types.md](02-types.md#spans)), such as an `Array` or a `List`:
 
 - `T x` copies each element, `ref T x` refers to it, and `in T x` refers to it read-only. `var x`
-  copies with the element's type. A `ref` loop needs a mutable source: not an `in` parameter or a
-  `ReadOnlySpan`.
+  copies with the element's type. A `ref` loop needs a mutable source: not an `in` parameter, a
+  `ReadOnlySpan`, or a fixed array in a variable or field that isn't `mut`.
+- Each variable, including a range's, is a new variable in each iteration and is immutable unless
+  declared `mut`, as in `for (mut Vec3 p : points)`; changing a copy doesn't change the element.
 - `int i, ... x` adds the element's index, a copy of the position.
 - The loop holds what it iterates for its whole duration, as a span variable would, so a list is
   borrowed until the loop ends ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)).
@@ -774,7 +777,7 @@ Enforced with compiler **warnings** (not errors):
 | Types (classes, structs, enums, interfaces) | `PascalCase` | `EnemySystem` |
 | Enum variants | `PascalCase` | `AiState.Chasing` |
 | Methods, fields, properties, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
-| Constants (`const`, `static final`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
+| Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
 | Packages | `lowercase` | `game.combat` |
 
 ## 6.12 Complete example

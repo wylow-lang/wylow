@@ -26,10 +26,10 @@ void main() {
     Vec3 zero = Vec3();
     print(zero.x);                    // output: 0.0
 
-    var v = Vec3(1, 2, 3);
+    mut var v = Vec3(1, 2, 3);
     print(v.lengthSquared());         // output: 14.0
 
-    var copy = v;
+    mut var copy = v;
     copy.x = 10;
     print(v.x);                       // output: 1.0
     print(copy.x);                    // output: 10.0

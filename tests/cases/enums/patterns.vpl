@@ -44,7 +44,7 @@ enum Format {
     Bgra,
 }
 
-String label<T extends Named>(T value) {
+String label<T extends Named>(mut T value) {
     return value.name();
 }
 
@@ -130,7 +130,7 @@ void main() {
     });                                                     // output: 2
 
     // break and continue belong to the enclosing loop.
-    for (int i = 0; i < 5; i++) {
+    for (mut int i = 0; i < 5; i++) {
         switch (i) {
             case 1 -> { continue; }
             case 3 -> { break; }
@@ -148,7 +148,7 @@ void main() {
     }
 
     // A loop condition can bind a new value each time.
-    var tree = Tree.Node(Card.Number(Suit.Hearts, 2), Card.Joker);
+    mut var tree = Tree.Node(Card.Number(Suit.Hearts, 2), Card.Joker);
     while (tree is Node(Number(_, var n), _)) {
         print(n);                                           // output: 2
         tree = Tree.Leaf(n);

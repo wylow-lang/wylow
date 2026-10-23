@@ -1,5 +1,5 @@
 class Keeper {
-    Ghost? kept;
+    mut Ghost? kept;
 }
 
 class Ghost {
@@ -16,6 +16,6 @@ class Ghost {
 
 void main() {
     var keeper = new Keeper();
-    var g = new Ghost(keeper);
+    mut var g = new Ghost(keeper);
     g = new Ghost(new Keeper());    // panic: an object's destructor kept a reference to the object
 }

@@ -30,7 +30,7 @@ struct Box {
 }
 
 void main() {
-    var small = Box(2, 3);
+    mut var small = Box(2, 3);
     var big = Box.square(4);
     print(small.area());                    // output: 6
     print(big.isBiggerThan(small));         // output: true

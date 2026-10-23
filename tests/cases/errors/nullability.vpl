@@ -31,11 +31,11 @@ void main() {
     Dog d = a;                          // error: cannot implicitly convert 'Animal' to 'Dog'
 
     // Narrowing ends when the local may be reassigned to null.
-    Node? cur = n;
+    mut Node? cur = n;
     while (cur != null) {
         cur = cur.next;
     }
-    Node? loop = n;
+    mut Node? loop = n;
     if (loop != null) {
         while (true) {
             print(loop.value);          // error: 'loop' might be null here

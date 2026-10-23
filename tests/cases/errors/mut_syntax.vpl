@@ -1,0 +1,29 @@
+mut class Box {                    // error: 'mut' is not valid on a class
+    mut int value;
+
+    mut Box() {                    // error: 'mut' is not valid on a constructor
+    }
+
+    mut int get() {                // error: 'mut' is only valid on fields, variables, and parameters
+        return value;
+    }
+}
+
+struct Vec {
+    mut float x;                   // error: struct fields cannot be 'mut'; they can be changed wherever the struct itself can be
+}
+
+enum Shape {
+    Circle(mut float r),           // error: a variant's fields cannot be 'mut'; an enum value is only ever replaced as a whole
+}
+
+void take(mut ref Vec v) {         // error: a 'ref' parameter cannot be 'mut', since it refers to the same place for its whole scope
+}
+
+void read(mut in Vec v) {          // error: an 'in' parameter cannot be 'mut'
+}
+
+void main() {
+    Vec v = Vec();
+    mut ref Vec r = v;             // error: a 'ref' variable cannot be 'mut'
+}

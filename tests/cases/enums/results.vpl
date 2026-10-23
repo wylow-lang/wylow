@@ -16,7 +16,7 @@ Result<int, ParseError> parse(int a, int b, int c) {
     if (a < 0) {
         return Err(ParseError.Empty);
     }
-    int value = try digit(a, 0);
+    mut int value = try digit(a, 0);
     if (b >= 0) {
         var next = try digit(b, 1);
         value = value * 10 + next;
@@ -33,7 +33,7 @@ Result<long, ParseError> doubled(int a, int b) {
 }
 
 class Counter {
-    int total;
+    mut int total;
 
     Result<int, ParseError> add(int code) {
         total = try digit(code, 0);

@@ -3,7 +3,7 @@
 class Item {
     int id;
     String name;
-    Weak<Holder> clears;
+    mut Weak<Holder> clears;
 
     Item(int id, String name) {
         this.id = id;
@@ -31,7 +31,7 @@ enum Slot {
 }
 
 class Holder {
-    Slot slot = Slot.Empty;
+    mut Slot slot = Slot.Empty;
 
     ~Holder() {
         print("free holder");
@@ -60,7 +60,7 @@ int take(Holder h) {
 void main() {
     // Assignment stores the new value before releasing the old one.
     var h = new Holder();
-    var first = new Item(1, "free 1");
+    mut var first = new Item(1, "free 1");
     first.clears = h;
     h.slot = Slot.Holding(first);
     first = new Item(0, "free 0");
@@ -69,11 +69,11 @@ void main() {
 
     // Binding a name releases its old value, whose destructor may change the matched value; every
     // bound value is copied before that happens.
-    var a1 = new Item(11, "free a1");
+    mut var a1 = new Item(11, "free a1");
     a1.clears = h;
     h.slot = Slot.Pair(Box.Has(a1), Box.Has(new Item(12, "free b1")));
     a1 = new Item(0, "free 0");
-    int round = 0;
+    mut int round = 0;
     while (h.slot is Pair(var a, var b)) {
         print(round);
         if (round == 0) {

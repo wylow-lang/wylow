@@ -58,8 +58,8 @@ struct Stack implements Visitor {
     }
 }
 
-int deepest<T extends Visitor>(T visited) {
-    int found = 0;
+int deepest<T extends Visitor>(mut T visited) {
+    mut int found = 0;
     visited.visit(n -> {
         found = n;
     });
@@ -98,8 +98,8 @@ void main() {
     print(shape.measure(x -> x * 2));                // output: 36
     shape.describe(() -> "named");                   // output: square
                                                      // output: named
-    Visitor visitor = square;
-    int seen = 0;
+    mut Visitor visitor = square;
+    mut int seen = 0;
     visitor.visit(side -> {
         seen = side;
     });

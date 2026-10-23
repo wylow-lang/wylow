@@ -208,11 +208,13 @@ public sealed partial class Binder
 
         if ((type.IsRefStruct || (type.IsFunction && !type.IsEscaping)) && initializer is null)
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
+        else if (s.IsMutable && IsNonEscapingFunction(type))
+            Error(s.NameLocation, NonEscapingMutMessage);
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
         else if (type.IsRefStruct && initializer is not null && BoundTree.ViewedNullableValue(initializer) is { } root)
             Error(initializer.Location, $"this '{type}' would view inside the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first");
-        var local = new LocalSymbol(s.Name, type, isParameter: false);
+        var local = new LocalSymbol(s.Name, type, isParameter: false) { IsMutable = s.IsMutable, IsDeferred = s.Initializer is null };
         Declare(local, s.NameLocation);
         return new BoundVariableDeclaration(s.Location, local, initializer);
     }
@@ -459,18 +461,26 @@ public sealed partial class Binder
             (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{access.Local.Name}'"),
         BoundLocalAccess { Local.RefKind: RefKind.In } access =>
             (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' {(access.Local.IsParameter ? "parameter" : "variable")}"),
+        BoundLocalAccess { Local: { RefKind: RefKind.None, IsMutable: false, IsTemporary: false } local } =>
+            (PlaceKind.ReadOnly, $"{(local.IsParameter ? "parameter" : "variable")} '{local.Name}' is not 'mut'"),
         BoundLocalAccess => (PlaceKind.Mutable, ""),
         BoundThis { Type.IsReference: true } => (PlaceKind.Temporary, ""),
         BoundThis when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
         BoundThis => (PlaceKind.Mutable, ""),
         // Fields of an object live on the heap, however the reference to it was obtained.
-        BoundFieldAccess { Receiver.Type.IsReference: true } => (PlaceKind.Mutable, ""),
+        BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, ""),
+        BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, $"field '{field.Field.Name}' is not 'mut'"),
         BoundFieldAccess field => ClassifyPlace(field.Receiver),
         BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
         BoundIndex index => ClassifyPlace(index.Target),
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call),
         _ => (PlaceKind.Temporary, ""),
     };
+
+    /// <summary>A class field that isn't <c>mut</c> can only be changed by its own class's constructors, through <c>this</c>.</summary>
+    bool IsAssignableField(BoundFieldAccess field) =>
+        field.Field.IsMutable
+        || (field.Receiver is BoundThis && currentFunction is { IsConstructor: true } constructor && constructor.ContainingType == field.Field.Owner);
 
     /// <summary>A returned reference points into the receiver, so a temporary struct receiver makes it temporary too.</summary>
     (PlaceKind Kind, string Reason) ClassifyReturnedReference(BoundCall call)
@@ -494,6 +504,20 @@ public sealed partial class Binder
         {
             Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'");
             return false;
+        }
+        // Its first assignment initializes it; the flow analysis checks that it is the only one.
+        if (target is BoundLocalAccess { Local: { IsDeferred: true, IsMutable: false } deferred })
+        {
+            if (deferred.Owner == currentFunction)
+            {
+                NoteModified(target);
+                return true;
+            }
+            if (!IsCopiedByEscapingLambda(deferred))
+            {
+                Error(target.Location, $"cannot assign to '{deferred.Name}' in a lambda, which may run more than once, because variable '{deferred.Name}' is not 'mut'");
+                return false;
+            }
         }
         var (kind, reason) = ClassifyPlace(target);
         switch (kind)

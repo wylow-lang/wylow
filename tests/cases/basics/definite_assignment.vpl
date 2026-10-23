@@ -8,14 +8,14 @@ void main() {
     }
     print(x); // output: 1
 
-    int y;
+    mut int y;
     while (true) {
         y = 5;
         break;
     }
     print(y); // output: 5
 
-    var z = 3L;
+    mut var z = 3L;
     z *= 2;
     print(z); // output: 6
 }

@@ -36,7 +36,7 @@ void main() {
     }
 
     // Assigning a value narrows too, until the local may be null again.
-    int? counter = 0;
+    mut int? counter = 0;
     counter++;
     counter += 10;
     print(counter);                         // output: 11
@@ -74,7 +74,7 @@ void main() {
     double? precise = scale;
     print(precise);                         // output: 2.0
 
-    bool? flag = null;
+    mut bool? flag = null;
     print(flag);                            // output: null
     flag = true;
     if (flag) {
@@ -82,7 +82,7 @@ void main() {
     }
 
     // A variant can still leave out its enum.
-    Direction? heading = East;
+    mut Direction? heading = East;
     print(heading == East);                 // output: true
     print(heading == Direction.West);       // output: false
     if (heading != null) {

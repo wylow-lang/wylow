@@ -18,8 +18,8 @@ struct Settings {
 }
 
 class Machine {
-    Mode mode;
-    Settings settings;
+    mut Mode mode;
+    mut Settings settings;
 }
 
 void toggle(ref Mode mode) {
@@ -38,7 +38,7 @@ T orDefault<T>(Option<T> option, T fallback) {
 }
 
 void main() {
-    var s = Settings();
+    mut var s = Settings();
     print((int)s.mode);                         // output: 5
     print(s.item is None);                      // output: true
     print(orDefault(s.count, 0));               // output: 1

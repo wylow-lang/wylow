@@ -2,11 +2,11 @@
 // outside the cycle.
 
 class Keeper {
-    Node? kept;
+    mut Node? kept;
 }
 
 class Node {
-    Node? next;
+    mut Node? next;
     Keeper keeper;
 
     Node(Keeper keeper) {
@@ -20,7 +20,7 @@ class Node {
 
 void main() {
     var keeper = new Keeper();
-    var a = new Node(keeper);
+    mut var a = new Node(keeper);
     a.next = new Node(keeper);
     a.next!.next = a;
     a = new Node(new Keeper());

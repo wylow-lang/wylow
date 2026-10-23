@@ -19,7 +19,7 @@ void readOnly(in int[2] values) {
 }
 
 void main() {
-    int[4] a = [1, 2, 3, 4];
+    mut int[4] a = [1, 2, 3, 4];
     print(a[4]);                    // error: index 4 is out of bounds for 'int[4]'
     print(a[-1]);                   // error: index -1 is out of bounds for 'int[4]'
     print(a[0, 1]);                 // error: an element of 'int[4]' is selected by a single index

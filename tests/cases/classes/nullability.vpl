@@ -1,6 +1,6 @@
 class Node {
     int value;
-    Node? next;
+    mut Node? next;
 
     Node(int value) {
         this.value = value;
@@ -28,8 +28,8 @@ class Dog extends Animal {
 }
 
 int sum(Node? list) {
-    int total = 0;
-    Node? current = list;
+    mut int total = 0;
+    mut Node? current = list;
     while (current != null) {
         total += current.value;
         current = current.next;

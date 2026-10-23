@@ -1,7 +1,7 @@
 // What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
 
 class Counter {
-    int count = 0;
+    mut int count = 0;
     String name;
 
     Counter(String name) {
@@ -69,8 +69,8 @@ int perform(Action action) {
 
 void main() {
     // A captured `this` keeps the object alive after every other reference is gone.
-    @Escaping () -> int read;
-    @Escaping () -> void increment;
+    @Escaping mut () -> int read;
+    @Escaping mut () -> void increment;
     if (true) {
         var counter = new Counter("counter freed");
         read = counter.reader();

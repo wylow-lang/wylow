@@ -18,7 +18,7 @@ void bump(ref Counter c) {
     c.increment();
 }
 
-void bumpCopy(Counter c) {
+void bumpCopy(mut Counter c) {
     c.increment();
 }
 
@@ -38,27 +38,27 @@ int incremented(ref int x) {
 }
 
 void main() {
-    var c = Counter();
+    mut var c = Counter();
     bump(ref c);
     bump(ref c);
     bumpCopy(c);
     print(c.value);                 // output: 2
     print(peek(c));                 // output: 2
 
-    int a = 1;
-    int b = 2;
+    mut int a = 1;
+    mut int b = 2;
     swap(ref a, ref b);
     print(a);                       // output: 2
     print(b);                       // output: 1
 
-    var h = Holder();
+    mut var h = Holder();
     bump(ref h.counter);
     h.counter.increment();
     print(h.counter.value);         // output: 2
 
     // Left to right: the read of x happens before the call that changes it.
-    int x = 10;
+    mut int x = 10;
     print(x + incremented(ref x));  // output: 21
-    int y = 10;
+    mut int y = 10;
     print(incremented(ref y) + y);  // output: 22
 }

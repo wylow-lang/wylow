@@ -25,7 +25,7 @@ void main() {
     uint x = 5u;
     var y = -x;                   // error: operator '-' cannot be applied to 'uint'
 
-    byte hi = 1;
+    mut byte hi = 1;
     var packed = hi << 8;         // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
     hi <<= 8;                     // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
     int n = 1;
@@ -35,7 +35,7 @@ void main() {
     long l = 1;
     ulong ul = 1uL;
     var mixed = l + ul;           // error: operator '+' cannot be applied to 'long' and 'ulong'; use an explicit cast to convert one side
-    byte small = 1;
+    mut byte small = 1;
     small += n;                   // error: cannot implicitly convert 'int' to 'byte'; use an explicit cast
 
     uint uv = 1u;
@@ -49,7 +49,7 @@ void main() {
     float fromInt = n;            // error: cannot implicitly convert 'int' to 'float'; use an explicit cast
 
     char c = 65;                  // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
-    char d = (char)65;
+    mut char d = (char)65;
     char next = d + 1;            // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
     d++;                          // error: '++' requires a numeric variable
     var negatedChar = -d;           // error: operator '-' cannot be applied to 'char'

@@ -221,6 +221,7 @@ public sealed partial class Parser
                 TokenKind.ProtectedKeyword => Modifiers.Protected,
                 TokenKind.StaticKeyword => Modifiers.Static,
                 TokenKind.ReadonlyKeyword => Modifiers.ReadOnly,
+                TokenKind.MutKeyword => Modifiers.Mut,
                 TokenKind.VirtualKeyword => Modifiers.Virtual,
                 TokenKind.OverrideKeyword => Modifiers.Override,
                 TokenKind.AbstractKeyword => Modifiers.Abstract,

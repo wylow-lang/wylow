@@ -68,8 +68,8 @@ interface Describable {
 
 abstract class Entity implements Describable {
     String name;
-    Vec2 position;
-    int health;
+    mut Vec2 position;
+    mut int health;
 
     Entity(String name, Vec2 position, int health) {
         this.name = name;
@@ -91,7 +91,7 @@ abstract class Entity implements Describable {
 }
 
 class Hero extends Entity {
-    int gold;
+    mut int gold;
     Entity? target;
 
     Hero(String name, Vec2 position) {
@@ -159,12 +159,12 @@ final class World {
     int size = 8;
 
     List<Entity> entities = new List<Entity>();
-    EventLog log;
-    Rng rng = Rng { state = 12345 };
-    int damageDealt;
-    int deaths;
-    int goldFound;
-    int potionsFound;
+    mut EventLog log;
+    mut Rng rng = Rng { state = 12345 };
+    mut int damageDealt;
+    mut int deaths;
+    mut int goldFound;
+    mut int potionsFound;
 
     bool inBounds(Vec2 p) {
         return p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
@@ -217,7 +217,7 @@ final class World {
     }
 
     int living() {
-        int n = 0;
+        mut int n = 0;
         for (Entity e : entities) {
             if (e.alive) {
                 n++;
@@ -227,7 +227,7 @@ final class World {
     }
 
     void removeDead() {
-        int i = 0;
+        mut int i = 0;
         while (i < entities.count) {
             if (!entities[i].alive) {
                 entities.removeAt(i);
@@ -239,7 +239,7 @@ final class World {
 }
 
 int sum(ReadOnlySpan<int> values) {
-    int total = 0;
+    mut int total = 0;
     for (int v : values) {
         total += v;
     }

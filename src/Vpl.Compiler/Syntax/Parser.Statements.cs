@@ -76,7 +76,7 @@ public sealed partial class Parser
                 Advance();
                 Expect(TokenKind.Semicolon, "';'");
                 return new ContinueStmt(LocationFrom(start));
-            case TokenKind.RefKeyword or TokenKind.InKeyword:
+            case TokenKind.RefKeyword or TokenKind.InKeyword or TokenKind.MutKeyword:
             {
                 int errors = diagnostics.Count;
                 var declaration = ParseVariableDeclaration();
@@ -196,7 +196,7 @@ public sealed partial class Parser
 
     bool IsDeclarationStart() => Current.Kind switch
     {
-        TokenKind.VarKeyword => true,
+        TokenKind.VarKeyword or TokenKind.MutKeyword => true,
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
         TokenKind.Identifier => IsDeclarationAfterTypeName(ScanType(position)),
         TokenKind.OpenParen => ScanType(position) is > 0 and var end && IsDeclarationAfterTypeName(end),
@@ -219,20 +219,36 @@ public sealed partial class Parser
     VarDeclStmt ParseVariableDeclaration(int? annotated = null)
     {
         int start = annotated ?? position;
-        var refKind = ParseRefKind();
+        var (isMutable, refKind) = ParseBindingMode("variable");
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
         var name = Expect(TokenKind.Identifier, "a variable name");
         var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
-        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind);
+        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind) { IsMutable = isMutable };
     }
 
     RefKind ParseRefKind() =>
         Accept(TokenKind.RefKeyword) ? RefKind.Ref : Accept(TokenKind.InKeyword) ? RefKind.In : RefKind.None;
 
+    /// <summary>
+    /// An optional <c>mut</c>, then an optional <c>ref</c> or <c>in</c>. A reference can't be
+    /// <c>mut</c>: it refers to the same place for its whole scope. <paramref name="what"/> names the
+    /// declaration in messages.
+    /// </summary>
+    (bool IsMutable, RefKind RefKind) ParseBindingMode(string what)
+    {
+        Token? mut = At(TokenKind.MutKeyword) ? Advance() : null;
+        var refKind = ParseRefKind();
+        if (mut is { } token && refKind != RefKind.None)
+            Error(token.Span, $"{(refKind == RefKind.Ref ? "a 'ref'" : "an 'in'")} {what} cannot be 'mut', since it refers to the same place for its whole scope");
+        return (mut is not null && refKind == RefKind.None, refKind);
+    }
+
     /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>
     bool IsForEachHeader()
     {
         int index = position;
+        if (KindAt(index) == TokenKind.MutKeyword)
+            index++;
         if (KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword)
             return true;
         if (KindAt(index) == TokenKind.VarKeyword)
@@ -270,9 +286,9 @@ public sealed partial class Parser
     ForEachVariable ParseForEachVariable()
     {
         int start = position;
-        var refKind = ParseRefKind();
+        var (isMutable, refKind) = ParseBindingMode("variable");
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
         var name = Expect(TokenKind.Identifier, "a variable name");
-        return new ForEachVariable(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
+        return new ForEachVariable(LocationFrom(start), refKind, type, name.Text, Loc(name.Span)) { IsMutable = isMutable };
     }
 }

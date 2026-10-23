@@ -35,7 +35,7 @@ interface Generic {
     void m<T>(T x);                     // error: interface methods cannot have type parameters
 }
 
-void describe<T extends Named>(T value) {
+void describe<T extends Named>(mut T value) {
     print(value.name());
 }
 

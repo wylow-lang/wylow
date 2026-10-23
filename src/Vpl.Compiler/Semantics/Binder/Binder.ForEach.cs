@@ -52,7 +52,7 @@ public sealed partial class Binder
         }
         type ??= VplType.Error;
 
-        var local = new LocalSymbol(element.Name, type, isParameter: false);
+        var local = new LocalSymbol(element.Name, type, isParameter: false) { IsMutable = element.IsMutable };
         Declare(local, element.NameLocation);
         var body = BindLoopBody(s.Body);
         return new BoundForRange(s.Location, local, Convert(start, type), Convert(end, type), s.IsInclusive, body);
@@ -109,7 +109,7 @@ public sealed partial class Binder
             _ => RefKind.None,
         };
         var array = new LocalSymbol("array", iterable.Type, isParameter: false, arrayRefKind) { IsTemporary = true };
-        var counter = new LocalSymbol("i", VplType.Int, isParameter: false) { IsTemporary = true };
+        var counter = new LocalSymbol("i", VplType.Int, isParameter: false) { IsTemporary = true, IsMutable = true };
         var element = new BoundIndex(location, new BoundLocalAccess(location, array), new BoundLocalAccess(location, counter));
         bool readOnly = kind == PlaceKind.ReadOnly && s.Element.RefKind == RefKind.Ref;
         if (readOnly)
@@ -137,7 +137,7 @@ public sealed partial class Binder
                 Error(indexSyntax.Location, "the index cannot be borrowed; it is a copy of the position");
             if (indexSyntax.Type is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != VplType.Int && bound != VplType.Error)
                 Error(indexType.Location, $"the index of a loop is an 'int', not '{bound}'");
-            var index = new LocalSymbol(indexSyntax.Name, VplType.Int, isParameter: false);
+            var index = new LocalSymbol(indexSyntax.Name, VplType.Int, isParameter: false) { IsMutable = indexSyntax.IsMutable };
             Declare(index, indexSyntax.NameLocation);
             declarations.Add(new BoundVariableDeclaration(indexSyntax.Location, index, Counter()));
         }
@@ -152,7 +152,11 @@ public sealed partial class Binder
             value = Convert(element, type);
         else if (!CheckReference(element, elementSyntax.RefKind, type, $"a '{FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim()}' variable"))
             value = null;
-        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind) { IsLoopElement = elementSyntax.RefKind == RefKind.None };
+        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind)
+        {
+            IsLoopElement = elementSyntax.RefKind == RefKind.None,
+            IsMutable = elementSyntax.IsMutable,
+        };
         Declare(local, elementSyntax.NameLocation);
         declarations.Add(new BoundVariableDeclaration(elementSyntax.Location, local, value ?? new BoundErrorExpression(elementSyntax.Location)));
 

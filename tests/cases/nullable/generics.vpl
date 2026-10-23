@@ -38,8 +38,8 @@ T orElse<T>(T? value, T fallback) {
 }
 
 T? largest<T extends Comparable<T>>(List<T> items) {
-    T? best = null;
-    for (T item : items) {
+    mut T? best = null;
+    for (mut T item : items) {
         if (best == null || item.compareTo(best) > 0) {
             best = item;
         }
@@ -83,7 +83,7 @@ void main() {
     scores.add(Score(5));
     print(largest(scores)?.points);         // output: 8
 
-    Slot<int> slot = Slot<int>();
+    mut Slot<int> slot = Slot<int>();
     print(slot.isEmpty());                  // output: true
     slot.value = 1;
     print(slot.isEmpty());                  // output: false

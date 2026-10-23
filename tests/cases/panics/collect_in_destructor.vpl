@@ -5,6 +5,6 @@ class Node {
 }
 
 void main() {
-    var n = new Node();
+    mut var n = new Node();
     n = new Node();
 }

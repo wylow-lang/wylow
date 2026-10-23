@@ -1,7 +1,7 @@
 // A nullable function parameter is non-escaping unless declared '@Escaping', and only a parameter
 // can hold a nullable non-escaping function.
 class Holder {
-    ((int) -> int)? stored = null;
+    mut ((int) -> int)? stored = null;
 }
 
 void keep(@Escaping ((int) -> int)? f) {

@@ -9,11 +9,11 @@ struct Grid {
 }
 
 class Mesh {
-    float[4] weights;
+    mut float[4] weights;
 }
 
 int sum(int[4] values) {
-    int total = 0;
+    mut int total = 0;
     for (int v : values) {
         total += v;
     }
@@ -31,7 +31,7 @@ int[3] makeArray() {
 }
 
 void main() {
-    int[4] a = [1, 2, 3, 4];
+    mut int[4] a = [1, 2, 3, 4];
     print(a.length);            // output: 4
     print(a[0] + a[3]);         // output: 5
     a[1] = 20;
@@ -39,7 +39,7 @@ void main() {
     print(sum(a));              // output: 38
 
     // Arrays are values: assignment and passing copy them.
-    int[4] b = a;
+    mut int[4] b = a;
     b[0] = 100;
     print(a[0]);                // output: 1
     fill(ref b, 5);
@@ -51,7 +51,7 @@ void main() {
     // Without an initializer, a fixed array holds default values.
     Vec2[3] points;
     print(points[2].y);         // output: 1.0
-    Grid grid = Grid();
+    mut Grid grid = Grid();
     print(grid.points[1].y);    // output: 1.0
     grid.cells[2][1] = 6;
     print(grid.cells[2][1]);    // output: 6

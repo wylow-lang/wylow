@@ -3,8 +3,8 @@
 // replaced, which AddressSanitizer reports if the closure was freed.
 
 class Holder {
-    () -> void action = () -> print(0);
-    (int) -> int f = x -> x;
+    mut () -> void action = () -> print(0);
+    mut (int) -> int f = x -> x;
 }
 
 class Visitor {

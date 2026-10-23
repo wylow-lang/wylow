@@ -29,7 +29,7 @@ bool note(String what, bool value) {
 void main() {
     int base = 100;
     (int) -> int add = x -> x + base;
-    bool flag = true;
+    mut bool flag = true;
 
     // The choice is made once, where the local is declared.
     (int) -> int f = flag ? add : x -> x * 2;
@@ -55,7 +55,7 @@ void main() {
     print(h(0));                                            // output: 3
 
     // The chosen lambda still captures by reference.
-    int total = 0;
+    mut int total = 0;
     (int) -> void sink = flag ? x -> { total += x; } : x -> { total -= x; };
     sink(5);
     print(total);                                           // output: -5
@@ -67,7 +67,7 @@ void main() {
     print((flag ? add : x -> 0)(1));                        // output: 0
 
     (ref int) -> void bump = n > 1 ? v -> { v += 1; } : v -> { v += 2; };
-    int z = 0;
+    mut int z = 0;
     bump(ref z);
     bump(ref z);
     print(z);                                               // output: 2

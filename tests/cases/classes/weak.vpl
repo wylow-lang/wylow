@@ -1,6 +1,6 @@
 class Parent {
     String name;
-    Child? child;
+    mut Child? child;
 
     Parent(String name) {
         this.name = name;
@@ -12,7 +12,7 @@ class Parent {
 }
 
 class Child {
-    Weak<Parent> parent;
+    mut Weak<Parent> parent;
 
     void greet() {
         if (parent.get() is Parent p) {
@@ -66,7 +66,7 @@ Weak<Enemy> pick(Enemy e) {
 }
 
 class SelfWatcher {
-    Weak<SelfWatcher> self;
+    mut Weak<SelfWatcher> self;
 
     // A weak reference taken while being destroyed reads as null too.
     ~SelfWatcher() {
@@ -89,7 +89,7 @@ void main() {
     print(child.parent.get() == null);  // output: true
 
     // A cycle through a weak reference is freed.
-    var p = new Parent("dad");
+    mut var p = new Parent("dad");
     p.child = new Child();
     p.child!.parent = p;
     p = new Parent("other");
@@ -97,8 +97,8 @@ void main() {
     // output: child destroyed
 
     // Locals, parameters, return values, and copies, converting from a class to an interface.
-    var a = new Enemy(1);
-    Weak<Identified> w = a;
+    mut var a = new Enemy(1);
+    mut Weak<Identified> w = a;
     Weak<Identified> copy = w;
     Weak<Identified> none = null;
     describe(w);                // output: 1
@@ -111,7 +111,7 @@ void main() {
     describe(copy);             // output: gone
 
     // In a struct.
-    Target t = Target();
+    mut Target t = Target();
     t.who = a;
     describe(t.who);            // output: 2
     var moved = t;
@@ -127,7 +127,7 @@ void main() {
         watched.add(e);
     }
     enemies.removeAt(3);        // output: 13
-    int alive = 0;
+    mut int alive = 0;
     for (Weak<Enemy> weak : watched) {
         if (weak.get() is Enemy e) {
             alive++;

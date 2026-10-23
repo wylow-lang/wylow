@@ -2,11 +2,11 @@
 // objects of one class, and at exit about cycles never freed.
 
 class Node {
-    Node? next;
+    mut Node? next;
 }
 
 class Spark {
-    Spark? next;
+    mut Spark? next;
 }
 
 class Item {

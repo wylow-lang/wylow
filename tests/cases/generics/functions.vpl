@@ -31,8 +31,8 @@ void main() {
     print(identity<float>(2));    // output: 2.0
     print(identity("text"));      // output: text
 
-    int a = 1;
-    int b = 2;
+    mut int a = 1;
+    mut int b = 2;
     swap(ref a, ref b);
     print(a);                     // output: 2
 

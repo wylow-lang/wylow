@@ -2,9 +2,9 @@
 // a function value, or null without allocating, and is narrowed by null checks like other values.
 
 class Holder {
-    (int) -> int f = x -> x * 10;
-    ((int) -> int)? maybe = null;
-    int calls = 0;
+    mut (int) -> int f = x -> x * 10;
+    mut ((int) -> int)? maybe = null;
+    mut int calls = 0;
 
     int next() {
         calls++;
@@ -56,7 +56,7 @@ class Visitor {
 
 void main() {
     // A lambda, null, and passing on.
-    int total = 0;
+    mut int total = 0;
     print(run(1, null));                            // output: 1
     print(run(1, x -> x + 1));                      // output: 2
     print(run(2, x -> {

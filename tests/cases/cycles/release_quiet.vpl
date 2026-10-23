@@ -2,7 +2,7 @@
 // Release builds report no performance warnings.
 
 class Node {
-    Node? next;
+    mut Node? next;
 }
 
 void main() {

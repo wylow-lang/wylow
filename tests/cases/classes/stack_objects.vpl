@@ -4,7 +4,7 @@
 
 class Noisy {
     String name;
-    Noisy? other;
+    mut Noisy? other;
 
     Noisy(String name) {
         this.name = name;
@@ -30,7 +30,7 @@ class Registered {
 }
 
 class Keeper {
-    Noisy? kept;
+    mut Noisy? kept;
 }
 
 interface Visitor {
@@ -59,7 +59,7 @@ class Shelf {
 }
 
 class Bin {
-    Noisy? kept;
+    mut Noisy? kept;
 
     virtual void put(Noisy n) {
         kept = n;
@@ -72,7 +72,7 @@ class Ledger {
 }
 
 class Hoard extends Ledger {
-    Noisy? kept;
+    mut Noisy? kept;
 
     override void put(Noisy n) {
         kept = n;
@@ -88,12 +88,12 @@ class Box<T> {
 }
 
 class Big {
-    int[200] values;
+    mut int[200] values;
 }
 
 // Its borrows keep it, so it escapes; other Borrowable classes, such as List, don't.
 class Clinging implements Borrowable {
-    Clinging? self;
+    mut Clinging? self;
 
     void beginBorrow() {
         self = this;
@@ -255,7 +255,7 @@ void main() {
     // output: captured
     Weak<Noisy> weak = new Noisy("weak"); // stack: 0
     // output: weak
-    Noisy? outer = null;
+    mut Noisy? outer = null;
     {
         var inner = new Noisy("inner"); // stack: 0
         outer = inner;
@@ -272,7 +272,7 @@ void main() {
     // output: visited
     visitWith(new Storer()); // stack: 1
     // output: visited
-    var changing = new Noisy("first"); // stack: 0
+    mut var changing = new Noisy("first"); // stack: 0
     changing = new Noisy("second"); // stack: 0
     // output: first
 

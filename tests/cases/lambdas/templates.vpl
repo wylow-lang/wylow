@@ -53,7 +53,7 @@ class Mallet extends Hammer {
 void main() {
     var box = new Box<long>(5L, v -> v * 2L);
     print(box.value);                               // output: 20
-    int calls = 0;
+    mut int calls = 0;
     var p = Point(1, x -> {
         calls++;
         return x * 3;

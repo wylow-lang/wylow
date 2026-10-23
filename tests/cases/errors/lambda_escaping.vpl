@@ -3,7 +3,7 @@
 class Button {
     (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
     @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
-    () -> void stored = () -> {};
+    mut () -> void stored = () -> {};
 
     void set(() -> void f) {
         stored = f;                                 // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
@@ -40,8 +40,8 @@ T identity<T>(T value) {
 
 void check(bool flag, () -> void g) {
     (int) -> int inc = x -> x + 1;
-    @Escaping (int) -> int dec = x -> x - 1;
-    @Escaping int number = 1;                       // error: '@Escaping' can only be used on a variable of function type, not 'int'
+    @Escaping mut (int) -> int dec = x -> x - 1;
+    @Escaping mut int number = 1;                       // error: '@Escaping' can only be used on a variable of function type, not 'int'
     @Escaping var text = "a";                       // error: '@Escaping' can only be used on a variable of function type, not 'String'
     @Escaping ref int alias = number;               // error: '@Escaping' cannot be used on a 'ref' variable, which refers to a place rather than holding a function
     ((int) -> int)? maybe = dec;                    // error: a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function

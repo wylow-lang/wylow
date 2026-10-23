@@ -1,5 +1,5 @@
 class Tag {
-    String name;
+    mut String name;
 
     Tag(String name) {
         this.name = name;
@@ -21,7 +21,7 @@ interface Greeter {
 }
 
 abstract class Registry implements Greeter {
-    protected int size = 0;
+    protected mut int size = 0;
 
     void add(Member m) {
         size++;
@@ -36,7 +36,7 @@ class Club extends Registry {
 }
 
 class Member {
-    Registry? club;
+    mut Registry? club;
 
     void joined(Registry registry) {
         club = registry;
@@ -45,8 +45,8 @@ class Member {
 }
 
 void main() {
-    var a = Labeled { tag = new Tag("x"), count = 1 };
-    var b = a;
+    mut var a = Labeled { tag = new Tag("x"), count = 1 };
+    mut var b = a;
     b.count = 2;
     print(a == b);                          // output: false
     b.count = 1;

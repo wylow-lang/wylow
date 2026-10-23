@@ -40,6 +40,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["protected"] = TokenKind.ProtectedKeyword,
         ["static"] = TokenKind.StaticKeyword,
         ["readonly"] = TokenKind.ReadonlyKeyword,
+        ["mut"] = TokenKind.MutKeyword,
         ["this"] = TokenKind.ThisKeyword,
         ["ref"] = TokenKind.RefKeyword,
         ["in"] = TokenKind.InKeyword,

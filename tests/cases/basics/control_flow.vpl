@@ -13,8 +13,8 @@ void main() {
     print(sign(0));  // output: 0
     print(sign(9));  // output: 1
 
-    int sum = 0;
-    int i = 0;
+    mut int sum = 0;
+    mut int i = 0;
     while (true) {
         i++;
         if (i > 10) {
@@ -27,7 +27,7 @@ void main() {
     }
     print(sum); // output: 25
 
-    for (int j = 0; j < 3; j++) {
+    for (mut int j = 0; j < 3; j++) {
         print(j > 0 ? j * 10 : -1);
     }
     // output: -1

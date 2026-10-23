@@ -17,9 +17,19 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         public HashSet<LocalSymbol> NonNull = [];
         public HashSet<FieldSymbol> AssignedFields = [];
 
+        /// <summary>The locals assigned on some path here, which an immutable local must not be again.</summary>
+        public HashSet<LocalSymbol> MaybeAssigned = [];
+
         public static State Unreachable() => new() { Reachable = false };
 
-        public State Clone() => new() { Reachable = Reachable, Assigned = [.. Assigned], NonNull = [.. NonNull], AssignedFields = [.. AssignedFields] };
+        public State Clone() => new()
+        {
+            Reachable = Reachable,
+            Assigned = [.. Assigned],
+            NonNull = [.. NonNull],
+            AssignedFields = [.. AssignedFields],
+            MaybeAssigned = [.. MaybeAssigned],
+        };
 
         // Unreachable code may assume anything.
         public bool IsAssigned(LocalSymbol local) => !Reachable || Assigned.Contains(local);
@@ -36,6 +46,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             result.Assigned.IntersectWith(b.Assigned);
             result.NonNull.IntersectWith(b.NonNull);
             result.AssignedFields.IntersectWith(b.AssignedFields);
+            result.MaybeAssigned.UnionWith(b.MaybeAssigned);
             return result;
         }
     }
@@ -104,7 +115,13 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// </summary>
     void Lambda(BoundLambda lambda, State outer)
     {
-        var state = new State { Reachable = outer.Reachable, Assigned = [.. outer.Assigned], AssignedFields = [.. outer.AssignedFields] };
+        var state = new State
+        {
+            Reachable = outer.Reachable,
+            Assigned = [.. outer.Assigned],
+            AssignedFields = [.. outer.AssignedFields],
+            MaybeAssigned = [.. outer.MaybeAssigned],
+        };
         state.Assigned.UnionWith(lambda.Function.Parameters);
         var enclosingNarrowed = narrowedOutside;
         narrowedOutside = [.. enclosingNarrowed, .. outer.NonNull];
@@ -133,16 +150,20 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 return state;
 
             case BoundVariableDeclaration declaration:
+                // A loop body declares a new variable on each iteration.
+                state.MaybeAssigned.Remove(declaration.Local);
                 if (declaration.Initializer is not null)
                 {
                     state = Expression(declaration.Initializer, state);
                     state.Assigned.Add(declaration.Local);
+                    state.MaybeAssigned.Add(declaration.Local);
                     SetNullability(state, declaration.Local, declaration.Initializer);
                 }
                 // Fixed arrays are often too large to initialize element by element.
                 else if (declaration.Local.Type.IsFixedArray && Conversions.IsDefaultable(declaration.Local.Type))
                 {
                     state.Assigned.Add(declaration.Local);
+                    state.MaybeAssigned.Add(declaration.Local);
                 }
                 return state;
 
@@ -159,7 +180,14 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 state = Expression(assignment.Value, state);
                 if (assignment.Target is BoundLocalAccess target)
                 {
+                    // Assigning a 'ref' variable assigns the place it refers to.
+                    if (target.Local is { IsMutable: false, RefKind: RefKind.None } && state.Reachable && state.MaybeAssigned.Contains(target.Local))
+                    {
+                        ReportOnce(assignment, target.Location,
+                            $"'{target.Local.Name}' might already have been assigned; declare it 'mut' to assign it more than once");
+                    }
                     state.Assigned.Add(target.Local);
+                    state.MaybeAssigned.Add(target.Local);
                     SetNullability(state, target.Local, assignment.Value);
                 }
                 else if (initializesField)
@@ -294,13 +322,17 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     /// <summary>
     /// The loop is analyzed once, so narrowing must not depend on the iteration: a local assigned
-    /// anywhere in the loop might be null again when the next iteration starts.
+    /// anywhere in the loop might be null again when the next iteration starts, and might have been
+    /// assigned by an earlier iteration.
     /// </summary>
     static State LoopEntry(State state, BoundStatement body)
     {
         var entry = state.Clone();
         foreach (var local in AssignedLocals(body))
+        {
             entry.NonNull.Remove(local);
+            entry.MaybeAssigned.Add(local);
+        }
         return entry;
     }
 

@@ -3,7 +3,7 @@
 
 class Node {
     int id;
-    Node? next;
+    mut Node? next;
 
     Node(int id) {
         this.id = id;
@@ -16,24 +16,24 @@ class Node {
 
 void main() {
     // Buffered, then weakly referenced, then destroyed by its count.
-    var a = new Node(1);
-    var b = a;
+    mut var a = new Node(1);
+    mut var b = a;
     b = new Node(2);
     Weak<Node> first = a;
     a = b;                              // output: 1
     print(first.get() == null);         // output: true
 
     // Weakly referenced, then buffered, then destroyed by its count.
-    var c = new Node(3);
+    mut var c = new Node(3);
     Weak<Node> second = c;
-    var d = c;
+    mut var d = c;
     d = new Node(4);
     c = d;                              // output: 3
     print(second.get() == null);        // output: true
 
     // Put back in the buffer by a collection out of budget, then destroyed by its count.
-    var e = new Node(5);
-    var f = e;
+    mut var e = new Node(5);
+    mut var f = e;
     f = new Node(6);
     Weak<Node> third = e;
     Memory.collectCycles(0);
@@ -41,7 +41,7 @@ void main() {
     print(third.get() == null);         // output: true
 
     // Weakly referenced, then buffered, then collected.
-    Weak<Node> fourth = null;
+    mut Weak<Node> fourth = null;
     if (true) {
         var g = new Node(7);
         fourth = g;

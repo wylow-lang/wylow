@@ -11,7 +11,7 @@ void main() {
     print(b);                     // output: 200
 
     // Arithmetic keeps the operands' type, and literals take the other side's type.
-    byte light = 15;
+    mut byte light = 15;
     light = light - 1;
     print(light);                 // output: 14
     light -= 4;
@@ -89,7 +89,7 @@ void main() {
     long checkLong = widened;
     print(checkLong);             // output: 1
 
-    int total = 0;
+    mut int total = 0;
     for (byte v : 250..=255) {
         total += v;
     }
@@ -102,7 +102,7 @@ void main() {
     // output: 0
     // output: 1
 
-    byte? maybe = null;
+    mut byte? maybe = null;
     print(maybe ?? 9);            // output: 9
     maybe = 3;
     print(maybe);                 // output: 3

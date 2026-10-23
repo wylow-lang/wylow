@@ -24,7 +24,7 @@ struct Order {
 }
 
 class Job {
-    Result<int, String> outcome;
+    mut Result<int, String> outcome;
 
     Job(Result<int, String> outcome) {
         this.outcome = outcome;
