@@ -54,7 +54,7 @@ public sealed partial class CppEmitter
     CyclicClasses cycles = null!;
     StackObjects stackObjects = null!;
     ElementAliasing elements = null!;
-    readonly Dictionary<BoundNew, string> slots = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<BoundExpression, string> slots = new(ReferenceEqualityComparer.Instance);
 
     public string Emit(BoundProgram program, Analyses analyses)
     {

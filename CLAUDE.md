@@ -58,7 +58,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   summary of what each function writes). Tests mark their loops with `// in-place: <n>`.
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
-  `StackObjects.cs` (which `new`s can be on the stack, from a whole-program summary of which
+  `StackObjects.cs` (which `new`s and closures can be on the stack, from a whole-program summary of which
   parameters each function lets escape; `vpl::StackSlot` holds them). Tests mark their lines with `// stack: <n>`.
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).

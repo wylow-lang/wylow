@@ -248,11 +248,6 @@ void main() {
     var clinging = new Clinging(); // stack: 0
     var element = new Noisy("element"); // stack: 0
     list.add(element);
-    @Escaping () -> String f = () -> element.name;
-    var captured = new Noisy("captured"); // stack: 0
-    @Escaping () -> String g = () -> captured.name;
-    print(g());
-    // output: captured
     Weak<Noisy> weak = new Noisy("weak"); // stack: 0
     // output: weak
     mut Noisy? outer = null;
@@ -323,7 +318,6 @@ void main() {
 // output: boxed
 // output: second
 // output: inner
-// output: captured
 // output: element
 // output: given
 // output: stored

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cycles.h"
+#include "stack_slot.h"
 
 namespace vpl {
 
@@ -86,29 +86,16 @@ public:
     bool vpl_is_null() const { return call == nullptr; }
 };
 
-// The closure of one lambda that captures something: Body is a C++ lambda that captures nothing
-// and takes the captured values as its first parameters, so that the collector can visit them
-// here. Capturing nothing, it can be default-constructed where it is called, so only the captures
-// are stored.
-template <class Signature, ClosureName Name, class Body, class... C>
-class Closure;
-
-template <class R, class... A, ClosureName Name, class Body, class... C>
-class Closure<R(A...), Name, Body, C...> final : public Object {
+// The closure of one lambda that captures something: copies of the captured values, which the
+// collector visits here. Its type doesn't depend on the lambda's code, so that a stack slot for it
+// can be declared before the lambda.
+template <ClosureName Name, class... C>
+class Closure final : public Object {
+public:
     std::tuple<C...> captures;
 
-public:
     template <class... V>
     explicit Closure(V&&... values) : captures(std::forward<V>(values)...) {}
-
-    static R call([[maybe_unused]] const void* self, A... arguments) {
-        if constexpr (sizeof...(C) == 0) {
-            return Body{}(std::forward<A>(arguments)...);
-        } else {
-            const auto* closure = static_cast<const Closure*>(static_cast<const Object*>(self));
-            return std::apply([&](const C&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, closure->captures);
-        }
-    }
 
     void vpl_visit([[maybe_unused]] Visitor& visitor) override {
         std::apply([&](C&... values) { (visit(visitor, values), ...); }, captures);
@@ -117,17 +104,43 @@ public:
     const char* vpl_class_name() const override { return Name.text; }
 };
 
+// The code a function value calls with its closure: Body is a C++ lambda that captures nothing and
+// takes the captured values as its first parameters. Capturing nothing, it can be
+// default-constructed here, so only the captures are stored. Created is void for a lambda that
+// captures nothing, which has no closure.
+template <class Signature, class Body, class Created>
+struct ClosureCode;
+
+template <class R, class... A, class Body, class Created>
+struct ClosureCode<R(A...), Body, Created> {
+    static R call([[maybe_unused]] const void* self, A... arguments) {
+        if constexpr (std::is_void_v<Created>) {
+            return Body{}(std::forward<A>(arguments)...);
+        } else {
+            const auto* closure = static_cast<const Created*>(static_cast<const Object*>(self));
+            return std::apply([&](const auto&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, closure->captures);
+        }
+    }
+};
+
 // `cyclic` is whether the compiler found that the lambda's closures may be part of a cycle.
 template <class Signature, ClosureName Name, class Body, class... C>
 inline Function<Signature> closure([[maybe_unused]] bool cyclic, Body, C&&... captures) {
     if constexpr (sizeof...(C) == 0) {
-        return Function<Signature>(&Closure<Signature, Name, Body>::call, nullptr);
+        return Function<Signature>(&ClosureCode<Signature, Body, void>::call, nullptr);
     } else {
-        using Created = Closure<Signature, Name, Body, std::remove_cvref_t<C>...>;
+        using Created = Closure<Name, std::remove_cvref_t<C>...>;
         auto* created = new Created(std::forward<C>(captures)...);
         created->vpl_set_cyclic(cyclic);
-        return Function<Signature>(&Created::call, Ref<Object>::adopt(created));
+        return Function<Signature>(&ClosureCode<Signature, Body, Created>::call, Ref<Object>::adopt(created));
     }
+}
+
+// A closure the compiler has proved can't outlive the slot's scope, made in the slot as a class
+// object is: the collector never sees it, and the slot's end runs its captures' releases.
+template <class Signature, class Body, class Created, class... C>
+inline Function<Signature> closure_in(StackSlot<Created>& slot, Body, C&&... captures) {
+    return Function<Signature>(&ClosureCode<Signature, Body, Created>::call, slot.make(std::forward<C>(captures)...));
 }
 
 // A nullable non-escaping function argument, made where the call is: what it refers to (a lambda, or

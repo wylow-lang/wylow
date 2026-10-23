@@ -101,7 +101,7 @@ temporary, the end of its statement: exactly where a stack object would be destr
 without unwinding, so there is no other way out of the scope.
 
 An object **escapes**, and stays on the heap, if a reference to it may exist after its scope ends:
-if it is stored in a field, an element, or a static; returned; captured by an escaping lambda;
+if it is stored in a field, an element, or a static; returned; captured by a closure that escapes;
 referred to by a `Weak` (whose block would point into the stack); or passed (as an argument or as
 `this`) to a function that may do any of these with it. That last needs a summary of each function:
 which of its parameters, and whether its `this`, may escape or be returned, found over the whole program as
@@ -147,10 +147,14 @@ Implementation constraints:
   stack, so objects over a size limit stay on the heap. A
   [performance warning](README.md#not-yet-designed) could point out a `new` that escapes only
   through one call, or that is just over the limit.
-- **Closures are objects too.** An escaping lambda whose closure provably doesn't escape (an
-  `@Escaping` local that is only called, or a closure passed to an `@Escaping` parameter that the
-  callee never stores) can be on the stack in the same way
-  ([06-syntax.md](06-syntax.md#costs-to-remove-later)).
+- **Closures are objects too.** An escaping lambda that captures something makes a closure
+  ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)), which is on the stack in the same way when it
+  provably doesn't escape: an `@Escaping` local that is only called, or a closure passed to an
+  `@Escaping` parameter that the callee never stores. A closure holds what it captures as an object
+  holds its fields, so a captured object escapes only if the closure does, or if the lambda's body,
+  whenever it is called, may let it escape or return it, which each lambda's summary records. A
+  closure on the stack is held only by locals no lambda assigns, so a call of it never needs the
+  hold that a call of a replaceable function value takes, though that hold would work on one too.
 
 This covers the object itself, not storage it holds: a local `List` could be on the stack, but its
 elements stay on the heap, since the list can grow. Avoiding that is a separate technique (inline
@@ -158,17 +162,20 @@ storage for a few elements, or arenas).
 
 **Implementation.** `StackObjects` finds the objects, and a C++ `vpl::StackSlot<T>` holds each,
 declared just before the statement that makes it, or for a local's object, just before the local's
-declaration, so that a local's slot is destroyed right after the local. Anything else the emitter
-declares that holds the object is a copy too: a pin that a reference or a view holds for its
-scope, and the value a `switch` statement matches when it isn't a local, held for the statement. A temporary's slot is ended after its statement; in a `return`, it is destroyed first
-among the function's locals, as the temporary would have been released. Temporaries are looked
-for only in declarations, assignments, expression statements, and returns without a `try`. The
+declaration, so that a local's slot is destroyed right after the local. A closure's slot is a
+`vpl::StackSlot<vpl::Closure<Name, C...>>`, declared with the types of what the lambda captures:
+the closure's type doesn't depend on the lambda's code, which `vpl::closure_in` gives the function
+value where the lambda is. Anything else the emitter declares that holds the object counts as a
+copy too: the pin a reference or a view holds for its scope, and the value a `switch` statement
+matches when it isn't a local, held for the statement. A temporary's slot is ended after its
+statement; in a `return`, it is destroyed first among the function's locals, as the temporary
+would have been released. Temporaries are looked for only in declarations, assignments,
+expression statements, and returns without a `try`. The
 slot clears the object's cyclic flag after its constructor runs, and takes it out of the buffer if
 the constructor's releases put it there. The size limit is 512 bytes, checked by C++, which knows
 the size: a slot for a larger object puts it on the heap but otherwise behaves the same.
 
-> Implemented so far: objects held by locals, including reassigned ones, temporaries, and results
-> of functions that return their argument. Not yet: closures and the performance warnings.
+> Implemented so far: everything above except the performance warnings.
 
 ### Weak references: `Weak<T>`
 

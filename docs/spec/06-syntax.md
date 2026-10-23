@@ -484,7 +484,8 @@ captures nothing. Calling a function value is one indirect call. Copying it copi
 nullable function needs no flag: its null is a null code pointer. The cycle collector
 visits the class references a closure holds. A call of a function value stored where the call
 could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
-closure until the call returns.
+closure until the call returns. A closure that provably can't outlive the scope making it is on the
+stack, as a class object can be ([03-memory-model.md](03-memory-model.md#stack-allocation)).
 
 A nullable non-escaping parameter is a `vpl::Optional` of a `vpl::FunctionRef`, made where the call
 is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
@@ -539,10 +540,6 @@ be done when profiling shows it matters.
   ([03-memory-model.md](03-memory-model.md#loop-elements)); likewise, a function field may hold
   any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
   that call or field.
-- **Closures that don't escape** are still allocated on the heap: an `@Escaping` local that is only
-  called, or a closure passed to an `@Escaping` parameter that the callee never stores. Escape
-  analysis could put them on the stack, as it could class objects
-  ([03-memory-model.md](03-memory-model.md#stack-allocation)).
 - **Narrowing.** A null check outside a lambda doesn't carry into it, and a local declared outside
   any lambda that assigns it is never narrowed, which can force a `!` (and its check).
 

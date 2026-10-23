@@ -338,7 +338,8 @@ public sealed partial class CppEmitter
         foreach (var made in stackObjects.MadeBy(statement))
         {
             var slot = NewTemp();
-            Line($"vpl::StackSlot<{ObjectType(made.Creation.Type)}> {slot};");
+            var type = made.Creation is BoundLambda lambda ? ClosureType(lambda) : ObjectType(made.Creation.Type);
+            Line($"vpl::StackSlot<{type}> {slot};");
             slots[made.Creation] = slot;
         }
     }

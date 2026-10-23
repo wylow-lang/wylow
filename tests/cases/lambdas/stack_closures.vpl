@@ -1,0 +1,247 @@
+// An escaping lambda that captures something makes a closure, which is on the stack when no
+// reference to it can outlive its scope, as an object made by `new` is; `stack:` counts closures
+// too. What it captures then only has to outlive the closure, so that can be on the stack as well.
+
+class Noisy {
+    String name;
+    mut Noisy? other;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print(name);
+    }
+
+    String label() {
+        return name;
+    }
+}
+
+class Keeper {
+    mut (() -> void)? stored = null;
+    mut Noisy? kept = null;
+}
+
+class Greeter {
+    String greeting;
+
+    Greeter(String greeting) {
+        this.greeting = greeting;
+    }
+
+    // The closure captures 'this' without letting it escape.
+    void greet() {
+        @Escaping () -> void say = () -> print(greeting); // stack: 1
+        say();
+    }
+
+    // The closure is stored in a field of the object it captures: a cycle.
+    void remember(Keeper keeper) {
+        keeper.stored = () -> print(greeting);
+    }
+}
+
+void later(@Escaping () -> void f) {
+    f();
+}
+
+() -> void same(@Escaping () -> void f) {
+    return f;
+}
+
+void keep(Keeper keeper, @Escaping () -> void f) {
+    keeper.stored = f;
+}
+
+() -> void made(Noisy n) {
+    return () -> print(n.label());
+}
+
+void run(() -> void f) {
+    f();
+}
+
+// A local that is only called, a closure given to a parameter that only calls it, and one handed
+// back by a function returning its argument.
+void called() {
+    var n = new Noisy("captured"); // stack: 1
+    @Escaping () -> String f = () -> n.label(); // stack: 1
+    print(f());
+    later(() -> print(n.label())); // stack: 1
+    later(same(() -> { print("handed back"); print(n.label()); })); // stack: 1
+    @Escaping (() -> void)? maybe = () -> { print("maybe"); print(n.label()); }; // stack: 1
+    maybe!();
+}
+
+// A closure capturing a closure holds a copy of the function value.
+void nested() {
+    var n = new Noisy("nested"); // stack: 1
+    @Escaping () -> void inner = () -> print(n.label()); // stack: 1
+    @Escaping () -> void outer = () -> inner(); // stack: 1
+    outer();
+}
+
+// A closure ends with its local, releasing what it captured: here the last reference to an object
+// declared after the local, so the object is destroyed before one declared before the local.
+void ordered() {
+    var first = new Noisy("declared first"); // stack: 1
+    @Escaping mut (() -> void)? held = null;
+    var last = new Noisy("declared last"); // stack: 0
+    held = () -> print(last.label()); // stack: 1
+    held!();
+    print(first.label());
+}
+
+// Each closure a reassigned local holds has its own slot, ended where the local is reassigned.
+void reassigned() {
+    var a = new Noisy("a"); // stack: 1
+    var b = new Noisy("b"); // stack: 1
+    @Escaping mut () -> void h = () -> print(a.label()); // stack: 1
+    h();
+    h = () -> print(b.label()); // stack: 1
+    h();
+}
+
+// Generic code declares the slot with the type parameter.
+T twiceCalled<T>(T value) {
+    @Escaping () -> T f = () -> value; // stack: 1
+    f();
+    return f();
+}
+
+// Only the chosen closure is made.
+void chosen(bool yes) {
+    var a = new Noisy("chosen a"); // stack: 1
+    var b = new Noisy("chosen b"); // stack: 1
+    later(yes ? () -> print(a.label()) : () -> print(b.label())); // stack: 2
+}
+
+// Each iteration has its own closure.
+void looped() {
+    for (int i : 0..3) {
+        @Escaping () -> int f = () -> i * 10; // stack: 1
+        print(f());
+    }
+}
+
+// The collector never sees a closure on the stack, even one capturing an object of a cyclic class.
+void collected() {
+    var node = new Noisy("node"); // stack: 1
+    @Escaping () -> void f = () -> print(node.label()); // stack: 1
+    f();
+    Memory.collectCycles();
+    print(Memory.cycleStats().freed);
+}
+
+// Each way a closure, or what it captures, can still be referred to after its scope.
+void escapes(Keeper keeper) {
+    var n = new Noisy("escapes"); // stack: 0
+    // Stored in a field, in a list, or returned.
+    keeper.stored = () -> print(n.label()); // stack: 0
+    var list = new List<() -> void>(); // stack: 1
+    list.add(() -> print(n.label())); // stack: 0
+    @Escaping () -> void returned = made(n); // stack: 0
+
+    // Given to a parameter that stores it.
+    var m = new Noisy("given"); // stack: 0
+    keep(keeper, () -> print(m.label())); // stack: 0
+
+    // Aliased before the local holding it is reassigned.
+    var o = new Noisy("aliased"); // stack: 1
+    @Escaping mut () -> void first = () -> print(o.label()); // stack: 0
+    @Escaping () -> void copy = first;
+    first = () -> { print("replacement"); print(o.label()); }; // stack: 1
+    copy();
+    first();
+
+    // Captured by another escaping lambda that escapes.
+    var p = new Noisy("captured twice"); // stack: 0
+    @Escaping () -> void inner = () -> print(p.label()); // stack: 0
+    keeper.stored = () -> inner(); // stack: 0
+
+    // A closure whose body lets what it captures escape, or returns it, when called.
+    var q = new Noisy("kept by the body"); // stack: 0
+    @Escaping () -> void storing = () -> { keeper.kept = q; }; // stack: 1
+    storing();
+    var r = new Noisy("returned by the body"); // stack: 0
+    @Escaping () -> Noisy giving = () -> r; // stack: 1
+    keeper.kept = giving();
+
+    // Held by a local that a lambda assigns, which keeps the closure alive while it is called.
+    var s = new Noisy("replaced while called"); // stack: 1
+    @Escaping mut () -> void replaceable = () -> print(s.label()); // stack: 0
+    run(() -> replaceable());
+    run(() -> { replaceable = () -> print("replacement"); });
+    replaceable();
+    print("end of escapes");
+}
+
+void main() {
+    called();
+    // output: captured
+    // output: captured
+    // output: handed back
+    // output: captured
+    // output: maybe
+    // output: captured
+    // output: captured
+
+    nested();
+    // output: nested
+    // output: nested
+
+    ordered();
+    // output: declared last
+    // output: declared first
+    // output: declared last
+    // output: declared first
+
+    reassigned();
+    // output: a
+    // output: b
+    // output: b
+    // output: a
+
+    looped();
+    // output: 0
+    // output: 10
+    // output: 20
+
+    print(twiceCalled(5));
+    // output: 5
+    chosen(false);
+    // output: chosen b
+    // output: chosen b
+    // output: chosen a
+
+    collected();
+    // output: node
+    // output: 0
+    // output: node
+
+    new Greeter("hello").greet(); // stack: 1
+    // output: hello
+
+    var keeper = new Keeper(); // stack: 1
+    var greeter = new Greeter("remembered"); // stack: 0
+    greeter.remember(keeper);
+    keeper.stored!();
+    // output: remembered
+
+    escapes(keeper);
+    // output: aliased
+    // output: replacement
+    // output: aliased
+    // output: replaced while called
+    // output: replacement
+    // output: end of escapes
+    // output: replaced while called
+    // output: kept by the body
+    // output: aliased
+    // output: given
+    // output: escapes
+}
+// output: returned by the body
+// output: captured twice

@@ -228,24 +228,42 @@ public sealed partial class CppEmitter
         return $"{{\n{bodyText}{new string(' ', indent * 4)}}}";
     }
 
+    /// <summary>The types of the values a closure copies, in order: its captured locals', then its <c>this</c>'s.</summary>
+    List<string> CaptureTypes(BoundLambda lambda)
+    {
+        var (locals, self) = BoundTree.Captures(lambda);
+        return [.. locals.Select(a => CppType(a.Local.Type)), .. self is null ? [] : new[] { CppType(currentType!.Type) }];
+    }
+
+    /// <summary>The C++ type of a closure on the stack, which its slot is declared with before the lambda.</summary>
+    string ClosureType(BoundLambda lambda) => $"vpl::Closure<{ClosureName(lambda)}, {string.Join(", ", CaptureTypes(lambda))}>";
+
+    static string ClosureName(BoundLambda lambda)
+    {
+        var (line, column) = lambda.Location.LineColumn;
+        return CppStringLiteral($"lambda at {lambda.Location.Source.FileName}:{line}:{column}");
+    }
+
     /// <summary>
     /// An escaping lambda is a <c>vpl::Function</c> made by <c>vpl::closure</c>, which copies the captured
-    /// values, evaluated here, and passes them to the body ahead of the arguments. The body is a C++
+    /// values, evaluated here, and passes them to the body ahead of the arguments, or by
+    /// <c>vpl::closure_in</c>, which makes the closure in its stack slot. The body is a C++
     /// lambda capturing nothing, so it can't use anything it wasn't given. Its parameters for the
     /// captured values get new names, so they don't shadow the variables they copy.
     /// </summary>
     string Closure(BoundLambda lambda)
     {
         var (locals, self) = BoundTree.Captures(lambda);
+        var types = CaptureTypes(lambda);
         var values = new List<string>();
         var parameters = new List<string>();
         var renamed = new List<(LocalSymbol Local, string Name)>();
-        foreach (var local in locals.Select(a => a.Local))
+        foreach (var (local, type) in locals.Select(a => a.Local).Zip(types))
         {
             var outer = LocalName(local);
             values.Add(outer);
             var inner = $"{outer}_{NewTemp()}";
-            parameters.Add($"const {CppType(local.Type)}& {inner}");
+            parameters.Add($"const {type}& {inner}");
             renamed.Add((local, outer));
             localNames[local] = inner;
         }
@@ -254,7 +272,7 @@ public sealed partial class CppEmitter
         {
             values.Add(This());
             capturedThis = $"vpl_this_{NewTemp()}";
-            parameters.Add($"const {CppType(currentType!.Type)}& {capturedThis}");
+            parameters.Add($"const {types[^1]}& {capturedThis}");
         }
         parameters.AddRange(lambda.Function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
         var body = LambdaBody(lambda);
@@ -262,11 +280,11 @@ public sealed partial class CppEmitter
         foreach (var (local, outer) in renamed)
             localNames[local] = outer;
 
-        bool cyclic = cycles.IsCyclic(lambda);
-        var (line, column) = lambda.Location.LineColumn;
-        var name = CppStringLiteral($"lambda at {lambda.Location.Source.FileName}:{line}:{column}");
         var function = $"[]({string.Join(", ", parameters)}) -> {CppType(lambda.Function.ReturnType)} {body}";
-        return $"vpl::closure<{FunctionSignature(lambda.Type)}, {name}>({(cyclic ? "true" : "false")}, {string.Join(", ", [function, .. values])})";
+        if (slots.TryGetValue(lambda, out var slot))
+            return $"vpl::closure_in<{FunctionSignature(lambda.Type)}>({string.Join(", ", [slot, function, .. values])})";
+        bool cyclic = cycles.IsCyclic(lambda);
+        return $"vpl::closure<{FunctionSignature(lambda.Type)}, {ClosureName(lambda)}>({(cyclic ? "true" : "false")}, {string.Join(", ", [function, .. values])})";
     }
 
     /// <summary>

@@ -4,18 +4,22 @@ using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Analysis;
 
-/// <summary>An object made by <c>new</c> on the stack; a temporary's lives until the end of its statement.</summary>
-public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);
+/// <summary>
+/// An object on the stack, made by <c>new</c> or, for a closure, by an escaping lambda; a
+/// temporary's lives until the end of its statement.
+/// </summary>
+public readonly record struct StackObject(BoundExpression Creation, bool IsTemporary);
 
 /// <summary>
-/// Finds the objects made by <c>new</c> that no reference can outlive the scope making them, so
-/// that they can be in its stack frame instead of on the heap: those held by a local, until the
-/// local is given another value or its block ends, and temporaries, for their statement. An object
-/// escapes if a reference to it may be stored anywhere but a local declared within that scope,
-/// returned, captured by an escaping lambda, or given to a function that may do any of these with
-/// it. Each function is summarized by which of its parameters, and whether its <c>this</c>, may
-/// escape, including through the functions it calls, and which it may return, which makes the
-/// call's value that argument.
+/// Finds the objects made by <c>new</c>, and the closures made by escaping lambdas, that no
+/// reference can outlive the scope making them, so that they can be in its stack frame instead of
+/// on the heap: those held by a local, until the local is given another value or its block ends,
+/// and temporaries, for their statement. An object escapes if a reference to it may be stored
+/// anywhere but a local declared within that scope, returned, captured by a closure that escapes,
+/// or given to a function that may do any of these with it. Each function is summarized by which
+/// of its parameters, and whether its <c>this</c>, may escape, including through the functions it
+/// calls, and which it may return, which makes the call's value that argument; each escaping
+/// lambda also by which of its captures its body may let escape or return.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -38,26 +42,29 @@ public sealed partial class StackObjects
 {
     /// <summary>
     /// What a function may let escape, its parameters by index and its <c>this</c>, and which of
-    /// them it may return.
+    /// them it may return. For an escaping lambda, <see cref="Captures"/> are the captured locals
+    /// it may let escape or return; its <c>this</c> is the one it captures.
     /// </summary>
-    sealed record Summary(IReadOnlySet<int> Parameters, bool This, IReadOnlySet<int> ReturnedParameters, bool ReturnsThis)
+    sealed record Summary(IReadOnlySet<int> Parameters, bool This, IReadOnlySet<int> ReturnedParameters, bool ReturnsThis, IReadOnlySet<LocalSymbol> Captures)
     {
-        public static Summary Empty() => new(new HashSet<int>(), false, new HashSet<int>(), false);
+        public static Summary Empty() => new(new HashSet<int>(), false, new HashSet<int>(), false, new HashSet<LocalSymbol>());
 
-        public int Size => Parameters.Count + (This ? 1 : 0) + ReturnedParameters.Count + (ReturnsThis ? 1 : 0);
+        public int Size => Parameters.Count + (This ? 1 : 0) + ReturnedParameters.Count + (ReturnsThis ? 1 : 0) + Captures.Count;
     }
 
     readonly WholeProgram whole;
     readonly ElementAliasing elements;
     readonly Summaries<Summary> summaries;
     readonly Dictionary<BoundStatement, List<StackObject>> made = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<BoundAssignment, List<BoundNew>> ended = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<BoundAssignment, List<BoundExpression>> ended = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<FunctionSymbol, BoundLambda> lambdas;
 
     StackObjects(WholeProgram whole, ElementAliasing elements)
     {
         this.whole = whole;
         this.elements = elements;
         summaries = new Summaries<Summary>(whole.Units, Summary.Empty, s => s.Size);
+        lambdas = whole.Lambdas.ToDictionary(l => l.Function);
     }
 
     public static StackObjects Find(WholeProgram whole, ElementAliasing elements)
@@ -76,7 +83,7 @@ public sealed partial class StackObjects
     public IReadOnlyList<StackObject> MadeBy(BoundStatement statement) => made.TryGetValue(statement, out var found) ? found : [];
 
     /// <summary>The objects on the stack whose slots an assignment ends: those its local may have held before, which it releases.</summary>
-    public IReadOnlyList<BoundNew> EndedBy(BoundAssignment assignment) => ended.TryGetValue(assignment, out var found) ? found : [];
+    public IReadOnlyList<BoundExpression> EndedBy(BoundAssignment assignment) => ended.TryGetValue(assignment, out var found) ? found : [];
 
     /// <summary>Where each object on the stack is made.</summary>
     public IEnumerable<Location> Locations => made.Values.SelectMany(m => m).Select(m => m.Creation.Location);
@@ -87,6 +94,12 @@ public sealed partial class StackObjects
         var flow = new Flow(this, summarizing: true);
         foreach (var parameter in function.Parameters)
             flow.Declare(parameter);
+        // An escaping lambda's captures are its closure's copies, which nothing can store anything in.
+        List<LocalSymbol> captured = function.IsEscaping && lambdas.TryGetValue(function, out var lambda)
+            ? [.. BoundTree.Captures(lambda).Locals.Select(a => a.Local)]
+            : [];
+        foreach (var local in captured)
+            flow.Declare(local);
         foreach (var statement in unit.Statements)
             flow.Statement(statement);
         foreach (var initializer in unit.Initializers)
@@ -97,7 +110,8 @@ public sealed partial class StackObjects
             function.Parameters.Index().Where(p => flow.Escapes(p.Item)).Select(p => p.Index).ToHashSet(),
             flow.Escapes(Flow.This),
             function.Parameters.Index().Where(p => flow.IsReturned(p.Item)).Select(p => p.Index).ToHashSet(),
-            flow.IsReturned(Flow.This));
+            flow.IsReturned(Flow.This),
+            captured.Where(l => flow.Escapes(l) || flow.IsReturned(l)).ToHashSet());
     }
 
     /// <summary>The summaries of the functions a call may run, or null if one of them has none, such as an extern function.</summary>
@@ -138,12 +152,12 @@ public sealed partial class StackObjects
 
     void FindIn(IReadOnlyList<BoundStatement> statements)
     {
-        var held = new Dictionary<LocalSymbol, List<BoundNew>>();
+        var held = new Dictionary<LocalSymbol, List<BoundExpression>>();
         var replacements = new Dictionary<LocalSymbol, List<Replacement>?>();
         for (int i = 0; i < statements.Count; i++)
         {
             var statement = statements[i];
-            BoundNew? kept = null;
+            BoundExpression? kept = null;
             if (Holding(statements, i) is var (holder, declaredAt, creation))
             {
                 if (!replacements.TryGetValue(holder, out var replaced))
@@ -158,7 +172,7 @@ public sealed partial class StackObjects
             }
 
             var temporaries = MayHoldTemporaries(statement)
-                ? BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundNew>().Where(c => !ReferenceEquals(c, kept)).ToList()
+                ? BoundTree.OwnExpressions(statement).SelectMany(Evaluated).Where(IsCreation).Where(c => !ReferenceEquals(c, kept)).ToList()
                 : [];
             if (temporaries.Count > 0 && temporaries.Distinct(ReferenceEqualityComparer.Instance).Count() == temporaries.Count)
             {
@@ -188,7 +202,7 @@ public sealed partial class StackObjects
     }
 
     /// <summary>A statement making an object for a local: the local, the index of its declaration among the statements, and the object.</summary>
-    static (LocalSymbol Holder, int Declared, BoundNew Creation)? Holding(IReadOnlyList<BoundStatement> statements, int index)
+    static (LocalSymbol Holder, int Declared, BoundExpression Creation)? Holding(IReadOnlyList<BoundStatement> statements, int index)
     {
         switch (statements[index])
         {
@@ -249,7 +263,7 @@ public sealed partial class StackObjects
     /// before then runs up to the first assignment that is a statement of the block itself, which
     /// replaces it on every path.
     /// </summary>
-    bool HoldsAlone(IReadOnlyList<BoundStatement> statements, int index, LocalSymbol holder, BoundNew creation, List<Replacement> replacements)
+    bool HoldsAlone(IReadOnlyList<BoundStatement> statements, int index, LocalSymbol holder, BoundExpression creation, List<Replacement> replacements)
     {
         int end = replacements.Where(r => r.Index > index && ReferenceEquals(statements[r.Index], r.Assignment))
             .Select(r => r.Index).DefaultIfEmpty(statements.Count - 1).Min();
@@ -324,14 +338,23 @@ public sealed partial class StackObjects
     static IEnumerable<BoundExpression> Evaluated(BoundExpression expression) =>
         [expression, .. BoundTree.Children(expression).SelectMany(Evaluated)];
 
-    /// <summary>The object a variable's initializer or assigned value makes, if that is all it does.</summary>
-    static BoundNew? Created(BoundExpression value) => value switch
+    /// <summary>The object or closure a variable's initializer or assigned value makes, if that is all it does.</summary>
+    static BoundExpression? Created(BoundExpression value) => value switch
     {
-        BoundNew creation => creation,
+        _ when IsCreation(value) => value,
         BoundConversion conversion when HoldsReference(conversion.Type) => Created(conversion.Operand),
         _ => null,
     };
 
-    /// <summary>Whether a value of the type may be a reference to an object, as converting to it keeps the object's identity.</summary>
-    static bool HoldsReference(VplType type) => type.NonNull.IsReference || type.NonNull.IsTypeParameter;
+    /// <summary>Whether an expression allocates: a <c>new</c>, or an escaping lambda that captures something, whose closure holds the copies.</summary>
+    static bool IsCreation(BoundExpression expression) => expression is BoundNew || (expression is BoundLambda lambda && MakesClosure(lambda));
+
+    static bool MakesClosure(BoundLambda lambda) =>
+        lambda.Function.IsEscaping && BoundTree.Captures(lambda) is var (locals, self) && (locals.Count > 0 || self is not null);
+
+    /// <summary>
+    /// Whether a value of the type may refer to an object or a closure, as converting to it keeps the
+    /// object's identity; a function value converted to another type refers to the same closure.
+    /// </summary>
+    static bool HoldsReference(VplType type) => type.NonNull.IsReference || type.NonNull.IsTypeParameter || type.NonNull.IsFunction;
 }

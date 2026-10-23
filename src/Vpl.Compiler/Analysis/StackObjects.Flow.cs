@@ -168,8 +168,7 @@ public sealed partial class StackObjects
                         Escape(initializer.Value);
                     return [];
                 case BoundLambda lambda:
-                    Lambda(lambda);
-                    return [];
+                    return Lambda(lambda);
                 case BoundFieldAccess or BoundBinary or BoundUnary or BoundIndex or BoundArrayLength or BoundArrayData or BoundTry:
                     foreach (var child in BoundTree.Children(expression))
                         Use(child);
@@ -215,24 +214,39 @@ public sealed partial class StackObjects
         }
 
         /// <summary>
-        /// An escaping lambda copies what it captures into a closure that may outlive anything. A
-        /// non-escaping one runs only while the code that makes it does, so its body is part of that code.
+        /// An escaping lambda copies what it captures into a closure, the lambda's value, which holds
+        /// the copies as an object holds its fields, unless the lambda's body may let them escape or
+        /// return them, whenever it is called. A non-escaping one runs only while the code that makes
+        /// it does, so its body is part of that code.
         /// </summary>
-        void Lambda(BoundLambda lambda)
+        List<object> Lambda(BoundLambda lambda)
         {
             if (lambda.Function.IsEscaping)
             {
+                if (!MakesClosure(lambda))
+                    return [];
                 var (locals, self) = BoundTree.Captures(lambda);
-                escaping.UnionWith(locals.Select(a => a.Local));
+                var summary = analysis.summaries[lambda.Function]!;
+                foreach (var local in locals.Select(a => a.Local))
+                    Hold(lambda, local, summary.Captures.Contains(local));
                 if (self is not null)
-                    escaping.Add(This);
-                return;
+                    Hold(lambda, This, summary.This || summary.ReturnsThis);
+                return [lambda];
             }
             foreach (var parameter in lambda.Function.Parameters)
                 declared.Add(parameter);
             lambdaDepth++;
             Statement(lambda.Body);
             lambdaDepth--;
+            return [];
+        }
+
+        void Hold(BoundLambda closure, object captured, bool escapes)
+        {
+            if (escapes)
+                escaping.Add(captured);
+            else
+                Store([captured], closure);
         }
 
         List<object> Match(BoundExpression value, IEnumerable<BoundPattern> patterns)
