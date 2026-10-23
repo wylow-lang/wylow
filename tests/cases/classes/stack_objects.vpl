@@ -272,8 +272,8 @@ void main() {
     // output: visited
     visitWith(new Storer()); // stack: 1
     // output: visited
-    mut var changing = new Noisy("first"); // stack: 0
-    changing = new Noisy("second"); // stack: 0
+    mut var changing = new Noisy("first"); // stack: 1
+    changing = new Noisy("second"); // stack: 1
     // output: first
 
     {

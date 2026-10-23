@@ -1,0 +1,323 @@
+// An object held by a local that is reassigned is on the stack when nothing else can refer to it
+// once the local is reassigned: the assignment releases it, which destroys it there, as it would
+// on the heap. Each object made for the local has a slot of its own, so `stack:` counts each.
+
+class Noisy {
+    String name;
+    mut Vec pos;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print(name);
+    }
+
+    String label() {
+        return name;
+    }
+}
+
+struct Vec {
+    int x;
+}
+
+class Keeper {
+    mut Noisy? kept;
+}
+
+// Reads the object it replaces, which is still alive while it is made.
+class Successor {
+    Successor(Noisy before) {
+        print("after");
+        print(before.label());
+    }
+
+    ~Successor() {
+        print("successor");
+    }
+}
+
+Noisy pass(Noisy n) {
+    return n;
+}
+
+void run(() -> void f) {
+    f();
+}
+
+// A class object can be passed by 'ref' only to a type parameter.
+void replace<T>(ref T place, T value) {
+    place = value;
+}
+
+Result<int, String> three() {
+    return Ok(3);
+}
+
+// Each object is destroyed where the local is next assigned, and the last where its block ends.
+void replaced() {
+    mut var a = new Noisy("a1"); // stack: 1
+    print(a.label());
+    a = new Noisy("a2"); // stack: 1
+    print("between");
+    a = new Noisy("a3"); // stack: 1
+    print(a.label());
+}
+
+// A local declared without a value is given its object by its first assignment.
+void deferred() {
+    Noisy d;
+    print("before");
+    d = new Noisy("deferred"); // stack: 1
+    print(d.label());
+}
+
+// Copies of the reference that are gone before the next assignment don't make the object escape.
+void briefCopies(bool yes) {
+    mut Noisy? b = new Noisy("b1"); // stack: 1
+    {
+        var copy = b;
+        print(copy!.label());
+    }
+    if (b is Noisy n) {
+        print(n.label());
+    }
+    run(() -> print(b!.label()));
+    b = null;
+    print("cleared");
+}
+
+// An assignment in a nested statement may or may not run; it destroys the object if it does.
+void conditional(bool yes) {
+    mut Noisy? c = new Noisy("c"); // stack: 1
+    if (yes) {
+        c = null;
+        print("in branch");
+    }
+    print("after branch");
+}
+
+void inLoop() {
+    mut Noisy? w = new Noisy("w"); // stack: 1
+    mut int i = 0;
+    while (i < 3) {
+        w = null;
+        print(i);
+        i += 1;
+    }
+}
+
+void inSwitch(int which) {
+    mut Noisy? s = new Noisy("s"); // stack: 1
+    switch (which) {
+        case 1 -> {
+            s = null;
+            print("one");
+        }
+        default -> {
+            print("other");
+        }
+    }
+    print("after switch");
+}
+
+// The new object is made before the old one is released, so it can read it.
+void successor() {
+    mut var before = new Noisy("before"); // stack: 1
+    _ = new Successor(before); // stack: 1
+    before = new Noisy("next"); // stack: 1
+    print("made");
+}
+
+// Each iteration has its own objects, the first destroyed by the reassignment.
+void loopBody() {
+    for (int i : 0..2) {
+        mut var x = new Noisy("first"); // stack: 1
+        x = new Noisy("second"); // stack: 1
+        if (i == 0) {
+            continue;
+        }
+        print(x.label());
+        break;
+    }
+}
+
+// Leaving early destroys whatever the local holds.
+void early(bool leave) {
+    mut var e = new Noisy("e1"); // stack: 1
+    if (leave) {
+        return;
+    }
+    e = new Noisy("e2"); // stack: 1
+}
+
+// A 'try' assignment holds the object it assigns into only for its statement.
+Result<int, String> tried() {
+    mut var t = new Noisy("tried"); // stack: 1
+    t.pos.x = try three();
+    print(t.pos.x);
+    t = new Noisy("tried again"); // stack: 1
+    return Ok(0);
+}
+
+// Each way to still refer to the object when the local is reassigned keeps it on the heap.
+void escapes(Keeper keeper, bool yes) {
+    // A copy whose scope the assignment is in.
+    mut var aliased = new Noisy("aliased"); // stack: 0
+    var copy = aliased;
+    aliased = new Noisy("replacement"); // stack: 1
+    print(copy.label());
+
+    // A copy made in the statement that reassigns.
+    mut Noisy? nested = new Noisy("nested"); // stack: 0
+    if (yes) {
+        var inner = nested;
+        nested = null;
+        print(inner!.label());
+    }
+
+    // A pattern binding, which lasts until the end of the block.
+    mut Noisy? bound = new Noisy("bound"); // stack: 0
+    bool matched = bound is Noisy m;
+    bound = null;
+    print(matched);
+
+    // A value the local is given back.
+    mut var back = new Noisy("back"); // stack: 0
+    back = pass(back);
+
+    // A switch on a value other than a local holds it for the switch.
+    mut Noisy? switched = new Noisy("switched"); // stack: 0
+    switch (pass(switched!)) {
+        default -> {
+            switched = null;
+            print("switched away");
+        }
+    }
+
+    // A reference into the object, which holds it for the reference's scope.
+    mut var viewed = new Noisy("viewed"); // stack: 0
+    ref Vec p = viewed.pos;
+    viewed = new Noisy("view replacement"); // stack: 1
+    print(p.x);
+
+    // Stored where it outlives the local.
+    mut var stored = new Noisy("stored"); // stack: 0
+    keeper.kept = stored;
+    stored = new Noisy("store replacement"); // stack: 1
+
+    // Assignments the emitter can't end a slot at: by a lambda, through a 'ref', or in a loop's update.
+    mut Noisy? byLambda = new Noisy("by lambda"); // stack: 0
+    run(() -> { byLambda = null; });
+    mut var byRef = new Noisy("by ref"); // stack: 0
+    replace(ref byRef, new Noisy("by ref replacement")); // stack: 0
+    mut Noisy? byUpdate = new Noisy("by update"); // stack: 0
+    mut bool going = true;
+    for (; going; byUpdate = null) {
+        going = false;
+    }
+
+    // Made in a nested statement, which may run more than once in the local's scope.
+    mut Noisy? later = null;
+    if (yes) {
+        later = new Noisy("later"); // stack: 0
+    }
+    print("end of escapes");
+}
+
+void main() {
+    replaced();
+    // output: a1
+    // output: a1
+    // output: between
+    // output: a2
+    // output: a3
+    // output: a3
+
+    deferred();
+    // output: before
+    // output: deferred
+    // output: deferred
+
+    briefCopies(true);
+    // output: b1
+    // output: b1
+    // output: b1
+    // output: b1
+    // output: cleared
+
+    conditional(true);
+    // output: c
+    // output: in branch
+    // output: after branch
+    conditional(false);
+    // output: after branch
+    // output: c
+
+    inLoop();
+    // output: w
+    // output: 0
+    // output: 1
+    // output: 2
+
+    inSwitch(1);
+    // output: s
+    // output: one
+    // output: after switch
+    inSwitch(2);
+    // output: other
+    // output: after switch
+    // output: s
+
+    successor();
+    // output: after
+    // output: before
+    // output: successor
+    // output: before
+    // output: made
+    // output: next
+
+    loopBody();
+    // output: first
+    // output: second
+    // output: first
+    // output: second
+    // output: second
+
+    early(true);
+    // output: e1
+    early(false);
+    // output: e1
+    // output: e2
+
+    _ = tried();
+    // output: 3
+    // output: tried
+    // output: tried again
+
+    var keeper = new Keeper(); // stack: 1
+    escapes(keeper, true);
+    // output: aliased
+    // output: nested
+    // output: nested
+    // output: true
+    // output: switched away
+    // output: switched
+    // output: 0
+    // output: by lambda
+    // output: by ref
+    // output: by update
+    // output: end of escapes
+    // output: later
+    // output: by ref replacement
+    // output: store replacement
+    // output: viewed
+    // output: view replacement
+    // output: back
+    // output: bound
+    // output: aliased
+    // output: replacement
+}
+// output: stored

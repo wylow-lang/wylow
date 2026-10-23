@@ -9,20 +9,32 @@ public readonly record struct StackObject(BoundNew Creation, bool IsTemporary);
 
 /// <summary>
 /// Finds the objects made by <c>new</c> that no reference can outlive the scope making them, so
-/// that they can be in its stack frame instead of on the heap: those held by a local that is never
-/// reassigned, for the rest of its block, and temporaries, for their statement. An object escapes
-/// if a reference to it may be stored anywhere but a local declared within that scope, returned,
-/// captured by an escaping lambda, or given to a function that may do any of these with it. Each
-/// function is summarized by which of its parameters, and whether its <c>this</c>, may escape,
-/// including through the functions it calls, and which it may return, which makes the call's value
-/// that argument.
+/// that they can be in its stack frame instead of on the heap: those held by a local, until the
+/// local is given another value or its block ends, and temporaries, for their statement. An object
+/// escapes if a reference to it may be stored anywhere but a local declared within that scope,
+/// returned, captured by an escaping lambda, or given to a function that may do any of these with
+/// it. Each function is summarized by which of its parameters, and whether its <c>this</c>, may
+/// escape, including through the functions it calls, and which it may return, which makes the
+/// call's value that argument.
 /// </summary>
 /// <remarks>
+/// <para>
+/// A local's object is looked for only where the statement making it is in the block declaring the
+/// local, so that it runs at most once in each run of the block and its slot can be declared with
+/// the local (03-memory-model.md, Stack allocation). The local must not be given another value
+/// where no slot could be ended there: by a lambda, in a <c>for</c> loop's update, or through a
+/// <c>ref</c>. Any other assignment to it ends the slots of the objects it may have held. So the
+/// object's other references must be gone by the local's next assignment: a local it is copied to
+/// must have a scope that no such assignment is in, and that assignment must not give the local
+/// the object back.
+/// </para>
+/// <para>
 /// A temporary is looked for only in a statement that evaluates each of its expressions at most
 /// once and ends where the emitter ends its slot: a declaration, an assignment, an expression
 /// statement, or a return, without a <c>try</c>, which runs part of the statement on its own.
+/// </para>
 /// </remarks>
-public sealed class StackObjects
+public sealed partial class StackObjects
 {
     /// <summary>
     /// What a function may let escape, its parameters by index and its <c>this</c>, and which of
@@ -39,6 +51,7 @@ public sealed class StackObjects
     readonly ElementAliasing elements;
     readonly Summaries<Summary> summaries;
     readonly Dictionary<BoundStatement, List<StackObject>> made = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<BoundAssignment, List<BoundNew>> ended = new(ReferenceEqualityComparer.Instance);
 
     StackObjects(WholeProgram whole, ElementAliasing elements)
     {
@@ -56,8 +69,14 @@ public sealed class StackObjects
         return result;
     }
 
-    /// <summary>The objects on the stack that a statement makes, outside any lambda in it, in the order they are made.</summary>
+    /// <summary>
+    /// The objects on the stack whose slots a statement declares, outside any lambda in it, in the
+    /// order they are made: its temporaries, and for a declaration, every object its local holds.
+    /// </summary>
     public IReadOnlyList<StackObject> MadeBy(BoundStatement statement) => made.TryGetValue(statement, out var found) ? found : [];
+
+    /// <summary>The objects on the stack whose slots an assignment ends: those its local may have held before, which it releases.</summary>
+    public IReadOnlyList<BoundNew> EndedBy(BoundAssignment assignment) => ended.TryGetValue(assignment, out var found) ? found : [];
 
     /// <summary>Where each object on the stack is made.</summary>
     public IEnumerable<Location> Locations => made.Values.SelectMany(m => m).Select(m => m.Creation.Location);
@@ -119,23 +138,27 @@ public sealed class StackObjects
 
     void FindIn(IReadOnlyList<BoundStatement> statements)
     {
+        var held = new Dictionary<LocalSymbol, List<BoundNew>>();
+        var replacements = new Dictionary<LocalSymbol, List<Replacement>?>();
         for (int i = 0; i < statements.Count; i++)
         {
             var statement = statements[i];
-            var found = new List<StackObject>();
-            BoundNew? held = null;
-            if (statement is BoundVariableDeclaration { Local: { IsWritable: false, RefKind: RefKind.None }, Initializer: { } initializer }
-                && Created(initializer) is { } creation)
+            BoundNew? kept = null;
+            if (Holding(statements, i) is var (holder, declaredAt, creation))
             {
-                var flow = new Flow(this, summarizing: false);
-                foreach (var s in statements.Skip(i))
-                    flow.Statement(s);
-                if (!flow.Escapes(creation))
-                    found.Add(new StackObject(held = creation, IsTemporary: false));
+                if (!replacements.TryGetValue(holder, out var replaced))
+                    replacements[holder] = replaced = MayHold(holder) ? Replacements(statements, declaredAt, holder) : null;
+                if (replaced is not null && HoldsAlone(statements, i, holder, creation, replaced))
+                {
+                    Add(statements[declaredAt], new StackObject(kept = creation, IsTemporary: false));
+                    if (!held.TryGetValue(holder, out var creations))
+                        held[holder] = creations = [];
+                    creations.Add(creation);
+                }
             }
 
             var temporaries = MayHoldTemporaries(statement)
-                ? BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundNew>().Where(c => !ReferenceEquals(c, held)).ToList()
+                ? BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundNew>().Where(c => !ReferenceEquals(c, kept)).ToList()
                 : [];
             if (temporaries.Count > 0 && temporaries.Distinct(ReferenceEqualityComparer.Instance).Count() == temporaries.Count)
             {
@@ -145,13 +168,150 @@ public sealed class StackObjects
                     flow.Undeclare(declaration.Local);
                 foreach (var local in BoundTree.OwnExpressions(statement).SelectMany(BoundTree.PatternLocals))
                     flow.Undeclare(local);
-                found.AddRange(temporaries.Where(t => !flow.Escapes(t)).Select(t => new StackObject(t, IsTemporary: true)));
+                foreach (var temporary in temporaries.Where(t => !flow.Escapes(t)))
+                    Add(statement, new StackObject(temporary, IsTemporary: true));
             }
+        }
 
-            if (found.Count > 0)
-                made[statement] = found;
+        foreach (var (holder, creations) in held)
+        {
+            foreach (var replacement in replacements[holder]!)
+                ended[replacement.Assignment] = [.. creations.Where(c => !ReferenceEquals(c, Created(replacement.Assignment.Value)))];
         }
     }
+
+    void Add(BoundStatement statement, StackObject found)
+    {
+        if (!made.TryGetValue(statement, out var list))
+            made[statement] = list = [];
+        list.Add(found);
+    }
+
+    /// <summary>A statement making an object for a local: the local, the index of its declaration among the statements, and the object.</summary>
+    static (LocalSymbol Holder, int Declared, BoundNew Creation)? Holding(IReadOnlyList<BoundStatement> statements, int index)
+    {
+        switch (statements[index])
+        {
+            case BoundVariableDeclaration { Initializer: { } initializer } declaration when Created(initializer) is { } creation:
+                return (declaration.Local, index, creation);
+            case BoundAssignment { Target: BoundLocalAccess target } assignment when Created(assignment.Value) is { } creation:
+                for (int i = 0; i < index; i++)
+                {
+                    if (statements[i] is BoundVariableDeclaration declaration && declaration.Local == target.Local)
+                        return (target.Local, i, creation);
+                }
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>Whether the emitter declares a local as a plain variable, which a slot can be declared with.</summary>
+    bool MayHold(LocalSymbol local) =>
+        local is { RefKind: RefKind.None, IsAssignedByLambda: false } && !local.Type.IsRefStruct && !elements.AliasesElement(local);
+
+    /// <summary>An assignment to a local, and the index of the statement it is in among those of the local's block.</summary>
+    readonly record struct Replacement(BoundAssignment Assignment, int Index);
+
+    /// <summary>
+    /// The assignments to a local in the statements from its declaration on, or null if it may be
+    /// given another value where no slot could be ended: in a <c>for</c> loop's update, or through
+    /// a <c>ref</c>. Lambdas that assign it are ruled out by <see cref="MayHold"/>.
+    /// </summary>
+    static List<Replacement>? Replacements(IReadOnlyList<BoundStatement> statements, int declared, LocalSymbol local)
+    {
+        bool IsLocal(BoundExpression? expression) => expression is BoundLocalAccess access && access.Local == local;
+        var found = new List<Replacement>();
+        for (int index = declared; index < statements.Count; index++)
+        {
+            foreach (var statement in AllStatements(statements[index]))
+            {
+                switch (statement)
+                {
+                    case BoundFor { Update: BoundAssignment update } when IsLocal(update.Target):
+                    case BoundVariableDeclaration { Local.RefKind: RefKind.Ref } reference when IsLocal(reference.Initializer):
+                        return null;
+                    case BoundAssignment assignment when IsLocal(assignment.Target):
+                        found.Add(new Replacement(assignment, index));
+                        break;
+                }
+            }
+            var calls = BoundTree.AllExpressions(statements[index]).Select(BoundTree.CallOf).OfType<CallSite>();
+            if (calls.Any(c => c.Arguments.Where((a, i) => IsLocal(a) && c.Method.ParameterRefKind(i) == RefKind.Ref).Any()))
+                return null;
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// Whether the object a statement gives a local can't be referred to once its slot ends, which
+    /// is where the local's block ends or the local is next assigned. The code that can use it
+    /// before then runs up to the first assignment that is a statement of the block itself, which
+    /// replaces it on every path.
+    /// </summary>
+    bool HoldsAlone(IReadOnlyList<BoundStatement> statements, int index, LocalSymbol holder, BoundNew creation, List<Replacement> replacements)
+    {
+        int end = replacements.Where(r => r.Index > index && ReferenceEquals(statements[r.Index], r.Assignment))
+            .Select(r => r.Index).DefaultIfEmpty(statements.Count - 1).Min();
+        var flow = new Flow(this, summarizing: false);
+        flow.Declare(holder);
+        for (int i = index; i <= end; i++)
+            flow.Statement(statements[i]);
+        if (flow.Escapes(creation))
+            return false;
+
+        var reached = flow.Reachable(creation).ToHashSet(ReferenceEqualityComparer.Instance);
+        var later = replacements.Where(r => r.Index > index && r.Index <= end).ToList();
+        if (later.Any(r => flow.Assigned(r.Assignment).Any(reached.Contains)))
+            return false;
+        reached.Remove(holder);
+        for (int i = index + 1; i <= end; i++)
+        {
+            if (later.Any(r => r.Index == i) && HeldIn(statements[i]).Any(reached.Contains))
+                return false;
+            if (replacements.Any(r => r.Index >= i) && BlockScoped(statements[i]).Any(reached.Contains))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>The statement and those inside it, including in lambdas.</summary>
+    static IEnumerable<BoundStatement> AllStatements(BoundStatement statement) =>
+    [
+        statement,
+        .. BoundTree.InnerStatements(statement).SelectMany(AllStatements),
+        .. BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundLambda>().SelectMany(l => AllStatements(l.Body)),
+    ];
+
+    /// <summary>The statement and those inside it, except in lambdas, which run as functions of their own.</summary>
+    static IEnumerable<BoundStatement> Executed(BoundStatement statement) =>
+        [statement, .. BoundTree.InnerStatements(statement).SelectMany(Executed)];
+
+    /// <summary>
+    /// What may still hold a value when a statement ends but not after: the locals it declares,
+    /// outside lambdas, whose own locals are gone once they return, and the values its switches
+    /// match, which the emitter holds for the switch.
+    /// </summary>
+    static IEnumerable<object> HeldIn(BoundStatement statement) => Executed(statement).SelectMany<BoundStatement, object>(s =>
+    [
+        .. BoundTree.OwnExpressions(s).SelectMany(BoundTree.PatternLocals),
+        .. s switch
+        {
+            BoundVariableDeclaration declaration => [declaration.Local],
+            BoundForRange range => [range.Local],
+            BoundSwitch choice => [choice, .. choice.Cases.SelectMany(c => c.Patterns).SelectMany(Patterns.Bindings)],
+            _ => Array.Empty<object>(),
+        },
+    ]);
+
+    /// <summary>The locals a statement declares for the rest of its block, rather than for itself.</summary>
+    static IEnumerable<LocalSymbol> BlockScoped(BoundStatement statement) => statement switch
+    {
+        BoundVariableDeclaration declaration => [declaration.Local, .. BoundTree.PatternLocals(declaration.Initializer)],
+        BoundAssignment or BoundExpressionStatement or BoundReturn => BoundTree.OwnExpressions(statement).SelectMany(BoundTree.PatternLocals),
+        BoundSwitch choice => BoundTree.PatternLocals(choice.Value),
+        _ => [],
+    };
 
     bool MayHoldTemporaries(BoundStatement statement) => statement switch
     {
@@ -164,7 +324,7 @@ public sealed class StackObjects
     static IEnumerable<BoundExpression> Evaluated(BoundExpression expression) =>
         [expression, .. BoundTree.Children(expression).SelectMany(Evaluated)];
 
-    /// <summary>The object a variable's initializer makes, if that is all it does.</summary>
+    /// <summary>The object a variable's initializer or assigned value makes, if that is all it does.</summary>
     static BoundNew? Created(BoundExpression value) => value switch
     {
         BoundNew creation => creation,
@@ -174,228 +334,4 @@ public sealed class StackObjects
 
     /// <summary>Whether a value of the type may be a reference to an object, as converting to it keeps the object's identity.</summary>
     static bool HoldsReference(VplType type) => type.NonNull.IsReference || type.NonNull.IsTypeParameter;
-
-    /// <summary>
-    /// Where the values some code is given may go: the locals each may be stored in, and the values
-    /// that escape. The values are locals, <see cref="This"/>, and objects the code makes. A value
-    /// stored in a local the code doesn't declare escapes too, since that local outlives the code.
-    /// When <paramref name="summarizing"/> a function, what it returns goes to <see cref="Result"/>,
-    /// which its callers see as the call's value; any other code lets what it returns escape.
-    /// </summary>
-    sealed class Flow(StackObjects analysis, bool summarizing)
-    {
-        public static readonly object This = new();
-        static readonly object Result = new();
-
-        readonly Dictionary<object, List<object>> stores = new(ReferenceEqualityComparer.Instance);
-        readonly HashSet<object> escaping = new(ReferenceEqualityComparer.Instance);
-        readonly HashSet<LocalSymbol> declared = [];
-
-        /// <summary>The non-escaping lambdas being walked as part of the code, whose returns go to whatever runs them.</summary>
-        int lambdaDepth;
-
-        public void Declare(LocalSymbol local) => declared.Add(local);
-        public void Undeclare(LocalSymbol local) => declared.Remove(local);
-
-        public bool Escapes(object value) =>
-            Reachable(value).Any(v => escaping.Contains(v) || (v is LocalSymbol local && !declared.Contains(local)));
-
-        public bool IsReturned(object value) => Reachable(value).Contains(Result);
-
-        /// <summary>The value and everything it may be stored in.</summary>
-        IEnumerable<object> Reachable(object value)
-        {
-            var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            var pending = new Stack<object>([value]);
-            while (pending.TryPop(out var next))
-            {
-                if (!seen.Add(next))
-                    continue;
-                yield return next;
-                foreach (var target in stores.GetValueOrDefault(next) ?? [])
-                    pending.Push(target);
-            }
-        }
-
-        public void Statement(BoundStatement statement)
-        {
-            switch (statement)
-            {
-                case BoundVariableDeclaration declaration:
-                    declared.Add(declaration.Local);
-                    Store(Value(declaration.Initializer), declaration.Local);
-                    break;
-                case BoundAssignment { Target: BoundLocalAccess { Local.RefKind: RefKind.None } target } assignment:
-                    Store(Value(assignment.Value), target.Local);
-                    break;
-                case BoundAssignment assignment:
-                    Use(assignment.Target);
-                    Escape(assignment.Value);
-                    break;
-                case BoundReturn ret when summarizing && lambdaDepth == 0:
-                    Store(Value(ret.Value), Result);
-                    break;
-                case BoundReturn ret:
-                    Escape(ret.Value);
-                    break;
-                case BoundSuperCall super:
-                    Call(super.Constructor, [This], super.Arguments, direct: true);
-                    break;
-                case BoundForRange range:
-                    declared.Add(range.Local);
-                    Use(range.Start);
-                    Use(range.End);
-                    Statement(range.Body);
-                    break;
-                case BoundSwitch choice:
-                    Match(choice.Value, choice.Cases.SelectMany(c => c.Patterns));
-                    foreach (var switchCase in choice.Cases)
-                        Statement(switchCase.Body);
-                    break;
-                default:
-                    foreach (var expression in BoundTree.OwnExpressions(statement))
-                        Use(expression);
-                    foreach (var inner in BoundTree.InnerStatements(statement))
-                        Statement(inner);
-                    break;
-            }
-        }
-
-        public void Escape(BoundExpression? expression) => escaping.UnionWith(Value(expression));
-
-        void Use(BoundExpression? expression) => Value(expression);
-
-        void Store(List<object> values, object target)
-        {
-            foreach (var value in values)
-            {
-                if (!stores.TryGetValue(value, out var targets))
-                    stores[value] = targets = [];
-                targets.Add(target);
-            }
-        }
-
-        /// <summary>Walks what an expression evaluates, and returns the values its own value may be.</summary>
-        List<object> Value(BoundExpression? expression)
-        {
-            switch (expression)
-            {
-                case null:
-                    return [];
-                case BoundLocalAccess access:
-                    return [access.Local];
-                case BoundThis:
-                    return [This];
-                case BoundNew creation:
-                    Call(creation.Constructor, [creation], creation.Arguments, direct: true);
-                    if (analysis.BorrowsLetEscape(creation.Type))
-                        escaping.Add(creation);
-                    return [creation];
-                case BoundConversion conversion when HoldsReference(conversion.Type):
-                    return Value(conversion.Operand);
-                case BoundNonNull nonNull:
-                    return Value(nonNull.Operand);
-                case BoundConditional conditional:
-                    Use(conditional.Condition);
-                    return [.. Value(conditional.WhenTrue), .. Value(conditional.WhenFalse)];
-                case BoundCoalesce coalesce:
-                    return [.. Value(coalesce.Left), .. Value(coalesce.Right)];
-                case BoundConditionalAccess access:
-                    declared.Add(access.Value);
-                    Store(Value(access.Receiver), access.Value);
-                    return Value(access.WhenNotNull);
-                case BoundIs test:
-                    Match(test.Operand, [test.Pattern]);
-                    return [];
-                case BoundSwitchExpression choice:
-                    Match(choice.Value, choice.Cases.SelectMany(c => c.Patterns));
-                    return [.. choice.Cases.SelectMany(c => Value(c.Body))];
-                case BoundCall call:
-                    return Call(call.Method, call.Receiver is null ? null : Value(call.Receiver), call.Arguments, call.IsSuperCall);
-                case BoundInvocation invocation:
-                    Use(invocation.Callee);
-                    return Arguments(invocation.Arguments, [.. analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l]!)]);
-                case BoundConstruction construction:
-                    Call(construction.Constructor, null, construction.Arguments, direct: true);
-                    foreach (var initializer in construction.Initializers)
-                        Escape(initializer.Value);
-                    return [];
-                case BoundLambda lambda:
-                    Lambda(lambda);
-                    return [];
-                case BoundFieldAccess or BoundBinary or BoundUnary or BoundIndex or BoundArrayLength or BoundArrayData or BoundTry:
-                    foreach (var child in BoundTree.Children(expression))
-                        Use(child);
-                    return [];
-                default:
-                    // Anything else made from values holds them: an array literal, an enum variant, or a
-                    // conversion to a value that refers to its operand, such as a Weak<T>.
-                    foreach (var child in BoundTree.Children(expression))
-                        Escape(child);
-                    return [];
-            }
-        }
-
-        /// <summary>Walks a call, and returns the values the call's value may be: the arguments it may return.</summary>
-        public List<object> Call(MethodReference method, List<object>? receiver, IReadOnlyList<BoundExpression> arguments, bool direct)
-        {
-            var targets = analysis.Targets(method.Symbol, direct);
-            List<object> returned = [];
-            if (receiver is not null)
-                Pass(receiver, targets, t => t.This, t => t.ReturnsThis, returned);
-            returned.AddRange(Arguments(arguments, targets));
-            return returned;
-        }
-
-        List<object> Arguments(IReadOnlyList<BoundExpression> arguments, List<Summary>? targets)
-        {
-            List<object> returned = [];
-            for (int i = 0; i < arguments.Count; i++)
-            {
-                int index = i;
-                Pass(Value(arguments[i]), targets, t => t.Parameters.Contains(index), t => t.ReturnedParameters.Contains(index), returned);
-            }
-            return returned;
-        }
-
-        /// <summary>Gives values to a parameter, or the <c>this</c>, of the functions a call may run; <paramref name="targets"/> is null if one is unknown.</summary>
-        void Pass(List<object> values, List<Summary>? targets, Func<Summary, bool> escapes, Func<Summary, bool> isReturned, List<object> returned)
-        {
-            if (targets is null || targets.Any(escapes))
-                escaping.UnionWith(values);
-            else if (targets.Any(isReturned))
-                returned.AddRange(values);
-        }
-
-        /// <summary>
-        /// An escaping lambda copies what it captures into a closure that may outlive anything. A
-        /// non-escaping one runs only while the code that makes it does, so its body is part of that code.
-        /// </summary>
-        void Lambda(BoundLambda lambda)
-        {
-            if (lambda.Function.IsEscaping)
-            {
-                var (locals, self) = BoundTree.Captures(lambda);
-                escaping.UnionWith(locals.Select(a => a.Local));
-                if (self is not null)
-                    escaping.Add(This);
-                return;
-            }
-            foreach (var parameter in lambda.Function.Parameters)
-                declared.Add(parameter);
-            lambdaDepth++;
-            Statement(lambda.Body);
-            lambdaDepth--;
-        }
-
-        void Match(BoundExpression value, IEnumerable<BoundPattern> patterns)
-        {
-            var values = Value(value);
-            foreach (var binding in patterns.SelectMany(Patterns.Bindings))
-            {
-                declared.Add(binding);
-                Store(values, binding);
-            }
-        }
-    }
 }

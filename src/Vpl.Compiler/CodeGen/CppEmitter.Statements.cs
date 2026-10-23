@@ -184,25 +184,34 @@ public sealed partial class CppEmitter
             case BoundAssignment assignment when FindTry(assignment.Value) is not null:
             {
                 DeclarePatternLocals(assignment.Value);
-                // The object holding the target is read before the value, as in any assignment.
+                // The object holding the target is read before the value, as in any assignment, and
+                // held only until the statement ends, as a temporary would be.
                 var root = PinRoot(assignment.Target);
                 if (root is not null)
                 {
+                    Line("{");
+                    indent++;
                     var pin = NewTemp();
                     Line($"auto {pin} = {Expression(root)};");
                     replacements[root] = pin;
                 }
                 HoistTry(assignment.Value);
                 Line(Store(assignment) + ";");
+                EndReplaced(assignment);
                 EndTry(assignment.Value);
                 if (root is not null)
+                {
                     replacements.Remove(root);
+                    indent--;
+                    Line("}");
+                }
                 break;
             }
             case BoundAssignment assignment:
                 DeclarePatternLocals(assignment.Value);
                 DeclareSlots(statement);
                 Line(SimpleStatement(statement) + ";");
+                EndReplaced(assignment);
                 EndSlots(statement);
                 break;
             // The unused value is released by the end of the statement, as other temporaries are.
@@ -343,6 +352,16 @@ public sealed partial class CppEmitter
     {
         foreach (var made in stackObjects.MadeBy(statement).Where(m => m.IsTemporary))
             Line($"{slots[made.Creation]}.end();");
+    }
+
+    /// <summary>
+    /// Destroys the objects on the stack that an assignment's local may have held before, right
+    /// after the assignment releases them, as their release would have.
+    /// </summary>
+    void EndReplaced(BoundAssignment assignment)
+    {
+        foreach (var creation in stackObjects.EndedBy(assignment))
+            Line($"{slots[creation]}.end();");
     }
 
     void DeclarePatternLocals(BoundExpression? expression)

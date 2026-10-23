@@ -111,7 +111,11 @@ storing a reference to itself (`this.self = this`) escapes.
 
 Copying the reference to another local doesn't make an object escape if that local is declared
 within the object's scope (including a pattern binding, or a local of a non-escaping lambda, which
-runs only during the scope); storing it in a local declared before the scope does. A function that
+runs only during the scope); storing it in a local declared before the scope does. For a local
+that is reassigned, the object's scope ends at the local's next assignment, so a copy must be gone
+by then: one declared in a nested statement that doesn't assign the local, or after the local's
+last assignment, is; one whose scope an assignment is in makes the object stay on the heap, as does
+an assignment that may give the local the object back (`x = pass(x)`). A function that
 returns its argument (or its `this`) hands the object back as the call's value, which escapes only
 if the caller lets it: `print(pass(new Path(a, b)).length())` can keep the object on the stack.
 What a lambda returns escapes, since whatever calls the lambda may keep it. Destructors aren't
@@ -122,9 +126,16 @@ let its `this` escape, since the compiler calls them around every borrow.
 Implementation constraints:
 
 - **Each `new` gets its own slot.** Reassigning a local releases the object it held there, so the
-  slot's object is destroyed at the assignment. A first version can handle only locals that are
-  never reassigned, and temporaries, which covers most uses. A `new` in a loop body gets a slot in
-  the body's scope, so each iteration has its own object.
+  slot's object is destroyed at the assignment. A local's slots are declared with the local, so a
+  slot outlives the local even when the `new` filling it comes later, and only a `new` that is a
+  statement of the local's own block can be on the stack: such a statement runs at most once each
+  time the block does, so one slot is enough, where one in a nested loop would need two objects at
+  once at the assignment (the new one is made before the old one is released). A `new` in a loop
+  body, for a local declared there, gets a slot in the body's scope, so each iteration has its own
+  object. An assignment anywhere else in the local's scope, which may or may not run, ends every
+  slot of the local but the one it fills; ending one that is empty or already ended does nothing. A
+  local that a lambda assigns, or that a `for` loop's update does, keeps its objects on the heap,
+  since no slot can be ended there.
 - **The reference count still works.** The slot holds the reference `new` starts the object with, so
   passing the object to functions that hold and release it never brings the count to 0 early. At the
   end of the slot's scope its destructors run, but nothing is freed. A debug build checks that the
@@ -146,17 +157,18 @@ elements stay on the heap, since the list can grow. Avoiding that is a separate 
 storage for a few elements, or arenas).
 
 **Implementation.** `StackObjects` finds the objects, and a C++ `vpl::StackSlot<T>` holds each,
-declared just before the statement that makes it, so that a local's slot is destroyed right after
-the local. A temporary's slot is ended after its statement; in a `return`, it is destroyed first
+declared just before the statement that makes it, or for a local's object, just before the local's
+declaration, so that a local's slot is destroyed right after the local. Anything else the emitter
+declares that holds the object is a copy too: a pin that a reference or a view holds for its
+scope, and the value a `switch` statement matches when it isn't a local, held for the statement. A temporary's slot is ended after its statement; in a `return`, it is destroyed first
 among the function's locals, as the temporary would have been released. Temporaries are looked
 for only in declarations, assignments, expression statements, and returns without a `try`. The
 slot clears the object's cyclic flag after its constructor runs, and takes it out of the buffer if
 the constructor's releases put it there. The size limit is 512 bytes, checked by C++, which knows
 the size: a slot for a larger object puts it on the heap but otherwise behaves the same.
 
-> Implemented so far: objects held by a local that is never reassigned, and temporaries. Not yet:
-> reassigned locals, closures, results of functions that return their argument, and the
-> performance warnings.
+> Implemented so far: objects held by locals, including reassigned ones, temporaries, and results
+> of functions that return their argument. Not yet: closures and the performance warnings.
 
 ### Weak references: `Weak<T>`
 
