@@ -41,12 +41,21 @@ public sealed partial class CppEmitter
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
+        if (OverridesInCpp(member))
+            return signature + (member.IsFinal ? " override final" : " override");
         if (member.IsVirtual && !unoverridden.Contains(member))
             return "virtual " + signature;
-        if (member.IsOverride)
-            return signature + (member.IsFinal ? " override final" : " override");
         return signature + (member.IsReadOnly ? " const" : "");
     }
+
+    /// <summary>
+    /// Whether the C++ method overrides a base's: an interface method's implementation does when its
+    /// own class implements that interface, while one inherited for it is reached through a forwarder.
+    /// </summary>
+    static bool OverridesInCpp(FunctionSymbol member) =>
+        member.IsOverride
+        || member.ImplementsInterface && member.Overridden.Any(o => o.ContainingType is { Kind: TypeKind.Interface } iface
+            && Conversions.Supertypes(member.ContainingType!.Type).Any(t => t.Symbol == iface));
 
     string DefinitionSignature(FunctionSymbol function)
     {

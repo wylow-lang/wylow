@@ -348,7 +348,8 @@ public sealed partial class CppEmitter
         var parameterTypes = string.Join(", ", method.Parameters.Select(p => ParameterType(p.Type, p.RefKind)));
         var location = SourceLocation(method.Declaration!.NameLocation);
         var message = CppStringLiteral($"abstract method '{method.ContainingType!.Name}.{method.Name}' called during construction or destruction");
-        Line($"virtual {CppType(method.ReturnType)} {MethodName(method)}({parameterTypes}) {{ vpl::panic({message}, {location}); }}");
+        var signature = $"{CppType(method.ReturnType)} {MethodName(method)}({parameterTypes})";
+        Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ vpl::panic({message}, {location}); }}");
     }
 
     void EmitDefaultFunction(TypeSymbol s)
