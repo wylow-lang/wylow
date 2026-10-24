@@ -72,6 +72,8 @@ public sealed partial class CppEmitter
     /// </summary>
     string Is(BoundIs pattern)
     {
+        if (pattern.Pattern is BoundReferencePattern reference)
+            return ReferenceTest(pattern.Operand, reference.Binding);
         if (pattern.Pattern is BoundTypePattern { Type.IsNullableValue: false } test)
         {
             var target = ObjectType(test.Target);
@@ -104,6 +106,23 @@ public sealed partial class CppEmitter
         foreach (var (local, temp, _) in copies)
             body.Append($"{LocalName(local)} = std::move({temp}); ");
         return body.Append("return true; }()").ToString();
+    }
+
+    /// <summary>
+    /// Stores a reference in the name an <c>is ref</c> pattern gives it, and tests it. The object it
+    /// points into is taken by the name's holder, if it has one, before the reference is found.
+    /// </summary>
+    string ReferenceTest(BoundExpression operand, LocalSymbol binding)
+    {
+        var name = LocalName(binding);
+        if (ScopeRoot(operand) is not { } root)
+            return $"(({name} = {Expression(operand)}) != nullptr)";
+        if (!holders.TryGetValue(binding, out var holder))
+            throw new InvalidOperationException($"no holder was declared for '{binding.Name}'");
+        replacements[root] = $"vpl::hold({holder}, {Expression(root)})";
+        var reference = Expression(operand);
+        replacements.Remove(root);
+        return $"(({name} = {reference}) != nullptr || vpl::unhold({holder}))";
     }
 
     /// <summary>
@@ -199,8 +218,8 @@ public sealed partial class CppEmitter
             body.Append(condition is null ? "{ " : $"if ({condition}) {{ ");
             foreach (var (local, value) in bindings)
                 body.Append($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {value}; ");
-            foreach (var local in BoundTree.PatternLocals(switchCase.Body))
-                body.Append($"{CppType(local.Type)} {LocalName(local)}{{}}; ");
+            foreach (var declaration in PatternLocalDeclarations(switchCase.Body))
+                body.Append(declaration + " ");
             body.Append(switchCase.Body.Type == VplType.Void ? $"{Expression(switchCase.Body)}; }} " : $"return {caseValue(switchCase.Body)}; }} ");
             if (condition is null)
             {

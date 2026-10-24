@@ -251,10 +251,16 @@ public sealed partial class StackObjects
         List<object> Match(BoundExpression value, IEnumerable<BoundPattern> patterns)
         {
             var values = Value(value);
-            foreach (var binding in patterns.SelectMany(Patterns.Bindings))
+            foreach (var pattern in patterns)
             {
-                declared.Add(binding);
-                Store(values, binding);
+                foreach (var binding in Patterns.Bindings(pattern))
+                {
+                    declared.Add(binding);
+                    Store(values, binding);
+                }
+                // An 'is ref' name holds the object it refers into for its whole scope, as a 'ref' variable does.
+                if (pattern is BoundReferencePattern reference)
+                    Store(Roots(value), reference.Binding);
             }
             return values;
         }

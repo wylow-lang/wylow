@@ -15,6 +15,12 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>The variable a for-each loop copies each element into.</summary>
     public bool IsLoopElement { get; init; }
 
+    /// <summary>
+    /// The name an <c>is ref T name</c> pattern gives a place. It is a <c>ref?</c> that is only ever
+    /// assigned a place, so it is used as one wherever it is assigned.
+    /// </summary>
+    public bool IsReferenceBinding { get; init; }
+
     /// <summary>Declared <c>mut</c>: it may be reassigned, and a value in it changed in place.</summary>
     public bool IsMutable { get; init; }
 

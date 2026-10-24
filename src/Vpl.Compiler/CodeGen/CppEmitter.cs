@@ -58,6 +58,9 @@ public sealed partial class CppEmitter
     ElementAliasing elements = null!;
     readonly Dictionary<BoundExpression, string> slots = new(ReferenceEqualityComparer.Instance);
 
+    /// <summary>For each name an <c>is ref</c> pattern binds into an object's storage, the variable holding that object.</summary>
+    readonly Dictionary<LocalSymbol, string> holders = new();
+
     /// <summary>For each memberwise constructor, which fields its calls pass: one C++ function for each.</summary>
     Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> memberwiseForms = null!;
 

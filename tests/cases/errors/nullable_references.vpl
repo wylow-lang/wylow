@@ -104,8 +104,31 @@ void main() {
             r = 2;                      // error: 'r' might refer to nothing here: null checks outside a lambda don't narrow inside it; check it inside
         });
     }
+    if (x is ref int place) {           // error: 'is ref' tests a reference that may refer to nothing, and 'x' has type 'int'
+    }
+    if (m.at(0) is ref int wrong) {     // error: 'm.at(0)' refers to a value of type 'float', not 'int'
+    }
+    if (makeMat().at(0) is ref float gone) { // error: a 'ref' binding must refer to a variable, field, or element, not a temporary value
+    }
+    if (m.peek(0) is ref float fixedRef) { // error: cannot take a 'ref' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in' instead
+    }
+    switch (x) {
+        case ref int e -> print(e);     // error: a 'ref' pattern can only test a reference with 'is', as in 'if (x is ref T name)'
+        default -> print(0);
+    }
+    if (!(r is ref int unbound)) {
+        print(unbound);                 // error: 'unbound' might not have been assigned
+    }
+    if (r is in int readOnly) {
+        readOnly = 1;                   // error: cannot assign to 'readOnly' because 'readOnly' is an 'in' variable
+        print(readOnly != null);        // error: operator '!=' cannot be applied to 'int' and 'null'
+    }
     bool pick = x > 0;
     print(sumOf(pick ? m.at(0) : null)); // error: '?:' cannot choose between references; use 'if' with a variable for each
+}
+
+Mat2 makeMat() {
+    return Mat2();
 }
 
 float sumOf(in? float value) {

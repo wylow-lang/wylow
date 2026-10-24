@@ -493,7 +493,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             case BoundLocalAccess access:
                 if (!state.IsAssigned(access.Local) && reported.Add(access.Local))
                     diagnostics.Error(access.Location, $"'{access.Local.Name}' might not have been assigned");
-                else if (access.AssumesNonNull && !state.IsNonNull(access.Local))
+                else if (access.AssumesNonNull && !state.IsNonNull(access.Local) && !access.Local.IsReferenceBinding)
                 {
                     var local = access.Local;
                     ReportOnce(access, access.Location, local.Type.IsNullableReference

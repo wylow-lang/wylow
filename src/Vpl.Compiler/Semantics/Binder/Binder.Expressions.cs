@@ -120,7 +120,7 @@ public sealed partial class Binder
             return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
 
         if (scope!.Lookup(e.Name) is { } local)
-            return new BoundLocalAccess(e.Location, local);
+            return new BoundLocalAccess(e.Location, local, AssumesNonNull: local.IsReferenceBinding);
 
         if (currentType is not null && LookupField(currentType.Type, e.Name) is var (field, owner))
         {

@@ -377,9 +377,38 @@ public sealed partial class CppEmitter
 
     void DeclarePatternLocals(BoundExpression? expression)
     {
-        foreach (var local in BoundTree.PatternLocals(expression))
-            Line($"{CppType(local.Type)} {LocalName(local)}{{}};");
+        foreach (var declaration in PatternLocalDeclarations(expression))
+            Line(declaration);
     }
+
+    /// <summary>
+    /// The names an expression's patterns bind, and for an <c>is ref</c> pattern whose place lies in
+    /// an object's storage, a holder for that object, which lives as long as the name.
+    /// </summary>
+    IEnumerable<string> PatternLocalDeclarations(BoundExpression? expression)
+    {
+        foreach (var local in BoundTree.PatternLocals(expression))
+            yield return $"{CppType(local.Type)} {LocalName(local)}{{}};";
+        foreach (var test in ReferenceTests(expression))
+        {
+            if (StorageRoot(test.Operand) is not var (_, borrowed) || ScopeRoot(test.Operand) is not { } root)
+                continue;
+            var holder = NewTemp();
+            holders[((BoundReferencePattern)test.Pattern).Binding] = holder;
+            var type = root.Type.NonNull;
+            yield return $"{(borrowed ? $"std::optional<vpl::Borrow<{ObjectType(type)}>>" : CppType(type))} {holder};";
+        }
+    }
+
+    /// <summary>The <c>is ref</c> tests whose names an expression declares, as <see cref="BoundTree.PatternLocals"/> finds them.</summary>
+    static IEnumerable<BoundIs> ReferenceTests(BoundExpression? expression) => expression switch
+    {
+        null => [],
+        BoundIs { Pattern: BoundReferencePattern } test => [.. ReferenceTests(test.Operand), test],
+        BoundIs test => ReferenceTests(test.Operand),
+        BoundSwitchExpression switchExpression => ReferenceTests(switchExpression.Value),
+        _ => BoundTree.Children(expression).SelectMany(ReferenceTests),
+    };
 
     // Pattern names in a condition are scoped to the statement, as in VPL.
     void OpenPatternScope(BoundExpression condition)

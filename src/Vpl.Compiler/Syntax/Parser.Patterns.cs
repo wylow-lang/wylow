@@ -89,6 +89,13 @@ public sealed partial class Parser
             }
             case TokenKind.Identifier:
                 return ParseNamePattern();
+            case TokenKind.RefKeyword or TokenKind.InKeyword:
+            {
+                var refKind = Advance().Kind == TokenKind.RefKeyword ? RefKind.Ref : RefKind.In;
+                var type = Accept(TokenKind.VarKeyword) ? null : ParseType();
+                var name = Expect(TokenKind.Identifier, "a name for the place it refers to");
+                return new ReferencePatternSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
+            }
             case var kind when SyntaxFacts.IsPrimitiveTypeKeyword(kind):
             {
                 var type = ParseType(allowNullable: false);

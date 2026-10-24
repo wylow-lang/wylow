@@ -316,3 +316,10 @@ public sealed record VariantPatternSyntax(Location Location, TypeSyntax? Enum, s
 
 /// <summary>A literal to compare with.</summary>
 public sealed record ConstantPatternSyntax(Location Location, Expr Value) : PatternSyntax(Location);
+
+/// <summary>
+/// <c>ref T name</c> or <c>in T name</c>, which tests that a <c>ref?</c> or <c>in?</c> refers to a
+/// place and names it. <see cref="Type"/> is null for <c>ref var name</c>.
+/// </summary>
+public sealed record ReferencePatternSyntax(Location Location, RefKind RefKind, TypeSyntax? Type, string Name, Location NameLocation)
+    : PatternSyntax(Location);

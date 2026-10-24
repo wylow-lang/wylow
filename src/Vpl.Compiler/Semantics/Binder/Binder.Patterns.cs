@@ -17,6 +17,8 @@ public sealed partial class Binder
                 : new BoundErrorExpression(e.Location);
         }
 
+        if (e.Pattern is ReferencePatternSyntax reference)
+            return BindReferencePattern(e, operand, reference);
         // Other patterns match the value a reference refers to, once it is known to refer to one.
         operand = NarrowReference(operand);
         if (operand.Type.IsNullableReference)
@@ -39,6 +41,37 @@ public sealed partial class Binder
         }
         var pattern = BindPattern(e.Pattern, operand.Type, canBind: true);
         return new BoundIs(e.Location, operand, pattern);
+    }
+
+    /// <summary>
+    /// <c>x is ref T name</c>, which tests that a <c>ref?</c> or <c>in?</c> refers to a place, and
+    /// names it as a <c>ref</c> or <c>in</c> local would be, for the statement.
+    /// </summary>
+    BoundExpression BindReferencePattern(IsExpr e, BoundExpression operand, ReferencePatternSyntax syntax)
+    {
+        var keyword = FunctionSymbol.RefPrefix(syntax.RefKind).Trim();
+        var target = syntax.Type is null ? null : BindType(syntax.Type, allowVoid: false);
+        var referenced = operand.Type.ReferencedType;
+        var text = TextOf(operand.Location);
+        var (kind, reason) = ClassifyPlace(operand);
+        if (referenced is null)
+            Error(operand.Location, $"'is {keyword}' tests a reference that may refer to nothing, and '{text}' has type '{operand.Type}'");
+        else if (target is not null && target != VplType.Error && target != referenced)
+            Error(syntax.Type!.Location, $"'{text}' refers to a value of type '{referenced}', not '{target}'");
+        else if (kind == PlaceKind.Temporary)
+            Error(operand.Location, $"a '{keyword}' binding must refer to a variable, field, or element, not a temporary value");
+        else if (kind == PlaceKind.ReadOnly && syntax.RefKind == RefKind.Ref)
+            Error(operand.Location, $"cannot take a 'ref' to what '{text}' refers to, because {reason}; use 'in' instead");
+        else if (BoundTree.NullableValueRoot(operand) is { } root)
+            Error(operand.Location, $"a '{keyword}' binding cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
+        else if (target != VplType.Error)
+        {
+            var binding = new LocalSymbol(syntax.Name, referenced.NullableReference(syntax.RefKind), isParameter: false, syntax.RefKind) { IsReferenceBinding = true };
+            Declare(binding, syntax.NameLocation);
+            return new BoundIs(e.Location, operand, new BoundReferencePattern(syntax.Location, operand.Type, binding));
+        }
+        DeclareErrorBindings(syntax);
+        return new BoundErrorExpression(e.Location);
     }
 
     /// <summary>Binds a pattern matching values of <paramref name="type"/> and declares its names in the current scope.</summary>
@@ -64,6 +97,8 @@ public sealed partial class Binder
                 return BindTypePattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), null, v.NameLocation, type, canBind);
             case VariantPatternSyntax v:
                 return BindVariantPattern(v, type, canBind);
+            case ReferencePatternSyntax r:
+                return ErrorPattern(r, type, $"a '{FunctionSymbol.RefPrefix(r.RefKind).Trim()}' pattern can only test a reference with 'is', as in 'if (x is {FunctionSymbol.RefPrefix(r.RefKind)}T name)'");
             default:
                 throw new InvalidOperationException($"unexpected pattern {syntax.GetType().Name}");
         }
@@ -88,6 +123,9 @@ public sealed partial class Binder
                 break;
             case TypePatternSyntax { Name: { } name } t:
                 Declare(new LocalSymbol(name, VplType.Error, isParameter: false), t.NameLocation);
+                break;
+            case ReferencePatternSyntax r:
+                Declare(new LocalSymbol(r.Name, VplType.Error, isParameter: false), r.NameLocation);
                 break;
             case VariantPatternSyntax { Fields: { } fields }:
                 foreach (var field in fields)

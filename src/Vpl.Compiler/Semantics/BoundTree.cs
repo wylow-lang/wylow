@@ -347,11 +347,15 @@ public sealed record BoundVariantPattern(Location Location, VplType Type, Varian
 /// <summary>Compares with a literal of the matched type.</summary>
 public sealed record BoundConstantPattern(Location Location, BoundLiteral Value) : BoundPattern(Location, Value.Type);
 
+/// <summary>Tests that a <c>ref?</c> or <c>in?</c> refers to a place, and binds <see cref="Binding"/> to it.</summary>
+public sealed record BoundReferencePattern(Location Location, VplType Type, LocalSymbol Binding) : BoundPattern(Location, Type);
+
 public static class Patterns
 {
     public static IEnumerable<LocalSymbol> Bindings(BoundPattern pattern) => pattern switch
     {
         BoundBindingPattern binding => [binding.Local],
+        BoundReferencePattern reference => [reference.Binding],
         BoundTypePattern { Binding: { } binding } => [binding],
         BoundVariantPattern variant => variant.Fields.SelectMany(Bindings),
         _ => [],

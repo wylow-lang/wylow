@@ -1,0 +1,76 @@
+struct Pair {
+    int[2] items;
+
+    ref? int at(int i) {
+        if (i < 0 || i >= 2) {
+            return null;
+        }
+        return ref items[i];
+    }
+
+    readonly in? int peek(int i) {
+        if (i < 0 || i >= 2) {
+            return null;
+        }
+        return ref items[i];
+    }
+}
+
+class Bag {
+    mut int[3] items;
+
+    ref? int get(int i) {
+        if (i >= 3) {
+            return null;
+        }
+        return ref items[i];
+    }
+}
+
+void main() {
+    mut Pair p = Pair();
+    if (p.at(0) is ref int first) {
+        first = 3;
+    }
+    print(p.items[0]);              // output: 3
+    if (p.at(5) is ref int missing) {
+        print(missing);
+    } else {
+        print("none");              // output: none
+    }
+    if (p.peek(0) is in int seen) {
+        print(seen);                // output: 3
+    }
+    if (p.at(1) is ref var inferred) {
+        inferred += 4;
+    }
+    print(p.items[1]);              // output: 4
+    ref? int r = p.at(1);
+    if (r is in int viewed) {
+        print(viewed + r);          // output: 8
+    }
+
+    // The object a name points into is held while the name is in scope.
+    mut var bag = new Bag();
+    if (bag.get(2) is ref int slot) {
+        bag = new Bag();
+        slot = 9;
+        print(slot);                // output: 9
+    }
+
+    mut int i = 0;
+    while (p.at(i) is ref int each) {
+        each *= 10;
+        i++;
+    }
+    print(p.items[0]);              // output: 30
+    print(p.items[1]);              // output: 40
+    if (p.at(0) is ref int a && p.at(1) is ref int b) {
+        print(a + b);               // output: 70
+    }
+    int n = switch (i) {
+        case 2 -> p.at(0) is ref int z ? z : 0;
+        default -> 0;
+    };
+    print(n);                       // output: 30
+}

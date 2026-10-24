@@ -493,12 +493,14 @@ if (found != null) {
   argument.
 - Overloads cannot differ only in `ref` and `ref?` (`f(ref int)` and `f(ref? int)`), since
   `f(ref x)` could call either.
+- `x is ref T name` (or `ref var name`) is only an `is` test, not a case of a switch. The name is in
+  scope like any pattern's, and while it is, what it refers into is held or borrowed as for a `ref`
+  variable; when the test fails, that is let go at once, so an `else` branch can still add to the
+  list that `list.get(i)` looked in.
 
 C# has no such type: `CollectionsMarshal.GetValueRefOrNullRef` returns a plain `ref` that may be
 null, which the caller must remember to test with `Unsafe.IsNullRef`. Rust's `Option<&mut T>` is
 the model.
-
-> Implemented so far: everything above except `x is ref T name` patterns.
 
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms

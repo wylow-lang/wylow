@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "pools.h"
 
 namespace vpl {
@@ -336,6 +338,32 @@ public:
 template <class T>
 inline Borrow<T> borrow(Ref<T> value) {
     return Borrow<T>(std::move(value));
+}
+
+// An 'is ref' pattern's holder keeps the object its name points into alive, and borrowed if that is
+// how its storage was handed out, for as long as the name is in scope. A failed test lets it go.
+template <class T>
+inline const Borrow<T>& hold(std::optional<Borrow<T>>& holder, Ref<T> value) {
+    holder.reset();
+    return holder.emplace(std::move(value));
+}
+
+template <class T>
+inline const Ref<T>& hold(Ref<T>& holder, Ref<T> value) {
+    holder = std::move(value);
+    return holder;
+}
+
+template <class T>
+inline bool unhold(std::optional<Borrow<T>>& holder) {
+    holder.reset();
+    return false;
+}
+
+template <class T>
+inline bool unhold(Ref<T>& holder) {
+    holder = nullptr;
+    return false;
 }
 
 // Calls f with value, so that value is evaluated before anything f evaluates.
