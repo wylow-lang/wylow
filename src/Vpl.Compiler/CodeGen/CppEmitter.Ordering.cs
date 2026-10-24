@@ -33,6 +33,9 @@ public sealed partial class CppEmitter
                 case BoundCall { Receiver: { } receiver } call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct:
                     if (receiver.Type.IsReference)
                         return (receiver, MayBeBorrowable(receiver.Type));
+                    // A string's bytes are in a block that its copies share, or for a literal, static.
+                    if (receiver.Type == VplType.String)
+                        return receiver is BoundLiteral ? null : (receiver, false);
                     current = receiver;
                     break;
                 case BoundConstruction { Type.IsRefStruct: true } construction when construction.Arguments.OfType<BoundArrayData>().FirstOrDefault() is { } data:

@@ -392,12 +392,17 @@ public static class BoundTree
         _ => null,
     };
 
-    /// <summary>The local whose nullable value a span or other <c>ref struct</c> views, as <see cref="NullableValueRoot"/>.</summary>
+    /// <summary>
+    /// The local whose nullable value a span or other <c>ref struct</c> views, as <see cref="NullableValueRoot"/>.
+    /// A view of an object's or a string's contents views storage the value only refers to.
+    /// </summary>
     public static LocalSymbol? ViewedNullableValue(BoundExpression view) => view switch
     {
         BoundConversion conversion => ViewedNullableValue(conversion.Operand),
         BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
-            receiver.Type.IsRefStruct ? ViewedNullableValue(receiver) : receiver.Type.IsReference ? null : NullableValueRoot(receiver),
+            receiver.Type.IsRefStruct ? ViewedNullableValue(receiver)
+            : receiver.Type.IsReference || receiver.Type == VplType.String ? null
+            : NullableValueRoot(receiver),
         BoundConstruction { Type.IsRefStruct: true } construction => construction.Arguments
             .Select(a => a is BoundArrayData data ? NullableValueRoot(data.Array) : a.Type.IsRefStruct ? ViewedNullableValue(a) : null)
             .FirstOrDefault(root => root is not null),

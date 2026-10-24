@@ -568,7 +568,10 @@ word.startsWith("hé")       // also endsWith and contains
   locale rules or Unicode normalization: `"é"` written as one code point and as `e` plus a
   combining accent are different strings.
 - `String` has no indexer, since neither a byte nor a code point is what `s[i]` would obviously
-  mean.
+  mean. `s.bytes` is a `ReadOnlySpan<byte>` of the UTF-8 bytes, without a copy: `s.bytes[0]`,
+  `for (byte b : s.bytes)`. Like any span (§2.11) it holds what it views, here the string, so the
+  bytes stay valid even if the variable it came from is reassigned. A method can't return a view
+  of a string field, which could be replaced while the caller uses it, as for an object field.
 
 The standard library declares these methods in `String.vpl`, implemented by the runtime.
 

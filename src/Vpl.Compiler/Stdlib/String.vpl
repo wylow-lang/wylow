@@ -11,6 +11,10 @@ extern struct String {
     @Pure
     readonly extern bool isEmpty { get; }
 
+    // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
+    @Pure
+    readonly extern ReadOnlySpan<byte> bytes { get; }
+
     // The number of characters (code points). It reads the whole string.
     @Pure
     readonly extern int charCount();

@@ -99,7 +99,8 @@ public sealed partial class Binder
 
     /// <summary>
     /// Whether a value returned as a second-class type views only the method's receiver, which is
-    /// what the caller holds for as long as it uses the value.
+    /// what the caller holds for as long as it uses the value. An object or a string in the
+    /// receiver holds its contents itself, and could be replaced while the caller uses them.
     /// </summary>
     static bool IsThisDerived(BoundExpression value) => value switch
     {
@@ -108,7 +109,8 @@ public sealed partial class Binder
         BoundArrayData data => IsThisRooted(data.Array),
         BoundConstruction construction => construction.Arguments.All(a => a is BoundArrayData || a.Type.IsRefStruct ? IsThisDerived(a) : true),
         BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
-            receiver is BoundThis || (receiver.Type.IsRefStruct ? IsThisDerived(receiver) : !receiver.Type.IsReference && IsThisRooted(receiver)),
+            receiver is BoundThis || (receiver.Type.IsRefStruct ? IsThisDerived(receiver)
+                : !receiver.Type.IsReference && receiver.Type != VplType.String && IsThisRooted(receiver)),
         _ => false,
     };
 

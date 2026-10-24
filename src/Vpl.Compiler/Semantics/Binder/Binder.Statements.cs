@@ -353,7 +353,12 @@ public sealed partial class Binder
         }
         var converted = Convert(value, function.ReturnType);
         if (function.ReturnType.IsRefStruct && converted.Type != VplType.Error && !IsThisDerived(converted))
-            Error(s.Value.Location, $"a returned '{function.ReturnType}' must view the method's receiver: fields or elements of 'this', or a span returned by its methods");
+        {
+            var hint = converted is BoundCall { Receiver: { } holder } && (holder.Type.IsReference || holder.Type == VplType.String) && IsThisRooted(holder)
+                ? $"; '{TextOf(holder.Location)}' holds its contents itself, and could be replaced while the caller uses them"
+                : "";
+            Error(s.Value.Location, $"a returned '{function.ReturnType}' must view the method's receiver: fields or elements of 'this', or a span returned by its methods{hint}");
+        }
         return new BoundReturn(s.Location, converted);
     }
 

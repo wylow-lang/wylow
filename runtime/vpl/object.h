@@ -344,9 +344,14 @@ inline decltype(auto) with(T&& value, F&& f) {
     return f(value);
 }
 
+// A copy that keeps a string's bytes alive while a span views them.
+inline String pin(const String& value) {
+    return value;
+}
+
 // In generic code a value may be a struct, which lives in its place and needs no pin.
 template <class T>
-    requires(!is_ref<std::remove_cv_t<T>>::value && !is_function_value<std::remove_cv_t<T>>::value)
+    requires(!is_ref<std::remove_cv_t<T>>::value && !is_function_value<std::remove_cv_t<T>>::value && !std::is_same_v<std::remove_cv_t<T>, String>)
 inline T& pin(T& value) {
     return value;
 }

@@ -25,6 +25,10 @@
 static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<double>::is_iec559,
               "VPL requires IEEE 754 floating point");
 
+// The standard library's ReadOnlySpan, by the name CppEmitter gives it, which String::bytes returns.
+template <class t_T>
+struct s_ReadOnlySpan;
+
 namespace vpl {
 
 [[noreturn]] inline void panic(const char* message, const char* location) {
@@ -92,6 +96,13 @@ public:
 
     int32_t byteLength() const { return length_; }
     bool isEmpty() const { return length_ == 0; }
+
+    // A template so that the span is a complete type by the time a program instantiates it. The
+    // span is read-only, so a literal's static bytes are never written.
+    template <class Byte = uint8_t>
+    ::s_ReadOnlySpan<Byte> bytes() const {
+        return ::s_ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(data_)), length_);
+    }
 
     int32_t charCount() const {
         int32_t count = 0;
