@@ -99,11 +99,9 @@ void main() {
     print(first?.x);                    // error: '?.' cannot be used on 'ref? Vec'; check it for null first, or use '!'
     for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
     }
-    if (r != null) {
-        run(() -> {
-            r = 2;                      // error: 'r' might refer to nothing here: null checks outside a lambda don't narrow inside it; check it inside
-        });
-    }
+    run(() -> {
+        maybe = 2;                      // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
+    });
     if (x is ref int place) {           // error: 'is ref' tests a reference that may refer to nothing, and 'x' has type 'int'
     }
     if (m.at(0) is ref int wrong) {     // error: 'm.at(0)' refers to a value of type 'float', not 'int'

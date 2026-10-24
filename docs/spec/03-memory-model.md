@@ -487,7 +487,8 @@ if (found != null) {
   may default to `null`. An `in?` parameter takes whatever an `in` one takes, including a temporary
   value, as well as `null` and any `ref?` or `in?`.
 - Where it is narrowed, it is used as the place: `found.health -= 10`, `found = Enemy(...)` (which
-  assigns the place), or passed by `ref`. A narrowing outside a lambda doesn't carry into it.
+  assigns the place), or passed by `ref`. Narrowing it is always sound, so a null check outside a
+  lambda narrows it inside too.
 - It is not a value: `var x = pool.get(h);` is an error (write `ref? var`, or copy with `!`), and so
   are `?.` and `??` on one, a `?:` or switch expression producing one, and using one as a type
   argument.

@@ -22,6 +22,16 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
         }
     }
 
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    readonly ref? T get(int index) {
+        if (index < 0 || index >= count) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
+    }
+
     // The `length` elements starting at `start`.
     @CallerLocation
     readonly Span<T> slice(int start, int length) {
@@ -53,6 +63,16 @@ ref struct ReadOnlySpan<T> {
     @CallerLocation
     readonly in T operator [](int index) {
         Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
+        }
+    }
+
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    readonly in? T get(int index) {
+        if (index < 0 || index >= count) {
+            return null;
+        }
         unsafe {
             return ref data[index];
         }

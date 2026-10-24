@@ -124,7 +124,7 @@ code where failure would be a bug.
 
 | Panics | Doesn't |
 |---|---|
-| `list[i]`, `array[i]` | `list.get(i)`, `array.get(i)`: a `ref? T`, null if `i` is out of bounds, like `pool.get(h)` |
+| `list[i]`, `array[i]`, `span[i]` | `list.get(i)`, `array.get(i)`, `span.get(i)`: a `ref? T` (`in? T` for a `ReadOnlySpan`), null if `i` is out of bounds, like `pool.get(h)` |
 | `list.removeAt(i)` | `list.tryRemoveAt(i)`: a `T?` |
 | `list.insert(i, v)` | none: an insertion index is the caller's own arithmetic, so a bad one is a bug |
 | `(Direction)i` | `Direction.tryFrom(i)`: a `Direction?` |
@@ -141,5 +141,5 @@ non-panicking version: they are always bugs.
 the indexer and what it finds can be changed in place; `list.get(i)!` copies the element where a
 copy is wanted.
 
-> Implemented so far: `list.tryRemoveAt`, `list.get`, and `array.get`. `tryFrom` needs a static
+> Implemented so far: `list.tryRemoveAt`, and `get` on lists, arrays, and spans. `tryFrom` needs a static
 > method the compiler generates for each enum.

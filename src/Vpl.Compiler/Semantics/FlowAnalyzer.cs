@@ -111,7 +111,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     /// <summary>
     /// A lambda runs only after it is created, so what is assigned there stays assigned. Narrowing
-    /// is not trusted inside it, since the code before it runs could undo it.
+    /// is not trusted inside it, since the code before it runs could undo it, except a 'ref?'
+    /// variable's, which nothing can make refer elsewhere.
     /// </summary>
     void Lambda(BoundLambda lambda, State outer)
     {
@@ -119,6 +120,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         {
             Reachable = outer.Reachable,
             Assigned = [.. outer.Assigned],
+            NonNull = [.. outer.NonNull.Where(l => l.Type.IsNullableReference)],
             AssignedFields = [.. outer.AssignedFields],
             MaybeAssigned = [.. outer.MaybeAssigned],
         };
@@ -497,9 +499,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 {
                     var local = access.Local;
                     ReportOnce(access, access.Location, local.Type.IsNullableReference
-                        ? narrowedOutside.Contains(local)
-                            ? $"'{local.Name}' might refer to nothing here: null checks outside a lambda don't narrow inside it; check it inside"
-                            : $"'{local.Name}' might refer to nothing here; check it with 'if ({local.Name} != null)', or use '!'"
+                        ? $"'{local.Name}' might refer to nothing here; check it with 'if ({local.Name} != null)', or use '!'"
                         : local.RefKind != RefKind.None
                         ? $"'{local.Name}' might be null here: a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {(local.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
                         : local.IsAssignedByLambda
