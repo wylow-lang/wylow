@@ -731,7 +731,7 @@ in ordinary strings mean nothing special.
   work as in any string.
 - The parts are evaluated left to right, each exactly once.
 - A hole holds any expression on one line, including other strings, but a conditional
-  `a ? b : c` must be parenthesized, since `:` is reserved to start a format specifier, as in C#.
+  `a ? b : c` must be parenthesized, since `:` starts a format specifier, as in C#.
 - An interpolated value must be *printable*. Primitives and `String` are, and are written as
   `print` writes them (`3.0`, `true`, a `char` as its character), a nullable one as its value or
   `null`.
@@ -759,8 +759,39 @@ struct Vec3 implements Printable {
   `$"{value}"` or `value.toString()`. Outside generic code too, they have a `toString()` that
   writes them as interpolation does: `5.toString()` is `"5"`.
 
+#### Format specifiers and alignment
+
+```java
+log($"{name,-12}|{score,6:D}|{ratio,8:F2}|{flags:X8}");
+```
+
+As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
+
+- The **alignment** is an integer literal, optionally negative. The value's text is padded with
+  spaces to at least that many characters: on the left for a positive alignment, so the text is
+  right-aligned, and on the right for a negative one. Characters are counted as Unicode code
+  points. Any printable value may be aligned, including `null`.
+- The **format specifier** is a letter and an optional precision of up to two digits. It is
+  checked against the value's type, so a specifier that doesn't apply is a compile error rather
+  than being ignored at run time, as in C#. A nullable value is formatted when it isn't null.
+
+| Specifier | Applies to | Writes | Precision | Example |
+|---|---|---|---|---|
+| `D`, `d` | Integers | Decimal | Minimum digits, zero-padded after the sign | `{-42:D5}` is `-00042` |
+| `X`, `x` | Integers | Hexadecimal, upper- or lowercase | Minimum digits | `{255:x4}` is `00ff` |
+| `B`, `b` | Integers | Binary | Minimum digits | `{5:B8}` is `00000101` |
+| `F`, `f` | `float`, `double` | Fixed-point | Digits after the point; default 2 | `{3.14159:F3}` is `3.142` |
+| `E`, `e` | `float`, `double` | Exponential, with the case of the `E` given | Digits after the point; default 6 | `{1500.0:E2}` is `1.50E+003` |
+
+- `X` and `B` write a negative value's two's-complement bits at the type's width:
+  `{-1:X}` is `FFFFFFFF` for an `int`.
+- `F` and `E` round to the nearest digit. Infinities and NaN are written as `print` writes them
+  (`inf`, `-inf`, `nan`).
+- The other C# specifiers (`N`, `P`, `G`, `C`, `R`) and custom formats such as `0.00` are not
+  supported. `N` and `C` depend on a culture, which VPL doesn't have. A `Printable` type has no
+  specifiers of its own; it may only be aligned.
+
 > Implemented so far: everything above. Not yet implemented:
-> - format specifiers and alignment (`{x:F2}`, `{x,8}`);
 > - `Printable` stdlib types (`List`, `Array`, `Span`, `Result`, ...). A collection should be
 >   printable when its element type is, which needs conditional implementations, or a `toString()`
 >   with its own `T extends Printable` bound;

@@ -337,7 +337,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         position += interpolated ? 2 : 1;
         var value = new StringBuilder();
         var texts = new List<string>();
-        var holes = new List<IReadOnlyList<Token>?>();
+        var holes = new List<HoleText?>();
         while (true)
         {
             if (AtLineEnd)
@@ -378,15 +378,18 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     }
 
     /// <summary>
-    /// The tokens of a hole in an interpolated string, from its '{' to its matching '}', which the
-    /// parser parses as an expression, or null for a hole with an error already reported. A hole
-    /// ends with its line, like the string around it.
+    /// A hole in an interpolated string, from its '{' to its matching '}': the tokens the parser
+    /// parses as a value and alignment, and the text of a format specifier after a ':'. Null for a
+    /// hole with an error already reported. A hole ends with its line, like the string around it.
     /// </summary>
-    IReadOnlyList<Token>? LexHole()
+    HoleText? LexHole()
     {
         position++;
         var tokens = new List<Token>();
         int depth = 0;
+        bool conditional = false;
+        string? format = null;
+        var formatSpan = default(TextSpan);
         while (true)
         {
             while (Current is ' ' or '\t')
@@ -406,20 +409,34 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             {
                 depth = Math.Max(depth - 1, 0);
             }
+            else if (depth == 0 && token.Kind == TokenKind.Question)
+            {
+                conditional = true;
+            }
             else if (depth == 0 && token.Kind == TokenKind.Colon)
             {
-                Error(token.Span, "format specifiers are not supported yet; to use a conditional expression in an interpolated string, parenthesize it");
+                int formatStart = position;
                 while (!AtLineEnd && Current is not ('}' or '"'))
                     position++;
-                if (Current == '}')
-                    position++;
-                return null;
+                if (conditional)
+                {
+                    Error(token.Span, "a conditional expression in an interpolated string must be parenthesized, since ':' starts a format specifier");
+                    if (Current == '}')
+                        position++;
+                    return null;
+                }
+                // The string reports being unterminated.
+                if (Current != '}')
+                    return null;
+                formatSpan = TextSpan.FromBounds(formatStart, position);
+                format = text[formatStart..position];
+                break;
             }
             tokens.Add(token);
         }
-        tokens.Add(new Token(TokenKind.EndOfFile, new TextSpan(position, 0), "", null));
+        tokens.Add(new Token(TokenKind.EndOfFile, new TextSpan(format is null ? position : formatSpan.Start - 1, 0), "", null));
         position++;
-        return tokens;
+        return new HoleText(tokens, format, formatSpan);
     }
 
     Token LexChar()

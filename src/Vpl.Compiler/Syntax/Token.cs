@@ -132,7 +132,10 @@ public readonly record struct IntegerLiteralValue(ulong Value, IntegerSuffix Suf
 public readonly record struct FloatLiteralValue(double Value, bool IsDouble);
 
 /// <summary>
-/// An interpolated string's text around its holes, one more than the holes, and each hole's tokens,
-/// ending in <c>EndOfFile</c>, or null for a hole whose error the lexer reported.
+/// An interpolated string's text around its holes, one more than the holes, and each hole, or null
+/// for a hole whose error the lexer reported.
 /// </summary>
-public sealed record InterpolatedText(IReadOnlyList<string> Texts, IReadOnlyList<IReadOnlyList<Token>?> Holes);
+public sealed record InterpolatedText(IReadOnlyList<string> Texts, IReadOnlyList<HoleText?> Holes);
+
+/// <summary>A hole's tokens before any format specifier, ending in <c>EndOfFile</c>, and the specifier's text after the ':'.</summary>
+public sealed record HoleText(IReadOnlyList<Token> Tokens, string? Format, TextSpan FormatSpan);

@@ -211,7 +211,10 @@ public sealed record CharLiteralExpr(Location Location, Rune Value) : Expr(Locat
 public sealed record StringLiteralExpr(Location Location, string Value) : Expr(Location);
 
 /// <summary><c>$"a{b}c"</c>: <see cref="Texts"/> surround the <see cref="Values"/>, one more of them than values.</summary>
-public sealed record InterpolatedStringExpr(Location Location, IReadOnlyList<string> Texts, IReadOnlyList<Expr> Values) : Expr(Location);
+public sealed record InterpolatedStringExpr(Location Location, IReadOnlyList<string> Texts, IReadOnlyList<InterpolatedValue> Values) : Expr(Location);
+
+/// <summary>A hole <c>{value,alignment:format}</c>, whose alignment and format may be left out.</summary>
+public sealed record InterpolatedValue(Location Location, Expr Value, int? Alignment, string? Format, Location FormatLocation) : Node(Location);
 
 public sealed record NullLiteralExpr(Location Location) : Expr(Location);
 

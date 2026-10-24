@@ -272,13 +272,35 @@ public sealed partial class Parser
         return new InitializerExpr(LocationFrom(start), target, fields);
     }
 
-    Expr ParseHole(IReadOnlyList<Token> holeTokens)
+    InterpolatedValue ParseHole(Location location, HoleText? hole)
     {
-        var parser = new Parser(source, diagnostics, [.. holeTokens]);
+        if (hole is null)
+            return new InterpolatedValue(location, new ErrorExpr(location), null, null, location);
+        var parser = new Parser(source, diagnostics, [.. hole.Tokens]);
         var value = parser.ParseExpression();
+        // The alignment is parsed rather than lexed, since a ',' may also separate type arguments.
+        int? alignment = parser.Accept(TokenKind.Comma) ? parser.ParseAlignment() : null;
         if (!parser.At(TokenKind.EndOfFile))
             parser.Error(parser.Current.Span, "expected '}' to end the interpolated value");
-        return value;
+        return new InterpolatedValue(value.Location, value, alignment, hole.Format, Loc(hole.FormatSpan));
+    }
+
+    int? ParseAlignment()
+    {
+        int start = position;
+        bool negative = Accept(TokenKind.Minus);
+        if (!At(TokenKind.IntLiteral) || Current.Value is not IntegerLiteralValue { Suffix: IntegerSuffix.None } literal)
+        {
+            Error(Current.Span, "expected an integer alignment, as in '{value,8}'");
+            return null;
+        }
+        Advance();
+        if (literal.Value > int.MaxValue)
+        {
+            Error(LocationFrom(start).Span, "alignment is too large");
+            return null;
+        }
+        return negative ? -(int)literal.Value : (int)literal.Value;
     }
 
     Expr ParsePrimary()
@@ -305,7 +327,7 @@ public sealed partial class Parser
             case TokenKind.StringLiteral:
                 Advance();
                 if (token.Value is InterpolatedText interpolated)
-                    return new InterpolatedStringExpr(location, interpolated.Texts, [.. interpolated.Holes.Select(h => h is null ? new ErrorExpr(location) : ParseHole(h))]);
+                    return new InterpolatedStringExpr(location, interpolated.Texts, [.. interpolated.Holes.Select(h => ParseHole(location, h))]);
                 return new StringLiteralExpr(location, (string)token.Value!);
             case TokenKind.TrueKeyword or TokenKind.FalseKeyword:
                 Advance();

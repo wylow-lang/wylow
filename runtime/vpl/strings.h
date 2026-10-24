@@ -61,6 +61,79 @@ inline size_t format(FormatBuffer& buffer, F value) {
     return length;
 }
 
+// Text for a number with a format specifier ({x:F2}), which the binder has checked applies to its
+// type. A precision is at most 99, so the longest, a double's F99, fits.
+using SpecifiedBuffer = char[416];
+
+template <class I>
+inline constexpr bool is_formatted_integer = std::is_integral_v<I> && !std::is_same_v<I, bool> && !std::is_same_v<I, char32_t>;
+
+template <class I>
+    requires is_formatted_integer<I>
+inline size_t format(SpecifiedBuffer& buffer, I value, int32_t kind, int32_t precision) {
+    using U = std::make_unsigned_t<I>;
+    size_t length = 0;
+    int base = 10;
+    auto magnitude = static_cast<U>(value);
+    if (kind == 'D' || kind == 'd') {
+        if (value < 0) {
+            buffer[length++] = '-';
+            magnitude = static_cast<U>(U(0) - magnitude);
+        }
+    } else {
+        // Hexadecimal and binary write a negative value's two's complement bits, as C# does.
+        base = kind == 'B' || kind == 'b' ? 2 : 16;
+    }
+    char digits[64];
+    auto count = static_cast<size_t>(std::to_chars(digits, digits + sizeof digits, magnitude, base).ptr - digits);
+    if (precision > 0 && static_cast<size_t>(precision) > count) {
+        std::memset(buffer + length, '0', static_cast<size_t>(precision) - count);
+        length += static_cast<size_t>(precision) - count;
+    }
+    for (size_t i = 0; i < count; i++) {
+        buffer[length++] = kind == 'X' && digits[i] >= 'a' ? static_cast<char>(digits[i] - 'a' + 'A') : digits[i];
+    }
+    return length;
+}
+
+template <class F>
+    requires std::is_floating_point_v<F>
+inline size_t format(SpecifiedBuffer& buffer, F value, int32_t kind, int32_t precision) {
+    bool exponential = kind == 'E' || kind == 'e';
+    if (precision < 0) precision = exponential ? 6 : 2;
+    auto style = exponential ? std::chars_format::scientific : std::chars_format::fixed;
+    auto length = static_cast<size_t>(std::to_chars(buffer, buffer + sizeof buffer, value, style, precision).ptr - buffer);
+    if (!exponential || !std::isfinite(value)) return length;
+    // C# writes the exponent with its sign and at least three digits: 1.50E+003.
+    auto e = static_cast<size_t>(static_cast<char*>(std::memchr(buffer, 'e', length)) - buffer);
+    buffer[e] = static_cast<char>(kind);
+    size_t digits = length - (e + 2);
+    if (digits < 3) {
+        std::memmove(buffer + e + 2 + (3 - digits), buffer + e + 2, digits);
+        std::memset(buffer + e + 2, '0', 3 - digits);
+        length += 3 - digits;
+    }
+    return length;
+}
+
+// A value interpolated with a format specifier or alignment, written in place by the StringBuffer
+// building the string. kind is the specifier's letter or 0, precision -1 if not given, and a
+// positive alignment pads on the left, a negative one on the right.
+template <class T>
+struct Formatted {
+    T value;
+    int32_t kind;
+    int32_t precision;
+    int32_t alignment;
+
+    operator String() const;
+};
+
+template <class T>
+inline Formatted<T> formatted(const T& value, int32_t kind, int32_t precision, int32_t alignment) {
+    return {value, kind, precision, alignment};
+}
+
 // Builds a String in a block it grows, which the String then takes over without a copy.
 class StringBuffer {
 public:
@@ -97,6 +170,13 @@ public:
         append(buffer, format(buffer, value), location);
     }
 
+    template <class T>
+    void append(const Formatted<T>& value, const char* location) {
+        size_t start = length_;
+        append_specified(value.value, value.kind, value.precision, location);
+        if (value.alignment != 0) pad(start, value.alignment, location);
+    }
+
     String take() {
         if (block_ == nullptr) return String();
         block_->bytes()[length_] = '\0';
@@ -106,6 +186,49 @@ public:
     }
 
 private:
+    template <class T>
+    void append_specified(const T& value, int32_t kind, int32_t precision, const char* location) {
+        if constexpr (is_formatted_integer<T> || std::is_floating_point_v<T>) {
+            if (kind != 0) {
+                SpecifiedBuffer buffer;
+                append(buffer, format(buffer, value, kind, precision), location);
+                return;
+            }
+        }
+        append(value, location);
+    }
+
+    template <class T>
+    void append_specified(const Optional<T>& value, int32_t kind, int32_t precision, const char* location) {
+        if (value.has_value()) {
+            append_specified(value.assumed(), kind, precision, location);
+        } else {
+            append("null", 4, location);
+        }
+    }
+
+    // Pads the text written since start with spaces to the alignment's width in characters.
+    void pad(size_t start, int32_t alignment, const char* location) {
+        size_t characters = 0;
+        for (size_t i = start; i < length_; i++) {
+            if ((static_cast<unsigned char>(block_->bytes()[i]) & 0xC0) != 0x80) characters++;
+        }
+        auto width = static_cast<size_t>(alignment < 0 ? -static_cast<int64_t>(alignment) : alignment);
+        if (characters >= width) return;
+        size_t count = width - characters;
+        size_t end = length_;
+        if (count > static_cast<size_t>(INT32_MAX) - length_) panic("string is too long", location);
+        if (length_ + count > capacity_) grow(length_ + count);
+        char* bytes = block_->bytes();
+        if (alignment > 0) {
+            std::memmove(bytes + start + count, bytes + start, end - start);
+            std::memset(bytes + start, ' ', count);
+        } else {
+            std::memset(bytes + end, ' ', count);
+        }
+        length_ = end + count;
+    }
+
     void grow(size_t needed) {
         size_t capacity = capacity_ < 16 ? 16 : capacity_;
         while (capacity < needed) capacity = capacity <= static_cast<size_t>(INT32_MAX) / 2 ? capacity * 2 : static_cast<size_t>(INT32_MAX);
@@ -123,6 +246,14 @@ private:
     size_t length_ = 0;
     size_t capacity_ = 0;
 };
+
+template <class T>
+inline Formatted<T>::operator String() const {
+    StringBuffer text;
+    // Only a huge alignment reaches the length limit, and a conversion has no location to report.
+    text.append(*this, "");
+    return text.take();
+}
 
 // The types written by format, and their nullables.
 template <class T>

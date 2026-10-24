@@ -372,6 +372,23 @@ public static class Builtins
             IsPure = true,
         };
 
+    /// <summary>
+    /// An interpolated value with a format specifier or alignment (<c>{x,8:F2}</c>): its specifier's
+    /// letter (or 0), precision (or -1), and alignment (or 0). The runtime gives back a deferred
+    /// <c>String</c> that the interpolation writes in place.
+    /// </summary>
+    public static FunctionSymbol Formatted(VplType type) =>
+        new("formatted", [
+            new LocalSymbol("value", type, isParameter: true),
+            new LocalSymbol("kind", VplType.Int, isParameter: true),
+            new LocalSymbol("precision", VplType.Int, isParameter: true),
+            new LocalSymbol("alignment", VplType.Int, isParameter: true),
+        ], VplType.String)
+        {
+            BuiltinCppName = "vpl::formatted",
+            IsPure = true,
+        };
+
     public static IEnumerable<FunctionSymbol> All
     {
         get
