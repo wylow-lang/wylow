@@ -57,7 +57,7 @@ void main() {
     }
 
     // Structs holding enums compare them memberwise.
-    var t = Settings { mode = Mode.On, count = Option<int>.Some(1) };
+    var t = Settings(mode: Mode.On, count: Option<int>.Some(1));
     print(s.mode == t.mode && s.count == t.count);  // output: true
     print(orDefault(Option<long>.None, 7L));    // output: 7
 }

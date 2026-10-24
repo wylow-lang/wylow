@@ -65,8 +65,6 @@ void main() {
     setX(p.x);                     // error: argument 1 must be passed with 'ref'
     setX(ref 5);                   // error: a 'ref' argument must be a variable or field
     make().x = 4;                  // error: cannot assign to a field of a temporary value
-    var q = Point { x = 1, x = 2 };    // error: field 'x' is initialized more than once
-    var r = Point { w = 1 };           // error: 'Point' has no field 'w'
     var n1 = Named();
     var n2 = Named();
     print(n1 == n2);               // error: its field 'name' of type 'String' does not support '=='

@@ -270,11 +270,6 @@ public sealed record NewExpr(Location Location, TypeSyntax Type, IReadOnlyList<E
 /// <summary><c>new T[length]</c>, a heap array.</summary>
 public sealed record NewArrayExpr(Location Location, TypeSyntax ElementType, Expr Length) : Expr(Location);
 
-/// <summary><c>Type { field = value, ... }</c> or <c>Type(args) { field = value, ... }</c>.</summary>
-public sealed record InitializerExpr(Location Location, Expr Target, IReadOnlyList<FieldInit> Fields) : Expr(Location);
-
-public sealed record FieldInit(Location Location, string Name, Expr Value) : Node(Location);
-
 public sealed record CastExpr(Location Location, TypeSyntax Type, Expr Operand) : Expr(Location);
 
 public sealed record ConditionalExpr(Location Location, Expr Condition, Expr WhenTrue, Expr WhenFalse) : Expr(Location);

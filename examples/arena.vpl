@@ -160,7 +160,7 @@ final class World {
 
     List<Entity> entities = new List<Entity>();
     mut EventLog log;
-    mut Rng rng = Rng { state = 12345 };
+    mut Rng rng = Rng(state: 12345);
     mut int damageDealt;
     mut int deaths;
     mut int goldFound;

@@ -59,8 +59,8 @@ void unbounded<T>(T value) {
 void badBound<T extends Point>(T value) { }   // error: 'Point' cannot be a bound
 
 void main() {
-    Named n = Point { };                // error: cannot implicitly convert 'Point' to 'Named'
-    describe(Point { });
+    Named n = Point();                  // error: cannot implicitly convert 'Point' to 'Named'
+    describe(Point());
     describe(1);                        // error: 'int' does not implement 'Named', which type parameter 'T' requires
     describe(new Circle());             // error: 'Circle' does not implement 'Named'
     Shape s = new Circle();

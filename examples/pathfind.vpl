@@ -127,7 +127,7 @@ int bfs(in Grid grid, Point start, Point goal) {
 int greedy(in Grid grid, Point start, Point goal) {
     mut bool[8][8] seen;
     var heap = new Heap<Scored<Point>>();
-    heap.push(Scored<Point> { value = start, score = distance(start, goal) });
+    heap.push(Scored<Point>(value: start, score: distance(start, goal)));
     mut int expanded = 0;
     while (heap.count > 0) {
         var current = heap.pop();
@@ -142,7 +142,7 @@ int greedy(in Grid grid, Point start, Point goal) {
         }
         for (Point n : neighbors(p)) {
             if (grid.open(n) && !seen[n.y][n.x]) {
-                heap.push(Scored<Point> { value = n, score = distance(n, goal) });
+                heap.push(Scored<Point>(value: n, score: distance(n, goal)));
             }
         }
     }

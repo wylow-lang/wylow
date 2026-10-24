@@ -21,7 +21,7 @@ void main() {
     print(s.armor);        // output: 0
     print(s.speed);        // output: 2.5
 
-    mut var e = Enemy { alive = false };
+    mut var e = Enemy(alive: false);
     // output: id initializer
     print(e.stats.health); // output: 100
     print(e.id);           // output: 7
@@ -32,8 +32,7 @@ void main() {
     print(e.stats.armor);  // output: 5
     print(e.stats.health); // output: 70
 
-    var ordered = Enemy { id = next("first", 1), alive = next("second", 2) > 1 };
-    // output: id initializer
+    var ordered = Enemy(id: next("first", 1), alive: next("second", 2) > 1);
     // output: first
     // output: second
     print(ordered.id);     // output: 1

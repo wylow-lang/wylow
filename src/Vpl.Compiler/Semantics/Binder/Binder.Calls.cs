@@ -142,7 +142,7 @@ public sealed partial class Binder
             var constructed = Construct(type, typeArguments ?? [], name.Location);
             return constructed == VplType.Error
                 ? new BoundErrorExpression(e.Location)
-                : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)), []);
+                : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)));
         }
 
         if (!functions.TryGetValue(name.Name, out var overloads))
@@ -432,24 +432,7 @@ public sealed partial class Binder
         return new BoundNew(location, type, constructor, ConvertArguments(constructor, arguments));
     }
 
-    BoundExpression BindInitializer(InitializerExpr e)
-    {
-        var (typeName, argumentSyntax) = e.Target switch
-        {
-            NameExpr n => (n, []),
-            CallExpr { Callee: NameExpr n } call => (n, call.Arguments),
-            _ => throw new InvalidOperationException("the parser only produces initializers on names and calls"),
-        };
-        var type = AsTypeName(typeName);
-        var arguments = BindArguments(argumentSyntax, type is { IsStruct: true } ? ConstructorsOf(type) : null);
-        if (type is null || (type != VplType.Error && !type.IsStruct))
-            return ErrorExpression(typeName.Location, $"'{typeName.Name}' is not a struct; '{{ ... }}' initializers can only follow a struct name");
-        if (type == VplType.Error)
-            return new BoundErrorExpression(e.Location);
-        return BindConstruction(e.Location, type, arguments, e.Fields);
-    }
-
-    BoundExpression BindConstruction(Location location, VplType type, List<Argument> arguments, IReadOnlyList<FieldInit> fieldInits)
+    BoundExpression BindConstruction(Location location, VplType type, List<Argument> arguments)
     {
         if (arguments.Any(a => a.Expression.Type == VplType.Error))
             return new BoundErrorExpression(location);
@@ -462,31 +445,11 @@ public sealed partial class Binder
         if (!CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
 
-        var map = TypeMap.For(type);
-        var initializers = new List<BoundFieldInitializer>();
-        foreach (var init in fieldInits)
-        {
-            var initField = s.FindField(init.Name);
-            var value = BindExpression(init.Value, initField is null ? null : map.Apply(initField.Type));
-            if (initField is not { } field)
-            {
-                Error(init.Location, $"'{s.Name}' has no field '{init.Name}'");
-                continue;
-            }
-            if (initializers.Any(i => i.Field == field))
-            {
-                Error(init.Location, $"field '{init.Name}' is initialized more than once");
-                continue;
-            }
-            CheckAccessible(init.Location, s, field.IsPrivate, $"field '{s.Name}.{init.Name}'");
-            initializers.Add(new BoundFieldInitializer(field, Convert(value, map.Apply(field.Type))));
-        }
-
         if (constructor.Symbol.IsImplicit)
         {
+            var map = TypeMap.For(type);
             var missing = s.Fields.FirstOrDefault(f =>
                 f.Declaration.Initializer is null
-                && initializers.All(i => i.Field != f)
                 && !Conversions.IsDefaultable(map.Apply(f.Type)));
             if (missing is not null)
             {
@@ -495,6 +458,6 @@ public sealed partial class Binder
             }
         }
 
-        return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments), initializers);
+        return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments));
     }
 }

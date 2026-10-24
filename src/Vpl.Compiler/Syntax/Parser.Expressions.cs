@@ -216,11 +216,11 @@ public sealed partial class Parser
                 Advance();
                 expression = new NonNullExpr(LocationFrom(start), expression);
             }
-            // `Name {` can only be an initializer: conditions are parenthesized and braces are mandatory,
-            // so a block never directly follows an identifier or call.
+            // `Name {` can only be meant as C#'s initializer: conditions are parenthesized and braces
+            // are mandatory, so a block never directly follows an identifier or call.
             else if (At(TokenKind.OpenBrace) && expression is NameExpr or CallExpr { Callee: NameExpr })
             {
-                expression = ParseInitializer(start, expression);
+                expression = SkipInitializer(start, expression);
             }
             else
             {
@@ -267,22 +267,21 @@ public sealed partial class Parser
         return new RefArgExpr(LocationFrom(start), operand);
     }
 
-    InitializerExpr ParseInitializer(int start, Expr target)
+    /// <summary>Reports a C#-style <c>T { field = value }</c> initializer, which a constructor's named arguments replace, and skips it.</summary>
+    Expr SkipInitializer(int start, Expr target)
     {
-        Advance();
-        var fields = new List<FieldInit>();
-        while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
+        var name = target is CallExpr { Callee: NameExpr callee } ? callee.Name : ((NameExpr)target).Name;
+        Error(Current.Span, $"fields are set by naming them in the constructor call, as in '{name}(field: value)'");
+        int depth = 0;
+        do
         {
-            int fieldStart = position;
-            var name = Expect(TokenKind.Identifier, "a field name");
-            Expect(TokenKind.Assign, "'='");
-            var value = ParseExpression();
-            fields.Add(new FieldInit(LocationFrom(fieldStart), name.Text, value));
-            if (!Accept(TokenKind.Comma) || position == fieldStart)
-                break;
-        }
-        Expect(TokenKind.CloseBrace, "'}'");
-        return new InitializerExpr(LocationFrom(start), target, fields);
+            if (At(TokenKind.OpenBrace))
+                depth++;
+            else if (At(TokenKind.CloseBrace))
+                depth--;
+            Advance();
+        } while (depth > 0 && !At(TokenKind.EndOfFile));
+        return new ErrorExpr(LocationFrom(start));
     }
 
     InterpolatedValue ParseHole(Location location, HoleText? hole)

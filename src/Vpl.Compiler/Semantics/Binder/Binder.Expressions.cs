@@ -46,7 +46,6 @@ public sealed partial class Binder
         ArrayLiteralExpr e => BindArrayLiteral(e, expected),
         NewArrayExpr e => BindNewArray(e),
         NewExpr e => BindNew(e),
-        InitializerExpr e => BindInitializer(e),
         CastExpr e => BindCast(e),
         ConditionalExpr e => BindConditional(e, expected),
         SwitchExpr e => BindSwitchExpression(e, expected),

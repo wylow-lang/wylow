@@ -261,8 +261,6 @@ public sealed record BoundVariant(Location Location, VplType Type, VariantSymbol
 /// </summary>
 public sealed record BoundTry(Location Location, BoundExpression Operand, VplType Type) : BoundExpression(Location, Type);
 
-public sealed record BoundFieldInitializer(FieldSymbol Field, BoundExpression Value);
-
 /// <summary>
 /// The argument for a field a memberwise constructor call leaves out. It is not evaluated at the
 /// call: the constructor sets the field to its initializer, or to its type's default value.
@@ -273,8 +271,7 @@ public sealed record BoundConstruction(
     Location Location,
     VplType Type,
     MethodReference Constructor,
-    IReadOnlyList<BoundExpression> Arguments,
-    IReadOnlyList<BoundFieldInitializer> Initializers) : BoundExpression(Location, Type);
+    IReadOnlyList<BoundExpression> Arguments) : BoundExpression(Location, Type);
 
 public sealed record BoundConversion(Location Location, VplType Type, BoundExpression Operand) : BoundExpression(Location, Type);
 
@@ -497,7 +494,7 @@ public static class BoundTree
         BoundBinary binary => [binary.Left, binary.Right],
         BoundCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
         BoundInvocation invocation => [invocation.Callee, .. invocation.Arguments],
-        BoundConstruction construction => [.. construction.Arguments, .. construction.Initializers.Select(i => i.Value)],
+        BoundConstruction construction => construction.Arguments,
         BoundNew creation => creation.Arguments,
         BoundConversion conversion => [conversion.Operand],
         BoundConditional conditional => [conditional.Condition, conditional.WhenTrue, conditional.WhenFalse],

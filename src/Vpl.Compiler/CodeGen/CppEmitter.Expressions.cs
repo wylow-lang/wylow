@@ -294,14 +294,7 @@ public sealed partial class CppEmitter
         var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
             ? DefaultValue(construction.Type)
             : $"{type}::{name}({string.Join(", ", WithLocation(constructor.Symbol, arguments.Select((argument, k) => FunctionArgument(constructor, passed[k], argument)), construction.Location))})");
-        if (construction.Initializers.Count == 0)
-            return created;
-
-        var temp = NewTemp();
-        var body = new StringBuilder($"[&] {{ {type} {temp} = {created}; ");
-        foreach (var initializer in construction.Initializers)
-            body.Append($"{temp}.{FieldName(initializer.Field)} = {Expression(initializer.Value)}; ");
-        return body.Append($"return {temp}; }}()").ToString();
+        return created;
     }
 
     string New(BoundNew creation)

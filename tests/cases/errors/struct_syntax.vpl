@@ -25,4 +25,6 @@ static void g() {                  // error: 'static' is not valid on a function
 void main() {
     for (int i : 0..) {            // error: expected an expression
     }
+    var g = Grid { cells = [1, 2, 3, 4] };      // error: fields are set by naming them in the constructor call, as in 'Grid(field: value)'
+    var h = Grid(cells: [1, 2, 3, 4]) { };      // error: fields are set by naming them in the constructor call, as in 'Grid(field: value)'
 }

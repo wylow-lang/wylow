@@ -60,7 +60,7 @@ public sealed partial class Binder
             if (constructor is null)
                 return null;
             return new BoundConstruction(location, to, new MethodReference(constructor, to, []),
-                [new BoundArrayData(location, expression), new BoundLiteral(location, VplType.Int, from.FixedLength)], []);
+                [new BoundArrayData(location, expression), new BoundLiteral(location, VplType.Int, from.FixedLength)]);
         }
 
         var method = LookupMethods(from, readOnly ? "asReadOnlySpan" : "asSpan").FirstOrDefault(c => c.Symbol.Parameters.Count == 0);

@@ -102,7 +102,7 @@ void main() {
     // output: b
 
     var bullets = new List<Bullet>();
-    bullets.add(Bullet { x = 1 });
+    bullets.add(Bullet(x: 1));
     bullets[0].x += 2;
     print(bullets[0].x);        // output: 3.0
     ref Bullet first = bullets[0];

@@ -74,6 +74,6 @@ void main() {
     print(n.name());              // output: soldier
 
     describe(new Crate());        // output: crate
-    describe(Counter { n = 1 });  // output: counter
+    describe(Counter(n: 1));// output: counter
     describe<Named>(n);           // output: soldier
 }

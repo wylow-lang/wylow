@@ -75,7 +75,7 @@ void main() {
     print(t.scale);                   // output: 2.0
     print(Transform().scale);         // output: 1.0
 
-    var moved = Transform(v, 5) { scale = 6 };
+    var moved = Transform(v, scale: 6);
     print(moved.scale);               // output: 6.0
 
     var p = Pair<int, String>(1, "one");

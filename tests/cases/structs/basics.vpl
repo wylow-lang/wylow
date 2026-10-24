@@ -37,7 +37,7 @@ void main() {
     v.scale(2);
     print(v.z);                       // output: 6.0
 
-    var sum = Vec3.add(v, Vec3 { x = 1 });
+    var sum = Vec3.add(v, Vec3(1, 0, 0));
     print(sum.x);                     // output: 3.0
     print(sum.y);                     // output: 4.0
 

@@ -68,8 +68,7 @@ void main() {
     print(s.hidden);                    // error: field 'Secretive.hidden' is private
     s.quiet();                          // error: method 'Secretive.quiet' is private
     var s2 = new Secretive(1);          // error: constructor 'Secretive(int)' is private
-    Point pt = Point { x = 1 };
+    Point pt = Point(x: 1);
     print(s == pt);                     // error: operator '==' cannot be applied to 'Secretive' and 'Point'
     print(s == new Field());            // error: operator '==' cannot be applied to 'Secretive' and 'Field'
-    var nope = Field { x = 1 };         // error: 'Field' is not a struct
 }

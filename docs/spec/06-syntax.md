@@ -91,9 +91,6 @@ default values, positional construction, and setting fields by name are all the 
   starts from the default value, then runs its body. `this` refers to the value being built, and
   `return;` ends construction early. To set fields its parameters don't cover, assign them after the
   call: `mut var e = Enemy(pos); e.health = 50;`.
-
-  > Not implemented yet: removing the C#-style initializer `T { field = value }`, which named
-  > arguments replace.
 - Constructors are declared Java-style:
 
 ```java

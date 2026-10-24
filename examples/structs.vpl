@@ -31,7 +31,7 @@ void step(ref Particle p, float dt) {
 }
 
 void main() {
-    mut var p = Particle { position = Vec3(0, 0, 0) };
+    mut var p = Particle(position: Vec3(0, 0, 0));
     for (mut int i = 0; i < 50; i++) {
         step(ref p, 0.1);
     }

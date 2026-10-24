@@ -45,7 +45,7 @@ class Member {
 }
 
 void main() {
-    mut var a = Labeled { tag = new Tag("x"), count = 1 };
+    mut var a = Labeled(tag: new Tag("x"), count: 1);
     mut var b = a;
     b.count = 2;
     print(a == b);                          // output: false

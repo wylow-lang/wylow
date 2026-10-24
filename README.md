@@ -8,9 +8,10 @@ The language is described in [docs/spec](docs/spec/README.md).
 ## Status
 
 - **Milestone 1:** functions, `int`/`long`/`float`/`double`/`bool`, string literals, locals and
-  `var`, arithmetic, casts, `if`/`while`/`for`/`break`/`continue`, `?:`, overloading, `print`,
-  `panic`. Checked arithmetic, definite assignment, and left-to-right evaluation are enforced.
-- **Milestone 2:** structs: fields with initializers, constructors, `{ field = value }` initializers,
+  `var`, arithmetic, casts, `if`/`while`/`for`/`break`/`continue`, `?:`, overloading with default
+  and named arguments, `print`, `panic`. Checked arithmetic, definite assignment, and left-to-right
+  evaluation are enforced.
+- **Milestone 2:** structs: fields with initializers, constructors, memberwise constructors,
   instance/static/`readonly` methods, `private`, memberwise `==`, and `ref`/`in` parameters.
 - **Milestone 3:** generics: generic structs, functions, and methods, type argument inference,
   default-value rules for type parameters, and recursive-struct detection through type arguments.

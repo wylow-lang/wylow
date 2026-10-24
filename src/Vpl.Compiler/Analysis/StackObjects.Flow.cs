@@ -164,8 +164,6 @@ public sealed partial class StackObjects
                     return Arguments(invocation.Arguments, [.. analysis.whole.LambdasOfType(invocation.Callee.Type.NonNull).Select(l => analysis.summaries[l]!)]);
                 case BoundConstruction construction:
                     Call(construction.Constructor, null, construction.Arguments, direct: true);
-                    foreach (var initializer in construction.Initializers)
-                        Escape(initializer.Value);
                     return [];
                 case BoundLambda lambda:
                     return Lambda(lambda);

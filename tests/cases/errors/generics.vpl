@@ -41,7 +41,7 @@ Pair<T, int> half<T>(T x) {
 }
 
 Pair<T, int> full<T>(T x) {
-    return Pair<T, int> { first = x };
+    return Pair<T, int>(first: x);
 }
 
 void main() {
@@ -49,7 +49,7 @@ void main() {
     Pair<int> q;                  // error: 'Pair' requires 2 type arguments
     int<bool> r;                  // error: 'int' is not generic
     print(make());                // error: cannot infer type argument 'T' of 'make'
-    var w = Wrap<int> { value = 1 };
+    var w = Wrap<int>();
     print(w.value.first);         // error: 'int' has no member 'first'
     var pp = Pair<int, int>(1, 2, 3); // error: no constructor of 'Pair<int, int>' takes 3 arguments
     var conflict = full<int, int>(1); // error: no overload of 'full' takes 2 type arguments
