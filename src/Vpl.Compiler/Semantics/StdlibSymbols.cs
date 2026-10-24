@@ -31,6 +31,9 @@ public sealed class StdlibSymbols
     /// <summary>Types string interpolation can write, which the runtime's formatted types satisfy without implementing.</summary>
     public TypeSymbol? Printable { get; private set; }
 
+    /// <summary>Types in an order, which the integers, <c>char</c>, and <c>String</c> satisfy without implementing.</summary>
+    public TypeSymbol? Comparable { get; private set; }
+
     /// <summary>
     /// The members of the built-in <c>String</c>, declared by an <c>extern struct</c> of that name.
     /// It is not a type: <c>String</c> always names <see cref="VplType.String"/>.
@@ -50,6 +53,7 @@ public sealed class StdlibSymbols
             case "Borrowable": Borrowable = symbol; break;
             case "Weak": Weak = symbol; break;
             case "Printable": Printable = symbol; break;
+            case "Comparable": Comparable = symbol; break;
             case "String": String = symbol; break;
         }
     }
@@ -62,6 +66,17 @@ public sealed class StdlibSymbols
         Builtins.FormattedTypes.Contains(type) || (Printable is { } printable && Conversions.IsSubtype(type, printable.Type));
 
     public bool IsPrintableToString(FunctionSymbol method) => method.Name == "toString" && method.ContainingType is { } s && s == Printable;
+
+    /// <summary>The integers, <c>char</c>, and <c>String</c>, which the runtime compares itself.</summary>
+    public static bool IsBuiltinComparable(VplType type) => type.IsInteger || type == VplType.Char || type == VplType.String;
+
+    /// <summary>Whether a type satisfies the bound, as a builtin comparable type does <c>Comparable</c> of itself.</summary>
+    public bool SatisfiesBound(VplType type, VplType bound) =>
+        Conversions.IsSubtype(type, bound)
+        || (bound.Symbol == Printable && IsPrintable(type))
+        || (bound.Symbol == Comparable && IsBuiltinComparable(type) && bound.TypeArguments[0] == type);
+
+    public bool IsComparableCompareTo(FunctionSymbol method) => method.Name == "compareTo" && method.ContainingType is { } s && s == Comparable;
 
     public bool IsSpan(VplType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 

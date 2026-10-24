@@ -390,6 +390,14 @@ public static class Builtins
             IsPure = true,
         };
 
+    /// <summary><c>value.compareTo(other)</c> on an integer or <c>char</c>, which compares them in the runtime.</summary>
+    public static FunctionSymbol CompareTo(VplType type) =>
+        new("compareTo", [new LocalSymbol("value", type, isParameter: true), new LocalSymbol("other", type, isParameter: true)], VplType.Int)
+        {
+            BuiltinCppName = "vpl::compare",
+            IsPure = true,
+        };
+
     /// <summary>
     /// An interpolated value with a format specifier or alignment (<c>{x,8:F2}</c>): its specifier's
     /// letter (or 0), precision (or -1), and alignment (or 0). The runtime gives back a deferred

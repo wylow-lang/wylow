@@ -1,7 +1,3 @@
-interface Comparable<T> {
-    readonly int compareTo(T other);
-}
-
 struct Score implements Comparable<Score> {
     int points;
 

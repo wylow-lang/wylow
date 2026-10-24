@@ -88,7 +88,8 @@ Each is explained in detail in its chapter.
 The standard library is VPL source in `src/Vpl.Compiler/Stdlib/`, compiled with every program, so
 what it does can be read like any other VPL code. The compiler knows its types only through narrow
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
-loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, and `String`, whose `extern struct`
+loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which
+built-in types satisfy without implementing them), and `String`, whose `extern struct`
 declares the methods of the built-in type. Until packages exist, a program cannot declare a type
 with the name of a standard library type.
 

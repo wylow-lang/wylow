@@ -11,4 +11,5 @@
 #include "vpl/stack_slot.h"
 #include "vpl/functions.h"
 #include "vpl/strings.h"
+#include "vpl/compare.h"
 #include "vpl/intrinsics.h"

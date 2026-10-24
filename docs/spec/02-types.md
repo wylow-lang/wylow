@@ -811,6 +811,24 @@ type parameters, as in `T extends Comparable<T>`.
 - A nullable type such as `Player?` does not satisfy a bound, since its methods could not be called
   on null.
 - A bound does not make `T` convert to the interface (`T` might be a struct).
+- Two standard library interfaces are satisfied by built-in types without implementing them:
+  primitives and `String` are `Printable` ([06-syntax.md](06-syntax.md#string-interpolation)),
+  and the integers, `char`, and `String` are `Comparable` of themselves.
+
+```java
+interface Comparable<T> {
+    readonly int compareTo(T other);   // negative, zero, or positive
+}
+
+T maxOf<T extends Comparable<T>>(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }
+
+maxOf(3, 7);                // 7
+maxOf("pear", "apple");     // "pear", by code point (§2.10, Strings)
+5.compareTo(3);             // 1: the built-in types have a compareTo outside generic code too
+```
+
+> `float` and `double` are not `Comparable` yet: a total order must place NaN, which `<` leaves
+> unordered, and -0 and +0, which `==` calls equal.
 
 ### Unbounded type parameters
 

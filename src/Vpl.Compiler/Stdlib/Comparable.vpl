@@ -1,0 +1,8 @@
+// Types whose values are in an order, as for sorting. The integers, `char`, and `String` are
+// comparable without implementing it: they have a `compareTo` of their own, and satisfy a
+// `T extends Comparable<T>` bound.
+
+interface Comparable<T> {
+    // Negative, zero, or positive as this value sorts before, the same as, or after `other`.
+    readonly int compareTo(T other);
+}

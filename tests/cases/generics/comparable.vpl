@@ -1,0 +1,87 @@
+struct Version implements Comparable<Version> {
+    int major;
+    int minor;
+
+    readonly int compareTo(Version other) {
+        int byMajor = major.compareTo(other.major);
+        return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
+    }
+}
+
+class Score implements Comparable<Score> {
+    int points;
+
+    Score(int points) {
+        this.points = points;
+    }
+
+    int compareTo(Score other) {
+        return points.compareTo(other.points);
+    }
+}
+
+T maxOf<T extends Comparable<T>>(T a, T b) {
+    return a.compareTo(b) >= 0 ? a : b;
+}
+
+void sort<T extends Comparable<T>>(Span<T> items) {
+    for (int i : 1..items.length) {
+        mut int j = i;
+        while (j > 0 && items[j - 1].compareTo(items[j]) > 0) {
+            T moved = items[j];
+            items[j] = items[j - 1];
+            items[j - 1] = moved;
+            j--;
+        }
+    }
+}
+
+void main() {
+    // The integers and char compare as numbers, without implementing Comparable.
+    print(5.compareTo(3));                  // output: 1
+    print(3.compareTo(5));                  // output: -1
+    print(4.compareTo(4));                  // output: 0
+    print((-1).compareTo(1));               // output: -1
+    print(0xFFFFFFFFu.compareTo(1u));       // output: 1
+    byte small = 200;
+    print(small.compareTo(100));            // output: 1
+    print('a'.compareTo('b'));              // output: -1
+    print(5.compareTo(other: 6));           // output: -1
+
+    print(maxOf(3, 7));                     // output: 7
+    print(maxOf(-2L, -9L));                 // output: -2
+    print(maxOf('x', 'q'));                 // output: x
+    print(maxOf("pear", "apple"));          // output: pear
+    var newest = maxOf(Version(1, 10), Version(1, 2));
+    print(newest.minor);                    // output: 10
+    print(maxOf(new Score(4), new Score(9)).points); // output: 9
+
+    mut int[5] numbers = [4, 1, 5, 2, 3];
+    sort<int>(numbers);
+    for (int n : numbers) {
+        print(n);
+        // output: 1
+        // output: 2
+        // output: 3
+        // output: 4
+        // output: 5
+    }
+
+    var words = new List<String>();
+    words.add("pear");
+    words.add("apple");
+    words.add("Zebra");
+    words.add("fig");
+    sort<String>(words);
+    for (String word : words) {
+        print(word);
+        // output: Zebra
+        // output: apple
+        // output: fig
+        // output: pear
+    }
+
+    mut Version[3] versions =[Version(2, 0), Version(1, 5), Version(1, 1)];
+    sort<Version>(versions);
+    print($"{versions[0].major}.{versions[0].minor} {versions[2].major}.{versions[2].minor}"); // output: 1.1 2.0
+}

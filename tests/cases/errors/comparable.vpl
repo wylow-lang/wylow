@@ -1,0 +1,20 @@
+struct Plain {
+    int x;
+}
+
+T maxOf<T extends Comparable<T>>(T a, T b) {
+    return a.compareTo(b) >= 0 ? a : b;
+}
+
+void main() {
+    print(maxOf(1.5, 2.5));             // error: 'float' does not implement 'Comparable<float>', which type parameter 'T' requires
+    print(maxOf(true, false));          // error: 'bool' does not implement 'Comparable<bool>', which type parameter 'T' requires
+    var p = maxOf(Plain(1), Plain(2));  // error: 'Plain' does not implement 'Comparable<Plain>', which type parameter 'T' requires
+    print(1.5.compareTo(2.5));          // error: 'float' has no method 'compareTo'
+    print(5.compareTo(5L));             // error: cannot implicitly convert 'long' to 'int'
+    print(5.compareTo());               // error: no overload of 'int.compareTo' takes 0 arguments
+    print(5.compareTo(1, 2));           // error: no overload of 'int.compareTo' takes 2 arguments
+    print(5.compareTo(value: 1));       // error: 'compareTo' has no parameter named 'value'
+    print('a'.compareTo(97));           // error: cannot implicitly convert 'int' to 'char'
+    print("a".compareTo('a'));          // error: no overload of 'String.compareTo' accepts (char)
+}
