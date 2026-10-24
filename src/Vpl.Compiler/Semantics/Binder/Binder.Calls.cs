@@ -232,7 +232,7 @@ public sealed partial class Binder
         var receiverType = receiver.Type;
         if (name == "toString" && Builtins.FormattedTypes.Contains(receiverType))
             return BindFormattedToString(location, receiver, typeArguments, arguments);
-        if (name == "compareTo" && (receiverType.IsInteger || receiverType == VplType.Char))
+        if (name == "compareTo" && (receiverType.IsNumeric || receiverType == VplType.Char))
             return BindBuiltinCompareTo(location, receiver, typeArguments, arguments);
         var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
@@ -269,7 +269,7 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// The integers and <c>char</c> are comparable without implementing <c>Comparable</c>, so their
+    /// The numbers and <c>char</c> are comparable without implementing <c>Comparable</c>, so their
     /// <c>compareTo(other)</c> is the runtime's. <c>String</c>'s is declared in the standard library.
     /// </summary>
     BoundExpression BindBuiltinCompareTo(Location location, BoundExpression receiver, IReadOnlyList<VplType>? typeArguments, List<Argument> arguments)

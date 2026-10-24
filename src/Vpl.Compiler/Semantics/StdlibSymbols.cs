@@ -31,7 +31,7 @@ public sealed class StdlibSymbols
     /// <summary>Types string interpolation can write, which the runtime's formatted types satisfy without implementing.</summary>
     public TypeSymbol? Printable { get; private set; }
 
-    /// <summary>Types in an order, which the integers, <c>char</c>, and <c>String</c> satisfy without implementing.</summary>
+    /// <summary>Types in an order, which the numbers, <c>char</c>, and <c>String</c> satisfy without implementing.</summary>
     public TypeSymbol? Comparable { get; private set; }
 
     /// <summary>
@@ -67,8 +67,8 @@ public sealed class StdlibSymbols
 
     public bool IsPrintableToString(FunctionSymbol method) => method.Name == "toString" && method.ContainingType is { } s && s == Printable;
 
-    /// <summary>The integers, <c>char</c>, and <c>String</c>, which the runtime compares itself.</summary>
-    public static bool IsBuiltinComparable(VplType type) => type.IsInteger || type == VplType.Char || type == VplType.String;
+    /// <summary>The numbers, <c>char</c>, and <c>String</c>, which the runtime compares itself.</summary>
+    public static bool IsBuiltinComparable(VplType type) => type.IsNumeric || type == VplType.Char || type == VplType.String;
 
     /// <summary>Whether a type satisfies the bound, as a builtin comparable type does <c>Comparable</c> of itself.</summary>
     public bool SatisfiesBound(VplType type, VplType bound) =>

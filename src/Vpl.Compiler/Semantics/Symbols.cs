@@ -390,7 +390,7 @@ public static class Builtins
             IsPure = true,
         };
 
-    /// <summary><c>value.compareTo(other)</c> on an integer or <c>char</c>, which compares them in the runtime.</summary>
+    /// <summary><c>value.compareTo(other)</c> on a number or <c>char</c>, which compares them in the runtime.</summary>
     public static FunctionSymbol CompareTo(VplType type) =>
         new("compareTo", [new LocalSymbol("value", type, isParameter: true), new LocalSymbol("other", type, isParameter: true)], VplType.Int)
         {

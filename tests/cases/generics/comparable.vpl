@@ -48,6 +48,23 @@ void main() {
     print('a'.compareTo('b'));              // output: -1
     print(5.compareTo(other: 6));           // output: -1
 
+    // Floating-point numbers are in a total order, as in Java: -0 before 0, and NaN last.
+    float zero = 0.0;
+    float negativeZero = -zero;
+    float nan = zero / zero;
+    float infinity = 1.0 / zero;
+    print(1.5.compareTo(2.5));              // output: -1
+    print(2.5d.compareTo(2.5d));            // output: 0
+    print(negativeZero.compareTo(zero));    // output: -1
+    print(zero.compareTo(negativeZero));    // output: 1
+    print(negativeZero.compareTo(-zero));   // output: 0
+    print(nan.compareTo(infinity));         // output: 1
+    print(infinity.compareTo(nan));         // output: -1
+    print(nan.compareTo(nan));              // output: 0
+    print(((double)nan).compareTo(-1.0d));  // output: 1
+    print(maxOf(nan, infinity));            // output: nan
+    print($"{nan:F2} {-nan:E1}");           // output: nan nan
+
     print(maxOf(3, 7));                     // output: 7
     print(maxOf(-2L, -9L));                 // output: -2
     print(maxOf('x', 'q'));                 // output: x
@@ -73,6 +90,17 @@ void main() {
     words.add("Zebra");
     words.add("fig");
     sort<String>(words);
+
+    mut float[5] samples = [2.5, nan, -1.0, negativeZero, zero];
+    sort<float>(samples);
+    for (float sample : samples) {
+        print(sample);
+        // output: -1.0
+        // output: -0.0
+        // output: 0.0
+        // output: 2.5
+        // output: nan
+    }
     for (String word : words) {
         print(word);
         // output: Zebra

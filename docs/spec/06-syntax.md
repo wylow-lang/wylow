@@ -804,7 +804,7 @@ As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
 - `X` and `B` write a negative value's two's-complement bits at the type's width:
   `{-1:X}` is `FFFFFFFF` for an `int`.
 - `F` and `E` round to the nearest digit. Infinities and NaN are written as `print` writes them
-  (`inf`, `-inf`, `nan`).
+  (`inf`, `-inf`, `nan`). Every NaN is written `nan`, whatever its sign.
 - The other C# specifiers (`N`, `P`, `G`, `C`, `R`) and custom formats such as `0.00` are not
   supported. `N` and `C` depend on a culture, which VPL doesn't have. A `Printable` type has no
   specifiers of its own; it may only be aligned.

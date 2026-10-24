@@ -46,9 +46,16 @@ inline size_t format(FormatBuffer& buffer, char32_t value) {
     return 4;
 }
 
+// Every NaN is written "nan": C++ libraries differ on writing its sign and payload.
+inline size_t format_nan(char* buffer) {
+    std::memcpy(buffer, "nan", 3);
+    return 3;
+}
+
 template <class F>
     requires std::is_floating_point_v<F>
 inline size_t format(FormatBuffer& buffer, F value) {
+    if (std::isnan(value)) return format_nan(buffer);
     // Leaves room for the ".0" below and print's newline.
     auto result = std::to_chars(buffer, buffer + sizeof buffer - 3, value);
     auto length = static_cast<size_t>(result.ptr - buffer);
@@ -99,6 +106,7 @@ inline size_t format(SpecifiedBuffer& buffer, I value, int32_t kind, int32_t pre
 template <class F>
     requires std::is_floating_point_v<F>
 inline size_t format(SpecifiedBuffer& buffer, F value, int32_t kind, int32_t precision) {
+    if (std::isnan(value)) return format_nan(buffer);
     bool exponential = kind == 'E' || kind == 'e';
     if (precision < 0) precision = exponential ? 6 : 2;
     auto style = exponential ? std::chars_format::scientific : std::chars_format::fixed;

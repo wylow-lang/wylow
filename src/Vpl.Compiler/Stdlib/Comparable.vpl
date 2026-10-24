@@ -1,6 +1,7 @@
-// Types whose values are in an order, as for sorting. The integers, `char`, and `String` are
+// Types whose values are in an order, as for sorting. The numbers, `char`, and `String` are
 // comparable without implementing it: they have a `compareTo` of their own, and satisfy a
-// `T extends Comparable<T>` bound.
+// `T extends Comparable<T>` bound. `float` and `double` are in a total order, as in Java: -0 sorts
+// before 0, and NaN after every other value and the same as any other NaN.
 
 interface Comparable<T> {
     // Negative, zero, or positive as this value sorts before, the same as, or after `other`.
