@@ -1,3 +1,10 @@
+struct Named {
+    String name;
+    int id;
+}
+
+enum Label { Text(String value), Blank }
+
 void main() {
     String s = "quote \" and backslash \\";
     print(s);              // output: quote " and backslash \
@@ -5,4 +12,28 @@ void main() {
     print("a\nb");
     // output: a
     // output: b
+
+    // Equality compares contents, so a literal equals a string built at run time.
+    int n = 5;
+    String built = $"n{n}";
+    print(built == "n5");  // output: true
+    print(built != "n5");  // output: false
+    print(built == "n6");  // output: false
+    print(built == "n");   // output: false
+    print("" == $"");      // output: true
+    print("é" == "\u{E9}"); // output: true
+
+    mut String? maybe = null;
+    print(maybe == null);  // output: true
+    print(maybe == "n5");  // output: false
+    maybe = built;
+    print(maybe == "n5");  // output: true
+    print("n5" == maybe);  // output: true
+
+    print(Named("a", 1) == Named($"{"a"}", 1)); // output: true
+    print(Named("a", 1) == Named("b", 1));      // output: false
+    print(Label.Text("x") == Label.Text("x"));  // output: true
+    print(Label.Text("x") == Label.Blank);      // output: false
+    String[2] pair = ["a", "b"];
+    print(pair == ["a", $"b"]);                 // output: true
 }

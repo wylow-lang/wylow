@@ -374,7 +374,7 @@ var n = Option<int>.None;              // ...or written
 ### Equality, defaults, conversions
 
 - `==` and `!=` compare the variant and then its fields, and are available when every field of
-  every variant supports `==` (so never when a field's type is a type parameter or `String`).
+  every variant supports `==` (so never when a field's type is a type parameter or a function).
   Enums are not ordered.
 - **An enum's default value is its first variant, if that variant carries no data.** Otherwise the
   enum has no default value: a field of that type needs an initializer or, in a class, an assignment
@@ -541,8 +541,10 @@ that requires a derived class to assign its fields *before* calling `super`.
 A literal refers to static text and never allocates; a string built at run time, as by
 [interpolation](06-syntax.md#string-interpolation), is one counted allocation shared by its copies.
 
-> Implemented so far: literals, interpolation, and `print`. The count is not atomic yet, since
-> there are no threads. `+`, `StringBuilder`, comparison, length, and indexing are not implemented.
+`==` and `!=` compare contents ([equality](06-syntax.md#equality)).
+
+> Implemented so far: literals, interpolation, `print`, and `==`. The count is not atomic yet,
+> since there are no threads. `+`, `StringBuilder`, ordering, length, and indexing are not implemented.
 
 ## 2.11 Arrays and spans
 

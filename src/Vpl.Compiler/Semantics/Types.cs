@@ -432,8 +432,8 @@ public static class Conversions
         : (Int128)(double)value == value;
 
     /// <summary>
-    /// Whether <c>==</c> is defined: numbers, bools, references (identity), and structs and enums
-    /// whose fields all support it.
+    /// Whether <c>==</c> is defined: numbers, bools, strings (by contents), references (identity),
+    /// and structs and enums whose fields all support it.
     /// </summary>
     public static bool SupportsEquality(VplType type) => SupportsEquality(type, []);
 
@@ -443,7 +443,7 @@ public static class Conversions
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
         type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
         : type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
-        : !type.IsStructOrEnum ? type != VplType.String && type != VplType.Void && !type.IsTypeParameter && !type.IsFunction
+        : !type.IsStructOrEnum ? type != VplType.Void && !type.IsTypeParameter && !type.IsFunction
         : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(VplType structType, HashSet<VplType> visiting)

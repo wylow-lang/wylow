@@ -16,6 +16,8 @@ void main() {
     int big = 2147483648;     // error: too large for 'int'
     String s = "x";
     print(s + s);             // error: operator '+' cannot be applied to 'String' and 'String'
+    print(s < s);             // error: operator '<' cannot be applied to 'String' and 'String'
+    print(s == 1);            // error: operator '==' cannot be applied to 'String' and 'int'
     i + 1;                    // error: only calls can be used as statements
     print(-true);             // error: operator '-' cannot be applied to 'bool'
     int c = (int)true;        // error: cannot convert 'bool' to 'int'

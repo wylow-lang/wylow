@@ -430,6 +430,7 @@ public sealed partial class Binder
 
         bool bothBool = left.Type == VplType.Bool && right.Type == VplType.Bool;
         bool bothChar = left.Type == VplType.Char && right.Type == VplType.Char;
+        bool bothString = left.Type == VplType.String && right.Type == VplType.String;
         bool bothNumeric = left.Type.IsNumeric && right.Type.IsNumeric;
         bool bothInteger = left.Type.IsInteger && right.Type.IsInteger;
 
@@ -455,7 +456,7 @@ public sealed partial class Binder
                 operandType = bothBool ? VplType.Bool : bothInteger ? CommonNumericType(left, right) : null;
                 break;
             case BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual:
-                operandType = bothBool || bothChar ? left.Type : bothNumeric ? CommonNumericType(left, right) : null;
+                operandType = bothBool || bothChar || bothString ? left.Type : bothNumeric ? CommonNumericType(left, right) : null;
                 producesBool = true;
                 break;
             case BoundBinaryOperator.Less or BoundBinaryOperator.LessOrEqual

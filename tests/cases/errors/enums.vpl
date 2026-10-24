@@ -53,6 +53,8 @@ enum Option<T> { None, Some(T value) }
 
 class Thing { }
 
+enum Watched { On(Weak<Thing> target) }
+
 void main() {
     var d = Direction();                // error: enums are created from their variants, as in 'Direction.North'
     var n = new Direction();            // error: enums are created from their variants without 'new'
@@ -69,7 +71,8 @@ void main() {
     var typed = Option.Some<int>(1);    // error: type arguments belong to the enum, as in 'Option<...>.Some(...)'
     var label = Named.Label("a");
     print(label.text);                  // error: a variant's fields can only be read with a pattern
-    print(label == label);              // error: operator '==' cannot be applied to 'Named' because its field 'text' of type 'String' does not support '=='
+    var watched = Watched.On(null);
+    print(watched == watched);          // error: operator '==' cannot be applied to 'Watched' because its field 'target' of type 'Weak<Thing>' does not support '=='
     print(Direction.East == 1);         // error: operator '==' cannot be applied to 'Direction' and 'int'
     print(Direction.North < Direction.East); // error: operator '<' cannot be applied to 'Direction' and 'Direction'
     print((int)label);                  // error: cannot convert 'Named' to 'int'

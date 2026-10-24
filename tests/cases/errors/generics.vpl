@@ -53,6 +53,6 @@ void main() {
     print(w.value.first);         // error: 'int' has no member 'first'
     var pp = Pair<int, int>(1, 2, 3); // error: no constructor of 'Pair<int, int>' takes 3 arguments
     var conflict = full<int, int>(1); // error: no overload of 'full' takes 2 type arguments
-    var bad = Pair<String, int>();
-    print(bad == bad);            // error: its field 'first' of type 'String' does not support '=='
+    var bad = Pair<(() -> int)?, int>();
+    print(bad == bad);            // error: its field 'first' of type '(() -> int)?' does not support '=='
 }

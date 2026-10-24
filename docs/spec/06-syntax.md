@@ -325,6 +325,7 @@ struct Nibbles {
 | Struct | Memberwise equality, **generated automatically** if every field supports `==` (can be overridden) |
 | Class, interface | **Reference identity** (same object), as in Java. Value equality is `equals()`. Allowed only when one side could be the other (or is `null`) |
 | Enum | Same variant and equal data |
+| `String` | **Same contents** (the same bytes), as in C#, unlike Java's identity: a literal equals a string built at run time with the same text |
 
 ## 6.7 Lambdas and function types
 

@@ -59,7 +59,8 @@ Each is explained in detail in its chapter.
    overflow. Widen first where it might: `((int)a + b) / 2`. See [02-types.md](02-types.md#24-arithmetic).
 6. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](06-syntax.md#63-construction).
-7. **Class `==` is identity, struct `==` is memberwise.** See [06-syntax.md](06-syntax.md#equality).
+7. **Class `==` is identity, struct `==` is memberwise.** `String` is the exception: its `==`
+   compares contents. See [06-syntax.md](06-syntax.md#equality).
 8. **A variant can leave out its enum only where the type is known.** `Direction d = East;` and
    `move(East)` work, but `var d = East;` doesn't, and neither does an argument to overloads that
    disagree on its type. See [02-types.md](02-types.md#creating-values).

@@ -32,8 +32,8 @@ void main() {
     var mixed = [1, true];          // error: the elements of the array have incompatible types 'int', 'bool'
     int[3] few = [1, 2];          // error: cannot implicitly convert 'int[2]' to 'int[3]'
     makeArray()[0] = 5;             // error: cannot assign to an element of a temporary array
-    String[2] names = ["a", "b"];
-    print(names == names);          // error: operator '==' cannot be applied to 'String[2]', since 'String' does not support '=='
+    Weak<Box>[2] watched;
+    print(watched == watched);      // error: operator '==' cannot be applied to 'Weak<Box>[2]', since 'Weak<Box>' does not support '=='
 
     ref int r;                      // error: a 'ref' variable must be initialized
     ref int five = 5;               // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value

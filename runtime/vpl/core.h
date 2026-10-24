@@ -78,6 +78,10 @@ public:
     const char* data() const { return data_; }
     int32_t length() const { return length_; }
 
+    friend bool operator==(const String& a, const String& b) {
+        return a.length_ == b.length_ && (a.data_ == b.data_ || std::memcmp(a.data_, b.data_, static_cast<size_t>(a.length_)) == 0);
+    }
+
 private:
     String(const char* data, int32_t length, Block* block) : data_(data), length_(length), block_(block) {}
 

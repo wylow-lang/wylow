@@ -61,8 +61,8 @@ void main() {
         case North -> print(0);
         case East -> print(1);
     }
-    String? s = null;
-    print(s == s);                      // error: since 'String' does not support '=='
+    @Escaping (() -> int)? f = null;
+    print(f == f);                      // error: since '() -> int' does not support '=='
     var none = 1 == 2 ? null : null;    // error: the branches of '?:' have incompatible types 'null' and 'null'
 
     // Narrowing ends where the local may be assigned through a 'ref'.
