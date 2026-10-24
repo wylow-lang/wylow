@@ -1,0 +1,9 @@
+// The name an 'is ref' pattern gives an element borrows the list while it is in scope.
+void main() {
+    var numbers = new List<int>();
+    numbers.add(1);
+    if (numbers.get(0) is ref int first) {
+        print(first);           // output: 1
+        numbers.add(2);         // panic-here: cannot change the length or capacity of a list while it is borrowed
+    }
+}

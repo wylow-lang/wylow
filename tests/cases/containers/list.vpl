@@ -122,4 +122,24 @@ void main() {
             print(n);           // output: 7
         }
     }
+
+    // `get` refers to an element, or to nothing when the index is out of bounds.
+    var scores = new List<int>();
+    scores.add(10);
+    if (scores.get(0) is ref int score) {
+        score += 5;
+    }
+    print(scores[0]);           // output: 15
+    if (scores.get(1) is ref int missing) {
+        print(missing);
+    } else {
+        scores.add(20);         // the failed test doesn't borrow the list
+    }
+    print(scores.count);        // output: 2
+    ref? Bullet hit = bullets.get(0);
+    if (hit != null) {
+        hit.x = 9;
+    }
+    print(bullets[0].x);        // output: 9.0
+    print(bullets.get(-1) == null); // output: true
 }

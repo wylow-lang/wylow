@@ -45,6 +45,16 @@ final class Array<T> implements Spannable<T> {
         }
     }
 
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    ref? T get(int index) {
+        if (index < 0 || index >= count) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
+    }
+
     Span<T> asSpan() {
         unsafe {
             return Span<T>(data, count);

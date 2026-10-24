@@ -45,6 +45,13 @@ void main() {
     alias[0] = 42;
     print(squares[0]);          // output: 42
 
+    // `get` refers to an element, or to nothing when the index is out of bounds.
+    if (squares.get(1) is ref int second) {
+        second = 7;
+    }
+    print(squares[1]);          // output: 7
+    print(squares.get(squares.length) == null); // output: true
+
     // Destroying the array drops its elements in order.
     tags();
     // output: shared

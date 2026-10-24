@@ -23,6 +23,16 @@ final class List<T> implements Borrowable, Spannable<T> {
         }
     }
 
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    ref? T get(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
+    }
+
     @CallerLocation
     void add(T value) {
         checkNotBorrowed();
