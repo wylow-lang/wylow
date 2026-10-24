@@ -52,6 +52,7 @@ public sealed partial class Binder
         SwitchExpr e => BindSwitchExpression(e, expected),
         TryExpr e => ErrorExpression(e.Location, "'try' must be the whole value of a declaration, assignment, return, or expression statement"),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
+        NamedArgExpr e => ErrorExpression(e.Location, "a named argument can only be used in a call"),
         LambdaExpr e => expected is { IsFunction: true } ? BindLambda(e, expected, null)
             : expected == VplType.Error ? new BoundErrorExpression(e.Location)
             : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'"),
@@ -69,6 +70,7 @@ public sealed partial class Binder
     {
         NoThisContext.FieldInitializer => "field initializers cannot use 'this', fields, or instance methods",
         NoThisContext.SuperArguments => "arguments to 'super(...)' cannot use 'this', fields, or instance methods",
+        NoThisContext.DefaultValue => "default values cannot use 'this', fields, or instance methods",
         _ => "static methods cannot use 'this', fields, or instance methods",
     };
 

@@ -128,6 +128,9 @@ public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyn
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
     public bool IsMutable { get; init; }
+
+    /// <summary>The value the parameter takes when a call leaves it out, as in <c>int count = 1</c>.</summary>
+    public Expr? Default { get; init; }
 }
 
 public abstract record Stmt(Location Location) : Node(Location);
@@ -258,6 +261,9 @@ public sealed record ArrayLiteralExpr(Location Location, IReadOnlyList<Expr> Ele
 
 /// <summary>A call argument written with <c>ref</c>.</summary>
 public sealed record RefArgExpr(Location Location, Expr Operand) : Expr(Location);
+
+/// <summary>An argument passed by its parameter's name: <c>spread: 2.0</c>. <see cref="Value"/> may be a <see cref="RefArgExpr"/>.</summary>
+public sealed record NamedArgExpr(Location Location, string Name, Location NameLocation, Expr Value) : Expr(Location);
 
 public sealed record NewExpr(Location Location, TypeSyntax Type, IReadOnlyList<Expr> Arguments) : Expr(Location);
 

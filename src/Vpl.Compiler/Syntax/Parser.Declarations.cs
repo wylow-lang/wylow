@@ -382,10 +382,20 @@ public sealed partial class Parser
                 var (isMutable, refKind) = ParseBindingMode("parameter");
                 var type = ParseType();
                 var parameterName = Expect(TokenKind.Identifier, allowRefKinds ? "a parameter name" : "a field name");
-                parameters.Add(new ParameterSyntax(LocationFrom(parameterStart), allowRefKinds ? refKind : RefKind.None, type, parameterName.Text)
+                var location = LocationFrom(parameterStart);
+                Expr? defaultValue = null;
+                if (At(TokenKind.Assign))
+                {
+                    if (!allowRefKinds)
+                        Error(Current.Span, "a variant's fields cannot have default values");
+                    Advance();
+                    defaultValue = ParseExpression();
+                }
+                parameters.Add(new ParameterSyntax(location, allowRefKinds ? refKind : RefKind.None, type, parameterName.Text)
                 {
                     Annotations = annotations,
                     IsMutable = allowRefKinds && isMutable,
+                    Default = allowRefKinds ? defaultValue : null,
                 });
             } while (Accept(TokenKind.Comma));
         }

@@ -92,9 +92,8 @@ default values, positional construction, and setting fields by name are all the 
   `return;` ends construction early. To set fields its parameters don't cover, assign them after the
   call: `mut var e = Enemy(pos); e.health = 50;`.
 
-  > Not implemented yet: default and named arguments. Until they are, the memberwise constructor
-  > takes every field positionally, and the C#-style initializer `T { field = value }` remains; it
-  > will be removed once named arguments exist.
+  > Not implemented yet: removing the C#-style initializer `T { field = value }`, which named
+  > arguments replace.
 - Constructors are declared Java-style:
 
 ```java
@@ -175,12 +174,31 @@ void spawn(Vec3 pos, int count = 1, float spread = 0.5) { ... }
 spawn(pos);
 spawn(pos, 5);
 spawn(pos, spread: 2.0);     // named argument
+spawn(pos, count: 3, spread: 2.0);
 ```
 
 - Methods may be **overloaded** by parameter types, as in Java.
-- Parameters may have **default values** (compile-time constants or struct constructors).
-- Arguments may be passed **by name**; named arguments must come after positional ones. A struct's
-  memberwise constructor uses both, which is how a struct is built with some fields named (§6.3).
+- Parameters may have **default values**: a constant (a literal, an enum variant, or an operator
+  applied to constants) or a struct constructor given constants, as in `Vec3 up = Vec3(0, 1, 0)`.
+  A call that leaves the parameter out passes its default, evaluated at the call.
+  - A `ref` parameter cannot have a default, since it must refer to a variable.
+  - In generic code, a parameter whose type involves a type parameter can only default to `null`.
+  - A struct constructor cannot give every parameter a default, since `T()` is always the
+    struct's default value (§6.3).
+- Arguments may be passed **by name**, as in C#. Positional arguments come first. Named ones follow
+  **in the order of the parameters**, as in Swift, and may skip parameters that have defaults:
+  `spawn(pos, spread: 2.0, count: 3)` is an error. So the order an argument list is written in is
+  the order its values are evaluated in: each parameter's argument, or its default if left out.
+  A struct's memberwise constructor takes both, which is how a struct is built with some fields
+  named (§6.3).
+- Overload resolution considers the overloads that can take the arguments by count and name, then
+  compares the parameters that are given arguments. Among equally good overloads, one that leaves
+  fewer parameters to their defaults wins, as in C#, then a non-generic one.
+- A method that overrides or implements another takes that method's defaults and cannot declare
+  its own, as in Kotlin, so a call passes the same values whatever type it is made through. Named
+  arguments use the parameter names of the method the call finds, in the type it is made through.
+- A function type's parameters have no names or defaults, so a function value is called with every
+  argument, positionally. A method used as a function value takes all its parameters.
 
 ### Extension methods
 

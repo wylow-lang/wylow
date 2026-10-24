@@ -287,12 +287,13 @@ public sealed partial class CppEmitter
     {
         var type = CppType(construction.Type);
         var constructor = construction.Constructor;
-        var operands = construction.Arguments
-            .Select((argument, i) => ArgumentOperand(constructor, i, argument))
-            .ToList();
+        // A memberwise constructor sets the fields a call leaves out itself.
+        var passed = Enumerable.Range(0, construction.Arguments.Count).Where(i => construction.Arguments[i] is not BoundFieldDefault).ToList();
+        var operands = passed.Select(i => ArgumentOperand(constructor, i, construction.Arguments[i])).ToList();
+        var name = constructor.Symbol.IsMemberwise ? MemberwiseName([.. construction.Arguments.Select(a => a is not BoundFieldDefault)]) : "make";
         var created = Ordered(operands, arguments => constructor.Symbol.IsImplicit
             ? DefaultValue(construction.Type)
-            : $"{type}::make({string.Join(", ", WithLocation(constructor.Symbol, FunctionArguments(constructor, arguments), construction.Location))})");
+            : $"{type}::{name}({string.Join(", ", WithLocation(constructor.Symbol, arguments.Select((argument, k) => FunctionArgument(constructor, passed[k], argument)), construction.Location))})");
         if (construction.Initializers.Count == 0)
             return created;
 

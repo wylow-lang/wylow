@@ -188,7 +188,16 @@ public sealed partial class Binder
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             if (parameter.IsMutable && IsNonEscapingFunction(type))
                 Error(parameter.Location, NonEscapingMutMessage);
-            result.Add(new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind) { IsMutable = parameter.IsMutable });
+            if (parameter.Default is not null && parameter.RefKind == RefKind.Ref)
+                Error(parameter.Default.Location, "a 'ref' parameter cannot have a default value, since it must refer to a variable");
+            var local = new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind)
+            {
+                IsMutable = parameter.IsMutable,
+                DefaultSyntax = parameter.RefKind == RefKind.Ref ? null : parameter.Default,
+            };
+            if (local.DefaultSyntax is not null)
+                local.DefaultDeclaration = local;
+            result.Add(local);
         }
         return result;
     }
@@ -330,8 +339,9 @@ public sealed partial class Binder
         var body = new BlockStmt(location, [.. s.Fields.Select(f => new AssignStmt(location,
             new MemberAccessExpr(location, new ThisExpr(location), f.Name, location, []),
             TokenKind.Assign, location, new NameExpr(location, f.Name, [])))]);
-        var constructor = new FunctionSymbol(s.Name, [.. s.Fields.Select(f => new LocalSymbol(f.Name, f.Type, isParameter: true))], VplType.Void)
+        var constructor = new FunctionSymbol(s.Name, [.. s.Fields.Select(f => new LocalSymbol(f.Name, f.Type, isParameter: true) { Field = f })], VplType.Void)
         {
+            IsMemberwise = true,
             Body = body,
             ContainingType = s,
             IsConstructor = true,

@@ -97,8 +97,13 @@ public sealed partial class CppEmitter
         if (NeedsDefaultFunction(s))
             Line($"static {name} make_default();");
         DeclareCollectorMembers(s);
-        foreach (var member in s.Members.Where(m => !m.IsExtern))
+        foreach (var member in s.Members.Where(m => !m.IsExtern && !m.IsMemberwise))
             Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
+        foreach (var member in s.Members.Where(m => m.IsMemberwise))
+        {
+            foreach (var form in memberwiseForms.GetValueOrDefault(member) ?? [])
+                Line($"static {name} {MemberwiseName(form)}({MemberwiseParameters(member, form)});");
+        }
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
         if (s.IsGeneric || Conversions.SupportsEquality(s.Type))
             Line($"bool operator==(const {name}&) const = default;");
@@ -375,6 +380,70 @@ public sealed partial class CppEmitter
         Line("return self;");
         indent--;
         Line("}");
+    }
+
+    /// <summary>Which fields each memberwise constructor call passes, as one form per combination.</summary>
+    static Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> FindMemberwiseForms(BoundProgram program)
+    {
+        var expressions = program.Functions.SelectMany(f => BoundTree.AllExpressions(f.Body))
+            .Concat(program.Types.SelectMany(s => s.Fields).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
+        return expressions
+            .OfType<BoundConstruction>()
+            .Where(c => c.Constructor.Symbol.IsMemberwise)
+            .GroupBy(c => c.Constructor.Symbol)
+            .ToDictionary(g => g.Key, g => g
+                .Select(c => (IReadOnlyList<bool>)[.. c.Arguments.Select(a => a is not BoundFieldDefault)])
+                .DistinctBy(MemberwiseName)
+                .OrderBy(MemberwiseName, StringComparer.Ordinal)
+                .ToList());
+    }
+
+    /// <summary><c>make</c> when a call passes every field, and otherwise named for those it passes.</summary>
+    static string MemberwiseName(IReadOnlyList<bool> form) =>
+        form.All(given => given) ? "make" : "make_" + string.Concat(form.Select(given => given ? '1' : '0'));
+
+    string MemberwiseParameters(FunctionSymbol constructor, IReadOnlyList<bool> form) =>
+        string.Join(", ", constructor.Parameters.Where((_, i) => form[i]).Select(p => ParameterDeclaration(constructor, p, p.Type)));
+
+    /// <summary>
+    /// A memberwise constructor as calls with these fields use it: it sets each field, in order, to
+    /// its argument, or for one left out, to its initializer or its type's default value.
+    /// </summary>
+    void EmitMemberwiseConstructor(BoundFunction function, IReadOnlyList<bool> form)
+    {
+        var symbol = function.Symbol;
+        var s = symbol.ContainingType!;
+        currentType = s;
+        currentFunction = symbol;
+        usedLocalNames.Clear();
+        usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
+        context = Context.StructConstructor;
+        var type = CppType(s.Type);
+        EmitOwnerTemplatePrefix(s);
+        Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
+        Line("{");
+        indent++;
+        Line($"{type} self{{}};");
+        for (int i = 0; i < s.Fields.Count; i++)
+        {
+            var field = s.Fields[i];
+            // The body assigns each field its parameter, in order.
+            if (form[i])
+                Statement(function.Body.Statements[i]);
+            else if (field.Initializer is { } initializer)
+            {
+                DeclarePatternLocals(initializer);
+                Line($"self.{FieldName(field)} = {Expression(initializer)};");
+            }
+            else if (NeedsDefaultCode(field.Type))
+                Line($"self.{FieldName(field)} = {DefaultValue(field.Type)};");
+        }
+        Line("return self;");
+        indent--;
+        Line("}");
+        context = Context.Free;
+        currentType = null;
+        currentFunction = null;
     }
 
     /// <summary>Connects an interface method to the base class method that implements it.</summary>

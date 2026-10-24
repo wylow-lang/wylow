@@ -1,0 +1,156 @@
+struct Vec3 {
+    float x, y, z;
+}
+
+// A declared constructor runs code, which shows when a default value is evaluated.
+struct Tag {
+    int id;
+
+    Tag(int value) {
+        print($"tag {value}");
+        id = value;
+    }
+}
+
+enum Color { Red, Green }
+
+enum Shape {
+    Circle(float radius),
+    Rect(float width, float height);
+}
+
+int say(int value) {
+    print(value);
+    return value;
+}
+
+String spawn(Vec3 pos, int count = 1, float spread = 0.5) {
+    return $"{pos.y} x{count} ~{spread}";
+}
+
+String constants(int offset = -1, String name = "none", char letter = 'c', bool flag = true, Color color = Color.Green, int mask = 1 << 4) {
+    return $"{offset} {name} {letter} {flag} {color == Color.Green} {mask}";
+}
+
+void tagged(int first, Tag tag = Tag(2), int last = 3) {
+    print($"{first} {tag.id} {last}");
+}
+
+void bump(ref int x, int by = 1) {
+    x += by;
+}
+
+float height(in Vec3 at = Vec3(0, 1, 0)) {
+    return at.y;
+}
+
+String pick(int a) { return "one"; }
+String pick(int a, int b = 0) { return "two"; }
+
+T? orFallback<T>(T? value, T? fallback = null) {
+    return value ?? fallback;
+}
+
+class Box<T> {
+    mut T? item;
+
+    void put(T? item = null, int times = 1) {
+        this.item = item;
+        print($"put {times}");
+    }
+}
+
+class Weapon {
+    String name;
+    int damage;
+
+    Weapon(String name, int damage = 10) {
+        this.name = name;
+        this.damage = damage;
+    }
+}
+
+class Sword extends Weapon {
+    Sword(int damage = 25) { super(name: "sword", damage: damage); }
+}
+
+class Animal {
+    virtual String speak(int times = 1, String sound = "...") { return $"{times} {sound}"; }
+}
+
+class Dog extends Animal {
+    override String speak(int times, String sound) { return $"woof {times} {sound}"; }
+}
+
+interface Greeter {
+    String greet(String name = "you");
+}
+
+class Friendly implements Greeter {
+    String greet(String name) { return $"hi {name}"; }
+}
+
+void main() {
+    var pos = Vec3(0, 2, 0);
+    // Parameters left out take their defaults; named arguments skip over them.
+    print(spawn(pos));                                  // output: 2.0 x1 ~0.5
+    print(spawn(pos, 5));                               // output: 2.0 x5 ~0.5
+    print(spawn(pos, spread: 2.0));                     // output: 2.0 x1 ~2.0
+    print(spawn(pos, count: 3, spread: 1.5));           // output: 2.0 x3 ~1.5
+    print(spawn(pos: pos, count: 4));                   // output: 2.0 x4 ~0.5
+    print(constants());                                 // output: -1 none c true true 16
+    print(constants(name: "set", color: Color.Red));    // output: -1 set c true false 16
+
+    // Each parameter's value is evaluated in parameter order: its argument, or its default.
+    tagged(say(1));
+    // output: 1
+    // output: tag 2
+    // output: 1 2 3
+    tagged(say(1), last: say(4));
+    // output: 1
+    // output: tag 2
+    // output: 4
+    // output: 1 2 4
+
+    mut int n = 1;
+    bump(ref n);
+    bump(x: ref n, by: 5);
+    print(n);                                           // output: 7
+    print(height());                                    // output: 1.0
+
+    // An overload that leaves fewer parameters to their defaults is preferred.
+    print(pick(1));                                     // output: one
+    print(pick(1, 2));                                  // output: two
+    print(pick(a: 1, b: 2));                            // output: two
+
+    // In generic code, a default of a type involving a type parameter is null.
+    print(orFallback<int>(null));                       // output: null
+    print(orFallback<int>(null, 3));                    // output: 3
+    var box = new Box<String>();
+    box.put();                                          // output: put 1
+    print(box.item);                                    // output: null
+    box.put("gem", times: 2);                           // output: put 2
+    print(box.item);                                    // output: gem
+
+    // Constructors take them too, including through super(...).
+    var club = new Weapon("club");
+    print($"{club.name} {club.damage}");                // output: club 10
+    var axe = new Weapon(name: "axe", damage: 15);
+    print($"{axe.name} {axe.damage}");                  // output: axe 15
+    var sword = new Sword();
+    print($"{sword.name} {sword.damage}");              // output: sword 25
+
+    // Overrides and implementations take the defaults of what they override.
+    Animal pet = new Dog();
+    print(pet.speak());                                 // output: woof 1 ...
+    print(new Dog().speak(sound: "arf"));               // output: woof 1 arf
+    Greeter greeter = new Friendly();
+    print(greeter.greet());                             // output: hi you
+    print(new Friendly().greet());                      // output: hi you
+
+    // Variants take their fields by name.
+    var shape = Shape.Rect(width: 2, height: 3);
+    if (shape is Rect(var w, var h)) {
+        print(w * h);                                   // output: 6.0
+    }
+}

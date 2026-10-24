@@ -7,7 +7,9 @@ public sealed partial class Binder
 {
     /// <summary>
     /// Picks the overload to call. Type arguments are inferred from the arguments unless given explicitly.
-    /// Among equally good candidates a non-generic one wins.
+    /// Among equally good candidates one that leaves fewer parameters to their defaults wins, then a
+    /// non-generic one. On success, <paramref name="arguments"/> is rearranged to one per parameter,
+    /// with the defaults of those left out filled in.
     /// </summary>
     MethodReference? Resolve(
         Location location,
@@ -16,30 +18,52 @@ public sealed partial class Binder
         IReadOnlyList<VplType>? typeArguments,
         List<Argument> arguments)
     {
-        var sameArity = candidates
-            .Where(c => c.Symbol.Parameters.Count == arguments.Count && (typeArguments is null || c.Symbol.TypeParameters.Count == typeArguments.Count))
-            .ToList();
-        if (sameArity.Count == 0)
+        var names = arguments.Select(a => a.Name).ToList();
+        var fitting = candidates.Where(c => typeArguments is null || c.Symbol.TypeParameters.Count == typeArguments.Count).ToList();
+        var arranged = new Dictionary<FunctionSymbol, (int[] ArgumentOf, List<Argument?> Arguments)>();
+        var failures = new List<(Candidate Candidate, ArrangeFailure Failure)>();
+        foreach (var candidate in fitting)
         {
-            if (typeArguments is not null && candidates.Any(c => c.Symbol.Parameters.Count == arguments.Count))
+            if (Arrange(candidate, names, out var failure) is { } arrangement)
+                arranged[candidate.Symbol] = (arrangement, [.. arrangement.Select(a => a < 0 ? null : arguments[a])]);
+            else
+                failures.Add((candidate, failure!));
+        }
+        var arrangeable = fitting.Where(c => arranged.ContainsKey(c.Symbol)).ToList();
+        if (arrangeable.Count == 0)
+        {
+            // The one candidate that has every name given is the one meant, as is a lone candidate with defaults.
+            var meant = failures.Count == 1 ? failures
+                : failures.Where(f => names.All(n => n is null || f.Candidate.Symbol.Parameters.Any(p => p.Name == n))).ToList();
+            if (meant.Count != 1 || (names.All(n => n is null) && !Enumerable.Range(0, meant[0].Candidate.Symbol.Parameters.Count).Any(i => HasDefault(meant[0].Candidate, i))))
+                meant = [];
+            if (typeArguments is not null && candidates.Any(c => Arrange(c, names, out _) is not null))
                 Error(location, $"no {description} takes {typeArguments.Count} type argument{(typeArguments.Count == 1 ? "" : "s")}");
+            else if (meant is [var (_, failure)])
+                Error(failure.Argument is { } a ? arguments[a].NameLocation : location, failure.Message);
+            else if (names.Any(n => n is not null))
+                Error(location, $"no {description} takes these named arguments");
             else
                 Error(location, $"no {description} takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
             return null;
         }
 
+        List<Argument?> ArgumentsOf(MethodReference m) => arranged[m.Symbol].Arguments;
+        int Defaults(MethodReference m) => arranged[m.Symbol].ArgumentOf.Count(a => a < 0);
+
         var instantiated = new List<MethodReference>();
         var waiting = new List<(Inference Inference, MethodReference Partial)>();
         string? inferenceError = null;
-        foreach (var candidate in sameArity)
+        foreach (var candidate in arrangeable)
         {
             if (!candidate.Symbol.IsGeneric || typeArguments is not null)
             {
                 instantiated.Add(new MethodReference(candidate.Symbol, candidate.Owner, typeArguments ?? []));
                 continue;
             }
-            var inference = new Inference(this, candidate, arguments);
-            if (inference.Instantiate(arguments, out inferenceError) is not { } method)
+            var candidateArguments = arranged[candidate.Symbol].Arguments;
+            var inference = new Inference(this, candidate, candidateArguments);
+            if (inference.Instantiate(candidateArguments, out inferenceError) is not { } method)
                 continue;
             if (inference.Unresolved.Count == 0)
                 instantiated.Add(method);
@@ -52,14 +76,15 @@ public sealed partial class Binder
             return null;
         }
 
-        if (sameArity.Count == 1 && ExplainRefMismatch(instantiated.FirstOrDefault() ?? waiting[0].Partial, arguments) is { } mismatch)
+        var first = instantiated.FirstOrDefault() ?? waiting[0].Partial;
+        if (arrangeable.Count == 1 && ExplainRefMismatch(first, ArgumentsOf(first)) is { } mismatch)
         {
             Error(mismatch.Location, mismatch.Message);
             return null;
         }
 
-        var applicable = instantiated.Where(m => IsApplicable(m, arguments)).ToList();
-        waiting = [.. waiting.Where(w => w.Inference.CouldApply(w.Partial, arguments))];
+        var applicable = instantiated.Where(m => IsApplicable(m, ArgumentsOf(m))).ToList();
+        waiting = [.. waiting.Where(w => w.Inference.CouldApply(w.Partial, ArgumentsOf(w.Partial)))];
         if (waiting.Count > 0)
         {
             // A lambda's body is bound once, with the parameter types of the one candidate left.
@@ -71,71 +96,99 @@ public sealed partial class Binder
                     + $"specify it explicitly, as in '{name}<...>(...)'");
                 return null;
             }
-            if (waiting[0].Inference.FinishFromLambdas(arguments, location) is not { } finished)
+            var (lastInference, lastPartial) = waiting[0];
+            if (lastInference.FinishFromLambdas(ArgumentsOf(lastPartial), location) is not { } finished)
                 return null;
-            applicable = IsApplicable(finished, arguments) ? [finished] : [];
+            applicable = IsApplicable(finished, ArgumentsOf(finished)) ? [finished] : [];
         }
         if (applicable.Count == 0)
         {
-            if (NonEscapingArgument(instantiated, arguments) is { } nonEscaping)
+            if (NonEscapingArgument([.. instantiated.Select(m => (m, (IReadOnlyList<Argument?>)ArgumentsOf(m)))]) is { } nonEscaping)
             {
                 ReportNotEscaping(nonEscaping.Expression);
                 return null;
             }
             // With one candidate, converting the lambda says what is wrong with it.
-            if (sameArity.Count == 1 && instantiated is [var only]
-                && Enumerable.Range(0, arguments.Count).FirstOrDefault(i => !IsApplicable(only, arguments, i)) is var failing
-                && arguments[failing].Expression is BoundPendingLambda or BoundPendingChoice)
+            if (arrangeable.Count == 1 && instantiated is [var only]
+                && ArgumentsOf(only) is var onlyArguments
+                && Enumerable.Range(0, onlyArguments.Count).FirstOrDefault(i => !IsApplicable(only, onlyArguments, i)) is var failing
+                && onlyArguments[failing]?.Expression is BoundPendingLambda or BoundPendingChoice)
             {
-                Convert(arguments[failing].Expression, only.ParameterType(failing));
+                Convert(onlyArguments[failing]!.Expression, only.ParameterType(failing));
                 return null;
             }
-            var types = string.Join(", ", arguments.Select(a => (a.IsRef ? "ref " : "") + DescribeArgument(a.Expression)));
+            var types = string.Join(", ", arguments.Select(a => (a.Name is null ? "" : a.Name + ": ") + (a.IsRef ? "ref " : "") + DescribeArgument(a.Expression)));
             Error(location, $"no {description} accepts ({types})");
             return null;
         }
 
+        MethodReference? Choose(List<MethodReference> best)
+        {
+            var fewest = best.Min(Defaults);
+            best = [.. best.Where(m => Defaults(m) == fewest)];
+            // Overloads differ in their parameters, so only defaults can leave two non-generic ones equally good.
+            if (best.Count(m => !m.Symbol.IsGeneric) > 1)
+            {
+                Error(location, $"call is ambiguous between {string.Join(" and ", best.Where(m => !m.Symbol.IsGeneric).Select(m => $"'{m}'"))}");
+                return null;
+            }
+            var method = best.FirstOrDefault(m => !m.Symbol.IsGeneric) ?? best[0];
+            var filled = ArgumentsOf(method).Select((a, i) => a ?? new Argument(DefaultArgument(method, i, location), false, location)).ToList();
+            arguments.Clear();
+            arguments.AddRange(filled);
+            return method;
+        }
+
         var exact = applicable
-            .Where(m => Enumerable.Range(0, arguments.Count).All(i => m.ParameterType(i) == arguments[i].Expression.Type))
+            .Where(m => ArgumentsOf(m).Select((a, i) => a is null || m.ParameterType(i) == a.Expression.Type).All(e => e))
             .ToList();
         if (exact.Count > 0)
-            return exact.FirstOrDefault(m => !m.Symbol.IsGeneric) ?? exact[0];
+            return Choose(exact);
 
         // Java's rule: pick the overload whose parameters all convert to every other candidate's parameters.
+        bool IsMoreSpecific(MethodReference m, MethodReference n) =>
+            Enumerable.Range(0, arguments.Count).All(a =>
+                Conversions.IsImplicit(m.ParameterType(Array.IndexOf(arranged[m.Symbol].ArgumentOf, a)), n.ParameterType(Array.IndexOf(arranged[n.Symbol].ArgumentOf, a))));
         var mostSpecific = applicable.Where(m => applicable.All(n => n == m || IsMoreSpecific(m, n))).ToList();
+        if (mostSpecific.Count > 1)
+        {
+            var fewest = mostSpecific.Min(Defaults);
+            mostSpecific = [.. mostSpecific.Where(m => Defaults(m) == fewest)];
+        }
         if (mostSpecific.Count > 1 && mostSpecific.Count(m => !m.Symbol.IsGeneric) == 1)
             mostSpecific = [.. mostSpecific.Where(m => !m.Symbol.IsGeneric)];
         if (mostSpecific.Count == 1)
-            return mostSpecific[0];
+            return Choose(mostSpecific);
 
         Error(location, $"call is ambiguous between {string.Join(" and ", applicable.Select(m => $"'{m}'"))}");
         return null;
     }
 
-    bool IsApplicable(MethodReference method, List<Argument> arguments) =>
+    /// <summary>Whether every argument converts to its parameter. A parameter left out to its default takes none.</summary>
+    bool IsApplicable(MethodReference method, IReadOnlyList<Argument?> arguments) =>
         Enumerable.Range(0, arguments.Count).All(i => IsApplicable(method, arguments, i));
 
-    bool IsApplicable(MethodReference method, List<Argument> arguments, int i) =>
-        method.ParameterRefKind(i) == RefKind.Ref
-            ? arguments[i].IsRef && arguments[i].Expression.Type == method.ParameterType(i)
-            : !arguments[i].IsRef && CanConvert(arguments[i].Expression, method.ParameterType(i));
+    bool IsApplicable(MethodReference method, IReadOnlyList<Argument?> arguments, int i) =>
+        arguments[i] is not { } argument
+        || (method.ParameterRefKind(i) == RefKind.Ref
+            ? argument.IsRef && argument.Expression.Type == method.ParameterType(i)
+            : !argument.IsRef && CanConvert(argument.Expression, method.ParameterType(i)));
 
-    static (Location Location, string Message)? ExplainRefMismatch(MethodReference method, List<Argument> arguments)
+    static (Location Location, string Message)? ExplainRefMismatch(MethodReference method, IReadOnlyList<Argument?> arguments)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
-            var argument = arguments[i];
+            if (arguments[i] is not { } argument)
+                continue;
+            var what = argument.Name is { } name ? $"argument '{name}'" : $"argument {i + 1}";
             bool isRefParameter = method.ParameterRefKind(i) == RefKind.Ref;
             if (isRefParameter && !argument.IsRef)
-                return (argument.Location, $"argument {i + 1} must be passed with 'ref'");
+                return (argument.Location, $"{what} must be passed with 'ref'");
             if (!isRefParameter && argument.IsRef)
-                return (argument.Location, $"argument {i + 1} must not be passed with 'ref'");
+                return (argument.Location, $"{what} must not be passed with 'ref'");
             if (isRefParameter && argument.Expression.Type != method.ParameterType(i))
                 return (argument.Location, $"a 'ref' argument must have exactly type '{method.ParameterType(i)}', not '{argument.Expression.Type}'");
         }
         return null;
     }
-
-    static bool IsMoreSpecific(MethodReference m, MethodReference n) =>
-        Enumerable.Range(0, m.Symbol.Parameters.Count).All(i => Conversions.IsImplicit(m.ParameterType(i), n.ParameterType(i)));
 }

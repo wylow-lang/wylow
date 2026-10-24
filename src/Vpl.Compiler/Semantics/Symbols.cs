@@ -33,6 +33,21 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>The function or lambda that declares it; null for compiler temporaries, which no other function uses.</summary>
     public FunctionSymbol? Owner { get; set; }
 
+    /// <summary>A parameter's default value as written, bound with <see cref="Default"/>.</summary>
+    public Expr? DefaultSyntax { get; init; }
+
+    /// <summary>
+    /// The parameter whose default value a call that leaves this one out passes: itself if it
+    /// declares one, or the parameter of the method it overrides or implements. Set by the binder.
+    /// </summary>
+    public LocalSymbol? DefaultDeclaration { get; set; }
+
+    /// <summary>The bound <see cref="DefaultSyntax"/>, a constant or struct construction, typed by the declaring method's own type parameters.</summary>
+    public BoundExpression? Default { get; set; }
+
+    /// <summary>For a memberwise constructor's parameter, the field it sets, whose initializer or type's default value it defaults to.</summary>
+    public FieldSymbol? Field { get; init; }
+
     /// <summary>
     /// Whether code can change it after it is initialized, reassigning it or changing its value in
     /// place: it is <c>mut</c>, a <c>ref</c>, or a compiler temporary.
@@ -88,6 +103,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>The compiler-provided default constructor.</summary>
     public bool IsImplicit { get; init; }
+
+    /// <summary>The constructor a struct without declared ones gets, taking each field as a parameter that defaults to it.</summary>
+    public bool IsMemberwise { get; init; }
 
     /// <summary>The parameters and return type of a lambda, whose body is a <see cref="BoundLambda"/>'s.</summary>
     public bool IsLambda { get; init; }

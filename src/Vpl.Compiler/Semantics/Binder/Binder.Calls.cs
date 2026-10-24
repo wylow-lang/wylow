@@ -12,27 +12,40 @@ public sealed partial class Binder
     /// A lambda without an agreed function type, or a choice between lambdas, is bound once overload
     /// resolution chooses one.
     /// </summary>
-    List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null) =>
-    [
-        .. arguments.Select((a, i) =>
-        {
-            if (a is RefArgExpr r)
-                return new Argument(BindExpression(r.Operand), true, r.Location);
-            var expected = candidates is null ? null : ExpectedArgumentType(candidates, arguments.Count, i);
-            return new Argument(a is LambdaExpr or ConditionalExpr or SwitchExpr || ReferencedFunctions(a) is not null ? BindOption(a, expected) : BindExpression(a, expected), false, a.Location);
-        }),
-    ];
+    List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null)
+    {
+        var names = ArgumentNames(arguments);
+        var arrangements = candidates?
+            .Select(c => (Candidate: c, Arrangement: Arrange(c, names, out _)))
+            .Where(c => c.Arrangement is not null)
+            .ToList();
+        return
+        [
+            .. arguments.Select((syntax, i) =>
+            {
+                var (a, name, nameLocation) = syntax is NamedArgExpr n ? (n.Value, n.Name, n.NameLocation) : (syntax, null, default(Location));
+                if (a is RefArgExpr r)
+                    return new Argument(BindExpression(r.Operand), true, syntax.Location, name, nameLocation);
+                var expected = arrangements is null ? null : ExpectedArgumentType(arrangements!, i);
+                var value = a is LambdaExpr or ConditionalExpr or SwitchExpr || ReferencedFunctions(a) is not null ? BindOption(a, expected) : BindExpression(a, expected);
+                // A positional argument after a named one has no parameter, which is already reported.
+                if (name is null && names.Take(i).Any(n => n is not null))
+                    value = new BoundErrorExpression(syntax.Location);
+                return new Argument(value, false, syntax.Location, name, nameLocation);
+            }),
+        ];
+    }
 
     /// <summary>
     /// The type every candidate gives the argument at <paramref name="index"/>, or null if they differ.
     /// A parameter typed by the method's own type parameters gives none, since those are inferred from the arguments.
     /// </summary>
-    static VplType? ExpectedArgumentType(IReadOnlyList<Candidate> candidates, int count, int index)
+    static VplType? ExpectedArgumentType(IReadOnlyList<(Candidate Candidate, int[]? Arrangement)> candidates, int index)
     {
         VplType? agreed = null;
-        foreach (var candidate in candidates.Where(c => c.Symbol.Parameters.Count == count))
+        foreach (var (candidate, arrangement) in candidates)
         {
-            var parameter = candidate.Symbol.Parameters[index];
+            var parameter = candidate.Symbol.Parameters[Array.IndexOf(arrangement!, index)];
             var type = (candidate.Owner is null ? TypeMap.Empty : TypeMap.For(candidate.Owner)).Apply(parameter.Type);
             if (parameter.RefKind == RefKind.Ref || type == VplType.Error || (agreed is not null && agreed != type)
                 || TypeParametersIn(type).Any(p => candidate.Symbol.TypeParameters.Contains(p)))
@@ -478,7 +491,7 @@ public sealed partial class Binder
             if (missing is not null)
             {
                 return ErrorExpression(location,
-                    $"'{type}' has no default value because field '{missing.Name}' has type '{map.Apply(missing.Type)}'; initialize it explicitly, as in '{s.Name}{{ {missing.Name} = ... }}'");
+                    $"'{type}' has no default value because field '{missing.Name}' has type '{map.Apply(missing.Type)}'; pass it by name, as in '{type}({missing.Name}: ...)'");
             }
         }
 

@@ -23,6 +23,8 @@ enum Missing {
 
 enum Refs { A(ref int x) }              // error: 'ref' is only valid on parameters
 
+enum Defaults { A(int x = 1) }          // error: a variant's fields cannot have default values
+
 enum Empty { }                          // error: expected an enum variant
 
 enum Colon : uint { A }                 // error: an enum's integer type is given with an annotation, as in '@Repr(uint) enum Colon'

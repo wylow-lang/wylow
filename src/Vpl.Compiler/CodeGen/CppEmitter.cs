@@ -56,6 +56,9 @@ public sealed partial class CppEmitter
     ElementAliasing elements = null!;
     readonly Dictionary<BoundExpression, string> slots = new(ReferenceEqualityComparer.Instance);
 
+    /// <summary>For each memberwise constructor, which fields its calls pass: one C++ function for each.</summary>
+    Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> memberwiseForms = null!;
+
     public string Emit(BoundProgram program, Analyses analyses)
     {
         cycles = analyses.Cycles;
@@ -65,6 +68,7 @@ public sealed partial class CppEmitter
         overloaded = FindOverloaded(program);
         unoverridden = FindUnoverridden(analyses.Whole);
         lambdaChanged = FindLambdaChanged(analyses.Whole);
+        memberwiseForms = FindMemberwiseForms(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];
@@ -122,6 +126,15 @@ public sealed partial class CppEmitter
 
         foreach (var function in program.Functions)
         {
+            if (function.Symbol.IsMemberwise)
+            {
+                foreach (var form in memberwiseForms.GetValueOrDefault(function.Symbol) ?? [])
+                {
+                    Line();
+                    EmitMemberwiseConstructor(function, form);
+                }
+                continue;
+            }
             Line();
             EmitFunction(function);
         }

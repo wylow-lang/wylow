@@ -272,6 +272,11 @@ public sealed partial class Binder
             new FunctionSymbol(TextOf(callee.Location), [.. type.FunctionParameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.FunctionReturnType!),
             null,
             []);
+        if (e.Arguments.OfType<NamedArgExpr>().FirstOrDefault() is { } named)
+        {
+            pending.Bind(null);
+            return ErrorExpression(named.NameLocation, $"arguments to '{TextOf(callee.Location)}' cannot be named, since a function type's parameters have no names");
+        }
         var arguments = pending.Bind([new Candidate(signature.Symbol, null)]);
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);

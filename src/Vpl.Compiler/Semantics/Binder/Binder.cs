@@ -44,14 +44,15 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         public void Add(LocalSymbol local) => locals[local.Name] = local;
     }
 
-    sealed record Argument(BoundExpression Expression, bool IsRef, Location Location);
+    /// <summary>A call argument, with the name it was passed by, if any.</summary>
+    sealed record Argument(BoundExpression Expression, bool IsRef, Location Location, string? Name = null, Location NameLocation = default);
 
     /// <summary>A method or constructor that may be called, as a member of <see cref="Owner"/>.</summary>
     sealed record Candidate(FunctionSymbol Symbol, VplType? Owner);
 
     enum PlaceKind { Temporary, Mutable, ReadOnly }
 
-    enum NoThisContext { Static, FieldInitializer, SuperArguments }
+    enum NoThisContext { Static, FieldInitializer, SuperArguments, DefaultValue }
 
     public BoundProgram BindProgram(CompilationUnit unit)
     {
@@ -88,6 +89,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             DeclareMemberwiseConstructor(s);
         foreach (var s in typeList)
             BindFieldInitializers(s);
+        BindDefaults([.. functionList, .. typeList.SelectMany(s => s.Members)]);
 
         var bodies = new List<BoundFunction>();
         foreach (var s in typeList)

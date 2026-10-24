@@ -171,13 +171,14 @@ public sealed partial class Binder
     /// The first argument that keeps a candidate from applying only by being non-escaping, if one
     /// does: saying so explains more than that no overload accepts the arguments.
     /// </summary>
-    Argument? NonEscapingArgument(IEnumerable<MethodReference> candidates, List<Argument> arguments)
+    Argument? NonEscapingArgument(IEnumerable<(MethodReference Method, IReadOnlyList<Argument?> Arguments)> candidates)
     {
-        foreach (var method in candidates)
+        foreach (var (method, arguments) in candidates)
         {
+            // Applicability fails only on arguments, never on parameters left to their defaults.
             var failing = Enumerable.Range(0, arguments.Count).Where(i => !IsApplicable(method, arguments, i)).ToList();
-            if (failing.Count > 0 && failing.All(i => !arguments[i].IsRef && method.ParameterRefKind(i) != RefKind.Ref
-                    && IsEscapingMismatch(arguments[i].Expression.Type, method.ParameterType(i))))
+            if (failing.Count > 0 && failing.All(i => !arguments[i]!.IsRef && method.ParameterRefKind(i) != RefKind.Ref
+                    && IsEscapingMismatch(arguments[i]!.Expression.Type, method.ParameterType(i))))
                 return arguments[failing[0]];
         }
         return null;

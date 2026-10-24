@@ -23,7 +23,7 @@ public sealed partial class Binder
         /// <summary>Type arguments a lambda's parameters were bound with, which later bindings can't change.</summary>
         readonly Dictionary<TypeParameterSymbol, VplType> fixedTypes = [];
 
-        public Inference(Binder binder, Candidate candidate, List<Argument> arguments)
+        public Inference(Binder binder, Candidate candidate, IReadOnlyList<Argument?> arguments)
         {
             this.binder = binder;
             (function, owner) = (candidate.Symbol, candidate.Owner);
@@ -31,8 +31,11 @@ public sealed partial class Binder
             bindings = function.TypeParameters.ToDictionary(p => p, _ => new List<(BoundExpression?, VplType)>());
             for (int i = 0; i < arguments.Count; i++)
             {
+                // A parameter left to its default says nothing about the type arguments.
+                if (arguments[i] is not { } argument)
+                    continue;
                 var parameter = ParameterType(i);
-                foreach (var option in Options(arguments[i].Expression))
+                foreach (var option in Options(argument.Expression))
                 {
                     if (option is not BoundPendingLambda lambda)
                         Unify(parameter, option, option.Type);
@@ -95,7 +98,7 @@ public sealed partial class Binder
         /// The candidate with its type arguments. While some are left to lambda bodies, those stand for
         /// themselves, and <see cref="Unresolved"/> lists them. Null, with an error, if inference fails.
         /// </summary>
-        public MethodReference? Instantiate(List<Argument> arguments, out string? error)
+        public MethodReference? Instantiate(IReadOnlyList<Argument?> arguments, out string? error)
         {
             var result = new List<VplType>();
             foreach (var parameter in function.TypeParameters)
@@ -133,25 +136,27 @@ public sealed partial class Binder
         }
 
         /// <summary>Whether a lambda argument's return type is all that could give <paramref name="parameter"/> a type.</summary>
-        bool LambdaCouldGive(TypeParameterSymbol parameter, List<Argument> arguments) =>
+        bool LambdaCouldGive(TypeParameterSymbol parameter, IReadOnlyList<Argument?> arguments) =>
             Enumerable.Range(0, arguments.Count).Any(i =>
                 ParameterType(i) is { IsFunction: true } type
                 && TypeParametersIn(type.FunctionReturnType!).Contains(parameter)
-                && Options(arguments[i].Expression).Any(o => o is BoundPendingLambda));
+                && arguments[i] is { } argument && Options(argument.Expression).Any(o => o is BoundPendingLambda));
 
         /// <summary>
         /// Whether the arguments could be passed once the rest is inferred: those whose parameter types
         /// are known must convert, and lambdas must take as many parameters as their targets.
         /// </summary>
-        public bool CouldApply(MethodReference partial, List<Argument> arguments)
+        public bool CouldApply(MethodReference partial, IReadOnlyList<Argument?> arguments)
         {
             var unresolved = Unresolved;
             return Enumerable.Range(0, arguments.Count).All(i =>
             {
+                if (arguments[i] is not { } argument)
+                    return true;
                 var type = partial.ParameterType(i);
                 if (!TypeParametersIn(type).Any(unresolved.Contains))
                     return binder.IsApplicable(partial, arguments, i);
-                return partial.ParameterRefKind(i) != RefKind.Ref && !arguments[i].IsRef && Options(arguments[i].Expression).All(o =>
+                return partial.ParameterRefKind(i) != RefKind.Ref && !argument.IsRef && Options(argument.Expression).All(o =>
                     o is not BoundPendingLambda lambda || (type.IsFunction && type.FunctionParameters.Count == lambda.Syntax.Parameters.Count));
             });
         }
@@ -161,7 +166,7 @@ public sealed partial class Binder
         /// parameter only lambdas can give, and infers from the values it returns as if they were
         /// arguments. Reports its own errors.
         /// </summary>
-        public MethodReference? FinishFromLambdas(List<Argument> arguments, Location location)
+        public MethodReference? FinishFromLambdas(IReadOnlyList<Argument?> arguments, Location location)
         {
             // Every lambda that can give these is bound, so that what they return agrees.
             var inferable = Unresolved;
@@ -184,7 +189,7 @@ public sealed partial class Binder
                     var parameters = current.ParameterType(i).FunctionParameters;
                     if (parameters.Any(p => TypeParametersIn(p.Type).Any(unresolved.Contains)))
                         continue;
-                    var lambdas = Options(arguments[i].Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList();
+                    var lambdas = arguments[i] is not { } argument ? [] : Options(argument.Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList();
                     if (lambdas.Count > 0)
                     {
                         foreach (var p in target.FunctionParameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))

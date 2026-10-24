@@ -263,6 +263,12 @@ public sealed record BoundTry(Location Location, BoundExpression Operand, VplTyp
 
 public sealed record BoundFieldInitializer(FieldSymbol Field, BoundExpression Value);
 
+/// <summary>
+/// The argument for a field a memberwise constructor call leaves out. It is not evaluated at the
+/// call: the constructor sets the field to its initializer, or to its type's default value.
+/// </summary>
+public sealed record BoundFieldDefault(Location Location, FieldSymbol Field, VplType Type) : BoundExpression(Location, Type);
+
 public sealed record BoundConstruction(
     Location Location,
     VplType Type,

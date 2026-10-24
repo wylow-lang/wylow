@@ -34,9 +34,34 @@ struct Hidden {
     int reveal() { return secret; }
 }
 
+struct Enemy {
+    Vec2 position;
+    int health = 100;
+    Player? target;
+}
+
+int announce(int value) {
+    print($"init {value}");
+    return value;
+}
+
+struct Counted {
+    int id = announce(7);
+    String label;
+}
+
 float next(float value) {
     print(value);
     return value;
+}
+
+String shout(String text) {
+    print(text);
+    return text;
+}
+
+Pair<T, int> withFirst<T>(T x) {
+    return Pair<T, int>(first: x);
 }
 
 void main() {
@@ -71,4 +96,24 @@ void main() {
     // output: 1.0
     // output: 2.0
     print(ordered.y);                 // output: 2.0
+
+    // Fields left out take their initializers or their types' default values, and fields may be named.
+    var idle = Enemy();
+    print($"{idle.health} {idle.target?.name}");          // output: 100 null
+    var placed = Enemy(Vec2(1, 2));
+    print($"{placed.position.y} {placed.health}");      // output: 2.0 100
+    print(Enemy(health: 50).health);                   // output: 50
+    var chasing = Enemy(position: v, target: new Player("Bo"));
+    print($"{chasing.health} {chasing.target?.name}");  // output: 100 Bo
+    print(Hit(new Player("Cy")).damage);               // output: 10
+    print(Hit(target: new Player("Di"), damage: 4).damage); // output: 4
+    print(withFirst("x").second);                      // output: 0
+
+    // A field's initializer runs only when the call leaves it out, after the arguments.
+    var counted = Counted(label: shout("a"));
+    // output: a
+    // output: init 7
+    print(counted.id);                                 // output: 7
+    print(Counted(id: 1, label: "b").id);              // output: 1
+    print($"[{Counted(2).label}]");                    // output: []
 }

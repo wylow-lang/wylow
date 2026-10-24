@@ -17,7 +17,7 @@ struct Hidden {
 }
 
 void main() {
-    var a = Vec2(1);                    // error: no constructor of 'Vec2' takes 1 argument
+    var a = Vec2(1, 2, 3);              // error: no constructor of 'Vec2' takes 3 arguments
     var b = Vec2(1, "two");             // error: no constructor of 'Vec2' accepts (int, String)
     var c = Scaled(1, 2);               // error: no constructor of 'Scaled' takes 2 arguments
     var d = Hidden(1, 2);               // error: constructor 'Hidden(int, int)' is private

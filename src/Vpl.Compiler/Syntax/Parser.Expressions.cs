@@ -248,6 +248,19 @@ public sealed partial class Parser
     Expr ParseArgument()
     {
         int start = position;
+        if (At(TokenKind.Identifier) && Peek(1).Kind == TokenKind.Colon)
+        {
+            var name = Advance();
+            Advance();
+            var value = ParseArgumentValue();
+            return new NamedArgExpr(LocationFrom(start), name.Text, Loc(name.Span), value);
+        }
+        return ParseArgumentValue();
+    }
+
+    Expr ParseArgumentValue()
+    {
+        int start = position;
         if (!Accept(TokenKind.RefKeyword))
             return ParseExpression();
         var operand = ParseExpression();
