@@ -1,0 +1,25 @@
+String? maybe() {
+    return null;
+}
+
+void main() {
+    String s = "abc";
+    for (ref char c : s) {              // error: the characters of a string are decoded from its bytes, so they cannot be borrowed with 'ref'
+        print(c);
+    }
+    for (in char c : s) {               // error: the characters of a string are decoded from its bytes, so they cannot be borrowed with 'in'
+    }
+    for (byte b : s) {                  // error: cannot implicitly convert 'char' to 'byte'
+    }
+    for (long i, char c : s) {          // error: the index of a loop is an 'int', not 'long'
+    }
+    for (char c : maybe()) {            // error: cannot loop over 'String?'
+    }
+    String? unchecked = maybe();
+    for (char c : unchecked) {          // error: 'unchecked' might be null here
+    }
+    List<int>? list = null;
+    for (int n : list) {                // error: 'list' might be null here
+    }
+    s.charAt(0);                        // error: method 'String.charAt' is private
+}

@@ -40,4 +40,12 @@ extern struct String {
     // byte, which for UTF-8 is the order of the code points.
     @Pure
     readonly extern int compareTo(String other);
+
+    // For the compiler's loops over a string's characters. `offset` must be where one starts.
+    @Pure
+    private readonly extern char charAt(int offset);
+
+    // The offset after the character that starts at `offset`.
+    @Pure
+    private readonly extern int nextChar(int offset);
 }

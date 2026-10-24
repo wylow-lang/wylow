@@ -572,6 +572,17 @@ word.startsWith("hé")       // also endsWith and contains
   `for (byte b : s.bytes)`. Like any span (§2.11) it holds what it views, here the string, so the
   bytes stay valid even if the variable it came from is reassigned. A method can't return a view
   of a string field, which could be replaced while the caller uses it, as for an object field.
+- A for-each loop over a string decodes its characters, and its index is each one's byte offset,
+  which `slice` takes. The loop reads the string it started with, even if the variable is
+  reassigned in the body. The characters are decoded copies, so they can't be borrowed with `ref`
+  or `in`.
+
+```java
+for (char c : name) { ... }
+for (int at, char c : path) {
+    if (c == '/') { lastSlash = at; }
+}
+```
 
 The standard library declares these methods in `String.vpl`, implemented by the runtime.
 

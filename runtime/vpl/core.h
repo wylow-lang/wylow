@@ -125,6 +125,21 @@ public:
     Optional<int32_t> indexOf(const String& text) const;
     String slice(int32_t start, int32_t count, const char* location) const;
 
+    // A string is always valid UTF-8, and the compiler passes only offsets where a character starts.
+    char32_t charAt(int32_t offset) const {
+        auto byte = [&](int32_t i) { return static_cast<uint32_t>(static_cast<unsigned char>(data_[offset + i])); };
+        uint32_t lead = byte(0);
+        if (lead < 0x80) return static_cast<char32_t>(lead);
+        if (lead < 0xE0) return static_cast<char32_t>(((lead & 0x1F) << 6) | (byte(1) & 0x3F));
+        if (lead < 0xF0) return static_cast<char32_t>(((lead & 0x0F) << 12) | ((byte(1) & 0x3F) << 6) | (byte(2) & 0x3F));
+        return static_cast<char32_t>(((lead & 0x07) << 18) | ((byte(1) & 0x3F) << 12) | ((byte(2) & 0x3F) << 6) | (byte(3) & 0x3F));
+    }
+
+    int32_t nextChar(int32_t offset) const {
+        auto lead = static_cast<unsigned char>(data_[offset]);
+        return offset + (lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4);
+    }
+
     // memcmp compares bytes as unsigned, so UTF-8 sorts by code point.
     int32_t compareTo(const String& other) const {
         auto common = static_cast<size_t>(length_ < other.length_ ? length_ : other.length_);

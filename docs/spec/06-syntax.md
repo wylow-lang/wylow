@@ -646,8 +646,9 @@ for (int i, ref Bullet b : bullets) { ... }               // List / arrays / spa
 for (String name, int score : scores) { ... }             // Map: key + value
 ```
 
-A for-each loops over a range, a fixed array, a span, or a value that converts to a span
-([02-types.md](02-types.md#spans)), such as an `Array` or a `List`:
+A for-each loops over a range, a fixed array, a span, a value that converts to a span
+([02-types.md](02-types.md#spans)), such as an `Array` or a `List`, or the characters of a
+`String`, whose index is a byte offset ([02-types.md](02-types.md#strings)):
 
 - `T x` copies each element, `ref T x` refers to it, and `in T x` refers to it read-only. `var x`
   copies with the element's type. A `ref` loop needs a mutable source: not an `in` parameter, a
@@ -660,8 +661,9 @@ A for-each loops over a range, a fixed array, a span, or a value that converts t
   A fixed array is referred to, not copied, unless it is a temporary.
 - A loop over a value that converts to a span iterates a `ReadOnlySpan` unless its variable is a
   `ref`, so read-only loops work on read-only sources.
+- A nullable local can be looped over where it is known not to be null, as for using its members.
 
-> Implemented so far: ranges, fixed arrays, spans, and `Spannable` types (`Array`, `List`).
+> Implemented so far: ranges, fixed arrays, spans, `Spannable` types (`Array`, `List`), and strings.
 > Pools and maps don't exist yet.
 
 ### `switch`

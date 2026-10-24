@@ -1,0 +1,93 @@
+class Holder {
+    mut String text = "xy";
+}
+
+String make() {
+    print("made");
+    return "mk";
+}
+
+String? maybe(bool some) {
+    return some ? "ok" : null;
+}
+
+void main() {
+    // Each character is decoded from the bytes; the index is its byte offset.
+    for (char c : "hé😀") {
+        print(c);
+        // output: h
+        // output: é
+        // output: 😀
+    }
+    for (int at, char c : "hé😀!") {
+        print($"{at} {c}");
+        // output: 0 h
+        // output: 1 é
+        // output: 3 😀
+        // output: 7 !
+    }
+    for (char c : "") {
+        print(c);
+    }
+    for (int code : "A€") {
+        print(code);
+        // output: 65
+        // output: 8364
+    }
+
+    // An offset from the loop is where a slice can start.
+    String path = "dir/file.txt";
+    mut int lastSlash = -1;
+    for (int at, char c : path) {
+        if (c == '/') {
+            lastSlash = at;
+        }
+    }
+    print(path.slice(lastSlash + 1, path.byteLength - lastSlash - 1)); // output: file.txt
+
+    // The loop reads the string it started with, even if the variable is reassigned.
+    mut String s = "abc";
+    for (char c : s) {
+        s = "a much longer string";
+        print(c);
+        // output: a
+        // output: b
+        // output: c
+    }
+
+    var holder = new Holder();
+    for (char c : holder.text) {
+        holder.text = "";
+        print(c);
+        // output: x
+        // output: y
+    }
+
+    for (char c : make()) {
+        print(c);
+        // output: made
+        // output: m
+        // output: k
+    }
+
+    String? found = maybe(true);
+    if (found != null) {
+        for (char c : found) {
+            print(c);
+            // output: o
+            // output: k
+        }
+    }
+
+    mut int vowels = 0;
+    for (char c : "programming language") {
+        if (c == ' ') {
+            break;
+        }
+        if (c != 'a' && c != 'o' && c != 'i') {
+            continue;
+        }
+        vowels++;
+    }
+    print(vowels);                      // output: 3
+}

@@ -114,4 +114,12 @@ void main() {
     grid.add(new List<int>());
     grid[0].add(7);
     print(grid[0][0]);          // output: 7
+
+    // A nullable list can be looped over once it is known not to be null.
+    List<int>? maybe = grid[0];
+    if (maybe != null) {
+        for (int n : maybe) {
+            print(n);           // output: 7
+        }
+    }
 }

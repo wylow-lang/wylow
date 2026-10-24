@@ -60,7 +60,8 @@ public sealed partial class Binder
 
     BoundStatement BindCollectionLoop(ForEachStmt s)
     {
-        var iterable = BindExpression(s.Iterable);
+        // A nullable local can be looped over where it is known not to be null, as members are used.
+        var iterable = AssumeNonNull(BindExpression(s.Iterable));
         if (iterable.Type == VplType.Error)
         {
             DeclareLoopVariables(s, VplType.Error);
@@ -78,6 +79,8 @@ public sealed partial class Binder
         }
         if (iterable.Type.IsFixedArray)
             return BindFixedArrayLoop(s, iterable);
+        if (iterable.Type == VplType.String)
+            return BindStringLoop(s, iterable);
         if (BindSpanLoop(s, iterable) is { } spanLoop)
             return spanLoop;
 
@@ -120,10 +123,52 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// <c>for (int counter = 0; counter &lt; length; counter++)</c>, whose body declares the loop's
-    /// variables from <paramref name="element"/> and the counter, then runs the loop's body.
+    /// Loops over a string's characters, decoding each from the bytes, as
+    /// <c>for (int i = 0; i &lt; text.byteLength; i = text.nextChar(i)) { c = text.charAt(i); ... }</c>,
+    /// so the index is the character's byte offset. A string that could be reassigned is copied
+    /// first, so the loop keeps reading the one it started with.
     /// </summary>
-    BoundStatement BindCountingLoop(ForEachStmt s, LocalSymbol counter, BoundExpression length, BoundExpression? element)
+    BoundStatement BindStringLoop(ForEachStmt s, BoundExpression iterable)
+    {
+        var location = s.Iterable.Location;
+        bool borrowed = s.Element.RefKind != RefKind.None;
+        if (borrowed)
+            Error(s.Element.Location, $"the characters of a string are decoded from its bytes, so they cannot be borrowed with '{FunctionSymbol.RefPrefix(s.Element.RefKind).Trim()}'");
+
+        var statements = new List<BoundStatement>();
+        Func<BoundExpression> text;
+        if (iterable is BoundLiteral literal)
+        {
+            text = () => new BoundLiteral(location, VplType.String, literal.Value);
+        }
+        else
+        {
+            var local = iterable is BoundLocalAccess { Local: { IsWritable: false, RefKind: RefKind.None } fixedLocal } && fixedLocal.Type == VplType.String
+                ? fixedLocal
+                : new LocalSymbol("text", VplType.String, isParameter: false) { IsTemporary = true };
+            if (local.IsTemporary)
+                statements.Add(new BoundVariableDeclaration(location, local, iterable));
+            text = () => new BoundLocalAccess(location, local);
+        }
+        var counter = new LocalSymbol("i", VplType.Int, isParameter: false) { IsTemporary = true, IsMutable = true };
+        BoundCall Member(string name, params BoundExpression[] arguments)
+        {
+            var method = LookupMethods(VplType.String, name).First(c => c.Symbol.Parameters.Count == arguments.Length);
+            return new BoundCall(location, new MethodReference(method.Symbol, method.Owner, []), text(), arguments);
+        }
+
+        BoundExpression Counter() => new BoundLocalAccess(location, counter);
+        var element = borrowed ? null : Member("charAt", Counter());
+        statements.Add(BindCountingLoop(s, counter, Member("byteLength"), element, Member("nextChar", Counter())));
+        return new BoundBlock(s.Location, statements);
+    }
+
+    /// <summary>
+    /// <c>for (int counter = 0; counter &lt; length; counter = next)</c>, by default <c>counter + 1</c>,
+    /// whose body declares the loop's variables from <paramref name="element"/> and the counter,
+    /// then runs the loop's body.
+    /// </summary>
+    BoundStatement BindCountingLoop(ForEachStmt s, LocalSymbol counter, BoundExpression length, BoundExpression? element, BoundExpression? next = null)
     {
         var location = s.Iterable.Location;
         BoundExpression Counter() => new BoundLocalAccess(location, counter);
@@ -161,7 +206,7 @@ public sealed partial class Binder
         var body = BindLoopBody(s.Body);
         var start = new BoundVariableDeclaration(location, counter, new BoundLiteral(location, VplType.Int, 0));
         var condition = new BoundBinary(location, Counter(), BoundBinaryOperator.Less, length, VplType.Bool);
-        var next = new BoundBinary(location, Counter(), BoundBinaryOperator.Add, new BoundLiteral(location, VplType.Int, 1), VplType.Int);
+        next ??= new BoundBinary(location, Counter(), BoundBinaryOperator.Add, new BoundLiteral(location, VplType.Int, 1), VplType.Int);
         var update = new BoundAssignment(location, Counter(), next);
         return new BoundFor(s.Location, start, condition, update, new BoundBlock(s.Body.Location, [.. declarations, body]));
     }
