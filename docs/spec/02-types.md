@@ -536,7 +536,11 @@ that requires a derived class to assign its fields *before* calling `super`.
 ### Strings
 
 `String` is an immutable, UTF-8, reference-counted `shared class` (it may cross threads; see
-[05-concurrency.md](05-concurrency.md)). Use `StringBuilder` to build strings.
+[05-concurrency.md](05-concurrency.md)).
+
+Strings are joined by [interpolation](06-syntax.md#string-interpolation), `$"{a}{b}"`, which
+builds the result in one allocation. There is no `+` on strings, so there is one way to do it.
+`StringBuilder` builds a string up piece by piece, as in a loop.
 
 A literal refers to static text and never allocates; a string built at run time, as by
 [interpolation](06-syntax.md#string-interpolation), is one counted allocation shared by its copies.
@@ -587,7 +591,7 @@ for (int at, char c : path) {
 The standard library declares these methods in `String.vpl`, implemented by the runtime.
 
 > Implemented so far: literals, interpolation, `print`, `==`, and the methods above. The count is
-> not atomic yet, since there are no threads. `+` and `StringBuilder` are not implemented.
+> not atomic yet, since there are no threads. `StringBuilder` is not implemented.
 
 ## 2.11 Arrays and spans
 

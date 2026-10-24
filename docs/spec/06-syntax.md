@@ -815,7 +815,7 @@ As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
 >   with its own `T extends Printable` bound;
 > - a generated field dump for debugging, like Rust's `#[derive(Debug)]`, so small types needn't
 >   write `toString()` by hand;
-> - other ways to build strings: `+` on strings and `StringBuilder` (§2.10). Interpolation builds
+> - `StringBuilder` (§2.10), for strings built up piece by piece, as in a loop. Interpolation builds
 >   strings with the runtime's `vpl::StringBuffer`, which a `StringBuilder` could wrap.
 
 ## 6.10 Annotations
