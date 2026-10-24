@@ -210,6 +210,7 @@ public sealed partial class CppEmitter
 
     bool HasEffects(BoundExpression expression) => expression switch
     {
+        BoundCall { Method.Symbol.IsPure: true } call => call.Arguments.Any(HasEffects),
         BoundCall or BoundInvocation or BoundNew or BoundNonNull or BoundTry => true,
         BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
         BoundConversion { Type.IsEnum: true } => true,

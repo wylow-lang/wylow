@@ -94,6 +94,14 @@ void main() {
     Animal? noAnimal = null;
     print($"{noVec} {someVec} {noAnimal}");                              // output: null (0.0, 0.0, 0.0) null
 
+    // Primitives and String have toString() too, formatted the same way.
+    print(5.toString());                                                 // output: 5
+    double ratio = 0.25d;
+    char letter = 'q';
+    print($"{(-7).toString()} {ratio.toString()} {2.0.toString()} {false.toString()} {letter.toString()} {"same".toString()}"); // output: -7 0.25 2.0 false q same
+    print(some?.toString());                                             // output: 4
+    print(none?.toString());                                             // output: null
+
     // A conditional must be parenthesized.
     int hp = 30;
     print($"hp is {(hp > 50 ? "high" : "low")}");                         // output: hp is low

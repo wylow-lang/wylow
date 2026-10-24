@@ -101,6 +101,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public string? BuiltinCppName { get; init; }
     public bool IsNoReturn { get; init; }
 
+    /// <summary>A builtin that can't panic or change anything, so it needs no more ordering than its arguments.</summary>
+    public bool IsPure { get; init; }
+
     /// <summary>The C++ call gets the call site's source location appended, for panic messages.</summary>
     public bool PassesLocation { get; init; }
 
@@ -359,6 +362,14 @@ public static class Builtins
         {
             BuiltinCppName = "vpl::interpolate",
             PassesLocation = true,
+        };
+
+    /// <summary><c>value.toString()</c> on a primitive or <c>String</c>, which the runtime formats as interpolation does.</summary>
+    public static FunctionSymbol ToString(VplType type) =>
+        new("toString", [new LocalSymbol("value", type, isParameter: true)], VplType.String)
+        {
+            BuiltinCppName = "vpl::format_string",
+            IsPure = true,
         };
 
     public static IEnumerable<FunctionSymbol> All

@@ -130,17 +130,26 @@ inline constexpr bool is_formatted = std::is_same_v<T, String> || requires(Forma
 template <class T>
 inline constexpr bool is_formatted<Optional<T>> = is_formatted<T>;
 
-// Printable.toString through a generic bound I: formatted types satisfy the bound without
-// implementing it. m_toString is the name CppEmitter gives the method.
-template <class I, class T>
-inline String to_string(const T& value) {
+// toString() of a primitive or String.
+template <class T>
+    requires is_formatted<T>
+inline String format_string(const T& value) {
     if constexpr (std::is_same_v<T, String>) {
         return value;
-    } else if constexpr (is_formatted<T>) {
+    } else {
         StringBuffer text;
         // One formatted value is far too short to reach the length limit, which needs a location.
         text.append(value, "");
         return text.take();
+    }
+}
+
+// Printable.toString through a generic bound I: formatted types satisfy the bound without
+// implementing it. m_toString is the name CppEmitter gives the method.
+template <class I, class T>
+inline String to_string(const T& value) {
+    if constexpr (is_formatted<T>) {
+        return format_string(value);
     } else {
         return bound<I>(value).m_toString();
     }

@@ -756,12 +756,11 @@ struct Vec3 implements Printable {
 
 - Primitives, `String`, and their nullables satisfy a `T extends Printable` bound without
   implementing it, so generic code can print any printable value, including an `int`, with
-  `$"{value}"` or `value.toString()`.
+  `$"{value}"` or `value.toString()`. Outside generic code too, they have a `toString()` that
+  writes them as interpolation does: `5.toString()` is `"5"`.
 
 > Implemented so far: everything above. Not yet implemented:
 > - format specifiers and alignment (`{x:F2}`, `{x,8}`);
-> - `toString()` as a method of primitives and `String` outside generic code (`5.toString()`).
->   Interpolation formats them itself, and that method should share the formatting when it arrives;
 > - `Printable` stdlib types (`List`, `Array`, `Span`, `Result`, ...). A collection should be
 >   printable when its element type is, which needs conditional implementations, or a `toString()`
 >   with its own `T extends Printable` bound;

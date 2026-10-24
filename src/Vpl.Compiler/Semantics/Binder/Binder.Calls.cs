@@ -219,6 +219,8 @@ public sealed partial class Binder
         bool asProperty = false)
     {
         var receiverType = receiver.Type;
+        if (name == "toString" && Builtins.FormattedTypes.Contains(receiverType))
+            return BindFormattedToString(location, receiver, typeArguments, arguments);
         var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
         {
@@ -241,6 +243,16 @@ public sealed partial class Binder
             return ErrorExpression(nameLocation, $"'{DisplayName(receiverType)}.{name}' is a property; use it without '(...)'");
         CheckAccessible(nameLocation, declaring, method.Symbol.IsPrivate, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
+    }
+
+    /// <summary>Primitives and <c>String</c> are printable without implementing <c>Printable</c>, so their <c>toString()</c> is the runtime's.</summary>
+    BoundExpression BindFormattedToString(Location location, BoundExpression receiver, IReadOnlyList<VplType>? typeArguments, List<Argument> arguments)
+    {
+        if (typeArguments is not null)
+            return ErrorExpression(location, $"'{receiver.Type}.toString' takes no type arguments");
+        if (arguments.Count != 0)
+            return ErrorExpression(location, $"no overload of '{receiver.Type}.toString' takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
+        return new BoundCall(location, new MethodReference(Builtins.ToString(receiver.Type), null, []), null, [receiver]);
     }
 
     BoundExpression BindSuperMethodCall(CallExpr e, SuperExpr super, MemberAccessExpr member, IReadOnlyList<VplType>? typeArguments, PendingArguments pending)
