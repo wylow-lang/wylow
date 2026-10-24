@@ -1,0 +1,6 @@
+void main() {
+    // 'é' takes the bytes at offsets 1 and 2.
+    String s = "héllo";
+    print(s.slice(0, 3));       // output: hé
+    print(s.slice(0, 2));       // panic-here: byte offset 2 is inside a character
+}

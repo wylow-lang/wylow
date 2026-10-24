@@ -101,6 +101,7 @@ public sealed partial class Binder
         "CallerLocation" => "'@CallerLocation' can only be used on functions, methods, and constructors",
         "Acyclic" => "'@Acyclic' can only be used on classes",
         "Repr" => "'@Repr' can only be used on enums",
+        "Pure" => "'@Pure' can only be used on extern functions of the standard library",
         _ => $"unknown annotation '@{annotation.Name}'",
     });
 

@@ -218,9 +218,7 @@ public sealed partial class Binder
     }
 
     IReadOnlyList<Candidate> MethodCandidates(VplType receiverType, string name) =>
-        receiverType.IsStructOrEnum || receiverType.IsReference || receiverType.IsTypeParameter
-            ? LookupMethods(receiverType, name)
-            : [];
+        HasMembers(receiverType) ? LookupMethods(receiverType, name) : [];
 
     BoundExpression BindMethodCall(
         Location location,

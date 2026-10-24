@@ -235,8 +235,10 @@ public sealed partial class Binder
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
     }
 
-    static bool HasProperty(VplType type, string name) =>
-        (type.IsStructOrEnum || type.IsReference || type.IsTypeParameter) && LookupMethods(type, name).Any(c => c.Symbol.IsProperty);
+    bool HasProperty(VplType type, string name) =>
+        HasMembers(type) && LookupMethods(type, name).Any(c => c.Symbol.IsProperty);
+
+    static bool HasMembers(VplType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || type == VplType.String;
 
     // Private members are visible only inside their declaring type. Protected and package access
     // need no checks yet: every program is a single file, which is a single package.

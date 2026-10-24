@@ -210,7 +210,7 @@ public sealed partial class CppEmitter
 
     bool HasEffects(BoundExpression expression) => expression switch
     {
-        BoundCall { Method.Symbol.IsPure: true } call => call.Arguments.Any(HasEffects),
+        BoundCall { Method.Symbol.IsPure: true } call => (call.Receiver is { } receiver && HasEffects(receiver)) || call.Arguments.Any(HasEffects),
         BoundCall or BoundInvocation or BoundNew or BoundNonNull or BoundTry => true,
         BoundIs pattern when Patterns.Bindings(pattern.Pattern).Any() => true,
         BoundConversion { Type.IsEnum: true } => true,
@@ -258,7 +258,7 @@ public sealed partial class CppEmitter
     /// <summary>Whether evaluating the expression may run user code, which can modify any object.</summary>
     static bool WritesHeap(BoundExpression expression) => RunsLambdas(expression) || expression switch
     {
-        BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true } } or BoundNew or BoundInvocation => true,
+        BoundCall { Method.Symbol: { IsBuiltin: false } or { IsExtern: true, IsPure: false } } or BoundNew or BoundInvocation => true,
         BoundConstruction construction when !construction.Constructor.Symbol.IsImplicit => true,
         _ => BoundTree.Children(expression).Any(WritesHeap),
     };

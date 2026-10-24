@@ -34,10 +34,15 @@ namespace vpl {
     std::abort();
 }
 
+template <class T>
+class Optional;
+
 // An immutable, null-terminated UTF-8 string. A literal points at static bytes and owns nothing, so
 // literals never allocate; a built string shares one counted block among its copies.
 // The count is non-atomic like objects' (object.h). String is a shared class, so it must become
 // atomic once threads exist.
+// The camelCase members are String's methods in VPL (String.vpl); indexOf, contains, and slice are
+// defined in strings.h.
 class String {
 public:
     struct Block {
@@ -78,12 +83,50 @@ public:
     const char* data() const { return data_; }
     int32_t length() const { return length_; }
 
+    // A byte after the first of a character's UTF-8 encoding.
+    static bool is_continuation(char byte) { return (static_cast<unsigned char>(byte) & 0xC0) == 0x80; }
+
     friend bool operator==(const String& a, const String& b) {
         return a.length_ == b.length_ && (a.data_ == b.data_ || std::memcmp(a.data_, b.data_, static_cast<size_t>(a.length_)) == 0);
     }
 
+    int32_t byteLength() const { return length_; }
+    bool isEmpty() const { return length_ == 0; }
+
+    int32_t charCount() const {
+        int32_t count = 0;
+        for (int32_t i = 0; i < length_; i++) {
+            if (!is_continuation(data_[i])) count++;
+        }
+        return count;
+    }
+
+    bool startsWith(const String& prefix) const {
+        return prefix.length_ <= length_ && std::memcmp(data_, prefix.data_, static_cast<size_t>(prefix.length_)) == 0;
+    }
+
+    bool endsWith(const String& suffix) const {
+        return suffix.length_ <= length_ &&
+               std::memcmp(data_ + (length_ - suffix.length_), suffix.data_, static_cast<size_t>(suffix.length_)) == 0;
+    }
+
+    bool contains(const String& text) const;
+    Optional<int32_t> indexOf(const String& text) const;
+    String slice(int32_t start, int32_t count, const char* location) const;
+
+    // memcmp compares bytes as unsigned, so UTF-8 sorts by code point.
+    int32_t compareTo(const String& other) const {
+        auto common = static_cast<size_t>(length_ < other.length_ ? length_ : other.length_);
+        int order = std::memcmp(data_, other.data_, common);
+        if (order == 0) order = length_ < other.length_ ? -1 : length_ > other.length_ ? 1 : 0;
+        return order < 0 ? -1 : order > 0 ? 1 : 0;
+    }
+
 private:
     String(const char* data, int32_t length, Block* block) : data_(data), length_(length), block_(block) {}
+
+    // Whether a character starts at the byte offset, or it is the end.
+    bool is_boundary(int32_t offset) const { return offset == length_ || !is_continuation(data_[offset]); }
 
     void release() {
         if (block_ != nullptr && --block_->count == 0) ::operator delete(block_);

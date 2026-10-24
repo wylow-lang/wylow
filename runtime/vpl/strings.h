@@ -211,7 +211,7 @@ private:
     void pad(size_t start, int32_t alignment, const char* location) {
         size_t characters = 0;
         for (size_t i = start; i < length_; i++) {
-            if ((static_cast<unsigned char>(block_->bytes()[i]) & 0xC0) != 0x80) characters++;
+            if (!String::is_continuation(block_->bytes()[i])) characters++;
         }
         auto width = static_cast<size_t>(alignment < 0 ? -static_cast<int64_t>(alignment) : alignment);
         if (characters >= width) return;
@@ -246,6 +246,40 @@ private:
     size_t length_ = 0;
     size_t capacity_ = 0;
 };
+
+inline Optional<int32_t> String::indexOf(const String& text) const {
+    if (text.length_ > length_) return nullptr;
+    if (text.length_ == 0) return 0;
+    const char* last = data_ + (length_ - text.length_);
+    for (const char* p = data_; p <= last; p++) {
+        p = static_cast<const char*>(std::memchr(p, text.data_[0], static_cast<size_t>(last - p) + 1));
+        if (p == nullptr) break;
+        if (std::memcmp(p, text.data_, static_cast<size_t>(text.length_)) == 0) return static_cast<int32_t>(p - data_);
+    }
+    return nullptr;
+}
+
+inline bool String::contains(const String& text) const { return indexOf(text).has_value(); }
+
+inline String String::slice(int32_t start, int32_t count, const char* location) const {
+    if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > length_) {
+        char message[128];
+        std::snprintf(message, sizeof message, "byte range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
+                      length_);
+        panic(message, location);
+    }
+    for (int32_t offset : {start, start + count}) {
+        if (!is_boundary(offset)) {
+            char message[96];
+            std::snprintf(message, sizeof message, "byte offset %" PRId32 " is inside a character", offset);
+            panic(message, location);
+        }
+    }
+    if (count == length_) return *this;
+    StringBuffer text;
+    text.append(data_ + start, static_cast<size_t>(count), location);
+    return text.take();
+}
 
 template <class T>
 inline Formatted<T>::operator String() const {

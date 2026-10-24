@@ -543,8 +543,37 @@ A literal refers to static text and never allocates; a string built at run time,
 
 `==` and `!=` compare contents ([equality](06-syntax.md#equality)).
 
-> Implemented so far: literals, interpolation, `print`, and `==`. The count is not atomic yet,
-> since there are no threads. `+`, `StringBuilder`, ordering, length, and indexing are not implemented.
+A string is stored as UTF-8 bytes, and **offsets and lengths count bytes**, never characters: a
+`char` (a code point) takes 1 to 4 bytes. Byte offsets are what make finding and slicing O(1) per
+step, and the names say which unit they mean, so no `length` can be mistaken for a character count:
+
+```java
+String word = "héllo";
+word.byteLength             // 6: 'é' takes two bytes, read in O(1)
+word.charCount()            // 5: counted by reading the whole string
+word.isEmpty                // false
+word.indexOf("l")           // 3, an int?: null when not found
+word.slice(1, 2)            // "é": 2 bytes from offset 1, copied into a new string
+word.startsWith("hé")       // also endsWith and contains
+"a".compareTo("b")          // negative, zero, or positive
+```
+
+- `slice(start, length)` takes a byte offset and length like `Span.slice`, and panics if the
+  range is out of bounds or would split a character, so a string is always valid UTF-8. A slice
+  of the whole string is the string itself; any other is copied, keeping every string
+  null-terminated ([07-interop.md](07-interop.md#strings)).
+- `indexOf` returns the byte offset of the first occurrence, which is where `slice` can start.
+  An empty string occurs at offset 0, and every string contains it.
+- `compareTo` orders by byte, which for UTF-8 is the order of the code points. It doesn't apply
+  locale rules or Unicode normalization: `"é"` written as one code point and as `e` plus a
+  combining accent are different strings.
+- `String` has no indexer, since neither a byte nor a code point is what `s[i]` would obviously
+  mean.
+
+The standard library declares these methods in `String.vpl`, implemented by the runtime.
+
+> Implemented so far: literals, interpolation, `print`, `==`, and the methods above. The count is
+> not atomic yet, since there are no threads. `+` and `StringBuilder` are not implemented.
 
 ## 2.11 Arrays and spans
 

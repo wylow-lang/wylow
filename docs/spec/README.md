@@ -88,8 +88,12 @@ Each is explained in detail in its chapter.
 The standard library is VPL source in `src/Vpl.Compiler/Stdlib/`, compiled with every program, so
 what it does can be read like any other VPL code. The compiler knows its types only through narrow
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
-loops), `Spannable`, `ReadOnlySpannable`, and `Borrowable`. Until packages exist, a program cannot
-declare a type with the name of a standard library type.
+loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, and `String`, whose `extern struct`
+declares the methods of the built-in type. Until packages exist, a program cannot declare a type
+with the name of a standard library type.
+
+Its `extern` functions are implemented by the C++ runtime. Those marked `@Pure` can't panic or
+change anything, so the compiler orders calls of them like operators rather than like calls.
 
 ## Not yet designed
 

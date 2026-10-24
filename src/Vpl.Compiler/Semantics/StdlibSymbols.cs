@@ -31,6 +31,12 @@ public sealed class StdlibSymbols
     /// <summary>Types string interpolation can write, which the runtime's formatted types satisfy without implementing.</summary>
     public TypeSymbol? Printable { get; private set; }
 
+    /// <summary>
+    /// The members of the built-in <c>String</c>, declared by an <c>extern struct</c> of that name.
+    /// It is not a type: <c>String</c> always names <see cref="VplType.String"/>.
+    /// </summary>
+    public TypeSymbol? String { get; private set; }
+
     public void Register(TypeSymbol symbol)
     {
         switch (symbol.Name)
@@ -44,8 +50,12 @@ public sealed class StdlibSymbols
             case "Borrowable": Borrowable = symbol; break;
             case "Weak": Weak = symbol; break;
             case "Printable": Printable = symbol; break;
+            case "String": String = symbol; break;
         }
     }
+
+    /// <summary>The type whose declared members a value of the type has: itself, except for <c>String</c>.</summary>
+    public VplType MemberHost(VplType type) => type == VplType.String && String is { } s ? s.Type : type;
 
     /// <summary>Whether a type is printable: formatted by the runtime, or implementing <see cref="Printable"/>.</summary>
     public bool IsPrintable(VplType type) =>

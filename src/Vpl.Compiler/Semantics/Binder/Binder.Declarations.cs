@@ -47,6 +47,9 @@ public sealed partial class Binder
 
     TypeSymbol? DeclareType(TypeDecl decl)
     {
+        // Only declares the built-in String's members, so its name keeps naming the built-in type.
+        if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && Stdlib.Contains(decl.Location.Source))
+            return new TypeSymbol(decl, []);
         if (types.ContainsKey(decl.Name) || BuiltinType(decl.Name) is not null)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
@@ -133,6 +136,7 @@ public sealed partial class Binder
             IsUnsafe = (decl.Modifiers & Modifiers.Unsafe) != 0,
             PassesLocation = HasCallerLocation(decl),
             BuiltinCppName = ExternName(decl, null),
+            IsPure = IsPure(decl),
         };
         typeParameters = [];
         CheckReturnsView(function);
@@ -281,6 +285,7 @@ public sealed partial class Binder
                 IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
                 PassesLocation = HasCallerLocation(decl),
                 BuiltinCppName = ExternName(decl, s),
+                IsPure = IsPure(decl),
             };
             if (method.ReturnRefKind != RefKind.None)
                 CheckReturnsReference(method);
@@ -367,6 +372,10 @@ public sealed partial class Binder
             {
                 CheckNoArguments(annotation);
             }
+            else if (annotation.Name == "Pure" && decl is FunctionDecl function && IsPure(function))
+            {
+                CheckNoArguments(annotation);
+            }
             // '@Repr' is checked with the enum's variants.
             else if (annotation.Name != "Repr" || decl is not TypeDecl { Kind: TypeKind.Enum })
             {
@@ -375,6 +384,10 @@ public sealed partial class Binder
         }
         return found;
     }
+
+    /// <summary>An extern function marked <c>@Pure</c>, which the standard library uses for what can't panic or change anything.</summary>
+    static bool IsPure(FunctionDecl decl) =>
+        decl.Annotations.Any(a => a.Name == "Pure") && (decl.Modifiers & Modifiers.Extern) != 0 && Stdlib.Contains(decl.Location.Source);
 
     /// <summary>
     /// The C++ function an extern function calls: <c>vpl::name</c>, or for a method of a standard

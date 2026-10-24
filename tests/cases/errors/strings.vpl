@@ -1,0 +1,23 @@
+extern struct String { }            // error: 'String' is already defined
+
+@Pure                               // error: '@Pure' can only be used on extern functions of the standard library
+int twice(int x) {
+    return x * 2;
+}
+
+String? maybe() {
+    return null;
+}
+
+void main() {
+    String s = "abc";
+    s.missing();                    // error: 'String' has no method 'missing'
+    print(s.size);                  // error: 'String' has no member 'size'
+    print(s.byteLength());          // error: 'String.byteLength' is a property; use it without '(...)'
+    print(s.charCount);             // error: 'String.charCount' is a method; call it with 'charCount(...)'
+    print(s.slice(1));              // error: no overload of 'String.slice' takes 1 argument
+    print(s.indexOf(5));            // error: no overload of 'String.indexOf' accepts (int)
+    int at = s.indexOf("b");        // error: cannot implicitly convert 'int?' to 'int'
+    print(String.byteLength);       // error: 'String' is not defined
+    print(maybe().byteLength);      // error: might be null
+}

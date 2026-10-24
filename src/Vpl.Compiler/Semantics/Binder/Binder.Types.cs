@@ -176,8 +176,9 @@ public sealed partial class Binder
     /// Methods callable on a value of the type: its own, then inherited ones that it does not
     /// override. A type parameter has the methods of its bounds.
     /// </summary>
-    static List<Candidate> LookupMethods(VplType type, string name)
+    List<Candidate> LookupMethods(VplType type, string name)
     {
+        type = stdlib.MemberHost(type);
         var result = new List<Candidate>();
         var seen = new HashSet<string>();
         IEnumerable<VplType> searched = type.IsTypeParameter ? Conversions.Supertypes(type) : [type, .. Conversions.Supertypes(type)];
