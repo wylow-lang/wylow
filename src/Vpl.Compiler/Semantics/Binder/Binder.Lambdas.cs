@@ -33,6 +33,7 @@ public sealed partial class Binder
 
     bool CheckParameterMode(RefKind refKind, VplType type, Location location)
     {
+        type = type.ReferencedType ?? type;
         if (refKind == RefKind.None || !(type.IsReference || type.IsFunction))
             return true;
         Error(location, type.IsFunction

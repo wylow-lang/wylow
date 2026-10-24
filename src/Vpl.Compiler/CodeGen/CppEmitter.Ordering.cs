@@ -41,6 +41,13 @@ public sealed partial class CppEmitter
                 case BoundConstruction { Type.IsRefStruct: true } construction when construction.Arguments.OfType<BoundArrayData>().FirstOrDefault() is { } data:
                     current = data.Array;
                     break;
+                // A reference that may refer to nothing refers to the same place as what it is made from.
+                case BoundConversion { Type.IsNullableReference: true } conversion:
+                    current = conversion.Operand;
+                    break;
+                case BoundNonNull { Operand.Type.IsNullableReference: true } nonNull:
+                    current = nonNull.Operand;
+                    break;
                 default:
                     return null;
             }
@@ -131,8 +138,10 @@ public sealed partial class CppEmitter
     string InlineOperandText(Operand operand)
     {
         var text = OperandText(operand, operand.PinRoot is { } root ? HoldOperand(operand, root) : null);
-        return operand.Copy ? $"{CppType(operand.Expression.Type)}({text})" : operand.Keep ? $"vpl::keep({text})" : text;
+        return operand.Copy ? $"{CppType(operand.Expression.Type)}({text})" : operand.Keep ? $"vpl::keep({text})" : Addressed(operand, text);
     }
+
+    static string Addressed(Operand operand, string text) => operand.TakesAddress ? $"vpl::address_of({text})" : text;
 
     /// <summary>Declarations that evaluate the operands in order, and the temporaries holding them.</summary>
     (string Declarations, List<string> Temporaries) OrderedTemporaries(IReadOnlyList<Operand> operands)
@@ -149,7 +158,7 @@ public sealed partial class CppEmitter
             }
             var temp = NewTemp();
             body.Append($"{(operand.ByReference ? "auto&&" : "auto")} {temp} = {OperandText(operand, pin)}; ");
-            temps.Add(temp);
+            temps.Add(Addressed(operand, temp));
         }
         return (body.ToString(), temps);
     }

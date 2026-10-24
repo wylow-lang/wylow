@@ -17,6 +17,13 @@ public sealed partial class Binder
                 : new BoundErrorExpression(e.Location);
         }
 
+        // Other patterns match the value a reference refers to, once it is known to refer to one.
+        operand = NarrowReference(operand);
+        if (operand.Type.IsNullableReference)
+        {
+            DeclareErrorBindings(e.Pattern);
+            return ErrorExpression(e.Operand.Location, MayReferToNothingMessage(operand));
+        }
         if (CheckMatchable(operand).Type == VplType.Error)
         {
             DeclareErrorBindings(e.Pattern);
@@ -203,11 +210,13 @@ public sealed partial class Binder
         if (value.Type == VplType.Void)
             return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
         // Patterns match values, not null: a nullable local is narrowed, as for a member access.
-        if (value.Type.IsNullableValue)
+        if (value.Type.IsNullableValue || value.Type.IsNullableReference)
         {
             value = AssumeNonNull(value);
             if (value.Type.IsNullableValue)
                 return ErrorExpression(syntax.Location, $"cannot switch on a nullable '{value.Type}'; check it for null first, or use '!' or '??'");
+            if (value.Type.IsNullableReference)
+                return ErrorExpression(syntax.Location, $"cannot switch on '{value.Type}'; check it for null first, or use '!'");
         }
         return CheckMatchable(value);
     }
@@ -288,6 +297,8 @@ public sealed partial class Binder
         }
         if (type.IsRefStruct)
             return ErrorExpression(location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
+        if (type.IsNullableReference)
+            return ErrorExpression(location, "a switch expression cannot produce a reference; use a switch statement with a variable for each case");
         // A nullable non-escaping choice would refer to a function made only for the choice.
         if (IsNullableNonEscaping(type))
             type = EscapingForm(type);

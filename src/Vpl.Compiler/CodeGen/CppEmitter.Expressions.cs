@@ -17,6 +17,7 @@ public sealed partial class CppEmitter
             BoundLiteral literal => Literal(literal),
             BoundNullLiteral => "nullptr",
             BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableValue: true } access => $"vpl::assume_value({LocalName(access.Local)})",
+            BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableReference: true } access => $"(*{LocalName(access.Local)})",
             BoundLocalAccess access => LocalName(access.Local),
             BoundThis => This(),
             BoundFieldAccess field => FieldAccess(field),
@@ -34,6 +35,7 @@ public sealed partial class CppEmitter
             BoundConditional { Type.IsFunction: true, Type.IsEscaping: false } conditional => Choice(conditional),
             BoundConditional conditional =>
                 $"({Expression(conditional.Condition)} ? {Expression(conditional.WhenTrue)} : {Expression(conditional.WhenFalse)})",
+            BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => $"(*vpl::unwrap({Expression(nonNull.Operand)}, {SourceLocation(nonNull.Location)}))",
             BoundNonNull nonNull => $"vpl::unwrap({Expression(nonNull.Operand)}, {SourceLocation(nonNull.Location)})",
             BoundCoalesce coalesce => Coalesce(coalesce),
             BoundConditionalAccess access => ConditionalAccess(access),
@@ -102,6 +104,11 @@ public sealed partial class CppEmitter
         {
             var test = $"vpl::has_value({Expression(tested)})";
             return binary.Operator == BoundBinaryOperator.Equal ? $"(!{test})" : test;
+        }
+        if (binary.Left.Type.IsNullableReference || binary.Right.Type.IsNullableReference)
+        {
+            var reference = binary.Left.Type.IsNullableReference ? binary.Left : binary.Right;
+            return $"({Expression(reference)} {(binary.Operator == BoundBinaryOperator.Equal ? "==" : "!=")} nullptr)";
         }
         if (binary.Left.Type.IsReference || binary.Left.Type == VplType.Null)
         {
@@ -191,8 +198,12 @@ public sealed partial class CppEmitter
     bool IsCopiedForReference(BoundExpression argument, BoundExpression value) =>
         value != argument && value.Type.NonNull.IsEscaping && MayBeReplaced(value);
 
+    // A place passed to a 'ref?' or 'in?' parameter is bound like one passed by 'ref', so that a
+    // temporary passed by 'in?' lives until the call is done, and its address taken at the call.
     Operand ArgumentOperand(BoundExpression argument, RefKind refKind) =>
-        refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
+        argument is BoundConversion { Type.IsNullableReference: true, Operand: var place } && place.Type != VplType.Null && !place.Type.IsNullableReference
+            ? new Operand(place, true, PinRoot(place), TakesAddress: true)
+        : refKind != RefKind.None ? new Operand(argument, true, PinRoot(argument))
         : argument.Type.IsRefStruct ? new Operand(argument, false, PinRoot(argument))
         : new Operand(argument, false, Keep: !IsStable(argument) && MayOwnObjects(argument));
 
@@ -349,7 +360,9 @@ public sealed partial class CppEmitter
         var to = conversion.Type;
         var operand = Expression(conversion.Operand);
         if (from == VplType.Null)
-            return to.IsPointer ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
+            return to.IsPointer || to.IsNullableReference ? $"static_cast<{CppType(to)}>(nullptr)" : $"{CppType(to)}()";
+        if (to.IsNullableReference)
+            return from.IsNullableReference ? operand : $"vpl::address_of({operand})";
         if (IsNullableNonEscaping(to))
             throw new InvalidOperationException("a nullable non-escaping function is only made from an argument, by OptionalFunctionArgument");
         // A non-escaping function is used during the call it is passed to, while the value it was

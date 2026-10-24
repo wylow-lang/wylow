@@ -23,6 +23,8 @@ public static class FunctionValues
             return true;
         if (value.IsNullable || lambda.IsNullable)
             return value.IsNullable && lambda.IsNullable && MayBe(value.NonNull, lambda.NonNull);
+        if (value.IsNullableReference || lambda.IsNullableReference)
+            return value.ReferenceKind == lambda.ReferenceKind && value.ReferencedType is { } referenced && lambda.ReferencedType is { } other && MayBe(referenced, other);
         if (value.IsFunction || lambda.IsFunction)
         {
             return value.IsFunction && lambda.IsFunction

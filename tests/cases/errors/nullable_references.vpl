@@ -1,0 +1,113 @@
+class Node {
+    int value;
+}
+
+struct Vec {
+    float x;
+}
+
+struct Mat2 {
+    float[4] m;
+
+    ref? float at(int i) {
+        if (i < 0) {
+            return null;
+        }
+        return ref m[i];
+    }
+
+    readonly in? float peek(int i) {
+        return ref m[i];
+    }
+
+    ref? float bad(int i) {
+        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref', or 'return null'
+    }
+
+    ref? float other(ref Mat2 o) {
+        return ref o.m[0];              // error: a returned 'ref?' must point into the method's receiver
+    }
+
+    ref float sure() {
+        return ref at(0);               // error: 'at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
+    }
+
+    ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
+        return null;
+    }
+}
+
+void bump(ref? int x) {
+    x++;                                // error: 'x' might refer to nothing here; check it with 'if (x != null)', or use '!'
+}
+
+void bump(ref int x) {                  // error: function 'bump(ref int)' is already defined
+}
+
+void freeze(in? int x) {
+    if (x != null) {
+        x = 1;                          // error: cannot assign to 'x' because 'x' is an 'in' parameter
+    }
+}
+
+void link(ref? Node n) {                // error: 'ref' cannot be used on a parameter of type 'Node'; class objects are already passed by reference
+}
+
+void defaulted(ref? int x = 5) {        // error: cannot implicitly convert 'int' to 'ref? int'
+}
+
+void setF(ref float target) {
+    target = 1;
+}
+
+T id<T>(T value) {
+    return value;
+}
+
+void run(() -> void f) {
+    f();
+}
+
+void main() {
+    mut Mat2 m = Mat2();
+    mut int x = 1;
+    ref? int r = x;
+    ref? int maybe = null;
+    print(maybe + 1);                   // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
+    maybe = 5;                          // error: 'maybe' might refer to nothing here
+    float v = m.at(0);                  // error: cannot implicitly convert 'ref? float' to 'float'; check it for null first, or use '!'
+    m.at(0) = 1;                        // error: 'm.at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
+    var copy = m.at(0);                 // error: 'm.at(0)' is a reference that may refer to nothing; refer to it with 'ref? var', or copy what it refers to with '!'
+    ref float sure = m.at(0);           // error: 'm.at(0)' might refer to nothing
+    ref? float writable = m.peek(0);    // error: cannot take a 'ref?' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in?' instead
+    ref? int temporary = 5;             // error: a 'ref?' variable must refer to a variable, field, or element, not a temporary value
+    ref? Node node = null;              // error: 'ref?' cannot be used with type 'Node'; class objects are already references
+    ref? var unknown = null;            // error: cannot infer a type from 'null'
+    print(m.at(0) ?? 1);                // error: '??' cannot be applied to 'ref? float'; check it for null with 'if' instead
+    print(id(m.at(0)));                 // error: 'ref? float' cannot be a type argument; it can only be held by a 'ref?' variable or parameter
+    setF(ref m.at(0));                  // error: 'm.at(0)' might refer to nothing
+    bump(x);                            // error: argument 1 must be passed with 'ref'
+    in? int view = x;
+    ref? int widened = view;            // error: cannot take a 'ref?' to what 'view' refers to, because 'view' is an 'in' variable; use 'in?' instead
+    mut int? nullable = 1;
+    ref? int? inside = nullable;        // error: a 'ref?' variable cannot refer to the nullable variable 'nullable'
+    switch (m.at(0)) {                  // error: cannot switch on 'ref? float'; check it for null first, or use '!'
+        default -> print(0);
+    }
+    mut Vec[1] vecs = [Vec()];
+    ref? Vec first = vecs[0];
+    print(first?.x);                    // error: '?.' cannot be used on 'ref? Vec'; check it for null first, or use '!'
+    for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
+    }
+    if (r != null) {
+        run(() -> {
+            r = 2;                      // error: 'r' might refer to nothing here: null checks outside a lambda don't narrow inside it; check it inside
+        });
+    }
+    bool pick = x > 0;
+    print(sumOf(pick ? m.at(0) : null)); // error: '?:' cannot choose between references; use 'if' with a variable for each
+}
+
+float sumOf(in? float value) {
+    return value ?? 0;                  // error: '??' cannot be applied to 'in? float'
+}

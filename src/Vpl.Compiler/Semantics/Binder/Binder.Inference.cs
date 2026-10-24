@@ -63,6 +63,12 @@ public sealed partial class Binder
             {
                 found.Add((argument, EscapingForm(argumentType)));
             }
+            // A place or a reference gives `ref? T` the type referred to, exactly.
+            else if (parameter.IsNullableReference)
+            {
+                if (argumentType != VplType.Null)
+                    Unify(parameter.ReferencedType!, null, argumentType.ReferencedType ?? argumentType);
+            }
             // A nullable argument gives `T?` its value type; null says nothing about `T`.
             else if (parameter.IsNullableValue)
             {

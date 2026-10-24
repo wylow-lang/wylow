@@ -17,7 +17,7 @@ public sealed partial class Binder
     {
         if (expression is ConditionalExpr or SwitchExpr)
             expected = ChoiceTarget(expected);
-        return BindExpressionExpecting(expression, expected is { IsNullableValue: true } ? expected.NonNull : expected);
+        return BindExpressionExpecting(expression, expected is { IsNullableValue: true } or { IsNullableReference: true } ? expected.Narrowed : expected);
     }
 
     BoundExpression BindExpressionExpecting(Expr expression, VplType? expected) => expression switch
@@ -162,21 +162,35 @@ public sealed partial class Binder
     /// </summary>
     BoundExpression RequireNonNull(BoundExpression receiver)
     {
-        if (!receiver.Type.IsNullable)
+        if (!receiver.Type.MayBeNull)
             return receiver;
         if (receiver is BoundLocalAccess)
             return AssumeNonNull(receiver);
-        return ErrorExpression(receiver.Location, $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
+        return ErrorExpression(receiver.Location, receiver.Type.IsNullableReference
+            ? MayReferToNothingMessage(receiver)
+            : $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
     }
 
-    /// <summary>A nullable local used where only a value will do; flow analysis checks that it was narrowed.</summary>
+    string MayReferToNothingMessage(BoundExpression reference) =>
+        $"'{TextOf(reference.Location)}' might refer to nothing; check it with 'is {FunctionSymbol.RefPrefix(reference.Type.ReferenceKind)}{reference.Type.ReferencedType} name', or use '!'";
+
+    /// <summary>
+    /// A nullable local used where only a value will do, or a <c>ref?</c> local where only a place
+    /// will; flow analysis checks that it was narrowed.
+    /// </summary>
     static BoundExpression AssumeNonNull(BoundExpression expression) =>
-        expression is BoundLocalAccess { AssumesNonNull: false, Type.IsNullable: true } local
+        expression is BoundLocalAccess { AssumesNonNull: false, Type.MayBeNull: true } local
             ? new BoundLocalAccess(local.Location, local.Local, AssumesNonNull: true)
             : expression;
 
+    /// <summary>A <c>ref?</c> local used as the place it refers to; anything else as it is.</summary>
+    static BoundExpression NarrowReference(BoundExpression expression) =>
+        expression.Type.IsNullableReference ? AssumeNonNull(expression) : expression;
+
     static string NullableOperandHint(params BoundExpression[] operands) =>
-        operands.Any(o => o.Type.IsNullableValue) ? "; check it for null first, or use '!' or '??'" : "";
+        operands.Any(o => o.Type.IsNullableValue) ? "; check it for null first, or use '!' or '??'"
+        : operands.Any(o => o.Type.IsNullableReference) ? "; check it for null first, or use '!'"
+        : "";
 
     BoundExpression BindMemberAccess(MemberAccessExpr e, VplType? expected)
     {
@@ -256,7 +270,7 @@ public sealed partial class Binder
         var operand = BindExpression(e.Operand);
         if (operand.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
-        if (operand.Type.IsNullableValue)
+        if (operand.Type.IsNullableValue || operand.Type.IsNullableReference)
             operand = AssumeNonNull(operand);
 
         var (op, valid) = e.Operator switch
@@ -276,7 +290,7 @@ public sealed partial class Binder
         var operand = BindExpression(e.Operand);
         if (operand.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
-        if (!operand.Type.IsNullable)
+        if (!operand.Type.MayBeNull)
             return ErrorExpression(e.Location, $"'!' can only be applied to a nullable value, and '{operand.Type}' is not nullable");
         return new BoundNonNull(e.Location, operand);
     }
@@ -287,6 +301,8 @@ public sealed partial class Binder
         var right = BindExpression(e.Right);
         if (left.Type == VplType.Error || right.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
+        if (left.Type.IsNullableReference)
+            return ErrorExpression(e.OperatorLocation, $"'??' cannot be applied to '{left.Type}'; check it for null with 'if' instead");
         if (!left.Type.IsNullable)
             return ErrorExpression(e.Left.Location, $"the left side of '??' must be nullable, and '{left.Type}' is not");
         // Its result would refer to a function that may be made only for this operation.
@@ -360,7 +376,7 @@ public sealed partial class Binder
     BoundExpression BindBinary(BinaryExpr e)
     {
         var left = BindExpression(e.Left);
-        var expected = e.Operator is TokenKind.EqualEqual or TokenKind.BangEqual && left.Type.NonNull.IsEnum ? left.Type.NonNull : null;
+        var expected = e.Operator is TokenKind.EqualEqual or TokenKind.BangEqual && left.Type.Narrowed.IsEnum ? left.Type.Narrowed : null;
         return BindBinaryOperation(e.OperatorLocation, left, e.Operator, BindExpression(e.Right, expected));
     }
 
@@ -375,6 +391,17 @@ public sealed partial class Binder
         var symbol = SyntaxFacts.GetText(syntaxOperator);
         var (leftType, rightType) = (left.Type, right.Type);
         string Mismatch() => $"operator '{symbol}' cannot be applied to '{leftType}' and '{rightType}'";
+
+        // A reference that may refer to nothing is compared with null, or narrowed to what it refers to.
+        if (left.Type.IsNullableReference || right.Type.IsNullableReference)
+        {
+            if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type == VplType.Null || right.Type == VplType.Null))
+                return new BoundBinary(location, left, op, right, VplType.Bool);
+            var (narrowedLeft, narrowedRight) = (AssumeNonNull(left), AssumeNonNull(right));
+            if (narrowedLeft.Type.IsNullableReference || narrowedRight.Type.IsNullableReference)
+                return ErrorExpression(location, Mismatch() + NullableOperandHint(left, right));
+            return BindBinaryOperation(location, narrowedLeft, syntaxOperator, narrowedRight);
+        }
 
         if (left.Type.IsPointer || right.Type.IsPointer)
             return BindPointerOperation(location, left, op, right, Mismatch());
@@ -540,7 +567,15 @@ public sealed partial class Binder
         expression is BoundPendingLambda lambda ? (lambda.Inferred is { } inferred ? InferredLambdaFits(inferred, to) : LambdaFits(lambda, to))
         : expression is BoundPendingChoice choice ? to.NonNull.IsFunction && choice.Options.All(o => CanConvert(o, to))
         : Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
-        || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to);
+        || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to)
+        || IsPassedByIn(expression, to);
+
+    /// <summary>
+    /// An <c>in? T</c> parameter takes what an <c>in T</c> one would, which may be a temporary value:
+    /// it refers to it for the call.
+    /// </summary>
+    bool IsPassedByIn(BoundExpression expression, VplType to) =>
+        to is { IsNullableReference: true, ReferenceKind: RefKind.In } && expression.Type != VplType.Null && CanConvert(expression, to.ReferencedType!);
 
     /// <summary>A value converts to a nullable of any type it converts to, including by conversions only some values have.</summary>
     bool IsNullableWrapping(BoundExpression expression, VplType to) =>
@@ -556,11 +591,14 @@ public sealed partial class Binder
         && (to.IsInteger ? literal.Type == VplType.Int && to.HeldRange!.Value.Contains(value)
             : to.IsFloatingPoint && Conversions.IsExactlyRepresentable(value, to));
 
-    /// <summary>A nullable local converts to a non-null type if flow analysis proves it is not null there.</summary>
+    /// <summary>
+    /// A nullable local converts to a non-null type if flow analysis proves it is not null there, and
+    /// a <c>ref?</c> local to the type it refers to.
+    /// </summary>
     static bool IsNarrowable(BoundExpression expression, VplType to) =>
-        expression is BoundLocalAccess { AssumesNonNull: false, Type.IsNullable: true }
-        && !to.IsNullable
-        && Conversions.IsImplicit(expression.Type.NonNull, to);
+        expression is BoundLocalAccess { AssumesNonNull: false, Type: var type }
+        && (type.IsNullableReference ? !to.IsNullableReference : type.IsNullable && !to.IsNullable)
+        && Conversions.IsImplicit(type.Narrowed, to);
 
     BoundExpression Convert(BoundExpression expression, VplType to)
     {
@@ -598,6 +636,8 @@ public sealed partial class Binder
             return new BoundConversion(expression.Location, to, Convert(expression, to.NonNull));
         if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
+        if (IsPassedByIn(expression, to))
+            return new BoundConversion(expression.Location, to, Convert(expression, to.ReferencedType!));
         if (SpanConversion(expression, to) is { } span)
             return span;
 
@@ -607,7 +647,7 @@ public sealed partial class Binder
             return new BoundErrorExpression(expression.Location);
         }
         var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"
-            : expression.Type.IsNullable && Conversions.IsImplicit(expression.Type.NonNull, to) ? "; check it for null first, or use '!'"
+            : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to) ? "; check it for null first, or use '!'"
             : SpanConversionHint(expression, to);
         return ErrorExpression(expression.Location, $"cannot implicitly convert '{expression.Type}' to '{to}'{hint}");
     }
@@ -654,6 +694,8 @@ public sealed partial class Binder
             return ErrorExpression(location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
         if (type.IsRefStruct)
             return ErrorExpression(location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
+        if (type.IsNullableReference)
+            return ErrorExpression(location, "'?:' cannot choose between references; use 'if' with a variable for each");
         // A nullable non-escaping choice would refer to a function made only for the choice.
         if (IsNullableNonEscaping(type))
             type = EscapingForm(type);

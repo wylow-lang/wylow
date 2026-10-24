@@ -219,28 +219,41 @@ public sealed partial class Parser
     VarDeclStmt ParseVariableDeclaration(int? annotated = null)
     {
         int start = annotated ?? position;
-        var (isMutable, refKind) = ParseBindingMode("variable");
+        var (isMutable, refKind, mayBeNull) = ParseBindingMode("variable");
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
+        if (mayBeNull)
+            type = NullableReferenceType(start, refKind, type);
         var name = Expect(TokenKind.Identifier, "a variable name");
         var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
         return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind) { IsMutable = isMutable };
     }
 
-    RefKind ParseRefKind() =>
-        Accept(TokenKind.RefKeyword) ? RefKind.Ref : Accept(TokenKind.InKeyword) ? RefKind.In : RefKind.None;
+    /// <summary>
+    /// <c>ref</c> or <c>in</c>, and whether a <c>?</c> follows it, as in <c>ref? T</c>, for a
+    /// reference that may refer to nothing.
+    /// </summary>
+    (RefKind Kind, bool MayBeNull) ParseRefKind()
+    {
+        var kind = Accept(TokenKind.RefKeyword) ? RefKind.Ref : Accept(TokenKind.InKeyword) ? RefKind.In : RefKind.None;
+        return (kind, kind != RefKind.None && Accept(TokenKind.Question));
+    }
+
+    /// <summary>The type of <c>ref? T</c> or <c>in? T</c>, written from <paramref name="start"/>; <paramref name="referenced"/> is null for <c>var</c>.</summary>
+    TypeSyntax NullableReferenceType(int start, RefKind kind, TypeSyntax? referenced) =>
+        new(LocationFrom(start), "", []) { Shape = TypeShape.NullableReference, Element = referenced, ReferenceKind = kind };
 
     /// <summary>
     /// An optional <c>mut</c>, then an optional <c>ref</c> or <c>in</c>. A reference can't be
     /// <c>mut</c>: it refers to the same place for its whole scope. <paramref name="what"/> names the
     /// declaration in messages.
     /// </summary>
-    (bool IsMutable, RefKind RefKind) ParseBindingMode(string what)
+    (bool IsMutable, RefKind RefKind, bool MayBeNull) ParseBindingMode(string what)
     {
         Token? mut = At(TokenKind.MutKeyword) ? Advance() : null;
-        var refKind = ParseRefKind();
+        var (refKind, mayBeNull) = ParseRefKind();
         if (mut is { } token && refKind != RefKind.None)
             Error(token.Span, $"{(refKind == RefKind.Ref ? "a 'ref'" : "an 'in'")} {what} cannot be 'mut', since it refers to the same place for its whole scope");
-        return (mut is not null && refKind == RefKind.None, refKind);
+        return (mut is not null && refKind == RefKind.None, refKind, mayBeNull);
     }
 
     /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>
@@ -286,8 +299,10 @@ public sealed partial class Parser
     ForEachVariable ParseForEachVariable()
     {
         int start = position;
-        var (isMutable, refKind) = ParseBindingMode("variable");
+        var (isMutable, refKind, mayBeNull) = ParseBindingMode("variable");
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
+        if (mayBeNull)
+            type = NullableReferenceType(start, refKind, type);
         var name = Expect(TokenKind.Identifier, "a variable name");
         return new ForEachVariable(LocationFrom(start), refKind, type, name.Text, Loc(name.Span)) { IsMutable = isMutable };
     }

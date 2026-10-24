@@ -171,23 +171,42 @@ public sealed partial class Binder
     bool IsApplicable(MethodReference method, IReadOnlyList<Argument?> arguments, int i) =>
         arguments[i] is not { } argument
         || (method.ParameterRefKind(i) == RefKind.Ref
-            ? argument.IsRef && argument.Expression.Type == method.ParameterType(i)
+            ? argument.IsRef ? RefArgumentFits(argument.Expression, method.ParameterType(i)) : IsNullForReference(argument, method.ParameterType(i))
             : !argument.IsRef && CanConvert(argument.Expression, method.ParameterType(i)));
 
-    static (Location Location, string Message)? ExplainRefMismatch(MethodReference method, IReadOnlyList<Argument?> arguments)
+    /// <summary>
+    /// Whether a <c>ref</c> argument has exactly the type its parameter refers to. A <c>ref?</c>
+    /// local passed to a <c>ref</c> parameter is narrowed, and a <c>ref?</c> parameter also takes
+    /// another reference that may refer to nothing.
+    /// </summary>
+    static bool RefArgumentFits(BoundExpression argument, VplType parameter) =>
+        parameter.IsNullableReference
+            ? (argument.Type.ReferencedType ?? argument.Type) == parameter.ReferencedType
+            : argument.Type == parameter || (argument is BoundLocalAccess && argument.Type.ReferencedType == parameter);
+
+    /// <summary>A <c>ref?</c> parameter takes <c>null</c>, which needs no <c>ref</c>.</summary>
+    static bool IsNullForReference(Argument argument, VplType parameter) =>
+        !argument.IsRef && argument.Expression.Type == VplType.Null && parameter.IsNullableReference;
+
+    (Location Location, string Message)? ExplainRefMismatch(MethodReference method, IReadOnlyList<Argument?> arguments)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
             if (arguments[i] is not { } argument)
                 continue;
             var what = argument.Name is { } name ? $"argument '{name}'" : $"argument {i + 1}";
+            var parameter = method.ParameterType(i);
             bool isRefParameter = method.ParameterRefKind(i) == RefKind.Ref;
-            if (isRefParameter && !argument.IsRef)
+            if (isRefParameter && !argument.IsRef && !IsNullForReference(argument, parameter))
                 return (argument.Location, $"{what} must be passed with 'ref'");
             if (!isRefParameter && argument.IsRef)
                 return (argument.Location, $"{what} must not be passed with 'ref'");
-            if (isRefParameter && argument.Expression.Type != method.ParameterType(i))
-                return (argument.Location, $"a 'ref' argument must have exactly type '{method.ParameterType(i)}', not '{argument.Expression.Type}'");
+            if (isRefParameter && argument.IsRef && !RefArgumentFits(argument.Expression, parameter))
+            {
+                return (argument.Location, argument.Expression.Type.ReferencedType == parameter
+                    ? MayReferToNothingMessage(argument.Expression)
+                    : $"a 'ref' argument must have exactly type '{parameter.ReferencedType ?? parameter}', not '{argument.Expression.Type.ReferencedType ?? argument.Expression.Type}'");
+            }
         }
         return null;
     }

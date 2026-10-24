@@ -242,4 +242,17 @@ constexpr int32_t length(const std::array<T, N>&) {
     return static_cast<int32_t>(N);
 }
 
+// A 'ref?' or 'in?' is a pointer to the place it refers to, or null. A temporary passed to an 'in?'
+// parameter lives until the end of the caller's full expression, which includes the call.
+template <class T>
+inline std::remove_reference_t<T>* address_of(T&& place) {
+    return std::addressof(place);
+}
+
+template <class T>
+inline T* unwrap(T* reference, const char* location) {
+    if (reference == nullptr) panic("null reference unwrapped with '!'", location);
+    return reference;
+}
+
 }  // namespace vpl

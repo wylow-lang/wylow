@@ -234,7 +234,8 @@ public sealed partial class StackObjects
     /// </summary>
     static List<Replacement>? Replacements(IReadOnlyList<BoundStatement> statements, int declared, LocalSymbol local)
     {
-        bool IsLocal(BoundExpression? expression) => expression is BoundLocalAccess access && access.Local == local;
+        bool IsLocal(BoundExpression? expression) => expression is BoundLocalAccess access ? access.Local == local
+            : expression is BoundConversion { Type.IsNullableReference: true } reference && IsLocal(reference.Operand);
         var found = new List<Replacement>();
         for (int index = declared; index < statements.Count; index++)
         {

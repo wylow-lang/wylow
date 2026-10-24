@@ -35,6 +35,7 @@ public sealed partial class Binder
         {
             TypeShape.Named => BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location),
             TypeShape.Function => BindFunctionType(syntax),
+            TypeShape.NullableReference => BindNullableReferenceType(syntax),
             _ => BindCompositeType(syntax),
         };
         if (type == VplType.Void && !allowVoid)
@@ -50,6 +51,22 @@ public sealed partial class Binder
             ? $"'{type}?' is not needed: a pointer can already be null"
             : $"'{type}' cannot be nullable, since it is a 'ref struct'");
         return VplType.Error;
+    }
+
+    /// <summary>
+    /// <c>ref? T</c> or <c>in? T</c>, which the parser only reads where a reference is declared.
+    /// What it may refer to is checked as for <c>ref T</c>, where it is declared.
+    /// </summary>
+    VplType BindNullableReferenceType(TypeSyntax syntax)
+    {
+        // `ref? var` is only valid for a local, which infers the type itself.
+        if (syntax.Element is null)
+        {
+            Error(syntax.Location, "'var' can only be used for a local variable");
+            return VplType.Error;
+        }
+        var referenced = BindType(syntax.Element, allowVoid: false);
+        return referenced == VplType.Error ? referenced : referenced.NullableReference(syntax.ReferenceKind);
     }
 
     VplType BindCompositeType(TypeSyntax syntax)
@@ -163,7 +180,7 @@ public sealed partial class Binder
     /// <summary>A field of the type or, for classes, of a base class, with the type it was found in.</summary>
     static (FieldSymbol Field, VplType Owner)? LookupField(VplType type, string name)
     {
-        for (var t = type.NonNull; t?.Symbol is not null; t = t.BaseType)
+        for (var t = type.Narrowed; t?.Symbol is not null; t = t.BaseType)
         {
             if (t.Symbol.FindField(name) is { } field)
                 return (field, t);

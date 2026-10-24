@@ -99,12 +99,13 @@ public sealed record FunctionDecl(
 
 public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);
 
-public enum TypeShape { Named, FixedArray, Array, Pointer, Function }
+public enum TypeShape { Named, FixedArray, Array, Pointer, Function, NullableReference }
 
 /// <summary>
 /// A type as written. A <see cref="TypeShape.Named"/> type has a <see cref="Name"/> and type
 /// arguments; the other shapes are built from their <see cref="Element"/>: <c>T[N]</c>, <c>T[]</c>,
-/// <c>T*</c>, and the return type of <c>(Parameters) -> T</c>.
+/// <c>T*</c>, the return type of <c>(Parameters) -> T</c>, and the <c>T</c> of <c>ref? T</c> or
+/// <c>in? T</c>, which is null for <c>ref? var</c>.
 /// </summary>
 public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
     : Node(Location)
@@ -114,6 +115,9 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 
     /// <summary>The <c>N</c> of <c>T[N]</c>.</summary>
     public ulong Length { get; init; }
+
+    /// <summary>Whether <c>ref? T</c> or <c>in? T</c>.</summary>
+    public RefKind ReferenceKind { get; init; }
 
     public IReadOnlyList<FunctionTypeParameter> Parameters { get; init; } = [];
 }

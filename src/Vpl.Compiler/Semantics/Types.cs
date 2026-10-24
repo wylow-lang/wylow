@@ -46,6 +46,8 @@ public sealed class VplType
     string? name;
     VplType? nullable;
     VplType? pointer;
+    VplType? nullableRef;
+    VplType? nullableIn;
     ConcurrentDictionary<int, VplType>? fixedArrays;
     ConcurrentDictionary<IReadOnlyList<FunctionParameterType>, VplType>? functionTypes;
 
@@ -91,6 +93,14 @@ public sealed class VplType
         NonNull = this;
     }
 
+    VplType(VplType referenced, RefKind kind)
+    {
+        ReferencedType = referenced;
+        ReferenceKind = kind;
+        TypeArguments = [];
+        NonNull = this;
+    }
+
     // The escaping form of a non-escaping function type, which is the other's twin.
     VplType(VplType nonEscaping, bool escaping)
     {
@@ -109,7 +119,8 @@ public sealed class VplType
 
     // Built on demand: deeply nested generic types share structure, but their names would not.
     public string Name => name ??=
-        IsNullable ? Grouped(NonNull) + "?"
+        IsNullableReference ? $"{FunctionSymbol.RefPrefix(ReferenceKind).Trim()}? {ReferencedType}"
+        : IsNullable ? Grouped(NonNull) + "?"
         : IsPointer ? Grouped(ElementType!) + "*"
         : IsFixedArray ? Grouped(ArrayBase) + ArraySuffix
         : IsFunction ? $"({string.Join(", ", FunctionParameters)}) -> {FunctionReturnType}"
@@ -138,6 +149,30 @@ public sealed class VplType
 
     public bool IsPointer { get; }
     public bool IsFixedArray => ElementType is not null && !IsPointer;
+
+    /// <summary>
+    /// The <c>T</c> of <c>ref? T</c> or <c>in? T</c>, a reference that may refer to nothing. Such a
+    /// type is only ever that of a <c>ref</c> or <c>in</c> local, parameter, or return, and of the
+    /// expressions reading one; it is not nullable in the sense of <see cref="IsNullable"/>, so no
+    /// operation on values accepts it until a null check narrows it to <c>T</c>.
+    /// </summary>
+    public VplType? ReferencedType { get; }
+
+    /// <summary>Whether a <c>ref? T</c> or an <c>in? T</c>; see <see cref="ReferencedType"/>.</summary>
+    public RefKind ReferenceKind { get; }
+
+    public bool IsNullableReference => ReferencedType is not null;
+
+    /// <summary>The <c>ref? T</c> or <c>in? T</c> referring to this type.</summary>
+    public VplType NullableReference(RefKind kind) => kind == RefKind.In
+        ? nullableIn ?? Publish(ref nullableIn, new VplType(this, RefKind.In))
+        : nullableRef ?? Publish(ref nullableRef, new VplType(this, RefKind.Ref));
+
+    /// <summary>The type a value of this type has where a null check proved it not null.</summary>
+    public VplType Narrowed => ReferencedType ?? NonNull;
+
+    /// <summary>A nullable value or reference, or a reference that may refer to nothing.</summary>
+    public bool MayBeNull => IsNullable || IsNullableReference;
 
     /// <summary>The parameters of a function type <c>(A, ref B) -> R</c>; empty for other types.</summary>
     public IReadOnlyList<FunctionParameterType> FunctionParameters { get; } = [];
@@ -192,7 +227,7 @@ public sealed class VplType
     public bool IsNullableValue => IsNullable && !NonNull.IsReference;
 
     /// <summary>Pointers can already be null, and a <c>ref struct</c> can't be stored in a nullable.</summary>
-    public bool CanBeNullable => this != Void && this != Null && this != Error && this != Lambda && !IsPointer && !IsRefStruct;
+    public bool CanBeNullable => this != Void && this != Null && this != Error && this != Lambda && !IsPointer && !IsRefStruct && !IsNullableReference;
 
     static VplType Publish(ref VplType? field, VplType created) =>
         Interlocked.CompareExchange(ref field, created, null) ?? created;
@@ -231,7 +266,8 @@ public sealed class VplType
 
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || TypeArguments.Any(a => a.ContainsTypeParameters)
+    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || ReferencedType?.ContainsTypeParameters == true
+        || TypeArguments.Any(a => a.ContainsTypeParameters)
         || (NonNull.IsFunction && (NonNull.FunctionReturnType!.ContainsTypeParameters || NonNull.FunctionParameters.Any(p => p.Type.ContainsTypeParameters)));
 
     /// <summary>
@@ -304,7 +340,8 @@ public sealed class TypeMap
     }
 
     public VplType Apply(VplType type) =>
-        type.IsNullable ? Apply(type.NonNull).Nullable
+        type.IsNullableReference ? Apply(type.ReferencedType!).NullableReference(type.ReferenceKind)
+        : type.IsNullable ? Apply(type.NonNull).Nullable
         : type.IsPointer ? Apply(type.ElementType!).PointerTo
         : type.IsFixedArray ? Apply(type.ElementType!).FixedArrayOf(type.FixedLength)
         : type.IsFunction ? Apply(type.FunctionReturnType!).FunctionReturning([.. type.FunctionParameters.Select(p => p with { Type = Apply(p.Type) })]).WithEscaping(type.IsEscaping)
@@ -317,7 +354,7 @@ public sealed class TypeMap
 /// <summary>A parameter of a function type, which prints @Escaping since its two forms print alike.</summary>
 public readonly record struct FunctionParameterType(RefKind RefKind, VplType Type)
 {
-    public override string ToString() => (Type.NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.RefPrefix(RefKind) + Type;
+    public override string ToString() => (Type.NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
 }
 
 sealed class FunctionParameterListComparer : IEqualityComparer<IReadOnlyList<FunctionParameterType>>
@@ -361,7 +398,7 @@ public static class Conversions
     /// Only conversions that can never lose information are implicit: numeric widening, and for
     /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
     /// to, and a nullable value to another nullable whose value type it converts to. An escaping
-    /// function converts to its non-escaping form.
+    /// function converts to its non-escaping form, and a <c>ref? T</c> to an <c>in? T</c>.
     /// </summary>
     public static bool IsImplicit(VplType from, VplType to) =>
         from == to
@@ -369,7 +406,8 @@ public static class Conversions
         || to == VplType.Error
         || (from.IsEscaping && to == from.NonEscaping)
         || IsNumericWidening(from, to)
-        || (from == VplType.Null && (to.IsNullable || to.IsPointer))
+        || (from == VplType.Null && (to.IsNullable || to.IsPointer || to.IsNullableReference))
+        || (from.IsNullableReference && to.IsNullableReference && to.ReferenceKind == RefKind.In && from.ReferencedType == to.ReferencedType)
         || (to.IsNullableValue && from != VplType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
 
@@ -443,7 +481,7 @@ public static class Conversions
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
         type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
         : type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
-        : !type.IsStructOrEnum ? type != VplType.Void && !type.IsTypeParameter && !type.IsFunction
+        : !type.IsStructOrEnum ? type != VplType.Void && !type.IsTypeParameter && !type.IsFunction && !type.IsNullableReference
         : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(VplType structType, HashSet<VplType> visiting)
@@ -469,7 +507,8 @@ public static class Conversions
         type.IsNullable || type.IsPointer
         || (type.IsFixedArray ? IsDefaultable(type.ElementType!, visiting)
             : type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
-            : !type.IsTypeParameter && !type.IsReference && !type.IsFunction && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
+            : !type.IsTypeParameter && !type.IsReference && !type.IsFunction && !type.IsNullableReference
+              && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));
 
     static FieldSymbol? FindNonDefaultableField(VplType structType, HashSet<VplType> visiting)
     {

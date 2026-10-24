@@ -90,6 +90,7 @@ public sealed partial class CppEmitter
     static bool MentionsPointerSized(VplType type) =>
         type == VplType.NInt || type == VplType.NUInt
         || (type.IsNullable && MentionsPointerSized(type.NonNull))
+        || (type.ReferencedType is { } referenced && MentionsPointerSized(referenced))
         || (type.ElementType is { } element && MentionsPointerSized(element))
         || type.TypeArguments.Any(MentionsPointerSized);
 
@@ -116,6 +117,7 @@ public sealed partial class CppEmitter
         static string Name(string name) => $"{name.Length}{name}";
         static string Mode(RefKind kind) => kind switch { RefKind.Ref => "r", RefKind.In => "i", _ => "v" };
         if (type.IsNullable) return "N" + Mangle(type.NonNull);
+        if (type.IsNullableReference) return "Q" + Mode(type.ReferenceKind) + Mangle(type.ReferencedType!);
         if (type.IsPointer) return "P" + Mangle(type.ElementType!);
         if (type.IsFixedArray) return $"A{type.FixedLength}_" + Mangle(type.ElementType!);
         if (type.IsFunction)

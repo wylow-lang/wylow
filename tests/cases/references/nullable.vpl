@@ -1,0 +1,182 @@
+struct Mat2 {
+    float[4] m;
+
+    ref? float at(int i) {
+        if (i < 0 || i >= 4) {
+            return null;
+        }
+        return ref m[i];
+    }
+
+    readonly in? float peek(int i) {
+        if (i < 0 || i >= 4) {
+            return null;
+        }
+        return ref m[i];
+    }
+
+    ref? float first() {
+        return ref at(0);
+    }
+
+    ref float last() {
+        return ref at(3)!;
+    }
+}
+
+class Bag {
+    mut int[3] items;
+
+    ref? int get(int i) {
+        if (i >= 3) {
+            return null;
+        }
+        return ref items[i];
+    }
+}
+
+void bump(ref? int x) {
+    if (x != null) {
+        x++;
+    }
+}
+
+int read(in? int x, int fallback = 0) {
+    if (x == null) {
+        return fallback;
+    }
+    return x;
+}
+
+int readOrMinus(in? int x = null) {
+    return x == null ? -1 : x!;
+}
+
+void set(ref int target, int value) {
+    target = value;
+}
+
+int sum(in? int a, in? int b) {
+    mut int total = 0;
+    if (a != null) {
+        total += a;
+    }
+    if (b != null) {
+        total += b;
+    }
+    return total;
+}
+
+int order(int value) {
+    print(value);
+    return value;
+}
+
+struct Slots<T> {
+    T[2] items;
+
+    ref? T find(int i) {
+        if (i < 0 || i >= 2) {
+            return null;
+        }
+        return ref items[i];
+    }
+}
+
+T orDefault<T>(in? T value, T fallback) {
+    if (value != null) {
+        return value;
+    }
+    return fallback;
+}
+
+void main() {
+    mut Mat2 m = Mat2();
+    ref? float a = m.at(1);
+    if (a != null) {
+        a = 2.5;
+    }
+    print(m.m[1]);                  // output: 2.5
+    ref? float none = m.at(9);
+    print(none == null);            // output: true
+    print(a == null);               // output: false
+
+    m.at(2)! = 4;
+    print(m.m[2]);                  // output: 4.0
+    m.at(3)! += 1;
+    print(m.m[3]);                  // output: 1.0
+    print(m.peek(2)!);              // output: 4.0
+    ref float r = m.at(0)!;
+    r = 7;
+    print(m.m[0]);                  // output: 7.0
+    ref? float f = m.first();
+    print(f!);                      // output: 7.0
+    m.last() = 9;
+    print(m.m[3]);                  // output: 9.0
+
+    mut int x = 1;
+    bump(ref x);
+    print(x);                       // output: 2
+    bump(null);
+    ref? int rx = x;
+    bump(ref rx);
+    print(x);                       // output: 3
+    print(read(x));                 // output: 3
+    print(read(null, 5));           // output: 5
+    print(read(40 + 2));            // output: 42
+    print(read(rx));                // output: 3
+    print(readOrMinus());           // output: -1
+    if (rx != null) {
+        rx += 10;
+        print(rx + 1);              // output: 14
+        int copy = rx;
+        print(copy);                // output: 13
+        set(ref rx, 20);
+    }
+    print(x);                       // output: 20
+    ref? int nothing = null;
+    print(nothing == null);         // output: true
+
+    // A reference holds the object it points into, even after the variable is reassigned.
+    mut var bag = new Bag();
+    ref? int slot = bag.get(1);
+    ref? int past = bag.get(3);
+    bag = new Bag();
+    if (slot != null) {
+        slot = 5;
+        print(slot);                // output: 5
+    }
+    print(past == null);            // output: true
+
+    // Arguments are evaluated left to right, and a temporary lives until the call returns.
+    print(sum(order(1) + 1, order(2)));
+    // output: 1
+    // output: 2
+    // output: 4
+    print(sum(null, m.at(order(1))! == 2.5 ? order(5) : 0));
+    // output: 1
+    // output: 5
+    // output: 5
+
+    mut Slots<int> slots = Slots<int>();
+    slots.find(1)! = 8;
+    ref? int found = slots.find(1);
+    print(orDefault(found, 0));     // output: 8
+    print(orDefault(slots.find(2), 3)); // output: 3
+
+    in? int view = found;
+    print(view!);                   // output: 8
+    ref? var inferred = slots.find(0);
+    ref? var place = x;
+    inferred! = place!;
+    print(slots.items[0]);          // output: 20
+
+    (ref? int) -> void clear = (ref? int p) -> {
+        if (p != null) {
+            p = 0;
+        }
+    };
+    clear(ref found);
+    clear(null);
+    print(slots.items[1]);          // output: 0
+}

@@ -149,11 +149,11 @@ public sealed record BoundLiteral(Location Location, VplType Type, object Value)
 public sealed record BoundNullLiteral(Location Location) : BoundExpression(Location, VplType.Null);
 
 /// <summary>
-/// With <see cref="AssumesNonNull"/>, a nullable local used as its non-null type; flow analysis
-/// checks that it has been narrowed by a null check.
+/// With <see cref="AssumesNonNull"/>, a nullable local used as its non-null type, or a <c>ref?</c>
+/// local as the place it refers to; flow analysis checks that it has been narrowed by a null check.
 /// </summary>
 public sealed record BoundLocalAccess(Location Location, LocalSymbol Local, bool AssumesNonNull = false)
-    : BoundExpression(Location, AssumesNonNull ? Local.Type.NonNull : Local.Type);
+    : BoundExpression(Location, AssumesNonNull ? Local.Type.Narrowed : Local.Type);
 
 public enum BoundUnaryOperator { Negate, LogicalNot, BitwiseNot }
 
@@ -220,8 +220,8 @@ public sealed record BoundCall(
 public sealed record BoundNew(Location Location, VplType Type, MethodReference Constructor, IReadOnlyList<BoundExpression> Arguments)
     : BoundExpression(Location, Type);
 
-/// <summary><c>operand!</c>: panics if the operand is null.</summary>
-public sealed record BoundNonNull(Location Location, BoundExpression Operand) : BoundExpression(Location, Operand.Type.NonNull);
+/// <summary><c>operand!</c>: panics if the operand is null. Of a <c>ref?</c>, it is the place referred to.</summary>
+public sealed record BoundNonNull(Location Location, BoundExpression Operand) : BoundExpression(Location, Operand.Type.Narrowed);
 
 /// <summary><c>left ?? right</c>; <see cref="Right"/> is evaluated only when <see cref="Left"/> is null.</summary>
 public sealed record BoundCoalesce(Location Location, BoundExpression Left, BoundExpression Right, VplType Type)
@@ -389,6 +389,7 @@ public static class BoundTree
         BoundFieldAccess { Receiver.Type.IsReference: false } field => NullableValueRoot(field.Receiver),
         BoundIndex { Target.Type.IsFixedArray: true } index => NullableValueRoot(index.Target),
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { Type.IsReference: false } receiver } => NullableValueRoot(receiver),
+        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => NullableValueRoot(nonNull.Operand),
         _ => null,
     };
 

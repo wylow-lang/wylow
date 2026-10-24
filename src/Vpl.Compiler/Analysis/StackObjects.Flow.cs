@@ -138,7 +138,8 @@ public sealed partial class StackObjects
                     if (analysis.BorrowsLetEscape(creation.Type))
                         escaping.Add(creation);
                     return [creation];
-                case BoundConversion conversion when HoldsReference(conversion.Type):
+                // A 'ref?' is a reference to its operand, as a 'ref' is to the place itself.
+                case BoundConversion conversion when HoldsReference(conversion.Type) || conversion.Type.IsNullableReference:
                     return Value(conversion.Operand);
                 case BoundNonNull nonNull:
                     return Value(nonNull.Operand);

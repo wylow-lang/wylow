@@ -11,6 +11,7 @@ public sealed partial class CppEmitter
 {
     static string ParameterType(VplType type, RefKind refKind) => refKind switch
     {
+        _ when type.IsNullableReference => CppType(type),
         RefKind.Ref => CppType(type) + "&",
         RefKind.In => $"const {CppType(type)}&",
         _ => CppType(type),
@@ -478,7 +479,7 @@ public sealed partial class CppEmitter
             Line($"auto {pin} = {Hold(place, root)};");
             replacements[root] = pin;
         }
-        if (local.RefKind == RefKind.None)
+        if (local.RefKind == RefKind.None || local.Type.IsNullableReference)
             Line($"[[maybe_unused]] {CppType(local.Type)} {LocalName(local)} = {Expression(place)};");
         else
             Line($"[[maybe_unused]] {(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {LocalName(local)} = {Expression(place)};");

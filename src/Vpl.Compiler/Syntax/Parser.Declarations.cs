@@ -164,7 +164,8 @@ public sealed partial class Parser
             return;
         }
 
-        var returnRefKind = ParseRefKind();
+        int typeStart = position;
+        var (returnRefKind, mayBeNull) = ParseRefKind();
         if (!SyntaxFacts.IsTypeStart(Current.Kind))
         {
             Error(Current.Span, At(TokenKind.ReservedKeyword)
@@ -175,6 +176,8 @@ public sealed partial class Parser
         }
 
         var type = ParseType();
+        if (mayBeNull)
+            type = NullableReferenceType(typeStart, returnRefKind, type);
         if (At(TokenKind.OperatorKeyword))
         {
             int operatorStart = position;
@@ -215,7 +218,11 @@ public sealed partial class Parser
             return;
         }
         if (returnRefKind != RefKind.None)
+        {
             Error(name.Span, "fields cannot be references; only methods can return 'ref' or 'in'");
+            if (mayBeNull)
+                type = type.Element!;
+        }
 
         if (kind == TypeKind.Interface)
             Error(name.Span, "interfaces cannot have fields");
@@ -379,8 +386,11 @@ public sealed partial class Parser
                     Error(Current.Span, "a variant's fields cannot be 'mut'; an enum value is only ever replaced as a whole");
                 else if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
                     Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
-                var (isMutable, refKind) = ParseBindingMode("parameter");
+                int modeStart = position;
+                var (isMutable, refKind, mayBeNull) = ParseBindingMode("parameter");
                 var type = ParseType();
+                if (mayBeNull && allowRefKinds)
+                    type = NullableReferenceType(modeStart, refKind, type);
                 var parameterName = Expect(TokenKind.Identifier, allowRefKinds ? "a parameter name" : "a field name");
                 var location = LocationFrom(parameterStart);
                 Expr? defaultValue = null;

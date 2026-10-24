@@ -28,7 +28,8 @@ public sealed partial class CppEmitter
     /// object receiver; both are held by a strong reference while the operation runs.
     /// <see cref="Keep"/> marks a by-value argument whose copy must be owned by the caller; see <c>vpl::keep</c>.
     /// <see cref="Copy"/> marks a value that must be copied out of its place, since what it is passed
-    /// to refers to it while the place may change.
+    /// to refers to it while the place may change. <see cref="TakesAddress"/> marks a place passed
+    /// to a <c>ref?</c> or <c>in?</c> parameter, as a pointer to it.
     /// </summary>
     readonly record struct Operand(
         BoundExpression Expression,
@@ -36,7 +37,8 @@ public sealed partial class CppEmitter
         BoundExpression? PinRoot = null,
         bool PinValue = false,
         bool Keep = false,
-        bool Copy = false);
+        bool Copy = false,
+        bool TakesAddress = false);
 
     StringBuilder output = new();
     readonly Dictionary<TypeSymbol, bool> needsDefaultFunction = new();
@@ -219,6 +221,8 @@ public sealed partial class CppEmitter
     {
         if (type.TypeParameter is { } parameter) return TypeParameterName(parameter);
         if (type.IsPointer) return CppType(type.ElementType!) + "*";
+        // A reference that may refer to nothing is a pointer, null when it refers to nothing.
+        if (type.IsNullableReference) return (type.ReferenceKind == RefKind.In ? "const " : "") + CppType(type.ReferencedType!) + "*";
         if (type.IsFixedArray) return $"std::array<{CppType(type.ElementType!)}, {type.FixedLength}>";
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
         // A local holding a lambda is `auto`, and a template parameter its own type; see CppEmitter.Lambdas.cs.

@@ -170,15 +170,17 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             case BoundAssignment assignment:
             {
                 // Assigning a whole local initializes it; assigning a field requires its root to be
-                // initialized. Like evaluation, analysis finds the target before the value.
+                // initialized. Like evaluation, analysis finds the target before the value. Assigning
+                // a 'ref?' variable assigns the place it refers to, so it must refer to one.
                 bool initializesField = assignment.Target is BoundFieldAccess { Receiver: BoundThis } && requiredFields.Count > 0;
-                if (assignment.Target is not BoundLocalAccess && !initializesField)
+                bool assignsReferenced = assignment.Target is BoundLocalAccess { Local.Type.IsNullableReference: true };
+                if ((assignment.Target is not BoundLocalAccess || assignsReferenced) && !initializesField)
                 {
                     CheckNullableValueKept(assignment.Target, RefPassedLocals(assignment.Value));
                     state = Expression(assignment.Target, state);
                 }
                 state = Expression(assignment.Value, state);
-                if (assignment.Target is BoundLocalAccess target)
+                if (assignment.Target is BoundLocalAccess target && !assignsReferenced)
                 {
                     // Assigning a 'ref' variable assigns the place it refers to.
                     if (target.Local is { IsMutable: false, RefKind: RefKind.None } && state.Reachable && state.MaybeAssigned.Contains(target.Local))
@@ -204,8 +206,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             case BoundSuperCall super:
                 foreach (var argument in super.Arguments)
                     state = Expression(argument, state);
-                foreach (var local in RefArguments(super.Constructor, super.Arguments))
-                    state.NonNull.Remove(local);
+                Unnarrow(state, RefArguments(super.Constructor, super.Arguments));
                 return state;
 
             case BoundIf ifStatement:
@@ -305,19 +306,29 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// <summary>
     /// Only a variable that nothing else can assign can be narrowed: through another reference to
     /// the same variable, a 'ref' or 'in' one could become null after the check, and so could one
-    /// a lambda assigns.
+    /// a lambda assigns. A 'ref?' variable always can, since nothing can make it refer elsewhere.
     /// </summary>
     static void Narrow(State state, LocalSymbol local)
     {
-        if (local.RefKind == RefKind.None && !local.IsAssignedByLambda)
+        if (local.Type.IsNullableReference || (local.RefKind == RefKind.None && !local.IsAssignedByLambda))
             state.NonNull.Add(local);
+    }
+
+    /// <summary>Ends the narrowing of locals that may have been assigned. Assigning a 'ref?' variable assigns the place it refers to.</summary>
+    static void Unnarrow(State state, IEnumerable<LocalSymbol> locals)
+    {
+        foreach (var local in locals)
+        {
+            if (!local.Type.IsNullableReference)
+                state.NonNull.Remove(local);
+        }
     }
 
     static bool IsNonNull(BoundExpression value, State state) => value switch
     {
         BoundConversion conversion => IsNonNull(conversion.Operand, state),
-        BoundLocalAccess access => !access.Type.IsNullable || state.IsNonNull(access.Local),
-        _ => !value.Type.IsNullable && value.Type != VplType.Null,
+        BoundLocalAccess access => !access.Type.MayBeNull || state.IsNonNull(access.Local),
+        _ => !value.Type.MayBeNull && value.Type != VplType.Null,
     };
 
     /// <summary>
@@ -328,11 +339,9 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     static State LoopEntry(State state, BoundStatement body)
     {
         var entry = state.Clone();
-        foreach (var local in AssignedLocals(body))
-        {
-            entry.NonNull.Remove(local);
-            entry.MaybeAssigned.Add(local);
-        }
+        var assigned = AssignedLocals(body).ToList();
+        Unnarrow(entry, assigned);
+        entry.MaybeAssigned.UnionWith(assigned);
         return entry;
     }
 
@@ -487,7 +496,11 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 else if (access.AssumesNonNull && !state.IsNonNull(access.Local))
                 {
                     var local = access.Local;
-                    ReportOnce(access, access.Location, local.RefKind != RefKind.None
+                    ReportOnce(access, access.Location, local.Type.IsNullableReference
+                        ? narrowedOutside.Contains(local)
+                            ? $"'{local.Name}' might refer to nothing here: null checks outside a lambda don't narrow inside it; check it inside"
+                            : $"'{local.Name}' might refer to nothing here; check it with 'if ({local.Name} != null)', or use '!'"
+                        : local.RefKind != RefKind.None
                         ? $"'{local.Name}' might be null here: a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {(local.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
                         : local.IsAssignedByLambda
                         ? $"'{local.Name}' might be null here: a lambda assigns it, so null checks don't narrow it; copy it to a local first, or use '!'"
@@ -550,8 +563,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 CheckNullableValuesKept(expression);
                 foreach (var child in BoundTree.Children(expression))
                     state = Expression(child, state);
-                foreach (var local in RefArguments(expression))
-                    state.NonNull.Remove(local);
+                Unnarrow(state, RefArguments(expression));
                 return state;
         }
     }

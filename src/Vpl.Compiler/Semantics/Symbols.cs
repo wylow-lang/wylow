@@ -154,7 +154,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
             if (IsProperty)
                 return Name;
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
-            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + RefPrefix(p.RefKind) + p.Type));
+            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + ParameterText(p.RefKind, p.Type)));
             return $"{Name}{typeParameters}({parameters})";
         }
     }
@@ -165,6 +165,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
         RefKind.In => "in ",
         _ => "",
     };
+
+    /// <summary>A parameter's mode and type as written: <c>ref int</c>, or <c>ref? int</c>, whose type names its mode.</summary>
+    public static string ParameterText(RefKind kind, VplType type) => type.IsNullableReference ? type.Name : RefPrefix(kind) + type;
 
     public override string ToString() => Signature;
 }

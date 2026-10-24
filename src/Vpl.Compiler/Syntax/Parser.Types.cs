@@ -180,8 +180,10 @@ public sealed partial class Parser
             do
             {
                 var annotations = ParseAnnotations();
-                var refKind = ParseRefKind();
-                parameters.Add(new FunctionTypeParameter(refKind, ParseType()) { Annotations = annotations });
+                int start = position;
+                var (refKind, mayBeNull) = ParseRefKind();
+                var type = ParseType();
+                parameters.Add(new FunctionTypeParameter(refKind, mayBeNull ? NullableReferenceType(start, refKind, type) : type) { Annotations = annotations });
             } while (Accept(TokenKind.Comma));
         }
         Expect(TokenKind.CloseParen, "')'");
@@ -251,7 +253,7 @@ public sealed partial class Parser
                 index += 2;
             bool hasRefKind = KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword;
             if (hasRefKind)
-                index++;
+                index += KindAt(index + 1) == TokenKind.Question ? 2 : 1;
             groupsFunctionType = count == 1 && !hasRefKind && KindAt(index) == TokenKind.OpenParen;
             index = ScanType(index);
             if (index < 0)

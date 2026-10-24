@@ -17,6 +17,7 @@ struct Grid {
     int size() {
         return 4;
     }
+    ref? int first;                // error: fields cannot be references; only methods can return 'ref' or 'in'
 }
 
 static void g() {                  // error: 'static' is not valid on a function

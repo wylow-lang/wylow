@@ -201,6 +201,12 @@ public sealed partial class Binder
             Error(initializer.Location, "cannot infer a type from 'null'; declare the variable with a nullable type instead of 'var'");
             type = VplType.Error;
         }
+        else if (initializer.Type.IsNullableReference)
+        {
+            var keyword = FunctionSymbol.RefPrefix(initializer.Type.ReferenceKind).Trim();
+            Error(initializer.Location, $"'{TextOf(initializer.Location)}' is a reference that may refer to nothing; refer to it with '{keyword}? var', or copy what it refers to with '!'");
+            type = VplType.Error;
+        }
         else
         {
             (type, initializer) = InferVariableType(s, initializer);
@@ -219,10 +225,14 @@ public sealed partial class Binder
         return new BoundVariableDeclaration(s.Location, local, initializer);
     }
 
-    /// <summary><c>ref T x = place;</c> or <c>in T x = place;</c>, which name a place for the rest of the scope.</summary>
+    /// <summary>
+    /// <c>ref T x = place;</c> or <c>in T x = place;</c>, which name a place for the rest of the
+    /// scope, or <c>ref? T x = ...;</c>, which may name none.
+    /// </summary>
     BoundStatement BindRefLocal(VarDeclStmt s)
     {
-        var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim();
+        bool mayBeNull = s.Type is { Shape: TypeShape.NullableReference };
+        var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim() + (mayBeNull ? "?" : "");
         foreach (var annotation in s.Annotations)
         {
             if (annotation.Name == "Escaping")
@@ -230,20 +240,78 @@ public sealed partial class Binder
             else
                 ReportMisplacedAnnotation(annotation);
         }
-        var declared = s.Type is null ? null : BindType(s.Type, allowVoid: false);
+        var typeSyntax = mayBeNull ? s.Type!.Element : s.Type;
+        var declared = typeSyntax is null ? null : BindType(typeSyntax, allowVoid: false);
+        if (mayBeNull && declared is not null && declared != VplType.Error && !CheckReferencedType(declared, keyword, typeSyntax!.Location))
+            declared = VplType.Error;
         var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
-        var type = declared ?? place?.Type ?? VplType.Error;
+        if (place is not null && !mayBeNull)
+            place = NarrowReference(place);
+        var type = declared ?? place?.Type.ReferencedType ?? place?.Type ?? VplType.Error;
+        BoundExpression? initializer = null;
+        var what = $"a '{keyword}' variable";
         if (place is null)
-            Error(s.Location, $"a '{keyword}' variable must be initialized with the variable, field, or element it refers to");
-        else if (type != VplType.Error && place.Type != VplType.Error && CheckReference(place, s.RefKind, type, $"a '{keyword}' variable"))
-            type = place.Type;
-        else
-            place = null;
-
-        var local = new LocalSymbol(s.Name, type, isParameter: false, s.RefKind);
+            Error(s.Location, $"{what} must be initialized with the variable, field, or element it refers to");
+        else if (place.Type == VplType.Null && declared is null)
+        {
+            Error(place.Location, $"cannot infer a type from 'null'; declare the type {what} refers to instead of 'var'");
+            type = VplType.Error;
+        }
+        else if (type != VplType.Error && place.Type != VplType.Error)
+        {
+            initializer = mayBeNull ? ConvertToNullableReference(place, type.NullableReference(s.RefKind), what)
+                : CheckReference(place, s.RefKind, type, what) ? place
+                : null;
+        }
+        var local = new LocalSymbol(s.Name, mayBeNull && type != VplType.Error ? type.NullableReference(s.RefKind) : type, isParameter: false, s.RefKind);
         Declare(local, s.NameLocation);
         // Declared even after an error, so later uses aren't reported as unassigned.
-        return new BoundVariableDeclaration(s.Location, local, place ?? new BoundErrorExpression(s.Location));
+        return new BoundVariableDeclaration(s.Location, local, initializer ?? new BoundErrorExpression(s.Location));
+    }
+
+    /// <summary>
+    /// The reference a <c>ref?</c> or <c>in?</c> of type <paramref name="type"/> takes from
+    /// <paramref name="value"/>: <c>null</c>, another reference that may refer to nothing, or a place,
+    /// as a <c>ref</c> or <c>in</c> would take it. Null after reporting why it can't;
+    /// <paramref name="what"/> names the reference in messages.
+    /// </summary>
+    BoundExpression? ConvertToNullableReference(BoundExpression value, VplType type, string what)
+    {
+        if (value.Type == VplType.Error)
+            return null;
+        if (value.Type == VplType.Null)
+            return new BoundConversion(value.Location, type, value);
+        if (!value.Type.IsNullableReference)
+            return CheckReference(value, type.ReferenceKind, type.ReferencedType!, what) ? new BoundConversion(value.Location, type, value) : null;
+
+        var (kind, reason) = ClassifyPlace(value);
+        if (value.Type.ReferencedType != type.ReferencedType)
+            Error(value.Location, $"{what} must have exactly the type of what it refers to, '{value.Type.ReferencedType}', not '{type.ReferencedType}'");
+        else if (kind == PlaceKind.Temporary)
+            Error(value.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
+        else if (kind == PlaceKind.ReadOnly && type.ReferenceKind == RefKind.Ref)
+            Error(value.Location, $"cannot take a 'ref?' to what '{TextOf(value.Location)}' refers to, because {reason}; use 'in?' instead");
+        else if (BoundTree.NullableValueRoot(value) is { } root)
+            Error(value.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
+        else
+            return value.Type == type ? value : new BoundConversion(value.Location, type, value);
+        return null;
+    }
+
+    /// <summary>A reference can't refer to a class object or a function, which are never copied anyway.</summary>
+    bool CheckReferencedType(VplType type, string keyword, Location location)
+    {
+        if (type.IsReference)
+        {
+            Error(location, $"'{keyword}' cannot be used with type '{type}'; class objects are already references");
+            return false;
+        }
+        if (type.IsFunction)
+        {
+            Error(location, $"'{keyword}' cannot be used with type '{type}'; functions are already passed without copying");
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -252,15 +320,11 @@ public sealed partial class Binder
     /// </summary>
     bool CheckReference(BoundExpression place, RefKind refKind, VplType type, string what)
     {
-        var keyword = FunctionSymbol.RefPrefix(refKind).Trim();
-        if (type.IsReference)
-        {
-            Error(place.Location, $"'{keyword}' cannot be used with type '{type}'; class objects are already references");
+        if (!CheckReferencedType(type, FunctionSymbol.RefPrefix(refKind).Trim(), place.Location))
             return false;
-        }
-        if (type.IsFunction)
+        if (place.Type.IsNullableReference && place.Type.ReferencedType == type)
         {
-            Error(place.Location, $"'{keyword}' cannot be used with type '{type}'; functions are already passed without copying");
+            Error(place.Location, MayReferToNothingMessage(place));
             return false;
         }
         if (place.Type != type)
@@ -363,26 +427,37 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// <c>return ref place;</c>. The caller treats the reference as borrowing the receiver, so it
-    /// must point into the receiver's own storage: <c>this</c>, its fields and elements, or, in
-    /// unsafe code, a pointer's target.
+    /// <c>return ref place;</c>, or <c>return null;</c> from a method returning <c>ref?</c>. The
+    /// caller treats the reference as borrowing the receiver, so it must point into the receiver's
+    /// own storage: <c>this</c>, its fields and elements, or, in unsafe code, a pointer's target.
     /// </summary>
     BoundStatement BindReturnReference(ReturnStmt s, FunctionSymbol function)
     {
-        var keyword = FunctionSymbol.RefPrefix(function.ReturnRefKind).Trim();
-        var place = BindExpression(s.Value!, function.ReturnType);
+        var returnType = function.ReturnType;
+        var keyword = FunctionSymbol.RefPrefix(function.ReturnRefKind).Trim() + (returnType.IsNullableReference ? "?" : "");
+        var referenced = returnType.ReferencedType ?? returnType;
+        var place = BindExpression(s.Value!, referenced);
+        if (!returnType.IsNullableReference)
+            place = NarrowReference(place);
         if (function.ReturnRefKind == RefKind.None)
             Error(s.Location, "'return ref' can only be used in a method that returns 'ref' or 'in'");
+        else if (!s.IsRef && returnType.IsNullableReference && place.Type == VplType.Null)
+            return new BoundReturn(s.Location, new BoundConversion(place.Location, returnType, place));
         else if (!s.IsRef)
-            Error(s.Location, $"'{function.Name}' returns a reference; return a place with 'return ref'");
+            Error(s.Location, $"'{function.Name}' returns a reference; return a place with 'return ref'{(returnType.IsNullableReference ? ", or 'return null'" : "")}");
         // A return type that cannot be a reference was reported with the method.
-        else if (function.ReturnType.IsReference || function.ReturnType == VplType.Void)
+        else if (referenced.IsReference || referenced == VplType.Void)
             return new BoundReturn(s.Location, null);
-        else if (place.Type != VplType.Error && CheckReference(place, function.ReturnRefKind, function.ReturnType, $"a returned '{keyword}'"))
+        else if (place.Type != VplType.Error)
         {
-            if (IsThisRooted(place))
-                return new BoundReturn(s.Location, place);
-            Error(s.Value!.Location, $"a returned '{keyword}' must point into the method's receiver: a field or element of 'this'");
+            var what = $"a returned '{keyword}'";
+            var reference = returnType.IsNullableReference ? ConvertToNullableReference(place, returnType, what)
+                : CheckReference(place, function.ReturnRefKind, returnType, what) ? place
+                : null;
+            if (reference is not null && IsThisRooted(place))
+                return new BoundReturn(s.Location, reference);
+            if (reference is not null)
+                Error(s.Value!.Location, $"{what} must point into the method's receiver: a field or element of 'this'");
         }
         return new BoundReturn(s.Location, null);
     }
@@ -396,6 +471,7 @@ public sealed partial class Binder
         BoundIndex index => IsThisRooted(index.Target),
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { } receiver } =>
             receiver is BoundThis || (!receiver.Type.IsReference && IsThisRooted(receiver)),
+        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => IsThisRooted(nonNull.Operand),
         _ => false,
     };
 
@@ -429,7 +505,8 @@ public sealed partial class Binder
 
     BoundStatement BindAssignment(AssignStmt s)
     {
-        var target = BindExpression(s.Target);
+        // Assigning through a reference assigns the place it refers to.
+        var target = NarrowReference(BindExpression(s.Target));
         var value = s.Operator == TokenKind.Assign ? BindValue(s.Value, target.Type) : BindExpression(s.Value);
         if (target.Type == VplType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
@@ -441,7 +518,7 @@ public sealed partial class Binder
 
     BoundStatement BindIncDec(IncDecStmt s)
     {
-        var target = BindExpression(s.Target);
+        var target = NarrowReference(BindExpression(s.Target));
         if (target.Type == VplType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
         var operand = target.Type.IsNullableValue ? AssumeNonNull(target) : target;
@@ -475,6 +552,7 @@ public sealed partial class Binder
         BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
         BoundIndex index => ClassifyPlace(index.Target),
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call),
+        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => ClassifyPlace(nonNull.Operand),
         _ => (PlaceKind.Temporary, ""),
     };
 
@@ -495,6 +573,11 @@ public sealed partial class Binder
 
     bool CheckAssignable(BoundExpression target)
     {
+        if (target.Type.IsNullableReference)
+        {
+            Error(target.Location, MayReferToNothingMessage(target));
+            return false;
+        }
         if (target.Type.IsRefStruct)
         {
             Error(target.Location, $"'{TextOf(target.Location)}' cannot be reassigned: a '{target.Type}' views what it was initialized with for its whole scope; declare a new variable instead");

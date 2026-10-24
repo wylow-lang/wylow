@@ -32,7 +32,7 @@ public sealed partial class Binder
         var start = BindExpression(s.Iterable);
         var end = BindExpression(s.RangeEnd!);
         var element = s.Element;
-        var declared = element.Type is null ? null : BindType(element.Type, allowVoid: false);
+        var declared = LoopVariableType(element) is { } typeSyntax ? BindType(typeSyntax, allowVoid: false) : null;
         if (s.Index is not null)
             Error(s.Index.Location, "a range has no index; loop over its values alone");
         if (element.RefKind != RefKind.None)
@@ -88,6 +88,16 @@ public sealed partial class Binder
         BindLoopBody(s.Body);
         Error(s.Iterable.Location, $"cannot loop over '{iterable.Type}'");
         return ErrorStatement(s.Location);
+    }
+
+    /// <summary>The type a loop variable declares, if it isn't 'var'. Every element exists, so it can't be <c>ref?</c>.</summary>
+    TypeSyntax? LoopVariableType(ForEachVariable variable)
+    {
+        if (variable.Type is not { Shape: TypeShape.NullableReference } syntax)
+            return variable.Type;
+        var keyword = FunctionSymbol.RefPrefix(syntax.ReferenceKind).Trim();
+        Error(syntax.Location, $"a loop's elements always exist, so its variable is '{keyword}', not '{keyword}?'");
+        return syntax.Element;
     }
 
     void DeclareLoopVariables(ForEachStmt s, VplType elementType)
@@ -178,7 +188,7 @@ public sealed partial class Binder
         {
             if (indexSyntax.RefKind != RefKind.None)
                 Error(indexSyntax.Location, "the index cannot be borrowed; it is a copy of the position");
-            if (indexSyntax.Type is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != VplType.Int && bound != VplType.Error)
+            if (LoopVariableType(indexSyntax) is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != VplType.Int && bound != VplType.Error)
                 Error(indexType.Location, $"the index of a loop is an 'int', not '{bound}'");
             var index = new LocalSymbol(indexSyntax.Name, VplType.Int, isParameter: false) { IsMutable = indexSyntax.IsMutable };
             Declare(index, indexSyntax.NameLocation);
@@ -186,7 +196,7 @@ public sealed partial class Binder
         }
 
         var elementSyntax = s.Element;
-        var declared = elementSyntax.Type is null ? null : BindType(elementSyntax.Type, allowVoid: false);
+        var declared = LoopVariableType(elementSyntax) is { } typeSyntax ? BindType(typeSyntax, allowVoid: false) : null;
         var type = declared ?? element?.Type ?? VplType.Error;
         BoundExpression? value = element;
         if (element is null || type == VplType.Error)

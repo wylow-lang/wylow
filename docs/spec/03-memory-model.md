@@ -481,12 +481,24 @@ if (found != null) {
   assigns to the place. `x!` gives the place or panics.
 - It converts implicitly from `ref T` to `ref? T`, and from `ref` to `in`, never the other way.
 - It compiles to a C++ pointer that is null when there is no place, so it costs nothing over `ref`.
+- It is initialized or passed like a `ref`, or with `null`: `ref? T x = place;`, `ref? T x = null;`,
+  and `ref? var x = pool.get(h);`, which takes the type of what it is initialized with. A `ref?`
+  parameter takes `ref place`, `ref other` for another `ref?`, or `null`, which needs no `ref`, and
+  may default to `null`. An `in?` parameter takes whatever an `in` one takes, including a temporary
+  value, as well as `null` and any `ref?` or `in?`.
+- Where it is narrowed, it is used as the place: `found.health -= 10`, `found = Enemy(...)` (which
+  assigns the place), or passed by `ref`. A narrowing outside a lambda doesn't carry into it.
+- It is not a value: `var x = pool.get(h);` is an error (write `ref? var`, or copy with `!`), and so
+  are `?.` and `??` on one, a `?:` or switch expression producing one, and using one as a type
+  argument.
+- Overloads cannot differ only in `ref` and `ref?` (`f(ref int)` and `f(ref? int)`), since
+  `f(ref x)` could call either.
 
 C# has no such type: `CollectionsMarshal.GetValueRefOrNullRef` returns a plain `ref` that may be
 null, which the caller must remember to test with `Unsafe.IsNullRef`. Rust's `Option<&mut T>` is
 the model.
 
-> Not implemented yet.
+> Implemented so far: everything above except `x is ref T name` patterns.
 
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms

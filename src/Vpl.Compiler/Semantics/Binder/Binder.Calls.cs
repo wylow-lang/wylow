@@ -203,12 +203,12 @@ public sealed partial class Binder
         if (receiver.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
         // A field of function type is called like a method: `button.onClick(5)`.
-        if (MethodCandidates(receiver.Type.NonNull, member.Name).Count == 0
+        if (MethodCandidates(receiver.Type.Narrowed, member.Name).Count == 0
             && LookupField(receiver.Type, member.Name) is var (field, owner) && TypeMap.For(owner).Apply(field.Type).NonNull.IsFunction)
         {
             return BindInvocation(e, BindFieldAccess(member.Location, receiver, member.Name, member.NameLocation), pending);
         }
-        var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.NonNull, member.Name));
+        var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.Narrowed, member.Name));
         if (AnyError(receiverArguments))
             return new BoundErrorExpression(e.Location);
         receiver = RequireNonNull(receiver);
@@ -319,6 +319,11 @@ public sealed partial class Binder
         var receiver = BindExpression(e.Target);
         if (receiver.Type == VplType.Error)
             return null;
+        if (receiver.Type.IsNullableReference)
+        {
+            Error(e.Target.Location, $"'?.' cannot be used on '{receiver.Type}'; check it for null first, or use '!'");
+            return null;
+        }
         if (!receiver.Type.IsNullable)
         {
             Error(e.Target.Location, $"'?.' is only needed on nullable values, and '{receiver.Type}' is not nullable; use '.'");
@@ -405,18 +410,25 @@ public sealed partial class Binder
         for (int i = 0; i < arguments.Count; i++)
         {
             var argument = arguments[i];
+            var parameterType = method.ParameterType(i);
             if (method.ParameterRefKind(i) != RefKind.Ref)
             {
-                result.Add(Convert(argument.Expression, method.ParameterType(i)));
+                result.Add(Convert(argument.Expression, parameterType));
+                continue;
+            }
+            if (parameterType.IsNullableReference)
+            {
+                result.Add(ConvertToNullableReference(argument.Expression, parameterType, "a 'ref?' argument") ?? new BoundErrorExpression(argument.Location));
                 continue;
             }
 
-            var (kind, reason) = ClassifyPlace(argument.Expression);
+            var place = NarrowReference(argument.Expression);
+            var (kind, reason) = ClassifyPlace(place);
             if (kind == PlaceKind.Temporary)
                 Error(argument.Location, "a 'ref' argument must be a variable or field");
             else if (kind == PlaceKind.ReadOnly)
-                Error(argument.Location, $"cannot pass '{TextOf(argument.Expression.Location)}' by 'ref' because {reason}");
-            result.Add(argument.Expression);
+                Error(argument.Location, $"cannot pass '{TextOf(place.Location)}' by 'ref' because {reason}");
+            result.Add(place);
         }
         return result;
     }

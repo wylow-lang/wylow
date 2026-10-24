@@ -194,7 +194,7 @@ public sealed class ElementAliasing
                     AssignedLocals.Add(local.Local);
                     Summary.Add(new Write(target.Type, Element: false));
                     break;
-                case BoundLocalAccess or BoundIndex or BoundCall or BoundThis:
+                case BoundLocalAccess or BoundIndex or BoundCall or BoundThis or BoundNonNull:
                     Summary.Add(new Write(target.Type, Element: true));
                     break;
                 default:

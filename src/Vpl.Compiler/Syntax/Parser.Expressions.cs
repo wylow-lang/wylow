@@ -78,7 +78,7 @@ public sealed partial class Parser
     {
         int start = position;
         var annotations = ParseAnnotations();
-        var (isMutable, refKind) = ParseBindingMode("parameter");
+        var (isMutable, refKind, mayBeNull) = ParseBindingMode("parameter");
         if (refKind == RefKind.None && At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
         {
             var untyped = Advance();
@@ -89,6 +89,8 @@ public sealed partial class Parser
             };
         }
         var type = ParseType();
+        if (mayBeNull)
+            type = NullableReferenceType(start, refKind, type);
         var name = Expect(TokenKind.Identifier, "a parameter name");
         return new LambdaParameterSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span))
         {

@@ -15,6 +15,11 @@ public sealed partial class Binder
     /// <summary>Reports a second-class type used where it could be stored; <paramref name="what"/> names the use.</summary>
     bool CheckStorable(VplType type, Location location, string what)
     {
+        if (type.IsNullableReference)
+        {
+            Error(location, $"'{type}' cannot be {what}; it can only be held by a '{FunctionSymbol.RefPrefix(type.ReferenceKind).Trim()}?' variable or parameter");
+            return false;
+        }
         if (!type.IsRefStruct)
             return true;
         Error(location, $"'{type}' cannot be {what}; like a 'ref', it can only be a local variable or parameter");

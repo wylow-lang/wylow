@@ -160,12 +160,14 @@ public sealed partial class Binder
     /// <summary>
     /// Identifies a method signature as seen from a type whose type arguments <paramref name="map"/>
     /// applies. A function's own type parameters compare by position. Nullability is ignored, since
-    /// <c>T</c> and <c>T?</c> are the same type at runtime and can't be told apart by overloading.
+    /// <c>T</c> and <c>T?</c> are the same type at runtime and can't be told apart by overloading,
+    /// and so is a reference's, since <c>ref x</c> could be passed to either.
     /// </summary>
     static string MethodKey(FunctionSymbol function, TypeMap map)
     {
         string Key(VplType type) =>
-            type.IsNullable ? Key(type.NonNull)
+            type.IsNullableReference ? Key(type.ReferencedType!)
+            : type.IsNullable ? Key(type.NonNull)
             : type.TypeParameter is { } p && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
             : type.Symbol is { } s && type.TypeArguments.Count > 0 ? $"{s.Name}<{string.Join(",", type.TypeArguments.Select(Key))}>"
             : type.Name;
@@ -192,12 +194,14 @@ public sealed partial class Binder
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             if (parameter.IsMutable && IsNonEscapingFunction(type))
                 Error(parameter.Location, NonEscapingMutMessage);
-            if (parameter.Default is not null && parameter.RefKind == RefKind.Ref)
+            // A 'ref?' parameter can default to null.
+            bool mustRefer = parameter.RefKind == RefKind.Ref && !type.IsNullableReference;
+            if (parameter.Default is not null && mustRefer)
                 Error(parameter.Default.Location, "a 'ref' parameter cannot have a default value, since it must refer to a variable");
             var local = new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind)
             {
                 IsMutable = parameter.IsMutable,
-                DefaultSyntax = parameter.RefKind == RefKind.Ref ? null : parameter.Default,
+                DefaultSyntax = mustRefer ? null : parameter.Default,
             };
             if (local.DefaultSyntax is not null)
                 local.DefaultDeclaration = local;
@@ -415,15 +419,16 @@ public sealed partial class Binder
     void CheckReturnsReference(FunctionSymbol method)
     {
         var location = method.Declaration!.NameLocation;
-        var keyword = FunctionSymbol.RefPrefix(method.ReturnRefKind).Trim();
+        var keyword = FunctionSymbol.RefPrefix(method.ReturnRefKind).Trim() + (method.ReturnType.IsNullableReference ? "?" : "");
+        var referenced = method.ReturnType.ReferencedType ?? method.ReturnType;
         if (method.IsStatic)
             Error(location, $"a static method cannot return '{keyword}'; a returned reference must point into the method's receiver");
         else if (method.IsDispatched)
             Error(location, $"methods returning '{keyword}' cannot be virtual or abstract yet");
-        else if (method.ReturnType == VplType.Void)
+        else if (referenced == VplType.Void)
             Error(location, $"'void' cannot be returned by '{keyword}'");
-        else if (method.ReturnType.IsReference)
-            Error(location, $"'{keyword}' cannot be used with type '{method.ReturnType}'; class objects are already references");
+        else if (referenced.IsReference)
+            Error(location, $"'{keyword}' cannot be used with type '{referenced}'; class objects are already references");
     }
 
     void DeclareVariants(TypeSymbol s)
