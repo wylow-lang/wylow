@@ -43,23 +43,23 @@ int add(int a, int b) {
 }
 
 void main() {
-    // The receiver is held while the argument's lambda replaces it, until the call returns.
+    // The receiver is held while the argument's lambda replaces it, until the statement completes.
     mut Box box = new Box(1);
-    print(box.add(run(() -> {
+    int added = box.add(run(() -> {
         box = new Box(100);
         return 5;
-    })));
+    }));
     // output: box freed
-    // output: 6
+    print(added);                                   // output: 6
 
     // So is one in a field the lambda replaces.
     Crate crate = new Crate();
-    print(crate.box.add(run(() -> {
+    int crated = crate.box.add(run(() -> {
         crate.box = new Box(200);
         return 3;
-    })));
+    }));
     // output: box freed
-    // output: 5
+    print(crated);                                  // output: 5
 
     // Operands are evaluated left to right, though the lambda changes `x`.
     mut int x = 1;

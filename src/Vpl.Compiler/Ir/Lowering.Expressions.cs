@@ -155,23 +155,13 @@ public sealed partial class IrLowering
     IrOperand ViewOperand(BoundExpression view, Use use) =>
         IsPlace(view) ? Read(Place(view, use)) : IrRead.Move(new IrPlace(Let(Rvalue(view, use))));
 
-    /// <summary>A call; given its receiver, it is a place's step, whose holds last as long as the place is used.</summary>
     IrCall Call(BoundCall call, IrArgument? receiver)
     {
         var method = call.Method;
-        // What a method returns a reference or view into needs its receiver held for as long as that is used.
-        List<IrLocal>? pins = receiver is null && method.Symbol.ReturnRefKind == RefKind.None && !call.Type.IsRefStruct ? [] : null;
         if (receiver is null && call.Receiver is not null)
-        {
-            var before = Snapshot();
             receiver = Receiver(call);
-            pins?.AddRange(PinsSince(before));
-        }
-        var arguments = Arguments(method, call.Arguments, pins);
-        var lowered = new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
-        if (pins is { Count: > 0 })
-            pinnedFor[lowered] = pins;
-        return lowered;
+        var arguments = Arguments(method, call.Arguments);
+        return new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
     }
 
     /// <summary>
@@ -202,18 +192,12 @@ public sealed partial class IrLowering
         return new IrRefArgument(kind, IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read))));
     }
 
-    /// <summary>A call's arguments, evaluated in order, adding to <paramref name="pins"/> what the places passed by reference pin.</summary>
-    List<IrArgument> Arguments(MethodReference method, IReadOnlyList<BoundExpression> arguments, List<IrLocal>? pins = null)
+    /// <summary>A call's arguments, evaluated in order.</summary>
+    List<IrArgument> Arguments(MethodReference method, IReadOnlyList<BoundExpression> arguments)
     {
         var lowered = new List<IrArgument>();
         for (int i = 0; i < arguments.Count; i++)
-        {
-            var before = Snapshot();
-            var argument = Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]);
-            if (argument is IrRefArgument or IrAddrArgument)
-                pins?.AddRange(PinsSince(before));
-            lowered.Add(argument);
-        }
+            lowered.Add(Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]));
         var settled = Settle(lowered);
         for (int i = 0; i < settled.Count; i++)
         {

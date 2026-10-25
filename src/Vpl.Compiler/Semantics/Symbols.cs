@@ -39,7 +39,8 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>
     /// A lambda captures it and may change its value in place, which only a <c>mut</c> struct,
     /// fixed array, or nullable value can be: any call after the lambda is created may change it.
-    /// Set by <see cref="FlowAnalyzer"/>.
+    /// Set by <see cref="FlowAnalyzer"/> for every one a lambda captures, even if it only reads it;
+    /// interim until the lambdas' own writes come from the IR (docs/design/ir.md §7, step 7).
     /// </summary>
     public bool IsChangedInPlaceByLambda { get; set; }
 

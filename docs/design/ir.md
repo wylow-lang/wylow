@@ -606,8 +606,12 @@ Each step keeps the suite passing on MSVC and g++.
    - last-use `move`s, for types whose release nothing can observe (§9.10).
 7. **Move the effect-shaped flow checks onto the IR** (§9.4): the nullable-value reference rule
    becomes an IR check that reports source-level errors, `FlowAnalyzer`'s "locals a statement may
-   assign" walkers are deleted, and §9.6 and lifetime analysis are written there. Not optional:
-   until it's done, the same question (what may write a place) has two answers in the compiler.
+   assign" walkers are deleted, and §9.6 and lifetime analysis are written there. The same goes for
+   `LocalSymbol.IsChangedInPlaceByLambda`, which `FlowAnalyzer` sets on every `mut` struct, array,
+   or nullable value a lambda captures, even one the lambda only reads, so that the IR treats any
+   call after it as possibly writing it: replace it with what each lambda's body actually writes,
+   from the effect table, and delete it. Not optional: until it's done, the same question (what
+   may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output
 observe. The target is the spec's rule (§9.10), not today's emitter, which releases the

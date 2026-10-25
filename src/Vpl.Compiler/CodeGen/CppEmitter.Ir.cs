@@ -83,9 +83,6 @@ public sealed partial class CppEmitter
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
                 Line($"{Name(end.Local)}.end();");
                 break;
-            case IrEnd { Local.Kind: IrLocalKind.Hold } end:
-                Line($"vpl::unhold({Name(end.Local)});");
-                break;
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
                 break;

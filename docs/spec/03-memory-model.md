@@ -50,9 +50,9 @@ releasing any class references it contains.
   releasing any old field.
 - The compiler may release an object earlier than these rules say only where no program can tell:
   its release can run no destructor, and nothing refers to it weakly. The strong references the
-  compiler adds to keep a place or a receiver alive ([Pinning](#pinning-class-objects)) are not
-  temporaries, and leaving one out is allowed only where it could never be the last reference, so
-  it never moves a release.
+  compiler adds to keep a place or a receiver alive ([Pinning](#pinning-class-objects)) are
+  released as the statement's temporaries are, in the same reverse order of creation. Leaving one
+  out is allowed only where it could never be the last reference, so it never moves a release.
 
 > Implemented so far: the order is the same on every platform, but the C++ emitter doesn't follow
 > these rules inside every statement yet. An operand hoisted to keep evaluation left to right
@@ -547,10 +547,10 @@ reassigned).
 The same applies to the receiver of a method call: in `player.weapon.fire()`, the call holds the
 weapon, so `fire` may replace `player.weapon` without destroying the object it is running on.
 
-The current rule: the compiler pins (holds a strong reference for the duration of the call) the
-receiver of a method call, and the object owning the place passed as a `ref`/`in` argument or used
-as a struct method's receiver, unless that object is `this` or a local or parameter, or is held by
-a field that isn't `mut` of such an object. Locals are safe without a pin because nothing but the
+The current rule: the compiler pins (holds a strong reference until the statement completes, as it
+would a temporary) the receiver of a method call, and the object owning the place passed as a
+`ref`/`in` argument or used as a struct method's receiver, unless that object is `this` or a local
+or parameter, or is held by a field that isn't `mut` of such an object. Locals are safe without a pin because nothing but the
 function itself can assign them, and a class-typed local cannot even be passed by `ref`. `this` is
 safe because whoever called the method has pinned it. A field that isn't `mut` (§2.7) is never
 reassigned once its object is constructed, so it holds its object as long as the object holding it

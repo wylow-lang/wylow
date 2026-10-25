@@ -70,24 +70,18 @@ public sealed partial class IrLowering
     {
         var callee = invocation.Callee;
         IrOperand target;
-        var pins = new List<IrLocal>();
         if (callee.Type.NonNull.IsEscaping && IsPlace(callee))
         {
-            var before = Snapshot();
             // Read into a pin right away, unless nothing can replace it while the call runs.
             var place = Place(callee, Use.Read);
             bool stable = IsStable(place) || (place is { IsDeref: false, Projections: [IrAssumed] } && IsStable(new IrPlace(place.Local)));
             target = IrRead.Borrow(stable ? place : new IrPlace(Hold(place, borrows: false)));
-            pins.AddRange(PinsSince(before));
         }
         else
         {
             target = Settle(Value(callee));
         }
-        var lowered = new IrInvoke(target, invocation.Signature, Arguments(invocation.Signature, invocation.Arguments, pins));
-        if (pins.Count > 0)
-            pinnedFor[lowered] = pins;
-        return lowered;
+        return new IrInvoke(target, invocation.Signature, Arguments(invocation.Signature, invocation.Arguments));
     }
 
     /// <summary>

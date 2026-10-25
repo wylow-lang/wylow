@@ -166,13 +166,6 @@ inline Function<S> pin(const Function<S>& value) {
     return value;
 }
 
-// Ends a closure's pin before its scope does.
-template <class S>
-inline bool unhold(Function<S>& holder) {
-    holder = Function<S>();
-    return false;
-}
-
 // A function chosen by ?: from several. It holds every callable it could be and calls the chosen
 // one directly, so each can still be inlined where the choice is passed to a template.
 template <class... F>

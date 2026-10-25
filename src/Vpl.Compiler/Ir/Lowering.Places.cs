@@ -268,7 +268,6 @@ public sealed partial class IrLowering
             let.Local.Kind = IrLocalKind.Borrowed;
             let.Local.Type = hold.Place.Type;
             aliases[let.Local] = hold.Place;
-            statements.RemoveAll(s => s is IrEnd end && end.Local == let.Local);
         }
     }
 
