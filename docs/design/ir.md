@@ -189,13 +189,85 @@ let %c = add.checked %a, %b @"t.vpl:3:13"
 do call print(move %c)
 ```
 
-The emitter may **nest** a temporary into its single use if moving its evaluation there can't
-change anything. Concretely, nothing evaluated between its definition and its use, or as a sibling
-operand C++ might order first, conflicts with it, by the per-instruction effect table (§6.1). Here
-`%a` can't be nested, because `f` may write any object. `%b` and `%c` can:
+The emitter may **nest** a temporary into its single use, printing its rvalue there instead of
+declaring it. The rule nesting must keep:
+
+> Every pair of conflicting instructions runs in the same relative order, under every evaluation
+> order C++ allows, as in the IR.
+
+C++ fixes the relative order of two instructions only when one is inside the other's operands
+(the inner one runs first), when they are in different C++ statements, or when C++ sequences
+them: the left side of `&&`, `||`, and `,` before the right, and the condition of `?:` before its
+branches. Everything else, such as two arguments of one call, may run in either order. A call's
+receiver counts as an ordinary sibling of its arguments: calls go through the declaring class, and
+MSVC's C++17 receiver-first ordering has had bugs, so it isn't relied on.
+
+Two instructions **conflict**, by the effect table (§6.1), if:
+
+1. one writes a place class the other reads or writes;
+2. both may panic, since which panic is reported, and where, is observable;
+3. one may panic and the other may do I/O or run unknown code. Writes to memory don't count: a
+   panic aborts without unwinding, so nothing sees them. The table models this as a pseudo-place,
+   the world, which panics, I/O, and unknown code all write;
+4. both create a value whose release may be observable, since their creation order decides their
+   release order (§3.4, When references are released). At first that's any value that
+   `MayOwnObjects`; destructor reachability (§6.1) narrows it later.
+
+Two structural rules go with it:
+
+- A value whose release may be observable is nested only into its statement's last C++
+  statement. In an earlier one, C++ would destroy it at that statement's end, before the VPL
+  statement completes. `vpl::keep` around it is still nesting: its temporary lives to the end of
+  the full-expression.
+- `store`s and holds are never nested. Holds are named because they live for an extent, and
+  stores have no value. So every write inside a nested expression is inside a call, C++ never
+  interleaves two calls, and its rule that unsequenced writes are undefined can't apply.
+
+The algorithm is greedy, and starts strictly inside what the rule allows. It walks each
+instruction's operands right to left and nests a temporary if everything defined between it and
+its use is already nested into that use, so nothing moves past a statement that stays separate, and
+if it conflicts with no nested sibling C++ may evaluate before it. If `tests/.out` audits show
+temporaries that aren't needed, it can grow to move past separate statements it doesn't conflict
+with.
+
+In the listing above, `%c` nests into the `print` call and `%b` into `%c`. `%a` is adjacent once
+`%b` is nested, but it's `%b`'s sibling, and `f` may write any object:
 
 ```cpp
 { auto tmp_0 = l_obj->f_x; vpl::print(vpl::add(tmp_0, fn_f(), "t.vpl:3:13")); }
+```
+
+With field-precise summaries (§7, step 6), if `f` writes no `x` of `obj`'s class, `%a` nests too:
+`vpl::print(vpl::add(l_obj->f_x, fn_f(), "t.vpl:3:13"))`.
+
+`g(k(), h())`, where `k` and `h` conflict:
+
+```
+let %a = call k()
+let %b = call h()
+do call g(move %a, move %b)
+```
+
+Only `%b` nests. Nesting `%a` alone would move `k` after `h`, which adjacency already forbids, and
+nesting both lets C++ choose:
+
+```cpp
+{ auto tmp_0 = fn_k(); fn_g(tmp_0, fn_h()); }
+```
+
+`g(a[i], b[j])`: the two bounds checks are siblings that may both panic, so only the second fuses
+into `vpl::at`. If both indices are out of range, every compiler reports the first:
+
+```
+check.index i, (length a) @"t.vpl:5:7"
+let %x = copy a[i]
+check.index j, (length b) @"t.vpl:5:13"
+let %y = copy b[j]
+do call g(move %x, move %y)
+```
+
+```cpp
+{ auto tmp_0 = vpl::at(l_a, l_i, "t.vpl:5:7"); fn_g(tmp_0, vpl::at(l_b, l_j, "t.vpl:5:13")); }
 ```
 
 That replaces `Ordered`'s lambda with a scope. The important property is that nesting is the
@@ -374,7 +446,9 @@ One function gives each instruction's effects:
   element of type `T`; anything through a reference or pointer of type `T`; or unknown;
 - what it may run: callees (through `WholeProgram.Targets`), lambdas (passed, or the
   `FunctionValues` of a called function value), and destructors (the types it releases);
-- whether it may panic, and what it allocates.
+- whether it may panic, and what it allocates;
+- whether it writes the world (panics, I/O, and unknown code do), and whether it creates a value
+  whose release may be observable, for the nesting rule (§5.1).
 
 A call's reads and writes come from its callees' summaries, computed with the existing
 `Summaries<T>` worklist. A summary is the union of its instructions' effects, so it only grows.
@@ -557,8 +631,10 @@ against the rule: either lowering is wrong or the test's expectation was relying
    much harder to read and audit. **Decided: nest from the start**, since `tests/.out` audits
    depend on readable output, with `--no-nest` from the start too. The whole suite must pass with
    it, which tests that declining to nest is always correct, and it separates lowering bugs from
-   nesting bugs. Nesting next to a sibling operand needs a pairwise conflict check, since C++ may
-   evaluate siblings in any order; §5.1 should get a worked example before the rule is final.
+   nesting bugs. The rule is §5.1's: conflicting instructions keep their IR order under every
+   order C++ allows, with four kinds of conflict, a value whose release may be observable nested
+   only into its statement's last C++ statement, no `store` or hold nested, and no reliance on
+   C++17's receiver-first ordering. The first algorithm nests only adjacent temporaries.
 4. **Flow analysis: stay or move?** **Decided: stay** for now. It works, it reports source-level
    errors, and narrowing is already in the tree. The binder decides what is legal; the verifier's
    re-check of the nullable-value rule (§6.4, check 4) only catches lowering bugs. Revisit if
