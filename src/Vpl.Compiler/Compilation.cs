@@ -76,7 +76,7 @@ public static class Compilation
 
         var analyses = Analyses.Run(program);
         var ir = IrLowering.Lower(program, analyses);
-        var callees = new Callees(ir, analyses.Whole.Overrides);
+        var callees = new Callees(ir, analyses.Whole.Overrides, analyses.Cycles);
         var writes = Writes.Find(callees);
         Verify(ir, writes, "the lowered program");
         IEnumerable<Location> inPlace = [], onStack = [];

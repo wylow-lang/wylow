@@ -37,6 +37,8 @@ public readonly record struct StoredType(VplType Type, bool Element)
 /// The types of storage some code may write, or <see cref="Unknown"/> if it may write anything;
 /// and the fields of objects it may write, either by name or through storage it can't see (a
 /// reference, a pointer, or a struct method's <c>this</c>) of a type the field's value contains.
+/// A function's summary also has the types of the values it may release, which <see
+/// cref="Writes.Of"/> resolves to what their destructors write once the type arguments are known.
 /// </summary>
 public sealed class WriteSet
 {
@@ -45,10 +47,16 @@ public sealed class WriteSet
     readonly HashSet<StoredType> writes = [];
     readonly HashSet<FieldSymbol> fields = [];
     readonly HashSet<VplType> unseen = [];
+    readonly HashSet<VplType?> released = [];
 
     public bool Unknown { get; private set; }
 
-    public int Size => Unknown ? int.MaxValue : writes.Count + fields.Count + unseen.Count;
+    public int Size => Unknown ? int.MaxValue : writes.Count + fields.Count + unseen.Count + released.Count;
+
+    /// <summary>The types of the values it may release, null among them if any.</summary>
+    public IReadOnlyCollection<VplType?> Released => released;
+
+    public void AddRelease(VplType? type) => released.Add(type);
 
     public void Add(IrPlace place)
     {
@@ -81,6 +89,8 @@ public sealed class WriteSet
         fields.UnionWith(from.fields);
         foreach (var type in from.unseen)
             unseen.Add(map.Apply(type));
+        foreach (var type in from.released)
+            released.Add(type is null ? null : map.Apply(type));
     }
 
     public bool MayStoreOverElement(VplType element) => Unknown || writes.Any(w => w.MayStoreOverElement(element));
@@ -106,7 +116,8 @@ public sealed class Writes
 {
     readonly Callees callees;
     readonly Summaries<IrFunction, WriteSet> summaries;
-    readonly WriteSet released = new();
+    readonly Dictionary<VplType, WriteSet> releasing = [];
+    WriteSet? releasingAny;
 
     Writes(Callees callees)
     {
@@ -118,20 +129,42 @@ public sealed class Writes
     {
         var result = new Writes(callees);
         result.summaries.Solve(result.Summarize);
-        foreach (var function in callees.Released)
-            result.released.Add(result.summaries[function]!, TypeMap.Empty);
         return result;
     }
 
-    /// <summary>What code that runs may write, including what the releases it makes may.</summary>
+    /// <summary>What code that runs may write, including what the destructors of what it releases may.</summary>
     public WriteSet Of(IReadOnlyList<IrRun> runs)
     {
         var set = new WriteSet();
-        if (runs.Count == 0)
-            return set;
-        set.Add(released, TypeMap.Empty);
         foreach (var run in runs)
             Add(set, run);
+        foreach (var type in set.Released.ToList())
+            set.Add(Releasing(type), TypeMap.Empty);
+        return set;
+    }
+
+    /// <summary>What releasing a value of the type, or with none, any value, may write, through every destructor that may run.</summary>
+    WriteSet Releasing(VplType? type)
+    {
+        var known = type is null ? releasingAny : releasing.GetValueOrDefault(type);
+        if (known is not null)
+            return known;
+        var set = new WriteSet();
+        var done = new HashSet<VplType?>();
+        var pending = new Queue<VplType?>([type]);
+        while (pending.TryDequeue(out var next))
+        {
+            if (!done.Add(next))
+                continue;
+            foreach (var callee in callees.Of(new IrRunRelease(next))!.Functions)
+                set.Add(summaries[callee.Function]!, callee.Map);
+            foreach (var more in set.Released.Where(t => !done.Contains(t)))
+                pending.Enqueue(more);
+        }
+        if (type is null)
+            releasingAny = set;
+        else
+            releasing[type] = set;
         return set;
     }
 
@@ -148,10 +181,11 @@ public sealed class Writes
 
     void Add(WriteSet into, IrRun run)
     {
-        if (run == IrRun.Release)
+        if (run is IrRunRelease release)
+        {
+            into.AddRelease(release.Type);
             return;
-        // An extern function writes nothing: the containers that use Memory's unsafe functions panic
-        // rather than move or drop elements while borrowed.
+        }
         if (callees.Of(run) is not { } found)
         {
             into.AddUnknown();
@@ -159,17 +193,30 @@ public sealed class Writes
         }
         foreach (var callee in found.Functions)
             into.Add(summaries[callee.Function]!, callee.Map);
+        // Other extern functions write nothing: the containers that use Memory's unsafe functions
+        // panic rather than move or drop elements while borrowed.
+        if (found.RunsExtern && run is IrRunMethod { Method: var method })
+        {
+            foreach (var inner in callees.ExternRuns(method))
+                Add(into, inner);
+        }
     }
 
     WriteSet Summarize(IrFunction function)
     {
         var own = OwnLocals(function);
         var set = new WriteSet();
+        // A callee releases what it is given by value when it returns.
+        foreach (var parameter in function.Parameters)
+        {
+            foreach (var run in IrEffects.Releasing(parameter).Runs)
+                Add(set, run);
+        }
         foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
         {
-            if (statement is IrBlock or IrIf or IrLoop)
+            if (statement is IrIf or IrLoop)
                 continue;
-            var effects = IrEffects.Of(statement);
+            var effects = statement is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(statement);
             foreach (var write in effects.Writes.Where(w => !IsOwn(function, own, w.Place)))
                 set.Add(write.Place);
             foreach (var run in effects.Runs)
@@ -177,7 +224,6 @@ public sealed class Writes
         }
         return set;
     }
-
     static HashSet<IrLocal> OwnLocals(IrFunction function)
     {
         HashSet<IrLocal> own = [.. function.Parameters, .. function.Captures];

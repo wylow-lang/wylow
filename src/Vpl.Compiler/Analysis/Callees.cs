@@ -18,15 +18,17 @@ public sealed record CalleeSet(IReadOnlyList<Callee> Functions, bool RunsExtern)
 public sealed class Callees
 {
     readonly Overrides overrides;
+    readonly CyclicClasses cycles;
     readonly Dictionary<FunctionSymbol, List<IrFunction>> functions = [];
     readonly Dictionary<TypeSymbol, IrFunction> defaults = [];
     readonly List<(IrFunction Function, VplType Type)> lambdas = [];
     readonly Dictionary<VplType, IReadOnlyList<IrFunction>> lambdasOfType = [];
 
-    public Callees(IrProgram program, Overrides overrides)
+    public Callees(IrProgram program, Overrides overrides, CyclicClasses cycles)
     {
         Program = program;
         this.overrides = overrides;
+        this.cycles = cycles;
         foreach (var function in program.Functions)
         {
             // A struct's make_default is under a symbol of its own, which no call names.
@@ -50,16 +52,16 @@ public sealed class Callees
             }
         }
         var borrowable = program.Bound.Stdlib.Borrowable;
-        Released =
-        [
-            .. program.Functions.Where(f => f.Symbol.IsDestructor),
-            .. borrowable is null ? [] : borrowable.Methods.Values.SelectMany(m => m).SelectMany(Targets).SelectMany(f => functions.GetValueOrDefault(f) ?? []),
-        ];
+        borrows = [.. borrowable is null ? [] : borrowable.Methods.Values.SelectMany(m => m).SelectMany(Targets).SelectMany(f => functions.GetValueOrDefault(f) ?? [])];
+        Released = [.. program.Functions.Where(f => f.Symbol.IsDestructor), .. borrows];
     }
+
+    /// <summary>Every implementation of <c>Borrowable</c>'s methods.</summary>
+    readonly IReadOnlyList<IrFunction> borrows;
 
     public IrProgram Program { get; }
 
-    /// <summary>Every function a release may run: the destructors, and every implementation of <c>Borrowable</c>.</summary>
+    /// <summary>Every function a release of an unknown value may run: the destructors, and every implementation of <c>Borrowable</c>.</summary>
     public IReadOnlyList<IrFunction> Released { get; }
 
     /// <summary>The functions code may run, or null if it may run one that isn't lowered and isn't extern, whose code is unknown.</summary>
@@ -89,9 +91,50 @@ public sealed class Callees
                 return new([.. LambdasOfType(type).Select(f => new Callee(f, TypeMap.Empty))], false);
             case IrRunDefault(var type):
                 return new([.. Defaults(type)], false);
+            case IrRunRelease(var type):
+                return new([.. Releasing(type)], false);
             default:
-                return new([.. Released.Select(f => new Callee(f, TypeMap.Empty))], false);
+                throw new InvalidOperationException($"unexpected run {run}");
         }
+    }
+
+    /// <summary>
+    /// The destructors, base classes' included, of the objects releasing a value of the type may
+    /// destroy (<see cref="CyclicClasses.Destroyable"/>), and their classes' <c>Borrowable</c> methods.
+    /// </summary>
+    IEnumerable<Callee> Releasing(VplType? type)
+    {
+        if ((type is null ? null : cycles.Destroyable(type)) is not { } destroyed)
+            return Released.Select(f => new Callee(f, TypeMap.Empty));
+        var found = new List<Callee>();
+        foreach (var destroyedClass in destroyed)
+        {
+            for (var c = destroyedClass; c is not null; c = c.BaseType)
+            {
+                var map = TypeMap.For(c);
+                if (c.Symbol!.Destructor is { } destructor)
+                    found.AddRange((functions.GetValueOrDefault(destructor) ?? []).Select(f => new Callee(f, map)));
+                found.AddRange(borrows.Where(f => f.Symbol.ContainingType == c.Symbol).Select(f => new Callee(f, map)));
+            }
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// What an extern function runs that analyses must know of, as other runs: <c>Memory</c>'s
+    /// destroy values and make default ones, and its cycle collector destroys any garbage.
+    /// </summary>
+    public IReadOnlyList<IrRun> ExternRuns(MethodReference method)
+    {
+        if (method.Symbol.ContainingType != Program.Bound.Stdlib.Memory)
+            return [];
+        return method.Symbol.Name switch
+        {
+            "drop" => [new IrRunRelease(method.ParameterType(0).ElementType!)],
+            "initializeDefault" => [new IrRunDefault(method.ParameterType(0).ElementType!)],
+            "collectCycles" => [new IrRunRelease(null)],
+            _ => [],
+        };
     }
 
     /// <summary>The methods a dispatched call may run, except abstract ones, which run nothing.</summary>

@@ -1,5 +1,6 @@
-// A destructor may run whenever an object is released, so one that stores over an element keeps
-// every loop over elements of that type holding its own reference.
+// A destructor that stores over an element keeps a loop over elements of that type holding its own
+// reference wherever the loop may release an object of the destructor's class, directly or through
+// what it releases. Other loops are unaffected.
 
 class Enemy {
     String name;
@@ -36,6 +37,31 @@ void main() {
     }
     // output: a
     // output: a
+    // output: y
+    // output: b
+
+    // Releases nothing.
+    for (Enemy e : list) { // in-place: 1
+        print(e.name);
+    }
+    // output: y
+    // output: b
+
+    // Releases an Enemy, whose destructor stores nothing.
+    for (Enemy e : list) { // in-place: 1
+        var other = new Enemy("c");
+        print(e.name);
+    }
+    // output: y
+    // output: c
+    // output: b
+    // output: c
+
+    // Releases a list that may hold an Owner.
+    for (Enemy e : list) {
+        var owners = new List<Owner>();
+        print(e.name);
+    }
     // output: y
     // output: b
 }

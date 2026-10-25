@@ -236,8 +236,7 @@ public static class IrWalk
             switch (inner)
             {
                 case IrBlock block:
-                    if (block.DeclaresOwner())
-                        footprint.Runs.Add(IrRun.Release);
+                    footprint.Add(IrEffects.Ending(block));
                     break;
                 case IrIf or IrLoop:
                     break;

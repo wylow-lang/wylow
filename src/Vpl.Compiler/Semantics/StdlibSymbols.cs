@@ -25,6 +25,9 @@ public sealed class StdlibSymbols
     /// <summary>Classes whose <c>beginBorrow</c> and <c>endBorrow</c> the compiler calls around every borrow.</summary>
     public TypeSymbol? Borrowable { get; private set; }
 
+    /// <summary>Raw memory and the cycle collector, whose extern functions destroy values and make default ones.</summary>
+    public TypeSymbol? Memory { get; private set; }
+
     /// <summary>Weak references, which <c>T</c> and <c>T?</c> convert to.</summary>
     public TypeSymbol? Weak { get; private set; }
 
@@ -51,6 +54,7 @@ public sealed class StdlibSymbols
             case "Spannable": Spannable = symbol; break;
             case "ReadOnlySpannable": ReadOnlySpannable = symbol; break;
             case "Borrowable": Borrowable = symbol; break;
+            case "Memory": Memory = symbol; break;
             case "Weak": Weak = symbol; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;

@@ -63,10 +63,12 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
-  `Writes.cs` (the types of storage each lowered function may write). `Escapes.cs` (which
+  `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
+  of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
-  visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
+  visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls; and which
+  classes releasing a value may destroy, `Destroyable`, for `Callees` to resolve a release).
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).
 - `src/Vpl.Compiler/Optimize`: optimizations, each a rewrite of the lowered IR that no program can

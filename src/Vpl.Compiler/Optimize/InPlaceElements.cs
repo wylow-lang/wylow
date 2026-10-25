@@ -11,7 +11,8 @@ namespace Vpl.Compiler.Optimize;
 /// decrement per element (docs/design/ir.md §6.3, restricted to loop elements). What a loop
 /// iterates is held and borrowed until the loop ends, so the element's object can only be
 /// destroyed by storing over the element: by the loop's own code, by what it runs (<see
-/// cref="Writes"/>), or by a destructor. The verifier checks the same with the same summaries.
+/// cref="Writes"/>), or by a destructor something it releases may run. Releases at the end of the
+/// element's own block come after its last use. The verifier checks the same with the same summaries.
 /// </summary>
 public sealed class InPlaceElements
 {
@@ -61,15 +62,13 @@ public sealed class InPlaceElements
     bool Unwritten(IrLocal element, IEnumerable<IrStatement> statements)
     {
         var type = element.Type.NonNull;
-        if (writes.Of([IrRun.Release]).MayStoreOverElement(type))
-            return false;
         foreach (var statement in statements)
         {
             if (IrWalk.Descendants(statement).Any(s => Changes(s, element)))
                 return false;
-            foreach (var inner in IrWalk.Descendants(statement, intoLambdas: false).Where(s => s is not (IrBlock or IrIf or IrLoop)))
+            foreach (var inner in IrWalk.Descendants(statement, intoLambdas: false).Where(s => s is not (IrIf or IrLoop)))
             {
-                if (writes.MayStoreOverElement(IrEffects.Of(inner), type))
+                if (writes.MayStoreOverElement(inner is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(inner), type))
                     return false;
             }
         }

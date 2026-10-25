@@ -185,8 +185,9 @@ public sealed partial class IrVerifier
         scopes.RemoveAt(scopes.Count - 1);
         if (!state.Reachable)
             return state;
-        if (ending.Any(l => IrEffects.ReleaseMayRunCode(l) && !state.Ended.Contains(l) && !state.Moved.Contains(l)))
-            Apply(state, IrEffects.Released, "a release at the end of a block");
+        var released = ending.Where(l => !state.Ended.Contains(l) && !state.Moved.Contains(l)).SelectMany(l => IrEffects.Releasing(l).Runs).Distinct().ToList();
+        if (released.Count > 0)
+            Apply(state, new IrEffects([], released, false), "a release at the end of a block");
         foreach (var local in ending)
         {
             DependentsOf(local, state, $"'{N(local)}' went out of scope");

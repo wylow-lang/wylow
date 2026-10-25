@@ -509,20 +509,20 @@ the only way its object could be destroyed.
 
 The compiler checks everything the loop's body may run: the functions it calls and the functions
 they call, every override of a virtual or interface method it calls, every lambda of the type of
-a function value it calls (a lambda in generic code counts for every type it could be), and every
-destructor in the program. Assigning fields, including fields of the element's type, never counts, so getters,
-setters, and most methods don't prevent it. Reassigning `e` itself does. The program behaves the
-same either way; only the cost differs.
+a function value it calls (a lambda in generic code counts for every type it could be), and the
+destructors of every object it may release. Assigning fields, including fields of the element's
+type, never counts, so getters, setters, and most methods don't prevent it. Reassigning `e` itself
+does. The program behaves the same either way; only the cost differs.
 
-> ⚠️ **One destructor can slow down unrelated loops.** A destructor runs wherever its object's last
-> reference is released, which can be almost anywhere, so the compiler assumes any destructor may
-> run during any loop. If a destructor anywhere in the program stores over an element of a type
-> (`~Squad() { members[0] = new Enemy(...); }`), every loop over elements of that type, such as
-> `for (Enemy e : enemies) { e.hp -= 1; }`, keeps its own reference to each element, even a loop that
-> never touches a `Squad`. Destructors that only assign fields, or store elements of other types,
-> don't affect it. Counting only destructors of objects the loop could actually release would be
-> more precise, but is much harder to analyze; a performance warning (see the
-> [README](README.md#not-yet-designed)) should point this out instead.
+Releasing a value may destroy the objects it refers to, and through their fields (including
+structs, fixed arrays, container elements, and what closures capture), the objects those refer to,
+so the destructors that count are those of every class an object reachable that way may have. A
+value whose type involves a type parameter, or a class only generic code instantiates, may
+destroy anything. So a destructor that stores over an element of a type (`~Squad() { members[0] =
+new Enemy(...); }`) keeps a loop over elements of that type, such as `for (Enemy e : enemies) {
+e.hp -= 1; }`, holding its own reference to each element only if the loop may release a `Squad`,
+or something that may hold one; `Memory.collectCycles()` may release anything. Destructors that
+only assign fields, or store elements of other types, never affect it.
 
 ### Evaluation order and the heap
 

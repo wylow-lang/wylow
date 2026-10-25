@@ -480,8 +480,8 @@ This replaces the eight effect predicates and `ElementAliasing`'s `Write` collec
 only place that knows what each instruction does, and there are about twenty instruction kinds
 rather than about forty bound node kinds.
 
-Releases being explicit makes one imprecision the spec documents cheap to fix (§3.4, "One
-destructor can slow down unrelated loops"). The destructors that may run at a release of a `T` are
+Releases being explicit made one imprecision the spec documented cheap to fix (§3.4, "One
+destructor can slow down unrelated loops"; fixed in step 6). The destructors that may run at a release of a `T` are
 those of the classes reachable from `T` through strong fields, which is the graph `CyclicClasses`
 already builds. A loop that releases no `Squad` would no longer be slowed by `~Squad`.
 
@@ -631,7 +631,15 @@ Each step keeps the suite passing on MSVC and g++.
      from 43 to 35. Nesting (§5.1) and lowering's `Settle` still use the conservative rule:
      nesting could use it too, but lowering mustn't read analyses (§9.11);
    - borrowed locals beyond loop elements;
-   - destructor precision (§6.1);
+   - destructor precision (§6.1). Done: `IrRunRelease` has the released type (none: any), every
+     implicit release is explicit in the effects (a block's end, `IrEffects.Ending`; a callee's
+     by-value parameters, in `Writes`), and `Callees` resolves a release to the destructors and
+     `Borrowable` methods of `CyclicClasses.Destroyable(type)`. Summaries keep releases as types,
+     resolved by `Writes.Of` after mapping, so `List<T>`'s drop of a `T` counts only `Enemy`'s
+     destructor in a `List<Enemy>`. `Callees.ExternRuns` says what `Memory`'s externs run:
+     `drop` releases, `initializeDefault` runs field initializers (unobservable until statics
+     exist, but a hole), `collectCycles` releases anything. No existing test's output changed;
+     `containers/loop_elements_destructor` shows it;
    - last-use `move`s, for types whose release nothing can observe (§9.10).
 7. **Move the effect-shaped flow checks onto the IR** (§9.4): the nullable-value reference rule
    becomes an IR check that reports source-level errors, `FlowAnalyzer`'s "locals a statement may

@@ -13,14 +13,7 @@ public sealed record IrWrite(IrPlace Place, bool Within);
 /// Code an instruction may run, by what it is rather than which functions: the whole-program
 /// analyses resolve it to those (<see cref="Analysis.Callees"/>).
 /// </summary>
-public abstract record IrRun
-{
-    /// <summary>
-    /// What holding and releasing may run: a destructor, when a release destroys an object, and a
-    /// <c>Borrowable</c>'s <c>beginBorrow</c> and <c>endBorrow</c>.
-    /// </summary>
-    public static readonly IrRun Release = new IrRunRelease();
-}
+public abstract record IrRun;
 
 /// <summary>A method, or if the call dispatches and isn't <paramref name="Direct"/>, whatever overrides or implements it.</summary>
 public sealed record IrRunMethod(MethodReference Method, bool Direct) : IrRun;
@@ -31,7 +24,12 @@ public sealed record IrRunFunctionValue(VplType Type) : IrRun;
 /// <summary>The field initializers that making the type's default value runs.</summary>
 public sealed record IrRunDefault(VplType Type) : IrRun;
 
-sealed record IrRunRelease : IrRun;
+/// <summary>
+/// What releasing a value of the type, or with none, any value, may run: the destructors of the
+/// objects it may destroy, and a <c>Borrowable</c>'s <c>beginBorrow</c> and <c>endBorrow</c>
+/// around a borrow of one.
+/// </summary>
+public sealed record IrRunRelease(VplType? Type) : IrRun;
 
 /// <summary>
 /// What one instruction may do: the places it writes itself, the code it may run (a call, or a
@@ -44,8 +42,23 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 {
     public static readonly IrEffects None = new([], [], false);
 
-    /// <summary>What a release at the end of a block may do.</summary>
-    public static readonly IrEffects Released = new([], [IrRun.Release], false);
+    /// <summary>What releasing a value of the type may do.</summary>
+    public static IrEffects Releasing(VplType type) => new([], [new IrRunRelease(type)], false);
+
+    /// <summary>What a local's release may do, when its scope or an <see cref="IrEnd"/> ends it.</summary>
+    public static IrEffects Releasing(IrLocal local) => ReleaseMayRunCode(local) ? Releasing(local.Type) : None;
+
+    /// <summary>What releasing the locals a block declares, when it ends, may do.</summary>
+    public static IrEffects Ending(IrBlock block)
+    {
+        var runs = block.Statements.Select(s => s switch
+        {
+            IrLet let => let.Local,
+            IrDeclare declare => declare.Local,
+            _ => null,
+        }).OfType<IrLocal>().SelectMany(l => Releasing(l).Runs).Distinct().ToList();
+        return runs.Count == 0 ? None : new([], runs, false);
+    }
 
     public bool RunsCode => Runs.Count > 0;
 
@@ -80,11 +93,11 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // The old value is released after the new one is stored.
         public IrEffects Store(IrStore statement) =>
-            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayHoldReferences ? [IrRun.Release] : [], false);
+            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayHoldReferences ? [new IrRunRelease(statement.Target.Type)] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
         public IrEffects Check(IrCheck statement) => new([], [], true);
-        public IrEffects End(IrEnd statement) => ReleaseMayRunCode(statement.Local) ? Released : None;
+        public IrEffects End(IrEnd statement) => Releasing(statement.Local);
         public IrEffects Unreachable(IrUnreachable statement) => new([], [], true);
         public IrEffects Declare(IrDeclare statement) => None;
         public IrEffects Return(IrReturn statement) => None;
@@ -116,7 +129,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public IrEffects Convert(IrConvert value) => new([], [], value.Loc is not null);
 
         // Borrowing calls the object's beginBorrow.
-        public IrEffects Hold(IrHold value) => value.Borrows ? Released : None;
+        public IrEffects Hold(IrHold value) => value.Borrows ? Releasing(value.Type) : None;
 
         public IrEffects Use(IrUse value) => None;
         public IrEffects Variant(IrVariant value) => None;

@@ -103,8 +103,8 @@ change anything, so the compiler orders calls of them like operators rather than
 - **Performance warnings**: a kind of diagnostic, separate from errors and from ordinary warnings,
   for code that compiles and is correct but that the compiler can't optimize the way a reader would
   expect. The first planned one: a destructor that stores over an element of some type, which
-  makes every loop over that type keep a reference count per element
-  ([03-memory-model.md](03-memory-model.md#loop-elements)). It should name the destructor and the
-  loops it affects.
+  makes every loop over that type that may release an object of its class keep a reference count
+  per element ([03-memory-model.md](03-memory-model.md#loop-elements)). It should name the
+  destructor and the loops it affects.
   Some are found at runtime instead, in debug builds: the cycle collector's
   ([03-memory-model.md](03-memory-model.md#diagnostics)).

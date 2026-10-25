@@ -28,6 +28,7 @@ public sealed class CyclicClasses
     readonly IReadOnlyList<BoundLambda> closures;
     readonly Dictionary<FunctionSymbol, HashSet<VplType>> captured = [];
     readonly HashSet<FunctionSymbol> cyclicClosures = [];
+    readonly Dictionary<VplType, IReadOnlySet<VplType>?> destroyable = [];
 
     CyclicClasses(WholeProgram whole)
     {
@@ -119,6 +120,43 @@ public sealed class CyclicClasses
             else if (inline.IsTypeParameter || inline.IsFunction)
                 references.Add(inline);
         }
+    }
+
+    /// <summary>
+    /// The class instantiations whose objects releasing a value of the type may destroy: those its
+    /// strong references may refer to, and those their fields, elements, and closures' captures may,
+    /// or null if that may be any, through a type parameter or a class only C++ instantiates.
+    /// </summary>
+    public IReadOnlySet<VplType>? Destroyable(VplType type)
+    {
+        if (destroyable.TryGetValue(type, out var known))
+            return known;
+        var found = new HashSet<VplType>();
+        var seenClosures = new HashSet<FunctionSymbol>();
+        var references = new HashSet<VplType>();
+        Hold(type, references);
+        var pending = new Stack<VplType>(references);
+        bool any = false;
+        while (!any && pending.TryPop(out var reference))
+        {
+            if (reference.IsFunction)
+            {
+                any = reference.ContainsTypeParameters;
+                foreach (var closure in closures.Where(c => FunctionValues.MayBe(reference, c.Type) && seenClosures.Add(c.Function)))
+                {
+                    foreach (var captured in this.captured[closure.Function])
+                        pending.Push(captured);
+                }
+                continue;
+            }
+            any = reference.IsTypeParameter || MayReferToUnknown(reference) || (reference.Symbol!.Kind == TypeKind.Class && !held.ContainsKey(reference));
+            foreach (var c in classes.Where(c => IsSubtype(c, reference) && found.Add(c)))
+            {
+                foreach (var next in held[c])
+                    pending.Push(next);
+            }
+        }
+        return destroyable[type] = any ? null : found;
     }
 
     /// <summary>A node is cyclic if it is on a cycle: in a strongly connected component of several nodes, or with an edge to itself.</summary>
