@@ -248,8 +248,8 @@ public sealed partial class IrLowering
         {
             if (statements[h] is not IrLet { Value: IrHold hold } let)
                 continue;
-            var extent = Extent(statements, h);
-            if (hold.Borrows && !extent.RunsCode)
+            var (extent, referenced) = Extent(statements, h);
+            if (hold.Borrows && !referenced.RunsCode)
                 hold.Borrows = false;
             // A generic value's hold refers to a struct in place, so it can't become an alias.
             if (hold.Borrows || MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
@@ -265,18 +265,27 @@ public sealed partial class IrLowering
         statements.Skip(from + 1).SelectMany(IrWalk.Descendants).SelectMany(IrWalk.Operands).SelectMany(IrWalk.Places)
             .Any(p => p.Local == local && p.IsDeref);
 
-    /// <summary>What may happen while a hold, or anything pointing into what it holds, is in use.</summary>
-    static IrFootprint Extent(List<IrStatement> statements, int hold)
+    /// <summary>
+    /// What may happen while a hold, or anything pointing into what it holds, is in use; and what
+    /// may happen once something points into it, which is all a borrow must last for.
+    /// </summary>
+    static (IrFootprint Extent, IrFootprint Referenced) Extent(List<IrStatement> statements, int hold)
     {
         var dependents = new HashSet<IrLocal> { ((IrLet)statements[hold]).Local };
         int last = -1;
+        int firstReference = -1;
         bool lastInUse = false;
         for (int i = hold + 1; i < statements.Count; i++)
         {
             foreach (var let in IrWalk.Descendants(statements[i]).OfType<IrLet>())
             {
                 if (Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(dependents.Contains))
+                {
                     dependents.Add(let.Local);
+                    // Inside another statement, it may be made before more of that statement runs.
+                    if (firstReference < 0)
+                        firstReference = ReferenceEquals(let, statements[i]) ? i : i - 1;
+                }
             }
             if (IrWalk.Locals(statements[i]).Any(dependents.Contains))
             {
@@ -285,9 +294,16 @@ public sealed partial class IrLowering
             }
         }
         var footprint = new IrFootprint();
+        var referenced = new IrFootprint();
         for (int i = hold + 1; i < last || (i == last && lastInUse); i++)
-            footprint.Add(IrWalk.Footprint(statements[i]));
-        return footprint;
+        {
+            var inner = IrWalk.Footprint(statements[i]);
+            footprint.Add(inner);
+            // The statement making the first reference runs before the reference exists.
+            if (firstReference >= 0 && i > firstReference)
+                referenced.Add(inner);
+        }
+        return (footprint, referenced);
     }
 
     /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>

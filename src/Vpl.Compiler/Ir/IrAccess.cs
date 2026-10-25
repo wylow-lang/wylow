@@ -237,11 +237,14 @@ public static class IrWalk
     }
 
     /// <summary>What a statement reads itself: what its operands read, and the paths to the places it binds or stores to.</summary>
-    public static IEnumerable<IrAccess> Reads(IrStatement statement) => Operands(statement).SelectMany(argument => argument switch
+    public static IEnumerable<IrAccess> Reads(IrStatement statement) => PlaceReads(statement).SelectMany(r => r.Accesses);
+
+    /// <summary><see cref="Reads"/>, by the place each is a read of.</summary>
+    public static IEnumerable<(IrPlace Place, IEnumerable<IrAccess> Accesses)> PlaceReads(IrStatement statement) => Operands(statement).SelectMany(argument => argument switch
     {
-        IrRead read => IrAccess.Of(read.Place),
-        IrRefArgument reference => IrAccess.Path(reference.Place),
-        IrAddrArgument address => IrAccess.Path(address.Place),
-        _ => [],
+        IrRead read => [(read.Place, IrAccess.Of(read.Place))],
+        IrRefArgument reference => [(reference.Place, IrAccess.Path(reference.Place))],
+        IrAddrArgument address => [(address.Place, IrAccess.Path(address.Place))],
+        _ => Array.Empty<(IrPlace, IEnumerable<IrAccess>)>(),
     });
 }

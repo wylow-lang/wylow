@@ -26,11 +26,11 @@ public sealed partial class CppEmitter
         public Dictionary<IrElement, IrCheck> Fused { get; } = new(ReferenceEqualityComparer.Instance);
 
         /// <summary>
-        /// A local declared without a value and stored once at the end of the block after it, which
-        /// prints as one declaration with the stored value: a statement's temporaries are released
-        /// after the local is initialized from them.
+        /// A local declared without a value, then stored only by the statement defining it: a block
+        /// whose temporaries are released after the local is initialized from them, or an <c>if</c>
+        /// storing it in both branches. It prints as one declaration of the stored value.
         /// </summary>
-        public Dictionary<IrLocal, (IrBlock Block, IrOperand Value)> Initialized { get; } = [];
+        public Dictionary<IrLocal, (IrDeclare Declare, IrStatement Definition)> Initialized { get; } = [];
 
         public Dictionary<IrLocal, int> Uses { get; } = [];
 
@@ -81,17 +81,19 @@ public sealed partial class CppEmitter
             foreach (var inner in InnerBlocks(statement))
                 PlanBlock(inner);
         }
-        for (int j = 0; j + 1 < statements.Count; j++)
+        for (int j = 0; j < statements.Count; j++)
         {
-            if (statements[j] is IrDeclare { Local: var local } declare && statements[j + 1] is IrBlock initializer
-                && TopLevel(initializer) is [IrStore { Target: { IsDeref: false, Projections.Count: 0 } target, Value: var value } store]
-                && target.Local == local && local.Kind == IrLocalKind.Value && !IsNonEscaping(local.Type)
-                && IrWalk.Descendants(block).OfType<IrStore>().Count(s => s.Target.Local == local && s.Target is { IsDeref: false, Projections.Count: 0 }) == 1)
-            {
-                plan.Initialized[local] = (initializer, value);
-                plan.Consumed.Add(declare);
+            if (statements[j] is not IrDeclare { Local: { Kind: IrLocalKind.Value } local } declare || IsNonEscaping(local.Type))
+                continue;
+            int m = statements.FindIndex(j + 1, s => IrWalk.Locals(s).Contains(local));
+            if (m < 0 || StoresOf(statements[m], local) is not { } stores)
+                continue;
+            if (IrWalk.Descendants(block).OfType<IrStore>().Count(s => IsWholeStore(s, local)) != stores.Count)
+                continue;
+            plan.Initialized[local] = (declare, statements[m]);
+            plan.Consumed.Add(declare);
+            foreach (var store in stores)
                 plan.Consumed.Add(store);
-            }
         }
         bool last = true;
         for (int i = statements.Count - 1; i >= 0; i--)
@@ -100,6 +102,29 @@ public sealed partial class CppEmitter
                 continue;
             Process(statements, i, last);
             last = false;
+        }
+    }
+
+    static bool IsWholeStore(IrStore store, IrLocal local) => store.Target is { IsDeref: false, Projections.Count: 0 } target && target.Local == local;
+
+    /// <summary>
+    /// The stores of a statement that defines a declared local as one value: a block storing it
+    /// last, everything before nested into the store, or an <c>if</c> whose branches each do that
+    /// and make no value whose release could be observed, since a branch's temporaries are released
+    /// when it completes.
+    /// </summary>
+    List<IrStore>? StoresOf(IrStatement statement, IrLocal local)
+    {
+        IrStore? Stored(IrBlock block) => TopLevel(block) is [IrStore store] && IsWholeStore(store, local) ? store : null;
+        switch (statement)
+        {
+            case IrBlock block when Stored(block) is { } store:
+                return [store];
+            case IrIf { Else: { } otherwise } conditional when Stored(conditional.Then) is { } then && Stored(otherwise) is { } other:
+                bool owns = IrWalk.Descendants(conditional.Then).Concat(IrWalk.Descendants(otherwise)).OfType<IrLet>().Any(l => CreatesOwner(l.Value) || l.Value is IrHold);
+                return owns ? null : [then, other];
+            default:
+                return null;
         }
     }
 
@@ -141,15 +166,32 @@ public sealed partial class CppEmitter
     (int Frontier, IrFootprint Tree) Process(List<IrStatement> statements, int k, bool last)
     {
         var statement = statements[k];
-        if (statement is IrBlock initializer && plan.Initialized.Values.Any(v => v.Block == initializer))
+        if (DefinedBy(statement) is { } defined)
         {
-            var footprint = IrWalk.Footprint(initializer);
-            footprint.CreatesOwner |= IrWalk.Descendants(initializer).OfType<IrLet>().Any(l => CreatesOwner(l.Value));
-            return (k - 1, footprint);
+            var (declare, _) = plan.Initialized[defined];
+            var (start, footprint) = statement is IrIf conditional ? ProcessOperands(statements, k, last) : (k, new IrFootprint());
+            foreach (var inner in InnerBlocks(statement))
+                footprint.Add(IrWalk.Footprint(inner));
+            footprint.CreatesOwner |= IrWalk.Descendants(statement).OfType<IrLet>().Any(l => CreatesOwner(l.Value));
+            // Storing the local is what defines it, which its use comes after.
+            footprint.Writes.RemoveAll(w => w.Storage == IrStorage.Frame && w.Local == defined);
+            // The declaration is part of the definition, if nothing stays between them.
+            int at = statements.IndexOf(declare);
+            return (start == at + 1 ? at : start, footprint);
         }
+        return ProcessOperands(statements, k, last);
+    }
+
+    IrLocal? DefinedBy(IrStatement statement) => plan.Initialized.FirstOrDefault(i => i.Value.Definition == statement).Key;
+
+    (int Frontier, IrFootprint Tree) ProcessOperands(List<IrStatement> statements, int k, bool last)
+    {
+        var statement = statements[k];
+        // A condition is a statement of its own, so its temporaries are released where it ends.
+        last |= statement is IrIf;
         var own = OwnFootprint(statement);
-        var siblings = new IrFootprint();
-        siblings.Reads.AddRange(own.Reads);
+        var placeReads = IrWalk.PlaceReads(statement).Select(r => (Locals: IrWalk.PlaceLocals(r.Place).ToHashSet(), Accesses: r.Accesses.ToList())).ToList();
+        var nested = new IrFootprint();
         int frontier = k;
         foreach (var nestable in Nestables(statement).Reverse())
         {
@@ -174,6 +216,11 @@ public sealed partial class CppEmitter
                     break;
             }
             var (childFrontier, tree) = Process(statements, j, last);
+            // What the statement reads through the candidate it can only read after evaluating it.
+            var candidateLocal = nestable switch { TemporaryUse use => use.Local, CheckedElement element => element.Index, _ => null };
+            var siblings = new IrFootprint();
+            siblings.Add(nested);
+            siblings.Reads.AddRange(placeReads.Where(r => !r.Locals.Contains(candidateLocal!)).SelectMany(r => r.Accesses));
             if (tree.ConflictsWith(siblings) || (tree.CreatesOwner && !last))
             {
                 plan.Undo(mark);
@@ -193,7 +240,7 @@ public sealed partial class CppEmitter
                     break;
             }
             frontier = childFrontier;
-            siblings.Add(tree);
+            nested.Add(tree);
             own.Add(tree);
         }
         return (frontier, own);
@@ -202,7 +249,7 @@ public sealed partial class CppEmitter
     bool Defines(IrStatement statement, IrLocal local) => statement switch
     {
         IrLet let => let.Local == local && let.Value is not (IrLambda or IrClosure or IrHold),
-        IrBlock block => plan.Initialized.TryGetValue(local, out var initialized) && initialized.Block == block,
+        IrBlock or IrIf => plan.Initialized.TryGetValue(local, out var initialized) && initialized.Definition == statement,
         _ => false,
     };
 
@@ -234,6 +281,7 @@ public sealed partial class CppEmitter
         IrUse => false,
         IrConvert { Operand: IrRead { Ownership: not IrOwnership.Copy } } => false,
         IrRef or IrAddr or IrHold or IrData or IrTest => false,
+        IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => false,
         _ => true,
     };
 }

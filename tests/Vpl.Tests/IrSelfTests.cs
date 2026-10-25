@@ -200,6 +200,21 @@ static class IrSelfTests
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
         });
 
+        // The store makes the loop's entry state change, so its body is verified a second time.
+        yield return new("loop_verified_twice", () =>
+        {
+            var c = b.Parameter("c", VplType.Bool);
+            var x = b.Local("x", VplType.Int);
+            var t = b.Temp(VplType.Int);
+            var loop = new IrLoop();
+            loop.Body.Statements.AddRange([
+                new IrLet(t, Use(IrConstant.Int(1))),
+                new IrStore(new IrPlace(x), Move(t)),
+                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrBreak(loop)])),
+            ]);
+            return b.Function("loop_verified_twice", [c], new IrDeclare(x), loop);
+        });
+
         yield return new("borrowed_fixed_field_across_call", () =>
         {
             var a = b.Parameter("a", holder);

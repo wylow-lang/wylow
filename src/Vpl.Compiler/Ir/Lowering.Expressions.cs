@@ -58,6 +58,10 @@ public sealed partial class IrLowering
                 return new IrArray(array.Type, [.. Settle(array.Elements.Select(Value).ToList()).Cast<IrOperand>()]);
             case BoundConversion conversion:
                 return Conversion(conversion, use);
+            case BoundConditional conditional:
+                return Conditional(conditional);
+            case BoundCoalesce coalesce:
+                return Coalesce(coalesce);
             case BoundArrayLength length:
                 // The length is the type's, but the operand is still evaluated.
                 if (IsPlace(length.Operand))
@@ -81,7 +85,7 @@ public sealed partial class IrLowering
     IrRvalue Binary(BoundBinary binary)
     {
         if (binary.Operator is BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr)
-            throw new NotLoweredException("'&&' or '||'");
+            return Logical(binary);
         if (binary.Operator is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && NullTested(binary) is { } tested)
         {
             var kind = tested.Type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull;

@@ -16,6 +16,7 @@ public sealed partial class CppEmitter
     void EmitIrBody(IrFunction function)
     {
         irNames.Clear();
+        continueLabels.Clear();
         PlanNesting(function, nest);
         IrStatements(function.Body);
     }
@@ -34,11 +35,11 @@ public sealed partial class CppEmitter
     {
         switch (statement)
         {
-            case IrBlock block when InitializedBy(block) is { } local:
-                Line(Declaration(local, OperandText(plan.Initialized[local].Value)));
+            case var definition when DefinedBy(definition) is { } local:
+                Line(Declaration(local, InitializedText(local)));
                 break;
             case IrBlock block:
-                bool braces = TopLevel(block).Any(s => s is IrLet or IrDeclare || s is IrBlock inner && InitializedBy(inner) is not null);
+                bool braces = TopLevel(block).Any(s => s is IrLet or IrDeclare || DefinedBy(s) is not null);
                 if (braces)
                 {
                     Line("{");
@@ -57,17 +58,26 @@ public sealed partial class CppEmitter
             case IrDeclare declare:
                 Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{{}};");
                 break;
-            case IrStore store:
-                Line(StoreText(store.Target.Type, PlaceText(store.Target), OperandText(store.Value)) + ";");
-                break;
-            case IrDo run:
-                Line((run.Value is IrCall or IrNew or IrInvoke ? RvalueText(run.Value) : $"static_cast<void>({RvalueText(run.Value)})") + ";");
+            case IrStore or IrDo:
+                Line(StatementText(statement) + ";");
                 break;
             case IrCheck check:
                 Line(CheckText(check) + ";");
                 break;
             case IrReturn ret:
                 Line(ret.Value is null ? "return;" : $"return {OperandText(ret.Value)};");
+                break;
+            case IrIf conditional:
+                If(conditional, "if");
+                break;
+            case IrLoop loop:
+                Loop(loop);
+                break;
+            case IrBreak:
+                Line("break;");
+                break;
+            case IrContinue jump:
+                Line(continueLabels.TryGetValue(jump.Loop, out var label) ? $"goto {label};" : "continue;");
                 break;
             case IrUnreachable unreachable:
                 // A call that doesn't return is [[noreturn]] in C++ too.
@@ -79,7 +89,145 @@ public sealed partial class CppEmitter
         }
     }
 
-    IrLocal? InitializedBy(IrBlock block) => plan.Initialized.FirstOrDefault(i => i.Value.Block == block).Key;
+    /// <summary>The value a local declared without one is defined with: a block's last store, or a choice between two.</summary>
+    string InitializedText(IrLocal local)
+    {
+        IrOperand Stored(IrBlock block) => ((IrStore)block.Statements.Last(s => s is IrStore store && IsWholeStore(store, local))).Value;
+        switch (plan.Initialized[local].Definition)
+        {
+            case IrBlock block:
+                return OperandText(Stored(block));
+            case IrIf conditional:
+                var condition = OperandText(conditional.Condition);
+                var (then, otherwise) = (Stored(conditional.Then), Stored(conditional.Else!));
+                if (otherwise is IrConstant { Value: false })
+                    return $"({condition} && {OperandText(then)})";
+                if (then is IrConstant { Value: true })
+                    return $"({condition} || {OperandText(otherwise)})";
+                return $"({condition} ? {OperandText(then)} : {OperandText(otherwise)})";
+            default:
+                throw new InvalidOperationException("unexpected definition");
+        }
+    }
+
+    void Braced(IrBlock block)
+    {
+        Line("{");
+        indent++;
+        IrStatements(block);
+        indent--;
+        Line("}");
+    }
+
+    void If(IrIf conditional, string keyword)
+    {
+        var condition = OperandText(conditional.Condition);
+        if (TopLevel(conditional.Then).Count == 0 && conditional.Else is { } only)
+        {
+            Line($"{keyword} (!{condition})");
+            Braced(only);
+            return;
+        }
+        Line($"{keyword} {Parenthesized(condition)}");
+        Braced(conditional.Then);
+        if (conditional.Else is not { } otherwise || TopLevel(otherwise).Count == 0)
+            return;
+        if (TopLevel(otherwise) is [IrIf chained] && DefinedBy(chained) is null)
+            If(chained, "else if");
+        else
+        {
+            Line("else");
+            Braced(otherwise);
+        }
+    }
+
+    /// <summary>Loops whose update a <c>continue</c> jumps to with <c>goto</c>, since it isn't a <c>for</c> loop's.</summary>
+    readonly Dictionary<IrLoop, string> continueLabels = [];
+
+    /// <summary>
+    /// A <c>while</c> or <c>for</c> loop when the body starts by breaking unless a condition holds
+    /// and the update is one statement, and otherwise a <c>while (true)</c> whose <c>continue</c>s
+    /// jump to the update after the body's block, which skips no declaration.
+    /// </summary>
+    void Loop(IrLoop loop)
+    {
+        var body = TopLevel(loop.Body);
+        string? condition = null;
+        if (body.FirstOrDefault() is IrIf head && TopLevel(head.Then).Count == 0 && head.Else is { } exit
+            && TopLevel(exit) is [IrBreak { Loop: var exited }] && exited == loop && DefinedBy(head) is null)
+        {
+            condition = OperandText(head.Condition);
+            body.RemoveAt(0);
+        }
+        var update = loop.Continue is { } next ? TopLevel(next) : [];
+        bool continues = IrWalk.Descendants(loop.Body).OfType<IrContinue>().Any(c => c.Loop == loop);
+        if (condition is not null && update is [IrStore or IrDo])
+        {
+            var text = StatementText(update[0]);
+            Line($"for (; {Unparenthesized(condition)}; {text})");
+            update = [];
+        }
+        else
+        {
+            Line($"while {Parenthesized(condition ?? "true")}");
+            if (continues && update.Count > 0)
+                continueLabels[loop] = $"vpl_continue_{tempCounter++}";
+        }
+        // The body is a block of its own, which the loop's braces can be once nothing follows it.
+        if (body is [IrBlock only] && update.Count == 0 && !continueLabels.ContainsKey(loop))
+            body = TopLevel(only);
+        Line("{");
+        indent++;
+        IrStatement? previous = null;
+        foreach (var statement in body)
+        {
+            IrStatement(statement, previous);
+            previous = statement;
+        }
+        if (continueLabels.TryGetValue(loop, out var label))
+            Line($"{label}:;");
+        foreach (var statement in update)
+            IrStatement(statement, null);
+        indent--;
+        Line("}");
+    }
+
+    /// <summary>The text in parentheses, which it may already be in as a whole.</summary>
+    static string Parenthesized(string text) => IsParenthesized(text) ? text : $"({text})";
+
+    static string Unparenthesized(string text) => IsParenthesized(text) ? text[1..^1] : text;
+
+    static bool IsParenthesized(string text)
+    {
+        if (!text.StartsWith('(') || !text.EndsWith(')'))
+            return false;
+        int depth = 0;
+        bool quoted = false;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (quoted)
+            {
+                if (text[i] == '\\')
+                    i++;
+                else if (text[i] == '"')
+                    quoted = false;
+                continue;
+            }
+            quoted = text[i] == '"';
+            depth += text[i] switch { '(' => 1, ')' => -1, _ => 0 };
+            if (depth == 0 && i < text.Length - 1)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>A store or evaluation as C++ without its semicolon, as a <c>for</c> loop's update.</summary>
+    string StatementText(IrStatement statement) => statement switch
+    {
+        IrStore store => StoreText(store.Target.Type, PlaceText(store.Target), OperandText(store.Value)),
+        IrDo run => run.Value is IrCall or IrNew or IrInvoke ? RvalueText(run.Value) : $"static_cast<void>({RvalueText(run.Value)})",
+        _ => throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}"),
+    };
 
     string Name(IrLocal local)
     {
@@ -92,7 +240,8 @@ public sealed partial class CppEmitter
     string Declaration(IrLocal local, string value)
     {
         var name = Name(local);
-        var unused = local.Symbol is not null && (local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct) ? "[[maybe_unused]] " : "";
+        bool mayBeUnused = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || plan.Uses.GetValueOrDefault(local) == 0;
+        var unused = local.Symbol is not null && mayBeUnused ? "[[maybe_unused]] " : "";
         return local.Kind switch
         {
             IrLocalKind.Value => $"{unused}{CppType(local.Type)} {name} = {value};",
@@ -108,7 +257,7 @@ public sealed partial class CppEmitter
     string NestedText(IrLocal local) => plan.Nested[local] switch
     {
         IrLet let => RvalueText(let.Value),
-        IrBlock => OperandText(plan.Initialized[local].Value),
+        IrBlock or IrIf => InitializedText(local),
         var other => throw new InvalidOperationException($"unexpected definition {other.GetType().Name}"),
     };
 

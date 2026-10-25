@@ -165,6 +165,21 @@ public sealed partial class IrLowering
             case BoundReturn ret:
                 InStatement(() => Return(ret));
                 break;
+            case BoundIf conditional:
+                If(conditional);
+                break;
+            case BoundWhile loop:
+                Loop(loop.Condition, loop.Body, null);
+                break;
+            case BoundFor loop:
+                For(loop);
+                break;
+            case BoundForRange range:
+                ForRange(range);
+                break;
+            case BoundBreak or BoundContinue:
+                Jump(statement);
+                break;
             default:
                 throw new NotLoweredException($"a {statement.GetType().Name}");
         }
@@ -239,24 +254,7 @@ public sealed partial class IrLowering
             return;
         }
 
-        var scope = new IrBlock();
-        IrLet? let = null;
-        Into(scope, () => Add(let = new IrLet(local, Rvalue(initializer, Use.Read))));
-        if (!scope.Statements.Any(s => DeclaresOwner(s, local)))
-        {
-            block.Statements.AddRange(scope.Statements);
-            return;
-        }
-        // The initializer's temporaries are released before the local is: it is stored at the end of their block.
-        var at = scope.Statements.IndexOf(let!);
-        scope.Statements.RemoveAt(at);
-        var saved = block;
-        block = new IrBlock();
-        var operand = OperandOf(let!.Value);
-        scope.Statements.InsertRange(at, [.. block.Statements, new IrStore(new IrPlace(local), operand)]);
-        block = saved;
-        Add(new IrDeclare(local));
-        Add(scope);
+        Define(local, initializer);
     }
 
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
