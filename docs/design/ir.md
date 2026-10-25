@@ -581,11 +581,15 @@ Each step keeps the suite passing on MSVC and g++.
    - straight-line code, calls, places, and holds;
    - control flow;
    - patterns and switches;
-   - `try`, lifting the binder's `try` restrictions once it lowers (§9.7);
-   - lambdas, closures, and choices;
-   - slots and borrowed loop elements;
-   - `@CallerLocation`;
-   - constructors and super calls.
+   - slots and borrowed loop elements, first of the rest because nearly every test's `main` has
+     an object on the stack, so until they lower, most behavior tests don't run through the IR;
+   - lambdas, closures, choices, and calls of function values;
+   - constructors and super calls;
+   - the small ones: `try`, lifting the binder's `try` restrictions once it lowers (§9.7);
+     `@CallerLocation`; and `is ref`.
+
+   The big constructs come before the small ones because they test the IR's model (lambdas'
+   captures and functions, what a constructor's unit is), so a design problem shows up early.
 4. **Switch the default to the IR**, and delete the emitter's expression and statement half
    (most of `CppEmitter.Expressions/Statements/Ordering/Patterns/Lambdas.cs`, about 1,900 lines
    in all). Signatures, templates, and the declaration half stay.

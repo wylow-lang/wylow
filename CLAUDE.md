@@ -128,7 +128,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `object` when building literal values. `BoundLiteral` rejects mismatched values to catch this.
 - Visual Studio updates temporarily remove the .NET SDK and MSVC. If `dotnet` reports no SDKs, check
   for a running VS installer and wait for it rather than changing anything.
-- Python isn't installed; use the editing tools, PowerShell, or bash.
+- Python is available as `python3` in bash, which is handy for multi-line edits that perl's
+  quoting breaks. It writes CRLF on Windows; that's harmless, since `.gitattributes` normalizes to LF.
 - `record with { ... }` copies computed base-constructor arguments instead of recomputing them:
   `access with { AssumesNonNull = true }` keeps the old `Type`. Construct a new bound node instead.
 - Tests compile against the copy of `runtime/` in the build output, so run `dotnet build`
