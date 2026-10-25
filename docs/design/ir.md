@@ -597,6 +597,10 @@ Each step keeps the suite passing on MSVC and g++.
    - borrowed locals beyond loop elements;
    - destructor precision (§6.1);
    - last-use `move`s, for types whose release nothing can observe (§9.10).
+7. **Move the effect-shaped flow checks onto the IR** (§9.4): the nullable-value reference rule
+   becomes an IR check that reports source-level errors, `FlowAnalyzer`'s "locals a statement may
+   assign" walkers are deleted, and §9.6 and lifetime analysis are written there. Not optional:
+   until it's done, the same question (what may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output
 observe. The target is the spec's rule (§9.10), not today's emitter, which releases the
@@ -643,11 +647,17 @@ against the rule: either lowering is wrong or the test's expectation was relying
    order C++ allows, with four kinds of conflict, a value whose release may be observable nested
    only into its statement's last C++ statement, no `store` or hold nested, and no reliance on
    C++17's receiver-first ordering. The first algorithm nests only adjacent temporaries.
-4. **Flow analysis: stay or move?** **Decided: stay** for now. It works, it reports source-level
-   errors, and narrowing is already in the tree. The binder decides what is legal; the verifier's
-   re-check of the nullable-value rule (§6.4, check 4) only catches lowering bugs. Revisit if
-   that rule moves to the IR (6), which would make the IR the natural home for flow-sensitive
-   checks, as Rust moved borrow checking to MIR.
+4. **Flow analysis: stay or move?** **Decided: split it by what each check asks.** Definite
+   assignment, returns on every path, reachability, constructor field assignment, and narrowing
+   stay on the bound tree: VPL has no `goto`, so the tree's control flow is as structured as the
+   IR's, and moving them gains no precision while forcing lowering to run on programs with errors.
+   The checks that ask "may anything in extent E write P" belong on the IR, because that is the
+   effect table's question: the nullable-value reference rule (`FlowAnalyzer`'s operand check and
+   its own "locals a statement may assign" walkers), §9.6, and lifetime analysis. **They move in
+   step 7 (§7)**, which deletes `FlowAnalyzer`'s assignment walkers. Until then the verifier trusts
+   `FlowAnalyzer` where it is more precise than the verifier: a pattern binding is declared with
+   `IsBinding`, which the verifier counts as stored, because only `FlowAnalyzer` knows that a
+   condition being true means its pattern matched.
 5. **Bounds checks as separate instructions?** **Decided: yes** (pure places), with the emitter
    fusing them back into `vpl::at`.
 6. **Accept more programs once the IR can check them?** For example, allow a `ref` into a `mut`

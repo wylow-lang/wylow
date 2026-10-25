@@ -83,7 +83,7 @@ public sealed partial class CppEmitter
         }
         for (int j = 0; j < statements.Count; j++)
         {
-            if (statements[j] is not IrDeclare { Local: { Kind: IrLocalKind.Value } local } declare || IsNonEscaping(local.Type))
+            if (statements[j] is not IrDeclare { IsBinding: false, Local: { Kind: IrLocalKind.Value } local } declare || IsNonEscaping(local.Type))
                 continue;
             int m = statements.FindIndex(j + 1, s => IrWalk.Locals(s).Contains(local));
             if (m < 0 || StoresOf(statements[m], local) is not { } stores)

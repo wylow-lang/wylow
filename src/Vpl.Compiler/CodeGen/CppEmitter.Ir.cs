@@ -65,7 +65,14 @@ public sealed partial class CppEmitter
                 Line(CheckText(check) + ";");
                 break;
             case IrReturn ret:
-                Line(ret.Value is null ? "return;" : $"return {OperandText(ret.Value)};");
+                Line(ret.Value switch
+                {
+                    null => "return;",
+                    // C++ moves a returned local itself, and `std::move` would prevent eliding the move.
+                    IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value } local } }
+                        when !plan.Nested.ContainsKey(local) => $"return {Name(local)};",
+                    var value => $"return {OperandText(value)};",
+                });
                 break;
             case IrIf conditional:
                 If(conditional, "if");
@@ -80,8 +87,8 @@ public sealed partial class CppEmitter
                 Line(continueLabels.TryGetValue(jump.Loop, out var label) ? $"goto {label};" : "continue;");
                 break;
             case IrUnreachable unreachable:
-                // A call that doesn't return is [[noreturn]] in C++ too.
-                if (previous is not IrDo { Value: IrCall { Method.Symbol.IsNoReturn: true } })
+                // A call that doesn't return is [[noreturn]] in C++ too, and so is `vpl::no_match`.
+                if (previous is not (IrDo { Value: IrCall { Method.Symbol.IsNoReturn: true } } or IrCheck { Kind: IrCheckKind.NoMatch }))
                     Line($"vpl::unreachable({LocText(unreachable.Loc)});");
                 break;
             default:
@@ -379,6 +386,7 @@ public sealed partial class CppEmitter
         IrAddr address => $"vpl::address_of({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",
         IrTest test => TestText(test),
+        IrConvert conversion when IsDowncast(conversion) => $"vpl::downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
         IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), () => LocText(conversion.Loc!)),
         IrHold hold => $"vpl::{(hold.Borrows ? "borrow" : "pin")}({PlaceText(hold.Place)})",
         _ => throw new InvalidOperationException($"the IR emitter can't print {value.GetType().Name} yet"),
@@ -391,9 +399,15 @@ public sealed partial class CppEmitter
         {
             IrTestKind.NotNull when test.Operand.Type.IsPointer || test.Operand.Type.IsNullableReference => $"({operand} != nullptr)",
             IrTestKind.NotNull or IrTestKind.HasValue => $"vpl::has_value({operand})",
+            IrTestKind.Tag => $"({operand}.tag == {TagValue(test.Variant!)})",
+            IrTestKind.Class => $"vpl::is<{ObjectType(test.Target!)}>({operand})",
             _ => throw new InvalidOperationException($"the IR emitter can't print a {test.Kind} test yet"),
         };
     }
+
+    /// <summary>A conversion of a reference to a class it may not refer to, which a type test has checked.</summary>
+    static bool IsDowncast(IrConvert conversion) =>
+        conversion.Type.IsReference && conversion.Operand.Type.NonNull.IsReference && !Conversions.IsSubtype(conversion.Operand.Type.NonNull, conversion.Type.NonNull);
 
     string CheckText(IrCheck check)
     {

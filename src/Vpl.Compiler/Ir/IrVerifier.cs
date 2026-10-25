@@ -167,7 +167,9 @@ public sealed partial class IrVerifier
                 if (declare.Local.Kind is IrLocalKind.Hold or IrLocalKind.Borrowed)
                     Error($"a {declare.Local.Kind.ToString().ToLowerInvariant()} local needs its value where it is declared");
                 Declare(declare.Local, state, declare);
-                if (declare.Local.Kind == IrLocalKind.Slot)
+                if (declare.IsBinding && (declare.Local.IsTemporary || declare.Local.Kind != IrLocalKind.Value))
+                    Error("only a value local can be a pattern's binding");
+                if (declare.Local.Kind == IrLocalKind.Slot || declare.IsBinding)
                     state.Assigned.Add(declare.Local);
                 return state;
             case IrStore store:

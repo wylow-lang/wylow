@@ -732,9 +732,9 @@ if (state is Chasing(var target) && target.isAlive()) { ... }
 while (node is Some(var n)) { node = n.next; }
 ```
 
-- Binding names in an `is` stores to existing locals, which releases their old values. Every bound
-  value is copied out of the matched value before any of those releases, since a destructor they run
-  may change it.
+- Binding names in an `is` stores to existing locals, left to right, which releases their old
+  values. Every bound value is copied out of the matched value before any of those releases, since a
+  destructor they run may change it.
 
 ### String interpolation
 

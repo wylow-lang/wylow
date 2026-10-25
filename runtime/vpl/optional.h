@@ -58,19 +58,21 @@ public:
     ~Optional() requires std::is_trivially_destructible_v<T> = default;
     ~Optional() requires(!std::is_trivially_destructible_v<T>) { reset(); }
 
-    // As for Ref, swapping releases nothing: the old value dies with `other`, after the store.
+    // Every part of the new value is stored before any part of the old one is released, which
+    // happens at the store, as for a copy: the old value dies with `taken`, not when `other` does.
     Optional& operator=(Optional&&) requires std::is_trivially_move_assignable_v<T> = default;
     Optional& operator=(Optional&& other) noexcept requires(!std::is_trivially_move_assignable_v<T>) {
-        if (has_ && other.has_) {
+        Optional taken(std::move(other));
+        if (has_ && taken.has_) {
             using std::swap;
-            swap(value_, other.value_);
-        } else if (other.has_) {
-            ::new (static_cast<void*>(&value_)) T(std::move(other.value_));
+            swap(value_, taken.value_);
+        } else if (taken.has_) {
+            ::new (static_cast<void*>(&value_)) T(std::move(taken.value_));
             has_ = true;
-            other.reset();
+            taken.reset();
         } else if (has_) {
-            ::new (static_cast<void*>(&other.value_)) T(std::move(value_));
-            other.has_ = true;
+            ::new (static_cast<void*>(&taken.value_)) T(std::move(value_));
+            taken.has_ = true;
             reset();
         }
         return *this;
@@ -178,6 +180,17 @@ template <class T>
 inline T unwrap(const Optional<T>& value, const char* location) {
     if (!value.has_value()) panic("null value unwrapped with '!'", location);
     return value.assumed();
+}
+
+// Checks printed apart from the value they guard, like check_index.
+template <class T>
+inline void check_not_null(const Ref<T>& value, const char* location) {
+    if (!value) panic("null value unwrapped with '!'", location);
+}
+
+template <class T>
+inline void check_has_value(const Optional<T>& value, const char* location) {
+    if (!value.has_value()) panic("null value unwrapped with '!'", location);
 }
 
 // Stores every part of the new value before releasing any part of the old one: a memberwise copy

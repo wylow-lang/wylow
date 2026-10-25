@@ -336,13 +336,15 @@ public sealed partial class CppEmitter
         var value = LocalName(access.Value);
         var receiver = Expression(access.Receiver);
         var member = Expression(access.WhenNotNull);
-        // A nullable value is copied, and the member reached through the value in the copy.
+        // The receiver is a copy, a temporary of the statement: the lambda takes it by reference, so
+        // it lives until the statement completes. A nullable value's member is reached in the copy.
+        var argument = IsPlace(access.Receiver) ? $"{CppType(access.Receiver.Type)}({receiver})" : receiver;
         var held = access.Receiver.Type.IsNullableValue ? NewTemp() : value;
-        var start = $"auto {held} = {receiver}; if (!vpl::has_value({held}))";
+        var start = $"if (!vpl::has_value({held}))";
         var bind = held == value ? "" : $"auto& {value} = vpl::assume_value({held}); ";
         if (access.Type == VplType.Void)
-            return $"[&] {{ {start} {{ return; }} {bind}{member}; }}()";
-        return $"[&]() -> {CppType(access.Type)} {{ {start} {{ return {CppType(access.Type)}(); }} {bind}return {member}; }}()";
+            return $"[&](auto&& {held}) {{ {start} {{ return; }} {bind}{member}; }}({argument})";
+        return $"[&](auto&& {held}) -> {CppType(access.Type)} {{ {start} {{ return {CppType(access.Type)}(); }} {bind}return {member}; }}({argument})";
     }
 
     /// <summary>

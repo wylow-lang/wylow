@@ -223,9 +223,13 @@ public:
         release(old);
     }
 
-    // Swapping releases nothing; the old value dies with `other`, after the store.
+    // As for a copy, the old value is released at the store, not when `other` dies later.
     Ref& operator=(Ref&& other) noexcept {
-        std::swap(ptr, other.ptr);
+        if (&other == this) return *this;
+        T* old = ptr;
+        ptr = other.ptr;
+        other.ptr = nullptr;
+        release(old);
         return *this;
     }
 

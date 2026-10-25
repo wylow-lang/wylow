@@ -1,0 +1,169 @@
+// When matching reads, copies, and releases values. Each case is a function of its own, without
+// objects on the stack. Items print their name when freed, and may empty their holder's slot
+// when freed, which changes an enum while it is being matched.
+class Item {
+    int id;
+    String name;
+    mut Weak<Holder> clears;
+
+    Item(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    ~Item() {
+        print(name);
+        if (clears.get() is Holder h) {
+            print(h.slot is Holding ? "sees old value" : "sees new value");
+            h.slot = Slot.Empty;
+        }
+    }
+}
+
+enum Box {
+    Nothing,
+    Has(Item item),
+}
+
+enum Slot {
+    Empty,
+    Holding(Item item),
+    Pair(Box first, Box second),
+}
+
+class Holder {
+    mut Slot slot = Slot.Empty;
+
+    ~Holder() {
+        print("free holder");
+    }
+}
+
+Holder holder() {
+    return new Holder();
+}
+
+Item item(int id, String name) {
+    return new Item(id, name);
+}
+
+Holder holding(int id, String name) {
+    var h = holder();
+    h.slot = Slot.Holding(item(id, name));
+    return h;
+}
+
+// Binding a name releases its old value, whose destructor may change the matched value; every
+// bound value is copied before any is stored.
+void rebind(Holder h) {
+    mut var a1 = item(11, "free a1");
+    a1.clears = h;
+    h.slot = Slot.Pair(Box.Has(a1), Box.Has(item(12, "free b1")));
+    a1 = item(0, "free 0");
+    mut int round = 0;
+    while (h.slot is Pair(Has(var a), Has(var b))) {
+        print(round);
+        if (round == 0) {
+            h.slot = Slot.Pair(Box.Has(item(21, "free a2")), Box.Has(item(22, "free b2")));
+        } else {
+            h.slot = Slot.Empty;
+        }
+        round++;
+    }
+}
+
+// A condition's temporaries are released before the body runs; the name it binds, when the
+// statement ends.
+void temporaryInCondition() {
+    if (holding(7, "free item 7").slot is Holding(var item)) {
+        print(item.id);
+    }
+}
+
+// A switch keeps a temporary value until it ends, after the case's names are released.
+void temporaryInSwitch() {
+    switch (holding(8, "free item 8").slot) {
+        case Holding(var item) -> print(item.id);
+        default -> print(0);
+    }
+    print("after switch");
+}
+
+// A switch expression keeps it until its value is produced.
+void temporaryInSwitchExpression() {
+    int id = switch (holding(5, "free item 5").slot) {
+        case Holding(var item) -> item.id;
+        default -> 0;
+    };
+    print(id);
+}
+
+// A case's names are copies, so it may change the value it matched.
+void changeMatched(Holder h) {
+    switch (h.slot) {
+        case Holding(var item) -> {
+            h.slot = Slot.Empty;
+            print(item.id);
+        }
+        default -> print(0);
+    }
+    print(h.slot is Empty);
+}
+
+// A test of a nullable reference only checks that it isn't null when the type already matches.
+String describe(Item? maybe) {
+    if (maybe is Item found) {
+        return found.name;
+    }
+    return "none";
+}
+
+String depth(Slot slot) {
+    return switch (slot) {
+        case Pair(Has(var a), Has(var b)) -> $"two: {a.id}, {b.id}";
+        case Pair(Has(_), Nothing), Pair(Nothing, Has(_)) -> "one";
+        case Pair(Nothing, Nothing) -> "none";
+        case Holding(_) -> "holding";
+        case Empty -> "empty";
+    };
+}
+
+void main() {
+    var h = holder();
+    rebind(h);
+    // output: 0
+    // output: free a1
+    // output: sees new value
+    // output: free b1
+    // output: 1
+    // output: free b2
+    // output: free a2
+    // output: free 0
+    temporaryInCondition();
+    // output: free holder
+    // output: 7
+    // output: free item 7
+    temporaryInSwitch();
+    // output: 8
+    // output: free holder
+    // output: free item 8
+    // output: after switch
+    temporaryInSwitchExpression();
+    // output: free holder
+    // output: free item 5
+    // output: 5
+    changeMatched(holding(3, "free item 3"));
+    // output: 3
+    // output: free item 3
+    // output: true
+    // output: free holder
+    var kept = item(4, "item 4");
+    print(describe(kept));                                  // output: item 4
+    print(describe(null));                                  // output: none
+    print(depth(Slot.Pair(Box.Has(kept), Box.Has(kept))));  // output: two: 4, 4
+    print(depth(Slot.Pair(Box.Nothing, Box.Has(kept))));    // output: one
+    print(depth(Slot.Pair(Box.Nothing, Box.Nothing)));      // output: none
+    print(depth(Slot.Empty));                               // output: empty
+}
+// output: item 4
+// output: free holder

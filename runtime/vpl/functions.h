@@ -32,12 +32,11 @@ public:
     Function() = default;
     Function(Code function, Ref<Object> captured) : code(function), closure(std::move(captured)) {}
 
-    // As for Ref, a move swaps, so the old value dies with `other`, after the store.
     Function(const Function&) = default;
     Function(Function&& other) noexcept : code(other.code), closure(std::move(other.closure)) { other.code = nullptr; }
     Function& operator=(const Function&) = default;
     Function& operator=(Function&& other) noexcept {
-        std::swap(code, other.code);
+        code = other.code;
         closure = std::move(other.closure);
         return *this;
     }

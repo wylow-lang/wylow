@@ -1,0 +1,111 @@
+// `?.` and `!` in functions of their own, without objects on the stack. Tokens print their name
+// when freed.
+struct Vec {
+    int x;
+    int y;
+
+    Vec(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    void move(int dx) {
+        x += dx;
+    }
+
+    readonly int sum() {
+        return x + y;
+    }
+}
+
+class Token {
+    String name;
+    mut Token? next;
+
+    Token(String name) {
+        this.name = name;
+    }
+
+    ~Token() {
+        print($"free {name}");
+    }
+
+    Token named(String name) {
+        return token(name);
+    }
+
+    String greet(Token other) {
+        return $"{name} greets {other.name}";
+    }
+
+    void poke() {
+        print($"poke {name}");
+    }
+}
+
+Token token(String name) {
+    return new Token(name);
+}
+
+Token? maybe(bool present, String name) {
+    return present ? token(name) : null;
+}
+
+// A nullable value's member is reached in a copy of it.
+void values(Vec? v) {
+    print(v?.sum());
+    print(v?.x);
+    print(v!.y);
+}
+
+// A null receiver skips the member, and its arguments.
+void objects(Token? t) {
+    print(t?.name);
+    print(t?.next?.name);
+    t?.poke();
+    t?.named(t!.name)?.poke();
+}
+
+// The member's temporaries are released when it completes; the receiver's, when the statement does.
+void temporaries() {
+    print(maybe(true, "receiver")?.greet(token("argument")));
+}
+
+// Through a reference, the member is reached in the place itself, so a method changes it.
+void references(List<Vec> list) {
+    list.get(0)?.move(10);
+    list.get(5)?.move(10);
+    print(list.get(0)?.x);
+    print(list.get(5)?.x);
+}
+
+void main() {
+    values(Vec(1, 2));
+    // output: 3
+    // output: 1
+    // output: 2
+    var t = token("a");
+    t.next = token("b");
+    objects(t);
+    // output: a
+    // output: b
+    // output: poke a
+    // output: poke a
+    // output: free a
+    objects(null);
+    // output: null
+    // output: null
+    temporaries();
+    // output: free argument
+    // output: receiver greets argument
+    // output: free receiver
+    var list = new List<Vec>();
+    list.add(Vec(1, 2));
+    references(list);
+    // output: 11
+    // output: null
+    values(null);
+    // output: null
+    // output: null
+    // panic: null value unwrapped with '!'
+}

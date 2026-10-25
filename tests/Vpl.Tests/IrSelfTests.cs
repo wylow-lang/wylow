@@ -200,6 +200,17 @@ static class IrSelfTests
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
         });
 
+        // Flow analysis knows the name is read only where its pattern matched, which the verifier trusts.
+        yield return new("binding_stored_where_matched", () =>
+        {
+            var c = b.Parameter("c", VplType.Bool);
+            var x = b.Local("x", VplType.Int);
+            return b.Function("binding_stored_where_matched", [c],
+                new IrDeclare(x) { IsBinding = true },
+                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1))])),
+                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
+        });
+
         // The store makes the loop's entry state change, so its body is verified a second time.
         yield return new("loop_verified_twice", () =>
         {
@@ -358,6 +369,12 @@ static class IrSelfTests
                 new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1))])),
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
         }, Error: "may be read before it is stored");
+
+        yield return new("temporary_binding", () =>
+        {
+            var r = b.Temp(VplType.Int);
+            return b.Function("temporary_binding", [], new IrDeclare(r) { IsBinding = true });
+        }, Error: "only a value local can be a pattern's binding");
 
         yield return new("break_outside_loop", () =>
         {

@@ -157,19 +157,25 @@ public sealed partial class IrLowering
             case BoundAssignment assignment:
                 if (analyses.StackObjects.EndedBy(assignment).Count > 0)
                     throw new NotLoweredException("an assignment ending an object on the stack");
+                DeclarePatternLocals(assignment.Value);
                 InStatement(() => Assignment(assignment));
                 break;
             case BoundExpressionStatement expression:
+                DeclarePatternLocals(expression.Expression);
                 InStatement(() => ExpressionStatement(expression));
                 break;
             case BoundReturn ret:
+                DeclarePatternLocals(ret.Value);
                 InStatement(() => Return(ret));
                 break;
             case BoundIf conditional:
-                If(conditional);
+                WithPatternLocals(conditional.Condition, () => If(conditional));
                 break;
             case BoundWhile loop:
-                Loop(loop.Condition, loop.Body, null);
+                WithPatternLocals(loop.Condition, () => Loop(loop.Condition, loop.Body, null));
+                break;
+            case BoundSwitch switchStatement:
+                Switch(switchStatement);
                 break;
             case BoundFor loop:
                 For(loop);
@@ -235,8 +241,7 @@ public sealed partial class IrLowering
         if (analyses.Elements.AliasesElement(symbol))
             throw new NotLoweredException("a loop element referring to its element in place");
         var initializer = declaration.Initializer;
-        if (initializer is not null && BoundTree.PatternLocals(initializer).Any())
-            throw new NotLoweredException("a pattern");
+        DeclarePatternLocals(initializer);
 
         // A reference or view, and the holds of what it points into, last for the local's scope.
         if (symbol.RefKind != RefKind.None || symbol.Type.IsNullableReference || symbol.Type.IsRefStruct)
@@ -287,8 +292,11 @@ public sealed partial class IrLowering
     void ExpressionStatement(BoundExpressionStatement statement)
     {
         var expression = statement.Expression;
-        if (BoundTree.PatternLocals(expression).Any())
-            throw new NotLoweredException("a pattern");
+        if (expression is BoundConditionalAccess access && access.Type == VplType.Void)
+        {
+            ConditionalAccess(access);
+            return;
+        }
         var value = Rvalue(expression, Use.Read);
         Add(new IrDo(value));
         if (value is IrCall { Method.Symbol.IsNoReturn: true })
@@ -315,8 +323,6 @@ public sealed partial class IrLowering
         }
         else
         {
-            if (BoundTree.PatternLocals(value).Any())
-                throw new NotLoweredException("a pattern");
             Add(new IrReturn(OperandOf(Rvalue(value, Use.Read))));
         }
         reachable = false;
@@ -324,8 +330,6 @@ public sealed partial class IrLowering
 
     void Assignment(BoundAssignment assignment)
     {
-        if (BoundTree.PatternLocals(assignment.Value).Any())
-            throw new NotLoweredException("a pattern");
         // The target, its indices and their checks included, is found before the value, which reads
         // it from there in a compound assignment like `a[f()] += 1` (spec §3.4, Evaluation order and the heap).
         var target = Place(assignment.Target, Use.InUse);

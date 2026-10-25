@@ -62,6 +62,12 @@ public sealed partial class IrLowering
                 return Conditional(conditional);
             case BoundCoalesce coalesce:
                 return Coalesce(coalesce);
+            case BoundConditionalAccess access:
+                return ConditionalAccess(access) ?? throw new InvalidOperationException("a 'void' '?.' used as a value");
+            case BoundIs test:
+                return Is(test);
+            case BoundSwitchExpression switchExpression:
+                return SwitchExpression(switchExpression);
             case BoundArrayLength length:
                 // The length is the type's, but the operand is still evaluated.
                 if (IsPlace(length.Operand))
@@ -73,11 +79,23 @@ public sealed partial class IrLowering
                 return new IrData(Place(data.Array, use));
             case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
                 return new IrUse(Settle(Value(expression)));
-            case BoundNonNull:
-                throw new NotLoweredException("'!' of a nullable value");
+            case BoundNonNull nonNull:
+                return Unwrapped(nonNull);
             default:
                 throw new NotLoweredException($"a {expression.GetType().Name}");
         }
+    }
+
+    /// <summary><c>x!</c> of a nullable value or object: its value, once it is checked not to be null.</summary>
+    IrRvalue Unwrapped(BoundNonNull nonNull)
+    {
+        var operand = Settle(Value(nonNull.Operand));
+        var (place, ownership) = operand is IrRead read
+            ? (read.Place, read.Ownership == IrOwnership.Move ? IrOwnership.Move : IrOwnership.Copy)
+            : (new IrPlace(Let(new IrUse(operand))), IrOwnership.Move);
+        bool isValue = nonNull.Operand.Type.IsNullableValue;
+        Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], new IrLoc(nonNull.Location)));
+        return isValue ? new IrUse(new IrRead(ownership, place.Assumed())) : new IrConvert(nonNull.Type, new IrRead(ownership, place));
     }
 
     static IrLoc? LocationFor(MethodReference method, BoundExpression site) => method.Symbol.PassesLocation ? new IrLoc(site.Location) : null;

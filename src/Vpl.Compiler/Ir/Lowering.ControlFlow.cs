@@ -42,8 +42,6 @@ public sealed partial class IrLowering
     /// <summary>A condition, evaluated as a statement of its own (spec §3.2, When references are released).</summary>
     IrOperand Condition(BoundExpression condition)
     {
-        if (BoundTree.PatternLocals(condition).Any())
-            throw new NotLoweredException("a pattern");
         if (condition is BoundLiteral literal)
             return new IrConstant(literal.Type, literal.Value);
         var value = Temp(VplType.Bool);
@@ -117,6 +115,7 @@ public sealed partial class IrLowering
         {
             if (loop.Initializer is { } initializer)
                 Statement(initializer);
+            DeclarePatternLocals(loop.Condition);
             Loop(loop.Condition, loop.Body, loop.Update);
         });
         Add(scope);
@@ -133,6 +132,8 @@ public sealed partial class IrLowering
         var scope = new IrBlock();
         Into(scope, () =>
         {
+            DeclarePatternLocals(range.Start);
+            DeclarePatternLocals(range.End);
             var start = Let(new IrUse(Settle(Value(range.Start))));
             var end = Let(new IrUse(Settle(Value(range.End))));
             var counter = new IrLocal("i", type, IrLocalKind.Value);
@@ -266,5 +267,54 @@ public sealed partial class IrLowering
         return Chosen(coalesce.Type, Test,
             () => Converted(type.IsNullableValue ? IrRead.Copy(new IrPlace(left).Assumed()) : IrRead.Copy(new IrPlace(left)), coalesce.Type),
             () => OperandOf(Rvalue(coalesce.Right, Use.Read)));
+    }
+
+    /// <summary>
+    /// <c>receiver?.member</c>, through the binder's <see cref="BoundConditionalAccess.Value"/>: a
+    /// <c>ref?</c> receiver's reference, whose holds last until the member is done; otherwise, where
+    /// the receiver isn't null, its object, or the value in a copy of it. Returns null for a
+    /// <c>void</c> member, which is a statement.
+    /// </summary>
+    IrRvalue? ConditionalAccess(BoundConditionalAccess access)
+    {
+        var type = access.Receiver.Type;
+        IrLocal held;
+        if (type.IsNullableReference)
+            Add(new IrLet(held = Declare(access.Value), ReferenceValue(access.Receiver, access.Value.Type)));
+        else
+            held = Let(new IrUse(Settle(Value(access.Receiver))));
+        IrOperand Test() => Tested(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(held))));
+        void Bind()
+        {
+            if (type.IsNullableReference)
+                return;
+            var value = Declare(access.Value);
+            if (!type.IsNullableValue)
+            {
+                Add(new IrLet(value, new IrConvert(value.Type, IrRead.Copy(new IrPlace(held)))));
+                return;
+            }
+            var place = new IrPlace(held).Assumed();
+            value.Kind = IrLocalKind.Borrowed;
+            aliases[value] = place;
+            Add(new IrLet(value, new IrUse(IrRead.Borrow(place))));
+        }
+        if (access.Type == VplType.Void)
+        {
+            var condition = Test();
+            var then = new IrBlock();
+            Into(then, () =>
+            {
+                Bind();
+                Add(new IrDo(Rvalue(access.WhenNotNull, Use.Read)));
+            });
+            Add(new IrIf(condition, then));
+            return null;
+        }
+        return Chosen(access.Type, Test, () =>
+        {
+            Bind();
+            return Converted(OperandOf(Rvalue(access.WhenNotNull, Use.Read)), access.Type);
+        }, () => new IrConstant(access.Type, null));
     }
 }
