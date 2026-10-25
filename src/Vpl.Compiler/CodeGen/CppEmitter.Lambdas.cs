@@ -1,4 +1,5 @@
 using Vpl.Compiler.Analysis;
+using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 
@@ -39,11 +40,11 @@ public sealed partial class CppEmitter
     /// <summary>Virtual methods with function parameters that nothing overrides, which are emitted as ordinary methods so that they can be templates.</summary>
     HashSet<FunctionSymbol> unoverridden = [];
 
-    static HashSet<FunctionSymbol> FindUnoverridden(WholeProgram whole) =>
+    static HashSet<FunctionSymbol> FindUnoverridden(BoundProgram program, Overrides overrides) =>
     [
-        .. whole.Program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
+        .. program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
             .Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false }
-                && m.Parameters.Any(p => IsNonEscaping(p.Type)) && whole.Overrides.Targets(m).Count == 1),
+                && m.Parameters.Any(p => IsNonEscaping(p.Type)) && overrides.Targets(m).Count == 1),
     ];
 
     static string CallableTypeName(LocalSymbol parameter) => "vpl_F_" + parameter.Name;
@@ -146,20 +147,30 @@ public sealed partial class CppEmitter
     /// type is made by the caller, such as a lambda or a choice. A function that only passes its own
     /// parameters on (or escaping values, whose type is fixed) instantiates the same template again.
     /// </summary>
-    static HashSet<FunctionSymbol> FindRecursive(WholeProgram whole)
+    static HashSet<FunctionSymbol> FindRecursive(IrProgram program)
     {
         var calls = new Dictionary<FunctionSymbol, HashSet<FunctionSymbol>>();
         var growing = new List<(FunctionSymbol Caller, FunctionSymbol Callee)>();
-        foreach (var function in whole.Program.Functions)
+        // A function value's call has no callee of its own here; the lambdas it may run are part of their creators.
+        foreach (var function in program.Functions.Where(f => !f.IsLambda))
         {
-            var code = BoundTree.AllExpressions(function.Body)
-                .Concat(whole.UnitOf(function.Symbol)!.Initializers.SelectMany(BoundTree.AllExpressions));
-            // A function value's call has no callee of its own here; the lambdas it may run are part of their creators.
-            var edges = code.Where(e => e is not BoundInvocation).Select(BoundTree.CallOf).OfType<CallSite>()
-                .Select(c => (Callee: c.Method.Symbol, c.Arguments)).ToList();
-            if (function.Body.Statements.FirstOrDefault() is BoundSuperCall super)
-                edges.Add((super.Constructor.Symbol, super.Arguments));
-            calls[function.Symbol] = [.. edges.Select(e => e.Callee)];
+            var edges = IrWalk.Descendants(function.Body).Select(s => s switch
+                {
+                    IrLet { Value: var value } => value,
+                    IrDo { Value: var value } => value,
+                    _ => null,
+                })
+                .Select(v => v switch
+                {
+                    IrCall call => (Callee: call.Method.Symbol, call.Arguments),
+                    IrNew creation => (Callee: creation.Constructor.Symbol, creation.Arguments),
+                    IrConstruct construction => (Callee: construction.Constructor.Symbol, construction.Arguments),
+                    _ => default,
+                })
+                .Where(e => e.Callee is not null).ToList();
+            if (!calls.TryGetValue(function.Symbol, out var callees))
+                calls[function.Symbol] = callees = [];
+            callees.UnionWith(edges.Select(e => e.Callee));
             growing.AddRange(edges.Where(e => e.Arguments.Where((a, i) => i < e.Callee.Parameters.Count && IsNonEscaping(e.Callee.Parameters[i].Type)).Any(MakesCallableType))
                 .Select(e => (function.Symbol, e.Callee)));
         }
@@ -184,6 +195,7 @@ public sealed partial class CppEmitter
         return [.. calls.Keys.Where(f => f.Parameters.Any(p => IsNonEscaping(p.Type)) && growing.Any(e => Reaches(f, e.Caller) && Reaches(e.Callee, f)))];
     }
 
-    static bool MakesCallableType(BoundExpression argument) =>
-        argument is not (BoundLocalAccess { Local.IsParameter: true } or { Type.IsEscaping: true } or BoundConversion { Operand.Type.IsEscaping: true });
+    // A non-escaping argument is passed before its conversion, so an escaping value keeps its type.
+    static bool MakesCallableType(IrArgument argument) =>
+        argument is not (IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.IsParameter: true } } or IrOperand { Type.IsEscaping: true });
 }

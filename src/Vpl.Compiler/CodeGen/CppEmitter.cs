@@ -45,9 +45,9 @@ public sealed partial class CppEmitter
         irBuilt = ir.Functions.Where(f => f.Builds is not null).ToDictionary(f => (f.Symbol.ContainingType!, BuiltName(f)));
         this.nest = nest;
         cycles = analyses.Cycles;
-        recursive = FindRecursive(analyses.Whole);
+        recursive = FindRecursive(ir);
         overloaded = FindOverloaded(program);
-        unoverridden = FindUnoverridden(analyses.Whole);
+        unoverridden = FindUnoverridden(program, analyses.Whole.Overrides);
         memberwiseForms = IrLowering.MemberwiseForms(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;

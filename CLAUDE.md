@@ -58,10 +58,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   in its storage), `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
 - `src/Vpl.Compiler/Analysis`: whole-program facts the emitter uses to optimize, found after every
-  check has passed; they report no errors. `Analyses.cs` runs those still on the bound tree, which
-  share `WholeProgram.cs` (a unit of code per function, implicit constructor, and lambda); the rest
-  run on the IR, where `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the
-  lowered functions. `Summaries.cs` finds a summary per unit that depends on its callees' (with a
+  check has passed; they report no errors. `Analyses.cs` runs the one still on the bound tree
+  (`CyclicClasses`, with `WholeProgram.cs`: the lambdas and overrides); the rest run on the IR, where
+  `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
+  one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
   `Writes.cs` (the types of storage each lowered function may write). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
