@@ -244,7 +244,8 @@ public sealed partial class IrVerifier
         var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
         foreach (var (local, dependency) in dependencies.ToList())
         {
-            if (Visible(local) && !state.Invalid.ContainsKey(local) && Breaks(dependency, effects, writes) is { } reason)
+            var checkedDependency = local.IsUnwrittenElement ? dependency with { Target = null } : dependency;
+            if (Visible(local) && !state.Invalid.ContainsKey(local) && Breaks(checkedDependency, effects, writes) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))

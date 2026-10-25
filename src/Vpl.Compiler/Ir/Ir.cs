@@ -86,6 +86,13 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     /// <summary>The source local it is, if any.</summary>
     public LocalSymbol? Symbol { get; init; }
 
+    /// <summary>
+    /// A loop element borrowed in place, which <c>ElementAliasing</c> found nothing writes while it
+    /// lives. That takes whole-program summaries the effect table doesn't have until the analysis is
+    /// ported (docs/design/ir.md §7, step 5), so the verifier trusts that, but checks the rest.
+    /// </summary>
+    public bool IsUnwrittenElement { get; init; }
+
     /// <summary>A lambda assigns it, so any code that runs may change it.</summary>
     public bool IsAssignedByLambda => Symbol?.IsAssignedByLambda == true;
 

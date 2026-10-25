@@ -130,6 +130,23 @@ static class IrSelfTests
                 new IrStore(IrPlace.Deref(r), Move(v)));
         });
 
+        // Only the whole-program analysis knows that the call doesn't write the element.
+        IrFunction ElementAcrossCall(string name, bool unwritten)
+        {
+            var l = b.Parameter("list", list);
+            var h = b.Temp(list, IrLocalKind.Hold);
+            var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
+            var e = new IrLocal("e", VplType.Int, IrLocalKind.Borrowed) { IsUnwrittenElement = unwritten };
+            return b.Function(name, [l],
+                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)),
+                new IrLet(e, Use(IrRead.Borrow(IrPlace.Deref(r)))),
+                new IrDo(b.Call("f")),
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))));
+        }
+        yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", unwritten: true));
+        yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", unwritten: false), Error: "the place it borrows may be written");
+
         // Nothing runs between taking the reference and storing through it, so no borrow is needed.
         yield return new("unborrowed_store_running_nothing", () =>
         {

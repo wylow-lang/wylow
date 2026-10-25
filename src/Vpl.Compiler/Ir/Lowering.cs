@@ -252,10 +252,17 @@ public sealed partial class IrLowering
     void Declaration(BoundVariableDeclaration declaration)
     {
         var symbol = declaration.Local;
-        if (analyses.Elements.AliasesElement(symbol))
-            throw new NotLoweredException("a loop element referring to its element in place");
         var initializer = declaration.Initializer;
         DeclarePatternLocals(initializer);
+
+        // A loop element nothing writes while it lives refers to the element in place (§6.3).
+        if (analyses.Elements.AliasesElement(symbol))
+        {
+            var element = new IrLocal(symbol.Name, symbol.Type, IrLocalKind.Borrowed) { Symbol = symbol, IsUnwrittenElement = true };
+            locals[symbol] = element;
+            Add(new IrLet(element, new IrUse(IrRead.Borrow(Place(initializer!, Use.Scope)))));
+            return;
+        }
 
         // A reference or view, and the holds of what it points into, last for the local's scope.
         if (symbol.RefKind != RefKind.None || symbol.Type.IsNullableReference || symbol.Type.IsRefStruct)
