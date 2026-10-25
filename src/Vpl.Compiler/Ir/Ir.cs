@@ -1,0 +1,248 @@
+using Vpl.Compiler.Semantics;
+using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
+
+namespace Vpl.Compiler.Ir;
+
+// The mid-level IR: structured control flow, flat instructions over single-assignment temporaries,
+// places as a base and projections, and ownership explicit on every read. See docs/design/ir.md.
+// Nodes are mutable classes compared by reference: passes rewrite them in place, and side tables
+// key on them.
+
+/// <summary>Every function, including every lambda and the standard library's, over the bound program's symbols.</summary>
+public sealed class IrProgram(BoundProgram bound)
+{
+    public BoundProgram Bound { get; } = bound;
+    public List<IrFunction> Functions { get; } = [];
+}
+
+public sealed class IrFunction(FunctionSymbol symbol, string name)
+{
+    public FunctionSymbol Symbol { get; } = symbol;
+    public string Name { get; } = name;
+
+    /// <summary>A method's <c>this</c>: a struct's storage, or a class's object.</summary>
+    public IrLocal? This { get; set; }
+
+    public List<IrLocal> Parameters { get; } = [];
+
+    /// <summary>An <c>@CallerLocation</c> function's hidden parameter, which <see cref="IrLoc.Caller"/> names.</summary>
+    public bool HasLocationParameter { get; set; }
+
+    /// <summary>
+    /// An escaping lambda's copies of what it captures, which the <see cref="IrClosure"/> making it
+    /// passes in order. A non-escaping lambda has none: its body uses its creator's locals directly.
+    /// </summary>
+    public List<IrLocal> Captures { get; } = [];
+
+    /// <summary>For a lambda, the function whose body creates it.</summary>
+    public IrFunction? Enclosing { get; init; }
+
+    public IrBlock Body { get; set; } = new();
+
+    public bool IsLambda => Symbol.IsLambda;
+    public bool IsEscaping => Symbol.IsEscaping;
+
+    public override string ToString() => Name;
+}
+
+/// <summary>How a local is declared in C++.</summary>
+public enum IrLocalKind
+{
+    /// <summary><c>T x</c>.</summary>
+    Value,
+    /// <summary><c>T&amp; x</c> for <c>ref</c> and <c>in</c>, <c>T* x</c> for <c>ref?</c> and <c>in?</c>.</summary>
+    Reference,
+    /// <summary><c>const T&amp; x</c>: an alias of a place that nothing writes while it lives.</summary>
+    Borrowed,
+    /// <summary>A strong reference that pins an object, and borrows it if made by <c>hold.borrow</c>.</summary>
+    Hold,
+    /// <summary><c>vpl::StackSlot&lt;T&gt;</c>, which a <c>new</c> or closure puts its object in.</summary>
+    Slot,
+}
+
+/// <summary>
+/// A local, parameter, or temporary. A temporary is defined once, by a <see cref="IrLet"/>, or for a
+/// value that comes out of control flow, declared by a <see cref="IrDeclare"/> and stored exactly
+/// once on every path.
+/// </summary>
+public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
+{
+    public string Name { get; } = name;
+
+    /// <summary>
+    /// As for a <see cref="LocalSymbol"/>: what a <c>ref T</c> refers to is <c>T</c>, with
+    /// <see cref="RefKind"/>; a <c>ref? T</c> has that type. A hold's or slot's is the object's.
+    /// </summary>
+    public VplType Type { get; } = type;
+
+    public IrLocalKind Kind { get; } = kind;
+    public RefKind RefKind { get; init; }
+    public bool IsTemporary { get; init; }
+    public bool IsParameter { get; init; }
+    public bool IsThis { get; init; }
+
+    /// <summary>The source local it is, if any.</summary>
+    public LocalSymbol? Symbol { get; init; }
+
+    /// <summary>A lambda assigns it, so any code that runs may change it.</summary>
+    public bool IsAssignedByLambda => Symbol?.IsAssignedByLambda == true;
+
+    public override string ToString() => Name;
+}
+
+/// <summary>A source location for a panic, or the location an <c>@CallerLocation</c> function was called from.</summary>
+public sealed record IrLoc(Location? Source)
+{
+    public static readonly IrLoc Caller = new((Location?)null);
+}
+
+/// <summary>A visitor of every statement kind, so that adding a kind breaks every visitor until it handles it.</summary>
+public interface IIrStatementVisitor<out T>
+{
+    T Block(IrBlock statement);
+    T Let(IrLet statement);
+    T Declare(IrDeclare statement);
+    T Store(IrStore statement);
+    T Do(IrDo statement);
+    T Check(IrCheck statement);
+    T If(IrIf statement);
+    T Loop(IrLoop statement);
+    T Break(IrBreak statement);
+    T Continue(IrContinue statement);
+    T Return(IrReturn statement);
+    T End(IrEnd statement);
+    T Unreachable(IrUnreachable statement);
+}
+
+public abstract class IrStatement
+{
+    public abstract T Accept<T>(IIrStatementVisitor<T> visitor);
+}
+
+public sealed class IrBlock : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Block(this);
+
+    public List<IrStatement> Statements { get; } = [];
+
+    public IrBlock() { }
+
+    public IrBlock(IEnumerable<IrStatement> statements) => Statements.AddRange(statements);
+}
+
+/// <summary><c>let x = rvalue</c>: declares and initializes a local in the enclosing block.</summary>
+public sealed class IrLet(IrLocal local, IrRvalue value) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Let(this);
+
+    public IrLocal Local { get; } = local;
+    public IrRvalue Value { get; set; } = value;
+}
+
+/// <summary>
+/// <c>declare x</c>: declares a local without a value. It must be stored before it is read; a slot
+/// needs no value.
+/// </summary>
+public sealed class IrDeclare(IrLocal local) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Declare(this);
+
+    public IrLocal Local { get; } = local;
+}
+
+/// <summary><c>store place = value</c>: stores the new value, then releases the old one.</summary>
+public sealed class IrStore(IrPlace target, IrOperand value) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Store(this);
+
+    public IrPlace Target { get; } = target;
+    public IrOperand Value { get; set; } = value;
+}
+
+/// <summary><c>do rvalue</c>: evaluates for its effects.</summary>
+public sealed class IrDo(IrRvalue value) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Do(this);
+
+    public IrRvalue Value { get; set; } = value;
+}
+
+public enum IrCheckKind
+{
+    /// <summary>Panics unless <c>0 &lt;= index &lt; length</c>; its operands are the index and the length.</summary>
+    Index,
+    /// <summary>Panics if a <c>ref?</c>, <c>in?</c>, or nullable reference is null.</summary>
+    NotNull,
+    /// <summary>Panics if a nullable value is null.</summary>
+    HasValue,
+    /// <summary>Panics: no case of a switch matched. It has no operands.</summary>
+    NoMatch,
+}
+
+/// <summary><c>check.kind operands @loc</c>: panics unless the condition holds.</summary>
+public sealed class IrCheck(IrCheckKind kind, IReadOnlyList<IrOperand> operands, IrLoc loc) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Check(this);
+
+    public IrCheckKind Kind { get; } = kind;
+    public List<IrOperand> Operands { get; } = [.. operands];
+    public IrLoc Loc { get; } = loc;
+}
+
+public sealed class IrIf(IrOperand condition, IrBlock then, IrBlock? @else = null) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.If(this);
+
+    public IrOperand Condition { get; set; } = condition;
+    public IrBlock Then { get; } = then;
+    public IrBlock? Else { get; set; } = @else;
+}
+
+/// <summary>
+/// Runs <see cref="Body"/>, then <see cref="Continue"/>, until a <see cref="IrBreak"/>. A
+/// <see cref="IrContinue"/> in the body goes to <see cref="Continue"/>.
+/// </summary>
+public sealed class IrLoop : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Loop(this);
+
+    public IrBlock Body { get; set; } = new();
+    public IrBlock? Continue { get; set; }
+}
+
+public sealed class IrBreak(IrLoop loop) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Break(this);
+
+    public IrLoop Loop { get; } = loop;
+}
+
+public sealed class IrContinue(IrLoop loop) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Continue(this);
+
+    public IrLoop Loop { get; } = loop;
+}
+
+public sealed class IrReturn(IrOperand? value = null) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Return(this);
+
+    public IrOperand? Value { get; set; } = value;
+}
+
+/// <summary><c>end x</c>: ends a hold or a slot before its scope does.</summary>
+public sealed class IrEnd(IrLocal local) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.End(this);
+
+    public IrLocal Local { get; } = local;
+}
+
+public sealed class IrUnreachable(IrLoc loc) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Unreachable(this);
+
+    public IrLoc Loc { get; } = loc;
+}

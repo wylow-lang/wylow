@@ -34,7 +34,7 @@ public sealed partial class CppEmitter
     string CyclicFlag(TypeSymbol s) =>
         s.IsGeneric ? $"vpl::is_cyclic<{ObjectType(s.Type)}>" : cycles.IsCyclic(s.Type) ? "true" : "false";
 
-    static bool NeedsVisit(VplType fieldType) => MayHoldReferences(fieldType);
+    static bool NeedsVisit(VplType fieldType) => fieldType.MayHoldReferences;
 
     /// <summary>A class's own fields and container elements to visit; a base class visits its own.</summary>
     bool HasOwnReferences(TypeSymbol s) =>
@@ -74,7 +74,7 @@ public sealed partial class CppEmitter
         return $"{name} != nullptr ? {name} : {CppStringLiteral(s.Name)}";
     }
 
-    bool NeedsValueVisit(TypeSymbol s) => !s.IsRefStruct && (s.IsGeneric || MayHoldReferences(s.Type));
+    bool NeedsValueVisit(TypeSymbol s) => !s.IsRefStruct && (s.IsGeneric || s.Type.MayHoldReferences);
 
     void EmitCollectorMembers(TypeSymbol s)
     {

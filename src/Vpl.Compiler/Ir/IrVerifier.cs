@@ -1,0 +1,396 @@
+using Vpl.Compiler.Semantics;
+using Vpl.Compiler.Syntax;
+
+namespace Vpl.Compiler.Ir;
+
+/// <summary>
+/// Checks the IR's invariants, after lowering and after each pass. A failure is a compiler bug.
+/// <list type="number">
+/// <item>Locals are declared once and used inside their scope. A temporary is defined once, and
+/// a value out of control flow stored once on every path, before it is read; one is moved at most
+/// once and not used after.</item>
+/// <item>Places dereference only at the base, and their projections fit their types.</item>
+/// <item>Every use of a reference or view lies where what it points into is still held: its hold
+/// hasn't ended, the object local holding it hasn't been reassigned, and if it came from a
+/// <c>Borrowable</c> that isn't borrowed, no code has run since. A borrowed local is used only while
+/// nothing may have written the place it aliases.</item>
+/// <item>No reference through a nullable value's <c>!</c> or a variant's field is used after an
+/// instruction that may write the value or the variant.</item>
+/// <item>A slot's <c>new</c> is in the slot's block, not inside a loop nested in it, and a slot
+/// takes one object.</item>
+/// </list>
+/// Each instruction's effects come from <see cref="IrEffects"/>, so a pass that relies on the same
+/// effects to remove a hold or a copy is checked by them too. Types are checked exactly: lowering
+/// makes every conversion explicit.
+/// </summary>
+public sealed partial class IrVerifier
+{
+    readonly List<TypeSymbol> borrowableClasses;
+    readonly List<string> errors = [];
+    readonly HashSet<string> reported = [];
+    readonly HashSet<IrFunction> verifiedLambdas = [];
+
+    IrFunction root = null!;
+    IrFunction function = null!;
+    IrStatement? current;
+
+    /// <summary>The open scopes, innermost last, each with the locals declared in it so far.</summary>
+    List<List<IrLocal>> scopes = [];
+    readonly Dictionary<IrLocal, Declaration> declarations = [];
+    List<LoopContext> loops = [];
+    int loopDepth;
+    readonly HashSet<IrLocal> filledSlots = [];
+
+    IrVerifier(IrProgram program)
+    {
+        var borrowable = program.Bound.Stdlib.Borrowable;
+        borrowableClasses = [.. program.Bound.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
+    }
+
+    public static IReadOnlyList<string> Verify(IrProgram program)
+    {
+        var verifier = new IrVerifier(program);
+        // A lambda is verified where it is made.
+        foreach (var function in program.Functions.Where(f => !f.IsLambda))
+            verifier.VerifyFunction(function, function);
+        foreach (var lambda in program.Functions.Where(f => f.IsLambda && !verifier.verifiedLambdas.Contains(f)))
+            verifier.Report(lambda, null, "the lambda is never made");
+        return verifier.errors;
+    }
+
+    sealed record Declaration(IrStatement? Statement, int LoopDepth);
+
+    sealed class LoopContext(IrLoop loop)
+    {
+        public IrLoop Loop { get; } = loop;
+        public List<State> Breaks { get; } = [];
+        public List<State> Continues { get; } = [];
+        public bool InContinue { get; set; }
+    }
+
+    void Report(IrFunction where, IrStatement? statement, string message)
+    {
+        var text = statement is null ? $"{where.Name}: {message}" : $"{where.Name}: {message}\n    at: {IrPrinter.Print(root, statement)}";
+        if (reported.Add(text))
+            errors.Add(text);
+    }
+
+    void Error(string message) => Report(function, current, message);
+
+    IReadOnlyDictionary<IrLocal, string>? names;
+
+    /// <summary>A local's name as the printed IR shows it.</summary>
+    string N(IrLocal local) => (names ??= IrPrinter.Names(root)).GetValueOrDefault(local, local.Name);
+
+    void VerifyFunction(IrFunction verified, IrFunction printedIn)
+    {
+        if (root != printedIn)
+            names = null;
+        root = printedIn;
+        function = verified;
+        scopes = [[]];
+        loops = [];
+        loopDepth = 0;
+        var state = new State();
+        foreach (var parameter in Entry(verified))
+            DeclareParameter(parameter, state);
+        state = Block(verified.Body, state, newScope: false);
+        if (state.Reachable && verified.Symbol.ReturnType != VplType.Void && !verified.Symbol.IsConstructor)
+            Report(verified, null, "the end of the function is reachable, but it returns a value");
+    }
+
+    static IEnumerable<IrLocal> Entry(IrFunction function) =>
+        [.. function.This is { } self ? [self] : Array.Empty<IrLocal>(), .. function.Parameters, .. function.Captures];
+
+    /// <summary>What the caller holds needs no hold here, but writes through it reach the caller's storage.</summary>
+    void DeclareParameter(IrLocal parameter, State state)
+    {
+        if (declarations.ContainsKey(parameter))
+            Error($"'{N(parameter)}' is declared twice");
+        declarations[parameter] = new Declaration(null, 0);
+        scopes[^1].Add(parameter);
+        state.Assigned.Add(parameter);
+        if (parameter.Kind == IrLocalKind.Reference || parameter.Type.IsRefStruct)
+            dependencies[parameter] = new Dependency([], Resolved.Unknown, Alias: false, NeedsBorrow: false);
+    }
+
+    State Block(IrBlock block, State state, bool newScope = true)
+    {
+        if (newScope)
+            scopes.Add([]);
+        foreach (var statement in block.Statements)
+        {
+            if (!state.Reachable)
+            {
+                current = statement;
+                Error("the statement is unreachable");
+                break;
+            }
+            state = Statement(statement, state);
+        }
+        if (newScope)
+            state = EndScope(state);
+        return state;
+    }
+
+    /// <summary>The block's locals are released in reverse order, which may run code; nothing may depend on them after.</summary>
+    State EndScope(State state)
+    {
+        var ending = scopes[^1];
+        scopes.RemoveAt(scopes.Count - 1);
+        if (!state.Reachable)
+            return state;
+        if (ending.Any(l => IrEffects.ReleaseMayRunCode(l) && !state.Ended.Contains(l) && !state.Moved.Contains(l)))
+            Apply(state, new IrEffects([], RunsCode: true, MayPanic: false), "a release at the end of a block");
+        foreach (var local in ending)
+        {
+            DependentsOf(local, state, $"'{N(local)}' went out of scope");
+            state.Forget(local);
+        }
+        return state;
+    }
+
+    State Statement(IrStatement statement, State state)
+    {
+        current = statement;
+        switch (statement)
+        {
+            case IrBlock block:
+                return Block(block, state);
+            case IrLet let:
+                Rvalue(let.Value, state, let.Local);
+                Declare(let.Local, state, let);
+                CheckLet(let);
+                Define(let.Local, let.Value, state);
+                return state;
+            case IrDeclare declare:
+                if (declare.Local.Kind is IrLocalKind.Hold or IrLocalKind.Borrowed)
+                    Error($"a {declare.Local.Kind.ToString().ToLowerInvariant()} local needs its value where it is declared");
+                Declare(declare.Local, state, declare);
+                if (declare.Local.Kind == IrLocalKind.Slot)
+                    state.Assigned.Add(declare.Local);
+                return state;
+            case IrStore store:
+                Store(store, state);
+                return state;
+            case IrDo run:
+                Rvalue(run.Value, state, null);
+                return state;
+            case IrCheck check:
+                Check(check, state);
+                return state;
+            case IrIf conditional:
+                return If(conditional, state);
+            case IrLoop loop:
+                return Loop(loop, state);
+            case IrBreak jump:
+                if (Enclosing(jump.Loop) is { } exited)
+                    exited.Breaks.Add(state.Clone());
+                return State.Unreachable;
+            case IrContinue jump:
+                if (Enclosing(jump.Loop) is { } continued)
+                {
+                    if (continued.InContinue)
+                        Error("'continue' inside the loop's continue block");
+                    continued.Continues.Add(state.Clone());
+                }
+                return State.Unreachable;
+            case IrReturn ret:
+                Return(ret, state);
+                return State.Unreachable;
+            case IrEnd end:
+                End(end, state);
+                return state;
+            case IrUnreachable unreachable:
+                CheckLoc(unreachable.Loc);
+                return State.Unreachable;
+            default:
+                throw new InvalidOperationException($"unexpected IR statement {statement.GetType().Name}");
+        }
+    }
+
+    LoopContext? Enclosing(IrLoop loop)
+    {
+        var context = loops.LastOrDefault(l => l.Loop == loop);
+        if (context is null)
+            Error("the jump isn't inside the loop it names");
+        return context;
+    }
+
+    void Declare(IrLocal local, State state, IrStatement statement)
+    {
+        if (declarations.ContainsKey(local))
+            Error($"'{N(local)}' is declared twice");
+        declarations[local] = new Declaration(statement, loopDepth);
+        scopes[^1].Add(local);
+        state.Forget(local);
+    }
+
+    void CheckLet(IrLet let)
+    {
+        var (local, value) = (let.Local, let.Value);
+        var expected = value switch
+        {
+            IrHold => IrLocalKind.Hold,
+            IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } } => IrLocalKind.Borrowed,
+            IrRef or IrAddr => IrLocalKind.Reference,
+            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => IrLocalKind.Reference,
+            IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Kind: IrLocalKind.Reference } } } => IrLocalKind.Reference,
+            IrConvert { Type.IsNullableReference: true } => IrLocalKind.Reference,
+            _ => IrLocalKind.Value,
+        };
+        if (local.Kind != expected)
+            Error($"a {local.Kind.ToString().ToLowerInvariant()} local is defined by what makes a {expected.ToString().ToLowerInvariant()} one");
+        if (local.Type != value.Type)
+            Error($"'{N(local)}' is a '{local.Type}', but is defined with a '{value.Type}'");
+        var refKind = value switch
+        {
+            IrRef reference => reference.Kind,
+            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None and var returned } call when !call.Type.IsNullableReference => returned,
+            _ => local.RefKind,
+        };
+        if (refKind != local.RefKind)
+            Error($"'{N(local)}' is a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' reference, but is defined with a '{FunctionSymbol.RefPrefix(refKind).Trim()}' one");
+    }
+
+    void Store(IrStore store, State state)
+    {
+        var target = store.Target;
+        pendingMoves.Clear();
+        Operand(store.Value, state);
+        if (store.Value is IrRead { Ownership: IrOwnership.Borrow })
+            Error("a store needs a value of its own: copy or move it");
+        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0);
+        if (target.Type != store.Value.Type)
+            Error($"stores a '{store.Value.Type}' in a '{target.Type}'");
+
+        var local = target.Local;
+        bool whole = !target.IsDeref && target.Projections.Count == 0;
+        bool deferred = declarations.TryGetValue(local, out var declaration) && declaration.Statement is IrDeclare;
+        if (!target.IsDeref && local.IsTemporary && !deferred)
+            Error($"'{N(local)}' is a temporary, defined once");
+        else if (!target.IsDeref && local.IsTemporary && !whole)
+            Error($"'{N(local)}' is a value out of control flow, stored only as a whole");
+        else if (whole && local.Kind == IrLocalKind.Reference && !deferred)
+            Error($"'{N(local)}' is a reference, which can't be made to refer elsewhere; store through it with '*'");
+        else if (whole && local.Kind is IrLocalKind.Hold or IrLocalKind.Slot or IrLocalKind.Borrowed)
+            Error($"'{N(local)}' is a {local.Kind.ToString().ToLowerInvariant()} local, which can't be stored");
+        if (whole && (local.IsTemporary || local.Kind == IrLocalKind.Reference) && deferred)
+        {
+            if (state.MaybeAssigned.Contains(local))
+                Error($"'{N(local)}' may be stored more than once on a path");
+        }
+
+        Apply(state, IrEffects.Of(store), "the store");
+        CommitMoves(state);
+        if (whole)
+        {
+            state.Assigned.Add(local);
+            state.MaybeAssigned.Add(local);
+            state.Invalid.Remove(local);
+            if (Dependency.Of(store.Value, this) is { } dependency)
+                dependencies[local] = dependencies.TryGetValue(local, out var other) ? other.Union(dependency) : dependency;
+        }
+    }
+
+    void Check(IrCheck check, State state)
+    {
+        pendingMoves.Clear();
+        foreach (var operand in check.Operands)
+            Operand(operand, state);
+        CheckLoc(check.Loc);
+        bool fits = check.Kind switch
+        {
+            IrCheckKind.Index => check.Operands is [{ Type.IsInteger: true }, { Type.IsInteger: true }],
+            IrCheckKind.NotNull => check.Operands is [{ Type: var t }] && (t.IsNullableReference || (t.IsNullable && t.NonNull.IsReference) || t.IsPointer),
+            IrCheckKind.HasValue => check.Operands is [{ Type.IsNullableValue: true }],
+            IrCheckKind.NoMatch => check.Operands.Count == 0,
+            _ => false,
+        };
+        if (!fits)
+            Error($"the operands don't fit a '{check.Kind}' check");
+        Apply(state, IrEffects.Of(check), "the check");
+        CommitMoves(state);
+    }
+
+    State If(IrIf conditional, State state)
+    {
+        pendingMoves.Clear();
+        Operand(conditional.Condition, state);
+        CommitMoves(state);
+        if (conditional.Condition.Type != VplType.Bool)
+            Error($"the condition is a '{conditional.Condition.Type}', not a 'bool'");
+        var then = Block(conditional.Then, state.Clone());
+        var otherwise = conditional.Else is { } elseBlock ? Block(elseBlock, state.Clone()) : state;
+        return State.Merge(then, otherwise);
+    }
+
+    /// <summary>Runs the body until what holds at its start stops changing, so that what a later iteration sees is checked too.</summary>
+    State Loop(IrLoop loop, State state)
+    {
+        var context = new LoopContext(loop);
+        loops.Add(context);
+        loopDepth++;
+        var entry = state.Clone();
+        for (int pass = 0; ; pass++)
+        {
+            context.Breaks.Clear();
+            context.Continues.Clear();
+            var end = Block(loop.Body, entry.Clone());
+            end = context.Continues.Aggregate(end, State.Merge);
+            if (loop.Continue is { } next && end.Reachable)
+            {
+                context.InContinue = true;
+                end = Block(next, end);
+                context.InContinue = false;
+            }
+            var merged = State.Merge(entry.Clone(), end);
+            if (merged.SameAs(entry) || pass > 8)
+                break;
+            entry = merged;
+        }
+        loopDepth--;
+        loops.RemoveAt(loops.Count - 1);
+        return context.Breaks.Aggregate(State.Unreachable, State.Merge);
+    }
+
+    void Return(IrReturn ret, State state)
+    {
+        var returnType = function.Symbol.ReturnType;
+        if (ret.Value is null)
+        {
+            if (returnType != VplType.Void && !function.Symbol.IsConstructor)
+                Error($"returns nothing from a function returning '{returnType}'");
+            return;
+        }
+        pendingMoves.Clear();
+        Operand(ret.Value, state);
+        pendingMoves.Clear();
+        if (returnType == VplType.Void || function.Symbol.IsConstructor)
+            Error("returns a value from a function returning nothing");
+        else if (ret.Value.Type != returnType)
+            Error($"returns a '{ret.Value.Type}' from a function returning '{returnType}'");
+        bool reference = function.Symbol.ReturnRefKind != RefKind.None;
+        if (reference && ret.Value is not (IrConstant { Value: null } or IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Kind: IrLocalKind.Reference } }))
+            Error("a function returning a reference returns a reference local");
+        if (ret.Value is IrRead { Ownership: IrOwnership.Borrow })
+            Error("a return needs a value of its own: copy or move it");
+    }
+
+    void End(IrEnd end, State state)
+    {
+        var local = end.Local;
+        if (local.Kind is not (IrLocalKind.Hold or IrLocalKind.Slot))
+            Error($"only a hold or a slot can be ended, not '{N(local)}'");
+        Use(local, state, reads: false);
+        Apply(state, IrEffects.Of(end), "the end of a hold");
+        state.Ended.Add(local);
+        DependentsOf(local, state, $"'{N(local)}' was ended");
+    }
+
+    void CheckLoc(IrLoc? loc)
+    {
+        if (loc == IrLoc.Caller && !function.HasLocationParameter)
+            Error("uses the caller's location in a function that isn't given one");
+    }
+}

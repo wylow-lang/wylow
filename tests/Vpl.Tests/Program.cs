@@ -49,6 +49,7 @@ var results = files
     .WithDegreeOfParallelism(Math.Max(1, Environment.ProcessorCount / 2))
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain))
     .ToList();
+results.AddRange(IrSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 
 foreach (var result in results.Where(r => r.Failure is not null))
 {

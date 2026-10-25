@@ -16,6 +16,9 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
 
     /// <summary>Where each loop element that refers to its element in place is declared, for tests.</summary>
     public IReadOnlyList<Location> InPlaceElements { get; init; } = [];
+
+    /// <summary>The checked program, whose symbols tests build IR with.</summary>
+    public BoundProgram? Program { get; init; }
 }
 
 public static class Compilation
@@ -46,6 +49,7 @@ public static class Compilation
         {
             StackObjects = [.. analyses.StackObjects.Locations],
             InPlaceElements = [.. analyses.Elements.Locations],
+            Program = program,
         };
     }
 }

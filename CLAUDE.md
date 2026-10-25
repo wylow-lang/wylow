@@ -68,6 +68,12 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
   (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
+- `src/Vpl.Compiler/Ir`: the mid-level IR being built (`docs/design/ir.md`), not in the pipeline
+  yet. `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
+  may write, run, or panic on; every analysis asks it), and `IrVerifier*.cs` (scoping, single
+  assignment, moves, places, and that every reference, view, and borrowed local is used only while
+  what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier must accept
+  or reject.
 - `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: bound tree to C++.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Ordering.cs`, ...); put new code in the file for its topic, and split a file that

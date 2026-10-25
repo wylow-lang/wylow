@@ -73,8 +73,10 @@ field initializers, and an implicit base constructor call.
 ```
 IrProgram   = functions (including every lambda, and the stdlib's), plus the symbol tables, unchanged
 IrFunction  = symbol, parameters, location parameter?, captures (for lambdas), body: Block
-Block       = declared locals, in order; statements
-Statement   = let x = Rvalue            define a temporary or local
+Block       = statements; a local is scoped to the block that declares it
+Statement   = let x = Rvalue            declare and define a temporary or local
+            | declare x                 declare a local stored later: a deferred local, a value out of
+                                        control flow, or a slot
             | store Place = Operand     assign: store the new value, then release the old
             | do Rvalue                 evaluate for effect
             | check Condition @Loc      panic unless (bounds, null, no_match, ...)
@@ -119,6 +121,8 @@ Some notes on the choices:
   SIL). It doesn't seem worth SSA's cost for everything else (§9.2).
 - **Generic code stays generic.** Types are `VplType`, and analyses substitute with `TypeMap` at
   calls as they do now.
+- **Declarations are statements**, not a list at the top of each block, since C++ declares a
+  variable where it is initialized: the IR's order is the C++ order, and so is destruction's.
 - **IR nodes are mutable classes with reference identity**, not records. Passes rewrite in place
   (a `copy` becomes a `borrow`; a hold is removed), and side tables key on nodes. Bound nodes stay
   immutable records.
@@ -564,7 +568,11 @@ Each step keeps the suite passing on MSVC and g++.
    `IsThisDerived`, `ViewsTemporary`, `NullableValueRoot`, `ViewedNullableValue`, `StorageRoot`,
    `IsPlace`, `IsFieldPath`, `IsRootedAtThis`, and `Roots` over it. The output doesn't change.
    This pays off even if the IR never lands, and lowering is built on it.
-2. **IR types, printer (`vpl ir`), and verifier.** The pipeline doesn't change yet.
+2. **IR types, printer, verifier, and a first effect table.** The pipeline doesn't change yet. The
+   verifier's hold and borrow checks need the effect table, so a conservative one (§6.1, without
+   callee summaries: unknown code writes every field that isn't fixed) came with it. Self-tests in the
+   test runner build IR by hand: the listings here, which must verify, and IR breaking each rule,
+   which must fail for that reason alone. The `vpl ir` command comes with lowering.
 3. **Lowering plus an IR emitter, behind a flag** (`--ir` in the CLI and the test runner), with
    `--no-nest` (§9.3) and `--no-elide` (§9.9) from the start. The
    analyses still run on the bound tree, and lowering consumes their results, which are keyed by
@@ -652,8 +660,8 @@ against the rule: either lowering is wrong or the test's expectation was relying
    stays** (§5.7): it isn't caused by the emitter.
 8. **Datalog?** **Decided: not now** (§6.6). Revisit with lifetime analysis.
 9. **Keeping the effect table honest.** The verifier can't catch an effect table that under-reports
-   a write (§6.4). **Decided:** the table is one exhaustive `switch` over instruction kinds with no
-   default branch, so a new kind can't compile without an entry, and `--no-elide` turns every
+   a write (§6.4). **Decided:** the table is one visitor over instruction kinds (C# doesn't check a
+   `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-elide` turns every
    elision off (every `copy` stays a copy, every hold a hold), so the suite can compare outputs.
 10. **Destruction order inside a statement.** **Decided: specify it now**, before step 3, so that
    step 3 targets the spec rather than whatever today's emitter does (§3.4, When references are

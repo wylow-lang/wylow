@@ -301,6 +301,9 @@ public sealed class VplType
         }
     }
 
+    /// <summary>Whether releasing a value of the type may destroy an object, and so run a destructor.</summary>
+    public bool MayHoldReferences => InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
+
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
 

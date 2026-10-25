@@ -82,20 +82,16 @@ public sealed partial class CppEmitter
     bool MayBeReplaced(BoundExpression value) => !IsStable(value) && value is not (BoundNew or BoundInvocation or BoundLambda
         or BoundCall { Method.Symbol: { ReturnRefKind: RefKind.None, IsBuiltin: false } });
 
-    /// <summary>Whether releasing a value of the type may destroy an object.</summary>
-    static bool MayHoldReferences(VplType type) =>
-        type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
-
     /// <summary>Whether copying or destroying a value of the type runs code: references are counted, and so are built strings.</summary>
-    static bool HasCountedParts(VplType type) => MayHoldReferences(type) || type.InlineTypes().Contains(VplType.String);
+    static bool HasCountedParts(VplType type) => type.MayHoldReferences || type.InlineTypes().Contains(VplType.String);
 
     /// <summary>Whether releasing the value may destroy an object: a new closure only may if what it captures may.</summary>
     static bool MayOwnObjects(BoundExpression value)
     {
         if (value is not BoundLambda { Type.IsEscaping: true } lambda)
-            return MayHoldReferences(value.Type);
+            return value.Type.MayHoldReferences;
         var (locals, self) = BoundTree.Captures(lambda);
-        return self is not null || locals.Any(a => MayHoldReferences(a.Local.Type));
+        return self is not null || locals.Any(a => a.Local.Type.MayHoldReferences);
     }
 
     /// <summary>
