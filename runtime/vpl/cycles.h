@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "optional.h"
 
 namespace vpl {
@@ -282,7 +284,10 @@ class CycleCollector {
 
     // Runs every destructor while every object of the garbage is intact, then frees it. The
     // collector holds a count on each object meanwhile, so no release can destroy one early.
+    // Destructors run oldest first: the order the collector found the objects in depends on which
+    // releases buffered them, which the compiler's own temporaries change.
     void destroy_garbage() {
+        std::sort(garbage.begin(), garbage.end(), [](Object* a, Object* b) { return a->age() > b->age(); });
         if constexpr (VPL_DEBUG != 0) note_freed();
         for (Object* object : garbage) for_each_child(object, [](Object* child) { child->retain(); });
         for (Object* object : garbage) {

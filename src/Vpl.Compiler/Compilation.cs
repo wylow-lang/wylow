@@ -85,7 +85,10 @@ public static class Compilation
             ir = IrLowering.Lower(program, analyses, options.Elide, unlowered);
             var errors = IrVerifier.Verify(ir);
             if (errors.Count > 0)
-                throw new InvalidOperationException($"the IR verifier rejected the lowered program:\n{string.Join("\n", errors)}");
+            {
+                var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
+                throw new InvalidOperationException($"the IR verifier rejected the lowered program:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
+            }
         }
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {

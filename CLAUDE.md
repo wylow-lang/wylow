@@ -22,8 +22,9 @@ dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> 
 `--ir` (in the CLI and the test runner) emits each function that lowers through the mid-level IR
 from it, and the rest from the bound tree; the runner then writes `<name>.ir` next to each test's
 C++ and reports what still doesn't lower. `--no-nest` and `--no-elide` must pass too: declining to
-nest a temporary or to elide a hold is always correct. (With `--no-elide`, a cycle's destructors may
-run in another order, since a pin's release buffers its object for the cycle collector.)
+nest a temporary or to elide a hold is always correct. (With `--no-elide`, a budgeted
+`Memory.collectCycles` may reach other cycles, since a pin's release buffers its object for the
+cycle collector.)
 
 Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`

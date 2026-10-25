@@ -37,8 +37,8 @@ void main() {
     b = a;
     print(0);                           // output: 0
     Memory.collectCycles();
-    // output: 2
     // output: 1
+    // output: 2
     print(Memory.cycleStats().freed);   // output: 2
 
     mut var c = new Counter();

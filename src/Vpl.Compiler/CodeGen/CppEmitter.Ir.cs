@@ -55,8 +55,14 @@ public sealed partial class CppEmitter
             case IrLet let:
                 Line(Declaration(let.Local, RvalueText(let.Value)));
                 break;
+            case IrDeclare { Local.Kind: IrLocalKind.Slot } declare:
+                Line($"vpl::StackSlot<{ObjectType(declare.Local.Type)}> {Name(declare.Local)};");
+                break;
             case IrDeclare declare:
                 Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{{}};");
+                break;
+            case IrEnd { Local.Kind: IrLocalKind.Slot } end:
+                Line($"{Name(end.Local)}.end();");
                 break;
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
@@ -377,6 +383,7 @@ public sealed partial class CppEmitter
         IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), () => LocText(binary.Loc!)),
         IrCall call => CallText(call),
         IrNew { Slot: null } creation => $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))}))",
+        IrNew { Slot: { } slot } creation => $"{Name(slot)}.make({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))})",
         IrConstruct construction => ConstructText(construction),
         IrVariant variant => $"{CppType(variant.Type)}::{VariantFactory(variant.Variant)}({string.Join(", ", variant.Fields.Select(OperandText))})",
         // Braces evaluate the elements left to right.

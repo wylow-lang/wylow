@@ -74,8 +74,8 @@ void main() {
                                                     // output: 3
         }
     }
-    Memory.collectCycles();                         // output: 200
-                                                    // output: -1
+    Memory.collectCycles();                         // output: -1
+                                                    // output: 200
                                                     // output: 300
 
     // A closure capturing its holder through a nullable field.

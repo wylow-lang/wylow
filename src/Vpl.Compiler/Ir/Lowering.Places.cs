@@ -162,6 +162,13 @@ public sealed partial class IrLowering
                 return Let(Rvalue(root, Use.Read));
             case var place when IsPlace(place):
                 return Hold(Place(place, Use.Read), borrows);
+            // Held where it is once checked, as any other place's object is, rather than copied out.
+            case BoundNonNull { Operand: var nullable } nonNull when IsPlace(nullable):
+            {
+                var checkedPlace = Place(nullable, Use.Read);
+                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], new IrLoc(nonNull.Location)));
+                return Hold(checkedPlace, borrows);
+            }
             default:
                 var value = Let(Rvalue(root, Use.Read));
                 return borrows ? Hold(new IrPlace(value), borrows) : value;
@@ -248,8 +255,10 @@ public sealed partial class IrLowering
         {
             if (statements[h] is not IrLet { Value: IrHold hold } let)
                 continue;
-            var (extent, referenced) = Extent(statements, h);
-            if (hold.Borrows && !referenced.RunsCode)
+            var (extent, referenced, named) = Extent(statements, h);
+            // A variable's or loop's borrow lasts for its scope (spec §3.4, Borrow counters on
+            // containers), which the object's own fields can show without any code running.
+            if (hold.Borrows && !referenced.RunsCode && !named)
                 hold.Borrows = false;
             // A generic value's hold refers to a struct in place, so it can't become an alias.
             if (hold.Borrows || MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
@@ -266,10 +275,11 @@ public sealed partial class IrLowering
             .Any(p => p.Local == local && p.IsDeref);
 
     /// <summary>
-    /// What may happen while a hold, or anything pointing into what it holds, is in use; and what
-    /// may happen once something points into it, which is all a borrow must last for.
+    /// What may happen while a hold, or anything pointing into what it holds, is in use; what may
+    /// happen once something points into it, which is all a temporary reference's borrow must last
+    /// for; and whether a source local points into it.
     /// </summary>
-    static (IrFootprint Extent, IrFootprint Referenced) Extent(List<IrStatement> statements, int hold)
+    static (IrFootprint Extent, IrFootprint Referenced, bool Named) Extent(List<IrStatement> statements, int hold)
     {
         var dependents = new HashSet<IrLocal> { ((IrLet)statements[hold]).Local };
         int last = -1;
@@ -303,7 +313,7 @@ public sealed partial class IrLowering
             if (firstReference >= 0 && i > firstReference)
                 referenced.Add(inner);
         }
-        return (footprint, referenced);
+        return (footprint, referenced, dependents.Any(d => d.Symbol is not null));
     }
 
     /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>

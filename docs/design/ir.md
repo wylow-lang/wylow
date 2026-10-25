@@ -414,7 +414,8 @@ Each lambda is an `IrFunction`.
 ### 5.9 Stack slots and the cycle collector
 
 `new C(args) in slot %s` and `closure ... in slot %s` put the object in slot `%s`, a slot local
-of some enclosing block. `end %s` ends it early where a reassignment releases it. The escape
+of some enclosing block. `end %s` ends it early where a reassignment releases it. Ending an empty
+or ended slot does nothing, since an assignment in a loop ends its local's slot each time it runs. The escape
 analysis (§6.5) picks the slot and its block. Today's constraints (one slot per `new`, so the
 `new` must run at most once per run of the slot's block) become a structural fact: the `new` isn't
 inside a `loop` nested in the slot's block.
@@ -477,7 +478,9 @@ nothing in E may write `f` of that class.
 > `let %h = hold.borrow P` can be removed if E runs no code.
 
 Here E is from the reference's creation to its last use, which reproduces the "reading an element
-by value needs no borrow" and "storing a value that runs no code" rows of the spec's table.
+by value needs no borrow" and "storing a value that runs no code" rows of the spec's table. A
+borrow that a `ref`, `in`, or span variable or a for-each loop points into is kept: the table says
+it lasts for the variable's scope, and the object's own fields can show that without running code.
 
 ### 6.3 Rule: borrowed locals (today's `ElementAliasing`, generalized)
 

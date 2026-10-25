@@ -18,11 +18,16 @@ public sealed partial class IrLowering
     /// value needs are released after the local is defined, so if releasing one may be observed, the
     /// local is declared first and stored at the end of their block.
     /// </summary>
-    void Define(IrLocal local, BoundExpression value)
+    void Define(IrLocal local, BoundExpression value, BoundStatement? statement = null)
     {
         var scope = new IrBlock();
         IrLet? let = null;
-        Into(scope, () => Add(let = new IrLet(local, Rvalue(value, Use.Read))));
+        Into(scope, () =>
+        {
+            if (statement is not null)
+                DeclareSlots(statement, temporaries: true);
+            Add(let = new IrLet(local, Rvalue(value, Use.Read)));
+        });
         if (!scope.Statements.Any(s => DeclaresOwner(s, local)))
         {
             block.Statements.AddRange(scope.Statements);

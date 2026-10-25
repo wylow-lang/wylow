@@ -390,7 +390,9 @@ public sealed partial class IrVerifier
         var local = end.Local;
         if (local.Kind is not (IrLocalKind.Hold or IrLocalKind.Slot))
             Error($"only a hold or a slot can be ended, not '{N(local)}'");
-        Use(local, state, reads: false);
+        // A slot may be ended again, as a loop's assignment does each time it runs.
+        if (local.Kind != IrLocalKind.Slot || !state.Ended.Contains(local))
+            Use(local, state, reads: false);
         Apply(state, IrEffects.Of(end), "the end of a hold");
         state.Ended.Add(local);
         DependentsOf(local, state, $"'{N(local)}' was ended");

@@ -73,9 +73,9 @@ void main() {
     kept = new Node(9);
     print(0);                           // output: 0
     Memory.collectCycles();
-    // output: 503
     // output: 304
     // output: 405
+    // output: 503
 
     // An object referring to itself.
     mut var self = new Node(6);
@@ -90,8 +90,8 @@ void main() {
     root.add(4);
     root = new Tree(5);
     Memory.collectCycles();
-    // output: 201
     // output: 102
+    // output: 201
     // output: 300
     // output: 400
 

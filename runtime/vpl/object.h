@@ -16,8 +16,9 @@ class Object;
 struct WeakBlock {
     Object* target;
     uintptr_t count;
-    // The object's buffer slot, which the block takes over from the object's header.
+    // The object's buffer slot and creation number, which the block takes over from the object's header.
     uint32_t slot;
+    uint32_t created;
 
     static void* operator new(size_t size) { return pools.allocate(size); }
     static void operator delete(void* block, size_t size) { pools.deallocate(block, size); }
@@ -56,11 +57,19 @@ class Object {
     static constexpr uint64_t one_ref = uint64_t{1} << flag_bits;
     uint64_t state = one_ref;
     // The weak block once the object has one; otherwise, while buffered, one more than the
-    // object's index in the cycle buffer, so that it can leave the buffer when destroyed.
+    // object's index in the cycle buffer, so that it can leave the buffer when destroyed, and the
+    // object's creation number, which orders a collected cycle's destructors.
     union {
         WeakBlock* weak;
-        uint32_t slot;
-    } side{nullptr};
+        struct {
+            uint32_t slot;
+            uint32_t created;
+        } own;
+    } side{.own = {0, objects_created++}};
+
+    // One counter for the program, until objects belong to a thread and the collector with them. It
+    // wraps after 2^32 objects, which only objects that far apart in age can tell (see age()).
+    inline static uint32_t objects_created = 0;
 
     // Set once the count has reached zero, or once the collector has found the object to be
     // garbage: weak references to the object read null from then on.
@@ -92,20 +101,23 @@ class Object {
     // Only for the collector, which balances every one of these.
     void unretain() { state -= one_ref; }
 
-    uint32_t slot() const { return (state & has_weak) ? side.weak->slot : side.slot; }
+    uint32_t slot() const { return (state & has_weak) ? side.weak->slot : side.own.slot; }
     void set_slot(uint32_t value) {
         if (state & has_weak) {
             side.weak->slot = value;
         } else {
-            side.slot = value;
+            side.own.slot = value;
         }
     }
+
+    // How many objects were created after this one, which stays in creation order across the counter's wrap.
+    uint32_t age() const { return objects_created - ((state & has_weak) ? side.weak->created : side.own.created); }
 
     // Null for a dying object, so that weak references taken by its destructor read null too.
     WeakBlock* weak_block() {
         if (state & dying) return nullptr;
         if (!(state & has_weak)) {
-            side.weak = new WeakBlock{this, 1, (state & buffered) ? side.slot : 0};
+            side.weak = new WeakBlock{this, 1, (state & buffered) ? side.own.slot : 0, side.own.created};
             state |= has_weak;
         }
         return side.weak;
@@ -116,7 +128,7 @@ class Object {
         state |= dying;
         if (!(state & has_weak)) return;
         WeakBlock* weak = side.weak;
-        side.slot = weak->slot;
+        side.own = {weak->slot, weak->created};
         state &= ~has_weak;
         weak->target = nullptr;
         if (--weak->count == 0) delete weak;

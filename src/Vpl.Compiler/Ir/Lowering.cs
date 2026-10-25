@@ -28,6 +28,8 @@ public sealed partial class IrLowering
     readonly IrFunction function;
     readonly IrLocal? self;
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
+    readonly Dictionary<BoundExpression, IrLocal> slots = new(ReferenceEqualityComparer.Instance);
+    readonly HashSet<BoundExpression> filled = new(ReferenceEqualityComparer.Instance);
     IrBlock block;
     bool reachable = true;
 
@@ -78,8 +80,6 @@ public sealed partial class IrLowering
             throw new NotLoweredException("an @CallerLocation function");
         if (BoundTree.AllExpressions(bound.Body).Any(e => e is BoundLambda))
             throw new NotLoweredException("a lambda");
-        if (Statements(bound.Body).Any(s => analyses.StackObjects.MadeBy(s).Count > 0))
-            throw new NotLoweredException("an object on the stack");
 
         foreach (var statement in bound.Body.Statements)
         {
@@ -95,9 +95,6 @@ public sealed partial class IrLowering
         Close(function.Body);
         return function;
     }
-
-    static IEnumerable<BoundStatement> Statements(BoundStatement statement) =>
-        [statement, .. BoundTree.InnerStatements(statement).SelectMany(Statements)];
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
 
@@ -155,18 +152,16 @@ public sealed partial class IrLowering
                 Declaration(declaration);
                 break;
             case BoundAssignment assignment:
-                if (analyses.StackObjects.EndedBy(assignment).Count > 0)
-                    throw new NotLoweredException("an assignment ending an object on the stack");
                 DeclarePatternLocals(assignment.Value);
-                InStatement(() => Assignment(assignment));
+                InStatement(statement, () => Assignment(assignment));
                 break;
             case BoundExpressionStatement expression:
                 DeclarePatternLocals(expression.Expression);
-                InStatement(() => ExpressionStatement(expression));
+                InStatement(statement, () => ExpressionStatement(expression));
                 break;
             case BoundReturn ret:
                 DeclarePatternLocals(ret.Value);
-                InStatement(() => Return(ret));
+                InStatement(statement, () => Return(ret));
                 break;
             case BoundIf conditional:
                 WithPatternLocals(conditional.Condition, () => If(conditional));
@@ -206,11 +201,30 @@ public sealed partial class IrLowering
     /// released), so they are declared in a block of its own when releasing one may be observed.
     /// Otherwise they join the enclosing block, which no one can tell apart.
     /// </summary>
-    void InStatement(Action lower)
+    void InStatement(BoundStatement statement, Action lower)
     {
         var scope = new IrBlock();
-        Into(scope, lower);
+        Into(scope, () =>
+        {
+            DeclareSlots(statement, temporaries: true);
+            lower();
+        });
         Splice(scope);
+    }
+
+    /// <summary>
+    /// Declares a slot for each object on the stack a statement makes (03-memory-model.md, Stack
+    /// allocation), before anything that can refer to it, so that it is destroyed after them: a
+    /// local's with the local, and a temporary's in the statement's scope, which ends with it.
+    /// </summary>
+    void DeclareSlots(BoundStatement statement, bool temporaries)
+    {
+        foreach (var made in analyses.StackObjects.MadeBy(statement).Where(m => m.IsTemporary == temporaries))
+        {
+            var slot = new IrLocal("s", made.Creation.Type, IrLocalKind.Slot) { IsTemporary = true };
+            slots[made.Creation] = slot;
+            Add(new IrDeclare(slot));
+        }
     }
 
     void Splice(IrBlock scope, IrLocal? declared = null)
@@ -251,6 +265,7 @@ public sealed partial class IrLowering
             return;
         }
 
+        DeclareSlots(declaration, temporaries: false);
         var local = Declare(symbol);
         if (initializer is null)
         {
@@ -259,7 +274,7 @@ public sealed partial class IrLowering
             return;
         }
 
-        Define(local, initializer);
+        Define(local, initializer, declaration);
     }
 
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
@@ -340,5 +355,9 @@ public sealed partial class IrLowering
         var value = OperandOf(Rvalue(assignment.Value, Use.Read));
         located.Remove(assignment.Target);
         Add(new IrStore(target, value));
+        // The objects on the stack the local may have held are destroyed where their release would
+        // have: those made before it, since a slot is filled at most once.
+        foreach (var replaced in analyses.StackObjects.EndedBy(assignment).Where(filled.Contains))
+            Add(new IrEnd(slots[replaced]));
     }
 }

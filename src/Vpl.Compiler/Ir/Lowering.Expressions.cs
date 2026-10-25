@@ -48,7 +48,11 @@ public sealed partial class IrLowering
             case BoundCall call:
                 return Call(call, call.Receiver is null ? null : Receiver(call));
             case BoundNew creation:
-                return new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation));
+                filled.Add(creation);
+                return new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation))
+                {
+                    Slot = slots.GetValueOrDefault(creation),
+                };
             case BoundConstruction construction:
                 return new IrConstruct(construction.Type, construction.Constructor, Arguments(construction.Constructor, construction.Arguments),
                     LocationFor(construction.Constructor, construction));
@@ -76,7 +80,8 @@ public sealed partial class IrLowering
                     Add(new IrDo(Rvalue(length.Operand, Use.Read)));
                 return new IrUse(IrConstant.Int(length.Operand.Type.FixedLength));
             case BoundArrayData data:
-                return new IrData(Place(data.Array, use));
+                // A view isn't read right away, so the object it points into is held while it may be used.
+                return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));
             case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
                 return new IrUse(Settle(Value(expression)));
             case BoundNonNull nonNull:

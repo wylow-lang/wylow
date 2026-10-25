@@ -89,10 +89,10 @@ void main() {
     bag = new Bag(20);
     print(0);                           // output: 0
     Memory.collectCycles();
+    // output: 1
     // output: 2
     // output: 10
     // output: 11
-    // output: 1
     // output: 0
 
     // A long cycle is traversed without recursion.

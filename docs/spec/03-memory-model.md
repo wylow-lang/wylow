@@ -265,9 +265,12 @@ calls it simply never frees its cycles, as in the past.
 | `Memory.collectCycles(int maxVisits)` | Stops after visiting about `maxVisits` objects; the rest wait for the next call |
 | `Memory.cycleStats()` | Counts since the last call: objects buffered, visited, and freed, as a `CycleStats` struct |
 
-The work done is the same on every run of the same program, on every machine: each thread collects
+The work done is the same on every run of the same build, on every machine: each thread collects
 only its own objects, and a budget counts objects, not time. `Memory.cycleStats()` reports how long
-visits take, to choose a budget.
+visits take, to choose a budget. A call without a budget frees exactly the cycles that are
+unreachable, in any build. Which of them a budgeted call gets to may differ between builds (another
+compiler version, debug or release), since references the compiler keeps for itself, such as pins,
+buffer objects too.
 
 #### What the collector looks at
 
@@ -310,8 +313,10 @@ visited, so the references they hold count as references from outside.
 #### Destroying a cycle
 
 1. Every weak reference to every object in the cycle is cleared.
-2. Every object's destructor runs, in the order the collector found them, while all their fields are
-   still intact: each destructor sees the rest of the cycle undestroyed.
+2. Every object's destructor runs, oldest object first, while all their fields are still intact:
+   each destructor sees the rest of the cycle undestroyed. This covers every cycle one call frees,
+   so their destructors interleave by age. (Among objects created 2^32 or more objects apart, the
+   order is still fixed, but may not be by age.)
 3. Their fields are released and the memory is freed. The standard library's containers release their
    elements here, with the fields: their destructors only release storage, so they run after every
    destructor of the cycle, which sees every container of the cycle still full.

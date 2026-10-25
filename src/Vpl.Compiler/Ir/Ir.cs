@@ -239,7 +239,7 @@ public sealed class IrReturn(IrOperand? value = null) : IrStatement
     public IrOperand? Value { get; set; } = value;
 }
 
-/// <summary><c>end x</c>: ends a hold or a slot before its scope does.</summary>
+/// <summary><c>end x</c>: ends a hold or a slot before its scope does. Ending an empty or ended slot does nothing.</summary>
 public sealed class IrEnd(IrLocal local) : IrStatement
 {
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.End(this);
