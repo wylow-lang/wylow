@@ -74,9 +74,10 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     /// As for a <see cref="LocalSymbol"/>: what a <c>ref T</c> refers to is <c>T</c>, with
     /// <see cref="RefKind"/>; a <c>ref? T</c> has that type. A hold's or slot's is the object's.
     /// </summary>
-    public VplType Type { get; } = type;
+    public VplType Type { get; set; } = type;
 
-    public IrLocalKind Kind { get; } = kind;
+    /// <summary>Settable so that a pass can turn a hold into a borrow, which keeps every place naming the local.</summary>
+    public IrLocalKind Kind { get; set; } = kind;
     public RefKind RefKind { get; init; }
     public bool IsTemporary { get; init; }
     public bool IsParameter { get; init; }

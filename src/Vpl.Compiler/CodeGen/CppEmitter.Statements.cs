@@ -111,6 +111,16 @@ public sealed partial class CppEmitter
 
         Line("{");
         indent++;
+        if (irFunctions.TryGetValue(symbol, out var lowered))
+        {
+            EmitIrBody(lowered);
+            indent--;
+            Line("}");
+            context = Context.Free;
+            currentType = null;
+            currentFunction = null;
+            return;
+        }
         if (symbol.IsConstructor && isClassMember)
         {
             Line($"this->vpl_set_cyclic({CyclicFlag(currentType!)});");
@@ -486,9 +496,10 @@ public sealed partial class CppEmitter
 
     string Store(BoundAssignment assignment) => StoreText(assignment, Expression(assignment.Target), Expression(assignment.Value));
 
-    static string StoreText(BoundAssignment assignment, string target, string value)
+    static string StoreText(BoundAssignment assignment, string target, string value) => StoreText(assignment.Target.Type, target, value);
+
+    static string StoreText(VplType type, string target, string value)
     {
-        var type = assignment.Target.Type;
         bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter);
         return plain ? $"{target} = {value}" : $"vpl::assign({target}, {value})";
     }

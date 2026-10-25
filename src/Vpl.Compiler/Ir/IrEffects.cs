@@ -33,6 +33,16 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
         _ => throw new InvalidOperationException($"unexpected local kind {local.Kind}"),
     };
 
+    /// <summary>
+    /// Whether making the type's default value may run code: a struct's field initializers can call
+    /// functions, and a type parameter may be such a struct.
+    /// </summary>
+    public static bool DefaultRunsCode(VplType type) =>
+        type.IsTypeParameter
+        || (type.IsFixedArray && DefaultRunsCode(type.ElementType!))
+        || (type.IsStruct && !type.Symbol!.IsExtern && type.Symbol.Fields.Any(f =>
+            f.Initializer is not (null or BoundLiteral or BoundNullLiteral) || (f.Initializer is null && DefaultRunsCode(TypeMap.For(type).Apply(f.Type)))));
+
     sealed class StatementEffects : IIrStatementVisitor<IrEffects>
     {
         public static readonly StatementEffects Instance = new();
@@ -68,7 +78,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
 
         // An implicit constructor makes the default value; a memberwise one may run field initializers.
         public IrEffects Construct(IrConstruct value) =>
-            Calling(value.Constructor, null, value.Arguments, runsCode: !value.Constructor.Symbol.IsImplicit);
+            Calling(value.Constructor, null, value.Arguments, runsCode: !value.Constructor.Symbol.IsImplicit || DefaultRunsCode(value.Type));
 
         public IrEffects Unary(IrUnary value) => new([], false, value.Loc is not null);
         public IrEffects Binary(IrBinary value) => new([], false, value.Loc is not null);
@@ -80,7 +90,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
         public IrEffects Use(IrUse value) => None;
         public IrEffects Variant(IrVariant value) => None;
         public IrEffects Array(IrArray value) => None;
-        public IrEffects Default(IrDefault value) => None;
+        public IrEffects Default(IrDefault value) => DefaultRunsCode(value.Type) ? new([], true, true) : None;
         public IrEffects Closure(IrClosure value) => None;
         public IrEffects Lambda(IrLambda value) => None;
         public IrEffects Choose(IrChoose value) => None;

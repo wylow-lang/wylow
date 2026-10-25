@@ -12,14 +12,18 @@ const string Usage = """
       build    build an executable
       check    report errors without building
       emit     print the generated C++
+      ir       print the mid-level IR of the program's functions (implies --ir)
 
     options:
       --release        optimized build; integer overflow wraps instead of panicking
       --cc msvc|gcc    C++ compiler to use (default: msvc if installed, otherwise gcc)
       -o <path>        where to write the executable (build only)
+      --ir             emit the functions that lower through the mid-level IR, verifying it
+      --no-nest        with --ir, declare every temporary instead of nesting it into its use
+      --no-elide       with --ir, keep every hold and copy lowering made
     """;
 
-string[] commands = ["run", "build", "check", "emit"];
+string[] commands = ["run", "build", "check", "emit", "ir"];
 if (args.Length < 2 || !commands.Contains(args[0]))
 {
     Console.Error.WriteLine(Usage);
@@ -31,6 +35,7 @@ var file = args[1];
 bool release = false;
 Toolchain? toolchain = null;
 string? output = null;
+var options = new CompileOptions(Ir: command == "ir");
 
 for (int i = 2; i < args.Length; i++)
 {
@@ -45,6 +50,15 @@ for (int i = 2; i < args.Length; i++)
         case "-o" when i + 1 < args.Length:
             output = args[++i];
             break;
+        case "--ir":
+            options = options with { Ir = true };
+            break;
+        case "--no-nest":
+            options = options with { Nest = false };
+            break;
+        case "--no-elide":
+            options = options with { Elide = false };
+            break;
         default:
             Console.Error.WriteLine($"vpl: unknown or incomplete option '{args[i]}'\n\n{Usage}");
             return 2;
@@ -57,7 +71,7 @@ if (!File.Exists(file))
     return 2;
 }
 
-var compilation = Compilation.Compile(SourceText.FromFile(file));
+var compilation = Compilation.Compile(SourceText.FromFile(file), options);
 foreach (var diagnostic in compilation.Diagnostics)
     Console.Error.WriteLine(diagnostic);
 if (!compilation.Success)
@@ -73,6 +87,9 @@ switch (command)
         return 0;
     case "emit":
         Console.Write(compilation.Cpp);
+        return 0;
+    case "ir":
+        Console.Write(compilation.IrText());
         return 0;
 }
 

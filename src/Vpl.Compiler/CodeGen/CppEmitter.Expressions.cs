@@ -80,18 +80,17 @@ public sealed partial class CppEmitter
         return Ordered([array, new Operand(index.Index, false)], parts => $"vpl::at({parts[0]}, {parts[1]}, {location})");
     }
 
-    string Unary(BoundUnary unary)
+    string Unary(BoundUnary unary) =>
+        UnaryText(unary.Operator, unary.Type, Expression(unary.Operand), unary.Type.IsInteger ? SourceLocation(unary.Location) : "");
+
+    static string UnaryText(BoundUnaryOperator op, VplType type, string operand, string location) => op switch
     {
-        var operand = Expression(unary.Operand);
-        return unary.Operator switch
-        {
-            BoundUnaryOperator.Negate when unary.Type.IsInteger => $"vpl::neg({operand}, {SourceLocation(unary.Location)})",
-            BoundUnaryOperator.Negate => $"(-{operand})",
-            BoundUnaryOperator.LogicalNot => $"(!{operand})",
-            BoundUnaryOperator.BitwiseNot => $"static_cast<{CppType(unary.Type)}>(~{operand})",
-            _ => throw new InvalidOperationException($"unexpected unary operator {unary.Operator}"),
-        };
-    }
+        BoundUnaryOperator.Negate when type.IsInteger => $"vpl::neg({operand}, {location})",
+        BoundUnaryOperator.Negate => $"(-{operand})",
+        BoundUnaryOperator.LogicalNot => $"(!{operand})",
+        BoundUnaryOperator.BitwiseNot => $"static_cast<{CppType(type)}>(~{operand})",
+        _ => throw new InvalidOperationException($"unexpected unary operator {op}"),
+    };
 
     string Binary(BoundBinary binary)
     {
@@ -110,12 +109,8 @@ public sealed partial class CppEmitter
             var reference = binary.Left.Type.IsNullableReference ? binary.Left : binary.Right;
             return $"({Expression(reference)} {(binary.Operator == BoundBinaryOperator.Equal ? "==" : "!=")} nullptr)";
         }
-        if (binary.Left.Type.IsReference || binary.Left.Type == VplType.Null)
-        {
-            var symbol = binary.Operator == BoundBinaryOperator.Equal ? "==" : "!=";
-            return Ordered(binary.Left, binary.Right, operands => $"(vpl::identity({operands[0]}) {symbol} vpl::identity({operands[1]}))");
-        }
-        return Ordered(binary.Left, binary.Right, operands => BinaryText(binary, operands[0], operands[1]));
+        return Ordered(binary.Left, binary.Right, operands =>
+            BinaryText(binary.Operator, binary.Left.Type, binary.Type, operands[0], operands[1], () => SourceLocation(binary.Location)));
     }
 
     /// <summary>The nullable value compared with the <c>null</c> literal, if that is the comparison.</summary>
@@ -126,27 +121,28 @@ public sealed partial class CppEmitter
         _ => null,
     };
 
-    string BinaryText(BoundBinary binary, string left, string right)
+    /// <summary>An operator applied to operands of <paramref name="operandType"/>; integer arithmetic panics at <paramref name="location"/>.</summary>
+    static string BinaryText(BoundBinaryOperator op, VplType operandType, VplType type, string left, string right, Func<string> location)
     {
-        var operandType = binary.Left.Type;
-        var location = SourceLocation(binary.Location);
+        if (operandType.IsReference || operandType == VplType.Null)
+            return $"(vpl::identity({left}) {(op == BoundBinaryOperator.Equal ? "==" : "!=")} vpl::identity({right}))";
         if (operandType.IsInteger)
         {
-            switch (binary.Operator)
+            switch (op)
             {
-                case BoundBinaryOperator.Add: return $"vpl::add({left}, {right}, {location})";
-                case BoundBinaryOperator.Subtract: return $"vpl::sub({left}, {right}, {location})";
-                case BoundBinaryOperator.Multiply: return $"vpl::mul({left}, {right}, {location})";
-                case BoundBinaryOperator.Divide: return $"vpl::div({left}, {right}, {location})";
-                case BoundBinaryOperator.Remainder: return $"vpl::rem({left}, {right}, {location})";
+                case BoundBinaryOperator.Add: return $"vpl::add({left}, {right}, {location()})";
+                case BoundBinaryOperator.Subtract: return $"vpl::sub({left}, {right}, {location()})";
+                case BoundBinaryOperator.Multiply: return $"vpl::mul({left}, {right}, {location()})";
+                case BoundBinaryOperator.Divide: return $"vpl::div({left}, {right}, {location()})";
+                case BoundBinaryOperator.Remainder: return $"vpl::rem({left}, {right}, {location()})";
                 case BoundBinaryOperator.ShiftLeft: return $"vpl::shl({left}, {right})";
                 case BoundBinaryOperator.ShiftRight: return $"vpl::shr({left}, {right})";
             }
         }
-        if (operandType.IsFloatingPoint && binary.Operator == BoundBinaryOperator.Remainder)
+        if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Remainder)
             return $"std::fmod({left}, {right})";
 
-        var cppOperator = binary.Operator switch
+        var cppOperator = op switch
         {
             BoundBinaryOperator.Add => "+",
             BoundBinaryOperator.Subtract => "-",
@@ -161,12 +157,12 @@ public sealed partial class CppEmitter
             BoundBinaryOperator.LessOrEqual => "<=",
             BoundBinaryOperator.Greater => ">",
             BoundBinaryOperator.GreaterOrEqual => ">=",
-            _ => throw new InvalidOperationException($"unexpected binary operator {binary.Operator}"),
+            _ => throw new InvalidOperationException($"unexpected binary operator {op}"),
         };
 
         // C++ promotes bitwise operands to int; cast back so overloads see the VPL type.
-        if (binary.Operator is BoundBinaryOperator.BitwiseAnd or BoundBinaryOperator.BitwiseOr or BoundBinaryOperator.BitwiseXor)
-            return $"static_cast<{CppType(binary.Type)}>({left} {cppOperator} {right})";
+        if (op is BoundBinaryOperator.BitwiseAnd or BoundBinaryOperator.BitwiseOr or BoundBinaryOperator.BitwiseXor)
+            return $"static_cast<{CppType(type)}>({left} {cppOperator} {right})";
         return $"({left} {cppOperator} {right})";
     }
 
@@ -239,14 +235,14 @@ public sealed partial class CppEmitter
                 return $"vpl::compare_to<{ObjectType(method.Owner!)}>({parts[0]}, {argumentText})";
             // An extern struct's instance methods are members of its C++ class.
             if (function.IsExtern && function.IsInstanceMethod)
-                return $"{ReceiverText(call, parts[0])}{function.BuiltinCppName}({argumentText})";
+                return $"{ReceiverText(call.Receiver!.Type, call.Method, parts[0])}{function.BuiltinCppName}({argumentText})";
             if (function.BuiltinCppName is { } builtin)
                 return $"{builtin}{typeArguments}({argumentText})";
             if (function.ContainingType is null)
                 return $"{FunctionName(function)}{typeArguments}({argumentText})";
             if (function.IsStatic)
                 return $"{ObjectType(method.Owner!)}::{memberName}({argumentText})";
-            return $"{(receiverOperand ? ReceiverText(call, parts[0]) : ThisReceiverText(call))}{memberName}({argumentText})";
+            return $"{(receiverOperand ? ReceiverText(call.Receiver!.Type, call.Method, parts[0]) : ThisReceiverText(call.Method, call.IsSuperCall))}{memberName}({argumentText})";
         }
 
         if (function.ReturnRefKind != RefKind.None && NeedsOrdering(operands))
@@ -273,26 +269,25 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>The receiver and member operator. Calls go through the declaring type; see <c>vpl::as</c>.</summary>
-    string ReceiverText(BoundCall call, string receiver)
+    string ReceiverText(VplType receiverType, MethodReference method, string receiver)
     {
-        var receiverType = call.Receiver!.Type;
-        var declaring = ObjectType(call.Method.Owner!);
+        var declaring = ObjectType(method.Owner!);
         if (receiverType.IsTypeParameter)
             return $"vpl::bound<{declaring}>({receiver}).";
         if (receiverType.IsReference)
-            return receiverType.NonNull.Symbol == call.Method.Owner!.Symbol ? $"{receiver}->" : $"vpl::as<{declaring}>({receiver})->";
+            return receiverType.NonNull.Symbol == method.Owner!.Symbol ? $"{receiver}->" : $"vpl::as<{declaring}>({receiver})->";
         return receiver + ".";
     }
 
-    string ThisReceiverText(BoundCall call)
+    string ThisReceiverText(MethodReference method, bool isSuperCall)
     {
-        var declaring = ObjectType(call.Method.Owner!);
+        var declaring = ObjectType(method.Owner!);
         var self = capturedThis is not null ? $"{capturedThis}.get()" : "this";
-        if (call.IsSuperCall)
+        if (isSuperCall)
             return $"{self}->{declaring}::";
         if (context == Context.StructConstructor)
             return "self.";
-        if (call.Method.Owner!.Symbol == currentType)
+        if (method.Owner!.Symbol == currentType)
             return $"{self}->";
         return $"static_cast<{declaring}*>({self})->";
     }
@@ -395,6 +390,12 @@ public sealed partial class CppEmitter
         // converted from could be replaced; the copy lives until the end of the statement.
         if (IsNonEscaping(to))
             return IsStable(conversion.Operand) ? operand : $"{CppType(from)}({operand})";
+        return ConversionText(from, to, operand, () => SourceLocation(conversion.Location));
+    }
+
+    /// <summary>A conversion of a value; one that may panic does so at <paramref name="location"/>.</summary>
+    string ConversionText(VplType from, VplType to, string operand, Func<string> location)
+    {
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)
@@ -402,11 +403,11 @@ public sealed partial class CppEmitter
         if (stdlib.IsWeak(to))
             return $"{CppType(to)}({operand})";
         if (to.IsEnum)
-            return $"{ObjectType(to)}::from_value({operand}, {SourceLocation(conversion.Location)})";
+            return $"{ObjectType(to)}::from_value({operand}, {location()})";
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";
         if (from.IsInteger && to == VplType.Char)
-            return $"vpl::to_char({operand}, {SourceLocation(conversion.Location)})";
+            return $"vpl::to_char({operand}, {location()})";
         if (from.IsFloatingPoint && to.IsInteger)
             return $"vpl::f2i<{CppType(to)}>({operand})";
         if (from == VplType.Double && to == VplType.Float)
@@ -414,7 +415,9 @@ public sealed partial class CppEmitter
         return $"static_cast<{CppType(to)}>({operand})";
     }
 
-    static string Literal(BoundLiteral literal) => literal.Value switch
+    static string Literal(BoundLiteral literal) => Literal(literal.Type, literal.Value);
+
+    static string Literal(VplType type, object value) => value switch
     {
         bool b => b ? "true" : "false",
         int i when i == int.MinValue => "INT32_MIN",
@@ -424,12 +427,12 @@ public sealed partial class CppEmitter
         uint u => $"UINT32_C({u})",
         ulong u => $"UINT64_C({u})",
         // Typed, so that templates like vpl::add deduce the VPL type rather than int.
-        sbyte or byte or short or ushort or nint or nuint => $"{CppType(literal.Type)}{{{literal.Integer!.Value.ToString(CultureInfo.InvariantCulture)}}}",
+        sbyte or byte or short or ushort or nint or nuint => $"{CppType(type)}{{{System.Convert.ToString(value, CultureInfo.InvariantCulture)}}}",
         Rune r => $"char32_t{{0x{r.Value:X}}}",
         float f => FloatText(f.ToString("R", CultureInfo.InvariantCulture)) + "f",
         double d => FloatText(d.ToString("R", CultureInfo.InvariantCulture)),
         string s => $"vpl::String{{{CppStringLiteral(s)}, {Encoding.UTF8.GetByteCount(s)}}}",
-        _ => throw new InvalidOperationException($"unexpected literal {literal.Value.GetType().Name}"),
+        _ => throw new InvalidOperationException($"unexpected literal {value.GetType().Name}"),
     };
 
     static string FloatText(string text) => text.Contains('.') || text.Contains('E') ? text : text + ".0";

@@ -255,4 +255,14 @@ inline T* unwrap(T* reference, const char* location) {
     return reference;
 }
 
+// A check printed apart from what it guards, where it can't be part of the expression using it.
+inline void check_index(int32_t index, int32_t length, const char* location) {
+    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) panic_index(index, length, location);
+}
+
+template <class T>
+inline void check_not_null(const T* reference, const char* location) {
+    if (reference == nullptr) panic("null reference unwrapped with '!'", location);
+}
+
 }  // namespace vpl

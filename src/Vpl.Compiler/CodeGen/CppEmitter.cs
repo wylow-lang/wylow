@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Vpl.Compiler.Analysis;
+using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
@@ -64,8 +65,14 @@ public sealed partial class CppEmitter
     /// <summary>For each memberwise constructor, which fields its calls pass: one C++ function for each.</summary>
     Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> memberwiseForms = null!;
 
-    public string Emit(BoundProgram program, Analyses analyses)
+    /// <summary>Functions emitted from their IR, and whether temporaries are nested back into their uses.</summary>
+    Dictionary<FunctionSymbol, IrFunction> irFunctions = [];
+    bool nest = true;
+
+    public string Emit(BoundProgram program, Analyses analyses, IrProgram? ir = null, bool nest = true)
     {
+        irFunctions = ir?.Functions.Where(f => !f.IsLambda).ToDictionary(f => f.Symbol) ?? [];
+        this.nest = nest;
         cycles = analyses.Cycles;
         stackObjects = analyses.StackObjects;
         elements = analyses.Elements;

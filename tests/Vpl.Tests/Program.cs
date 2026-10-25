@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Vpl.Compiler;
 using Vpl.Compiler.Build;
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Ir;
 using Vpl.Compiler.Text;
 
 // Runs every tests/cases/**/*.vpl file. Expectations are comments in the file:
@@ -15,14 +16,23 @@ using Vpl.Compiler.Text;
 //   // mode: release      build with --release
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc] [--ir [--no-nest] [--no-elide]] [filter]
+// --ir emits the functions that lower through the mid-level IR, verifying it, and reports how many
+// of the tests' own functions still don't.
 
 Toolchain? toolchain = null;
 string? filter = null;
+var options = new CompileOptions();
 for (int i = 0; i < args.Length; i++)
 {
     if (args[i] == "--cc" && i + 1 < args.Length)
         toolchain = args[++i] == "gcc" ? Toolchain.Gcc : Toolchain.Msvc;
+    else if (args[i] == "--ir")
+        options = options with { Ir = true };
+    else if (args[i] == "--no-nest")
+        options = options with { Nest = false };
+    else if (args[i] == "--no-elide")
+        options = options with { Elide = false };
     else
         filter = args[i];
 }
@@ -47,7 +57,7 @@ var results = files
     .AsParallel()
     .AsOrdered()
     .WithDegreeOfParallelism(Math.Max(1, Environment.ProcessorCount / 2))
-    .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain))
+    .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 
@@ -56,6 +66,15 @@ foreach (var result in results.Where(r => r.Failure is not null))
     Console.WriteLine($"FAIL {result.Name}");
     foreach (var line in result.Failure!.Split('\n'))
         Console.WriteLine($"     {line}");
+}
+
+if (options.Ir)
+{
+    var unlowered = TestCase.Unlowered.ToList();
+    int lowered = TestCase.LoweredCount;
+    Console.WriteLine($"ir: {lowered} of {lowered + unlowered.Count} test functions lowered");
+    foreach (var group in unlowered.GroupBy(u => u.Reason).OrderByDescending(g => g.Count()))
+        Console.WriteLine($"  {group.Count(),4}  {group.Key}");
 }
 
 int failed = results.Count(r => r.Failure is not null);
@@ -80,15 +99,20 @@ sealed record Expectations(
 
 static partial class TestCase
 {
+    public static System.Collections.Concurrent.ConcurrentBag<UnloweredFunction> Unlowered { get; } = [];
+
+    static int lowered;
+    public static int LoweredCount => lowered;
+
     [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack|in-place):(.*)$")]
     private static partial Regex DirectivePattern();
 
-    public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain)
+    public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain, CompileOptions options)
     {
         var name = Path.GetRelativePath(casesDirectory, file).Replace('\\', '/');
         try
         {
-            return new TestResult(name, Check(file, name, outputDirectory, toolchain));
+            return new TestResult(name, Check(file, name, outputDirectory, toolchain, options));
         }
         catch (Exception e)
         {
@@ -122,11 +146,15 @@ static partial class TestCase
         return expectations;
     }
 
-    static string? Check(string file, string name, string outputDirectory, Toolchain? toolchain)
+    static string? Check(string file, string name, string outputDirectory, Toolchain? toolchain, CompileOptions options)
     {
         var expected = Parse(file);
         var source = SourceText.FromFile(file);
-        var compilation = Compilation.Compile(source);
+        var compilation = Compilation.Compile(source, options);
+        bool IsOwn(Vpl.Compiler.Semantics.FunctionSymbol f) => f.Declaration?.Location.Source == source;
+        foreach (var function in compilation.Unlowered.Where(u => IsOwn(u.Function)))
+            Unlowered.Add(function);
+        Interlocked.Add(ref lowered, compilation.Ir?.Functions.Count(f => !f.IsLambda && IsOwn(f.Symbol)) ?? 0);
         var errors = compilation.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 
         if (expected.Errors.Count > 0 || errors.Count > 0)
@@ -135,6 +163,11 @@ static partial class TestCase
         var directory = Path.Combine(outputDirectory, Path.ChangeExtension(name, null));
         var build = Driver.BuildExecutable(
             compilation, Path.GetFileNameWithoutExtension(file), directory, new BuildOptions(expected.Release, toolchain));
+        var irFile = Path.Combine(directory, Path.GetFileNameWithoutExtension(file) + ".ir");
+        if (compilation.IrText() is { } ir)
+            File.WriteAllText(irFile, ir);
+        else
+            File.Delete(irFile);
         if (!build.Success)
             return build.Error;
 

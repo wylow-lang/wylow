@@ -486,8 +486,8 @@ public sealed partial class IrVerifier
                 break;
             case IrHold hold:
                 Place(hold.Place, state, reads: true);
-                if (!hold.Place.Type.NonNull.IsReference && !hold.Place.Type.IsTypeParameter)
-                    Error($"a hold holds an object, not a '{hold.Place.Type}'");
+                if (!IsHolder(hold.Place.Type))
+                    Error($"a hold holds an object or a string, not a '{hold.Place.Type}'");
                 break;
             default:
                 throw new InvalidOperationException($"unexpected IR rvalue {value.GetType().Name}");

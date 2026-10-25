@@ -16,8 +16,14 @@ dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit <file.vpl> [--release] [--cc gcc]
+dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--ir]
 ```
+
+`--ir` (in the CLI and the test runner) emits each function that lowers through the mid-level IR
+from it, and the rest from the bound tree; the runner then writes `<name>.ir` next to each test's
+C++ and reports what still doesn't lower. `--no-nest` and `--no-elide` must pass too: declining to
+nest a temporary or to elide a hold is always correct. (With `--no-elide`, a cycle's destructors may
+run in another order, since a pin's release buffers its object for the cycle collector.)
 
 Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
@@ -68,13 +74,17 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
   (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
-- `src/Vpl.Compiler/Ir`: the mid-level IR being built (`docs/design/ir.md`), not in the pipeline
-  yet. `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
-  may write, run, or panic on; every analysis asks it), and `IrVerifier*.cs` (scoping, single
-  assignment, moves, places, and that every reference, view, and borrowed local is used only while
-  what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier must accept
-  or reject.
-- `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: bound tree to C++.
+- `src/Vpl.Compiler/Ir`: the mid-level IR being built (`docs/design/ir.md`), used with `--ir`.
+  `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
+  may write, run, or panic on; every analysis asks it), `IrAccess.cs` (which storage an instruction
+  touches, and the walkers over instructions), `Lowering*.cs` (bound tree to IR: conservative
+  holds and copies, then hold elision when each block is done), and `IrVerifier*.cs` (scoping,
+  single assignment, moves, places, and that every reference, view, and borrowed local is used
+  only while what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier
+  must accept or reject.
+- `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: bound tree to C++. `CppEmitter.Ir.cs` prints a lowered
+  function's body instead, and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside
+  their one use (§5.1 of the design).
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Ordering.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
