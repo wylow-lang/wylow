@@ -1,3 +1,4 @@
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 
@@ -41,15 +42,19 @@ public sealed partial class IrVerifier
     int loopDepth;
     readonly HashSet<IrLocal> filledSlots = [];
 
-    IrVerifier(IrProgram program)
+    readonly Writes writes;
+
+    IrVerifier(IrProgram program, Writes writes)
     {
+        this.writes = writes;
         var borrowable = program.Bound.Stdlib.Borrowable;
         borrowableClasses = [.. program.Bound.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
     }
 
-    public static IReadOnlyList<string> Verify(IrProgram program)
+    /// <summary>Verifies the program, with what each of its functions may write, which a loop element borrowed in place needs.</summary>
+    public static IReadOnlyList<string> Verify(IrProgram program, Writes writes)
     {
-        var verifier = new IrVerifier(program);
+        var verifier = new IrVerifier(program, writes);
         // A lambda is verified where it is made.
         foreach (var function in program.Functions.Where(f => !f.IsLambda))
             verifier.VerifyFunction(function, function);
@@ -181,7 +186,7 @@ public sealed partial class IrVerifier
         if (!state.Reachable)
             return state;
         if (ending.Any(l => IrEffects.ReleaseMayRunCode(l) && !state.Ended.Contains(l) && !state.Moved.Contains(l)))
-            Apply(state, new IrEffects([], RunsCode: true, MayPanic: false), "a release at the end of a block");
+            Apply(state, IrEffects.Released, "a release at the end of a block");
         foreach (var local in ending)
         {
             DependentsOf(local, state, $"'{N(local)}' went out of scope");

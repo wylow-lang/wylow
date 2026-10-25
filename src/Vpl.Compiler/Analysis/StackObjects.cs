@@ -53,24 +53,22 @@ public sealed partial class StackObjects
     }
 
     readonly WholeProgram whole;
-    readonly ElementAliasing elements;
-    readonly Summaries<Summary> summaries;
+    readonly Summaries<FunctionSymbol, Summary> summaries;
     readonly Dictionary<BoundStatement, List<StackObject>> made = new(ReferenceEqualityComparer.Instance);
     readonly Dictionary<BoundAssignment, List<BoundExpression>> ended = new(ReferenceEqualityComparer.Instance);
     readonly Dictionary<FunctionSymbol, BoundLambda> lambdas;
 
-    StackObjects(WholeProgram whole, ElementAliasing elements)
+    StackObjects(WholeProgram whole)
     {
         this.whole = whole;
-        this.elements = elements;
-        summaries = new Summaries<Summary>(whole.Units, Summary.Empty, s => s.Size);
+        summaries = new Summaries<FunctionSymbol, Summary>(whole.Units.Select(u => u.Symbol), Summary.Empty, s => s.Size);
         lambdas = whole.Lambdas.ToDictionary(l => l.Function);
     }
 
-    public static StackObjects Find(WholeProgram whole, ElementAliasing elements)
+    public static StackObjects Find(WholeProgram whole)
     {
-        var result = new StackObjects(whole, elements);
-        result.summaries.Solve(result.SummaryOf);
+        var result = new StackObjects(whole);
+        result.summaries.Solve(f => result.SummaryOf(whole.UnitOf(f)!));
         foreach (var body in whole.Bodies)
             result.FindIn(body);
         return result;
@@ -222,7 +220,7 @@ public sealed partial class StackObjects
 
     /// <summary>Whether the emitter declares a local as a plain variable, which a slot can be declared with.</summary>
     bool MayHold(LocalSymbol local) =>
-        local is { RefKind: RefKind.None, IsAssignedByLambda: false } && !local.Type.IsRefStruct && !elements.AliasesElement(local);
+        local is { RefKind: RefKind.None, IsAssignedByLambda: false } && !local.Type.IsRefStruct;
 
     /// <summary>An assignment to a local, and the index of the statement it is in among those of the local's block.</summary>
     readonly record struct Replacement(BoundAssignment Assignment, int Index);
@@ -330,7 +328,7 @@ public sealed partial class StackObjects
 
     bool MayHoldTemporaries(BoundStatement statement) => statement switch
     {
-        BoundVariableDeclaration { Local: var local } => local.RefKind == RefKind.None && !local.Type.IsRefStruct && !elements.AliasesElement(local),
+        BoundVariableDeclaration { Local: var local } => local.RefKind == RefKind.None && !local.Type.IsRefStruct,
         BoundAssignment or BoundExpressionStatement or BoundReturn => true,
         _ => false,
     } && !BoundTree.OwnExpressions(statement).SelectMany(Evaluated).OfType<BoundTry>().Any();

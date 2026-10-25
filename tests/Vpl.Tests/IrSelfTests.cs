@@ -1,4 +1,5 @@
 using Vpl.Compiler;
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
@@ -37,6 +38,7 @@ static class IrSelfTests
         void take(Obj o) { }
         void two(ref Vec? a, in int b) { }
         void call(() -> void g) { }
+        void setFirst(List<int> list) { list[0] = 2; }
 
         void main() { }
         """;
@@ -50,10 +52,10 @@ static class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Select(c => Check(program, c))];
+        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c))];
     }
 
-    static TestResult Check(BoundProgram bound, Case test)
+    static TestResult Check(BoundProgram bound, IrProgram fixture, Case test)
     {
         var name = $"ir/{test.Name}";
         try
@@ -62,7 +64,10 @@ static class IrSelfTests
             var program = new IrProgram(bound);
             program.Functions.Add(function);
             var printed = IrPrinter.Print(program);
-            var errors = IrVerifier.Verify(program);
+            // What the fixture's functions write, for the calls the case makes of them.
+            var whole = new IrProgram(bound);
+            whole.Functions.AddRange([.. fixture.Functions, function]);
+            var errors = IrVerifier.Verify(program, Writes.Find(new Callees(whole, new Overrides(bound))));
             var shown = $"\n{printed}errors:\n  {string.Join("\n  ", errors)}";
             if (test.Error is null && errors.Count > 0)
                 return new(name, "unexpected verifier errors:" + shown);
@@ -136,21 +141,23 @@ static class IrSelfTests
         });
 
         // Only the whole-program analysis knows that the call doesn't write the element.
-        IrFunction ElementAcrossCall(string name, bool unwritten)
+        IrFunction ElementAcrossCall(string name, bool element, string callee = "f")
         {
             var l = b.Parameter("list", list);
             var h = b.Temp(list, IrLocalKind.Hold);
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
-            var e = new IrLocal("e", VplType.Int, IrLocalKind.Borrowed) { IsUnwrittenElement = unwritten };
+            var e = new IrLocal("e", VplType.Int, IrLocalKind.Borrowed) { IsElement = element };
             return b.Function(name, [l],
                 new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
                 new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)),
                 new IrLet(e, Use(IrRead.Borrow(IrPlace.Deref(r)))),
-                new IrDo(b.Call("f")),
+                new IrDo(callee == "f" ? b.Call("f") : b.Call(callee, IrRead.Copy(new IrPlace(l)))),
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))));
         }
-        yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", unwritten: true));
-        yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", unwritten: false), Error: "the place it borrows may be written");
+        yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", element: true));
+        yield return new("written_element_across_call", () => ElementAcrossCall("written_element_across_call", element: true, callee: "setFirst"),
+            Error: "an element of its type may be stored over");
+        yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", element: false), Error: "the place it borrows may be written");
 
         // A lambda's body runs during the call it is passed to, so what it refers into must last that long.
         yield return new("lambda_reference_across_call", () => LambdaReferenceAcrossCall(b, "lambda_reference_across_call", held: true));

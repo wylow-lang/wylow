@@ -48,7 +48,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (ElementAliasing → StackObjects, CyclicClasses) → IrLowering → IrVerifier → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (StackObjects, CyclicClasses) → IrLowering → Writes → ElementAliasing → IrVerifier → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -57,12 +57,15 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   in its storage), `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
 - `src/Vpl.Compiler/Analysis`: whole-program facts the emitter uses to optimize, found after every
-  check has passed; they report no errors. `Analyses.cs` runs them all. `WholeProgram.cs` is what
-  they share: a unit of code per function, implicit constructor, and lambda, and what each call may
-  run. `Summaries.cs` finds a summary per unit that depends on its callees' (with a worklist, so a
-  summary must only grow as those it reads do).
-  `ElementAliasing.cs` (which loop elements can skip their reference count, from a whole-program
-  summary of what each function writes). Tests mark their loops with `// in-place: <n>`.
+  check has passed; they report no errors. `Analyses.cs` runs those still on the bound tree, which
+  share `WholeProgram.cs` (a unit of code per function, implicit constructor, and lambda); the rest
+  run on the IR, where `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the
+  lowered functions. `Summaries.cs` finds a summary per unit that depends on its callees' (with a
+  worklist, so a summary must only grow as those it reads do).
+  `Writes.cs` (the types of storage each lowered function may write). `ElementAliasing.cs` (which
+  loop elements can be borrowed in place, skipping their reference count; it rewrites their
+  `copy` into a `borrow`, and the verifier re-checks it with the same summaries). Tests mark their
+  loops with `// in-place: <n>`.
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
   `StackObjects.cs` (which `new`s and closures can be on the stack, from a whole-program summary of which

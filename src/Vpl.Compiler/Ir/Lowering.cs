@@ -23,6 +23,7 @@ public sealed partial class IrLowering
     IrFunction function;
     IrLocal? self;
     readonly List<IrFunction> lambdas = [];
+    readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly Dictionary<BoundExpression, IrLocal> slots = new(ReferenceEqualityComparer.Instance);
     readonly HashSet<BoundExpression> filled = new(ReferenceEqualityComparer.Instance);
@@ -55,6 +56,8 @@ public sealed partial class IrLowering
             var lowering = new IrLowering(program, analyses, elide, borrowableClasses, symbol, name);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
+            foreach (var (element, location) in lowering.loopElements)
+                ir.LoopElements[element] = location;
         }
 
         foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
@@ -269,15 +272,6 @@ public sealed partial class IrLowering
         var initializer = declaration.Initializer;
         DeclarePatternLocals(initializer);
 
-        // A loop element nothing writes while it lives refers to the element in place (§6.3).
-        if (analyses.Elements.AliasesElement(symbol))
-        {
-            var element = new IrLocal(symbol.Name, symbol.Type, IrLocalKind.Borrowed) { Symbol = symbol, IsUnwrittenElement = true };
-            locals[symbol] = element;
-            Add(new IrLet(element, new IrUse(IrRead.Borrow(Place(initializer!, Use.Scope)))));
-            return;
-        }
-
         // A reference or view, and the holds of what it points into, last for the local's scope.
         if (symbol.RefKind != RefKind.None || symbol.Type.IsNullableReference || symbol.Type.IsRefStruct)
         {
@@ -296,6 +290,8 @@ public sealed partial class IrLowering
         }
 
         Define(local, initializer, declaration);
+        if (symbol.IsLoopElement)
+            loopElements[local] = declaration.Location;
     }
 
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>

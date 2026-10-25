@@ -272,8 +272,12 @@ public sealed partial class IrVerifier
         var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
         foreach (var (local, dependency) in dependencies.ToList())
         {
-            var checkedDependency = local.IsUnwrittenElement ? dependency with { Target = null } : dependency;
-            if (Visible(local) && !state.Invalid.ContainsKey(local) && Breaks(checkedDependency, effects, writes) is { } reason)
+            if (!Visible(local) || state.Invalid.ContainsKey(local))
+                continue;
+            // What a loop iterates is borrowed, so only storing over one of its elements can destroy it.
+            if (local.IsElement && this.writes.MayStoreOverElement(effects, local.Type.NonNull))
+                Invalidate(state, local, $"an element of its type may be stored over, by {what}");
+            else if (Breaks(local.IsElement ? dependency with { Target = null } : dependency, effects, writes) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))

@@ -10,15 +10,44 @@ namespace Vpl.Compiler.Ir;
 public sealed record IrWrite(IrPlace Place, bool Within);
 
 /// <summary>
-/// What one instruction may do: the places it writes itself, whether it may run code (a call, or
-/// a release that may run a destructor), which may write anything that isn't fixed, and whether it
+/// Code an instruction may run, by what it is rather than which functions: the whole-program
+/// analyses resolve it to those (<see cref="Analysis.Callees"/>).
+/// </summary>
+public abstract record IrRun
+{
+    /// <summary>
+    /// What holding and releasing may run: a destructor, when a release destroys an object, and a
+    /// <c>Borrowable</c>'s <c>beginBorrow</c> and <c>endBorrow</c>.
+    /// </summary>
+    public static readonly IrRun Release = new IrRunRelease();
+}
+
+/// <summary>A method, or if the call dispatches and isn't <paramref name="Direct"/>, whatever overrides or implements it.</summary>
+public sealed record IrRunMethod(MethodReference Method, bool Direct) : IrRun;
+
+/// <summary>A lambda that a function value of the type may be.</summary>
+public sealed record IrRunFunctionValue(VplType Type) : IrRun;
+
+/// <summary>The field initializers that making the type's default value runs.</summary>
+public sealed record IrRunDefault(VplType Type) : IrRun;
+
+sealed record IrRunRelease : IrRun;
+
+/// <summary>
+/// What one instruction may do: the places it writes itself, the code it may run (a call, or a
+/// release that may run a destructor), which may write anything that isn't fixed, and whether it
 /// may panic. Every analysis and the verifier learn what instructions do from here alone. It is a
 /// visitor, so a new kind of instruction can't compile without an entry. A compound statement does
 /// what its statements do.
 /// </summary>
-public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, bool MayPanic)
+public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRun> Runs, bool MayPanic)
 {
-    public static readonly IrEffects None = new([], false, false);
+    public static readonly IrEffects None = new([], [], false);
+
+    /// <summary>What a release at the end of a block may do.</summary>
+    public static readonly IrEffects Released = new([], [IrRun.Release], false);
+
+    public bool RunsCode => Runs.Count > 0;
 
     public static IrEffects Of(IrStatement statement) => statement.Accept(StatementEffects.Instance);
 
@@ -51,12 +80,12 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
 
         // The old value is released after the new one is stored.
         public IrEffects Store(IrStore statement) =>
-            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayHoldReferences, false);
+            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayHoldReferences ? [IrRun.Release] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
-        public IrEffects Check(IrCheck statement) => new([], false, true);
-        public IrEffects End(IrEnd statement) => new([], ReleaseMayRunCode(statement.Local), false);
-        public IrEffects Unreachable(IrUnreachable statement) => new([], false, true);
+        public IrEffects Check(IrCheck statement) => new([], [], true);
+        public IrEffects End(IrEnd statement) => ReleaseMayRunCode(statement.Local) ? Released : None;
+        public IrEffects Unreachable(IrUnreachable statement) => new([], [], true);
         public IrEffects Declare(IrDeclare statement) => None;
         public IrEffects Return(IrReturn statement) => None;
         public IrEffects Break(IrBreak statement) => None;
@@ -72,25 +101,27 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
     {
         public static readonly RvalueEffects Instance = new();
 
-        public IrEffects Call(IrCall value) => Calling(value.Method, value.Receiver, value.Arguments, runsCode: !value.Method.Symbol.IsPure);
-        public IrEffects Invoke(IrInvoke value) => Calling(value.Signature, null, value.Arguments, runsCode: true);
-        public IrEffects New(IrNew value) => Calling(value.Constructor, null, value.Arguments, runsCode: true);
+        public IrEffects Call(IrCall value) =>
+            Calling(value.Method, value.Receiver, value.Arguments, value.Method.Symbol.IsPure ? null : new IrRunMethod(value.Method, value.IsSuperCall));
+
+        public IrEffects Invoke(IrInvoke value) => Calling(value.Signature, null, value.Arguments, new IrRunFunctionValue(value.Callee.Type.NonNull));
+        public IrEffects New(IrNew value) => Calling(value.Constructor, null, value.Arguments, new IrRunMethod(value.Constructor, Direct: true));
 
         // An implicit constructor makes the default value; a memberwise one may run field initializers.
-        public IrEffects Construct(IrConstruct value) =>
-            Calling(value.Constructor, null, value.Arguments, runsCode: !value.Constructor.Symbol.IsImplicit || DefaultRunsCode(value.Type));
+        public IrEffects Construct(IrConstruct value) => Calling(value.Constructor, null, value.Arguments,
+            !value.Constructor.Symbol.IsImplicit ? new IrRunMethod(value.Constructor, Direct: true) : DefaultRunsCode(value.Type) ? new IrRunDefault(value.Type) : null);
 
-        public IrEffects Unary(IrUnary value) => new([], false, value.Loc is not null);
-        public IrEffects Binary(IrBinary value) => new([], false, value.Loc is not null);
-        public IrEffects Convert(IrConvert value) => new([], false, value.Loc is not null);
+        public IrEffects Unary(IrUnary value) => new([], [], value.Loc is not null);
+        public IrEffects Binary(IrBinary value) => new([], [], value.Loc is not null);
+        public IrEffects Convert(IrConvert value) => new([], [], value.Loc is not null);
 
         // Borrowing calls the object's beginBorrow.
-        public IrEffects Hold(IrHold value) => new([], value.Borrows, false);
+        public IrEffects Hold(IrHold value) => value.Borrows ? Released : None;
 
         public IrEffects Use(IrUse value) => None;
         public IrEffects Variant(IrVariant value) => None;
         public IrEffects Array(IrArray value) => None;
-        public IrEffects Default(IrDefault value) => DefaultRunsCode(value.Type) ? new([], true, true) : None;
+        public IrEffects Default(IrDefault value) => DefaultRunsCode(value.Type) ? new([], [new IrRunDefault(value.Type)], true) : None;
         public IrEffects Zeroed(IrZeroed value) => None;
         public IrEffects Closure(IrClosure value) => None;
         public IrEffects Lambda(IrLambda value) => None;
@@ -100,7 +131,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
         public IrEffects Data(IrData value) => None;
         public IrEffects Test(IrTest value) => None;
 
-        static IrEffects Calling(MethodReference method, IrArgument? receiver, IReadOnlyList<IrArgument> arguments, bool runsCode)
+        static IrEffects Calling(MethodReference method, IrArgument? receiver, IReadOnlyList<IrArgument> arguments, IrRun? runs)
         {
             IEnumerable<IrArgument> passed = receiver is null ? arguments : [receiver, .. arguments];
             var written = passed.Select(a => a switch
@@ -109,7 +140,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
                 IrAddrArgument { Kind: RefKind.Ref } address => address.Place,
                 _ => null,
             }).OfType<IrPlace>();
-            return new([.. written.Select(p => new IrWrite(p, Within: true))], runsCode, runsCode || method.Symbol.PassesLocation);
+            return new([.. written.Select(p => new IrWrite(p, Within: true))], runs is null ? [] : [runs], runs is not null || method.Symbol.PassesLocation);
         }
     }
 }

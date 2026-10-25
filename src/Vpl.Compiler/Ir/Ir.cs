@@ -14,6 +14,9 @@ public sealed class IrProgram(BoundProgram bound)
 {
     public BoundProgram Bound { get; } = bound;
     public List<IrFunction> Functions { get; } = [];
+
+    /// <summary>Each for-each loop's element variable, and where it is declared, for <c>ElementAliasing</c>.</summary>
+    public Dictionary<IrLocal, Location> LoopElements { get; } = [];
 }
 
 public sealed class IrFunction(FunctionSymbol symbol, string name)
@@ -110,11 +113,11 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     public LocalSymbol? Symbol { get; init; }
 
     /// <summary>
-    /// A loop element borrowed in place, which <c>ElementAliasing</c> found nothing writes while it
-    /// lives. That takes whole-program summaries the effect table doesn't have until the analysis is
-    /// ported (docs/design/ir.md §7, step 5), so the verifier trusts that, but checks the rest.
+    /// A loop element borrowed in place: an alias of an element of what the loop iterates, which
+    /// is borrowed while it lives, so only storing over an element of its type can destroy it. The
+    /// verifier checks that nothing does, by the effects and the whole-program write summaries.
     /// </summary>
-    public bool IsUnwrittenElement { get; init; }
+    public bool IsElement { get; set; }
 
     /// <summary>
     /// A lambda assigns it, or may change it in place, so any code that runs may change it. A

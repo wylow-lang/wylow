@@ -74,7 +74,9 @@ public static class Compilation
 
         var analyses = Analyses.Run(program);
         var ir = IrLowering.Lower(program, analyses, options.Elide);
-        var errors = IrVerifier.Verify(ir);
+        var writes = Writes.Find(new Callees(ir, analyses.Whole.Overrides));
+        var elements = ElementAliasing.Apply(ir, writes);
+        var errors = IrVerifier.Verify(ir, writes);
         if (errors.Count > 0)
         {
             var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
@@ -83,7 +85,7 @@ public static class Compilation
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {
             StackObjects = [.. analyses.StackObjects.Locations],
-            InPlaceElements = [.. analyses.Elements.Locations],
+            InPlaceElements = [.. elements.Locations],
             Program = program,
             Ir = ir,
         };
