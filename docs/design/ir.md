@@ -618,6 +618,10 @@ Each step keeps the suite passing on MSVC and g++.
 5. **Port the analyses onto the IR**, one per step, with the markers unchanged: `ElementAliasing`
    as the borrowed-local rule restricted to loop elements, then hold elision with `IsStable`'s
    predicate, then `StackObjects`. Delete `WholeProgram.Unit`'s special parts.
+   Done: `ElementAliasing` is the `InPlaceElements` pass, `StackObjects` the `StackSlots` pass with
+   `Analysis/Escapes`, both after lowering (§9.11), over `Callees`, which made `WholeProgram.Unit`
+   unnecessary; `FindRecursive` reads the IR. Hold elision still runs inside lowering (`Close`),
+   and is to move into a pass of its own before step 6.
 6. **Generalize**, with each step a measurable improvement:
    - field-precise write summaries;
    - borrowed locals beyond loop elements;
