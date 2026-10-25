@@ -712,3 +712,37 @@ against the rule: either lowering is wrong or the test's expectation was relying
    destructor timing depend on the optimizer. Earlier releases are allowed only where nothing can
    tell (no destructor can run, nothing refers to the object weakly), which leaves last-use moves
    for most game data.
+
+## 10. Prior art for reference-count optimization
+
+Where to look when writing the rules of §6.2, §6.3, and step 6. Each of these releases at last
+use or doesn't specify release timing, so a rule taken from one must still pass §9.10: it may
+release earlier only where nothing can tell.
+
+- **Swift, Ownership SSA.** [SIL Ownership](https://github.com/swiftlang/swift/blob/main/docs/SIL/Ownership.md)
+  (owned and guaranteed values, borrow scopes, lifetimes, and the verifier that checks them; the
+  closest model to this IR's explicit ownership) and the
+  [Ownership Manifesto](https://github.com/swiftlang/swift/blob/main/docs/OwnershipManifesto.md).
+  [ARC Optimization](https://github.com/swiftlang/swift/blob/main/docs/SIL/ARCOptimization.md)
+  covers RC identity: which values share a count, so that operations on them can be paired.
+  [`OSSACanonicalizeOwned.cpp`](https://github.com/swiftlang/swift/blob/main/lib/SILOptimizer/Utils/OSSACanonicalizeOwned.cpp)
+  recomputes an owned value's liveness, ignoring its copies and destroys, then places destroys at
+  the boundary and drops the copies it no longer needs: last-use moves (§9.10) as one pass.
+- **Koka, Perceus.** [Perceus: Garbage Free Reference Counting with Reuse](https://www.microsoft.com/en-us/research/publication/perceus-garbage-free-reference-counting-with-reuse/)
+  (PLDI 2021) emits precise `dup`/`drop` instructions and specializes them, and reuses a unique
+  object's memory for a new one of the same size. [Reference Counting with Frame Limited Reuse](https://www.microsoft.com/en-us/research/publication/reference-counting-with-frame-limited-reuse/)
+  (ICFP 2022) makes reuse robust, bounding how long memory may be kept. Reuse is a candidate for a
+  `new` right after the last reference to an object of the same class is released.
+- **Lean 4.** [Counting Immutable Beans](https://arxiv.org/abs/1908.05647) (IFL 2019): borrowed
+  parameters that skip the count, and a heuristic to infer them, which is the question of passing
+  a `Ref` parameter as a reference (§6.3's rule applied to parameters).
+- **Nim, ARC/ORC.** [Destructors and Move Semantics](https://nim-lang.org/docs/destructors.html):
+  "Cursor inference / copy elision" (a local copied from a place nothing mutates while it lives
+  becomes a non-owning cursor, which is §6.3), sink parameter inference, and destructor removal.
+  ORC is a cycle collector over ARC, as `Memory.collectCycles` is.
+- **Lobster.** [Memory management](https://aardappel.github.io/lobster/memory_management.html):
+  one owner per allocation inferred at compile time and every other use a borrow, with functions
+  specialized by their arguments' ownership; the author reports most count operations removed.
+- **Objective-C ARC in LLVM.** [`ObjCARCOpts.cpp`](https://llvm.org/doxygen/ObjCARCOpts_8cpp_source.html):
+  a dataflow pass removing redundant and partially redundant retain/release pairs at the LLVM IR
+  level, where ownership is no longer visible: what this IR avoids needing by keeping it explicit.
