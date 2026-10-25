@@ -79,9 +79,6 @@ var bytes = try File.readAll(path).mapErr(e -> LoadError.NotFound(path));
 `try` is a prefix keyword (rather than Rust's postfix `?`) because `?` already means "nullable"
 in VPL.
 
-> Implemented so far: all of the above, but a `try` that isn't a statement's whole value compiles
-> only with `--ir`, until the IR emitter is the default.
-
 ## 4.4 Handling results
 
 With an exhaustive `switch`:

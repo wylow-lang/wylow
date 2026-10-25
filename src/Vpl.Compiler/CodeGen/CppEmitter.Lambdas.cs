@@ -1,9 +1,6 @@
-using System.Globalization;
-using System.Text;
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
-using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.CodeGen;
 
@@ -23,11 +20,6 @@ public sealed partial class CppEmitter
 {
     /// <summary>Functions with function-typed parameters that may call themselves.</summary>
     HashSet<FunctionSymbol> recursive = [];
-
-    int lambdaDepth;
-
-    /// <summary>Inside a closure's body, the parameter holding the <c>this</c> it captured.</summary>
-    string? capturedThis;
 
     static bool IsNonEscaping(VplType type) => type.IsFunction && !type.IsEscaping;
 
@@ -137,24 +129,16 @@ public sealed partial class CppEmitter
         return IsNonEscaping(type) && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(type)}>({argument})" : argument;
     }
 
-    IEnumerable<string> FunctionArguments(MethodReference method, IEnumerable<string> arguments) =>
-        arguments.Select((argument, i) => FunctionArgument(method, i, argument));
-
     static bool IsNullableNonEscaping(VplType type) => type.IsNullable && IsNonEscaping(type.NonNull);
 
     /// <summary>
     /// An argument for a nullable non-escaping parameter, a <c>vpl::Optional</c> of a
-    /// <c>vpl::FunctionRef</c>. It is made here, from the value <see cref="PassedValue"/> gives,
-    /// rather than where the argument is evaluated, which may be a statement of its own
-    /// (<see cref="Ordered"/>) that a lambda made in it wouldn't outlive. Any other argument is
-    /// passed as it is.
+    /// <c>vpl::FunctionRef</c>. It is made at the call, from the value before its conversion, rather
+    /// than where the argument is evaluated, which may be a statement of its own that a lambda made
+    /// in it wouldn't outlive. Any other argument is passed as it is.
     /// </summary>
     string OptionalFunctionArgument(VplType parameter, string argument) =>
         IsNullableNonEscaping(parameter) ? $"vpl::optional_ref<{FunctionSignature(parameter.NonNull)}>({argument})" : argument;
-
-    /// <summary>What is evaluated for an argument: for a nullable non-escaping parameter, the function or nullable before its conversion.</summary>
-    static BoundExpression PassedValue(VplType parameter, BoundExpression argument) =>
-        IsNullableNonEscaping(parameter) && argument is BoundConversion { Operand: var value } && value.Type != VplType.Null ? value : argument;
 
     /// <summary>
     /// The functions with function-typed parameters that a template would instantiate without end:
@@ -202,144 +186,4 @@ public sealed partial class CppEmitter
 
     static bool MakesCallableType(BoundExpression argument) =>
         argument is not (BoundLocalAccess { Local.IsParameter: true } or { Type.IsEscaping: true } or BoundConversion { Operand.Type.IsEscaping: true });
-
-    string Lambda(BoundLambda lambda)
-    {
-        if (lambda.Function.IsEscaping)
-            return Closure(lambda);
-        return $"[&]({LambdaParameters(lambda.Function)}) -> {CppType(lambda.Function.ReturnType)} {LambdaBody(lambda)}";
-    }
-
-    string LambdaParameters(FunctionSymbol function) =>
-        string.Join(", ", function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
-
-    string LambdaBody(BoundLambda lambda)
-    {
-        var function = lambda.Function;
-        var (enclosingOutput, enclosingIndent, enclosingFunction) = (output, indent, currentFunction);
-        output = new StringBuilder();
-        indent = enclosingIndent + 1;
-        currentFunction = function;
-        lambdaDepth++;
-        foreach (var statement in lambda.Body.Statements)
-            Statement(statement);
-        EndBody(lambda.Body, function.ReturnType);
-        var bodyText = output.ToString();
-        lambdaDepth--;
-        (output, indent, currentFunction) = (enclosingOutput, enclosingIndent, enclosingFunction);
-        return $"{{\n{bodyText}{new string(' ', indent * 4)}}}";
-    }
-
-    /// <summary>The types of the values a closure copies, in order: its captured locals', then its <c>this</c>'s.</summary>
-    List<string> CaptureTypes(BoundLambda lambda)
-    {
-        var (locals, self) = BoundTree.Captures(lambda);
-        return [.. locals.Select(a => CppType(a.Local.Type)), .. self is null ? [] : new[] { CppType(currentType!.Type) }];
-    }
-
-    /// <summary>The C++ type of a closure on the stack, which its slot is declared with before the lambda.</summary>
-    string ClosureType(BoundLambda lambda) => $"vpl::Closure<{ClosureName(lambda)}, {string.Join(", ", CaptureTypes(lambda))}>";
-
-    static string ClosureName(BoundLambda lambda)
-    {
-        var (line, column) = lambda.Location.LineColumn;
-        return CppStringLiteral($"lambda at {lambda.Location.Source.FileName}:{line}:{column}");
-    }
-
-    /// <summary>
-    /// An escaping lambda is a <c>vpl::Function</c> made by <c>vpl::closure</c>, which copies the captured
-    /// values, evaluated here, and passes them to the body ahead of the arguments, or by
-    /// <c>vpl::closure_in</c>, which makes the closure in its stack slot. The body is a C++
-    /// lambda capturing nothing, so it can't use anything it wasn't given. Its parameters for the
-    /// captured values get new names, so they don't shadow the variables they copy.
-    /// </summary>
-    string Closure(BoundLambda lambda)
-    {
-        var (locals, self) = BoundTree.Captures(lambda);
-        var types = CaptureTypes(lambda);
-        var values = new List<string>();
-        var parameters = new List<string>();
-        var renamed = new List<(LocalSymbol Local, string Name)>();
-        foreach (var (local, type) in locals.Select(a => a.Local).Zip(types))
-        {
-            var outer = LocalName(local);
-            values.Add(outer);
-            var inner = $"{outer}_{NewTemp()}";
-            parameters.Add($"const {type}& {inner}");
-            renamed.Add((local, outer));
-            localNames[local] = inner;
-        }
-        var enclosingThis = capturedThis;
-        if (self is not null)
-        {
-            values.Add(This());
-            capturedThis = $"vpl_this_{NewTemp()}";
-            parameters.Add($"const {types[^1]}& {capturedThis}");
-        }
-        parameters.AddRange(lambda.Function.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {LocalName(p)}"));
-        var body = LambdaBody(lambda);
-        capturedThis = enclosingThis;
-        foreach (var (local, outer) in renamed)
-            localNames[local] = outer;
-
-        var function = $"[]({string.Join(", ", parameters)}) -> {CppType(lambda.Function.ReturnType)} {body}";
-        if (slots.TryGetValue(lambda, out var slot))
-            return $"vpl::closure_in<{FunctionSignature(lambda.Type)}>({string.Join(", ", [slot, function, .. values])})";
-        bool cyclic = cycles.IsCyclic(lambda);
-        return $"vpl::closure<{FunctionSignature(lambda.Type)}, {ClosureName(lambda)}>({(cyclic ? "true" : "false")}, {string.Join(", ", [function, .. values])})";
-    }
-
-    /// <summary>
-    /// A non-escaping function chosen by <c>?:</c> or a switch expression is a <c>vpl::Choice</c> of
-    /// every function it could be (<see cref="BoundTree.FunctionOptions"/>), with the conditions and
-    /// cases evaluated, in order, to the index of the chosen one. Its lambdas are made up front, and
-    /// its non-escaping locals referred to, which no one can observe, since neither has effects. An
-    /// escaping option, such as a field or a call, is evaluated only when it is chosen, into the one
-    /// slot that all of them share (<c>vpl::choose_held</c>). A switch's cases run in a C++ lambda,
-    /// so the binder keeps the lambdas chosen from out of what a case declares.
-    /// </summary>
-    string Choice(BoundExpression choice)
-    {
-        static bool IsHeld(BoundExpression option) => option is BoundConversion { Operand.Type.IsEscaping: true };
-        var leaves = BoundTree.FunctionOptions(choice).ToList();
-        var held = leaves.Any(IsHeld) ? NewTemp() : null;
-        var heldIndex = leaves.Count(o => !IsHeld(o)).ToString(CultureInfo.InvariantCulture);
-        var options = new List<string>();
-        string Index(BoundExpression expression)
-        {
-            switch (expression)
-            {
-                case BoundConditional nested:
-                    return $"({Expression(nested.Condition)} ? {Index(nested.WhenTrue)} : {Index(nested.WhenFalse)})";
-                case BoundSwitchExpression nested:
-                    return SwitchExpression(nested, "int", Index);
-                case BoundLocalAccess { Type.IsEscaping: false }:
-                    options.Add($"vpl::borrowed({Expression(expression)})");
-                    return (options.Count - 1).ToString(CultureInfo.InvariantCulture);
-                case BoundLambda or BoundLocalAccess:
-                    options.Add(Expression(expression));
-                    return (options.Count - 1).ToString(CultureInfo.InvariantCulture);
-                case BoundConversion conversion when IsHeld(conversion):
-                    return $"({held} = {Expression(conversion.Operand)}, {heldIndex})";
-                default:
-                    throw new InvalidOperationException($"a chosen function cannot be a {expression.GetType().Name}");
-            }
-        }
-        var index = Index(choice);
-        if (held is null)
-            return $"vpl::choose({index}, {string.Join(", ", options)})";
-        var signature = FunctionSignature(choice.Type);
-        return $"vpl::choose_held<{signature}>([&](vpl::Function<{signature}>& {held}) {{ return {index}; }}{string.Concat(options.Select(o => ", " + o))})";
-    }
-
-    string Invocation(BoundInvocation invocation)
-    {
-        // A closure stored where the call could replace it is held until the call returns, as an object receiver is.
-        var callee = invocation.Callee;
-        var operands = new List<Operand> { HeldOperand(callee, callee.Type.IsEscaping && MayBeReplaced(callee)) };
-        operands.AddRange(invocation.Arguments.Select((argument, i) => ArgumentOperand(invocation.Signature, i, argument)));
-        var signature = invocation.Signature;
-        return Ordered(operands, parts =>
-            $"{parts[0]}({string.Join(", ", parts.Skip(1).Select((p, i) => OptionalFunctionArgument(signature.ParameterType(i), p)))})");
-    }
 }

@@ -37,6 +37,25 @@ class Chained {
     }
 }
 
+class ViewBase {
+    ViewBase(in int x, Span<int> view) { }
+}
+
+class ViewDerived extends ViewBase {
+    ViewDerived(int x, int[] items, Span<int> view) {
+        super(x, view);
+    }
+    ViewDerived(int x, Span<int> view) {
+        super(x + 1, view);             // error: an argument to 'super(...)' for a reference or view parameter
+    }
+    ViewDerived(int x, int[] items) {
+        super(x, items);                // error: an argument to 'super(...)' for a reference or view parameter
+    }
+    ViewDerived(Span<int> view, int i) {
+        super(view[i], view);           // error: an argument to 'super(...)' for a reference or view parameter
+    }
+}
+
 class Unassigned {
     Item item;                          // error: field 'item' of type 'Item' has no default value
 }

@@ -1,0 +1,32 @@
+// A base constructor's reference and view parameters take what the derived constructor was given.
+struct Pair { int x; int y; }
+
+class Base {
+    int v;
+    Base(in int x, ref int r, ref? int n, Span<int> s) {
+        v = x + s.length;
+        r = 7;
+        if (n is ref int k) {
+            k = 9;
+        }
+    }
+}
+
+class Derived extends Base {
+    Derived(Pair p, ref int r, ref? int n, Span<int> s) { super(p.y, ref r, ref n, s); }
+    Derived(ref int r, Span<int> s) { super(r, ref r, null, s); }
+}
+
+void main() {
+    mut int[3] a = [1, 2, 3];
+    mut int r = 0;
+    mut int m = 0;
+    Derived d = new Derived(Pair(1, 2), ref r, ref m, a);
+    print(d.v);                         // output: 5
+    print(r);                           // output: 7
+    print(m);                           // output: 9
+    mut int q = 3;
+    Derived e = new Derived(ref q, a);
+    print(e.v);                         // output: 6
+    print(q);                           // output: 7
+}

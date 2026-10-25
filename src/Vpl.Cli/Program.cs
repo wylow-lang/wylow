@@ -12,15 +12,14 @@ const string Usage = """
       build    build an executable
       check    report errors without building
       emit     print the generated C++
-      ir       print the mid-level IR of the program's functions (implies --ir)
+      ir       print the mid-level IR of the program's functions
 
     options:
       --release        optimized build; integer overflow wraps instead of panicking
       --cc msvc|gcc    C++ compiler to use (default: msvc if installed, otherwise gcc)
       -o <path>        where to write the executable (build only)
-      --ir             emit the functions that lower through the mid-level IR, verifying it
-      --no-nest        with --ir, declare every temporary instead of nesting it into its use
-      --no-elide       with --ir, keep every hold and copy lowering made
+      --no-nest        declare every temporary instead of nesting it into its use
+      --no-elide       keep every hold and copy lowering made
     """;
 
 string[] commands = ["run", "build", "check", "emit", "ir"];
@@ -35,7 +34,7 @@ var file = args[1];
 bool release = false;
 Toolchain? toolchain = null;
 string? output = null;
-var options = new CompileOptions(Ir: command == "ir");
+var options = new CompileOptions();
 
 for (int i = 2; i < args.Length; i++)
 {
@@ -49,9 +48,6 @@ for (int i = 2; i < args.Length; i++)
             break;
         case "-o" when i + 1 < args.Length:
             output = args[++i];
-            break;
-        case "--ir":
-            options = options with { Ir = true };
             break;
         case "--no-nest":
             options = options with { Nest = false };

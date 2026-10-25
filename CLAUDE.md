@@ -16,15 +16,14 @@ dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--ir]
+dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--no-nest] [--no-elide]
 ```
 
-`--ir` (in the CLI and the test runner) emits each function that lowers through the mid-level IR
-from it, and the rest from the bound tree; the runner then writes `<name>.ir` next to each test's
-C++ and reports what still doesn't lower. `--no-nest` and `--no-elide` must pass too: declining to
-nest a temporary or to elide a hold is always correct. (With `--no-elide`, a budgeted
-`Memory.collectCycles` may reach other cycles, since a pin's release buffers its object for the
-cycle collector.)
+Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
+writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-elide` (in the CLI and the test
+runner) must pass too: declining to nest a temporary or to elide a hold is always correct. (With
+`--no-elide`, a budgeted `Memory.collectCycles` may reach other cycles, since a pin's release
+buffers its object for the cycle collector.)
 
 Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
@@ -49,7 +48,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (ElementAliasing → StackObjects, CyclicClasses) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (ElementAliasing → StackObjects, CyclicClasses) → IrLowering → IrVerifier → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -75,7 +74,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
   (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
-- `src/Vpl.Compiler/Ir`: the mid-level IR being built (`docs/design/ir.md`), used with `--ir`.
+- `src/Vpl.Compiler/Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
   may write, run, or panic on; every analysis asks it), `IrAccess.cs` (which storage an instruction
   touches, and the walkers over instructions), `Lowering*.cs` (bound tree to IR: conservative
@@ -83,36 +82,35 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   single assignment, moves, places, and that every reference, view, and borrowed local is used
   only while what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier
   must accept or reject.
-- `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: bound tree to C++. `CppEmitter.Ir.cs` prints a lowered
-  function's body instead, and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside
-  their one use (§5.1 of the design).
+- `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: C++ declarations (types, signatures, templates) from
+  the bound program, and function bodies from the IR. `CppEmitter.Ir.cs` prints a lowered body,
+  and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside their one use (§5.1 of
+  the design).
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
-  `CppEmitter.Ordering.cs`, ...); put new code in the file for its topic, and split a file that
+  `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
 - `runtime/vpl.h`: C++ support included by every generated program, which includes one file per
   topic from `runtime/vpl/` (`arithmetic.h`, `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...).
   Each file includes what it depends on and compiles on its own.
 - `tests/cases/**/*.vpl`: each test is a program with `// output:`, `// error:` (on the erroring
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
-  and `// mode: release` comments; `// mode: ir` runs a test only with `--ir`, for what the bound
-  tree emitter gets wrong until it is deleted. Error tests must list every error exactly. Outputs are matched
+  and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
   in file order, so put a called function's outputs at the call.
 
 ## Rules
 
 - **All safety checking happens in the binder and flow analysis.** The emitter only translates and
   must never produce C++ with undefined behavior. A C++ compile failure is a compiler bug.
-- **Evaluation order is left to right.** C++ doesn't guarantee it, so `CppEmitter.Ordered` (`CppEmitter.Ordering.cs`) hoists
-  operands into an immediately-invoked lambda when they conflict. Any new expression kind that can
-  read or write state must be described correctly in `HasEffects`, `Writes`, `RunsLambdas`, and `ReadsState`.
-  A new kind of call also belongs in `BoundTree.CallOf`, which the checks and analyses use to see calls.
-- **Places can't come out of `Ordered`'s lambda**, which returns a copy. Anything that may be
-  assigned or referred to (`vpl::at`, a method returning `ref`) keeps its order another way; see
-  `CppEmitter.Index` and `OrderedReferenceCall`.
+- **Evaluation order is left to right.** Lowering makes it explicit: each operand is computed by
+  its own instructions in order, and the emitter nests one back into its use only where
+  `IrEffects`/`IrAccess` show nothing in between can tell. A new instruction must be described
+  there correctly. A new kind of call also belongs in `BoundTree.CallOf`, which the checks and
+  analyses use to see calls.
 - **Whatever a reference or span points into must stay alive and unmoved while it is used.**
-  `CppEmitter.StorageRoot` finds the object to hold, and whether to borrow it (`vpl::borrow`) or
-  just pin it. Every check and analysis of places decomposes them with `PlacePath.Of`, so a new way
-  to produce a place or a view is taught there.
+  Lowering holds the object a place goes through (`IrLowering.ObjectLocal`: a pin, or a borrow
+  of a `Borrowable` that hands out storage), and the verifier checks every use is covered. Every
+  check and analysis of places decomposes them with `PlacePath.Of`, so a new way to produce a
+  place or a view is taught there.
 - **Nothing may keep referring into a nullable value** (`int?`, `Vec3?`, `T?`), since assigning the
   variable null destroys it: `PlacePath.NullableValueRoot` finds the narrowed `mut` local a place lies in,
   and a new way to hold a place or a view beyond one operation must reject such places.

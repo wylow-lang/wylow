@@ -79,7 +79,7 @@ public sealed partial class IrLowering
                 break;
             }
             case PlaceBase.Returned:
-                throw new NotLoweredException("a reference returned by a function");
+                throw new InvalidOperationException("only methods return references");
             default:
                 place = new IrPlace(Let(Rvalue(path.Root, use)));
                 break;

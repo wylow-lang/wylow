@@ -854,8 +854,9 @@ User-defined annotations (and reflection) are *open*.
 Every panic inside a function marked `@CallerLocation`, including those of the checks it calls
 and of other `@CallerLocation` functions it calls, reports the location of the call to it. The
 standard library uses it so that a failed `list[i]` points at the user's line rather than into
-`List`. It applies to functions, methods, constructors, indexers, and properties, but not yet to
-virtual, abstract, or interface methods.
+`List`. A lambda written in such a function reports its own locations, since it may run after the
+call has returned. It applies to functions, methods, constructors, indexers, and properties, but
+not yet to virtual, abstract, or interface methods.
 
 ## 6.11 Naming conventions
 

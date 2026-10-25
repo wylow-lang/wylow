@@ -1,6 +1,5 @@
-// mode: ir
-// The bound tree emitter releases the temporaries of super(...)'s arguments after the base
-// constructor, and MSVC may evaluate them out of order.
+// Each argument of super(...) is a statement of its own: its temporaries are released before the
+// next argument, and the arguments are evaluated left to right on every compiler.
 
 class Probe {
     String name;

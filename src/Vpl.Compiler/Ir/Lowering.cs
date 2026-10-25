@@ -5,12 +5,6 @@ using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Ir;
 
-/// <summary>A construct lowering doesn't handle yet; the function is emitted from the bound tree instead.</summary>
-public sealed class NotLoweredException(string reason) : Exception(reason);
-
-/// <summary>A function lowering left to the bound tree emitter, and why.</summary>
-public sealed record UnloweredFunction(FunctionSymbol Function, string Reason);
-
 /// <summary>
 /// Lowers checked functions into the IR (docs/design/ir.md, §5). Lowering is conservative: every
 /// object a place goes through is held, and every read that something after it might change is
@@ -51,24 +45,16 @@ public sealed partial class IrLowering
             function.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind });
     }
 
-    /// <summary>Lowers every function it can; the rest are listed in <paramref name="unlowered"/>.</summary>
-    public static IrProgram Lower(BoundProgram program, Analyses analyses, bool elide, List<UnloweredFunction> unlowered)
+    public static IrProgram Lower(BoundProgram program, Analyses analyses, bool elide)
     {
         var ir = new IrProgram(program);
         var borrowable = program.Stdlib.Borrowable;
         List<TypeSymbol> borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
         void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
-            try
-            {
-                var lowering = new IrLowering(program, analyses, elide, borrowableClasses, symbol, name);
-                ir.Functions.Add(lower(lowering));
-                ir.Functions.AddRange(lowering.lambdas);
-            }
-            catch (NotLoweredException e)
-            {
-                unlowered.Add(new UnloweredFunction(symbol, e.Message));
-            }
+            var lowering = new IrLowering(program, analyses, elide, borrowableClasses, symbol, name);
+            ir.Functions.Add(lower(lowering));
+            ir.Functions.AddRange(lowering.lambdas);
         }
 
         foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
@@ -210,7 +196,7 @@ public sealed partial class IrLowering
                 Jump(statement);
                 break;
             default:
-                throw new NotLoweredException($"a {statement.GetType().Name}");
+                throw new InvalidOperationException($"unexpected {statement.GetType().Name}");
         }
     }
 

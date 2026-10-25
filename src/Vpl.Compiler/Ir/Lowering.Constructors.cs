@@ -92,7 +92,7 @@ public sealed partial class IrLowering
     static string FormKey(IReadOnlyList<bool> form) => string.Concat(form.Select(given => given ? '1' : '0'));
 
     /// <summary>Whether the type's default value is more than zeroed storage.</summary>
-    static bool HasDefaultCode(VplType type) =>
+    internal static bool HasDefaultCode(VplType type) =>
         type.IsFixedArray ? HasDefaultCode(type.ElementType!)
         : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsExtern
             && (type.Symbol.IsGeneric || type.Symbol.Fields.Any(f => f.Initializer is not null || HasDefaultCode(f.Type))));
@@ -112,9 +112,15 @@ public sealed partial class IrLowering
             for (int i = 0; i < super.Arguments.Count; i++)
             {
                 var parameter = method.ParameterType(i);
-                if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct)
-                    throw new NotLoweredException("a reference or view argument to super(...)");
                 var computed = new IrBlock();
+                // The binder allows only references and views into what the caller holds, which need no statements.
+                if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct)
+                {
+                    Into(computed, () => arguments.Add(Argument(parameter, method.ParameterRefKind(i), super.Arguments[i])));
+                    if (computed.Statements.Count > 0)
+                        throw new InvalidOperationException("a reference or view argument to super(...) needs statements");
+                    continue;
+                }
                 IrLocal? value = null;
                 IrOperand? direct = null;
                 Into(computed, () =>

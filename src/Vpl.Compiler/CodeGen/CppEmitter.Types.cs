@@ -1,9 +1,7 @@
 using System.Globalization;
-using System.Text;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
-using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.CodeGen;
 
@@ -63,27 +61,17 @@ public sealed partial class CppEmitter
     /// Whether default construction must run code rather than just zero-initialize. Generic structs
     /// always get a <c>make_default</c>, since their type arguments may need one.
     /// </summary>
-    bool NeedsDefaultFunction(TypeSymbol s)
-    {
-        if (!needsDefaultFunction.TryGetValue(s, out bool needs))
-        {
-            needsDefaultFunction[s] = false;
-            needs = !s.IsExtern && (s.IsGeneric || s.Fields.Any(f => f.Initializer is not null || NeedsDefaultCode(f.Type)));
-            needsDefaultFunction[s] = needs;
-        }
-        return needs;
-    }
-
-    bool NeedsDefaultCode(VplType type) =>
-        type.IsFixedArray ? NeedsDefaultCode(type.ElementType!)
-        : type.IsTypeParameter || (type.IsStruct && NeedsDefaultFunction(type.Symbol!));
+    static bool NeedsDefaultFunction(TypeSymbol s) => IrLowering.HasDefaultCode(s.Type);
 
     string DefaultValue(VplType type)
     {
-        if (type.IsTypeParameter || (type.IsFixedArray && NeedsDefaultCode(type)))
+        if (type.IsTypeParameter || (type.IsFixedArray && IrLowering.HasDefaultCode(type)))
             return $"vpl::default_value<{CppType(type)}>()";
         return type.IsStruct && NeedsDefaultFunction(type.Symbol!) ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
     }
+
+    /// <summary>Whether copying or destroying a value of the type runs code: references are counted, and so are built strings.</summary>
+    static bool HasCountedParts(VplType type) => type.MayHoldReferences || type.InlineTypes().Contains(VplType.String);
 
     void EmitStructDefinition(TypeSymbol s)
     {
@@ -330,8 +318,8 @@ public sealed partial class CppEmitter
         }
         foreach (var (constructor, index) in s.Constructors.Select((c, i) => (c, i)))
         {
-            if (irFunctions.TryGetValue(constructor, out var lowered) && DelegatesBaseCall(lowered))
-                EmitBaseArgumentsConstructor(s, index, lowered);
+            if (DelegatesBaseCall(irFunctions[constructor]))
+                EmitBaseArgumentsConstructor(s, index, irFunctions[constructor]);
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
@@ -366,35 +354,12 @@ public sealed partial class CppEmitter
     void EmitDefaultFunction(TypeSymbol s)
     {
         var type = CppType(s.Type);
-        context = Context.Free;
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"{type} {type}::make_default()");
-        if (irBuilt.TryGetValue((s, "make_default"), out var lowered))
-        {
-            currentType = s;
-            context = Context.StructConstructor;
-            EmitIrFunction(lowered);
-            context = Context.Free;
-            currentType = null;
-            return;
-        }
-        Line("{");
-        indent++;
-        Line($"{type} self{{}};");
-        foreach (var field in s.Fields)
-        {
-            if (field.Initializer is { } initializer)
-            {
-                DeclarePatternLocals(initializer);
-                Line($"self.{FieldName(field)} = {Expression(initializer)};");
-            }
-            else if (NeedsDefaultCode(field.Type))
-                Line($"self.{FieldName(field)} = {DefaultValue(field.Type)};");
-        }
-        Line("return self;");
-        indent--;
-        Line("}");
+        currentType = s;
+        EmitIrFunction(irBuilt[(s, "make_default")]);
+        currentType = null;
     }
 
     /// <summary><c>make</c> when a call passes every field, and otherwise named for those it passes.</summary>
@@ -415,44 +380,13 @@ public sealed partial class CppEmitter
         var symbol = function.Symbol;
         var s = symbol.ContainingType!;
         currentType = s;
-        currentFunction = symbol;
         usedLocalNames.Clear();
         usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
-        context = Context.StructConstructor;
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
         Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
-        if (irBuilt.TryGetValue((s, MemberwiseName(form)), out var lowered))
-        {
-            EmitIrFunction(lowered);
-            context = Context.Free;
-            currentType = null;
-            currentFunction = null;
-            return;
-        }
-        Line("{");
-        indent++;
-        Line($"{type} self{{}};");
-        for (int i = 0; i < s.Fields.Count; i++)
-        {
-            var field = s.Fields[i];
-            // The body assigns each field its parameter, in order.
-            if (form[i])
-                Statement(function.Body.Statements[i]);
-            else if (field.Initializer is { } initializer)
-            {
-                DeclarePatternLocals(initializer);
-                Line($"self.{FieldName(field)} = {Expression(initializer)};");
-            }
-            else if (NeedsDefaultCode(field.Type))
-                Line($"self.{FieldName(field)} = {DefaultValue(field.Type)};");
-        }
-        Line("return self;");
-        indent--;
-        Line("}");
-        context = Context.Free;
+        EmitIrFunction(irBuilt[(s, MemberwiseName(form))]);
         currentType = null;
-        currentFunction = null;
     }
 
     /// <summary>Connects an interface method to the base class method that implements it.</summary>

@@ -513,6 +513,10 @@ Construction follows Java's order, and C++'s rule for what the object is while i
 1. The base class constructor runs first. `super(...)` must be the first statement of the
    constructor; without it, the base's parameterless constructor is called. Its arguments cannot use
    `this`.
+
+   > Implemented so far: an argument for a `ref`, `in`, `ref?`, or `in?` parameter or a `ref
+   > struct` one must be `null`, a parameter of the constructor, or a field of one (`super(p.pos,
+   > view)`), which need nothing held or computed before the base constructor runs.
 2. Field initializers run in declaration order. They cannot use `this`.
 3. The constructor body runs.
 

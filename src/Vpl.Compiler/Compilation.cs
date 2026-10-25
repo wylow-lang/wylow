@@ -9,11 +9,10 @@ using Vpl.Compiler.Text;
 namespace Vpl.Compiler;
 
 /// <summary>
-/// <see cref="Ir"/> emits the functions that lower through the mid-level IR (docs/design/ir.md), which
-/// is verified. <see cref="Nest"/> and <see cref="Elide"/> off keep every temporary declared and
-/// every hold and copy lowering made, which must not change what a program does.
+/// <see cref="Nest"/> and <see cref="Elide"/> off keep every temporary declared and every hold and
+/// copy lowering made (docs/design/ir.md), which must not change what a program does.
 /// </summary>
-public sealed record CompileOptions(bool Ir = false, bool Nest = true, bool Elide = true);
+public sealed record CompileOptions(bool Nest = true, bool Elide = true);
 
 public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, string? Cpp)
 {
@@ -28,26 +27,20 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
     /// <summary>The checked program, whose symbols tests build IR with.</summary>
     public BoundProgram? Program { get; init; }
 
-    /// <summary>The lowered functions, with <see cref="CompileOptions.Ir"/>.</summary>
+    /// <summary>The lowered program.</summary>
     public IrProgram? Ir { get; init; }
 
-    /// <summary>The functions emitted from the bound tree because lowering doesn't handle them yet, with <see cref="CompileOptions.Ir"/>.</summary>
-    public IReadOnlyList<UnloweredFunction> Unlowered { get; init; } = [];
-
-    /// <summary>The IR of the program's own functions, in declaration order, as <c>vpl ir</c> prints it; null without <see cref="CompileOptions.Ir"/>.</summary>
+    /// <summary>The IR of the program's own functions, in declaration order, as <c>vpl ir</c> prints it.</summary>
     public string? IrText()
     {
         if (Ir is null || Program is null)
             return null;
         var lowered = Ir.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol);
-        var reasons = Unlowered.ToDictionary(u => u.Function, u => u.Reason);
         var text = new System.Text.StringBuilder();
         foreach (var function in Program.Functions.Where(f => f.Symbol.Declaration?.Location.Source == Program.Source))
         {
             if (lowered.TryGetValue(function.Symbol, out var ir))
                 text.Append(IrPrinter.Print(ir));
-            else if (reasons.TryGetValue(function.Symbol, out var reason))
-                text.Append($"// {function.Symbol.Signature}: not lowered: {reason}\n\n");
         }
         foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source == Program.Source))
             text.Append(IrPrinter.Print(built));
@@ -80,17 +73,12 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         var analyses = Analyses.Run(program);
-        IrProgram? ir = null;
-        var unlowered = new List<UnloweredFunction>();
-        if (options.Ir)
+        var ir = IrLowering.Lower(program, analyses, options.Elide);
+        var errors = IrVerifier.Verify(ir);
+        if (errors.Count > 0)
         {
-            ir = IrLowering.Lower(program, analyses, options.Elide, unlowered);
-            var errors = IrVerifier.Verify(ir);
-            if (errors.Count > 0)
-            {
-                var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
-                throw new InvalidOperationException($"the IR verifier rejected the lowered program:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
-            }
+            var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
+            throw new InvalidOperationException($"the IR verifier rejected the lowered program:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
         }
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {
@@ -98,7 +86,6 @@ public static class Compilation
             InPlaceElements = [.. analyses.Elements.Locations],
             Program = program,
             Ir = ir,
-            Unlowered = unlowered,
         };
     }
 }

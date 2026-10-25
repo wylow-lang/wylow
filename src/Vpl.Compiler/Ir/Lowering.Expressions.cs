@@ -95,7 +95,7 @@ public sealed partial class IrLowering
             case BoundNonNull nonNull:
                 return Unwrapped(nonNull);
             default:
-                throw new NotLoweredException($"a {expression.GetType().Name}");
+                throw new InvalidOperationException($"unexpected {expression.GetType().Name}");
         }
     }
 
@@ -147,7 +147,7 @@ public sealed partial class IrLowering
         if (to.IsNullable && to.NonNull.IsFunction && !to.NonNull.IsEscaping)
             throw new InvalidOperationException("a nullable non-escaping function is only made from an argument");
         if (to.IsNullableReference)
-            throw new NotLoweredException("a conversion to a nullable reference outside a call or declaration");
+            throw new InvalidOperationException("a conversion to a nullable reference is only made in a call or declaration");
         var operand = to.IsRefStruct ? Settle(ViewOperand(conversion.Operand, use)) : Settle(Value(conversion.Operand));
         bool panics = to.IsEnum && !from.IsEnum || (from.IsInteger && to == VplType.Char);
         return new IrConvert(to, operand, panics ? Loc(conversion.Location) : null);

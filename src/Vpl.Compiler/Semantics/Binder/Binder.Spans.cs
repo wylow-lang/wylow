@@ -8,7 +8,7 @@ namespace Vpl.Compiler.Semantics;
 /// Spans and other <c>ref struct</c>s, which are second-class like <c>ref</c>: they may be locals
 /// and parameters, and a method may return one that views its receiver, but they cannot be
 /// stored anywhere that could outlive what they view. The compiler holds what a span views for
-/// as long as the span is used; see <c>CppEmitter.StorageRoot</c>.
+/// as long as the span is used; see <c>IrLowering.ObjectLocal</c>.
 /// </summary>
 public sealed partial class Binder
 {

@@ -289,6 +289,12 @@ public sealed partial class CppEmitter
         _ => throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}"),
     };
 
+    static string StoreText(VplType type, string target, string value)
+    {
+        bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter);
+        return plain ? $"{target} = {value}" : $"vpl::assign({target}, {value})";
+    }
+
     string Name(IrLocal local)
     {
         if (irNames.TryGetValue(local, out var name))

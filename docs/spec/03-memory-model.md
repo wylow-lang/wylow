@@ -58,10 +58,6 @@ releasing any class references it contains.
   released as the statement's temporaries are, in the same reverse order of creation. Leaving one
   out is allowed only where it could never be the last reference, so it never moves a release.
 
-> Implemented so far: the order is the same on every platform, but the C++ emitter doesn't follow
-> these rules inside every statement yet. An operand hoisted to keep evaluation left to right
-> releases its temporaries when the hoisted part completes. The planned mid-level IR makes the
-> order exact.
 - A destructor may use `this` freely, but must not keep a reference to its object: if a reference
   to it still exists when the destructor finishes, the program panics.
 - Objects in a cycle are released only by `Memory.collectCycles` ([below](#cycles-memorycollectcycles)).
@@ -504,7 +500,7 @@ if (found != null) {
   The two combine: `ref? int?` may refer to an `int?` variable.
 - It is allowed where `ref` is (parameters, locals, pattern bindings, and returns into the
   receiver) and follows the same rules: second-class, and the storage it points into is held or
-  borrowed while it is used (see `CppEmitter.StorageRoot`).
+  borrowed while it is used.
 - A method returns one with `return ref place;` or `return null;`.
 - It can only be used as a place after a check, as for nullable types (§2.5): `x is ref T name`
   (or `in T name`) binds the place, and `x != null` narrows a `ref?` local or parameter. Narrowing

@@ -1,6 +1,3 @@
-// mode: ir
-// The bound tree emitter can only return before a statement, not from inside an expression.
-
 // A 'try' may be anywhere in an expression: an Err returns from where it is evaluated, and the
 // rest of the expression isn't.
 

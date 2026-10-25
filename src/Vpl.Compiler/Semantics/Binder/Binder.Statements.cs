@@ -74,7 +74,27 @@ public sealed partial class Binder
         if (constructor is null)
             return null;
         CheckAccessible(call.Location, baseType.Symbol!, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
-        return new BoundSuperCall(call.Location, constructor, ConvertArguments(constructor, arguments));
+        var converted = ConvertArguments(constructor, arguments);
+        for (int i = 0; i < converted.Count; i++)
+        {
+            var parameter = constructor.ParameterType(i);
+            if ((constructor.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct) && !IsHeldByCaller(converted[i]))
+                Error(converted[i].Location, "an argument to 'super(...)' for a reference or view parameter must be a parameter, a field of one, or null, for now");
+        }
+        return new BoundSuperCall(call.Location, constructor, converted);
+    }
+
+    /// <summary>
+    /// Whether a reference or view argument points into storage the constructor's caller keeps
+    /// alive, so that passing it needs nothing held and nothing computed before the base constructor.
+    /// </summary>
+    static bool IsHeldByCaller(BoundExpression argument)
+    {
+        if (argument is BoundConversion { Operand.Type: var from } && from == VplType.Null)
+            return true;
+        var path = PlacePath.Of(argument);
+        return path is { Base: PlaceBase.Local, Root: BoundLocalAccess { Local.IsParameter: true, AssumesNonNull: false } }
+            && path.Steps.All(s => s is BoundFieldAccess or BoundConversion);
     }
 
     /// <summary>The base constructor call of a constructor without <c>super(...)</c>: the base's parameterless constructor.</summary>

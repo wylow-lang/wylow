@@ -1,0 +1,10 @@
+// A lambda made in an @CallerLocation function reports its own location, even after the call returns.
+@CallerLocation
+() -> int divider(int x) {
+    return () -> 10 / x;        // panic-here: division by zero
+}
+
+void main() {
+    var f = divider(0);
+    print(f());
+}
