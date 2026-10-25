@@ -12,6 +12,18 @@ struct Vec {
     }
 }
 
+struct Buf implements Spannable<int> {
+    int[2] data;
+
+    readonly ReadOnlySpan<int> asReadOnlySpan() {
+        return data;
+    }
+
+    Span<int> asSpan() {
+        return data;
+    }
+}
+
 enum Direction { North, East }
 
 struct Link {                           // error: struct 'Link' contains itself (Link -> Link)
@@ -93,6 +105,10 @@ void main() {
         in int[2] p = v.pair;           // error: a 'in' variable cannot refer into the nullable 'v'
         Span<int> span = v.pair;        // error: a span cannot view inside the nullable 'v'
         for (int e : v.pair) { }        // error: cannot loop over elements inside the nullable 'v'
+    }
+    mut Buf? b = Buf(data: [1, 2]);
+    if (b != null) {
+        ref int r = b.asSpan()[0];      // error: a 'ref' variable cannot refer into the nullable 'b'
     }
     if (v != null) {
         v.x = clear(ref v);             // error: 'v' is passed by 'ref' while its value is in use here
