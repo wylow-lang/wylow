@@ -1,3 +1,4 @@
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
 
 namespace Vpl.Compiler.Optimize;
@@ -5,12 +6,13 @@ namespace Vpl.Compiler.Optimize;
 /// <summary>
 /// Elides the holds that nothing in their extent needs (docs/design/ir.md §6.2): a borrow if no
 /// code runs that could change the object's length, and the pin too, making the hold an alias of
-/// its place, if nothing may replace the object where it is. The extent runs to the last use of the
+/// its place, if nothing may replace the object where it is: a <c>mut</c> field counts as replaced
+/// only where code runs that may write that field (<see cref="Writes"/>). The extent runs to the last use of the
 /// hold or of anything pointing into it, including that use when it uses it while code runs, as a
 /// call's receiver does. Inner blocks are done first, so that an outer hold's extent sees the
 /// aliases its dependents have become.
 /// </summary>
-public sealed class HoldElision
+public sealed class HoldElision(Writes writes)
 {
     /// <summary>What each borrowed local is an alias of: those lowering made, and the holds elided so far.</summary>
     readonly Dictionary<IrLocal, IrPlace> aliases = [];
@@ -18,9 +20,9 @@ public sealed class HoldElision
     /// <summary>Holds declared apart from where they are made, which an <c>end</c> lets go of early (an <c>is ref</c> name's).</summary>
     readonly HashSet<IrLocal> declared = [];
 
-    public static void Apply(IrProgram program)
+    public static void Apply(IrProgram program, Writes writes)
     {
-        var elision = new HoldElision();
+        var elision = new HoldElision(writes);
         foreach (var function in program.Functions)
         {
             foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
@@ -104,13 +106,20 @@ public sealed class HoldElision
             if (hold.Borrows && !referenced.RunsCode && !named)
                 hold.Borrows = false;
             // A generic value's hold refers to a struct in place, so it can't become an alias.
-            if (hold.Borrows || extent.MayChange(Chain(hold.Place)) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
+            if (hold.Borrows || MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
                 continue;
             let.Value = new IrUse(IrRead.Borrow(hold.Place));
             let.Local.Kind = IrLocalKind.Borrowed;
             let.Local.Type = hold.Place.Type;
             aliases[let.Local] = hold.Place;
         }
+    }
+
+    /// <summary>Whether what the footprint does may change the place, or what the aliases it goes through borrow.</summary>
+    bool MayChange(IrPlace place, IrFootprint footprint)
+    {
+        var chain = Chain(place).ToList();
+        return chain.Any(a => footprint.Writes.Any(a.Overlaps) || writes.CodeMayWrite(a, footprint.Runs));
     }
 
     /// <summary>The accesses a place depends on: its own, and those of the places the aliases it goes through borrow.</summary>

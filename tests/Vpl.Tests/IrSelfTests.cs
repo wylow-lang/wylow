@@ -37,7 +37,8 @@ static class IrSelfTests
         void use(int value) { }
         void take(Obj o) { }
         void two(ref Vec? a, in int b) { }
-        void call(() -> void g) { }
+        void replace(Holder h, Obj o) { h.b = new Obj(); }
+        void call(Holder h, () -> void g) { h.b = new Obj(); g(); }
         void setFirst(List<int> list) { list[0] = 2; }
 
         void main() { }
@@ -66,7 +67,14 @@ static class IrSelfTests
             var printed = IrPrinter.Print(program);
             // What the fixture's functions write, for the calls the case makes of them.
             var whole = new IrProgram(bound);
-            whole.Functions.AddRange([.. fixture.Functions, function]);
+            // Lowering lists each lambda as a function of its own.
+            var lambdas = IrWalk.Descendants(function.Body).OfType<IrLet>().Select(l => l.Value switch
+            {
+                IrLambda lambda => lambda.Function,
+                IrClosure closure => closure.Function,
+                _ => null,
+            }).OfType<IrFunction>();
+            whole.Functions.AddRange([.. fixture.Functions, function, .. lambdas]);
             var errors = IrVerifier.Verify(program, Writes.Find(new Callees(whole, new Overrides(bound))));
             var shown = $"\n{printed}errors:\n  {string.Join("\n  ", errors)}";
             if (test.Error is null && errors.Count > 0)
@@ -373,12 +381,20 @@ static class IrSelfTests
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))));
         }, Error: "the place it borrows may be written");
 
+        // Nothing 'take' runs writes the field.
+        yield return new("borrowed_mut_field_across_unwriting_call", () =>
+        {
+            var a = b.Parameter("a", holder);
+            return b.Function("borrowed_mut_field_across_unwriting_call", [a],
+                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(field)))));
+        });
+
         yield return new("borrowed_mut_field_across_call", () =>
         {
             var a = b.Parameter("a", holder);
             return b.Function("borrowed_mut_field_across_call", [a],
-                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(field)))));
-        }, Error: "is used during the call of 'take'");
+                new IrDo(b.Call("replace", IrRead.Copy(new IrPlace(a)), IrRead.Borrow(IrPlace.Deref(a).Field(field)))));
+        }, Error: "is used during the call of 'replace'");
 
         yield return new("reference_into_replaced_nullable", () =>
         {
@@ -531,13 +547,13 @@ static class IrSelfTests
         {
             Body = new IrBlock([new IrStore(IrPlace.Deref(r), IrConstant.Int(1))]),
         };
-        var l = b.Temp(call.ParameterType(0));
+        var l = b.Temp(call.ParameterType(1));
         var place = IrPlace.Deref(a).Field(b.Field("Holder", "b"));
         var function = b.Function(name, [a],
             new IrLet(h, held ? new IrHold(place, borrows: false) : new IrUse(IrRead.Borrow(place))),
             new IrLet(r, new IrRef(RefKind.Ref, IrPlace.Deref(h).Field(b.Field("Obj", "x")))),
             new IrLet(l, new IrLambda(lambda, l.Type)),
-            new IrDo(new IrCall(call, null, [IrRead.Move(new IrPlace(l))])));
+            new IrDo(new IrCall(call, null, [IrRead.Copy(new IrPlace(a)), IrRead.Move(new IrPlace(l))])));
         return function;
     }
 

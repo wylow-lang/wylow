@@ -623,7 +623,13 @@ Each step keeps the suite passing on MSVC and g++.
    unnecessary; `FindRecursive` reads the IR. Hold elision is the `HoldElision` pass, the first
    to run, which also flattens the statement scopes lowering made only for holds it elided.
 6. **Generalize**, with each step a measurable improvement:
-   - field-precise write summaries;
+   - field-precise write summaries. Done: `WriteSet` also has the fields code may store to by
+     name, and the types of the storage it writes through references, pointers, and struct
+     `this` (which may lie in any field whose value contains that type). `IrFootprint` keeps the
+     runs it saw, and hold elision and the verifier's `CodeWrites` ask `Writes.CodeMayWrite`
+     instead of treating every `mut` field as written by any code. Pins in `tests/.out` went
+     from 43 to 35. Nesting (§5.1) and lowering's `Settle` still use the conservative rule:
+     nesting could use it too, but lowering mustn't read analyses (§9.11);
    - borrowed locals beyond loop elements;
    - destructor precision (§6.1);
    - last-use `move`s, for types whose release nothing can observe (§9.10).

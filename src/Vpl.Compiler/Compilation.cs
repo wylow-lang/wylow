@@ -82,7 +82,7 @@ public static class Compilation
         IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
-            HoldElision.Apply(ir);
+            HoldElision.Apply(ir, writes);
             Verify(ir, writes, "the program after eliding holds");
             inPlace = InPlaceElements.Apply(ir, writes).Locations;
             Verify(ir, writes, "the program after borrowing loop elements in place");

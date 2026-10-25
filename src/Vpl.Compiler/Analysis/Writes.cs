@@ -33,18 +33,38 @@ public readonly record struct StoredType(VplType Type, bool Element)
         type.InlineTypes().Any(t => t.IsTypeParameter || (t.IsFixedArray && IsElementOf(t.ElementType!, element)));
 }
 
-/// <summary>The types of storage some code may write, or <see cref="Unknown"/> if it may write anything.</summary>
+/// <summary>
+/// The types of storage some code may write, or <see cref="Unknown"/> if it may write anything;
+/// and the fields of objects it may write, either by name or through storage it can't see (a
+/// reference, a pointer, or a struct method's <c>this</c>) of a type the field's value contains.
+/// </summary>
 public sealed class WriteSet
 {
     const int MaxWrites = 64;
 
     readonly HashSet<StoredType> writes = [];
+    readonly HashSet<FieldSymbol> fields = [];
+    readonly HashSet<VplType> unseen = [];
 
     public bool Unknown { get; private set; }
 
-    public int Size => Unknown ? int.MaxValue : writes.Count;
+    public int Size => Unknown ? int.MaxValue : writes.Count + fields.Count + unseen.Count;
 
-    public void Add(StoredType write)
+    public void Add(IrPlace place)
+    {
+        Add(StoredType.Of(place));
+        if (place.IsDeref && place.Local.Kind != IrLocalKind.Reference && place.Local.Type.NonNull.IsReference)
+        {
+            if (place.Projections.FirstOrDefault() is IrField { Field: var field })
+                fields.Add(field);
+            else
+                Unknown = true;
+        }
+        else if (place.IsDeref || place.Local.IsThis)
+            unseen.Add(place.BaseType);
+    }
+
+    void Add(StoredType write)
     {
         if (!Unknown && writes.Add(write) && writes.Count > MaxWrites)
             Unknown = true;
@@ -58,9 +78,20 @@ public sealed class WriteSet
             Unknown = true;
         foreach (var write in from.writes)
             Add(write with { Type = map.Apply(write.Type) });
+        fields.UnionWith(from.fields);
+        foreach (var type in from.unseen)
+            unseen.Add(map.Apply(type));
     }
 
     public bool MayStoreOverElement(VplType element) => Unknown || writes.Any(w => w.MayStoreOverElement(element));
+
+    /// <summary>Whether it may write the field of some object, or, with no field, anything in one.</summary>
+    public bool MayWriteField(FieldSymbol? field)
+    {
+        if (Unknown || field is null)
+            return Unknown || fields.Count > 0 || unseen.Count > 0;
+        return fields.Contains(field) || (unseen.Count > 0 && field.Type.InlineTypes().Any(t => t.IsTypeParameter || unseen.Contains(t) || unseen.Any(u => u.IsTypeParameter)));
+    }
 }
 
 /// <summary>
@@ -104,6 +135,13 @@ public sealed class Writes
         return set;
     }
 
+    /// <summary>
+    /// Whether code that runs may write the access (<see cref="IrAccess.WrittenByCode"/>): a field
+    /// only if something it runs writes that field.
+    /// </summary>
+    public bool CodeMayWrite(IrAccess access, IReadOnlyCollection<IrRun> runs) =>
+        runs.Count > 0 && access.WrittenByCode && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
+
     /// <summary>Whether an instruction may store over an element whose type is <paramref name="element"/>, itself or by the code it runs.</summary>
     public bool MayStoreOverElement(IrEffects effects, VplType element) =>
         effects.Writes.Any(w => StoredType.Of(w.Place).MayStoreOverElement(element)) || Of(effects.Runs).MayStoreOverElement(element);
@@ -133,7 +171,7 @@ public sealed class Writes
                 continue;
             var effects = IrEffects.Of(statement);
             foreach (var write in effects.Writes.Where(w => !IsOwn(function, own, w.Place)))
-                set.Add(StoredType.Of(write.Place));
+                set.Add(write.Place);
             foreach (var run in effects.Runs)
                 Add(set, run);
         }

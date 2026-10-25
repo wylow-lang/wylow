@@ -4,15 +4,22 @@ struct Stats {
     int hp;
 }
 
+struct Gear {
+    Weapon spare;
+}
+
 class Player {
     String name;
     mut Weapon weapon;
     mut Stats stats;
+    mut Gear gear;
 
     Player(String name) {
         weapon = new Weapon("old");
-        weapon.owner = this;
+        gear = Gear(new Weapon("spare"));
         this.name = name;
+        weapon.owner = this;
+        gear.spare.owner = this;
     }
 
     ~Player() {
@@ -33,6 +40,14 @@ class Weapon {
     void fire() {
         if (owner.get() is Player p) {
             p.weapon = new Weapon("new");
+        }
+        print(name);
+    }
+
+    // Replaces the owner's spare, which is `this`, through a reference to the struct holding it.
+    void swap() {
+        if (owner.get() is Player p) {
+            restock(ref p.gear);
         }
         print(name);
     }
@@ -69,6 +84,10 @@ class Team {
     }
 }
 
+void restock(ref Gear gear) {
+    gear.spare = new Weapon("restocked");
+}
+
 // Replaces the player that `s` points into.
 void heal(ref Stats s, World world) {
     world.player = new Player("b");
@@ -84,6 +103,9 @@ void main() {
     player.weapon.fire();
     // output: old
     // output: weapon destroyed
+    player.gear.spare.swap();
+    // output: spare
+    // output: weapon destroyed
 
     // The call holds the object that a 'ref' argument points into.
     var world = new World(new Player("p"));
@@ -92,6 +114,7 @@ void main() {
     // output: 15
     // output: player destroyed
     // output: weapon destroyed
+    // output: weapon destroyed
     print(world.player.stats.hp);       // output: 0
 
     {
@@ -99,16 +122,21 @@ void main() {
         // output: 3
         // output: player destroyed
         // output: weapon destroyed
+        // output: weapon destroyed
         team.rally(world);
         // output: player destroyed
+        // output: weapon destroyed
         // output: weapon destroyed
         // output: 5
         // output: y
     }
     // output: player destroyed
     // output: weapon destroyed
+    // output: weapon destroyed
 }
 // output: player destroyed
 // output: weapon destroyed
+// output: weapon destroyed
 // output: player destroyed
+// output: weapon destroyed
 // output: weapon destroyed

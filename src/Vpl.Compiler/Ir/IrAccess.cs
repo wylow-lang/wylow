@@ -76,7 +76,11 @@ public sealed class IrFootprint
 {
     public List<IrAccess> Reads { get; } = [];
     public List<IrAccess> Writes { get; } = [];
-    public bool RunsCode { get; set; }
+
+    /// <summary>The code it may run, which the whole-program analyses can resolve.</summary>
+    public HashSet<IrRun> Runs { get; } = [];
+
+    public bool RunsCode => Runs.Count > 0;
     public bool MayPanic { get; set; }
 
     /// <summary>It makes a value whose release may run a destructor, so its creation order is observable.</summary>
@@ -86,7 +90,7 @@ public sealed class IrFootprint
     {
         Reads.AddRange(other.Reads);
         Writes.AddRange(other.Writes);
-        RunsCode |= other.RunsCode;
+        Runs.UnionWith(other.Runs);
         MayPanic |= other.MayPanic;
         CreatesOwner |= other.CreatesOwner;
     }
@@ -102,7 +106,7 @@ public sealed class IrFootprint
     {
         foreach (var write in effects.Writes)
             Writes.Add(IrAccess.Target(write.Place));
-        RunsCode |= effects.RunsCode;
+        Runs.UnionWith(effects.Runs);
         MayPanic |= effects.MayPanic;
     }
 
@@ -233,7 +237,7 @@ public static class IrWalk
             {
                 case IrBlock block:
                     if (block.DeclaresOwner())
-                        footprint.RunsCode = true;
+                        footprint.Runs.Add(IrRun.Release);
                     break;
                 case IrIf or IrLoop:
                     break;

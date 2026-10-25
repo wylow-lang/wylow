@@ -238,29 +238,29 @@ public sealed partial class IrVerifier
     }
 
     /// <summary>
-    /// Whether code the function calls may write the place: a field that is <c>mut</c>, storage the
-    /// function can't see, or a local a lambda assigns. Only a class's own constructors assign a field
-    /// that isn't <c>mut</c>, and only of the object they make.
+    /// Whether code the effects run may write the place: a <c>mut</c> field that something it runs
+    /// writes, storage the function can't see, or a local a lambda assigns. Only a class's own
+    /// constructors assign a field that isn't <c>mut</c>, and only of the object they make.
     /// </summary>
-    static bool CodeWrites(Resolved place) => place.Kind switch
+    bool CodeWrites(Resolved place, IrEffects effects) => effects.RunsCode && place.Kind switch
     {
         StorageKind.Frame => place.Local!.IsChangedByLambda,
-        StorageKind.Object => place.Field is null || place.Field.IsMutable,
+        StorageKind.Object => place.Field is null || place.Field.IsMutable && writes.Of(effects.Runs).MayWriteField(place.Field),
         _ => true,
     };
 
-    static bool CodeDestroys(Resolved place) => place.Destructible >= 0 && CodeWrites(place);
+    bool CodeDestroys(Resolved place, IrEffects effects) => place.Destructible >= 0 && CodeWrites(place, effects);
 
     /// <summary>Why the effects would make a dependent unusable, or null.</summary>
-    static string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes)
+    string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes)
     {
         if (dependency.NeedsBorrow && effects.RunsCode)
             return "it points into a Borrowable that isn't borrowed, and code that may change its length runs";
         if (dependency.Target is not { } target)
             return null;
-        if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || (effects.RunsCode && CodeWrites(target))))
+        if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || CodeWrites(target, effects)))
             return "the place it borrows may be written";
-        if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || (effects.RunsCode && CodeDestroys(target))))
+        if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || CodeDestroys(target, effects)))
             return "the nullable value or variant it points into may be replaced";
         return null;
     }

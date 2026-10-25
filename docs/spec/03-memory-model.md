@@ -487,7 +487,11 @@ function itself can assign them, and a class-typed local cannot even be passed b
 safe because whoever called the method has pinned it. A field that isn't `mut` (§2.7) is never
 reassigned once its object is constructed, so it holds its object as long as the object holding it
 lives; inside its own class's constructors, which may still assign it, it is pinned like a `mut`
-field. A pin costs one count increment and decrement.
+field. Nor does it pin an object held by a `mut` field of such an object when nothing that runs
+while the pin would last may assign that field: the compiler knows which fields each function may
+assign, including through the functions, overrides, lambdas, and destructors it may run, and
+through references, pointers, and struct methods' `this` into a value of the type the field
+contains. A pin costs one count increment and decrement.
 
 A `ref` or `in` variable, and a span variable, holds the object for its whole scope, even when a
 local holds it: the function itself may reassign that local while the reference lives. An object
