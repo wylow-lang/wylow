@@ -16,13 +16,14 @@ dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--no-nest] [--no-elide]
+dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--no-nest] [--no-opt]
 ```
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
-writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-elide` (in the CLI and the test
-runner) must pass too: declining to nest a temporary or to elide a hold is always correct. (With
-`--no-elide`, a budgeted `Memory.collectCycles` may reach other cycles, since a pin's release
+writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-opt` (in the CLI and the test
+runner) must pass too: declining to nest a temporary or to run an optimization is always correct,
+and `--no-opt` skips the `// stack:` and `// in-place:` markers, which count optimizations. (With
+`--no-opt`, a budgeted `Memory.collectCycles` may reach other cycles, since a pin's release
 buffers its object for the cycle collector.)
 
 Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
@@ -48,7 +49,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (StackObjects, CyclicClasses) → IrLowering → Writes → ElementAliasing → IrVerifier → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (StackObjects, CyclicClasses) → IrLowering → IrVerifier → Optimize (InPlaceElements, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -62,16 +63,20 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   run on the IR, where `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the
   lowered functions. `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
-  `Writes.cs` (the types of storage each lowered function may write). `ElementAliasing.cs` (which
-  loop elements can be borrowed in place, skipping their reference count; it rewrites their
-  `copy` into a `borrow`, and the verifier re-checks it with the same summaries). Tests mark their
-  loops with `// in-place: <n>`.
+  `Writes.cs` (the types of storage each lowered function may write).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
   `StackObjects.cs` (which `new`s and closures can be on the stack, from a whole-program summary of which
   parameters each function lets escape; `vpl::StackSlot` holds them). Tests mark their lines with `// stack: <n>`.
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).
+- `src/Vpl.Compiler/Optimize`: optimizations, each a rewrite of the lowered IR that no program can
+  observe, run in order only without `--no-opt` and verified after each. Lowering itself decides
+  nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
+  run as an oracle. `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
+  count, where nothing can store over the element; the verifier re-checks it with `Writes`). Tests
+  mark their loops with `// in-place: <n>`. Moving here still: stack slots (`StackObjects`) and hold
+  elision (`IrLowering.Close`).
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow

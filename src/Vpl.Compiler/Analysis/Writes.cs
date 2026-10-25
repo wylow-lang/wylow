@@ -65,7 +65,7 @@ public sealed class WriteSet
 
 /// <summary>
 /// The types of storage each function may write, including through the functions it calls, for
-/// borrowing loop elements in place (<see cref="ElementAliasing"/>) and the verifier's check of
+/// borrowing loop elements in place (<see cref="Optimize.InPlaceElements"/>) and the verifier's check of
 /// them. What a function stores to its own locals is left out, since no other code sees them, and
 /// so is what a constructor stores into its own object, which is new, so can't be an element
 /// anything iterates. A lambda's writes count where it may run, at each call of a function value

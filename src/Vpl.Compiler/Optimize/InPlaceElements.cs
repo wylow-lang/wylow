@@ -1,8 +1,9 @@
+using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
-namespace Vpl.Compiler.Analysis;
+namespace Vpl.Compiler.Optimize;
 
 /// <summary>
 /// Borrows the element of each for-each loop in place whose element variable nothing can store
@@ -12,21 +13,21 @@ namespace Vpl.Compiler.Analysis;
 /// destroyed by storing over the element: by the loop's own code, by what it runs (<see
 /// cref="Writes"/>), or by a destructor. The verifier checks the same with the same summaries.
 /// </summary>
-public sealed class ElementAliasing
+public sealed class InPlaceElements
 {
     readonly IrProgram program;
     readonly Writes writes;
     readonly List<Location> locations = [];
 
-    ElementAliasing(IrProgram program, Writes writes)
+    InPlaceElements(IrProgram program, Writes writes)
     {
         this.program = program;
         this.writes = writes;
     }
 
-    public static ElementAliasing Apply(IrProgram program, Writes writes)
+    public static InPlaceElements Apply(IrProgram program, Writes writes)
     {
-        var result = new ElementAliasing(program, writes);
+        var result = new InPlaceElements(program, writes);
         foreach (var function in program.Functions)
         {
             foreach (var block in IrWalk.Descendants(function.Body, intoLambdas: false).OfType<IrBlock>())

@@ -16,7 +16,7 @@ using Vpl.Compiler.Text;
 //   // mode: release      build with --release
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc] [--no-nest] [--no-elide] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc] [--no-nest] [--no-opt] [filter]
 
 Toolchain? toolchain = null;
 string? filter = null;
@@ -27,8 +27,8 @@ for (int i = 0; i < args.Length; i++)
         toolchain = args[++i] == "gcc" ? Toolchain.Gcc : Toolchain.Msvc;
     else if (args[i] == "--no-nest")
         options = options with { Nest = false };
-    else if (args[i] == "--no-elide")
-        options = options with { Elide = false };
+    else if (args[i] == "--no-opt")
+        options = options with { Optimize = false };
     else
         filter = args[i];
 }
@@ -160,9 +160,10 @@ static partial class TestCase
             return "timed out";
 
         var problems = new List<string>();
-        if (expected.Stack.Count > 0)
+        // The markers count optimizations, which --no-opt turns off.
+        if (expected.Stack.Count > 0 && options.Optimize)
             problems.AddRange(CompareCounts("objects on the stack", expected.Stack, compilation.StackObjects.Where(l => l.Source == source)));
-        if (expected.InPlace.Count > 0)
+        if (expected.InPlace.Count > 0 && options.Optimize)
             problems.AddRange(CompareCounts("loop elements in place", expected.InPlace, compilation.InPlaceElements.Where(l => l.Source == source)));
         var actualOutput = run.StandardOutput.Replace("\r\n", "\n").Split('\n').ToList();
         if (actualOutput[^1] == "")

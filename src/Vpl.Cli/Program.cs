@@ -19,7 +19,7 @@ const string Usage = """
       --cc msvc|gcc    C++ compiler to use (default: msvc if installed, otherwise gcc)
       -o <path>        where to write the executable (build only)
       --no-nest        declare every temporary instead of nesting it into its use
-      --no-elide       keep every hold and copy lowering made
+      --no-opt         run no optimizations: keep every hold and copy lowering made, every object on the heap
     """;
 
 string[] commands = ["run", "build", "check", "emit", "ir"];
@@ -52,8 +52,8 @@ for (int i = 2; i < args.Length; i++)
         case "--no-nest":
             options = options with { Nest = false };
             break;
-        case "--no-elide":
-            options = options with { Elide = false };
+        case "--no-opt":
+            options = options with { Optimize = false };
             break;
         default:
             Console.Error.WriteLine($"vpl: unknown or incomplete option '{args[i]}'\n\n{Usage}");

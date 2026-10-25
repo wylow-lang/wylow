@@ -15,7 +15,7 @@ public sealed class IrProgram(BoundProgram bound)
     public BoundProgram Bound { get; } = bound;
     public List<IrFunction> Functions { get; } = [];
 
-    /// <summary>Each for-each loop's element variable, and where it is declared, for <c>ElementAliasing</c>.</summary>
+    /// <summary>Each for-each loop's element variable, and where it is declared, for <c>InPlaceElements</c>.</summary>
     public Dictionary<IrLocal, Location> LoopElements { get; } = [];
 }
 

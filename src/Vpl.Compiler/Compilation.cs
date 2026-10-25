@@ -2,6 +2,7 @@ using Vpl.Compiler.Analysis;
 using Vpl.Compiler.CodeGen;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Ir;
+using Vpl.Compiler.Optimize;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
@@ -9,10 +10,11 @@ using Vpl.Compiler.Text;
 namespace Vpl.Compiler;
 
 /// <summary>
-/// <see cref="Nest"/> and <see cref="Elide"/> off keep every temporary declared and every hold and
-/// copy lowering made (docs/design/ir.md), which must not change what a program does.
+/// <see cref="Nest"/> off declares every temporary instead of nesting it into its use, and
+/// <see cref="Optimize"/> off runs none of the optimizations, keeping every hold and copy lowering
+/// made and every object on the heap (docs/design/ir.md); neither may change what a program does.
 /// </summary>
-public sealed record CompileOptions(bool Nest = true, bool Elide = true);
+public sealed record CompileOptions(bool Nest = true, bool Optimize = true);
 
 public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, string? Cpp)
 {
@@ -73,21 +75,31 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         var analyses = Analyses.Run(program);
-        var ir = IrLowering.Lower(program, analyses, options.Elide);
+        var ir = IrLowering.Lower(program, analyses, options.Optimize);
         var writes = Writes.Find(new Callees(ir, analyses.Whole.Overrides));
-        var elements = ElementAliasing.Apply(ir, writes);
-        var errors = IrVerifier.Verify(ir, writes);
-        if (errors.Count > 0)
+        Verify(ir, writes, "the lowered program");
+        IEnumerable<Location> inPlace = [];
+        if (options.Optimize)
         {
-            var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
-            throw new InvalidOperationException($"the IR verifier rejected the lowered program:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
+            inPlace = InPlaceElements.Apply(ir, writes).Locations;
+            Verify(ir, writes, "the program after borrowing loop elements in place");
         }
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {
             StackObjects = [.. analyses.StackObjects.Locations],
-            InPlaceElements = [.. elements.Locations],
+            InPlaceElements = [.. inPlace],
             Program = program,
             Ir = ir,
         };
+    }
+
+    /// <summary>Checks the IR after lowering and after each optimization, so that a failure names the pass that broke it.</summary>
+    static void Verify(IrProgram ir, Writes writes, string what)
+    {
+        var errors = IrVerifier.Verify(ir, writes);
+        if (errors.Count == 0)
+            return;
+        var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
+        throw new InvalidOperationException($"the IR verifier rejected {what}:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
     }
 }

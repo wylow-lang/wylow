@@ -701,8 +701,9 @@ against the rule: either lowering is wrong or the test's expectation was relying
 8. **Datalog?** **Decided: not now** (§6.6). Revisit with lifetime analysis.
 9. **Keeping the effect table honest.** The verifier can't catch an effect table that under-reports
    a write (§6.4). **Decided:** the table is one visitor over instruction kinds (C# doesn't check a
-   `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-elide` turns every
-   elision off (every `copy` stays a copy, every hold a hold), so the suite can compare outputs.
+   `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-opt` (first
+   `--no-elide`) turns every optimization off (every `copy` stays a copy, every hold a hold, every
+   object on the heap), so the suite can compare outputs.
 10. **Destruction order inside a statement.** **Decided: specify it now**, before step 3, so that
    step 3 targets the spec rather than whatever today's emitter does (§3.4, When references are
    released). Temporaries are released when their statement completes, not at last use, in
@@ -712,6 +713,14 @@ against the rule: either lowering is wrong or the test's expectation was relying
    destructor timing depend on the optimizer. Earlier releases are allowed only where nothing can
    tell (no destructor can run, nothing refers to the object weakly), which leaves last-use moves
    for most game data.
+
+11. **Optimizations apart from lowering.** **Decided (step 5):** lowering emits only the program's
+   meaning (order, the holds and borrows the spec makes observable, releases, checks) and reads no
+   analysis results. Every optimization (§6.2, §6.3, §6.5, and later last-use moves) is a pass of
+   its own over the lowered IR (`src/Vpl.Compiler/Optimize`), using facts from `Analysis`, verified
+   after it runs, and off under `--no-opt`. The unoptimized IR is then the reference behavior: a
+   planned interpreter is to execute it as an oracle for the C++ build. The spec states only what
+   makes an optimization legal (that it can't be observed), not how it is done.
 
 ## 10. Prior art for reference-count optimization
 
