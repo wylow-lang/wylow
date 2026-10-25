@@ -39,7 +39,7 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
     {
         if (Ir is null || Program is null)
             return null;
-        var lowered = Ir.Functions.Where(f => !f.IsLambda).ToDictionary(f => f.Symbol);
+        var lowered = Ir.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol);
         var reasons = Unlowered.ToDictionary(u => u.Function, u => u.Reason);
         var text = new System.Text.StringBuilder();
         foreach (var function in Program.Functions.Where(f => f.Symbol.Declaration?.Location.Source == Program.Source))
@@ -49,6 +49,8 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
             else if (reasons.TryGetValue(function.Symbol, out var reason))
                 text.Append($"// {function.Symbol.Signature}: not lowered: {reason}\n\n");
         }
+        foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source == Program.Source))
+            text.Append(IrPrinter.Print(built));
         return text.ToString();
     }
 }

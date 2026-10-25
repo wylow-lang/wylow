@@ -454,6 +454,10 @@ public sealed partial class IrVerifier
                 break;
             case IrDefault:
                 break;
+            case IrZeroed:
+                if (function.Builds is null || defined != function.Struct)
+                    Error("only a built struct starts as zeroed storage");
+                break;
             case IrClosure closure:
                 foreach (var capture in closure.Captures)
                     Operand(capture, state);

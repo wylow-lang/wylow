@@ -91,6 +91,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, bool RunsCode, boo
         public IrEffects Variant(IrVariant value) => None;
         public IrEffects Array(IrArray value) => None;
         public IrEffects Default(IrDefault value) => DefaultRunsCode(value.Type) ? new([], true, true) : None;
+        public IrEffects Zeroed(IrZeroed value) => None;
         public IrEffects Closure(IrClosure value) => None;
         public IrEffects Lambda(IrLambda value) => None;
         public IrEffects Choose(IrChoose value) => None;

@@ -449,6 +449,7 @@ public sealed partial class CppEmitter
         // Braces evaluate the elements left to right.
         IrArray array => $"{CppType(array.Type)}{{{string.Join(", ", array.Elements.Select(OperandText))}}}",
         IrDefault defaulted => DefaultValue(defaulted.Type),
+        IrZeroed zeroed => $"{CppType(zeroed.Type)}{{}}",
         IrRef reference => PlaceText(reference.Place),
         IrAddr address => $"vpl::address_of({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",

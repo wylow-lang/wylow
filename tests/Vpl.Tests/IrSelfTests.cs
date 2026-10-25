@@ -28,6 +28,10 @@ static class IrSelfTests
             int x;
         }
 
+        struct Counter {
+            int n = 1;
+        }
+
         int f() { return 1; }
         void use(int value) { }
         void take(Obj o) { }
@@ -431,6 +435,46 @@ static class IrSelfTests
             };
             return function;
         }
+
+        IrFunction Built(string name, VplType type, IReadOnlyList<bool> form, IrLocal[] parameters, Func<IrLocal, IrStatement[]> body, IrRvalue? start = null)
+        {
+            var self = b.Local("self", type);
+            var function = new IrFunction(new FunctionSymbol(name, [], VplType.Void) { IsConstructor = true }, name)
+            {
+                Struct = self,
+                Builds = form,
+                Body = new IrBlock([new IrLet(self, start ?? new IrZeroed(type)), .. body(self), new IrReturn(IrRead.Copy(new IrPlace(self)))]),
+            };
+            function.Parameters.AddRange(parameters);
+            return function;
+        }
+
+        var counter = b.Type("Counter");
+        var counterN = b.Field("Counter", "n");
+        yield return new("built_struct", () => Built("built_struct", counter, [false], [],
+            self => [new IrStore(new IrPlace(self).Field(counterN), IrConstant.Int(1))]));
+        yield return new("built_struct_zero_default", () => Built("built_struct_zero_default", vec, [false], [], _ => []));
+        yield return new("built_struct_field_left_zeroed", () => Built("built_struct_field_left_zeroed", counter, [false], [], _ => []),
+            Error: "field 'n' is left zeroed");
+        yield return new("built_struct_read_early", () =>
+        {
+            var t = b.Temp(VplType.Int);
+            return Built("built_struct_read_early", counter, [false], [], self => [
+                new IrLet(t, Use(IrRead.Copy(new IrPlace(self).Field(counterN)))),
+                new IrStore(new IrPlace(self).Field(counterN), IrRead.Move(new IrPlace(t))),
+            ]);
+        }, Error: "reads 'self' before it is built");
+        yield return new("built_struct_from_default", () => Built("built_struct_from_default", vec, [false], [], _ => [], new IrDefault(vec)),
+            Error: "a built struct starts as zeroed storage");
+        yield return new("zeroed_outside_built", () =>
+        {
+            var self = b.Local("self", vec);
+            return new IrFunction(new FunctionSymbol("zeroed_outside_built", [], VplType.Void) { IsConstructor = true }, "zeroed_outside_built")
+            {
+                Struct = self,
+                Body = new IrBlock([new IrLet(self, new IrZeroed(vec)), new IrReturn(IrRead.Copy(new IrPlace(self)))]),
+            };
+        }, Error: "only a built struct starts as zeroed storage");
 
         yield return new("struct_constructor", () => StructConstructor("struct_constructor", returnsSelf: true));
         yield return new("struct_constructor_returns_other", () => StructConstructor("struct_constructor_returns_other", returnsSelf: false),

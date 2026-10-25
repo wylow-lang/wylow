@@ -97,6 +97,42 @@ public sealed partial class IrVerifier
         state = Block(verified.Body, state, newScope: false);
         if (state.Reachable && ResultType(verified) != VplType.Void)
             Report(verified, null, "the end of the function is reachable, but it returns a value");
+        if (verified.Builds is not null)
+            CheckBuilt(verified);
+    }
+
+    /// <summary>
+    /// A built struct's zeroed fields are not yet values: nothing reads it until it is returned, and
+    /// it stores each field whose default value isn't zeroed storage. Lowering stores each field once,
+    /// in its own statement, so where the stores are needs no flow.
+    /// </summary>
+    void CheckBuilt(IrFunction built)
+    {
+        if (built.Struct is not { } made || built.Body.Statements.FirstOrDefault() is not IrLet { Value: IrZeroed } start || start.Local != made)
+        {
+            Report(built, null, "a built struct starts as zeroed storage");
+            return;
+        }
+        HashSet<FieldSymbol> stored = [];
+        foreach (var statement in IrWalk.Descendants(built.Body))
+        {
+            if (statement is IrReturn)
+                continue;
+            IEnumerable<IrArgument> operands = IrWalk.Operands(statement);
+            if (statement is IrStore { Target: { IsDeref: false, Projections: [IrField field] } target } store && target.Local == made)
+            {
+                stored.Add(field.Field);
+                operands = [store.Value];
+            }
+            if (operands.SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Contains(made))
+                Report(built, statement, $"reads '{N(made)}' before it is built");
+        }
+        var map = TypeMap.For(made.Type);
+        foreach (var field in made.Type.Symbol!.Fields.Where(f => !stored.Contains(f)))
+        {
+            if (field.Initializer is not null || IrEffects.DefaultRunsCode(map.Apply(field.Type)))
+                Report(built, null, $"field '{field.Name}' is left zeroed, which isn't its default value");
+        }
     }
 
     /// <summary>What the function returns: a struct constructor its value, and a class constructor nothing.</summary>

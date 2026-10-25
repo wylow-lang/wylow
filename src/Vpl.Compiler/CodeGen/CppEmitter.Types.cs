@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
@@ -369,6 +370,15 @@ public sealed partial class CppEmitter
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"{type} {type}::make_default()");
+        if (irBuilt.TryGetValue((s, "make_default"), out var lowered))
+        {
+            currentType = s;
+            context = Context.StructConstructor;
+            EmitIrFunction(lowered);
+            context = Context.Free;
+            currentType = null;
+            return;
+        }
         Line("{");
         indent++;
         Line($"{type} self{{}};");
@@ -387,25 +397,11 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
-    /// <summary>Which fields each memberwise constructor call passes, as one form per combination.</summary>
-    static Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> FindMemberwiseForms(BoundProgram program)
-    {
-        var expressions = program.Functions.SelectMany(f => BoundTree.AllExpressions(f.Body))
-            .Concat(program.Types.SelectMany(s => s.Fields).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
-        return expressions
-            .OfType<BoundConstruction>()
-            .Where(c => c.Constructor.Symbol.IsMemberwise)
-            .GroupBy(c => c.Constructor.Symbol)
-            .ToDictionary(g => g.Key, g => g
-                .Select(c => (IReadOnlyList<bool>)[.. c.Arguments.Select(a => a is not BoundFieldDefault)])
-                .DistinctBy(MemberwiseName)
-                .OrderBy(MemberwiseName, StringComparer.Ordinal)
-                .ToList());
-    }
-
     /// <summary><c>make</c> when a call passes every field, and otherwise named for those it passes.</summary>
     static string MemberwiseName(IReadOnlyList<bool> form) =>
         form.All(given => given) ? "make" : "make_" + string.Concat(form.Select(given => given ? '1' : '0'));
+
+    static string BuiltName(IrFunction function) => function.Symbol.IsMemberwise ? MemberwiseName(function.Builds!) : "make_default";
 
     string MemberwiseParameters(FunctionSymbol constructor, IReadOnlyList<bool> form) =>
         string.Join(", ", constructor.Parameters.Where((_, i) => form[i]).Select(p => ParameterDeclaration(constructor, p, p.Type)));
@@ -426,6 +422,14 @@ public sealed partial class CppEmitter
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
         Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
+        if (irBuilt.TryGetValue((s, MemberwiseName(form)), out var lowered))
+        {
+            EmitIrFunction(lowered);
+            context = Context.Free;
+            currentType = null;
+            currentFunction = null;
+            return;
+        }
         Line("{");
         indent++;
         Line($"{type} self{{}};");

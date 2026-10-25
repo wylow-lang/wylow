@@ -36,4 +36,15 @@ void main() {
     // output: first
     // output: second
     print(ordered.id);     // output: 1
+
+    // A local declared without a value has none until assigned, so no initializer runs for it.
+    Enemy later;
+    later = Enemy(id: 3);
+    print(later.id);       // output: 3
+
+    // A fixed array holds its elements' defaults from the start.
+    Enemy[2] pair;
+    // output: id initializer
+    // output: id initializer
+    print(pair[1].id);     // output: 7
 }

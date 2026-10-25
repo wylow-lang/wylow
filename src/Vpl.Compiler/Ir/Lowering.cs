@@ -35,7 +35,7 @@ public sealed partial class IrLowering
     IrBlock block;
     bool reachable = true;
 
-    IrLowering(BoundProgram program, Analyses analyses, bool elide, IReadOnlyList<TypeSymbol> borrowableClasses, FunctionSymbol symbol)
+    IrLowering(BoundProgram program, Analyses analyses, bool elide, IReadOnlyList<TypeSymbol> borrowableClasses, FunctionSymbol symbol, string? name = null)
     {
         this.program = program;
         this.analyses = analyses;
@@ -43,7 +43,7 @@ public sealed partial class IrLowering
         this.borrowableClasses = borrowableClasses;
         this.symbol = symbol;
         var owner = symbol.ContainingType;
-        function = new IrFunction(symbol, owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}");
+        function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
         block = function.Body;
         if (owner is not null && !symbol.IsStatic)
             function.This = self = new IrLocal("this", owner.Type, IrLocalKind.Value) { IsThis = true, IsParameter = true };
@@ -57,18 +57,32 @@ public sealed partial class IrLowering
         var ir = new IrProgram(program);
         var borrowable = program.Stdlib.Borrowable;
         List<TypeSymbol> borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
-        foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
+        void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
             try
             {
-                var lowering = new IrLowering(program, analyses, elide, borrowableClasses, function.Symbol);
-                ir.Functions.Add(lowering.Function(function));
+                var lowering = new IrLowering(program, analyses, elide, borrowableClasses, symbol, name);
+                ir.Functions.Add(lower(lowering));
                 ir.Functions.AddRange(lowering.lambdas);
             }
             catch (NotLoweredException e)
             {
-                unlowered.Add(new UnloweredFunction(function.Symbol, e.Message));
+                unlowered.Add(new UnloweredFunction(symbol, e.Message));
             }
+        }
+
+        foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
+            Add(function.Symbol, null, lowering => lowering.Function(function));
+        foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Struct && HasDefaultCode(s.Type)))
+        {
+            var symbol = new FunctionSymbol("default", [], VplType.Void) { ContainingType = s, IsConstructor = true };
+            Add(symbol, $"{s.Name}.default", lowering => lowering.Built(null, [.. s.Fields.Select(_ => false)]));
+        }
+        var forms = MemberwiseForms(program);
+        foreach (var function in program.Functions.Where(f => f.Symbol.IsMemberwise))
+        {
+            foreach (var form in forms.GetValueOrDefault(function.Symbol) ?? [])
+                Add(function.Symbol, $"{function.Symbol.ContainingType!.Name}.{function.Symbol.Name}[{FormKey(form)}]", lowering => lowering.Built(function, form));
         }
         return ir;
     }

@@ -188,7 +188,8 @@ public sealed partial class CppEmitter
                 HoistTry(declaration.Initializer);
                 DeclareSlots(statement);
                 var initializer = declaration.Initializer is not null ? " = " + Expression(declaration.Initializer)
-                    : NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
+                    // Only a fixed array holds a value before it is assigned, so no other default runs field initializers.
+                    : declaration.Local.Type.IsFixedArray && NeedsDefaultCode(declaration.Local.Type) ? " = " + DefaultValue(declaration.Local.Type)
                     : "{}";
                 // A non-escaping local owns the lambda it is initialized with, or copies a stored function. Another
                 // non-escaping local or parameter can't be reassigned and outlives it, so it is referred to instead.

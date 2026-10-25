@@ -280,6 +280,7 @@ public sealed class IrPrinter
         IrVariant variant => $"variant {variant.Type}.{variant.Variant.Name}({string.Join(", ", variant.Fields.Select(Operand))})",
         IrArray array => $"array {array.Type} [{string.Join(", ", array.Elements.Select(Operand))}]",
         IrDefault defaulted => $"default {defaulted.Type}",
+        IrZeroed zeroed => $"zeroed {zeroed.Type}",
         IrClosure closure => $"closure {closure.Function.Name}{Signature(closure.Function)} [{string.Join(", ", closure.Captures.Select(Operand))}]{Slot(closure.Slot)} {{",
         IrLambda lambda => $"lambda {lambda.Function.Name}{Signature(lambda.Function)} {{",
         IrChoose choice => $"choose {Operand(choice.Index)} [{string.Join(", ", choice.Options.Select(Operand))}]",

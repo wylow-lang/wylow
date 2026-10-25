@@ -150,7 +150,7 @@ public static class IrWalk
         IrTest test => [test.Operand],
         IrConvert conversion => [conversion.Operand],
         IrHold hold => [IrRead.Borrow(hold.Place)],
-        IrDefault or IrLambda => [],
+        IrDefault or IrZeroed or IrLambda => [],
         _ => throw new InvalidOperationException($"unexpected IR rvalue {value.GetType().Name}"),
     };
 

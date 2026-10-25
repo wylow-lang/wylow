@@ -52,9 +52,11 @@ var arr = new float[1024];                     // heap array
 This makes every allocation visible: scanning for `new` finds them all.
 
 A local must be assigned before it is read, even when its type has a default value, so that a
-branch that forgets to assign it is an error rather than a silent zero. `var` keeps this short where
-the type is visible, as in `var v = Vec3();`; write the type out where the value doesn't show it, as
-in `Vec3 target = path.last();`.
+branch that forgets to assign it is an error rather than a silent zero. Declaring it makes no value,
+so a struct's field initializers don't run for it (a fixed-array local is the exception; see
+[02-types.md](02-types.md)). `var` keeps this short where the type is visible, as in
+`var v = Vec3();`; write the type out where the value doesn't show it, as in
+`Vec3 target = path.last();`.
 
 ### Struct constructors
 

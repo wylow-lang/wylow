@@ -67,11 +67,15 @@ public sealed partial class CppEmitter
 
     /// <summary>Functions emitted from their IR, and whether temporaries are nested back into their uses.</summary>
     Dictionary<FunctionSymbol, IrFunction> irFunctions = [];
+
+    /// <summary>Each struct's lowered <c>make_default</c> and memberwise constructors, by type and C++ name.</summary>
+    Dictionary<(TypeSymbol, string), IrFunction> irBuilt = [];
     bool nest = true;
 
     public string Emit(BoundProgram program, Analyses analyses, IrProgram? ir = null, bool nest = true)
     {
-        irFunctions = ir?.Functions.Where(f => !f.IsLambda).ToDictionary(f => f.Symbol) ?? [];
+        irFunctions = ir?.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol) ?? [];
+        irBuilt = ir?.Functions.Where(f => f.Builds is not null).ToDictionary(f => (f.Symbol.ContainingType!, BuiltName(f))) ?? [];
         this.nest = nest;
         cycles = analyses.Cycles;
         stackObjects = analyses.StackObjects;
@@ -80,7 +84,7 @@ public sealed partial class CppEmitter
         overloaded = FindOverloaded(program);
         unoverridden = FindUnoverridden(analyses.Whole);
         lambdaChanged = FindLambdaChanged(analyses.Whole);
-        memberwiseForms = FindMemberwiseForms(program);
+        memberwiseForms = IrLowering.MemberwiseForms(program);
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type))];

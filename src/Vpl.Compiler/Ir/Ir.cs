@@ -33,6 +33,13 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
     public IrLocal? Struct { get; set; }
 
     /// <summary>
+    /// For a struct's <c>make_default</c> or one form of its memberwise constructor, which fields
+    /// it is passed: it builds its <see cref="Struct"/> from zeroed storage, storing each field its
+    /// argument, or its initializer or its type's default value.
+    /// </summary>
+    public IReadOnlyList<bool>? Builds { get; set; }
+
+    /// <summary>
     /// A class constructor's call of its base class's, the first statement of its body. C++ runs
     /// nothing before a base constructor, so each argument that needs statements is declared, then
     /// computed by a block of its own, and the call is the block's last statement.

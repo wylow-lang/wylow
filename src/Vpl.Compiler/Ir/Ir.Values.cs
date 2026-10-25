@@ -164,6 +164,7 @@ public interface IIrRvalueVisitor<out T>
     T Variant(IrVariant value);
     T Array(IrArray value);
     T Default(IrDefault value);
+    T Zeroed(IrZeroed value);
     T Closure(IrClosure value);
     T Lambda(IrLambda value);
     T Choose(IrChoose value);
@@ -282,6 +283,16 @@ public sealed class IrArray(VplType type, IReadOnlyList<IrOperand> elements) : I
 public sealed class IrDefault(VplType type) : IrRvalue
 {
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Default(this);
+    public override VplType Type { get; } = type;
+}
+
+/// <summary>
+/// A struct's storage zeroed, which only a <see cref="IrFunction.Builds"/> function's value starts
+/// as: a field's zero is its default value only if its type's default runs no code.
+/// </summary>
+public sealed class IrZeroed(VplType type) : IrRvalue
+{
+    public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Zeroed(this);
     public override VplType Type { get; } = type;
 }
 

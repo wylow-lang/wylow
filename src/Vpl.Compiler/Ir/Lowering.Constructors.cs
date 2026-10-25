@@ -39,6 +39,58 @@ public sealed partial class IrLowering
         return statements;
     }
 
+    /// <summary>
+    /// A struct's <c>make_default</c>, or one form of its memberwise constructor. Each field in
+    /// order is set to its argument if the form passes it (the constructor's body assigns each
+    /// field its parameter), or else to its initializer, or its type's default value unless that is
+    /// zeroed storage.
+    /// </summary>
+    IrFunction Built(BoundFunction? memberwise, IReadOnlyList<bool> form)
+    {
+        var owner = symbol.ContainingType!;
+        function.This = null;
+        function.Builds = form;
+        List<IrLocal> passed = [.. function.Parameters.Where((_, i) => form[i])];
+        function.Parameters.Clear();
+        function.Parameters.AddRange(passed);
+        self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value);
+        Add(new IrLet(self, new IrZeroed(owner.Type)));
+        for (int i = 0; i < owner.Fields.Count; i++)
+        {
+            var field = owner.Fields[i];
+            if (form[i])
+                Statement(memberwise!.Body.Statements[i]);
+            else if (field.Initializer is { } initializer)
+            {
+                var location = initializer.Location;
+                Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
+            }
+            else if (HasDefaultCode(field.Type))
+                Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))));
+        }
+        Add(new IrReturn(IrRead.Copy(new IrPlace(self))));
+        Close(function.Body);
+        return function;
+    }
+
+    /// <summary>Which fields each memberwise constructor call passes, as one form per combination, each built by a function of its own.</summary>
+    public static Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> MemberwiseForms(BoundProgram program)
+    {
+        var expressions = program.Functions.SelectMany(f => BoundTree.AllExpressions(f.Body))
+            .Concat(program.Types.SelectMany(s => s.Fields).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
+        return expressions
+            .OfType<BoundConstruction>()
+            .Where(c => c.Constructor.Symbol.IsMemberwise)
+            .GroupBy(c => c.Constructor.Symbol)
+            .ToDictionary(g => g.Key, g => g
+                .Select(c => (IReadOnlyList<bool>)[.. c.Arguments.Select(a => a is not BoundFieldDefault)])
+                .DistinctBy(FormKey)
+                .OrderBy(FormKey, StringComparer.Ordinal)
+                .ToList());
+    }
+
+    static string FormKey(IReadOnlyList<bool> form) => string.Concat(form.Select(given => given ? '1' : '0'));
+
     /// <summary>Whether the type's default value is more than zeroed storage.</summary>
     static bool HasDefaultCode(VplType type) =>
         type.IsFixedArray ? HasDefaultCode(type.ElementType!)
