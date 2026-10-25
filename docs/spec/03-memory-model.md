@@ -489,9 +489,12 @@ if (found != null) {
 - Where it is narrowed, it is used as the place: `found.health -= 10`, `found = Enemy(...)` (which
   assigns the place), or passed by `ref`. Narrowing it is always sound, so a null check outside a
   lambda narrows it inside too.
+- `x?.member` reaches the member in the place referred to, not in a copy as for a nullable value,
+  so `list.get(i)?.takeDamage(5)` changes the element; what the place lies in is held or borrowed
+  until the member is done.
 - It is not a value: `var x = pool.get(h);` is an error (write `ref? var`, or copy with `!`), and so
-  are `?.` and `??` on one, a `?:` or switch expression producing one, and using one as a type
-  argument.
+  are `??` on one (whether it would give a place or a copy is unclear), a `?:` or switch expression
+  producing one, and using one as a type argument.
 - Overloads cannot differ only in `ref` and `ref?` (`f(ref int)` and `f(ref? int)`), since
   `f(ref x)` could call either.
 - `x is ref T name` (or `ref var name`) is only an `is` test, not a case of a switch. The name is in

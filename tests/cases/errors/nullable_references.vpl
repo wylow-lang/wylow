@@ -4,6 +4,10 @@ class Node {
 
 struct Vec {
     float x;
+
+    void grow() {
+        x++;
+    }
 }
 
 struct Mat2 {
@@ -96,7 +100,8 @@ void main() {
     }
     mut Vec[1] vecs = [Vec()];
     ref? Vec first = vecs[0];
-    print(first?.x);                    // error: '?.' cannot be used on 'ref? Vec'; check it for null first, or use '!'
+    in? Vec frozen = first;
+    frozen?.grow();                     // error: cannot call 'grow' on 'frozen' because 'frozen' is an 'in' variable; only 'readonly' methods can be called on it
     for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
     }
     run(() -> {

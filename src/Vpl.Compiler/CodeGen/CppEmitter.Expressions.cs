@@ -336,6 +336,8 @@ public sealed partial class CppEmitter
 
     string ConditionalAccess(BoundConditionalAccess access)
     {
+        if (access.Receiver.Type.IsNullableReference)
+            return ReferenceConditionalAccess(access);
         var value = LocalName(access.Value);
         var receiver = Expression(access.Receiver);
         var member = Expression(access.WhenNotNull);
@@ -346,6 +348,30 @@ public sealed partial class CppEmitter
         if (access.Type == VplType.Void)
             return $"[&] {{ {start} {{ return; }} {bind}{member}; }}()";
         return $"[&]() -> {CppType(access.Type)} {{ {start} {{ return {CppType(access.Type)}(); }} {bind}return {member}; }}()";
+    }
+
+    /// <summary>
+    /// <c>reference?.member</c> reaches the member in the place referred to. What that place lies in
+    /// is held, and borrowed if it was handed out, until the member is done, as for a call's <c>ref</c> argument.
+    /// </summary>
+    string ReferenceConditionalAccess(BoundConditionalAccess access)
+    {
+        var value = LocalName(access.Value);
+        var hold = "";
+        var root = PinRoot(access.Receiver);
+        if (root is not null)
+        {
+            var pin = NewTemp();
+            hold = $"auto {pin} = {Hold(access.Receiver, root)}; ";
+            replacements[root] = pin;
+        }
+        var start = $"{hold}auto {value} = {Expression(access.Receiver)}; if ({value} == nullptr)";
+        if (root is not null)
+            replacements.Remove(root);
+        var member = Expression(access.WhenNotNull);
+        if (access.Type == VplType.Void)
+            return $"[&] {{ {start} {{ return; }} {member}; }}()";
+        return $"[&]() -> {CppType(access.Type)} {{ {start} {{ return {CppType(access.Type)}(); }} return {member}; }}()";
     }
 
     string Variant(BoundVariant variant)

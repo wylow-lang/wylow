@@ -13,6 +13,10 @@ class Enemy {
 struct Bullet {
     float x;
     bool hit;
+
+    void move(float dx) {
+        x += dx;
+    }
 }
 
 int total(ReadOnlySpan<int> values) {
@@ -142,4 +146,14 @@ void main() {
     }
     print(bullets[0].x);        // output: 9.0
     print(bullets.get(-1) == null); // output: true
+
+    // `?.` on a reference reaches the element itself, so a method changes it in place.
+    bullets.get(0)?.move(1);
+    bullets.get(5)?.move(1);
+    print(bullets[0].x);        // output: 10.0
+    print(bullets.get(0)?.x);   // output: 10.0
+    print(bullets.get(5)?.x);   // output: null
+    ref? Bullet maybe2 = bullets.get(0);
+    maybe2?.move(2);
+    print(bullets[0].x);        // output: 12.0
 }

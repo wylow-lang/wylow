@@ -319,10 +319,14 @@ public sealed partial class Binder
         var receiver = BindExpression(e.Target);
         if (receiver.Type == VplType.Error)
             return null;
+        // Through a reference, the member is reached in the place it refers to, not in a copy.
         if (receiver.Type.IsNullableReference)
         {
-            Error(e.Target.Location, $"'?.' cannot be used on '{receiver.Type}'; check it for null first, or use '!'");
-            return null;
+            return (receiver, new LocalSymbol(TextOf(e.Target.Location), receiver.Type, isParameter: false, receiver.Type.ReferenceKind)
+            {
+                IsTemporary = true,
+                IsReferenceBinding = true,
+            });
         }
         if (!receiver.Type.IsNullable)
         {
@@ -336,7 +340,7 @@ public sealed partial class Binder
     {
         if (BindConditionalReceiver(e) is not var (receiver, value))
             return new BoundErrorExpression(e.Location);
-        var access = BindFieldAccess(e.Location, new BoundLocalAccess(e.Target.Location, value), e.Name, e.NameLocation);
+        var access = BindFieldAccess(e.Location, new BoundLocalAccess(e.Target.Location, value, AssumesNonNull: value.IsReferenceBinding), e.Name, e.NameLocation);
         return MakeConditionalAccess(e.Location, receiver, value, access);
     }
 
@@ -344,10 +348,10 @@ public sealed partial class Binder
     {
         if (BindConditionalReceiver(access) is not var (receiver, value))
             return new BoundErrorExpression(e.Location);
-        var arguments = pending.Bind(MethodCandidates(value.Type, access.Name));
+        var arguments = pending.Bind(MethodCandidates(value.Type.Narrowed, access.Name));
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
-        var call = BindMethodCall(e.Location, new BoundLocalAccess(access.Target.Location, value), access.Name, access.NameLocation, null, arguments);
+        var call = BindMethodCall(e.Location, new BoundLocalAccess(access.Target.Location, value, AssumesNonNull: value.IsReferenceBinding), access.Name, access.NameLocation, null, arguments);
         return MakeConditionalAccess(e.Location, receiver, value, call);
     }
 
