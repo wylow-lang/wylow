@@ -30,12 +30,34 @@ releasing any class references it contains.
 
 - A local or parameter releases its reference when it goes out of scope; fields when their object
   is destroyed, after its destructor body has run (fields first, then the base class's destructor).
-- A temporary, such as an object returned by a call and not stored, is released by the end of the
-  statement that created it. The exact point within the statement may vary by statement but is the
-  same on every platform and C++ compiler.
+- A temporary, such as an object returned by a call and not stored, is released when the statement
+  that created it completes, not at its last use, so a destructor's timing can be read from the
+  source. Within a statement:
+  - temporaries are released in the reverse of the order they were created;
+  - an assignment releases the old value first, then the statement's temporaries: in `x = f(g())`,
+    `x`'s old value is released before `g()`'s result;
+  - a temporary created in an operand that may not be evaluated (the right side of `&&`, `||`, and
+    `??`, a branch of `?:`, a case of a switch expression, a call after `?.`) is released when that
+    operand completes, since what the operand produces is a copy;
+  - each evaluation of an `if` or `while` condition, or of a `for` loop's condition or update,
+    is a statement of its own, so its temporaries are released before the body or the next step
+    runs. A `switch`'s matched value and what an `is ref` binding holds last longer, as described
+    where they are defined.
+  - in a `return`, the statement's temporaries are released after the value is computed, before
+    the function's locals.
 - **Assignment stores the new value before releasing the old one**, so a destructor triggered by an
   assignment sees the new value in the assigned place. Assigning a struct stores every field before
   releasing any old field.
+- The compiler may release an object earlier than these rules say only where no program can tell:
+  its release can run no destructor, and nothing refers to it weakly. The strong references the
+  compiler adds to keep a place or a receiver alive ([Pinning](#pinning-class-objects)) are not
+  temporaries, and leaving one out is allowed only where it could never be the last reference, so
+  it never moves a release.
+
+> Implemented so far: the order is the same on every platform, but the C++ emitter doesn't follow
+> these rules inside every statement yet. An operand hoisted to keep evaluation left to right
+> releases its temporaries when the hoisted part completes. The planned mid-level IR makes the
+> order exact.
 - A destructor may use `this` freely, but must not keep a reference to its object: if a reference
   to it still exists when the destructor finishes, the program panics.
 - Objects in a cycle are released only by `Memory.collectCycles` ([below](#cycles-memorycollectcycles)).

@@ -1,7 +1,7 @@
 # A mid-level IR: design proposal
 
-Status: proposal for discussion. Nothing here is decided; §9 lists the decisions to make together,
-each with a recommendation.
+Status: proposal, with its design decisions settled (§9). Details elsewhere may still change as
+the work shows what makes sense.
 
 ## 1. Summary
 
@@ -139,9 +139,12 @@ Some notes on the choices:
 | `end %h` | `vpl::unhold(h)` / `slot.end()` |
 
 Destruction order inside a statement becomes a C++ scope's reverse declaration order, which is
-fully specified. Today a by-value parameter's destruction point is ABI-dependent, which is why
-`vpl::keep` exists. In the IR, an argument that may own objects is passed as `copy %t`, where
-`%t` belongs to the statement's scope. That's the same guarantee, made explicit.
+fully specified, and is the order the spec now requires (§3.4, When references are released). A
+statement's temporaries are declared in the statement's scope; a temporary of an operand that may
+not be evaluated is declared in that operand's block, so it is released when the operand completes.
+Today a by-value parameter's destruction point is ABI-dependent, which is why `vpl::keep` exists.
+In the IR, an argument that may own objects is passed as `copy %t`, where `%t` belongs to the
+statement's scope. That's the same guarantee, made explicit.
 
 ## 4. Where it sits
 
@@ -308,8 +311,12 @@ A pattern becomes tests, projections (`.Variant.field`, `downcast`, `!`), and bi
 order. `Is`'s rule that every bound value is copied before any is stored is visible as the
 instruction order. A switch evaluates its value once, as a borrow of a stable place or else a
 temporary held for the switch (what `MatchedValue` does), and becomes an `if` chain ending in
-`check.no_match`. Switch expressions become a local assigned in each case. `CheckCaseCaptures`
-exists because a switch expression's cases run in a C++ lambda, so it could be lifted too (§9.7).
+`check.no_match`. Switch expressions become a local assigned in each case.
+
+`CheckCaseCaptures` stays. A switch expression that chooses a non-escaping function makes the
+lambdas it chooses from outside its cases, so they can't use names a case binds. `choose` has the
+same structure, so lifting the rule would need case bindings declared in the enclosing block: a
+design change of its own, not a side effect of the IR.
 
 ### 5.8 Lambdas and closures
 
@@ -424,6 +431,10 @@ It checks:
 4. No reference through `v!` of a `mut` local is used after an instruction that may write `v`.
 5. A slot's `new` is in the slot's block, not inside a loop nested in it.
 
+Check 3 re-checks elisions with the same effect table that made them, so it catches mistakes in
+the passes but not in the table: a table that under-reports a write makes a wrong elision and
+accepts it. The table is kept honest separately (§9.9).
+
 Failures are compiler bugs, reported with the IR dump (`vpl ir file.vpl`, a new CLI command that
 prints the IR, which is also the way to debug lowering).
 
@@ -480,14 +491,15 @@ Each step keeps the suite passing on MSVC and g++.
    `IsPlace`, `IsFieldPath`, `IsRootedAtThis`, and `Roots` over it. The output doesn't change.
    This pays off even if the IR never lands, and lowering is built on it.
 2. **IR types, printer (`vpl ir`), and verifier.** The pipeline doesn't change yet.
-3. **Lowering plus an IR emitter, behind a flag** (`--ir` in the CLI and the test runner). The
+3. **Lowering plus an IR emitter, behind a flag** (`--ir` in the CLI and the test runner), with
+   `--no-nest` (§9.3) and `--no-elide` (§9.9) from the start. The
    analyses still run on the bound tree, and lowering consumes their results, which are keyed by
    bound nodes and locals (`MadeBy`, `EndedBy`, `AliasesElement`). That way the analyses needn't be
    ported before the switch. Grow coverage in this order, running the suite under `--ir` each time:
    - straight-line code, calls, places, and holds;
    - control flow;
    - patterns and switches;
-   - `try`;
+   - `try`, lifting the binder's `try` restrictions once it lowers (§9.7);
    - lambdas, closures, and choices;
    - slots and borrowed loop elements;
    - `@CallerLocation`;
@@ -502,12 +514,13 @@ Each step keeps the suite passing on MSVC and g++.
    - field-precise write summaries;
    - borrowed locals beyond loop elements;
    - destructor precision (§6.1);
-   - last-use `move`s;
-   - lifting the C++-only binder restrictions (§9.7).
+   - last-use `move`s, for types whose release nothing can observe (§9.10).
 
-The risky part is step 3: matching today's destruction order inside statements, which tests
-with destructor output observe. The spec allows the order to vary by statement but requires it to
-be the same everywhere. The IR makes it exact, so the spec could then state it.
+The risky part is step 3: destruction order inside statements, which tests with destructor output
+observe. The target is the spec's rule (§9.10), not today's emitter, which releases the
+temporaries of an operand hoisted by `Ordered` early. A test whose output changes is checked
+against the rule: either lowering is wrong or the test's expectation was relying on the old order.
+`--no-nest` separates lowering bugs from nesting bugs.
 
 ## 8. Costs
 
@@ -525,31 +538,53 @@ be the same everywhere. The IR makes it exact, so the spec could then state it.
 - **Ongoing.** Two representations to keep consistent: the bound tree for checks, the IR for
   everything after. `PlacePath` is the shared seam that keeps them from drifting.
 
-## 9. Decisions to make together
+## 9. Decisions
 
 1. **Structured IR or a CFG?** A CFG (MIR, SIL) is the standard for analyses, but emitting C++
    from one means `goto` everywhere and locals declared at the top with manual destruction. That
    gives up C++ scopes doing the releasing, which is exactly where undefined behavior would creep
    in. MLIR's `scf` dialect and WebAssembly show structured control works as an IR. The analyses
-   here don't need arbitrary control flow. *Recommend structured*, with a CFG view derived if an
-   analysis ever wants one.
+   here don't need arbitrary control flow. **Decided: structured**, with a CFG view derived if an
+   analysis ever wants one. A `continue` that jumps to a label is checked by the verifier to skip
+   no declaration.
 2. **SSA or places with single-assignment temporaries?** SSA (SIL's OSSA) helps scalar
    optimization, which the C++ compiler already does. The questions VPL asks are about places,
-   writes, and extents, as MIR's are. *Recommend places, with ownership explicit on operands*,
-   which captures what OSSA gives SIL for reference counting.
+   writes, and extents, as MIR's are. **Decided: places, with ownership explicit on operands**,
+   which captures what OSSA gives SIL for reference counting. A value coming out of control flow
+   (`?:`, `??`, a switch expression) is its own local kind, assigned exactly once on every path,
+   which the verifier checks, rather than an exception to single assignment.
 3. **How much the emitter nests temporaries back.** Not at all is simplest, but the C++ would be
-   much harder to read and audit. Nesting with the effect table keeps the output close to today's.
-   *Recommend nesting from the start*, since `tests/.out` audits depend on readable output.
-4. **Flow analysis: stay or move?** *Recommend stay* for now. It works, it reports source-level
-   errors, and narrowing is already in the tree. Revisit if the nullable-value rule (6) moves to
-   the IR, which would make the IR the natural home for flow-sensitive checks, as Rust moved
-   borrow checking to MIR.
-5. **Bounds checks as separate instructions?** *Recommend yes* (pure places), with the emitter
+   much harder to read and audit. **Decided: nest from the start**, since `tests/.out` audits
+   depend on readable output, with `--no-nest` from the start too. The whole suite must pass with
+   it, which tests that declining to nest is always correct, and it separates lowering bugs from
+   nesting bugs. Nesting next to a sibling operand needs a pairwise conflict check, since C++ may
+   evaluate siblings in any order; §5.1 should get a worked example before the rule is final.
+4. **Flow analysis: stay or move?** **Decided: stay** for now. It works, it reports source-level
+   errors, and narrowing is already in the tree. The binder decides what is legal; the verifier's
+   re-check of the nullable-value rule (§6.4, check 4) only catches lowering bugs. Revisit if
+   that rule moves to the IR (6), which would make the IR the natural home for flow-sensitive
+   checks, as Rust moved borrow checking to MIR.
+5. **Bounds checks as separate instructions?** **Decided: yes** (pure places), with the emitter
    fusing them back into `vpl::at`.
 6. **Accept more programs once the IR can check them?** For example, allow a `ref` into a `mut`
    nullable local as long as nothing in its extent may write the local. This is a language change,
-   for the spec. *Recommend deferring* until after step 5.
-7. **Lift the restrictions that exist only because of how C++ is emitted?** `try` only as a
-   statement's whole value, `try` in a `for` update, and `CheckCaseCaptures`. Each is a spec change
-   that removes code. *Recommend yes*, at step 6.
-8. **Datalog?** *Recommend not now* (§6.6).
+   for the spec. **Decided: defer** until after step 5, when the check can use real effect
+   summaries rather than `IsStable`.
+7. **Lift the restrictions that exist only because of how C++ is emitted?** **Decided: yes for
+   `try`** (only as a statement's whole value, not in a `for` update), as soon as `try` lowers in
+   step 3, where tests using it mid-expression also prove the lowering general. **`CheckCaseCaptures`
+   stays** (§5.7): it isn't caused by the emitter.
+8. **Datalog?** **Decided: not now** (§6.6). Revisit with lifetime analysis.
+9. **Keeping the effect table honest.** The verifier can't catch an effect table that under-reports
+   a write (§6.4). **Decided:** the table is one exhaustive `switch` over instruction kinds with no
+   default branch, so a new kind can't compile without an entry, and `--no-elide` turns every
+   elision off (every `copy` stays a copy, every hold a hold), so the suite can compare outputs.
+10. **Destruction order inside a statement.** **Decided: specify it now**, before step 3, so that
+   step 3 targets the spec rather than whatever today's emitter does (§3.4, When references are
+   released). Temporaries are released when their statement completes, not at last use, in
+   reverse order of creation, after an assignment's old value; a temporary of an operand that may
+   not be evaluated is released when that operand completes; each evaluation of a condition or
+   `for` update is its own statement. Releasing at last use (as Swift does) would make
+   destructor timing depend on the optimizer. Earlier releases are allowed only where nothing can
+   tell (no destructor can run, nothing refers to the object weakly), which leaves last-use moves
+   for most game data.
