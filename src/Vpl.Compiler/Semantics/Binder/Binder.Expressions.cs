@@ -49,7 +49,7 @@ public sealed partial class Binder
         CastExpr e => BindCast(e),
         ConditionalExpr e => BindConditional(e, expected),
         SwitchExpr e => BindSwitchExpression(e, expected),
-        TryExpr e => ErrorExpression(e.Location, "'try' must be the whole value of a declaration, assignment, return, or expression statement"),
+        TryExpr e => BindTry(e),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
         NamedArgExpr e => ErrorExpression(e.Location, "a named argument can only be used in a call"),
         LambdaExpr e => expected is { IsFunction: true } ? BindLambda(e, expected, null)
@@ -320,13 +320,9 @@ public sealed partial class Binder
 
     bool IsResult(VplType? type) => type?.Symbol is { } s && s == stdlib.Result;
 
-    static bool IsTry(BoundExpression value) => value is BoundTry || (value is BoundConversion conversion && IsTry(conversion.Operand));
-
-    /// <summary>The whole value of a statement, which unlike any other expression may be a <c>try</c>.</summary>
+    /// <summary>The whole value of a statement. A lambda can only be bound with a type, so it is left alone when that type has failed.</summary>
     BoundExpression BindValue(Expr expression, VplType? expected) =>
-        expression is TryExpr t ? BindTry(t)
-        // A lambda can only be bound with a type, so it is left alone when that type has failed.
-        : BindExpression(expression, expected == VplType.Error && expression is not LambdaExpr ? null : expected);
+        BindExpression(expression, expected == VplType.Error && expression is not LambdaExpr ? null : expected);
 
     BoundExpression BindTry(TryExpr e)
     {

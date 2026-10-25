@@ -45,6 +45,7 @@ public sealed partial class CppEmitter
             BoundVariant variant => Variant(variant),
             BoundLambda lambda => Lambda(lambda),
             BoundInvocation invocation => Invocation(invocation),
+            BoundTry => throw new InvalidOperationException("only the IR emitter (--ir) can return from inside an expression, as a 'try' that isn't a statement's whole value does"),
             _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
         };
     }

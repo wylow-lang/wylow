@@ -139,7 +139,7 @@ public sealed partial class IrLowering
                 Add(computed);
                 arguments.Add(Kept(IrRead.Move(new IrPlace(value!))));
             }
-            var loc = method.Symbol.PassesLocation ? new IrLoc(super.Location) : null;
+            var loc = method.Symbol.PassesLocation ? Loc(super.Location) : null;
             Add(new IrDo(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));
         });
         function.BaseCall = call;

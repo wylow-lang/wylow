@@ -92,8 +92,7 @@ public sealed partial class IrLowering
 
     IrFunction Function(BoundFunction bound)
     {
-        if (symbol.PassesLocation)
-            throw new NotLoweredException("an @CallerLocation function");
+        function.HasLocationParameter = symbol.PassesLocation;
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
             statements = ConstructorStart(statements);
@@ -151,9 +150,12 @@ public sealed partial class IrLowering
         return local;
     }
 
+    /// <summary>Where a panic at <paramref name="location"/> is reported: in an <c>@CallerLocation</c> function, where it was called from.</summary>
+    IrLoc Loc(Location location) => function.HasLocationParameter ? IrLoc.Caller : new IrLoc(location);
+
     void Unreachable(Location location)
     {
-        Add(new IrUnreachable(new IrLoc(location)));
+        Add(new IrUnreachable(Loc(location)));
         reachable = false;
     }
 

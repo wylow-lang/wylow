@@ -176,7 +176,7 @@ public sealed partial class IrLowering
         {
             if (i == cases.Count)
             {
-                var loc = new IrLoc(location);
+                var loc = Loc(location);
                 Add(new IrCheck(IrCheckKind.NoMatch, [], loc));
                 Add(new IrUnreachable(loc));
                 return;

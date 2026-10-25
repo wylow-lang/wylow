@@ -389,6 +389,8 @@ public sealed partial class CppEmitter
             if (read.Ownership == IrOwnership.Move && HasCountedParts(read.Type))
                 return $"std::move({Name(local)})";
         }
+        if (read.Ownership == IrOwnership.Move && HasCountedParts(read.Type))
+            return $"std::move({PlaceText(read.Place)})";
         return PlaceText(read.Place);
     }
 

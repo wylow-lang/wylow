@@ -373,15 +373,6 @@ public sealed partial class Binder
         var body = BindBlock(s.Body);
         loopDepth--;
         var update = s.Update is null ? null : BindStatement(s.Update);
-        // The update runs inside the C++ `for` header, where an early return can't be placed.
-        var updateValue = update switch
-        {
-            BoundAssignment assignment => assignment.Value,
-            BoundExpressionStatement statement => statement.Expression,
-            _ => null,
-        };
-        if (updateValue is not null && IsTry(updateValue))
-            Error(s.Update!.Location, "'try' cannot be used in a 'for' update");
         scope = scope.Parent;
         return new BoundFor(s.Location, initializer, condition, update, body);
     }

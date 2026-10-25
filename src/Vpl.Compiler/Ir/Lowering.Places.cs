@@ -109,7 +109,7 @@ public sealed partial class IrLowering
             case BoundIndex index:
                 var operand = IndexOperand(index.Index);
                 if (operand is not IrConstant)
-                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(current.Type.FixedLength)], new IrLoc(index.Location)));
+                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(current.Type.FixedLength)], Loc(index.Location)));
                 return current.Element(operand);
             case BoundCall call when current.Type.IsTypeParameter:
             {
@@ -122,7 +122,7 @@ public sealed partial class IrLowering
             case BoundNonNull nonNull:
             {
                 var reference = current is { IsDeref: false, Projections.Count: 0 } ? current.Local : Let(new IrUse(IrRead.Copy(current)));
-                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Copy(new IrPlace(reference))], new IrLoc(nonNull.Location)));
+                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Copy(new IrPlace(reference))], Loc(nonNull.Location)));
                 return IrPlace.Deref(reference);
             }
             case BoundConversion:
@@ -167,7 +167,7 @@ public sealed partial class IrLowering
             case BoundNonNull { Operand: var nullable } nonNull when IsPlace(nullable):
             {
                 var checkedPlace = Place(nullable, Use.Read);
-                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], new IrLoc(nonNull.Location)));
+                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], Loc(nonNull.Location)));
                 return Hold(checkedPlace, borrows);
             }
             default:

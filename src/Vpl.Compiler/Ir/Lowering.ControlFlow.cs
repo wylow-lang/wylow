@@ -159,7 +159,7 @@ public sealed partial class IrLowering
             var loop = new IrLoop();
             var context = new LoopContext(loop);
             loops.Add(context);
-            var loc = new IrLoc(range.Location);
+            var loc = Loc(range.Location);
             Into(loop.Body, () =>
             {
                 var test = more is not null
@@ -241,6 +241,20 @@ public sealed partial class IrLowering
         }
         Add(new IrIf(tested, Branch(whenTrue), Branch(whenFalse)));
         return new IrUse(IrRead.Move(new IrPlace(result)));
+    }
+
+    /// <summary><c>try r</c>: an <c>Err</c> returns it from the function, wherever the <c>try</c> is (§5.6); otherwise the value is the <c>Ok</c>'s.</summary>
+    IrRvalue Try(BoundTry attempt)
+    {
+        var result = attempt.Operand.Type.Symbol!;
+        var (ok, err) = (result.FindVariant("Ok")!, result.FindVariant("Err")!);
+        var value = Matched(attempt.Operand);
+        var ownership = value.Local.IsTemporary && value is { IsDeref: false, Projections.Count: 0 } ? IrOwnership.Move : IrOwnership.Copy;
+        var failed = Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value)) { Variant = err });
+        var returns = new IrBlock();
+        Into(returns, () => Add(new IrReturn(OperandOf(new IrVariant(symbol.ReturnType, err, [new IrRead(ownership, value.VariantField(err, 0))])))));
+        Add(new IrIf(failed, returns));
+        return new IrUse(new IrRead(ownership, value.VariantField(ok, 0)));
     }
 
     IrOperand Converted(IrOperand operand, VplType type) =>

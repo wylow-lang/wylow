@@ -62,11 +62,12 @@ _ = loadMesh("ship.obj");      // explicitly discarded: OK
 - If it is `Ok(v)`, the expression's value is `v`.
 - If it is `Err(e)`, the enclosing function immediately returns `Err(e)`.
 
-`try` must be the **whole value of a statement**: the initializer of a declaration, the value of a
-plain `=` assignment, a `return` value, or an expression statement (`try save(file);`). It cannot be
-part of a larger expression (`1 + try f()`) or a `for` loop's update; write it as its own
-statement. This keeps every early return at the start of a statement, and C++ cannot return from
-inside an expression. In an assignment, the object holding the target is still evaluated first.
+`try` can be used anywhere in an expression (`1 + try parse(s)`, `print(try load(path))`), a `for`
+loop's update included. It returns when it is evaluated, so what the expression evaluated before
+it has happened, and the rest isn't evaluated; an operand that isn't evaluated, such as the right
+side of `&&` when the left is false, doesn't return. In an assignment, the object holding the
+target is evaluated first, as always. The statement's temporaries are released by the return, the
+last made first, before the function's locals.
 
 The enclosing function must return a `Result` with the **same error type**. To change the error
 type, convert it explicitly:
@@ -77,6 +78,9 @@ var bytes = try File.readAll(path).mapErr(e -> LoadError.NotFound(path));
 
 `try` is a prefix keyword (rather than Rust's postfix `?`) because `?` already means "nullable"
 in VPL.
+
+> Implemented so far: all of the above, but a `try` that isn't a statement's whole value compiles
+> only with `--ir`, until the IR emitter is the default.
 
 ## 4.4 Handling results
 

@@ -1,0 +1,174 @@
+// mode: ir
+// The bound tree emitter can only return before a statement, not from inside an expression.
+
+// A 'try' may be anywhere in an expression: an Err returns from where it is evaluated, and the
+// rest of the expression isn't.
+
+class Noisy {
+    String name;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print(name);
+    }
+
+    int size() {
+        return 1;
+    }
+}
+
+class Problem {
+    String what;
+
+    Problem(String what) {
+        this.what = what;
+    }
+}
+
+Result<int, String> number(int n) {
+    if (n < 0) {
+        return Err("negative");
+    }
+    return Ok(n);
+}
+
+int noted(int n) {
+    print(n);
+    return n;
+}
+
+Result<int, String> sum(int a, int b) {
+    return Ok(noted(a) + try number(b) + noted(100));
+}
+
+Result<int, String> printed(int n) {
+    print(try number(n));
+    return Ok(0);
+}
+
+Result<int, String> compound(int n) {
+    mut int total = 10;
+    total += try number(n);
+    return Ok(total);
+}
+
+// Each evaluation of the update is a statement of its own, which may return.
+Result<int, String> counted(int limit) {
+    mut int count = 0;
+    for (mut int i = 0; i < limit; i = try number(i < 3 ? i + 1 : -1)) {
+        count++;
+    }
+    return Ok(count);
+}
+
+// Only the operand that is evaluated returns.
+Result<int, String> chosen(bool first, int n) {
+    int a = first ? try number(n) : 0;
+    bool b = first && try number(n) > 0;
+    int? missing = null;
+    int c = missing ?? try number(n);
+    return Ok(a + (b ? 1 : 0) + c);
+}
+
+Result<int, String> looped(int n) {
+    mut int i = 0;
+    while (i < try number(n)) {
+        i++;
+    }
+    return Ok(i);
+}
+
+// What the statement made before the 'try' is released when it returns, after the function's own locals.
+Result<int, String> released(int n) {
+    var kept = new Noisy("local");
+    int total = new Noisy("temporary").size() + try number(n);
+    return Ok(total);
+}
+
+// An error that is an object, moved into the result returned.
+Result<int, Problem> check(int n) {
+    if (n < 0) {
+        return Err(new Problem("too small"));
+    }
+    return Ok(n);
+}
+
+Result<int, Problem> checked(int n) {
+    return Ok(2 * try check(n));
+}
+
+// A 'try' of a value already stored.
+Result<int, String> stored(Result<int, String> r) {
+    return Ok(1 + try r);
+}
+
+class Holder {
+    mut Result<int, String> result;
+
+    Holder(Result<int, String> result) {
+        this.result = result;
+    }
+}
+
+Result<int, String> held(Holder holder) {
+    return Ok(try holder.result + 1);
+}
+
+Result<T, String> first<T>(Result<T, String> a, Result<T, String> b) {
+    T x = try a;
+    _ = try b;
+    return Ok(x);
+}
+
+Result<int, String> inLambda(int n) {
+    () -> Result<int, String> f = () -> Result<int, String>.Ok(1 + try number(n));
+    return f();
+}
+
+void report(Result<int, String> r) {
+    switch (r) {
+        case Ok(var value) -> print(value);
+        case Err(var error) -> print(error);
+    }
+}
+
+void main() {
+    report(sum(1, 2));                  // output: 1
+                                        // output: 100
+                                        // output: 103
+    report(sum(1, -2));                 // output: 1
+                                        // output: negative
+    report(printed(7));                 // output: 7
+                                        // output: 0
+    report(printed(-7));                // output: negative
+    report(compound(5));                // output: 15
+    report(compound(-5));               // output: negative
+    report(counted(10));                // output: negative
+    report(counted(3));                 // output: 3
+    report(chosen(true, 4));            // output: 9
+    report(chosen(false, 4));           // output: 4
+    report(chosen(true, -4));           // output: negative
+    report(looped(3));                  // output: 3
+    report(looped(-3));                 // output: negative
+    report(released(2));                // output: temporary
+                                        // output: local
+                                        // output: 3
+    report(released(-2));               // output: temporary
+                                        // output: local
+                                        // output: negative
+    switch (checked(-1)) {
+        case Ok(var value) -> print(value);
+        case Err(var problem) -> print(problem.what); // output: too small
+    }
+    report(stored(Result<int, String>.Ok(4)));      // output: 5
+    report(stored(Result<int, String>.Err("bad"))); // output: bad
+    report(held(new Holder(Result<int, String>.Ok(6))));     // output: 7
+    report(held(new Holder(Result<int, String>.Err("held")))); // output: held
+    report(first(Result<int, String>.Ok(1), Result<int, String>.Ok(2))); // output: 1
+    report(first(Result<int, String>.Ok(1), Result<int, String>.Err("second"))); // output: second
+    report(inLambda(2));                // output: 3
+    report(inLambda(-2));               // output: negative
+}

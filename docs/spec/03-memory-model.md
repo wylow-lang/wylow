@@ -196,7 +196,7 @@ copy too: the pin a reference or a view holds for its scope, and the value a `sw
 matches when it isn't a local, held for the statement. A temporary's slot is ended after its
 statement; in a `return`, it is destroyed first among the function's locals, as the temporary
 would have been released. Temporaries are looked for only in declarations, assignments,
-expression statements, and returns without a `try`. The
+expression statements, and returns that contain no `try`. The
 slot clears the object's cyclic flag after its constructor runs, and takes it out of the buffer if
 the constructor's releases put it there. The size limit is 512 bytes, checked by C++, which knows
 the size: a slot for a larger object puts it on the heap but otherwise behaves the same.

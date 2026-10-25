@@ -39,7 +39,7 @@ public sealed partial class IrLowering
             {
                 var operand = Settle(Value(unary.Operand));
                 bool panics = unary.Operator == BoundUnaryOperator.Negate && unary.Type.IsInteger;
-                return new IrUnary(unary.Operator, operand, panics ? new IrLoc(unary.Location) : null);
+                return new IrUnary(unary.Operator, operand, panics ? Loc(unary.Location) : null);
             }
             case BoundBinary binary:
                 return Binary(binary);
@@ -76,6 +76,8 @@ public sealed partial class IrLowering
                 return ConditionalAccess(access) ?? throw new InvalidOperationException("a 'void' '?.' used as a value");
             case BoundIs test:
                 return Is(test);
+            case BoundTry attempt:
+                return Try(attempt);
             case BoundSwitchExpression switchExpression:
                 return SwitchExpression(switchExpression);
             case BoundArrayLength length:
@@ -105,11 +107,11 @@ public sealed partial class IrLowering
             ? (read.Place, read.Ownership == IrOwnership.Move ? IrOwnership.Move : IrOwnership.Copy)
             : (new IrPlace(Let(new IrUse(operand))), IrOwnership.Move);
         bool isValue = nonNull.Operand.Type.IsNullableValue;
-        Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], new IrLoc(nonNull.Location)));
+        Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], Loc(nonNull.Location)));
         return isValue ? new IrUse(new IrRead(ownership, place.Assumed())) : new IrConvert(nonNull.Type, new IrRead(ownership, place));
     }
 
-    static IrLoc? LocationFor(MethodReference method, BoundExpression site) => method.Symbol.PassesLocation ? new IrLoc(site.Location) : null;
+    IrLoc? LocationFor(MethodReference method, BoundExpression site) => method.Symbol.PassesLocation ? Loc(site.Location) : null;
 
     IrRvalue Binary(BoundBinary binary)
     {
@@ -124,7 +126,7 @@ public sealed partial class IrLowering
         var left = Value(binary.Left);
         var right = Value(binary.Right);
         var operands = Settle([left, right]);
-        var loc = IrBinary.IsChecked(binary.Operator, binary.Left.Type) ? new IrLoc(binary.Location) : null;
+        var loc = IrBinary.IsChecked(binary.Operator, binary.Left.Type) ? Loc(binary.Location) : null;
         return new IrBinary(binary.Operator, (IrOperand)operands[0], (IrOperand)operands[1], binary.Type, loc);
     }
 
@@ -148,7 +150,7 @@ public sealed partial class IrLowering
             throw new NotLoweredException("a conversion to a nullable reference outside a call or declaration");
         var operand = to.IsRefStruct ? Settle(ViewOperand(conversion.Operand, use)) : Settle(Value(conversion.Operand));
         bool panics = to.IsEnum && !from.IsEnum || (from.IsInteger && to == VplType.Char);
-        return new IrConvert(to, operand, panics ? new IrLoc(conversion.Location) : null);
+        return new IrConvert(to, operand, panics ? Loc(conversion.Location) : null);
     }
 
     /// <summary>A view as an operand, whose holds last as long as <paramref name="use"/> says.</summary>
