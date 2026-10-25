@@ -19,6 +19,10 @@ public sealed partial class CppEmitter
 
     (BoundExpression Root, bool Borrowed)? StorageRoot(PlacePath path) => path switch
     {
+        // A type parameter's value may be an object holding what its method hands out, so it is held
+        // itself; a struct's copy in the hold then lives as long as the reference or view.
+        _ when path.Steps.FirstOrDefault(s => s is BoundCall { Receiver.Type.IsTypeParameter: true }) is BoundCall { Receiver: { } generic } =>
+            (generic, MayBeBorrowable(generic.Type)),
         // A literal string's bytes are static.
         { Base: PlaceBase.Object, Root: BoundLiteral } => null,
         { Base: PlaceBase.Object, Root.Type.IsReference: true, Steps: [BoundCall, ..] } => (path.Root, MayBeBorrowable(path.Root.Type)),
@@ -51,8 +55,9 @@ public sealed partial class CppEmitter
         StorageRoot(place) is (_, true) ? $"vpl::borrow({Expression(root)})" : $"vpl::pin({Expression(root)})";
 
     /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
-    bool MayBeBorrowable(VplType type) =>
-        borrowableClasses.Any(c => c == type.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.Symbol));
+    bool MayBeBorrowable(VplType type) => type.TypeParameter is { } parameter
+        ? parameter.Bounds.Any(MayBeBorrowable)
+        : borrowableClasses.Any(c => c == type.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.Symbol));
 
     /// <summary>
     /// Whether nothing but the function itself can replace the value while an operation uses it:

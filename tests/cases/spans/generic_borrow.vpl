@@ -1,0 +1,32 @@
+// A view from a value of a type parameter holds and borrows the value, since it may be a List.
+
+struct Pair implements ReadOnlySpannable<int> {
+    int[2] items;
+
+    readonly ReadOnlySpan<int> asReadOnlySpan() {
+        return items;
+    }
+}
+
+int first<T extends ReadOnlySpannable<int>>(T items) {
+    ReadOnlySpan<int> view = items.asReadOnlySpan();
+    return view[0];
+}
+
+void grow(List<int> list) {
+    list.add(2);                        // panic-here: cannot change the length or capacity of a list while it is borrowed
+}
+
+int firstAfterGrowing<T extends ReadOnlySpannable<int>>(T items, List<int> list) {
+    ReadOnlySpan<int> view = items.asReadOnlySpan();
+    grow(list);
+    return view[0];
+}
+
+void main() {
+    print(first(Pair(items: [5, 6])));  // output: 5
+    var list = new List<int>();
+    list.add(7);
+    print(first(list));                 // output: 7
+    print(firstAfterGrowing(list, list));
+}

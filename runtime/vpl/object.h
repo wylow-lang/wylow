@@ -340,6 +340,12 @@ inline Borrow<T> borrow(Ref<T> value) {
     return Borrow<T>(std::move(value));
 }
 
+template <class T>
+struct is_borrow : std::false_type {};
+
+template <class T>
+struct is_borrow<Borrow<T>> : std::true_type {};
+
 // An 'is ref' pattern's holder keeps the object its name points into alive, and borrowed if that is
 // how its storage was handed out, for as long as the name is in scope. A failed test lets it go.
 template <class T>
@@ -384,6 +390,13 @@ inline T& pin(T& value) {
     return value;
 }
 
+// In generic code a value may be a struct, which is borrowed through whatever holds it.
+template <class T>
+    requires(!is_ref<std::remove_cv_t<T>>::value)
+inline T& borrow(T& value) {
+    return value;
+}
+
 // Passes a by-value argument as a copy of a caller-owned temporary. C++ ABIs differ on whether a
 // parameter dies when the callee returns or at the end of the caller's statement; the temporary
 // always lives to the end of the statement, so objects are destroyed at the same point everywhere.
@@ -407,7 +420,7 @@ inline B* as(const Borrow<T>& value) {
 // A call through a generic bound: objects through the bound interface, structs directly.
 template <class I, class T>
 inline decltype(auto) bound(T&& value) {
-    if constexpr (is_ref<std::remove_cvref_t<T>>::value) {
+    if constexpr (is_ref<std::remove_cvref_t<T>>::value || is_borrow<std::remove_cvref_t<T>>::value) {
         return static_cast<I&>(*value.operator->());
     } else {
         return (value);
