@@ -1,0 +1,89 @@
+// mode: ir
+// The bound tree emitter releases the temporaries of super(...)'s arguments after the base
+// constructor, and MSVC may evaluate them out of order.
+
+class Probe {
+    String name;
+    int value;
+
+    Probe(String name, int value) {
+        this.name = name;
+        this.value = value;
+        print($"make {name}");
+    }
+
+    ~Probe() {
+        print($"release {name}");
+    }
+}
+
+int trace(String s, int value) {
+    print(s);
+    return value;
+}
+
+class Pair {
+    int first = trace("pair field", 0);
+
+    Pair(int a, int b) {
+        print($"pair body {a} {b}");
+    }
+}
+
+// Each argument of super(...) is a statement of its own: its temporaries are released before the
+// next argument and before the base constructor runs.
+class Probed extends Pair {
+    Probed() {
+        super(new Probe("first", 1).value, new Probe("second", 2).value);
+        print("probed body");
+    }
+
+    Probed(int n) {
+        super(trace("left", n), new Probe("right", n).value);
+    }
+}
+
+class Keeper {
+    int after = trace("keeper field", 0);
+
+    Keeper(Probe a, Probe b) {
+        print($"keeper body {a.value} {b.value}");
+    }
+}
+
+// What is passed is released once the base constructor returns, the last first, before the
+// field initializers.
+class Kept extends Keeper {
+    int own = trace("kept field", 0);
+
+    Kept(int n) {
+        super(new Probe("a", n), new Probe("b", n + 1));
+    }
+}
+
+void main() {
+    var probed = new Probed();
+    // output: make first
+    // output: release first
+    // output: make second
+    // output: release second
+    // output: pair field
+    // output: pair body 1 2
+    // output: probed body
+
+    var traced = new Probed(3);
+    // output: left
+    // output: make right
+    // output: release right
+    // output: pair field
+    // output: pair body 3 3
+
+    var kept = new Kept(4);
+    // output: make a
+    // output: make b
+    // output: keeper field
+    // output: keeper body 4 5
+    // output: release b
+    // output: release a
+    // output: kept field
+}

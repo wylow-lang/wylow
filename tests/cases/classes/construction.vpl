@@ -33,6 +33,63 @@ class Derived extends Base {
     }
 }
 
+class Probe {
+    String name;
+    int value;
+
+    Probe(String name, int value) {
+        this.name = name;
+        this.value = value;
+        print($"make {name}");
+    }
+
+    ~Probe() {
+        print($"release {name}");
+    }
+}
+
+class Pair {
+    int first = trace("pair field", 0);
+
+    Pair(int a, int b) {
+        print($"pair body {a} {b}");
+    }
+}
+
+// An argument that needs statements, here an index check, is computed before the base constructor.
+class Picked extends Pair {
+    Picked(int[3] values, int i) {
+        super(values[i], values[i + 1]);
+    }
+}
+
+class Keeper {
+    Keeper(Probe passed) {
+        print($"keeper body {passed.value}");
+    }
+}
+
+// What is passed is released once the base constructor returns, before the field initializers.
+class Kept extends Keeper {
+    int after = trace("kept field", 0);
+
+    Kept() {
+        super(new Probe("passed", 3));
+    }
+}
+
+struct Clamped {
+    int value = trace("clamped field", 7);
+
+    // A struct constructor's `return` returns the value it is making.
+    Clamped(int v) {
+        if (v < 0) {
+            return;
+        }
+        value = v;
+    }
+}
+
 class Defaults {
     int count;
     Base? maybe;
@@ -51,6 +108,24 @@ void main() {
     // output: base body
     // output: as base
     // output: as derived
+
+    int[3] values = [4, 5, 6];
+    var picked = new Picked(values, 1);
+    // output: pair field
+    // output: pair body 5 6
+
+    var kept = new Kept();
+    // output: make passed
+    // output: keeper body 3
+    // output: release passed
+    // output: kept field
+
+    print(Clamped(-1).value);
+    // output: clamped field
+    // output: 7
+    print(Clamped(3).value);
+    // output: clamped field
+    // output: 3
 
     var defaults = new Defaults();
     print(defaults.count);                  // output: 0

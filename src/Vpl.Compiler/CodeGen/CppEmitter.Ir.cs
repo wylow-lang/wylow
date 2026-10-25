@@ -17,7 +17,8 @@ public sealed partial class CppEmitter
     /// <summary>The closure each slot holds, whose type the slot is declared with before it.</summary>
     readonly Dictionary<IrLocal, IrClosure> closureSlots = [];
 
-    void EmitIrBody(IrFunction function)
+    /// <summary>A lowered function's mem-initializer, if it is a class constructor calling its base's, and its body.</summary>
+    void EmitIrFunction(IrFunction function)
     {
         irNames.Clear();
         continueLabels.Clear();
@@ -27,8 +28,72 @@ public sealed partial class CppEmitter
             if (closure.Slot is { } slot)
                 closureSlots[slot] = closure;
         }
+        if (function.Struct is { } made)
+            irNames[made] = "self";
         PlanNesting(function, nest);
+        if (function.BaseCall is { } baseCall)
+            Line($"    : {(DelegatesBaseCall(function) ? DelegatingText(function, baseCall) : BaseCallText(baseCall))}");
+        Line("{");
+        indent++;
+        if (function.Symbol.IsConstructor && function.This is { } self)
+            Line($"this->vpl_set_cyclic({CyclicFlag(self.Type.Symbol!)});");
         IrStatements(function.Body);
+        indent--;
+        Line("}");
+    }
+
+    static IrCall BaseCallOf(IrBlock baseCall) => (IrCall)((IrDo)baseCall.Statements[^1]).Value;
+
+    /// <summary>
+    /// Whether a class constructor's base call has more than one argument computed by statements.
+    /// MSVC may evaluate the arguments of a braced mem-initializer in any order, so the constructor
+    /// then delegates to one taking them as <c>vpl::Arguments</c>, which a lambda computes in order.
+    /// They are released when the base constructor returns, the last first, as a statement's are.
+    /// </summary>
+    static bool DelegatesBaseCall(IrFunction function) => function.BaseCall is { } baseCall && baseCall.Statements.Count(s => s is IrDeclare) > 1;
+
+    /// <summary>The constructor a class's constructor delegates to, declared in the class, which calls the base constructor with the arguments it is given.</summary>
+    void EmitBaseArgumentsConstructor(TypeSymbol s, int index, IrFunction function)
+    {
+        var call = BaseCallOf(function.BaseCall!);
+        var arguments = call.Arguments.Select((_, i) => FunctionArgument(call.Method, i, $"vpl::argument<{i}>(arguments)")).ToList();
+        if (call.Loc is { } loc)
+            arguments.Add(LocText(loc));
+        Line("template <class A>");
+        Line($"{TypeName(s)}(vpl::BaseArguments<{index}>, A&& arguments) : {ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}} {{}}");
+    }
+
+    /// <summary>The delegation to <see cref="EmitBaseArgumentsConstructor"/>'s constructor, with a lambda computing the arguments.</summary>
+    string DelegatingText(IrFunction function, IrBlock baseCall)
+    {
+        var call = BaseCallOf(baseCall);
+        var s = function.Symbol.ContainingType!;
+        var computed = baseCall.Statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
+        var (enclosingOutput, enclosingIndent) = (output, indent);
+        output = new StringBuilder();
+        indent = 2;
+        IrStatements(baseCall);
+        var values = call.Arguments.Select(a => a is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } && computed.Contains(local)
+            ? $"std::move({Name(local)})"
+            : OperandText((IrOperand)a));
+        Line($"return vpl::Arguments{{{string.Join(", ", values)}}};");
+        var body = output.ToString();
+        (output, indent) = (enclosingOutput, enclosingIndent);
+        return $"{TypeName(s)}{{vpl::BaseArguments<{s.Constructors.IndexOf(function.Symbol)}>{{}}, [&] {{\n{body}    }}()}}";
+    }
+
+    /// <summary>
+    /// The base constructor call, as the mem-initializer's, whose arguments need no order but for at
+    /// most one computed by statements, which runs them in an immediately invoked lambda.
+    /// </summary>
+    string BaseCallText(IrBlock baseCall)
+    {
+        var call = BaseCallOf(baseCall);
+        var enclosingIndent = indent;
+        indent = 1;
+        var arguments = ArgumentsText(call.Method, call.Arguments, call.Loc);
+        indent = enclosingIndent;
+        return $"{ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}}";
     }
 
     void IrStatements(IrBlock block)
@@ -73,7 +138,7 @@ public sealed partial class CppEmitter
                 Line($"auto {Name(declare.Local)} = [&] {{");
                 indent++;
                 IrStatements(evaluated.Block);
-                Line($"return {OperandText(evaluated.Store.Value)};");
+                Line($"return {ReturnedText(evaluated.Store.Value)};");
                 indent--;
                 Line("}();");
                 break;
@@ -90,14 +155,7 @@ public sealed partial class CppEmitter
                 Line(CheckText(check) + ";");
                 break;
             case IrReturn ret:
-                Line(ret.Value switch
-                {
-                    null => "return;",
-                    // C++ moves a returned local itself, and `std::move` would prevent eliding the move.
-                    IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value } local } }
-                        when !plan.Nested.ContainsKey(local) => $"return {Name(local)};",
-                    var value => $"return {OperandText(value)};",
-                });
+                Line(ret.Value is { } value ? $"return {ReturnedText(value)};" : "return;");
                 break;
             case IrIf conditional:
                 If(conditional, "if");
@@ -120,6 +178,12 @@ public sealed partial class CppEmitter
                 throw new InvalidOperationException($"the IR emitter can't print {statement.GetType().Name} yet");
         }
     }
+
+    /// <summary>A returned value. C++ moves a returned local itself, and <c>std::move</c> would prevent eliding the move.</summary>
+    string ReturnedText(IrOperand value) =>
+        value is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value } local } } && !plan.Nested.ContainsKey(local)
+            ? Name(local)
+            : OperandText(value);
 
     /// <summary>The value a local declared without one is defined with: a block's last store, or a choice between two.</summary>
     string InitializedText(IrLocal local)
@@ -301,9 +365,24 @@ public sealed partial class CppEmitter
     string NestedText(IrLocal local) => plan.Nested[local] switch
     {
         IrLet let => RvalueText(let.Value),
+        IrBlock block when plan.Evaluated.TryGetValue(local, out var evaluated) => EvaluatedText(local, block, evaluated.Store),
         IrBlock or IrIf => InitializedText(local),
         var other => throw new InvalidOperationException($"unexpected definition {other.GetType().Name}"),
     };
+
+    /// <summary>An immediately invoked lambda running the block, which returns what it stores last.</summary>
+    string EvaluatedText(IrLocal local, IrBlock block, IrStore store)
+    {
+        var (enclosingOutput, enclosingIndent) = (output, indent);
+        output = new StringBuilder();
+        indent = enclosingIndent + 1;
+        IrStatements(block);
+        Line($"return {ReturnedText(store.Value)};");
+        var body = output.ToString();
+        (output, indent) = (enclosingOutput, enclosingIndent);
+        var type = IsNonEscaping(local.Type) ? "auto" : CppType(local.Type);
+        return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
+    }
 
     string BaseText(IrLocal local) => plan.Nested.ContainsKey(local) ? NestedText(local) : Name(local);
 

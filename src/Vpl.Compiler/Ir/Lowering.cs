@@ -78,24 +78,29 @@ public sealed partial class IrLowering
 
     IrFunction Function(BoundFunction bound)
     {
-        if (symbol.IsConstructor)
-            throw new NotLoweredException("a constructor");
         if (symbol.PassesLocation)
             throw new NotLoweredException("an @CallerLocation function");
-        FunctionBody(bound.Body);
+        var statements = bound.Body.Statements;
+        if (symbol.IsConstructor)
+            statements = ConstructorStart(statements);
+        FunctionBody(bound.Body, statements);
         return function;
     }
 
     /// <summary>Lowers a function's or lambda's body into <see cref="function"/>'s.</summary>
-    void FunctionBody(BoundBlock body)
+    void FunctionBody(BoundBlock body) => FunctionBody(body, body.Statements);
+
+    void FunctionBody(BoundBlock body, IReadOnlyList<BoundStatement> statements)
     {
-        foreach (var statement in body.Statements)
+        foreach (var statement in statements)
         {
             if (!reachable)
                 break;
             Statement(statement);
         }
-        if (reachable && symbol.ReturnType != VplType.Void)
+        if (reachable && function.Struct is { } made)
+            Add(new IrReturn(IrRead.Copy(new IrPlace(made))));
+        else if (reachable && symbol.ReturnType != VplType.Void)
         {
             var location = body.Location;
             Unreachable(location with { Span = new TextSpan(location.Span.End - 1, 1) });
@@ -336,7 +341,7 @@ public sealed partial class IrLowering
     {
         if (ret.Value is not { } value)
         {
-            Add(new IrReturn());
+            Add(new IrReturn(function.Struct is { } made ? IrRead.Copy(new IrPlace(made)) : null));
         }
         else if (symbol.ReturnRefKind != RefKind.None)
         {

@@ -95,9 +95,13 @@ public sealed partial class IrVerifier
         foreach (var parameter in Entry(verified))
             DeclareParameter(parameter, state);
         state = Block(verified.Body, state, newScope: false);
-        if (state.Reachable && verified.Symbol.ReturnType != VplType.Void && !verified.Symbol.IsConstructor)
+        if (state.Reachable && ResultType(verified) != VplType.Void)
             Report(verified, null, "the end of the function is reachable, but it returns a value");
     }
+
+    /// <summary>What the function returns: a struct constructor its value, and a class constructor nothing.</summary>
+    static VplType ResultType(IrFunction function) =>
+        function.Symbol.IsConstructor ? function.Struct?.Type ?? VplType.Void : function.Symbol.ReturnType;
 
     static IEnumerable<IrLocal> Entry(IrFunction function) =>
         [.. function.This is { } self ? [self] : Array.Empty<IrLocal>(), .. function.Parameters, .. function.Captures];
@@ -364,17 +368,19 @@ public sealed partial class IrVerifier
 
     void Return(IrReturn ret, State state)
     {
-        var returnType = function.Symbol.ReturnType;
+        var returnType = ResultType(function);
         if (ret.Value is null)
         {
-            if (returnType != VplType.Void && !function.Symbol.IsConstructor)
+            if (returnType != VplType.Void)
                 Error($"returns nothing from a function returning '{returnType}'");
             return;
         }
         pendingMoves.Clear();
         Operand(ret.Value, state);
         pendingMoves.Clear();
-        if (returnType == VplType.Void || function.Symbol.IsConstructor)
+        if (function.Struct is { } made && !(ret.Value is IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made))
+            Error("a struct constructor returns its value");
+        if (returnType == VplType.Void)
             Error("returns a value from a function returning nothing");
         else if (ret.Value.Type != returnType)
             Error($"returns a '{ret.Value.Type}' from a function returning '{returnType}'");

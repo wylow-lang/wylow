@@ -327,6 +327,11 @@ public sealed partial class CppEmitter
             else
                 Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
         }
+        foreach (var (constructor, index) in s.Constructors.Select((c, i) => (c, i)))
+        {
+            if (irFunctions.TryGetValue(constructor, out var lowered) && DelegatesBaseCall(lowered))
+                EmitBaseArgumentsConstructor(s, index, lowered);
+        }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
         DeclareCollectorMembers(s);

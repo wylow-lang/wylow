@@ -93,6 +93,14 @@ public sealed partial class CppEmitter
         if (FunctionTemplatePrefix(symbol) is { Length: > 0 } prefix)
             Line(prefix.TrimEnd());
         Line(DefinitionSignature(symbol));
+        if (irFunctions.TryGetValue(symbol, out var lowered))
+        {
+            EmitIrFunction(lowered);
+            context = Context.Free;
+            currentType = null;
+            currentFunction = null;
+            return;
+        }
 
         var statements = function.Body.Statements;
         if (symbol.IsConstructor && isClassMember && statements.FirstOrDefault() is BoundSuperCall super)
@@ -111,16 +119,6 @@ public sealed partial class CppEmitter
 
         Line("{");
         indent++;
-        if (irFunctions.TryGetValue(symbol, out var lowered))
-        {
-            EmitIrBody(lowered);
-            indent--;
-            Line("}");
-            context = Context.Free;
-            currentType = null;
-            currentFunction = null;
-            return;
-        }
         if (symbol.IsConstructor && isClassMember)
         {
             Line($"this->vpl_set_cyclic({CyclicFlag(currentType!)});");

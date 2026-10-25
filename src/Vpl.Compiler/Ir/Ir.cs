@@ -26,6 +26,19 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
 
     public List<IrLocal> Parameters { get; } = [];
 
+    /// <summary>
+    /// A struct constructor's value under construction, which its <c>this</c> names and its
+    /// returns return. The constructor has no <see cref="This"/>.
+    /// </summary>
+    public IrLocal? Struct { get; set; }
+
+    /// <summary>
+    /// A class constructor's call of its base class's, the first statement of its body. C++ runs
+    /// nothing before a base constructor, so each argument that needs statements is declared, then
+    /// computed by a block of its own, and the call is the block's last statement.
+    /// </summary>
+    public IrBlock? BaseCall { get; set; }
+
     /// <summary>An <c>@CallerLocation</c> function's hidden parameter, which <see cref="IrLoc.Caller"/> names.</summary>
     public bool HasLocationParameter { get; set; }
 

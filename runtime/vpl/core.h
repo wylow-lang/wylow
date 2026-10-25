@@ -190,6 +190,35 @@ inline void performance_warning(const char* message) {
 // Selects the constructor that sets an enum's tag and leaves its payload to be constructed.
 struct RawTag {};
 
+// Selects the constructor that a class's Nth constructor delegates to with its base constructor's
+// arguments, computed in order: MSVC doesn't always evaluate a braced mem-initializer left to right.
+template <int N>
+struct BaseArguments {};
+
+// The arguments a delegating constructor passes on, as copies of these, which keep (see keep) and
+// unlike std::tuple's elements are destroyed in a fixed order, the last first.
+template <class... T>
+struct Arguments {};
+
+template <class T, class... Rest>
+struct Arguments<T, Rest...> {
+    T first;
+    Arguments<Rest...> rest;
+
+    explicit Arguments(T value, Rest... rest_values) : first(std::move(value)), rest(std::move(rest_values)...) {}
+};
+
+template <class... T>
+Arguments(T...) -> Arguments<T...>;
+
+template <size_t I, class T, class... Rest>
+const T& argument(const Arguments<T, Rest...>& arguments) {
+    if constexpr (I == 0)
+        return arguments.first;
+    else
+        return argument<I - 1>(arguments.rest);
+}
+
 inline void init() {
 #if defined(_WIN32) && defined(_WRITE_ABORT_MSG)
     // Abort quietly instead of showing a dialog or invoking Windows Error Reporting.

@@ -73,8 +73,52 @@ public sealed partial class CppEmitter
                     plan.Uses[local] = plan.Uses.GetValueOrDefault(local) + 1;
             }
         }
+        if (function.BaseCall is not null)
+            PlanBaseCall(function, nest);
         if (nest)
             PlanBlock(function.Body);
+    }
+
+    /// <summary>
+    /// The base constructor call prints as a mem-initializer. Unless the constructor delegates, at
+    /// most one argument is computed by a block, which is printed inside it: as its value when everything nests into that and the block makes
+    /// nothing whose release could be observed, which would then wait for the base constructor,
+    /// and otherwise in an immediately invoked lambda.
+    /// </summary>
+    void PlanBaseCall(IrFunction function, bool nest)
+    {
+        var baseCall = function.BaseCall!;
+        var statements = baseCall.Statements;
+        plan.Consumed.Add(baseCall);
+        if (DelegatesBaseCall(function))
+        {
+            // The statements run in order in the delegating constructor's lambda, which returns the arguments.
+            plan.Consumed.Add(statements[^1]);
+            if (nest)
+                PlanBlock(baseCall);
+            return;
+        }
+        for (int i = 0; i + 1 < statements.Count; i += 2)
+        {
+            var declare = (IrDeclare)statements[i];
+            var computed = (IrBlock)statements[i + 1];
+            var local = declare.Local;
+            if (nest)
+                PlanBlock(computed);
+            var store = (IrStore)computed.Statements[^1];
+            var moved = IrWalk.Descendants(computed).SelectMany(IrWalk.Operands).OfType<IrRead>()
+                .Where(r => r is { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } }).Select(r => r.Place.Local).ToHashSet();
+            bool owns = IrWalk.Descendants(computed).OfType<IrLet>().Any(l => (CreatesOwner(l.Value) || l.Value is IrHold) && !moved.Contains(l.Local));
+            if (nest && TopLevel(computed) is [IrStore only] && only == store && !owns)
+                plan.Initialized[local] = (declare, computed);
+            else
+            {
+                plan.Evaluated[local] = (computed, store);
+                plan.Consumed.Add(store);
+            }
+            plan.Nested[local] = computed;
+        }
+        plan.Consumed.UnionWith(statements);
     }
 
     static bool IsWholeStoreTarget(IrStatement statement, IrPlace place) =>
@@ -85,6 +129,9 @@ public sealed partial class CppEmitter
         var statements = block.Statements;
         foreach (var statement in statements)
         {
+            // The base constructor call is planned already.
+            if (plan.Consumed.Contains(statement))
+                continue;
             foreach (var inner in InnerBlocks(statement))
                 PlanBlock(inner);
             if (statement is IrLet { Value: IrLambda or IrClosure } made)

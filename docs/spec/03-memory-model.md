@@ -45,6 +45,10 @@ releasing any class references it contains.
     where they are defined.
   - in a `return`, the statement's temporaries are released after the value is computed, before
     the function's locals.
+  - each argument of `super(...)` is a statement of its own, so its temporaries are released
+    before the next argument is evaluated and before the base constructor runs. The values passed
+    are released when the base constructor returns, the last first. (C++ can run nothing before a
+    base constructor but the expressions computing its arguments.)
 - **Assignment stores the new value before releasing the old one**, so a destructor triggered by an
   assignment sees the new value in the assigned place. Assigning a struct stores every field before
   releasing any old field.

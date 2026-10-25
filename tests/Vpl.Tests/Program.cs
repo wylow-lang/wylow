@@ -14,6 +14,7 @@ using Vpl.Compiler.Text;
 //   // panic-here: <text> the same, reported at this line
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
 //   // mode: release      build with --release
+//   // mode: ir           run only with --ir: the bound tree emitter breaks a rule the test checks
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
 // Usage: Vpl.Tests [--cc msvc|gcc] [--ir [--no-nest] [--no-elide]] [filter]
@@ -78,7 +79,9 @@ if (options.Ir)
 }
 
 int failed = results.Count(r => r.Failure is not null);
-Console.WriteLine($"{results.Count - failed} passed, {failed} failed ({stopwatch.Elapsed.TotalSeconds:F1}s)");
+int skipped = results.Count(r => r.Skipped);
+var skippedText = skipped > 0 ? $", {skipped} skipped without --ir" : "";
+Console.WriteLine($"{results.Count - failed - skipped} passed, {failed} failed{skippedText} ({stopwatch.Elapsed.TotalSeconds:F1}s)");
 return failed == 0 ? 0 : 1;
 
 static string FindRepositoryRoot()
@@ -91,11 +94,14 @@ static string FindRepositoryRoot()
     throw new DirectoryNotFoundException("could not find tests/cases above " + AppContext.BaseDirectory);
 }
 
-sealed record TestResult(string Name, string? Failure);
+sealed record TestResult(string Name, string? Failure, bool Skipped = false);
 
 sealed record Expectations(
     List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
-    Dictionary<int, int> Stack, Dictionary<int, int> InPlace);
+    Dictionary<int, int> Stack, Dictionary<int, int> InPlace)
+{
+    public bool IrOnly { get; init; }
+}
 
 static partial class TestCase
 {
@@ -112,6 +118,8 @@ static partial class TestCase
         var name = Path.GetRelativePath(casesDirectory, file).Replace('\\', '/');
         try
         {
+            if (Parse(file).IrOnly && !options.Ir)
+                return new TestResult(name, null, Skipped: true);
             return new TestResult(name, Check(file, name, outputDirectory, toolchain, options));
         }
         catch (Exception e)
@@ -138,7 +146,7 @@ static partial class TestCase
                 case "warning": expectations.Warnings.Add(value); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
-                case "mode": expectations = expectations with { Release = value == "release" }; break;
+                case "mode": expectations = expectations with { Release = expectations.Release || value == "release", IrOnly = expectations.IrOnly || value == "ir" }; break;
                 case "stack": expectations.Stack[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "in-place": expectations.InPlace[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
             }

@@ -94,7 +94,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   Each file includes what it depends on and compiles on its own.
 - `tests/cases/**/*.vpl`: each test is a program with `// output:`, `// error:` (on the erroring
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
-  and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
+  and `// mode: release` comments; `// mode: ir` runs a test only with `--ir`, for what the bound
+  tree emitter gets wrong until it is deleted. Error tests must list every error exactly. Outputs are matched
   in file order, so put a called function's outputs at the call.
 
 ## Rules

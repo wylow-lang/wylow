@@ -434,12 +434,18 @@ with the question of what it means inside a lambda in such a function.
 
 ### 5.11 Constructors
 
-A class constructor's IR is the base constructor call (explicit, even when implicit), then the
-field initializers, then the body. A struct constructor builds a value local `self` (the `this`
-of a struct constructor is that local's place). The one place the emitter still needs expressions
-is the C++ mem-initializer list for the base constructor call. Braces keep its arguments in order,
-as today, and an argument that needs statements gets an immediately invoked lambda. That works
-because super-call arguments are rarely places.
+A class constructor's IR is the base constructor call (explicit, even when implicit), then the field
+initializers, then the body. A struct constructor builds a value local `self` (the `this` of a
+struct constructor is that local's place) from the struct's default value, which runs the field
+initializers, and returns it. The base constructor call is the C++ mem-initializer, where nothing
+but expressions can run, so each argument of `super(...)` is a statement of its own
+(03-memory-model.md, When references are released): one that needs statements is declared, then
+computed by a block of its own, which the emitter prints inside the mem-initializer, nested or as an
+immediately invoked lambda. MSVC doesn't always evaluate a braced mem-initializer left to right (it
+reversed arguments that leave a destructor to run, in a temporary or a parameter), so when more than
+one argument needs statements, the constructor delegates to one of its class that takes them as a
+`vpl::Arguments`, which a lambda computes in order. That keeps the arguments until the base
+constructor returns and destroys them the last first.
 
 ## 6. The analyses on the IR
 

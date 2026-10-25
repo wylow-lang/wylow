@@ -414,6 +414,27 @@ static class IrSelfTests
 
         yield return new("falls_off_the_end", () => b.Function("falls_off_the_end", [], VplType.Int),
             Error: "the end of the function is reachable");
+
+        IrFunction StructConstructor(string name, bool returnsSelf)
+        {
+            var self = b.Local("self", vec);
+            var other = b.Local("other", vec);
+            var function = new IrFunction(new FunctionSymbol(name, [], VplType.Void) { IsConstructor = true }, name)
+            {
+                Struct = self,
+                Body = new IrBlock([
+                    new IrLet(self, new IrDefault(vec)),
+                    new IrLet(other, new IrDefault(vec)),
+                    new IrStore(new IrPlace(self).Field(vecX), new IrConstant(VplType.Int, 1)),
+                    new IrReturn(IrRead.Copy(new IrPlace(returnsSelf ? self : other))),
+                ]),
+            };
+            return function;
+        }
+
+        yield return new("struct_constructor", () => StructConstructor("struct_constructor", returnsSelf: true));
+        yield return new("struct_constructor_returns_other", () => StructConstructor("struct_constructor_returns_other", returnsSelf: false),
+            Error: "a struct constructor returns its value");
     }
 
     static IrUse Use(IrOperand operand) => new(operand);
