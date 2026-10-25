@@ -42,60 +42,6 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
-    static IrCall BaseCallOf(IrBlock baseCall) => (IrCall)((IrDo)baseCall.Statements[^1]).Value;
-
-    /// <summary>
-    /// Whether a class constructor's base call has more than one argument computed by statements.
-    /// MSVC may evaluate the arguments of a braced mem-initializer in any order, so the constructor
-    /// then delegates to one taking them as <c>vpl::Arguments</c>, which a lambda computes in order.
-    /// They are released when the base constructor returns, the last first, as a statement's are.
-    /// </summary>
-    static bool DelegatesBaseCall(IrFunction function) => function.BaseCall is { } baseCall && baseCall.Statements.Count(s => s is IrDeclare) > 1;
-
-    /// <summary>The constructor a class's constructor delegates to, declared in the class, which calls the base constructor with the arguments it is given.</summary>
-    void EmitBaseArgumentsConstructor(TypeSymbol s, int index, IrFunction function)
-    {
-        var call = BaseCallOf(function.BaseCall!);
-        var arguments = call.Arguments.Select((_, i) => FunctionArgument(call.Method, i, $"vpl::argument<{i}>(arguments)")).ToList();
-        if (call.Loc is { } loc)
-            arguments.Add(LocText(loc));
-        Line("template <class A>");
-        Line($"{TypeName(s)}(vpl::BaseArguments<{index}>, A&& arguments) : {ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}} {{}}");
-    }
-
-    /// <summary>The delegation to <see cref="EmitBaseArgumentsConstructor"/>'s constructor, with a lambda computing the arguments.</summary>
-    string DelegatingText(IrFunction function, IrBlock baseCall)
-    {
-        var call = BaseCallOf(baseCall);
-        var s = function.Symbol.ContainingType!;
-        var computed = baseCall.Statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
-        var (enclosingOutput, enclosingIndent) = (output, indent);
-        output = new StringBuilder();
-        indent = 2;
-        IrStatements(baseCall);
-        var values = call.Arguments.Select(a => a is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } && computed.Contains(local)
-            ? $"std::move({Name(local)})"
-            : OperandText((IrOperand)a));
-        Line($"return vpl::Arguments{{{string.Join(", ", values)}}};");
-        var body = output.ToString();
-        (output, indent) = (enclosingOutput, enclosingIndent);
-        return $"{TypeName(s)}{{vpl::BaseArguments<{s.Constructors.IndexOf(function.Symbol)}>{{}}, [&] {{\n{body}    }}()}}";
-    }
-
-    /// <summary>
-    /// The base constructor call, as the mem-initializer's, whose arguments need no order but for at
-    /// most one computed by statements, which runs them in an immediately invoked lambda.
-    /// </summary>
-    string BaseCallText(IrBlock baseCall)
-    {
-        var call = BaseCallOf(baseCall);
-        var enclosingIndent = indent;
-        indent = 1;
-        var arguments = ArgumentsText(call.Method, call.Arguments, call.Loc);
-        indent = enclosingIndent;
-        return $"{ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}}";
-    }
-
     void IrStatements(IrBlock block)
     {
         IrStatement? previous = null;
