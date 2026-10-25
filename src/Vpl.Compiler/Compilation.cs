@@ -76,17 +76,20 @@ public static class Compilation
 
         var analyses = Analyses.Run(program);
         var ir = IrLowering.Lower(program, analyses, options.Optimize);
-        var writes = Writes.Find(new Callees(ir, analyses.Whole.Overrides));
+        var callees = new Callees(ir, analyses.Whole.Overrides);
+        var writes = Writes.Find(callees);
         Verify(ir, writes, "the lowered program");
-        IEnumerable<Location> inPlace = [];
+        IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
             inPlace = InPlaceElements.Apply(ir, writes).Locations;
             Verify(ir, writes, "the program after borrowing loop elements in place");
+            onStack = StackSlots.Apply(ir, Escapes.Find(callees)).Locations;
+            Verify(ir, writes, "the program after putting objects on the stack");
         }
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {
-            StackObjects = [.. analyses.StackObjects.Locations],
+            StackObjects = [.. onStack],
             InPlaceElements = [.. inPlace],
             Program = program,
             Ir = ir,

@@ -25,8 +25,7 @@ public sealed partial class IrLowering
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
-    readonly Dictionary<BoundExpression, IrLocal> slots = new(ReferenceEqualityComparer.Instance);
-    readonly HashSet<BoundExpression> filled = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<IrRvalue, Location> creations = new(ReferenceEqualityComparer.Instance);
     IrBlock block;
     bool reachable = true;
 
@@ -58,6 +57,8 @@ public sealed partial class IrLowering
             ir.Functions.AddRange(lowering.lambdas);
             foreach (var (element, location) in lowering.loopElements)
                 ir.LoopElements[element] = location;
+            foreach (var (creation, location) in lowering.creations)
+                ir.Creations[creation] = location;
         }
 
         foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
@@ -220,28 +221,9 @@ public sealed partial class IrLowering
     /// </summary>
     void InStatement(BoundStatement statement, Action lower)
     {
-        var scope = new IrBlock();
-        Into(scope, () =>
-        {
-            DeclareSlots(statement, temporaries: true);
-            lower();
-        });
+        var scope = new IrBlock { IsStatement = true };
+        Into(scope, lower);
         Splice(scope);
-    }
-
-    /// <summary>
-    /// Declares a slot for each object on the stack a statement makes (03-memory-model.md, Stack
-    /// allocation), before anything that can refer to it, so that it is destroyed after them: a
-    /// local's with the local, and a temporary's in the statement's scope, which ends with it.
-    /// </summary>
-    void DeclareSlots(BoundStatement statement, bool temporaries)
-    {
-        foreach (var made in analyses.StackObjects.MadeBy(statement).Where(m => m.IsTemporary == temporaries))
-        {
-            var slot = new IrLocal("s", made.Creation.Type, IrLocalKind.Slot) { IsTemporary = true };
-            slots[made.Creation] = slot;
-            Add(new IrDeclare(slot));
-        }
     }
 
     void Splice(IrBlock scope, IrLocal? declared = null)
@@ -280,7 +262,6 @@ public sealed partial class IrLowering
             return;
         }
 
-        DeclareSlots(declaration, temporaries: false);
         var local = Declare(symbol);
         if (initializer is null)
         {
@@ -289,7 +270,7 @@ public sealed partial class IrLowering
             return;
         }
 
-        Define(local, initializer, declaration);
+        Define(local, initializer);
         if (symbol.IsLoopElement)
             loopElements[local] = declaration.Location;
     }
@@ -372,9 +353,5 @@ public sealed partial class IrLowering
         var value = OperandOf(Rvalue(assignment.Value, Use.Read));
         located.Remove(assignment.Target);
         Add(new IrStore(target, value));
-        // The objects on the stack the local may have held are destroyed where their release would
-        // have: those made before it, since a slot is filled at most once.
-        foreach (var replaced in analyses.StackObjects.EndedBy(assignment).Where(filled.Contains))
-            Add(new IrEnd(slots[replaced]));
     }
 }

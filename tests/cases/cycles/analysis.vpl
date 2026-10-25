@@ -81,7 +81,7 @@ class Declared {
 void drop<T>(T value) {
 }
 
-// Returning an object keeps it on the heap; an object that can be on the stack is never buffered.
+// Returning an object keeps it on the heap.
 T onHeap<T>(T value) {
     return value;
 }
@@ -141,11 +141,6 @@ void main() {
     var declared = onHeap(new Declared());
     drop(declared);
     report("declared acyclic");         // output: declared acyclic
-    // output: 0
-
-    var local = new Node();             // stack: 1
-    drop(local);
-    report("on the stack");             // output: on the stack
     // output: 0
 
     // A collection leaves nothing buffered, so the object is buffered again.

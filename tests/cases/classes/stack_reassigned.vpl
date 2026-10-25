@@ -219,10 +219,14 @@ void escapes(Keeper keeper, bool yes) {
         going = false;
     }
 
-    // Made in a nested statement, which may run more than once in the local's scope.
+    // Made in a branch, which runs at most once in the local's scope, but in a loop, which may run more.
     mut Noisy? later = null;
     if (yes) {
-        later = new Noisy("later"); // stack: 0
+        later = new Noisy("later"); // stack: 1
+    }
+    mut Noisy? looped = null;
+    for (int i : 0..2) {
+        looped = new Noisy("looped"); // stack: 0
     }
     print("end of escapes");
 }
@@ -309,7 +313,9 @@ void main() {
     // output: by lambda
     // output: by ref
     // output: by update
+    // output: looped
     // output: end of escapes
+    // output: looped
     // output: later
     // output: by ref replacement
     // output: store replacement

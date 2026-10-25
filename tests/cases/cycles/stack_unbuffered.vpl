@@ -1,0 +1,17 @@
+// An object on the stack is never buffered for the cycle collector, even of a class that may be
+// cyclic: nothing outside its scope refers to it. Without optimizations it is on the heap and is.
+// mode: optimized
+
+class Node {
+    Node? next;
+}
+
+void drop<T>(T value) {
+}
+
+void main() {
+    var local = new Node(); // stack: 1
+    drop(local);
+    print(Memory.cycleStats().buffered);
+    // output: 0
+}

@@ -14,6 +14,7 @@ using Vpl.Compiler.Text;
 //   // panic-here: <text> the same, reported at this line
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
 //   // mode: release      build with --release
+//   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
 // Usage: Vpl.Tests [--cc msvc|gcc] [--no-nest] [--no-opt] [filter]
@@ -82,7 +83,7 @@ sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
     List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
-    Dictionary<int, int> Stack, Dictionary<int, int> InPlace);
+    Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false);
 
 static partial class TestCase
 {
@@ -120,6 +121,7 @@ static partial class TestCase
                 case "warning": expectations.Warnings.Add(value); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
+                case "mode" when value == "optimized": expectations = expectations with { Optimized = true }; break;
                 case "mode": expectations = expectations with { Release = expectations.Release || value == "release" }; break;
                 case "stack": expectations.Stack[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "in-place": expectations.InPlace[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
@@ -131,6 +133,8 @@ static partial class TestCase
     static string? Check(string file, string name, string outputDirectory, Toolchain? toolchain, CompileOptions options)
     {
         var expected = Parse(file);
+        if (expected.Optimized && !options.Optimize)
+            return null;
         var source = SourceText.FromFile(file);
         var compilation = Compilation.Compile(source, options);
         var errors = compilation.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

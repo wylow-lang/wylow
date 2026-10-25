@@ -52,14 +52,14 @@ public sealed partial class IrLowering
 
         if (!made.IsEscaping)
             return new IrLambda(lowered, lambda.Type);
-        filled.Add(lambda);
         var (line, column) = lambda.Location.LineColumn;
-        return new IrClosure(lowered, captures, lambda.Type)
+        var closure = new IrClosure(lowered, captures, lambda.Type)
         {
-            Slot = slots.GetValueOrDefault(lambda),
             Name = $"lambda at {lambda.Location.Source.FileName}:{line}:{column}",
             IsCyclic = analyses.Cycles.IsCyclic(lambda),
         };
+        creations[closure] = lambda.Location;
+        return closure;
     }
 
     /// <summary>

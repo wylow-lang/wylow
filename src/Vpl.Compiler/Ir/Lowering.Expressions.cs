@@ -48,11 +48,11 @@ public sealed partial class IrLowering
             case BoundCall call:
                 return Call(call, null);
             case BoundNew creation:
-                filled.Add(creation);
-                return new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation))
-                {
-                    Slot = slots.GetValueOrDefault(creation),
-                };
+            {
+                var made = new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation));
+                creations[made] = creation.Location;
+                return made;
+            }
             case BoundConstruction construction:
                 return new IrConstruct(construction.Type, construction.Constructor, Arguments(construction.Constructor, construction.Arguments),
                     LocationFor(construction.Constructor, construction));

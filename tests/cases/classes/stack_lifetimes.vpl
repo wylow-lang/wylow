@@ -80,14 +80,14 @@ void main() {
     // output: iteration
     // output: left
 
-    // Only the chosen object is made.
+    // Only the chosen object is made, and it is released when its branch completes, before print runs.
     bool yes = true;
     print(yes ? one(new Noisy("yes")) : one(new Noisy("no"))); // stack: 2
-    // output: 1
     // output: yes
+    // output: 1
 
-    // A pattern binding holds its object until the end of the block, so the object is on the heap.
-    bool matched = new Noisy("matched") is Noisy m && one(m) == 1; // stack: 0
+    // A pattern binding holds its object until the end of the block, where its slot ends too.
+    bool matched = new Noisy("matched") is Noisy m && one(m) == 1; // stack: 1
     print(matched);
     // output: true
 

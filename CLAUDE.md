@@ -49,7 +49,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (StackObjects, CyclicClasses) → IrLowering → IrVerifier → Optimize (InPlaceElements, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (InPlaceElements, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -63,11 +63,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   run on the IR, where `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the
   lowered functions. `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
-  `Writes.cs` (the types of storage each lowered function may write).
+  `Writes.cs` (the types of storage each lowered function may write). `Escapes.cs` (which
+  parameters, `this`, and captures each lowered function may let escape or return).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
   visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls).
-  `StackObjects.cs` (which `new`s and closures can be on the stack, from a whole-program summary of which
-  parameters each function lets escape; `vpl::StackSlot` holds them). Tests mark their lines with `// stack: <n>`.
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).
 - `src/Vpl.Compiler/Optimize`: optimizations, each a rewrite of the lowered IR that no program can
@@ -75,8 +74,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
   run as an oracle. `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
   count, where nothing can store over the element; the verifier re-checks it with `Writes`). Tests
-  mark their loops with `// in-place: <n>`. Moving here still: stack slots (`StackObjects`) and hold
-  elision (`IrLowering.Close`).
+  mark their loops with `// in-place: <n>`. `StackSlots.cs` (puts objects and closures that can't
+  outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
+  with `// stack: <n>`, and a test observing an optimization through diagnostics is
+  `// mode: optimized`. Moving here still: hold elision (`IrLowering.Close`).
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow

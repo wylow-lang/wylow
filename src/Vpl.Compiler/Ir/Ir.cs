@@ -17,6 +17,9 @@ public sealed class IrProgram(BoundProgram bound)
 
     /// <summary>Each for-each loop's element variable, and where it is declared, for <c>InPlaceElements</c>.</summary>
     public Dictionary<IrLocal, Location> LoopElements { get; } = [];
+
+    /// <summary>Where each <see cref="IrNew"/> and <see cref="IrClosure"/> is in the source, for tests.</summary>
+    public Dictionary<IrRvalue, Location> Creations { get; } = new(ReferenceEqualityComparer.Instance);
 }
 
 public sealed class IrFunction(FunctionSymbol symbol, string name)
@@ -162,6 +165,12 @@ public sealed class IrBlock : IrStatement
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Block(this);
 
     public List<IrStatement> Statements { get; } = [];
+
+    /// <summary>
+    /// The block of one statement's temporaries, which are released when it completes (spec §3.2,
+    /// When references are released). It is a block only if releasing one of them may be observed.
+    /// </summary>
+    public bool IsStatement { get; init; }
 
     public IrBlock() { }
 

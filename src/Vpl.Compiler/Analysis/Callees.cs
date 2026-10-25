@@ -7,6 +7,9 @@ namespace Vpl.Compiler.Analysis;
 /// <summary>A function some code may run, and the type arguments it runs with.</summary>
 public readonly record struct Callee(IrFunction Function, TypeMap Map);
 
+/// <summary>The lowered functions some code may run, and whether it may also run an extern or builtin one.</summary>
+public sealed record CalleeSet(IReadOnlyList<Callee> Functions, bool RunsExtern);
+
 /// <summary>
 /// The lowered program as the whole-program analyses see it: what each <see cref="IrRun"/> may
 /// run. A constructor's field initializers and base call are in its own code, so each function
@@ -59,36 +62,35 @@ public sealed class Callees
     /// <summary>Every function a release may run: the destructors, and every implementation of <c>Borrowable</c>.</summary>
     public IReadOnlyList<IrFunction> Released { get; }
 
-    /// <summary>
-    /// The functions code may run, or null if it may run a function that isn't lowered, whose code
-    /// is unknown. An extern function counts as running nothing: the containers that use
-    /// <c>Memory</c>'s unsafe functions panic rather than move or drop elements while borrowed.
-    /// </summary>
-    public IReadOnlyList<Callee>? Of(IrRun run)
+    /// <summary>The functions code may run, or null if it may run one that isn't lowered and isn't extern, whose code is unknown.</summary>
+    public CalleeSet? Of(IrRun run)
     {
         switch (run)
         {
             case IrRunMethod(var method, var direct):
             {
                 var found = new List<Callee>();
+                bool runsExtern = false;
                 foreach (var target in direct || !method.Symbol.IsDispatched ? [method.Symbol] : Targets(method.Symbol))
                 {
                     if (functions.TryGetValue(target, out var lowered))
                         found.AddRange(lowered.Select(f => new Callee(f, method.Map)));
-                    else if (!target.IsExtern && !target.IsBuiltin && !target.IsImplicit)
+                    else if (target.IsExtern || target.IsBuiltin)
+                        runsExtern = true;
+                    else if (!target.IsImplicit)
                         return null;
                 }
                 // An implicit struct constructor makes the default value.
                 if (method.Symbol is { IsImplicit: true, ContainingType.Kind: TypeKind.Struct })
                     found.AddRange(Defaults(method.Owner!));
-                return found;
+                return new(found, runsExtern);
             }
             case IrRunFunctionValue(var type):
-                return [.. LambdasOfType(type).Select(f => new Callee(f, TypeMap.Empty))];
+                return new([.. LambdasOfType(type).Select(f => new Callee(f, TypeMap.Empty))], false);
             case IrRunDefault(var type):
-                return [.. Defaults(type)];
+                return new([.. Defaults(type)], false);
             default:
-                return [.. Released.Select(f => new Callee(f, TypeMap.Empty))];
+                return new([.. Released.Select(f => new Callee(f, TypeMap.Empty))], false);
         }
     }
 

@@ -112,12 +112,14 @@ public sealed class Writes
     {
         if (run == IrRun.Release)
             return;
+        // An extern function writes nothing: the containers that use Memory's unsafe functions panic
+        // rather than move or drop elements while borrowed.
         if (callees.Of(run) is not { } found)
         {
             into.AddUnknown();
             return;
         }
-        foreach (var callee in found)
+        foreach (var callee in found.Functions)
             into.Add(summaries[callee.Function]!, callee.Map);
     }
 

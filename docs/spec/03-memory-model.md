@@ -19,7 +19,7 @@ releasing any class references it contains.
 
 ## 3.2 Objects (classes)
 
-- Allocated with `new`, on the heap (an object that can't outlive its scope is on the stack
+- Allocated with `new`, on the heap (an object that can't outlive its scope may be on the stack
   instead, which no program can observe; see [Stack allocation](#stack-allocation)).
 - **Reference counted** with an intrusive (in-object) count. Normal classes use a non-atomic count;
   `shared class` uses an atomic one ([05-concurrency.md](05-concurrency.md)).
@@ -108,96 +108,28 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
 
 ### Stack allocation
 
-An object made by `new` that provably can't outlive the scope that makes it is placed in that
-scope's stack frame instead of on the heap, saving the allocation and the free:
+The compiler may put an object made by `new` (or the closure an escaping lambda makes) in the
+stack frame of the scope making it instead of on the heap, saving the allocation and the free,
+when no reference to it can outlive that scope:
 
 ```java
-var hit = new RayHit(origin, dir);      // only used here: could be on the stack
+var hit = new RayHit(origin, dir);      // only used here: may be on the stack
 if (raycast(world, hit)) { print(hit.distance); }
-print(new Path(a, b).length());         // a temporary: could be on the stack
+print(new Path(a, b).length());         // a temporary: may be on the stack
 ```
 
-No program can tell the difference. An object is destroyed when its last reference is released,
-and for such an object that is where its local goes out of scope or is reassigned, or, for a
-temporary, the end of its statement: exactly where a stack object would be destroyed. Panics abort
-without unwinding, so there is no other way out of the scope.
+No program can tell the difference, which is what allows it. An object is destroyed when its last
+reference is released (see [When references are released](#when-references-are-released)), and the
+compiler does this only where the stack object is destroyed at exactly that point, in the same order
+relative to everything else. Panics abort without unwinding, so there is no other way out of the
+scope. The only exception is diagnostics: `Memory.cycleStats()` counts what the cycle collector
+buffered, and it never buffers an object on the stack.
 
-An object **escapes**, and stays on the heap, if a reference to it may exist after its scope ends:
-if it is stored in a field, an element, or a static; returned; captured by a closure that escapes;
-referred to by a `Weak` (whose block would point into the stack); or passed (as an argument or as
-`this`) to a function that may do any of these with it. That last needs a summary of each function:
-which of its parameters, and whether its `this`, may escape or be returned, found over the whole program as
-[loop elements](#loop-elements) are, counting every override of a dispatched method. A function
-whose summary isn't known, such as an `extern` one, lets everything it is given escape. An object
-storing a reference to itself (`this.self = this`) escapes.
-
-Copying the reference to another local doesn't make an object escape if that local is declared
-within the object's scope (including a pattern binding, or a local of a non-escaping lambda, which
-runs only during the scope); storing it in a local declared before the scope does. For a local
-that is reassigned, the object's scope ends at the local's next assignment, so a copy must be gone
-by then: one declared in a nested statement that doesn't assign the local, or after the local's
-last assignment, is; one whose scope an assignment is in makes the object stay on the heap, as does
-an assignment that may give the local the object back (`x = pass(x)`). A function that
-returns its argument (or its `this`) hands the object back as the call's value, which escapes only
-if the caller lets it: `print(pass(new Path(a, b)).length())` can keep the object on the stack.
-What a lambda returns escapes, since whatever calls the lambda may keep it. Destructors aren't
-summarized: one that keeps a reference to its object panics, on the stack as on the heap. A
-`Borrowable` object escapes if its class's `beginBorrow` or `endBorrow`, its own or inherited, may
-let its `this` escape, since the compiler calls them around every borrow.
-
-Implementation constraints:
-
-- **Each `new` gets its own slot.** Reassigning a local releases the object it held there, so the
-  slot's object is destroyed at the assignment. A local's slots are declared with the local, so a
-  slot outlives the local even when the `new` filling it comes later, and only a `new` that is a
-  statement of the local's own block can be on the stack: such a statement runs at most once each
-  time the block does, so one slot is enough, where one in a nested loop would need two objects at
-  once at the assignment (the new one is made before the old one is released). A `new` in a loop
-  body, for a local declared there, gets a slot in the body's scope, so each iteration has its own
-  object. An assignment anywhere else in the local's scope, which may or may not run, ends every
-  slot of the local but the one it fills; ending one that is empty or already ended does nothing. A
-  local that a lambda assigns, or that a `for` loop's update does, keeps its objects on the heap,
-  since no slot can be ended there.
-- **The reference count still works.** The slot holds the reference `new` starts the object with, so
-  passing the object to functions that hold and release it never brings the count to 0 early. At the
-  end of the slot's scope its destructors run, but nothing is freed. A debug build checks that the
-  count is then back to 1, which a correct analysis guarantees.
-- **The cycle collector never sees a stack object.** Buffering one would leave the collector's
-  buffer pointing into a frame that is gone. It can't be part of an unreachable cycle anyway, since
-  nothing outside its scope refers to it, so a stack object is never cyclic, whatever its class.
-- **Size is capped.** A large object, or many in a deeply recursive function, could overflow the
-  stack, so objects over a size limit stay on the heap. A
-  [performance warning](README.md#not-yet-designed) could point out a `new` that escapes only
-  through one call, or that is just over the limit.
-- **Closures are objects too.** An escaping lambda that captures something makes a closure
-  ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)), which is on the stack in the same way when it
-  provably doesn't escape: an `@Escaping` local that is only called, or a closure passed to an
-  `@Escaping` parameter that the callee never stores. A closure holds what it captures as an object
-  holds its fields, so a captured object escapes only if the closure does, or if the lambda's body,
-  whenever it is called, may let it escape or return it, which each lambda's summary records. A
-  closure on the stack is held only by locals no lambda assigns, so a call of it never needs the
-  hold that a call of a replaceable function value takes, though that hold would work on one too.
-
-This covers the object itself, not storage it holds: a local `List` could be on the stack, but its
-elements stay on the heap, since the list can grow. Avoiding that is a separate technique (inline
-storage for a few elements, or arenas).
-
-**Implementation.** `StackObjects` finds the objects, and a C++ `vpl::StackSlot<T>` holds each,
-declared just before the statement that makes it, or for a local's object, just before the local's
-declaration, so that a local's slot is destroyed right after the local. A closure's slot is a
-`vpl::StackSlot<vpl::Closure<Name, C...>>`, declared with the types of what the lambda captures:
-the closure's type doesn't depend on the lambda's code, which `vpl::closure_in` gives the function
-value where the lambda is. Anything else the emitter declares that holds the object counts as a
-copy too: the pin a reference or a view holds for its scope, and the value a `switch` statement
-matches when it isn't a local, held for the statement. A temporary's slot is ended after its
-statement; in a `return`, it is destroyed first among the function's locals, as the temporary
-would have been released. Temporaries are looked for only in declarations, assignments,
-expression statements, and returns that contain no `try`. The
-slot clears the object's cyclic flag after its constructor runs, and takes it out of the buffer if
-the constructor's releases put it there. The size limit is 512 bytes, checked by C++, which knows
-the size: a slot for a larger object puts it on the heap but otherwise behaves the same.
-
-> Implemented so far: everything above except the performance warnings.
+Which objects qualify is the compiler's business and may change between versions; an object
+qualifies only if it doesn't **escape**: stored in a field, an element, or a static, returned,
+captured by a closure that escapes, referred to by a `Weak`, or given to a function that may do
+any of these. How the current compiler decides is in
+[docs/design/stack-objects.md](../design/stack-objects.md).
 
 ### Weak references: `Weak<T>`
 

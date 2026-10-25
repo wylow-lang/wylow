@@ -502,8 +502,8 @@ captures nothing. Calling a function value is one indirect call. Copying it copi
 nullable function needs no flag: its null is a null code pointer. The cycle collector
 visits the class references a closure holds. A call of a function value stored where the call
 could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
-closure until the call returns. A closure that provably can't outlive the scope making it is on the
-stack, as a class object can be ([03-memory-model.md](03-memory-model.md#stack-allocation)).
+closure until the call returns. A closure that provably can't outlive the scope making it may be
+on the stack, as a class object can be ([03-memory-model.md](03-memory-model.md#stack-allocation)).
 
 A nullable non-escaping parameter is a `vpl::Optional` of a `vpl::FunctionRef`, made where the call
 is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
