@@ -117,6 +117,8 @@ public sealed partial class IrVerifier
             IrCall call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct => verifier.Returned(call),
             IrInvoke invoke when invoke.Signature.Symbol.ReturnRefKind != RefKind.None || invoke.Type.IsRefStruct => new([], Resolved.Unknown, false, false),
             IrConstruct { Type.IsRefStruct: true } construction => Made(construction.Arguments.OfType<IrRead>(), verifier),
+            IrLambda lambda => verifier.Captured(lambda.Function),
+            IrChoose choice => verifier.Chosen(choice),
             _ => null,
         };
 
@@ -136,6 +138,25 @@ public sealed partial class IrVerifier
             var target = parts.Count == 1 ? verifier.dependencies[parts[0]].Target! with { Within = true } : Resolved.Unknown;
             return new([.. parts.Select(p => (p, true))], target, false, false);
         }
+    }
+
+    /// <summary>
+    /// A non-escaping lambda's body runs when it is called, so it needs what it refers into from
+    /// around it to still be valid wherever the lambda is used.
+    /// </summary>
+    Dependency? Captured(IrFunction lambda)
+    {
+        var roots = IrWalk.Locals(lambda.Body).Distinct().Where(l => dependencies.ContainsKey(l) && Visible(l)).ToList();
+        return roots.Count == 0 ? null : new([.. roots.Select(r => (r, true))], null, false, false);
+    }
+
+    /// <summary>A choice needs what each lambda it may call needs, rather than the lambdas' temporaries, which it takes over.</summary>
+    Dependency? Chosen(IrChoose choice)
+    {
+        var roots = choice.Options.OfType<IrRead>()
+            .Select(o => o.Place is { IsDeref: false, Projections.Count: 0, Local: var local } && dependencies.TryGetValue(local, out var dependency) ? dependency : null)
+            .OfType<Dependency>().SelectMany(d => d.Roots).Distinct().ToList();
+        return roots.Count == 0 ? null : new(roots, null, false, false);
     }
 
     Dependency Into(IrPlace place, bool alias) => new([(place.Local, place.IsDeref)], Resolve(place, within: false), alias, NeedsBorrow: false);
@@ -216,7 +237,7 @@ public sealed partial class IrVerifier
     /// </summary>
     static bool CodeWrites(Resolved place) => place.Kind switch
     {
-        StorageKind.Frame => place.Local!.IsAssignedByLambda,
+        StorageKind.Frame => place.Local!.IsChangedByLambda,
         StorageKind.Object => place.Field is null || place.Field.IsMutable,
         _ => true,
     };
@@ -252,7 +273,7 @@ public sealed partial class IrVerifier
             DependentsOf(write.Place.Local, state, $"'{N(write.Place.Local)}' may be reassigned by {what}", throughOnly: true);
         if (effects.RunsCode)
         {
-            foreach (var local in scopes.SelectMany(s => s).Where(l => l.IsAssignedByLambda).ToList())
+            foreach (var local in scopes.SelectMany(s => s).Where(l => l.IsChangedByLambda).ToList())
                 DependentsOf(local, state, $"a lambda may reassign '{N(local)}' during {what}", throughOnly: true);
         }
     }
@@ -543,8 +564,15 @@ public sealed partial class IrVerifier
             Error(call.Loc is null ? $"'{method.Symbol.Name}' is given its caller's location, which the call doesn't pass" : $"passes a location to '{method.Symbol.Name}', which takes none");
     }
 
-    /// <summary>A value that holds what a reference or view into it points to: an object, or a string, whose copies share its bytes.</summary>
-    static bool IsHolder(VplType type) => type.NonNull.IsReference || type.IsTypeParameter || type == VplType.String;
+    /// <summary>
+    /// A value that holds what a reference or view into it points to: an object, or a string, whose
+    /// copies share its bytes. A closure is held while it runs, as an object receiver is.
+    /// </summary>
+    static bool IsHolder(VplType type) => type.NonNull.IsReference || type.IsTypeParameter || type == VplType.String || type.NonNull is { IsFunction: true, IsEscaping: true };
+
+    /// <summary>A function value a non-escaping function parameter takes, which the call converts to the parameter's type.</summary>
+    static bool PassesFunction(VplType value, VplType parameter) =>
+        parameter.NonNull is { IsFunction: true, IsEscaping: false } && value.NonNull.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
 
     void Arguments(MethodReference method, IReadOnlyList<IrArgument> arguments, State state)
     {
@@ -563,7 +591,7 @@ public sealed partial class IrVerifier
             {
                 IrAddrArgument address => type.IsNullableReference && address.Place.Type == type.ReferencedType && (address.Kind == type.ReferenceKind || type.ReferenceKind == RefKind.In),
                 IrRefArgument reference => !type.IsNullableReference && reference.Place.Type == type && (reference.Kind == kind || kind == RefKind.In),
-                IrOperand operand => operand.Type == type || (type.IsNullableReference && operand.Type.ReferencedType == type.ReferencedType),
+                IrOperand operand => operand.Type == type || (type.IsNullableReference && operand.Type.ReferencedType == type.ReferencedType) || PassesFunction(operand.Type, type),
                 IrFieldDefault field => parameters[i].Field == field.Field,
                 _ => false,
             };
@@ -602,6 +630,15 @@ public sealed partial class IrVerifier
             };
             if (place is not null && WouldBreak(place, alias, effects, state) is { } reason)
                 Error($"'{IrPrinter.Print(root, place)}' is used during {Describe(value)}, but {reason}");
+            // A lambda it is given runs during it, using what the lambda refers into.
+            if (argument is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Type.NonNull: { IsFunction: true, IsEscaping: false } } lambda } }
+                && dependencies.ContainsKey(lambda) && !state.Invalid.ContainsKey(lambda))
+            {
+                var trial = state.Clone();
+                Apply(trial, effects, "it");
+                if (trial.Invalid.TryGetValue(lambda, out var broken))
+                    Error($"'{N(lambda)}' runs during {Describe(value)}, but {broken}");
+            }
         }
     }
 
@@ -613,7 +650,7 @@ public sealed partial class IrVerifier
         var local = place.Local;
         if (place.IsDeref && effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == local))
             return $"it may reassign '{N(local)}'";
-        if (place.IsDeref && effects.RunsCode && local.IsAssignedByLambda)
+        if (place.IsDeref && effects.RunsCode && local.IsChangedByLambda)
             return $"a lambda may reassign '{N(local)}'";
         var trial = state.Clone();
         Apply(trial, effects, "it");

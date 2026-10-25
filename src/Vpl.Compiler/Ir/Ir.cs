@@ -83,6 +83,9 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     public bool IsParameter { get; init; }
     public bool IsThis { get; init; }
 
+    /// <summary>An escaping lambda's copy of a local, or of <c>this</c> if it has no <see cref="Symbol"/>.</summary>
+    public bool IsCapture { get; init; }
+
     /// <summary>The source local it is, if any.</summary>
     public LocalSymbol? Symbol { get; init; }
 
@@ -93,8 +96,8 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     /// </summary>
     public bool IsUnwrittenElement { get; init; }
 
-    /// <summary>A lambda assigns it, so any code that runs may change it.</summary>
-    public bool IsAssignedByLambda => Symbol?.IsAssignedByLambda == true;
+    /// <summary>A lambda assigns it, or may change it in place, so any code that runs may change it.</summary>
+    public bool IsChangedByLambda => Symbol is { } local && (local.IsAssignedByLambda || local.IsChangedInPlaceByLambda);
 
     public override string ToString() => Name;
 }

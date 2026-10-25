@@ -58,7 +58,8 @@ public sealed partial class IrLowering
             case PlaceBase.Object:
             {
                 var crossing = path.Steps[0];
-                bool borrows = crossing is BoundCall && MayBeBorrowable(path.Root.Type);
+                // A value read right away is read before any code runs that could move it.
+                bool borrows = crossing is BoundCall && MayBeBorrowable(path.Root.Type) && use != Use.Read;
                 var holder = ObjectLocal(path.Root, use, borrows);
                 place = crossing switch
                 {
@@ -157,7 +158,7 @@ public sealed partial class IrLowering
             case BoundLocalAccess { Local: var symbol }:
                 var local = locals[symbol];
                 // Only the function itself, or a lambda assigning it, can replace what a local holds.
-                return use == Use.Read && !borrows && !local.IsAssignedByLambda ? local : Hold(new IrPlace(local), borrows);
+                return use == Use.Read && !borrows && !local.IsChangedByLambda ? local : Hold(new IrPlace(local), borrows);
             case BoundLiteral:
                 return Let(Rvalue(root, Use.Read));
             case var place when IsPlace(place):
@@ -267,11 +268,12 @@ public sealed partial class IrLowering
             let.Local.Kind = IrLocalKind.Borrowed;
             let.Local.Type = hold.Place.Type;
             aliases[let.Local] = hold.Place;
+            statements.RemoveAll(s => s is IrEnd end && end.Local == let.Local);
         }
     }
 
     static bool IsDereferenced(List<IrStatement> statements, int from, IrLocal local) =>
-        statements.Skip(from + 1).SelectMany(IrWalk.Descendants).SelectMany(IrWalk.Operands).SelectMany(IrWalk.Places)
+        statements.Skip(from + 1).SelectMany(s => IrWalk.Descendants(s)).SelectMany(IrWalk.Operands).SelectMany(IrWalk.Places)
             .Any(p => p.Local == local && p.IsDeref);
 
     /// <summary>
@@ -289,7 +291,10 @@ public sealed partial class IrLowering
         {
             foreach (var let in IrWalk.Descendants(statements[i]).OfType<IrLet>())
             {
-                if (Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(dependents.Contains))
+                // A lambda's body runs where it is called, which is where it uses what it refers to.
+                if (let.Value is IrLambda lambda && IrWalk.Locals(lambda.Function.Body).Any(dependents.Contains))
+                    dependents.Add(let.Local);
+                else if (Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(dependents.Contains))
                 {
                     dependents.Add(let.Local);
                     // Inside another statement, it may be made before more of that statement runs.
@@ -318,7 +323,7 @@ public sealed partial class IrLowering
 
     /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>
     static bool Refers(IrLocal local) =>
-        local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || local.Type.IsPointer;
+        local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || local.Type.IsPointer || local.Type.NonNull is { IsFunction: true, IsEscaping: false };
 
     /// <summary>Whether the statement uses one of the locals while it runs code, rather than only reading a value out of it first.</summary>
     static bool InUse(IrStatement statement, HashSet<IrLocal> locals)

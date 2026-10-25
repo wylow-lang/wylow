@@ -24,9 +24,11 @@ public sealed partial class IrLowering
     readonly bool elide;
     readonly IReadOnlyList<TypeSymbol> borrowableClasses;
 
-    readonly FunctionSymbol symbol;
-    readonly IrFunction function;
-    readonly IrLocal? self;
+    // A lambda's body is lowered by the lowering of the function making it, which these then describe.
+    FunctionSymbol symbol;
+    IrFunction function;
+    IrLocal? self;
+    readonly List<IrFunction> lambdas = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly Dictionary<BoundExpression, IrLocal> slots = new(ReferenceEqualityComparer.Instance);
     readonly HashSet<BoundExpression> filled = new(ReferenceEqualityComparer.Instance);
@@ -59,7 +61,9 @@ public sealed partial class IrLowering
         {
             try
             {
-                ir.Functions.Add(new IrLowering(program, analyses, elide, borrowableClasses, function.Symbol).Function(function));
+                var lowering = new IrLowering(program, analyses, elide, borrowableClasses, function.Symbol);
+                ir.Functions.Add(lowering.Function(function));
+                ir.Functions.AddRange(lowering.lambdas);
             }
             catch (NotLoweredException e)
             {
@@ -78,10 +82,14 @@ public sealed partial class IrLowering
             throw new NotLoweredException("a constructor");
         if (symbol.PassesLocation)
             throw new NotLoweredException("an @CallerLocation function");
-        if (BoundTree.AllExpressions(bound.Body).Any(e => e is BoundLambda))
-            throw new NotLoweredException("a lambda");
+        FunctionBody(bound.Body);
+        return function;
+    }
 
-        foreach (var statement in bound.Body.Statements)
+    /// <summary>Lowers a function's or lambda's body into <see cref="function"/>'s.</summary>
+    void FunctionBody(BoundBlock body)
+    {
+        foreach (var statement in body.Statements)
         {
             if (!reachable)
                 break;
@@ -89,14 +97,44 @@ public sealed partial class IrLowering
         }
         if (reachable && symbol.ReturnType != VplType.Void)
         {
-            var location = bound.Body.Location;
+            var location = body.Location;
             Unreachable(location with { Span = new TextSpan(location.Span.End - 1, 1) });
         }
         Close(function.Body);
-        return function;
     }
 
-    void Add(IrStatement statement) => block.Statements.Add(statement);
+    /// <summary>
+    /// The pins of a call's receiver and of the objects holding its <c>ref</c> and <c>in</c>
+    /// arguments, which last for the call (spec 03-memory-model.md, Pinning class objects): they end
+    /// right after the statement the call is in.
+    /// </summary>
+    readonly Dictionary<IrRvalue, List<IrLocal>> pinnedFor = new(ReferenceEqualityComparer.Instance);
+
+    void Add(IrStatement statement)
+    {
+        block.Statements.Add(statement);
+        var value = statement switch
+        {
+            IrLet let => let.Value,
+            IrDo run => run.Value,
+            _ => null,
+        };
+        if (value is not null && pinnedFor.Remove(value, out var pins))
+        {
+            foreach (var pin in pins)
+                block.Statements.Add(new IrEnd(pin));
+        }
+    }
+
+    /// <summary>The pins lowered into the current block since <paramref name="before"/> was taken, and not for a call inside.</summary>
+    List<IrLocal> PinsSince(HashSet<IrStatement> before)
+    {
+        var owned = pinnedFor.Values.SelectMany(p => p).Concat(block.Statements.OfType<IrEnd>().Select(e => e.Local)).ToHashSet();
+        return [.. block.Statements.Where(s => !before.Contains(s)).OfType<IrLet>()
+            .Where(l => l.Value is IrHold { Borrows: false } && !owned.Contains(l.Local)).Select(l => l.Local)];
+    }
+
+    HashSet<IrStatement> Snapshot() => new(block.Statements, ReferenceEqualityComparer.Instance);
 
     IrLocal Temp(VplType type, IrLocalKind kind = IrLocalKind.Value, RefKind refKind = RefKind.None) =>
         new("t", type, kind) { IsTemporary = true, RefKind = refKind };
@@ -209,7 +247,24 @@ public sealed partial class IrLowering
             DeclareSlots(statement, temporaries: true);
             lower();
         });
+        DropTrailingEnds(scope);
         Splice(scope);
+    }
+
+    /// <summary>
+    /// A pin ended last in a statement's block is released there by the block's end anyway, as long
+    /// as nothing declared after it is released then too, which ending it first would release later.
+    /// </summary>
+    static void DropTrailingEnds(IrBlock scope)
+    {
+        var statements = scope.Statements;
+        while (statements.Count > 0 && statements[^1] is IrEnd { Local.Kind: IrLocalKind.Hold } end)
+        {
+            int at = statements.FindIndex(s => s is IrLet let && let.Local == end.Local);
+            if (statements.Skip(at + 1).Any(s => DeclaresOwner(s, null)))
+                return;
+            statements.RemoveAt(statements.Count - 1);
+        }
     }
 
     /// <summary>

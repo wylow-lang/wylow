@@ -18,6 +18,10 @@ class Box {
     }
 }
 
+class Crate {
+    mut Box box = new Box(2);
+}
+
 class Enemy {
     int hp;
 
@@ -48,6 +52,15 @@ void main() {
     // output: box freed
     // output: 6
 
+    // So is one in a field the lambda replaces.
+    Crate crate = new Crate();
+    print(crate.box.add(run(() -> {
+        crate.box = new Box(200);
+        return 3;
+    })));
+    // output: box freed
+    // output: 5
+
     // Operands are evaluated left to right, though the lambda changes `x`.
     mut int x = 1;
     print(add(x, run(() -> {
@@ -76,4 +89,5 @@ void main() {
 }
 // output: enemy freed
 // output: enemy freed
+// output: box freed
 // output: box freed

@@ -406,6 +406,19 @@ inline T& pin(T& value) {
     return value;
 }
 
+// Ends a string's pin before its scope does.
+inline bool unhold(String& holder) {
+    holder = String();
+    return false;
+}
+
+// A generic value's pin of a struct is the struct in place, which there is nothing to let go of.
+template <class T>
+    requires(!is_ref<std::remove_cv_t<T>>::value && !is_function_value<std::remove_cv_t<T>>::value && !std::is_same_v<std::remove_cv_t<T>, String>)
+inline bool unhold(T&) {
+    return false;
+}
+
 // In generic code a value may be a struct, which is borrowed through whatever holds it.
 template <class T>
     requires(!is_ref<std::remove_cv_t<T>>::value)

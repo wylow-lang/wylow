@@ -230,11 +230,13 @@ public sealed partial class IrLowering
     /// A switch expression's value, stored by each case that completes. A temporary matched value
     /// lives until the value is produced, and each case's temporaries until the case completes.
     /// </summary>
-    IrRvalue SwitchExpression(BoundSwitchExpression switchExpression)
+    IrRvalue SwitchExpression(BoundSwitchExpression switchExpression) =>
+        SwitchExpression(switchExpression, switchExpression.Type, value => Settle(OperandOf(Rvalue(value, Use.Read))));
+
+    /// <summary>A switch expression's cases, each storing what <paramref name="caseValue"/> makes of its value, as a <paramref name="type"/>.</summary>
+    IrRvalue SwitchExpression(BoundSwitchExpression switchExpression, VplType type, Func<BoundExpression, IrOperand> caseValue)
     {
-        if (switchExpression.Type.IsFunction)
-            throw new NotLoweredException("a choice of functions");
-        var result = Temp(switchExpression.Type);
+        var result = Temp(type);
         Add(new IrDeclare(result));
         var scope = new IrBlock();
         Into(scope, () =>
@@ -250,7 +252,7 @@ public sealed partial class IrLowering
                 }
                 else
                 {
-                    Add(new IrStore(new IrPlace(result), Settle(OperandOf(Rvalue(value, Use.Read)))));
+                    Add(new IrStore(new IrPlace(result), caseValue(value)));
                 }
             });
         });

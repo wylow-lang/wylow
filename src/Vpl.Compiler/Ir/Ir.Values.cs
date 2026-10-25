@@ -292,6 +292,12 @@ public sealed class IrClosure(IrFunction function, IReadOnlyList<IrOperand> capt
     public IrFunction Function { get; } = function;
     public List<IrOperand> Captures { get; } = [.. captures];
     public IrLocal? Slot { get; set; }
+
+    /// <summary>The name diagnostics give the closure's object, as a class's name for its objects.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Whether the closure may be part of a cycle, so that the cycle collector visits it.</summary>
+    public bool IsCyclic { get; init; }
     public override VplType Type { get; } = type;
 }
 

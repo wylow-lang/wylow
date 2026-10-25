@@ -72,6 +72,13 @@ public sealed partial class IrLowering
 
     void If(BoundIf conditional)
     {
+        // Flow analysis counts what a constant condition's branch assigns as assigned after it.
+        if (conditional.Condition is BoundLiteral { Value: bool constant })
+        {
+            if ((constant ? conditional.Then : conditional.Else) is { } taken)
+                Add(Body(taken));
+            return;
+        }
         var condition = Condition(conditional.Condition);
         var then = Body(conditional.Then);
         bool afterThen = reachable;
@@ -250,8 +257,6 @@ public sealed partial class IrLowering
 
     IrRvalue Conditional(BoundConditional conditional)
     {
-        if (conditional.Type.IsFunction)
-            throw new NotLoweredException("a choice of functions");
         return Chosen(conditional.Type, () => Settle(Value(conditional.Condition)),
             () => OperandOf(Rvalue(conditional.WhenTrue, Use.Read)),
             () => OperandOf(Rvalue(conditional.WhenFalse, Use.Read)));
@@ -260,8 +265,6 @@ public sealed partial class IrLowering
     /// <summary><c>left ?? right</c>: the left value, if it isn't null, is copied out of a temporary.</summary>
     IrRvalue Coalesce(BoundCoalesce coalesce)
     {
-        if (coalesce.Type.IsFunction)
-            throw new NotLoweredException("a choice of functions");
         IrLocal left = null!;
         var type = coalesce.Left.Type;
         IrOperand Test()

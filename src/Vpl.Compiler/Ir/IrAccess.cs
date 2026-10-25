@@ -65,7 +65,7 @@ public readonly record struct IrAccess(IrStorage Storage, IrLocal? Local = null,
     /// </summary>
     public bool WrittenByCode => Storage switch
     {
-        IrStorage.Frame => Local!.IsAssignedByLambda,
+        IrStorage.Frame => Local!.IsChangedByLambda,
         IrStorage.Field => Field is null || Field.IsMutable,
         _ => true,
     };
@@ -166,8 +166,8 @@ public static class IrWalk
         _ => [],
     };
 
-    /// <summary>A statement and every statement inside it, in order, including in lambda bodies.</summary>
-    public static IEnumerable<IrStatement> Descendants(IrStatement statement)
+    /// <summary>A statement and every statement inside it, in order, including in lambda bodies unless not <paramref name="intoLambdas"/>.</summary>
+    public static IEnumerable<IrStatement> Descendants(IrStatement statement, bool intoLambdas = true)
     {
         yield return statement;
         IEnumerable<IrStatement> inner = statement switch
@@ -175,13 +175,13 @@ public static class IrWalk
             IrBlock block => block.Statements,
             IrIf conditional => conditional.Else is null ? [conditional.Then] : [conditional.Then, conditional.Else],
             IrLoop loop => loop.Continue is null ? [loop.Body] : [loop.Body, loop.Continue],
-            IrLet { Value: IrLambda lambda } => [lambda.Function.Body],
-            IrLet { Value: IrClosure closure } => [closure.Function.Body],
+            IrLet { Value: IrLambda lambda } when intoLambdas => [lambda.Function.Body],
+            IrLet { Value: IrClosure closure } when intoLambdas => [closure.Function.Body],
             _ => [],
         };
         foreach (var child in inner)
         {
-            foreach (var descendant in Descendants(child))
+            foreach (var descendant in Descendants(child, intoLambdas))
                 yield return descendant;
         }
     }
@@ -213,11 +213,14 @@ public static class IrWalk
     public static IEnumerable<IrLocal> PlaceLocals(IrPlace place) =>
         [place.Local, .. place.Projections.OfType<IrElement>().Select(e => e.Index).OfType<IrRead>().SelectMany(i => PlaceLocals(i.Place))];
 
-    /// <summary>What a statement and everything inside it may do, including the releases at the ends of the blocks inside it.</summary>
+    /// <summary>
+    /// What a statement and everything inside it may do, including the releases at the ends of the
+    /// blocks inside it. A lambda's body is what the calls that may run it do.
+    /// </summary>
     public static IrFootprint Footprint(IrStatement statement)
     {
         var footprint = new IrFootprint();
-        foreach (var inner in Descendants(statement))
+        foreach (var inner in Descendants(statement, intoLambdas: false))
         {
             switch (inner)
             {

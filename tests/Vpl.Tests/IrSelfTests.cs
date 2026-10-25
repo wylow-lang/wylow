@@ -32,6 +32,7 @@ static class IrSelfTests
         void use(int value) { }
         void take(Obj o) { }
         void two(ref Vec? a, in int b) { }
+        void call(() -> void g) { }
 
         void main() { }
         """;
@@ -146,6 +147,11 @@ static class IrSelfTests
         }
         yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", unwritten: true));
         yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", unwritten: false), Error: "the place it borrows may be written");
+
+        // A lambda's body runs during the call it is passed to, so what it refers into must last that long.
+        yield return new("lambda_reference_across_call", () => LambdaReferenceAcrossCall(b, "lambda_reference_across_call", held: true));
+        yield return new("lambda_reference_unheld_across_call", () => LambdaReferenceAcrossCall(b, "lambda_reference_unheld_across_call", held: false),
+            Error: "runs during the call of 'call'");
 
         // Nothing runs between taking the reference and storing through it, so no borrow is needed.
         yield return new("unborrowed_store_running_nothing", () =>
@@ -412,6 +418,28 @@ static class IrSelfTests
 
     static IrUse Use(IrOperand operand) => new(operand);
     static IrRead Move(IrLocal local) => IrRead.Move(new IrPlace(local));
+
+    /// <summary>A lambda storing through a reference into a <c>mut</c> field's object, which the call it is passed to may replace.</summary>
+    static IrFunction LambdaReferenceAcrossCall(Builder b, string name, bool held)
+    {
+        var a = b.Parameter("a", b.Type("Holder"));
+        var obj = b.Type("Obj");
+        var h = b.Temp(obj, held ? IrLocalKind.Hold : IrLocalKind.Borrowed);
+        var r = b.Local("r", VplType.Int, IrLocalKind.Reference, RefKind.Ref);
+        var call = b.Function("call");
+        var lambda = new IrFunction(new FunctionSymbol("lambda", [], VplType.Void) { IsLambda = true }, $"{name}.lambda")
+        {
+            Body = new IrBlock([new IrStore(IrPlace.Deref(r), IrConstant.Int(1))]),
+        };
+        var l = b.Temp(call.ParameterType(0));
+        var place = IrPlace.Deref(a).Field(b.Field("Holder", "b"));
+        var function = b.Function(name, [a],
+            new IrLet(h, held ? new IrHold(place, borrows: false) : new IrUse(IrRead.Borrow(place))),
+            new IrLet(r, new IrRef(RefKind.Ref, IrPlace.Deref(h).Field(b.Field("Obj", "x")))),
+            new IrLet(l, new IrLambda(lambda, l.Type)),
+            new IrDo(new IrCall(call, null, [IrRead.Move(new IrPlace(l))])));
+        return function;
+    }
 
     sealed class Builder(BoundProgram program, SourceText source)
     {

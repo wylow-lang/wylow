@@ -32,6 +32,13 @@ public sealed partial class CppEmitter
         /// </summary>
         public Dictionary<IrLocal, (IrDeclare Declare, IrStatement Definition)> Initialized { get; } = [];
 
+        /// <summary>
+        /// A non-escaping local declared without a value, then stored last by the block after it,
+        /// whose temporaries are released after it is initialized. Its C++ type can't be declared
+        /// first, so it is initialized by an immediately invoked lambda running the block.
+        /// </summary>
+        public Dictionary<IrLocal, (IrBlock Block, IrStore Store)> Evaluated { get; } = [];
+
         public Dictionary<IrLocal, int> Uses { get; } = [];
 
         /// <summary>What was decided, in order, so that a rejected candidate's decisions can be undone.</summary>
@@ -80,6 +87,18 @@ public sealed partial class CppEmitter
         {
             foreach (var inner in InnerBlocks(statement))
                 PlanBlock(inner);
+            if (statement is IrLet { Value: IrLambda or IrClosure } made)
+                PlanBlock(made.Value is IrLambda lambda ? lambda.Function.Body : ((IrClosure)made.Value).Function.Body);
+        }
+        for (int j = 0; j + 1 < statements.Count; j++)
+        {
+            if (statements[j] is IrDeclare { IsBinding: false, Local: { Kind: IrLocalKind.Value } local } && IsNonEscaping(local.Type)
+                && statements[j + 1] is IrBlock { Statements: [.., IrStore stored] } definition && IsWholeStore(stored, local))
+            {
+                plan.Evaluated[local] = (definition, stored);
+                plan.Consumed.Add(definition);
+                plan.Consumed.Add(stored);
+            }
         }
         for (int j = 0; j < statements.Count; j++)
         {
@@ -248,7 +267,7 @@ public sealed partial class CppEmitter
 
     bool Defines(IrStatement statement, IrLocal local) => statement switch
     {
-        IrLet let => let.Local == local && let.Value is not (IrLambda or IrClosure or IrHold),
+        IrLet let => let.Local == local && let.Value is not IrHold,
         IrBlock or IrIf => plan.Initialized.TryGetValue(local, out var initialized) && initialized.Definition == statement,
         _ => false,
     };

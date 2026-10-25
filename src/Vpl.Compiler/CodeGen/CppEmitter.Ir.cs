@@ -1,3 +1,4 @@
+using System.Text;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
@@ -13,10 +14,19 @@ public sealed partial class CppEmitter
 {
     readonly Dictionary<IrLocal, string> irNames = [];
 
+    /// <summary>The closure each slot holds, whose type the slot is declared with before it.</summary>
+    readonly Dictionary<IrLocal, IrClosure> closureSlots = [];
+
     void EmitIrBody(IrFunction function)
     {
         irNames.Clear();
         continueLabels.Clear();
+        closureSlots.Clear();
+        foreach (var closure in IrWalk.Descendants(function.Body).OfType<IrLet>().Select(l => l.Value).OfType<IrClosure>())
+        {
+            if (closure.Slot is { } slot)
+                closureSlots[slot] = closure;
+        }
         PlanNesting(function, nest);
         IrStatements(function.Body);
     }
@@ -53,16 +63,28 @@ public sealed partial class CppEmitter
                 }
                 break;
             case IrLet let:
-                Line(Declaration(let.Local, RvalueText(let.Value)));
+                Line(Declaration(let.Local, RvalueText(let.Value), let.Value));
                 break;
             case IrDeclare { Local.Kind: IrLocalKind.Slot } declare:
-                Line($"vpl::StackSlot<{ObjectType(declare.Local.Type)}> {Name(declare.Local)};");
+                var held = closureSlots.TryGetValue(declare.Local, out var closure) ? ClosureObjectType(closure) : ObjectType(declare.Local.Type);
+                Line($"vpl::StackSlot<{held}> {Name(declare.Local)};");
+                break;
+            case IrDeclare declare when plan.Evaluated.TryGetValue(declare.Local, out var evaluated):
+                Line($"auto {Name(declare.Local)} = [&] {{");
+                indent++;
+                IrStatements(evaluated.Block);
+                Line($"return {OperandText(evaluated.Store.Value)};");
+                indent--;
+                Line("}();");
                 break;
             case IrDeclare declare:
                 Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{{}};");
                 break;
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
                 Line($"{Name(end.Local)}.end();");
+                break;
+            case IrEnd { Local.Kind: IrLocalKind.Hold } end:
+                Line($"vpl::unhold({Name(end.Local)});");
                 break;
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
@@ -246,17 +268,29 @@ public sealed partial class CppEmitter
     {
         if (irNames.TryGetValue(local, out var name))
             return name;
-        name = local.Symbol is { } symbol ? LocalName(symbol) : NewTemp();
+        // A closure's copies get new names, so they don't shadow the variables they copy.
+        name = local switch
+        {
+            { IsCapture: true, Symbol: { } captured } => $"{LocalName(captured)}_{NewTemp()}",
+            { IsCapture: true } => $"vpl_this_{NewTemp()}",
+            { Symbol: { } symbol } => LocalName(symbol),
+            _ => NewTemp(),
+        };
         return irNames[local] = name;
     }
 
-    string Declaration(IrLocal local, string value)
+    string Declaration(IrLocal local, string value, IrRvalue? rvalue = null)
     {
         var name = Name(local);
         bool mayBeUnused = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || plan.Uses.GetValueOrDefault(local) == 0;
         var unused = local.Symbol is not null && mayBeUnused ? "[[maybe_unused]] " : "";
         return local.Kind switch
         {
+            // A non-escaping local owns the lambda or choice it is made with, or copies a stored function. Another
+            // non-escaping local or parameter can't be reassigned and outlives it, so it is referred to instead.
+            IrLocalKind.Value when IsNonEscaping(local.Type) => rvalue is IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: false } aliased } } } && IsNonEscaping(aliased.Type)
+                ? $"{unused}const auto& {name} = {value};"
+                : $"{unused}auto {name} = {value};",
             IrLocalKind.Value => $"{unused}{CppType(local.Type)} {name} = {value};",
             IrLocalKind.Reference when local.Type.IsNullableReference => $"{unused}{CppType(local.Type)} {name} = {value};",
             IrLocalKind.Reference => $"{unused}{(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {name} = {value};",
@@ -382,6 +416,10 @@ public sealed partial class CppEmitter
         IrUnary unary => UnaryText(unary.Operator, unary.Type, OperandText(unary.Operand), unary.Loc is { } loc ? LocText(loc) : ""),
         IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), () => LocText(binary.Loc!)),
         IrCall call => CallText(call),
+        IrInvoke invoke => $"{OperandText(invoke.Callee)}({string.Join(", ", invoke.Arguments.Select((a, i) => OptionalFunctionArgument(invoke.Signature.ParameterType(i), ArgumentText(a))))})",
+        IrLambda lambda => LambdaText(lambda.Function, "[&]", []),
+        IrClosure closure => ClosureText(closure),
+        IrChoose choice => $"vpl::choose({string.Join(", ", [OperandText(choice.Index), .. choice.Options.Select(OptionText)])})",
         IrNew { Slot: null } creation => $"vpl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))}))",
         IrNew { Slot: { } slot } creation => $"{Name(slot)}.make({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))})",
         IrConstruct construction => ConstructText(construction),
@@ -393,6 +431,8 @@ public sealed partial class CppEmitter
         IrAddr address => $"vpl::address_of({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",
         IrTest test => TestText(test),
+        // The function value is converted where it is used, which a template parameter may take as it is.
+        IrConvert { Type.IsFunction: true, Type.IsEscaping: false } conversion => OperandText(conversion.Operand),
         IrConvert conversion when IsDowncast(conversion) => $"vpl::downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
         IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), () => LocText(conversion.Loc!)),
         IrHold hold => $"vpl::{(hold.Borrows ? "borrow" : "pin")}({PlaceText(hold.Place)})",
@@ -477,4 +517,40 @@ public sealed partial class CppEmitter
             return $"{target}{function.BuiltinCppName}({arguments})";
         return $"{target}{memberName}({arguments})";
     }
+
+    /// <summary>A lambda's body as a C++ lambda's, printed at the indentation of the statement it is in.</summary>
+    string LambdaText(IrFunction lambda, string introducer, IEnumerable<string> leading)
+    {
+        var parameters = leading.Concat(lambda.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {Name(p)}"));
+        var (enclosingOutput, enclosingIndent) = (output, indent);
+        output = new StringBuilder();
+        indent = enclosingIndent + 1;
+        IrStatements(lambda.Body);
+        var body = output.ToString();
+        (output, indent) = (enclosingOutput, enclosingIndent);
+        return $"{introducer}({string.Join(", ", parameters)}) -> {CppType(lambda.Symbol.ReturnType)} {{\n{body}{new string(' ', indent * 4)}}}";
+    }
+
+    /// <summary>
+    /// A <c>vpl::Function</c> made by <c>vpl::closure</c>, which copies the captured values into a
+    /// closure object and passes them to the body ahead of the arguments, or by
+    /// <c>vpl::closure_in</c>, which makes the closure in its stack slot. The body is a C++ lambda
+    /// capturing nothing, so it can't use anything it wasn't given.
+    /// </summary>
+    string ClosureText(IrClosure closure)
+    {
+        var function = LambdaText(closure.Function, "[]", closure.Function.Captures.Select(c => $"const {CppType(c.Type)}& {Name(c)}"));
+        var values = closure.Captures.Select(OperandText);
+        var signature = FunctionSignature(closure.Type);
+        if (closure.Slot is { } slot)
+            return $"vpl::closure_in<{signature}>({string.Join(", ", [Name(slot), function, .. values])})";
+        return $"vpl::closure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [closure.IsCyclic ? "true" : "false", function, .. values])})";
+    }
+
+    string ClosureObjectType(IrClosure closure) =>
+        $"vpl::Closure<{string.Join(", ", [CppStringLiteral(closure.Name), .. closure.Captures.Select(c => CppType(c.Type))])}>";
+
+    /// <summary>A choice's option: a non-escaping local or parameter it refers to, which outlives it, or a value it holds.</summary>
+    string OptionText(IrOperand option) =>
+        option is IrRead { Ownership: IrOwnership.Borrow } ? $"vpl::borrowed({OperandText(option)})" : OperandText(option);
 }

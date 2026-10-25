@@ -46,6 +46,21 @@ void main() {
     })));                                           // output: 1
     print(v.x);                                     // output: 7
 
+    // A lambda writes an element of a fixed array, and a field in a nullable value, in place.
+    mut int[2] pair = [1, 2];
+    print(add(pair[1], run(() -> {
+        pair[1] = 20;
+        return 0;
+    })));                                           // output: 2
+    mut Vec? maybe = Vec(3);
+    print(add(maybe!.x, run(() -> {
+        if (maybe != null) {
+            maybe.x = 30;
+        }
+        return 0;
+    })));                                           // output: 3
+    print(pair[1] + maybe!.x);                      // output: 50
+
     // A lambda that writes nothing the other operand reads.
     int w = 4;
     mut int other = 0;

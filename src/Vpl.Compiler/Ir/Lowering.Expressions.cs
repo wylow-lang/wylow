@@ -46,7 +46,7 @@ public sealed partial class IrLowering
             case BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Type.IsNullableReference: false }:
                 return new IrUse(Settle(Value(expression)));
             case BoundCall call:
-                return Call(call, call.Receiver is null ? null : Receiver(call));
+                return Call(call, null);
             case BoundNew creation:
                 filled.Add(creation);
                 return new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation))
@@ -62,6 +62,12 @@ public sealed partial class IrLowering
                 return new IrArray(array.Type, [.. Settle(array.Elements.Select(Value).ToList()).Cast<IrOperand>()]);
             case BoundConversion conversion:
                 return Conversion(conversion, use);
+            case BoundLambda lambda:
+                return Lambda(lambda);
+            case BoundInvocation invocation:
+                return Invocation(invocation);
+            case BoundConditional { Type: { IsFunction: true, IsEscaping: false } } or BoundSwitchExpression { Type: { IsFunction: true, IsEscaping: false } }:
+                return Choice(expression);
             case BoundConditional conditional:
                 return Conditional(conditional);
             case BoundCoalesce coalesce:
@@ -136,11 +142,8 @@ public sealed partial class IrLowering
         var to = conversion.Type;
         if (from == VplType.Null)
             return new IrUse(new IrConstant(to, null));
-        if (to.IsFunction || (to.IsNullable && to.NonNull.IsFunction))
-        {
-            if (!to.NonNull.IsEscaping)
-                throw new NotLoweredException("a non-escaping function value");
-        }
+        if (to.IsNullable && to.NonNull.IsFunction && !to.NonNull.IsEscaping)
+            throw new InvalidOperationException("a nullable non-escaping function is only made from an argument");
         if (to.IsNullableReference)
             throw new NotLoweredException("a conversion to a nullable reference outside a call or declaration");
         var operand = to.IsRefStruct ? Settle(ViewOperand(conversion.Operand, use)) : Settle(Value(conversion.Operand));
@@ -152,13 +155,23 @@ public sealed partial class IrLowering
     IrOperand ViewOperand(BoundExpression view, Use use) =>
         IsPlace(view) ? Read(Place(view, use)) : IrRead.Move(new IrPlace(Let(Rvalue(view, use))));
 
+    /// <summary>A call; given its receiver, it is a place's step, whose holds last as long as the place is used.</summary>
     IrCall Call(BoundCall call, IrArgument? receiver)
     {
         var method = call.Method;
+        // What a method returns a reference or view into needs its receiver held for as long as that is used.
+        List<IrLocal>? pins = receiver is null && method.Symbol.ReturnRefKind == RefKind.None && !call.Type.IsRefStruct ? [] : null;
         if (receiver is null && call.Receiver is not null)
+        {
+            var before = Snapshot();
             receiver = Receiver(call);
-        var arguments = Arguments(method, call.Arguments);
-        return new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
+            pins?.AddRange(PinsSince(before));
+        }
+        var arguments = Arguments(method, call.Arguments, pins);
+        var lowered = new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
+        if (pins is { Count: > 0 })
+            pinnedFor[lowered] = pins;
+        return lowered;
     }
 
     /// <summary>
@@ -180,7 +193,7 @@ public sealed partial class IrLowering
         {
             var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
             // A generic value may be an object, which the call holds; a struct is used in place.
-            if (place is { IsDeref: false, Projections.Count: 0, Local: var local } && !local.IsAssignedByLambda && !returnsInto)
+            if (place is { IsDeref: false, Projections.Count: 0, Local: var local } && !local.IsChangedByLambda && !returnsInto)
                 return method.IsReadOnly ? IrRead.Borrow(place) : new IrRefArgument(RefKind.Ref, place);
             var holder = Hold(place, returnsInto && MayBeBorrowable(type));
             return method.IsReadOnly || returnsInto ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder));
@@ -189,12 +202,18 @@ public sealed partial class IrLowering
         return new IrRefArgument(kind, IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read))));
     }
 
-    /// <summary>A call's arguments, evaluated in order.</summary>
-    List<IrArgument> Arguments(MethodReference method, IReadOnlyList<BoundExpression> arguments)
+    /// <summary>A call's arguments, evaluated in order, adding to <paramref name="pins"/> what the places passed by reference pin.</summary>
+    List<IrArgument> Arguments(MethodReference method, IReadOnlyList<BoundExpression> arguments, List<IrLocal>? pins = null)
     {
         var lowered = new List<IrArgument>();
         for (int i = 0; i < arguments.Count; i++)
-            lowered.Add(Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]));
+        {
+            var before = Snapshot();
+            var argument = Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]);
+            if (argument is IrRefArgument or IrAddrArgument)
+                pins?.AddRange(PinsSince(before));
+            lowered.Add(argument);
+        }
         var settled = Settle(lowered);
         for (int i = 0; i < settled.Count; i++)
         {
@@ -209,7 +228,7 @@ public sealed partial class IrLowering
         if (argument is BoundFieldDefault field)
             return new IrFieldDefault(field.Field);
         if (parameter.NonNull.IsFunction && !parameter.NonNull.IsEscaping)
-            throw new NotLoweredException("a non-escaping function argument");
+            return FunctionArgument(parameter, argument);
         if (parameter.IsNullableReference)
         {
             var kind = parameter.ReferenceKind;
@@ -255,7 +274,7 @@ public sealed partial class IrLowering
     {
         var local = place.Local;
         bool stableLocal = (local.IsThis || !local.IsTemporary || local.Kind == IrLocalKind.Borrowed && aliases.TryGetValue(local, out var aliased) && IsStable(aliased))
-            && !local.IsAssignedByLambda && local.Kind != IrLocalKind.Reference;
+            && !local.IsChangedByLambda && local.Kind != IrLocalKind.Reference;
         if (!place.IsDeref)
             return place.Projections.Count == 0 && stableLocal;
         return stableLocal && place.Projections is [IrField { Field.IsMutable: false }];
