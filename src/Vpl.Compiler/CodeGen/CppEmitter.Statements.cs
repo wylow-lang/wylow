@@ -458,8 +458,8 @@ public sealed partial class CppEmitter
         return $"[&] {{ auto {pin} = {rootText}; {store}; }}()";
     }
 
-    static bool IsFieldPath(BoundExpression place) =>
-        place is BoundLocalAccess or BoundThis || (place is BoundFieldAccess field && IsFieldPath(field.Receiver));
+    static bool IsFieldPath(BoundExpression place) => PlacePath.Of(place) is var path && path.Steps.All(s => s is BoundFieldAccess)
+        && (path.Base is PlaceBase.Local or PlaceBase.This || (path.Base == PlaceBase.Object && IsFieldPath(path.Root)));
 
     /// <summary>
     /// Finds the target, including its index checks, before evaluating the value, which reads the

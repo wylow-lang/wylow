@@ -380,7 +380,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// </summary>
     void CheckNullableValueKept(BoundExpression place, IEnumerable<LocalSymbol> passedByRef)
     {
-        var root = place.Type.IsRefStruct ? BoundTree.ViewedNullableValue(place) : BoundTree.NullableValueRoot(place);
+        var root = place.Type.IsRefStruct ? PlacePath.ViewedNullableValue(place) : PlacePath.NullableValueRoot(place);
         if (root is not null && passedByRef.Contains(root))
         {
             ReportOnce(place, place.Location,

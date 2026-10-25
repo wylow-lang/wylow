@@ -69,7 +69,7 @@ public sealed partial class Binder
             return ErrorStatement(s.Location);
         }
 
-        if (!iterable.Type.IsReference && BoundTree.NullableValueRoot(iterable) is { } root
+        if (!iterable.Type.IsReference && PlacePath.NullableValueRoot(iterable) is { } root
             && (iterable.Type.IsFixedArray || ViewedElement(iterable.Type, readOnly: true) is not null))
         {
             DeclareLoopVariables(s, VplType.Error);

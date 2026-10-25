@@ -62,7 +62,7 @@ public sealed partial class Binder
             Error(operand.Location, $"a '{keyword}' binding must refer to a variable, field, or element, not a temporary value");
         else if (kind == PlaceKind.ReadOnly && syntax.RefKind == RefKind.Ref)
             Error(operand.Location, $"cannot take a 'ref' to what '{text}' refers to, because {reason}; use 'in' instead");
-        else if (BoundTree.NullableValueRoot(operand) is { } root)
+        else if (PlacePath.NullableValueRoot(operand) is { } root)
             Error(operand.Location, $"a '{keyword}' binding cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
         else if (target != VplType.Error)
         {

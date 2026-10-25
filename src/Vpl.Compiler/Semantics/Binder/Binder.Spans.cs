@@ -56,7 +56,7 @@ public sealed partial class Binder
 
         var location = expression.Location;
         var (kind, _) = ClassifyPlace(expression);
-        bool inNullable = BoundTree.NullableValueRoot(expression) is not null;
+        bool inNullable = PlacePath.NullableValueRoot(expression) is not null;
         if (from.IsFixedArray)
         {
             if (kind == PlaceKind.Temporary || inNullable || (kind == PlaceKind.ReadOnly && !readOnly))
@@ -76,7 +76,7 @@ public sealed partial class Binder
 
     string SpanConversionHint(BoundExpression expression, VplType to)
     {
-        if (stdlib.IsSpan(to) && BoundTree.NullableValueRoot(expression) is { } root
+        if (stdlib.IsSpan(to) && PlacePath.NullableValueRoot(expression) is { } root
             && ViewedElement(expression.Type, to.Symbol == stdlib.ReadOnlySpan) == to.TypeArguments[0])
             return $"; a span cannot view inside the nullable '{root.Name}', since assigning it null would destroy what it views; copy the value to a variable first";
         if (!stdlib.IsSpan(to) || !expression.Type.IsFixedArray || expression.Type.ElementType != to.TypeArguments[0])
@@ -93,31 +93,16 @@ public sealed partial class Binder
     /// Whether a span would view a temporary struct, which dies at the end of the statement. A
     /// temporary object is fine: the span holds it.
     /// </summary>
-    bool ViewsTemporary(BoundExpression view) => view switch
-    {
-        BoundConversion conversion => ViewsTemporary(conversion.Operand),
-        BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
-            receiver.Type.IsRefStruct ? ViewsTemporary(receiver) : receiver.Type.IsAggregate && ClassifyPlace(receiver).Kind == PlaceKind.Temporary,
-        BoundConstruction construction => construction.Arguments.Any(a => a.Type.IsRefStruct && ViewsTemporary(a)),
-        _ => false,
-    };
+    bool ViewsTemporary(BoundExpression view) => PlacePath.Viewed(PlacePath.Of(view))
+        .Any(viewed => viewed.Value.Type is { IsAggregate: true, IsRefStruct: false } && ClassifyPlace(viewed).Kind == PlaceKind.Temporary);
 
     /// <summary>
     /// Whether a value returned as a second-class type views only the method's receiver, which is
     /// what the caller holds for as long as it uses the value. An object or a string in the
     /// receiver holds its contents itself, and could be replaced while the caller uses them.
     /// </summary>
-    static bool IsThisDerived(BoundExpression value) => value switch
-    {
-        BoundThis => true,
-        BoundConversion conversion => IsThisDerived(conversion.Operand),
-        BoundArrayData data => IsThisRooted(data.Array),
-        BoundConstruction construction => construction.Arguments.All(a => a is BoundArrayData || a.Type.IsRefStruct ? IsThisDerived(a) : true),
-        BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
-            receiver is BoundThis || (receiver.Type.IsRefStruct ? IsThisDerived(receiver)
-                : !receiver.Type.IsReference && receiver.Type != VplType.String && IsThisRooted(receiver)),
-        _ => false,
-    };
+    static bool IsThisDerived(BoundExpression value) => PlacePath.Viewed(PlacePath.Of(value))
+        .All(viewed => viewed.Value.Type.IsRefStruct ? viewed is { Root: BoundThis, Steps.Count: 0 } : IsThisRooted(viewed));
 
     /// <summary>
     /// Loops over a span: one given directly, or one the iterated value converts to, preferring a
@@ -140,7 +125,7 @@ public sealed partial class Binder
             Error(location, "cannot loop over a temporary value's elements; store the value in a variable first");
             span = new BoundErrorExpression(location);
         }
-        else if (BoundTree.ViewedNullableValue(span) is { } root)
+        else if (PlacePath.ViewedNullableValue(span) is { } root)
         {
             Error(location, $"cannot loop over elements inside the nullable '{root.Name}', since assigning it null would destroy them; copy the value to a variable first");
             span = new BoundErrorExpression(location);

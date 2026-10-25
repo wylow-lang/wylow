@@ -117,10 +117,18 @@ public sealed partial class StackObjects
             }
         }
 
-        static List<object> Roots(BoundExpression? place) => place is null ? [] :
-        [
-            .. Evaluated(place).Select<BoundExpression, object?>(e => e switch { BoundLocalAccess access => access.Local, BoundThis => This, _ => null }).OfType<object>(),
-        ];
+        /// <summary>The values that hold the storage a place or a view lies in.</summary>
+        static List<object> Roots(BoundExpression? place) => place is null ? [] : Roots(PlacePath.Of(place));
+
+        static List<object> Roots(PlacePath path) => path.Base switch
+        {
+            PlaceBase.Local => [((BoundLocalAccess)path.Root).Local],
+            PlaceBase.This => [This],
+            PlaceBase.Object or PlaceBase.Pointer => Roots(path.Root),
+            PlaceBase.Views => [.. path.Parts.SelectMany(Roots)],
+            // A temporary, or a reference a function returns, may be made from any value it evaluates.
+            _ => [.. Evaluated(path.Root).Select<BoundExpression, object?>(e => e switch { BoundLocalAccess access => access.Local, BoundThis => This, _ => null }).OfType<object>()],
+        };
 
         /// <summary>Walks what an expression evaluates, and returns the values its own value may be.</summary>
         List<object> Value(BoundExpression? expression)

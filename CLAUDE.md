@@ -47,7 +47,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
   `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions, equality/defaultability),
-  `Symbols.cs`, `BoundTree.cs`, `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
+  `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
+  in its storage), `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
 - `src/Vpl.Compiler/Analysis`: whole-program facts the emitter uses to optimize, found after every
   check has passed; they report no errors. `Analyses.cs` runs them all. `WholeProgram.cs` is what
@@ -92,9 +93,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `CppEmitter.Index` and `OrderedReferenceCall`.
 - **Whatever a reference or span points into must stay alive and unmoved while it is used.**
   `CppEmitter.StorageRoot` finds the object to hold, and whether to borrow it (`vpl::borrow`) or
-  just pin it. A new way to produce a place or a view must be handled there.
+  just pin it. Every check and analysis of places decomposes them with `PlacePath.Of`, so a new way
+  to produce a place or a view is taught there.
 - **Nothing may keep referring into a nullable value** (`int?`, `Vec3?`, `T?`), since assigning the
-  variable null destroys it: `BoundTree.NullableValueRoot` finds the narrowed `mut` local a place lies in,
+  variable null destroys it: `PlacePath.NullableValueRoot` finds the narrowed `mut` local a place lies in,
   and a new way to hold a place or a view beyond one operation must reject such places.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite on
   both MSVC and g++ before committing.

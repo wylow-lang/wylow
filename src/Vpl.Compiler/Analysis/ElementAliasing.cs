@@ -203,12 +203,8 @@ public sealed class ElementAliasing
             }
         }
 
-        static bool IsRootedAtThis(BoundExpression place) => place switch
-        {
-            BoundThis => true,
-            BoundFieldAccess field => field.Receiver is BoundThis || (!field.Receiver.Type.IsReference && IsRootedAtThis(field.Receiver)),
-            BoundIndex { Target.Type.IsFixedArray: true } index => IsRootedAtThis(index.Target),
-            _ => false,
-        };
+        static bool IsRootedAtThis(BoundExpression place) => PlacePath.Of(place) is var path
+            && (path.Base == PlaceBase.This || path is { Base: PlaceBase.Object, Root: BoundThis })
+            && path.Steps.All(s => s is BoundFieldAccess or BoundIndex);
     }
 }

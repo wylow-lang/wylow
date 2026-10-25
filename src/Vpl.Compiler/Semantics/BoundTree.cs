@@ -381,40 +381,6 @@ public static class BoundTree
     };
 
     /// <summary>
-    /// The local whose nullable value a place lies in, reached through narrowing, as <c>v.x</c> is in
-    /// a <c>Vec3? v</c>. Assigning the local null destroys that value, so a reference to the place
-    /// must not outlive the operation using it. A local that isn't <c>mut</c> keeps its value, so
-    /// references into it can be kept.
-    /// </summary>
-    public static LocalSymbol? NullableValueRoot(BoundExpression place) => place switch
-    {
-        BoundLocalAccess { AssumesNonNull: true, Local: { Type.IsNullableValue: true, IsWritable: false, RefKind: RefKind.None } } => null,
-        BoundLocalAccess { AssumesNonNull: true, Local.Type.IsNullableValue: true } access => access.Local,
-        BoundFieldAccess { Receiver.Type.IsReference: false } field => NullableValueRoot(field.Receiver),
-        BoundIndex { Target.Type.IsFixedArray: true } index => NullableValueRoot(index.Target),
-        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { Type.IsReference: false } receiver } => NullableValueRoot(receiver),
-        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => NullableValueRoot(nonNull.Operand),
-        _ => null,
-    };
-
-    /// <summary>
-    /// The local whose nullable value a span or other <c>ref struct</c> views, as <see cref="NullableValueRoot"/>.
-    /// A view of an object's or a string's contents views storage the value only refers to.
-    /// </summary>
-    public static LocalSymbol? ViewedNullableValue(BoundExpression view) => view switch
-    {
-        BoundConversion conversion => ViewedNullableValue(conversion.Operand),
-        BoundCall { Receiver: { } receiver } call when call.Type.IsRefStruct =>
-            receiver.Type.IsRefStruct ? ViewedNullableValue(receiver)
-            : receiver.Type.IsReference || receiver.Type == VplType.String ? null
-            : NullableValueRoot(receiver),
-        BoundConstruction { Type.IsRefStruct: true } construction => construction.Arguments
-            .Select(a => a is BoundArrayData data ? NullableValueRoot(data.Array) : a.Type.IsRefStruct ? ViewedNullableValue(a) : null)
-            .FirstOrDefault(root => root is not null),
-        _ => null,
-    };
-
-    /// <summary>
     /// The names an expression's patterns bind, which a statement evaluating it declares in the
     /// enclosing block. A switch expression declares its cases' names inside itself.
     /// </summary>

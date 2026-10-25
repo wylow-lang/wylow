@@ -15,44 +15,17 @@ public sealed partial class CppEmitter
     /// be <c>Borrowable</c>, so it may move or free that storage unless it is borrowed while the
     /// place or view is used. Any other object only needs to be held.
     /// </summary>
-    (BoundExpression Root, bool Borrowed)? StorageRoot(BoundExpression expression)
+    (BoundExpression Root, bool Borrowed)? StorageRoot(BoundExpression expression) => StorageRoot(PlacePath.Of(expression));
+
+    (BoundExpression Root, bool Borrowed)? StorageRoot(PlacePath path) => path switch
     {
-        var current = expression;
-        while (true)
-        {
-            switch (current)
-            {
-                case BoundFieldAccess field when field.Receiver.Type.IsReference:
-                    return (field.Receiver, false);
-                case BoundFieldAccess field:
-                    current = field.Receiver;
-                    break;
-                case BoundIndex { Target.Type.IsFixedArray: true } index:
-                    current = index.Target;
-                    break;
-                case BoundCall { Receiver: { } receiver } call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct:
-                    if (receiver.Type.IsReference)
-                        return (receiver, MayBeBorrowable(receiver.Type));
-                    // A string's bytes are in a block that its copies share, or for a literal, static.
-                    if (receiver.Type == VplType.String)
-                        return receiver is BoundLiteral ? null : (receiver, false);
-                    current = receiver;
-                    break;
-                case BoundConstruction { Type.IsRefStruct: true } construction when construction.Arguments.OfType<BoundArrayData>().FirstOrDefault() is { } data:
-                    current = data.Array;
-                    break;
-                // A reference that may refer to nothing refers to the same place as what it is made from.
-                case BoundConversion { Type.IsNullableReference: true } conversion:
-                    current = conversion.Operand;
-                    break;
-                case BoundNonNull { Operand.Type.IsNullableReference: true } nonNull:
-                    current = nonNull.Operand;
-                    break;
-                default:
-                    return null;
-            }
-        }
-    }
+        // A literal string's bytes are static.
+        { Base: PlaceBase.Object, Root: BoundLiteral } => null,
+        { Base: PlaceBase.Object, Root.Type.IsReference: true, Steps: [BoundCall, ..] } => (path.Root, MayBeBorrowable(path.Root.Type)),
+        { Base: PlaceBase.Object } => (path.Root, false),
+        { Base: PlaceBase.Views } => path.Parts.Select(StorageRoot).FirstOrDefault(root => root is not null),
+        _ => null,
+    };
 
     /// <summary>
     /// The object to hold while a place is used by one operation. Locals, <c>this</c>, and fields
@@ -212,13 +185,8 @@ public sealed partial class CppEmitter
             ? operand.PinRoot is { } root && reads(root)
             : reads(operand.Expression);
 
-    static bool IsPlace(BoundExpression expression) => expression switch
-    {
-        BoundLocalAccess or BoundThis => true,
-        BoundFieldAccess { Receiver.Type.IsReference: true } => true,
-        BoundFieldAccess field => IsPlace(field.Receiver),
-        _ => false,
-    };
+    static bool IsPlace(BoundExpression expression) =>
+        PlacePath.Of(expression) is { Base: PlaceBase.Local or PlaceBase.This or PlaceBase.Object } path && path.Steps.All(s => s is BoundFieldAccess);
 
     bool HasEffects(BoundExpression expression) => expression switch
     {

@@ -218,7 +218,7 @@ public sealed partial class Binder
             Error(s.NameLocation, NonEscapingMutMessage);
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
-        else if (type.IsRefStruct && initializer is not null && BoundTree.ViewedNullableValue(initializer) is { } root)
+        else if (type.IsRefStruct && initializer is not null && PlacePath.ViewedNullableValue(initializer) is { } root)
             Error(initializer.Location, $"this '{type}' would view inside the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first");
         var local = new LocalSymbol(s.Name, type, isParameter: false) { IsMutable = s.IsMutable, IsDeferred = s.Initializer is null };
         Declare(local, s.NameLocation);
@@ -291,7 +291,7 @@ public sealed partial class Binder
             Error(value.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
         else if (kind == PlaceKind.ReadOnly && type.ReferenceKind == RefKind.Ref)
             Error(value.Location, $"cannot take a 'ref?' to what '{TextOf(value.Location)}' refers to, because {reason}; use 'in?' instead");
-        else if (BoundTree.NullableValueRoot(value) is { } root)
+        else if (PlacePath.NullableValueRoot(value) is { } root)
             Error(value.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
         else
             return value.Type == type ? value : new BoundConversion(value.Location, type, value);
@@ -332,7 +332,7 @@ public sealed partial class Binder
             Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");
             return false;
         }
-        if (BoundTree.NullableValueRoot(place) is { } root)
+        if (PlacePath.NullableValueRoot(place) is { } root)
         {
             Error(place.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
             return false;
@@ -463,15 +463,12 @@ public sealed partial class Binder
     }
 
     /// <summary>Whether a place lies in <c>this</c> itself, not in another object it refers to.</summary>
-    static bool IsThisRooted(BoundExpression place) => place switch
+    static bool IsThisRooted(BoundExpression place) => IsThisRooted(PlacePath.Of(place));
+
+    static bool IsThisRooted(PlacePath path) => path.Base switch
     {
-        BoundThis => true,
-        BoundFieldAccess field => field.Receiver is BoundThis || (!field.Receiver.Type.IsReference && IsThisRooted(field.Receiver)),
-        BoundIndex { Target.Type.IsPointer: true } => true,
-        BoundIndex index => IsThisRooted(index.Target),
-        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Receiver: { } receiver } =>
-            receiver is BoundThis || (!receiver.Type.IsReference && IsThisRooted(receiver)),
-        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => IsThisRooted(nonNull.Operand),
+        PlaceBase.This or PlaceBase.Pointer => true,
+        PlaceBase.Object => path.Root is BoundThis,
         _ => false,
     };
 
@@ -533,27 +530,42 @@ public sealed partial class Binder
         return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 
-    (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => expression switch
+    (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => ClassifyPlace(PlacePath.Of(expression));
+
+    (PlaceKind Kind, string Reason) ClassifyPlace(PlacePath path)
     {
-        BoundLocalAccess access when IsCopiedByEscapingLambda(access.Local) =>
-            (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{access.Local.Name}'"),
-        BoundLocalAccess { Local.RefKind: RefKind.In } access =>
-            (PlaceKind.ReadOnly, $"'{access.Local.Name}' is an 'in' {(access.Local.IsParameter ? "parameter" : "variable")}"),
-        BoundLocalAccess { Local: { IsWritable: false } local } =>
-            (PlaceKind.ReadOnly, $"{(local.IsParameter ? "parameter" : "variable")} '{local.Name}' is not 'mut'"),
-        BoundLocalAccess => (PlaceKind.Mutable, ""),
-        BoundThis { Type.IsReference: true } => (PlaceKind.Temporary, ""),
-        BoundThis when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
-        BoundThis => (PlaceKind.Mutable, ""),
-        // Fields of an object live on the heap, however the reference to it was obtained.
-        BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, ""),
-        BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, $"field '{field.Field.Name}' is not 'mut'"),
-        BoundFieldAccess field => ClassifyPlace(field.Receiver),
-        BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
-        BoundIndex index => ClassifyPlace(index.Target),
-        BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call),
-        BoundNonNull { Operand.Type.IsNullableReference: true } nonNull => ClassifyPlace(nonNull.Operand),
-        _ => (PlaceKind.Temporary, ""),
+        (PlaceKind Kind, string Reason) place = path switch
+        {
+            { Base: PlaceBase.Local, Root: BoundLocalAccess { Local: var local } } => ClassifyLocal(local),
+            { Root: BoundThis { Type.IsReference: true } } => (PlaceKind.Temporary, ""),
+            { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
+            { Base: PlaceBase.This } => (PlaceKind.Mutable, ""),
+            { Base: PlaceBase.Returned, Root: BoundCall call } => ClassifyReturnedReference(call, PlaceKind.Temporary),
+            _ => (PlaceKind.Temporary, ""),
+        };
+        foreach (var step in path.Steps)
+        {
+            place = step switch
+            {
+                // Fields of an object live on the heap, however the reference to it was obtained.
+                BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, ""),
+                BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, $"field '{field.Field.Name}' is not 'mut'"),
+                BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
+                BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call, place.Kind),
+                // A view is a value, whatever it views.
+                BoundCall or BoundConversion { Type.IsRefStruct: true } => (PlaceKind.Temporary, ""),
+                _ => place,
+            };
+        }
+        return place;
+    }
+
+    (PlaceKind Kind, string Reason) ClassifyLocal(LocalSymbol local) => local switch
+    {
+        _ when IsCopiedByEscapingLambda(local) => (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{local.Name}'"),
+        { RefKind: RefKind.In } => (PlaceKind.ReadOnly, $"'{local.Name}' is an 'in' {(local.IsParameter ? "parameter" : "variable")}"),
+        { IsWritable: false } => (PlaceKind.ReadOnly, $"{(local.IsParameter ? "parameter" : "variable")} '{local.Name}' is not 'mut'"),
+        _ => (PlaceKind.Mutable, ""),
     };
 
     /// <summary>A class field that isn't <c>mut</c> can only be changed by its own class's constructors, through <c>this</c>.</summary>
@@ -562,9 +574,9 @@ public sealed partial class Binder
         || (field.Receiver is BoundThis && currentFunction is { IsConstructor: true } constructor && constructor.ContainingType == field.Field.Owner);
 
     /// <summary>A returned reference points into the receiver, so a temporary struct receiver makes it temporary too.</summary>
-    (PlaceKind Kind, string Reason) ClassifyReturnedReference(BoundCall call)
+    static (PlaceKind Kind, string Reason) ClassifyReturnedReference(BoundCall call, PlaceKind receiver)
     {
-        if (call.Receiver is { Type.IsAggregate: true, Type.IsRefStruct: false } receiver && ClassifyPlace(receiver).Kind == PlaceKind.Temporary)
+        if (call.Receiver is { Type.IsAggregate: true, Type.IsRefStruct: false } && receiver == PlaceKind.Temporary)
             return (PlaceKind.Temporary, "");
         if (call.Method.Symbol.ReturnRefKind == RefKind.In)
             return (PlaceKind.ReadOnly, $"'{call.Method.Symbol.Signature}' returns 'in'");
