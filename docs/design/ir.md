@@ -76,7 +76,7 @@ IrFunction  = symbol, parameters, location parameter?, captures (for lambdas), b
 Block       = statements; a local is scoped to the block that declares it
 Statement   = let x = Rvalue            declare and define a temporary or local
             | declare x                 declare a local stored later: a deferred local, a value out of
-                                        control flow, or a slot
+                                        control flow, a slot, or an `is ref` name's hold
             | store Place = Operand     assign: store the new value, then release the old
             | do Rvalue                 evaluate for effect
             | check Condition @Loc      panic unless (bounds, null, no_match, ...)
@@ -316,12 +316,25 @@ function value, or `IsCopiedForReference`), or a string, whose copy shares its b
 
 ```
 {
-  let %h = hold bag                       // the function itself may reassign bag meanwhile
-  let slot = call Bag.get(borrow %h, 2)   // ref? int, rooted at %h
-  let %found = test.not_null slot
-  if %found { ... } else { end %h; ... }
+  declare %h                              // the name's hold, declared with it
+  declare.binding slot: ref? int
+  declare %c
+  {                                       // the condition, a statement of its own
+    let %h = hold bag                     // the function itself may reassign bag meanwhile
+    let %r = call Bag.get(borrow %h, 2)   // ref? int, rooted at %h
+    store slot = copy %r
+    let %found = test.not_null copy slot
+    if !%found { end %h }                 // let go at once where the test fails
+    store %c = move %found
+  }
+  if %c { ... } else { ... }
 }
 ```
+
+The hold outlives the condition's other temporaries, since the name needs it, so it is declared
+with the name and made where the test is (a `while` makes it again each time, letting go of the
+last). The verifier allows `end %h` while `slot` refers into it only where `slot` is known to be
+null: in the branch where its `test.not_null` failed.
 
 A `ref?` is a reference local whose value may be null. `r!` is `check.not_null r @loc` followed
 by the place `*r`. A narrowed `r` is just `*r`, and `r?.m()` is an `if`. A conversion from a place

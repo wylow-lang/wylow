@@ -17,12 +17,20 @@ public sealed partial class CppEmitter
     /// <summary>The closure each slot holds, whose type the slot is declared with before it.</summary>
     readonly Dictionary<IrLocal, IrClosure> closureSlots = [];
 
+    /// <summary>The hold making each hold declared before it, which an <c>is ref</c> name's holder is.</summary>
+    readonly Dictionary<IrLocal, IrHold> declaredHolds = [];
+
     /// <summary>A lowered function's mem-initializer, if it is a class constructor calling its base's, and its body.</summary>
     void EmitIrFunction(IrFunction function)
     {
         irNames.Clear();
         continueLabels.Clear();
         closureSlots.Clear();
+        declaredHolds.Clear();
+        var statements = IrWalk.Descendants(function.Body).ToList();
+        var declared = statements.OfType<IrDeclare>().Select(d => d.Local).Where(l => l.Kind == IrLocalKind.Hold).ToHashSet();
+        foreach (var let in statements.OfType<IrLet>().Where(l => declared.Contains(l.Local)))
+            declaredHolds[let.Local] = (IrHold)let.Value;
         foreach (var closure in IrWalk.Descendants(function.Body).OfType<IrLet>().Select(l => l.Value).OfType<IrClosure>())
         {
             if (closure.Slot is { } slot)
@@ -73,12 +81,19 @@ public sealed partial class CppEmitter
                     Line("}");
                 }
                 break;
+            case IrLet { Value: IrHold hold } let when declaredHolds.ContainsKey(let.Local):
+                Line($"vpl::hold({Name(let.Local)}, {PlaceText(hold.Place)});");
+                break;
             case IrLet let:
                 Line(Declaration(let.Local, RvalueText(let.Value), let.Value));
                 break;
             case IrDeclare { Local.Kind: IrLocalKind.Slot } declare:
                 var held = closureSlots.TryGetValue(declare.Local, out var closure) ? ClosureObjectType(closure) : ObjectType(declare.Local.Type);
                 Line($"vpl::StackSlot<{held}> {Name(declare.Local)};");
+                break;
+            case IrDeclare { Local.Kind: IrLocalKind.Hold } declare:
+                var type = declare.Local.Type;
+                Line($"{(declaredHolds[declare.Local].Borrows ? $"std::optional<vpl::Borrow<{ObjectType(type)}>>" : CppType(type))} {Name(declare.Local)};");
                 break;
             case IrDeclare declare when plan.Evaluated.TryGetValue(declare.Local, out var evaluated):
                 Line($"auto {Name(declare.Local)} = [&] {{");
@@ -93,6 +108,9 @@ public sealed partial class CppEmitter
                 break;
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
                 Line($"{Name(end.Local)}.end();");
+                break;
+            case IrEnd end:
+                Line($"vpl::unhold({Name(end.Local)});");
                 break;
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
@@ -330,7 +348,10 @@ public sealed partial class CppEmitter
         return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
     }
 
-    string BaseText(IrLocal local) => plan.Nested.ContainsKey(local) ? NestedText(local) : Name(local);
+    string BaseText(IrLocal local) =>
+        plan.Nested.ContainsKey(local) ? NestedText(local)
+        : declaredHolds.TryGetValue(local, out var hold) && hold.Borrows ? $"(*{Name(local)})"
+        : Name(local);
 
     static bool IsObjectLocal(IrLocal local) => local.Kind != IrLocalKind.Reference && local.Type.NonNull.IsReference;
 

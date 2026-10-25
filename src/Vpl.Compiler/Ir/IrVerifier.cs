@@ -199,16 +199,19 @@ public sealed partial class IrVerifier
                 return Block(block, state);
             case IrLet let:
                 Rvalue(let.Value, state, let.Local);
-                Declare(let.Local, state, let);
+                if (IsDeclaredHold(let.Local))
+                    Refill(let.Local, state);
+                else
+                    Declare(let.Local, state, let);
                 CheckLet(let);
                 Define(let.Local, let.Value, state);
                 return state;
             case IrDeclare declare:
-                if (declare.Local.Kind is IrLocalKind.Hold or IrLocalKind.Borrowed)
+                if (declare.Local.Kind == IrLocalKind.Borrowed || declare.Local.Kind == IrLocalKind.Hold && !declare.Local.IsTemporary)
                     Error($"a {declare.Local.Kind.ToString().ToLowerInvariant()} local needs its value where it is declared");
                 Declare(declare.Local, state, declare);
-                if (declare.IsBinding && (declare.Local.IsTemporary || declare.Local.Kind != IrLocalKind.Value))
-                    Error("only a value local can be a pattern's binding");
+                if (declare.IsBinding && (declare.Local.IsTemporary || declare.Local.Kind != IrLocalKind.Value && !declare.Local.Type.IsNullableReference))
+                    Error("only a value or a nullable reference can be a pattern's binding");
                 if (declare.Local.Kind == IrLocalKind.Slot || declare.IsBinding)
                     state.Assigned.Add(declare.Local);
                 return state;
@@ -268,6 +271,19 @@ public sealed partial class IrVerifier
         state.Forget(local);
     }
 
+    /// <summary>Whether the local is a hold declared before the <c>let</c>s that make it, as an <c>is ref</c> name's is, so that it outlives them.</summary>
+    bool IsDeclaredHold(IrLocal local) =>
+        local.Kind == IrLocalKind.Hold && declarations.TryGetValue(local, out var declaration) && declaration.Statement is IrDeclare;
+
+    /// <summary>A declared hold made again, as a loop's test does each time, lets go of what it held first.</summary>
+    void Refill(IrLocal local, State state)
+    {
+        if (!Visible(local))
+            Error($"'{N(local)}' is used outside its scope");
+        DependentsOf(local, state, $"'{N(local)}' was made again");
+        state.Ended.Remove(local);
+    }
+
     void CheckLet(IrLet let)
     {
         var (local, value) = (let.Local, let.Value);
@@ -302,6 +318,9 @@ public sealed partial class IrVerifier
         Operand(store.Value, state);
         if (store.Value is IrRead { Ownership: IrOwnership.Borrow })
             Error("a store needs a value of its own: copy or move it");
+        // A whole store gives the local a value that doesn't depend on what its old one did.
+        if (!target.IsDeref && target.Projections.Count == 0)
+            state.Invalid.Remove(target.Local);
         Place(target, state, reads: target.IsDeref || target.Projections.Count > 0);
         if (target.Type != store.Value.Type)
             Error($"stores a '{store.Value.Type}' in a '{target.Type}'");
@@ -317,7 +336,8 @@ public sealed partial class IrVerifier
             Error($"'{N(local)}' is a reference, which can't be made to refer elsewhere; store through it with '*'");
         else if (whole && local.Kind is IrLocalKind.Hold or IrLocalKind.Slot or IrLocalKind.Borrowed)
             Error($"'{N(local)}' is a {local.Kind.ToString().ToLowerInvariant()} local, which can't be stored");
-        if (whole && (local.IsTemporary || local.Kind == IrLocalKind.Reference) && deferred)
+        bool binding = declaration?.Statement is IrDeclare { IsBinding: true };
+        if (whole && (local.IsTemporary || local.Kind == IrLocalKind.Reference) && deferred && !binding)
         {
             if (state.MaybeAssigned.Contains(local))
                 Error($"'{N(local)}' may be stored more than once on a path");
@@ -330,6 +350,8 @@ public sealed partial class IrVerifier
             state.Assigned.Add(local);
             state.MaybeAssigned.Add(local);
             state.Invalid.Remove(local);
+            foreach (var stale in nullTests.Where(t => t.Value == local).Select(t => t.Key).ToList())
+                nullTests.Remove(stale);
             if (Dependency.Of(store.Value, this) is { } dependency)
                 dependencies[local] = dependencies.TryGetValue(local, out var other) ? other.Union(dependency) : dependency;
         }
@@ -363,7 +385,13 @@ public sealed partial class IrVerifier
         if (conditional.Condition.Type != VplType.Bool)
             Error($"the condition is a '{conditional.Condition.Type}', not a 'bool'");
         var then = Block(conditional.Then, state.Clone());
+        // Where a reference's null test failed, nothing it points into needs to stay held.
+        var isNull = conditional.Condition is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } && nullTests.TryGetValue(tested, out var reference) ? reference : null;
+        if (isNull is not null)
+            knownNull.Add(isNull);
         var otherwise = conditional.Else is { } elseBlock ? Block(elseBlock, state.Clone()) : state;
+        if (isNull is not null)
+            knownNull.Remove(isNull);
         return State.Merge(then, otherwise);
     }
 
@@ -437,7 +465,7 @@ public sealed partial class IrVerifier
             Use(local, state, reads: false);
         Apply(state, IrEffects.Of(end), "the end of a hold");
         state.Ended.Add(local);
-        DependentsOf(local, state, $"'{N(local)}' was ended");
+        DependentsOf(local, state, $"'{N(local)}' was ended", except: knownNull);
     }
 
     void CheckLoc(IrLoc? loc)

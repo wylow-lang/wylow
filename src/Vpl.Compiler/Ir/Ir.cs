@@ -116,8 +116,11 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     /// </summary>
     public bool IsUnwrittenElement { get; init; }
 
-    /// <summary>A lambda assigns it, or may change it in place, so any code that runs may change it.</summary>
-    public bool IsChangedByLambda => Symbol is { } local && (local.IsAssignedByLambda || local.IsChangedInPlaceByLambda);
+    /// <summary>
+    /// A lambda assigns it, or may change it in place, so any code that runs may change it. A
+    /// reference can't be made to refer elsewhere: a lambda storing through it writes its target.
+    /// </summary>
+    public bool IsChangedByLambda => Kind != IrLocalKind.Reference && Symbol is { } local && (local.IsAssignedByLambda || local.IsChangedInPlaceByLambda);
 
     public override string ToString() => Name;
 }
@@ -173,7 +176,8 @@ public sealed class IrLet(IrLocal local, IrRvalue value) : IrStatement
 
 /// <summary>
 /// <c>declare x</c>: declares a local without a value. It must be stored before it is read; a slot
-/// needs no value.
+/// needs no value. A hold declared this way is made by later <c>let</c>s, each letting go of what
+/// it held before, so that it outlives the statement making it, as an <c>is ref</c> name's does.
 /// </summary>
 public sealed class IrDeclare(IrLocal local) : IrStatement
 {

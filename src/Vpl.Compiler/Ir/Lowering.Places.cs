@@ -254,7 +254,7 @@ public sealed partial class IrLowering
         var statements = finished.Statements;
         for (int h = 0; h < statements.Count; h++)
         {
-            if (statements[h] is not IrLet { Value: IrHold hold } let)
+            if (statements[h] is not IrLet { Value: IrHold hold } let || holders.Contains(let.Local))
                 continue;
             var (extent, referenced, named) = Extent(statements, h);
             // A variable's or loop's borrow lasts for its scope (spec §3.4, Borrow counters on

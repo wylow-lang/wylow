@@ -17,7 +17,16 @@ struct Pair {
 }
 
 class Bag {
+    String name;
     mut int[3] items;
+
+    Bag(String name) {
+        this.name = name;
+    }
+
+    ~Bag() {
+        print(name);
+    }
 
     ref? int get(int i) {
         if (i >= 3) {
@@ -51,11 +60,18 @@ void main() {
     }
 
     // The object a name points into is held while the name is in scope.
-    mut var bag = new Bag();
+    mut var bag = new Bag("first");
     if (bag.get(2) is ref int slot) {
-        bag = new Bag();
+        bag = new Bag("second");
         slot = 9;
         print(slot);                // output: 9
+    }                               // output: first
+    // A failed test lets go of the object at once.
+    if (bag.get(5) is ref int outside) {
+        print(outside);
+    } else {
+        bag = new Bag("third");     // output: second
+        print("replaced");          // output: replaced
     }
 
     mut int i = 0;
@@ -65,6 +81,19 @@ void main() {
     }
     print(p.items[0]);              // output: 30
     print(p.items[1]);              // output: 40
+
+    // Each test borrows the list again, and the last, failing one lets go of it.
+    var list = new List<int>();
+    list.add(1);
+    list.add(2);
+    mut int j = 0;
+    while (list.get(j) is ref int element) {
+        element += 100;
+        j++;
+    }
+    list.add(3);
+    print(list[1]);                 // output: 102
+    print(list.count);              // output: 3
     if (p.at(0) is ref int a && p.at(1) is ref int b) {
         print(a + b);               // output: 70
     }
@@ -73,4 +102,4 @@ void main() {
         default -> 0;
     };
     print(n);                       // output: 30
-}
+}                                   // output: third

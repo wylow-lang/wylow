@@ -227,6 +227,34 @@ static class IrSelfTests
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
         });
 
+        // An `is ref` name's hold is declared with it and made in the test, which ends it only where the name is null.
+        IrFunction ReferenceBinding(string name, bool endsWhereFound)
+        {
+            var l = b.Parameter("list", list);
+            var h = b.Temp(list, IrLocalKind.Hold);
+            var slotType = VplType.Int.NullableReference(RefKind.Ref);
+            var slot = b.Local("slot", slotType, IrLocalKind.Reference, RefKind.Ref);
+            var r = b.Temp(slotType, IrLocalKind.Reference);
+            var (found, matched) = (b.Temp(VplType.Bool), b.Temp(VplType.Bool));
+            IrBlock Ends() => new([new IrEnd(h)]);
+            return b.Function(name, [l],
+                new IrDeclare(h),
+                new IrDeclare(slot) { IsBinding = true },
+                new IrDeclare(matched),
+                new IrBlock([
+                    new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
+                    new IrLet(r, new IrCall(get, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(2)])),
+                    new IrStore(new IrPlace(slot), IrRead.Copy(new IrPlace(r))),
+                    new IrLet(found, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(slot)))),
+                    endsWhereFound ? new IrIf(IrRead.Copy(new IrPlace(found)), Ends(), new IrBlock()) : new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock(), Ends()),
+                    new IrStore(new IrPlace(matched), Move(found)),
+                ]),
+                new IrIf(Move(matched), new IrBlock([new IrStore(IrPlace.Deref(slot), IrConstant.Int(1))])));
+        }
+        yield return new("reference_binding_outlives_its_test", () => ReferenceBinding("reference_binding_outlives_its_test", endsWhereFound: false));
+        yield return new("reference_binding_hold_ended_where_found", () => ReferenceBinding("reference_binding_hold_ended_where_found", endsWhereFound: true),
+            Error: "was ended");
+
         // Flow analysis knows the name is read only where its pattern matched, which the verifier trusts.
         yield return new("binding_stored_where_matched", () =>
         {
@@ -401,7 +429,7 @@ static class IrSelfTests
         {
             var r = b.Temp(VplType.Int);
             return b.Function("temporary_binding", [], new IrDeclare(r) { IsBinding = true });
-        }, Error: "only a value local can be a pattern's binding");
+        }, Error: "only a value or a nullable reference can be a pattern's binding");
 
         yield return new("break_outside_loop", () =>
         {

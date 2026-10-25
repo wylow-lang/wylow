@@ -11,6 +11,10 @@ public sealed partial class IrVerifier
     readonly Dictionary<IrLocal, IrRvalue> slotObjects = [];
     readonly List<IrLocal> pendingMoves = [];
 
+    /// <summary>The reference each <c>test.not_null</c> temporary tested, and the references known to be null where they are.</summary>
+    readonly Dictionary<IrLocal, IrLocal> nullTests = [];
+    readonly HashSet<IrLocal> knownNull = [];
+
     /// <summary>What may be true at a point, on some path to it; <see cref="Assigned"/> is what is true on every path.</summary>
     sealed class State
     {
@@ -125,6 +129,9 @@ public sealed partial class IrVerifier
         public static Dependency? Of(IrOperand operand, IrVerifier verifier) => operand switch
         {
             IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true),
+            // A copy of a reference points where it does, so it outlives the local it was copied from.
+            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Reference } local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
+                copied with { Alias = false },
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
                 copied with { Roots = [(local, true)], Alias = false },
             _ => null,
@@ -285,17 +292,21 @@ public sealed partial class IrVerifier
         DependentsOf(local, state, $"'{N(local)}' was invalidated: {reason}");
     }
 
-    void DependentsOf(IrLocal root, State state, string reason, bool throughOnly = false)
+    void DependentsOf(IrLocal root, State state, string reason, bool throughOnly = false, IReadOnlySet<IrLocal>? except = null)
     {
         foreach (var (local, dependency) in dependencies.ToList())
         {
-            if (local != root && Visible(local) && dependency.Roots.Any(r => r.Local == root && (r.Through || !throughOnly)))
+            if (local != root && Visible(local) && except?.Contains(local) != true && dependency.Roots.Any(r => r.Local == root && (r.Through || !throughOnly)))
                 Invalidate(state, local, reason);
         }
     }
 
     void Define(IrLocal local, IrRvalue value, State state)
     {
+        if (value is IrTest { Kind: IrTestKind.NotNull, Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } })
+            nullTests[local] = tested;
+        else
+            nullTests.Remove(local);
         state.Assigned.Add(local);
         state.MaybeAssigned.Add(local);
         if (Dependency.Of(value, this) is { } dependency)

@@ -16,7 +16,73 @@ public sealed partial class IrLowering
     void DeclarePatternLocals(BoundExpression? expression)
     {
         foreach (var local in BoundTree.PatternLocals(expression))
-            Add(new IrDeclare(Declare(local)) { IsBinding = true });
+        {
+            var declare = new IrDeclare(Declare(local)) { IsBinding = true };
+            if (local.IsReferenceBinding)
+                bindings[local] = (block, declare);
+            Add(declare);
+        }
+    }
+
+    /// <summary>Where each <c>is ref</c> name is declared, which its holder is declared just before.</summary>
+    readonly Dictionary<LocalSymbol, (IrBlock Block, IrDeclare Declare)> bindings = [];
+
+    /// <summary>Holds declared with an <c>is ref</c> name and made where it is tested, which elision leaves alone.</summary>
+    readonly HashSet<IrLocal> holders = [];
+
+    /// <summary>
+    /// <c>r is ref T name</c>: stores the reference in the name and tests it. The hold of the object
+    /// it points into is declared with the name, so that the object stays held while the name is in
+    /// scope, and ends where the test fails (03-memory-model.md, Nullable references).
+    /// </summary>
+    IrRvalue ReferenceTest(BoundExpression operand, LocalSymbol binding)
+    {
+        var name = locals[binding];
+        int start = block.Statements.Count;
+        var reference = Let(ReferenceValue(operand, binding.Type));
+        var holder = Holder(reference, start);
+        if (holder is not null)
+        {
+            var (declaredIn, declare) = bindings[binding];
+            Insert(declaredIn, declaredIn.Statements.IndexOf(declare), new IrDeclare(holder));
+            holders.Add(holder);
+        }
+        Add(new IrStore(new IrPlace(name), IrRead.Copy(new IrPlace(reference))));
+        var found = Let(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(name))));
+        if (holder is not null)
+            Add(new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock(), new IrBlock([new IrEnd(holder)])));
+        return new IrUse(IrRead.Move(new IrPlace(found)));
+    }
+
+    /// <summary>The hold made since <paramref name="start"/> of the object the reference a call returns points into, if it needed one.</summary>
+    IrLocal? Holder(IrLocal reference, int start)
+    {
+        var statements = block.Statements;
+        IrRvalue? Definition(IrLocal local) => statements.Skip(start).OfType<IrLet>().LastOrDefault(l => l.Local == local)?.Value;
+        var call = Definition(reference) switch
+        {
+            IrCall made => made,
+            IrConvert { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var converted } } } => Definition(converted) as IrCall,
+            _ => null,
+        };
+        var receiver = call?.Receiver switch
+        {
+            IrRead read => read.Place.Local,
+            IrRefArgument argument => argument.Place.Local,
+            _ => null,
+        };
+        return receiver is not null && Definition(receiver) is IrHold ? receiver : null;
+    }
+
+    /// <summary>Inserts a statement into a block lowered before the current one, keeping the reads pending in it where they were.</summary>
+    void Insert(IrBlock target, int index, IrStatement statement)
+    {
+        target.Statements.Insert(index, statement);
+        for (int i = 0; i < pendingReads.Count; i++)
+        {
+            if (pendingReads[i].Block == target && pendingReads[i].Index >= index)
+                pendingReads[i] = pendingReads[i] with { Index = pendingReads[i].Index + 1 };
+        }
     }
 
     /// <summary>A statement whose condition binds names, in a block of its own that declares them.</summary>
@@ -90,8 +156,6 @@ public sealed partial class IrLowering
                 for (int i = 0; i < variant.Fields.Count; i++)
                     Tests(variant.Fields[i], value.VariantField(variant.Variant, i), tests, bindings);
                 break;
-            case BoundReferencePattern:
-                throw new NotLoweredException("an 'is ref' pattern");
             default:
                 throw new InvalidOperationException($"unexpected pattern {pattern.GetType().Name}");
         }
@@ -126,6 +190,8 @@ public sealed partial class IrLowering
     /// </summary>
     IrRvalue Is(BoundIs test)
     {
+        if (test.Pattern is BoundReferencePattern reference)
+            return ReferenceTest(test.Operand, reference.Binding);
         var matched = Matched(test.Operand);
         var tests = new List<Func<IrOperand>>();
         var bindings = new List<Binding>();
