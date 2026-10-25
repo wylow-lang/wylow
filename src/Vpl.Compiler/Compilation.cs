@@ -75,13 +75,15 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         var analyses = Analyses.Run(program);
-        var ir = IrLowering.Lower(program, analyses, options.Optimize);
+        var ir = IrLowering.Lower(program, analyses);
         var callees = new Callees(ir, analyses.Whole.Overrides);
         var writes = Writes.Find(callees);
         Verify(ir, writes, "the lowered program");
         IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
+            HoldElision.Apply(ir);
+            Verify(ir, writes, "the program after eliding holds");
             inPlace = InPlaceElements.Apply(ir, writes).Locations;
             Verify(ir, writes, "the program after borrowing loop elements in place");
             onStack = StackSlots.Apply(ir, Escapes.Find(callees)).Locations;

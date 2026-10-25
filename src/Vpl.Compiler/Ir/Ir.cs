@@ -167,10 +167,19 @@ public sealed class IrBlock : IrStatement
     public List<IrStatement> Statements { get; } = [];
 
     /// <summary>
-    /// The block of one statement's temporaries, which are released when it completes (spec §3.2,
-    /// When references are released). It is a block only if releasing one of them may be observed.
+    /// A block holding only temporaries: one statement's, which are released when it completes
+    /// (spec §3.2, When references are released), or a switch expression's, which are its
+    /// statement's. It is a block only if releasing one of them may be observed (<see cref="DeclaresOwner"/>).
     /// </summary>
     public bool IsStatement { get; init; }
+
+    /// <summary>Whether it declares a local, other than those in <paramref name="except"/>, whose release may run code.</summary>
+    public bool DeclaresOwner(params IrLocal?[] except) => Statements.Any(statement => statement switch
+    {
+        IrLet let => !except.Contains(let.Local) && IrEffects.ReleaseMayRunCode(let.Local),
+        IrDeclare declare => !except.Contains(declare.Local) && IrEffects.ReleaseMayRunCode(declare.Local),
+        _ => false,
+    });
 
     public IrBlock() { }
 

@@ -69,7 +69,6 @@ public sealed partial class IrLowering
                 Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))));
         }
         Add(new IrReturn(IrRead.Copy(new IrPlace(self))));
-        Close(function.Body);
         return function;
     }
 

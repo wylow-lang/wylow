@@ -23,7 +23,7 @@ public sealed partial class IrLowering
         var scope = new IrBlock { IsStatement = true };
         IrLet? let = null;
         Into(scope, () => Add(let = new IrLet(local, Rvalue(value, Use.Read))));
-        if (!scope.Statements.Any(s => DeclaresOwner(s, local)))
+        if (!scope.DeclaresOwner(local))
         {
             block.Statements.AddRange(scope.Statements);
             return;

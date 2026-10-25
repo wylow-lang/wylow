@@ -49,7 +49,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (InPlaceElements, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (HoldElision, InPlaceElements, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -72,12 +72,14 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 - `src/Vpl.Compiler/Optimize`: optimizations, each a rewrite of the lowered IR that no program can
   observe, run in order only without `--no-opt` and verified after each. Lowering itself decides
   nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
-  run as an oracle. `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
+  run as an oracle. `HoldElision.cs` (§6.2 of the design: turns a hold nothing in its extent can
+  disturb into an alias of its place, or drops its borrow, then flattens the statement scopes that
+  no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
   count, where nothing can store over the element; the verifier re-checks it with `Writes`). Tests
   mark their loops with `// in-place: <n>`. `StackSlots.cs` (puts objects and closures that can't
   outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
   with `// stack: <n>`, and a test observing an optimization through diagnostics is
-  `// mode: optimized`. Moving here still: hold elision (`IrLowering.Close`).
+  `// mode: optimized`.
 - `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
@@ -87,7 +89,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
   may write, run, or panic on; every analysis asks it), `IrAccess.cs` (which storage an instruction
   touches, and the walkers over instructions), `Lowering*.cs` (bound tree to IR: conservative
-  holds and copies, then hold elision when each block is done), and `IrVerifier*.cs` (scoping,
+  holds and copies), and `IrVerifier*.cs` (scoping,
   single assignment, moves, places, and that every reference, view, and borrowed local is used
   only while what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier
   must accept or reject.

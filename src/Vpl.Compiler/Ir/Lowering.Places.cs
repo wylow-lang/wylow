@@ -19,7 +19,7 @@ public sealed partial class IrLowering
     /// <summary>Targets already found, which a compound assignment's value reads instead of finding them again.</summary>
     readonly Dictionary<BoundExpression, IrPlace> located = new(ReferenceEqualityComparer.Instance);
 
-    /// <summary>What each borrowed local is an alias of, once a hold has become one.</summary>
+    /// <summary>What each borrowed local is an alias of: the value a <c>?.</c> on a nullable value binds.</summary>
     readonly Dictionary<IrLocal, IrPlace> aliases = [];
 
     /// <summary>A read left in its instruction, unless something lowered between the two may change what it reads.</summary>
@@ -146,7 +146,7 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// A local holding the object that a place's first step is in: <c>this</c>, an object local, or a
-    /// hold of the object, which <see cref="Close"/> turns into an alias where nothing can replace it.
+    /// hold of the object, which <see cref="Optimize.HoldElision"/> turns into an alias where nothing can replace it.
     /// <paramref name="borrows"/> when the object hands out storage it may move unless it is borrowed.
     /// </summary>
     IrLocal ObjectLocal(BoundExpression root, Use use, bool borrows)
@@ -235,115 +235,5 @@ public sealed partial class IrLowering
         }
     }
 
-    bool MayChange(IrPlace place, IrFootprint footprint)
-    {
-        var chain = Chain(place).ToList();
-        return chain.Any(a => footprint.Writes.Any(a.Overlaps)) || (footprint.RunsCode && chain.Any(a => a.WrittenByCode));
-    }
-
-    /// <summary>
-    /// Elides the holds in a finished block that nothing in their extent needs (§6.2): a borrow if
-    /// no code runs that could change the object's length, and the pin too if nothing may replace
-    /// the object where it is. The extent runs to the last use of the hold or of anything pointing
-    /// into it, including that use when it uses it while code runs, as a call's receiver does.
-    /// </summary>
-    void Close(IrBlock finished)
-    {
-        if (!elide)
-            return;
-        var statements = finished.Statements;
-        for (int h = 0; h < statements.Count; h++)
-        {
-            if (statements[h] is not IrLet { Value: IrHold hold } let || holders.Contains(let.Local))
-                continue;
-            var (extent, referenced, named) = Extent(statements, h);
-            // A variable's or loop's borrow lasts for its scope (spec §3.4, Borrow counters on
-            // containers), which the object's own fields can show without any code running.
-            if (hold.Borrows && !referenced.RunsCode && !named)
-                hold.Borrows = false;
-            // A generic value's hold refers to a struct in place, so it can't become an alias.
-            if (hold.Borrows || MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
-                continue;
-            let.Value = new IrUse(IrRead.Borrow(hold.Place));
-            let.Local.Kind = IrLocalKind.Borrowed;
-            let.Local.Type = hold.Place.Type;
-            aliases[let.Local] = hold.Place;
-        }
-    }
-
-    static bool IsDereferenced(List<IrStatement> statements, int from, IrLocal local) =>
-        statements.Skip(from + 1).SelectMany(s => IrWalk.Descendants(s)).SelectMany(IrWalk.Operands).SelectMany(IrWalk.Places)
-            .Any(p => p.Local == local && p.IsDeref);
-
-    /// <summary>
-    /// What may happen while a hold, or anything pointing into what it holds, is in use; what may
-    /// happen once something points into it, which is all a temporary reference's borrow must last
-    /// for; and whether a source local points into it.
-    /// </summary>
-    static (IrFootprint Extent, IrFootprint Referenced, bool Named) Extent(List<IrStatement> statements, int hold)
-    {
-        var dependents = new HashSet<IrLocal> { ((IrLet)statements[hold]).Local };
-        int last = -1;
-        int firstReference = -1;
-        bool lastInUse = false;
-        for (int i = hold + 1; i < statements.Count; i++)
-        {
-            foreach (var let in IrWalk.Descendants(statements[i]).OfType<IrLet>())
-            {
-                // A lambda's body runs where it is called, which is where it uses what it refers to.
-                if (let.Value is IrLambda lambda && IrWalk.Locals(lambda.Function.Body).Any(dependents.Contains))
-                    dependents.Add(let.Local);
-                else if (Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(dependents.Contains))
-                {
-                    dependents.Add(let.Local);
-                    // Inside another statement, it may be made before more of that statement runs.
-                    if (firstReference < 0)
-                        firstReference = ReferenceEquals(let, statements[i]) ? i : i - 1;
-                }
-            }
-            if (IrWalk.Locals(statements[i]).Any(dependents.Contains))
-            {
-                last = i;
-                lastInUse = InUse(statements[i], dependents);
-            }
-        }
-        var footprint = new IrFootprint();
-        var referenced = new IrFootprint();
-        for (int i = hold + 1; i < last || (i == last && lastInUse); i++)
-        {
-            var inner = IrWalk.Footprint(statements[i]);
-            footprint.Add(inner);
-            // The statement making the first reference runs before the reference exists.
-            if (firstReference >= 0 && i > firstReference)
-                referenced.Add(inner);
-        }
-        return (footprint, referenced, dependents.Any(d => d.Symbol is not null));
-    }
-
-    /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>
-    static bool Refers(IrLocal local) =>
-        local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || local.Type.IsPointer || local.Type.NonNull is { IsFunction: true, IsEscaping: false };
-
-    /// <summary>Whether the statement uses one of the locals while it runs code, rather than only reading a value out of it first.</summary>
-    static bool InUse(IrStatement statement, HashSet<IrLocal> locals)
-    {
-        if (statement is IrBlock or IrIf or IrLoop)
-            return true;
-        var value = statement switch
-        {
-            IrLet let => let.Value,
-            IrDo run => run.Value,
-            _ => null,
-        };
-        if (value is not (IrCall or IrInvoke or IrNew or IrConstruct))
-            return false;
-        return IrWalk.Operands(value).Any(argument => argument switch
-        {
-            IrRefArgument reference => IrWalk.PlaceLocals(reference.Place).Any(locals.Contains),
-            IrAddrArgument address => IrWalk.PlaceLocals(address.Place).Any(locals.Contains),
-            IrRead { Ownership: IrOwnership.Borrow } read => IrWalk.PlaceLocals(read.Place).Any(locals.Contains),
-            IrRead read => locals.Contains(read.Place.Local) && Refers(read.Place.Local) && read.Place is { IsDeref: false, Projections.Count: 0 },
-            _ => false,
-        });
-    }
+    bool MayChange(IrPlace place, IrFootprint footprint) => footprint.MayChange(Chain(place));
 }

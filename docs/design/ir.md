@@ -620,8 +620,8 @@ Each step keeps the suite passing on MSVC and g++.
    predicate, then `StackObjects`. Delete `WholeProgram.Unit`'s special parts.
    Done: `ElementAliasing` is the `InPlaceElements` pass, `StackObjects` the `StackSlots` pass with
    `Analysis/Escapes`, both after lowering (§9.11), over `Callees`, which made `WholeProgram.Unit`
-   unnecessary; `FindRecursive` reads the IR. Hold elision still runs inside lowering (`Close`),
-   and is to move into a pass of its own before step 6.
+   unnecessary; `FindRecursive` reads the IR. Hold elision is the `HoldElision` pass, the first
+   to run, which also flattens the statement scopes lowering made only for holds it elided.
 6. **Generalize**, with each step a measurable improvement:
    - field-precise write summaries;
    - borrowed locals beyond loop elements;

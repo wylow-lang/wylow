@@ -8,14 +8,12 @@ namespace Vpl.Compiler.Ir;
 /// <summary>
 /// Lowers checked functions into the IR (docs/design/ir.md, §5). Lowering is conservative: every
 /// object a place goes through is held, and every read that something after it might change is
-/// copied into a temporary first. When a block is complete, the holds that nothing in their extent
-/// needs are elided (§6.2), using the same effects the verifier then checks them with.
+/// copied into a temporary first. Holds nothing needs are elided later, by <see cref="Optimize.HoldElision"/>.
 /// </summary>
 public sealed partial class IrLowering
 {
     readonly BoundProgram program;
     readonly Analyses analyses;
-    readonly bool elide;
     readonly IReadOnlyList<TypeSymbol> borrowableClasses;
 
     // A lambda's body is lowered by the lowering of the function making it, which these then describe.
@@ -29,11 +27,10 @@ public sealed partial class IrLowering
     IrBlock block;
     bool reachable = true;
 
-    IrLowering(BoundProgram program, Analyses analyses, bool elide, IReadOnlyList<TypeSymbol> borrowableClasses, FunctionSymbol symbol, string? name = null)
+    IrLowering(BoundProgram program, Analyses analyses, IReadOnlyList<TypeSymbol> borrowableClasses, FunctionSymbol symbol, string? name = null)
     {
         this.program = program;
         this.analyses = analyses;
-        this.elide = elide;
         this.borrowableClasses = borrowableClasses;
         this.symbol = symbol;
         var owner = symbol.ContainingType;
@@ -45,14 +42,14 @@ public sealed partial class IrLowering
             function.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind });
     }
 
-    public static IrProgram Lower(BoundProgram program, Analyses analyses, bool elide)
+    public static IrProgram Lower(BoundProgram program, Analyses analyses)
     {
         var ir = new IrProgram(program);
         var borrowable = program.Stdlib.Borrowable;
         List<TypeSymbol> borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
         void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
-            var lowering = new IrLowering(program, analyses, elide, borrowableClasses, symbol, name);
+            var lowering = new IrLowering(program, analyses, borrowableClasses, symbol, name);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
             foreach (var (element, location) in lowering.loopElements)
@@ -108,7 +105,6 @@ public sealed partial class IrLowering
             var location = body.Location;
             Unreachable(location with { Span = new TextSpan(location.Span.End - 1, 1) });
         }
-        Close(function.Body);
     }
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
@@ -204,13 +200,11 @@ public sealed partial class IrLowering
         }
     }
 
-    /// <summary>Lowers into <paramref name="target"/>, then elides the holds in it that nothing needs.</summary>
     void Into(IrBlock target, Action lower)
     {
         var saved = block;
         block = target;
         lower();
-        Close(target);
         block = saved;
     }
 
@@ -226,20 +220,13 @@ public sealed partial class IrLowering
         Splice(scope);
     }
 
-    void Splice(IrBlock scope, IrLocal? declared = null)
+    void Splice(IrBlock scope)
     {
-        if (scope.Statements.Any(s => DeclaresOwner(s, declared)))
+        if (scope.DeclaresOwner())
             Add(scope);
         else
             block.Statements.AddRange(scope.Statements);
     }
-
-    static bool DeclaresOwner(IrStatement statement, IrLocal? except) => statement switch
-    {
-        IrLet let => let.Local != except && IrEffects.ReleaseMayRunCode(let.Local),
-        IrDeclare declare => declare.Local != except && IrEffects.ReleaseMayRunCode(declare.Local),
-        _ => false,
-    };
 
     IrLocal Declare(LocalSymbol local)
     {

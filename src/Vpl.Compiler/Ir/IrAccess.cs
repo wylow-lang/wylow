@@ -91,6 +91,13 @@ public sealed class IrFootprint
         CreatesOwner |= other.CreatesOwner;
     }
 
+    /// <summary>Whether it may write any of the accesses, itself or by running code.</summary>
+    public bool MayChange(IEnumerable<IrAccess> accesses)
+    {
+        var list = accesses.ToList();
+        return list.Any(a => Writes.Any(a.Overlaps)) || (RunsCode && list.Any(a => a.WrittenByCode));
+    }
+
     public void Add(IrEffects effects)
     {
         foreach (var write in effects.Writes)
@@ -225,7 +232,7 @@ public static class IrWalk
             switch (inner)
             {
                 case IrBlock block:
-                    if (block.Statements.Any(s => s is IrLet { Local: var l } && IrEffects.ReleaseMayRunCode(l) || s is IrDeclare { Local: var d } && IrEffects.ReleaseMayRunCode(d)))
+                    if (block.DeclaresOwner())
                         footprint.RunsCode = true;
                     break;
                 case IrIf or IrLoop:

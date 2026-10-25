@@ -27,9 +27,6 @@ public sealed partial class IrLowering
     /// <summary>Where each <c>is ref</c> name is declared, which its holder is declared just before.</summary>
     readonly Dictionary<LocalSymbol, (IrBlock Block, IrDeclare Declare)> bindings = [];
 
-    /// <summary>Holds declared with an <c>is ref</c> name and made where it is tested, which elision leaves alone.</summary>
-    readonly HashSet<IrLocal> holders = [];
-
     /// <summary>
     /// <c>r is ref T name</c>: stores the reference in the name and tests it. The hold of the object
     /// it points into is declared with the name, so that the object stays held while the name is in
@@ -45,7 +42,6 @@ public sealed partial class IrLowering
         {
             var (declaredIn, declare) = bindings[binding];
             Insert(declaredIn, declaredIn.Statements.IndexOf(declare), new IrDeclare(holder));
-            holders.Add(holder);
         }
         Add(new IrStore(new IrPlace(name), IrRead.Copy(new IrPlace(reference))));
         var found = Let(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(name))));
@@ -304,7 +300,7 @@ public sealed partial class IrLowering
     {
         var result = Temp(type);
         Add(new IrDeclare(result));
-        var scope = new IrBlock();
+        var scope = new IrBlock { IsStatement = true };
         Into(scope, () =>
         {
             var matched = Matched(switchExpression.Value);
