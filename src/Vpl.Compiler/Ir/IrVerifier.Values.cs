@@ -251,6 +251,8 @@ public sealed partial class IrVerifier
 
     bool CodeDestroys(Resolved place, IrEffects effects) => place.Destructible >= 0 && CodeWrites(place, effects);
 
+    public const string ReplacedNullable = "the nullable value or variant it points into may be replaced";
+
     /// <summary>Why the effects would make a dependent unusable, or null.</summary>
     string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes)
     {
@@ -261,7 +263,7 @@ public sealed partial class IrVerifier
         if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || CodeWrites(target, effects)))
             return "the place it borrows may be written";
         if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || CodeDestroys(target, effects)))
-            return "the nullable value or variant it points into may be replaced";
+            return ReplacedNullable;
         return null;
     }
 
@@ -269,6 +271,7 @@ public sealed partial class IrVerifier
 
     void Apply(State state, IrEffects effects, string what)
     {
+        RecordNullableWrites(effects);
         var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
         foreach (var (local, dependency) in dependencies.ToList())
         {
@@ -344,6 +347,7 @@ public sealed partial class IrVerifier
     {
         var local = place.Local;
         Use(local, state, reads || place.IsDeref);
+        CheckNullableOrder(place);
         if (place.IsDeref)
         {
             bool derefable = local.Kind is IrLocalKind.Reference or IrLocalKind.Hold
@@ -648,7 +652,10 @@ public sealed partial class IrVerifier
                 _ => (null, false),
             };
             if (place is not null && WouldBreak(place, alias, effects, state) is { } reason)
-                Error($"'{IrPrinter.Print(root, place)}' is used during {Describe(value)}, but {reason}");
+            {
+                if (!ReportNullableValue(place, reason, effects))
+                    Error($"'{IrPrinter.Print(root, place)}' is used during {Describe(value)}, but {reason}");
+            }
             // A lambda it is given runs during it, using what the lambda refers into.
             if (argument is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Type.NonNull: { IsFunction: true, IsEscaping: false } } lambda } }
                 && dependencies.ContainsKey(lambda) && !state.Invalid.ContainsKey(lambda))
@@ -659,6 +666,57 @@ public sealed partial class IrVerifier
                     Error($"'{N(lambda)}' runs during {Describe(value)}, but {broken}");
             }
         }
+    }
+
+    /// <summary>
+    /// Reports a place in a narrowed nullable value of a source variable that the operation using it
+    /// may set to null, which would destroy the place, as the user's error (spec 02-types.md).
+    /// </summary>
+    bool ReportNullableValue(IrPlace place, string reason, IrEffects effects)
+    {
+        if (!reason.StartsWith(ReplacedNullable) || !IsNarrowedSource(place))
+            return false;
+        // Narrowing is never kept for a variable a lambda assigns, so only passing it by 'ref' gets here.
+        if (!effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == place.Local))
+            return false;
+        ReportNullable(place.Local, current);
+        return true;
+    }
+
+    /// <summary>A place in the narrowed value of a source variable, which the user's error is reported for.</summary>
+    bool IsNarrowedSource(IrPlace place) =>
+        diagnostics is not null && place.Local.Symbol is not null && !place.IsDeref && place.Local.Type.IsNullableValue && place.Projections.FirstOrDefault() is IrAssumed;
+
+    void ReportNullable(IrLocal local, IrStatement? statement)
+    {
+        var at = statement is not null && program.Origins.TryGetValue(statement, out var origin) ? origin : function.Symbol.Declaration?.Location;
+        if (at is not { } location || !reportedNullables.Add((statement, local)))
+            return;
+        diagnostics!.Error(location, $"'{local.Symbol!.Name}' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first");
+    }
+
+    /// <summary>
+    /// A place in a narrowed value is evaluated after the operands written before it in the same
+    /// expression, which must not have set the variable to null (spec 02-types.md).
+    /// </summary>
+    void CheckNullableOrder(IrPlace place)
+    {
+        if (!IsNarrowedSource(place) || current is null || !program.Origins.TryGetValue(current, out var within))
+            return;
+        foreach (var (local, at) in nullableWrites)
+        {
+            if (local == place.Local && at.Source == within.Source && at.Span != within.Span && at.Span.Start >= within.Span.Start && at.Span.End <= within.Span.End)
+                ReportNullable(local, current);
+        }
+    }
+
+    /// <summary>Remembers where an instruction passes a source variable holding a nullable value by reference, for <see cref="CheckNullableOrder"/>.</summary>
+    void RecordNullableWrites(IrEffects effects)
+    {
+        if (diagnostics is null || current is null || !program.Origins.TryGetValue(current, out var at))
+            return;
+        foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local is { Symbol: not null, Type.IsNullableValue: true }))
+            nullableWrites.Add((write.Place.Local, at));
     }
 
     string? WouldBreak(IrPlace place, bool alias, IrEffects effects, State state)

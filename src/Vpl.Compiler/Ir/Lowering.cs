@@ -24,6 +24,9 @@ public sealed partial class IrLowering
     readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly HashSet<LocalSymbol> capturedByLambda = [];
+    readonly Dictionary<IrStatement, Location> origins = new(ReferenceEqualityComparer.Instance);
+    Location? at;
+    readonly Dictionary<IrRvalue, Location> valueOrigins = new(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IrRvalue, Location> creations = new(ReferenceEqualityComparer.Instance);
     IrBlock block;
     bool reachable = true;
@@ -55,6 +58,8 @@ public sealed partial class IrLowering
             ir.Functions.AddRange(lowering.lambdas);
             foreach (var (element, location) in lowering.loopElements)
                 ir.LoopElements[element] = location;
+            foreach (var (statement, location) in lowering.origins)
+                ir.Origins[statement] = location;
             foreach (var (creation, location) in lowering.creations)
                 ir.Creations[creation] = location;
         }
@@ -112,7 +117,15 @@ public sealed partial class IrLowering
         }
     }
 
-    void Add(IrStatement statement) => block.Statements.Add(statement);
+    void Add(IrStatement statement)
+    {
+        block.Statements.Add(statement);
+        IrRvalue? value = statement switch { IrLet let => let.Value, IrDo run => run.Value, _ => null };
+        if (value is not null && valueOrigins.TryGetValue(value, out var made))
+            origins[statement] = made;
+        else if (at is { } location)
+            origins[statement] = location;
+    }
 
     IrLocal Temp(VplType type, IrLocalKind kind = IrLocalKind.Value, RefKind refKind = RefKind.None) =>
         new("t", type, kind) { IsTemporary = true, RefKind = refKind };
@@ -151,6 +164,14 @@ public sealed partial class IrLowering
     }
 
     void Statement(BoundStatement statement)
+    {
+        var enclosing = at;
+        at = statement.Location;
+        StatementOf(statement);
+        at = enclosing;
+    }
+
+    void StatementOf(BoundStatement statement)
     {
         switch (statement)
         {

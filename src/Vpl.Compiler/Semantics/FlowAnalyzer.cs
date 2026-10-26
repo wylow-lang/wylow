@@ -178,7 +178,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                 bool assignsReferenced = assignment.Target is BoundLocalAccess { Local.Type.IsNullableReference: true };
                 if ((assignment.Target is not BoundLocalAccess || assignsReferenced) && !initializesField)
                 {
-                    CheckNullableValueKept(assignment.Target, RefPassedLocals(assignment.Value));
                     state = Expression(assignment.Target, state);
                 }
                 state = Expression(assignment.Value, state);
@@ -373,44 +372,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     static IEnumerable<LocalSymbol> RefArguments(MethodReference method, IReadOnlyList<BoundExpression> arguments) =>
         arguments.Where((a, i) => method.ParameterRefKind(i) == RefKind.Ref).OfType<BoundLocalAccess>().Select(a => a.Local);
 
-    /// <summary>
-    /// A place inside a narrowed nullable value is referred to while the rest of an operation runs,
-    /// as the receiver or a 'ref' or 'in' argument of a call, or the target of an assignment.
-    /// Passing the nullable by 'ref' meanwhile could set it to null and destroy the place.
-    /// </summary>
-    void CheckNullableValueKept(BoundExpression place, IEnumerable<LocalSymbol> passedByRef)
-    {
-        var root = place.Type.IsRefStruct ? PlacePath.ViewedNullableValue(place) : PlacePath.NullableValueRoot(place);
-        if (root is not null && passedByRef.Contains(root))
-        {
-            ReportOnce(place, place.Location,
-                $"'{root.Name}' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first");
-        }
-    }
-
-    /// <summary>Checks the operands of a call or index that refer to places against the others evaluated with them.</summary>
-    void CheckNullableValuesKept(BoundExpression expression)
-    {
-        if (BoundTree.CallOf(expression) is { } call)
-            CheckNullableValuesKept(expression, call.Method, call.Receiver, call.Arguments);
-        else if (expression is BoundIndex { Target.Type.IsFixedArray: true } index)
-            CheckNullableValuesKept(expression, null, index.Target, [index.Index]);
-    }
-
-    void CheckNullableValuesKept(BoundExpression expression, MethodReference? method, BoundExpression? receiver, IReadOnlyList<BoundExpression> arguments)
-    {
-        List<BoundExpression> operands = receiver is null ? [.. arguments] : [receiver, .. arguments];
-        for (int i = 0; i < operands.Count; i++)
-        {
-            int argument = receiver is null ? i : i - 1;
-            bool kept = argument < 0
-                ? !operands[i].Type.IsReference
-                : method is not null && (operands[i].Type.IsRefStruct || method.ParameterRefKind(argument) != RefKind.None);
-            if (kept)
-                CheckNullableValueKept(operands[i], RefArguments(expression).Concat(operands.Where((_, j) => j != i).SelectMany(RefPassedLocals)));
-        }
-    }
-
     Loop AnalyzeLoopBody(BoundStatement body, State entry)
     {
         // Analyzing the body once is sound: assignments only ever add to the assigned sets, every
@@ -560,7 +521,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             }
             // The expressions with their own cases above are the only ones that don't run every child in order.
             default:
-                CheckNullableValuesKept(expression);
                 foreach (var child in BoundTree.Children(expression))
                     state = Expression(child, state);
                 Unnarrow(state, RefArguments(expression));

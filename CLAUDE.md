@@ -129,7 +129,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   place or a view is taught there.
 - **Nothing may keep referring into a nullable value** (`int?`, `Vec3?`, `T?`), since assigning the
   variable null destroys it: `PlacePath.NullableValueRoot` finds the narrowed `mut` local a place lies in,
-  and a new way to hold a place or a view beyond one operation must reject such places.
+  and a new way to hold a place or a view beyond one operation must reject such places. Within one
+  operation, the IR verifier reports a place in the value that the operation (or an earlier operand) may
+  set to null as the user's error (`IrVerifier.ReportNullableValue`), so it runs with the `DiagnosticBag`
+  after lowering.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite on
   both MSVC and g++ before committing.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or

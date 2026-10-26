@@ -343,9 +343,9 @@ to `ref?` is `addr P`. None of these introduce anything an analysis has to learn
 ### 5.4 Nullable values
 
 A narrowed `v` of type `Vec3?` is the place `v!` (`vpl::assume_value`). `v!` checks first. `v?.m()`
-copies `v` into a temporary and branches, as today. The binder's `NullableValueRoot` check stays
-on the bound tree. The verifier also checks the invariant behind it: no reference whose place
-goes through `v!` is used after an instruction that may write `v`. That is the same check as for
+copies `v` into a temporary and branches, as today. The binder's `NullableValueRoot` check of
+what a reference or view may refer into stays on the bound tree. The verifier checks the invariant
+behind the rest: no reference whose place goes through `v!` is used after an instruction that may write `v`. That is the same check as for
 holds (§6.4), and a future, more permissive rule (§9.6) would be stated in exactly those terms.
 
 ### 5.5 Spans and views
@@ -667,7 +667,13 @@ Each step keeps the suite passing on MSVC and g++.
    call after it as possibly writing it: replace it with what each lambda's body actually writes,
    from the effect table, and delete it. Done for `IsChangedInPlaceByLambda`: lowering marks
    `IrLocal.IsChangedByLambda` on every writable local a non-escaping lambda captures, and the
-   `LambdaWrites` pass clears it where no lambda body's effects write the local. Not optional: until it's done, the same question (what
+   `LambdaWrites` pass clears it where no lambda body's effects write the local. Done for the
+   nullable-value reference rule: the verifier, given the diagnostics, reports a use of `v!` in
+   an operation that passes `v` by `ref`, or after an operand of the same expression did, as the
+   source error (`Compilation` stops after the lowered program's verification if there is one;
+   `IrProgram.Origins` says which expression a statement came from). The two cases the tree
+   rule rejected that evaluate fine (`v.x = clear(ref v)` and the like) are still rejected, by the
+   operand-order check, since accepting them is the language change of �9.6. Not optional: until it's done, the same question (what
    may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output

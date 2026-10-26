@@ -1,6 +1,8 @@
 using Vpl.Compiler.Analysis;
+using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Ir;
 
@@ -43,18 +45,28 @@ public sealed partial class IrVerifier
     readonly HashSet<IrLocal> filledSlots = [];
 
     readonly Writes writes;
+    readonly IrProgram program;
+    readonly DiagnosticBag? diagnostics;
+    readonly HashSet<(IrStatement?, IrLocal)> reportedNullables = [];
+    readonly List<(IrLocal Local, Location At)> nullableWrites = [];
 
-    IrVerifier(IrProgram program, Writes writes)
+    IrVerifier(IrProgram program, Writes writes, DiagnosticBag? diagnostics)
     {
+        this.program = program;
         this.writes = writes;
+        this.diagnostics = diagnostics;
         var borrowable = program.Bound.Stdlib.Borrowable;
         borrowableClasses = [.. program.Bound.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
     }
 
-    /// <summary>Verifies the program, with what each of its functions may write, which a loop element borrowed in place needs.</summary>
-    public static IReadOnlyList<string> Verify(IrProgram program, Writes writes)
+    /// <summary>
+    /// Verifies the program, with what each of its functions may write, which a loop element borrowed in place needs.
+    /// With <paramref name="diagnostics"/>, a program that uses a nullable value while its variable may be
+    /// set to null (<see cref="ReplacedNullable"/>) is the user's error, reported there; without, it is a failure.
+    /// </summary>
+    public static IReadOnlyList<string> Verify(IrProgram program, Writes writes, DiagnosticBag? diagnostics = null)
     {
-        var verifier = new IrVerifier(program, writes);
+        var verifier = new IrVerifier(program, writes, diagnostics);
         // A lambda is verified where it is made.
         foreach (var function in program.Functions.Where(f => !f.IsLambda))
             verifier.VerifyFunction(function, function);
@@ -94,6 +106,7 @@ public sealed partial class IrVerifier
         root = printedIn;
         function = verified;
         scopes = [[]];
+        nullableWrites.Clear();
         loops = [];
         loopDepth = 0;
         var state = new State();

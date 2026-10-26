@@ -18,6 +18,9 @@ public sealed class IrProgram(BoundProgram bound)
     /// <summary>Each for-each loop's element variable, and where it is declared, for <c>InPlaceElements</c>.</summary>
     public Dictionary<IrLocal, Location> LoopElements { get; } = [];
 
+    /// <summary>The source expression or statement most statements were lowered from, for errors that only the IR can find.</summary>
+    public Dictionary<IrStatement, Location> Origins { get; } = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>Where each <see cref="IrNew"/> and <see cref="IrClosure"/> is in the source, for tests.</summary>
     public Dictionary<IrRvalue, Location> Creations { get; } = new(ReferenceEqualityComparer.Instance);
 }

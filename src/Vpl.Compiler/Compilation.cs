@@ -78,7 +78,9 @@ public static class Compilation
         var ir = IrLowering.Lower(program, analyses);
         var callees = new Callees(ir, analyses.Whole.Overrides, analyses.Cycles);
         var writes = Writes.Find(callees);
-        Verify(ir, writes, "the lowered program");
+        Verify(ir, writes, "the lowered program", diagnostics);
+        if (diagnostics.HasErrors)
+            return new CompilationResult(diagnostics.Sorted(), null);
         IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
@@ -105,9 +107,9 @@ public static class Compilation
     }
 
     /// <summary>Checks the IR after lowering and after each optimization, so that a failure names the pass that broke it.</summary>
-    static void Verify(IrProgram ir, Writes writes, string what)
+    static void Verify(IrProgram ir, Writes writes, string what, DiagnosticBag? diagnostics = null)
     {
-        var errors = IrVerifier.Verify(ir, writes);
+        var errors = IrVerifier.Verify(ir, writes, diagnostics);
         if (errors.Count == 0)
             return;
         var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));

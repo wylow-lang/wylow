@@ -33,6 +33,16 @@ public sealed partial class IrLowering
     /// <summary>The expression as one instruction's value, its operands lowered before it.</summary>
     IrRvalue Rvalue(BoundExpression expression, Use use)
     {
+        var enclosing = at;
+        at = expression.Location;
+        var value = RvalueOf(expression, use);
+        at = enclosing;
+        valueOrigins[value] = expression.Location;
+        return value;
+    }
+
+    IrRvalue RvalueOf(BoundExpression expression, Use use)
+    {
         switch (expression)
         {
             case BoundUnary unary:
