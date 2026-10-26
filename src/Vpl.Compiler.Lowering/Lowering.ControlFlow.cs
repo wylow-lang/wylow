@@ -1,6 +1,7 @@
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Lowering;
 
@@ -16,27 +17,20 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// Defines a local with an expression's value, as a statement of its own: the temporaries its
-    /// value needs are released after the local is defined, so if releasing one may be observed, the
-    /// local is declared first and stored at the end of their block.
+    /// value needs are released after the local is defined, so the local is declared first and
+    /// stored at the end of their block.
     /// </summary>
     void Define(IrLocal local, BoundExpression value)
     {
         var scope = new IrBlock { Origin = at, IsStatement = true };
-        IrLet? let = null;
-        Into(scope, () => Add(let = LetOf(local, Rvalue(value, Use.Read))));
-        if (!scope.DeclaresOwner(local))
+        Location? origin = null;
+        Into(scope, () =>
         {
-            block.Statements.AddRange(scope.Statements);
-            return;
-        }
-        var index = scope.Statements.IndexOf(let!);
-        scope.Statements.RemoveAt(index);
-        var saved = block;
-        block = new IrBlock { Origin = null };
-        var operand = OperandOf(let!.Value);
-        scope.Statements.InsertRange(index, [.. block.Statements, new IrStore(new IrPlace(local), operand) { Origin = let.Origin }]);
-        block = saved;
-        Add(new IrDeclare(local) { Origin = let.Origin });
+            var rvalue = Rvalue(value, Use.Read);
+            origin = Origin(rvalue);
+            Add(new IrStore(new IrPlace(local), OperandOf(rvalue)) { Origin = origin });
+        });
+        Add(new IrDeclare(local) { Origin = origin });
         Add(scope);
     }
 
@@ -144,8 +138,8 @@ public sealed partial class IrLowering
         {
             DeclarePatternLocals(range.Start);
             DeclarePatternLocals(range.End);
-            var start = Let(new IrUse(Settle(Value(range.Start))));
-            var end = Let(new IrUse(Settle(Value(range.End))));
+            var start = Let(new IrUse(Value(range.Start)));
+            var end = Let(new IrUse(Value(range.End)));
             var counter = new IrLocal("i", type, IrLocalKind.Value);
             Add(LetOf(counter, new IrUse(IrRead.Copy(new IrPlace(start)))));
             IrLocal? more = null;
@@ -234,7 +228,7 @@ public sealed partial class IrLowering
         IrBlock Branch(Func<IrOperand> value)
         {
             var branch = new IrBlock { Origin = at };
-            Into(branch, () => Add(new IrStore(new IrPlace(result), Settle(value())) { Origin = at }));
+            Into(branch, () => Add(new IrStore(new IrPlace(result), value()) { Origin = at }));
             return branch;
         }
         Add(new IrIf(tested, Branch(whenTrue), Branch(whenFalse)) { Origin = at });
@@ -260,7 +254,7 @@ public sealed partial class IrLowering
 
     IrRvalue Logical(BoundBinary binary)
     {
-        IrOperand Left() => Settle(Value(binary.Left));
+        IrOperand Left() => Value(binary.Left);
         IrOperand Right() => OperandOf(Rvalue(binary.Right, Use.Read));
         return binary.Operator == BoundBinaryOperator.LogicalAnd
             ? Chosen(VplType.Bool, Left, Right, () => IrConstant.Bool(false))
@@ -269,7 +263,7 @@ public sealed partial class IrLowering
 
     IrRvalue Conditional(BoundConditional conditional)
     {
-        return Chosen(conditional.Type, () => Settle(Value(conditional.Condition)),
+        return Chosen(conditional.Type, () => Value(conditional.Condition),
             () => OperandOf(Rvalue(conditional.WhenTrue, Use.Read)),
             () => OperandOf(Rvalue(conditional.WhenFalse, Use.Read)));
     }
@@ -281,7 +275,7 @@ public sealed partial class IrLowering
         var type = coalesce.Left.Type;
         IrOperand Test()
         {
-            left = Let(new IrUse(Settle(Value(coalesce.Left))));
+            left = Let(new IrUse(Value(coalesce.Left)));
             return IrRead.Move(new IrPlace(Let(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(left))))));
         }
         return Chosen(coalesce.Type, Test,
@@ -302,7 +296,7 @@ public sealed partial class IrLowering
         if (type.IsNullableReference)
             Add(LetOf(held = Declare(access.Value), ReferenceValue(access.Receiver, access.Value.Type)));
         else
-            held = Let(new IrUse(Settle(Value(access.Receiver))));
+            held = Let(new IrUse(Value(access.Receiver)));
         IrOperand Test() => Tested(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(held))));
         void Bind()
         {
@@ -316,7 +310,6 @@ public sealed partial class IrLowering
             }
             var place = new IrPlace(held).Assumed();
             value.Kind = IrLocalKind.Borrowed;
-            aliases[value] = place;
             Add(LetOf(value, new IrUse(IrRead.Borrow(place))));
         }
         if (access.Type == VplType.Void)

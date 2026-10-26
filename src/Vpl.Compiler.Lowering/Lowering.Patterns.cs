@@ -42,7 +42,7 @@ public sealed partial class IrLowering
         if (holder is not null)
         {
             var (declaredIn, declare) = bindings[binding];
-            Insert(declaredIn, declaredIn.Statements.IndexOf(declare), new IrDeclare(holder) { Origin = at });
+            declaredIn.Statements.Insert(declaredIn.Statements.IndexOf(declare), new IrDeclare(holder) { Origin = at });
         }
         Add(new IrStore(new IrPlace(name), IrRead.Copy(new IrPlace(reference))) { Origin = at });
         var found = Let(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(name))));
@@ -69,17 +69,6 @@ public sealed partial class IrLowering
             _ => null,
         };
         return receiver is not null && Definition(receiver) is IrHold ? receiver : null;
-    }
-
-    /// <summary>Inserts a statement into a block lowered before the current one, keeping the reads pending in it where they were.</summary>
-    void Insert(IrBlock target, int index, IrStatement statement)
-    {
-        target.Statements.Insert(index, statement);
-        for (int i = 0; i < pendingReads.Count; i++)
-        {
-            if (pendingReads[i].Block == target && pendingReads[i].Index >= index)
-                pendingReads[i] = pendingReads[i] with { Index = pendingReads[i].Index + 1 };
-        }
     }
 
     /// <summary>A statement whose condition binds names, in a block of its own that declares them.</summary>
@@ -294,7 +283,7 @@ public sealed partial class IrLowering
     /// lives until the value is produced, and each case's temporaries until the case completes.
     /// </summary>
     IrRvalue SwitchExpression(BoundSwitchExpression switchExpression) =>
-        SwitchExpression(switchExpression, switchExpression.Type, value => Settle(OperandOf(Rvalue(value, Use.Read))));
+        SwitchExpression(switchExpression, switchExpression.Type, value => OperandOf(Rvalue(value, Use.Read)));
 
     /// <summary>A switch expression's cases, each storing what <paramref name="caseValue"/> makes of its value, as a <paramref name="type"/>.</summary>
     IrRvalue SwitchExpression(BoundSwitchExpression switchExpression, VplType type, Func<BoundExpression, IrOperand> caseValue)
@@ -319,7 +308,7 @@ public sealed partial class IrLowering
                 }
             });
         });
-        Splice(scope);
+        Add(scope);
         reachable = true;
         return new IrUse(IrRead.Move(new IrPlace(result)));
     }

@@ -1,7 +1,6 @@
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
-using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Lowering;
 
@@ -20,17 +19,6 @@ public sealed partial class IrLowering
 
     /// <summary>Targets already found, which a compound assignment's value reads instead of finding them again.</summary>
     readonly Dictionary<BoundExpression, IrPlace> located = new(ReferenceEqualityComparer.Instance);
-
-    /// <summary>What each borrowed local is an alias of: the value a <c>?.</c> on a nullable value binds.</summary>
-    readonly Dictionary<IrLocal, IrPlace> aliases = [];
-
-    /// <summary>
-    /// A read left in its instruction, unless something lowered between the two may change what it
-    /// reads; then it is copied where it was lowered, from <paramref name="Origin"/>.
-    /// </summary>
-    sealed record PendingRead(IrRead Read, IrBlock Block, int Index, Location? Origin);
-
-    readonly List<PendingRead> pendingReads = [];
 
     static bool IsPlace(BoundExpression expression) => expression switch
     {
@@ -64,8 +52,8 @@ public sealed partial class IrLowering
             {
                 var crossing = path.Steps[0];
                 // A value read right away is read before any code runs that could move it.
-                bool borrows = crossing is BoundCall && MayBeBorrowable(path.Root.Type) && use != Use.Read;
-                var holder = ObjectLocal(path.Root, use, borrows);
+                bool borrows = crossing is BoundCall && program.MayBeBorrowable(path.Root.Type) && use != Use.Read;
+                var holder = ObjectLocal(path.Root, borrows);
                 place = crossing switch
                 {
                     BoundFieldAccess field => IrPlace.Deref(holder).Field(field.Field),
@@ -132,7 +120,7 @@ public sealed partial class IrLowering
             case BoundCall call when current.Type.IsTypeParameter:
             {
                 // A generic value may be an object holding what the method hands out, so it is held itself.
-                var holder = Hold(current, MayBeBorrowable(current.Type));
+                var holder = Hold(current, program.MayBeBorrowable(current.Type));
                 return Returned(call, IrRead.Borrow(new IrPlace(holder)));
             }
             case BoundCall call:
@@ -160,23 +148,22 @@ public sealed partial class IrLowering
     /// <summary>An index, as a constant or a temporary, so that its check and its element read the same value.</summary>
     IrOperand IndexOperand(BoundExpression index) => index is BoundLiteral literal
         ? new IrConstant(literal.Type, literal.Value)
-        : IrRead.Copy(new IrPlace(Let(new IrUse(Settle(Value(index))))));
+        : IrRead.Copy(new IrPlace(Let(new IrUse(Value(index)))));
 
     /// <summary>
-    /// A local holding the object that a place's first step is in: <c>this</c>, an object local, or a
-    /// hold of the object, which <c>HoldElision</c> turns into an alias where nothing can replace it.
-    /// <paramref name="borrows"/> when the object hands out storage it may move unless it is borrowed.
+    /// A local holding the object that a place's first step is in: <c>this</c>, which the caller
+    /// holds, a temporary, or a hold of the object, which <c>HoldElision</c> turns into an alias
+    /// where nothing can replace it. <paramref name="borrows"/> when the object hands out storage
+    /// it may move unless it is borrowed.
     /// </summary>
-    IrLocal ObjectLocal(BoundExpression root, Use use, bool borrows)
+    IrLocal ObjectLocal(BoundExpression root, bool borrows)
     {
         switch (root)
         {
             case BoundThis:
                 return borrows ? Hold(new IrPlace(self!), borrows) : self!;
             case BoundLocalAccess access:
-                var local = Accessed(access);
-                // Only the function itself, or a lambda assigning it, can replace what a local holds.
-                return use == Use.Read && !borrows && !ChangedByLambda(local) ? local : Hold(new IrPlace(local), borrows);
+                return Hold(new IrPlace(Accessed(access)), borrows);
             case BoundLiteral:
                 return Let(Rvalue(root, Use.Read));
             case var place when IsPlace(place):
@@ -196,62 +183,10 @@ public sealed partial class IrLowering
 
     IrLocal Hold(IrPlace place, bool borrows) => Let(new IrHold(place, borrows));
 
-    /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
-    bool MayBeBorrowable(VplType type) => type.TypeParameter is { } parameter
-        ? parameter.Bounds.Any(MayBeBorrowable)
-        : borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
-
-    /// <summary>A read of a place, made by the instruction using it unless that would read something changed since.</summary>
+    /// <summary>A read of a place, copied into a temporary at its turn, which the instruction using it moves from, or copies if it is a reference.</summary>
     IrRead Read(IrPlace place)
     {
-        var read = IrRead.Copy(place);
-        pendingReads.Add(new PendingRead(read, block, block.Statements.Count, at));
-        return read;
+        var copy = Let(new IrUse(IrRead.Copy(place)));
+        return new IrRead(copy.Kind == IrLocalKind.Value ? IrOwnership.Move : IrOwnership.Copy, new IrPlace(copy));
     }
-
-    T Settle<T>(T argument) where T : IrArgument => (T)Settle([argument])[0];
-
-    /// <summary>
-    /// The arguments for an instruction about to be added: a read left in it is copied into a
-    /// temporary where it was lowered instead, if what was lowered since may write what it reads.
-    /// </summary>
-    List<IrArgument> Settle(IEnumerable<IrArgument> arguments)
-    {
-        var result = arguments.ToList();
-        var settling = result.Select((a, i) => (Pending: pendingReads.Find(p => ReferenceEquals(p.Read, a)), Position: i))
-            .Where(p => p.Pending is not null)
-            .OrderByDescending(p => p.Pending!.Index).ThenByDescending(p => p.Position)
-            .ToList();
-        foreach (var (pending, position) in settling)
-        {
-            pendingReads.Remove(pending!);
-            if (pending!.Block != block)
-                throw new InvalidOperationException("a read is used in another block than it was lowered in");
-            var since = new IrFootprint();
-            foreach (var statement in block.Statements.Skip(pending.Index))
-                since.Add(IrWalk.Footprint(statement));
-            if (!MayChange(pending.Read.Place, since))
-                continue;
-            var copy = new IrLet(new IrUse(pending.Read)) { Origin = pending.Origin };
-            block.Statements.Insert(pending.Index, copy);
-            foreach (var other in pendingReads.Where(p => p.Block == block && p.Index > pending.Index).ToList())
-                pendingReads[pendingReads.IndexOf(other)] = other with { Index = other.Index + 1 };
-            result[position] = IrRead.Move(new IrPlace(copy.Local));
-        }
-        return result;
-    }
-
-    /// <summary>The accesses a place depends on: its own, and those of the places the aliases it goes through borrow.</summary>
-    IEnumerable<IrAccess> Chain(IrPlace place)
-    {
-        foreach (var access in IrAccess.Of(place))
-            yield return access;
-        if (aliases.TryGetValue(place.Local, out var aliased))
-        {
-            foreach (var access in Chain(aliased))
-                yield return access;
-        }
-    }
-
-    bool MayChange(IrPlace place, IrFootprint footprint) => footprint.MayChange(Chain(place), this);
 }

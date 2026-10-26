@@ -17,15 +17,16 @@ public sealed class IrPlace
         Local = local;
         IsDeref = isDeref;
         Projections = projections ?? [];
-        Type = projections is { Count: > 0 } ? projections[^1].Type : BaseType;
     }
 
-    public IrLocal Local { get; }
+    /// <summary>Settable so that a pass can name a local by what it is an alias of.</summary>
+    public IrLocal Local { get; set; }
+
     public bool IsDeref { get; }
     public IReadOnlyList<IrProjection> Projections { get; }
 
     /// <summary>The value's type, or <see cref="VplType.Error"/> where a projection doesn't apply, which the verifier reports.</summary>
-    public VplType Type { get; }
+    public VplType Type => Projections.Count > 0 ? Projections[^1].Type : BaseType;
 
     public VplType BaseType => !IsDeref ? Local.Type : Local.Deref switch
     {
@@ -126,7 +127,7 @@ public enum IrOwnership
 public sealed class IrRead(IrOwnership ownership, IrPlace place) : IrOperand
 {
     public IrOwnership Ownership { get; set; } = ownership;
-    public IrPlace Place { get; } = place;
+    public IrPlace Place { get; set; } = place;
     public override VplType Type => Place.Type;
 
     public static IrRead Copy(IrPlace place) => new(IrOwnership.Copy, place);

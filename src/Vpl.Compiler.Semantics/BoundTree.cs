@@ -10,7 +10,21 @@ public sealed record BoundProgram(
     IReadOnlyList<TypeSymbol> Types,
     IReadOnlyList<BoundFunction> Functions,
     FunctionSymbol? Main,
-    StdlibSymbols Stdlib);
+    StdlibSymbols Stdlib)
+{
+    IReadOnlyList<TypeSymbol>? borrowableClasses;
+
+    /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
+    public bool MayBeBorrowable(VplType type)
+    {
+        if (type.TypeParameter is { } parameter)
+            return parameter.Bounds.Any(MayBeBorrowable);
+        borrowableClasses ??= Stdlib.Borrowable is { } borrowable
+            ? [.. Types.Where(s => s.Kind == TypeKind.Class && Conversions.IsSubtype(s.Type, borrowable.Type))]
+            : [];
+        return borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
+    }
+}
 
 public sealed record BoundFunction(FunctionSymbol Symbol, BoundBlock Body);
 

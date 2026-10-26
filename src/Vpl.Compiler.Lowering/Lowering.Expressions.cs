@@ -21,7 +21,7 @@ public sealed partial class IrLowering
                 return Read(new IrPlace(self!));
             case BoundLocalAccess { AssumesNonNull: true, Local.Type: { IsNullable: true, NonNull.IsReference: true } } narrowed:
                 // A narrowed nullable reference is the same object, which only its type changes.
-                return IrRead.Move(new IrPlace(Let(new IrConvert(narrowed.Type, Settle(Read(new IrPlace(Accessed(narrowed))))))));
+                return IrRead.Move(new IrPlace(Let(new IrConvert(narrowed.Type, Read(new IrPlace(Accessed(narrowed)))))));
             case BoundLocalAccess { Local.Type.IsNullableReference: true, AssumesNonNull: false } reference:
                 return Read(new IrPlace(Accessed(reference)));
             case var place when located.ContainsKey(place) || IsPlace(place):
@@ -48,14 +48,14 @@ public sealed partial class IrLowering
         {
             case BoundUnary unary:
             {
-                var operand = Settle(Value(unary.Operand));
+                var operand = Value(unary.Operand);
                 bool panics = unary.Operator == BoundUnaryOperator.Negate && unary.Type.IsInteger;
                 return new IrUnary(unary.Operator, operand, panics ? Loc(unary.Location) : null);
             }
             case BoundBinary binary:
                 return Binary(binary);
             case BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None, Type.IsNullableReference: false }:
-                return new IrUse(Settle(Value(expression)));
+                return new IrUse(Value(expression));
             case BoundCall call:
                 return Call(call, null);
             case BoundNew creation:
@@ -67,9 +67,9 @@ public sealed partial class IrLowering
                 return new IrConstruct(construction.Type, construction.Constructor, Arguments(construction.Constructor, construction.Arguments),
                     LocationFor(construction.Constructor, construction));
             case BoundVariant variant:
-                return new IrVariant(variant.Type, variant.Variant, [.. Settle(variant.Arguments.Select(Value).ToList()).Cast<IrOperand>()]);
+                return new IrVariant(variant.Type, variant.Variant, [.. variant.Arguments.Select(Value)]);
             case BoundArrayLiteral array:
-                return new IrArray(array.Type, [.. Settle(array.Elements.Select(Value).ToList()).Cast<IrOperand>()]);
+                return new IrArray(array.Type, [.. array.Elements.Select(Value)]);
             case BoundConversion conversion:
                 return Conversion(conversion, use);
             case BoundLambda lambda:
@@ -101,7 +101,7 @@ public sealed partial class IrLowering
                 // A view isn't read right away, so the object it points into is held while it may be used.
                 return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));
             case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
-                return new IrUse(Settle(Value(expression)));
+                return new IrUse(Value(expression));
             case BoundNonNull nonNull:
                 return Unwrapped(nonNull);
             default:
@@ -112,7 +112,7 @@ public sealed partial class IrLowering
     /// <summary><c>x!</c> of a nullable value or object: its value, once it is checked not to be null.</summary>
     IrRvalue Unwrapped(BoundNonNull nonNull)
     {
-        var operand = Settle(Value(nonNull.Operand));
+        var operand = Value(nonNull.Operand);
         var (place, ownership) = operand is IrRead read
             ? (read.Place, read.Ownership == IrOwnership.Move ? IrOwnership.Move : IrOwnership.Copy)
             : (new IrPlace(Let(new IrUse(operand))), IrOwnership.Move);
@@ -130,14 +130,13 @@ public sealed partial class IrLowering
         if (binary.Operator is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && NullTested(binary) is { } tested)
         {
             var kind = tested.Type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull;
-            var test = new IrTest(kind, Settle(Value(tested)));
+            var test = new IrTest(kind, Value(tested));
             return binary.Operator == BoundBinaryOperator.NotEqual ? test : new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Move(new IrPlace(Let(test))));
         }
         var left = Value(binary.Left);
         var right = Value(binary.Right);
-        var operands = Settle([left, right]);
         var loc = IrBinary.IsChecked(binary.Operator, binary.Left.Type) ? Loc(binary.Location) : null;
-        return new IrBinary(binary.Operator, (IrOperand)operands[0], (IrOperand)operands[1], binary.Type, loc);
+        return new IrBinary(binary.Operator, left, right, binary.Type, loc);
     }
 
     /// <summary>The side of a comparison with the <c>null</c> literal that may be null, if that is the comparison.</summary>
@@ -158,7 +157,7 @@ public sealed partial class IrLowering
             throw new InvalidOperationException("a nullable non-escaping function is only made from an argument");
         if (to.IsNullableReference)
             throw new InvalidOperationException("a conversion to a nullable reference is only made in a call or declaration");
-        var operand = to.IsRefStruct ? Settle(ViewOperand(conversion.Operand, use)) : Settle(Value(conversion.Operand));
+        var operand = to.IsRefStruct ? ViewOperand(conversion.Operand, use) : Value(conversion.Operand);
         bool panics = to.IsEnum && !from.IsEnum || (from.IsInteger && to == VplType.Char);
         return new IrConvert(to, operand, panics ? Loc(conversion.Location) : null);
     }
@@ -177,9 +176,8 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// A call's receiver: an object, held while the call runs unless nothing can replace it, or a
-    /// struct's place. What a method returns a reference or view into is borrowed too, if it may be
-    /// a <c>Borrowable</c>.
+    /// A call's receiver: an object, held while the call runs, or a struct's place. What a method
+    /// returns a reference or view into is borrowed too, if it may be a <c>Borrowable</c>.
     /// </summary>
     IrArgument Receiver(BoundCall call)
     {
@@ -188,16 +186,14 @@ public sealed partial class IrLowering
         var method = call.Method.Symbol;
         bool returnsInto = method.ReturnRefKind != RefKind.None || call.Type.IsRefStruct;
         if (receiver is BoundThis { Type.IsReference: true })
-            return returnsInto && MayBeBorrowable(type) ? IrRead.Borrow(new IrPlace(Hold(new IrPlace(self!), borrows: true))) : IrRead.Borrow(new IrPlace(self!));
+            return returnsInto && program.MayBeBorrowable(type) ? IrRead.Borrow(new IrPlace(Hold(new IrPlace(self!), borrows: true))) : IrRead.Borrow(new IrPlace(self!));
         if (type.IsReference)
-            return IrRead.Borrow(new IrPlace(ObjectLocal(receiver, Use.InUse, returnsInto && MayBeBorrowable(type))));
+            return IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type))));
         if (type.IsTypeParameter || (type.SharesStorage && returnsInto))
         {
             var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
             // A generic value may be an object, which the call holds; a struct is used in place.
-            if (place is { IsDeref: false, Projections.Count: 0, Local: var local } && !ChangedByLambda(local) && !returnsInto)
-                return method.IsReadOnly ? IrRead.Borrow(place) : new IrRefArgument(RefKind.Ref, place);
-            var holder = Hold(place, returnsInto && MayBeBorrowable(type));
+            var holder = Hold(place, returnsInto && program.MayBeBorrowable(type));
             return method.IsReadOnly || returnsInto ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder));
         }
         var kind = method.IsReadOnly ? RefKind.In : RefKind.Ref;
@@ -210,13 +206,12 @@ public sealed partial class IrLowering
         var lowered = new List<IrArgument>();
         for (int i = 0; i < arguments.Count; i++)
             lowered.Add(Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]));
-        var settled = Settle(lowered);
-        for (int i = 0; i < settled.Count; i++)
+        for (int i = 0; i < lowered.Count; i++)
         {
-            if (settled[i] is IrOperand operand && method.ParameterRefKind(i) == RefKind.None && !method.ParameterType(i).IsNullableReference)
-                settled[i] = Kept(operand);
+            if (lowered[i] is IrOperand operand && method.ParameterRefKind(i) == RefKind.None && !method.ParameterType(i).IsNullableReference)
+                lowered[i] = Kept(operand);
         }
-        return settled;
+        return lowered;
     }
 
     IrArgument Argument(VplType parameter, RefKind refKind, BoundExpression argument)
@@ -248,31 +243,13 @@ public sealed partial class IrLowering
     /// <summary>
     /// A by-value argument that may own objects is passed as a copy of a value the statement
     /// keeps, so that it is released when the statement completes, whenever the callee's copy is
-    /// destroyed. A value nothing else can replace keeps it alive already.
+    /// destroyed (spec 03-memory-model.md, When references are released).
     /// </summary>
-    IrOperand Kept(IrOperand operand)
+    IrOperand Kept(IrOperand operand) => operand switch
     {
-        if (!operand.Type.MayOwnObjects)
-            return operand;
-        return operand switch
-        {
-            IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } temp } => IrRead.Copy(temp),
-            IrRead { Place: var place } when !IsStable(place) => IrRead.Copy(new IrPlace(Let(new IrUse(IrRead.Copy(place))))),
-            _ => operand,
-        };
-    }
-
-    /// <summary>
-    /// Whether nothing but the function itself can replace the value while an operation uses it:
-    /// <c>this</c>, a local no lambda assigns, or a field that isn't <c>mut</c> of an object held that way.
-    /// </summary>
-    bool IsStable(IrPlace place)
-    {
-        var local = place.Local;
-        bool stableLocal = (local.IsThis || !local.IsTemporary || local.Kind == IrLocalKind.Borrowed && aliases.TryGetValue(local, out var aliased) && IsStable(aliased))
-            && !ChangedByLambda(local) && local.Kind != IrLocalKind.Reference;
-        if (!place.IsDeref)
-            return place.Projections.Count == 0 && stableLocal;
-        return stableLocal && place.Projections is [IrField { Field.IsMutable: false }];
-    }
+        _ when !operand.Type.MayOwnObjects => operand,
+        IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true } temp } => IrRead.Copy(temp),
+        IrRead read => IrRead.Copy(new IrPlace(Let(new IrUse(IrRead.Copy(read.Place))))),
+        _ => operand,
+    };
 }

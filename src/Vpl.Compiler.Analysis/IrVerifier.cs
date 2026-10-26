@@ -33,7 +33,6 @@ namespace Vpl.Compiler.Analysis;
 /// </summary>
 public sealed partial class IrVerifier
 {
-    readonly List<TypeSymbol> borrowableClasses;
     readonly List<string> errors = [];
     readonly HashSet<string> reported = [];
     readonly HashSet<IrFunction> verifiedLambdas = [];
@@ -72,8 +71,6 @@ public sealed partial class IrVerifier
         this.program = program;
         this.writes = writes;
         this.diagnostics = diagnostics;
-        var borrowable = program.Bound.Stdlib.Borrowable;
-        borrowableClasses = [.. program.Bound.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
     }
 
     /// <summary>

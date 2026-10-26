@@ -48,15 +48,15 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     /// <summary>What a local's release may do, when its scope or an <see cref="IrEnd"/> ends it.</summary>
     public static IrEffects Releasing(IrLocal local) => ReleaseMayRunCode(local) ? Releasing(local.Type) : None;
 
-    /// <summary>What releasing the locals a block declares, when it ends, may do.</summary>
-    public static IrEffects Ending(IrBlock block)
+    /// <summary>What releasing the locals a block declares, other than <paramref name="except"/>, when it ends, may do.</summary>
+    public static IrEffects Ending(IrBlock block, IrLocal? except = null)
     {
         var runs = block.Statements.Select(s => s switch
         {
             IrLet let => let.Local,
             IrDeclare declare => declare.Local,
             _ => null,
-        }).OfType<IrLocal>().SelectMany(l => Releasing(l).Runs).Distinct().ToList();
+        }).OfType<IrLocal>().Where(l => l != except).SelectMany(l => Releasing(l).Runs).Distinct().ToList();
         return runs.Count == 0 ? None : new([], runs, false);
     }
 

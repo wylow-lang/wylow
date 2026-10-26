@@ -207,13 +207,16 @@ public sealed partial class IrVerifier
         public static Dependency? Of(IrOperand operand, IrVerifier verifier) => operand switch
         {
             IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true),
-            // A copy of a reference points where it does, so it outlives the local it was copied from.
-            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Reference } local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
+            // A copy of a reference, view, or pointer points where it does, so it outlives the local it
+            // was copied from. A non-escaping function value refers to the callable in its local.
+            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when PointsAway(local) && verifier.dependencies.TryGetValue(local, out var copied) =>
                 copied with { Alias = false },
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
                 copied with { Roots = [(local, true)], Alias = false },
             _ => null,
         };
+
+        static bool PointsAway(IrLocal local) => local.Kind == IrLocalKind.Reference || local.Type.IsRefStruct || local.Type.IsPointer;
 
         /// <summary>A <c>ref struct</c> made from views and pointers views what they do.</summary>
         static Dependency Made(IEnumerable<IrRead> arguments, IrVerifier verifier)
@@ -221,7 +224,7 @@ public sealed partial class IrVerifier
             var parts = arguments.Where(a => !a.Place.IsDeref && a.Place.Projections.Count == 0 && verifier.dependencies.ContainsKey(a.Place.Local))
                 .Select(a => a.Place.Local).ToList();
             var target = parts.Count == 1 ? verifier.dependencies[parts[0]].Target! : IrAccess.Unknown;
-            return new([.. parts.Select(p => (p, true))], target, false, false);
+            return new([.. parts.SelectMany(p => PointsAway(p) ? verifier.dependencies[p].Roots : [(p, true)]).Distinct()], target, false, false);
         }
     }
 
@@ -252,13 +255,9 @@ public sealed partial class IrVerifier
         IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], IrAccess.Unknown, false, false),
         IrRefArgument reference => Into(reference.Place, alias: false),
         IrRead { Place: var holder } => new([(holder.Local, true)], IrAccess.Unknown, false,
-            NeedsBorrow: MayBeBorrowable(holder.Type) && !borrowingHolds.Contains(holder.Local)),
+            NeedsBorrow: program.Bound.MayBeBorrowable(holder.Type) && !borrowingHolds.Contains(holder.Local)),
         _ => new([], IrAccess.Unknown, false, false),
     };
-
-    bool MayBeBorrowable(VplType type) => type.TypeParameter is { } parameter
-        ? parameter.Bounds.Any(MayBeBorrowable)
-        : borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
 
     /// <summary>The storage a place lies in, through what the references and pointers it goes through are known to refer to.</summary>
     IrAccess Target(IrPlace place) => IrAccess.Target(place, local => dependencies.GetValueOrDefault(local)?.Target);

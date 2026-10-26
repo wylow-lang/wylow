@@ -1,0 +1,46 @@
+// A by-value argument is a copy its statement keeps, released when the statement completes, even
+// where the call replaces the place it was copied from (spec 03-memory-model.md, When references
+// are released). A local and an element are released at the same point.
+class C {
+    String name;
+
+    C(String name) {
+        this.name = name;
+    }
+
+    ~C() {
+        print($"destroyed {name}");
+    }
+}
+
+struct S {
+    C c;
+}
+
+int f(S a, ref S b) {
+    b = S(new C("second"));
+    print("f returns");
+    return 1;
+}
+
+int g() {
+    print("g runs");
+    return 1;
+}
+
+void main() {
+    mut S x = S(new C("first"));
+    int n = f(x, ref x) + g();
+    // output: f returns
+    // output: g runs
+    // output: destroyed first
+    mut S[1] ys = [S(new C("third"))];
+    int m = f(ys[0], ref ys[0]) + g();
+    // output: f returns
+    // output: g runs
+    // output: destroyed third
+    print(n + m);
+    // output: 4
+    // output: destroyed second
+    // output: destroyed second
+}

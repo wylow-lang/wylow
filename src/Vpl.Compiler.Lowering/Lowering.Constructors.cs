@@ -17,7 +17,7 @@ public sealed partial class IrLowering
         if (owner.Kind == TypeKind.Struct)
         {
             function.This = null;
-            self = function.Struct = Noted(new IrLocal("self", owner.Type, IrLocalKind.Value), thisCapturedByLambda);
+            self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value);
             Add(LetOf(self, new IrDefault(owner.Type)));
             return statements;
         }
@@ -54,7 +54,7 @@ public sealed partial class IrLowering
         List<IrLocal> passed = [.. function.Parameters.Where((_, i) => form[i])];
         function.Parameters.Clear();
         function.Parameters.AddRange(passed);
-        self = function.Struct = Noted(new IrLocal("self", owner.Type, IrLocalKind.Value), thisCapturedByLambda);
+        self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value);
         Add(LetOf(self, new IrZeroed(owner.Type)));
         for (int i = 0; i < owner.Fields.Count; i++)
         {
@@ -107,21 +107,19 @@ public sealed partial class IrLowering
             {
                 var parameter = method.ParameterType(i);
                 var computed = new IrBlock { Origin = at };
-                // The binder allows only references and views into what the caller holds, which need no statements.
-                if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct)
+                if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference)
                 {
-                    Into(computed, () => arguments.Add(Argument(parameter, method.ParameterRefKind(i), super.Arguments[i])));
+                    Into(computed, () => arguments.Add(CallerHeld(parameter, method.ParameterRefKind(i), super.Arguments[i])));
                     if (computed.Statements.Count > 0)
-                        throw new InvalidOperationException("a reference or view argument to super(...) needs statements");
+                        throw new InvalidOperationException("a reference argument to super(...) needs statements");
                     continue;
                 }
                 IrLocal? value = null;
                 IrOperand? direct = null;
                 Into(computed, () =>
                 {
-                    var operand = Settle((IrOperand)Argument(parameter, RefKind.None, super.Arguments[i]));
-                    // A value nothing can change needs no statement of its own.
-                    if (block.Statements.Count == 0 && operand switch { IrConstant => true, IrRead { Ownership: not IrOwnership.Move } read => IsStable(read.Place), _ => false })
+                    var operand = (IrOperand)Argument(parameter, RefKind.None, super.Arguments[i]);
+                    if (operand is IrConstant)
                         direct = operand;
                     else
                     {
@@ -145,4 +143,18 @@ public sealed partial class IrLowering
         function.BaseCall = call;
         Add(call);
     }
+
+    /// <summary>
+    /// A reference argument to <c>super(...)</c>, which the binder allows only to be a parameter's
+    /// place or null. It needs no statements: it is read at the call, since a <c>ref?</c> parameter
+    /// can't be <c>mut</c>, so nothing before the call can make it refer elsewhere.
+    /// </summary>
+    IrArgument CallerHeld(VplType parameter, RefKind refKind, BoundExpression argument) => argument switch
+    {
+        BoundConversion { Operand.Type: var from } when from == VplType.Null => new IrConstant(parameter, null),
+        _ when !parameter.IsNullableReference => new IrRefArgument(refKind, Place(argument, Use.InUse)),
+        BoundConversion { Operand: var place } when !place.Type.IsNullableReference => new IrAddrArgument(parameter.ReferenceKind, Place(place, Use.InUse)),
+        BoundConversion { Operand: var other } => IrRead.Copy(Place(other, Use.Read)),
+        _ => IrRead.Copy(Place(argument, Use.Read)),
+    };
 }

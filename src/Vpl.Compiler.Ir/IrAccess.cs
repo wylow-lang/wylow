@@ -14,9 +14,8 @@ public enum IrStorage
 }
 
 /// <summary>
-/// Which locals a lambda the function makes may change when code runs. Lowering answers it from
-/// the bound tree, before the lambdas' bodies exist; everything after lowering asks the analysis's
-/// answer, from the bodies (<c>LambdaWrites</c>).
+/// Which locals a lambda the function makes may change when code runs: the analysis's answer, from
+/// the lambdas' bodies (<c>LambdaWrites</c>).
 /// </summary>
 public interface IIrLambdaChanges
 {
@@ -152,13 +151,6 @@ public sealed class IrFootprint
         CreatesOwner |= other.CreatesOwner;
     }
 
-    /// <summary>Whether it may write any of the accesses, itself or by running code.</summary>
-    public bool MayChange(IEnumerable<IrAccess> accesses, IIrLambdaChanges lambdas)
-    {
-        var list = accesses.ToList();
-        return list.Any(a => Writes.Any(a.Overlaps)) || (RunsCode && list.Any(a => a.WrittenByCode(lambdas)));
-    }
-
     public void Add(IrEffects effects)
     {
         foreach (var write in effects.Writes)
@@ -276,6 +268,13 @@ public static class IrWalk
         IrClosure { Slot: { } slot } => [slot],
         _ => [],
     };
+
+    /// <summary>Every place a statement, or one inside it, names, and those its indices read.</summary>
+    public static IEnumerable<IrPlace> AllPlaces(IrStatement statement) =>
+        Descendants(statement).SelectMany(Operands).SelectMany(Places).SelectMany(WithIndices);
+
+    static IEnumerable<IrPlace> WithIndices(IrPlace place) =>
+        [place, .. place.Projections.OfType<IrElement>().Select(e => e.Index).OfType<IrRead>().SelectMany(i => WithIndices(i.Place))];
 
     /// <summary>The locals a place names: its base and its indices.</summary>
     public static IEnumerable<IrLocal> PlaceLocals(IrPlace place) =>

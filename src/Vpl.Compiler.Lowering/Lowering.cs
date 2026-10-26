@@ -6,14 +6,14 @@ using Vpl.Compiler.Text;
 namespace Vpl.Compiler.Lowering;
 
 /// <summary>
-/// Lowers checked functions into the IR (docs/design/ir.md, §5). Lowering is conservative: every
-/// object a place goes through is held, and every read that something after it might change is
-/// copied into a temporary first. Holds nothing needs are elided later, by <c>HoldElision</c>.
+/// Lowers checked functions into the IR (docs/design/ir.md, §5). Lowering asks nothing about what
+/// may change: every object a place goes through is held, every operand is copied into a temporary
+/// at its turn, every by-value argument is a copy the statement keeps, and every statement's
+/// temporaries are in a block of its own. The passes undo what nothing needs.
 /// </summary>
-public sealed partial class IrLowering : IIrLambdaChanges
+public sealed partial class IrLowering
 {
     readonly BoundProgram program;
-    readonly IReadOnlyList<TypeSymbol> borrowableClasses;
 
     // A lambda's body is lowered by the lowering of the function making it, which these then describe.
     FunctionSymbol symbol;
@@ -21,16 +21,6 @@ public sealed partial class IrLowering : IIrLambdaChanges
     IrLocal? self;
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
-    readonly HashSet<LocalSymbol> capturedByLambda = [];
-
-    /// <summary>
-    /// The locals lowering takes as changed by a lambda: every writable one a non-escaping lambda
-    /// captures. It is lowering's own answer, which nothing after lowering asks.
-    /// </summary>
-    readonly HashSet<IrLocal> changedByLambda = [];
-
-    /// <summary>Whether a non-escaping lambda uses <c>this</c>, which in a struct constructor is the value it makes.</summary>
-    bool thisCapturedByLambda;
 
     /// <summary>The statement or expression being lowered, which the statements made for it come from.</summary>
     Location? at;
@@ -40,10 +30,9 @@ public sealed partial class IrLowering : IIrLambdaChanges
     IrBlock block;
     bool reachable = true;
 
-    IrLowering(BoundProgram program, IReadOnlyList<TypeSymbol> borrowableClasses, FunctionSymbol symbol, string? name = null)
+    IrLowering(BoundProgram program, FunctionSymbol symbol, string? name = null)
     {
         this.program = program;
-        this.borrowableClasses = borrowableClasses;
         this.symbol = symbol;
         var owner = symbol.ContainingType;
         function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
@@ -57,11 +46,9 @@ public sealed partial class IrLowering : IIrLambdaChanges
     public static IrProgram Lower(BoundProgram program)
     {
         var ir = new IrProgram(program);
-        var borrowable = program.Stdlib.Borrowable;
-        List<TypeSymbol> borrowableClasses = [.. program.Types.Where(s => s.Kind == TypeKind.Class && borrowable is not null && Conversions.IsSubtype(s.Type, borrowable.Type))];
         void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
-            var lowering = new IrLowering(program, borrowableClasses, symbol, name);
+            var lowering = new IrLowering(program, symbol, name);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
         }
@@ -89,14 +76,6 @@ public sealed partial class IrLowering : IIrLambdaChanges
     {
         function.Body = block = new IrBlock { Origin = bound.Body.Location };
         function.HasLocationParameter = symbol.PassesLocation;
-        foreach (var lambda in BoundTree.AllExpressions(bound.Body).OfType<BoundLambda>().Where(l => !l.Function.IsEscaping))
-        {
-            var (captured, capturedThis) = BoundTree.Captures(lambda);
-            capturedByLambda.UnionWith(captured.Select(a => a.Local).Where(l => l.IsWritable));
-            thisCapturedByLambda |= capturedThis is not null;
-        }
-        foreach (var parameter in function.Parameters)
-            Noted(parameter, parameter.Symbol is { } captured && capturedByLambda.Contains(captured));
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
             statements = ConstructorStart(statements);
@@ -121,18 +100,6 @@ public sealed partial class IrLowering : IIrLambdaChanges
     }
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
-
-    IrLocal Noted(IrLocal local, bool changedByLambda)
-    {
-        if (changedByLambda)
-            this.changedByLambda.Add(local);
-        return local;
-    }
-
-    /// <summary>A reference can't be made to refer elsewhere: a lambda storing through it writes its target.</summary>
-    bool ChangedByLambda(IrLocal local) => local.Kind != IrLocalKind.Reference && changedByLambda.Contains(local);
-
-    bool IIrLambdaChanges.MayChange(IrLocal local) => ChangedByLambda(local);
 
     Location? Origin(IrRvalue value) => valueOrigins.TryGetValue(value, out var made) ? made : at;
 
@@ -231,29 +198,17 @@ public sealed partial class IrLowering : IIrLambdaChanges
         block = saved;
     }
 
-    /// <summary>
-    /// A statement's temporaries are released when it completes (spec §3.2, When references are
-    /// released), so they are declared in a block of its own when releasing one may be observed.
-    /// Otherwise they join the enclosing block, which no one can tell apart.
-    /// </summary>
+    /// <summary>A statement's temporaries are released when it completes (spec §3.2, When references are released), so they are declared in a block of its own.</summary>
     void InStatement(BoundStatement statement, Action lower)
     {
         var scope = new IrBlock { Origin = at, IsStatement = true };
         Into(scope, lower);
-        Splice(scope);
-    }
-
-    void Splice(IrBlock scope)
-    {
-        if (scope.DeclaresOwner())
-            Add(scope);
-        else
-            block.Statements.AddRange(scope.Statements);
+        Add(scope);
     }
 
     IrLocal Declare(LocalSymbol local)
     {
-        var lowered = Noted(new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind }, capturedByLambda.Contains(local));
+        var lowered = new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind };
         locals[local] = lowered;
         return lowered;
     }

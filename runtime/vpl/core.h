@@ -212,7 +212,7 @@ template <class... T>
 Arguments(T...) -> Arguments<T...>;
 
 template <size_t I, class T, class... Rest>
-const T& argument(const Arguments<T, Rest...>& arguments) {
+const auto& argument(const Arguments<T, Rest...>& arguments) {
     if constexpr (I == 0)
         return arguments.first;
     else

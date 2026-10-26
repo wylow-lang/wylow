@@ -26,7 +26,7 @@ public sealed partial class IrLowering
             {
                 outer.Add((local, locals[local]));
                 captures.Add(IrRead.Copy(new IrPlace(locals[local])));
-                lowered.Captures.Add(Noted(new IrLocal(local.Name, local.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true, Symbol = local }, capturedByLambda.Contains(local)));
+                lowered.Captures.Add(new IrLocal(local.Name, local.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true, Symbol = local });
             }
             if (capturesThis is not null)
             {
@@ -41,7 +41,7 @@ public sealed partial class IrLowering
             self = capturedThis;
         loops.Clear();
         foreach (var parameter in made.Parameters)
-            lowered.Parameters.Add(locals[parameter] = Noted(new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind }, capturedByLambda.Contains(parameter)));
+            lowered.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind });
         foreach (var (local, copy) in outer.Select(o => o.Local).Zip(lowered.Captures))
             locals[local] = copy;
         FunctionBody(lambda.Body);
@@ -62,24 +62,15 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// A call of a function value. A closure stored where the call could replace it is held until
-    /// the call returns, as an object receiver is.
+    /// A call of a function value. A stored closure is held until the call returns, as an object
+    /// receiver is.
     /// </summary>
     IrInvoke Invocation(BoundInvocation invocation)
     {
         var callee = invocation.Callee;
-        IrOperand target;
-        if (callee.Type.NonNull.IsEscaping && IsPlace(callee))
-        {
-            // Read into a pin right away, unless nothing can replace it while the call runs.
-            var place = Place(callee, Use.Read);
-            bool stable = IsStable(place) || (place is { IsDeref: false, Projections: [IrAssumed] } && IsStable(new IrPlace(place.Local)));
-            target = IrRead.Borrow(stable ? place : new IrPlace(Hold(place, borrows: false)));
-        }
-        else
-        {
-            target = Settle(Value(callee));
-        }
+        var target = callee.Type.NonNull.IsEscaping && IsPlace(callee)
+            ? IrRead.Borrow(new IrPlace(Hold(Place(callee, Use.Read), borrows: false)))
+            : Value(callee);
         return new IrInvoke(target, invocation.Signature, Arguments(invocation.Signature, invocation.Arguments));
     }
 
@@ -123,7 +114,7 @@ public sealed partial class IrLowering
             switch (option)
             {
                 case BoundConditional conditional:
-                    return OperandOf(Chosen(VplType.Int, () => Settle(Value(conditional.Condition)),
+                    return OperandOf(Chosen(VplType.Int, () => Value(conditional.Condition),
                         () => Index(conditional.WhenTrue), () => Index(conditional.WhenFalse)));
                 case BoundSwitchExpression switchExpression:
                     return OperandOf(SwitchExpression(switchExpression, VplType.Int, Index));

@@ -45,45 +45,35 @@ resolving references through what it knows they refer to.
 |---|---|
 | Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
 | The binder answers nothing about flow | Semantics can't reference the IR project, and FlowAnalyzer is deleted: the flow errors are the verifier's (`IrVerifier.Violation`), on the lowered program. Where the source relies on narrowing, lowering says so with `check.narrowed`, which every access of a source local goes through (`IrLowering.Accessed`). |
-| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types. Its shortcuts (`IsStable`, `capturedByLambda`, lowering's `MayChange`, `Settle`) are deleted, so nothing remains to call. |
-| Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: what lambdas change is `LambdaWrites`, found with `Writes`, and the IR model only names the question (`IIrLambdaChanges`). Lowering answers it for itself, conservatively, until step 5 deletes the shortcuts that ask. `IrLocal.IsElement` is the one settable fact left on a node (step 7), and nothing checks it for staleness. |
-| What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't: naive lowering lost a user error because `Settle` inserted statements that bypassed `Add`, which recorded origins. |
-| A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. (Naive lowering broke because `Settle`'s `Temp` bypassed `Let`'s rule.) |
+| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types, and asks nothing about what may change: it holds every object a place goes through, copies every operand at its turn (`IrLowering.Read`), keeps every by-value argument (`Kept`), and gives every statement a block. The passes undo what nothing needs. |
+| Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: what lambdas change is `LambdaWrites`, found with `Writes`, and the IR model only names the question (`IIrLambdaChanges`). `IrLocal.IsElement` is the one settable fact left on a node (step 7), and nothing checks it for staleness. |
+| What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't, which lost a user error once. |
+| A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
 | Each type fact has one definition | On `VplType`, used everywhere. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
 
 Anything only review can enforce is listed as such, so it's known to be weaker.
 
-## What naive lowering costs (measured 2026-10-26)
+## What naive lowering cost (step 5, 2026-10-26)
 
-Lowering was made naive in an experiment, then reverted. It always held, always copied at an
-operand's turn, always kept argument copies, and always gave statements blocks. Then the optimized
-C++ was compared with today's:
+With lowering naive and the passes below, the optimized C++ of every test has as many
+`vpl::pin`, `vpl::borrow`, and `vpl::StackSlot` as before, and fewer `vpl::keep` (162, from 167):
 
-- **Holds are fully recovered:** `vpl::pin` and `vpl::borrow` counts were identical (28, 60).
-  HoldElision already owns them, so lowering's hold shortcuts in `ObjectLocal`, `Receiver` and
-  `Invocation` just duplicate it.
-- **Statement blocks are mostly recovered** by HoldElision's `Flatten`. What remains follows from
-  the next two points.
-- **Kept copies are not recovered:** `vpl::keep` went from 162 to 999. A pass must own that
-  decision, from the analysis's facts: drop a kept copy where the release order can't be told
-  apart. Lowering's `IsStable` guess for it is also what caused the release-order bug.
-- **Reads in place are not recovered:** a copy at an operand's turn
-  (`Ref t = a; f(std::move(t))`) stays, since nesting can't fold an owning copy. A pass must turn
-  it back into a read in its use where nothing in between may change the place.
-- **StackSlots lost an object** (`cycles/stack_unbuffered.vpl`): its pattern matching expects the
-  shapes the shortcuts made.
+- **Holds** are HoldElision's. An alias of a whole local is renamed to the local.
+- **Copies at an operand's turn, and kept copies,** are `ReadsInPlace`'s: a temporary copy of a
+  place is replaced by the place where nothing may change it while the copy matters, which for a
+  kept copy that may own objects is until its block ends. It runs first, so that HoldElision's
+  `Flatten` then finds the statement blocks that release nothing observable.
+- **More kept copies are right now:** `l_back = pass(l_back)` keeps the argument, since the store
+  replaces it within the statement; `IsStable` had made its release depend on the C++ ABI.
+- **One is lost:** a store through a reference, which `IrAccess` takes as unknown storage, keeps
+  a copy of a local of an unrelated type (`panics/list_ref_borrowed.vpl`). Telling them apart
+  needs the type of the storage behind a reference.
 
-Naive lowering also failed nine tests, showing code that worked only because of the shortcuts' shapes:
-
-- `Settle`'s copies of `ref?` values had the wrong local kind (they bypass `Let`'s rule). Fixed in step 3.
-- References that must last for a local's scope came from temporaries inside a statement block,
-  which ended too early.
-- A user error was lost: `Settle`'s statements have no origin. Fixed in step 3.
-- The emitter's `vpl::Arguments` path for base-constructor calls fails to compile for a struct
-  argument. It had never been reached, since `IsStable` kept those arguments direct.
-- The user's nullable-value error depends on the IR's shape. That is acceptable only because
-  lowering will be naive, and so fixed by the language rather than by heuristics.
+What only worked because of the shortcuts' shapes: the runtime's `vpl::argument` returned its
+first argument's type (base constructor calls with arguments of different types), and the
+verifier rooted a copy of a view in the local it was copied from, which a statement's block then
+ended too early.
 
 ## Migration
 
@@ -109,10 +99,10 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    `IrLocal.Deref`. Unknown storage now may be a frame local for the verifier too, and a write
    above the last nullable a place lies in destroys it (IrSelfTests
    `ref_argument_replaces_inner_nullable_in_use`). The generated C++ and IR were identical.
-5. **Naive lowering:**
-   - Add the kept-copy and read-in-place passes.
-   - Fix the scope and emitter failures above.
-   - Make StackSlots match the naive shapes.
-   - Delete every lowering shortcut (finding 3, `capturedByLambda`, `MayBeBorrowable`'s copy).
+5. **Naive lowering** (done): every lowering shortcut is deleted (finding 3, `capturedByLambda`,
+   and `MayBeBorrowable`'s copy, now `BoundProgram.MayBeBorrowable`: finding 6), and
+   `ReadsInPlace` owns the copies. StackSlots needed no change. A by-value argument is now
+   released at its statement's end even where the call replaces its place
+   (`classes/kept_arguments.vpl`).
 6. **`CyclicClasses` onto the IR;** `WholeProgram` and `Analyses` go (finding 9).
 7. **Local roles and the remaining walkers** (findings 6, 7, 11).

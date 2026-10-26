@@ -29,6 +29,7 @@ public static class Pipeline
             return null;
         if (!optimize)
             return Emitted(ir, analyses, [], []);
+        Pass(ir, analyses, "reading in place", (_, writes) => ReadsInPlace.Apply(ir, writes));
         Pass(ir, analyses, "eliding holds", (_, writes) => HoldElision.Apply(ir, writes));
         var inPlace = Pass(ir, analyses, "borrowing loop elements in place", (_, writes) => InPlaceElements.Apply(ir, writes)).Locations;
         Pass(ir, analyses, "borrowing locals", (_, writes) => BorrowedLocals.Apply(ir, writes));

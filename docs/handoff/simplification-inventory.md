@@ -116,6 +116,12 @@ LastUseMoves gate. Decide per optimization whether InPlaceElements and BorrowedL
 
 ## 3. "Can this place change while an operation uses it?" (a syntactic answer next to two real ones)
 
+**Done in step 5:** lowering asks nothing. `IsStable`, `Settle`, lowering's `Chain`, and
+`IrFootprint.MayChange` are deleted; lowering copies every operand at its turn and keeps every
+by-value argument, and `ReadsInPlace` drops the copies `Writes.CodeMayWrite` shows nothing can
+tell apart, through `Aliasing.Chain`. The example below is `classes/kept_arguments.vpl`, which now
+releases both at the statement's end. What follows is the finding as it was.
+
 **Confirmed: release order depends on which shortcut matched.**
 
 - `IrFootprint.MayChange` — Ir/IrAccess.cs:99. Conservative: any code that runs writes every
@@ -212,6 +218,8 @@ Single home: one storage model in `IrAccess` with optional path precision, and o
 model. Writes.cs:64 and CppEmitter.Ir.cs:362 move too.
 
 ## 6. "Can an object of this type be a Borrowable?" (identical copies)
+
+**Done in step 5:** `BoundProgram.MayBeBorrowable`, used by lowering and the verifier.
 
 `IrLowering.MayBeBorrowable` (Lowering.Places.cs:182) and `IrVerifier.MayBeBorrowable`
 (IrVerifier.Values.cs:222) are byte-for-byte the same. Each builds its own `borrowableClasses`

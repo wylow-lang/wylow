@@ -112,8 +112,8 @@ statement's scope. That's the same guarantee, made explicit.
 
 ## 4. Where it sits
 
-The layers and the pipeline are in [architecture.md](architecture.md). Until its migration is
-done, lowering still takes shortcuts (`IsStable`, `Settle`) that the contract moves into passes.
+The layers and the pipeline are in [architecture.md](architecture.md). Lowering is naive: every
+copy and hold it makes that nothing needs is removed by a pass (`ReadsInPlace`, `HoldElision`).
 The flow analysis is the verifier's dataflow, on the lowered program: its violations there are the
 user's errors, so only a program that binds is lowered and checked, as Rust checks borrows only
 once a program type-checks.
