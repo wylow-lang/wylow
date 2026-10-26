@@ -133,6 +133,18 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   operation, the IR verifier reports a place in the value that the operation (or an earlier operand) may
   set to null as the user's error (`IrVerifier.ReportNullableValue`), so it runs with the `DiagnosticBag`
   after lowering.
+- **Each question about the program has one answer, in one place.** Whether copying a type counts
+  references, whether a place may change, whether a function value may escape: if two passes ask
+  it, they call the same definition, on `VplType`, `IrLocal`, `IrEffects`, or an analysis, not a
+  private helper each. A second copy drifts, and in a compiler the drift is a miscompile or a
+  missed check that nothing reports. Before writing a predicate, search for one that answers the
+  same question; if its answer is wrong for you, fix it there, for every caller. When a precise
+  and a conservative answer both have to exist (lowering can't read analyses), say on each which
+  it is and who must use the other.
+- **Replace, don't layer.** When a new mechanism takes over from an old one (the IR from the bound
+  tree, an analysis from a local rule), move every caller and delete the old one in the same
+  change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
+  concept is two ways of doing the same thing.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite on
   both MSVC and g++ before committing.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
