@@ -54,12 +54,11 @@ public sealed partial class IrLowering
         if (!made.IsEscaping)
             return new IrLambda(lowered, lambda.Type);
         var (line, column) = lambda.Location.LineColumn;
-        var closure = new IrClosure(lowered, captures, lambda.Type)
+        return new IrClosure(lowered, captures, lambda.Type)
         {
             Name = $"lambda at {lambda.Location.Source.FileName}:{line}:{column}",
+            Origin = lambda.Location,
         };
-        creations[closure] = lambda.Location;
-        return closure;
     }
 
     /// <summary>
@@ -116,7 +115,7 @@ public sealed partial class IrLowering
         if (leaves.Any(IsHeld))
         {
             held = new IrLocal("held", choice.Type.Escaping, IrLocalKind.Value);
-            Add(new IrLet(held, new IrUse(new IrConstant(held.Type, null))));
+            Add(LetOf(held, new IrUse(new IrConstant(held.Type, null))));
         }
 
         IrOperand Index(BoundExpression option)
@@ -129,7 +128,7 @@ public sealed partial class IrLowering
                 case BoundSwitchExpression switchExpression:
                     return OperandOf(SwitchExpression(switchExpression, VplType.Int, Index));
                 case var escaping when IsHeld(escaping):
-                    Add(new IrStore(new IrPlace(held!), OperandOf(Rvalue(((BoundConversion)escaping).Operand, Use.Read))));
+                    Add(new IrStore(new IrPlace(held!), OperandOf(Rvalue(((BoundConversion)escaping).Operand, Use.Read))) { Origin = at });
                     return IrConstant.Int(made.Count);
                 default:
                     return IrConstant.Int(made.FindIndex(l => ReferenceEquals(l, option)));

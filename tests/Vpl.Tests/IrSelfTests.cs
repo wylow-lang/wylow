@@ -57,7 +57,7 @@ static class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!)];
+        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b)];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
@@ -77,6 +77,27 @@ static class IrSelfTests
         catch (InvalidOperationException)
         {
             return new("ir/stale_facts", null);
+        }
+    }
+
+    /// <summary>
+    /// A let's local is of the kind its value makes, however the let is made: a copy of a <c>ref?</c>
+    /// is one too, which lowering's copies of reads once made as a value.
+    /// </summary>
+    static TestResult LetRule(Builder b)
+    {
+        var slot = b.Local("slot", VplType.Int.NullableReference(RefKind.Ref), IrLocalKind.Reference, RefKind.Ref);
+        var copy = new IrLet(new IrUse(IrRead.Copy(new IrPlace(slot)))) { Origin = null };
+        if (copy.Local is not { Kind: IrLocalKind.Reference, RefKind: RefKind.Ref })
+            return new("ir/let_rule", $"a copy of a 'ref?' defines a {copy.Local.Kind} local");
+        try
+        {
+            _ = new IrLet(b.Temp(VplType.Int), new IrRef(RefKind.Ref, new IrPlace(b.Temp(VplType.Int)))) { Origin = null };
+            return new("ir/let_rule", "a value local was defined by a reference");
+        }
+        catch (InvalidOperationException)
+        {
+            return new("ir/let_rule", null);
         }
     }
 
@@ -134,10 +155,10 @@ static class IrSelfTests
             var o = b.Parameter("obj", obj);
             var (t0, t1, t2) = (b.Temp(VplType.Int), b.Temp(VplType.Int), b.Temp(VplType.Int));
             return b.Function("straight_line", [o],
-                new IrLet(t0, Use(IrRead.Copy(IrPlace.Deref(o).Field(x)))),
-                new IrLet(t1, b.Call("f")),
-                new IrLet(t2, new IrBinary(BoundBinaryOperator.Add, Move(t0), Move(t1), VplType.Int, b.Loc)),
-                new IrDo(b.Call("use", Move(t2))));
+                new IrLet(t0, Use(IrRead.Copy(IrPlace.Deref(o).Field(x)))) { Origin = null },
+                new IrLet(t1, b.Call("f")) { Origin = null },
+                new IrLet(t2, new IrBinary(BoundBinaryOperator.Add, Move(t0), Move(t1), VplType.Int, b.Loc)) { Origin = null },
+                new IrDo(b.Call("use", Move(t2))) { Origin = null });
         }, Printed: """
             fn straight_line(obj: Obj) {
               let %0: int = copy (*obj).x
@@ -153,9 +174,9 @@ static class IrSelfTests
             var h = b.Temp(obj, IrLocalKind.Hold);
             var v = b.Temp(VplType.Int);
             return b.Function("hold_before_value", [a],
-                new IrLet(h, new IrHold(IrPlace.Deref(a).Field(field), borrows: false)),
-                new IrLet(v, b.Call("f")),
-                new IrStore(IrPlace.Deref(h).Field(x), Move(v)));
+                new IrLet(h, new IrHold(IrPlace.Deref(a).Field(field), borrows: false)) { Origin = null },
+                new IrLet(v, b.Call("f")) { Origin = null },
+                new IrStore(IrPlace.Deref(h).Field(x), Move(v)) { Origin = null });
         });
 
         yield return new("borrowed_list_store", () =>
@@ -165,11 +186,11 @@ static class IrSelfTests
             var (i, v) = (b.Temp(VplType.Int), b.Temp(VplType.Int));
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             return b.Function("borrowed_list_store", [l],
-                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                new IrLet(i, b.Call("f")),
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [Move(i)], b.Loc)),
-                new IrLet(v, b.Call("f")),
-                new IrStore(IrPlace.Deref(r), Move(v)));
+                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                new IrLet(i, b.Call("f")) { Origin = null },
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [Move(i)], b.Loc)) { Origin = null },
+                new IrLet(v, b.Call("f")) { Origin = null },
+                new IrStore(IrPlace.Deref(r), Move(v)) { Origin = null });
         });
 
         // Only the whole-program analysis knows that the call doesn't write the element.
@@ -180,11 +201,11 @@ static class IrSelfTests
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             var e = new IrLocal("e", VplType.Int, IrLocalKind.Borrowed) { IsElement = element };
             return b.Function(name, [l],
-                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)),
-                new IrLet(e, Use(IrRead.Borrow(IrPlace.Deref(r)))),
-                new IrDo(callee == "f" ? b.Call("f") : b.Call(callee, IrRead.Copy(new IrPlace(l)))),
-                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))));
+                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
+                new IrLet(e, Use(IrRead.Borrow(IrPlace.Deref(r)))) { Origin = null },
+                new IrDo(callee == "f" ? b.Call("f") : b.Call(callee, IrRead.Copy(new IrPlace(l)))) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))) { Origin = null });
         }
         yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", element: true));
         yield return new("written_element_across_call", () => ElementAcrossCall("written_element_across_call", element: true, callee: "setFirst"),
@@ -202,9 +223,17 @@ static class IrSelfTests
             var l = b.Parameter("list", list);
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             return b.Function("unborrowed_store_running_nothing", [l],
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)),
-                new IrStore(IrPlace.Deref(r), IrConstant.Int(5)));
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrConstant.Int(5)) { Origin = null });
         });
+
+        yield return new("let_kind_changed_after", () =>
+        {
+            var t = b.Temp(VplType.Int);
+            var let = new IrLet(t, new IrUse(IrConstant.Int(1))) { Origin = null };
+            t.Kind = IrLocalKind.Hold;
+            return b.Function("let_kind_changed_after", [], let);
+        }, Error: "a hold local is defined by what makes a value one");
 
         yield return new("reference_test_lets_go_early", () =>
         {
@@ -214,13 +243,13 @@ static class IrSelfTests
             var found = b.Temp(VplType.Bool);
             return b.Function("reference_test_lets_go_early", [l],
                 new IrBlock([
-                    new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                    new IrLet(slot, new IrCall(get, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(2)])),
-                    new IrLet(found, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(slot)))),
+                    new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                    new IrLet(slot, new IrCall(get, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(2)])) { Origin = null },
+                    new IrLet(found, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(slot)))) { Origin = null },
                     new IrIf(Move(found),
-                        new IrBlock([new IrStore(IrPlace.Deref(slot), IrConstant.Int(1)), new IrDo(b.Call("f"))]),
-                        new IrBlock([new IrEnd(h), new IrDo(b.Call("f"))])),
-                ]));
+                        new IrBlock([new IrStore(IrPlace.Deref(slot), IrConstant.Int(1)) { Origin = null }, new IrDo(b.Call("f")) { Origin = null }]) { Origin = null },
+                        new IrBlock([new IrEnd(h) { Origin = null }, new IrDo(b.Call("f")) { Origin = null }]) { Origin = null }) { Origin = null },
+                ]) { Origin = null });
         });
 
         yield return new("span_loop", () =>
@@ -232,25 +261,25 @@ static class IrSelfTests
             var (n, more, next) = (b.Temp(VplType.Int), b.Temp(VplType.Bool), b.Temp(VplType.Int));
             var p = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.In);
             var e = b.Local("e", VplType.Int);
-            var loop = new IrLoop();
+            var loop = new IrLoop { Origin = null };
             loop.Body.Statements.AddRange([
-                new IrLet(n, new IrCall(b.Method(span, "length"), new IrRefArgument(RefKind.In, new IrPlace(s)), [])),
-                new IrLet(more, new IrBinary(BoundBinaryOperator.Less, IrRead.Copy(new IrPlace(i)), Move(n), VplType.Bool)),
-                new IrIf(Move(more), new IrBlock(), new IrBlock([new IrBreak(loop)])),
+                new IrLet(n, new IrCall(b.Method(span, "length"), new IrRefArgument(RefKind.In, new IrPlace(s)), [])) { Origin = null },
+                new IrLet(more, new IrBinary(BoundBinaryOperator.Less, IrRead.Copy(new IrPlace(i)), Move(n), VplType.Bool)) { Origin = null },
+                new IrIf(Move(more), new IrBlock { Origin = null }, new IrBlock([new IrBreak(loop) { Origin = null }]) { Origin = null }) { Origin = null },
                 new IrBlock([
-                    new IrLet(p, new IrCall(b.Method(span, SyntaxFacts.IndexerName), new IrRefArgument(RefKind.In, new IrPlace(s)), [IrRead.Copy(new IrPlace(i))], b.Loc)),
-                    new IrLet(e, Use(IrRead.Copy(IrPlace.Deref(p)))),
-                    new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))),
-                ]),
+                    new IrLet(p, new IrCall(b.Method(span, SyntaxFacts.IndexerName), new IrRefArgument(RefKind.In, new IrPlace(s)), [IrRead.Copy(new IrPlace(i))], b.Loc)) { Origin = null },
+                    new IrLet(e, Use(IrRead.Copy(IrPlace.Deref(p)))) { Origin = null },
+                    new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))) { Origin = null },
+                ]) { Origin = null },
             ]);
             loop.Continue = new IrBlock([
-                new IrLet(next, new IrBinary(BoundBinaryOperator.Add, IrRead.Copy(new IrPlace(i)), IrConstant.Int(1), VplType.Int, b.Loc)),
-                new IrStore(new IrPlace(i), Move(next)),
-            ]);
+                new IrLet(next, new IrBinary(BoundBinaryOperator.Add, IrRead.Copy(new IrPlace(i)), IrConstant.Int(1), VplType.Int, b.Loc)) { Origin = null },
+                new IrStore(new IrPlace(i), Move(next)) { Origin = null },
+            ]) { Origin = null };
             return b.Function("span_loop", [l],
-                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                new IrLet(s, new IrCall(b.Method(list, "asReadOnlySpan"), IrRead.Borrow(new IrPlace(h)), [])),
-                new IrLet(i, Use(IrConstant.Int(0))),
+                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                new IrLet(s, new IrCall(b.Method(list, "asReadOnlySpan"), IrRead.Borrow(new IrPlace(h)), [])) { Origin = null },
+                new IrLet(i, Use(IrConstant.Int(0))) { Origin = null },
                 loop);
         });
 
@@ -259,11 +288,11 @@ static class IrSelfTests
             var c = b.Parameter("c", VplType.Bool);
             var r = b.Temp(VplType.Int);
             return b.Function("value_out_of_control_flow", [c],
-                new IrDeclare(r),
+                new IrDeclare(r) { Origin = null },
                 new IrIf(IrRead.Copy(new IrPlace(c)),
-                    new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1))]),
-                    new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(2))])),
-                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
+                    new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1)) { Origin = null }]) { Origin = null },
+                    new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(2)) { Origin = null }]) { Origin = null }) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))) { Origin = null });
         });
 
         // An `is ref` name's hold is declared with it and made in the test, which ends it only where the name is null.
@@ -273,22 +302,22 @@ static class IrSelfTests
             var h = b.Temp(list, IrLocalKind.Hold);
             var slotType = VplType.Int.NullableReference(RefKind.Ref);
             var slot = b.Local("slot", slotType, IrLocalKind.Reference, RefKind.Ref);
-            var r = b.Temp(slotType, IrLocalKind.Reference);
+            var r = b.Temp(slotType, IrLocalKind.Reference, RefKind.Ref);
             var (found, matched) = (b.Temp(VplType.Bool), b.Temp(VplType.Bool));
-            IrBlock Ends() => new([new IrEnd(h)]);
+            IrBlock Ends() => new([new IrEnd(h) { Origin = null }]) { Origin = null };
             return b.Function(name, [l],
-                new IrDeclare(h),
-                new IrDeclare(slot),
-                new IrDeclare(matched),
+                new IrDeclare(h) { Origin = null },
+                new IrDeclare(slot) { Origin = null },
+                new IrDeclare(matched) { Origin = null },
                 new IrBlock([
-                    new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                    new IrLet(r, new IrCall(get, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(2)])),
-                    new IrStore(new IrPlace(slot), IrRead.Copy(new IrPlace(r))),
-                    new IrLet(found, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(slot)))),
-                    endsWhereFound ? new IrIf(IrRead.Copy(new IrPlace(found)), Ends(), new IrBlock()) : new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock(), Ends()),
-                    new IrStore(new IrPlace(matched), Move(found)),
-                ]),
-                new IrIf(Move(matched), new IrBlock([new IrStore(IrPlace.Deref(slot), IrConstant.Int(1))])));
+                    new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                    new IrLet(r, new IrCall(get, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(2)])) { Origin = null },
+                    new IrStore(new IrPlace(slot), IrRead.Copy(new IrPlace(r))) { Origin = null },
+                    new IrLet(found, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(slot)))) { Origin = null },
+                    endsWhereFound ? new IrIf(IrRead.Copy(new IrPlace(found)), Ends(), new IrBlock { Origin = null }) { Origin = null } : new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock { Origin = null }, Ends()) { Origin = null },
+                    new IrStore(new IrPlace(matched), Move(found)) { Origin = null },
+                ]) { Origin = null },
+                new IrIf(Move(matched), new IrBlock([new IrStore(IrPlace.Deref(slot), IrConstant.Int(1)) { Origin = null }]) { Origin = null }) { Origin = null });
         }
         yield return new("reference_binding_outlives_its_test", () => ReferenceBinding("reference_binding_outlives_its_test", endsWhereFound: false));
         yield return new("reference_binding_hold_ended_where_found", () => ReferenceBinding("reference_binding_hold_ended_where_found", endsWhereFound: true),
@@ -301,15 +330,15 @@ static class IrSelfTests
             var x = b.Local("x", VplType.Int);
             var (matched, again, negated) = (b.Local("matched", VplType.Bool), b.Temp(VplType.Bool), b.Temp(VplType.Bool));
             return b.Function("binding_stored_where_matched", [c],
-                new IrDeclare(x),
-                new IrDeclare(matched),
+                new IrDeclare(x) { Origin = null },
+                new IrDeclare(matched) { Origin = null },
                 new IrIf(IrRead.Copy(new IrPlace(c)),
-                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)), new IrStore(new IrPlace(matched), IrConstant.Bool(true))]),
-                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false))])),
-                new IrLet(again, Use(IrRead.Move(new IrPlace(matched)))),
-                new IrLet(negated, new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Copy(new IrPlace(again)))),
-                new IrIf(IrRead.Copy(new IrPlace(again)), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])),
-                new IrIf(IrRead.Move(new IrPlace(negated)), new IrBlock(), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
+                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)) { Origin = null }, new IrStore(new IrPlace(matched), IrConstant.Bool(true)) { Origin = null }]) { Origin = null },
+                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false)) { Origin = null }]) { Origin = null }) { Origin = null },
+                new IrLet(again, Use(IrRead.Move(new IrPlace(matched)))) { Origin = null },
+                new IrLet(negated, new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Copy(new IrPlace(again)))) { Origin = null },
+                new IrIf(IrRead.Copy(new IrPlace(again)), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x)))) { Origin = null }]) { Origin = null }) { Origin = null },
+                new IrIf(IrRead.Move(new IrPlace(negated)), new IrBlock { Origin = null }, new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x)))) { Origin = null }]) { Origin = null }) { Origin = null });
         });
 
         yield return new("binding_read_where_not_matched", () =>
@@ -318,12 +347,12 @@ static class IrSelfTests
             var x = b.Local("x", VplType.Int);
             var matched = b.Local("matched", VplType.Bool);
             return b.Function("binding_read_where_not_matched", [c],
-                new IrDeclare(x),
-                new IrDeclare(matched),
+                new IrDeclare(x) { Origin = null },
+                new IrDeclare(matched) { Origin = null },
                 new IrIf(IrRead.Copy(new IrPlace(c)),
-                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)), new IrStore(new IrPlace(matched), IrConstant.Bool(true))]),
-                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false))])),
-                new IrIf(IrRead.Copy(new IrPlace(matched)), new IrBlock(), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
+                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)) { Origin = null }, new IrStore(new IrPlace(matched), IrConstant.Bool(true)) { Origin = null }]) { Origin = null },
+                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false)) { Origin = null }]) { Origin = null }) { Origin = null },
+                new IrIf(IrRead.Copy(new IrPlace(matched)), new IrBlock { Origin = null }, new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x)))) { Origin = null }]) { Origin = null }) { Origin = null });
         }, Error: "may be read before it is stored");
 
         // The store makes the loop's entry state change, so its body is verified a second time.
@@ -332,45 +361,45 @@ static class IrSelfTests
             var c = b.Parameter("c", VplType.Bool);
             var x = b.Local("x", VplType.Int);
             var t = b.Temp(VplType.Int);
-            var loop = new IrLoop();
+            var loop = new IrLoop { Origin = null };
             loop.Body.Statements.AddRange([
-                new IrLet(t, Use(IrConstant.Int(1))),
-                new IrStore(new IrPlace(x), Move(t)),
-                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrBreak(loop)])),
+                new IrLet(t, Use(IrConstant.Int(1))) { Origin = null },
+                new IrStore(new IrPlace(x), Move(t)) { Origin = null },
+                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrBreak(loop) { Origin = null }]) { Origin = null }) { Origin = null },
             ]);
-            return b.Function("loop_verified_twice", [c], new IrDeclare(x), loop);
+            return b.Function("loop_verified_twice", [c], new IrDeclare(x) { Origin = null }, loop);
         });
 
         yield return new("borrowed_fixed_field_across_call", () =>
         {
             var a = b.Parameter("a", holder);
             return b.Function("borrowed_fixed_field_across_call", [a],
-                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(fixedField)))));
+                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(fixedField)))) { Origin = null });
         });
 
         yield return new("temporary_stored", () =>
         {
             var t = b.Temp(VplType.Int);
             return b.Function("temporary_stored", [],
-                new IrLet(t, Use(IrConstant.Int(1))),
-                new IrStore(new IrPlace(t), IrConstant.Int(2)));
+                new IrLet(t, Use(IrConstant.Int(1))) { Origin = null },
+                new IrStore(new IrPlace(t), IrConstant.Int(2)) { Origin = null });
         }, Error: "is a temporary, defined once");
 
         yield return new("outside_scope", () =>
         {
             var t = b.Temp(VplType.Int);
             return b.Function("outside_scope", [],
-                new IrBlock([new IrLet(t, Use(IrConstant.Int(1)))]),
-                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(t)))));
+                new IrBlock([new IrLet(t, Use(IrConstant.Int(1))) { Origin = null }]) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(t)))) { Origin = null });
         }, Error: "is used outside its scope");
 
         yield return new("moved_twice", () =>
         {
             var t = b.Temp(VplType.Int);
             return b.Function("moved_twice", [],
-                new IrLet(t, Use(IrConstant.Int(1))),
-                new IrDo(b.Call("use", Move(t))),
-                new IrDo(b.Call("use", Move(t))));
+                new IrLet(t, Use(IrConstant.Int(1))) { Origin = null },
+                new IrDo(b.Call("use", Move(t))) { Origin = null },
+                new IrDo(b.Call("use", Move(t))) { Origin = null });
         }, Error: "is used after it is moved");
 
         yield return new("deref_not_at_base", () =>
@@ -378,7 +407,7 @@ static class IrSelfTests
             var a = b.Parameter("a", holder);
             var t = b.Temp(VplType.Int);
             return b.Function("deref_not_at_base", [a],
-                new IrLet(t, Use(IrRead.Copy(IrPlace.Deref(a).Field(field).Field(x)))));
+                new IrLet(t, Use(IrRead.Copy(IrPlace.Deref(a).Field(field).Field(x)))) { Origin = null });
         }, Error: "dereferences only at its base");
 
         yield return new("reference_after_hold_ends", () =>
@@ -387,10 +416,10 @@ static class IrSelfTests
             var h = b.Temp(list, IrLocalKind.Hold);
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             return b.Function("reference_after_hold_ends", [l],
-                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)),
-                new IrEnd(h),
-                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)));
+                new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
+                new IrEnd(h) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)) { Origin = null });
         }, Error: "was ended");
 
         yield return new("unborrowed_reference_across_call", () =>
@@ -399,9 +428,9 @@ static class IrSelfTests
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             var v = b.Temp(VplType.Int);
             return b.Function("unborrowed_reference_across_call", [l],
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)),
-                new IrLet(v, b.Call("f")),
-                new IrStore(IrPlace.Deref(r), Move(v)));
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
+                new IrLet(v, b.Call("f")) { Origin = null },
+                new IrStore(IrPlace.Deref(r), Move(v)) { Origin = null });
         }, Error: "points into a Borrowable that isn't borrowed");
 
         yield return new("unborrowed_reference_across_release", () =>
@@ -411,9 +440,9 @@ static class IrSelfTests
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             var o = b.Temp(obj);
             return b.Function("unborrowed_reference_across_release", [l, p],
-                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)),
-                new IrBlock([new IrLet(o, Use(IrRead.Copy(new IrPlace(p))))]),
-                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)));
+                new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(l)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
+                new IrBlock([new IrLet(o, Use(IrRead.Copy(new IrPlace(p)))) { Origin = null }]) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)) { Origin = null });
         }, Error: "a release at the end of a block");
 
         yield return new("borrowed_local_written", () =>
@@ -421,9 +450,9 @@ static class IrSelfTests
             var o = b.Parameter("o", obj);
             var alias = b.Local("x", VplType.Int, IrLocalKind.Borrowed);
             return b.Function("borrowed_local_written", [o],
-                new IrLet(alias, Use(IrRead.Borrow(IrPlace.Deref(o).Field(x)))),
-                new IrStore(IrPlace.Deref(o).Field(x), IrConstant.Int(2)),
-                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))));
+                new IrLet(alias, Use(IrRead.Borrow(IrPlace.Deref(o).Field(x)))) { Origin = null },
+                new IrStore(IrPlace.Deref(o).Field(x), IrConstant.Int(2)) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))) { Origin = null });
         }, Error: "the place it borrows may be written");
 
         // Nothing 'take' runs writes the field.
@@ -431,14 +460,14 @@ static class IrSelfTests
         {
             var a = b.Parameter("a", holder);
             return b.Function("borrowed_mut_field_across_unwriting_call", [a],
-                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(field)))));
+                new IrDo(b.Call("take", IrRead.Borrow(IrPlace.Deref(a).Field(field)))) { Origin = null });
         });
 
         yield return new("borrowed_mut_field_across_call", () =>
         {
             var a = b.Parameter("a", holder);
             return b.Function("borrowed_mut_field_across_call", [a],
-                new IrDo(b.Call("replace", IrRead.Copy(new IrPlace(a)), IrRead.Borrow(IrPlace.Deref(a).Field(field)))));
+                new IrDo(b.Call("replace", IrRead.Copy(new IrPlace(a)), IrRead.Borrow(IrPlace.Deref(a).Field(field)))) { Origin = null });
         }, Error: "is used during the call of 'replace'");
 
         yield return new("reference_into_replaced_nullable", () =>
@@ -447,10 +476,10 @@ static class IrSelfTests
             var v = b.Local("v", vec.Nullable);
             var r = b.Local("r", VplType.Int, IrLocalKind.Reference, RefKind.Ref);
             return b.Function("reference_into_replaced_nullable", [w],
-                new IrLet(v, Use(IrRead.Copy(new IrPlace(w)))),
-                new IrLet(r, new IrRef(RefKind.Ref, new IrPlace(v).Assumed().Field(vecX))),
-                new IrStore(new IrPlace(v), IrRead.Copy(new IrPlace(w))),
-                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)));
+                new IrLet(v, Use(IrRead.Copy(new IrPlace(w)))) { Origin = null },
+                new IrLet(r, new IrRef(RefKind.Ref, new IrPlace(v).Assumed().Field(vecX))) { Origin = null },
+                new IrStore(new IrPlace(v), IrRead.Copy(new IrPlace(w))) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)) { Origin = null });
         }, Error: "the nullable value or variant it points into may be replaced");
 
         yield return new("ref_argument_replaces_nullable_in_use", () =>
@@ -458,29 +487,29 @@ static class IrSelfTests
             var w = b.Parameter("w", vec.Nullable);
             var v = b.Local("v", vec.Nullable);
             return b.Function("ref_argument_replaces_nullable_in_use", [w],
-                new IrLet(v, Use(IrRead.Copy(new IrPlace(w)))),
+                new IrLet(v, Use(IrRead.Copy(new IrPlace(w)))) { Origin = null },
                 new IrDo(new IrCall(b.Function("two"), null, [
                     new IrRefArgument(RefKind.Ref, new IrPlace(v)),
                     new IrRefArgument(RefKind.In, new IrPlace(v).Assumed().Field(vecX)),
-                ])));
+                ])) { Origin = null });
         }, Error: "is used during the call of 'two'");
 
         yield return new("slot_in_nested_loop", () =>
         {
             var s = b.Temp(obj, IrLocalKind.Slot);
             var o = b.Temp(obj);
-            var loop = new IrLoop();
-            loop.Body.Statements.AddRange([new IrLet(o, new IrNew(obj, b.Constructor("Obj"), []) { Slot = s }), new IrBreak(loop)]);
-            return b.Function("slot_in_nested_loop", [], new IrDeclare(s), loop);
+            var loop = new IrLoop { Origin = null };
+            loop.Body.Statements.AddRange([new IrLet(o, new IrNew(obj, b.Constructor("Obj"), []) { Slot = s, Origin = b.Loc.Source!.Value }) { Origin = null }, new IrBreak(loop) { Origin = null }]);
+            return b.Function("slot_in_nested_loop", [], new IrDeclare(s) { Origin = null }, loop);
         }, Error: "made inside a loop or lambda nested in the slot's block");
 
         yield return new("join_stored_twice", () =>
         {
             var r = b.Temp(VplType.Int);
             return b.Function("join_stored_twice", [],
-                new IrDeclare(r),
-                new IrStore(new IrPlace(r), IrConstant.Int(1)),
-                new IrStore(new IrPlace(r), IrConstant.Int(2)));
+                new IrDeclare(r) { Origin = null },
+                new IrStore(new IrPlace(r), IrConstant.Int(1)) { Origin = null },
+                new IrStore(new IrPlace(r), IrConstant.Int(2)) { Origin = null });
         }, Error: "may be stored more than once");
 
         yield return new("join_not_stored_on_every_path", () =>
@@ -488,22 +517,22 @@ static class IrSelfTests
             var c = b.Parameter("c", VplType.Bool);
             var r = b.Temp(VplType.Int);
             return b.Function("join_not_stored_on_every_path", [c],
-                new IrDeclare(r),
-                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1))])),
-                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
+                new IrDeclare(r) { Origin = null },
+                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1)) { Origin = null }]) { Origin = null }) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))) { Origin = null });
         }, Error: "may be read before it is stored");
 
         yield return new("break_outside_loop", () =>
         {
-            var loop = new IrLoop();
-            loop.Body.Statements.Add(new IrBreak(loop));
-            return b.Function("break_outside_loop", [], loop, new IrBreak(loop));
+            var loop = new IrLoop { Origin = null };
+            loop.Body.Statements.Add(new IrBreak(loop) { Origin = null });
+            return b.Function("break_outside_loop", [], loop, new IrBreak(loop) { Origin = null });
         }, Error: "isn't inside the loop it names");
 
         yield return new("store_type_mismatch", () =>
         {
             var o = b.Parameter("o", obj);
-            return b.Function("store_type_mismatch", [o], new IrStore(IrPlace.Deref(o).Field(x), IrConstant.Bool(true)));
+            return b.Function("store_type_mismatch", [o], new IrStore(IrPlace.Deref(o).Field(x), IrConstant.Bool(true)) { Origin = null });
         }, Error: "stores a 'bool' in a 'int'");
 
         yield return new("falls_off_the_end", () => b.Function("falls_off_the_end", [], VplType.Int),
@@ -517,11 +546,11 @@ static class IrSelfTests
             {
                 Struct = self,
                 Body = new IrBlock([
-                    new IrLet(self, new IrDefault(vec)),
-                    new IrLet(other, new IrDefault(vec)),
-                    new IrStore(new IrPlace(self).Field(vecX), new IrConstant(VplType.Int, 1)),
-                    new IrReturn(IrRead.Copy(new IrPlace(returnsSelf ? self : other))),
-                ]),
+                    new IrLet(self, new IrDefault(vec)) { Origin = null },
+                    new IrLet(other, new IrDefault(vec)) { Origin = null },
+                    new IrStore(new IrPlace(self).Field(vecX), new IrConstant(VplType.Int, 1)) { Origin = null },
+                    new IrReturn(IrRead.Copy(new IrPlace(returnsSelf ? self : other))) { Origin = null },
+                ]) { Origin = null },
             };
             return function;
         }
@@ -533,7 +562,7 @@ static class IrSelfTests
             {
                 Struct = self,
                 Builds = form,
-                Body = new IrBlock([new IrLet(self, start ?? new IrZeroed(type)), .. body(self), new IrReturn(IrRead.Copy(new IrPlace(self)))]),
+                Body = new IrBlock([new IrLet(self, start ?? new IrZeroed(type)) { Origin = null }, .. body(self), new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = null }]) { Origin = null },
             };
             function.Parameters.AddRange(parameters);
             return function;
@@ -542,7 +571,7 @@ static class IrSelfTests
         var counter = b.Type("Counter");
         var counterN = b.Field("Counter", "n");
         yield return new("built_struct", () => Built("built_struct", counter, [false], [],
-            self => [new IrStore(new IrPlace(self).Field(counterN), IrConstant.Int(1))]));
+            self => [new IrStore(new IrPlace(self).Field(counterN), IrConstant.Int(1)) { Origin = null }]));
         yield return new("built_struct_zero_default", () => Built("built_struct_zero_default", vec, [false], [], _ => []));
         yield return new("built_struct_field_left_zeroed", () => Built("built_struct_field_left_zeroed", counter, [false], [], _ => []),
             Error: "field 'n' is left zeroed");
@@ -553,8 +582,8 @@ static class IrSelfTests
         {
             var t = b.Temp(VplType.Int);
             return Built("built_struct_read_early", counter, [false], [], self => [
-                new IrLet(t, Use(IrRead.Copy(new IrPlace(self).Field(counterN)))),
-                new IrStore(new IrPlace(self).Field(counterN), IrRead.Move(new IrPlace(t))),
+                new IrLet(t, Use(IrRead.Copy(new IrPlace(self).Field(counterN)))) { Origin = null },
+                new IrStore(new IrPlace(self).Field(counterN), IrRead.Move(new IrPlace(t))) { Origin = null },
             ]);
         }, Error: "reads 'self' before it is built");
         yield return new("built_struct_from_default", () => Built("built_struct_from_default", vec, [false], [], _ => [], new IrDefault(vec)),
@@ -565,7 +594,7 @@ static class IrSelfTests
             return new IrFunction(new FunctionSymbol("zeroed_outside_built", [], VplType.Void) { IsConstructor = true }, "zeroed_outside_built")
             {
                 Struct = self,
-                Body = new IrBlock([new IrLet(self, new IrZeroed(vec)), new IrReturn(IrRead.Copy(new IrPlace(self)))]),
+                Body = new IrBlock([new IrLet(self, new IrZeroed(vec)) { Origin = null }, new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = null }]) { Origin = null },
             };
         }, Error: "only a built struct starts as zeroed storage");
 
@@ -587,15 +616,15 @@ static class IrSelfTests
         var call = b.Function("call");
         var lambda = new IrFunction(new FunctionSymbol("lambda", [], VplType.Void) { IsLambda = true }, $"{name}.lambda")
         {
-            Body = new IrBlock([new IrStore(IrPlace.Deref(r), IrConstant.Int(1))]),
+            Body = new IrBlock([new IrStore(IrPlace.Deref(r), IrConstant.Int(1)) { Origin = null }]) { Origin = null },
         };
         var l = b.Temp(call.ParameterType(1));
         var place = IrPlace.Deref(a).Field(b.Field("Holder", "b"));
         var function = b.Function(name, [a],
-            new IrLet(h, held ? new IrHold(place, borrows: false) : new IrUse(IrRead.Borrow(place))),
-            new IrLet(r, new IrRef(RefKind.Ref, IrPlace.Deref(h).Field(b.Field("Obj", "x")))),
-            new IrLet(l, new IrLambda(lambda, l.Type)),
-            new IrDo(new IrCall(call, null, [IrRead.Copy(new IrPlace(a)), IrRead.Move(new IrPlace(l))])));
+            new IrLet(h, held ? new IrHold(place, borrows: false) : new IrUse(IrRead.Borrow(place))) { Origin = null },
+            new IrLet(r, new IrRef(RefKind.Ref, IrPlace.Deref(h).Field(b.Field("Obj", "x")))) { Origin = null },
+            new IrLet(l, new IrLambda(lambda, l.Type)) { Origin = null },
+            new IrDo(new IrCall(call, null, [IrRead.Copy(new IrPlace(a)), IrRead.Move(new IrPlace(l))])) { Origin = null });
         return function;
     }
 
@@ -633,7 +662,7 @@ static class IrSelfTests
 
         public IrFunction Function(string name, IrLocal[] parameters, VplType returnType, params IrStatement[] body)
         {
-            var function = new IrFunction(new FunctionSymbol(name, [], returnType), name) { Body = new IrBlock(body) };
+            var function = new IrFunction(new FunctionSymbol(name, [], returnType), name) { Body = new IrBlock(body) { Origin = null } };
             function.Parameters.AddRange(parameters);
             return function;
         }

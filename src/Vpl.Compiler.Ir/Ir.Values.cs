@@ -1,5 +1,6 @@
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Ir;
 
@@ -251,6 +252,10 @@ public sealed class IrNew(VplType type, MethodReference constructor, IReadOnlyLi
     public List<IrArgument> Arguments { get; } = [.. arguments];
     public IrLoc? Loc { get; } = loc;
     public IrLocal? Slot { get; set; }
+
+    /// <summary>Where it is in the source, which tests mark when it is put in a slot.</summary>
+    public required Location Origin { get; init; }
+
     public override VplType Type { get; } = type;
 }
 
@@ -306,6 +311,9 @@ public sealed class IrClosure(IrFunction function, IReadOnlyList<IrOperand> capt
 
     /// <summary>The name diagnostics give the closure's object, as a class's name for its objects.</summary>
     public required string Name { get; init; }
+
+    /// <summary>Where its lambda is in the source, which tests mark when it is put in a slot.</summary>
+    public required Location Origin { get; init; }
 
     public override VplType Type { get; } = type;
 }

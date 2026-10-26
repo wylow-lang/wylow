@@ -45,8 +45,8 @@ violation is a compiler bug. There is no second storage model and no second data
 | The binder answers nothing about flow | Semantics can't reference the IR project. FlowAnalyzer is deleted once its checks are on the IR. |
 | Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types. Its shortcuts (`IsStable`, `capturedByLambda`, lowering's `MayChange`, `Settle`) are deleted, so nothing remains to call. |
 | Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: no settable `IsChangedByLambda`, `IsElement`, `ChangesAround` on `IrLocal`/`IrFunction`. Those three remain until step 4, and nothing checks them for staleness. |
-| What the source says can't be forgotten | Side tables that some code paths fill and others don't (`Origins`, `Creations`, `LoopElements`) become **required constructor members** of the nodes, so building a node without its origin doesn't compile. (Naive lowering lost a user error because `Settle` inserted statements that bypass `Add`, which is what records origins.) |
-| A local's kind follows from its value | One function decides the kind from the rvalue, and the only way to make a `let` goes through it. (Naive lowering broke because `Settle`'s `Temp` bypassed `Let`'s rule.) |
+| What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't: naive lowering lost a user error because `Settle` inserted statements that bypassed `Add`, which recorded origins. |
+| A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. (Naive lowering broke because `Settle`'s `Temp` bypassed `Let`'s rule.) |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
 | Each type fact has one definition | On `VplType`, used everywhere. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
 
@@ -74,10 +74,10 @@ C++ was compared with today's:
 
 Naive lowering also failed nine tests, showing code that worked only because of the shortcuts' shapes:
 
-- `Settle`'s copies of `ref?` values had the wrong local kind (they bypass `Let`'s rule).
+- `Settle`'s copies of `ref?` values had the wrong local kind (they bypass `Let`'s rule). Fixed in step 3.
 - References that must last for a local's scope came from temporaries inside a statement block,
   which ended too early.
-- A user error was lost: `Settle`'s statements have no origin.
+- A user error was lost: `Settle`'s statements have no origin. Fixed in step 3.
 - The emitter's `vpl::Arguments` path for base-constructor calls fails to compile for a struct
   argument. It had never been reached, since `IsStable` kept those arguments direct.
 - The user's nullable-value error depends on the IR's shape. That is acceptable only because
@@ -94,7 +94,9 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    the `Weak`-in-enum compile failure, and LastUseMoves now moves strings. Widening InPlaceElements
    and BorrowedLocals past class types is still open: their rule doesn't see stores into a struct's
    fields.
-3. **Required origins and the local-kind rule.** These are the two failures naive lowering exposed.
+3. **Required origins and the local-kind rule** (done): the two failures naive lowering exposed.
+   `IrProgram.Origins`, `Creations`, and `LoopElements` are gone, and so is the verifier's copy of
+   the kind rule. The generated C++ and IR of every test were identical before and after.
 4. **One flow analysis.** The verifier's dataflow becomes the analysis. FlowAnalyzer's checks move
    onto it one at a time (assignment, narrowing, returns, constructor fields, assigned once), and
    FlowAnalyzer is deleted. Lambda changes become a fact of the analysis, which removes most of

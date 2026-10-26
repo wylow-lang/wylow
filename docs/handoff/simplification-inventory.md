@@ -212,6 +212,8 @@ exact-type version with `IsSubtype`. No drift yet, but this one is a safety rule
 
 ## 7. A loop element is recorded three times, and local roles are loose booleans
 
+- **Step 3 deleted `IrProgram.LoopElements`:** `IrLocal.LoopElement` asks the symbol, which holds
+  where it is declared. `IsElement` and the roles are still open. What follows is the finding as it was.
 - `LocalSymbol.IsLoopElement` (Symbols.cs:16, set at Binder.ForEach.cs:210), copied into lowering's
   `loopElements` (Lowering.cs:288), then `IrProgram.LoopElements` (Ir.cs:19), then
   `IrLocal.IsElement` for the subset borrowed in place (Ir.cs:126, set at InPlaceElements.cs:56).
@@ -291,7 +293,7 @@ the verifier's check flow-sensitive the same way), and add a test that runs it b
 - **What a call is given** (four copies): `IrEffects.Calling` (IrEffects.cs:156), `IrVerifier.CheckInUse`
   (IrVerifier.Values.cs:703), `LastUseMoves.Consumes` (LastUseMoves.cs:174), and
   `CppEmitter.FindRecursive` (CppEmitter.Lambdas.cs:163). Home: `IrWalk.Passed(rvalue)`.
-- **Which local kind an rvalue makes**: `IrLowering.Let` (Lowering.cs:136-151) vs `IrVerifier.CheckLet`
+- **Which local kind an rvalue makes** (**done in step 3:** `IrLet.Defines`): `IrLowering.Let` (Lowering.cs:136-151) vs `IrVerifier.CheckLet`
   (IrVerifier.cs:307-326). Drift is caught by the verifier, but they're still two copies. Home: one
   static on `IrLocalKind` or `IrRvalue`.
 - **Which operations panic**: lowering decides by `IrBinary.IsChecked` and the conversion rule

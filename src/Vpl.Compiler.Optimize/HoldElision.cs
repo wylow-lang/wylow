@@ -83,7 +83,7 @@ sealed class HoldElision(Writes writes)
             inner.RemoveAt(inner.Count - 1);
             if (made is not null)
                 inner.RemoveAt(inner.Count - 1);
-            inner.Add(new IrLet(stored.Target.Local, made?.Value ?? new IrUse(stored.Value)));
+            inner.Add(new IrLet(stored.Target.Local, made?.Value ?? new IrUse(stored.Value)) { Origin = made?.Origin ?? stored.Origin });
             statements.RemoveAt(--at);
         }
         statements.RemoveAt(at);

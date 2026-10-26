@@ -144,7 +144,7 @@ sealed class LastUseMoves
     {
         var type = local.Type;
         if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || local.IsChangedByLambda || !type.IsCounted
-            || type.NonNull.IsNonEscapingFunction || program.LoopElements.ContainsKey(local))
+            || type.NonNull.IsNonEscapingFunction || local.LoopElement is not null)
             return false;
         if (!inert.TryGetValue(type, out var result))
             inert[type] = result = callees.Of(new IrRunRelease(type)) is { Functions.Count: 0, RunsExtern: false } && !MayBeWeaklyReferred(type);

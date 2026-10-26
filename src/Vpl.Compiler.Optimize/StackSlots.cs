@@ -55,7 +55,12 @@ sealed class StackSlots
 
     /// <summary>Where each object on the stack is made.</summary>
     public IEnumerable<Location> Locations =>
-        locals.Select(l => l.Creation).Concat(temporaries.Select(t => t.Creation)).Select(c => program.Creations[c]);
+        locals.Select(l => l.Creation).Concat(temporaries.Select(t => t.Creation)).Select(c => c switch
+        {
+            IrNew made => made.Origin,
+            IrClosure closure => closure.Origin,
+            _ => throw new InvalidOperationException($"a {c.GetType().Name} is not a creation"),
+        });
 
     void FindIn(IrFunction function, IrBlock block)
     {
@@ -311,10 +316,10 @@ sealed class StackSlots
         }
         foreach (var (block, before, creation) in locals.Concat(temporaries))
         {
-            var declare = new IrDeclare(Slot(creation));
+            var declare = new IrDeclare(Slot(creation)) { Origin = before.Origin };
             int at = block.Statements.IndexOf(before);
             if (before is IrDo)
-                block.Statements[at] = new IrBlock([declare, before]) { IsStatement = true };
+                block.Statements[at] = new IrBlock([declare, before]) { IsStatement = true, Origin = before.Origin };
             else
                 block.Statements.Insert(at, declare);
         }
@@ -340,7 +345,7 @@ sealed class StackSlots
             Walk(function.Body, []);
         foreach (var (store, (list, ended)) in ends)
         {
-            var filled = ended.Where(c => MayRunBefore(paths[c], paths[store])).Select(c => (IrStatement)new IrEnd(slots[c]));
+            var filled = ended.Where(c => MayRunBefore(paths[c], paths[store])).Select(c => (IrStatement)new IrEnd(slots[c]) { Origin = store.Origin });
             list.InsertRange(list.IndexOf(store) + 1, filled);
         }
     }

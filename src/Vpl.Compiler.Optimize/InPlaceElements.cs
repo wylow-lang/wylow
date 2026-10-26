@@ -46,7 +46,7 @@ sealed class InPlaceElements
         for (int i = 0; i < statements.Count; i++)
         {
             if (statements[i] is not IrLet { Value: IrUse { Operand: IrRead { Ownership: IrOwnership.Copy, Place: var place } } } let
-                || !program.LoopElements.TryGetValue(let.Local, out var location))
+                || let.Local.LoopElement is not { } location)
                 continue;
             var element = let.Local;
             if (!element.Type.IsReference || place.Type != element.Type || !Unwritten(element, statements.Skip(i + 1)))

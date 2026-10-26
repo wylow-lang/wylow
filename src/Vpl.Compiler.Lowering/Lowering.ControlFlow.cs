@@ -21,22 +21,22 @@ public sealed partial class IrLowering
     /// </summary>
     void Define(IrLocal local, BoundExpression value)
     {
-        var scope = new IrBlock { IsStatement = true };
+        var scope = new IrBlock { Origin = at, IsStatement = true };
         IrLet? let = null;
-        Into(scope, () => Add(let = new IrLet(local, Rvalue(value, Use.Read))));
+        Into(scope, () => Add(let = LetOf(local, Rvalue(value, Use.Read))));
         if (!scope.DeclaresOwner(local))
         {
             block.Statements.AddRange(scope.Statements);
             return;
         }
-        var at = scope.Statements.IndexOf(let!);
-        scope.Statements.RemoveAt(at);
+        var index = scope.Statements.IndexOf(let!);
+        scope.Statements.RemoveAt(index);
         var saved = block;
-        block = new IrBlock();
+        block = new IrBlock { Origin = null };
         var operand = OperandOf(let!.Value);
-        scope.Statements.InsertRange(at, [.. block.Statements, new IrStore(new IrPlace(local), operand)]);
+        scope.Statements.InsertRange(index, [.. block.Statements, new IrStore(new IrPlace(local), operand) { Origin = let.Origin }]);
         block = saved;
-        Add(new IrDeclare(local));
+        Add(new IrDeclare(local) { Origin = let.Origin });
         Add(scope);
     }
 
@@ -53,7 +53,7 @@ public sealed partial class IrLowering
     /// <summary>A branch or loop body, as a block of its own.</summary>
     IrBlock Body(BoundStatement statement)
     {
-        var body = new IrBlock();
+        var body = new IrBlock { Origin = at };
         Into(body, () =>
         {
             foreach (var inner in statement is BoundBlock block ? block.Statements : [statement])
@@ -81,7 +81,7 @@ public sealed partial class IrLowering
         reachable = true;
         var otherwise = conditional.Else is { } elseBranch ? Body(elseBranch) : null;
         reachable |= afterThen;
-        Add(new IrIf(condition, then, otherwise));
+        Add(new IrIf(condition, then, otherwise) { Origin = at });
     }
 
     /// <summary>
@@ -90,7 +90,7 @@ public sealed partial class IrLowering
     /// </summary>
     void Loop(BoundExpression? condition, BoundStatement body, BoundStatement? update)
     {
-        var loop = new IrLoop();
+        var loop = new IrLoop { Origin = at };
         var context = new LoopContext(loop);
         loops.Add(context);
         Into(loop.Body, () =>
@@ -114,13 +114,13 @@ public sealed partial class IrLowering
 
     void BreakUnless(IrOperand condition, LoopContext context)
     {
-        Add(new IrIf(condition, new IrBlock(), new IrBlock([new IrBreak(context.Loop)])));
+        Add(new IrIf(condition, new IrBlock { Origin = at }, new IrBlock([new IrBreak(context.Loop) { Origin = at }]) { Origin = at }) { Origin = at });
         context.Breaks = true;
     }
 
     void For(BoundFor loop)
     {
-        var scope = new IrBlock();
+        var scope = new IrBlock { Origin = at };
         Into(scope, () =>
         {
             if (loop.Initializer is { } initializer)
@@ -139,7 +139,7 @@ public sealed partial class IrLowering
     void ForRange(BoundForRange range)
     {
         var type = range.Local.Type;
-        var scope = new IrBlock();
+        var scope = new IrBlock { Origin = at };
         Into(scope, () =>
         {
             DeclarePatternLocals(range.Start);
@@ -147,14 +147,14 @@ public sealed partial class IrLowering
             var start = Let(new IrUse(Settle(Value(range.Start))));
             var end = Let(new IrUse(Settle(Value(range.End))));
             var counter = new IrLocal("i", type, IrLocalKind.Value);
-            Add(new IrLet(counter, new IrUse(IrRead.Copy(new IrPlace(start)))));
+            Add(LetOf(counter, new IrUse(IrRead.Copy(new IrPlace(start)))));
             IrLocal? more = null;
             if (range.IsInclusive)
             {
                 more = new IrLocal("more", VplType.Bool, IrLocalKind.Value);
-                Add(new IrLet(more, new IrBinary(BoundBinaryOperator.LessOrEqual, IrRead.Copy(new IrPlace(start)), IrRead.Copy(new IrPlace(end)), VplType.Bool)));
+                Add(LetOf(more, new IrBinary(BoundBinaryOperator.LessOrEqual, IrRead.Copy(new IrPlace(start)), IrRead.Copy(new IrPlace(end)), VplType.Bool)));
             }
-            var loop = new IrLoop();
+            var loop = new IrLoop { Origin = at };
             var context = new LoopContext(loop);
             loops.Add(context);
             var loc = Loc(range.Location);
@@ -164,10 +164,10 @@ public sealed partial class IrLowering
                     ? IrRead.Copy(new IrPlace(more))
                     : IrRead.Move(new IrPlace(Let(new IrBinary(BoundBinaryOperator.Less, IrRead.Copy(new IrPlace(counter)), IrRead.Copy(new IrPlace(end)), VplType.Bool))));
                 BreakUnless(test, context);
-                var body = new IrBlock();
+                var body = new IrBlock { Origin = at };
                 Into(body, () =>
                 {
-                    Add(new IrLet(Declare(range.Local), new IrUse(IrRead.Copy(new IrPlace(counter)))));
+                    Add(LetOf(Declare(range.Local), new IrUse(IrRead.Copy(new IrPlace(counter)))));
                     foreach (var statement in range.Body is BoundBlock block ? block.Statements : [range.Body])
                     {
                         if (!reachable)
@@ -178,7 +178,7 @@ public sealed partial class IrLowering
                 Add(body);
             });
             reachable = true;
-            loop.Continue = new IrBlock();
+            loop.Continue = new IrBlock { Origin = at };
             Into(loop.Continue, () =>
             {
                 if (more is null)
@@ -187,10 +187,10 @@ public sealed partial class IrLowering
                     return;
                 }
                 var differs = Let(new IrBinary(BoundBinaryOperator.NotEqual, IrRead.Copy(new IrPlace(counter)), IrRead.Copy(new IrPlace(end)), VplType.Bool));
-                Add(new IrStore(new IrPlace(more), IrRead.Move(new IrPlace(differs))));
-                var increment = new IrBlock();
+                Add(new IrStore(new IrPlace(more), IrRead.Move(new IrPlace(differs))) { Origin = at });
+                var increment = new IrBlock { Origin = at };
                 Into(increment, () => Increment(counter, loc));
-                Add(new IrIf(IrRead.Copy(new IrPlace(more)), increment));
+                Add(new IrIf(IrRead.Copy(new IrPlace(more)), increment) { Origin = at });
             });
             loops.RemoveAt(loops.Count - 1);
             Add(loop);
@@ -202,7 +202,7 @@ public sealed partial class IrLowering
     void Increment(IrLocal counter, IrLoc loc)
     {
         var next = Let(new IrBinary(BoundBinaryOperator.Add, IrRead.Copy(new IrPlace(counter)), new IrConstant(counter.Type, One(counter.Type)), counter.Type, loc));
-        Add(new IrStore(new IrPlace(counter), IrRead.Move(new IrPlace(next))));
+        Add(new IrStore(new IrPlace(counter), IrRead.Move(new IrPlace(next))) { Origin = at });
     }
 
     static object One(VplType type) => BoundLiteral.Number(default!, type, 1).Value;
@@ -212,12 +212,12 @@ public sealed partial class IrLowering
         var context = loops.LastOrDefault() ?? throw new InvalidOperationException("a jump outside a loop");
         if (jump is BoundBreak)
         {
-            Add(new IrBreak(context.Loop));
+            Add(new IrBreak(context.Loop) { Origin = at });
             context.Breaks = true;
         }
         else
         {
-            Add(new IrContinue(context.Loop));
+            Add(new IrContinue(context.Loop) { Origin = at });
         }
         reachable = false;
     }
@@ -229,15 +229,15 @@ public sealed partial class IrLowering
     IrRvalue Chosen(VplType type, Func<IrOperand> condition, Func<IrOperand> whenTrue, Func<IrOperand> whenFalse)
     {
         var result = Temp(type);
-        Add(new IrDeclare(result));
+        Add(new IrDeclare(result) { Origin = at });
         var tested = condition();
         IrBlock Branch(Func<IrOperand> value)
         {
-            var branch = new IrBlock();
-            Into(branch, () => Add(new IrStore(new IrPlace(result), Settle(value()))));
+            var branch = new IrBlock { Origin = at };
+            Into(branch, () => Add(new IrStore(new IrPlace(result), Settle(value())) { Origin = at }));
             return branch;
         }
-        Add(new IrIf(tested, Branch(whenTrue), Branch(whenFalse)));
+        Add(new IrIf(tested, Branch(whenTrue), Branch(whenFalse)) { Origin = at });
         return new IrUse(IrRead.Move(new IrPlace(result)));
     }
 
@@ -249,9 +249,9 @@ public sealed partial class IrLowering
         var value = Matched(attempt.Operand);
         var ownership = value.Local.IsTemporary && value is { IsDeref: false, Projections.Count: 0 } ? IrOwnership.Move : IrOwnership.Copy;
         var failed = Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value)) { Variant = err });
-        var returns = new IrBlock();
-        Into(returns, () => Add(new IrReturn(OperandOf(new IrVariant(symbol.ReturnType, err, [new IrRead(ownership, value.VariantField(err, 0))])))));
-        Add(new IrIf(failed, returns));
+        var returns = new IrBlock { Origin = at };
+        Into(returns, () => Add(new IrReturn(OperandOf(new IrVariant(symbol.ReturnType, err, [new IrRead(ownership, value.VariantField(err, 0))]))) { Origin = at }));
+        Add(new IrIf(failed, returns) { Origin = at });
         return new IrUse(new IrRead(ownership, value.VariantField(ok, 0)));
     }
 
@@ -300,7 +300,7 @@ public sealed partial class IrLowering
         var type = access.Receiver.Type;
         IrLocal held;
         if (type.IsNullableReference)
-            Add(new IrLet(held = Declare(access.Value), ReferenceValue(access.Receiver, access.Value.Type)));
+            Add(LetOf(held = Declare(access.Value), ReferenceValue(access.Receiver, access.Value.Type)));
         else
             held = Let(new IrUse(Settle(Value(access.Receiver))));
         IrOperand Test() => Tested(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(held))));
@@ -311,24 +311,24 @@ public sealed partial class IrLowering
             var value = Declare(access.Value);
             if (!type.IsNullableValue)
             {
-                Add(new IrLet(value, new IrConvert(value.Type, IrRead.Copy(new IrPlace(held)))));
+                Add(LetOf(value, new IrConvert(value.Type, IrRead.Copy(new IrPlace(held)))));
                 return;
             }
             var place = new IrPlace(held).Assumed();
             value.Kind = IrLocalKind.Borrowed;
             aliases[value] = place;
-            Add(new IrLet(value, new IrUse(IrRead.Borrow(place))));
+            Add(LetOf(value, new IrUse(IrRead.Borrow(place))));
         }
         if (access.Type == VplType.Void)
         {
             var condition = Test();
-            var then = new IrBlock();
+            var then = new IrBlock { Origin = at };
             Into(then, () =>
             {
                 Bind();
-                Add(new IrDo(Rvalue(access.WhenNotNull, Use.Read)));
+                Add(DoOf(Rvalue(access.WhenNotNull, Use.Read)));
             });
-            Add(new IrIf(condition, then));
+            Add(new IrIf(condition, then) { Origin = at });
             return null;
         }
         return Chosen(access.Type, Test, () =>

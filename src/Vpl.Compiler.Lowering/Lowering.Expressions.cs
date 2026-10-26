@@ -59,11 +59,10 @@ public sealed partial class IrLowering
             case BoundCall call:
                 return Call(call, null);
             case BoundNew creation:
-            {
-                var made = new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation));
-                creations[made] = creation.Location;
-                return made;
-            }
+                return new IrNew(creation.Type, creation.Constructor, Arguments(creation.Constructor, creation.Arguments), LocationFor(creation.Constructor, creation))
+                {
+                    Origin = creation.Location,
+                };
             case BoundConstruction construction:
                 return new IrConstruct(construction.Type, construction.Constructor, Arguments(construction.Constructor, construction.Arguments),
                     LocationFor(construction.Constructor, construction));
@@ -96,7 +95,7 @@ public sealed partial class IrLowering
                 if (IsPlace(length.Operand))
                     Place(length.Operand, Use.Read);
                 else
-                    Add(new IrDo(Rvalue(length.Operand, Use.Read)));
+                    Add(DoOf(Rvalue(length.Operand, Use.Read)));
                 return new IrUse(IrConstant.Int(length.Operand.Type.FixedLength));
             case BoundArrayData data:
                 // A view isn't read right away, so the object it points into is held while it may be used.
@@ -118,7 +117,7 @@ public sealed partial class IrLowering
             ? (read.Place, read.Ownership == IrOwnership.Move ? IrOwnership.Move : IrOwnership.Copy)
             : (new IrPlace(Let(new IrUse(operand))), IrOwnership.Move);
         bool isValue = nonNull.Operand.Type.IsNullableValue;
-        Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], Loc(nonNull.Location)));
+        Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], Loc(nonNull.Location)) { Origin = at });
         return isValue ? new IrUse(new IrRead(ownership, place.Assumed())) : new IrConvert(nonNull.Type, new IrRead(ownership, place));
     }
 

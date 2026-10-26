@@ -55,7 +55,7 @@ sealed class BorrowedLocals(IrProgram program, Writes writes)
 
     bool Candidate(IrLocal local, IrPlace place) =>
         local.Kind == IrLocalKind.Value && local.Symbol is not null && !local.IsParameter && !local.IsCapture && !local.IsThis
-        && !local.IsChangedByLambda && !program.LoopElements.ContainsKey(local)
+        && !local.IsChangedByLambda && local.LoopElement is null
         && local.Type.NonNull.IsReference && !local.Type.NonNull.IsTypeParameter && place.Type == local.Type
         && !(place.Local.IsTemporary && place.Local.Kind == IrLocalKind.Value);
 

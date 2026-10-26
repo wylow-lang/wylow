@@ -18,7 +18,7 @@ public sealed partial class IrLowering
     {
         foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || l.IsReferenceBinding == references))
         {
-            var declare = new IrDeclare(Declare(local));
+            var declare = new IrDeclare(Declare(local)) { Origin = at };
             if (local.IsReferenceBinding)
                 bindings[local] = (block, declare);
             Add(declare);
@@ -42,12 +42,12 @@ public sealed partial class IrLowering
         if (holder is not null)
         {
             var (declaredIn, declare) = bindings[binding];
-            Insert(declaredIn, declaredIn.Statements.IndexOf(declare), new IrDeclare(holder));
+            Insert(declaredIn, declaredIn.Statements.IndexOf(declare), new IrDeclare(holder) { Origin = at });
         }
-        Add(new IrStore(new IrPlace(name), IrRead.Copy(new IrPlace(reference))));
+        Add(new IrStore(new IrPlace(name), IrRead.Copy(new IrPlace(reference))) { Origin = at });
         var found = Let(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(name))));
         if (holder is not null)
-            Add(new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock(), new IrBlock([new IrEnd(holder)])));
+            Add(new IrIf(IrRead.Copy(new IrPlace(found)), new IrBlock { Origin = at }, new IrBlock([new IrEnd(holder) { Origin = at }]) { Origin = at }) { Origin = at });
         return new IrUse(IrRead.Move(new IrPlace(found)));
     }
 
@@ -90,7 +90,7 @@ public sealed partial class IrLowering
             lower();
             return;
         }
-        var scope = new IrBlock();
+        var scope = new IrBlock { Origin = at };
         Into(scope, () =>
         {
             DeclarePatternLocals(condition, references);
@@ -198,9 +198,9 @@ public sealed partial class IrLowering
         return new IrUse(Conjunction(tests, 0, () =>
         {
             var copies = bindings.Skip(1).Select(b => (b.Local, Copy: Let(BoundValue(b)))).ToList();
-            Add(new IrStore(new IrPlace(locals[bindings[0].Local]), OperandOf(BoundValue(bindings[0]))));
+            Add(new IrStore(new IrPlace(locals[bindings[0].Local]), OperandOf(BoundValue(bindings[0]))) { Origin = at });
             foreach (var (local, copy) in copies)
-                Add(new IrStore(new IrPlace(locals[local]), IrRead.Move(new IrPlace(copy))));
+                Add(new IrStore(new IrPlace(locals[local]), IrRead.Move(new IrPlace(copy))) { Origin = at });
             return IrConstant.Bool(true);
         }));
     }
@@ -240,18 +240,18 @@ public sealed partial class IrLowering
             if (i == cases.Count)
             {
                 var loc = Loc(location);
-                Add(new IrCheck(IrCheckKind.NoMatch, [], loc));
-                Add(new IrUnreachable(loc));
+                Add(new IrCheck(IrCheckKind.NoMatch, [], loc) { Origin = at });
+                Add(new IrUnreachable(loc) { Origin = at });
                 return;
             }
             var bindings = new List<Binding>();
             var condition = CaseCondition(cases[i].Patterns, matched, bindings);
-            var then = new IrBlock();
+            var then = new IrBlock { Origin = at };
             reachable = true;
             Into(then, () =>
             {
                 foreach (var binding in bindings)
-                    Add(new IrLet(Declare(binding.Local), BoundValue(binding)));
+                    Add(LetOf(Declare(binding.Local), BoundValue(binding)));
                 body(cases[i].Body);
             });
             completes |= reachable;
@@ -260,9 +260,9 @@ public sealed partial class IrLowering
                 Add(then);
                 return;
             }
-            var otherwise = new IrBlock();
+            var otherwise = new IrBlock { Origin = at };
             Into(otherwise, () => From(i + 1));
-            Add(new IrIf(condition, then, otherwise));
+            Add(new IrIf(condition, then, otherwise) { Origin = at });
         }
         From(0);
         reachable = completes;
@@ -271,7 +271,7 @@ public sealed partial class IrLowering
     /// <summary>The value is evaluated once, and a temporary one lives until the switch ends (spec §6, switch).</summary>
     void Switch(BoundSwitch switchStatement)
     {
-        var scope = new IrBlock();
+        var scope = new IrBlock { Origin = at };
         Into(scope, () =>
         {
             DeclarePatternLocals(switchStatement.Value);
@@ -300,8 +300,8 @@ public sealed partial class IrLowering
     IrRvalue SwitchExpression(BoundSwitchExpression switchExpression, VplType type, Func<BoundExpression, IrOperand> caseValue)
     {
         var result = Temp(type);
-        Add(new IrDeclare(result));
-        var scope = new IrBlock { IsStatement = true };
+        Add(new IrDeclare(result) { Origin = at });
+        var scope = new IrBlock { Origin = at, IsStatement = true };
         Into(scope, () =>
         {
             var matched = Matched(switchExpression.Value);
@@ -310,12 +310,12 @@ public sealed partial class IrLowering
                 DeclarePatternLocals(value);
                 if (value.Type == VplType.Void)
                 {
-                    Add(new IrDo(Rvalue(value, Use.Read)));
+                    Add(DoOf(Rvalue(value, Use.Read)));
                     Unreachable(value.Location);
                 }
                 else
                 {
-                    Add(new IrStore(new IrPlace(result), caseValue(value)));
+                    Add(new IrStore(new IrPlace(result), caseValue(value)) { Origin = at });
                 }
             });
         });

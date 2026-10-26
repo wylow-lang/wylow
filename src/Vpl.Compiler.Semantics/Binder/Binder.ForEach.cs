@@ -207,7 +207,7 @@ public sealed partial class Binder
             value = null;
         var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind)
         {
-            IsLoopElement = elementSyntax.RefKind == RefKind.None,
+            LoopElement = elementSyntax.RefKind == RefKind.None ? elementSyntax.Location : null,
             IsMutable = elementSyntax.IsMutable,
         };
         Declare(local, elementSyntax.NameLocation);

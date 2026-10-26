@@ -18,7 +18,7 @@ public sealed partial class IrLowering
         {
             function.This = null;
             self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value) { IsChangedByLambda = thisCapturedByLambda };
-            Add(new IrLet(self, new IrDefault(owner.Type)));
+            Add(LetOf(self, new IrDefault(owner.Type)));
             return statements;
         }
         if (statements.FirstOrDefault() is BoundSuperCall super)
@@ -35,7 +35,7 @@ public sealed partial class IrLowering
                 Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
             }
             else if (field.Type.HasDefaultCode && !field.Type.IsTypeParameter)
-                Add(new IrStore(IrPlace.Deref(self!).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))));
+                Add(new IrStore(IrPlace.Deref(self!).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
         }
         return statements;
     }
@@ -55,7 +55,7 @@ public sealed partial class IrLowering
         function.Parameters.Clear();
         function.Parameters.AddRange(passed);
         self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value) { IsChangedByLambda = thisCapturedByLambda };
-        Add(new IrLet(self, new IrZeroed(owner.Type)));
+        Add(LetOf(self, new IrZeroed(owner.Type)));
         for (int i = 0; i < owner.Fields.Count; i++)
         {
             var field = owner.Fields[i];
@@ -67,9 +67,9 @@ public sealed partial class IrLowering
                 Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
             }
             else if (field.Type.HasDefaultCode)
-                Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))));
+                Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
         }
-        Add(new IrReturn(IrRead.Copy(new IrPlace(self))));
+        Add(new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = at });
         return function;
     }
 
@@ -99,14 +99,14 @@ public sealed partial class IrLowering
     void BaseCall(BoundSuperCall super)
     {
         var method = super.Constructor;
-        var call = new IrBlock();
+        var call = new IrBlock { Origin = at };
         Into(call, () =>
         {
             var arguments = new List<IrArgument>();
             for (int i = 0; i < super.Arguments.Count; i++)
             {
                 var parameter = method.ParameterType(i);
-                var computed = new IrBlock();
+                var computed = new IrBlock { Origin = at };
                 // The binder allows only references and views into what the caller holds, which need no statements.
                 if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct)
                 {
@@ -127,7 +127,7 @@ public sealed partial class IrLowering
                     {
                         // A non-escaping function parameter takes the function value before its conversion.
                         value = Temp(operand.Type);
-                        Add(new IrStore(new IrPlace(value), operand is IrRead { Ownership: IrOwnership.Borrow } read ? IrRead.Copy(read.Place) : operand));
+                        Add(new IrStore(new IrPlace(value), operand is IrRead { Ownership: IrOwnership.Borrow } read ? IrRead.Copy(read.Place) : operand) { Origin = at });
                     }
                 });
                 if (direct is not null)
@@ -135,12 +135,12 @@ public sealed partial class IrLowering
                     arguments.Add(direct);
                     continue;
                 }
-                Add(new IrDeclare(value!));
+                Add(new IrDeclare(value!) { Origin = at });
                 Add(computed);
                 arguments.Add(Kept(IrRead.Move(new IrPlace(value!))));
             }
             var loc = method.Symbol.PassesLocation ? Loc(super.Location) : null;
-            Add(new IrDo(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));
+            Add(DoOf(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));
         });
         function.BaseCall = call;
         Add(call);

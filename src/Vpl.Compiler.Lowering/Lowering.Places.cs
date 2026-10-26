@@ -1,6 +1,7 @@
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Lowering;
 
@@ -23,8 +24,11 @@ public sealed partial class IrLowering
     /// <summary>What each borrowed local is an alias of: the value a <c>?.</c> on a nullable value binds.</summary>
     readonly Dictionary<IrLocal, IrPlace> aliases = [];
 
-    /// <summary>A read left in its instruction, unless something lowered between the two may change what it reads.</summary>
-    sealed record PendingRead(IrRead Read, IrBlock Block, int Index);
+    /// <summary>
+    /// A read left in its instruction, unless something lowered between the two may change what it
+    /// reads; then it is copied where it was lowered, from <paramref name="Origin"/>.
+    /// </summary>
+    sealed record PendingRead(IrRead Read, IrBlock Block, int Index, Location? Origin);
 
     readonly List<PendingRead> pendingReads = [];
 
@@ -110,7 +114,7 @@ public sealed partial class IrLowering
             case BoundIndex index:
                 var operand = IndexOperand(index.Index);
                 if (operand is not IrConstant)
-                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(current.Type.FixedLength)], Loc(index.Location)));
+                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(current.Type.FixedLength)], Loc(index.Location)) { Origin = at });
                 return current.Element(operand);
             case BoundCall call when current.Type.IsTypeParameter:
             {
@@ -123,7 +127,7 @@ public sealed partial class IrLowering
             case BoundNonNull nonNull:
             {
                 var reference = current is { IsDeref: false, Projections.Count: 0 } ? current.Local : Let(new IrUse(IrRead.Copy(current)));
-                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Copy(new IrPlace(reference))], Loc(nonNull.Location)));
+                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Copy(new IrPlace(reference))], Loc(nonNull.Location)) { Origin = at });
                 return IrPlace.Deref(reference);
             }
             case BoundConversion:
@@ -168,7 +172,7 @@ public sealed partial class IrLowering
             case BoundNonNull { Operand: var nullable } nonNull when IsPlace(nullable):
             {
                 var checkedPlace = Place(nullable, Use.Read);
-                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], Loc(nonNull.Location)));
+                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], Loc(nonNull.Location)) { Origin = at });
                 return Hold(checkedPlace, borrows);
             }
             default:
@@ -188,7 +192,7 @@ public sealed partial class IrLowering
     IrRead Read(IrPlace place)
     {
         var read = IrRead.Copy(place);
-        pendingReads.Add(new PendingRead(read, block, block.Statements.Count));
+        pendingReads.Add(new PendingRead(read, block, block.Statements.Count, at));
         return read;
     }
 
@@ -215,11 +219,11 @@ public sealed partial class IrLowering
                 since.Add(IrWalk.Footprint(statement));
             if (!MayChange(pending.Read.Place, since))
                 continue;
-            var copy = Temp(pending.Read.Type);
-            block.Statements.Insert(pending.Index, new IrLet(copy, new IrUse(pending.Read)));
+            var copy = new IrLet(new IrUse(pending.Read)) { Origin = pending.Origin };
+            block.Statements.Insert(pending.Index, copy);
             foreach (var other in pendingReads.Where(p => p.Block == block && p.Index > pending.Index).ToList())
                 pendingReads[pendingReads.IndexOf(other)] = other with { Index = other.Index + 1 };
-            result[position] = IrRead.Move(new IrPlace(copy));
+            result[position] = IrRead.Move(new IrPlace(copy.Local));
         }
         return result;
     }

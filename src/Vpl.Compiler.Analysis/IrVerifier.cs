@@ -320,28 +320,10 @@ public sealed partial class IrVerifier
     void CheckLet(IrLet let)
     {
         var (local, value) = (let.Local, let.Value);
-        var expected = value switch
-        {
-            IrHold => IrLocalKind.Hold,
-            IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } } => IrLocalKind.Borrowed,
-            IrRef or IrAddr => IrLocalKind.Reference,
-            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => IrLocalKind.Reference,
-            IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Kind: IrLocalKind.Reference } } } => IrLocalKind.Reference,
-            IrConvert { Type.IsNullableReference: true } => IrLocalKind.Reference,
-            _ => IrLocalKind.Value,
-        };
-        if (local.Kind != expected)
-            Error($"a {local.Kind.ToString().ToLowerInvariant()} local is defined by what makes a {expected.ToString().ToLowerInvariant()} one");
+        if (IrLet.Mismatch(local, value, N(local)) is { } mismatch)
+            Error(mismatch);
         if (local.Type != value.Type)
             Error($"'{N(local)}' is a '{local.Type}', but is defined with a '{value.Type}'");
-        var refKind = value switch
-        {
-            IrRef reference => reference.Kind,
-            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None and var returned } call when !call.Type.IsNullableReference => returned,
-            _ => local.RefKind,
-        };
-        if (refKind != local.RefKind)
-            Error($"'{N(local)}' is a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' reference, but is defined with a '{FunctionSymbol.RefPrefix(refKind).Trim()}' one");
     }
 
     void Store(IrStore store, State state)

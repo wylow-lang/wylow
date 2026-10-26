@@ -1,4 +1,5 @@
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Semantics;
 
@@ -12,8 +13,8 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// <summary>A compiler-introduced local, which has no source name.</summary>
     public bool IsTemporary { get; init; }
 
-    /// <summary>The variable a for-each loop copies each element into.</summary>
-    public bool IsLoopElement { get; init; }
+    /// <summary>Where it is declared, if it is the variable a for-each loop copies each element into.</summary>
+    public Location? LoopElement { get; init; }
 
     /// <summary>
     /// The name an <c>is ref T name</c> pattern gives a place. It is a <c>ref?</c> that is only ever

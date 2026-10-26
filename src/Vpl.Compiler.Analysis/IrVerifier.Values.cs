@@ -768,7 +768,7 @@ public sealed partial class IrVerifier
 
     void ReportNullable(IrLocal local, IrStatement? statement, string cause)
     {
-        var at = statement is not null && program.Origins.TryGetValue(statement, out var origin) ? origin : function.Symbol.Declaration?.Location;
+        var at = statement?.Origin ?? function.Symbol.Declaration?.Location;
         if (at is not { } location || !reportedNullables.Add((statement, local)))
             return;
         diagnostics!.Error(location, $"{cause}, so it could become null and destroy that value; copy the value to a variable first");
@@ -780,7 +780,7 @@ public sealed partial class IrVerifier
     /// </summary>
     void CheckNullableOrder(IrPlace place)
     {
-        if (!IsNarrowedSource(place) || current is null || !program.Origins.TryGetValue(current, out var within))
+        if (!IsNarrowedSource(place) || current?.Origin is not { } within)
             return;
         foreach (var (local, at, by) in nullableWrites)
         {
@@ -796,7 +796,7 @@ public sealed partial class IrVerifier
     /// </summary>
     void RecordNullableWrites(IrEffects effects)
     {
-        if (diagnostics is null || current is null || !program.Origins.TryGetValue(current, out var at))
+        if (diagnostics is null || current?.Origin is not { } at)
             return;
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local is { Symbol: not null, Type.IsNullableValue: true }))
             nullableWrites.Add((write.Place.Local, at, function));

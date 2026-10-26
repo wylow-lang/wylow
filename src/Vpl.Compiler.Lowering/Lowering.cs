@@ -20,16 +20,17 @@ public sealed partial class IrLowering
     IrFunction function;
     IrLocal? self;
     readonly List<IrFunction> lambdas = [];
-    readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly HashSet<LocalSymbol> capturedByLambda = [];
 
     /// <summary>Whether a non-escaping lambda uses <c>this</c>, which in a struct constructor is the value it makes.</summary>
     bool thisCapturedByLambda;
-    readonly Dictionary<IrStatement, Location> origins = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The statement or expression being lowered, which the statements made for it come from.</summary>
     Location? at;
+
+    /// <summary>Where each instruction was lowered from, which a statement made of it later comes from.</summary>
     readonly Dictionary<IrRvalue, Location> valueOrigins = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<IrRvalue, Location> creations = new(ReferenceEqualityComparer.Instance);
     IrBlock block;
     bool reachable = true;
 
@@ -57,12 +58,6 @@ public sealed partial class IrLowering
             var lowering = new IrLowering(program, borrowableClasses, symbol, name);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
-            foreach (var (element, location) in lowering.loopElements)
-                ir.LoopElements[element] = location;
-            foreach (var (statement, location) in lowering.origins)
-                ir.Origins[statement] = location;
-            foreach (var (creation, location) in lowering.creations)
-                ir.Creations[creation] = location;
         }
 
         foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
@@ -114,7 +109,7 @@ public sealed partial class IrLowering
             Statement(statement);
         }
         if (reachable && function.Struct is { } made)
-            Add(new IrReturn(IrRead.Copy(new IrPlace(made))));
+            Add(new IrReturn(IrRead.Copy(new IrPlace(made))) { Origin = at });
         else if (reachable && symbol.ReturnType != VplType.Void)
         {
             var location = body.Location;
@@ -122,41 +117,23 @@ public sealed partial class IrLowering
         }
     }
 
-    void Add(IrStatement statement)
-    {
-        block.Statements.Add(statement);
-        IrRvalue? value = statement switch { IrLet let => let.Value, IrDo run => run.Value, _ => null };
-        if (value is not null && valueOrigins.TryGetValue(value, out var made))
-            origins[statement] = made;
-        else if (at is { } location)
-            origins[statement] = location;
-    }
+    void Add(IrStatement statement) => block.Statements.Add(statement);
 
-    IrLocal Temp(VplType type, IrLocalKind kind = IrLocalKind.Value, RefKind refKind = RefKind.None) =>
-        new("t", type, kind) { IsTemporary = true, RefKind = refKind };
+    Location? Origin(IrRvalue value) => valueOrigins.TryGetValue(value, out var made) ? made : at;
+
+    IrLet LetOf(IrLocal local, IrRvalue value) => new(local, value) { Origin = Origin(value) };
+
+    IrDo DoOf(IrRvalue value) => new(value) { Origin = Origin(value) };
+
+    /// <summary>A temporary declared without a value, which control flow stores.</summary>
+    static IrLocal Temp(VplType type) => new("t", type, IrLocalKind.Value) { IsTemporary = true };
 
     /// <summary>A temporary holding the value, which the instructions after it read.</summary>
     IrLocal Let(IrRvalue value)
     {
-        var kind = value switch
-        {
-            IrRef or IrAddr => IrLocalKind.Reference,
-            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => IrLocalKind.Reference,
-            IrConvert { Type.IsNullableReference: true } => IrLocalKind.Reference,
-            IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Kind: IrLocalKind.Reference } } } => IrLocalKind.Reference,
-            IrHold => IrLocalKind.Hold,
-            _ => IrLocalKind.Value,
-        };
-        var refKind = value switch
-        {
-            IrRef reference => reference.Kind,
-            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None and var returned } call when !call.Type.IsNullableReference => returned,
-            IrUse { Operand: IrRead { Place.Local: { Kind: IrLocalKind.Reference } source } } when kind == IrLocalKind.Reference => source.RefKind,
-            _ => RefKind.None,
-        };
-        var local = Temp(value.Type, kind, refKind);
-        Add(new IrLet(local, value));
-        return local;
+        var let = new IrLet(value) { Origin = Origin(value) };
+        Add(let);
+        return let.Local;
     }
 
     /// <summary>Where a panic at <paramref name="location"/> is reported: in an <c>@CallerLocation</c> function, where it was called from.</summary>
@@ -164,7 +141,7 @@ public sealed partial class IrLowering
 
     void Unreachable(Location location)
     {
-        Add(new IrUnreachable(Loc(location)));
+        Add(new IrUnreachable(Loc(location)) { Origin = at });
         reachable = false;
     }
 
@@ -181,7 +158,7 @@ public sealed partial class IrLowering
         switch (statement)
         {
             case BoundBlock nested:
-                var lowered = new IrBlock();
+                var lowered = new IrBlock { Origin = at };
                 Into(lowered, () =>
                 {
                     foreach (var inner in nested.Statements)
@@ -246,7 +223,7 @@ public sealed partial class IrLowering
     /// </summary>
     void InStatement(BoundStatement statement, Action lower)
     {
-        var scope = new IrBlock { IsStatement = true };
+        var scope = new IrBlock { Origin = at, IsStatement = true };
         Into(scope, lower);
         Splice(scope);
     }
@@ -276,7 +253,7 @@ public sealed partial class IrLowering
         if (symbol.RefKind != RefKind.None || symbol.Type.IsNullableReference || symbol.Type.IsRefStruct)
         {
             var value = symbol.Type.IsRefStruct ? Rvalue(initializer!, Use.Scope) : ReferenceTo(initializer!, symbol);
-            Add(new IrLet(Declare(symbol), value));
+            Add(LetOf(Declare(symbol), value));
             return;
         }
 
@@ -284,13 +261,11 @@ public sealed partial class IrLowering
         if (initializer is null)
         {
             // A fixed array holds its default; any other local is stored before it is read.
-            Add(symbol.Type.IsFixedArray ? new IrLet(local, new IrDefault(symbol.Type)) : new IrDeclare(local));
+            Add(symbol.Type.IsFixedArray ? LetOf(local, new IrDefault(symbol.Type)) : new IrDeclare(local) { Origin = at });
             return;
         }
 
         Define(local, initializer);
-        if (symbol.IsLoopElement)
-            loopElements[local] = declaration.Location;
     }
 
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
@@ -329,7 +304,7 @@ public sealed partial class IrLowering
             return;
         }
         var value = Rvalue(expression, Use.Read);
-        Add(new IrDo(value));
+        Add(DoOf(value));
         if (value is IrCall { Method.Symbol.IsNoReturn: true })
             Unreachable(expression.Location);
     }
@@ -338,7 +313,7 @@ public sealed partial class IrLowering
     {
         if (ret.Value is not { } value)
         {
-            Add(new IrReturn(function.Struct is { } made ? IrRead.Copy(new IrPlace(made)) : null));
+            Add(new IrReturn(function.Struct is { } made ? IrRead.Copy(new IrPlace(made)) : null) { Origin = at });
         }
         else if (symbol.ReturnRefKind != RefKind.None)
         {
@@ -350,11 +325,11 @@ public sealed partial class IrLowering
                 _ when symbol.ReturnType.IsNullableReference => IrRead.Copy(new IrPlace(Let(ReferenceValue(value, symbol.ReturnType)))),
                 _ => IrRead.Copy(new IrPlace(Let(new IrRef(symbol.ReturnRefKind, Place(value, Use.Scope))))),
             };
-            Add(new IrReturn(reference));
+            Add(new IrReturn(reference) { Origin = at });
         }
         else
         {
-            Add(new IrReturn(OperandOf(Rvalue(value, Use.Read))));
+            Add(new IrReturn(OperandOf(Rvalue(value, Use.Read))) { Origin = at });
         }
         reachable = false;
     }
@@ -370,6 +345,6 @@ public sealed partial class IrLowering
         located[assignment.Target] = target;
         var value = OperandOf(Rvalue(assignment.Value, Use.Read));
         located.Remove(assignment.Target);
-        Add(new IrStore(target, value));
+        Add(new IrStore(target, value) { Origin = at });
     }
 }

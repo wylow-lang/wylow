@@ -22,15 +22,6 @@ public sealed class IrProgram(BoundProgram bound)
     public int Generation { get; private set; }
 
     public void Changed() => Generation++;
-
-    /// <summary>Each for-each loop's element variable, and where it is declared, for <c>InPlaceElements</c>.</summary>
-    public Dictionary<IrLocal, Location> LoopElements { get; } = [];
-
-    /// <summary>The source expression or statement most statements were lowered from, for errors that only the IR can find.</summary>
-    public Dictionary<IrStatement, Location> Origins { get; } = new(ReferenceEqualityComparer.Instance);
-
-    /// <summary>Where each <see cref="IrNew"/> and <see cref="IrClosure"/> is in the source, for tests.</summary>
-    public Dictionary<IrRvalue, Location> Creations { get; } = new(ReferenceEqualityComparer.Instance);
 }
 
 public sealed class IrFunction(FunctionSymbol symbol, string name)
@@ -82,7 +73,7 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
     /// </summary>
     public HashSet<IrLocal> ChangesAround { get; } = [];
 
-    public IrBlock Body { get; set; } = new();
+    public IrBlock Body { get; set; } = new() { Origin = null };
 
     public bool IsLambda => Symbol.IsLambda;
     public bool IsEscaping => Symbol.IsEscaping;
@@ -132,6 +123,9 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
 
     /// <summary>The source local it is, if any.</summary>
     public LocalSymbol? Symbol { get; init; }
+
+    /// <summary>Where it is declared, if it is the variable a for-each loop copies each element into.</summary>
+    public Location? LoopElement => IsCapture ? null : Symbol?.LoopElement;
 
     /// <summary>
     /// A loop element borrowed in place: an alias of an element of what the loop iterates, which
@@ -188,6 +182,13 @@ public interface IIrStatementVisitor<out T>
 public abstract class IrStatement
 {
     public abstract T Accept<T>(IIrStatementVisitor<T> visitor);
+
+    /// <summary>
+    /// The source expression or statement it was lowered from, for the errors only the IR can find,
+    /// or null for what the source doesn't write, like a function's implicit return. It is required
+    /// so that no way of making a statement can leave it out.
+    /// </summary>
+    public required Location? Origin { get; init; }
 }
 
 public sealed class IrBlock : IrStatement
@@ -217,12 +218,69 @@ public sealed class IrBlock : IrStatement
 }
 
 /// <summary><c>let x = rvalue</c>: declares and initializes a local in the enclosing block.</summary>
-public sealed class IrLet(IrLocal local, IrRvalue value) : IrStatement
+public sealed class IrLet : IrStatement
 {
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Let(this);
 
-    public IrLocal Local { get; } = local;
-    public IrRvalue Value { get; set; } = value;
+    public IrLocal Local { get; }
+    public IrRvalue Value { get; set; }
+
+    /// <summary>Defines a temporary of the kind the value makes.</summary>
+    public IrLet(IrRvalue value)
+    {
+        var (kind, refKind) = Defines(value);
+        Local = new IrLocal("t", value.Type, kind) { IsTemporary = true, RefKind = refKind };
+        Value = value;
+    }
+
+    public IrLet(IrLocal local, IrRvalue value)
+    {
+        if (Mismatch(local, value, local.Name) is { } mismatch)
+            throw new InvalidOperationException(mismatch);
+        Local = local;
+        Value = value;
+    }
+
+    /// <summary>
+    /// The kind of local the value defines, and for a reference, the kind of reference. Every
+    /// <c>let</c> is made by this rule, and the verifier checks each against it after every pass.
+    /// The kind of reference a <c>ref?</c> or <c>in?</c> is is its type's.
+    /// </summary>
+    public static (IrLocalKind Kind, RefKind RefKind) Defines(IrRvalue value)
+    {
+        var kind = value switch
+        {
+            IrHold => IrLocalKind.Hold,
+            IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } } => IrLocalKind.Borrowed,
+            IrRef or IrAddr => IrLocalKind.Reference,
+            IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => IrLocalKind.Reference,
+            IrConvert { Type.IsNullableReference: true } => IrLocalKind.Reference,
+            IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Kind: IrLocalKind.Reference } } } => IrLocalKind.Reference,
+            _ => IrLocalKind.Value,
+        };
+        if (kind != IrLocalKind.Reference)
+            return (kind, RefKind.None);
+        var refKind = value switch
+        {
+            _ when value.Type.IsNullableReference => value.Type.ReferenceKind,
+            IrRef reference => reference.Kind,
+            IrCall call => call.Method.Symbol.ReturnRefKind,
+            IrUse { Operand: IrRead read } => read.Place.Local.RefKind,
+            _ => RefKind.None,
+        };
+        return (kind, refKind);
+    }
+
+    /// <summary>Why the local can't be defined by the value, if it can't.</summary>
+    public static string? Mismatch(IrLocal local, IrRvalue value, string name)
+    {
+        var (kind, refKind) = Defines(value);
+        if (local.Kind != kind)
+            return $"a {local.Kind.ToString().ToLowerInvariant()} local is defined by what makes a {kind.ToString().ToLowerInvariant()} one";
+        if (local.RefKind != refKind)
+            return $"'{name}' is a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' reference, but is defined with a '{FunctionSymbol.RefPrefix(refKind).Trim()}' one";
+        return null;
+    }
 }
 
 /// <summary>
@@ -293,7 +351,7 @@ public sealed class IrLoop : IrStatement
 {
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Loop(this);
 
-    public IrBlock Body { get; set; } = new();
+    public IrBlock Body { get; set; } = new() { Origin = null };
     public IrBlock? Continue { get; set; }
 }
 
