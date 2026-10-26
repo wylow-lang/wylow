@@ -1,0 +1,34 @@
+// Handing a local to its last use must not release its object earlier than its scope's end when
+// that can be seen: here a destructor runs, so the local keeps the object alive.
+
+class Noisy {
+    String name;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print($"~{name}");
+    }
+}
+
+class Box {
+    Noisy item;
+
+    Box(Noisy item) {
+        this.item = item;
+    }
+}
+
+void main() {
+    var item = new Noisy("a");
+    {
+        var box = new Box(item);
+        print("boxed");
+    }
+    print("scope ended");
+    // output: boxed
+    // output: scope ended
+}
+// output: ~a

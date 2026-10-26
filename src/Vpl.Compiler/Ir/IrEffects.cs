@@ -62,7 +62,14 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
     public bool RunsCode => Runs.Count > 0;
 
-    public static IrEffects Of(IrStatement statement) => statement.Accept(StatementEffects.Instance);
+    public static IrEffects Of(IrStatement statement)
+    {
+        var effects = statement.Accept(StatementEffects.Instance);
+        // A moved local is left empty, so a read of it that C++ may order differently conflicts.
+        var moved = IrWalk.Operands(statement).OfType<IrRead>()
+            .Where(r => r.Ownership == IrOwnership.Move && !r.Place.Local.IsTemporary).Select(r => new IrWrite(r.Place, Within: false)).ToList();
+        return moved.Count == 0 ? effects : effects with { Writes = [.. effects.Writes, .. moved] };
+    }
 
     public static IrEffects Of(IrRvalue value) => value.Accept(RvalueEffects.Instance);
 

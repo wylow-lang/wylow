@@ -647,7 +647,17 @@ Each step keeps the suite passing on MSVC and g++.
      `drop` releases, `initializeDefault` runs field initializers (unobservable until statics
      exist, but a hole), `collectCycles` releases anything. No existing test's output changed;
      `containers/loop_elements_destructor` shows it;
-   - last-use `move`s, for types whose release nothing can observe (§9.10).
+   - last-use `move`s, for types whose release nothing can observe (§9.10). Done
+     (`Optimize/LastUseMoves.cs`, after `BorrowedLocals`): a named local or by-value parameter
+     whose mentions are all whole or partial copies, and whose last mention is a whole copy in the
+     only mention in an instruction that takes ownership (a by-value argument, a store, a `let`,
+     a field of a variant or array, a capture), in the loop it is declared in, becomes a `move`,
+     if releasing its type runs no code (`Callees` resolves the release to no function) and the
+     program makes no `Weak`. The verifier now accepts moving any local's whole value, and the
+     dataflow already rejects a later use; a move of a non-temporary is a write in `IrEffects`
+     so that C++ can't order a read of it after the move. 23 moves in `tests/.out`. Not done:
+     temporaries, receivers, `return` (C++ moves a returned local itself), and precise
+     weak-reference analysis (any `Weak` disables the pass);
 7. **Move the effect-shaped flow checks onto the IR** (§9.4): the nullable-value reference rule
    becomes an IR check that reports source-level errors, `FlowAnalyzer`'s "locals a statement may
    assign" walkers are deleted, and §9.6 and lifetime analysis are written there. The same goes for

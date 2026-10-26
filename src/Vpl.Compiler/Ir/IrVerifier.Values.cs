@@ -383,8 +383,8 @@ public sealed partial class IrVerifier
         if (read.Ownership != IrOwnership.Move)
             return;
         var local = read.Place.Local;
-        if (!local.IsTemporary || read.Place.IsDeref || local.Kind != IrLocalKind.Value)
-            Error($"only a temporary's value can be moved, not '{N(local)}''s");
+        if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Count > 0))
+            Error($"only a local's whole value can be moved, not '{N(local)}''s");
         else if (pendingMoves.Contains(local))
             Error($"'{N(local)}' is moved twice");
         else
