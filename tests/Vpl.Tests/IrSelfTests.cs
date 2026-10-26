@@ -37,10 +37,15 @@ static class IrSelfTests
             Counter c;
         }
 
+        struct Nest {
+            Vec? inner;
+        }
+
         int f() { return 1; }
         void use(int value) { }
         void take(Obj o) { }
         void two(ref Vec? a, in int b) { }
+        void reset(ref Nest a, in int b) { }
         void replace(Holder h, Obj o) { h.b = new Obj(); }
         void call(Holder h, () -> void g) { h.b = new Obj(); g(); }
         void setFirst(List<int> list) { list[0] = 2; }
@@ -147,6 +152,8 @@ static class IrSelfTests
         var field = b.Field("Holder", "b");
         var fixedField = b.Field("Holder", "fixed");
         var vecX = b.Field("Vec", "x");
+        var nest = b.Type("Nest");
+        var inner = b.Field("Nest", "inner");
         var index = b.Method(list, SyntaxFacts.IndexerName);
         var get = b.Method(list, "get");
 
@@ -493,6 +500,19 @@ static class IrSelfTests
                     new IrRefArgument(RefKind.In, new IrPlace(v).Assumed().Field(vecX)),
                 ])) { Origin = null });
         }, Error: "is used during the call of 'two'");
+
+        // Writing inside the outer nullable value may replace the inner one the place lies in.
+        yield return new("ref_argument_replaces_inner_nullable_in_use", () =>
+        {
+            var w = b.Parameter("w", nest.Nullable);
+            var n = b.Local("n", nest.Nullable);
+            return b.Function("ref_argument_replaces_inner_nullable_in_use", [w],
+                new IrLet(n, Use(IrRead.Copy(new IrPlace(w)))) { Origin = null },
+                new IrDo(new IrCall(b.Function("reset"), null, [
+                    new IrRefArgument(RefKind.Ref, new IrPlace(n).Assumed()),
+                    new IrRefArgument(RefKind.In, new IrPlace(n).Assumed().Field(inner).Assumed().Field(vecX)),
+                ])) { Origin = null });
+        }, Error: "is used during the call of 'reset'");
 
         yield return new("slot_in_nested_loop", () =>
         {

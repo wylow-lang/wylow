@@ -174,40 +174,17 @@ public sealed partial class IrVerifier
         static bool Same(Known? a, Known? b) => a is null ? b is null : b is not null && a.SameAs(b);
     }
 
-    enum StorageKind
-    {
-        /// <summary>A local's own storage.</summary>
-        Frame,
-        /// <summary>A field of an object, which any object of the class may share.</summary>
-        Object,
-        /// <summary>Storage the function can't see: a pointer's target, a caller's place, or a container's elements.</summary>
-        Unknown,
-    }
-
-    /// <summary>
-    /// Where a place lies, for comparing places that may be the same storage: a frame local, or the
-    /// field of some object of the class (a field of no class when the whole object), and the
-    /// projections inside it. <see cref="Within"/> for somewhere in it.
-    /// </summary>
-    sealed record Resolved(StorageKind Kind, IrLocal? Local, FieldSymbol? Field, IReadOnlyList<IrProjection> Path, bool Within)
-    {
-        public static readonly Resolved Unknown = new(StorageKind.Unknown, null, null, [], Within: true);
-
-        /// <summary>The index of the first projection whose storage a write before it can destroy: a nullable value's or a variant's.</summary>
-        public int Destructible => Path.ToList().FindIndex(p => p is IrAssumed or IrVariantField);
-    }
-
     /// <summary>
     /// What a dependent needs: its roots, the locals whose storage, or with <c>Through</c>, whose
     /// object or target, it lies in; and what it refers to. An alias (a borrowed local) needs nothing
     /// to write that; a reference needs nothing to destroy it. One taken from a <c>Borrowable</c>
     /// that isn't borrowed needs no code to run.
     /// </summary>
-    sealed record Dependency(IReadOnlyList<(IrLocal Local, bool Through)> Roots, Resolved? Target, bool Alias, bool NeedsBorrow)
+    sealed record Dependency(IReadOnlyList<(IrLocal Local, bool Through)> Roots, IrAccess? Target, bool Alias, bool NeedsBorrow)
     {
         public Dependency Union(Dependency other) => new(
             [.. Roots.Union(other.Roots)],
-            Target == other.Target ? Target : Resolved.Unknown,
+            Target == other.Target ? Target : IrAccess.Unknown,
             Alias || other.Alias,
             NeedsBorrow || other.NeedsBorrow);
 
@@ -220,7 +197,7 @@ public sealed partial class IrVerifier
             IrUse use => Of(use.Operand, verifier),
             IrConvert conversion => Of(conversion.Operand, verifier),
             IrCall call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct => verifier.Returned(call),
-            IrInvoke invoke when invoke.Signature.Symbol.ReturnRefKind != RefKind.None || invoke.Type.IsRefStruct => new([], Resolved.Unknown, false, false),
+            IrInvoke invoke when invoke.Signature.Symbol.ReturnRefKind != RefKind.None || invoke.Type.IsRefStruct => new([], IrAccess.Unknown, false, false),
             IrConstruct { Type.IsRefStruct: true } construction => Made(construction.Arguments.OfType<IrRead>(), verifier),
             IrLambda lambda => verifier.Captured(lambda.Function),
             IrChoose choice => verifier.Chosen(choice),
@@ -243,7 +220,7 @@ public sealed partial class IrVerifier
         {
             var parts = arguments.Where(a => !a.Place.IsDeref && a.Place.Projections.Count == 0 && verifier.dependencies.ContainsKey(a.Place.Local))
                 .Select(a => a.Place.Local).ToList();
-            var target = parts.Count == 1 ? verifier.dependencies[parts[0]].Target! with { Within = true } : Resolved.Unknown;
+            var target = parts.Count == 1 ? verifier.dependencies[parts[0]].Target! : IrAccess.Unknown;
             return new([.. parts.Select(p => (p, true))], target, false, false);
         }
     }
@@ -267,106 +244,52 @@ public sealed partial class IrVerifier
         return roots.Count == 0 ? null : new(roots, null, false, false);
     }
 
-    Dependency Into(IrPlace place, bool alias) => new([(place.Local, place.IsDeref)], Resolve(place, within: false), alias, NeedsBorrow: false);
+    Dependency Into(IrPlace place, bool alias) => new([(place.Local, place.IsDeref)], Target(place), alias, NeedsBorrow: false);
 
     /// <summary>A returned reference or view points into the receiver's storage: a struct place's, or an object's, which may be a <c>Borrowable</c>.</summary>
     Dependency Returned(IrCall call) => call.Receiver switch
     {
-        IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], Resolved.Unknown, false, false),
-        IrRefArgument reference => Into(reference.Place, alias: false) with { Target = Resolve(reference.Place, within: true) },
-        IrRead { Place: var holder } => new([(holder.Local, true)], Resolved.Unknown, false,
+        IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], IrAccess.Unknown, false, false),
+        IrRefArgument reference => Into(reference.Place, alias: false),
+        IrRead { Place: var holder } => new([(holder.Local, true)], IrAccess.Unknown, false,
             NeedsBorrow: MayBeBorrowable(holder.Type) && !borrowingHolds.Contains(holder.Local)),
-        _ => new([], Resolved.Unknown, false, false),
+        _ => new([], IrAccess.Unknown, false, false),
     };
 
     bool MayBeBorrowable(VplType type) => type.TypeParameter is { } parameter
         ? parameter.Bounds.Any(MayBeBorrowable)
         : borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
 
-    Resolved Resolve(IrPlace place, bool within)
-    {
-        var local = place.Local;
-        if (!place.IsDeref)
-        {
-            // A struct method's `this` is its caller's storage.
-            return local.IsThis && !local.Type.IsReference ? Resolved.Unknown : new(StorageKind.Frame, local, null, place.Projections, within);
-        }
-        bool isObject = local.Kind == IrLocalKind.Hold || (local.Kind is IrLocalKind.Value or IrLocalKind.Borrowed && local.Type.NonNull.IsReference);
-        if (!isObject && dependencies.TryGetValue(local, out var dependency) && dependency.Target is { Kind: not StorageKind.Unknown } target)
-            return target with { Path = [.. target.Path, .. place.Projections], Within = target.Within || within };
-        if (!isObject)
-            return Resolved.Unknown;
-        var first = place.Projections.FirstOrDefault() as IrField;
-        return new(StorageKind.Object, local, first?.Field, [.. place.Projections.Skip(first is null ? 0 : 1)], within);
-    }
-
-    static bool SameStorage(Resolved a, Resolved b) => (a.Kind, b.Kind) switch
-    {
-        (StorageKind.Frame, StorageKind.Frame) => a.Local == b.Local,
-        (StorageKind.Frame, _) or (_, StorageKind.Frame) => false,
-        (StorageKind.Object, StorageKind.Object) => a.Field is null || b.Field is null || a.Field == b.Field,
-        _ => true,
-    };
-
-    /// <summary>Whether one path leads into the other: elements may be the same whatever their indices.</summary>
-    static bool PathsOverlap(IReadOnlyList<IrProjection> a, IReadOnlyList<IrProjection> b)
-    {
-        for (int i = 0; i < Math.Min(a.Count, b.Count); i++)
-        {
-            bool same = (a[i], b[i]) switch
-            {
-                (IrField x, IrField y) => x.Field == y.Field,
-                (IrVariantField x, IrVariantField y) => x.Field == y.Field,
-                (IrElement, IrElement) or (IrAssumed, IrAssumed) => true,
-                _ => false,
-            };
-            if (!same)
-                return false;
-        }
-        return true;
-    }
-
-    static bool Overlap(Resolved write, Resolved place) =>
-        SameStorage(write, place) && (write.Kind == StorageKind.Unknown || place.Kind == StorageKind.Unknown || PathsOverlap(write.Path, place.Path));
-
-    /// <summary>Whether a write may replace the nullable value or variant that the place lies in, destroying the place.</summary>
-    static bool Destroys(Resolved write, Resolved place)
-    {
-        int destructible = place.Destructible;
-        if (destructible < 0 || !SameStorage(write, place))
-            return false;
-        return write.Kind == StorageKind.Unknown || (write.Path.Count <= destructible && PathsOverlap(write.Path, place.Path));
-    }
+    /// <summary>The storage a place lies in, through what the references and pointers it goes through are known to refer to.</summary>
+    IrAccess Target(IrPlace place) => IrAccess.Target(place, local => dependencies.GetValueOrDefault(local)?.Target);
 
     /// <summary>
     /// Whether code the effects run may write the place: a <c>mut</c> field that something it runs
-    /// writes, storage the function can't see, or a local that a lambda made so far changes. Only a
-    /// class's own constructors assign a field that isn't <c>mut</c>, and only of the object they make.
+    /// writes, storage the function can't see, or a local that a lambda made so far changes.
     /// </summary>
-    bool CodeWrites(Resolved place, IrEffects effects, State state) => effects.RunsCode && place.Kind switch
+    bool CodeWrites(IrAccess place, IrEffects effects, State state) => writes.CodeMayWrite(place, effects.Runs, new LambdasMade(state, writes.Lambdas));
+
+    /// <summary>The lambdas made on some path to a point, which code that runs there may run.</summary>
+    sealed record LambdasMade(State State, LambdaWrites Writes) : IIrLambdaChanges
     {
-        StorageKind.Frame => IsChangedByLambda(place.Local!, state),
-        StorageKind.Object => place.Field is null || place.Field.IsMutable && writes.Of(effects.Runs).MayWriteField(place.Field),
-        _ => true,
-    };
+        public bool MayChange(IrLocal local) => State.Lambdas.Any(l => Writes.Around(l).Contains(local));
+    }
 
     /// <summary>Whether a lambda made on some path here may change the local when it runs.</summary>
-    bool IsChangedByLambda(IrLocal local, State state) => state.Lambdas.Any(l => writes.Lambdas.Around(l).Contains(local));
-
-    bool CodeDestroys(Resolved place, IrEffects effects, State state) => place.Destructible >= 0 && CodeWrites(place, effects, state);
+    bool IsChangedByLambda(IrLocal local, State state) => new LambdasMade(state, writes.Lambdas).MayChange(local);
 
     public const string ReplacedNullable = "the nullable value or variant it points into may be replaced";
 
     /// <summary>Why the effects would make a dependent unusable, or null.</summary>
-    string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes, State state)
+    string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<IrAccess> writes, State state)
     {
         if (dependency.NeedsBorrow && effects.RunsCode)
             return "it points into a Borrowable that isn't borrowed, and code that may change its length runs";
         if (dependency.Target is not { } target)
             return null;
-        if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || CodeWrites(target, effects, state)))
+        if (dependency.Alias && (writes.Any(target.Overlaps) || CodeWrites(target, effects, state)))
             return "the place it borrows may be written";
-        if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || CodeDestroys(target, effects, state)))
+        if (!dependency.Alias && (writes.Any(w => w.Destroys(target)) || (target.IsDestructible && CodeWrites(target, effects, state))))
             return ReplacedNullable;
         return null;
     }
@@ -376,10 +299,10 @@ public sealed partial class IrVerifier
     void Apply(State state, IrEffects effects, string what)
     {
         RecordNullableWrites(effects);
-        var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
+        var writes = effects.Writes.Select(w => Target(w.Place)).ToList();
         foreach (var write in writes)
         {
-            if (write is { Kind: StorageKind.Frame, Path.Count: 0, Local: { } replaced })
+            if (write is { Storage: IrStorage.Frame, Path.Count: 0, Local: { } replaced })
             {
                 state.Unnarrow(replaced);
                 Replaced(replaced);
@@ -557,9 +480,7 @@ public sealed partial class IrVerifier
             CheckConstructed(place, state);
         if (place.IsDeref)
         {
-            bool derefable = local.Kind is IrLocalKind.Reference or IrLocalKind.Hold
-                || (local.Kind is IrLocalKind.Value or IrLocalKind.Borrowed && (local.Type.NonNull.IsReference || local.Type.IsPointer));
-            if (!derefable)
+            if (local.Deref is null)
                 Error($"'{N(local)}' can't be dereferenced");
         }
         else if (local.Kind == IrLocalKind.Reference && place.Projections.Count > 0)
@@ -948,7 +869,7 @@ public sealed partial class IrVerifier
 
     string? WouldBreak(IrPlace place, bool alias, IrEffects effects, State state)
     {
-        var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
+        var writes = effects.Writes.Select(w => Target(w.Place)).ToList();
         if (Breaks(Into(place, alias), effects, writes, state) is { } reason)
             return reason;
         var local = place.Local;

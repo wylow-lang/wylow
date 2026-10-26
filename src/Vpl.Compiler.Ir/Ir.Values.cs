@@ -27,15 +27,17 @@ public sealed class IrPlace
     /// <summary>The value's type, or <see cref="VplType.Error"/> where a projection doesn't apply, which the verifier reports.</summary>
     public VplType Type { get; }
 
-    public VplType BaseType => !IsDeref ? Local.Type
-        : Local.Kind == IrLocalKind.Reference ? Local.Type.ReferencedType ?? Local.Type
-        : Local.Type.IsPointer ? Local.Type.ElementType!
-        : Local.Type.NonNull;
+    public VplType BaseType => !IsDeref ? Local.Type : Local.Deref switch
+    {
+        IrDeref.Referenced => Local.Type.ReferencedType ?? Local.Type,
+        IrDeref.Pointee => Local.Type.ElementType!,
+        _ => Local.Type.NonNull,
+    };
 
     public static IrPlace Deref(IrLocal local) => new(local, isDeref: true);
 
     /// <summary>Whether the place is the first element a dereferenced pointer points to, which an element projection then indexes from.</summary>
-    bool IsPointerTarget => IsDeref && Projections.Count == 0 && Local.Type.IsPointer && Local.Kind != IrLocalKind.Reference;
+    bool IsPointerTarget => IsDeref && Projections.Count == 0 && Local.Deref == IrDeref.Pointee;
 
     public IrPlace Field(FieldSymbol field) => With(new IrField(field, FieldType(Type, field)));
 

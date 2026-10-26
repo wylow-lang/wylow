@@ -61,15 +61,18 @@ public sealed class WriteSet
     public void Add(IrPlace place)
     {
         Add(StoredType.Of(place));
-        if (place.IsDeref && place.Local.Kind != IrLocalKind.Reference && place.Local.Type.NonNull.IsReference)
+        switch (IrAccess.Target(place))
         {
-            if (place.Projections.FirstOrDefault() is IrField { Field: var field })
+            case { Storage: IrStorage.Field, Field: { } field }:
                 fields.Add(field);
-            else
+                break;
+            case { Storage: IrStorage.Field }:
                 Unknown = true;
+                break;
+            case { Storage: IrStorage.Unknown }:
+                unseen.Add(place.BaseType);
+                break;
         }
-        else if (place.IsDeref || place.Local.IsThis)
-            unseen.Add(place.BaseType);
     }
 
     void Add(StoredType write)
@@ -175,10 +178,11 @@ public sealed class Writes
 
     /// <summary>
     /// Whether code that runs may write the access (<see cref="IrAccess.WrittenByCode"/>): a field
-    /// only if something it runs writes that field.
+    /// only if something it runs writes that field, and a local if a lambda changes it, which by
+    /// default is any of the function's.
     /// </summary>
-    public bool CodeMayWrite(IrAccess access, IReadOnlyCollection<IrRun> runs) =>
-        callees.Fresh(runs).Count > 0 && access.WrittenByCode(Lambdas) && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
+    public bool CodeMayWrite(IrAccess access, IReadOnlyCollection<IrRun> runs, IIrLambdaChanges? lambdas = null) =>
+        callees.Fresh(runs).Count > 0 && access.WrittenByCode(lambdas ?? Lambdas) && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
 
     /// <summary>Whether an instruction may store over an element whose type is <paramref name="element"/>, itself or by the code it runs.</summary>
     public bool MayStoreOverElement(IrEffects effects, VplType element) =>

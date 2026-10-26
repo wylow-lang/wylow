@@ -35,7 +35,9 @@ analyze again, and verify. The facts a pass is given always describe the IR it i
 
 User errors and IR invariants are one check run at different times. On freshly lowered IR, a
 violation is the user's error, reported at the statement's source location. After any pass, a
-violation is a compiler bug. There is no second storage model and no second dataflow.
+violation is a compiler bug. There is no second storage model and no second dataflow: the verifier,
+the passes, and nesting all compare storage with `IrAccess`, which the verifier makes precise by
+resolving references through what it knows they refer to.
 
 ## Enforcement
 
@@ -97,12 +99,16 @@ Each step deletes the old home of what it moves, and passes all four modes befor
 3. **Required origins and the local-kind rule** (done): the two failures naive lowering exposed.
    `IrProgram.Origins`, `Creations`, and `LoopElements` are gone, and so is the verifier's copy of
    the kind rule. The generated C++ and IR of every test were identical before and after.
-4. **One flow analysis** (done, except finding 5). The verifier's dataflow is the analysis: its
+4. **One flow analysis** (done). The verifier's dataflow is the analysis: its
    violations on the lowered program are the user's errors, so only a program that binds is
    lowered, and error tests keep binder and flow errors in separate files. FlowAnalyzer is deleted.
    Lambda changes are `LambdaWrites`, a fact found per generation (findings 1 and 10). The analysis
-   narrows through `?:` as the spec says, which FlowAnalyzer didn't. Still open: one storage
-   model for the verifier and `IrAccess` (finding 5).
+   narrows through `?:` as the spec says, which FlowAnalyzer didn't. There is one storage model,
+   `IrAccess`, with paths (finding 5): the verifier passes it what its references are known to
+   refer to, and asks `Writes.CodeMayWrite` with the lambdas made so far. What `*x` reaches is
+   `IrLocal.Deref`. Unknown storage now may be a frame local for the verifier too, and a write
+   above the last nullable a place lies in destroys it (IrSelfTests
+   `ref_argument_replaces_inner_nullable_in_use`). The generated C++ and IR were identical.
 5. **Naive lowering:**
    - Add the kept-copy and read-in-place passes.
    - Fix the scope and emitter failures above.

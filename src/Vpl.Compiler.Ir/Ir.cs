@@ -90,6 +90,19 @@ public enum IrLocalKind
     Slot,
 }
 
+/// <summary>What dereferencing a local reaches.</summary>
+public enum IrDeref
+{
+    /// <summary>An object, whose field a place's first projection may be.</summary>
+    Object,
+    /// <summary>The place a reference refers to.</summary>
+    Referenced,
+    /// <summary>What a pointer points to, which an element projection indexes from.</summary>
+    Pointee,
+    /// <summary>A hold's generic value: an object, or for a struct, the hold's own copy.</summary>
+    Generic,
+}
+
 /// <summary>
 /// A local, parameter, or temporary. A temporary is defined once, by a <see cref="IrLet"/>, or for a
 /// value that comes out of control flow, declared by a <see cref="IrDeclare"/> and stored exactly
@@ -107,6 +120,18 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
 
     /// <summary>Settable so that a pass can turn a hold into a borrow, which keeps every place naming the local.</summary>
     public IrLocalKind Kind { get; set; } = kind;
+
+    /// <summary>What dereferencing it reaches, or null if it can't be dereferenced. A slot is only ever made into.</summary>
+    public IrDeref? Deref => Kind switch
+    {
+        IrLocalKind.Reference => IrDeref.Referenced,
+        IrLocalKind.Slot => null,
+        _ when Type.NonNull.IsReference => IrDeref.Object,
+        IrLocalKind.Hold when Type.IsTypeParameter => IrDeref.Generic,
+        IrLocalKind.Value or IrLocalKind.Borrowed when Type.IsPointer => IrDeref.Pointee,
+        _ => null,
+    };
+
     public RefKind RefKind { get; init; }
     public bool IsTemporary { get; init; }
     public bool IsParameter { get; init; }

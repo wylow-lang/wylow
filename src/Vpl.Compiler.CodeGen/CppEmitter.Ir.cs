@@ -361,8 +361,6 @@ public sealed partial class CppEmitter
         : declaredHolds.TryGetValue(local, out var hold) && hold.Borrows ? $"(*{Name(local)})"
         : Name(local);
 
-    static bool IsObjectLocal(IrLocal local) => local.Kind != IrLocalKind.Reference && local.Type.NonNull.IsReference;
-
     string PlaceText(IrPlace place)
     {
         var local = place.Local;
@@ -381,14 +379,22 @@ public sealed partial class CppEmitter
         else
         {
             var holder = local.IsThis ? "this" : BaseText(local);
-            if (IsObjectLocal(local) && projections is [IrField field, ..])
-                (text, start) = ($"{holder}->{FieldName(field.Field)}", 1);
-            else if ((local.Kind == IrLocalKind.Reference && !local.Type.IsNullableReference) || local.Type.IsTypeParameter)
-                text = holder;
-            else if (local.Type.IsPointer && local.Kind != IrLocalKind.Reference && projections is [IrElement element, ..])
-                (text, start) = ($"{holder}[{OperandText(element.Index)}]", 1);
-            else
-                text = $"(*{holder})";
+            switch (local.Deref)
+            {
+                case IrDeref.Object when projections is [IrField field, ..]:
+                    (text, start) = ($"{holder}->{FieldName(field.Field)}", 1);
+                    break;
+                case IrDeref.Referenced when !local.Type.IsNullableReference:
+                case IrDeref.Generic:
+                    text = holder;
+                    break;
+                case IrDeref.Pointee when projections is [IrElement element, ..]:
+                    (text, start) = ($"{holder}[{OperandText(element.Index)}]", 1);
+                    break;
+                default:
+                    text = $"(*{holder})";
+                    break;
+            }
         }
         foreach (var projection in projections.Skip(start))
         {

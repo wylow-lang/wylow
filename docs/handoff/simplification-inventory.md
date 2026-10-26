@@ -178,6 +178,14 @@ to `HasDefaultCode`.
 
 ## 5. "Where does a place's storage lie, and is its deref base an object?" (three storage models)
 
+**Done in step 4:** `IrAccess` has paths and is the one model; the verifier resolves references
+through its dependencies (`IrAccess.Target`'s `referents`) and asks `Writes.CodeMayWrite` with the
+lambdas made so far. `IrLocal.Deref` answers what `*x` reaches, for `IrAccess`, `WriteSet.Add`,
+`IrPlace.BaseType`, the verifier, and the emitter. Merging found two verifier gaps, neither
+reachable from the source: unknown storage was taken never to be a frame local, and a write was
+checked against only the first nullable a place lies in. `IrWrite.Within` was read by nothing and
+is gone. What follows is the finding as it was.
+
 **By reading: no reachable miscompile found, but the rules have drifted.**
 
 - `IrAccess`/`IrStorage` (`Target`, `Overlaps`, `WrittenByCode`) — Ir/IrAccess.cs:20-72.

@@ -255,7 +255,7 @@ public sealed partial class IrVerifier
         scopes[^1].Add(parameter);
         state.Assigned.Add(parameter);
         if (parameter.Kind == IrLocalKind.Reference || parameter.Type.IsRefStruct)
-            dependencies[parameter] = new Dependency([], Resolved.Unknown, Alias: false, NeedsBorrow: false);
+            dependencies[parameter] = new Dependency([], IrAccess.Unknown, Alias: false, NeedsBorrow: false);
     }
 
     State Block(IrBlock block, State state, bool newScope = true)

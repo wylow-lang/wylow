@@ -24,18 +24,22 @@ public interface IIrLambdaChanges
 }
 
 /// <summary>
-/// The storage an instruction reads or writes, at the precision that ordering and hold elision
-/// need: two accesses may be the same storage if they <see cref="Overlaps"/>.
+/// The storage an instruction reads or writes: a frame local's, the field of some object of the
+/// field's class (with no field, anywhere in an object), or storage the function can't see, then
+/// the projections inside it. Two accesses may be the same storage if they <see cref="Overlaps"/>,
+/// so a write somewhere inside a place, as a call given it by <c>ref</c> may make, is one to the place.
 /// </summary>
-public readonly record struct IrAccess(IrStorage Storage, IrLocal? Local = null, FieldSymbol? Field = null)
+public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Field, IReadOnlyList<IrProjection> Path)
 {
-    public static readonly IrAccess Unknown = new(IrStorage.Unknown);
+    public static readonly IrAccess Unknown = new(IrStorage.Unknown, null, null, []);
+
+    static IrAccess Whole(IrLocal local) => new(IrStorage.Frame, local, null, []);
 
     /// <summary>What reading or writing a place touches: the storage it lies in, and the locals read to find it.</summary>
     public static IEnumerable<IrAccess> Of(IrPlace place)
     {
         if (place.IsDeref)
-            yield return new(IrStorage.Frame, place.Local);
+            yield return Whole(place.Local);
         foreach (var element in place.Projections.OfType<IrElement>())
         {
             if (element.Index is IrRead index)
@@ -48,25 +52,68 @@ public readonly record struct IrAccess(IrStorage Storage, IrLocal? Local = null,
     }
 
     /// <summary>What finding a place reads, without reading what is in it: the locals its base and indices are in.</summary>
-    public static IEnumerable<IrAccess> Path(IrPlace place) => Of(place).SkipLast(1);
+    public static IEnumerable<IrAccess> Finding(IrPlace place) => Of(place).SkipLast(1);
 
-    /// <summary>The storage a place lies in.</summary>
-    public static IrAccess Target(IrPlace place)
+    /// <summary>
+    /// The storage a place lies in. What a reference or pointer refers to is unknown, unless
+    /// <paramref name="referents"/> knows it for the local.
+    /// </summary>
+    public static IrAccess Target(IrPlace place, Func<IrLocal, IrAccess?>? referents = null)
     {
         var local = place.Local;
         if (!place.IsDeref)
-            return local.IsThis && !local.Type.IsReference ? Unknown : new(IrStorage.Frame, local);
-        bool isObject = local.Kind != IrLocalKind.Reference && local.Type.NonNull.IsReference;
-        return isObject ? new(IrStorage.Field, local, (place.Projections.FirstOrDefault() as IrField)?.Field) : Unknown;
+        {
+            // A struct method's `this` is its caller's storage.
+            return local.IsThis && !local.Type.IsReference ? Unknown : new(IrStorage.Frame, local, null, place.Projections);
+        }
+        if (local.Deref == IrDeref.Object)
+        {
+            var first = place.Projections.FirstOrDefault() as IrField;
+            return new(IrStorage.Field, local, first?.Field, [.. place.Projections.Skip(first is null ? 0 : 1)]);
+        }
+        if (referents?.Invoke(local) is { Storage: not IrStorage.Unknown } target)
+            return target with { Path = [.. target.Path, .. place.Projections] };
+        return Unknown;
     }
 
+    /// <summary>Whether they may be the same storage: one path leads into the other, where elements may be the same whatever their indices.</summary>
     public bool Overlaps(IrAccess other) => (Storage, other.Storage) switch
     {
         (IrStorage.Unknown, _) or (_, IrStorage.Unknown) => true,
-        (IrStorage.Frame, IrStorage.Frame) => Local == other.Local,
-        (IrStorage.Field, IrStorage.Field) => Field is null || other.Field is null || Field == other.Field,
+        (IrStorage.Frame, IrStorage.Frame) => Local == other.Local && PathsOverlap(Path, other.Path),
+        (IrStorage.Field, IrStorage.Field) => Field is null || other.Field is null || (Field == other.Field && PathsOverlap(Path, other.Path)),
         _ => false,
     };
+
+    static bool PathsOverlap(IReadOnlyList<IrProjection> a, IReadOnlyList<IrProjection> b)
+    {
+        for (int i = 0; i < Math.Min(a.Count, b.Count); i++)
+        {
+            bool same = (a[i], b[i]) switch
+            {
+                (IrField x, IrField y) => x.Field == y.Field,
+                (IrVariantField x, IrVariantField y) => x.Field == y.Field,
+                (IrElement, IrElement) or (IrAssumed, IrAssumed) => true,
+                _ => false,
+            };
+            if (!same)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Whether writing this may replace a nullable value or variant that <paramref name="place"/>
+    /// lies in, destroying it: it overlaps the place, and stops short of a projection into one.
+    /// </summary>
+    public bool Destroys(IrAccess place)
+    {
+        int last = place.Path.ToList().FindLastIndex(p => p is IrAssumed or IrVariantField);
+        return last >= 0 && Path.Count <= last && Overlaps(place);
+    }
+
+    /// <summary>Whether it lies in a nullable value or variant, which writing what holds it may destroy.</summary>
+    public bool IsDestructible => Path.Any(p => p is IrAssumed or IrVariantField);
 
     /// <summary>
     /// Whether code the function runs may write it: a <c>mut</c> field, storage the function can't
@@ -266,8 +313,8 @@ public static class IrWalk
     public static IEnumerable<(IrPlace Place, IEnumerable<IrAccess> Accesses)> PlaceReads(IrStatement statement) => Operands(statement).SelectMany(argument => argument switch
     {
         IrRead read => [(read.Place, IrAccess.Of(read.Place))],
-        IrRefArgument reference => [(reference.Place, IrAccess.Path(reference.Place))],
-        IrAddrArgument address => [(address.Place, IrAccess.Path(address.Place))],
+        IrRefArgument reference => [(reference.Place, IrAccess.Finding(reference.Place))],
+        IrAddrArgument address => [(address.Place, IrAccess.Finding(address.Place))],
         _ => Array.Empty<(IrPlace, IEnumerable<IrAccess>)>(),
     });
 }

@@ -4,10 +4,10 @@ using Vpl.Compiler.Syntax;
 namespace Vpl.Compiler.Ir;
 
 /// <summary>
-/// A place an instruction may write: exactly, as a store's target, or, with <see cref="Within"/>,
-/// somewhere in it, as a callee may through a <c>ref</c> argument.
+/// A place an instruction may write: as a store's target, or somewhere in it, as a callee may
+/// through a <c>ref</c> argument; a write inside a place overlaps it either way (<see cref="IrAccess.Overlaps"/>).
 /// </summary>
-public sealed record IrWrite(IrPlace Place, bool Within);
+public sealed record IrWrite(IrPlace Place);
 
 /// <summary>
 /// Code an instruction may run, by what it is rather than which functions: the whole-program
@@ -67,7 +67,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         var effects = statement.Accept(StatementEffects.Instance);
         // A moved local is left empty, so a read of it that C++ may order differently conflicts.
         var moved = IrWalk.Operands(statement).OfType<IrRead>()
-            .Where(r => r.Ownership == IrOwnership.Move && !r.Place.Local.IsTemporary).Select(r => new IrWrite(r.Place, Within: false)).ToList();
+            .Where(r => r.Ownership == IrOwnership.Move && !r.Place.Local.IsTemporary).Select(r => new IrWrite(r.Place)).ToList();
         return moved.Count == 0 ? effects : effects with { Writes = [.. effects.Writes, .. moved] };
     }
 
@@ -90,7 +90,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // The old value is released after the new one is stored.
         public IrEffects Store(IrStore statement) =>
-            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayOwnObjects ? [new IrRunRelease(statement.Target.Type)] : [], false);
+            new([new IrWrite(statement.Target)], statement.Target.Type.MayOwnObjects ? [new IrRunRelease(statement.Target.Type)] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
         public IrEffects Check(IrCheck statement) => new([], [], statement.Kind != IrCheckKind.Narrowed);
@@ -150,7 +150,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
                 IrAddrArgument { Kind: RefKind.Ref } address => address.Place,
                 _ => null,
             }).OfType<IrPlace>();
-            return new([.. written.Select(p => new IrWrite(p, Within: true))], runs is null ? [] : [runs], runs is not null || method.Symbol.PassesLocation);
+            return new([.. written.Select(p => new IrWrite(p))], runs is null ? [] : [runs], runs is not null || method.Symbol.PassesLocation);
         }
     }
 }
