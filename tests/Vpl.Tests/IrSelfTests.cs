@@ -235,7 +235,7 @@ static class IrSelfTests
         }
         yield return new("unwritten_element_across_call", () => ElementAcrossCall("unwritten_element_across_call", element: true));
         yield return new("written_element_across_call", () => ElementAcrossCall("written_element_across_call", element: true, callee: "setFirst"),
-            Error: "an element of its type may be stored over");
+            Error: "an element of its type, or a part of one, may be written");
         yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", element: false), Error: "the place it borrows may be written");
 
         // A lambda's body runs during the call it is passed to, so what it refers into must last that long.
@@ -480,6 +480,23 @@ static class IrSelfTests
                 new IrStore(IrPlace.Deref(o).Field(x), IrConstant.Int(2)) { Origin = null },
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))) { Origin = null });
         }, Error: "the place it borrows may be written");
+
+        // Storage of one type is never another's (spec 01-safety.md §1.2), so a store through a
+        // reference to a float leaves a borrowed int alone; a type parameter may be anything.
+        IrFunction WrittenThrough(string name, VplType referenced)
+        {
+            var o = b.Parameter("o", obj);
+            var r = new IrLocal("r", referenced, IrLocalKind.Reference, IrLocalRole.Parameter) { RefKind = RefKind.Ref };
+            var v = b.Parameter("v", referenced);
+            var alias = b.Local("x", VplType.Int, IrLocalKind.Borrowed);
+            return b.Function(name, [o, r, v],
+                new IrLet(alias, Use(IrRead.Borrow(IrPlace.Deref(o).Field(x)))) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrRead.Copy(new IrPlace(v))) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))) { Origin = null });
+        }
+        yield return new("borrowed_local_unrelated_write", () => WrittenThrough("borrowed_local_unrelated_write", VplType.Float));
+        yield return new("borrowed_local_generic_write", () => WrittenThrough("borrowed_local_generic_write", b.Type("List").TypeArguments[0]),
+            Error: "the place it borrows may be written");
 
         // Nothing 'take' runs writes the field.
         yield return new("borrowed_mut_field_across_unwriting_call", () =>

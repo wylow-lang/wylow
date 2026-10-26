@@ -81,8 +81,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
   `LambdaWrites.cs` (what each lambda may change around it, found with `Writes`: the verifier asks
-  the lambdas made so far, and the passes and the emitter whether any lambda may). `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
-  of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
+  the lambdas made so far, and the passes and the emitter whether any lambda may). `Writes.cs` (the storage each lowered function may write, as `IrAccess` without its locals,
+  and the types of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
   `CyclicClasses.cs` (which class instantiations and closures may form cycles, so the cycle
   collector buffers and visits only their objects, found by `Callees`; `CppEmitter.Cycles.cs` emits what the collector calls; and which
@@ -99,9 +99,9 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   copy matters, and passes a temporary itself where its kept copy's release runs no code). `HoldElision.cs` (§6.2 of the design: turns a hold that doesn't borrow and that nothing in its
   extent can disturb into an alias of its place, or the local itself if that is the place, then
   flattens the statement scopes that no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
-  count, where nothing can store over the element; the verifier re-checks it with `Writes`).
-  `BorrowedLocals.cs` (borrows the place a named class-typed local is copied from, where nothing
-  to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). `LastUseMoves.cs` (moves a named local into its last
+  count or a struct's copy, where nothing can write an element of their type or a part of one; the
+  verifier re-checks it with `Writes`). `BorrowedLocals.cs` (borrows the place a named local is
+  copied from, where nothing to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). `LastUseMoves.cs` (moves a named local into its last
   use where releasing its type can't be observed). Tests
   mark their loops with `// in-place: <n>`. `StackSlots.cs` (puts objects and closures that can't
   outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
@@ -115,7 +115,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
   may write, run, or panic on; every analysis asks it), and `IrAccess.cs` (which storage an
-  instruction touches, and the walkers over instructions), and `IrExtent.cs` (what may happen
+  instruction touches, with its type, which is the one storage model, and the walkers over
+  instructions), and `IrExtent.cs` (what may happen
   while a hold or anything pointing into it is in use, which `Borrows` and `HoldElision` share).
 - `Lowering`: `Lowering*.cs`, bound tree to IR. It references only Semantics and the IR model,
   and asks nothing about what may change: it always holds, borrows what may be `Borrowable`,

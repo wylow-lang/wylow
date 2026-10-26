@@ -4,8 +4,8 @@ using Vpl.Compiler.Ir;
 namespace Vpl.Compiler.Optimize;
 
 /// <summary>
-/// Borrows the place a named reference local is copied from, instead of copying it, which saves a
-/// reference count increment and decrement (docs/design/ir.md §6.3). The copy keeps the object
+/// Borrows the place a named local is copied from, instead of copying it, which saves a reference
+/// count increment and decrement, or a struct's copy (docs/design/ir.md §6.3). The copy keeps the object
 /// alive until the local's scope ends, so nothing from the next statement to the block's end,
 /// including the releases there, may change the place, or what the aliases it goes through borrow.
 /// Loop elements are <see cref="InPlaceElements"/>'s. Run after <see cref="HoldElision"/>, whose
@@ -56,7 +56,7 @@ sealed class BorrowedLocals(Writes writes)
     bool Candidate(IrLocal local, IrPlace place) =>
         local is { Kind: IrLocalKind.Value, Role: IrLocalRole.Variable, Symbol: not null }
         && !writes.Lambdas.MayChange(local) && local.LoopElement is null
-        && local.Type.NonNull.IsReference && !local.Type.NonNull.IsTypeParameter && place.Type == local.Type
+        && local.Type.BorrowSavesCopy && place.Type == local.Type
         && !(place.Local.IsTemporary && place.Local.Kind == IrLocalKind.Value);
 
     /// <summary>With the local already marked borrowed, so that its own release counts for nothing.</summary>

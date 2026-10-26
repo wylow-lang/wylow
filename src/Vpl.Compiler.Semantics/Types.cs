@@ -332,6 +332,30 @@ public sealed class VplType
     public bool IsCounted => InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping || t == String || t.Symbol is { IsExtern: true });
 
     /// <summary>
+    /// Whether referring to a value of the type where it is, instead of copying it, saves work:
+    /// counting references, or copying a struct's fields. A type parameter's value is left alone,
+    /// since it may be a struct that a hold refers to in place.
+    /// </summary>
+    public bool BorrowSavesCopy => !NonNull.IsTypeParameter && (IsCounted || NonNull.IsStruct);
+
+    /// <summary>
+    /// Whether storage of type <paramref name="part"/> may lie inside a value of this type, as a
+    /// part of it: an element of a fixed array in it if <paramref name="element"/>, or else a
+    /// field. Storage of one type is never another's (spec 01-safety.md §1.2, Strict aliasing), so
+    /// nothing else can be; a type parameter may be anything. Nullability is left out: a nullable
+    /// value lies where its value does.
+    /// </summary>
+    public bool MayContain(VplType part, bool element)
+    {
+        var inside = InlineTypes().Select(t => t.NonNull).ToList();
+        if (inside.Any(t => t.IsTypeParameter) || part.InlineTypes().Any(t => t.NonNull.IsTypeParameter))
+            return true;
+        return element
+            ? inside.Any(t => t.IsFixedArray && t.ElementType!.NonNull == part.NonNull)
+            : inside.Skip(1).Contains(part.NonNull);
+    }
+
+    /// <summary>
     /// Whether the copies of a value share what a reference or view into it points to: an
     /// object's fields, a string's bytes, or a closure's captures. Such a value is held, not
     /// itself kept in place, while something points into it.

@@ -4,78 +4,30 @@ using Vpl.Compiler.Semantics;
 namespace Vpl.Compiler.Analysis;
 
 /// <summary>
-/// A type of storage that may be written. An <see cref="Element"/> write is to an element, or to
-/// a place a reference or pointer leads to, which may be an element; any other write is to a
-/// variable or field, which is only an element's storage through a fixed array it contains.
-/// </summary>
-public readonly record struct StoredType(VplType Type, bool Element)
-{
-    public static StoredType Of(IrPlace place)
-    {
-        var last = place.Projections.LastOrDefault(p => p is not IrAssumed);
-        bool element = last switch
-        {
-            IrElement => true,
-            null => place.IsDeref || place.Local.IsThis,
-            _ => false,
-        };
-        return new(place.Type, element);
-    }
-
-    /// <summary>Whether a write of this type may store over an element whose type is <paramref name="element"/>.</summary>
-    public bool MayStoreOverElement(VplType element) =>
-        (Element && IsElementOf(Type, element)) || ContainsElements(Type, element);
-
-    static bool IsElementOf(VplType type, VplType element) => type.NonNull == element || type.NonNull.IsTypeParameter;
-
-    /// <summary>Whether a value of the type may contain elements of type <paramref name="element"/>: a fixed array of them, directly or in a field.</summary>
-    static bool ContainsElements(VplType type, VplType element) =>
-        type.InlineTypes().Any(t => t.IsTypeParameter || (t.IsFixedArray && IsElementOf(t.ElementType!, element)));
-}
-
-/// <summary>
-/// The types of storage some code may write, or <see cref="Unknown"/> if it may write anything;
-/// and the fields of objects it may write, either by name or through storage it can't see (a
-/// reference, a pointer, or a struct method's <c>this</c>) of a type the field's value contains.
-/// A function's summary also has the types of the values it may release, which <see
-/// cref="Writes.Of"/> resolves to what their destructors write once the type arguments are known.
+/// The storage some code may write, as <see cref="IrAccess"/> without locals (<see
+/// cref="IrAccess.Summarized"/>), or <see cref="Unknown"/> if it may write anything. A function's
+/// summary also has the types of the values it may release, which <see cref="Writes.Of"/>
+/// resolves to what their destructors write once the type arguments are known.
 /// </summary>
 public sealed class WriteSet
 {
     const int MaxWrites = 64;
 
-    readonly HashSet<StoredType> writes = [];
-    readonly HashSet<FieldSymbol> fields = [];
-    readonly HashSet<VplType> unseen = [];
+    readonly HashSet<IrAccess> writes = [];
     readonly HashSet<VplType?> released = [];
 
     public bool Unknown { get; private set; }
 
-    public int Size => Unknown ? int.MaxValue : writes.Count + fields.Count + unseen.Count + released.Count;
+    public int Size => Unknown ? int.MaxValue : writes.Count + released.Count;
 
     /// <summary>The types of the values it may release, null among them if any.</summary>
     public IReadOnlyCollection<VplType?> Released => released;
 
     public void AddRelease(VplType? type) => released.Add(type);
 
-    public void Add(IrPlace place)
-    {
-        Add(StoredType.Of(place));
-        switch (IrAccess.Target(place))
-        {
-            case { Storage: IrStorage.Field, Field: { } field }:
-                fields.Add(field);
-                break;
-            case { Storage: IrStorage.Field }:
-                Unknown = true;
-                break;
-            case { Storage: IrStorage.Unknown }:
-                unseen.Add(place.BaseType);
-                break;
-        }
-    }
+    public void Add(IrPlace place) => Add(IrAccess.Target(place).Summarized(TypeMap.Empty));
 
-    void Add(StoredType write)
+    void Add(IrAccess write)
     {
         if (!Unknown && writes.Add(write) && writes.Count > MaxWrites)
             Unknown = true;
@@ -88,29 +40,18 @@ public sealed class WriteSet
         if (from.Unknown)
             Unknown = true;
         foreach (var write in from.writes)
-            Add(write with { Type = map.Apply(write.Type) });
-        fields.UnionWith(from.fields);
-        foreach (var type in from.unseen)
-            unseen.Add(map.Apply(type));
+            Add(write.Summarized(map));
         foreach (var type in from.released)
             released.Add(type is null ? null : map.Apply(type));
     }
 
-    public bool MayStoreOverElement(VplType element) => Unknown || writes.Any(w => w.MayStoreOverElement(element));
-
-    /// <summary>Whether it may write the field of some object, or, with no field, anything in one.</summary>
-    public bool MayWriteField(FieldSymbol? field)
-    {
-        if (Unknown || field is null)
-            return Unknown || fields.Count > 0 || unseen.Count > 0;
-        return fields.Contains(field) || (unseen.Count > 0 && field.Type.InlineTypes().Any(t => t.IsTypeParameter || unseen.Contains(t) || unseen.Any(u => u.IsTypeParameter)));
-    }
+    /// <summary>Whether it may write storage that the access touches.</summary>
+    public bool MayWrite(IrAccess access) => Unknown || writes.Any(w => w.Overlaps(access));
 }
 
 /// <summary>
-/// The types of storage each function may write, including through the functions it calls, for
-/// borrowing loop elements in place (<c>InPlaceElements</c>) and the verifier's check of
-/// them. What a function stores to its own locals is left out, since no other code sees them, and
+/// The storage each function may write, including through the functions it calls, for the
+/// passes and the verifier. What a function stores to its own locals is left out, since no other code sees them, and
 /// so is what a constructor stores into its own object, which is new, so can't be an element
 /// anything iterates. A lambda's writes count where it may run, at each call of a function value
 /// of its type, not in the code that makes it: no other code runs a lambda.
@@ -178,15 +119,16 @@ public sealed class Writes
 
     /// <summary>
     /// Whether code that runs may write the access (<see cref="IrAccess.WrittenByCode"/>): a field
-    /// only if something it runs writes that field, and a local if a lambda changes it, which by
-    /// default is any of the function's.
+    /// only if something it runs writes storage that overlaps it, and a local if a lambda changes
+    /// it, which by default is any of the function's. Storage the function can't see may be moved
+    /// by any code, as a container that isn't borrowed moves its elements.
     /// </summary>
     public bool CodeMayWrite(IrAccess access, IReadOnlyCollection<IrRun> runs, IIrLambdaChanges? lambdas = null) =>
-        callees.Fresh(runs).Count > 0 && access.WrittenByCode(lambdas ?? Lambdas) && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
+        callees.Fresh(runs).Count > 0 && access.WrittenByCode(lambdas ?? Lambdas) && (access.Storage != IrStorage.Field || Of([.. runs]).MayWrite(access));
 
-    /// <summary>Whether an instruction may store over an element whose type is <paramref name="element"/>, itself or by the code it runs.</summary>
-    public bool MayStoreOverElement(IrEffects effects, VplType element) =>
-        callees.Fresh(effects).Writes.Any(w => StoredType.Of(w.Place).MayStoreOverElement(element)) || Of(effects.Runs).MayStoreOverElement(element);
+    /// <summary>Whether an instruction may write storage that the access touches, itself or by the code it runs.</summary>
+    public bool MayWrite(IrEffects effects, IrAccess access) =>
+        callees.Fresh(effects).Writes.Any(w => IrAccess.Target(w.Place).Overlaps(access)) || Of(effects.Runs).MayWrite(access);
 
     void Add(WriteSet into, IrRun run)
     {

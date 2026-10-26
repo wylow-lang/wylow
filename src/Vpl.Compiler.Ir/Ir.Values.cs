@@ -132,8 +132,9 @@ public sealed class IrRead(IrOwnership ownership, IrPlace place) : IrOperand
 
     /// <summary>
     /// A borrow of an element of what a loop iterates, which is borrowed while the loop runs, so
-    /// only storing over an element of its type may destroy what it borrows; other writes to the
-    /// place may be allowed. The verifier checks that nothing does, by the whole-program write summaries.
+    /// only a write to an element of its type, or to a part of one, may change what it borrows
+    /// (<see cref="IrAccess.Element"/>); other writes to the place may be allowed. The verifier
+    /// checks that nothing does, by the whole-program write summaries.
     /// </summary>
     public bool Element { get; private init; }
 

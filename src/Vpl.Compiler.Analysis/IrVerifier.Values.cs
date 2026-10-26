@@ -179,7 +179,7 @@ public sealed partial class IrVerifier
     /// object or target, it lies in; and what it refers to. An alias (a borrowed local) needs nothing
     /// to write that; a reference needs nothing to destroy it. One taken from a <c>Borrowable</c>
     /// that isn't borrowed needs no code to run. An <see cref="IrRead.Element"/> borrow needs only
-    /// that nothing stores over an element of its type.
+    /// that nothing writes an element of its type, or a part of one.
     /// </summary>
     sealed record Dependency(IReadOnlyList<(IrLocal Local, bool Through)> Roots, IrAccess? Target, bool Alias, bool NeedsBorrow, bool Element = false)
     {
@@ -313,8 +313,8 @@ public sealed partial class IrVerifier
         {
             if (!Visible(local) || state.Invalid.ContainsKey(local))
                 continue;
-            if (dependency.Element && this.writes.MayStoreOverElement(effects, local.Type.NonNull))
-                Invalidate(state, local, $"an element of its type may be stored over, by {what}");
+            if (dependency.Element && this.writes.MayWrite(effects, IrAccess.Element(local.Type.NonNull)))
+                Invalidate(state, local, $"an element of its type, or a part of one, may be written, by {what}");
             else if (Breaks(dependency.Element ? dependency with { Target = null } : dependency, effects, writes, state) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }

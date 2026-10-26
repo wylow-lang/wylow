@@ -409,8 +409,13 @@ constructor returns and destroys them the last first.
 
 One function gives each instruction's effects:
 
-- the places it reads and writes, classified as: local `x`; field `f` of objects of class `C`; an
-  element of type `T`; anything through a reference or pointer of type `T`; or unknown;
+- the places it reads and writes, each an `IrAccess`: local `x`; field `f` of objects of class
+  `C`; or what a reference or pointer leads to, of type `T`; then the path inside it. An access
+  carries the type of its storage, and storage of one type is never another's (spec 01-safety.md
+  §1.2, Strict aliasing), so a store through a reference of type `T` may only touch storage whose
+  type may contain a `T` inline, or lie inside one; a type parameter may be anything. "An
+  element of type `T`", which a loop borrows in place, is an access too (`IrAccess.Element`), and
+  is changed by a write to such an element or to a part of one;
 - what it may run: callees (through `Callees`), lambdas (passed, or the
   `FunctionValues` of a called function value), and destructors (the types it releases);
 - whether it may panic, and what it allocates;
@@ -418,7 +423,9 @@ One function gives each instruction's effects:
   whose release may be observable, for the nesting rule (§5.1).
 
 A call's reads and writes come from its callees' summaries, computed with the existing
-`Summaries<T>` worklist. A summary is the union of its instructions' effects, so it only grows.
+`Summaries<T>` worklist. A summary is the union of its instructions' effects, so it only grows,
+and is the same `IrAccess`es with the callee's locals erased and its type parameters the
+caller's (`IrAccess.Summarized`): there is one storage model, per function and whole-program.
 It is the only place that knows what each instruction does, and there are about twenty instruction kinds
 rather than about forty bound node kinds.
 
@@ -442,10 +449,10 @@ A hold that still borrows stays: which holds borrow is the language's rule, whic
 > in x's live range may write P or a prefix of it, and P's root is held over that range.
 
 A loop element is the case where `P` is an element of the loop's held span: the writes that
-matter are writes to elements of `x`'s type, and destructors, from the whole-program write
-summaries (`Writes`). The general rule also covers "avoiding reference counting for locals
-copied out of containers", struct-valued locals (which save a copy of every counted field), and
-receivers. Tests keep their `// in-place:` markers.
+matter are those that overlap an element of `x`'s type (a write into a field of a struct element
+counts), and destructors, from the whole-program write summaries (`Writes`). Both rules apply to
+every type that borrowing saves something for (`VplType.BorrowSavesCopy`): counted types, and
+structs, whose copies a borrow skips. Tests keep their `// in-place:` markers.
 
 Swift's semantic ARC optimizations do the same thing on SIL, turning a `load [copy]` into a
 `load_borrow` when nothing writes the memory during the value's lifetime. Koka's Perceus and

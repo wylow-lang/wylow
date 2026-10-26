@@ -68,7 +68,7 @@ resolving references through what it knows they refer to.
 | Only the pipeline builds facts | The fact constructors and finders (`Callees`, `Writes.Find`, `Escapes.Find`, `LambdaWrites.Find`, `CyclicClasses.Find`, `Overrides`) are `internal` to Analysis, visible only to Optimize and the tests (`InternalsVisibleTo`), so CodeGen can't build facts of its own. |
 | A pass doesn't ask about what it has rewritten | **Enforced only by the verifier after the pass**, which re-analyzes with fresh facts and rejects a rewrite they don't justify. Within a pass, facts describe the IR as the pass got it. |
 | Language rules aren't optimizations | Mandatory passes are a type of their own (`MandatoryPass`), which only the Lowering project can make (`IrLowering.Passes`), so they can't reach a whole-program analysis; optimizations are `internal` to Optimize. The pipeline runs the mandatory passes always, verifies the program they leave (the user's errors), and runs the optimizations only without `--no-opt`. Each observable rule has a test that prints what it decides, run in every mode (`classes/borrowable_observed.vpl` for borrows). |
-| Storage is described one way | **Not yet** (step 3): `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals. Today `Writes.StoredType` is a second model. |
+| Storage is described one way | `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals (`IrAccess.Summarized`), so there is no second model to disagree with it. Strict aliasing (spec 01-safety.md §1.2) decides which accesses of different types may overlap (`VplType.MayContain`). |
 | Docs match the code | **Enforced only by review** (a CLAUDE.md rule): a change fixes what it makes untrue in CLAUDE.md, `docs/design/`, and the spec in the same commit. |
 
 Anything only review can enforce is listed as such, so it's known to be weaker.
@@ -86,9 +86,9 @@ With lowering naive and the passes below, the optimized C++ of every test has as
   `Flatten` then finds the statement blocks that release nothing observable.
 - **More kept copies are right now:** `l_back = pass(l_back)` keeps the argument, since the store
   replaces it within the statement; `IsStable` had made its release depend on the C++ ABI.
-- **One is lost:** a store through a reference, which `IrAccess` takes as unknown storage, keeps
-  a copy of a local of an unrelated type (`panics/list_ref_borrowed.vpl`). Telling them apart
-  needs the type of the storage behind a reference.
+- **One was lost:** a store through a reference, which `IrAccess` took as unknown storage, kept
+  a copy of a local of an unrelated type (`panics/list_ref_borrowed.vpl`), until accesses carried
+  the type of their storage.
 
 What only worked because of the shortcuts' shapes: the runtime's `vpl::argument` returned its
 first argument's type (base constructor calls with arguments of different types), and the
@@ -103,9 +103,9 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    the pipeline its generation check. Behavior is unchanged: the generated C++ and IR of every
    test were identical before and after.
 2. **Type facts on `VplType`** (done): inventory findings 2, 4 (predicate half), and 8. This fixed
-   the `Weak`-in-enum compile failure, and LastUseMoves now moves strings. Widening InPlaceElements
-   and BorrowedLocals past class types is still open: their rule doesn't see stores into a struct's
-   fields.
+   the `Weak`-in-enum compile failure, and LastUseMoves now moves strings. InPlaceElements and
+   BorrowedLocals stayed with class types, since their rule didn't see stores into a struct's
+   fields, until there was one storage model.
 3. **Required origins and the local-kind rule** (done): the two failures naive lowering exposed.
    `IrProgram.Origins`, `Creations`, and `LoopElements` are gone, and so is the verifier's copy of
    the kind rule. The generated C++ and IR of every test were identical before and after.
@@ -138,7 +138,6 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    the verifier, and the emitter had each decided it. LastUseMoves now moves loop elements that
    aren't borrowed in place. The generated C++ was otherwise identical.
 
-Still open: what a review after the migration found (2026-10-26) is planned in
-[docs/handoff/contract-followups.md](../handoff/contract-followups.md). That includes the two items
-left from the migration (from its steps 2 and 5): widening InPlaceElements and BorrowedLocals past
-class types, and telling storage behind a reference apart by type. Both are the handoff's step 3.
+A review after the migration (2026-10-26) found gaps in how the rules were enforced, a language
+rule decided by an optimization, and a second storage model; all three are fixed, and the rows
+above say how each is enforced now.

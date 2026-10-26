@@ -11,6 +11,8 @@ public enum IrStorage
     Field,
     /// <summary>Storage the function can't see: through a reference or pointer, a struct method's <c>this</c>, or a generic value's.</summary>
     Unknown,
+    /// <summary>An element of some array, wherever it is: what a loop borrows in place.</summary>
+    Element,
 }
 
 /// <summary>
@@ -24,15 +26,25 @@ public interface IIrLambdaChanges
 
 /// <summary>
 /// The storage an instruction reads or writes: a frame local's, the field of some object of the
-/// field's class (with no field, anywhere in an object), or storage the function can't see, then
-/// the projections inside it. Two accesses may be the same storage if they <see cref="Overlaps"/>,
-/// so a write somewhere inside a place, as a call given it by <c>ref</c> may make, is one to the place.
+/// field's class (with no field, anywhere in an object), storage the function can't see, or an
+/// element of some array, then the projections inside it. <see cref="Type"/> is the type of the
+/// storage at the start of <see cref="Path"/>, or null for storage of any type. Two accesses may
+/// be the same storage if they <see cref="Overlaps"/>, so a write somewhere inside a place, as a
+/// call given it by <c>ref</c> may make, is one to the place. Without its local, an access
+/// describes what a function may write for its callers (<see cref="Summarized"/>).
 /// </summary>
-public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Field, IReadOnlyList<IrProjection> Path)
+public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Field, IReadOnlyList<IrProjection> Path, VplType? Type)
 {
-    public static readonly IrAccess Unknown = new(IrStorage.Unknown, null, null, []);
+    /// <summary>Storage of any type that the function can't see.</summary>
+    public static readonly IrAccess Unknown = new(IrStorage.Unknown, null, null, [], null);
 
-    static IrAccess Whole(IrLocal local) => new(IrStorage.Frame, local, null, []);
+    /// <summary>Storage of the type that the function can't see.</summary>
+    public static IrAccess UnknownOf(VplType type) => new(IrStorage.Unknown, null, null, [], type);
+
+    /// <summary>An element of some array of the type.</summary>
+    public static IrAccess Element(VplType type) => new(IrStorage.Element, null, null, [], type);
+
+    static IrAccess Whole(IrLocal local) => new(IrStorage.Frame, local, null, [], local.Type);
 
     /// <summary>What reading or writing a place touches: the storage it lies in, and the locals read to find it.</summary>
     public static IEnumerable<IrAccess> Of(IrPlace place)
@@ -63,26 +75,89 @@ public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Fi
         if (!place.IsDeref)
         {
             // A struct method's `this` is its caller's storage.
-            return local.IsThis && !local.Type.IsReference ? Unknown : new(IrStorage.Frame, local, null, place.Projections);
+            return local.IsThis && !local.Type.IsReference ? UnknownOf(local.Type) : new(IrStorage.Frame, local, null, place.Projections, local.Type);
         }
         if (local.Deref == IrDeref.Object)
         {
             var first = place.Projections.FirstOrDefault() as IrField;
-            return new(IrStorage.Field, local, first?.Field, [.. place.Projections.Skip(first is null ? 0 : 1)]);
+            return new(IrStorage.Field, local, first?.Field, [.. place.Projections.Skip(first is null ? 0 : 1)], first?.Type ?? place.BaseType);
         }
-        if (referents?.Invoke(local) is { Storage: not IrStorage.Unknown } target)
+        if (referents?.Invoke(local) is { Storage: IrStorage.Frame or IrStorage.Field } target)
             return target with { Path = [.. target.Path, .. place.Projections] };
-        return Unknown;
+        return UnknownOf(place.BaseType);
     }
 
-    /// <summary>Whether they may be the same storage: one path leads into the other, where elements may be the same whatever their indices.</summary>
+    /// <summary>
+    /// What a function's write is to its callers: its locals are gone, so a frame local's is
+    /// storage of its type, and type parameters are the caller's (<paramref name="map"/>).
+    /// </summary>
+    public IrAccess Summarized(TypeMap map) => Storage == IrStorage.Frame
+        ? UnknownOf(map.Apply(Path.Count > 0 ? Path[^1].Type : Type!))
+        : new(Storage, null, Field, [.. Path.Select(p => Mapped(p, map))], Type is null ? null : map.Apply(Type));
+
+    static IrProjection Mapped(IrProjection projection, TypeMap map) => projection switch
+    {
+        IrField field => new IrField(field.Field, map.Apply(field.Type)),
+        IrElement element => new IrElement(element.Index, map.Apply(element.Type)),
+        IrVariantField variant => new IrVariantField(variant.Variant, variant.Field, map.Apply(variant.Type)),
+        IrAssumed assumed => new IrAssumed(map.Apply(assumed.Type)),
+        _ => throw new InvalidOperationException($"unexpected projection {projection.GetType().Name}"),
+    };
+
+    /// <summary>
+    /// Whether they may be the same storage: one path leads into the other, where elements may be
+    /// the same whatever their indices. Storage of one type is never another's (spec 01-safety.md
+    /// §1.2, Strict aliasing), so storage the function can't see may only be storage whose type
+    /// may contain its type, or be contained in it.
+    /// </summary>
     public bool Overlaps(IrAccess other) => (Storage, other.Storage) switch
     {
-        (IrStorage.Unknown, _) or (_, IrStorage.Unknown) => true,
         (IrStorage.Frame, IrStorage.Frame) => Local == other.Local && PathsOverlap(Path, other.Path),
         (IrStorage.Field, IrStorage.Field) => Field is null || other.Field is null || (Field == other.Field && PathsOverlap(Path, other.Path)),
-        _ => false,
+        (IrStorage.Frame, IrStorage.Field) or (IrStorage.Field, IrStorage.Frame) => false,
+        (IrStorage.Frame or IrStorage.Field, _) => other.Reaches(this),
+        (_, IrStorage.Frame or IrStorage.Field) => Reaches(other),
+        _ => Unseen.Within(other.Unseen) || other.Unseen.Within(Unseen),
     };
+
+    /// <summary>
+    /// Whether this storage, which the function can't see, may lie in what a place in a local or
+    /// a field touches, or hold it. A local or a field lies in nothing else, so this can only hold
+    /// what the place touches by being what a prefix of the place's path leads to.
+    /// </summary>
+    bool Reaches(IrAccess place) =>
+        // An object holds fields of every type.
+        (place.Storage == IrStorage.Field && place.Field is null)
+        || Unseen.Within(place.Prefixes().Last()) || place.Prefixes().Any(Unseen.Same);
+
+    /// <summary>Where a reference or pointer leads may be an array element or not.</summary>
+    Stored Unseen => new(Type, Element: true, Other: Storage != IrStorage.Element);
+
+    /// <summary>What the place's root and each prefix of its path lead to, the last what it touches.</summary>
+    IEnumerable<Stored> Prefixes()
+    {
+        yield return new(Type, Element: false, Other: true);
+        bool element = false;
+        foreach (var step in Path)
+        {
+            if (step is not IrAssumed)
+                element = step is IrElement;
+            yield return new(step.Type, element, !element);
+        }
+    }
+
+    /// <summary>Storage by its type, and whether it may be an array element, or something else.</summary>
+    readonly record struct Stored(VplType? Type, bool Element, bool Other)
+    {
+        /// <summary>Whether they may be the same storage. A nullable value lies where its value does.</summary>
+        public bool Same(Stored other) => Type is null || other.Type is null
+            || (Type.NonNull == other.Type.NonNull && ((Element && other.Element) || (Other && other.Other)));
+
+        /// <summary>Whether it may be <paramref name="holder"/>, or lie inside it.</summary>
+        public bool Within(Stored holder) => Same(holder)
+            || (Type!.NonNull != holder.Type!.NonNull
+                && ((Element && holder.Type.MayContain(Type, element: true)) || (Other && holder.Type.MayContain(Type, element: false))));
+    }
 
     static bool PathsOverlap(IReadOnlyList<IrProjection> a, IReadOnlyList<IrProjection> b)
     {
@@ -100,6 +175,21 @@ public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Fi
         }
         return true;
     }
+
+    /// <summary>The same storage described the same way, whatever the indices of its elements.</summary>
+    public bool Equals(IrAccess? other) =>
+        other is not null && Storage == other.Storage && Local == other.Local && Field == other.Field && Type == other.Type
+        && Path.Count == other.Path.Count
+        && Path.Zip(other.Path).All(p => p.First.GetType() == p.Second.GetType() && p.First.Type == p.Second.Type && StepField(p.First) == StepField(p.Second));
+
+    public override int GetHashCode() => HashCode.Combine(Storage, Local, Field, Type, Path.Count);
+
+    static FieldSymbol? StepField(IrProjection projection) => projection switch
+    {
+        IrField field => field.Field,
+        IrVariantField variant => variant.Field,
+        _ => null,
+    };
 
     /// <summary>
     /// Whether writing this may replace a nullable value or variant that <paramref name="place"/>

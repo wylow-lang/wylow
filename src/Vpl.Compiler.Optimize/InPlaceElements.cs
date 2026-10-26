@@ -5,12 +5,12 @@ using Vpl.Compiler.Text;
 namespace Vpl.Compiler.Optimize;
 
 /// <summary>
-/// Borrows the element of each for-each loop in place whose element variable nothing can store
-/// over while it lives, instead of copying it, which saves a reference count increment and
-/// decrement per element (docs/design/ir.md §6.3, restricted to loop elements). What a loop
-/// iterates is held and borrowed until the loop ends, so the element's object can only be
-/// destroyed by storing over the element: by the loop's own code, by what it runs (<see
-/// cref="Writes"/>), or by a destructor something it releases may run. Releases at the end of the
+/// Borrows the element of each for-each loop in place whose element variable nothing can write
+/// while it lives, instead of copying it, which saves a reference count increment and decrement,
+/// or a struct's copy, per element (docs/design/ir.md §6.3, restricted to loop elements). What a
+/// loop iterates is held and borrowed until the loop ends, so the element can only change by a
+/// write to an element of its type or to a part of one: by the loop's own code, by what it runs
+/// (<see cref="Writes"/>), or by a destructor something it releases may run. Releases at the end of the
 /// element's own block come after its last use. The verifier checks the same with the same summaries.
 /// </summary>
 sealed class InPlaceElements
@@ -48,7 +48,7 @@ sealed class InPlaceElements
                 || let.Local.LoopElement is not { } location)
                 continue;
             var element = let.Local;
-            if (!element.Type.IsReference || place.Type != element.Type || !Unwritten(element, statements.Skip(i + 1)))
+            if (!element.Type.BorrowSavesCopy || place.Type != element.Type || !Unwritten(element, statements.Skip(i + 1)))
                 continue;
             let.Value = new IrUse(IrRead.BorrowElement(place));
             element.Kind = IrLocalKind.Borrowed;
@@ -56,7 +56,7 @@ sealed class InPlaceElements
         }
     }
 
-    /// <summary>Whether nothing in the statements, nor any release, may store over the element or give the variable another value.</summary>
+    /// <summary>Whether nothing in the statements, nor any release, may write the element or give the variable another value.</summary>
     bool Unwritten(IrLocal element, IEnumerable<IrStatement> statements)
     {
         var type = element.Type.NonNull;
@@ -64,7 +64,7 @@ sealed class InPlaceElements
         {
             if (IrWalk.Descendants(statement).Any(s => IrWalk.Rebinds(s, element, moves: true)))
                 return false;
-            if (IrWalk.Descendants(statement, intoLambdas: false).Any(s => writes.MayStoreOverElement(IrEffects.Itself(s), type)))
+            if (IrWalk.Descendants(statement, intoLambdas: false).Any(s => writes.MayWrite(IrEffects.Itself(s), IrAccess.Element(type))))
                 return false;
         }
         return true;

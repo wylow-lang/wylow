@@ -505,13 +505,17 @@ unless nothing the loop can run may store over an element of that type: assign t
 (`list[i] = x`, `array[i] = x`, or through a `ref` in generic code), or to a value containing a fixed
 array of them. Then `e` refers to the element in place, saving a count increment and decrement per
 element. What the loop iterates is held and borrowed until it ends, so storing over the element is
-the only way its object could be destroyed.
+the only way its object could be destroyed. The same goes for an element of any type whose copy
+costs something, such as a string or a struct, which saves the copy; for a struct, assigning a
+field of an element (`list[i].x = 1`) counts as well, as does a write through a `ref` to a type
+the struct contains. Storage of one type is never another's (01-safety.md §1.2), so a write of an
+unrelated type never counts.
 
 The compiler checks everything the loop's body may run: the functions it calls and the functions
 they call, every override of a virtual or interface method it calls, every lambda of the type of
 a function value it calls (a lambda in generic code counts for every type it could be), and the
-destructors of every object it may release. Assigning fields, including fields of the element's
-type, never counts, so getters, setters, and most methods don't prevent it. Reassigning `e` itself
+destructors of every object it may release. Assigning fields of objects, including fields of
+the element's class, never counts, so getters, setters, and most methods don't prevent it. Reassigning `e` itself
 does. The program behaves the same either way; only the cost differs.
 
 Releasing a value may destroy the objects it refers to, and through their fields (including
