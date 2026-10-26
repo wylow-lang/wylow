@@ -3,7 +3,8 @@
 The compiler kept growing two answers to one question: one layer did work that belongs to
 another, so the other layer computed the same thing again from what it had, or *guessed*, when
 what it needed only existed later. The answers then drifted, and each drift was found a day or two
-later as a crash, a miscompile, or a missed check (docs/handoff/simplification-inventory.md).
+later as a crash, a miscompile, or a missed check. The migration below fixed the ones an inventory
+of the compiler found (2026-10-25).
 
 This document is the contract that prevents that. Each layer owns a set of questions. A question
 is answered in exactly one place, and every rule here says **how it is enforced**. A rule that is
@@ -110,4 +111,14 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    are gone and the emitter gets its facts from the pipeline's last `Callees`. Erasing reference
    nullability has one definition, `VplType.WithoutReferenceNullability` (finding 9). The generated
    C++ and IR were identical but for the order of instantiation traits.
-7. **Local roles and the remaining walkers** (findings 6, 7, 11).
+7. **Local roles and the remaining walkers** (done). `IrLocalRole` replaces the local's booleans,
+   and an in-place loop element is `borrow.element` (`IrRead.Element`), not a flag the verifier
+   reads off the local. One definition each of the locals a statement declares (`IrWalk.Declared`),
+   whether it gives a local another value (`IrWalk.Rebinds`), what a call is given
+   (`IrWalk.Passed`), and what a statement does itself (`IrEffects.Itself`). Whether an operation
+   panics is decided by its IR node, whose constructor requires a location exactly then; lowering,
+   the verifier, and the emitter had each decided it. LastUseMoves now moves loop elements that
+   aren't borrowed in place. The generated C++ was otherwise identical.
+
+Still open: widening InPlaceElements and BorrowedLocals past class types (step 2), and telling
+storage behind a reference apart by type (step 5).

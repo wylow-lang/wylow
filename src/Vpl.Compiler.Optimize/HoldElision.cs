@@ -179,15 +179,9 @@ sealed class HoldElision(Writes writes)
     {
         if (statement is IrBlock or IrIf or IrLoop)
             return true;
-        var value = statement switch
-        {
-            IrLet let => let.Value,
-            IrDo run => run.Value,
-            _ => null,
-        };
-        if (value is not (IrCall or IrInvoke or IrNew or IrConstruct))
+        if (IrWalk.Rvalue(statement) is not { } value || IrWalk.Passed(value) is not { } passed)
             return false;
-        return IrWalk.Operands(value).Any(argument => argument switch
+        return passed.All.Any(argument => argument switch
         {
             IrRefArgument reference => IrWalk.PlaceLocals(reference.Place).Any(locals.Contains),
             IrAddrArgument address => IrWalk.PlaceLocals(address.Place).Any(locals.Contains),

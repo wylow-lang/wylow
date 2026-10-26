@@ -192,6 +192,10 @@ public abstract class IrRvalue
 {
     public abstract T Accept<T>(IIrRvalueVisitor<T> visitor);
     public abstract VplType Type { get; }
+
+    /// <summary>The location an operation panics at if it may, which it must then be given, or null if it can't.</summary>
+    protected static IrLoc? PanicsAt(bool mayPanic, IrLoc? loc) =>
+        mayPanic ? loc ?? throw new ArgumentException("an operation that may panic needs a location") : null;
 }
 
 public sealed class IrUse(IrOperand operand) : IrRvalue
@@ -207,7 +211,10 @@ public sealed class IrUnary(BoundUnaryOperator op, IrOperand operand, IrLoc? loc
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Unary(this);
     public BoundUnaryOperator Operator { get; } = op;
     public IrOperand Operand { get; set; } = operand;
-    public IrLoc? Loc { get; } = loc;
+
+    /// <summary>Where it panics: integer negation overflows.</summary>
+    public IrLoc? Loc { get; } = PanicsAt(op == BoundUnaryOperator.Negate && operand.Type.IsInteger, loc);
+
     public override VplType Type => Operand.Type;
 }
 
@@ -218,12 +225,12 @@ public sealed class IrBinary(BoundBinaryOperator op, IrOperand left, IrOperand r
     public BoundBinaryOperator Operator { get; } = op;
     public IrOperand Left { get; set; } = left;
     public IrOperand Right { get; set; } = right;
-    public IrLoc? Loc { get; } = loc;
-    public override VplType Type { get; } = type;
 
-    /// <summary>Whether the operator panics on some operands, and so needs a location.</summary>
-    public static bool IsChecked(BoundBinaryOperator op, VplType operand) => operand.IsInteger && op is BoundBinaryOperator.Add
-        or BoundBinaryOperator.Subtract or BoundBinaryOperator.Multiply or BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder;
+    /// <summary>Where it panics: integer arithmetic overflows or divides by zero.</summary>
+    public IrLoc? Loc { get; } = PanicsAt(left.Type.IsInteger && op is BoundBinaryOperator.Add or BoundBinaryOperator.Subtract
+        or BoundBinaryOperator.Multiply or BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder, loc);
+
+    public override VplType Type { get; } = type;
 }
 
 /// <summary>
@@ -394,12 +401,15 @@ public sealed class IrTest(IrTestKind kind, IrOperand operand) : IrRvalue
     public override VplType Type => VplType.Bool;
 }
 
-/// <summary>A conversion, which carries a location if it may panic (to <c>char</c> or an enum).</summary>
+/// <summary>A conversion, which carries a location if it may panic.</summary>
 public sealed class IrConvert(VplType type, IrOperand operand, IrLoc? loc = null) : IrRvalue
 {
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Convert(this);
     public IrOperand Operand { get; set; } = operand;
-    public IrLoc? Loc { get; } = loc;
+
+    /// <summary>Where it panics: an integer that is no enum value or <c>char</c>.</summary>
+    public IrLoc? Loc { get; } = PanicsAt(type.IsEnum && !operand.Type.IsEnum || operand.Type.IsInteger && type == VplType.Char, loc);
+
     public override VplType Type { get; } = type;
 }
 

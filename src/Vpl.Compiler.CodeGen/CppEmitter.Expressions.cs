@@ -7,33 +7,37 @@ namespace Vpl.Compiler.CodeGen;
 
 public sealed partial class CppEmitter
 {
-    static string UnaryText(BoundUnaryOperator op, VplType type, string operand, string location) => op switch
+    // An operation the IR says may panic is given the location it panics at, and does the checked thing.
+
+    static string UnaryText(BoundUnaryOperator op, VplType type, string operand, string? location) => op switch
     {
-        BoundUnaryOperator.Negate when type.IsInteger => $"vpl::neg({operand}, {location})",
+        BoundUnaryOperator.Negate when location is not null => $"vpl::neg({operand}, {location})",
         BoundUnaryOperator.Negate => $"(-{operand})",
         BoundUnaryOperator.LogicalNot => $"(!{operand})",
         BoundUnaryOperator.BitwiseNot => $"static_cast<{CppType(type)}>(~{operand})",
         _ => throw new InvalidOperationException($"unexpected unary operator {op}"),
     };
 
-    /// <summary>An operator applied to operands of <paramref name="operandType"/>; integer arithmetic panics at <paramref name="location"/>.</summary>
-    static string BinaryText(BoundBinaryOperator op, VplType operandType, VplType type, string left, string right, Func<string> location)
+    /// <summary>An operator applied to operands of <paramref name="operandType"/>.</summary>
+    static string BinaryText(BoundBinaryOperator op, VplType operandType, VplType type, string left, string right, string? location)
     {
         if (operandType.IsReference || operandType == VplType.Null)
             return $"(vpl::identity({left}) {(op == BoundBinaryOperator.Equal ? "==" : "!=")} vpl::identity({right}))";
-        if (operandType.IsInteger)
+        if (location is not null)
         {
-            switch (op)
+            var name = op switch
             {
-                case BoundBinaryOperator.Add: return $"vpl::add({left}, {right}, {location()})";
-                case BoundBinaryOperator.Subtract: return $"vpl::sub({left}, {right}, {location()})";
-                case BoundBinaryOperator.Multiply: return $"vpl::mul({left}, {right}, {location()})";
-                case BoundBinaryOperator.Divide: return $"vpl::div({left}, {right}, {location()})";
-                case BoundBinaryOperator.Remainder: return $"vpl::rem({left}, {right}, {location()})";
-                case BoundBinaryOperator.ShiftLeft: return $"vpl::shl({left}, {right})";
-                case BoundBinaryOperator.ShiftRight: return $"vpl::shr({left}, {right})";
-            }
+                BoundBinaryOperator.Add => "add",
+                BoundBinaryOperator.Subtract => "sub",
+                BoundBinaryOperator.Multiply => "mul",
+                BoundBinaryOperator.Divide => "div",
+                BoundBinaryOperator.Remainder => "rem",
+                _ => throw new InvalidOperationException($"unexpected checked operator {op}"),
+            };
+            return $"vpl::{name}({left}, {right}, {location})";
         }
+        if (operandType.IsInteger && op is BoundBinaryOperator.ShiftLeft or BoundBinaryOperator.ShiftRight)
+            return $"vpl::{(op == BoundBinaryOperator.ShiftLeft ? "shl" : "shr")}({left}, {right})";
         if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Remainder)
             return $"std::fmod({left}, {right})";
 
@@ -82,21 +86,19 @@ public sealed partial class CppEmitter
         return $"static_cast<{declaring}*>(this)->";
     }
 
-    /// <summary>A conversion of a value; one that may panic does so at <paramref name="location"/>.</summary>
-    string ConversionText(VplType from, VplType to, string operand, Func<string> location)
+    /// <summary>A conversion of a value.</summary>
+    string ConversionText(VplType from, VplType to, string operand, string? location)
     {
+        if (location is not null)
+            return to.IsEnum ? $"{ObjectType(to)}::from_value({operand}, {location})" : $"vpl::to_char({operand}, {location})";
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)
             return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
         if (stdlib.IsWeak(to))
             return $"{CppType(to)}({operand})";
-        if (to.IsEnum)
-            return $"{ObjectType(to)}::from_value({operand}, {location()})";
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";
-        if (from.IsInteger && to == VplType.Char)
-            return $"vpl::to_char({operand}, {location()})";
         if (from.IsFloatingPoint && to.IsInteger)
             return $"vpl::f2i<{CppType(to)}>({operand})";
         if (from == VplType.Double && to == VplType.Float)

@@ -439,6 +439,8 @@ public sealed partial class CppEmitter
 
     string LocText(IrLoc loc) => loc.Source is { } source ? SourceLocation(source) : CallerLocationParameter;
 
+    string? PanicText(IrLoc? loc) => loc is null ? null : LocText(loc);
+
     /// <summary>
     /// A by-value argument. A copy of a temporary the statement keeps is passed through <c>vpl::keep</c>,
     /// which makes the temporary the caller's, released when the statement completes.
@@ -472,8 +474,8 @@ public sealed partial class CppEmitter
     string RvalueText(IrRvalue value) => value switch
     {
         IrUse use => OperandText(use.Operand),
-        IrUnary unary => UnaryText(unary.Operator, unary.Type, OperandText(unary.Operand), unary.Loc is { } loc ? LocText(loc) : ""),
-        IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), () => LocText(binary.Loc!)),
+        IrUnary unary => UnaryText(unary.Operator, unary.Type, OperandText(unary.Operand), PanicText(unary.Loc)),
+        IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), PanicText(binary.Loc)),
         IrCall call => CallText(call),
         IrInvoke invoke => $"{OperandText(invoke.Callee)}({string.Join(", ", invoke.Arguments.Select((a, i) => OptionalFunctionArgument(invoke.Signature.ParameterType(i), ArgumentText(a))))})",
         IrLambda lambda => LambdaText(lambda.Function, "[&]", []),
@@ -494,7 +496,7 @@ public sealed partial class CppEmitter
         // The function value is converted where it is used, which a template parameter may take as it is.
         IrConvert { Type.IsNonEscapingFunction: true } conversion => OperandText(conversion.Operand),
         IrConvert conversion when IsDowncast(conversion) => $"vpl::downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
-        IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), () => LocText(conversion.Loc!)),
+        IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), PanicText(conversion.Loc)),
         IrHold hold => $"vpl::{(hold.Borrows ? "borrow" : "pin")}({PlaceText(hold.Place)})",
         _ => throw new InvalidOperationException($"the IR emitter can't print {value.GetType().Name} yet"),
     };

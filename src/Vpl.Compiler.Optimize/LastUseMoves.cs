@@ -163,21 +163,15 @@ sealed class LastUseMoves
     }
 
     /// <summary>Whether the instruction takes ownership of the value it reads, rather than only looking at it.</summary>
-    static bool Consumes(IrStatement statement, IrRead read) => statement switch
-    {
-        IrLet { Value: var value } => Consumes(value, read),
-        IrDo { Value: var value } => Consumes(value, read),
-        IrStore store => store.Value == read,
-        _ => false,
-    };
+    static bool Consumes(IrStatement statement, IrRead read) => statement is IrStore store
+        ? store.Value == read
+        : IrWalk.Rvalue(statement) is { } value && Consumes(value, read);
 
+    // A receiver is used in place.
     static bool Consumes(IrRvalue value, IrRead read) => value switch
     {
+        _ when IrWalk.Passed(value) is { } passed => passed.Arguments.Contains(read),
         IrUse use => use.Operand == read,
-        IrCall call => call.Arguments.Contains(read),
-        IrInvoke invoke => invoke.Arguments.Contains(read),
-        IrNew creation => creation.Arguments.Contains(read),
-        IrConstruct construction => construction.Arguments.Contains(read),
         IrVariant variant => variant.Fields.Contains(read),
         IrArray array => array.Elements.Contains(read),
         IrClosure closure => closure.Captures.Contains(read),

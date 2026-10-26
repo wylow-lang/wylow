@@ -74,8 +74,9 @@ public sealed class Escapes
     internal bool BorrowsLetEscape(VplType type)
     {
         var program = callees.Program.Bound;
-        if (program.Stdlib.Borrowable is not { } borrowable || !Conversions.IsSubtype(type, borrowable.Type))
+        if (!program.IsBorrowable(type))
             return false;
+        var borrowable = program.Stdlib.Borrowable!;
         HashSet<TypeSymbol?> classes = [type.Symbol, .. Conversions.Supertypes(type).Select(t => t.Symbol)];
         foreach (var method in borrowable.Methods.Values.SelectMany(m => m))
         {

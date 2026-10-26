@@ -58,10 +58,7 @@ public sealed class LambdaWrites : IIrLambdaChanges
                 changes.UnionWith(Find(inner.Function).Where(l => !own.Contains(l)));
                 replaces.UnionWith(assigns[inner.Function].Where(l => !own.Contains(l)));
             }
-            if (statement is IrIf or IrLoop)
-                continue;
-            var effects = statement is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(statement);
-            foreach (var write in effects.Writes)
+            foreach (var write in IrEffects.Itself(statement).Writes)
             {
                 var local = write.Place.Local;
                 if (write.Place.IsDeref || local.Kind == IrLocalKind.Reference || own.Contains(local))

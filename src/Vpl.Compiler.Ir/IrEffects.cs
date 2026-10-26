@@ -51,21 +51,33 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     /// <summary>What releasing the locals a block declares, other than <paramref name="except"/>, when it ends, may do.</summary>
     public static IrEffects Ending(IrBlock block, IrLocal? except = null)
     {
-        var runs = block.Statements.Select(s => s switch
-        {
-            IrLet let => let.Local,
-            IrDeclare declare => declare.Local,
-            _ => null,
-        }).OfType<IrLocal>().Where(l => l != except).SelectMany(l => Releasing(l).Runs).Distinct().ToList();
+        var runs = IrWalk.Declared(block).Where(l => l != except).SelectMany(l => Releasing(l).Runs).Distinct().ToList();
         return runs.Count == 0 ? None : new([], runs, false);
     }
 
     public bool RunsCode => Runs.Count > 0;
 
-    public static IrEffects Of(IrStatement statement)
+    /// <summary>
+    /// What a statement does itself, not counting the statements inside it: a block releases what
+    /// it declares as it ends, and an <c>if</c> or loop does nothing more.
+    /// </summary>
+    public static IrEffects Itself(IrStatement statement) => statement switch
+    {
+        IrBlock block => Ending(block),
+        IrIf or IrLoop => None,
+        _ => Of(statement),
+    };
+
+    /// <summary>
+    /// What a statement that isn't compound does. A local it moves out of is left empty, so it is
+    /// written, and a read of it that C++ may order differently conflicts; with <paramref name="moves"/>
+    /// false, that write is left out.
+    /// </summary>
+    public static IrEffects Of(IrStatement statement, bool moves = true)
     {
         var effects = statement.Accept(StatementEffects.Instance);
-        // A moved local is left empty, so a read of it that C++ may order differently conflicts.
+        if (!moves)
+            return effects;
         var moved = IrWalk.Operands(statement).OfType<IrRead>()
             .Where(r => r.Ownership == IrOwnership.Move && !r.Place.Local.IsTemporary).Select(r => new IrWrite(r.Place)).ToList();
         return moved.Count == 0 ? effects : effects with { Writes = [.. effects.Writes, .. moved] };
@@ -112,13 +124,13 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public static readonly RvalueEffects Instance = new();
 
         public IrEffects Call(IrCall value) =>
-            Calling(value.Method, value.Receiver, value.Arguments, value.Method.Symbol.IsPure ? null : new IrRunMethod(value.Method, value.IsSuperCall));
+            Calling(value, value.Method.Symbol.IsPure ? null : new IrRunMethod(value.Method, value.IsSuperCall));
 
-        public IrEffects Invoke(IrInvoke value) => Calling(value.Signature, null, value.Arguments, new IrRunFunctionValue(value.Callee.Type.NonNull));
-        public IrEffects New(IrNew value) => Calling(value.Constructor, null, value.Arguments, new IrRunMethod(value.Constructor, Direct: true));
+        public IrEffects Invoke(IrInvoke value) => Calling(value, new IrRunFunctionValue(value.Callee.Type.NonNull));
+        public IrEffects New(IrNew value) => Calling(value, new IrRunMethod(value.Constructor, Direct: true));
 
         // An implicit constructor makes the default value; a memberwise one may run field initializers.
-        public IrEffects Construct(IrConstruct value) => Calling(value.Constructor, null, value.Arguments,
+        public IrEffects Construct(IrConstruct value) => Calling(value,
             !value.Constructor.Symbol.IsImplicit ? new IrRunMethod(value.Constructor, Direct: true) : value.Type.DefaultRunsCode ? new IrRunDefault(value.Type) : null);
 
         public IrEffects Unary(IrUnary value) => new([], [], value.Loc is not null);
@@ -141,16 +153,16 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public IrEffects Data(IrData value) => None;
         public IrEffects Test(IrTest value) => None;
 
-        static IrEffects Calling(MethodReference method, IrArgument? receiver, IReadOnlyList<IrArgument> arguments, IrRun? runs)
+        static IrEffects Calling(IrRvalue value, IrRun? runs)
         {
-            IEnumerable<IrArgument> passed = receiver is null ? arguments : [receiver, .. arguments];
-            var written = passed.Select(a => a switch
+            var passed = IrWalk.Passed(value)!.Value;
+            var written = passed.All.Select(a => a switch
             {
                 IrRefArgument { Kind: RefKind.Ref } reference => reference.Place,
                 IrAddrArgument { Kind: RefKind.Ref } address => address.Place,
                 _ => null,
             }).OfType<IrPlace>();
-            return new([.. written.Select(p => new IrWrite(p))], runs is null ? [] : [runs], runs is not null || method.Symbol.PassesLocation);
+            return new([.. written.Select(p => new IrWrite(p))], runs is null ? [] : [runs], runs is not null || passed.Method.Symbol.PassesLocation);
         }
     }
 }

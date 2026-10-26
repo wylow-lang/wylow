@@ -210,12 +210,7 @@ public sealed class IrBlock : IrStatement
     public bool IsStatement { get; init; }
 
     /// <summary>Whether it declares a local, other than those in <paramref name="except"/>, whose release may run code.</summary>
-    public bool DeclaresOwner(params IrLocal?[] except) => Statements.Any(statement => statement switch
-    {
-        IrLet let => !except.Contains(let.Local) && IrEffects.ReleaseMayRunCode(let.Local),
-        IrDeclare declare => !except.Contains(declare.Local) && IrEffects.ReleaseMayRunCode(declare.Local),
-        _ => false,
-    });
+    public bool DeclaresOwner(params IrLocal?[] except) => IrWalk.Declared(this).Any(l => !except.Contains(l) && IrEffects.ReleaseMayRunCode(l));
 
     public IrBlock() { }
 

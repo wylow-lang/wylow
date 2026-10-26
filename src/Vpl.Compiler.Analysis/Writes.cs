@@ -223,9 +223,7 @@ public sealed class Writes
         }
         foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
         {
-            if (statement is IrIf or IrLoop)
-                continue;
-            var effects = statement is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(statement);
+            var effects = IrEffects.Itself(statement);
             foreach (var write in effects.Writes.Where(w => !IsOwn(function, own, w.Place)))
                 set.Add(write.Place);
             foreach (var run in effects.Runs)
@@ -238,18 +236,7 @@ public sealed class Writes
         HashSet<IrLocal> own = [.. function.Parameters, .. function.Captures];
         if (function.Struct is { } made)
             own.Add(made);
-        foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
-        {
-            switch (statement)
-            {
-                case IrLet let:
-                    own.Add(let.Local);
-                    break;
-                case IrDeclare declare:
-                    own.Add(declare.Local);
-                    break;
-            }
-        }
+        own.UnionWith(IrWalk.Descendants(function.Body, intoLambdas: false).Select(IrWalk.Declared).OfType<IrLocal>());
         return own;
     }
 

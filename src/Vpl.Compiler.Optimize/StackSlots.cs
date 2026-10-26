@@ -165,9 +165,9 @@ sealed class StackSlots
                 _ => null,
             })
             .Where(r => r is { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } }).Select(r => r!.Place.Local).ToHashSet();
-        int last = Enumerable.Range(from, statements.Count - from).FirstOrDefault(i => Declared(statements[i]).Any(l => holders.Contains(l) && !moved.Contains(l)), -1);
+        int last = Enumerable.Range(from, statements.Count - from).FirstOrDefault(i => IrWalk.Declared(statements[i]) is { } l && holders.Contains(l) && !moved.Contains(l), -1);
         return last >= 0 && Enumerable.Range(from + 1, Math.Max(0, last - from - 1))
-            .All(i => !Declared(statements[i]).Any(l => !holders.Contains(l) && IrEffects.ReleaseMayRunCode(l)));
+            .All(i => IrWalk.Declared(statements[i]) is not { } l || holders.Contains(l) || !IrEffects.ReleaseMayRunCode(l));
     }
 
     /// <summary>The object or closure a value is, if that is all it is: made, possibly converted, and moved or copied out of a temporary of the statements.</summary>
@@ -209,20 +209,18 @@ sealed class StackSlots
         {
             foreach (var statement in only is null ? list : [only])
             {
-                // A store's target is among its operands as a reference, which the store itself is not.
-                var operands = statement is IrStore stored ? [stored.Value] : IrWalk.Operands(statement);
-                if (operands.Any(a => a is IrRefArgument { Kind: RefKind.Ref } r && IsLocal(r.Place) || a is IrAddrArgument { Kind: RefKind.Ref } p && IsLocal(p.Place)))
+                if (statement is IrStore store && IsLocal(store.Target))
+                {
+                    if (inUpdate)
+                        return false;
+                    found.Add(new Replacement(store, list, index));
+                    continue;
+                }
+                // Moving out leaves the local empty, which the escape analysis follows.
+                if (IrWalk.Rebinds(statement, local, moves: false))
                     return false;
                 switch (statement)
                 {
-                    case IrStore store when IsLocal(store.Target):
-                        if (inUpdate)
-                            return false;
-                        found.Add(new Replacement(store, list, index));
-                        break;
-                    case IrLet { Value: IrRef { Kind: RefKind.Ref } reference } when IsLocal(reference.Place):
-                    case IrLet { Value: IrAddr { Kind: RefKind.Ref } address } when IsLocal(address.Place):
-                        return false;
                     case IrLet { Value: IrLambda lambda } when !Walk(lambda.Function.Body.Statements, index, inUpdate):
                     case IrLet { Value: IrClosure closure } when !Walk(closure.Function.Body.Statements, index, inUpdate):
                         return false;
@@ -281,17 +279,10 @@ sealed class StackSlots
 
     /// <summary>The locals a statement declares that hold a reference of their own, outside lambdas, whose own locals are gone once they return.</summary>
     static IEnumerable<IrLocal> HeldIn(IrStatement statement) =>
-        IrWalk.Descendants(statement, intoLambdas: false).SelectMany(Declared).Where(Owns);
+        IrWalk.Descendants(statement, intoLambdas: false).Select(IrWalk.Declared).OfType<IrLocal>().Where(Owns);
 
     /// <summary>The locals a statement declares for the rest of its block, rather than for itself.</summary>
-    static IEnumerable<IrLocal> BlockScoped(IrStatement statement) => Declared(statement).Where(Owns);
-
-    static IEnumerable<IrLocal> Declared(IrStatement statement) => statement switch
-    {
-        IrLet let => [let.Local],
-        IrDeclare declare => [declare.Local],
-        _ => [],
-    };
+    static IEnumerable<IrLocal> BlockScoped(IrStatement statement) => IrWalk.Declared(statement) is { } local && Owns(local) ? [local] : [];
 
     static bool Owns(IrLocal local) => local.Kind is IrLocalKind.Value or IrLocalKind.Hold;
 

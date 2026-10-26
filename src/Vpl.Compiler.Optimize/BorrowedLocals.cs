@@ -66,7 +66,7 @@ sealed class BorrowedLocals(IrProgram program, Writes writes)
         footprint.Add(IrEffects.Ending(block));
         foreach (var statement in block.Statements.Skip(at + 1))
         {
-            if (IrWalk.Descendants(statement).Any(s => InPlaceElements.Changes(s, local) || Moves(s, local, place.Local)))
+            if (IrWalk.Descendants(statement).Any(s => IrWalk.Rebinds(s, local, moves: true) || Moves(s, local, place.Local)))
                 return false;
             footprint.Add(IrWalk.Footprint(statement));
         }

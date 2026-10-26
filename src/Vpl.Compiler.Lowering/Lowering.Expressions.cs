@@ -48,9 +48,7 @@ public sealed partial class IrLowering
         {
             case BoundUnary unary:
             {
-                var operand = Value(unary.Operand);
-                bool panics = unary.Operator == BoundUnaryOperator.Negate && unary.Type.IsInteger;
-                return new IrUnary(unary.Operator, operand, panics ? Loc(unary.Location) : null);
+                return new IrUnary(unary.Operator, Value(unary.Operand), Loc(unary.Location));
             }
             case BoundBinary binary:
                 return Binary(binary);
@@ -135,8 +133,7 @@ public sealed partial class IrLowering
         }
         var left = Value(binary.Left);
         var right = Value(binary.Right);
-        var loc = IrBinary.IsChecked(binary.Operator, binary.Left.Type) ? Loc(binary.Location) : null;
-        return new IrBinary(binary.Operator, left, right, binary.Type, loc);
+        return new IrBinary(binary.Operator, left, right, binary.Type, Loc(binary.Location));
     }
 
     /// <summary>The side of a comparison with the <c>null</c> literal that may be null, if that is the comparison.</summary>
@@ -158,8 +155,7 @@ public sealed partial class IrLowering
         if (to.IsNullableReference)
             throw new InvalidOperationException("a conversion to a nullable reference is only made in a call or declaration");
         var operand = to.IsRefStruct ? ViewOperand(conversion.Operand, use) : Value(conversion.Operand);
-        bool panics = to.IsEnum && !from.IsEnum || (from.IsInteger && to == VplType.Char);
-        return new IrConvert(to, operand, panics ? Loc(conversion.Location) : null);
+        return new IrConvert(to, operand, Loc(conversion.Location));
     }
 
     /// <summary>A view as an operand, whose holds last as long as <paramref name="use"/> says.</summary>

@@ -177,6 +177,16 @@ public sealed class IrFootprint
         || (RunsCode && (other.Reads.Any(r => r.WrittenByCode(lambdas)) || other.Writes.Any(w => w.WrittenByCode(lambdas))));
 }
 
+/// <summary>
+/// What a call is given: its receiver (a method's object or struct place, or the function value
+/// invoked), if any, and its arguments, which <see cref="Method"/>'s parameters take in order.
+/// </summary>
+public readonly record struct IrPassed(MethodReference Method, IrArgument? Receiver, IReadOnlyList<IrArgument> Arguments)
+{
+    /// <summary>The receiver, then the arguments, in evaluation order.</summary>
+    public IEnumerable<IrArgument> All => Receiver is null ? Arguments : [Receiver, .. Arguments];
+}
+
 public static class IrWalk
 {
     /// <summary>The places an rvalue names directly, in evaluation order: operands, arguments, and what it refers into.</summary>
@@ -190,16 +200,31 @@ public static class IrWalk
         _ => [],
     };
 
+    /// <summary>What a call, a function value's invocation, or a construction is given, or null for any other rvalue.</summary>
+    public static IrPassed? Passed(IrRvalue value) => value switch
+    {
+        IrCall call => new(call.Method, call.Receiver, call.Arguments),
+        IrInvoke invoke => new(invoke.Signature, invoke.Callee, invoke.Arguments),
+        IrNew creation => new(creation.Constructor, null, creation.Arguments),
+        IrConstruct construction => new(construction.Constructor, null, construction.Arguments),
+        _ => null,
+    };
+
+    /// <summary>The rvalue a <c>let</c> or <c>do</c> evaluates, or null for any other statement.</summary>
+    public static IrRvalue? Rvalue(IrStatement statement) => statement switch
+    {
+        IrLet let => let.Value,
+        IrDo run => run.Value,
+        _ => null,
+    };
+
     /// <summary>The receiver, arguments, and operands of an rvalue, in evaluation order, with its places as arguments.</summary>
     public static IEnumerable<IrArgument> Operands(IrRvalue value) => value switch
     {
+        _ when Passed(value) is { } passed => passed.All,
         IrUse use => [use.Operand],
         IrUnary unary => [unary.Operand],
         IrBinary binary => [binary.Left, binary.Right],
-        IrCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
-        IrInvoke invoke => [invoke.Callee, .. invoke.Arguments],
-        IrNew creation => creation.Arguments,
-        IrConstruct construction => construction.Arguments,
         IrVariant variant => variant.Fields,
         IrArray array => array.Elements,
         IrClosure closure => closure.Captures,
@@ -246,6 +271,37 @@ public static class IrWalk
         }
     }
 
+    /// <summary>The local a statement itself declares in its block, if any.</summary>
+    public static IrLocal? Declared(IrStatement statement) => statement switch
+    {
+        IrLet let => let.Local,
+        IrDeclare declare => declare.Local,
+        _ => null,
+    };
+
+    /// <summary>The locals a block's own statements declare.</summary>
+    public static IEnumerable<IrLocal> Declared(IrBlock block) => block.Statements.Select(Declared).OfType<IrLocal>();
+
+    /// <summary>
+    /// Whether a statement itself may give the local another value: by storing to it or into it,
+    /// by a call given it by <c>ref</c>, by referring to it as something that may (<c>ref</c> or
+    /// <c>addr</c>), or, if <paramref name="moves"/>, by moving out of it, which leaves it empty.
+    /// </summary>
+    public static bool Rebinds(IrStatement statement, IrLocal local, bool moves)
+    {
+        bool IsLocal(IrPlace place) => place.Local == local && !place.IsDeref;
+        if (statement is IrBlock or IrIf or IrLoop)
+            return false;
+        if (IrEffects.Of(statement, moves).Writes.Any(w => IsLocal(w.Place)))
+            return true;
+        return statement is IrLet { Value: var value } && value switch
+        {
+            IrRef { Kind: RefKind.Ref } reference => IsLocal(reference.Place),
+            IrAddr { Kind: RefKind.Ref } address => IsLocal(address.Place),
+            _ => false,
+        };
+    }
+
     /// <summary>The locals a statement, or one inside it, names.</summary>
     public static IEnumerable<IrLocal> Locals(IrStatement statement) => Descendants(statement).SelectMany(OwnLocals);
 
@@ -254,10 +310,9 @@ public static class IrWalk
         IEnumerable<IrLocal> named = statement switch
         {
             IrLet let => [let.Local, .. Slot(let.Value)],
-            IrDeclare declare => [declare.Local],
             IrEnd end => [end.Local],
             IrDo run => Slot(run.Value),
-            _ => [],
+            _ => Declared(statement) is { } declared ? [declared] : [],
         };
         return named.Concat(Operands(statement).SelectMany(Places).SelectMany(PlaceLocals));
     }
@@ -289,17 +344,7 @@ public static class IrWalk
         var footprint = new IrFootprint();
         foreach (var inner in Descendants(statement, intoLambdas: false))
         {
-            switch (inner)
-            {
-                case IrBlock block:
-                    footprint.Add(IrEffects.Ending(block));
-                    break;
-                case IrIf or IrLoop:
-                    break;
-                default:
-                    footprint.Add(IrEffects.Of(inner));
-                    break;
-            }
+            footprint.Add(IrEffects.Itself(inner));
             footprint.Reads.AddRange(Reads(inner));
         }
         return footprint;

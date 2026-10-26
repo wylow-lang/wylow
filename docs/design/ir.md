@@ -44,7 +44,7 @@ Statement   = let x = Rvalue            declare and define a temporary or local
 Rvalue      = Operand | unary/binary (checked ones carry @Loc) | call | new | construct | variant
             | array | default T | closure | lambda | choose | ref Place | addr Place
             | data Place | test (null, tag, class, has_value) | convert | hold Place
-Operand     = constant | copy Place | move Place | borrow Place
+Operand     = constant | copy Place | move Place | borrow Place | borrow.element Place
               (move: a temporary, or part of one, that isn't used again)
 Argument    = Operand | ref Place | in Place | addr Place      (a call's receiver and arguments)
 Place       = Base Projection*
@@ -305,7 +305,7 @@ already lowered by the binder to a span local and a counting loop, so it needs n
     if %more { } else { break L }
     {
       let %p = call ReadOnlySpan.index(in span, i) @loc
-      let e = copy *%p             // the borrow rule (§6.3) may make this `borrow *%p`
+      let e = copy *%p             // InPlaceElements may make this `borrow.element *%p`
       ...
     }
   } continue {

@@ -1,6 +1,5 @@
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
-using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Optimize;
@@ -63,28 +62,11 @@ sealed class InPlaceElements
         var type = element.Type.NonNull;
         foreach (var statement in statements)
         {
-            if (IrWalk.Descendants(statement).Any(s => Changes(s, element)))
+            if (IrWalk.Descendants(statement).Any(s => IrWalk.Rebinds(s, element, moves: true)))
                 return false;
-            foreach (var inner in IrWalk.Descendants(statement, intoLambdas: false).Where(s => s is not (IrIf or IrLoop)))
-            {
-                if (writes.MayStoreOverElement(inner is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(inner), type))
-                    return false;
-            }
+            if (IrWalk.Descendants(statement, intoLambdas: false).Any(s => writes.MayStoreOverElement(IrEffects.Itself(s), type)))
+                return false;
         }
         return true;
-    }
-
-    /// <summary>Whether a statement stores to the variable, or refers to it as something that may.</summary>
-    internal static bool Changes(IrStatement statement, IrLocal local)
-    {
-        bool IsLocal(IrPlace place) => place.Local == local && !place.IsDeref;
-        if (statement is not (IrBlock or IrIf or IrLoop) && IrEffects.Of(statement).Writes.Any(w => IsLocal(w.Place)))
-            return true;
-        return statement is IrLet { Value: var value } && value switch
-        {
-            IrRef { Kind: RefKind.Ref } reference => IsLocal(reference.Place),
-            IrAddr { Kind: RefKind.Ref } address => IsLocal(address.Place),
-            _ => false,
-        };
     }
 }

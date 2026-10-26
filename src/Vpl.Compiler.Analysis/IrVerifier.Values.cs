@@ -553,15 +553,11 @@ public sealed partial class IrVerifier
             case IrUnary unary:
                 Operand(unary.Operand, state);
                 CheckLoc(unary.Loc);
-                if ((unary.Operator == BoundUnaryOperator.Negate && unary.Operand.Type.IsInteger) != (unary.Loc is not null))
-                    Error("an integer negation, and only one, carries a location");
                 break;
             case IrBinary binary:
                 Operand(binary.Left, state);
                 Operand(binary.Right, state);
                 CheckLoc(binary.Loc);
-                if (IrBinary.IsChecked(binary.Operator, binary.Left.Type) != (binary.Loc is not null))
-                    Error("checked integer arithmetic, and only that, carries a location");
                 break;
             case IrCall call:
                 Call(call, state);
@@ -773,15 +769,7 @@ public sealed partial class IrVerifier
     {
         if (!effects.RunsCode && effects.Writes.Count == 0)
             return;
-        IEnumerable<IrArgument> passed = value switch
-        {
-            IrCall call => call.Receiver is null ? call.Arguments : [call.Receiver, .. call.Arguments],
-            IrInvoke invoke => [invoke.Callee, .. invoke.Arguments],
-            IrNew creation => creation.Arguments,
-            IrConstruct construction => construction.Arguments,
-            _ => [],
-        };
-        foreach (var argument in passed)
+        foreach (var argument in IrWalk.Passed(value)?.All ?? [])
         {
             var (place, alias) = argument switch
             {

@@ -152,19 +152,8 @@ public sealed partial class CppEmitter
         // A function value's call has no callee of its own here; the lambdas it may run are part of their creators.
         foreach (var function in program.Functions.Where(f => !f.IsLambda))
         {
-            var edges = IrWalk.Descendants(function.Body).Select(s => s switch
-                {
-                    IrLet { Value: var value } => value,
-                    IrDo { Value: var value } => value,
-                    _ => null,
-                })
-                .Select(v => v switch
-                {
-                    IrCall call => (Callee: call.Method.Symbol, call.Arguments),
-                    IrNew creation => (Callee: creation.Constructor.Symbol, creation.Arguments),
-                    IrConstruct construction => (Callee: construction.Constructor.Symbol, construction.Arguments),
-                    _ => default,
-                })
+            var edges = IrWalk.Descendants(function.Body).Select(IrWalk.Rvalue)
+                .Select(v => v is not IrInvoke && v is not null && IrWalk.Passed(v) is { } passed ? (Callee: passed.Method.Symbol, passed.Arguments) : default)
                 .Where(e => e.Callee is not null).ToList();
             if (!calls.TryGetValue(function.Symbol, out var callees))
                 calls[function.Symbol] = callees = [];

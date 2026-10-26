@@ -62,7 +62,7 @@ static class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b)];
+        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations()];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
@@ -103,6 +103,24 @@ static class IrSelfTests
         catch (InvalidOperationException)
         {
             return new("ir/let_rule", null);
+        }
+    }
+
+    /// <summary>An operation has a location exactly when it may panic, which its IR node decides, so the emitter can follow it.</summary>
+    static TestResult PanicLocations()
+    {
+        var (one, loc) = (IrConstant.Int(1), new IrLoc((Location?)null));
+        if (new IrBinary(BoundBinaryOperator.Less, one, one, VplType.Bool, loc).Loc is not null
+            || new IrBinary(BoundBinaryOperator.Add, one, one, VplType.Int, loc).Loc is null)
+            return new("ir/panic_locations", "a binary operation's location doesn't say whether it may panic");
+        try
+        {
+            _ = new IrUnary(BoundUnaryOperator.Negate, one);
+            return new("ir/panic_locations", "an integer negation was made without a location");
+        }
+        catch (ArgumentException)
+        {
+            return new("ir/panic_locations", null);
         }
     }
 
