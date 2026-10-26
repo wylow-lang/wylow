@@ -44,8 +44,9 @@ may store to and the types it writes through unseen storage; hold elision and th
 every implicit release is explicit (a block's end, `IrEffects.Ending`; a callee's by-value
 parameters, in `Writes`), `Callees` resolves a release through `CyclicClasses.Destroyable`, and
 `Callees.ExternRuns` says what `Memory`'s externs run (see ir.md §7 step 6).
-**Step 6, borrowed locals, is done** (`Optimize/BorrowedLocals.cs`, ir.md §6.3 and §7). **Next:
-last-use moves** (§9.10); struct-valued locals and `?.` receivers could also borrow.
+**Step 6, borrowed locals, is done** (`Optimize/BorrowedLocals.cs`, ir.md §6.3 and §7). **Last-use
+moves are done** (`Optimize/LastUseMoves.cs`, ir.md §7). Step 6 is finished; **next: step 7**
+(flow checks to IR). Struct-valued locals and `?.` receivers could also borrow.
 
 Notes for borrowed locals, from planning at the end of the last session:
 - Rule: `let x = copy P` becomes `let x: borrowed = borrow P` when nothing in the rest of x's

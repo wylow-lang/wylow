@@ -49,7 +49,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (HoldElision, InPlaceElements, BorrowedLocals, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -79,7 +79,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
   count, where nothing can store over the element; the verifier re-checks it with `Writes`).
   `BorrowedLocals.cs` (borrows the place a named class-typed local is copied from, where nothing
-  to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). Tests
+  to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). `LastUseMoves.cs` (moves a named local into its last
+  use where releasing its type can't be observed). Tests
   mark their loops with `// in-place: <n>`. `StackSlots.cs` (puts objects and closures that can't
   outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
   with `// stack: <n>`, and a test observing an optimization through diagnostics is
