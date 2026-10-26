@@ -52,7 +52,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → Optimize (HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → LambdaWrites → Optimize (HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+
+This is the pipeline as it is; the target, and the order of work to reach it, is
+`docs/design/architecture.md`.
 
 - `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
 - `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
@@ -66,7 +69,8 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
-  `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
+  `LambdaWrites.cs` (what each lambda may change around it, which the verifier asks from where
+  the lambda is made on). `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
   of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
@@ -118,8 +122,11 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Rules
 
-- **All safety checking happens in the binder and flow analysis.** The emitter only translates and
-  must never produce C++ with undefined behavior. A C++ compile failure is a compiler bug.
+- **All safety checking happens before the emitter**: names and types in the binder, everything
+  about order and flow in flow analysis. Flow checks are moving from `FlowAnalyzer` onto the IR
+  (architecture.md, step 4): add new ones on the IR, never to `FlowAnalyzer`. The emitter only
+  translates and must never produce C++ with undefined behavior. A C++ compile failure is a
+  compiler bug.
 - **Evaluation order is left to right.** Lowering makes it explicit: each operand is computed by
   its own instructions in order, and the emitter nests one back into its use only where
   `IrEffects`/`IrAccess` show nothing in between can tell. A new instruction must be described
@@ -141,9 +148,10 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
   it, they call the same definition, on `VplType`, `IrLocal`, `IrEffects`, or an analysis, not a
   private helper each. A second copy drifts, and in a compiler the drift is a miscompile or a
   missed check that nothing reports. Before writing a predicate, search for one that answers the
-  same question; if its answer is wrong for you, fix it there, for every caller. When a precise
-  and a conservative answer both have to exist (lowering can't read analyses), say on each which
-  it is and who must use the other.
+  same question; if its answer is wrong for you, fix it there, for every caller. If a layer needs
+  an answer that only a later layer has, the work is in the wrong layer (architecture.md): move
+  it, don't guess. Prefer enforcing a rule by structure (a project boundary, a required member, a
+  visitor) over a comment or a convention.
 - **Replace, don't layer.** When a new mechanism takes over from an old one (the IR from the bound
   tree, an analysis from a local rule), move every caller and delete the old one in the same
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated

@@ -5,11 +5,11 @@ The first step of the simplification pass. It makes no code changes. Every file 
 `Types.cs`, `Binder.Escaping.cs`, `Compilation.cs`, and the emitter's IR, nesting, lambda, type,
 and cycle files. The rest of the binder was swept for predicates by shape, not read line by line.
 
-Each finding is marked **confirmed** (reproduced with a probe program, kept in the session's
-scratchpad and quoted below) or **by reading** (the code says so, but nothing was run).
+Each finding is marked **confirmed** (reproduced with a probe program, quoted below) or **by
+reading** (the code says so, but nothing was run). Line numbers are as of commit 97642cb.
 
 Ranked by risk: soundness and crashes first, then wrong errors, then missed optimizations, then
-clutter. The proposed order is at the end.
+clutter.
 
 ---
 
@@ -291,30 +291,8 @@ the verifier's check flow-sensitive the same way), and add a test that runs it b
 
 ---
 
-## Proposed order
+## Order
 
-Each group is one change: one build, then the suite on MSVC and g++, plus `--no-opt` and
-`--no-nest` for groups that touch the IR. The probe programs from findings 1, 2, and 3 become
-test cases first, each in the group that fixes it.
-
-1. **Narrowing and lambda writes** (finding 1, the crash). Add the probe as `tests/cases/nullable/…`
-   expecting its output. Make "may a lambda have changed `l` here" flow-sensitive in the verifier,
-   with `IsChangedByLambda` documented as the conservative whole-function answer. This is the
-   highest-risk group: it touches every pass that reads the flag.
-2. **Type predicates** (findings 2 and 8, and the predicate half of 4). Add `IsCounted`, rename
-   `MayHoldReferences` to `ReleaseMayRunCode`, move `IsHolder`/`HoldsReference`, the non-escaping
-   pair, `HasDefaultCode`, and `DefaultRunsCode` onto `VplType`, and fix `CheckBuilt` and the
-   `IrZeroed` comment. The enum-of-`Weak` test goes here. Behavior changes only for the enum, so
-   `.out` files stay the same.
-3. **Widen the optimizations** (the rest of finding 2, and finding 7's LastUseMoves question): let
-   LastUseMoves, InPlaceElements, and BorrowedLocals take `IsCounted` types. This is separate from
-   group 2 because it changes `// in-place:` counts and `.out` files.
-4. **Storage and change** (findings 3 and 5): one storage model with `IsObjectBase`, the verifier
-   on it, `CodeWrites` going to `Writes.CodeMayWrite`, one `Chain`, and `IsStable` replaced. The
-   release-order probe becomes a test, with the expected output following the spec (both
-   statements release at the end).
-5. **Borrowable and local roles** (findings 6 and 7): `MayBeBorrowable` once, `IrLocalRole`,
-   `LoopElements` folded into the local.
-6. **CyclicClasses on the IR** (finding 9): delete `WholeProgram` and lowering's `Analyses`
-   parameter, keep one `Erase`, and recompute or document `Writes` across passes.
-7. **Walkers** (finding 11): `Declared`, `Rebinds`, `Passed`, the local-kind rule, and panics by `Loc`.
+The order of work is the migration in [docs/design/architecture.md](../design/architecture.md),
+which maps these findings onto its steps. This file only records what was found. Delete it once
+every finding is done.

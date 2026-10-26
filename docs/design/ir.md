@@ -1,7 +1,7 @@
 # The mid-level IR
 
-Status: implemented (§7); the design decisions are in §9. Details may still change as the work
-shows what makes sense.
+Status: implemented; the design decisions are in §9. Which layer answers which question, and how
+that is enforced, is [architecture.md](architecture.md), which wins where this document differs.
 
 ## 1. Summary
 
@@ -21,20 +21,6 @@ Lower each function, after binding and flow analysis, into an IR with:
   parameter.
 
 Not SSA. Not monomorphized (C++ templates still do that).
-
-The payoff, concretely:
-
-- The dozen place walkers become one place representation. The eight effect
-  predicates behind `Ordered` go away; the emitter only needs a small per-instruction effect table
-  to decide when it may nest a temporary back into an expression, and the safe default is not to.
-- Pin omission, `ElementAliasing`, and the planned "locals copied out of containers" are one
-  rule: *a copy of a place can be a borrow if nothing in the borrow's extent may write the place*.
-  Escape analysis gets one flow rule per instruction kind instead of one per bound node kind.
-- An **IR verifier** checks the memory-safety invariants mechanically on every test: every use
-  of a reference or view lies inside a hold of its root, or the root is provably stable. Missing a
-  case stops being a silent memory-safety bug and becomes a verifier failure in the suite.
-- A new surface feature needs only lowering. Its analyses and its C++ come from the instructions
-  it lowers to.
 
 ## 3. The IR
 
@@ -122,31 +108,9 @@ statement's scope. That's the same guarantee, made explicit.
 
 ## 4. Where it sits
 
-```
-Lexer → Parser → Binder → FlowAnalyzer → Lower → (verify) → IR passes → (verify) → CppEmitter
-                     ↑ checks use the shared PlacePath (§7, step 1)
-```
-
-**Stays on the bound tree:** binding, types, overloads, every check that reports an error
-(`ClassifyPlace`, the reference, span, and nullable-value checks, `MatchSpace`), and
-`FlowAnalyzer`. Errors need source terms. Several checks run during binding and steer it (a
-conversion is chosen only if the place qualifies). `FlowAnalyzer`'s narrowing is already encoded
-in the tree (`AssumesNonNull`), which lowering simply reads. The place-shaped checks share one
-decomposition with lowering, so a new kind of place is taught once (§7, step 1).
-
-**Moves to lowering:** every decision the emitter makes today about order, temporaries, holds,
-copies, `try`, and pattern matching.
-
-**Moves onto the IR:** `ElementAliasing`, `StackObjects`, the pin-omission decision, the
-whole-program write and escape summaries, and the call graph `FindRecursive` walks.
-
-**Stays as it is:** `CyclicClasses` (type-level; it reads closures' captures, which are now
-explicit), `Overrides`, `FunctionValues`, the type and declaration half of the emitter
-(`CppEmitter.Types.cs`, `CppEmitter.Cycles.cs`, signatures, templates, memberwise forms), and the
-runtime.
-
-`WholeProgram.Unit` disappears: lowering puts field initializers and the implicit base
-constructor call into the constructor's IR, so a unit is a function.
+The layers and the pipeline are in [architecture.md](architecture.md). Until its migration is
+done, FlowAnalyzer still checks the bound tree before lowering, and lowering still takes shortcuts
+(`IsStable`, `Settle`) that the contract moves into passes.
 
 ## 5. How the existing features lower
 
@@ -211,7 +175,7 @@ In the listing above, `%c` nests into the `print` call and `%b` into `%c`. `%a` 
 { auto tmp_0 = l_obj->f_x; vpl::print(vpl::add(tmp_0, fn_f(), "t.vpl:3:13")); }
 ```
 
-With field-precise summaries (§7, step 6), if `f` writes no `x` of `obj`'s class, `%a` nests too:
+With field-precise summaries (`Writes`), if `f` writes no `x` of `obj`'s class, `%a` nests too:
 `vpl::print(vpl::add(l_obj->f_x, fn_f(), "t.vpl:3:13"))`.
 
 `g(k(), h())`, where `k` and `h` conflict:
@@ -244,8 +208,7 @@ do call g(move %x, move %y)
 { auto tmp_0 = vpl::at(l_a, l_i, "t.vpl:5:7"); fn_g(tmp_0, vpl::at(l_b, l_j, "t.vpl:5:13")); }
 ```
 
-That replaces `Ordered`'s lambda with a scope. The important property is that nesting is the
-emitter's only freedom, and declining to nest is always correct.
+The important property is that nesting is the emitter's only freedom, and declining to nest is always correct.
 
 ### 5.2 Places, holds, and borrows
 
@@ -384,11 +347,11 @@ Each lambda is an `IrFunction`.
 - A **non-escaping** lambda's body refers to its creator's locals as places directly. `let %f =
   lambda λ3` has no effect, and the emitter nests it into its use, so it's still a C++ `[&]`
   lambda passed to a template. A call that receives it, or calls a function value that may be it,
-  may run its body. Its writes to captured locals are ordinary `store`s in that body, which
-  replaces `FindLambdaChanged` and `RunsLambdas` with the callee's summary (§6.1).
+  may run its body. Its writes to captured locals are ordinary `store`s in that body, so what it
+  changes comes from the body's effects (§6.1), from where it is made on.
 - An **escaping** lambda is `closure λ4 [copy n, copy this] in heap` (or `in slot %s`). Its
   captures are explicit operands, and in the lambda's function they are parameters. That's what
-  `StackObjects` and `CyclicClasses` need to see: a closure holds its captures as an object holds
+  escape analysis and `CyclicClasses` need to see: a closure holds its captures as an object holds
   its fields.
 - A **choice** of non-escaping functions is `choose %index [λ1, λ2, borrow g]`. The index is
   computed by ordinary control flow, and an escaping option is evaluated only on its branch, into
@@ -438,7 +401,7 @@ One function gives each instruction's effects:
 
 - the places it reads and writes, classified as: local `x`; field `f` of objects of class `C`; an
   element of type `T`; anything through a reference or pointer of type `T`; or unknown;
-- what it may run: callees (through `WholeProgram.Targets`), lambdas (passed, or the
+- what it may run: callees (through `Callees`), lambdas (passed, or the
   `FunctionValues` of a called function value), and destructors (the types it releases);
 - whether it may panic, and what it allocates;
 - whether it writes the world (panics, I/O, and unknown code do), and whether it creates a value
@@ -446,23 +409,20 @@ One function gives each instruction's effects:
 
 A call's reads and writes come from its callees' summaries, computed with the existing
 `Summaries<T>` worklist. A summary is the union of its instructions' effects, so it only grows.
-This replaces the eight effect predicates and `ElementAliasing`'s `Write` collection. It is the
-only place that knows what each instruction does, and there are about twenty instruction kinds
+It is the only place that knows what each instruction does, and there are about twenty instruction kinds
 rather than about forty bound node kinds.
 
 Releases being explicit made one imprecision the spec documented cheap to fix (§3.4, "One
-destructor can slow down unrelated loops"; fixed in step 6). The destructors that may run at a release of a `T` are
+destructor can slow down unrelated loops"; since fixed). The destructors that may run at a release of a `T` are
 those of the classes reachable from `T` through strong fields, which is the graph `CyclicClasses`
 already builds. A loop that releases no `Squad` would no longer be slowed by `~Squad`.
 
-### 6.2 Rule: hold elision (today's pin omission)
+### 6.2 Rule: hold elision
 
 > `let %h = hold P` over extent E can be `borrow P` if no instruction in E may write `P` or a prefix of it.
 
-A first version uses exactly today's `IsStable`. That rule is sound because only the function
-itself can assign a local that no lambda assigns, `this`, or an immutable field. It keeps the
-output unchanged. The general version uses the effect table: a `mut` field `f` needs no pin if
-nothing in E may write `f` of that class.
+Only the function itself can assign a local that no lambda assigns, `this`, or an immutable
+field, and a `mut` field `f` needs no pin if nothing in E may write `f` of that class (`Writes`).
 
 > `let %h = hold.borrow P` can be removed if E runs no code.
 
@@ -471,14 +431,14 @@ by value needs no borrow" and "storing a value that runs no code" rows of the sp
 borrow that a `ref`, `in`, or span variable or a for-each loop points into is kept: the table says
 it lasts for the variable's scope, and the object's own fields can show that without running code.
 
-### 6.3 Rule: borrowed locals (today's `ElementAliasing`, generalized)
+### 6.3 Rule: borrowed locals
 
 > `let x = copy P`, where x is never written or moved, can be `let x = borrow P` if no instruction
 > in x's live range may write P or a prefix of it, and P's root is held over that range.
 
 A loop element is the case where `P` is an element of the loop's held span: the writes that
-matter are writes to elements of `x`'s type, and destructors. That's today's analysis, with the
-same whole-program summaries. The general rule also covers "avoiding reference counting for locals
+matter are writes to elements of `x`'s type, and destructors, from the whole-program write
+summaries (`Writes`). The general rule also covers "avoiding reference counting for locals
 copied out of containers", struct-valued locals (which save a copy of every counted field), and
 receivers. Tests keep their `// in-place:` markers.
 
@@ -508,7 +468,7 @@ accepts it. The table is kept honest separately (§9.9).
 Failures are compiler bugs, reported with the IR dump (`vpl ir file.vpl`, a new CLI command that
 prints the IR, which is also the way to debug lowering).
 
-### 6.5 Escape analysis (today's `StackObjects`)
+### 6.5 Escape analysis
 
 Values are allocation sites, and each instruction kind has one flow rule:
 
@@ -516,12 +476,10 @@ Values are allocation sites, and each instruction kind has one flow rule:
 - a `store` to a local declared in the analyzed scope flows into it, and any other `store` escapes;
 - a `return` flows to the result;
 - a call passes values to its callees' parameter summaries;
-- `closure` flows its captures into the closure, as `StackObjects.Lambda` does.
+- `closure` flows its captures into the closure.
 
-The summary shape stays the same (escaping parameters, `this`, returned parameters, captures).
-What goes away is the per-node `Value` switch and the heuristics about where a local's
-declaration is, since blocks and slots are explicit. The `// stack:` markers keep the behavior
-pinned while it's ported.
+A summary has the escaping parameters, `this`, the returned parameters, and the captures. Tests
+mark stack objects with `// stack:`.
 
 ### 6.6 Dataflow, and whether to use Datalog
 
@@ -550,78 +508,10 @@ a form that could feed a small semi-naive evaluator later. Revisit when lifetime
 That's the first analysis with genuinely recursive relations (region outlives region), where
 Datalog earns its keep.
 
-## 7. Migration: done
+## 7. Migration from the bound-tree emitter
 
-Every step kept the suite passing on MSVC and g++. The order was chosen so that the big
-constructs (lambdas' captures, what a constructor's unit is) tested the IR's model before the
-small ones, and the risky part was step 3, destruction order inside statements: the target was the
-spec's rule (§9.10), not the old emitter's, and a test whose output changed was checked against it.
-`--no-nest` separates lowering bugs from nesting bugs.
-
-1. `PlacePath` on the bound tree: one decomposition of a place or view that every check uses.
-2. The IR types, printer, verifier, and an effect table; self-tests build IR by hand.
-3. Lowering and an IR emitter. Hold elision, in-place elements, and stack slots were first ported
-   as lowering's decisions, then as the passes of step 5.
-4. The IR is the only path: the emitter's expression and statement half was deleted.
-5. The analyses on the IR: `InPlaceElements` (`ElementAliasing`), `StackSlots` (`StackObjects`,
-   with `Analysis/Escapes`), and `HoldElision`, all after lowering (§9.11), over `Callees`.
-6. Generalizing, each step a measurable improvement:
-   - field-precise write summaries: `WriteSet` also has the fields code may store to by name, and
-     the types of the storage it writes through references, pointers, and struct `this` (which
-     may lie in any field whose value contains that type). Hold elision and the verifier's
-     `CodeWrites` ask `Writes.CodeMayWrite` instead of treating every `mut` field as written by
-     any code. Nesting (§5.1) and lowering's `Settle` still use the conservative rule: nesting
-     could use the precise one for shorter C++, but lowering mustn't read analyses (§9.11);
-   - borrowed locals (`Optimize/BorrowedLocals.cs`, after hold elision): a named local of a class
-     type copied from a place becomes a borrow if nothing from the next statement to its block's
-     end, releases included, may change the place or what the aliases on its path borrow, and the
-     local is never stored, moved, or referenced `ref`. It runs to the block's end, not the last
-     use, since the copy would have kept the object alive until then. `Aliasing` is shared with
-     hold elision. Struct-valued locals, parameters, and `?.`'s receiver copy aren't borrowed: no
-     test has one a borrow would be correct for;
-   - destructor precision (§6.1): `IrRunRelease` has the released type (none: any), every implicit
-     release is explicit in the effects (a block's end, `IrEffects.Ending`; a callee's by-value
-     parameters, in `Writes`), and `Callees` resolves a release to the destructors and
-     `Borrowable` methods of `CyclicClasses.Destroyable(type)`. Summaries keep releases as types,
-     resolved by `Writes.Of` after mapping, so `List<T>`'s drop of a `T` counts only `Enemy`'s
-     destructor in a `List<Enemy>`. `Callees.ExternRuns` says what `Memory`'s externs run: `drop`
-     releases, `initializeDefault` runs field initializers (unobservable until statics exist, but
-     a hole), `collectCycles` releases anything. `containers/loop_elements_destructor` shows it;
-   - last-use `move`s (`Optimize/LastUseMoves.cs`, after `BorrowedLocals`; §9.10): a named local
-     or by-value parameter whose mentions are all whole or partial copies, and whose last mention
-     is a whole copy in the only mention in an instruction that takes ownership (a by-value
-     argument, a store, a `let`, a field of a variant or array, a capture), in the loop it is
-     declared in, becomes a `move`, if releasing its type runs no code (`Callees` resolves the
-     release to no function) and no `Weak` in the program can refer to an object that release may
-     destroy (`CyclicClasses.Destroyable` against each `Weak<T>`'s `T`, subtypes included). The
-     verifier accepts moving any local's whole value, and the dataflow rejects a later use; a move
-     of a non-temporary is a write in `IrEffects` so that C++ can't order a read of it after the
-     move. Temporaries are already moved by lowering, and C++ moves a returned local itself. A
-     `Weak<T>` of a type parameter counts as referring to anything, a slightly conservative rule
-     that may block some moves (not measured).
-7. The effect-shaped flow checks moved onto the IR (§9.4):
-   - `LocalSymbol.IsChangedInPlaceByLambda` is gone: each lambda's `IrFunction.ChangesAround`
-     (what its body's effects write outside it) is found by `Analysis/LambdaWrites.cs` each time
-     the IR is verified. The verifier asks only the lambdas made on the path so far, as flow
-     analysis does. Lowering marks `IrLocal.IsChangedByLambda`, the whole-function answer, on
-     every writable local a non-escaping lambda captures (and a struct constructor's value, if one
-     uses `this`). Once the lowered program is verified, it is made exact. The verifier checks
-     that the flag covers every lambda's changes;
-   - the nullable-value reference rule is an IR check: the verifier, given the diagnostics,
-     reports a use of `v!` in an operation that passes `v` by `ref`, or after an operand of the
-     same expression did, as the source error (`Compilation` stops after the lowered program's
-     verification if there is one; `IrProgram.Origins` says which expression a statement came
-     from). The two cases the tree rule rejected that evaluate fine (`v.x = clear(ref v)` and the
-     like) are still rejected, by the operand-order check, since accepting them is the language
-     change of §9.6;
-   - `FlowAnalyzer`'s assignment walkers are gone: a loop is analyzed to a fixpoint (the state at
-     its top is the join of the one before it and each iteration's end), and what a non-escaping
-     lambda assigns is noted while its body is analyzed, so narrowing of that local ends where
-     the lambda is made, not for the whole function. `IsBinding` is gone too: the verifier
-     tracks, for each `bool` local, what is assigned where it is true and where it is false, so a
-     pattern's name is known to be stored where the condition that read it was true. A `ref`
-     binding in a loop condition is declared in the loop, since it is bound again in each
-     iteration.
+Done. Its steps are in git history (up to commit ae88e59, which trimmed them from this document).
+The migration now under way is [architecture.md](architecture.md)'s.
 
 ## 9. Decisions
 
@@ -646,31 +536,24 @@ spec's rule (§9.10), not the old emitter's, and a test whose output changed was
    order C++ allows, with four kinds of conflict, a value whose release may be observable nested
    only into its statement's last C++ statement, no `store` or hold nested, and no reliance on
    C++17's receiver-first ordering. The first algorithm nests only adjacent temporaries.
-4. **Flow analysis: stay or move?** **Decided: split it by what each check asks.** Definite
-   assignment, returns on every path, reachability, constructor field assignment, and narrowing
-   stay on the bound tree: VPL has no `goto`, so the tree's control flow is as structured as the
-   IR's, and moving them gains no precision while forcing lowering to run on programs with errors.
-   The checks that ask "may anything in extent E write P" belong on the IR, because that is the
-   effect table's question: the nullable-value reference rule (`FlowAnalyzer`'s operand check and
-   its own "locals a statement may assign" walkers), §9.6, and lifetime analysis. **They move in
-   step 7 (§7)**, which deleted `FlowAnalyzer`'s assignment walkers. The verifier no longer trusts
-   `FlowAnalyzer` for a pattern's names: it knows from the `bool` a condition is stored in which locals
-   are assigned where it is true.
+4. **Flow analysis: stay or move?** First decided as a split, with assignment, returns,
+   reachability, constructor fields, and narrowing staying on the bound tree. **Superseded
+   (architecture.md):** every flow check moves onto the IR's one flow analysis and `FlowAnalyzer`
+   is deleted, since two flow analyses gave two answers to what a lambda may change. Typing doesn't
+   depend on flow, because the binder narrows from what the context needs (`AssumesNonNull`) and
+   only the check asks whether it was checked.
 5. **Bounds checks as separate instructions?** **Decided: yes** (pure places), with the emitter
    fusing them back into `vpl::at`.
 6. **Accept more programs once the IR can check them?** For example, allow a `ref` into a `mut`
    nullable local as long as nothing in its extent may write the local. This is a language change,
-   for the spec. **Decided: defer** until after step 5, when the check can use real effect
-   summaries rather than `IsStable`.
+   for the spec. **Decided: defer** until the flow analysis is on the IR (architecture.md).
 7. **Lift the restrictions that exist only because of how C++ is emitted?** **Decided: yes for
-   `try`** (only as a statement's whole value, not in a `for` update), as soon as `try` lowers in
-   step 3, where tests using it mid-expression also prove the lowering general. **`CheckCaseCaptures`
+   `try`** (only as a statement's whole value, not in a `for` update), since tests using it mid-expression prove the lowering general. **`CheckCaseCaptures`
    stays** (§5.7): it isn't caused by the emitter.
 8. **Datalog?** **Decided: not now** (§6.6). Revisit with lifetime analysis.
 9. **Keeping the effect table honest.** The verifier can't catch an effect table that under-reports
    a write (§6.4). **Decided:** the table is one visitor over instruction kinds (C# doesn't check a
-   `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-opt` (first
-   `--no-elide`) turns every optimization off (every `copy` stays a copy, every hold a hold, every
+   `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-opt` turns every optimization off (every `copy` stays a copy, every hold a hold, every
    object on the heap), so the suite can compare outputs.
 10. **Destruction order inside a statement.** **Decided: specify it now**, before step 3, so that
    step 3 targets the spec rather than whatever today's emitter does (§3.4, When references are
@@ -692,7 +575,7 @@ spec's rule (§9.10), not the old emitter's, and a test whose output changed was
 
 ## 10. Prior art for reference-count optimization
 
-Where to look when writing the rules of §6.2, §6.3, and step 6. Each of these releases at last
+Where to look when writing reference-count rules (§6.2, §6.3, `Writes`). Each of these releases at last
 use or doesn't specify release timing, so a rule taken from one must still pass §9.10: it may
 release earlier only where nothing can tell.
 

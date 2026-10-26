@@ -316,6 +316,8 @@ mut var target = enemies.first;
   regardless of the method it overrides.
 - `const` declares a compile-time constant: `const float PI = 3.14159;`.
 
+> Not implemented yet: a warning for a `mut` variable that is never changed.
+
 ## 2.8 Enums
 
 Enums can be plain (like Java) or carry data per variant (tagged unions).

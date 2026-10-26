@@ -584,6 +584,11 @@ be done when profiling shows it matters.
   `x.map(m -> m.name)` an error asking for type arguments. Binding the body once per distinct
   parameter-type list, and sharing it, would lift that.
 
+### Standard library
+
+> Not implemented yet: `List.removeWhere`, and a `sort` on spans that takes a comparison, both
+> written in VPL.
+
 ## 6.8 `defer`
 
 `defer statement;` runs the statement when the enclosing scope exits (normally, or via
