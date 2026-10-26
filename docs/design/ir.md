@@ -600,9 +600,13 @@ spec's rule (§9.10), not the old emitter's, and a test whose output changed was
      `Weak<T>` of a type parameter counts as referring to anything, a slightly conservative rule
      that may block some moves (not measured).
 7. The effect-shaped flow checks moved onto the IR (§9.4):
-   - `LocalSymbol.IsChangedInPlaceByLambda` is gone: lowering marks `IrLocal.IsChangedByLambda`
-     on every writable local a non-escaping lambda captures, and the `LambdaWrites` pass clears it
-     where no lambda body's effects write the local;
+   - `LocalSymbol.IsChangedInPlaceByLambda` is gone: each lambda's `IrFunction.ChangesAround`
+     (what its body's effects write outside it) is found by `Analysis/LambdaWrites.cs` each time
+     the IR is verified. The verifier asks only the lambdas made on the path so far, as flow
+     analysis does. Lowering marks `IrLocal.IsChangedByLambda`, the whole-function answer, on
+     every writable local a non-escaping lambda captures (and a struct constructor's value, if one
+     uses `this`). Once the lowered program is verified, it is made exact. The verifier checks
+     that the flag covers every lambda's changes;
    - the nullable-value reference rule is an IR check: the verifier, given the diagnostics,
      reports a use of `v!` in an operation that passes `v` by `ref`, or after an operand of the
      same expression did, as the source error (`Compilation` stops after the lowered program's

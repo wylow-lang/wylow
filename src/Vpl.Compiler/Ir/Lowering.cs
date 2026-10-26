@@ -24,6 +24,9 @@ public sealed partial class IrLowering
     readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly HashSet<LocalSymbol> capturedByLambda = [];
+
+    /// <summary>Whether a non-escaping lambda uses <c>this</c>, which in a struct constructor is the value it makes.</summary>
+    bool thisCapturedByLambda;
     readonly Dictionary<IrStatement, Location> origins = new(ReferenceEqualityComparer.Instance);
     Location? at;
     readonly Dictionary<IrRvalue, Location> valueOrigins = new(ReferenceEqualityComparer.Instance);
@@ -87,7 +90,11 @@ public sealed partial class IrLowering
     {
         function.HasLocationParameter = symbol.PassesLocation;
         foreach (var lambda in BoundTree.AllExpressions(bound.Body).OfType<BoundLambda>().Where(l => !l.Function.IsEscaping))
-            capturedByLambda.UnionWith(BoundTree.Captures(lambda).Locals.Select(a => a.Local).Where(l => l.IsWritable));
+        {
+            var (captured, capturedThis) = BoundTree.Captures(lambda);
+            capturedByLambda.UnionWith(captured.Select(a => a.Local).Where(l => l.IsWritable));
+            thisCapturedByLambda |= capturedThis is not null;
+        }
         foreach (var parameter in function.Parameters)
             parameter.IsChangedByLambda = parameter.Symbol is { } captured && capturedByLambda.Contains(captured);
         var statements = bound.Body.Statements;

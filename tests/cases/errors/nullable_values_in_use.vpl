@@ -27,6 +27,14 @@ void bump(ref int a, int b) {
     a += b;
 }
 
+void apply(in int a, () -> void f) {
+    f();
+}
+
+void call(() -> void f) {
+    f();
+}
+
 void main() {
     mut Vec? v = Vec(x: 1);
     if (v != null) {
@@ -47,4 +55,15 @@ void main() {
     if (v != null) {
         print(v.pair[clear(ref v)]);    // error: 'v' is passed by 'ref' while its value is in use here
     }
+    // A lambda made during the operation can run while the place is used.
+    if (v != null) {
+        apply(v.x, () -> { v = null; });    // error: a lambda that may assign 'v' can run while its value is in use here
+    }
+    // Inside a lambda, its own operations are checked the same way.
+    call(() -> {
+        mut Vec? w = Vec(x: 1);
+        if (w != null) {
+            w.x = clear(ref w);             // error: 'w' is passed by 'ref' while its value is in use here
+        }
+    });
 }

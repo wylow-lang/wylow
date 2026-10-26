@@ -243,7 +243,9 @@ stored. Nullable values follow the rules above, and also:
   v.x = 1; v.move(); }` changes `v`. Nothing may keep referring into that value, since assigning `v` null
   destroys it: a `ref` or `in` variable, a span, or a `for` loop over its elements is an error
   (copy the value to a variable first), as is passing `v` by `ref` in the same call or assignment
-  that uses its value by reference (`v.moveWith(ref v)`). A `ref` variable can't refer to a nullable
+  that uses its value by reference (`v.moveWith(ref v)`), or passing it a lambda that assigns `v`
+  (`apply(v.x, () -> { v = null; })`, with an `in` parameter). A lambda made earlier ends the
+  narrowing where it is made, and one made later can't run before then. A `ref` variable can't refer to a nullable
   local itself either, since the local could then change after a null check. A narrowed local that
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an

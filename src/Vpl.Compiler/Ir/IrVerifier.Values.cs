@@ -28,6 +28,12 @@ public sealed partial class IrVerifier
         public Dictionary<IrLocal, string> Invalid { get; private init; } = [];
 
         /// <summary>
+        /// The lambdas made on some path here, which code that runs may run. As in flow analysis, one
+        /// may run from where it is made on, a loop's next iteration included.
+        /// </summary>
+        public HashSet<IrFunction> Lambdas { get; private init; } = [];
+
+        /// <summary>
         /// For a <c>bool</c> local, what is assigned where it is true and where it is false, null where
         /// it can't be, which is how a pattern's names are known to be stored where it matched.
         /// The sets are never changed once made.
@@ -45,6 +51,7 @@ public sealed partial class IrVerifier
             Ended = [.. Ended],
             Invalid = new(Invalid),
             Outcomes = new(Outcomes),
+            Lambdas = [.. Lambdas],
         };
 
         public static State Merge(State a, State b)
@@ -72,12 +79,14 @@ public sealed partial class IrVerifier
                 Moved = [.. a.Moved.Union(b.Moved)],
                 Ended = [.. a.Ended.Union(b.Ended)],
                 Invalid = invalid,
+                Lambdas = [.. a.Lambdas.Union(b.Lambdas)],
             };
         }
 
         public bool SameAs(State other) =>
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
             && Moved.SetEquals(other.Moved) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
+            && Lambdas.SetEquals(other.Lambdas)
             && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
 
         public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Assigned, Assigned);
@@ -280,30 +289,33 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// Whether code the effects run may write the place: a <c>mut</c> field that something it runs
-    /// writes, storage the function can't see, or a local a lambda assigns. Only a class's own
-    /// constructors assign a field that isn't <c>mut</c>, and only of the object they make.
+    /// writes, storage the function can't see, or a local that a lambda made so far changes. Only a
+    /// class's own constructors assign a field that isn't <c>mut</c>, and only of the object they make.
     /// </summary>
-    bool CodeWrites(Resolved place, IrEffects effects) => effects.RunsCode && place.Kind switch
+    bool CodeWrites(Resolved place, IrEffects effects, State state) => effects.RunsCode && place.Kind switch
     {
-        StorageKind.Frame => place.Local!.IsChangedByLambda,
+        StorageKind.Frame => IsChangedByLambda(place.Local!, state),
         StorageKind.Object => place.Field is null || place.Field.IsMutable && writes.Of(effects.Runs).MayWriteField(place.Field),
         _ => true,
     };
 
-    bool CodeDestroys(Resolved place, IrEffects effects) => place.Destructible >= 0 && CodeWrites(place, effects);
+    /// <summary>Whether a lambda made on some path here may change the local when it runs.</summary>
+    static bool IsChangedByLambda(IrLocal local, State state) => state.Lambdas.Any(l => l.ChangesAround.Contains(local));
+
+    bool CodeDestroys(Resolved place, IrEffects effects, State state) => place.Destructible >= 0 && CodeWrites(place, effects, state);
 
     public const string ReplacedNullable = "the nullable value or variant it points into may be replaced";
 
     /// <summary>Why the effects would make a dependent unusable, or null.</summary>
-    string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes)
+    string? Breaks(Dependency dependency, IrEffects effects, IReadOnlyList<Resolved> writes, State state)
     {
         if (dependency.NeedsBorrow && effects.RunsCode)
             return "it points into a Borrowable that isn't borrowed, and code that may change its length runs";
         if (dependency.Target is not { } target)
             return null;
-        if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || CodeWrites(target, effects)))
+        if (dependency.Alias && (writes.Any(w => Overlap(w, target)) || CodeWrites(target, effects, state)))
             return "the place it borrows may be written";
-        if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || CodeDestroys(target, effects)))
+        if (!dependency.Alias && (writes.Any(w => Destroys(w, target)) || CodeDestroys(target, effects, state)))
             return ReplacedNullable;
         return null;
     }
@@ -321,14 +333,14 @@ public sealed partial class IrVerifier
             // What a loop iterates is borrowed, so only storing over one of its elements can destroy it.
             if (local.IsElement && this.writes.MayStoreOverElement(effects, local.Type.NonNull))
                 Invalidate(state, local, $"an element of its type may be stored over, by {what}");
-            else if (Breaks(local.IsElement ? dependency with { Target = null } : dependency, effects, writes) is { } reason)
+            else if (Breaks(local.IsElement ? dependency with { Target = null } : dependency, effects, writes, state) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))
             DependentsOf(write.Place.Local, state, $"'{N(write.Place.Local)}' may be reassigned by {what}", throughOnly: true);
         if (effects.RunsCode)
         {
-            foreach (var local in scopes.SelectMany(s => s).Where(l => l.IsChangedByLambda).ToList())
+            foreach (var local in scopes.SelectMany(s => s).Where(l => IsChangedByLambda(l, state)).ToList())
                 DependentsOf(local, state, $"a lambda may reassign '{N(local)}' during {what}", throughOnly: true);
         }
     }
@@ -558,6 +570,7 @@ public sealed partial class IrVerifier
                 if (lambda.Function.IsEscaping)
                     Error("an escaping lambda is made by a closure");
                 Lambda(lambda.Function, state);
+                state.Lambdas.Add(lambda.Function);
                 break;
             case IrChoose choice:
                 Operand(choice.Index, state);
@@ -719,7 +732,7 @@ public sealed partial class IrVerifier
             };
             if (place is not null && WouldBreak(place, alias, effects, state) is { } reason)
             {
-                if (!ReportNullableValue(place, reason, effects))
+                if (!ReportNullableValue(place, reason, effects, state))
                     Error($"'{IrPrinter.Print(root, place)}' is used during {Describe(value)}, but {reason}");
             }
             // A lambda it is given runs during it, using what the lambda refers into.
@@ -736,16 +749,21 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// Reports a place in a narrowed nullable value of a source variable that the operation using it
-    /// may set to null, which would destroy the place, as the user's error (spec 02-types.md).
+    /// may set to null, which would destroy the place, as the user's error (spec 02-types.md): by
+    /// passing the variable by 'ref', or by running a lambda that assigns it. Flow analysis keeps
+    /// no narrowing past where such a lambda is made, so the lambda is made during the operation,
+    /// after the place was found, as an argument is.
     /// </summary>
-    bool ReportNullableValue(IrPlace place, string reason, IrEffects effects)
+    bool ReportNullableValue(IrPlace place, string reason, IrEffects effects, State state)
     {
         if (!reason.StartsWith(ReplacedNullable) || !IsNarrowedSource(place))
             return false;
-        // Narrowing is never kept for a variable a lambda assigns, so only passing it by 'ref' gets here.
-        if (!effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == place.Local))
+        if (effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == place.Local))
+            ReportNullable(place.Local, current, $"'{place.Local.Symbol!.Name}' is passed by 'ref' while its value is in use here");
+        else if (effects.RunsCode && IsChangedByLambda(place.Local, state))
+            ReportNullable(place.Local, current, $"a lambda that may assign '{place.Local.Symbol!.Name}' can run while its value is in use here");
+        else
             return false;
-        ReportNullable(place.Local, current);
         return true;
     }
 
@@ -753,12 +771,12 @@ public sealed partial class IrVerifier
     bool IsNarrowedSource(IrPlace place) =>
         diagnostics is not null && place.Local.Symbol is not null && !place.IsDeref && place.Local.Type.IsNullableValue && place.Projections.FirstOrDefault() is IrAssumed;
 
-    void ReportNullable(IrLocal local, IrStatement? statement)
+    void ReportNullable(IrLocal local, IrStatement? statement, string cause)
     {
         var at = statement is not null && program.Origins.TryGetValue(statement, out var origin) ? origin : function.Symbol.Declaration?.Location;
         if (at is not { } location || !reportedNullables.Add((statement, local)))
             return;
-        diagnostics!.Error(location, $"'{local.Symbol!.Name}' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first");
+        diagnostics!.Error(location, $"{cause}, so it could become null and destroy that value; copy the value to a variable first");
     }
 
     /// <summary>
@@ -769,31 +787,35 @@ public sealed partial class IrVerifier
     {
         if (!IsNarrowedSource(place) || current is null || !program.Origins.TryGetValue(current, out var within))
             return;
-        foreach (var (local, at) in nullableWrites)
+        foreach (var (local, at, by) in nullableWrites)
         {
-            if (local == place.Local && at.Source == within.Source && at.Span != within.Span && at.Span.Start >= within.Span.Start && at.Span.End <= within.Span.End)
-                ReportNullable(local, current);
+            if (local == place.Local && by == function && at.Source == within.Source && at.Span != within.Span && at.Span.Start >= within.Span.Start && at.Span.End <= within.Span.End)
+                ReportNullable(local, current, $"'{local.Symbol!.Name}' is passed by 'ref' while its value is in use here");
         }
     }
 
-    /// <summary>Remembers where an instruction passes a source variable holding a nullable value by reference, for <see cref="CheckNullableOrder"/>.</summary>
+    /// <summary>
+    /// Remembers where an instruction may set a source variable holding a nullable value, for
+    /// <see cref="CheckNullableOrder"/>, with the function it is in: one in a lambda's body sets it
+    /// where the lambda runs, not where the lambda is written.
+    /// </summary>
     void RecordNullableWrites(IrEffects effects)
     {
         if (diagnostics is null || current is null || !program.Origins.TryGetValue(current, out var at))
             return;
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local is { Symbol: not null, Type.IsNullableValue: true }))
-            nullableWrites.Add((write.Place.Local, at));
+            nullableWrites.Add((write.Place.Local, at, function));
     }
 
     string? WouldBreak(IrPlace place, bool alias, IrEffects effects, State state)
     {
         var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
-        if (Breaks(Into(place, alias), effects, writes) is { } reason)
+        if (Breaks(Into(place, alias), effects, writes, state) is { } reason)
             return reason;
         var local = place.Local;
         if (place.IsDeref && effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == local))
             return $"it may reassign '{N(local)}'";
-        if (place.IsDeref && effects.RunsCode && local.IsChangedByLambda)
+        if (place.IsDeref && effects.RunsCode && IsChangedByLambda(local, state))
             return $"a lambda may reassign '{N(local)}'";
         var trial = state.Clone();
         Apply(trial, effects, "it");

@@ -67,6 +67,13 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
     /// <summary>For a lambda, the function whose body creates it.</summary>
     public IrFunction? Enclosing { get; init; }
 
+    /// <summary>
+    /// For a lambda, the locals around it that its body, or a lambda it makes, may assign or change
+    /// in place, as <see cref="Analysis.LambdaWrites"/> finds them each time the IR is verified.
+    /// Code that runs once it is made may run it.
+    /// </summary>
+    public HashSet<IrLocal> ChangesAround { get; } = [];
+
     public IrBlock Body { get; set; } = new();
 
     public bool IsLambda => Symbol.IsLambda;
@@ -128,10 +135,14 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     bool changedByLambda;
 
     /// <summary>
-    /// A lambda may assign it or change it in place, so any code that runs may change it. Lowering
-    /// sets it for every writable local a non-escaping lambda captures, and
-    /// <see cref="Optimize.LambdaWrites"/> clears it where no lambda writes the local. A reference
-    /// can't be made to refer elsewhere: a lambda storing through it writes its target.
+    /// Some lambda of the function may assign it or change it in place, so code that runs anywhere in
+    /// the function may change it. This is the whole-function answer, for lowering and the passes; the
+    /// verifier asks only the lambdas made before a point (<see cref="IrFunction.ChangesAround"/>).
+    /// Lowering sets it conservatively, for every writable local a non-escaping lambda captures,
+    /// and once the lowered program is verified, <see cref="Analysis.LambdaWrites"/> replaces it
+    /// with the union of the lambdas' <see cref="IrFunction.ChangesAround"/>. The verifier checks
+    /// that it covers them. A reference can't be made to refer elsewhere: a lambda storing
+    /// through it writes its target.
     /// </summary>
     public bool IsChangedByLambda
     {

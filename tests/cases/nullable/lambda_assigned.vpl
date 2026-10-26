@@ -1,0 +1,23 @@
+// A lambda that assigns a variable can only run once it is made, so before then the variable's
+// narrowed value can be used while an operation runs, as any other's can.
+
+struct Vec {
+    int x;
+}
+
+void show(in int a) {
+    print(a);
+}
+
+void run(() -> void f) {
+    f();
+}
+
+void main() {
+    mut Vec? v = Vec(1);
+    if (v != null) {
+        show(v.x);                          // output: 1
+    }
+    run(() -> { v = null; });
+    print(v == null ? "cleared" : "kept");  // output: cleared
+}

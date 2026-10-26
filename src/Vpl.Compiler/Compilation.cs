@@ -78,14 +78,14 @@ public static class Compilation
         var ir = IrLowering.Lower(program, analyses);
         var callees = new Callees(ir, analyses.Whole.Overrides, analyses.Cycles);
         var writes = Writes.Find(callees);
+        // Verified with lowering's own answer of what lambdas change, which is then made exact.
         Verify(ir, writes, "the lowered program", diagnostics);
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
+        LambdaWrites.Apply(ir);
         IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
-            LambdaWrites.Apply(ir);
-            Verify(ir, writes, "the program after clearing the locals no lambda writes");
             HoldElision.Apply(ir, writes);
             Verify(ir, writes, "the program after eliding holds");
             inPlace = InPlaceElements.Apply(ir, writes).Locations;
