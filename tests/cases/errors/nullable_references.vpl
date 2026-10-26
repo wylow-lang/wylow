@@ -42,7 +42,6 @@ struct Mat2 {
 }
 
 void bump(ref? int x) {
-    x++;                                // error: 'x' might refer to nothing here; check it with 'if (x != null)', or use '!'
 }
 
 void bump(ref int x) {                  // error: function 'bump(ref int)' is already defined
@@ -76,9 +75,6 @@ void main() {
     mut Mat2 m = Mat2();
     mut int x = 1;
     ref? int r = x;
-    ref? int maybe = null;
-    print(maybe + 1);                   // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
-    maybe = 5;                          // error: 'maybe' might refer to nothing here
     float v = m.at(0);                  // error: cannot implicitly convert 'ref? float' to 'float'; check it for null first, or use '!'
     m.at(0) = 1;                        // error: 'm.at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
     var copy = m.at(0);                 // error: 'm.at(0)' is a reference that may refer to nothing; refer to it with 'ref? var', or copy what it refers to with '!'
@@ -104,9 +100,6 @@ void main() {
     frozen?.grow();                     // error: cannot call 'grow' on 'frozen' because 'frozen' is an 'in' variable; only 'readonly' methods can be called on it
     for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
     }
-    run(() -> {
-        maybe = 2;                      // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
-    });
     if (x is ref int place) {           // error: 'is ref' tests a reference that may refer to nothing, and 'x' has type 'int'
     }
     if (m.at(0) is ref int wrong) {     // error: 'm.at(0)' refers to a value of type 'float', not 'int'
@@ -118,9 +111,6 @@ void main() {
     switch (x) {
         case ref int e -> print(e);     // error: a 'ref' pattern can only test a reference with 'is', as in 'if (x is ref T name)'
         default -> print(0);
-    }
-    if (!(r is ref int unbound)) {
-        print(unbound);                 // error: 'unbound' might not have been assigned
     }
     if (r is in int readOnly) {
         readOnly = 1;                   // error: cannot assign to 'readOnly' because 'readOnly' is an 'in' variable

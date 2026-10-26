@@ -11,6 +11,7 @@ public sealed class LambdaWrites : IIrLambdaChanges
 {
     readonly Callees callees;
     readonly Dictionary<IrFunction, HashSet<IrLocal>> around = [];
+    readonly Dictionary<IrFunction, HashSet<IrLocal>> assigns = [];
     readonly HashSet<IrLocal> changed;
 
     LambdaWrites(Callees callees)
@@ -29,6 +30,9 @@ public sealed class LambdaWrites : IIrLambdaChanges
     /// </summary>
     public IReadOnlySet<IrLocal> Around(IrFunction lambda) => callees.Fresh(around[lambda]);
 
+    /// <summary>The locals around a lambda that it may give another value as a whole, which ends their narrowing.</summary>
+    public IReadOnlySet<IrLocal> Assigns(IrFunction lambda) => callees.Fresh(assigns[lambda]);
+
     /// <summary>
     /// Whether some lambda of the function may change the local, so that code that runs anywhere
     /// in it may. The verifier asks only the lambdas made before a point (<see cref="Around"/>).
@@ -45,19 +49,26 @@ public sealed class LambdaWrites : IIrLambdaChanges
         if (around.TryGetValue(lambda, out var found))
             return found;
         var changes = around[lambda] = [];
+        var replaces = assigns[lambda] = [];
         var own = Writes.OwnLocals(lambda);
         foreach (var statement in IrWalk.Descendants(lambda.Body, intoLambdas: false))
         {
             if (statement is IrLet { Value: IrLambda inner })
+            {
                 changes.UnionWith(Find(inner.Function).Where(l => !own.Contains(l)));
+                replaces.UnionWith(assigns[inner.Function].Where(l => !own.Contains(l)));
+            }
             if (statement is IrIf or IrLoop)
                 continue;
             var effects = statement is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(statement);
             foreach (var write in effects.Writes)
             {
                 var local = write.Place.Local;
-                if (!write.Place.IsDeref && local.Kind != IrLocalKind.Reference && !own.Contains(local))
-                    changes.Add(local);
+                if (write.Place.IsDeref || local.Kind == IrLocalKind.Reference || own.Contains(local))
+                    continue;
+                changes.Add(local);
+                if (write.Place.Projections.Count == 0)
+                    replaces.Add(local);
             }
         }
         return changes;

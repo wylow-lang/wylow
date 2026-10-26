@@ -42,7 +42,7 @@ violation is a compiler bug. There is no second storage model and no second data
 | Rule | Mechanism |
 |---|---|
 | Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
-| The binder answers nothing about flow | Semantics can't reference the IR project. FlowAnalyzer is deleted once its checks are on the IR. |
+| The binder answers nothing about flow | Semantics can't reference the IR project, and FlowAnalyzer is deleted: the flow errors are the verifier's (`IrVerifier.Violation`), on the lowered program. Where the source relies on narrowing, lowering says so with `check.narrowed`, which every access of a source local goes through (`IrLowering.Accessed`). |
 | Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types. Its shortcuts (`IsStable`, `capturedByLambda`, lowering's `MayChange`, `Settle`) are deleted, so nothing remains to call. |
 | Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: what lambdas change is `LambdaWrites`, found with `Writes`, and the IR model only names the question (`IIrLambdaChanges`). Lowering answers it for itself, conservatively, until step 5 deletes the shortcuts that ask. `IrLocal.IsElement` is the one settable fact left on a node (step 7), and nothing checks it for staleness. |
 | What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't: naive lowering lost a user error because `Settle` inserted statements that bypassed `Add`, which recorded origins. |
@@ -97,10 +97,12 @@ Each step deletes the old home of what it moves, and passes all four modes befor
 3. **Required origins and the local-kind rule** (done): the two failures naive lowering exposed.
    `IrProgram.Origins`, `Creations`, and `LoopElements` are gone, and so is the verifier's copy of
    the kind rule. The generated C++ and IR of every test were identical before and after.
-4. **One flow analysis.** The verifier's dataflow becomes the analysis. FlowAnalyzer's checks move
-   onto it one at a time (assignment, narrowing, returns, constructor fields, assigned once), and
-   FlowAnalyzer is deleted. Lambda changes become a fact of the analysis, which removes most of
-   705e2fc (finding 1, and findings 5 and 10).
+4. **One flow analysis** (done, except finding 5). The verifier's dataflow is the analysis: its
+   violations on the lowered program are the user's errors, so only a program that binds is
+   lowered, and error tests keep binder and flow errors in separate files. FlowAnalyzer is deleted.
+   Lambda changes are `LambdaWrites`, a fact found per generation (findings 1 and 10). The analysis
+   narrows through `?:` as the spec says, which FlowAnalyzer didn't. Still open: one storage
+   model for the verifier and `IrAccess` (finding 5).
 5. **Naive lowering:**
    - Add the kept-copy and read-in-place passes.
    - Fix the scope and emitter failures above.

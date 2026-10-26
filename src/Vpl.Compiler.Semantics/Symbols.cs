@@ -27,7 +27,7 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
 
     /// <summary>
     /// Declared without a value, so its first assignment initializes it. Unless it is mutable, that
-    /// is its only assignment, which <see cref="FlowAnalyzer"/> checks.
+    /// is its only assignment, which the flow analysis checks.
     /// </summary>
     public bool IsDeferred { get; init; }
 

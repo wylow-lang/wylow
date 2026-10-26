@@ -15,7 +15,8 @@ clutter.
 
 ## 1. "May a lambda assign this local *here*?": flow-sensitive in the binder, whole-function in the IR
 
-**Fixed in 705e2fc.** The verifier now asks the lambdas made on the path, using each lambda's
+**Done in step 4:** FlowAnalyzer is gone, so the verifier's answer is the only one, and what lambdas
+change is `LambdaWrites`, not flags on IR nodes. Before that, **fixed in 705e2fc:** the verifier asks the lambdas made on the path, using each lambda's
 `IrFunction.ChangesAround` from the effects. It also checks that `IsChangedByLambda` covers them,
 which found that lowering missed a struct constructor's `self` changed through `this`. The same-call
 case is reported as the user's error. What follows is the finding as it was.
@@ -266,6 +267,9 @@ Clutter, not a bug. Home: `VplType.IsNonEscapingFunction` (non-null only) and
   each pass or say so on `Writes.Find`.
 
 ## 10. FlowAnalyzer vs the verifier's dataflow
+
+**Done in step 4:** FlowAnalyzer is deleted and its checks are the verifier's, so there is one of
+each of the facts below. What follows is the finding as it was.
 
 The overlap is mostly a deliberate pair: FlowAnalyzer reports the user's errors on the bound tree,
 and the verifier re-checks lowering's invariants, as CLAUDE.md asks. Matching facts:

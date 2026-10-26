@@ -7,7 +7,12 @@ using Vpl.Compiler.Text;
 namespace Vpl.Compiler.Analysis;
 
 /// <summary>
-/// Checks the IR's invariants, after lowering and after each pass. A failure is a compiler bug.
+/// The flow analysis: checks the IR's invariants, after lowering and after each pass. A failure
+/// is a compiler bug, except where the lowered program breaks a rule the source must keep, which
+/// is the user's error (<see cref="Violation"/>): a source local read before it is assigned, or
+/// assigned twice without <c>mut</c>; one used as not null where narrowing doesn't show it isn't;
+/// a function whose end is reachable that returns a value; a constructor that uses what it makes,
+/// or returns, before it assigns every field without a default.
 /// <list type="number">
 /// <item>Locals are declared once and used inside their scope. A temporary is defined once, and
 /// a value out of control flow stored once on every path, before it is read; one is moved at most
@@ -49,6 +54,18 @@ public sealed partial class IrVerifier
     readonly DiagnosticBag? diagnostics;
     readonly HashSet<(IrStatement?, IrLocal)> reportedNullables = [];
     readonly List<(IrLocal Local, Location At, IrFunction By)> nullableWrites = [];
+    readonly HashSet<(Location, string)> reportedViolations = [];
+    readonly HashSet<LocalSymbol> reportedUnassigned = [];
+
+    /// <summary>While a closure's captures are read, where its body uses the one being read, which an error about it is reported at.</summary>
+    Location? captureOrigin;
+
+    /// <summary>Inside a lambda, the source locals narrowed where it was made, for explaining why they aren't inside.</summary>
+    HashSet<LocalSymbol> narrowedOutside = [];
+
+    /// <summary>In a constructor, the fields it must assign, and the object or value it makes, whose other uses must wait for them.</summary>
+    List<FieldSymbol> requiredFields = [];
+    IrLocal? constructed;
 
     IrVerifier(IrProgram program, Writes writes, DiagnosticBag? diagnostics)
     {
@@ -94,12 +111,41 @@ public sealed partial class IrVerifier
 
     void Error(string message) => Report(function, current, message);
 
+    /// <summary>
+    /// A violation of a rule the source must keep: on the lowered program, the user's error at the
+    /// source it comes from; after a pass, a compiler bug.
+    /// </summary>
+    void Violation(string message, Location? at = null)
+    {
+        if (diagnostics is null)
+        {
+            Error(message);
+            return;
+        }
+        var location = at ?? captureOrigin ?? current?.Origin ?? function.Body.Origin;
+        if (location is { } found && reportedViolations.Add((found, message)))
+            diagnostics.Error(found, message);
+    }
+
+    static Location EndOf(Location body) =>
+        new(body.Source, new TextSpan(Math.Max(body.Span.End - 1, body.Span.Start), body.Span.Length > 0 ? 1 : 0));
+
+    void MissingReturn(IrFunction where)
+    {
+        var message = where.IsLambda ? "this lambda must return a value on every path" : $"'{where.Symbol.Name}' must return a value on every path";
+        if (where.Body.Origin is { } body)
+            Violation(message, EndOf(body));
+        else
+            Report(where, null, message);
+    }
+
     IReadOnlyDictionary<IrLocal, string>? names;
 
     /// <summary>A local's name as the printed IR shows it.</summary>
     string N(IrLocal local) => (names ??= IrPrinter.Names(root)).GetValueOrDefault(local, local.Name);
 
-    void VerifyFunction(IrFunction verified, IrFunction printedIn)
+    /// <param name="assignedFields">For a closure made in a constructor, the fields assigned where it is made.</param>
+    void VerifyFunction(IrFunction verified, IrFunction printedIn, IReadOnlySet<FieldSymbol>? assignedFields = null)
     {
         if (root != printedIn)
             names = null;
@@ -109,15 +155,55 @@ public sealed partial class IrVerifier
         nullableWrites.Clear();
         loops = [];
         loopDepth = 0;
+        // A closure made in a constructor captures what it is made from, which is checked where it is made.
+        if (!verified.IsLambda)
+        {
+            narrowedOutside = [];
+            requiredFields = verified.Symbol is { IsConstructor: true, IsImplicit: false, ContainingType: { } owner } && verified.Builds is null
+                ? [.. owner.Fields.Where(f => f.RequiresAssignment)]
+                : [];
+            constructed = requiredFields.Count > 0 ? verified.This ?? verified.Struct : null;
+        }
         var state = new State();
+        state.AssignedFields.UnionWith(assignedFields ?? new HashSet<FieldSymbol>());
         foreach (var parameter in Entry(verified))
             DeclareParameter(parameter, state);
         state = Block(verified.Body, state, newScope: false);
         if (state.Reachable && ResultType(verified) != VplType.Void)
-            Report(verified, null, "the end of the function is reachable, but it returns a value");
+            MissingReturn(verified);
+        if (state.Reachable && !verified.IsLambda && verified.Body.Origin is { } body)
+            CheckFieldsAssigned(state, EndOf(body));
         if (verified.Builds is not null)
             CheckBuilt(verified);
     }
+
+    void CheckFieldsAssigned(State state, Location at)
+    {
+        if (requiredFields.FirstOrDefault(f => !state.AssignedFields.Contains(f)) is { } field)
+            Violation($"field '{field.Name}' must be assigned before the constructor returns", at);
+    }
+
+    /// <summary>
+    /// A constructor uses what it makes only once it has assigned every field that has no default:
+    /// it may read a field it has assigned, and nothing else of it before then.
+    /// </summary>
+    void CheckConstructed(IrPlace place, State state)
+    {
+        var first = place.Projections.FirstOrDefault() as IrField;
+        if (first is not null && place.IsDeref == place.Local.Type.IsReference)
+        {
+            if (requiredFields.Contains(first.Field) && !state.AssignedFields.Contains(first.Field))
+                Violation($"field '{first.Field.Name}' might not have been assigned");
+        }
+        else if (requiredFields.FirstOrDefault(f => !state.AssignedFields.Contains(f)) is { } unassigned)
+            Violation($"'this' cannot be used until every field is assigned, and '{unassigned.Name}' might not be");
+    }
+
+    /// <summary>The field a constructor must assign that a store assigns as a whole, if it is one.</summary>
+    FieldSymbol? Initialized(IrPlace target) =>
+        target.Local == constructed && target.IsDeref == constructed.Type.IsReference && target.Projections is [IrField { Field: var field }] && requiredFields.Contains(field)
+            ? field
+            : null;
 
     /// <summary>
     /// A built struct's zeroed fields are not yet values: nothing reads it until it is returned, and
@@ -315,12 +401,14 @@ public sealed partial class IrVerifier
         var target = store.Target;
         pendingMoves.Clear();
         Operand(store.Value, state);
+        bool storesNonNull = OperandNonNull(store.Value, state);
         if (store.Value is IrRead { Ownership: IrOwnership.Borrow })
             Error("a store needs a value of its own: copy or move it");
         // A whole store gives the local a value that doesn't depend on what its old one did.
         if (!target.IsDeref && target.Projections.Count == 0)
             state.Invalid.Remove(target.Local);
-        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0);
+        var initialized = Initialized(target);
+        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0, initializes: initialized is not null);
         if (target.Type != store.Value.Type)
             Error($"stores a '{store.Value.Type}' in a '{target.Type}'");
 
@@ -340,12 +428,18 @@ public sealed partial class IrVerifier
             if (state.MaybeAssigned.Contains(local))
                 Error($"'{N(local)}' may be stored more than once on a path");
         }
+        // A variable declared without a value that isn't 'mut' is assigned once.
+        if (whole && local.Symbol is { IsDeferred: true, IsMutable: false, RefKind: RefKind.None } symbol && state.MaybeAssigned.Contains(local))
+            Violation($"'{symbol.Name}' might already have been assigned; declare it 'mut' to assign it more than once");
 
         Apply(state, IrEffects.Of(store), "the store");
         CommitMoves(state);
+        if (initialized is not null)
+            state.AssignedFields.Add(initialized);
         if (whole)
         {
             Learn(local, new IrUse(store.Value), state);
+            SetNonNull(local, new IrUse(store.Value), storesNonNull, state);
             state.Assigned.Add(local);
             state.MaybeAssigned.Add(local);
             state.Invalid.Remove(local);
@@ -368,12 +462,43 @@ public sealed partial class IrVerifier
             IrCheckKind.NotNull => check.Operands is [{ Type: var t }] && (t.IsNullableReference || (t.IsNullable && t.NonNull.IsReference) || t.IsPointer),
             IrCheckKind.HasValue => check.Operands is [{ Type.IsNullableValue: true }],
             IrCheckKind.NoMatch => check.Operands.Count == 0,
+            IrCheckKind.Narrowed => check.Operands is [IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Symbol: not null }, Type.MayBeNull: true }],
             _ => false,
         };
         if (!fits)
             Error($"the operands don't fit a '{check.Kind}' check");
+        if ((check.Kind == IrCheckKind.Narrowed) != (check.Loc is null))
+            Error("a check that may fail, and only one, carries a location");
+        if (check is { Kind: IrCheckKind.Narrowed, Operands: [IrRead { Place.Local: var narrowed }] }
+            && state.Assigned.Contains(narrowed) && !state.NonNull.Contains(narrowed))
+            NotNarrowed(narrowed, state);
         Apply(state, IrEffects.Of(check), "the check");
         CommitMoves(state);
+    }
+
+    /// <summary>
+    /// A source local used as not null where narrowing doesn't show it isn't (spec 02-types.md). An
+    /// <c>is ref</c> name is stored as it is tested, but is only assigned where the test matched.
+    /// </summary>
+    void NotNarrowed(IrLocal local, State state)
+    {
+        var symbol = local.Symbol!;
+        var name = symbol.Name;
+        if (symbol.IsReferenceBinding)
+        {
+            if (reportedUnassigned.Add(symbol))
+                Violation($"'{name}' might not have been assigned");
+            return;
+        }
+        Violation(symbol.Type.IsNullableReference
+            ? $"'{name}' might refer to nothing here; check it with 'if ({name} != null)', or use '!'"
+            : symbol.RefKind != RefKind.None
+            ? $"'{name}' might be null here: a '{FunctionSymbol.RefPrefix(symbol.RefKind).Trim()}' {(symbol.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
+            : LambdaAssigns(local, state)
+            ? $"'{name}' might be null here: a lambda assigns it, so null checks don't narrow it; copy it to a local first, or use '!'"
+            : narrowedOutside.Contains(symbol)
+            ? $"'{name}' might be null here: null checks outside a lambda don't narrow inside it; check it inside, or copy it to a local first"
+            : $"'{name}' might be null here; check it with 'if ({name} != null)', or use '?.' or '!'");
     }
 
     State If(IrIf conditional, State state)
@@ -387,9 +512,15 @@ public sealed partial class IrVerifier
         var thenState = state.Clone();
         var elseState = state.Clone();
         if (outcome?.WhenTrue is { } whenTrue)
-            thenState.Assigned.UnionWith(whenTrue);
+        {
+            thenState.Assigned.UnionWith(whenTrue.Assigned);
+            thenState.NonNull.UnionWith(whenTrue.NonNull);
+        }
         if (outcome?.WhenFalse is { } whenFalse)
-            elseState.Assigned.UnionWith(whenFalse);
+        {
+            elseState.Assigned.UnionWith(whenFalse.Assigned);
+            elseState.NonNull.UnionWith(whenFalse.NonNull);
+        }
         var then = Block(conditional.Then, thenState);
         // Where a reference's null test failed, nothing it points into needs to stay held.
         var isNull = conditional.Condition is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } && nullTests.TryGetValue(tested, out var reference) ? reference : null;
@@ -439,6 +570,9 @@ public sealed partial class IrVerifier
     void Return(IrReturn ret, State state)
     {
         var returnType = ResultType(function);
+        // A constructor's own return, which isn't written, is at the end of its body.
+        if (constructed is not null && !function.IsLambda && (ret.Origin ?? (function.Body.Origin is { } body ? EndOf(body) : null)) is { } returned)
+            CheckFieldsAssigned(state, returned);
         if (ret.Value is null)
         {
             if (returnType != VplType.Void)
@@ -446,9 +580,15 @@ public sealed partial class IrVerifier
             return;
         }
         pendingMoves.Clear();
+        bool returnsMade = function.Struct is { } made && ret.Value is IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made;
+        // Returning what a struct constructor makes isn't a use of it.
+        var making = constructed;
+        if (returnsMade)
+            constructed = null;
         Operand(ret.Value, state);
+        constructed = making;
         pendingMoves.Clear();
-        if (function.Struct is { } made && !(ret.Value is IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made))
+        if (function.Struct is not null && !returnsMade)
             Error("a struct constructor returns its value");
         if (returnType == VplType.Void)
             Error("returns a value from a function returning nothing");

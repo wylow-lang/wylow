@@ -52,7 +52,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
@@ -64,12 +64,15 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `Semantics`: the bound program and the checks that report errors on it.
   `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions, equality/defaultability),
   `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
-  in its storage), `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
+  in its storage). `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
 - `Analysis`: whole-program facts the passes and the emitter use, found after every check has
-  passed, and the IR verifier (`IrVerifier*.cs`: scoping, single assignment, moves, places, and
-  that every reference, view, and borrowed local is used only while what it points into is held;
-  `tests/Vpl.Tests/IrSelfTests.cs` builds IR it must accept or reject). Facts found from the IR
+  passed, and the IR verifier (`IrVerifier*.cs`), which is the flow analysis: definite assignment,
+  narrowing, returns, constructor fields, scoping, single assignment, moves, places, and that every
+  reference, view, and borrowed local is used only while what it points into is held. On the
+  lowered program its violations of the source's rules are the user's errors (`Violation`), and
+  after a pass, compiler bugs; `tests/Vpl.Tests/IrSelfTests.cs` builds IR it must accept or reject.
+  Facts found from the IR
   throw if asked after the program's `Generation` has changed (`Callees.Fresh`). `Analyses.cs` runs the one still on the bound tree
   (`CyclicClasses`, with `WholeProgram.cs`: the lambdas and overrides); the rest run on the IR, where
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
@@ -129,8 +132,10 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 ## Rules
 
 - **All safety checking happens before the emitter**: names and types in the binder, everything
-  about order and flow in flow analysis. Flow checks are moving from `FlowAnalyzer` onto the IR
-  (architecture.md, step 4): add new ones on the IR, never to `FlowAnalyzer`. The emitter only
+  about order and flow in the flow analysis on the IR (`IrVerifier`), which runs only on a program
+  that binds, so an error test keeps binder errors and flow errors in separate files. Lowering
+  reaches a source local only through `IrLowering.Accessed`, which emits the `check.narrowed` the
+  analysis proves where the source relies on narrowing. The emitter only
   translates and must never produce C++ with undefined behavior. A C++ compile failure is a
   compiler bug.
 - **Evaluation order is left to right.** Lowering makes it explicit: each operand is computed by

@@ -1,6 +1,7 @@
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
+using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Analysis;
 
@@ -12,15 +13,27 @@ public sealed partial class IrVerifier
     readonly Dictionary<IrLocal, IrRvalue> slotObjects = [];
     readonly List<IrLocal> pendingMoves = [];
 
+    /// <summary>What each temporary, or <c>is ref</c> name, holds a copy of the value of, until either is given another.</summary>
+    readonly Dictionary<IrLocal, IrLocal> copies = [];
+
     /// <summary>The reference each <c>test.not_null</c> temporary tested, and the references known to be null where they are.</summary>
     readonly Dictionary<IrLocal, IrLocal> nullTests = [];
     readonly HashSet<IrLocal> knownNull = [];
 
-    /// <summary>What may be true at a point, on some path to it; <see cref="Assigned"/> is what is true on every path.</summary>
+    /// <summary>
+    /// What may be true at a point, on some path to it; <see cref="Assigned"/>, <see cref="NonNull"/>,
+    /// and <see cref="AssignedFields"/> are what is true on every path.
+    /// </summary>
     sealed class State
     {
         public bool Reachable { get; private init; } = true;
         public HashSet<IrLocal> Assigned { get; private init; } = [];
+
+        /// <summary>The locals of nullable types known not to be null, as narrowing finds them (spec 02-types.md).</summary>
+        public HashSet<IrLocal> NonNull { get; private init; } = [];
+
+        /// <summary>In a constructor, the fields it must assign that it has.</summary>
+        public HashSet<FieldSymbol> AssignedFields { get; private init; } = [];
         public HashSet<IrLocal> MaybeAssigned { get; private init; } = [];
         public HashSet<IrLocal> Moved { get; private init; } = [];
         public HashSet<IrLocal> Ended { get; private init; } = [];
@@ -35,18 +48,22 @@ public sealed partial class IrVerifier
         public HashSet<IrFunction> Lambdas { get; private init; } = [];
 
         /// <summary>
-        /// For a <c>bool</c> local, what is assigned where it is true and where it is false, null where
-        /// it can't be, which is how a pattern's names are known to be stored where it matched.
-        /// The sets are never changed once made.
+        /// For a <c>bool</c> temporary, what is known where it is true and where it is false, null
+        /// where it can't be: how a pattern's names are known to be stored where it matched, and a
+        /// local to be narrowed where a condition tested it. The sets are never changed once made.
         /// </summary>
         public Dictionary<IrLocal, Outcome> Outcomes { get; private init; } = [];
 
         public static State Unreachable => new() { Reachable = false };
 
+        public Known Known => new([.. Assigned], [.. NonNull]);
+
         public State Clone() => new()
         {
             Reachable = Reachable,
             Assigned = [.. Assigned],
+            NonNull = [.. NonNull],
+            AssignedFields = [.. AssignedFields],
             MaybeAssigned = [.. MaybeAssigned],
             Moved = [.. Moved],
             Ended = [.. Ended],
@@ -64,18 +81,20 @@ public sealed partial class IrVerifier
             var invalid = new Dictionary<IrLocal, string>(a.Invalid);
             foreach (var (local, reason) in b.Invalid)
                 invalid.TryAdd(local, reason);
-            var assigned = a.Assigned.Intersect(b.Assigned).ToHashSet();
+            var known = a.Known.Meet(b.Known);
             var outcomes = new Dictionary<IrLocal, Outcome>();
             foreach (var local in a.Outcomes.Keys.Union(b.Outcomes.Keys))
             {
                 var merged = a.OutcomeOf(local).Join(b.OutcomeOf(local));
-                if (merged.WhenTrue?.Any(l => !assigned.Contains(l)) == true || merged.WhenFalse?.Any(l => !assigned.Contains(l)) == true)
+                if (merged.WhenTrue?.Adds(known) == true || merged.WhenFalse?.Adds(known) == true)
                     outcomes[local] = merged;
             }
             return new()
             {
                 Outcomes = outcomes,
-                Assigned = assigned,
+                Assigned = known.Assigned,
+                NonNull = known.NonNull,
+                AssignedFields = [.. a.AssignedFields.Intersect(b.AssignedFields)],
                 MaybeAssigned = [.. a.MaybeAssigned.Union(b.MaybeAssigned)],
                 Moved = [.. a.Moved.Union(b.Moved)],
                 Ended = [.. a.Ended.Union(b.Ended)],
@@ -86,11 +105,12 @@ public sealed partial class IrVerifier
 
         public bool SameAs(State other) =>
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
+            && NonNull.SetEquals(other.NonNull) && AssignedFields.SetEquals(other.AssignedFields)
             && Moved.SetEquals(other.Moved) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
             && Lambdas.SetEquals(other.Lambdas)
             && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
 
-        public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Assigned, Assigned);
+        public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Known, Known);
 
         /// <summary>A local declared again, as in a later iteration, starts over.</summary>
         public void Forget(IrLocal local)
@@ -101,27 +121,57 @@ public sealed partial class IrVerifier
             Ended.Remove(local);
             Invalid.Remove(local);
             Outcomes.Remove(local);
+            NonNull.Remove(local);
+            Drop(local, unassigned: true);
+        }
+
+        /// <summary>A local that may have been given another value is no longer known not to be null, here or where a condition holds.</summary>
+        public void Unnarrow(IrLocal local)
+        {
+            NonNull.Remove(local);
+            Drop(local, unassigned: false);
+        }
+
+        void Drop(IrLocal local, bool unassigned)
+        {
             foreach (var (condition, outcome) in Outcomes.ToList())
             {
-                if ((outcome.WhenTrue?.Contains(local) ?? false) || (outcome.WhenFalse?.Contains(local) ?? false))
-                    Outcomes[condition] = new(outcome.WhenTrue?.Where(l => l != local).ToHashSet(), outcome.WhenFalse?.Where(l => l != local).ToHashSet());
+                if (outcome.Mentions(local, unassigned))
+                    Outcomes[condition] = new(outcome.WhenTrue?.Without(local, unassigned), outcome.WhenFalse?.Without(local, unassigned));
             }
         }
     }
 
-    /// <summary>What is assigned when a condition is true and when it is false; null for one that can't happen.</summary>
-    sealed record Outcome(HashSet<IrLocal>? WhenTrue, HashSet<IrLocal>? WhenFalse)
+    /// <summary>What is known on every path to a point: the locals assigned, and those known not to be null.</summary>
+    sealed record Known(HashSet<IrLocal> Assigned, HashSet<IrLocal> NonNull)
+    {
+        public Known Meet(Known other) => new([.. Assigned.Intersect(other.Assigned)], [.. NonNull.Intersect(other.NonNull)]);
+
+        public bool SameAs(Known other) => Assigned.SetEquals(other.Assigned) && NonNull.SetEquals(other.NonNull);
+
+        /// <summary>Whether it knows more than <paramref name="other"/>.</summary>
+        public bool Adds(Known other) => Assigned.Any(l => !other.Assigned.Contains(l)) || NonNull.Any(l => !other.NonNull.Contains(l));
+
+        public bool Mentions(IrLocal local, bool assigned) => NonNull.Contains(local) || (assigned && Assigned.Contains(local));
+
+        public Known Without(IrLocal local, bool unassigned) =>
+            new(unassigned ? [.. Assigned.Where(l => l != local)] : Assigned, [.. NonNull.Where(l => l != local)]);
+    }
+
+    /// <summary>What is known when a condition is true and when it is false; null for one that can't happen.</summary>
+    sealed record Outcome(Known? WhenTrue, Known? WhenFalse)
     {
         public Outcome Negated => new(WhenFalse, WhenTrue);
 
         public Outcome Join(Outcome other) => new(Meet(WhenTrue, other.WhenTrue), Meet(WhenFalse, other.WhenFalse));
 
-        static HashSet<IrLocal>? Meet(HashSet<IrLocal>? a, HashSet<IrLocal>? b) =>
-            a is null ? b : b is null ? a : a.Intersect(b).ToHashSet();
+        static Known? Meet(Known? a, Known? b) => a is null ? b : b is null ? a : a.Meet(b);
+
+        public bool Mentions(IrLocal local, bool assigned) => WhenTrue?.Mentions(local, assigned) == true || WhenFalse?.Mentions(local, assigned) == true;
 
         public bool SameAs(Outcome other) => Same(WhenTrue, other.WhenTrue) && Same(WhenFalse, other.WhenFalse);
 
-        static bool Same(HashSet<IrLocal>? a, HashSet<IrLocal>? b) => a is null ? b is null : b is not null && a.SetEquals(b);
+        static bool Same(Known? a, Known? b) => a is null ? b is null : b is not null && a.SameAs(b);
     }
 
     enum StorageKind
@@ -327,6 +377,14 @@ public sealed partial class IrVerifier
     {
         RecordNullableWrites(effects);
         var writes = effects.Writes.Select(w => Resolve(w.Place, w.Within)).ToList();
+        foreach (var write in writes)
+        {
+            if (write is { Kind: StorageKind.Frame, Path.Count: 0, Local: { } replaced })
+            {
+                state.Unnarrow(replaced);
+                Replaced(replaced);
+            }
+        }
         foreach (var (local, dependency) in dependencies.ToList())
         {
             if (!Visible(local) || state.Invalid.ContainsKey(local))
@@ -362,26 +420,84 @@ public sealed partial class IrVerifier
         }
     }
 
-    /// <summary>What a <c>bool</c> local's value says about what is assigned, from the constant or condition it is made from.</summary>
-    static void Learn(IrLocal local, IrRvalue value, State state)
+    /// <summary>
+    /// What a <c>bool</c> temporary's value says, from the constant, condition, or null test it is
+    /// made from. A source variable's says nothing, so that only a condition narrows (spec 02-types.md).
+    /// </summary>
+    void Learn(IrLocal local, IrRvalue value, State state)
     {
         state.Outcomes.Remove(local);
-        if (local.Type != VplType.Bool)
+        if (local.Type != VplType.Bool || SourceOf(local) is not null)
             return;
         Outcome? outcome = value switch
         {
             IrUse { Operand: var operand } => OutcomeOf(operand, state),
             IrUnary { Operator: BoundUnaryOperator.LogicalNot, Operand: var operand } => OutcomeOf(operand, state)?.Negated,
+            IrTest { Kind: IrTestKind.NotNull or IrTestKind.HasValue, Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } } =>
+                new(state.Known with { NonNull = [.. state.NonNull, .. new[] { tested, copies.GetValueOrDefault(tested) }.OfType<IrLocal>().Where(l => Narrowable(l, state))] }, state.Known),
             _ => null,
         };
         if (outcome is not null)
             state.Outcomes[local] = outcome;
     }
 
+    /// <summary>
+    /// Whether null checks narrow the local: not a <c>ref</c> or <c>in</c> one, which another
+    /// reference to its variable could change, nor one a lambda made so far assigns, which any code
+    /// may run. A <c>ref?</c> one always is, since nothing can make it refer elsewhere.
+    /// </summary>
+    bool Narrowable(IrLocal local, State state) => local.Type.MayBeNull
+        && (local.Type.IsNullableReference || (local.RefKind == RefKind.None && local.Kind != IrLocalKind.Reference && !LambdaAssigns(local, state)));
+
+    bool LambdaAssigns(IrLocal local, State state) => state.Lambdas.Any(l => writes.Lambdas.Assigns(l).Contains(local));
+
+    /// <summary>The source local the local is, if it is one: a variable or parameter the source names.</summary>
+    static LocalSymbol? SourceOf(IrLocal local) => local.IsTemporary ? null : local.Symbol is { IsTemporary: false } symbol ? symbol : null;
+
+    /// <summary>
+    /// Gives a local a value, which narrows it if the value can't be null; an <c>is ref</c> name only
+    /// its test narrows, since it is assigned only where that matched. A temporary, or an <c>is ref</c>
+    /// name, that copies a local's value tests it: a null test of the copy narrows both.
+    /// </summary>
+    void SetNonNull(IrLocal local, IrRvalue value, bool nonNull, State state)
+    {
+        state.Unnarrow(local);
+        Replaced(local);
+        if (nonNull && Narrowable(local, state) && local.Symbol?.IsReferenceBinding != true)
+            state.NonNull.Add(local);
+        var operand = value switch { IrUse use => use.Operand, IrConvert conversion => conversion.Operand, _ => null };
+        if ((SourceOf(local) is null || local.Symbol!.IsReferenceBinding) && operand is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var copied } })
+            copies[local] = copies.GetValueOrDefault(copied) ?? copied;
+    }
+
+    /// <summary>What copied a local's value doesn't once the local is given another.</summary>
+    void Replaced(IrLocal local)
+    {
+        copies.Remove(local);
+        foreach (var copy in copies.Where(c => c.Value == local).Select(c => c.Key).ToList())
+            copies.Remove(copy);
+    }
+
+    /// <summary>Whether a value can't be null as narrowing sees it: by its type, or as the value of a local known not to be.</summary>
+    static bool ValueNonNull(IrRvalue value, State state) => value switch
+    {
+        IrUse { Operand: var operand } => OperandNonNull(operand, state),
+        IrConvert { Operand: var operand } => !value.Type.MayBeNull || OperandNonNull(operand, state),
+        IrAddr => true,
+        _ => !value.Type.MayBeNull && value.Type != VplType.Null,
+    };
+
+    static bool OperandNonNull(IrOperand operand, State state) => operand switch
+    {
+        IrConstant constant => constant.Value is not null,
+        IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } => !local.Type.MayBeNull || state.NonNull.Contains(local),
+        _ => !operand.Type.MayBeNull,
+    };
+
     static Outcome? OutcomeOf(IrOperand operand, State state) => operand switch
     {
-        IrConstant { Value: true } => new(new(state.Assigned), null),
-        IrConstant { Value: false } => new(null, new(state.Assigned)),
+        IrConstant { Value: true } => new(state.Known, null),
+        IrConstant { Value: false } => new(null, state.Known),
         IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var condition } } when state.Outcomes.TryGetValue(condition, out var known) => known,
         _ => null,
     };
@@ -393,6 +509,7 @@ public sealed partial class IrVerifier
         else
             nullTests.Remove(local);
         Learn(local, value, state);
+        SetNonNull(local, value, ValueNonNull(value, state), state);
         state.Assigned.Add(local);
         state.MaybeAssigned.Add(local);
         if (Dependency.Of(value, this) is { } dependency)
@@ -413,7 +530,15 @@ public sealed partial class IrVerifier
             return;
         }
         if (reads && !state.Assigned.Contains(local))
-            Error($"'{N(local)}' may be read before it is stored");
+        {
+            if (SourceOf(local) is { } symbol)
+            {
+                if (reportedUnassigned.Add(symbol))
+                    Violation($"'{symbol.Name}' might not have been assigned");
+            }
+            else
+                Error($"'{N(local)}' may be read before it is stored");
+        }
         if (state.Moved.Contains(local))
             Error($"'{N(local)}' is used after it is moved");
         if (state.Ended.Contains(local))
@@ -422,11 +547,14 @@ public sealed partial class IrVerifier
             Error($"'{N(local)}' is used where it may no longer be valid: {reason}");
     }
 
-    void Place(IrPlace place, State state, bool reads)
+    /// <param name="initializes">The place is a field a constructor must assign, which a store is assigning.</param>
+    void Place(IrPlace place, State state, bool reads, bool initializes = false)
     {
         var local = place.Local;
         Use(local, state, reads || place.IsDeref);
         CheckNullableOrder(place);
+        if (local == constructed && !initializes)
+            CheckConstructed(place, state);
         if (place.IsDeref)
         {
             bool derefable = local.Kind is IrLocalKind.Reference or IrLocalKind.Hold
@@ -557,20 +685,36 @@ public sealed partial class IrVerifier
                     Error("only a built struct starts as zeroed storage");
                 break;
             case IrClosure closure:
-                foreach (var capture in closure.Captures)
-                    Operand(capture, state);
+            {
+                IrLocal? capturedThis = null;
+                var making = constructed;
+                for (int i = 0; i < closure.Captures.Count && i < closure.Function.Captures.Count; i++)
+                {
+                    // What the source writes is used where the lambda's body uses it.
+                    captureOrigin = FirstUse(closure.Function, closure.Function.Captures[i]);
+                    // What a constructor makes is used where the body uses its copy.
+                    bool copiesMade = closure.Captures[i] is IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == making && making is not null;
+                    if (copiesMade)
+                        (capturedThis, constructed) = (closure.Function.Captures[i], null);
+                    Operand(closure.Captures[i], state);
+                    constructed = making;
+                }
+                captureOrigin = null;
                 if (!closure.Function.IsEscaping)
                     Error("a closure is made from an escaping lambda");
                 if (closure.Captures.Count != closure.Function.Captures.Count
                     || closure.Captures.Where((c, i) => c.Type != closure.Function.Captures[i].Type).Any())
                     Error("the captures don't fit the lambda's");
                 Slot(closure.Slot, value, state);
-                Closure(closure.Function);
+                Closure(closure.Function, state, capturedThis);
                 break;
+            }
             case IrLambda lambda:
                 if (lambda.Function.IsEscaping)
                     Error("an escaping lambda is made by a closure");
                 Lambda(lambda.Function, state);
+                foreach (var assigned in writes.Lambdas.Assigns(lambda.Function))
+                    state.Unnarrow(assigned);
                 state.Lambdas.Add(lambda.Function);
                 break;
             case IrChoose choice:
@@ -831,39 +975,56 @@ public sealed partial class IrVerifier
         slotObjects[slot] = creation;
     }
 
-    /// <summary>A non-escaping lambda's body runs where it is called, during the code that made it, so it sees that code's locals.</summary>
+    /// <summary>
+    /// A non-escaping lambda's body runs where it is called, during the code that made it, so it
+    /// sees that code's locals. What is assigned where it is made stays assigned, but narrowing
+    /// is not kept, since the code before it runs could undo it, except a <c>ref?</c> local's,
+    /// which nothing can make refer elsewhere.
+    /// </summary>
     void Lambda(IrFunction lambda, State state)
     {
         if (!verifiedLambdas.Add(lambda))
             Error($"lambda '{lambda.Name}' is made twice");
-        var (savedFunction, savedLoops, savedCurrent, savedMoves) = (function, loops, current, pendingMoves.ToList());
+        var (savedFunction, savedLoops, savedCurrent, savedMoves, savedNarrowed) = (function, loops, current, pendingMoves.ToList(), narrowedOutside);
         function = lambda;
         loops = [];
+        narrowedOutside = NarrowedAround(state);
         // It may run any number of times, as a loop's body does.
         loopDepth++;
         scopes.Add([]);
         var inner = state.Clone();
+        inner.NonNull.RemoveWhere(l => !l.Type.IsNullableReference);
         foreach (var parameter in Entry(lambda))
             DeclareParameter(parameter, inner);
         inner = Block(lambda.Body, inner, newScope: false);
         if (inner.Reachable && lambda.Symbol.ReturnType != VplType.Void)
-            Report(lambda, null, "the end of the lambda is reachable, but it returns a value");
+            MissingReturn(lambda);
         scopes.RemoveAt(scopes.Count - 1);
         loopDepth--;
-        (function, loops, current) = (savedFunction, savedLoops, savedCurrent);
+        (function, loops, current, narrowedOutside) = (savedFunction, savedLoops, savedCurrent, savedNarrowed);
         pendingMoves.Clear();
         pendingMoves.AddRange(savedMoves);
     }
 
     /// <summary>An escaping lambda's body sees only its parameters and the copies its closure holds.</summary>
-    void Closure(IrFunction lambda)
+    /// <param name="capturedThis">In a constructor, the copy of what it makes, which the body may use as the constructor may where it is made.</param>
+    void Closure(IrFunction lambda, State state, IrLocal? capturedThis)
     {
         if (!verifiedLambdas.Add(lambda))
             Error($"lambda '{lambda.Name}' is made twice");
-        var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList());
-        VerifyFunction(lambda, root);
-        (function, loops, scopes, loopDepth, current, _) = saved;
+        var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList(), narrowedOutside, constructed);
+        narrowedOutside = NarrowedAround(state);
+        constructed = capturedThis;
+        VerifyFunction(lambda, root, capturedThis is null ? [] : state.AssignedFields);
+        (function, loops, scopes, loopDepth, current, _, narrowedOutside, constructed) = saved;
         pendingMoves.Clear();
         pendingMoves.AddRange(saved.moves);
     }
+
+    /// <summary>The source locals narrowed where a lambda is made, for explaining why they aren't in its body.</summary>
+    HashSet<LocalSymbol> NarrowedAround(State state) => [.. narrowedOutside, .. state.NonNull.Select(l => l.Symbol).OfType<LocalSymbol>()];
+
+    /// <summary>The origin of the first statement of a lambda's body that uses the local.</summary>
+    static Location? FirstUse(IrFunction lambda, IrLocal local) =>
+        IrWalk.Descendants(lambda.Body).FirstOrDefault(s => IrWalk.Operands(s).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Contains(local))?.Origin;
 }

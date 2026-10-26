@@ -14,7 +14,7 @@ public sealed partial class IrLowering
     IrRvalue Lambda(BoundLambda lambda)
     {
         var made = lambda.Function;
-        var lowered = new IrFunction(made, $"{function.Name}.lambda{lambdas.Count}") { Enclosing = function };
+        var lowered = new IrFunction(made, $"{function.Name}.lambda{lambdas.Count}") { Enclosing = function, Body = new IrBlock { Origin = lambda.Body.Location } };
         lambdas.Add(lowered);
         var captures = new List<IrOperand>();
         var outer = new List<(LocalSymbol Local, IrLocal Lowered)>();

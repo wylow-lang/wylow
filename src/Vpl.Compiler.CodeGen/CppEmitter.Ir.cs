@@ -115,6 +115,8 @@ public sealed partial class CppEmitter
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
                 break;
+            case IrCheck { Kind: IrCheckKind.Narrowed }:
+                break;
             case IrCheck check:
                 Line(CheckText(check) + ";");
                 break;
@@ -393,7 +395,7 @@ public sealed partial class CppEmitter
             text = projection switch
             {
                 IrField field => $"{text}.{FieldName(field.Field)}",
-                IrElement element when plan.Fused.TryGetValue(element, out var check) => $"vpl::at({text}, {OperandText(element.Index)}, {LocText(check.Loc)})",
+                IrElement element when plan.Fused.TryGetValue(element, out var check) => $"vpl::at({text}, {OperandText(element.Index)}, {LocText(check.Loc!)})",
                 IrElement { Index: IrConstant constant } => $"{text}[{ConstantText(constant)}]",
                 IrElement element => $"{text}[static_cast<size_t>({OperandText(element.Index)})]",
                 IrVariantField variant => $"{text}.{UnionMember(variant.Variant)}.{FieldName(variant.Field)}",
@@ -510,7 +512,7 @@ public sealed partial class CppEmitter
 
     string CheckText(IrCheck check)
     {
-        var operands = check.Operands.Select(OperandText).Append(LocText(check.Loc));
+        var operands = check.Operands.Select(OperandText).Append(LocText(check.Loc!));
         var name = check.Kind switch
         {
             IrCheckKind.Index => "check_index",

@@ -5,7 +5,7 @@ that is enforced, is [architecture.md](architecture.md), which wins where this d
 
 ## 1. Summary
 
-Lower each function, after binding and flow analysis, into an IR with:
+Lower each function, after binding, into an IR with:
 
 - **Structured control flow** (blocks, `if`, `loop` with labeled `break`/`continue`), not a CFG
   of basic blocks, because the target is C++ and its scopes are what release references.
@@ -66,6 +66,10 @@ Some notes on the choices:
   evaluated before the value (§3.4, Evaluation order and the heap), and the temporary is exactly
   the pin the emitter adds today. So "the root to hold" isn't computed by a walker. It's the base,
   by construction.
+- **Narrowing is a check that never runs.** Where the source uses a nullable local as not null, as
+  narrowing allows, `check.narrowed x` (with no location) precedes the use: the flow analysis proves
+  `x` isn't null there, reporting the user's error if it may be, and the pipeline erases it once the
+  last verification has.
 - **Checks are separate from places.** `arr[i]` lowers to `check.index i, 4 @loc` followed by the
   unchecked place `arr[i]`, as MIR does with `Assert`. Evaluating a place then never panics and
   runs no code, which makes places safe to use anywhere. The emitter fuses the check back into
@@ -109,8 +113,10 @@ statement's scope. That's the same guarantee, made explicit.
 ## 4. Where it sits
 
 The layers and the pipeline are in [architecture.md](architecture.md). Until its migration is
-done, FlowAnalyzer still checks the bound tree before lowering, and lowering still takes shortcuts
-(`IsStable`, `Settle`) that the contract moves into passes.
+done, lowering still takes shortcuts (`IsStable`, `Settle`) that the contract moves into passes.
+The flow analysis is the verifier's dataflow, on the lowered program: its violations there are the
+user's errors, so only a program that binds is lowered and checked, as Rust checks borrows only
+once a program type-checks.
 
 ## 5. How the existing features lower
 
@@ -492,7 +498,7 @@ Everything above needs three generic pieces:
 
 Interprocedural facts use `Summaries<T>`. No general fixpoint engine is needed. Structured
 regions are reducible by construction, and every intraprocedural question here is answered by one
-walk, treating a loop body as a whole, as `FlowAnalyzer` already does.
+walk, treating a loop body as a whole, as the flow analysis does.
 
 **Datalog-style rules** (facts like `writes(instr, placeClass)`, `calls`, `flows`, and
 `inExtent`, with rules over them) would make the rules above very readable. Rust's Polonius project

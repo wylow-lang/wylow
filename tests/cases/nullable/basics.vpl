@@ -34,6 +34,14 @@ void main() {
     if (missing == null) {
         print("missing");                   // output: missing
     }
+    // A condition narrows where it is known, through '&&', '||', '!', and '?:'.
+    bool either = present! > 0;
+    if (either ? present != null : present != null && missing == null) {
+        print(present + 2);                 // output: 6
+    }
+    if (!(present == null || missing != null)) {
+        print(present + 3);                 // output: 7
+    }
 
     // Assigning a value narrows too, until the local may be null again.
     mut int? counter = 0;

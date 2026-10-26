@@ -78,7 +78,7 @@ public sealed partial class IrLowering
             case PlaceBase.Pointer:
             {
                 var index = (BoundIndex)path.Steps[0];
-                var pointer = path.Root is BoundLocalAccess { Local: var local } && !local.Type.IsNullableReference ? locals[local] : Let(Rvalue(path.Root, Use.Read));
+                var pointer = path.Root is BoundLocalAccess { Local.Type.IsNullableReference: false } access ? Accessed(access) : Let(Rvalue(path.Root, Use.Read));
                 place = IrPlace.Deref(pointer).Element(IndexOperand(index.Index));
                 first = 1;
                 break;
@@ -96,13 +96,26 @@ public sealed partial class IrLowering
 
     IrPlace LocalPlace(BoundLocalAccess access)
     {
-        var local = locals[access.Local];
+        var local = Accessed(access);
         var type = access.Local.Type;
         if (local.Kind == IrLocalKind.Reference && (!type.IsNullableReference || access.AssumesNonNull))
             return IrPlace.Deref(local);
         if (access.AssumesNonNull && type.IsNullableValue)
             return new IrPlace(local).Assumed();
         return new IrPlace(local);
+    }
+
+    /// <summary>
+    /// The local an access of a source local uses, which every lowering of one asks for: where the
+    /// source uses it as not null, as narrowing allows, this says so for the flow analysis to prove.
+    /// An <c>is ref</c> name is a place wherever it is assigned, which is where its test matched.
+    /// </summary>
+    IrLocal Accessed(BoundLocalAccess access)
+    {
+        var local = locals[access.Local];
+        if (access.AssumesNonNull && access.Local.Type.MayBeNull)
+            Add(new IrCheck(IrCheckKind.Narrowed, [IrRead.Borrow(new IrPlace(local))], null) { Origin = access.Location });
+        return local;
     }
 
     IrPlace Step(IrPlace current, BoundExpression step)
@@ -160,8 +173,8 @@ public sealed partial class IrLowering
         {
             case BoundThis:
                 return borrows ? Hold(new IrPlace(self!), borrows) : self!;
-            case BoundLocalAccess { Local: var symbol }:
-                var local = locals[symbol];
+            case BoundLocalAccess access:
+                var local = Accessed(access);
                 // Only the function itself, or a lambda assigning it, can replace what a local holds.
                 return use == Use.Read && !borrows && !ChangedByLambda(local) ? local : Hold(new IrPlace(local), borrows);
             case BoundLiteral:

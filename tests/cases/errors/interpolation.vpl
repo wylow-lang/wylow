@@ -35,8 +35,6 @@ void main() {
     print(describe(maybe));             // error: 'Animal?' does not implement 'Printable', which type parameter 'T' requires
     print(5.toString(1));               // error: no overload of 'int.toString' takes 1 argument
     print(true.toString<int>());        // error: 'bool.toString' takes no type arguments
-    int? maybeInt = null;
-    print(maybeInt.toString());         // error: 'maybeInt' might be null here; check it with 'if (maybeInt != null)', or use '?.' or '!'
     int x = 1;
     print($"{x:F2}");                   // error: format specifier 'F2' applies to 'float' and 'double', not 'int'
     print($"{1.5:D}");                  // error: format specifier 'D' applies to integers, not 'float'

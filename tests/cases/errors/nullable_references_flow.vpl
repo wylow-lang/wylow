@@ -1,0 +1,23 @@
+// A 'ref?' is used as the place it refers to only where a null check shows it refers to one.
+
+void bump(ref? int x) {
+    x++;                                // error: 'x' might refer to nothing here; check it with 'if (x != null)', or use '!'
+}
+
+void run(() -> void f) {
+    f();
+}
+
+void main() {
+    mut int x = 1;
+    ref? int r = x;
+    ref? int maybe = null;
+    print(maybe + 1);                   // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
+    maybe = 5;                          // error: 'maybe' might refer to nothing here
+    run(() -> {
+        maybe = 2;                      // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
+    });
+    if (!(r is ref int unbound)) {
+        print(unbound);                 // error: 'unbound' might not have been assigned
+    }
+}

@@ -21,9 +21,9 @@ public sealed partial class IrLowering
                 return Read(new IrPlace(self!));
             case BoundLocalAccess { AssumesNonNull: true, Local.Type: { IsNullable: true, NonNull.IsReference: true } } narrowed:
                 // A narrowed nullable reference is the same object, which only its type changes.
-                return IrRead.Move(new IrPlace(Let(new IrConvert(narrowed.Type, Settle(Read(new IrPlace(locals[narrowed.Local])))))));
+                return IrRead.Move(new IrPlace(Let(new IrConvert(narrowed.Type, Settle(Read(new IrPlace(Accessed(narrowed))))))));
             case BoundLocalAccess { Local.Type.IsNullableReference: true, AssumesNonNull: false } reference:
-                return Read(new IrPlace(locals[reference.Local]));
+                return Read(new IrPlace(Accessed(reference)));
             case var place when located.ContainsKey(place) || IsPlace(place):
                 return Read(Place(place, Use.Read));
             default:

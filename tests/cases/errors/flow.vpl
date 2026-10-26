@@ -4,14 +4,6 @@ int noReturn(int n) {
     }
 }                             // error: 'noReturn' must return a value on every path
 
-void returnsValue() {
-    return 1;                 // error: returns 'void' and cannot return a value
-}
-
-int missingValue() {
-    return;                   // error: must return a value of type 'int'
-}
-
 void main() {
     int x;
     print(x);                 // error: 'x' might not have been assigned
@@ -20,5 +12,4 @@ void main() {
         y = 1;
     }
     print(y);                 // error: 'y' might not have been assigned
-    break;                    // error: 'break' can only be used inside a loop
 }

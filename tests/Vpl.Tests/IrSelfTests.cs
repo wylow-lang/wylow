@@ -536,7 +536,11 @@ static class IrSelfTests
         }, Error: "stores a 'bool' in a 'int'");
 
         yield return new("falls_off_the_end", () => b.Function("falls_off_the_end", [], VplType.Int),
-            Error: "the end of the function is reachable");
+            Error: "must return a value on every path");
+
+        yield return new("narrowed_after_test", () => Narrowed(b, "narrowed_after_test", tested: true));
+        yield return new("narrowed_untested", () => Narrowed(b, "narrowed_untested", tested: false),
+            Error: "might be null here");
 
         IrFunction StructConstructor(string name, bool returnsSelf)
         {
@@ -603,6 +607,20 @@ static class IrSelfTests
             Error: "a struct constructor returns its value");
     }
 
+    /// <summary>A nullable source local used as not null, where a null test does or doesn't narrow it.</summary>
+    static IrFunction Narrowed(Builder b, string name, bool tested)
+    {
+        var type = b.Type("Obj").Nullable;
+        var maybe = b.Parameter("maybe", type);
+        var local = b.SourceLocal("local", type);
+        var test = b.Temp(VplType.Bool);
+        IrStatement[] use = [new IrCheck(IrCheckKind.Narrowed, [IrRead.Borrow(new IrPlace(local))], null) { Origin = null }];
+        return b.Function(name, [maybe],
+            new IrLet(local, Use(IrRead.Copy(new IrPlace(maybe)))) { Origin = null },
+            new IrLet(test, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(local)))) { Origin = null },
+            new IrIf(IrRead.Move(new IrPlace(test)), new IrBlock(tested ? use : []) { Origin = null }, new IrBlock(tested ? [] : use) { Origin = null }) { Origin = null });
+    }
+
     static IrUse Use(IrOperand operand) => new(operand);
     static IrRead Move(IrLocal local) => IrRead.Move(new IrPlace(local));
 
@@ -657,6 +675,9 @@ static class IrSelfTests
             new(name, type, kind) { RefKind = refKind };
 
         public IrLocal Parameter(string name, VplType type) => new(name, type, IrLocalKind.Value) { IsParameter = true };
+
+        /// <summary>A variable the source names, whose rules the flow analysis checks.</summary>
+        public IrLocal SourceLocal(string name, VplType type) => new(name, type, IrLocalKind.Value) { Symbol = new LocalSymbol(name, type, isParameter: false) };
 
         public IrFunction Function(string name, IrLocal[] parameters, params IrStatement[] body) => Function(name, parameters, VplType.Void, body);
 

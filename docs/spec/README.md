@@ -76,8 +76,8 @@ Each is explained in detail in its chapter.
 12. **`T?` is `T` when `T` is already nullable.** A generic `T? find()` on a `List<int?>` returns
    an `int?` that is null both when nothing was found and when a null was. See
    [02-types.md](02-types.md#nullable-type-parameters).
-13. **A null check doesn't narrow a `mut` local that a lambda assigns**, anywhere in the function,
-   since the lambda may run during any call. Copy it to another local and check that. See
+13. **A null check doesn't narrow a `mut` local that a lambda assigns**, from where the lambda is
+   made on, since the lambda may run during any call. Copy it to another local and check that. See
    [06-syntax.md](06-syntax.md#67-lambdas-and-function-types).
 14. **Variables, parameters, and fields are immutable unless declared `mut`**, as in Rust. For a
    class reference, this means the variable can't be reassigned; the object itself can still

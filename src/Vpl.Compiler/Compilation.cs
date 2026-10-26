@@ -64,14 +64,7 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         var program = new Binder(diagnostics).BindProgram(unit with { Declarations = [.. stdlib, .. unit.Declarations] });
-        var flow = new FlowAnalyzer(diagnostics);
-        foreach (var function in program.Functions)
-            flow.Analyze(function);
-        foreach (var field in program.Types.SelectMany(t => t.Fields))
-        {
-            if (field.Initializer is { } initializer)
-                flow.Analyze(initializer);
-        }
+        // Only a program that binds is lowered, where the flow analysis finds the errors about order and flow.
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
 

@@ -66,6 +66,7 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
     /// <summary>For a lambda, the function whose body creates it.</summary>
     public IrFunction? Enclosing { get; init; }
 
+    /// <summary>The body, whose origin is the source body, if the source writes one.</summary>
     public IrBlock Body { get; set; } = new() { Origin = null };
 
     public bool IsLambda => Symbol.IsLambda;
@@ -297,16 +298,23 @@ public enum IrCheckKind
     HasValue,
     /// <summary>Panics: no case of a switch matched. It has no operands.</summary>
     NoMatch,
+    /// <summary>
+    /// A source local the code after it uses as not null, as narrowing allows: the flow analysis
+    /// proves it can't be null, reporting the user's error if it can. It never runs, so it has no location.
+    /// </summary>
+    Narrowed,
 }
 
 /// <summary><c>check.kind operands @loc</c>: panics unless the condition holds.</summary>
-public sealed class IrCheck(IrCheckKind kind, IReadOnlyList<IrOperand> operands, IrLoc loc) : IrStatement
+public sealed class IrCheck(IrCheckKind kind, IReadOnlyList<IrOperand> operands, IrLoc? loc) : IrStatement
 {
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Check(this);
 
     public IrCheckKind Kind { get; } = kind;
     public List<IrOperand> Operands { get; } = [.. operands];
-    public IrLoc Loc { get; } = loc;
+
+    /// <summary>Where it panics; null only for a <see cref="IrCheckKind.Narrowed"/> check.</summary>
+    public IrLoc? Loc { get; } = loc;
 }
 
 public sealed class IrIf(IrOperand condition, IrBlock then, IrBlock? @else = null) : IrStatement

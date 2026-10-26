@@ -93,7 +93,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
             new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayOwnObjects ? [new IrRunRelease(statement.Target.Type)] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
-        public IrEffects Check(IrCheck statement) => new([], [], true);
+        public IrEffects Check(IrCheck statement) => new([], [], statement.Kind != IrCheckKind.Narrowed);
         public IrEffects End(IrEnd statement) => Releasing(statement.Local);
         public IrEffects Unreachable(IrUnreachable statement) => new([], [], true);
         public IrEffects Declare(IrDeclare statement) => None;

@@ -155,7 +155,7 @@ public sealed class IrPrinter
         IrDeclare declare => $"declare {Declaration(declare.Local)}",
         IrStore store => $"store {Place(store.Target)} = {Operand(store.Value)}",
         IrDo run => $"do {Rvalue(run.Value)}",
-        IrCheck check => $"check.{CheckName(check.Kind)}{(check.Operands.Count > 0 ? " " : "")}{string.Join(", ", check.Operands.Select(Operand))} {Loc(check.Loc)}",
+        IrCheck check => WithLoc($"check.{CheckName(check.Kind)}{(check.Operands.Count > 0 ? " " : "")}{string.Join(", ", check.Operands.Select(Operand))}", check.Loc),
         IrIf conditional => $"if {Operand(conditional.Condition)} {{",
         IrLoop loop => $"loop {Label(loop)} {{",
         IrBreak jump => $"break {Label(jump.Loop)}",
@@ -173,6 +173,7 @@ public sealed class IrPrinter
         IrCheckKind.NotNull => "not_null",
         IrCheckKind.HasValue => "has_value",
         IrCheckKind.NoMatch => "no_match",
+        IrCheckKind.Narrowed => "narrowed",
         _ => throw new InvalidOperationException($"unexpected check {kind}"),
     };
 

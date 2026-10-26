@@ -1,0 +1,51 @@
+// A nullable local is used as its non-null type only where a null check narrows it (spec 02-types.md).
+
+class Node {
+    int value;
+    Node? next;
+}
+
+void take(Node n) { }
+
+String? maybeString() {
+    return null;
+}
+
+void main() {
+    Node? maybe = null;
+    print(maybe.value);                 // error: 'maybe' might be null here
+    take(maybe);                        // error: 'maybe' might be null here
+    var n = new Node();
+
+    // Narrowing ends when the local may be reassigned to null.
+    mut Node? cur = n;
+    while (cur != null) {
+        cur = cur.next;
+    }
+    mut Node? loop = n;
+    if (loop != null) {
+        while (true) {
+            print(loop.value);          // error: 'loop' might be null here
+            loop = loop.next;           // error: 'loop' might be null here
+        }
+    }
+    if (maybe != null || maybe.value == 1) { }  // error: 'maybe' might be null here
+    bool some = n.value > 0;
+    if (some ? maybe != null : true) {
+        print(maybe.value);             // error: 'maybe' might be null here
+    }
+    // Only a condition narrows, not a variable holding what one found.
+    bool found = maybe != null;
+    if (found) {
+        print(maybe.value);             // error: 'maybe' might be null here
+    }
+
+    int? maybeInt = null;
+    print(maybeInt.toString());         // error: 'maybeInt' might be null here; check it with 'if (maybeInt != null)', or use '?.' or '!'
+    String? unchecked = maybeString();
+    for (char c : unchecked) {          // error: 'unchecked' might be null here
+    }
+    List<int>? list = null;
+    for (int item : list) {             // error: 'list' might be null here
+    }
+}

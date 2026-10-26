@@ -91,34 +91,12 @@ void locals() {
     list = new List<int>();                 // error: cannot assign to 'list' because variable 'list' is not 'mut'
 }
 
-// A variable declared without a value can be assigned once.
-void deferred(bool c) {
-    int once;
-    once = 1;
-    once = 2;                               // error: 'once' might already have been assigned; declare it 'mut' to assign it more than once
-
-    int branches;
-    if (c) {
-        branches = 1;
-    }
-    branches = 2;                           // error: 'branches' might already have been assigned
-
-    int looped;
-    while (c) {
-        looped = 1;                         // error: 'looped' might already have been assigned
-    }
-
+// A variable declared without a value can be assigned once, so not in a lambda, which may run more than once.
+void deferred() {
     int inLambda;
     run(() -> {
         inLambda = 1;                       // error: cannot assign to 'inLambda' in a lambda, which may run more than once, because variable 'inLambda' is not 'mut'
     });
-
-    // Each iteration declares a new one.
-    while (c) {
-        int fresh;
-        fresh = 1;
-        print(fresh);
-    }
 }
 
 void functions(mut () -> void f) {          // error: a non-escaping function cannot be 'mut'

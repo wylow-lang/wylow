@@ -87,6 +87,7 @@ public sealed partial class IrLowering : IIrLambdaChanges
 
     IrFunction Function(BoundFunction bound)
     {
+        function.Body = block = new IrBlock { Origin = bound.Body.Location };
         function.HasLocationParameter = symbol.PassesLocation;
         foreach (var lambda in BoundTree.AllExpressions(bound.Body).OfType<BoundLambda>().Where(l => !l.Function.IsEscaping))
         {
@@ -99,14 +100,14 @@ public sealed partial class IrLowering : IIrLambdaChanges
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
             statements = ConstructorStart(statements);
-        FunctionBody(bound.Body, statements);
+        FunctionBody(statements);
         return function;
     }
 
     /// <summary>Lowers a function's or lambda's body into <see cref="function"/>'s.</summary>
-    void FunctionBody(BoundBlock body) => FunctionBody(body, body.Statements);
+    void FunctionBody(BoundBlock body) => FunctionBody(body.Statements);
 
-    void FunctionBody(BoundBlock body, IReadOnlyList<BoundStatement> statements)
+    void FunctionBody(IReadOnlyList<BoundStatement> statements)
     {
         foreach (var statement in statements)
         {
@@ -114,13 +115,9 @@ public sealed partial class IrLowering : IIrLambdaChanges
                 break;
             Statement(statement);
         }
+        // The flow analysis reports a function that returns a value and whose end is reachable.
         if (reachable && function.Struct is { } made)
-            Add(new IrReturn(IrRead.Copy(new IrPlace(made))) { Origin = at });
-        else if (reachable && symbol.ReturnType != VplType.Void)
-        {
-            var location = body.Location;
-            Unreachable(location with { Span = new TextSpan(location.Span.End - 1, 1) });
-        }
+            Add(new IrReturn(IrRead.Copy(new IrPlace(made))) { Origin = null });
     }
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
@@ -278,8 +275,8 @@ public sealed partial class IrLowering : IIrLambdaChanges
         var local = Declare(symbol);
         if (initializer is null)
         {
-            // A fixed array holds its default; any other local is stored before it is read.
-            Add(symbol.Type.IsFixedArray ? LetOf(local, new IrDefault(symbol.Type)) : new IrDeclare(local) { Origin = at });
+            // A fixed array holds its default if it has one; any other local is stored before it is read.
+            Add(symbol.Type.IsFixedArray && Conversions.IsDefaultable(symbol.Type) ? LetOf(local, new IrDefault(symbol.Type)) : new IrDeclare(local) { Origin = at });
             return;
         }
 
