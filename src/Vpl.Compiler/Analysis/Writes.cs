@@ -224,7 +224,7 @@ public sealed class Writes
         }
         return set;
     }
-    static HashSet<IrLocal> OwnLocals(IrFunction function)
+    public static HashSet<IrLocal> OwnLocals(IrFunction function)
     {
         HashSet<IrLocal> own = [.. function.Parameters, .. function.Captures];
         if (function.Struct is { } made)

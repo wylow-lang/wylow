@@ -23,6 +23,7 @@ public sealed partial class IrLowering
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<IrLocal, Location> loopElements = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
+    readonly HashSet<LocalSymbol> capturedByLambda = [];
     readonly Dictionary<IrRvalue, Location> creations = new(ReferenceEqualityComparer.Instance);
     IrBlock block;
     bool reachable = true;
@@ -80,6 +81,10 @@ public sealed partial class IrLowering
     IrFunction Function(BoundFunction bound)
     {
         function.HasLocationParameter = symbol.PassesLocation;
+        foreach (var lambda in BoundTree.AllExpressions(bound.Body).OfType<BoundLambda>().Where(l => !l.Function.IsEscaping))
+            capturedByLambda.UnionWith(BoundTree.Captures(lambda).Locals.Select(a => a.Local).Where(l => l.IsWritable));
+        foreach (var parameter in function.Parameters)
+            parameter.IsChangedByLambda = parameter.Symbol is { } captured && capturedByLambda.Contains(captured);
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
             statements = ConstructorStart(statements);
@@ -230,7 +235,7 @@ public sealed partial class IrLowering
 
     IrLocal Declare(LocalSymbol local)
     {
-        var lowered = new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind };
+        var lowered = new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind, IsChangedByLambda = capturedByLambda.Contains(local) };
         locals[local] = lowered;
         return lowered;
     }

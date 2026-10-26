@@ -122,11 +122,19 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     /// </summary>
     public bool IsElement { get; set; }
 
+    bool changedByLambda;
+
     /// <summary>
-    /// A lambda assigns it, or may change it in place, so any code that runs may change it. A
-    /// reference can't be made to refer elsewhere: a lambda storing through it writes its target.
+    /// A lambda may assign it or change it in place, so any code that runs may change it. Lowering
+    /// sets it for every writable local a non-escaping lambda captures, and
+    /// <see cref="Optimize.LambdaWrites"/> clears it where no lambda writes the local. A reference
+    /// can't be made to refer elsewhere: a lambda storing through it writes its target.
     /// </summary>
-    public bool IsChangedByLambda => Kind != IrLocalKind.Reference && Symbol is { } local && (local.IsAssignedByLambda || local.IsChangedInPlaceByLambda);
+    public bool IsChangedByLambda
+    {
+        get => changedByLambda && Kind != IrLocalKind.Reference;
+        set => changedByLambda = value;
+    }
 
     public override string ToString() => Name;
 }

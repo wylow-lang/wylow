@@ -82,6 +82,8 @@ public static class Compilation
         IEnumerable<Location> inPlace = [], onStack = [];
         if (options.Optimize)
         {
+            LambdaWrites.Apply(ir);
+            Verify(ir, writes, "the program after clearing the locals no lambda writes");
             HoldElision.Apply(ir, writes);
             Verify(ir, writes, "the program after eliding holds");
             inPlace = InPlaceElements.Apply(ir, writes).Locations;

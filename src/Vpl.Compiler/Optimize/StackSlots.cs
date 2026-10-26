@@ -183,7 +183,7 @@ public sealed class StackSlots
 
     /// <summary>Whether the local is a plain variable, which a slot can be declared with, that no lambda assigns.</summary>
     static bool MayHold(IrLocal local) =>
-        local is { Kind: IrLocalKind.Value, RefKind: RefKind.None, Symbol: not { IsAssignedByLambda: true } } && !local.Type.IsRefStruct;
+        local is { Kind: IrLocalKind.Value, RefKind: RefKind.None, IsChangedByLambda: false } && !local.Type.IsRefStruct;
 
     /// <summary>A store to a local, the statements it is among, and the index of the statement of the local's block it is in.</summary>
     readonly record struct Replacement(IrStore Store, List<IrStatement> In, int Index);

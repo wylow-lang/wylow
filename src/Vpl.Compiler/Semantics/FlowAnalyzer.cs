@@ -103,13 +103,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         {
             foreach (var local in AssignedLocals(lambda.Body).Where(l => BoundTree.IsDeclaredAround(l, lambda.Function)))
                 local.IsAssignedByLambda = true;
-            foreach (var local in BoundTree.Captures(lambda).Locals.Select(a => a.Local).Where(l => l.IsWritable && HasValueStorage(l.Type)))
-                local.IsChangedInPlaceByLambda = true;
         }
     }
-
-    /// <summary>Whether a value of the type has parts that can be written in place: a struct's fields, an array's elements, or a nullable's value.</summary>
-    static bool HasValueStorage(VplType type) => type.IsStruct || type.IsFixedArray || type.IsNullableValue || type.IsTypeParameter;
 
     static Location EndOf(Location body) =>
         new(body.Source, new TextSpan(Math.Max(body.Span.End - 1, body.Span.Start), body.Span.Length > 0 ? 1 : 0));
