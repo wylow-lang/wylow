@@ -665,7 +665,9 @@ Each step keeps the suite passing on MSVC and g++.
    `LocalSymbol.IsChangedInPlaceByLambda`, which `FlowAnalyzer` sets on every `mut` struct, array,
    or nullable value a lambda captures, even one the lambda only reads, so that the IR treats any
    call after it as possibly writing it: replace it with what each lambda's body actually writes,
-   from the effect table, and delete it. Not optional: until it's done, the same question (what
+   from the effect table, and delete it. Done for `IsChangedInPlaceByLambda`: lowering marks
+   `IrLocal.IsChangedByLambda` on every writable local a non-escaping lambda captures, and the
+   `LambdaWrites` pass clears it where no lambda body's effects write the local. Not optional: until it's done, the same question (what
    may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output
