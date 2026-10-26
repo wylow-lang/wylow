@@ -317,7 +317,7 @@ function value, or `IsCopiedForReference`), or a string, whose copy shares its b
 ```
 {
   declare %h                              // the name's hold, declared with it
-  declare.binding slot: ref? int
+  declare slot: ref? int
   declare %c
   {                                       // the condition, a statement of its own
     let %h = hold bag                     // the function itself may reassign bag meanwhile
@@ -677,9 +677,10 @@ Each step keeps the suite passing on MSVC and g++.
    assignment walkers: a loop is analyzed to a fixpoint (the state at its top is the join of the one
    before it and each iteration's end), and what a non-escaping lambda assigns is noted while its body is
    analyzed, so narrowing of that local ends where the lambda is made, not for the whole function.
-   Still interim: `IsBinding`, which exempts a pattern's name from the verifier's "stored once on a
-   path" check because only the tree knows that a true condition means its pattern matched; it goes
-   when the verifier tracks stores per branch of a condition. Not optional: until it's done, the same question (what
+   `IsBinding` is gone too: the verifier tracks, for each `bool` local, what is assigned where it is
+   true and where it is false (from the constants and conditions it is stored from), so a pattern's
+   name is known to be stored where the condition that read it was true. A `ref` binding in a loop
+   condition is declared in the loop, since it is bound again in each iteration. Not optional: until it's done, the same question (what
    may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output
@@ -734,10 +735,9 @@ against the rule: either lowering is wrong or the test's expectation was relying
    The checks that ask "may anything in extent E write P" belong on the IR, because that is the
    effect table's question: the nullable-value reference rule (`FlowAnalyzer`'s operand check and
    its own "locals a statement may assign" walkers), §9.6, and lifetime analysis. **They move in
-   step 7 (§7)**, which deletes `FlowAnalyzer`'s assignment walkers. Until then the verifier trusts
-   `FlowAnalyzer` where it is more precise than the verifier: a pattern binding is declared with
-   `IsBinding`, which the verifier counts as stored, because only `FlowAnalyzer` knows that a
-   condition being true means its pattern matched.
+   step 7 (§7)**, which deleted `FlowAnalyzer`'s assignment walkers. The verifier no longer trusts
+   `FlowAnalyzer` for a pattern's names: it knows from the `bool` a condition is stored in which locals
+   are assigned where it is true.
 5. **Bounds checks as separate instructions?** **Decided: yes** (pure places), with the emitter
    fusing them back into `vpl::at`.
 6. **Accept more programs once the IR can check them?** For example, allow a `ref` into a `mut`

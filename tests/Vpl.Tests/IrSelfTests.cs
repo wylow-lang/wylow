@@ -254,7 +254,7 @@ static class IrSelfTests
             IrBlock Ends() => new([new IrEnd(h)]);
             return b.Function(name, [l],
                 new IrDeclare(h),
-                new IrDeclare(slot) { IsBinding = true },
+                new IrDeclare(slot),
                 new IrDeclare(matched),
                 new IrBlock([
                     new IrLet(h, new IrHold(new IrPlace(l), borrows: true)),
@@ -270,16 +270,37 @@ static class IrSelfTests
         yield return new("reference_binding_hold_ended_where_found", () => ReferenceBinding("reference_binding_hold_ended_where_found", endsWhereFound: true),
             Error: "was ended");
 
-        // Flow analysis knows the name is read only where its pattern matched, which the verifier trusts.
+        // A name is read only where the condition it was stored under is true, however that condition was passed on.
         yield return new("binding_stored_where_matched", () =>
         {
             var c = b.Parameter("c", VplType.Bool);
             var x = b.Local("x", VplType.Int);
+            var (matched, again, negated) = (b.Local("matched", VplType.Bool), b.Temp(VplType.Bool), b.Temp(VplType.Bool));
             return b.Function("binding_stored_where_matched", [c],
-                new IrDeclare(x) { IsBinding = true },
-                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1))])),
-                new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
+                new IrDeclare(x),
+                new IrDeclare(matched),
+                new IrIf(IrRead.Copy(new IrPlace(c)),
+                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)), new IrStore(new IrPlace(matched), IrConstant.Bool(true))]),
+                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false))])),
+                new IrLet(again, Use(IrRead.Move(new IrPlace(matched)))),
+                new IrLet(negated, new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Copy(new IrPlace(again)))),
+                new IrIf(IrRead.Copy(new IrPlace(again)), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])),
+                new IrIf(IrRead.Move(new IrPlace(negated)), new IrBlock(), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
         });
+
+        yield return new("binding_read_where_not_matched", () =>
+        {
+            var c = b.Parameter("c", VplType.Bool);
+            var x = b.Local("x", VplType.Int);
+            var matched = b.Local("matched", VplType.Bool);
+            return b.Function("binding_read_where_not_matched", [c],
+                new IrDeclare(x),
+                new IrDeclare(matched),
+                new IrIf(IrRead.Copy(new IrPlace(c)),
+                    new IrBlock([new IrStore(new IrPlace(x), IrConstant.Int(1)), new IrStore(new IrPlace(matched), IrConstant.Bool(true))]),
+                    new IrBlock([new IrStore(new IrPlace(matched), IrConstant.Bool(false))])),
+                new IrIf(IrRead.Copy(new IrPlace(matched)), new IrBlock(), new IrBlock([new IrDo(b.Call("use", IrRead.Copy(new IrPlace(x))))])));
+        }, Error: "may be read before it is stored");
 
         // The store makes the loop's entry state change, so its body is verified a second time.
         yield return new("loop_verified_twice", () =>
@@ -447,12 +468,6 @@ static class IrSelfTests
                 new IrIf(IrRead.Copy(new IrPlace(c)), new IrBlock([new IrStore(new IrPlace(r), IrConstant.Int(1))])),
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(r)))));
         }, Error: "may be read before it is stored");
-
-        yield return new("temporary_binding", () =>
-        {
-            var r = b.Temp(VplType.Int);
-            return b.Function("temporary_binding", [], new IrDeclare(r) { IsBinding = true });
-        }, Error: "only a value or a nullable reference can be a pattern's binding");
 
         yield return new("break_outside_loop", () =>
         {

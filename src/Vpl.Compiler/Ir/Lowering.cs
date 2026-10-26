@@ -207,7 +207,7 @@ public sealed partial class IrLowering
                 WithPatternLocals(conditional.Condition, () => If(conditional));
                 break;
             case BoundWhile loop:
-                WithPatternLocals(loop.Condition, () => Loop(loop.Condition, loop.Body, null));
+                WithPatternLocals(loop.Condition, () => Loop(loop.Condition, loop.Body, null), references: false);
                 break;
             case BoundSwitch switchStatement:
                 Switch(switchStatement);

@@ -94,6 +94,8 @@ public sealed partial class IrLowering
         loops.Add(context);
         Into(loop.Body, () =>
         {
+            // A reference is bound again in each iteration, and a value, which releases its old one, only when it matches.
+            DeclarePatternLocals(condition, references: true);
             if (condition is not (null or BoundLiteral { Value: true }))
                 BreakUnless(Condition(condition), context);
             if (reachable)
@@ -122,7 +124,7 @@ public sealed partial class IrLowering
         {
             if (loop.Initializer is { } initializer)
                 Statement(initializer);
-            DeclarePatternLocals(loop.Condition);
+            DeclarePatternLocals(loop.Condition, references: false);
             Loop(loop.Condition, loop.Body, loop.Update);
         });
         Add(scope);

@@ -27,6 +27,13 @@ public sealed partial class IrVerifier
         /// <summary>Dependents that may no longer be used, and why.</summary>
         public Dictionary<IrLocal, string> Invalid { get; private init; } = [];
 
+        /// <summary>
+        /// For a <c>bool</c> local, what is assigned where it is true and where it is false, null where
+        /// it can't be, which is how a pattern's names are known to be stored where it matched.
+        /// The sets are never changed once made.
+        /// </summary>
+        public Dictionary<IrLocal, Outcome> Outcomes { get; private init; } = [];
+
         public static State Unreachable => new() { Reachable = false };
 
         public State Clone() => new()
@@ -37,6 +44,7 @@ public sealed partial class IrVerifier
             Moved = [.. Moved],
             Ended = [.. Ended],
             Invalid = new(Invalid),
+            Outcomes = new(Outcomes),
         };
 
         public static State Merge(State a, State b)
@@ -48,9 +56,18 @@ public sealed partial class IrVerifier
             var invalid = new Dictionary<IrLocal, string>(a.Invalid);
             foreach (var (local, reason) in b.Invalid)
                 invalid.TryAdd(local, reason);
+            var assigned = a.Assigned.Intersect(b.Assigned).ToHashSet();
+            var outcomes = new Dictionary<IrLocal, Outcome>();
+            foreach (var local in a.Outcomes.Keys.Union(b.Outcomes.Keys))
+            {
+                var merged = a.OutcomeOf(local).Join(b.OutcomeOf(local));
+                if (merged.WhenTrue?.Any(l => !assigned.Contains(l)) == true || merged.WhenFalse?.Any(l => !assigned.Contains(l)) == true)
+                    outcomes[local] = merged;
+            }
             return new()
             {
-                Assigned = [.. a.Assigned.Intersect(b.Assigned)],
+                Outcomes = outcomes,
+                Assigned = assigned,
                 MaybeAssigned = [.. a.MaybeAssigned.Union(b.MaybeAssigned)],
                 Moved = [.. a.Moved.Union(b.Moved)],
                 Ended = [.. a.Ended.Union(b.Ended)],
@@ -60,7 +77,10 @@ public sealed partial class IrVerifier
 
         public bool SameAs(State other) =>
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
-            && Moved.SetEquals(other.Moved) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys);
+            && Moved.SetEquals(other.Moved) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
+            && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
+
+        public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Assigned, Assigned);
 
         /// <summary>A local declared again, as in a later iteration, starts over.</summary>
         public void Forget(IrLocal local)
@@ -70,7 +90,28 @@ public sealed partial class IrVerifier
             Moved.Remove(local);
             Ended.Remove(local);
             Invalid.Remove(local);
+            Outcomes.Remove(local);
+            foreach (var (condition, outcome) in Outcomes.ToList())
+            {
+                if ((outcome.WhenTrue?.Contains(local) ?? false) || (outcome.WhenFalse?.Contains(local) ?? false))
+                    Outcomes[condition] = new(outcome.WhenTrue?.Where(l => l != local).ToHashSet(), outcome.WhenFalse?.Where(l => l != local).ToHashSet());
+            }
         }
+    }
+
+    /// <summary>What is assigned when a condition is true and when it is false; null for one that can't happen.</summary>
+    sealed record Outcome(HashSet<IrLocal>? WhenTrue, HashSet<IrLocal>? WhenFalse)
+    {
+        public Outcome Negated => new(WhenFalse, WhenTrue);
+
+        public Outcome Join(Outcome other) => new(Meet(WhenTrue, other.WhenTrue), Meet(WhenFalse, other.WhenFalse));
+
+        static HashSet<IrLocal>? Meet(HashSet<IrLocal>? a, HashSet<IrLocal>? b) =>
+            a is null ? b : b is null ? a : a.Intersect(b).ToHashSet();
+
+        public bool SameAs(Outcome other) => Same(WhenTrue, other.WhenTrue) && Same(WhenFalse, other.WhenFalse);
+
+        static bool Same(HashSet<IrLocal>? a, HashSet<IrLocal>? b) => a is null ? b is null : b is not null && a.SetEquals(b);
     }
 
     enum StorageKind
@@ -308,12 +349,37 @@ public sealed partial class IrVerifier
         }
     }
 
+    /// <summary>What a <c>bool</c> local's value says about what is assigned, from the constant or condition it is made from.</summary>
+    static void Learn(IrLocal local, IrRvalue value, State state)
+    {
+        state.Outcomes.Remove(local);
+        if (local.Type != VplType.Bool)
+            return;
+        Outcome? outcome = value switch
+        {
+            IrUse { Operand: var operand } => OutcomeOf(operand, state),
+            IrUnary { Operator: BoundUnaryOperator.LogicalNot, Operand: var operand } => OutcomeOf(operand, state)?.Negated,
+            _ => null,
+        };
+        if (outcome is not null)
+            state.Outcomes[local] = outcome;
+    }
+
+    static Outcome? OutcomeOf(IrOperand operand, State state) => operand switch
+    {
+        IrConstant { Value: true } => new(new(state.Assigned), null),
+        IrConstant { Value: false } => new(null, new(state.Assigned)),
+        IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var condition } } when state.Outcomes.TryGetValue(condition, out var known) => known,
+        _ => null,
+    };
+
     void Define(IrLocal local, IrRvalue value, State state)
     {
         if (value is IrTest { Kind: IrTestKind.NotNull, Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } })
             nullTests[local] = tested;
         else
             nullTests.Remove(local);
+        Learn(local, value, state);
         state.Assigned.Add(local);
         state.MaybeAssigned.Add(local);
         if (Dependency.Of(value, this) is { } dependency)

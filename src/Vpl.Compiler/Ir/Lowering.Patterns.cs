@@ -13,11 +13,11 @@ public sealed partial class IrLowering
     /// The names an expression's patterns bind, declared before the statement evaluating it: they
     /// are in scope for the whole statement, and assigned where their pattern matched (spec §6, Patterns).
     /// </summary>
-    void DeclarePatternLocals(BoundExpression? expression)
+    void DeclarePatternLocals(BoundExpression? expression, bool? references = null)
     {
-        foreach (var local in BoundTree.PatternLocals(expression))
+        foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || l.IsReferenceBinding == references))
         {
-            var declare = new IrDeclare(Declare(local)) { IsBinding = true };
+            var declare = new IrDeclare(Declare(local));
             if (local.IsReferenceBinding)
                 bindings[local] = (block, declare);
             Add(declare);
@@ -82,9 +82,9 @@ public sealed partial class IrLowering
     }
 
     /// <summary>A statement whose condition binds names, in a block of its own that declares them.</summary>
-    void WithPatternLocals(BoundExpression condition, Action lower)
+    void WithPatternLocals(BoundExpression condition, Action lower, bool? references = null)
     {
-        if (!BoundTree.PatternLocals(condition).Any())
+        if (!BoundTree.PatternLocals(condition).Any(l => references is null || l.IsReferenceBinding == references))
         {
             lower();
             return;
@@ -92,7 +92,7 @@ public sealed partial class IrLowering
         var scope = new IrBlock();
         Into(scope, () =>
         {
-            DeclarePatternLocals(condition);
+            DeclarePatternLocals(condition, references);
             lower();
         });
         Add(scope);

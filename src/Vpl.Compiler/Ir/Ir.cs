@@ -216,12 +216,6 @@ public sealed class IrDeclare(IrLocal local) : IrStatement
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Declare(this);
 
     public IrLocal Local { get; } = local;
-
-    /// <summary>
-    /// A name a pattern binds, stored only where it matched. Flow analysis guarantees it is read only
-    /// there, which the verifier can't see, so it counts as stored here and starts as a default value.
-    /// </summary>
-    public bool IsBinding { get; init; }
 }
 
 /// <summary><c>store place = value</c>: stores the new value, then releases the old one.</summary>

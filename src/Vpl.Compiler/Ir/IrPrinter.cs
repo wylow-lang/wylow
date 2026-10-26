@@ -152,7 +152,7 @@ public sealed class IrPrinter
     {
         IrBlock => "{",
         IrLet let => $"let {Declaration(let.Local)} = {Rvalue(let.Value)}",
-        IrDeclare declare => $"declare{(declare.IsBinding ? ".binding" : "")} {Declaration(declare.Local)}",
+        IrDeclare declare => $"declare {Declaration(declare.Local)}",
         IrStore store => $"store {Place(store.Target)} = {Operand(store.Value)}",
         IrDo run => $"do {Rvalue(run.Value)}",
         IrCheck check => $"check.{CheckName(check.Kind)}{(check.Operands.Count > 0 ? " " : "")}{string.Join(", ", check.Operands.Select(Operand))} {Loc(check.Loc)}",

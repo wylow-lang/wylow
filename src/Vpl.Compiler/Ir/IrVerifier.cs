@@ -229,9 +229,7 @@ public sealed partial class IrVerifier
                 if (declare.Local.Kind == IrLocalKind.Borrowed || declare.Local.Kind == IrLocalKind.Hold && !declare.Local.IsTemporary)
                     Error($"a {declare.Local.Kind.ToString().ToLowerInvariant()} local needs its value where it is declared");
                 Declare(declare.Local, state, declare);
-                if (declare.IsBinding && (declare.Local.IsTemporary || declare.Local.Kind != IrLocalKind.Value && !declare.Local.Type.IsNullableReference))
-                    Error("only a value or a nullable reference can be a pattern's binding");
-                if (declare.Local.Kind == IrLocalKind.Slot || declare.IsBinding)
+                if (declare.Local.Kind == IrLocalKind.Slot)
                     state.Assigned.Add(declare.Local);
                 return state;
             case IrStore store:
@@ -355,8 +353,7 @@ public sealed partial class IrVerifier
             Error($"'{N(local)}' is a reference, which can't be made to refer elsewhere; store through it with '*'");
         else if (whole && local.Kind is IrLocalKind.Hold or IrLocalKind.Slot or IrLocalKind.Borrowed)
             Error($"'{N(local)}' is a {local.Kind.ToString().ToLowerInvariant()} local, which can't be stored");
-        bool binding = declaration?.Statement is IrDeclare { IsBinding: true };
-        if (whole && (local.IsTemporary || local.Kind == IrLocalKind.Reference) && deferred && !binding)
+        if (whole && (local.IsTemporary || local.Kind == IrLocalKind.Reference) && deferred)
         {
             if (state.MaybeAssigned.Contains(local))
                 Error($"'{N(local)}' may be stored more than once on a path");
@@ -366,6 +363,7 @@ public sealed partial class IrVerifier
         CommitMoves(state);
         if (whole)
         {
+            Learn(local, new IrUse(store.Value), state);
             state.Assigned.Add(local);
             state.MaybeAssigned.Add(local);
             state.Invalid.Remove(local);
@@ -403,12 +401,19 @@ public sealed partial class IrVerifier
         CommitMoves(state);
         if (conditional.Condition.Type != VplType.Bool)
             Error($"the condition is a '{conditional.Condition.Type}', not a 'bool'");
-        var then = Block(conditional.Then, state.Clone());
+        var outcome = conditional.Condition is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var condition } } && state.Outcomes.TryGetValue(condition, out var known) ? known : null;
+        var thenState = state.Clone();
+        var elseState = state.Clone();
+        if (outcome?.WhenTrue is { } whenTrue)
+            thenState.Assigned.UnionWith(whenTrue);
+        if (outcome?.WhenFalse is { } whenFalse)
+            elseState.Assigned.UnionWith(whenFalse);
+        var then = Block(conditional.Then, thenState);
         // Where a reference's null test failed, nothing it points into needs to stay held.
         var isNull = conditional.Condition is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var tested } } && nullTests.TryGetValue(tested, out var reference) ? reference : null;
         if (isNull is not null)
             knownNull.Add(isNull);
-        var otherwise = conditional.Else is { } elseBlock ? Block(elseBlock, state.Clone()) : state;
+        var otherwise = conditional.Else is { } elseBlock ? Block(elseBlock, elseState) : elseState;
         if (isNull is not null)
             knownNull.Remove(isNull);
         return State.Merge(then, otherwise);

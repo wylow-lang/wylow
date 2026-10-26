@@ -69,7 +69,7 @@ public sealed class HoldElision(Writes writes)
         if (statements[at] is not IrBlock { IsStatement: true } scope)
             return at;
         var inner = scope.Statements;
-        var stored = at > 0 && statements[at - 1] is IrDeclare { IsBinding: false, Local: var local }
+        var stored = at > 0 && statements[at - 1] is IrDeclare { Local: var local }
             && inner is [.., IrStore { Target: { IsDeref: false, Projections.Count: 0 } target } store] && target.Local == local
             ? store : null;
         // Lowering made a temporary of a value that wasn't an operand already.
