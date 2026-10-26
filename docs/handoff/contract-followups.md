@@ -26,27 +26,11 @@ answers kept drifting apart and the drift was found days later.
   no warnings. Where a step should change no behavior, show it: build the previous commit in a git
   worktree, run the tests in both trees, and `diff -r` the two `tests/.out`.
 
-## Step 1: make the enforcement rules true
+## Step 1: make the enforcement rules true (done)
 
-Two CLAUDE.md rules are stated but not yet true of the code. Do this step before anything else.
-
-1. **Warnings are errors.** Add `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` to
-   `Directory.Build.props`, then fix every warning in every project, tests and CLI included. One is
-   known: `BorrowedLocals` takes a `program` it no longer reads (CS9113). Don't suppress a warning
-   without a comment saying why it is wrong there.
-2. **Only the pipeline builds facts.** Make the constructors and finders of facts `internal` to
-   Analysis: `Callees`'s constructor, `Writes.Find`, `Escapes.Find`, `LambdaWrites.Find`, and
-   whatever builds them. Add `InternalsVisibleTo` for `Vpl.Compiler.Optimize` (the pipeline) and the
-   test project (`IrSelfTests` builds facts for hand-written IR). The fact types stay public, since
-   the emitter reads the ones the pipeline hands it (`Optimized`). Check that CodeGen no longer
-   compiles if it calls `new Callees(...)`.
-3. **Lowering keeps every by-value argument.** `IrLowering.Kept` (Lowering.Expressions.cs, the
-   `!operand.Type.MayOwnObjects` case) skips the kept copy for a type that can't own objects. Delete
-   that case, so lowering asks nothing. The optimized output should be unchanged, since
-   `ReadsInPlace` removes the copies nothing needs; diff `tests/.out` to show it. If it isn't
-   unchanged, teach `ReadsInPlace` the reason rather than restoring the shortcut.
-4. Mark the "No leftovers" and "Only the pipeline builds facts" rows of architecture.md enforced,
-   and drop step 1's exception from the "Lowering asks nothing" row.
+Warnings are errors, the fact constructors are `internal` to Analysis, and lowering keeps every
+by-value argument (`ReadsInPlace` passes a temporary itself where its release runs no code). The
+optimized C++ and IR of every test were identical before and after.
 
 ## Step 2: mandatory passes, and the borrow rule in one of them
 

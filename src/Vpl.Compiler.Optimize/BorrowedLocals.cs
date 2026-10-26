@@ -11,7 +11,7 @@ namespace Vpl.Compiler.Optimize;
 /// Loop elements are <see cref="InPlaceElements"/>'s. Run after <see cref="HoldElision"/>, whose
 /// holds the place may go through.
 /// </summary>
-sealed class BorrowedLocals(IrProgram program, Writes writes)
+sealed class BorrowedLocals(Writes writes)
 {
     readonly Aliasing aliasing = new(writes);
     int count;
@@ -21,7 +21,7 @@ sealed class BorrowedLocals(IrProgram program, Writes writes)
 
     public static BorrowedLocals Apply(IrProgram program, Writes writes)
     {
-        var result = new BorrowedLocals(program, writes);
+        var result = new BorrowedLocals(writes);
         foreach (var function in program.Functions)
         {
             result.aliasing.Learn(function);

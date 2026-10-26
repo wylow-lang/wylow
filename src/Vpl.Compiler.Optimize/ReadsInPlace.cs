@@ -10,8 +10,9 @@ namespace Vpl.Compiler.Optimize;
 /// its statement keeps (spec 03-memory-model.md, When references are released). The place must be
 /// unchanged for as long as the copy matters: until it is moved, or for a kept copy whose release
 /// may be observed, until its block releases it, so that the place keeps the same objects alive
-/// as long. Run before <see cref="HoldElision"/>, whose <c>Flatten</c> then finds the statements
-/// that release nothing observable.
+/// as long. A kept copy of a temporary whose release runs no code is no copy at all: the argument
+/// takes the temporary itself. Run before <see cref="HoldElision"/>, whose <c>Flatten</c> then finds
+/// the statements that release nothing observable.
 /// </summary>
 sealed class ReadsInPlace(Writes writes)
 {
@@ -45,7 +46,25 @@ sealed class ReadsInPlace(Writes writes)
             statements.RemoveRange(i, defined - i + 1);
             i--;
         }
+        for (int i = 0; i < statements.Count; i++)
+        {
+            foreach (var read in KeptTemporaries(statements, i))
+                read.Ownership = IrOwnership.Move;
+        }
     }
+
+    /// <summary>
+    /// The by-value arguments of statement <paramref name="at"/> that copy a temporary of the block
+    /// whose release runs no code, each the temporary's last mention, and its only one there.
+    /// </summary>
+    static IEnumerable<IrRead> KeptTemporaries(List<IrStatement> statements, int at) =>
+        (IrWalk.Rvalue(statements[at]) is { } value && IrWalk.Passed(value) is { } passed ? passed.Arguments : []).OfType<IrRead>()
+            .Where(r => r is { Ownership: IrOwnership.Copy, Place: { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: true, Kind: IrLocalKind.Value } temporary } }
+                && !IrEffects.ReleaseMayRunCode(temporary)
+                && statements.Take(at).Any(s => IrWalk.Declared(s) == temporary)
+                && IrWalk.Locals(statements[at]).Count(l => l == temporary) == 1
+                && !statements.Skip(at + 1).Any(s => IrWalk.Locals(s).Contains(temporary)))
+            .ToList();
 
     /// <summary>
     /// The temporary copy of a place that statement <paramref name="at"/> starts, and the index of

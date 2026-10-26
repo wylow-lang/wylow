@@ -25,7 +25,7 @@ public sealed class Callees
     readonly Dictionary<VplType, IReadOnlyList<IrFunction>> lambdasOfType = [];
     readonly int generation;
 
-    public Callees(IrProgram program)
+    internal Callees(IrProgram program)
     {
         Program = program;
         generation = program.Generation;

@@ -56,7 +56,7 @@ public sealed class CyclicClasses
     /// <summary>Whether the closures of an escaping lambda may be part of a cycle; one the analysis didn't see is assumed to be.</summary>
     public bool IsCyclicClosure(FunctionSymbol lambda) => !captured.ContainsKey(lambda) || cyclicClosures.Contains(lambda);
 
-    public static CyclicClasses Find(IrProgram program)
+    internal static CyclicClasses Find(IrProgram program)
     {
         var result = new CyclicClasses(program);
         result.Discover();

@@ -96,7 +96,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
   run as an oracle. `ReadsInPlace.cs` (reads a place instead of the temporary lowering copied it
   into at its turn, or kept for a by-value argument, where nothing may change the place while the
-  copy matters). `HoldElision.cs` (§6.2 of the design: turns a hold nothing in its extent can
+  copy matters, and passes a temporary itself where its kept copy's release runs no code). `HoldElision.cs` (§6.2 of the design: turns a hold nothing in its extent can
   disturb into an alias of its place, or the local itself if that is the place, or drops its
   borrow, then flattens the statement scopes that no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
   count, where nothing can store over the element; the verifier re-checks it with `Writes`).

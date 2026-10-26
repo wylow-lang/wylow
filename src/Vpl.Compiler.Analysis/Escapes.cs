@@ -29,7 +29,7 @@ public sealed class Escapes
         summaries = new Summaries<IrFunction, Summary>(callees.Program.Functions, Summary.Empty, s => s.Size);
     }
 
-    public static Escapes Find(Callees callees)
+    internal static Escapes Find(Callees callees)
     {
         var result = new Escapes(callees);
         result.summaries.Solve(result.Summarize);

@@ -107,8 +107,9 @@ fully specified, and is the order the spec now requires (§3.4, When references 
 statement's temporaries are declared in the statement's scope; a temporary of an operand that may
 not be evaluated is declared in that operand's block, so it is released when the operand completes.
 Today a by-value parameter's destruction point is ABI-dependent, which is why `vpl::keep` exists.
-In the IR, an argument that may own objects is passed as `copy %t`, where `%t` belongs to the
-statement's scope. That's the same guarantee, made explicit.
+In the IR, lowering passes every by-value argument as `copy %t`, where `%t` belongs to the
+statement's scope. That's the same guarantee, made explicit; `ReadsInPlace` passes `%t` itself
+where its release runs no code.
 
 ## 4. Where it sits
 

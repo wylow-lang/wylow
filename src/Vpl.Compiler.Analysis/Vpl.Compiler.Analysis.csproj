@@ -4,4 +4,10 @@
     <ProjectReference Include="../Vpl.Compiler.Ir/Vpl.Compiler.Ir.csproj" />
   </ItemGroup>
 
+  <!-- Facts are built only by the pipeline, and by the tests that verify hand-written IR. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Vpl.Compiler.Optimize" />
+    <InternalsVisibleTo Include="Vpl.Tests" />
+  </ItemGroup>
+
 </Project>

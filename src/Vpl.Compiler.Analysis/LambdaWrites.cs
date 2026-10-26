@@ -22,7 +22,7 @@ public sealed class LambdaWrites : IIrLambdaChanges
         changed = [.. around.Values.SelectMany(l => l)];
     }
 
-    public static LambdaWrites Find(Callees callees) => new(callees);
+    internal static LambdaWrites Find(Callees callees) => new(callees);
 
     /// <summary>
     /// The locals around a lambda that its body, or a lambda it makes, may assign or change in

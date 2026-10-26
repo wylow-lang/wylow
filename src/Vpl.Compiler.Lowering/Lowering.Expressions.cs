@@ -237,13 +237,12 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// A by-value argument that may own objects is passed as a copy of a value the statement
-    /// keeps, so that it is released when the statement completes, whenever the callee's copy is
-    /// destroyed (spec 03-memory-model.md, When references are released).
+    /// A by-value argument is passed as a copy of a value the statement keeps, so that what it owns
+    /// is released when the statement completes, whenever the callee's copy is destroyed (spec
+    /// 03-memory-model.md, When references are released).
     /// </summary>
     IrOperand Kept(IrOperand operand) => operand switch
     {
-        _ when !operand.Type.MayOwnObjects => operand,
         IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true } temp } => IrRead.Copy(temp),
         IrRead read => IrRead.Copy(new IrPlace(Let(new IrUse(IrRead.Copy(read.Place))))),
         _ => operand,

@@ -132,7 +132,7 @@ public sealed class Writes
         summaries = new Summaries<IrFunction, WriteSet>(callees.Program.Functions, () => new WriteSet(), s => s.Size);
     }
 
-    public static Writes Find(Callees callees)
+    internal static Writes Find(Callees callees)
     {
         var result = new Writes(callees);
         result.summaries.Solve(result.Summarize);
