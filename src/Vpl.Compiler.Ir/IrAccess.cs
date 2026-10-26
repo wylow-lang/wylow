@@ -14,6 +14,16 @@ public enum IrStorage
 }
 
 /// <summary>
+/// Which locals a lambda the function makes may change when code runs. Lowering answers it from
+/// the bound tree, before the lambdas' bodies exist; everything after lowering asks the analysis's
+/// answer, from the bodies (<c>LambdaWrites</c>).
+/// </summary>
+public interface IIrLambdaChanges
+{
+    bool MayChange(IrLocal local);
+}
+
+/// <summary>
 /// The storage an instruction reads or writes, at the precision that ordering and hold elision
 /// need: two accesses may be the same storage if they <see cref="Overlaps"/>.
 /// </summary>
@@ -63,9 +73,9 @@ public readonly record struct IrAccess(IrStorage Storage, IrLocal? Local = null,
     /// see, or a local a lambda assigns. Only a class's own constructors assign a field that isn't
     /// <c>mut</c>, and only by storing to it themselves.
     /// </summary>
-    public bool WrittenByCode => Storage switch
+    public bool WrittenByCode(IIrLambdaChanges lambdas) => Storage switch
     {
-        IrStorage.Frame => Local!.IsChangedByLambda,
+        IrStorage.Frame => lambdas.MayChange(Local!),
         IrStorage.Field => Field is null || Field.IsMutable,
         _ => true,
     };
@@ -96,10 +106,10 @@ public sealed class IrFootprint
     }
 
     /// <summary>Whether it may write any of the accesses, itself or by running code.</summary>
-    public bool MayChange(IEnumerable<IrAccess> accesses)
+    public bool MayChange(IEnumerable<IrAccess> accesses, IIrLambdaChanges lambdas)
     {
         var list = accesses.ToList();
-        return list.Any(a => Writes.Any(a.Overlaps)) || (RunsCode && list.Any(a => a.WrittenByCode));
+        return list.Any(a => Writes.Any(a.Overlaps)) || (RunsCode && list.Any(a => a.WrittenByCode(lambdas)));
     }
 
     public void Add(IrEffects effects)
@@ -116,16 +126,16 @@ public sealed class IrFootprint
     /// is reported is observable), one panics while the other may do I/O, or both make values whose
     /// release order is observable.
     /// </summary>
-    public bool ConflictsWith(IrFootprint other) =>
+    public bool ConflictsWith(IrFootprint other, IIrLambdaChanges lambdas) =>
         (RunsCode && other.RunsCode)
         || (MayPanic && (other.MayPanic || other.RunsCode))
         || (other.MayPanic && RunsCode)
         || (CreatesOwner && other.CreatesOwner)
-        || Disturbs(other) || other.Disturbs(this);
+        || Disturbs(other, lambdas) || other.Disturbs(this, lambdas);
 
-    bool Disturbs(IrFootprint other) =>
+    bool Disturbs(IrFootprint other, IIrLambdaChanges lambdas) =>
         Writes.Any(w => other.Reads.Any(w.Overlaps) || other.Writes.Any(w.Overlaps))
-        || (RunsCode && (other.Reads.Any(r => r.WrittenByCode) || other.Writes.Any(w => w.WrittenByCode)));
+        || (RunsCode && (other.Reads.Any(r => r.WrittenByCode(lambdas)) || other.Writes.Any(w => w.WrittenByCode(lambdas))));
 }
 
 public static class IrWalk

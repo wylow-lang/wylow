@@ -52,7 +52,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → LambdaWrites → HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
@@ -75,8 +75,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
-  `LambdaWrites.cs` (what each lambda may change around it, which the verifier asks from where
-  the lambda is made on). `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
+  `LambdaWrites.cs` (what each lambda may change around it, found with `Writes`: the verifier asks
+  the lambdas made so far, and the passes and the emitter whether any lambda may). `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
   of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
   `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and

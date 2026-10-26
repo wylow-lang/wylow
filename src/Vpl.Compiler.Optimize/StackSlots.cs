@@ -28,19 +28,21 @@ sealed class StackSlots
 {
     readonly IrProgram program;
     readonly Escapes escapes;
+    readonly LambdaWrites lambdas;
     readonly List<(IrBlock Block, IrStatement Before, IrRvalue Creation)> locals = [];
     readonly List<(IrBlock Block, IrStatement Before, IrRvalue Creation)> temporaries = [];
     readonly Dictionary<IrStore, (List<IrStatement> In, List<IrRvalue> Ended)> ends = new(ReferenceEqualityComparer.Instance);
 
-    StackSlots(IrProgram program, Escapes escapes)
+    StackSlots(IrProgram program, Escapes escapes, LambdaWrites lambdas)
     {
         this.program = program;
         this.escapes = escapes;
+        this.lambdas = lambdas;
     }
 
-    public static StackSlots Apply(IrProgram program, Escapes escapes)
+    public static StackSlots Apply(IrProgram program, Escapes escapes, LambdaWrites lambdas)
     {
-        var result = new StackSlots(program, escapes);
+        var result = new StackSlots(program, escapes, lambdas);
         foreach (var function in program.Functions)
         {
             // C++ computes a base constructor's arguments before the constructor's frame exists, in
@@ -187,8 +189,8 @@ sealed class StackSlots
     static bool IsCreation(IrRvalue value) => value is IrNew || value is IrClosure { Captures.Count: > 0 };
 
     /// <summary>Whether the local is a plain variable, which a slot can be declared with, that no lambda assigns.</summary>
-    static bool MayHold(IrLocal local) =>
-        local is { Kind: IrLocalKind.Value, RefKind: RefKind.None, IsChangedByLambda: false } && !local.Type.IsRefStruct;
+    bool MayHold(IrLocal local) =>
+        local is { Kind: IrLocalKind.Value, RefKind: RefKind.None } && !lambdas.MayChange(local) && !local.Type.IsRefStruct;
 
     /// <summary>A store to a local, the statements it is among, and the index of the statement of the local's block it is in.</summary>
     readonly record struct Replacement(IrStore Store, List<IrStatement> In, int Index);

@@ -195,7 +195,7 @@ public sealed partial class IrLowering
         {
             var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
             // A generic value may be an object, which the call holds; a struct is used in place.
-            if (place is { IsDeref: false, Projections.Count: 0, Local: var local } && !local.IsChangedByLambda && !returnsInto)
+            if (place is { IsDeref: false, Projections.Count: 0, Local: var local } && !ChangedByLambda(local) && !returnsInto)
                 return method.IsReadOnly ? IrRead.Borrow(place) : new IrRefArgument(RefKind.Ref, place);
             var holder = Hold(place, returnsInto && MayBeBorrowable(type));
             return method.IsReadOnly || returnsInto ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder));
@@ -270,7 +270,7 @@ public sealed partial class IrLowering
     {
         var local = place.Local;
         bool stableLocal = (local.IsThis || !local.IsTemporary || local.Kind == IrLocalKind.Borrowed && aliases.TryGetValue(local, out var aliased) && IsStable(aliased))
-            && !local.IsChangedByLambda && local.Kind != IrLocalKind.Reference;
+            && !ChangedByLambda(local) && local.Kind != IrLocalKind.Reference;
         if (!place.IsDeref)
             return place.Projections.Count == 0 && stableLocal;
         return stableLocal && place.Projections is [IrField { Field.IsMutable: false }];

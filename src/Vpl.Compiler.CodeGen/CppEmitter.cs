@@ -39,8 +39,12 @@ public sealed partial class CppEmitter
     Dictionary<(TypeSymbol, string), IrFunction> irBuilt = [];
     bool nest = true;
 
-    public string Emit(BoundProgram program, Analyses analyses, IrProgram ir, bool nest = true)
+    /// <summary>What the program's lambdas change, which decides what code nested past a call may see change.</summary>
+    IIrLambdaChanges lambdas = null!;
+
+    public string Emit(BoundProgram program, Analyses analyses, IrProgram ir, IIrLambdaChanges lambdas, bool nest = true)
     {
+        this.lambdas = lambdas;
         irFunctions = ir.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol);
         irBuilt = ir.Functions.Where(f => f.Builds is not null).ToDictionary(f => (f.Symbol.ContainingType!, BuiltName(f)));
         this.nest = nest;

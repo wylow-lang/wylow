@@ -79,7 +79,7 @@ public static class Compilation
         var ir = IrLowering.Lower(program);
         if (Pipeline.Run(ir, analyses, diagnostics, options.Optimize) is not { } optimized)
             return new CompilationResult(diagnostics.Sorted(), null);
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
+        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, optimized.Lambdas, options.Nest))
         {
             StackObjects = optimized.StackObjects,
             InPlaceElements = optimized.InPlaceElements,

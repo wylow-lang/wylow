@@ -163,7 +163,7 @@ public sealed partial class IrLowering
             case BoundLocalAccess { Local: var symbol }:
                 var local = locals[symbol];
                 // Only the function itself, or a lambda assigning it, can replace what a local holds.
-                return use == Use.Read && !borrows && !local.IsChangedByLambda ? local : Hold(new IrPlace(local), borrows);
+                return use == Use.Read && !borrows && !ChangedByLambda(local) ? local : Hold(new IrPlace(local), borrows);
             case BoundLiteral:
                 return Let(Rvalue(root, Use.Read));
             case var place when IsPlace(place):
@@ -240,5 +240,5 @@ public sealed partial class IrLowering
         }
     }
 
-    bool MayChange(IrPlace place, IrFootprint footprint) => footprint.MayChange(Chain(place));
+    bool MayChange(IrPlace place, IrFootprint footprint) => footprint.MayChange(Chain(place), this);
 }

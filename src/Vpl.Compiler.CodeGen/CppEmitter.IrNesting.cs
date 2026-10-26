@@ -245,7 +245,7 @@ public sealed partial class CppEmitter
             var siblings = new IrFootprint();
             siblings.Add(nested);
             siblings.Reads.AddRange(placeReads.Where(r => !r.Locals.Contains(candidateLocal!)).SelectMany(r => r.Accesses));
-            if (tree.ConflictsWith(siblings) || (tree.CreatesOwner && !last))
+            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last))
             {
                 plan.Undo(mark);
                 break;

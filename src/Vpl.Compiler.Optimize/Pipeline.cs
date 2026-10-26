@@ -5,8 +5,11 @@ using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Optimize;
 
-/// <summary>Where the passes put loop elements in place and objects on the stack, for tests.</summary>
-public sealed record Optimized(IReadOnlyList<Location> InPlaceElements, IReadOnlyList<Location> StackObjects);
+/// <summary>
+/// Where the passes put loop elements in place and objects on the stack, for tests, and what the
+/// lambdas of the program as optimized change, for the emitter.
+/// </summary>
+public sealed record Optimized(IReadOnlyList<Location> InPlaceElements, IReadOnlyList<Location> StackObjects, LambdaWrites Lambdas);
 
 /// <summary>
 /// The only code that runs passes (docs/design/architecture.md). Each pass is given facts found
@@ -24,17 +27,14 @@ public static class Pipeline
         Verify(ir, analyses, "the lowered program", diagnostics);
         if (diagnostics.HasErrors)
             return null;
-        // The verifier checked lowering's answer of what lambdas change, which is then made exact.
-        LambdaWrites.Apply(ir);
-        ir.Changed();
         if (!optimize)
-            return new Optimized([], []);
+            return new Optimized([], [], LambdaWrites.Find(Callees(ir, analyses)));
         Pass(ir, analyses, "eliding holds", (_, writes) => HoldElision.Apply(ir, writes));
         var inPlace = Pass(ir, analyses, "borrowing loop elements in place", (_, writes) => InPlaceElements.Apply(ir, writes)).Locations;
         Pass(ir, analyses, "borrowing locals", (_, writes) => BorrowedLocals.Apply(ir, writes));
-        Pass(ir, analyses, "moving last uses", (callees, _) => LastUseMoves.Apply(ir, callees, analyses.Cycles));
-        var onStack = Pass(ir, analyses, "putting objects on the stack", (callees, _) => StackSlots.Apply(ir, Escapes.Find(callees))).Locations;
-        return new Optimized([.. inPlace], [.. onStack]);
+        Pass(ir, analyses, "moving last uses", (callees, writes) => LastUseMoves.Apply(ir, callees, analyses.Cycles, writes.Lambdas));
+        var onStack = Pass(ir, analyses, "putting objects on the stack", (callees, writes) => StackSlots.Apply(ir, Escapes.Find(callees), writes.Lambdas)).Locations;
+        return new Optimized([.. inPlace], [.. onStack], LambdaWrites.Find(Callees(ir, analyses)));
     }
 
     static void Pass(IrProgram ir, Analyses analyses, string what, Action<Callees, Writes> pass) =>

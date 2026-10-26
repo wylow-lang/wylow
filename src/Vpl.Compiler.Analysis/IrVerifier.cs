@@ -67,28 +67,12 @@ public sealed partial class IrVerifier
     public static IReadOnlyList<string> Verify(IrProgram program, Writes writes, DiagnosticBag? diagnostics = null)
     {
         var verifier = new IrVerifier(program, writes, diagnostics);
-        LambdaWrites.Find(program);
-        verifier.CheckChangedByLambda();
         // A lambda is verified where it is made.
         foreach (var function in program.Functions.Where(f => !f.IsLambda))
             verifier.VerifyFunction(function, function);
         foreach (var lambda in program.Functions.Where(f => f.IsLambda && !verifier.verifiedLambdas.Contains(f)))
             verifier.Report(lambda, null, "the lambda is never made");
         return verifier.errors;
-    }
-
-    /// <summary>
-    /// Lowering and the passes ask whether any lambda of the function changes a local, and the
-    /// verifier asks only the lambdas made before each point, so the first must cover what the lambdas do.
-    /// </summary>
-    void CheckChangedByLambda()
-    {
-        var changed = program.Functions.SelectMany(f => f.ChangesAround).ToHashSet();
-        foreach (var function in program.Functions)
-        {
-            foreach (var local in LambdaWrites.Locals(function).Where(l => changed.Contains(l) && !l.IsChangedByLambda))
-                Report(function, null, $"a lambda changes '{local.Name}', which is taken as changed by none");
-        }
     }
 
     sealed record Declaration(IrStatement? Statement, int LoopDepth);

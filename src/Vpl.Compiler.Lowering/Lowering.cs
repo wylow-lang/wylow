@@ -10,7 +10,7 @@ namespace Vpl.Compiler.Lowering;
 /// object a place goes through is held, and every read that something after it might change is
 /// copied into a temporary first. Holds nothing needs are elided later, by <c>HoldElision</c>.
 /// </summary>
-public sealed partial class IrLowering
+public sealed partial class IrLowering : IIrLambdaChanges
 {
     readonly BoundProgram program;
     readonly IReadOnlyList<TypeSymbol> borrowableClasses;
@@ -22,6 +22,12 @@ public sealed partial class IrLowering
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly HashSet<LocalSymbol> capturedByLambda = [];
+
+    /// <summary>
+    /// The locals lowering takes as changed by a lambda: every writable one a non-escaping lambda
+    /// captures. It is lowering's own answer, which nothing after lowering asks.
+    /// </summary>
+    readonly HashSet<IrLocal> changedByLambda = [];
 
     /// <summary>Whether a non-escaping lambda uses <c>this</c>, which in a struct constructor is the value it makes.</summary>
     bool thisCapturedByLambda;
@@ -89,7 +95,7 @@ public sealed partial class IrLowering
             thisCapturedByLambda |= capturedThis is not null;
         }
         foreach (var parameter in function.Parameters)
-            parameter.IsChangedByLambda = parameter.Symbol is { } captured && capturedByLambda.Contains(captured);
+            Noted(parameter, parameter.Symbol is { } captured && capturedByLambda.Contains(captured));
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
             statements = ConstructorStart(statements);
@@ -118,6 +124,18 @@ public sealed partial class IrLowering
     }
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
+
+    IrLocal Noted(IrLocal local, bool changedByLambda)
+    {
+        if (changedByLambda)
+            this.changedByLambda.Add(local);
+        return local;
+    }
+
+    /// <summary>A reference can't be made to refer elsewhere: a lambda storing through it writes its target.</summary>
+    bool ChangedByLambda(IrLocal local) => local.Kind != IrLocalKind.Reference && changedByLambda.Contains(local);
+
+    bool IIrLambdaChanges.MayChange(IrLocal local) => ChangedByLambda(local);
 
     Location? Origin(IrRvalue value) => valueOrigins.TryGetValue(value, out var made) ? made : at;
 
@@ -238,7 +256,7 @@ public sealed partial class IrLowering
 
     IrLocal Declare(LocalSymbol local)
     {
-        var lowered = new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind, IsChangedByLambda = capturedByLambda.Contains(local) };
+        var lowered = Noted(new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind }, capturedByLambda.Contains(local));
         locals[local] = lowered;
         return lowered;
     }

@@ -17,15 +17,17 @@ sealed class LastUseMoves
     readonly IrProgram program;
     readonly Callees callees;
     readonly CyclicClasses cycles;
+    readonly LambdaWrites lambdas;
     readonly Dictionary<VplType, bool> inert = [];
     /// <summary>What each <c>Weak</c> in the program refers to.</summary>
     readonly List<VplType> weakTargets;
 
-    LastUseMoves(IrProgram program, Callees callees, CyclicClasses cycles)
+    LastUseMoves(IrProgram program, Callees callees, CyclicClasses cycles, LambdaWrites lambdas)
     {
         this.program = program;
         this.callees = callees;
         this.cycles = cycles;
+        this.lambdas = lambdas;
         var stdlib = program.Bound.Stdlib;
         weakTargets = [.. program.Functions
             .SelectMany(f => IrWalk.Descendants(f.Body, intoLambdas: false).OfType<IrLet>().Select(l => l.Local).Concat(f.Parameters))
@@ -35,9 +37,9 @@ sealed class LastUseMoves
     /// <summary>How many reads were turned into moves.</summary>
     public int Count { get; private set; }
 
-    public static LastUseMoves Apply(IrProgram program, Callees callees, CyclicClasses cycles)
+    public static LastUseMoves Apply(IrProgram program, Callees callees, CyclicClasses cycles, LambdaWrites lambdas)
     {
-        var result = new LastUseMoves(program, callees, cycles);
+        var result = new LastUseMoves(program, callees, cycles, lambdas);
         foreach (var function in program.Functions)
             result.Apply(function);
         return result;
@@ -143,7 +145,7 @@ sealed class LastUseMoves
     bool Movable(IrLocal local)
     {
         var type = local.Type;
-        if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || local.IsChangedByLambda || !type.IsCounted
+        if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || lambdas.MayChange(local) || !type.IsCounted
             || type.NonNull.IsNonEscapingFunction || local.LoopElement is not null)
             return false;
         if (!inert.TryGetValue(type, out var result))

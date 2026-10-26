@@ -119,9 +119,13 @@ public sealed class Writes
     readonly Dictionary<VplType, WriteSet> releasing = [];
     WriteSet? releasingAny;
 
+    /// <summary>What each lambda may change around it, which code that runs may run.</summary>
+    public LambdaWrites Lambdas { get; }
+
     Writes(Callees callees)
     {
         this.callees = callees;
+        Lambdas = LambdaWrites.Find(callees);
         summaries = new Summaries<IrFunction, WriteSet>(callees.Program.Functions, () => new WriteSet(), s => s.Size);
     }
 
@@ -174,7 +178,7 @@ public sealed class Writes
     /// only if something it runs writes that field.
     /// </summary>
     public bool CodeMayWrite(IrAccess access, IReadOnlyCollection<IrRun> runs) =>
-        callees.Fresh(runs).Count > 0 && access.WrittenByCode && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
+        callees.Fresh(runs).Count > 0 && access.WrittenByCode(Lambdas) && (access.Storage != IrStorage.Field || Of([.. runs]).MayWriteField(access.Field));
 
     /// <summary>Whether an instruction may store over an element whose type is <paramref name="element"/>, itself or by the code it runs.</summary>
     public bool MayStoreOverElement(IrEffects effects, VplType element) =>

@@ -17,7 +17,7 @@ public sealed partial class IrLowering
         if (owner.Kind == TypeKind.Struct)
         {
             function.This = null;
-            self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value) { IsChangedByLambda = thisCapturedByLambda };
+            self = function.Struct = Noted(new IrLocal("self", owner.Type, IrLocalKind.Value), thisCapturedByLambda);
             Add(LetOf(self, new IrDefault(owner.Type)));
             return statements;
         }
@@ -54,7 +54,7 @@ public sealed partial class IrLowering
         List<IrLocal> passed = [.. function.Parameters.Where((_, i) => form[i])];
         function.Parameters.Clear();
         function.Parameters.AddRange(passed);
-        self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value) { IsChangedByLambda = thisCapturedByLambda };
+        self = function.Struct = Noted(new IrLocal("self", owner.Type, IrLocalKind.Value), thisCapturedByLambda);
         Add(LetOf(self, new IrZeroed(owner.Type)));
         for (int i = 0; i < owner.Fields.Count; i++)
         {

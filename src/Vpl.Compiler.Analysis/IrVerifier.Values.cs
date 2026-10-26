@@ -301,7 +301,7 @@ public sealed partial class IrVerifier
     };
 
     /// <summary>Whether a lambda made on some path here may change the local when it runs.</summary>
-    static bool IsChangedByLambda(IrLocal local, State state) => state.Lambdas.Any(l => l.ChangesAround.Contains(local));
+    bool IsChangedByLambda(IrLocal local, State state) => state.Lambdas.Any(l => writes.Lambdas.Around(l).Contains(local));
 
     bool CodeDestroys(Resolved place, IrEffects effects, State state) => place.Destructible >= 0 && CodeWrites(place, effects, state);
 

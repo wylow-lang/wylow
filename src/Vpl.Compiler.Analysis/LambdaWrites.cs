@@ -3,58 +3,53 @@ using Vpl.Compiler.Ir;
 namespace Vpl.Compiler.Analysis;
 
 /// <summary>
-/// What each lambda may change around it (<see cref="IrFunction.ChangesAround"/>), from the same
-/// effects every other analysis asks. It is what the program does, not an optimization: the
-/// verifier finds it each time it runs, so it checks the IR as it stands.
+/// What each lambda may change around it, from the same effects every other analysis asks. It is
+/// what the program does, not an optimization, and it is found for the IR as it stands: asking it
+/// after the program has changed throws.
 /// </summary>
-public static class LambdaWrites
+public sealed class LambdaWrites : IIrLambdaChanges
 {
-    public static void Find(IrProgram program)
+    readonly Callees callees;
+    readonly Dictionary<IrFunction, HashSet<IrLocal>> around = [];
+    readonly HashSet<IrLocal> changed;
+
+    LambdaWrites(Callees callees)
     {
-        foreach (var function in program.Functions)
-            function.ChangesAround.Clear();
-        var done = new HashSet<IrFunction>();
-        foreach (var lambda in program.Functions.Where(f => f.IsLambda))
-            Find(lambda, done);
+        this.callees = callees;
+        foreach (var lambda in callees.Program.Functions.Where(f => f.IsLambda))
+            Find(lambda);
+        changed = [.. around.Values.SelectMany(l => l)];
     }
+
+    public static LambdaWrites Find(Callees callees) => new(callees);
 
     /// <summary>
-    /// Replaces lowering's answer to <see cref="IrLocal.IsChangedByLambda"/>, made before the lambdas'
-    /// bodies existed, with what they change. The verifier checks that no lambda changes a local
-    /// the answer says it doesn't.
+    /// The locals around a lambda that its body, or a lambda it makes, may assign or change in
+    /// place. Code that runs once it is made may run it.
     /// </summary>
-    public static void Apply(IrProgram program)
-    {
-        Find(program);
-        var changed = program.Functions.SelectMany(f => f.ChangesAround).ToHashSet();
-        foreach (var function in program.Functions)
-        {
-            foreach (var local in Locals(function))
-                local.IsChangedByLambda = changed.Contains(local);
-        }
-    }
+    public IReadOnlySet<IrLocal> Around(IrFunction lambda) => callees.Fresh(around[lambda]);
 
-    /// <summary>The locals a lambda may change: a function's parameters, captures, and the locals it declares.</summary>
-    public static IEnumerable<IrLocal> Locals(IrFunction function) =>
-        function.Parameters.Concat(function.Captures).Concat(Writes.OwnLocals(function));
+    /// <summary>
+    /// Whether some lambda of the function may change the local, so that code that runs anywhere
+    /// in it may. The verifier asks only the lambdas made before a point (<see cref="Around"/>).
+    /// </summary>
+    public bool MayChange(IrLocal local) => callees.Fresh(changed).Contains(local);
 
     /// <summary>
     /// A lambda changes what its body writes outside it, and what the lambdas it makes do, which run
     /// only while it does. Storing a whole reference local makes it refer elsewhere, which only a
     /// lambda's own declared references are.
     /// </summary>
-    static void Find(IrFunction lambda, HashSet<IrFunction> done)
+    HashSet<IrLocal> Find(IrFunction lambda)
     {
-        if (!done.Add(lambda))
-            return;
+        if (around.TryGetValue(lambda, out var found))
+            return found;
+        var changes = around[lambda] = [];
         var own = Writes.OwnLocals(lambda);
         foreach (var statement in IrWalk.Descendants(lambda.Body, intoLambdas: false))
         {
             if (statement is IrLet { Value: IrLambda inner })
-            {
-                Find(inner.Function, done);
-                lambda.ChangesAround.UnionWith(inner.Function.ChangesAround.Where(l => !own.Contains(l)));
-            }
+                changes.UnionWith(Find(inner.Function).Where(l => !own.Contains(l)));
             if (statement is IrIf or IrLoop)
                 continue;
             var effects = statement is IrBlock block ? IrEffects.Ending(block) : IrEffects.Of(statement);
@@ -62,8 +57,9 @@ public static class LambdaWrites
             {
                 var local = write.Place.Local;
                 if (!write.Place.IsDeref && local.Kind != IrLocalKind.Reference && !own.Contains(local))
-                    lambda.ChangesAround.Add(local);
+                    changes.Add(local);
             }
         }
+        return changes;
     }
 }

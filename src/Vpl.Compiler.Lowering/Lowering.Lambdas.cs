@@ -26,7 +26,7 @@ public sealed partial class IrLowering
             {
                 outer.Add((local, locals[local]));
                 captures.Add(IrRead.Copy(new IrPlace(locals[local])));
-                lowered.Captures.Add(new IrLocal(local.Name, local.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true, Symbol = local, IsChangedByLambda = capturedByLambda.Contains(local) });
+                lowered.Captures.Add(Noted(new IrLocal(local.Name, local.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true, Symbol = local }, capturedByLambda.Contains(local)));
             }
             if (capturesThis is not null)
             {
@@ -41,7 +41,7 @@ public sealed partial class IrLowering
             self = capturedThis;
         loops.Clear();
         foreach (var parameter in made.Parameters)
-            lowered.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind, IsChangedByLambda = capturedByLambda.Contains(parameter) });
+            lowered.Parameters.Add(locals[parameter] = Noted(new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind }, capturedByLambda.Contains(parameter)));
         foreach (var (local, copy) in outer.Select(o => o.Local).Zip(lowered.Captures))
             locals[local] = copy;
         FunctionBody(lambda.Body);
