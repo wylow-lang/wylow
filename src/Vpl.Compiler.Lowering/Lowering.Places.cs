@@ -51,9 +51,7 @@ public sealed partial class IrLowering
             case PlaceBase.Object:
             {
                 var crossing = path.Steps[0];
-                // A value read right away is read before any code runs that could move it.
-                bool borrows = crossing is BoundCall && program.MayBeBorrowable(path.Root.Type) && use != Use.Read;
-                var holder = ObjectLocal(path.Root, borrows);
+                var holder = ObjectLocal(path.Root, crossing is BoundCall && program.MayBeBorrowable(path.Root.Type));
                 place = crossing switch
                 {
                     BoundFieldAccess field => IrPlace.Deref(holder).Field(field.Field),

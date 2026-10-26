@@ -32,73 +32,13 @@ Warnings are errors, the fact constructors are `internal` to Analysis, and lower
 by-value argument (`ReadsInPlace` passes a temporary itself where its release runs no code). The
 optimized C++ and IR of every test were identical before and after.
 
-## Step 2: mandatory passes, and the borrow rule in one of them
+## Step 2: mandatory passes, and the borrow rule in one of them (done)
 
-### The bug
-
-`--no-opt` and the optimized build behave differently on a valid program:
-
-```java
-class Box implements Borrowable {
-    mut int[2] items;
-    void beginBorrow() { print("begin"); }
-    void endBorrow() { print("end"); }
-    ref int operator [](int index) { return ref items[index]; }
-}
-...
-box[1] = 5;        // optimized: nothing; --no-opt: begin, end
-box[1] = five();   // both: begin, end
-```
-
-Spec 03-memory-model.md (Borrow counters on containers) says that reading an element by value, or
-storing a value that runs no code, needs no borrow. So the optimized build is right, and the IR
-meant to be the program's meaning is wrong.
-
-**Cause:** that language rule is split in two. Lowering skips the borrow for a place read right
-away (`use != Use.Read`, Lowering.Places.cs, the `PlaceBase.Object` case). HoldElision drops it
-where no code runs while it is referred to (HoldElision.cs, `hold.Borrows && !referenced.RunsCode
-&& !named`), and `--no-opt` turns HoldElision off. No test caught it, because none uses a
-`Borrowable` of the program's own.
-
-### The change
-
-1. **Two kinds of pass, typed apart.** Mandatory passes always run. Optimizations run only without
-   `--no-opt`. Make the difference structural, not a list order:
-   - **Put the mandatory passes in the Lowering project.** It references Semantics and the IR model
-     only, so a mandatory pass can't reach a whole-program analysis: making an analysis more
-     precise must never change what a program does. `IrLowering` exposes them in order.
-   - **The pipeline runs each one and verifies after it,** as it does for optimizations. The user's
-     errors are reported on the IR after the mandatory passes: that IR is the program's meaning,
-     the oracle the planned interpreter runs.
-   - **Optimizations stay `internal` to Optimize,** behind the `optimize` switch.
-2. **One definition of a hold's extent.** The borrow pass and HoldElision both need it: from the
-   first reference into what a hold holds to the last use of anything that depends on it, and
-   whether that use is in a call. Move `HoldElision.Extent`, `Refers`, and `InUse` into the IR
-   model project (e.g. `IrWalk`, or an `IrExtent` type). It uses only `IrWalk` and `IrEffects`. Both
-   passes use that one definition, and HoldElision's copies are deleted. The verifier keeps its own
-   dependency dataflow, since it is the checker: the one allowed second opinion, and loud when they
-   disagree.
-3. **The borrow rule is one mandatory pass,** implementing the spec's table exactly. Lowering
-   always borrows what may be `Borrowable` (delete `use != Use.Read`). The pass drops a borrow
-   where no code runs from the first reference into it to its last use (`IrEffects`'s `RunsCode`)
-   and no source variable or loop refers into it, whose borrow lasts for its scope. Delete
-   HoldElision's borrow-dropping lines: HoldElision then only turns holds that nothing disturbs into
-   aliases.
-4. **Tests.** Add `tests/cases/classes/borrowable_observed.vpl`, a `Borrowable` of the test's own
-   that prints in `beginBorrow` and `endBorrow`, with one case for each row of the spec's table and
-   its expected output:
-   - a read by value;
-   - a store of a constant, and a store of a call's value;
-   - a `ref` variable (borrowed until its scope ends);
-   - a `ref` argument (until the statement ends);
-   - a struct method's receiver.
-
-   It runs in all four modes, so `--no-opt` and the optimized build can't disagree unnoticed.
-   Check every existing test still passes in all modes.
-5. **Docs.** In architecture.md, mark the "Language rules aren't optimizations" row enforced, and
-   drop step 2's exception from the "Lowering asks nothing" row. In ir.md, §6.2 loses the borrow
-   rule, and §9.11 says the oracle is the IR after the mandatory passes. The CLAUDE.md
-   architecture line shows the mandatory passes.
+`--no-opt` and the optimized build disagreed on `box[1] = 5` for a `Borrowable` of the program's
+own. Lowering now always borrows, and the mandatory `Borrows` pass (Lowering project, a
+`MandatoryPass` only lowering can make) applies the spec's table, using `IrExtent`, which
+HoldElision shares. `classes/borrowable_observed.vpl` covers each row in every mode. The optimized
+C++ and IR of every other test were identical.
 
 ## Step 3: one storage model, then wider borrowing
 

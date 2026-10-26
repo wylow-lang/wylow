@@ -1,0 +1,79 @@
+// Each row of the spec's table of how long a borrow lasts (03-memory-model.md, Borrow counters on
+// containers), observed through a Borrowable of the test's own, so that every mode agrees.
+struct Counter {
+    int n;
+
+    void tick() {
+        print("tick");
+        n++;
+    }
+}
+
+class Box implements Borrowable {
+    mut int[2] items;
+    mut Counter[2] counters;
+
+    void beginBorrow() {
+        print("begin");
+    }
+
+    void endBorrow() {
+        print("end");
+    }
+
+    ref int operator [](int index) {
+        return ref items[index];
+    }
+
+    ref Counter counter(int index) {
+        return ref counters[index];
+    }
+}
+
+int five() {
+    print("five");
+    return 5;
+}
+
+void bump(ref int n) {
+    print("bump");
+    n++;
+}
+
+void main() {
+    Box box = new Box();
+
+    // A read by value needs no borrow.
+    int read = box[1];
+    print(read);                    // output: 0
+
+    // Nor does a store of a value that runs no code.
+    box[1] = 5;
+    print(box.items[1]);            // output: 5
+
+    // A store of a call's value is borrowed for the assignment.
+    box[1] = five();                // output: begin
+                                    // output: five
+                                    // output: end
+    print(box.items[1]);            // output: 5
+
+    // A ref variable is borrowed until its scope ends.
+    {
+        ref int r = box[0];         // output: begin
+        r = 3;
+        print("in scope");          // output: in scope
+    }                               // output: end
+    print(box.items[0]);            // output: 3
+
+    // A ref argument is borrowed until the statement ends.
+    bump(ref box[0]);               // output: begin
+                                    // output: bump
+                                    // output: end
+    print(box.items[0]);            // output: 4
+
+    // So is a struct method's receiver.
+    box.counter(1).tick();          // output: begin
+                                    // output: tick
+                                    // output: end
+    print(box.counters[1].n);       // output: 1
+}

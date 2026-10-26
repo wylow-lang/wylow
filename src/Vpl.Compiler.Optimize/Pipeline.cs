@@ -1,6 +1,7 @@
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Ir;
+using Vpl.Compiler.Lowering;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Optimize;
@@ -12,19 +13,28 @@ namespace Vpl.Compiler.Optimize;
 public sealed record Optimized(IReadOnlyList<Location> InPlaceElements, IReadOnlyList<Location> StackObjects, Callees Callees, LambdaWrites Lambdas);
 
 /// <summary>
-/// The only code that runs passes (docs/design/architecture.md). Each pass is given facts found
-/// from the program as the pass gets it, and the program's generation changes after it, so facts
-/// kept from before throw when asked. The verifier checks the program after each.
+/// The only code that runs passes (docs/design/architecture.md): lowering's mandatory passes
+/// always, then the optimizations, which are internal to this project. Each optimization is given
+/// facts found from the program as it gets it, and the program's generation changes after it, so
+/// facts kept from before throw when asked. The verifier checks the program after each.
 /// </summary>
 public static class Pipeline
 {
     /// <summary>
-    /// Verifies the lowered program, whose violations are the user's errors, then optimizes it
-    /// unless <paramref name="optimize"/> is off. Returns null if there were errors.
+    /// Runs the mandatory passes and verifies the program they leave, the program's meaning, whose
+    /// violations are the user's errors, then optimizes it unless <paramref name="optimize"/> is
+    /// off. Returns null if there were errors.
     /// </summary>
     public static Optimized? Run(IrProgram ir, DiagnosticBag diagnostics, bool optimize)
     {
-        Verify(ir, "the lowered program", diagnostics);
+        // A program with the user's errors in it may break other rules too, so the verifier speaks
+        // only once they have all run, and each must accept any lowered program.
+        foreach (var pass in IrLowering.Passes)
+        {
+            pass.Apply(ir);
+            ir.Changed();
+        }
+        Verify(ir, $"the program after {string.Join(", ", IrLowering.Passes.Select(p => p.What))}", diagnostics);
         if (diagnostics.HasErrors)
             return null;
         if (!optimize)

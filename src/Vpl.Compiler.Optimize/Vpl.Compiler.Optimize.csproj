@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Vpl.Compiler.Analysis/Vpl.Compiler.Analysis.csproj" />
+    <ProjectReference Include="../Vpl.Compiler.Lowering/Vpl.Compiler.Lowering.csproj" />
   </ItemGroup>
 
 </Project>

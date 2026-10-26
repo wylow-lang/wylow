@@ -9,7 +9,8 @@ namespace Vpl.Compiler.Lowering;
 /// Lowers checked functions into the IR (docs/design/ir.md, §5). Lowering asks nothing about what
 /// may change: every object a place goes through is held, every operand is copied into a temporary
 /// at its turn, every by-value argument is a copy the statement keeps, and every statement's
-/// temporaries are in a block of its own. The passes undo what nothing needs.
+/// temporaries are in a block of its own. The mandatory passes (<see cref="Passes"/>) decide what
+/// the language says lowering can't, and the optimizations undo what nothing needs.
 /// </summary>
 public sealed partial class IrLowering
 {
@@ -68,6 +69,12 @@ public sealed partial class IrLowering
         }
         return ir;
     }
+
+    /// <summary>
+    /// The mandatory passes, in the order they run on the lowered program. The IR after them is the
+    /// program's meaning.
+    /// </summary>
+    public static IReadOnlyList<MandatoryPass> Passes { get; } = [new("deciding borrows", Borrows.Apply)];
 
     static IrLocalKind KindOf(LocalSymbol local) =>
         local.RefKind != RefKind.None || local.Type.IsNullableReference ? IrLocalKind.Reference : IrLocalKind.Value;

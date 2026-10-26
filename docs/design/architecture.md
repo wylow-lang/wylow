@@ -29,8 +29,8 @@ correct.
 | **Optimize** | IR + facts → IR | rewrites that the facts justify, one decision each | facts of its own: a pass asks the analysis |
 | **CodeGen** | IR + facts → C++ | translation, and nesting, which asks the same effects model | decisions about meaning |
 
-The **pipeline** is: lower, then analyze (reporting the user's errors), then for each pass: run it,
-analyze again, and verify. The facts a pass is given always describe the IR it is given.
+The **pipeline** is: lower, run the mandatory passes, then analyze (reporting the user's errors),
+then for each optimization: run it, analyze again, and verify. The facts a pass is given always describe the IR it is given.
 
 There are two kinds of pass:
 
@@ -55,9 +55,9 @@ resolving references through what it knows they refer to.
 
 | Rule | Mechanism |
 |---|---|
-| Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
+| Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
 | The binder answers nothing about flow | Semantics can't reference the IR project, and FlowAnalyzer is deleted: the flow errors are the verifier's (`IrVerifier.Violation`), on the lowered program. Where the source relies on narrowing, lowering says so with `check.narrowed`, which every access of a source local goes through (`IrLowering.Accessed`). |
-| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types, and asks nothing about what may change: it holds every object a place goes through, copies every operand at its turn (`IrLowering.Read`), keeps every by-value argument (`Kept`), and gives every statement a block. The passes undo what nothing needs. One exception remains, removed by docs/handoff/contract-followups.md (step 2): a place read right away isn't borrowed, which is half of a language rule. |
+| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types, and asks nothing about what may change: it holds every object a place goes through, copies every operand at its turn (`IrLowering.Read`), keeps every by-value argument (`Kept`), borrows every object that may be `Borrowable` where a place goes through what it hands out, and gives every statement a block. The mandatory passes decide what the language says lowering can't, and the optimizations undo what nothing needs. |
 | Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: what lambdas change is `LambdaWrites`, found with `Writes`, and the IR model only names the question (`IIrLambdaChanges`). A loop element borrowed in place says so in the instruction that borrows it (`IrRead.Element`), not on its local. |
 | What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't, which lost a user error once. |
 | What a local is can't be left out | `IrLocalRole` (variable, temporary, parameter, `this`, capture) is a required constructor argument, and never changes. |
@@ -67,7 +67,7 @@ resolving references through what it knows they refer to.
 | No leftovers | Every C# warning fails the build (`TreatWarningsAsErrors` in `Directory.Build.props`). |
 | Only the pipeline builds facts | The fact constructors and finders (`Callees`, `Writes.Find`, `Escapes.Find`, `LambdaWrites.Find`, `CyclicClasses.Find`, `Overrides`) are `internal` to Analysis, visible only to Optimize and the tests (`InternalsVisibleTo`), so CodeGen can't build facts of its own. |
 | A pass doesn't ask about what it has rewritten | **Enforced only by the verifier after the pass**, which re-analyzes with fresh facts and rejects a rewrite they don't justify. Within a pass, facts describe the IR as the pass got it. |
-| Language rules aren't optimizations | **Not yet** (step 2): the pipeline types mandatory passes and optimizations apart, and `--no-opt` runs only the mandatory ones. Each observable rule has a test that prints what it decides, run in every mode. A mandatory pass can't reach whole-program facts, since the pipeline doesn't hand it any. |
+| Language rules aren't optimizations | Mandatory passes are a type of their own (`MandatoryPass`), which only the Lowering project can make (`IrLowering.Passes`), so they can't reach a whole-program analysis; optimizations are `internal` to Optimize. The pipeline runs the mandatory passes always, verifies the program they leave (the user's errors), and runs the optimizations only without `--no-opt`. Each observable rule has a test that prints what it decides, run in every mode (`classes/borrowable_observed.vpl` for borrows). |
 | Storage is described one way | **Not yet** (step 3): `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals. Today `Writes.StoredType` is a second model. |
 | Docs match the code | **Enforced only by review** (a CLAUDE.md rule): a change fixes what it makes untrue in CLAUDE.md, `docs/design/`, and the spec in the same commit. |
 

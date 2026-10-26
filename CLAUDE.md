@@ -55,11 +55,11 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → IrLowering → Pipeline (IrVerifier → ReadsInPlace, HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → IrLowering → Pipeline (Borrows → IrVerifier → ReadsInPlace, HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
-only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen), so
+only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes), so
 reaching across is a compile error; `src/Vpl.Compiler` runs them in order (`Compilation.cs`). The
 Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
@@ -90,15 +90,15 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).
 - `Optimize`: optimizations, each a rewrite of the lowered IR that no program can observe.
-  `Pipeline.cs` is the only code that runs them (they are internal to the project): it verifies
-  the lowered program, then runs each pass, unless `--no-opt`, with facts found fresh for it,
-  bumps the generation, and verifies again. Lowering itself decides
+  `Pipeline.cs` is the only code that runs them (they are internal to the project): it runs
+  lowering's mandatory passes and verifies the program they leave, then runs each optimization,
+  unless `--no-opt`, with facts found fresh for it, bumps the generation, and verifies again. Lowering itself decides
   nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
   run as an oracle. `ReadsInPlace.cs` (reads a place instead of the temporary lowering copied it
   into at its turn, or kept for a by-value argument, where nothing may change the place while the
-  copy matters, and passes a temporary itself where its kept copy's release runs no code). `HoldElision.cs` (§6.2 of the design: turns a hold nothing in its extent can
-  disturb into an alias of its place, or the local itself if that is the place, or drops its
-  borrow, then flattens the statement scopes that no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
+  copy matters, and passes a temporary itself where its kept copy's release runs no code). `HoldElision.cs` (§6.2 of the design: turns a hold that doesn't borrow and that nothing in its
+  extent can disturb into an alias of its place, or the local itself if that is the place, then
+  flattens the statement scopes that no longer release anything observable). `InPlaceElements.cs` (borrows loop elements in place, skipping their reference
   count, where nothing can store over the element; the verifier re-checks it with `Writes`).
   `BorrowedLocals.cs` (borrows the place a named class-typed local is copied from, where nothing
   to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). `LastUseMoves.cs` (moves a named local into its last
@@ -115,10 +115,14 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
   may write, run, or panic on; every analysis asks it), and `IrAccess.cs` (which storage an
-  instruction touches, and the walkers over instructions).
+  instruction touches, and the walkers over instructions), and `IrExtent.cs` (what may happen
+  while a hold or anything pointing into it is in use, which `Borrows` and `HoldElision` share).
 - `Lowering`: `Lowering*.cs`, bound tree to IR. It references only Semantics and the IR model,
-  and asks nothing about what may change: it always holds, copies every operand at its turn, keeps
-  every by-value argument, and gives every statement a block.
+  and asks nothing about what may change: it always holds, borrows what may be `Borrowable`,
+  copies every operand at its turn, keeps every by-value argument, and gives every statement a
+  block. It also holds the mandatory passes (`IrLowering.Passes`, each a `MandatoryPass`), which
+  decide what the spec says and lowering can't alone: `Borrows.cs` drops a borrow where no code
+  runs while anything refers into it (spec 03-memory-model.md, Borrow counters on containers).
 - `CodeGen/CppEmitter*.cs`: C++ declarations (types, signatures, templates) from
   the bound program, and function bodies from the IR. `CppEmitter.Ir.cs` prints a lowered body,
   and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside their one use (§5.1 of

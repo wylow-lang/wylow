@@ -113,11 +113,13 @@ where its release runs no code.
 
 ## 4. Where it sits
 
-The layers and the pipeline are in [architecture.md](architecture.md). Lowering is naive: every
-copy and hold it makes that nothing needs is removed by a pass (`ReadsInPlace`, `HoldElision`).
-The flow analysis is the verifier's dataflow, on the lowered program: its violations there are the
-user's errors, so only a program that binds is lowered and checked, as Rust checks borrows only
-once a program type-checks.
+The layers and the pipeline are in [architecture.md](architecture.md). Lowering is naive: it
+borrows every object that may be `Borrowable` where a place goes through what it hands out, and a
+mandatory pass (`Borrows`, in the Lowering project) applies the spec's rule for how long a borrow
+lasts. Every copy and hold it makes that nothing needs is removed by an optimization
+(`ReadsInPlace`, `HoldElision`). The flow analysis is the verifier's dataflow, on the program the
+mandatory passes leave: its violations there are the user's errors, so only a program that binds is
+lowered and checked, as Rust checks borrows only once a program type-checks.
 
 ## 5. How the existing features lower
 
@@ -240,10 +242,11 @@ let %v = call f()
 store *%r = move %v
 ```
 
-`list[0] = 5` lowers the same way. Hold elision then removes the borrow, because nothing runs
-between taking `%r` and storing through it. That reproduces the spec's table of borrow extents
-(§3.4, Borrow counters) from one lowering rule and one elision rule, instead of from the cases in
-`Assignment`, `LocatedAssignment`, and `ArgumentOperand`.
+`list[0] = 5` lowers the same way. The mandatory `Borrows` pass then drops the borrow, because
+nothing runs between taking `%r` and storing through it. That reproduces the spec's table of borrow
+extents (§3.4, Borrow counters) from one lowering rule and one pass, instead of from the cases in
+`Assignment`, `LocatedAssignment`, and `ArgumentOperand`. A borrow is a language rule, so it is
+decided the same with or without optimizations (`classes/borrowable_observed.vpl`).
 
 Every pin the emitter takes today is a hold of a counted value: an object (a receiver, the object
 holding a place, or an `is ref` binding's holder), a stored closure (a call of a replaceable
@@ -430,13 +433,8 @@ already builds. A loop that releases no `Squad` would no longer be slowed by `~S
 
 Only the function itself can assign a local that no lambda assigns, `this`, or an immutable
 field, and a `mut` field `f` needs no pin if nothing in E may write `f` of that class (`Writes`).
-
-> `let %h = hold.borrow P` can be removed if E runs no code.
-
-Here E is from the reference's creation to its last use, which reproduces the "reading an element
-by value needs no borrow" and "storing a value that runs no code" rows of the spec's table. A
-borrow that a `ref`, `in`, or span variable or a for-each loop points into is kept: the table says
-it lasts for the variable's scope, and the object's own fields can show that without running code.
+A hold that still borrows stays: which holds borrow is the language's rule, which the mandatory
+`Borrows` pass has decided by then, from the same extent (`IrExtent`).
 
 ### 6.3 Rule: borrowed locals
 
@@ -576,9 +574,11 @@ The migration now under way is [architecture.md](architecture.md)'s.
    meaning (order, the holds and borrows the spec makes observable, releases, checks) and reads no
    analysis results. Every optimization (§6.2, §6.3, §6.5, and later last-use moves) is a pass of
    its own over the lowered IR (`src/Vpl.Compiler.Optimize`), using facts from `Analysis`, verified
-   after it runs, and off under `--no-opt`. The unoptimized IR is then the reference behavior: a
-   planned interpreter is to execute it as an oracle for the C++ build. The spec states only what
-   makes an optimization legal (that it can't be observed), not how it is done.
+   after it runs, and off under `--no-opt`. What lowering can't decide alone, such as which borrows
+   a statement makes, is a mandatory pass, which runs under `--no-opt` too. The IR after the
+   mandatory passes is then the reference behavior: a planned interpreter is to execute it as an
+   oracle for the C++ build. The spec states only what makes an optimization legal (that it
+   can't be observed), not how it is done.
 
 ## 10. Prior art for reference-count optimization
 
