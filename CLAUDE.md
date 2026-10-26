@@ -29,6 +29,9 @@ and `--no-opt` skips the `// stack:` and `// in-place:` markers, which count opt
 `--no-opt`, a budgeted `Memory.collectCycles` may reach other cycles, since a pin's release
 buffers its object for the cycle collector.)
 
+To show a change altered no behavior (a refactoring step): build the commit before it in a git
+worktree, run the tests in both trees, and `diff -r` the two `tests/.out` (C++ and `.ir`).
+
 Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
 (unused-parameter warnings from test programs are fine).
@@ -163,8 +166,32 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   missed check that nothing reports. Before writing a predicate, search for one that answers the
   same question; if its answer is wrong for you, fix it there, for every caller. If a layer needs
   an answer that only a later layer has, the work is in the wrong layer (architecture.md): move
-  it, don't guess. Prefer enforcing a rule by structure (a project boundary, a required member, a
-  visitor) over a comment or a convention.
+  it, don't guess.
+- **Every rule is enforced by structure, or labeled as enforced only by review.** A rule about the
+  compiler holds only if breaking it breaks the build or the suite: a project boundary, an
+  `internal` member, a required constructor argument, a visitor, a type, a pipeline check, or a
+  test. A comment, a convention, or a memory doesn't count, since everyone misses things in a
+  compiler. A change that adds a rule adds its mechanism in the same change and lists both in
+  architecture.md's enforcement table; a rule that only review can enforce is listed as such there.
+- **Warnings are errors.** The build fails on any C# warning (`TreatWarningsAsErrors` in
+  `Directory.Build.props`), so a leftover parameter or unused local fails instead of piling up. Fix
+  the cause; don't suppress a warning without a comment saying why it is wrong there.
+- **What the spec says a program does is decided by lowering or a mandatory pass, never by an
+  optimization.** Mandatory passes run under `--no-opt` too, and the IR after them is the
+  program's meaning, which `--no-opt` emits as directly as it can. An optimization may only change
+  what no program can observe: if turning it off changes output (`--no-opt`), it was really a
+  language rule. A mandatory pass uses only what the language defines (`IrEffects`, facts on
+  `VplType`), never a whole-program analysis, or making an analysis more precise would change
+  what programs do. Every observable language rule has a test that prints what it decides, which
+  the suite runs in every mode.
+- **Facts come from the pipeline.** Passes and the emitter use the facts the pipeline hands them,
+  never ones they build: the fact constructors (`Callees`, `Writes`, `Escapes`, `LambdaWrites`) are
+  `internal` to Analysis, visible only to Optimize, which holds the pipeline. Facts describe the IR
+  as the pass got it, so a pass doesn't ask about what it has already rewritten; the verifier after
+  each pass catches a rewrite the facts didn't justify.
+- **Docs match the code in the same change.** A change that makes a statement in CLAUDE.md,
+  `docs/design/`, or the spec untrue fixes it in that commit. A doc that describes the code wrongly
+  misleads the next session as much as a wrong comment.
 - **Replace, don't layer.** When a new mechanism takes over from an old one (the IR from the bound
   tree, an analysis from a local rule), move every caller and delete the old one in the same
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated

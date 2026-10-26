@@ -32,6 +32,17 @@ correct.
 The **pipeline** is: lower, then analyze (reporting the user's errors), then for each pass: run it,
 analyze again, and verify. The facts a pass is given always describe the IR it is given.
 
+There are two kinds of pass:
+
+- **Mandatory passes** decide what the spec says a program does where lowering can't on its own,
+  such as which borrows a statement makes. They run under `--no-opt` too. The IR after them is the
+  program's meaning, which the planned interpreter is to run as the oracle. A mandatory pass uses
+  only what the language defines (`IrEffects`, facts on `VplType`), never a whole-program analysis,
+  or making an analysis more precise would change what programs do.
+- **Optimizations** change only what no program can observe, and `--no-opt` turns them off. If
+  turning one off changes a program's output, it was really a language rule, and it belongs in a
+  mandatory pass.
+
 ### The verifier is the flow analysis, checking
 
 User errors and IR invariants are one check run at different times. On freshly lowered IR, a
@@ -46,13 +57,19 @@ resolving references through what it knows they refer to.
 |---|---|
 | Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
 | The binder answers nothing about flow | Semantics can't reference the IR project, and FlowAnalyzer is deleted: the flow errors are the verifier's (`IrVerifier.Violation`), on the lowered program. Where the source relies on narrowing, lowering says so with `check.narrowed`, which every access of a source local goes through (`IrLowering.Accessed`). |
-| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types, and asks nothing about what may change: it holds every object a place goes through, copies every operand at its turn (`IrLowering.Read`), keeps every by-value argument (`Kept`), and gives every statement a block. The passes undo what nothing needs. |
+| Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types, and asks nothing about what may change: it holds every object a place goes through, copies every operand at its turn (`IrLowering.Read`), keeps every by-value argument (`Kept`), and gives every statement a block. The passes undo what nothing needs. Two exceptions remain, removed by docs/handoff/contract-followups.md: `Kept` skips a type that can't own objects (step 1), and a place read right away isn't borrowed, which is half of a language rule (step 2). |
 | Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: what lambdas change is `LambdaWrites`, found with `Writes`, and the IR model only names the question (`IIrLambdaChanges`). A loop element borrowed in place says so in the instruction that borrows it (`IrRead.Element`), not on its local. |
 | What the source says can't be forgotten | Every statement has a **required** `Origin` (`IrStatement.Origin`, null only for what the source doesn't write), and so do `IrNew` and `IrClosure`, so building one without it doesn't compile. A loop element's declaration is on its symbol (`LocalSymbol.LoopElement`). These replaced side tables that some code paths filled and others didn't, which lost a user error once. |
 | What a local is can't be left out | `IrLocalRole` (variable, temporary, parameter, `this`, capture) is a required constructor argument, and never changes. |
 | A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
 | Each type fact has one definition | On `VplType`, used everywhere. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
+| No leftovers | **Not yet** (docs/handoff/contract-followups.md, step 1): every C# warning fails the build (`TreatWarningsAsErrors`). |
+| Only the pipeline builds facts | **Not yet** (step 1): the fact constructors are `internal` to Analysis, visible only to Optimize, so CodeGen can't build facts of its own. |
+| A pass doesn't ask about what it has rewritten | **Enforced only by the verifier after the pass**, which re-analyzes with fresh facts and rejects a rewrite they don't justify. Within a pass, facts describe the IR as the pass got it. |
+| Language rules aren't optimizations | **Not yet** (step 2): the pipeline types mandatory passes and optimizations apart, and `--no-opt` runs only the mandatory ones. Each observable rule has a test that prints what it decides, run in every mode. A mandatory pass can't reach whole-program facts, since the pipeline doesn't hand it any. |
+| Storage is described one way | **Not yet** (step 3): `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals. Today `Writes.StoredType` is a second model. |
+| Docs match the code | **Enforced only by review** (a CLAUDE.md rule): a change fixes what it makes untrue in CLAUDE.md, `docs/design/`, and the spec in the same commit. |
 
 Anything only review can enforce is listed as such, so it's known to be weaker.
 
@@ -120,5 +137,7 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    the verifier, and the emitter had each decided it. LastUseMoves now moves loop elements that
    aren't borrowed in place. The generated C++ was otherwise identical.
 
-Still open: widening InPlaceElements and BorrowedLocals past class types (step 2), and telling
-storage behind a reference apart by type (step 5).
+Still open: what a review after the migration found (2026-10-26) is planned in
+[docs/handoff/contract-followups.md](../handoff/contract-followups.md). That includes the two items
+left from the migration (from its steps 2 and 5): widening InPlaceElements and BorrowedLocals past
+class types, and telling storage behind a reference apart by type. Both are the handoff's step 3.

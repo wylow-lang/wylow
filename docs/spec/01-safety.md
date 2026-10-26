@@ -30,7 +30,7 @@ int32_t x = vpl::add(vpl::at(arr, i), y);   // checked index, defined overflow
 | Iterator / reference invalidation | Prevented by borrow counters ([03-memory-model.md](03-memory-model.md#34-references)) |
 | Float → int out of range | Saturates; NaN → 0 |
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
-| Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`) or `unsafe` |
+| Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`). Storage of one type is never read or written as another, which the compiler relies on (§1.4, `unsafe`) |
 | Data races | Prevented by the concurrency model ([05-concurrency.md](05-concurrency.md)) |
 | Stack overflow | OS guard page; process aborts, even inside an isolate |
 
@@ -91,7 +91,11 @@ generation check.
 An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plus:
 
 - Raw pointers `T*`, pointer arithmetic, address-of.
-- Arbitrary pointer casts and reinterpretation.
+- Pointer casts. Reading or writing storage through a pointer of another type than the storage's is
+  still undefined behavior, as in C++ (strict aliasing): reinterpreting a value is `bitcast<T>(x)`'s
+  job. The compiler relies on this rule: a write through a reference or pointer of type `T` changes
+  only storage that holds a `T`, directly or inside a struct, enum, or fixed array. So does the C++
+  compiler that builds the output.
 - Sharing data across threads without `Sendable` checks.
 
 ```java
