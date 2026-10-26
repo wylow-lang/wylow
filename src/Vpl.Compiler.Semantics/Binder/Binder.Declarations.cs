@@ -192,7 +192,7 @@ public sealed partial class Binder
                 Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
             var type = BindVariableType(parameter.Type, parameter.Annotations, isParameter: true);
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
-            if (parameter.IsMutable && IsNonEscapingFunction(type))
+            if (parameter.IsMutable && type.NonNull.IsNonEscapingFunction)
                 Error(parameter.Location, NonEscapingMutMessage);
             // A 'ref?' parameter can default to null.
             bool mustRefer = parameter.RefKind == RefKind.Ref && !type.IsNullableReference;

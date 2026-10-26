@@ -90,8 +90,10 @@ Each step deletes the old home of what it moves, and passes all four modes befor
 1. **Projects and the pipeline** (done). Remove the three crossings, split into projects, and give
    the pipeline its generation check. Behavior is unchanged: the generated C++ and IR of every
    test were identical before and after.
-2. **Type facts on `VplType`:** inventory findings 2, 4 (predicate half), and 8. This fixes the
-   `Weak`-in-enum compile failure.
+2. **Type facts on `VplType`** (done): inventory findings 2, 4 (predicate half), and 8. This fixed
+   the `Weak`-in-enum compile failure, and LastUseMoves now moves strings. Widening InPlaceElements
+   and BorrowedLocals past class types is still open: their rule doesn't see stores into a struct's
+   fields.
 3. **Required origins and the local-kind rule.** These are the two failures naive lowering exposed.
 4. **One flow analysis.** The verifier's dataflow becomes the analysis. FlowAnalyzer's checks move
    onto it one at a time (assignment, narrowing, returns, constructor fields, assigned once), and

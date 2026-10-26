@@ -319,7 +319,7 @@ public sealed partial class CppEmitter
         {
             // A non-escaping local owns the lambda or choice it is made with, or copies a stored function. Another
             // non-escaping local or parameter can't be reassigned and outlives it, so it is referred to instead.
-            IrLocalKind.Value when IsNonEscaping(local.Type) => rvalue is IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: false } aliased } } } && IsNonEscaping(aliased.Type)
+            IrLocalKind.Value when local.Type.IsNonEscapingFunction => rvalue is IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: false } aliased } } } && aliased.Type.IsNonEscapingFunction
                 ? $"{unused}const auto& {name} = {value};"
                 : $"{unused}auto {name} = {value};",
             IrLocalKind.Value => $"{unused}{CppType(local.Type)} {name} = {value};",
@@ -350,7 +350,7 @@ public sealed partial class CppEmitter
         Line($"return {ReturnedText(store.Value)};");
         var body = output.ToString();
         (output, indent) = (enclosingOutput, enclosingIndent);
-        var type = IsNonEscaping(local.Type) ? "auto" : CppType(local.Type);
+        var type = local.Type.IsNonEscapingFunction ? "auto" : CppType(local.Type);
         return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
     }
 
@@ -413,10 +413,10 @@ public sealed partial class CppEmitter
         {
             if (plan.Nested.ContainsKey(local))
                 return NestedText(local);
-            if (read.Ownership == IrOwnership.Move && HasCountedParts(read.Type))
+            if (read.Ownership == IrOwnership.Move && read.Type.IsCounted)
                 return $"std::move({Name(local)})";
         }
-        if (read.Ownership == IrOwnership.Move && HasCountedParts(read.Type))
+        if (read.Ownership == IrOwnership.Move && read.Type.IsCounted)
             return $"std::move({PlaceText(read.Place)})";
         return PlaceText(read.Place);
     }
@@ -439,7 +439,7 @@ public sealed partial class CppEmitter
     {
         IrRefArgument reference => PlaceText(reference.Place),
         IrAddrArgument address => $"vpl::address_of({PlaceText(address.Place)})",
-        IrRead { Ownership: IrOwnership.Copy, Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when plan.Nested.ContainsKey(local) && local.Type.MayHoldReferences =>
+        IrRead { Ownership: IrOwnership.Copy, Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when plan.Nested.ContainsKey(local) && local.Type.MayOwnObjects =>
             plan.Nested[local] is IrLet { Value: IrUse { Operand: IrRead place } }
                 ? $"vpl::keep({CppType(local.Type)}({PlaceText(place.Place)}))"
                 : $"vpl::keep({NestedText(local)})",
@@ -484,7 +484,7 @@ public sealed partial class CppEmitter
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",
         IrTest test => TestText(test),
         // The function value is converted where it is used, which a template parameter may take as it is.
-        IrConvert { Type.IsFunction: true, Type.IsEscaping: false } conversion => OperandText(conversion.Operand),
+        IrConvert { Type.IsNonEscapingFunction: true } conversion => OperandText(conversion.Operand),
         IrConvert conversion when IsDowncast(conversion) => $"vpl::downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
         IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), () => LocText(conversion.Loc!)),
         IrHold hold => $"vpl::{(hold.Borrows ? "borrow" : "pin")}({PlaceText(hold.Place)})",

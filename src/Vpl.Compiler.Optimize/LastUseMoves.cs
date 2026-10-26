@@ -139,12 +139,12 @@ sealed class LastUseMoves
         }
     }
 
-    /// <summary>Whether a value holding references can be released earlier than its scope ends without anyone telling.</summary>
+    /// <summary>Whether a counted value can be released earlier than its scope ends without anyone telling.</summary>
     bool Movable(IrLocal local)
     {
         var type = local.Type;
-        if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || local.IsChangedByLambda || !type.MayHoldReferences
-            || type.NonNull is { IsFunction: true, IsEscaping: false } || program.LoopElements.ContainsKey(local))
+        if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || local.IsChangedByLambda || !type.IsCounted
+            || type.NonNull.IsNonEscapingFunction || program.LoopElements.ContainsKey(local))
             return false;
         if (!inert.TryGetValue(type, out var result))
             inert[type] = result = callees.Of(new IrRunRelease(type)) is { Functions.Count: 0, RunsExtern: false } && !MayBeWeaklyReferred(type);

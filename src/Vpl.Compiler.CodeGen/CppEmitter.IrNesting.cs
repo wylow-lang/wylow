@@ -97,7 +97,7 @@ public sealed partial class CppEmitter
         }
         for (int j = 0; j + 1 < statements.Count; j++)
         {
-            if (statements[j] is IrDeclare { Local: { Kind: IrLocalKind.Value } local } && IsNonEscaping(local.Type)
+            if (statements[j] is IrDeclare { Local: { Kind: IrLocalKind.Value } local } && local.Type.IsNonEscapingFunction
                 && statements[j + 1] is IrBlock { Statements: [.., IrStore stored] } definition && IsWholeStore(stored, local))
             {
                 plan.Evaluated[local] = (definition, stored);
@@ -107,7 +107,7 @@ public sealed partial class CppEmitter
         }
         for (int j = 0; j < statements.Count; j++)
         {
-            if (statements[j] is not IrDeclare { Local: { Kind: IrLocalKind.Value } local } declare || IsNonEscaping(local.Type))
+            if (statements[j] is not IrDeclare { Local: { Kind: IrLocalKind.Value } local } declare || local.Type.IsNonEscapingFunction)
                 continue;
             int m = statements.FindIndex(j + 1, s => IrWalk.Locals(s).Contains(local));
             if (m < 0 || StoresOf(statements[m], local) is not { } stores)
@@ -299,7 +299,7 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>Whether the rvalue makes a value of its own whose release may run a destructor.</summary>
-    static bool CreatesOwner(IrRvalue value) => value.Type.MayHoldReferences && value switch
+    static bool CreatesOwner(IrRvalue value) => value.Type.MayOwnObjects && value switch
     {
         IrUse { Operand: IrRead { Ownership: IrOwnership.Copy } } => true,
         IrUse => false,

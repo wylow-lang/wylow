@@ -61,7 +61,7 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
                     return Done(PlaceBase.Pointer, index.Target, index);
                 case BoundCall { Receiver: { } receiver } call when call.Method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct:
                     // A string's bytes are in a block that its copies share.
-                    if (receiver.Type.IsReference || receiver.Type == VplType.String)
+                    if (receiver.Type.SharesStorage)
                         return Done(PlaceBase.Object, receiver, call);
                     steps.Add(call);
                     current = receiver;

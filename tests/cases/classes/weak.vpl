@@ -53,6 +53,12 @@ struct Target {
     int priority = 1;
 }
 
+// An enum's payload copies and destroys its weak reference like any other field.
+enum Watch {
+    Nobody,
+    Someone(Weak<Identified> who),
+}
+
 void describe(Weak<Identified> weak) {
     if (weak.get() is Identified n) {
         print(n.key());
@@ -117,6 +123,14 @@ void main() {
     var moved = t;
     t.who = null;
     describe(moved.who);        // output: 2
+
+    // In an enum.
+    mut Watch seen = Watch.Someone(a);
+    Watch kept = seen;
+    seen = Watch.Nobody;
+    if (kept is Someone(var who)) {
+        describe(who);          // output: 2
+    }
 
     // In a list, across growth.
     var enemies = new List<Enemy>();

@@ -611,7 +611,7 @@ public sealed partial class IrVerifier
                 break;
             case IrHold hold:
                 Place(hold.Place, state, reads: true);
-                if (!IsHolder(hold.Place.Type))
+                if (!hold.Place.Type.MayShareStorage)
                     Error($"a hold holds an object or a string, not a '{hold.Place.Type}'");
                 break;
             default:
@@ -656,7 +656,7 @@ public sealed partial class IrVerifier
             Argument(receiver, state);
             // What it returns points into what the receiver holds, which must outlive the call.
             bool returnsInto = method.Symbol.ReturnRefKind != RefKind.None || call.Type.IsRefStruct;
-            if (returnsInto && receiver is IrRead read && !(IsHolder(read.Type) && read.Place is { IsDeref: false, Projections.Count: 0 }))
+            if (returnsInto && receiver is IrRead read && !(read.Type.MayShareStorage && read.Place is { IsDeref: false, Projections.Count: 0 }))
                 Error("a reference or view a method returns points into its receiver: an object or string in a local, or a struct passed as a place");
         }
         else if (method.Symbol.ReturnRefKind != RefKind.None)
@@ -667,15 +667,9 @@ public sealed partial class IrVerifier
             Error(call.Loc is null ? $"'{method.Symbol.Name}' is given its caller's location, which the call doesn't pass" : $"passes a location to '{method.Symbol.Name}', which takes none");
     }
 
-    /// <summary>
-    /// A value that holds what a reference or view into it points to: an object, or a string, whose
-    /// copies share its bytes. A closure is held while it runs, as an object receiver is.
-    /// </summary>
-    static bool IsHolder(VplType type) => type.NonNull.IsReference || type.IsTypeParameter || type == VplType.String || type.NonNull is { IsFunction: true, IsEscaping: true };
-
     /// <summary>A function value a non-escaping function parameter takes, which the call converts to the parameter's type.</summary>
     static bool PassesFunction(VplType value, VplType parameter) =>
-        parameter.NonNull is { IsFunction: true, IsEscaping: false } && value.NonNull.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
+        parameter.NonNull.IsNonEscapingFunction && value.NonNull.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
 
     void Arguments(MethodReference method, IReadOnlyList<IrArgument> arguments, State state)
     {
@@ -737,7 +731,7 @@ public sealed partial class IrVerifier
                     Error($"'{IrPrinter.Print(root, place)}' is used during {Describe(value)}, but {reason}");
             }
             // A lambda it is given runs during it, using what the lambda refers into.
-            if (argument is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Type.NonNull: { IsFunction: true, IsEscaping: false } } lambda } }
+            if (argument is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { Type.NonNull.IsNonEscapingFunction: true } lambda } }
                 && dependencies.ContainsKey(lambda) && !state.Invalid.ContainsKey(lambda))
             {
                 var trial = state.Clone();

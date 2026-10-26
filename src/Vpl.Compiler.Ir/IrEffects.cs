@@ -77,20 +77,10 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     public static bool ReleaseMayRunCode(IrLocal local) => local.Kind switch
     {
         IrLocalKind.Hold or IrLocalKind.Slot => true,
-        IrLocalKind.Value => local.Type.MayHoldReferences,
+        IrLocalKind.Value => local.Type.MayOwnObjects,
         IrLocalKind.Reference or IrLocalKind.Borrowed => false,
         _ => throw new InvalidOperationException($"unexpected local kind {local.Kind}"),
     };
-
-    /// <summary>
-    /// Whether making the type's default value may run code: a struct's field initializers can call
-    /// functions, and a type parameter may be such a struct.
-    /// </summary>
-    public static bool DefaultRunsCode(VplType type) =>
-        type.IsTypeParameter
-        || (type.IsFixedArray && DefaultRunsCode(type.ElementType!))
-        || (type.IsStruct && !type.Symbol!.IsExtern && type.Symbol.Fields.Any(f =>
-            f.Initializer is not (null or BoundLiteral or BoundNullLiteral) || (f.Initializer is null && DefaultRunsCode(TypeMap.For(type).Apply(f.Type)))));
 
     sealed class StatementEffects : IIrStatementVisitor<IrEffects>
     {
@@ -100,7 +90,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // The old value is released after the new one is stored.
         public IrEffects Store(IrStore statement) =>
-            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayHoldReferences ? [new IrRunRelease(statement.Target.Type)] : [], false);
+            new([new IrWrite(statement.Target, Within: false)], statement.Target.Type.MayOwnObjects ? [new IrRunRelease(statement.Target.Type)] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
         public IrEffects Check(IrCheck statement) => new([], [], true);
@@ -129,7 +119,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // An implicit constructor makes the default value; a memberwise one may run field initializers.
         public IrEffects Construct(IrConstruct value) => Calling(value.Constructor, null, value.Arguments,
-            !value.Constructor.Symbol.IsImplicit ? new IrRunMethod(value.Constructor, Direct: true) : DefaultRunsCode(value.Type) ? new IrRunDefault(value.Type) : null);
+            !value.Constructor.Symbol.IsImplicit ? new IrRunMethod(value.Constructor, Direct: true) : value.Type.DefaultRunsCode ? new IrRunDefault(value.Type) : null);
 
         public IrEffects Unary(IrUnary value) => new([], [], value.Loc is not null);
         public IrEffects Binary(IrBinary value) => new([], [], value.Loc is not null);
@@ -141,7 +131,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public IrEffects Use(IrUse value) => None;
         public IrEffects Variant(IrVariant value) => None;
         public IrEffects Array(IrArray value) => None;
-        public IrEffects Default(IrDefault value) => DefaultRunsCode(value.Type) ? new([], [new IrRunDefault(value.Type)], true) : None;
+        public IrEffects Default(IrDefault value) => value.Type.DefaultRunsCode ? new([], [new IrRunDefault(value.Type)], true) : None;
         public IrEffects Zeroed(IrZeroed value) => None;
         public IrEffects Closure(IrClosure value) => None;
         public IrEffects Lambda(IrLambda value) => None;

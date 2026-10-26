@@ -338,10 +338,10 @@ public sealed partial class Binder
         if (type.IsNullableReference)
             return ErrorExpression(location, "a switch expression cannot produce a reference; use a switch statement with a variable for each case");
         // A nullable non-escaping choice would refer to a function made only for the choice.
-        if (IsNullableNonEscaping(type))
+        if (type.IsNullableNonEscapingFunction)
             type = EscapingForm(type);
         var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type))).ToList();
-        if (type.IsFunction && !type.IsEscaping)
+        if (type.IsNonEscapingFunction)
             cases.ForEach(CheckCaseCaptures);
         return new BoundSwitchExpression(location, value, cases, type);
     }

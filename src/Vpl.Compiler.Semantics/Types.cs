@@ -192,6 +192,12 @@ public sealed class VplType
     /// </summary>
     public bool IsEscaping { get; }
 
+    public bool IsEscapingFunction => IsFunction && IsEscaping;
+    public bool IsNonEscapingFunction => IsFunction && !IsEscaping;
+
+    /// <summary>A nullable non-escaping function, which only a parameter passing it on may be.</summary>
+    public bool IsNullableNonEscapingFunction => IsNullable && NonNull.IsNonEscapingFunction;
+
     VplType? twin;
 
     /// <summary>The escaping form of a function type.</summary>
@@ -301,8 +307,33 @@ public sealed class VplType
         }
     }
 
-    /// <summary>Whether releasing a value of the type may destroy an object, and so run a destructor.</summary>
-    public bool MayHoldReferences => InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
+    /// <summary>
+    /// Whether a value of the type may hold strong references to objects, directly or through a
+    /// closure, so that releasing it may destroy one and run its destructor.
+    /// </summary>
+    public bool MayOwnObjects => InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
+
+    /// <summary>
+    /// Whether copying or destroying a value of the type runs code: it counts references, strong
+    /// or weak, or a string's bytes. An extern struct's storage is the runtime's, so it may.
+    /// </summary>
+    public bool IsCounted => InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping || t == String || t.Symbol is { IsExtern: true });
+
+    /// <summary>
+    /// Whether the copies of a value share what a reference or view into it points to: an
+    /// object's fields, a string's bytes, or a closure's captures. Such a value is held, not
+    /// itself kept in place, while something points into it.
+    /// </summary>
+    public bool SharesStorage => NonNull.IsReference || this == String || NonNull.IsEscapingFunction;
+
+    /// <summary>Whether the copies of a value may share their storage, as a type parameter's may.</summary>
+    public bool MayShareStorage => SharesStorage || IsTypeParameter;
+
+    /// <summary>
+    /// Whether a value of the type may refer to an object or a closure, so that converting to it
+    /// keeps the object's identity; a function value converted to another type refers to the same closure.
+    /// </summary>
+    public bool KeepsIdentity => NonNull.IsReference || NonNull.IsTypeParameter || NonNull.IsFunction;
 
     /// <summary>
     /// Whether the type's default value is more than zeroed storage. A generic struct's always is,
@@ -311,6 +342,17 @@ public sealed class VplType
     public bool HasDefaultCode =>
         IsFixedArray ? ElementType!.HasDefaultCode
         : IsTypeParameter || (IsStruct && !Symbol!.IsExtern && (Symbol.IsGeneric || Symbol.Fields.Any(f => f.Initializer is not null || f.Type.HasDefaultCode)));
+
+    /// <summary>
+    /// Whether making the type's default value may run code: a struct's field initializers can
+    /// call functions, and a type parameter may be such a struct. A default with no code may still
+    /// be more than zeroed storage (<see cref="HasDefaultCode"/>).
+    /// </summary>
+    public bool DefaultRunsCode =>
+        IsTypeParameter
+        || (IsFixedArray && ElementType!.DefaultRunsCode)
+        || (IsStruct && !Symbol!.IsExtern && Symbol.Fields.Any(f =>
+            f.Initializer is not (null or BoundLiteral or BoundNullLiteral) || (f.Initializer is null && TypeMap.For(this).Apply(f.Type).DefaultRunsCode)));
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;

@@ -22,11 +22,10 @@ public sealed partial class CppEmitter
     /// <summary>Functions with function-typed parameters that may call themselves.</summary>
     HashSet<FunctionSymbol> recursive = [];
 
-    static bool IsNonEscaping(VplType type) => type.IsFunction && !type.IsEscaping;
 
     /// <summary>Whether the function's non-escaping function parameters are template parameters, rather than <c>vpl::FunctionRef</c>s.</summary>
     bool TakesCallables(FunctionSymbol function) =>
-        function.Parameters.Any(p => IsNonEscaping(p.Type))
+        function.Parameters.Any(p => p.Type.IsNonEscapingFunction)
         && (!function.IsDispatched || unoverridden.Contains(function)) && !function.ImplementsInterface
         && !(function.IsConstructor && HasSameCountConstructor(function)) && !function.IsLambda && !recursive.Contains(function);
 
@@ -44,7 +43,7 @@ public sealed partial class CppEmitter
     [
         .. program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))
             .Where(m => m is { IsVirtual: true, IsAbstract: false, ImplementsInterface: false }
-                && m.Parameters.Any(p => IsNonEscaping(p.Type)) && overrides.Targets(m).Count == 1),
+                && m.Parameters.Any(p => p.Type.IsNonEscapingFunction) && overrides.Targets(m).Count == 1),
     ];
 
     static string CallableTypeName(LocalSymbol parameter) => "vpl_F_" + parameter.Name;
@@ -53,13 +52,13 @@ public sealed partial class CppEmitter
     {
         IEnumerable<string> names = function.TypeParameters.Select(TypeParameterName);
         if (TakesCallables(function))
-            names = names.Concat(function.Parameters.Where(p => IsNonEscaping(p.Type)).Select(CallableTypeName));
+            names = names.Concat(function.Parameters.Where(p => p.Type.IsNonEscapingFunction).Select(CallableTypeName));
         var list = names.ToList();
         return list.Count == 0 ? "" : $"template <{string.Join(", ", list.Select(n => "class " + n))}> ";
     }
 
     string ParameterDeclaration(FunctionSymbol function, LocalSymbol parameter, VplType type) =>
-        IsNonEscaping(type) && TakesCallables(function)
+        type.IsNonEscapingFunction && TakesCallables(function)
             ? $"const {CallableTypeName(parameter)}& {LocalName(parameter)}"
             : $"{ParameterType(type, parameter.RefKind)} {LocalName(parameter)}";
 
@@ -125,12 +124,11 @@ public sealed partial class CppEmitter
     string FunctionArgument(MethodReference method, int index, string argument)
     {
         var type = method.ParameterType(index);
-        if (IsNullableNonEscaping(type))
+        if (type.IsNullableNonEscapingFunction)
             return OptionalFunctionArgument(type, argument);
-        return IsNonEscaping(type) && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(type)}>({argument})" : argument;
+        return type.IsNonEscapingFunction && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(type)}>({argument})" : argument;
     }
 
-    static bool IsNullableNonEscaping(VplType type) => type.IsNullable && IsNonEscaping(type.NonNull);
 
     /// <summary>
     /// An argument for a nullable non-escaping parameter, a <c>vpl::Optional</c> of a
@@ -139,7 +137,7 @@ public sealed partial class CppEmitter
     /// in it wouldn't outlive. Any other argument is passed as it is.
     /// </summary>
     string OptionalFunctionArgument(VplType parameter, string argument) =>
-        IsNullableNonEscaping(parameter) ? $"vpl::optional_ref<{FunctionSignature(parameter.NonNull)}>({argument})" : argument;
+        parameter.IsNullableNonEscapingFunction ? $"vpl::optional_ref<{FunctionSignature(parameter.NonNull)}>({argument})" : argument;
 
     /// <summary>
     /// The functions with function-typed parameters that a template would instantiate without end:
@@ -171,7 +169,7 @@ public sealed partial class CppEmitter
             if (!calls.TryGetValue(function.Symbol, out var callees))
                 calls[function.Symbol] = callees = [];
             callees.UnionWith(edges.Select(e => e.Callee));
-            growing.AddRange(edges.Where(e => e.Arguments.Where((a, i) => i < e.Callee.Parameters.Count && IsNonEscaping(e.Callee.Parameters[i].Type)).Any(MakesCallableType))
+            growing.AddRange(edges.Where(e => e.Arguments.Where((a, i) => i < e.Callee.Parameters.Count && e.Callee.Parameters[i].Type.IsNonEscapingFunction).Any(MakesCallableType))
                 .Select(e => (function.Symbol, e.Callee)));
         }
 
@@ -192,7 +190,7 @@ public sealed partial class CppEmitter
             return false;
         }
 
-        return [.. calls.Keys.Where(f => f.Parameters.Any(p => IsNonEscaping(p.Type)) && growing.Any(e => Reaches(f, e.Caller) && Reaches(e.Callee, f)))];
+        return [.. calls.Keys.Where(f => f.Parameters.Any(p => p.Type.IsNonEscapingFunction) && growing.Any(e => Reaches(f, e.Caller) && Reaches(e.Callee, f)))];
     }
 
     // A non-escaping argument is passed before its conversion, so an escaping value keeps its type.

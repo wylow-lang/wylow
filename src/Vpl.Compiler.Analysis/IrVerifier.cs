@@ -164,7 +164,7 @@ public sealed partial class IrVerifier
         var map = TypeMap.For(made.Type);
         foreach (var field in made.Type.Symbol!.Fields.Where(f => !stored.Contains(f)))
         {
-            if (field.Initializer is not null || IrEffects.DefaultRunsCode(map.Apply(field.Type)))
+            if (field.Initializer is not null || map.Apply(field.Type).HasDefaultCode)
                 Report(built, null, $"field '{field.Name}' is left zeroed, which isn't its default value");
         }
     }

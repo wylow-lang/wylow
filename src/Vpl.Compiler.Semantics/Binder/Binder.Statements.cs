@@ -232,9 +232,9 @@ public sealed partial class Binder
             (type, initializer) = InferVariableType(s, initializer);
         }
 
-        if ((type.IsRefStruct || (type.IsFunction && !type.IsEscaping)) && initializer is null)
+        if ((type.IsRefStruct || type.IsNonEscapingFunction) && initializer is null)
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
-        else if (s.IsMutable && IsNonEscapingFunction(type))
+        else if (s.IsMutable && type.NonNull.IsNonEscapingFunction)
             Error(s.NameLocation, NonEscapingMutMessage);
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
@@ -429,7 +429,7 @@ public sealed partial class Binder
         var converted = Convert(value, function.ReturnType);
         if (function.ReturnType.IsRefStruct && converted.Type != VplType.Error && !IsThisDerived(converted))
         {
-            var hint = converted is BoundCall { Receiver: { } holder } && (holder.Type.IsReference || holder.Type == VplType.String) && IsThisRooted(holder)
+            var hint = converted is BoundCall { Receiver: { } holder } && holder.Type.SharesStorage && IsThisRooted(holder)
                 ? $"; '{TextOf(holder.Location)}' holds its contents itself, and could be replaced while the caller uses them"
                 : "";
             Error(s.Value.Location, $"a returned '{function.ReturnType}' must view the method's receiver: fields or elements of 'this', or a span returned by its methods{hint}");
@@ -607,7 +607,7 @@ public sealed partial class Binder
             return false;
         }
         // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
-        if (target is BoundLocalAccess function && IsNonEscapingFunction(function.Local.Type))
+        if (target is BoundLocalAccess function && function.Local.Type.NonNull.IsNonEscapingFunction)
         {
             Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'");
             return false;

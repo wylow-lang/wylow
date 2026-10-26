@@ -92,7 +92,7 @@ public sealed partial class Binder
             }
             if (syntax.IsMutable && expected[i].RefKind != RefKind.None)
                 Error(syntax.Location, $"'{syntax.Name}' is passed as '{FunctionSymbol.RefPrefix(expected[i].RefKind).Trim()}', so it cannot be 'mut'");
-            else if (syntax.IsMutable && IsNonEscapingFunction(expected[i].Type))
+            else if (syntax.IsMutable && expected[i].Type.NonNull.IsNonEscapingFunction)
                 Error(syntax.Location, NonEscapingMutMessage);
             parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind)
             {

@@ -239,7 +239,7 @@ public sealed class EscapeFlow
                 lambdaDepth--;
                 return [];
             // A 'ref?' is a reference to its operand, as a 'ref' is to the place itself.
-            case IrConvert conversion when HoldsReference(conversion.Type) || conversion.Type.IsNullableReference:
+            case IrConvert conversion when conversion.Type.KeepsIdentity || conversion.Type.IsNullableReference:
                 return Operand(conversion.Operand);
             case IrCall call:
                 return Call(new IrRunMethod(call.Method, call.IsSuperCall), call.Receiver is null ? null : Argument(call.Receiver), call.Arguments);
@@ -321,10 +321,4 @@ public sealed class EscapeFlow
         }
         return [closure];
     }
-
-    /// <summary>
-    /// Whether a value of the type may refer to an object or a closure, as converting to it keeps the
-    /// object's identity; a function value converted to another type refers to the same closure.
-    /// </summary>
-    public static bool HoldsReference(VplType type) => type.NonNull.IsReference || type.NonNull.IsTypeParameter || type.NonNull.IsFunction;
 }

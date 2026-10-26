@@ -19,7 +19,6 @@ public sealed partial class Binder
     static VplType EscapingForm(VplType type) =>
         type.IsNullable && type.NonNull.IsFunction ? type.NonNull.Escaping.Nullable : type.IsFunction ? type.Escaping : type;
 
-    static bool IsNonEscapingFunction(VplType type) => type.NonNull.IsFunction && !type.NonNull.IsEscaping;
 
     const string NonEscapingMutMessage =
         "a non-escaping function cannot be 'mut', since it keeps the function it was given; declare it '@Escaping' to reassign it";
@@ -28,13 +27,12 @@ public sealed partial class Binder
     /// Only a parameter can hold a nullable non-escaping function: a variable would have to own the
     /// lambda it may hold, as a non-escaping variable does, while one that is null holds none.
     /// </summary>
-    static bool IsNullableNonEscaping(VplType type) => type.IsNullable && IsNonEscapingFunction(type);
 
     /// <summary>
     /// The type a <c>?:</c> or switch expression's options are bound with: a choice of nullable
     /// function type is escaping, since a non-escaping one would refer to a function made only for it.
     /// </summary>
-    static VplType? ChoiceTarget(VplType? type) => type is not null && IsNullableNonEscaping(type) ? EscapingForm(type) : type;
+    static VplType? ChoiceTarget(VplType? type) => type is not null && type.IsNullableNonEscapingFunction ? EscapingForm(type) : type;
 
     const string NullableVariableMessage =
         "a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function";
@@ -65,7 +63,7 @@ public sealed partial class Binder
         var type = initializer.Type;
         if (IsDeclaredEscaping(s.Annotations, type, "variable"))
             type = EscapingForm(type);
-        else if (IsNullableNonEscaping(type))
+        else if (type.IsNullableNonEscapingFunction)
         {
             Error(s.Location, NullableVariableMessage);
             return (VplType.Error, initializer);
@@ -121,7 +119,7 @@ public sealed partial class Binder
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
             .Select(o => o is BoundNonNull nonNull ? nonNull.Operand : o)
-            .Where(o => IsNonEscapingFunction(o.Type))
+            .Where(o => o.Type.NonNull.IsNonEscapingFunction)
             .OrderBy(o => o is BoundLocalAccess ? 0 : 1)
             .FirstOrDefault() ?? function;
         Error(culprit.Location, culprit is BoundLocalAccess { Local: var local }
@@ -166,7 +164,7 @@ public sealed partial class Binder
 
     /// <summary>Whether a value of type <paramref name="from"/> fails to convert only because it is non-escaping.</summary>
     static bool IsEscapingMismatch(VplType from, VplType to) =>
-        IsNonEscapingFunction(from) && to.NonNull == from.NonNull.Escaping && (to.IsNullable || !from.IsNullable);
+        from.NonNull.IsNonEscapingFunction && to.NonNull == from.NonNull.Escaping && (to.IsNullable || !from.IsNullable);
 
     /// <summary>
     /// The first argument that keeps a candidate from applying only by being non-escaping, if one
@@ -229,7 +227,7 @@ public sealed partial class Binder
             return $"which is {(local.RefKind == RefKind.In ? "an" : "a")} '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {what}; copy its value to a local first";
         if (local.Type.IsRefStruct)
             return $"a '{local.Type}' that may not outlive what it views";
-        if (IsNonEscapingFunction(local.Type))
+        if (local.Type.NonNull.IsNonEscapingFunction)
             return $"which is a non-escaping {what}; declare it '@Escaping'";
         if (local.IsMutable)
             return "which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'";

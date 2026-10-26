@@ -306,7 +306,7 @@ public sealed partial class Binder
         if (!left.Type.IsNullable)
             return ErrorExpression(e.Left.Location, $"the left side of '??' must be nullable, and '{left.Type}' is not");
         // Its result would refer to a function that may be made only for this operation.
-        if (IsNullableNonEscaping(left.Type))
+        if (left.Type.IsNullableNonEscapingFunction)
             return ErrorExpression(e.OperatorLocation, "'??' cannot be applied to a nullable non-escaping function; check it for null with 'if' instead");
 
         // Prefer a non-null result: `a ?? b` is non-null when `b` is.
@@ -693,7 +693,7 @@ public sealed partial class Binder
         if (type.IsNullableReference)
             return ErrorExpression(location, "'?:' cannot choose between references; use 'if' with a variable for each");
         // A nullable non-escaping choice would refer to a function made only for the choice.
-        if (IsNullableNonEscaping(type))
+        if (type.IsNullableNonEscapingFunction)
             type = EscapingForm(type);
         return new BoundConditional(location, condition, Convert(whenTrue, type), Convert(whenFalse, type), type);
     }

@@ -61,6 +61,12 @@ the one above pins that down.
 
 ## 2. "Does copying or destroying this type count references?" (five answers)
 
+**Done in step 2,** except the InPlaceElements and BorrowedLocals widening: `VplType.MayOwnObjects`
+(was `MayHoldReferences`), `IsCounted` (every extern struct counts, so `Weak` does), `SharesStorage`
+and `MayShareStorage` (was `IsHolder`), and `KeepsIdentity` (was `HoldsReference`). LastUseMoves
+moves strings. Widening the other two needs their rule to see stores into a struct element's
+fields, which `MayStoreOverElement` doesn't. What follows is the finding as it was.
+
 **Confirmed: generated C++ fails to compile. Confirmed: two missed optimizations.**
 
 | Definition | Answer |
@@ -148,6 +154,10 @@ the call's own `ref` arguments. One `Chain`, used by both lowering and Aliasing.
 
 ## 4. "Is this field's default value zeroed storage?" vs "Does making the default run code?"
 
+**Done in step 2:** `DefaultRunsCode` is on `VplType` next to `HasDefaultCode`, and `CheckBuilt`
+uses `HasDefaultCode` (IrSelfTests `built_struct_nested_default_left_zeroed`). What follows is the
+finding as it was.
+
 **By reading: the verifier misses a check, and a doc comment states the wrong rule.**
 
 - `IrLowering.HasDefaultCode` — Ir/Lowering.Constructors.cs:94. "More than zeroed storage": any
@@ -218,6 +228,8 @@ Home: an `IrLocalRole` (Named, Temporary, Parameter, This, Capture) next to `Kin
 becomes the role's "borrowed in place" and `LoopElements` is deleted.
 
 ## 8. "Is this a non-escaping function?" (two names, two meanings)
+
+**Done in step 2:** `VplType.IsNonEscapingFunction` (non-null only) and `IsNullableNonEscapingFunction`.
 
 - `Binder.IsNonEscapingFunction` (Binder.Escaping.cs:22) includes nullable function types.
   `CppEmitter.IsNonEscaping` (CppEmitter.Lambdas.cs:25) excludes them.

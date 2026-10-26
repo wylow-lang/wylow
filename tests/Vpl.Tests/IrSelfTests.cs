@@ -33,6 +33,10 @@ static class IrSelfTests
             int n = 1;
         }
 
+        struct Tally {
+            Counter c;
+        }
+
         int f() { return 1; }
         void use(int value) { }
         void take(Obj o) { }
@@ -542,6 +546,9 @@ static class IrSelfTests
         yield return new("built_struct_zero_default", () => Built("built_struct_zero_default", vec, [false], [], _ => []));
         yield return new("built_struct_field_left_zeroed", () => Built("built_struct_field_left_zeroed", counter, [false], [], _ => []),
             Error: "field 'n' is left zeroed");
+        // Making a Counter runs no code, but its default isn't zeroed storage either.
+        yield return new("built_struct_nested_default_left_zeroed", () => Built("built_struct_nested_default_left_zeroed", b.Type("Tally"), [false], [], _ => []),
+            Error: "field 'c' is left zeroed");
         yield return new("built_struct_read_early", () =>
         {
             var t = b.Temp(VplType.Int);

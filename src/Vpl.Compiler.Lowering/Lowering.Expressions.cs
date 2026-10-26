@@ -77,7 +77,7 @@ public sealed partial class IrLowering
                 return Lambda(lambda);
             case BoundInvocation invocation:
                 return Invocation(invocation);
-            case BoundConditional { Type: { IsFunction: true, IsEscaping: false } } or BoundSwitchExpression { Type: { IsFunction: true, IsEscaping: false } }:
+            case BoundConditional { Type.IsNonEscapingFunction: true } or BoundSwitchExpression { Type.IsNonEscapingFunction: true }:
                 return Choice(expression);
             case BoundConditional conditional:
                 return Conditional(conditional);
@@ -155,7 +155,7 @@ public sealed partial class IrLowering
         var to = conversion.Type;
         if (from == VplType.Null)
             return new IrUse(new IrConstant(to, null));
-        if (to.IsNullable && to.NonNull.IsFunction && !to.NonNull.IsEscaping)
+        if (to.IsNullableNonEscapingFunction)
             throw new InvalidOperationException("a nullable non-escaping function is only made from an argument");
         if (to.IsNullableReference)
             throw new InvalidOperationException("a conversion to a nullable reference is only made in a call or declaration");
@@ -192,7 +192,7 @@ public sealed partial class IrLowering
             return returnsInto && MayBeBorrowable(type) ? IrRead.Borrow(new IrPlace(Hold(new IrPlace(self!), borrows: true))) : IrRead.Borrow(new IrPlace(self!));
         if (type.IsReference)
             return IrRead.Borrow(new IrPlace(ObjectLocal(receiver, Use.InUse, returnsInto && MayBeBorrowable(type))));
-        if (type.IsTypeParameter || (type == VplType.String && returnsInto))
+        if (type.IsTypeParameter || (type.SharesStorage && returnsInto))
         {
             var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
             // A generic value may be an object, which the call holds; a struct is used in place.
@@ -224,7 +224,7 @@ public sealed partial class IrLowering
     {
         if (argument is BoundFieldDefault field)
             return new IrFieldDefault(field.Field);
-        if (parameter.NonNull.IsFunction && !parameter.NonNull.IsEscaping)
+        if (parameter.NonNull.IsNonEscapingFunction)
             return FunctionArgument(parameter, argument);
         if (parameter.IsNullableReference)
         {
@@ -253,7 +253,7 @@ public sealed partial class IrLowering
     /// </summary>
     IrOperand Kept(IrOperand operand)
     {
-        if (!operand.Type.MayHoldReferences)
+        if (!operand.Type.MayOwnObjects)
             return operand;
         return operand switch
         {

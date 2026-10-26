@@ -64,9 +64,6 @@ public sealed partial class CppEmitter
         return type.IsStruct && type.HasDefaultCode ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
     }
 
-    /// <summary>Whether copying or destroying a value of the type runs code: references are counted, and so are built strings.</summary>
-    static bool HasCountedParts(VplType type) => type.MayHoldReferences || type.InlineTypes().Contains(VplType.String);
-
     void EmitStructDefinition(TypeSymbol s)
     {
         var name = TypeName(s);
@@ -156,7 +153,7 @@ public sealed partial class CppEmitter
             ? $"{name}() : tag({TagValue(first)}), {UnionMember(first)}() {{}}"
             : $"{name}() : tag({TagValue(first)}) {{}}");
         Line($"explicit {name}(vpl::RawTag, {tag} value) : tag(value) {{}}");
-        if (withData.Count > 0 && HasCountedParts(s.Type))
+        if (withData.Count > 0 && s.Type.IsCounted)
             EmitEnumLifetime(name, withData);
 
         foreach (var variant in s.Variants)

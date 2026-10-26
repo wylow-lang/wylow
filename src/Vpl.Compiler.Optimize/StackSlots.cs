@@ -167,7 +167,7 @@ sealed class StackSlots
     static IrRvalue? Created(IrRvalue value, List<IrStatement> statements) => value switch
     {
         _ when IsCreation(value) => value,
-        IrConvert conversion when EscapeFlow.HoldsReference(conversion.Type) => Created(conversion.Operand, statements),
+        IrConvert conversion when conversion.Type.KeepsIdentity => Created(conversion.Operand, statements),
         IrUse use => Created(use.Operand, statements),
         _ => null,
     };
