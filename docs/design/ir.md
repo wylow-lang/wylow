@@ -673,7 +673,13 @@ Each step keeps the suite passing on MSVC and g++.
    source error (`Compilation` stops after the lowered program's verification if there is one;
    `IrProgram.Origins` says which expression a statement came from). The two cases the tree
    rule rejected that evaluate fine (`v.x = clear(ref v)` and the like) are still rejected, by the
-   operand-order check, since accepting them is the language change of §9.6. Not optional: until it's done, the same question (what
+   operand-order check, since accepting them is the language change of §9.6. Done for the
+   assignment walkers: a loop is analyzed to a fixpoint (the state at its top is the join of the one
+   before it and each iteration's end), and what a non-escaping lambda assigns is noted while its body is
+   analyzed, so narrowing of that local ends where the lambda is made, not for the whole function.
+   Still interim: `IsBinding`, which exempts a pattern's name from the verifier's "stored once on a
+   path" check because only the tree knows that a true condition means its pattern matched; it goes
+   when the verifier tracks stores per branch of a condition. Not optional: until it's done, the same question (what
    may write a place) has two answers in the compiler.
 
 The risky part is step 3: destruction order inside statements, which tests with destructor output
