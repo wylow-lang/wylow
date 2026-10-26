@@ -25,12 +25,12 @@ public sealed class Callees
     readonly Dictionary<VplType, IReadOnlyList<IrFunction>> lambdasOfType = [];
     readonly int generation;
 
-    public Callees(IrProgram program, Overrides overrides, CyclicClasses cycles)
+    public Callees(IrProgram program)
     {
         Program = program;
         generation = program.Generation;
-        this.overrides = overrides;
-        this.cycles = cycles;
+        overrides = new Overrides(program.Bound);
+        cycles = CyclicClasses.Find(program);
         foreach (var function in program.Functions)
         {
             // A struct's make_default is under a symbol of its own, which no call names.
@@ -62,6 +62,12 @@ public sealed class Callees
     readonly IReadOnlyList<IrFunction> borrows;
 
     public IrProgram Program { get; }
+
+    /// <summary>The methods a dispatched call may run.</summary>
+    public Overrides Overrides => Fresh(overrides);
+
+    /// <summary>Which classes and closures may be part of a cycle, and what releasing a value may destroy.</summary>
+    public CyclicClasses Cycles => Fresh(cycles);
 
     /// <summary>Every function a release of an unknown value may run: the destructors, and every implementation of <c>Borrowable</c>.</summary>
     public IReadOnlyList<IrFunction> Released => Fresh(released);

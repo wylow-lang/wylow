@@ -52,7 +52,7 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → ReadsInPlace, HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → IrLowering → Pipeline (IrVerifier → ReadsInPlace, HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
@@ -72,9 +72,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   reference, view, and borrowed local is used only while what it points into is held. On the
   lowered program its violations of the source's rules are the user's errors (`Violation`), and
   after a pass, compiler bugs; `tests/Vpl.Tests/IrSelfTests.cs` builds IR it must accept or reject.
-  Facts found from the IR
-  throw if asked after the program's `Generation` has changed (`Callees.Fresh`). `Analyses.cs` runs the one still on the bound tree
-  (`CyclicClasses`, with `WholeProgram.cs`: the lambdas and overrides); the rest run on the IR, where
+  Every whole-program fact is found from the IR and
+  throws if asked after the program's `Generation` has changed (`Callees.Fresh`).
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
   worklist, so a summary must only grow as those it reads do).
@@ -82,8 +81,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   the lambdas made so far, and the passes and the emitter whether any lambda may). `Writes.cs` (the types of storage and the fields each lowered function may write, and the types
   of what it may release, resolved to their destructors' writes by `Writes.Of`). `Escapes.cs` (which
   parameters, `this`, and captures each lowered function may let escape or return).
-  `CyclicClasses.cs` (which class instantiations may form cycles, so the cycle collector buffers and
-  visits only their objects; `CppEmitter.Cycles.cs` emits what the collector calls; and which
+  `CyclicClasses.cs` (which class instantiations and closures may form cycles, so the cycle
+  collector buffers and visits only their objects, found by `Callees`; `CppEmitter.Cycles.cs` emits what the collector calls; and which
   classes releasing a value may destroy, `Destroyable`, for `Callees` to resolve a release).
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).

@@ -68,11 +68,10 @@ public static class Compilation
         if (diagnostics.HasErrors)
             return new CompilationResult(diagnostics.Sorted(), null);
 
-        var analyses = Analyses.Run(program);
         var ir = IrLowering.Lower(program);
-        if (Pipeline.Run(ir, analyses, diagnostics, options.Optimize) is not { } optimized)
+        if (Pipeline.Run(ir, diagnostics, options.Optimize) is not { } optimized)
             return new CompilationResult(diagnostics.Sorted(), null);
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, optimized.Lambdas, options.Nest))
+        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, ir, optimized.Callees, optimized.Lambdas, options.Nest))
         {
             StackObjects = optimized.StackObjects,
             InPlaceElements = optimized.InPlaceElements,

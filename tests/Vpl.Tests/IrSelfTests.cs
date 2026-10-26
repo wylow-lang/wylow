@@ -70,7 +70,7 @@ static class IrSelfTests
     {
         var program = new IrProgram(bound);
         program.Functions.AddRange(fixture.Functions);
-        var writes = Writes.Find(new Callees(program, new Overrides(bound), CyclicClasses.Find(new WholeProgram(bound))));
+        var writes = Writes.Find(new Callees(program));
         IrRun[] runs = [new IrRunRelease(null)];
         writes.Of(runs);
         program.Changed();
@@ -125,7 +125,7 @@ static class IrSelfTests
                 _ => null,
             }).OfType<IrFunction>();
             whole.Functions.AddRange([.. fixture.Functions, function, .. lambdas]);
-            var errors = IrVerifier.Verify(program, Writes.Find(new Callees(whole, new Overrides(bound), CyclicClasses.Find(new WholeProgram(bound)))));
+            var errors = IrVerifier.Verify(program, Writes.Find(new Callees(whole)));
             var shown = $"\n{printed}errors:\n  {string.Join("\n  ", errors)}";
             if (test.Error is null && errors.Count > 0)
                 return new(name, "unexpected verifier errors:" + shown);

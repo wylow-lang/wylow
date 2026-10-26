@@ -264,6 +264,11 @@ Clutter, not a bug. Home: `VplType.IsNonEscapingFunction` (non-null only) and
 
 ## 9. Pre-IR mechanisms still alive
 
+**Done in step 6:** `CyclicClasses` reads the IR's closures, `Callees` finds it and `Overrides`, and
+`WholeProgram` and `Analyses` are gone. Lowering had already stopped setting `IrClosure.IsCyclic`;
+the emitter asks the analysis. Erasure is `VplType.WithoutReferenceNullability`. `Writes` is found
+fresh for every verification (Pipeline.cs). What follows is the finding as it was.
+
 - `CyclicClasses` (Analysis/CyclicClasses.cs) and its `WholeProgram` (Analysis/WholeProgram.cs)
   still walk the bound tree: `BoundTree.Captures` and the bound lambdas. Every other analysis walks
   the IR's lambdas through `Callees`. Because the result is needed before lowering,

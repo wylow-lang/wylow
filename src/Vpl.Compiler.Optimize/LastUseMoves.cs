@@ -16,17 +16,15 @@ sealed class LastUseMoves
 {
     readonly IrProgram program;
     readonly Callees callees;
-    readonly CyclicClasses cycles;
     readonly LambdaWrites lambdas;
     readonly Dictionary<VplType, bool> inert = [];
     /// <summary>What each <c>Weak</c> in the program refers to.</summary>
     readonly List<VplType> weakTargets;
 
-    LastUseMoves(IrProgram program, Callees callees, CyclicClasses cycles, LambdaWrites lambdas)
+    LastUseMoves(IrProgram program, Callees callees, LambdaWrites lambdas)
     {
         this.program = program;
         this.callees = callees;
-        this.cycles = cycles;
         this.lambdas = lambdas;
         var stdlib = program.Bound.Stdlib;
         weakTargets = [.. program.Functions
@@ -37,9 +35,9 @@ sealed class LastUseMoves
     /// <summary>How many reads were turned into moves.</summary>
     public int Count { get; private set; }
 
-    public static LastUseMoves Apply(IrProgram program, Callees callees, CyclicClasses cycles, LambdaWrites lambdas)
+    public static LastUseMoves Apply(IrProgram program, Callees callees, LambdaWrites lambdas)
     {
-        var result = new LastUseMoves(program, callees, cycles, lambdas);
+        var result = new LastUseMoves(program, callees, lambdas);
         foreach (var function in program.Functions)
             result.Apply(function);
         return result;
@@ -158,7 +156,7 @@ sealed class LastUseMoves
     {
         if (weakTargets.Count == 0)
             return false;
-        if (cycles.Destroyable(type) is not { } destroyed)
+        if (callees.Cycles.Destroyable(type) is not { } destroyed)
             return true;
         return destroyed.Any(c => weakTargets.Any(target =>
             target.IsTypeParameter || target.Symbol == c.Symbol || Conversions.Supertypes(c).Any(super => super.Symbol == target.Symbol)));

@@ -104,5 +104,9 @@ Each step deletes the old home of what it moves, and passes all four modes befor
    `ReadsInPlace` owns the copies. StackSlots needed no change. A by-value argument is now
    released at its statement's end even where the call replaces its place
    (`classes/kept_arguments.vpl`).
-6. **`CyclicClasses` onto the IR;** `WholeProgram` and `Analyses` go (finding 9).
+6. **`CyclicClasses` onto the IR** (done): it finds closures and their captures from the lowered
+   program, and `Callees` finds it and `Overrides` per generation, so `WholeProgram` and `Analyses`
+   are gone and the emitter gets its facts from the pipeline's last `Callees`. Erasing reference
+   nullability has one definition, `VplType.WithoutReferenceNullability` (finding 9). The generated
+   C++ and IR were identical but for the order of instantiation traits.
 7. **Local roles and the remaining walkers** (findings 6, 7, 11).

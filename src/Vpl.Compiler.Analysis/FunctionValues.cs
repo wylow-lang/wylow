@@ -17,8 +17,8 @@ public static class FunctionValues
     /// </summary>
     public static bool MayBe(VplType value, VplType lambda)
     {
-        value = ErasedReference(value);
-        lambda = ErasedReference(lambda);
+        value = value.WithoutReferenceNullability;
+        lambda = lambda.WithoutReferenceNullability;
         if (value.NonNull.IsTypeParameter || lambda.NonNull.IsTypeParameter)
             return true;
         if (value.IsNullable || lambda.IsNullable)
@@ -38,6 +38,4 @@ public static class FunctionValues
             return lambda.Symbol == symbol && value.TypeArguments.Zip(lambda.TypeArguments).All(a => MayBe(a.First, a.Second));
         return value == lambda;
     }
-
-    static VplType ErasedReference(VplType type) => type.IsNullable && type.NonNull.IsReference ? type.NonNull : type;
 }

@@ -226,6 +226,18 @@ public sealed class VplType
     public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
 
     /// <summary>
+    /// The type without the nullability of references, at the top or in its type arguments, which
+    /// C++ doesn't see: <c>List&lt;Node?&gt;</c> and <c>List&lt;Node&gt;</c> are one C++ type, so
+    /// whatever is decided per C++ type must be decided alike for them. <c>List&lt;int?&gt;</c> is another.
+    /// </summary>
+    public VplType WithoutReferenceNullability =>
+        IsNullable ? (IsNullableValue ? NonNull.WithoutReferenceNullability.Nullable : NonNull.WithoutReferenceNullability)
+        : IsPointer ? ElementType!.WithoutReferenceNullability.PointerTo
+        : IsFixedArray ? ElementType!.WithoutReferenceNullability.FixedArrayOf(FixedLength)
+        : Symbol is { } s && TypeArguments.Count > 0 ? s.Construct([.. TypeArguments.Select(a => a.WithoutReferenceNullability)])
+        : this;
+
+    /// <summary>
     /// A nullable type that is not a reference: <c>int?</c>, <c>Vec3?</c>, and <c>T?</c>, since
     /// <c>T</c> may be a struct. It is a value with a presence flag, so the value inside it is
     /// destroyed when null is assigned.
