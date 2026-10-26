@@ -17,6 +17,9 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         public HashSet<LocalSymbol> NonNull = [];
         public HashSet<FieldSymbol> AssignedFields = [];
 
+        /// <summary>The locals a non-escaping lambda made so far assigns, which are never narrowed again: any call may run it.</summary>
+        public HashSet<LocalSymbol> LambdaAssigned = [];
+
         /// <summary>The locals assigned on some path here, which an immutable local must not be again.</summary>
         public HashSet<LocalSymbol> MaybeAssigned = [];
 
@@ -29,7 +32,12 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             NonNull = [.. NonNull],
             AssignedFields = [.. AssignedFields],
             MaybeAssigned = [.. MaybeAssigned],
+            LambdaAssigned = [.. LambdaAssigned],
         };
+
+        public bool SameAs(State other) =>
+            Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && NonNull.SetEquals(other.NonNull)
+            && AssignedFields.SetEquals(other.AssignedFields) && MaybeAssigned.SetEquals(other.MaybeAssigned) && LambdaAssigned.SetEquals(other.LambdaAssigned);
 
         // Unreachable code may assume anything.
         public bool IsAssigned(LocalSymbol local) => !Reachable || Assigned.Contains(local);
@@ -47,6 +55,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             result.NonNull.IntersectWith(b.NonNull);
             result.AssignedFields.IntersectWith(b.AssignedFields);
             result.MaybeAssigned.UnionWith(b.MaybeAssigned);
+            result.LambdaAssigned.UnionWith(b.LambdaAssigned);
             return result;
         }
     }
@@ -57,9 +66,21 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         public readonly List<State> Continues = [];
     }
 
+    /// <summary>One pass over a loop: the state where an iteration ends and goes back to the top, and where the loop is left without a <c>break</c>.</summary>
+    sealed record Iteration(Loop Loop, State Back, State Exit)
+    {
+        public State Left => Loop.Breaks.Aggregate(Exit, State.Join);
+    }
+
     readonly Stack<Loop> loops = new();
     readonly HashSet<LocalSymbol> reported = [];
     readonly HashSet<object> reportedAt = [];
+
+    /// <summary>Above zero while a loop is analyzed again to find what its top state is, which must not report anything twice.</summary>
+    int quiet;
+
+    /// <summary>The non-escaping lambdas being analyzed, innermost last, with the locals around each that its body assigns.</summary>
+    readonly List<(BoundLambda Lambda, HashSet<LocalSymbol> Assigned)> lambdas = [];
 
     /// <summary>In a constructor, the fields it must assign; empty elsewhere.</summary>
     List<FieldSymbol> requiredFields = [];
@@ -69,12 +90,17 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// <summary>Inside a lambda, the locals narrowed where it was created, for explaining why they aren't inside.</summary>
     HashSet<LocalSymbol> narrowedOutside = [];
 
+    void Error(Location location, string message)
+    {
+        if (quiet == 0)
+            diagnostics.Error(location, message);
+    }
+
     public void Analyze(BoundFunction function)
     {
         var symbol = function.Symbol;
         // The implicit constructor of a class with such fields is reported by the binder.
         requiredFields = symbol.IsConstructor && !symbol.IsImplicit ? [.. symbol.ContainingType!.Fields.Where(f => f.RequiresAssignment)] : [];
-        MarkAssignedByLambdas(BoundTree.AllExpressions(function.Body));
 
         var state = new State();
         state.Assigned.UnionWith(symbol.Parameters);
@@ -83,7 +109,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         var end = EndOf(function.Body.Location);
         var returnType = symbol.ReturnType;
         if (state.Reachable && !symbol.IsConstructor && returnType != VplType.Void && returnType != VplType.Error)
-            diagnostics.Error(end, $"'{symbol.Name}' must return a value on every path");
+            Error(end, $"'{symbol.Name}' must return a value on every path");
         if (state.Reachable)
             CheckFieldsAssigned(state, end);
         requiredFields = [];
@@ -92,18 +118,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// <summary>A field initializer, which can't use locals, but may contain lambdas with bodies to check.</summary>
     public void Analyze(BoundExpression initializer)
     {
-        MarkAssignedByLambdas(BoundTree.AllExpressions(initializer));
         Expression(initializer, new State());
-    }
-
-    /// <summary>A lambda's own locals and parameters change only while it runs, so only those declared around it count.</summary>
-    static void MarkAssignedByLambdas(IEnumerable<BoundExpression> expressions)
-    {
-        foreach (var lambda in expressions.OfType<BoundLambda>())
-        {
-            foreach (var local in AssignedLocals(lambda.Body).Where(l => BoundTree.IsDeclaredAround(l, lambda.Function)))
-                local.IsAssignedByLambda = true;
-        }
     }
 
     static Location EndOf(Location body) =>
@@ -123,23 +138,30 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             NonNull = [.. outer.NonNull.Where(l => l.Type.IsNullableReference)],
             AssignedFields = [.. outer.AssignedFields],
             MaybeAssigned = [.. outer.MaybeAssigned],
+            LambdaAssigned = [.. outer.LambdaAssigned],
         };
         state.Assigned.UnionWith(lambda.Function.Parameters);
         var enclosingNarrowed = narrowedOutside;
         narrowedOutside = [.. enclosingNarrowed, .. outer.NonNull];
         lambdaDepth++;
+        var assigned = new HashSet<LocalSymbol>();
+        if (!lambda.Function.IsEscaping)
+            lambdas.Add((lambda, assigned));
         state = Statement(lambda.Body, state);
+        lambdas.RemoveAll(l => l.Assigned == assigned);
         lambdaDepth--;
         narrowedOutside = enclosingNarrowed;
+        outer.LambdaAssigned.UnionWith(assigned);
+        Unnarrow(outer, assigned);
         var returnType = lambda.Function.ReturnType;
         if (state.Reachable && returnType != VplType.Void && returnType != VplType.Error)
-            diagnostics.Error(EndOf(lambda.Body.Location), "this lambda must return a value on every path");
+            Error(EndOf(lambda.Body.Location), "this lambda must return a value on every path");
     }
 
     void CheckFieldsAssigned(State state, Location location)
     {
         if (requiredFields.FirstOrDefault(f => !state.IsAssigned(f)) is { } field)
-            diagnostics.Error(location, $"field '{field.Name}' must be assigned before the constructor returns");
+            Error(location, $"field '{field.Name}' must be assigned before the constructor returns");
     }
 
     State Statement(BoundStatement statement, State state)
@@ -189,6 +211,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                         ReportOnce(assignment, target.Location,
                             $"'{target.Local.Name}' might already have been assigned; declare it 'mut' to assign it more than once");
                     }
+                    NoteAssigned(target.Local);
                     state.Assigned.Add(target.Local);
                     state.MaybeAssigned.Add(target.Local);
                     SetNullability(state, target.Local, assignment.Value);
@@ -219,42 +242,36 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
             }
 
             case BoundWhile whileStatement:
-            {
-                var entry = LoopEntry(state, whileStatement.Body);
-                var (whenTrue, whenFalse) = Condition(whileStatement.Condition, entry);
-                var loop = AnalyzeLoopBody(whileStatement.Body, whenTrue);
-                var exit = IsConstantTrue(whileStatement.Condition) ? State.Unreachable() : whenFalse;
-                return loop.Breaks.Aggregate(exit, State.Join);
-            }
+                return Iterate(state, entry =>
+                {
+                    var (whenTrue, whenFalse) = Condition(whileStatement.Condition, entry);
+                    var exit = IsConstantTrue(whileStatement.Condition) ? State.Unreachable() : whenFalse;
+                    return Body(whileStatement.Body, whenTrue, exit);
+                }).Left;
 
             case BoundFor forStatement:
             {
                 if (forStatement.Initializer is not null)
                     state = Statement(forStatement.Initializer, state);
-                var entry = forStatement.Update is null
-                    ? LoopEntry(state, forStatement.Body)
-                    : LoopEntry(LoopEntry(state, forStatement.Update), forStatement.Body);
-                var (whenTrue, whenFalse) = forStatement.Condition is null ? (entry, State.Unreachable()) : Condition(forStatement.Condition, entry);
-
-                var loop = new Loop();
-                loops.Push(loop);
-                var endOfBody = Statement(forStatement.Body, whenTrue.Clone());
-                loops.Pop();
-                if (forStatement.Update is not null)
-                    Statement(forStatement.Update, loop.Continues.Aggregate(endOfBody, State.Join));
-
-                var exit = forStatement.Condition is null || IsConstantTrue(forStatement.Condition) ? State.Unreachable() : whenFalse;
-                return loop.Breaks.Aggregate(exit, State.Join);
+                return Iterate(state, entry =>
+                {
+                    var (whenTrue, whenFalse) = forStatement.Condition is null ? (entry, State.Unreachable()) : Condition(forStatement.Condition, entry);
+                    var exit = forStatement.Condition is null || IsConstantTrue(forStatement.Condition) ? State.Unreachable() : whenFalse;
+                    var iteration = Body(forStatement.Body, whenTrue, exit);
+                    var back = forStatement.Update is null ? iteration.Back : Statement(forStatement.Update, iteration.Back);
+                    return iteration with { Back = back };
+                }).Left;
             }
 
             case BoundForRange range:
             {
                 state = Expression(range.End, Expression(range.Start, state));
-                var entry = LoopEntry(state, range.Body);
-                var body = entry.Clone();
-                body.Assigned.Add(range.Local);
-                var loop = AnalyzeLoopBody(range.Body, body);
-                return loop.Breaks.Aggregate(entry, State.Join);
+                return Iterate(state, entry =>
+                {
+                    var body = entry.Clone();
+                    body.Assigned.Add(range.Local);
+                    return Body(range.Body, body, entry);
+                }).Left;
             }
 
             case BoundReturn returnStatement:
@@ -311,15 +328,26 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     /// </summary>
     static void Narrow(State state, LocalSymbol local)
     {
-        if (local.Type.IsNullableReference || (local.RefKind == RefKind.None && !local.IsAssignedByLambda))
+        if (local.Type.IsNullableReference || (local.RefKind == RefKind.None && !state.LambdaAssigned.Contains(local)))
             state.NonNull.Add(local);
     }
 
+    /// <summary>A lambda being analyzed that has the local around it may assign it whenever it runs.</summary>
+    void NoteAssigned(LocalSymbol local)
+    {
+        foreach (var (lambda, assigned) in lambdas)
+        {
+            if (BoundTree.IsDeclaredAround(local, lambda.Function))
+                assigned.Add(local);
+        }
+    }
+
     /// <summary>Ends the narrowing of locals that may have been assigned. Assigning a 'ref?' variable assigns the place it refers to.</summary>
-    static void Unnarrow(State state, IEnumerable<LocalSymbol> locals)
+    void Unnarrow(State state, IEnumerable<LocalSymbol> locals)
     {
         foreach (var local in locals)
         {
+            NoteAssigned(local);
             if (!local.Type.IsNullableReference)
                 state.NonNull.Remove(local);
         }
@@ -332,39 +360,6 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         _ => !value.Type.MayBeNull && value.Type != VplType.Null,
     };
 
-    /// <summary>
-    /// The loop is analyzed once, so narrowing must not depend on the iteration: a local assigned
-    /// anywhere in the loop might be null again when the next iteration starts, and might have been
-    /// assigned by an earlier iteration.
-    /// </summary>
-    static State LoopEntry(State state, BoundStatement body)
-    {
-        var entry = state.Clone();
-        var assigned = AssignedLocals(body).ToList();
-        Unnarrow(entry, assigned);
-        entry.MaybeAssigned.UnionWith(assigned);
-        return entry;
-    }
-
-    /// <summary>The locals a statement may assign, directly or by passing them by 'ref'.</summary>
-    static IEnumerable<LocalSymbol> AssignedLocals(BoundStatement statement) =>
-    [
-        .. BoundTree.OwnExpressions(statement).SelectMany(RefPassedLocals),
-        .. OwnAssignedLocals(statement),
-        .. BoundTree.InnerStatements(statement).SelectMany(AssignedLocals),
-    ];
-
-    /// <summary>The locals a statement assigns itself, rather than in its expressions or the statements inside it.</summary>
-    static IEnumerable<LocalSymbol> OwnAssignedLocals(BoundStatement statement) => statement switch
-    {
-        BoundAssignment { Target: BoundLocalAccess target } => [target.Local],
-        BoundSuperCall super => RefArguments(super.Constructor, super.Arguments),
-        _ => [],
-    };
-
-    static IEnumerable<LocalSymbol> RefPassedLocals(BoundExpression expression) =>
-        RefArguments(expression).Concat(BoundTree.Children(expression).SelectMany(RefPassedLocals));
-
     /// <summary>The locals a call, construction, or 'new' itself passes by 'ref'.</summary>
     static IEnumerable<LocalSymbol> RefArguments(BoundExpression expression) =>
         BoundTree.CallOf(expression) is { } call ? RefArguments(call.Method, call.Arguments) : [];
@@ -372,16 +367,37 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
     static IEnumerable<LocalSymbol> RefArguments(MethodReference method, IReadOnlyList<BoundExpression> arguments) =>
         arguments.Where((a, i) => method.ParameterRefKind(i) == RefKind.Ref).OfType<BoundLocalAccess>().Select(a => a.Local);
 
-    Loop AnalyzeLoopBody(BoundStatement body, State entry)
+    /// <summary>
+    /// Analyzes a loop from the state before it. The state at the top of an iteration is the one
+    /// before the loop joined with the one where each iteration ends, so the pass repeats, saying
+    /// nothing, until it stops changing, and then runs once more to report. Narrowing and what
+    /// might be assigned only ever shrink and grow, so it ends.
+    /// </summary>
+    Iteration Iterate(State start, Func<State, Iteration> pass)
     {
-        // Analyzing the body once is sound: assignments only ever add to the assigned sets, every
-        // later iteration starts with at least what the first one had, and LoopEntry has removed
-        // narrowing that an iteration could undo.
+        if (!start.Reachable)
+            return pass(start.Clone());
+        var entry = start.Clone();
+        quiet++;
+        while (true)
+        {
+            var next = State.Join(start, pass(entry.Clone()).Back);
+            if (next.SameAs(entry))
+                break;
+            entry = next;
+        }
+        quiet--;
+        return pass(entry.Clone());
+    }
+
+    /// <summary>An iteration's body, where a <c>continue</c> goes back to the top like the end of the body.</summary>
+    Iteration Body(BoundStatement body, State entry, State exit)
+    {
         var loop = new Loop();
         loops.Push(loop);
-        Statement(body, entry.Clone());
+        var end = Statement(body, entry);
         loops.Pop();
-        return loop;
+        return new Iteration(loop, loop.Continues.Aggregate(end, State.Join), exit);
     }
 
     static bool IsConstantTrue(BoundExpression expression) => expression is BoundLiteral { Value: true };
@@ -444,8 +460,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
 
     void ReportOnce(object key, Location location, string message)
     {
-        if (reportedAt.Add(key))
-            diagnostics.Error(location, message);
+        if (quiet == 0 && reportedAt.Add(key))
+            Error(location, message);
     }
 
     /// <summary>Checks an expression and returns the state after it; the given state may be updated in place.</summary>
@@ -454,8 +470,8 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
         switch (expression)
         {
             case BoundLocalAccess access:
-                if (!state.IsAssigned(access.Local) && reported.Add(access.Local))
-                    diagnostics.Error(access.Location, $"'{access.Local.Name}' might not have been assigned");
+                if (!state.IsAssigned(access.Local) && quiet == 0 && reported.Add(access.Local))
+                    Error(access.Location, $"'{access.Local.Name}' might not have been assigned");
                 else if (access.AssumesNonNull && !state.IsNonNull(access.Local) && !access.Local.IsReferenceBinding)
                 {
                     var local = access.Local;
@@ -463,7 +479,7 @@ public sealed class FlowAnalyzer(DiagnosticBag diagnostics)
                         ? $"'{local.Name}' might refer to nothing here; check it with 'if ({local.Name} != null)', or use '!'"
                         : local.RefKind != RefKind.None
                         ? $"'{local.Name}' might be null here: a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {(local.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
-                        : local.IsAssignedByLambda
+                        : state.LambdaAssigned.Contains(local)
                         ? $"'{local.Name}' might be null here: a lambda assigns it, so null checks don't narrow it; copy it to a local first, or use '!'"
                         : narrowedOutside.Contains(local)
                         ? $"'{local.Name}' might be null here: null checks outside a lambda don't narrow inside it; check it inside, or copy it to a local first"

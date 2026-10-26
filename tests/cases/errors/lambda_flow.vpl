@@ -23,6 +23,29 @@ void check() {
         int value = cleared;                        // error: a lambda assigns it, so null checks don't narrow it
     }
 
+    // Narrowing ends where the lambda is made, not before it.
+    mut int? later = 5;
+    if (later != null) {
+        int before = later;
+    }
+    call(() -> {
+        later = null;
+    });
+    if (later != null) {
+        int after = later;                          // error: a lambda assigns it, so null checks don't narrow it
+    }
+
+    // A lambda made late in a loop may run in the next iteration.
+    mut int? looped = 5;
+    for (int i : 0..2) {
+        if (looped != null) {
+            int early = looped;                     // error: a lambda assigns it, so null checks don't narrow it
+        }
+        call(() -> {
+            looped = null;
+        });
+    }
+
     mut int assignedInside;
     call(() -> {
         assignedInside = 1;

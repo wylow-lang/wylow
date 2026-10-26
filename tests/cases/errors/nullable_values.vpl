@@ -91,6 +91,21 @@ void main() {
         print(w + 1);                   // error: 'w' might be null here
         reset(ref w);
     }
+    mut int? c = 1;
+    for (int i : 0..3) {
+        if (i == 1) {
+            reset(ref c);
+            continue;
+        }
+        print(c + 1);                   // error: 'c' might be null here
+    }
+    mut int? d = 1;
+    for (int i : 0..3) {
+        for (int j : 0..3) {
+            print(d + 1);               // error: 'd' might be null here
+        }
+        reset(ref d);
+    }
     ref int? alias = x;                 // error: a 'ref' variable cannot refer to the nullable variable 'x'
 
     // Nothing may keep referring into a nullable value that could be destroyed meanwhile.

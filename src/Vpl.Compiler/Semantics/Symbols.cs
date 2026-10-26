@@ -30,12 +30,6 @@ public sealed class LocalSymbol(string name, VplType type, bool isParameter, Ref
     /// </summary>
     public bool IsDeferred { get; init; }
 
-    /// <summary>
-    /// A lambda assigns it, so any call after the lambda is created may change it: it is never
-    /// narrowed, and is held while in use like an object's field. Set by <see cref="FlowAnalyzer"/>.
-    /// </summary>
-    public bool IsAssignedByLambda { get; set; }
-
     /// <summary>The function or lambda that declares it; null for compiler temporaries, which no other function uses.</summary>
     public FunctionSymbol? Owner { get; set; }
 
