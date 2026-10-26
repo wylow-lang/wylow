@@ -28,7 +28,52 @@ void main() {
         print("boxed");
     }
     print("scope ended");
+    weak();
     // output: boxed
     // output: scope ended
+    // output: true
+    // output: true
+    // output: 1
 }
 // output: ~a
+
+// A weak reference to one class doesn't stop moves of values that can't hold it, and does stop
+// them where the weak reference would see the object die early.
+
+class Target {
+    int id;
+
+    Target(int id) {
+        this.id = id;
+    }
+}
+
+class Other {
+    int id;
+
+    Other(int id) {
+        this.id = id;
+    }
+}
+
+class Keeper {
+    Target target;
+
+    Keeper(Target target) {
+        this.target = target;
+    }
+}
+
+void weak() {
+    var target = new Target(1);
+    Weak<Target> seen = target;
+    {
+        var keeper = new Keeper(target);
+        print(seen.get() is Target);
+    }
+    print(seen.get() is Target);
+    var other = new Other(2);
+    var list = new List<Other>();
+    list.add(other);
+    print(list.count);
+}

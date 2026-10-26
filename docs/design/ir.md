@@ -653,11 +653,12 @@ Each step keeps the suite passing on MSVC and g++.
      only mention in an instruction that takes ownership (a by-value argument, a store, a `let`,
      a field of a variant or array, a capture), in the loop it is declared in, becomes a `move`,
      if releasing its type runs no code (`Callees` resolves the release to no function) and the
-     program makes no `Weak`. The verifier now accepts moving any local's whole value, and the
+     no `Weak` in the program can refer to an object that release may destroy (`CyclicClasses.Destroyable`
+     against each `Weak<T>`'s `T`, subtypes included). The verifier now accepts moving any local's whole value, and the
      dataflow already rejects a later use; a move of a non-temporary is a write in `IrEffects`
      so that C++ can't order a read of it after the move. 23 moves in `tests/.out`. Not done:
-     temporaries, receivers, `return` (C++ moves a returned local itself), and precise
-     weak-reference analysis (any `Weak` disables the pass);
+     temporaries, receivers, `return` (C++ moves a returned local itself), and a `Weak<T>` of a type
+     parameter, which counts as referring to anything;
 7. **Move the effect-shaped flow checks onto the IR** (§9.4): the nullable-value reference rule
    becomes an IR check that reports source-level errors, `FlowAnalyzer`'s "locals a statement may
    assign" walkers are deleted, and §9.6 and lifetime analysis are written there. The same goes for

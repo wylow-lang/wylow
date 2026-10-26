@@ -8,7 +8,7 @@ namespace Vpl.Compiler.Optimize;
 /// Moves a named local into the instruction that uses it last, instead of copying it, which saves
 /// a reference count increment and decrement (docs/design/ir.md §9.10). The copy would have kept
 /// the object alive until the local's scope ends, so this is only done for types whose release
-/// nothing can observe: it runs no destructor, and the program has no weak references. The local
+/// nothing can observe: it runs no destructor, and no weak reference can refer to an object it may destroy. The local
 /// must be mentioned only by copies, the last in the same loop it is declared in and the only
 /// mention in its instruction, so that C++ can't read it after it is moved from.
 /// </summary>
@@ -16,24 +16,28 @@ public sealed class LastUseMoves
 {
     readonly IrProgram program;
     readonly Callees callees;
+    readonly CyclicClasses cycles;
     readonly Dictionary<VplType, bool> inert = [];
-    readonly bool hasWeak;
+    /// <summary>What each <c>Weak</c> in the program refers to.</summary>
+    readonly List<VplType> weakTargets;
 
-    LastUseMoves(IrProgram program, Callees callees)
+    LastUseMoves(IrProgram program, Callees callees, CyclicClasses cycles)
     {
         this.program = program;
         this.callees = callees;
+        this.cycles = cycles;
         var stdlib = program.Bound.Stdlib;
-        hasWeak = program.Functions.Any(f => IrWalk.Descendants(f.Body, intoLambdas: false)
-            .OfType<IrLet>().Any(l => stdlib.IsWeak(l.Local.Type.NonNull)));
+        weakTargets = [.. program.Functions
+            .SelectMany(f => IrWalk.Descendants(f.Body, intoLambdas: false).OfType<IrLet>().Select(l => l.Local).Concat(f.Parameters))
+            .Select(l => l.Type.NonNull).Where(stdlib.IsWeak).Select(t => t.TypeArguments[0].NonNull).Distinct()];
     }
 
     /// <summary>How many reads were turned into moves.</summary>
     public int Count { get; private set; }
 
-    public static LastUseMoves Apply(IrProgram program, Callees callees)
+    public static LastUseMoves Apply(IrProgram program, Callees callees, CyclicClasses cycles)
     {
-        var result = new LastUseMoves(program, callees);
+        var result = new LastUseMoves(program, callees, cycles);
         foreach (var function in program.Functions)
             result.Apply(function);
         return result;
@@ -140,11 +144,22 @@ public sealed class LastUseMoves
     {
         var type = local.Type;
         if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || local.IsChangedByLambda || !type.MayHoldReferences
-            || type.NonNull is { IsFunction: true, IsEscaping: false } || program.LoopElements.ContainsKey(local) || hasWeak)
+            || type.NonNull is { IsFunction: true, IsEscaping: false } || program.LoopElements.ContainsKey(local))
             return false;
         if (!inert.TryGetValue(type, out var result))
-            inert[type] = result = callees.Of(new IrRunRelease(type)) is { Functions.Count: 0, RunsExtern: false };
+            inert[type] = result = callees.Of(new IrRunRelease(type)) is { Functions.Count: 0, RunsExtern: false } && !MayBeWeaklyReferred(type);
         return result;
+    }
+
+    /// <summary>Whether releasing a value of the type may destroy an object that a <c>Weak</c> refers to, which would see it die.</summary>
+    bool MayBeWeaklyReferred(VplType type)
+    {
+        if (weakTargets.Count == 0)
+            return false;
+        if (cycles.Destroyable(type) is not { } destroyed)
+            return true;
+        return destroyed.Any(c => weakTargets.Any(target =>
+            target.IsTypeParameter || target.Symbol == c.Symbol || Conversions.Supertypes(c).Any(super => super.Symbol == target.Symbol)));
     }
 
     /// <summary>Whether the instruction takes ownership of the value it reads, rather than only looking at it.</summary>

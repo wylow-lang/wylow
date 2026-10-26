@@ -88,7 +88,7 @@ public static class Compilation
             Verify(ir, writes, "the program after borrowing loop elements in place");
             BorrowedLocals.Apply(ir, writes);
             Verify(ir, writes, "the program after borrowing locals");
-            LastUseMoves.Apply(ir, callees);
+            LastUseMoves.Apply(ir, callees, analyses.Cycles);
             Verify(ir, writes, "the program after moving last uses");
             onStack = StackSlots.Apply(ir, Escapes.Find(callees)).Locations;
             Verify(ir, writes, "the program after putting objects on the stack");
