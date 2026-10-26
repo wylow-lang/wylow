@@ -76,7 +76,7 @@ public sealed class InPlaceElements
     }
 
     /// <summary>Whether a statement stores to the variable, or refers to it as something that may.</summary>
-    static bool Changes(IrStatement statement, IrLocal local)
+    internal static bool Changes(IrStatement statement, IrLocal local)
     {
         bool IsLocal(IrPlace place) => place.Local == local && !place.IsDeref;
         if (statement is not (IrBlock or IrIf or IrLoop) && IrEffects.Of(statement).Writes.Any(w => IsLocal(w.Place)))

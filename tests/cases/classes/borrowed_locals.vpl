@@ -1,0 +1,60 @@
+// A local copied from a place keeps its object alive until its scope ends, whether or not the
+// compiler borrows the place instead of copying it: destructors run at the same points either way.
+
+class Noisy {
+    String name;
+
+    Noisy(String name) {
+        this.name = name;
+    }
+
+    ~Noisy() {
+        print($"~{name}");
+    }
+}
+
+class Holder {
+    mut Noisy item;
+
+    Holder(Noisy item) {
+        this.item = item;
+    }
+
+    void replace(String name) {
+        item = new Noisy(name);
+    }
+}
+
+void quiet(Holder holder) {
+    var seen = holder.item;
+    print(seen.name);
+}
+
+void replacedAfterLastUse(Holder holder) {
+    var seen = holder.item;
+    print(seen.name);
+    holder.item = new Noisy("b");
+    print("replaced");
+}
+
+void replacedByCall(Holder holder) {
+    var seen = holder.item;
+    holder.replace("c");
+    print("called");
+    print(seen.name);
+}
+
+void main() {
+    var holder = new Holder(new Noisy("a"));
+    quiet(holder);
+    // output: a
+    replacedAfterLastUse(holder);
+    // output: a
+    // output: replaced
+    // output: ~a
+    replacedByCall(holder);
+    // output: called
+    // output: b
+    // output: ~b
+    // output: ~c
+}

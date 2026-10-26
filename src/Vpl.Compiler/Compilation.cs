@@ -86,6 +86,8 @@ public static class Compilation
             Verify(ir, writes, "the program after eliding holds");
             inPlace = InPlaceElements.Apply(ir, writes).Locations;
             Verify(ir, writes, "the program after borrowing loop elements in place");
+            BorrowedLocals.Apply(ir, writes);
+            Verify(ir, writes, "the program after borrowing locals");
             onStack = StackSlots.Apply(ir, Escapes.Find(callees)).Locations;
             Verify(ir, writes, "the program after putting objects on the stack");
         }

@@ -630,7 +630,14 @@ Each step keeps the suite passing on MSVC and g++.
      instead of treating every `mut` field as written by any code. Pins in `tests/.out` went
      from 43 to 35. Nesting (§5.1) and lowering's `Settle` still use the conservative rule:
      nesting could use it too, but lowering mustn't read analyses (§9.11);
-   - borrowed locals beyond loop elements;
+   - borrowed locals beyond loop elements. Done (`Optimize/BorrowedLocals.cs`, after hold
+     elision): a named local of a class type copied from a place becomes a borrow if nothing from
+     the next statement to its block's end, releases included, may change the place or what the
+     aliases on its path borrow, and the local is never stored, moved, or referenced `ref`. It
+     runs to the block's end, not the last use, since the copy would have kept the object alive
+     until then. `Aliasing` is shared with hold elision. Not done: struct-valued locals,
+     parameters, and `?.`'s receiver copy. 19 lets in `tests/.out` (most calls to `print` stop it,
+     as the extern's effects are unknown);
    - destructor precision (§6.1). Done: `IrRunRelease` has the released type (none: any), every
      implicit release is explicit in the effects (a block's end, `IrEffects.Ending`; a callee's
      by-value parameters, in `Writes`), and `Callees` resolves a release to the destructors and

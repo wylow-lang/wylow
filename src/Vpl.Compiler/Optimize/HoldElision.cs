@@ -14,8 +14,7 @@ namespace Vpl.Compiler.Optimize;
 /// </summary>
 public sealed class HoldElision(Writes writes)
 {
-    /// <summary>What each borrowed local is an alias of: those lowering made, and the holds elided so far.</summary>
-    readonly Dictionary<IrLocal, IrPlace> aliases = [];
+    readonly Aliasing aliasing = new(writes);
 
     /// <summary>Holds declared apart from where they are made, which an <c>end</c> lets go of early (an <c>is ref</c> name's).</summary>
     readonly HashSet<IrLocal> declared = [];
@@ -29,9 +28,8 @@ public sealed class HoldElision(Writes writes)
             {
                 if (statement is IrDeclare declare)
                     elision.declared.Add(declare.Local);
-                else if (statement is IrLet { Local.Kind: IrLocalKind.Borrowed, Value: IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow, Place: var place } } } let)
-                    elision.aliases[let.Local] = place;
             }
+            elision.aliasing.Learn(function);
             elision.Close(function.Body);
         }
     }
@@ -106,31 +104,12 @@ public sealed class HoldElision(Writes writes)
             if (hold.Borrows && !referenced.RunsCode && !named)
                 hold.Borrows = false;
             // A generic value's hold refers to a struct in place, so it can't become an alias.
-            if (hold.Borrows || MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
+            if (hold.Borrows || aliasing.MayChange(hold.Place, extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
                 continue;
             let.Value = new IrUse(IrRead.Borrow(hold.Place));
             let.Local.Kind = IrLocalKind.Borrowed;
             let.Local.Type = hold.Place.Type;
-            aliases[let.Local] = hold.Place;
-        }
-    }
-
-    /// <summary>Whether what the footprint does may change the place, or what the aliases it goes through borrow.</summary>
-    bool MayChange(IrPlace place, IrFootprint footprint)
-    {
-        var chain = Chain(place).ToList();
-        return chain.Any(a => footprint.Writes.Any(a.Overlaps) || writes.CodeMayWrite(a, footprint.Runs));
-    }
-
-    /// <summary>The accesses a place depends on: its own, and those of the places the aliases it goes through borrow.</summary>
-    IEnumerable<IrAccess> Chain(IrPlace place)
-    {
-        foreach (var access in IrAccess.Of(place))
-            yield return access;
-        if (aliases.TryGetValue(place.Local, out var aliased))
-        {
-            foreach (var access in Chain(aliased))
-                yield return access;
+            aliasing.Add(let.Local, hold.Place);
         }
     }
 
