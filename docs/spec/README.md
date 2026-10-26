@@ -85,7 +85,7 @@ Each is explained in detail in its chapter.
 
 ## Standard library
 
-The standard library is VPL source in `src/Vpl.Compiler/Stdlib/`, compiled with every program, so
+The standard library is VPL source in `src/Vpl.Compiler.Semantics/Stdlib/`, compiled with every program, so
 what it does can be read like any other VPL code. The compiler knows its types only through narrow
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
 loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which

@@ -52,19 +52,25 @@ MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILE
 
 ## Architecture
 
-`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → IrVerifier → LambdaWrites → Optimize (HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
+`Lexer → Parser (AST) → Binder (bound tree, types, overloads) → FlowAnalyzer → Analyses (CyclicClasses) → IrLowering → Pipeline (IrVerifier → LambdaWrites → HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
-`docs/design/architecture.md`.
+`docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
+only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen), so
+reaching across is a compile error; `src/Vpl.Compiler` runs them in order (`Compilation.cs`). The
+Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
-- `src/Vpl.Compiler/Syntax`: tokens, AST records, parser with error recovery.
-- `src/Vpl.Compiler/Semantics`: the bound program and the checks that report errors on it.
+- `Syntax`: tokens, AST records, parser with error recovery.
+- `Semantics`: the bound program and the checks that report errors on it.
   `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions, equality/defaultability),
   `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
   in its storage), `FlowAnalyzer.cs`. `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
-- `src/Vpl.Compiler/Analysis`: whole-program facts the emitter uses to optimize, found after every
-  check has passed; they report no errors. `Analyses.cs` runs the one still on the bound tree
+- `Analysis`: whole-program facts the passes and the emitter use, found after every check has
+  passed, and the IR verifier (`IrVerifier*.cs`: scoping, single assignment, moves, places, and
+  that every reference, view, and borrowed local is used only while what it points into is held;
+  `tests/Vpl.Tests/IrSelfTests.cs` builds IR it must accept or reject). Facts found from the IR
+  throw if asked after the program's `Generation` has changed (`Callees.Fresh`). `Analyses.cs` runs the one still on the bound tree
   (`CyclicClasses`, with `WholeProgram.cs`: the lambdas and overrides); the rest run on the IR, where
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
   one unit of code (a constructor's field initializers and base call are in its own body). `Summaries.cs` finds a summary per unit that depends on its callees' (with a
@@ -78,8 +84,10 @@ This is the pipeline as it is; the target, and the order of work to reach it, is
   classes releasing a value may destroy, `Destroyable`, for `Callees` to resolve a release).
   `Overrides.cs` (the methods a dispatched call may run, from the overrides and interface
   implementations the binder records) and `FunctionValues.cs` (which lambdas a function value may be).
-- `src/Vpl.Compiler/Optimize`: optimizations, each a rewrite of the lowered IR that no program can
-  observe, run in order only without `--no-opt` and verified after each. Lowering itself decides
+- `Optimize`: optimizations, each a rewrite of the lowered IR that no program can observe.
+  `Pipeline.cs` is the only code that runs them (they are internal to the project): it verifies
+  the lowered program, then runs each pass, unless `--no-opt`, with facts found fresh for it,
+  bumps the generation, and verifies again. Lowering itself decides
   nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
   run as an oracle. `HoldElision.cs` (§6.2 of the design: turns a hold nothing in its extent can
   disturb into an alias of its place, or drops its borrow, then flattens the statement scopes that
@@ -92,20 +100,18 @@ This is the pipeline as it is; the target, and the order of work to reach it, is
   outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
   with `// stack: <n>`, and a test observing an optimization through diagnostics is
   `// mode: optimized`.
-- `src/Vpl.Compiler/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
+- `Semantics/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
   (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
-- `src/Vpl.Compiler/Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
+- `Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
-  may write, run, or panic on; every analysis asks it), `IrAccess.cs` (which storage an instruction
-  touches, and the walkers over instructions), `Lowering*.cs` (bound tree to IR: conservative
-  holds and copies), and `IrVerifier*.cs` (scoping,
-  single assignment, moves, places, and that every reference, view, and borrowed local is used
-  only while what it points into is held). `tests/Vpl.Tests/IrSelfTests.cs` builds IR the verifier
-  must accept or reject.
-- `src/Vpl.Compiler/CodeGen/CppEmitter*.cs`: C++ declarations (types, signatures, templates) from
+  may write, run, or panic on; every analysis asks it), and `IrAccess.cs` (which storage an
+  instruction touches, and the walkers over instructions).
+- `Lowering`: `Lowering*.cs`, bound tree to IR: conservative holds and copies. It references only
+  Semantics and the IR model.
+- `CodeGen/CppEmitter*.cs`: C++ declarations (types, signatures, templates) from
   the bound program, and function bodies from the IR. `CppEmitter.Ir.cs` prints a lowered body,
   and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside their one use (§5.1 of
   the design).

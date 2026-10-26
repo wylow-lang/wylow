@@ -41,10 +41,10 @@ violation is a compiler bug. There is no second storage model and no second data
 
 | Rule | Mechanism |
 |---|---|
-| Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error. Today's crossings are removed first: lowering reads `Analyses` (for `IrClosure.IsCyclic`), the emitter calls lowering (`MemberwiseForms`, `HasDefaultCode`), and the verifier lives in IR. |
+| Layers depend only downward (Syntax ← Semantics ← IR ← Lowering, Analysis ← Optimize ← CodeGen) | **One project per layer** with project references in that direction only, so reaching across is a compile error (`src/Vpl.Compiler.<Layer>`). |
 | The binder answers nothing about flow | Semantics can't reference the IR project. FlowAnalyzer is deleted once its checks are on the IR. |
 | Lowering asks nothing | Lowering's project references Semantics and the IR model only, with no analysis types. Its shortcuts (`IsStable`, `capturedByLambda`, lowering's `MayChange`, `Settle`) are deleted, so nothing remains to call. |
-| Facts can't be stale | The pipeline is the only code that runs passes. A pass gets its facts from the pipeline, and they are computed for the IR's current generation; the pipeline bumps the generation after each pass, and a stale facts object throws when asked. Facts live in the analysis's result, **not on IR nodes**: no settable `IsChangedByLambda`, `IsElement`, `ChangesAround` on `IrLocal`/`IrFunction`. |
+| Facts can't be stale | The pipeline (`Optimize/Pipeline.cs`) is the only code that runs passes, which are internal to its project. A pass gets its facts from the pipeline, and they are computed for the IR's current `Generation`; the pipeline bumps the generation after each pass, and a stale facts object throws when asked (`Callees.Fresh`). Facts live in the analysis's result, **not on IR nodes**: no settable `IsChangedByLambda`, `IsElement`, `ChangesAround` on `IrLocal`/`IrFunction`. Those three remain until step 4, and nothing checks them for staleness. |
 | What the source says can't be forgotten | Side tables that some code paths fill and others don't (`Origins`, `Creations`, `LoopElements`) become **required constructor members** of the nodes, so building a node without its origin doesn't compile. (Naive lowering lost a user error because `Settle` inserted statements that bypass `Add`, which is what records origins.) |
 | A local's kind follows from its value | One function decides the kind from the rvalue, and the only way to make a `let` goes through it. (Naive lowering broke because `Settle`'s `Temp` bypassed `Let`'s rule.) |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
@@ -87,8 +87,9 @@ Naive lowering also failed nine tests, showing code that worked only because of 
 
 Each step deletes the old home of what it moves, and passes all four modes before the next.
 
-1. **Projects and the pipeline.** Remove the three crossings, split into projects, and give the
-   pipeline its generation check. Behavior is unchanged.
+1. **Projects and the pipeline** (done). Remove the three crossings, split into projects, and give
+   the pipeline its generation check. Behavior is unchanged: the generated C++ and IR of every
+   test were identical before and after.
 2. **Type facts on `VplType`:** inventory findings 2, 4 (predicate half), and 8. This fixes the
    `Weak`-in-enum compile failure.
 3. **Required origins and the local-kind rule.** These are the two failures naive lowering exposed.

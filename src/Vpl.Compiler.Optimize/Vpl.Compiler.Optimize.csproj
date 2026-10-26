@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Vpl.Compiler.Analysis/Vpl.Compiler.Analysis.csproj" />
+  </ItemGroup>
+
+</Project>

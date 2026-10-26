@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vpl.Compiler.Syntax\Vpl.Compiler.Syntax.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Stdlib/*.vpl" LogicalName="Vpl.Compiler.Stdlib.%(Filename).vpl" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Vpl.Compiler.Lowering\Vpl.Compiler.Lowering.csproj" />
+    <ProjectReference Include="..\Vpl.Compiler.Optimize\Vpl.Compiler.Optimize.csproj" />
+    <ProjectReference Include="..\Vpl.Compiler.CodeGen\Vpl.Compiler.CodeGen.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\runtime\**\*" LinkBase="runtime" CopyToOutputDirectory="PreserveNewest" />
-    <EmbeddedResource Include="Stdlib/*.vpl" LogicalName="Vpl.Compiler.Stdlib.%(Filename).vpl" />
   </ItemGroup>
 
 </Project>

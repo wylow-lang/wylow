@@ -49,7 +49,8 @@ Options: `--release` (optimized; integer overflow wraps instead of panicking), `
 
 | Path | |
 |---|---|
-| `src/Vpl.Compiler` | Lexer → parser → binder → flow analysis → C++ emitter, plus the native build driver |
+| `src/Vpl.Compiler.*` | One project per compiler layer: syntax, semantics, IR, lowering, analysis, optimize, codegen (`docs/design/architecture.md`) |
+| `src/Vpl.Compiler` | Runs the layers in order, plus the native build driver |
 | `src/Vpl.Cli` | The `vpl` command |
 | `runtime/vpl.h` | C++ support code included by every generated program, split by topic into `runtime/vpl/` |
 | `tests/cases` | Test programs; expectations are `// output:`, `// error:`, `// panic:` comments |

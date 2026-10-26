@@ -53,7 +53,27 @@ static class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c))];
+        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!)];
+    }
+
+    /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
+    static TestResult StaleFacts(BoundProgram bound, IrProgram fixture)
+    {
+        var program = new IrProgram(bound);
+        program.Functions.AddRange(fixture.Functions);
+        var writes = Writes.Find(new Callees(program, new Overrides(bound), CyclicClasses.Find(new WholeProgram(bound))));
+        IrRun[] runs = [new IrRunRelease(null)];
+        writes.Of(runs);
+        program.Changed();
+        try
+        {
+            writes.Of(runs);
+            return new("ir/stale_facts", "facts of an earlier generation answered");
+        }
+        catch (InvalidOperationException)
+        {
+            return new("ir/stale_facts", null);
+        }
     }
 
     static TestResult Check(BoundProgram bound, IrProgram fixture, Case test)

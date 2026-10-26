@@ -2,8 +2,8 @@
 
 How the compiler puts objects made by `new`, and closures, in a stack frame instead of on the heap.
 The language only allows it (spec 03-memory-model.md, Stack allocation): no program can tell. This
-is an optimization pass over the lowered IR (`src/Vpl.Compiler/Optimize/StackSlots.cs`), off under
-`--no-opt`, using the escape summaries in `src/Vpl.Compiler/Analysis/Escapes.cs` (ir.md §6.5,
+is an optimization pass over the lowered IR (`src/Vpl.Compiler.Optimize/StackSlots.cs`), off under
+`--no-opt`, using the escape summaries in `src/Vpl.Compiler.Analysis/Escapes.cs` (ir.md §6.5,
 §9.11).
 
 ## Why no program can tell

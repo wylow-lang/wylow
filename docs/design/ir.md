@@ -568,7 +568,7 @@ The migration now under way is [architecture.md](architecture.md)'s.
 11. **Optimizations apart from lowering.** **Decided (step 5):** lowering emits only the program's
    meaning (order, the holds and borrows the spec makes observable, releases, checks) and reads no
    analysis results. Every optimization (§6.2, §6.3, §6.5, and later last-use moves) is a pass of
-   its own over the lowered IR (`src/Vpl.Compiler/Optimize`), using facts from `Analysis`, verified
+   its own over the lowered IR (`src/Vpl.Compiler.Optimize`), using facts from `Analysis`, verified
    after it runs, and off under `--no-opt`. The unoptimized IR is then the reference behavior: a
    planned interpreter is to execute it as an oracle for the C++ build. The spec states only what
    makes an optimization legal (that it can't be observed), not how it is done.

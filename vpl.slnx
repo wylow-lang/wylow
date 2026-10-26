@@ -1,6 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Vpl.Cli/Vpl.Cli.csproj" />
+    <Project Path="src/Vpl.Compiler.Syntax/Vpl.Compiler.Syntax.csproj" />
+    <Project Path="src/Vpl.Compiler.Semantics/Vpl.Compiler.Semantics.csproj" />
+    <Project Path="src/Vpl.Compiler.Ir/Vpl.Compiler.Ir.csproj" />
+    <Project Path="src/Vpl.Compiler.Lowering/Vpl.Compiler.Lowering.csproj" />
+    <Project Path="src/Vpl.Compiler.Analysis/Vpl.Compiler.Analysis.csproj" />
+    <Project Path="src/Vpl.Compiler.Optimize/Vpl.Compiler.Optimize.csproj" />
+    <Project Path="src/Vpl.Compiler.CodeGen/Vpl.Compiler.CodeGen.csproj" />
     <Project Path="src/Vpl.Compiler/Vpl.Compiler.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Vpl.Compiler.Semantics/Vpl.Compiler.Semantics.csproj" />
+  </ItemGroup>
+
+</Project>

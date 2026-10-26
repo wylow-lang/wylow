@@ -2,6 +2,7 @@ using Vpl.Compiler.Analysis;
 using Vpl.Compiler.CodeGen;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Ir;
+using Vpl.Compiler.Lowering;
 using Vpl.Compiler.Optimize;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
@@ -75,44 +76,15 @@ public static class Compilation
             return new CompilationResult(diagnostics.Sorted(), null);
 
         var analyses = Analyses.Run(program);
-        var ir = IrLowering.Lower(program, analyses);
-        var callees = new Callees(ir, analyses.Whole.Overrides, analyses.Cycles);
-        var writes = Writes.Find(callees);
-        // Verified with lowering's own answer of what lambdas change, which is then made exact.
-        Verify(ir, writes, "the lowered program", diagnostics);
-        if (diagnostics.HasErrors)
+        var ir = IrLowering.Lower(program);
+        if (Pipeline.Run(ir, analyses, diagnostics, options.Optimize) is not { } optimized)
             return new CompilationResult(diagnostics.Sorted(), null);
-        LambdaWrites.Apply(ir);
-        IEnumerable<Location> inPlace = [], onStack = [];
-        if (options.Optimize)
-        {
-            HoldElision.Apply(ir, writes);
-            Verify(ir, writes, "the program after eliding holds");
-            inPlace = InPlaceElements.Apply(ir, writes).Locations;
-            Verify(ir, writes, "the program after borrowing loop elements in place");
-            BorrowedLocals.Apply(ir, writes);
-            Verify(ir, writes, "the program after borrowing locals");
-            LastUseMoves.Apply(ir, callees, analyses.Cycles);
-            Verify(ir, writes, "the program after moving last uses");
-            onStack = StackSlots.Apply(ir, Escapes.Find(callees)).Locations;
-            Verify(ir, writes, "the program after putting objects on the stack");
-        }
         return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, analyses, ir, options.Nest))
         {
-            StackObjects = [.. onStack],
-            InPlaceElements = [.. inPlace],
+            StackObjects = optimized.StackObjects,
+            InPlaceElements = optimized.InPlaceElements,
             Program = program,
             Ir = ir,
         };
-    }
-
-    /// <summary>Checks the IR after lowering and after each optimization, so that a failure names the pass that broke it.</summary>
-    static void Verify(IrProgram ir, Writes writes, string what, DiagnosticBag? diagnostics = null)
-    {
-        var errors = IrVerifier.Verify(ir, writes, diagnostics);
-        if (errors.Count == 0)
-            return;
-        var rejected = ir.Functions.Where(f => !f.IsLambda && errors.Any(e => e.StartsWith(f.Name + ": ")));
-        throw new InvalidOperationException($"the IR verifier rejected {what}:\n{string.Join("\n", errors)}\n\n{string.Concat(rejected.Select(IrPrinter.Print))}");
     }
 }
