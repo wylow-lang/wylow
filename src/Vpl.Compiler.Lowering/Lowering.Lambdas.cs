@@ -26,12 +26,12 @@ public sealed partial class IrLowering
             {
                 outer.Add((local, locals[local]));
                 captures.Add(IrRead.Copy(new IrPlace(locals[local])));
-                lowered.Captures.Add(new IrLocal(local.Name, local.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true, Symbol = local });
+                lowered.Captures.Add(new IrLocal(local.Name, local.Type, IrLocalKind.Value, IrLocalRole.Capture) { Symbol = local });
             }
             if (capturesThis is not null)
             {
                 captures.Add(IrRead.Copy(new IrPlace(self!)));
-                lowered.Captures.Add(capturedThis = new IrLocal("this", self!.Type, IrLocalKind.Value) { IsParameter = true, IsCapture = true });
+                lowered.Captures.Add(capturedThis = new IrLocal("this", self!.Type, IrLocalKind.Value, IrLocalRole.Capture));
             }
         }
 
@@ -41,7 +41,7 @@ public sealed partial class IrLowering
             self = capturedThis;
         loops.Clear();
         foreach (var parameter in made.Parameters)
-            lowered.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind });
+            lowered.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter), IrLocalRole.Parameter) { Symbol = parameter, RefKind = parameter.RefKind });
         foreach (var (local, copy) in outer.Select(o => o.Local).Zip(lowered.Captures))
             locals[local] = copy;
         FunctionBody(lambda.Body);
@@ -105,7 +105,7 @@ public sealed partial class IrLowering
         IrLocal? held = null;
         if (leaves.Any(IsHeld))
         {
-            held = new IrLocal("held", choice.Type.Escaping, IrLocalKind.Value);
+            held = new IrLocal("held", choice.Type.Escaping, IrLocalKind.Value, IrLocalRole.Variable);
             Add(LetOf(held, new IrUse(new IrConstant(held.Type, null))));
         }
 

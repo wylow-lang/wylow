@@ -140,12 +140,12 @@ public sealed partial class IrLowering
             DeclarePatternLocals(range.End);
             var start = Let(new IrUse(Value(range.Start)));
             var end = Let(new IrUse(Value(range.End)));
-            var counter = new IrLocal("i", type, IrLocalKind.Value);
+            var counter = new IrLocal("i", type, IrLocalKind.Value, IrLocalRole.Variable);
             Add(LetOf(counter, new IrUse(IrRead.Copy(new IrPlace(start)))));
             IrLocal? more = null;
             if (range.IsInclusive)
             {
-                more = new IrLocal("more", VplType.Bool, IrLocalKind.Value);
+                more = new IrLocal("more", VplType.Bool, IrLocalKind.Value, IrLocalRole.Variable);
                 Add(LetOf(more, new IrBinary(BoundBinaryOperator.LessOrEqual, IrRead.Copy(new IrPlace(start)), IrRead.Copy(new IrPlace(end)), VplType.Bool)));
             }
             var loop = new IrLoop { Origin = at };

@@ -123,16 +123,24 @@ public enum IrOwnership
     Borrow,
 }
 
-/// <summary><c>copy P</c>, <c>move P</c>, or <c>borrow P</c>.</summary>
+/// <summary><c>copy P</c>, <c>move P</c>, <c>borrow P</c>, or <c>borrow.element P</c>.</summary>
 public sealed class IrRead(IrOwnership ownership, IrPlace place) : IrOperand
 {
     public IrOwnership Ownership { get; set; } = ownership;
     public IrPlace Place { get; set; } = place;
     public override VplType Type => Place.Type;
 
+    /// <summary>
+    /// A borrow of an element of what a loop iterates, which is borrowed while the loop runs, so
+    /// only storing over an element of its type may destroy what it borrows; other writes to the
+    /// place may be allowed. The verifier checks that nothing does, by the whole-program write summaries.
+    /// </summary>
+    public bool Element { get; private init; }
+
     public static IrRead Copy(IrPlace place) => new(IrOwnership.Copy, place);
     public static IrRead Move(IrPlace place) => new(IrOwnership.Move, place);
     public static IrRead Borrow(IrPlace place) => new(IrOwnership.Borrow, place);
+    public static IrRead BorrowElement(IrPlace place) => new(IrOwnership.Borrow, place) { Element = true };
 }
 
 /// <summary><c>ref P</c> or <c>in P</c>: a place passed by reference, or a struct receiver.</summary>

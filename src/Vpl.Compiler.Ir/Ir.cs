@@ -103,12 +103,25 @@ public enum IrDeref
     Generic,
 }
 
-/// <summary>
-/// A local, parameter, or temporary. A temporary is defined once, by a <see cref="IrLet"/>, or for a
-/// value that comes out of control flow, declared by a <see cref="IrDeclare"/> and stored exactly
-/// once on every path.
-/// </summary>
-public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
+/// <summary>What a local is in its function, which no pass changes.</summary>
+public enum IrLocalRole
+{
+    /// <summary>A variable: a source local, or one lowering declares, which may be stored any number of times.</summary>
+    Variable,
+    /// <summary>
+    /// Defined once, by a <see cref="IrLet"/>, or for a value that comes out of control flow,
+    /// declared by a <see cref="IrDeclare"/> and stored exactly once on every path.
+    /// </summary>
+    Temporary,
+    Parameter,
+    /// <summary>A method's <c>this</c>: a class's object, or a struct method's caller's storage.</summary>
+    This,
+    /// <summary>An escaping lambda's copy of a local, or of <c>this</c> if it has no <see cref="IrLocal.Symbol"/>.</summary>
+    Capture,
+}
+
+/// <summary>A local, parameter, or temporary.</summary>
+public sealed class IrLocal(string name, VplType type, IrLocalKind kind, IrLocalRole role)
 {
     public string Name { get; } = name;
 
@@ -133,25 +146,15 @@ public sealed class IrLocal(string name, VplType type, IrLocalKind kind)
     };
 
     public RefKind RefKind { get; init; }
-    public bool IsTemporary { get; init; }
-    public bool IsParameter { get; init; }
-    public bool IsThis { get; init; }
-
-    /// <summary>An escaping lambda's copy of a local, or of <c>this</c> if it has no <see cref="Symbol"/>.</summary>
-    public bool IsCapture { get; init; }
+    public IrLocalRole Role { get; } = role;
+    public bool IsTemporary => Role == IrLocalRole.Temporary;
+    public bool IsThis => Role == IrLocalRole.This;
 
     /// <summary>The source local it is, if any.</summary>
     public LocalSymbol? Symbol { get; init; }
 
     /// <summary>Where it is declared, if it is the variable a for-each loop copies each element into.</summary>
-    public Location? LoopElement => IsCapture ? null : Symbol?.LoopElement;
-
-    /// <summary>
-    /// A loop element borrowed in place: an alias of an element of what the loop iterates, which
-    /// is borrowed while it lives, so only storing over an element of its type can destroy it. The
-    /// verifier checks that nothing does, by the effects and the whole-program write summaries.
-    /// </summary>
-    public bool IsElement { get; set; }
+    public Location? LoopElement => Role == IrLocalRole.Variable ? Symbol?.LoopElement : null;
 
     public override string ToString() => Name;
 }
@@ -231,7 +234,7 @@ public sealed class IrLet : IrStatement
     public IrLet(IrRvalue value)
     {
         var (kind, refKind) = Defines(value);
-        Local = new IrLocal("t", value.Type, kind) { IsTemporary = true, RefKind = refKind };
+        Local = new IrLocal("t", value.Type, kind, IrLocalRole.Temporary) { RefKind = refKind };
         Value = value;
     }
 

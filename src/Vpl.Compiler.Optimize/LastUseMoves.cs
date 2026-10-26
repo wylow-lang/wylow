@@ -143,8 +143,8 @@ sealed class LastUseMoves
     bool Movable(IrLocal local)
     {
         var type = local.Type;
-        if (local.Kind != IrLocalKind.Value || local.IsThis || local.IsCapture || lambdas.MayChange(local) || !type.IsCounted
-            || type.NonNull.IsNonEscapingFunction || local.LoopElement is not null)
+        if (local.Kind != IrLocalKind.Value || local.Role is IrLocalRole.This or IrLocalRole.Capture || lambdas.MayChange(local) || !type.IsCounted
+            || type.NonNull.IsNonEscapingFunction)
             return false;
         if (!inert.TryGetValue(type, out var result))
             inert[type] = result = callees.Of(new IrRunRelease(type)) is { Functions.Count: 0, RunsExtern: false } && !MayBeWeaklyReferred(type);

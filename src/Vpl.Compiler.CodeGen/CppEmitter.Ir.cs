@@ -304,8 +304,8 @@ public sealed partial class CppEmitter
         // A closure's copies get new names, so they don't shadow the variables they copy.
         name = local switch
         {
-            { IsCapture: true, Symbol: { } captured } => $"{LocalName(captured)}_{NewTemp()}",
-            { IsCapture: true } => $"vpl_this_{NewTemp()}",
+            { Role: IrLocalRole.Capture, Symbol: { } captured } => $"{LocalName(captured)}_{NewTemp()}",
+            { Role: IrLocalRole.Capture } => $"vpl_this_{NewTemp()}",
             { Symbol: { } symbol } => LocalName(symbol),
             _ => NewTemp(),
         };

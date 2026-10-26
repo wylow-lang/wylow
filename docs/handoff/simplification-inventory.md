@@ -229,8 +229,13 @@ exact-type version with `IsSubtype`. No drift yet, but this one is a safety rule
 
 ## 7. A loop element is recorded three times, and local roles are loose booleans
 
+**Done in step 7:** `IrLocal.Role` (`IrLocalRole`) is required and replaces the booleans, and an
+in-place element is `borrow.element` (`IrRead.Element`), which the verifier's dependency carries, so
+`IsElement` is gone. LastUseMoves now moves a loop element that isn't borrowed in place. What
+follows is the finding as it was.
+
 - **Step 3 deleted `IrProgram.LoopElements`:** `IrLocal.LoopElement` asks the symbol, which holds
-  where it is declared. `IsElement` and the roles are still open. What follows is the finding as it was.
+  where it is declared.
 - `LocalSymbol.IsLoopElement` (Symbols.cs:16, set at Binder.ForEach.cs:210), copied into lowering's
   `loopElements` (Lowering.cs:288), then `IrProgram.LoopElements` (Ir.cs:19), then
   `IrLocal.IsElement` for the subset borrowed in place (Ir.cs:126, set at InPlaceElements.cs:56).

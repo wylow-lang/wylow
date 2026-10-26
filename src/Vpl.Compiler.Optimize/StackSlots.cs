@@ -304,7 +304,7 @@ sealed class StackSlots
         var slots = new Dictionary<IrRvalue, IrLocal>(ReferenceEqualityComparer.Instance);
         IrLocal Slot(IrRvalue creation)
         {
-            var slot = new IrLocal("s", creation.Type, IrLocalKind.Slot) { IsTemporary = true };
+            var slot = new IrLocal("s", creation.Type, IrLocalKind.Slot, IrLocalRole.Temporary);
             switch (creation)
             {
                 case IrNew made:

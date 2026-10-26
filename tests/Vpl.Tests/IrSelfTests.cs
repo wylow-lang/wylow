@@ -206,11 +206,12 @@ static class IrSelfTests
             var l = b.Parameter("list", list);
             var h = b.Temp(list, IrLocalKind.Hold);
             var r = b.Temp(VplType.Int, IrLocalKind.Reference, RefKind.Ref);
-            var e = new IrLocal("e", VplType.Int, IrLocalKind.Borrowed) { IsElement = element };
+            var e = b.Local("e", VplType.Int, IrLocalKind.Borrowed);
+            var borrow = element ? IrRead.BorrowElement(IrPlace.Deref(r)) : IrRead.Borrow(IrPlace.Deref(r));
             return b.Function(name, [l],
                 new IrLet(h, new IrHold(new IrPlace(l), borrows: true)) { Origin = null },
                 new IrLet(r, new IrCall(index, IrRead.Borrow(new IrPlace(h)), [IrConstant.Int(0)], b.Loc)) { Origin = null },
-                new IrLet(e, Use(IrRead.Borrow(IrPlace.Deref(r)))) { Origin = null },
+                new IrLet(e, Use(borrow)) { Origin = null },
                 new IrDo(callee == "f" ? b.Call("f") : b.Call(callee, IrRead.Copy(new IrPlace(l)))) { Origin = null },
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(e)))) { Origin = null });
         }
@@ -689,15 +690,15 @@ static class IrSelfTests
         public IrCall Call(string function, params IrArgument[] arguments) => new(Function(function), null, arguments);
 
         public IrLocal Temp(VplType type, IrLocalKind kind = IrLocalKind.Value, RefKind refKind = RefKind.None) =>
-            new("t", type, kind) { IsTemporary = true, RefKind = refKind };
+            new("t", type, kind, IrLocalRole.Temporary) { RefKind = refKind };
 
         public IrLocal Local(string name, VplType type, IrLocalKind kind = IrLocalKind.Value, RefKind refKind = RefKind.None) =>
-            new(name, type, kind) { RefKind = refKind };
+            new(name, type, kind, IrLocalRole.Variable) { RefKind = refKind };
 
-        public IrLocal Parameter(string name, VplType type) => new(name, type, IrLocalKind.Value) { IsParameter = true };
+        public IrLocal Parameter(string name, VplType type) => new(name, type, IrLocalKind.Value, IrLocalRole.Parameter);
 
         /// <summary>A variable the source names, whose rules the flow analysis checks.</summary>
-        public IrLocal SourceLocal(string name, VplType type) => new(name, type, IrLocalKind.Value) { Symbol = new LocalSymbol(name, type, isParameter: false) };
+        public IrLocal SourceLocal(string name, VplType type) => new(name, type, IrLocalKind.Value, IrLocalRole.Variable) { Symbol = new LocalSymbol(name, type, isParameter: false) };
 
         public IrFunction Function(string name, IrLocal[] parameters, params IrStatement[] body) => Function(name, parameters, VplType.Void, body);
 

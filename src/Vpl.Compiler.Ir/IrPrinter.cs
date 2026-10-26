@@ -233,7 +233,7 @@ public sealed class IrPrinter
     string Operand(IrOperand operand) => operand switch
     {
         IrConstant constant => Constant(constant),
-        IrRead read => $"{read.Ownership.ToString().ToLowerInvariant()} {Place(read.Place)}",
+        IrRead read => $"{read.Ownership.ToString().ToLowerInvariant()}{(read.Element ? ".element" : "")} {Place(read.Place)}",
         _ => throw new InvalidOperationException($"unexpected operand {operand.GetType().Name}"),
     };
 

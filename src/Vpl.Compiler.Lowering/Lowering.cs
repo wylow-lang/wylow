@@ -38,9 +38,9 @@ public sealed partial class IrLowering
         function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
         block = function.Body;
         if (owner is not null && !symbol.IsStatic)
-            function.This = self = new IrLocal("this", owner.Type, IrLocalKind.Value) { IsThis = true, IsParameter = true };
+            function.This = self = new IrLocal("this", owner.Type, IrLocalKind.Value, IrLocalRole.This);
         foreach (var parameter in symbol.Parameters)
-            function.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter)) { IsParameter = true, Symbol = parameter, RefKind = parameter.RefKind });
+            function.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter), IrLocalRole.Parameter) { Symbol = parameter, RefKind = parameter.RefKind });
     }
 
     public static IrProgram Lower(BoundProgram program)
@@ -108,7 +108,7 @@ public sealed partial class IrLowering
     IrDo DoOf(IrRvalue value) => new(value) { Origin = Origin(value) };
 
     /// <summary>A temporary declared without a value, which control flow stores.</summary>
-    static IrLocal Temp(VplType type) => new("t", type, IrLocalKind.Value) { IsTemporary = true };
+    static IrLocal Temp(VplType type) => new("t", type, IrLocalKind.Value, IrLocalRole.Temporary);
 
     /// <summary>A temporary holding the value, which the instructions after it read.</summary>
     IrLocal Let(IrRvalue value)
@@ -208,7 +208,7 @@ public sealed partial class IrLowering
 
     IrLocal Declare(LocalSymbol local)
     {
-        var lowered = new IrLocal(local.Name, local.Type, KindOf(local)) { Symbol = local, RefKind = local.RefKind };
+        var lowered = new IrLocal(local.Name, local.Type, KindOf(local), IrLocalRole.Variable) { Symbol = local, RefKind = local.RefKind };
         locals[local] = lowered;
         return lowered;
     }

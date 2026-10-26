@@ -195,5 +195,5 @@ public sealed partial class CppEmitter
 
     // A non-escaping argument is passed before its conversion, so an escaping value keeps its type.
     static bool MakesCallableType(IrArgument argument) =>
-        argument is not (IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.IsParameter: true } } or IrOperand { Type.IsEscaping: true });
+        argument is not (IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Role: IrLocalRole.Parameter } } or IrOperand { Type.IsEscaping: true });
 }

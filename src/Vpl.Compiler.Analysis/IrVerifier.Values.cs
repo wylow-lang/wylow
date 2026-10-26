@@ -178,15 +178,17 @@ public sealed partial class IrVerifier
     /// What a dependent needs: its roots, the locals whose storage, or with <c>Through</c>, whose
     /// object or target, it lies in; and what it refers to. An alias (a borrowed local) needs nothing
     /// to write that; a reference needs nothing to destroy it. One taken from a <c>Borrowable</c>
-    /// that isn't borrowed needs no code to run.
+    /// that isn't borrowed needs no code to run. An <see cref="IrRead.Element"/> borrow needs only
+    /// that nothing stores over an element of its type.
     /// </summary>
-    sealed record Dependency(IReadOnlyList<(IrLocal Local, bool Through)> Roots, IrAccess? Target, bool Alias, bool NeedsBorrow)
+    sealed record Dependency(IReadOnlyList<(IrLocal Local, bool Through)> Roots, IrAccess? Target, bool Alias, bool NeedsBorrow, bool Element = false)
     {
         public Dependency Union(Dependency other) => new(
             [.. Roots.Union(other.Roots)],
             Target == other.Target ? Target : IrAccess.Unknown,
             Alias || other.Alias,
-            NeedsBorrow || other.NeedsBorrow);
+            NeedsBorrow || other.NeedsBorrow,
+            Element && other.Element);
 
         /// <summary>The dependency of a reference, view, pointer, or alias an rvalue makes, if it makes one.</summary>
         public static Dependency? Of(IrRvalue value, IrVerifier verifier) => value switch
@@ -206,13 +208,13 @@ public sealed partial class IrVerifier
 
         public static Dependency? Of(IrOperand operand, IrVerifier verifier) => operand switch
         {
-            IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true),
+            IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true) with { Element = read.Element },
             // A copy of a reference, view, or pointer points where it does, so it outlives the local it
             // was copied from. A non-escaping function value refers to the callable in its local.
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when PointsAway(local) && verifier.dependencies.TryGetValue(local, out var copied) =>
-                copied with { Alias = false },
+                copied with { Alias = false, Element = false },
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
-                copied with { Roots = [(local, true)], Alias = false },
+                copied with { Roots = [(local, true)], Alias = false, Element = false },
             _ => null,
         };
 
@@ -311,10 +313,9 @@ public sealed partial class IrVerifier
         {
             if (!Visible(local) || state.Invalid.ContainsKey(local))
                 continue;
-            // What a loop iterates is borrowed, so only storing over one of its elements can destroy it.
-            if (local.IsElement && this.writes.MayStoreOverElement(effects, local.Type.NonNull))
+            if (dependency.Element && this.writes.MayStoreOverElement(effects, local.Type.NonNull))
                 Invalidate(state, local, $"an element of its type may be stored over, by {what}");
-            else if (Breaks(local.IsElement ? dependency with { Target = null } : dependency, effects, writes, state) is { } reason)
+            else if (Breaks(dependency.Element ? dependency with { Target = null } : dependency, effects, writes, state) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))

@@ -51,9 +51,8 @@ sealed class InPlaceElements
             var element = let.Local;
             if (!element.Type.IsReference || place.Type != element.Type || !Unwritten(element, statements.Skip(i + 1)))
                 continue;
-            let.Value = new IrUse(IrRead.Borrow(place));
+            let.Value = new IrUse(IrRead.BorrowElement(place));
             element.Kind = IrLocalKind.Borrowed;
-            element.IsElement = true;
             locations.Add(location);
         }
     }
