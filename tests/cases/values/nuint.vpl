@@ -1,0 +1,45 @@
+// The `nuint` kind: pointer-sized and unsigned. Its values are kept small, since what it holds
+// depends on the target (§2.1, §2.3).
+
+void main() {
+    nuint value = 7u;
+
+    print(value + 3u);          // output: 10
+    print(value - 2u);          // output: 5
+    print(value * 3u);          // output: 21
+    print(value / 2u);          // output: 3
+    print(value % 2u);          // output: 1
+    print(value << 1);          // output: 14
+    print(value >> 1);          // output: 3
+    print(value & 3u);          // output: 3
+    print(~value & 0xFu);       // output: 8
+    print(value > 0u);          // output: true
+
+    print((int)value);          // output: 7
+    print((ulong)value);        // output: 7
+    print((nuint)9u);           // output: 9
+
+    print($"{value:D3}");       // output: 007
+    print($"{value:B4}");       // output: 0111
+    print($"[{value,4}]");      // output: [   7]
+
+    print(value.toString());    // output: 7
+
+    // More operators, conversions, and formatting.
+    print(value | 8u);          // output: 15
+    print(value ^ 3u);          // output: 4
+    print(value > 6u);          // output: true
+    print($"{value:D2}");       // output: 07
+    print(value < 8u);          // output: true
+    print(value >= 7u);         // output: true
+    print((short)value);        // output: 7
+    print((uint)value);         // output: 7
+    print((double)value);       // output: 7.0
+    print($"{value:D1}");       // output: 7
+    print($"{value:X}");        // output: 7
+    print($"[{value,-4}]");     // output: [7   ]
+    print(switch (value) {
+        case 7 -> "seven";
+        default -> "other";
+    });                         // output: seven
+}

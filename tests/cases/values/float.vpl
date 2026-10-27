@@ -1,0 +1,42 @@
+// The `float` kind at its edges: IEEE 754 single precision. print writes the shortest text that
+// reads back as the same float, and non-finite values are `inf`, `-inf`, and `nan` (§2.4).
+
+void main() {
+    float value = 1.5;
+
+    print(value);                 // output: 1.5
+    print(value + 0.5);           // output: 2.0
+    print(value * 3);             // output: 4.5
+    print(value / 2);             // output: 0.75
+    print(value % 1);             // output: 0.5
+    print(-value);                // output: -1.5
+    print(1.0 / 3);               // output: 0.33333334
+    print((double)(1.0 / 3));     // output: 0.3333333432674408
+    print(16777216.0 + 1.0);      // output: 16777216.0
+    print(1e20);                  // output: 1e+20
+    print(0.0 / 0.0);             // output: nan
+    print(1.0 / 0.0);             // output: inf
+    print(-1.0 / 0.0);            // output: -inf
+    print(value < 2.0);           // output: true
+    print(value == 1.5);          // output: true
+
+    print((int)value);            // output: 1
+    print((int)-1.5);             // output: -1
+    print((int)1e20);             // output: 2147483647
+    print((long)1e10);            // output: 10000000000
+    print((double)value);         // output: 1.5
+
+    print(value.toString());      // output: 1.5
+    print($"{value:F2}");         // output: 1.50
+    print($"{value:E2}");         // output: 1.50E+000
+    print($"[{value,6}]");        // output: [   1.5]
+
+    // More comparisons, conversions, and formatting.
+    print(value >= 1.5);          // output: true
+    print(value != 1.6);          // output: true
+    print((float)(1.0 / 3));      // output: 0.33333334
+    print((short)value);          // output: 1
+    print(1.5 % 1.0);             // output: 0.5
+    print(2.0 * 0.5);             // output: 1.0
+    print($"{0.1:F3}");           // output: 0.100
+}

@@ -786,6 +786,10 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 
 - The enum qualifier in `Enum.Variant` must be the matched value's enum; type arguments may be left
   out, since the value determines them: `case Result.Ok(var v)`.
+- An integer pattern is a constant of the matched value's integer type: an unsuffixed literal
+  converts to it where it fits, so matching a `byte` writes `case 200`, and matching a `long` with a
+  value past `INT_MAX` writes `case 2147483648L`, since a literal too large for `int` needs a suffix
+  (§2.2).
 - A lone name is a variant when matching an enum, and otherwise a type: `x is Dog` tests a class.
 - `null`, floating-point, and string literals are not patterns.
 - `x is pattern` is `true` when the pattern matches. Patterns that always match (`_`, `var x`) are
@@ -818,7 +822,9 @@ in ordinary strings mean nothing special.
   `a ? b : c` must be parenthesized, since `:` starts a format specifier, as in C#.
 - An interpolated value must be *printable*. Primitives and `String` are, and are written as
   `print` writes them (`3.0`, `true`, a `char` as its character), a nullable one as its value or
-  `null`.
+  `null`. A floating-point value is written as the shortest text that reads back as the same
+  value, in the plain or exponential form C++'s `std::to_chars` picks, with `.0` added to a whole
+  number written without an exponent; `inf`, `-inf`, and `nan` name the rest.
 - Any other type is printable when it implements the standard library's `Printable` interface,
   and is written by its `toString()`. A nullable value of such a type is written as `null` when
   it is null. There is no default `toString()`: a type opts in, so printing never silently shows

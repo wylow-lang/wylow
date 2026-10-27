@@ -1,0 +1,45 @@
+// The `nint` kind: pointer-sized and signed. Its values are kept small, since what it holds depends
+// on the target, but its operators, conversions, and formatting are the same (§2.1, §2.3).
+
+void main() {
+    nint value = 5;
+
+    print(value + 3);           // output: 8
+    print(value - 7);           // output: -2
+    print(value * -2);          // output: -10
+    print(value / 2);           // output: 2
+    print(value % 3);           // output: 2
+    print(value << 1);          // output: 10
+    print(value >> 1);          // output: 2
+    print(value & 3);           // output: 1
+    print(~value);              // output: -6
+    print(-value);              // output: -5
+    print(value == 5);          // output: true
+    print(value < 6);           // output: true
+
+    print((int)(-value));       // output: -5
+    print((long)value);         // output: 5
+    print((nint)7);             // output: 7
+
+    print($"{(-value):D3}");    // output: -005
+    print($"{value:X}");        // output: 5
+    print($"[{value,4}]");      // output: [   5]
+
+    print(value.toString());    // output: 5
+
+    // More operators, conversions, and formatting.
+    print(value | 2);           // output: 7
+    print(value ^ 1);           // output: 4
+    print(value > 0);           // output: true
+    print(value <= 5);          // output: true
+    print((short)value);        // output: 5
+    print((uint)value);         // output: 5
+    print((double)value);       // output: 5.0
+    print($"{value:D1}");       // output: 5
+    print($"{value:B8}");       // output: 00000101
+    print($"[{value,-4}]");     // output: [5   ]
+    print(switch (value) {
+        case 5 -> "five";
+        default -> "other";
+    });                         // output: five
+}

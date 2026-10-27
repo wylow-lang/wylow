@@ -40,6 +40,8 @@ public sealed partial class CppEmitter
             return $"vpl::{(op == BoundBinaryOperator.ShiftLeft ? "shl" : "shr")}({left}, {right})";
         if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Remainder)
             return $"std::fmod({left}, {right})";
+        if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Divide)
+            return $"vpl::fdiv({left}, {right})";
 
         var cppOperator = op switch
         {

@@ -14,12 +14,12 @@ static class MatrixPlaces
 
     public static Matrix Build()
     {
-        var places = new List<Place>
-        {
-            Local(), MutLocal(), Field(), FixedElement(), ListElement(), SpanElement(),
-            RefLocal(), InLocal(), RefNullableLocal(), InNullableLocal(),
-            NullableValue(), CapturedLocal(), ThisField(), ChainedField(),
-        };
+        var places = new List<Place> { Local(), MutLocal(), Field() };
+        places.AddRange(IndexPlaces("fixed-element", FixedElement));
+        places.AddRange(IndexPlaces("list-element", ListElement));
+        places.AddRange(IndexPlaces("span-element", SpanElement));
+        places.AddRange([RefLocal(), InLocal(), RefNullableLocal(), InNullableLocal(),
+            NullableValue(), CapturedLocal(), ThisField(), ChainedField()]);
         var cells = new List<MatrixCell>();
         foreach (var place in places)
         {
@@ -95,20 +95,38 @@ static class MatrixPlaces
         U("int[3]", "mut Pair p = Pair();", "p.values", mutable: true),
         FieldReturnRef);
 
-    static Place FixedElement() => InMain("fixed-element",
-        U("int", "mut int[3] a = [1, 2, 3];", "a[0]", mutable: true),
-        U("int[3]", "mut int[2][3] g = [[1, 2, 3], [4, 5, 6]];", "g[0]", mutable: true),
-        FixedElementReturnRef);
+    static Place FixedElement(string name, int index, int length) => InMain(name,
+        U("int", $"mut int[{length}] a = {Sequence(length)};", $"a[{index}]", mutable: true),
+        U("int[3]", $"mut int[{length}][3] g = {Grid(length)};", $"g[{index}]", mutable: true),
+        _ => FixedElementReturnRef(index, length));
 
-    static Place ListElement() => InMain("list-element",
-        U("int", "var list = new List<int>();\nlist.add(1);\nlist.add(2);\nlist.add(3);", "list[0]", mutable: true),
-        U("int[3]", "var list = new List<int[3]>();\nlist.add([1, 2, 3]);\nlist.add([4, 5, 6]);", "list[0]", mutable: true),
-        ListElementReturnRef);
+    static Place ListElement(string name, int index, int length) => InMain(name,
+        U("int", $"var list = new List<int>();\n{Adds(length)}", $"list[{index}]", mutable: true),
+        U("int[3]", $"var list = new List<int[3]>();\n{GridAdds(length)}", $"list[{index}]", mutable: true),
+        _ => ListElementReturnRef(index, length));
 
-    static Place SpanElement() => InMain("span-element",
-        U("int", "mut int[3] a = [1, 2, 3];\nSpan<int> s = a;", "s[0]", mutable: true),
-        U("int[3]", "mut int[2][3] g = [[1, 2, 3], [4, 5, 6]];\nSpan<int[3]> s = g;", "s[0]", mutable: true),
-        SpanElementReturnRef);
+    static Place SpanElement(string name, int index, int length) => InMain(name,
+        U("int", $"mut int[{length}] a = {Sequence(length)};\nSpan<int> s = a;", $"s[{index}]", mutable: true),
+        U("int[3]", $"mut int[{length}][3] g = {Grid(length)};\nSpan<int[3]> s = g;", $"s[{index}]", mutable: true),
+        _ => SpanElementReturnRef(index, length));
+
+    /// <summary>The element places, once at the first index, once at the last, once on one element.</summary>
+    static IEnumerable<Place> IndexPlaces(string prefix, Func<string, int, int, Place> make) =>
+        Positions.Select(p => make($"{prefix}-{p.Name}", p.Index, p.Length));
+
+    static readonly (string Name, int Index, int Length)[] Positions =
+        [("first", 0, 3), ("last", 2, 3), ("single", 0, 1)];
+
+    static string Sequence(int length) => "[" + string.Join(", ", Enumerable.Range(1, length)) + "]";
+
+    static string Row(int first) => $"[{first}, {first + 1}, {first + 2}]";
+
+    static string Grid(int length) =>
+        "[" + string.Join(", ", Enumerable.Range(0, length).Select(i => Row(1 + i * 3))) + "]";
+
+    static string Adds(int length) => string.Join('\n', Enumerable.Range(1, length).Select(i => $"list.add({i});"));
+
+    static string GridAdds(int length) => string.Join('\n', Enumerable.Range(0, length).Select(i => $"list.add({Row(1 + i * 3)});"));
 
     static Place RefLocal() => InMain("ref-local",
         U("int", "mut int x = 1;\nref int r = x;", "r", mutable: true),
@@ -230,13 +248,13 @@ static class MatrixPlaces
         }
         """;
 
-    static string FixedElementReturnRef(Use use) => """
+    static string FixedElementReturnRef(int index, int length) => $$"""
         struct Fixed {
             internal {
-                int[3] a = [1, 2, 3];
+                int[{{length}}] a = {{Sequence(length)}};
 
                 mut ref int at() {
-                    return ref a[0];
+                    return ref a[{{index}}];
                 }
             }
         }
@@ -244,22 +262,21 @@ static class MatrixPlaces
         void main() {
             mut Fixed fixedValue = Fixed();
             fixedValue.at() = 5;
-            print(fixedValue.a[0]);
+            print(fixedValue.a[{{index}}]);
         }
         """;
 
-    static string ListElementReturnRef(Use use) => """
+    static string ListElementReturnRef(int index, int length) => $$"""
         class Store {
             internal {
                 List<int> list = new List<int>();
 
                 Store() {
-                    list.add(1);
-                    list.add(2);
+        {{Adds(length)}}
                 }
 
                 ref int at() {
-                    return ref list[0];
+                    return ref list[{{index}}];
                 }
             }
         }
@@ -267,18 +284,18 @@ static class MatrixPlaces
         void main() {
             var store = new Store();
             store.at() = 5;
-            print(store.list[0]);
+            print(store.list[{{index}}]);
         }
         """;
 
-    static string SpanElementReturnRef(Use use) => """
+    static string SpanElementReturnRef(int index, int length) => $$"""
         struct Fixed {
             internal {
-                int[3] a = [1, 2, 3];
+                int[{{length}}] a = {{Sequence(length)}};
 
                 mut ref int at() {
                     Span<int> view = a;
-                    return ref view[0];
+                    return ref view[{{index}}];
                 }
             }
         }
@@ -286,7 +303,7 @@ static class MatrixPlaces
         void main() {
             mut Fixed fixedValue = Fixed();
             fixedValue.at() = 5;
-            print(fixedValue.a[0]);
+            print(fixedValue.a[{{index}}]);
         }
         """;
 

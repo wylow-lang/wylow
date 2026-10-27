@@ -1,0 +1,47 @@
+// The `long` kind at its edges: past INT_MAX, at the ends of 64 bits, and where a conversion
+// to a narrower or floating type loses something (§2.3, §2.4).
+
+void main() {
+    long max = 9223372036854775807L;
+    long min = -9223372036854775808L;
+
+    print(max - 1);                     // output: 9223372036854775806
+    print(min + 1);                     // output: -9223372036854775807
+    print(max / 3);                     // output: 3074457345618258602
+    print(max % 3);                     // output: 1
+    print(min / 3);                     // output: -3074457345618258602
+    print(min % 3);                     // output: -2
+    print(1L << 62);                    // output: 4611686018427387904
+    print(max >> 62);                   // output: 1
+    print(min >> 63);                   // output: -1
+    print(2147483648L * 4);             // output: 8589934592
+    print(max & 0xFF);                  // output: 255
+    print(~min);                        // output: 9223372036854775807
+    print(-9223372036854775808L < 0L);  // output: true
+    print(9223372036854775807L > 2147483647L); // output: true
+
+    // Conversions: narrowing wraps, widening to float rounds, and a double saturates.
+    print((int)max);                    // output: -1
+    print((int)min);                    // output: 0
+    print((uint)max);                   // output: 4294967295
+    print((short)2147483648L);          // output: 0
+    print((float)16777217L);            // output: 16777216.0
+    print((double)9007199254740993L);   // output: 9007199254740992.0
+    print((long)1e30d);                 // output: 9223372036854775807
+    print((double)(1L << 63));          // output: -9223372036854775808.0
+
+    // Formatting: 64-bit widths and the sign of a negative's two's-complement bits.
+    print($"{max:D20}");                // output: 09223372036854775807
+    print($"{min:D20}");                // output: -09223372036854775808
+    print($"{max:X16}");                // output: 7FFFFFFFFFFFFFFF
+    print($"{min:X16}");                // output: 8000000000000000
+    print($"{5L:B8}");                  // output: 00000101
+    print($"[{max,20}]");               // output: [ 9223372036854775807]
+
+    print(max.toString());              // output: 9223372036854775807
+
+    print(switch (max) {
+        case 9223372036854775807L -> "max";
+        default -> "other";
+    });                                 // output: max
+}

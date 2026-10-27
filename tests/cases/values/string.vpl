@@ -1,0 +1,67 @@
+// The `String` kind: immutable UTF-8 text. Offsets and lengths count bytes, `==` compares contents,
+// and interpolation is the one way to join strings (§2.10, §6.9).
+
+void main() {
+    String text = "héllo";
+    String empty = "";
+
+    print(text);                        // output: héllo
+    print(text.byteLength());           // output: 6
+    print(text.charCount());            // output: 5
+    print(empty.byteLength());          // output: 0
+    print(empty.charCount());           // output: 0
+    print(empty.isEmpty());             // output: true
+    print(text.isEmpty());              // output: false
+
+    print(text.startsWith("hé"));       // output: true
+    print(text.startsWith("hx"));       // output: false
+    print(text.endsWith("llo"));        // output: true
+    print(text.contains("él"));         // output: true
+    print(text.contains("x"));          // output: false
+    print(text.indexOf("l"));           // output: 3
+    print(text.indexOf("z"));           // output: null
+    print(empty.indexOf("") == 0);      // output: true
+    print(text.compareTo("héllo"));     // output: 0
+    print(text.compareTo("hello") > 0); // output: true
+    print(text.compareTo("i") < 0);     // output: true
+
+    print(text == "héllo");             // output: true
+    print(text == "hello");             // output: false
+    print(text != "hello");             // output: true
+    print($"{1}+{2}" == "1+2");         // output: true
+
+    print(text.slice(0, 1));            // output: h
+    print(text.slice(1, 2));            // output: é
+    print(text.slice(3, 2));            // output: ll
+    print(text.slice(0, 6) == text);    // output: true
+    print(empty.slice(0, 0) == empty);  // output: true
+
+    print(text.bytes().length());       // output: 6
+    print(text.bytes()[0]);             // output: 104
+    print(text.bytes()[1]);             // output: 195
+    print(text.bytes()[5]);             // output: 111
+    for (int at, char c : text) {
+        print(at);
+        print(c);
+    }
+    // output: 0
+    // output: h
+    // output: 1
+    // output: é
+    // output: 3
+    // output: l
+    // output: 4
+    // output: l
+    // output: 5
+    // output: o
+
+    print($"{text}!");                  // output: héllo!
+    print($"{text}{empty}");            // output: héllo
+    print($"[{text,7}]");               // output: [  héllo]
+    print($"{text,-7}|");               // output: héllo  |
+
+    String built = $"{1}+{2}";
+    print(built);                       // output: 1+2
+    print(built.byteLength());          // output: 3
+    print(built.charCount());           // output: 3
+}

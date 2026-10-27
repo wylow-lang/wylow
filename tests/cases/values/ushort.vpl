@@ -1,0 +1,45 @@
+// The `ushort` kind at its edges: an unsigned 16-bit type whose arithmetic keeps its type.
+
+void main() {
+    ushort max = 65535;
+
+    print(max - 1);             // output: 65534
+    print(max / 7);             // output: 9362
+    print(max % 7);             // output: 1
+    print(max / 2);             // output: 32767
+    print(max >> 8);            // output: 255
+    print(max << 1);            // output: 65534
+    print(max & 0xFF);          // output: 255
+    print(~max);                // output: 0
+    print(max > 0);             // output: true
+    print(max == 65535);        // output: true
+
+    print((short)max);          // output: -1
+    print((int)max);            // output: 65535
+    print((long)max);           // output: 65535
+    print((float)max);          // output: 65535.0
+
+    print($"{max:X4}");         // output: FFFF
+    print($"{max:B16}");        // output: 1111111111111111
+    print($"{max:D6}");         // output: 065535
+    print($"[{max,6}]");        // output: [ 65535]
+
+    print(max.toString());      // output: 65535
+
+    // More operators, conversions, and formatting.
+    print(max + 0);             // output: 65535
+    print(max | 0);             // output: 65535
+    print(max ^ 0);             // output: 65535
+    print((byte)max);           // output: 255
+    print((sbyte)max);          // output: -1
+    print((double)max);         // output: 65535.0
+    print(max != 0);            // output: true
+    print(max >= 65535);        // output: true
+    print($"{max:D}");          // output: 65535
+    print($"{255:X2}");         // output: FF
+    print($"[{max,-6}]");       // output: [65535 ]
+    print(switch (max) {
+        case 65535 -> "max";
+        default -> "other";
+    });                         // output: max
+}

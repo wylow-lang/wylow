@@ -74,6 +74,14 @@ inline T div(T a, T b, const char* location) {
     return static_cast<T>(a / b);
 }
 
+// IEEE 754 defines division by zero as an infinity or a non-number. It always runs, since MSVC
+// rejects a constant division by zero (C2124) even where the language defines its result.
+template <class F>
+    requires std::is_floating_point_v<F>
+inline F fdiv(F a, F b) {
+    return a / b;
+}
+
 template <class T>
 inline T rem(T a, T b, const char* location) {
     if (b == 0) panic("division by zero", location);

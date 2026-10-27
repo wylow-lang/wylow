@@ -1,0 +1,41 @@
+// The `double` kind at its edges: IEEE 754 double precision, and the places where binary floating
+// point is not the decimal it looks like (§2.4).
+
+void main() {
+    double value = 1.5d;
+
+    print(value);                  // output: 1.5
+    print(value + 0.5d);           // output: 2.0
+    print(value * 3);              // output: 4.5
+    print(value / 2);              // output: 0.75
+    print(value % 1);              // output: 0.5
+    print(-value);                 // output: -1.5
+    print(1.0d / 3);               // output: 0.3333333333333333
+    print(0.1d + 0.2d);            // output: 0.30000000000000004
+    print(0.1d + 0.2d == 0.3d);    // output: false
+    print(0.0d / 0.0d);            // output: nan
+    print(1.0d / 0.0d);            // output: inf
+    print(-1.0d / 0.0d);           // output: -inf
+    print(value < 2.0d);           // output: true
+
+    print((int)value);             // output: 1
+    print((int)-1.5d);             // output: -1
+    print((long)1e300d);           // output: 9223372036854775807
+    print((int)1e300d);            // output: 2147483647
+    print((float)0.1d);            // output: 0.1
+    print((double)value);          // output: 1.5
+
+    print(value.toString());       // output: 1.5
+    print($"{value:F2}");          // output: 1.50
+    print($"{value:E2}");          // output: 1.50E+000
+    print($"{0.1d:F20}");          // output: 0.10000000000000000555
+    print($"[{value,6}]");         // output: [   1.5]
+
+    // More comparisons, conversions, and formatting.
+    print(value >= 1.5d);         // output: true
+    print(value != 1.6d);         // output: true
+    print((short)value);          // output: 1
+    print(1.5d % 1.0d);           // output: 0.5
+    print(2.0d * 0.5d);           // output: 1.0
+    print($"{0.1d:F3}");          // output: 0.100
+}

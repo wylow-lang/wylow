@@ -1,0 +1,48 @@
+// The `uint` kind at its edges: unsigned wrap-free arithmetic (debug builds panic on overflow),
+// logical right shift, and reinterpretation as a signed value (§2.3, §2.4).
+
+void main() {
+    uint max = 4294967295u;
+    uint one = 1u;
+
+    print(max - 1u);                // output: 4294967294
+    print(max / 3u);                // output: 1431655765
+    print(max % 3u);                // output: 0
+    print(max / 2u);                // output: 2147483647
+    print(max >> 31);               // output: 1
+    print(max << 1);                // output: 4294967294
+    print(one << 31);               // output: 2147483648
+    print(max & 0x0Fu);             // output: 15
+    print(max ^ max);               // output: 0
+    print(~0u);                     // output: 4294967295
+    print(~max);                    // output: 0
+    print(max > 0u);                // output: true
+    print(max == 4294967295u);      // output: true
+
+    print((int)max);                // output: -1
+    print((long)max);               // output: 4294967295
+    print((ulong)max);              // output: 4294967295
+    print((byte)max);               // output: 255
+    print((double)max);             // output: 4294967295.0
+
+    print($"{max:D10}");            // output: 4294967295
+    print($"{max:D12}");            // output: 004294967295
+    print($"{max:X8}");             // output: FFFFFFFF
+    print($"{max:B32}");            // output: 11111111111111111111111111111111
+    print($"[{max,12}]");           // output: [  4294967295]
+
+    print(max.toString());          // output: 4294967295
+
+    // More conversions and formatting.
+    print(max | 0u);            // output: 4294967295
+    print(max + 0u);            // output: 4294967295
+    print((ushort)max);         // output: 65535
+    print((sbyte)max);          // output: -1
+    print((float)max);          // output: 4294967296.0
+    print(max != 0u);           // output: true
+    print($"{0u:B8}");          // output: 00000000
+    print(switch (max) {
+        case 4294967295u -> "max";
+        default -> "other";
+    });                         // output: max
+}

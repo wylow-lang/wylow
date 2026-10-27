@@ -201,196 +201,584 @@ out 5
 out 5
 exit 0
 
-=== fixed-element/read
+=== fixed-element-first/read
 out 1
 out 1
 exit 0
 
-=== fixed-element/assign
+=== fixed-element-first/assign
 out 5
 exit 0
 
-=== fixed-element/compound
+=== fixed-element-first/compound
 out 3
 exit 0
 
-=== fixed-element/pass
+=== fixed-element-first/pass
 out 1
 out 1
 exit 0
 
-=== fixed-element/pass-ref-in
+=== fixed-element-first/pass-ref-in
 out 11
 exit 0
 
-=== fixed-element/take-ref-in
+=== fixed-element-first/take-ref-in
 out 5
 exit 0
 
-=== fixed-element/take-ref-nullable
+=== fixed-element-first/take-ref-nullable
 out 5
 exit 0
 
-=== fixed-element/span
+=== fixed-element-first/span
 out 5
 out 2
 out 3
 exit 0
 
-=== fixed-element/loop
+=== fixed-element-first/loop
 out 2
 out 3
 out 4
 exit 0
 
-=== fixed-element/capture
+=== fixed-element-first/capture
 out 5
 exit 0
 
-=== fixed-element/capture-escaping
+=== fixed-element-first/capture-escaping
 error 37: cannot assign to 'a[0]' because an escaping lambda only has a copy of 'a'
 
-=== fixed-element/narrow
+=== fixed-element-first/narrow
 error 36: '!' can only be applied to a nullable value, and 'int' is not nullable
 
-=== fixed-element/return
+=== fixed-element-first/return
 out 1
 exit 0
 
-=== fixed-element/return-ref
+=== fixed-element-first/return-ref
 out 5
 exit 0
 
-=== fixed-element/reassign
+=== fixed-element-first/reassign
 out 5
 out 5
 exit 0
 
-=== list-element/read
-out 1
-out 1
-exit 0
-
-=== list-element/assign
-out 5
-exit 0
-
-=== list-element/compound
+=== fixed-element-last/read
+out 3
 out 3
 exit 0
 
-=== list-element/pass
+=== fixed-element-last/assign
+out 5
+exit 0
+
+=== fixed-element-last/compound
+out 5
+exit 0
+
+=== fixed-element-last/pass
+out 3
+out 3
+exit 0
+
+=== fixed-element-last/pass-ref-in
+out 13
+exit 0
+
+=== fixed-element-last/take-ref-in
+out 5
+exit 0
+
+=== fixed-element-last/take-ref-nullable
+out 5
+exit 0
+
+=== fixed-element-last/span
+out 5
+out 8
+out 9
+exit 0
+
+=== fixed-element-last/loop
+out 8
+out 9
+out 10
+exit 0
+
+=== fixed-element-last/capture
+out 5
+exit 0
+
+=== fixed-element-last/capture-escaping
+error 37: cannot assign to 'a[2]' because an escaping lambda only has a copy of 'a'
+
+=== fixed-element-last/narrow
+error 36: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== fixed-element-last/return
+out 3
+exit 0
+
+=== fixed-element-last/return-ref
+out 5
+exit 0
+
+=== fixed-element-last/reassign
+out 5
+out 5
+exit 0
+
+=== fixed-element-single/read
 out 1
 out 1
 exit 0
 
-=== list-element/pass-ref-in
+=== fixed-element-single/assign
+out 5
+exit 0
+
+=== fixed-element-single/compound
+out 3
+exit 0
+
+=== fixed-element-single/pass
+out 1
+out 1
+exit 0
+
+=== fixed-element-single/pass-ref-in
 out 11
 exit 0
 
-=== list-element/take-ref-in
+=== fixed-element-single/take-ref-in
 out 5
 exit 0
 
-=== list-element/take-ref-nullable
+=== fixed-element-single/take-ref-nullable
 out 5
 exit 0
 
-=== list-element/span
+=== fixed-element-single/span
 out 5
 out 2
 out 3
 exit 0
 
-=== list-element/loop
+=== fixed-element-single/loop
 out 2
 out 3
 out 4
 exit 0
 
-=== list-element/capture
+=== fixed-element-single/capture
 out 5
 exit 0
 
-=== list-element/capture-escaping
+=== fixed-element-single/capture-escaping
+error 37: cannot assign to 'a[0]' because an escaping lambda only has a copy of 'a'
+
+=== fixed-element-single/narrow
+error 36: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== fixed-element-single/return
+out 1
+exit 0
+
+=== fixed-element-single/return-ref
 out 5
 exit 0
 
-=== list-element/narrow
+=== fixed-element-single/reassign
+out 5
+out 5
+exit 0
+
+=== list-element-first/read
+out 1
+out 1
+exit 0
+
+=== list-element-first/assign
+out 5
+exit 0
+
+=== list-element-first/compound
+out 3
+exit 0
+
+=== list-element-first/pass
+out 1
+out 1
+exit 0
+
+=== list-element-first/pass-ref-in
+out 11
+exit 0
+
+=== list-element-first/take-ref-in
+out 5
+exit 0
+
+=== list-element-first/take-ref-nullable
+out 5
+exit 0
+
+=== list-element-first/span
+out 5
+out 2
+out 3
+exit 0
+
+=== list-element-first/loop
+out 2
+out 3
+out 4
+exit 0
+
+=== list-element-first/capture
+out 5
+exit 0
+
+=== list-element-first/capture-escaping
+out 5
+exit 0
+
+=== list-element-first/narrow
 error 39: '!' can only be applied to a nullable value, and 'int' is not nullable
 
-=== list-element/return
+=== list-element-first/return
 out 1
 exit 0
 
-=== list-element/return-ref
-error 44: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+=== list-element-first/return-ref
+error 45: a returned 'ref' must point into the method's receiver: a field or element of 'this'
 
-=== list-element/reassign
+=== list-element-first/reassign
 out 5
 out 5
 exit 0
 
-=== span-element/read
-out 1
-out 1
-exit 0
-
-=== span-element/assign
-out 5
-exit 0
-
-=== span-element/compound
+=== list-element-last/read
+out 3
 out 3
 exit 0
 
-=== span-element/pass
+=== list-element-last/assign
+out 5
+exit 0
+
+=== list-element-last/compound
+out 5
+exit 0
+
+=== list-element-last/pass
+out 3
+out 3
+exit 0
+
+=== list-element-last/pass-ref-in
+out 13
+exit 0
+
+=== list-element-last/take-ref-in
+out 5
+exit 0
+
+=== list-element-last/take-ref-nullable
+out 5
+exit 0
+
+=== list-element-last/span
+out 5
+out 8
+out 9
+exit 0
+
+=== list-element-last/loop
+out 8
+out 9
+out 10
+exit 0
+
+=== list-element-last/capture
+out 5
+exit 0
+
+=== list-element-last/capture-escaping
+out 5
+exit 0
+
+=== list-element-last/narrow
+error 39: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== list-element-last/return
+out 3
+exit 0
+
+=== list-element-last/return-ref
+error 45: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+
+=== list-element-last/reassign
+out 5
+out 5
+exit 0
+
+=== list-element-single/read
 out 1
 out 1
 exit 0
 
-=== span-element/pass-ref-in
+=== list-element-single/assign
+out 5
+exit 0
+
+=== list-element-single/compound
+out 3
+exit 0
+
+=== list-element-single/pass
+out 1
+out 1
+exit 0
+
+=== list-element-single/pass-ref-in
 out 11
 exit 0
 
-=== span-element/take-ref-in
+=== list-element-single/take-ref-in
 out 5
 exit 0
 
-=== span-element/take-ref-nullable
+=== list-element-single/take-ref-nullable
 out 5
 exit 0
 
-=== span-element/span
+=== list-element-single/span
 out 5
 out 2
 out 3
 exit 0
 
-=== span-element/loop
+=== list-element-single/loop
 out 2
 out 3
 out 4
 exit 0
 
-=== span-element/capture
+=== list-element-single/capture
 out 5
 exit 0
 
-=== span-element/capture-escaping
-error 38: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+=== list-element-single/capture-escaping
+out 5
+exit 0
 
-=== span-element/narrow
+=== list-element-single/narrow
 error 37: '!' can only be applied to a nullable value, and 'int' is not nullable
 
-=== span-element/return
+=== list-element-single/return
 out 1
 exit 0
 
-=== span-element/return-ref
+=== list-element-single/return-ref
+error 43: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+
+=== list-element-single/reassign
+out 5
+out 5
+exit 0
+
+=== span-element-first/read
+out 1
+out 1
+exit 0
+
+=== span-element-first/assign
+out 5
+exit 0
+
+=== span-element-first/compound
+out 3
+exit 0
+
+=== span-element-first/pass
+out 1
+out 1
+exit 0
+
+=== span-element-first/pass-ref-in
+out 11
+exit 0
+
+=== span-element-first/take-ref-in
+out 5
+exit 0
+
+=== span-element-first/take-ref-nullable
+out 5
+exit 0
+
+=== span-element-first/span
+out 5
+out 2
+out 3
+exit 0
+
+=== span-element-first/loop
+out 2
+out 3
+out 4
+exit 0
+
+=== span-element-first/capture
+out 5
+exit 0
+
+=== span-element-first/capture-escaping
+error 38: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+
+=== span-element-first/narrow
+error 37: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== span-element-first/return
+out 1
+exit 0
+
+=== span-element-first/return-ref
 error 40: a returned 'ref' must point into the method's receiver: a field or element of 'this'
 
-=== span-element/reassign
+=== span-element-first/reassign
+out 5
+out 5
+exit 0
+
+=== span-element-last/read
+out 3
+out 3
+exit 0
+
+=== span-element-last/assign
+out 5
+exit 0
+
+=== span-element-last/compound
+out 5
+exit 0
+
+=== span-element-last/pass
+out 3
+out 3
+exit 0
+
+=== span-element-last/pass-ref-in
+out 13
+exit 0
+
+=== span-element-last/take-ref-in
+out 5
+exit 0
+
+=== span-element-last/take-ref-nullable
+out 5
+exit 0
+
+=== span-element-last/span
+out 5
+out 8
+out 9
+exit 0
+
+=== span-element-last/loop
+out 8
+out 9
+out 10
+exit 0
+
+=== span-element-last/capture
+out 5
+exit 0
+
+=== span-element-last/capture-escaping
+error 38: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+
+=== span-element-last/narrow
+error 37: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== span-element-last/return
+out 3
+exit 0
+
+=== span-element-last/return-ref
+error 40: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+
+=== span-element-last/reassign
+out 5
+out 5
+exit 0
+
+=== span-element-single/read
+out 1
+out 1
+exit 0
+
+=== span-element-single/assign
+out 5
+exit 0
+
+=== span-element-single/compound
+out 3
+exit 0
+
+=== span-element-single/pass
+out 1
+out 1
+exit 0
+
+=== span-element-single/pass-ref-in
+out 11
+exit 0
+
+=== span-element-single/take-ref-in
+out 5
+exit 0
+
+=== span-element-single/take-ref-nullable
+out 5
+exit 0
+
+=== span-element-single/span
+out 5
+out 2
+out 3
+exit 0
+
+=== span-element-single/loop
+out 2
+out 3
+out 4
+exit 0
+
+=== span-element-single/capture
+out 5
+exit 0
+
+=== span-element-single/capture-escaping
+error 38: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+
+=== span-element-single/narrow
+error 37: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== span-element-single/return
+out 1
+exit 0
+
+=== span-element-single/return-ref
+error 40: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+
+=== span-element-single/reassign
 out 5
 out 5
 exit 0

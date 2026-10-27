@@ -166,9 +166,11 @@ and `--` are errors, and `c == 65` is an error (compare with `'A'`).
 
 ### Overflow
 
-- Arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds. For
-  unsigned types, a result below zero is an overflow.
-- Division by zero panics in every build, as does `MIN / -1` for signed types.
+- Integer arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds.
+  For unsigned types, a result below zero is an overflow. Floating-point arithmetic follows IEEE 754
+  instead: a result too large is an infinity, and never a panic.
+- Integer division by zero panics in every build, as does `MIN / -1` for signed types. Dividing a
+  floating-point value by zero is an infinity or NaN.
 - Explicit operations are available when the behavior matters:
   - `a.wrappingAdd(b)`, `wrappingSub`, `wrappingMul`: always wrap (hashing, RNG).
   - `a.checkedAdd(b)` etc.: return a nullable of `a`'s type (`int?` for `int`), null on overflow.
@@ -873,7 +875,8 @@ passing (including by `ref`/`in`), and returning values. In particular:
 ### Default values
 
 A type is *defaultable* if it has a default value: primitives, `String`, nullable types (`null`), structs whose fields each either have an initializer or a defaultable type, and enums
-whose first variant carries no data (that variant is the default). Type
+whose first variant carries no data (that variant is the default). A primitive's default is zero
+(`false` for `bool`, the code point 0 for `char`), and a `String`'s default is the empty string. Type
 parameters and non-null class and interface references are not defaultable, so a struct with a
 `Player` field and no initializer for it has no default value. A struct's memberwise constructor
 requires an argument for each such field, and `T()` exists only when there are none (§6.3).

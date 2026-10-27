@@ -3,8 +3,10 @@
 **Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
 user error and verifier check reached), except the optional runtime coverage, and so have step 2
 (`--cc asan`), step 3 (`TypeSelfTests`), step 4 (both interaction matrices, reviewed and in
-the suite), and step 4b (every line no test ran triaged); step 5 is next. The unreached
-`InvalidOperationException` sites are left for the fuzzer (step 5) to aim at. Delete this file once
+the suite), step 4b (every line no test ran triaged), and step 4c (the value axis). Next are step 5
+(a mutation fuzzer) and step 5b (mutation testing the compiler), which target two different bug
+classes and are worth doing together. The unreached
+`InvalidOperationException` sites are left for the fuzzer to aim at. Delete this file once
 every step has landed, and move whatever it leaves as rules into CLAUDE.md and
 `docs/design/architecture.md`.
 
@@ -262,10 +264,89 @@ It found one rule the spec didn't state: a statement that can never run, after `
 tested (`basics/control_flow.vpl`), and lowering's four `if (!reachable) break` guards are reached
 only that way.
 
+## Step 4c: the cells test shapes, not values
+
+The matrices cross a shape with a shape (a place × an operation, a kind of type × a context), and
+that axis is covered well; the reviewed snapshots are what made it worth doing. But reading the two
+generators shows that every cell's *value* comes from a very narrow set, and that hides a different
+kind of bug — the simple one, in the middle of a feature, that no mode and no oracle can notice:
+
+| Both matrices | So invisible to the snapshots |
+|---|---|
+| every integer is `1`, `2`, `3`, `5`, or `7` | `0`, negatives, `INT_MAX`/`INT_MIN`, overflow at a size or count |
+| no cell computes: one `+= 2` in places, a cast and a `??` in types | precedence, `- * / %`, comparison results, widening and narrowing conversions, formatting |
+| `equality` compares `3` with `3` | the unequal side of `==`, and `!=`, `<`, `>`, `<=`, `>=` entirely |
+| a fixed array or list always has three elements, and the place is index `0` (the fixed-array reader prints all three, so a write inside the array does show) | empty containers, one element, the last index, a length of `0` |
+| a nullable value is never null, so `?? -1` and `?.value ?? -1` never take their fallback | the null side of `??`, of `?.`, and narrowing's else |
+| the fixture declares `Shape.Empty` and no cell makes one | a variant without data |
+| rows are one per *kind* of type | `String`, `double`, `long`, `char`, `bool` — not kinds, but what programs compute with |
+
+The fix is additive; none of this reworks the two matrices:
+
+- **Widen cells whose shape hides the point.** Each equality cell compares an equal pair and an
+  unequal one; each nullable cell prints once non-null and once null; each place is used at index `0`
+  and at the last index, and once on a one-element container. That changes most of both snapshots, so
+  it is one deliberate `--update-snapshots` and one reviewed diff.
+- **Add rows** for `String` (empty, one character, a multi-byte character, concatenation), `double`
+  (`-0.0`, a value that does not print exactly, `%`, comparison), and `long` (past `INT_MAX`). A row
+  per value kind follows the same rule as a row per type kind.
+- **A third matrix, values × operations** (`MatrixValues.cs`): value edges (`0`, `1`, `-1`,
+  `INT_MAX`, `INT_MIN`, empty, one element, last index, null, unequal) against operations
+  (arithmetic, comparison, indexing, iteration, conversion, formatting, switch), one small program
+  per cell, about 70 cells, reviewed once like the others.
+- **Value-printing tests** in `tests/cases/values/`: one file per builtin value kind that prints
+  thirty or more computed results — every operator, every conversion, every formatting — at the
+  edges. An expected-output test is the only mechanism here that catches a wrong answer every mode
+  agrees on, and one such file catches dozens of them at once.
+
+The review is the same work it was for steps 4 and 4b: "the spec doesn't decide this value" is as
+much a finding as a wrong one.
+
+**Done (2026-10-27).** All four parts landed:
+
+- **Widened cells.** Every comparable row's equality cell now prints an equal pair, an unequal pair,
+  and `!=`; both nullable rows print their null side in every context that can express one, and
+  compare with null; the element places became three rows each (`-first`, `-last`, `-single`), so a
+  place is read and written at index 0, at the last index, and on a one-element container. The
+  `types` matrix grew from 120 to 180 cells and `places` from 210 to 300.
+- **Added rows** for `String` (empty, one character, a multi-byte character, concatenation), `double`
+  (`-0.0` and an inexact `0.1 + 0.2`), and `long` (past `INT_MAX`); `char` and `bool` are covered by
+  the values matrix and the value-printing tests instead of a type row.
+- **`MatrixValues.cs`**: 80 cells of value edges (`0`, `1`, `-1`, `INT_MAX`, `INT_MIN`, a long past
+  it, `-0.0`, an inexact double, an empty array, a one-element list, the last index, the empty and
+  multi-byte strings, a code point past ASCII, `true`, null as a value and as a reference, an
+  unequal pair) against the operations each supports. Panics are recorded as results: overflow at
+  `INT_MAX` and `INT_MIN`, division by zero, and an index past the end.
+- **Value-printing tests** in `tests/cases/values/`, one file per builtin kind (15 of them: `bool`,
+  `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`, `float`,
+  `double`, `char`, `String`), thirty or more computed results each.
+
+The review found four places the spec didn't decide, and one compiler bug:
+
+- **A `String`'s and a primitive's default value** were not stated (2.13 said `String` is
+  defaultable, but not that its default is the empty string, nor what a primitive's is). Now:
+  zero for primitives, the empty string for `String`.
+- **Floating-point division by zero** was not decided: "Division by zero panics in every build" read
+  as if it covered floats, but the language (and `conversions.vpl`'s `0.0 / 0.0`) means IEEE. 2.4
+  now says integer division panics and floating-point division is an infinity or NaN.
+- **A floating value's printed text** was unspecified beyond examples. `String` interpolation now
+  says it is the shortest text that reads back exactly, in `std::to_chars`'s choice of plain or
+  exponential form, with `.0` on a whole number, and `inf`/`-inf`/`nan`.
+- **A case literal must be written with a suffix when it is past `INT_MAX`** (`case 2147483648L`),
+  since a literal too large for `int` is an error before it takes the subject's type.
+- **The bug:** `float.vpl` and `double.vpl` failed to compile under MSVC, which diagnoses
+  `1.0 / 0.0` in generated C++ as C2124 (divide or mod by zero) even though VPL defines the result
+  as an infinity. The emitter now emits floating division through `vpl::fdiv`, which is not a
+  constant expression, and the value tests show `inf`, `-inf`, and `nan` in every mode.
+
+The value files also pinned down what the two toolchains agree on: both MSVC and libstdc++ print
+`2^63` as `9223372036854775808.0`, not in exponential form, so the suite holds each to the same
+text. `--update-snapshots` was run once for each matrix; the reviewed diff is in the change.
+
 ## Step 5: a mutation fuzzer
 
 This is a new project, `tests/Vpl.Fuzz`, that turns the existing tests into many near-valid
-programs on feature boundaries and checks every one with the oracles.
+programs on feature boundaries and at value edges, and checks every one with the oracles.
 
 **Mutations.** Parse a test with the real parser, use the AST's locations to pick a span, and splice
 in replacement text. Mutations are chosen to cross features, not to scramble syntax:
@@ -278,6 +359,13 @@ in replacement text. Mutations are chosen to cross features, not to scramble syn
 - A statement goes inside a loop over a span or a list, or inside a lambda that is called.
 - A parameter becomes `in` or `ref`; a class becomes a struct; a struct becomes generic.
 - Two mutations applied to one program, since boundaries are where two changes meet.
+- **Value edges, not only crossings.** A literal becomes `0`, `1`, `-1`, `INT_MAX`, or `INT_MIN`; a
+  length becomes `0` and `1`; a collection initializer keeps only its first element; an index becomes
+  the last one. These aim at the middle of a feature, where an off-by-one, an overflow, or an empty
+  case lives, which a crossing mutation never reaches.
+- **A single, in-feature mutation.** One integer kind becomes another (`int` to `long`), an operator
+  becomes its neighbor. Every crossing above needs two features to meet; most of the compiler's
+  ordinary code sits inside one feature, and this is the mutation that reaches it.
 
 **Tiers**, so cheap checks run on everything:
 
@@ -301,6 +389,38 @@ It is then written to `tests/fuzz/findings/` with its seed. Fixing it means:
 given seed, so a finding can be replayed. A short run (for example two minutes) is part of the
 pre-commit routine; long runs go in the background.
 
+## Step 5b: mutation testing the compiler
+
+Every oracle in steps 4 and 5 checks that the compiler is *consistent*: no exception, every pass's
+output accepted, every mode agrees. A simple defect — `<` emitted as `<=`, an index into `args` off
+by one, a field not zeroed, a message naming the wrong type — is none of those, and all five modes
+make the same mistake, so every oracle passes it. Line coverage does not help here either: it says
+the line ran, not that it did the right thing.
+
+Mutation testing asks the other question: *would the tests notice?* It changes the compiler's own
+source — flip a comparison, delete a statement, swap a constant — reruns the tests, and reports every
+change no test caught as a **surviving mutant**. A survivor is either a missing test or a line
+nothing needs, and that list is the only systematic way to find a wrong answer every mode agrees on.
+
+- **Tool.** Try Stryker.NET (`dotnet tool install -g dotnet-stryker`). It drives a test framework
+  through `dotnet test`, and this project's runner is a console app (`Vpl.Tests`, with a path
+  filter), so if the adapter isn't straightforward, write the loop directly: apply one mutation to
+  the compiler's source, `dotnet build`, run `Vpl.Tests <filter>`, restore, repeat. Either way the
+  output is the same survivor list.
+- **Scope, first pass**, one file at a time: `Ir/IrEffects.cs`, `Ir/IrAccess.cs`,
+  `Semantics/Conversions.cs`, `Semantics/PlacePath.cs`, `CodeGen/CppEmitter.Types.cs`,
+  `CodeGen/CppEmitter.Ir.cs`. These decide operators, storage, conversions, and printed C++, which is
+  where a survivor means a wrong answer, not merely an unexercised line.
+- **Cost.** The suite builds C++, so a whole-suite mutant costs minutes; that is why this runs on a
+  few files, in the background (announce it), and why the covering tests are cut down with a path
+  filter as soon as a file's feature is known. Record a mutation score per file here.
+- **Triage.** Every survivor becomes a test (step 4c's value edges and value-printing tests are
+  largely what this will demand) or a deleted line. The second outcome is a finding too: a line no
+  behavior depends on is a rule enforced by nothing.
+
+This runs alongside step 5 rather than after it: the fuzzer finds what crashes and what disagrees,
+and this finds what is quietly wrong. They need different harnesses and share no findings.
+
 ## Step 6: later
 
 - **A generating fuzzer.** Build well-typed programs from scratch, driven by types (Csmith-style),
@@ -308,10 +428,8 @@ pre-commit routine; long runs go in the background.
 - **The IR interpreter as an oracle.** It lets tier 2 check what a program prints, not only that the
   modes agree, and it checks the emitter and the passes against the program's meaning. It's already
   planned in architecture.md.
-- **Mutation testing of the compiler** (Stryker.NET), scoped to one file at a time. It changes the
-  compiler's code and checks that some test fails. That measures whether the tests would *catch* a
-  bug, which says more than line coverage, but it reruns the suite once per change, so use it only
-  for important files (the verifier, `PlacePath`, `Conversions`).
+- **Mutation testing of the compiler, widened.** Step 5b runs it on the six files where a wrong
+  answer hides; once it is routine, extend it to the binder and lowering, at a file at a time.
 
 ## Exit criteria for the hardening phase
 
@@ -323,8 +441,12 @@ New language features resume when:
 - the first two matrices have been reviewed against the spec, and every cell that disagreed is fixed
   or decided in the spec;
 - every line no test runs, measured across all five modes, has been triaged (step 4b);
-- the fuzzer has run for an agreed budget (for example 50,000 tier-1 and 2,000 tier-2 mutants) with
-  no open findings.
+- the value axis has landed (step 4c): the widened cells, the added rows, and the values × operations
+  matrix are reviewed against the spec, and the value-printing tests are in the suite;
+- the fuzzer has run for an agreed budget (for example 50,000 tier-1 and 2,000 tier-2 mutants) with a
+  catalog covering crossings, value edges, and in-feature single mutations, and no open findings;
+- mutation testing (step 5b) has run on its six files, and every surviving mutant is triaged to a
+  test or a deleted line.
 
 The numbers to keep tracking afterwards are: coverage per layer, diagnostic coverage, matrix cells
-reviewed, and fuzzer findings per hour of running.
+reviewed, mutation score per file, and fuzzer findings per hour of running.

@@ -51,6 +51,7 @@ static class MatrixTests
     {
         yield return MatrixPlaces.Build();
         yield return MatrixTypes.Build();
+        yield return MatrixValues.Build();
     }
 
     static CellResult RunCell(MatrixCell cell, string directory, Toolchain? toolchain, CompileOptions options)

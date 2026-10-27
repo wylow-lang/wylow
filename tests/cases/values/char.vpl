@@ -1,0 +1,52 @@
+// The `char` kind: a Unicode code point, not a number. It has no arithmetic of its own, so an
+// arithmetic operator converts it to its code point as an `int`, and a cast back checks that the
+// value is a Unicode scalar value (§2.2, §2.4).
+
+void main() {
+    char a = 'a';
+    char e = 'é';
+    char zero = '\0';
+
+    print(a);                     // output: a
+    print(e);                     // output: é
+    print((int)a);                // output: 97
+    print((int)e);                // output: 233
+    print(a + 1);                 // output: 98
+    print((char)(a + 1));         // output: b
+    print(e - 'a');               // output: 136
+    print(a < 'b');               // output: true
+    print(e > 'z');               // output: true
+    print(a == 'a');              // output: true
+    print(a != 'b');              // output: true
+    print(zero == '\0');          // output: true
+    print((int)zero);             // output: 0
+
+    // Escapes are code points, whatever their size.
+    print('\t' == '\u{9}');       // output: true
+    print('\n' == '\u{A}');       // output: true
+    print((int)'\r');             // output: 13
+    print((int)'\\');             // output: 92
+    print((int)'\'');             // output: 39
+    print((int)'\u{1F600}');      // output: 128512
+
+    print((char)65);              // output: A
+    print((int)(char)0x10FFFF);   // output: 1114111
+    print((long)e);               // output: 233
+
+    print($"{e}");                // output: é
+    print($"[{e,3}]");            // output: [  é]
+    print(e.toString());          // output: é
+    print(switch (e) {
+        case 'a' -> "a";
+        case 'é' -> "acute";
+        default -> "other";
+    });                           // output: acute
+
+    // More conversions and formatting.
+    print(e < '\u{1F600}');       // output: true
+    print((uint)e);                // output: 233
+    print((short)e);               // output: 233
+    print((char)97);               // output: a
+    print('A' + 1);                // output: 66
+    print($"{a,-3}|");             // output: a  |
+}

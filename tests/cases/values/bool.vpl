@@ -1,0 +1,55 @@
+// The `bool` kind: its operators, its two values, and its default.
+
+struct Flag {
+    internal {
+        bool value;
+    }
+}
+
+void main() {
+    bool yes = true;
+    bool no = false;
+
+    print(yes);                    // output: true
+    print(no);                     // output: false
+    print(!yes);                   // output: false
+    print(!no);                    // output: true
+    print(yes & no);               // output: false
+    print(yes | no);               // output: true
+    print(yes ^ yes);              // output: false
+    print(yes ^ no);               // output: true
+    print(yes == no);              // output: false
+    print(yes != no);              // output: true
+    print(yes && no);              // output: false
+    print(yes || no);              // output: true
+    print(!(yes && no) || no);     // output: true
+
+    print($"{yes}");               // output: true
+    print($"[{no,6}]");            // output: [ false]
+    print($"[{yes,-6}]");          // output: [true  ]
+    print(yes.toString());         // output: true
+    print(Flag().value);           // output: false
+
+    print(switch (yes) {
+        case true -> "yes";
+        case false -> "no";
+    });                            // output: yes
+    print(switch (no) {
+        case true -> "yes";
+        case false -> "no";
+    });                            // output: no
+
+    // Both values through the remaining operators.
+    print(no & no);                // output: false
+    print(no | yes);               // output: true
+    print(no ^ no);                // output: false
+    print(no == no);               // output: true
+    print(yes && yes);             // output: true
+    print(no || no);               // output: false
+    print(yes != yes);             // output: false
+    print(!(yes || no));           // output: false
+    print($"{no}");                // output: false
+    print($"[{yes,6}]");           // output: [  true]
+    print(no.toString());          // output: false
+    print(Flag().value == false);  // output: true
+}
