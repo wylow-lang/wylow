@@ -1,4 +1,5 @@
 void main() {
+    print((int)3);             // output: 3
     print((int)3.9);           // output: 3
     print((int)-3.9);          // output: -3
     print((int)1e20);          // output: 2147483647

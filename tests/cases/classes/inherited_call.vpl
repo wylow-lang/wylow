@@ -1,0 +1,21 @@
+// A class calls a method it inherits, without naming the base it comes from.
+
+class Base {
+    internal {
+        int value() {
+            return 7;
+        }
+    }
+}
+
+class Derived extends Base {
+    internal {
+        int twice() {
+            return value() * 2;
+        }
+    }
+}
+
+void main() {
+    print(new Derived().twice());   // output: 14
+}

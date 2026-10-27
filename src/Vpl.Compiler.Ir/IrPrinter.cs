@@ -323,8 +323,6 @@ public sealed class IrPrinter
         BoundBinaryOperator.BitwiseXor => "bitxor",
         BoundBinaryOperator.ShiftLeft => "shl",
         BoundBinaryOperator.ShiftRight => "shr",
-        BoundBinaryOperator.LogicalAnd => "and",
-        BoundBinaryOperator.LogicalOr => "or",
         BoundBinaryOperator.Equal => "eq",
         BoundBinaryOperator.NotEqual => "ne",
         BoundBinaryOperator.Less => "lt",

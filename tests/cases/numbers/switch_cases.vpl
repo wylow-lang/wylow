@@ -1,0 +1,39 @@
+// A case literal takes the subject's integer type, so matching reads every integer kind.
+
+void main() {
+    sbyte signed = -1;
+    print(switch (signed) {
+        case -1 -> "sbyte";
+        default -> "no";
+    });                              // output: sbyte
+
+    short small = 2;
+    print(switch (small) {
+        case 2 -> "short";
+        default -> "no";
+    });                              // output: short
+
+    ushort unsigned = 3;
+    print(switch (unsigned) {
+        case 3 -> "ushort";
+        default -> "no";
+    });                              // output: ushort
+
+    ulong wide = 4uL;
+    print(switch (wide) {
+        case 4 -> "ulong";
+        default -> "no";
+    });                              // output: ulong
+
+    nint sized = 5;
+    print(switch (sized) {
+        case 5 -> "nint";
+        default -> "no";
+    });                              // output: nint
+
+    nuint native = 6u;
+    print(switch (native) {
+        case 6 -> "nuint";
+        default -> "no";
+    });                              // output: nuint
+}

@@ -52,9 +52,6 @@ public sealed class IrPlace
 
     IrPlace With(IrProjection projection) => new(Local, IsDeref, [.. Projections, projection]);
 
-    /// <summary>The place made of the base and the first <paramref name="count"/> projections.</summary>
-    public IrPlace Prefix(int count) => count == Projections.Count ? this : new(Local, IsDeref, [.. Projections.Take(count)]);
-
     /// <summary>A field's type in a value of <paramref name="holder"/>, which may inherit it; <see cref="VplType.Error"/> if it has no such field.</summary>
     public static VplType FieldType(VplType holder, FieldSymbol field)
     {

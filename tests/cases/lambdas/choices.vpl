@@ -33,6 +33,27 @@ void main() {
     (int) -> int add = x -> x + base;
     mut bool flag = true;
 
+    // A choice between function locals copies the one chosen.
+    (int) -> int localChoice = flag ? add : add;
+    print(localChoice(1));                                  // output: 101
+
+    // An escaping local chosen by ?: is copied, like a non-escaping one.
+    @Escaping (int) -> int first = x -> x + 1;
+    @Escaping (int) -> int second = x -> x + 2;
+    @Escaping (int) -> int picked = flag ? first : second;
+    print(picked(1));                                       // output: 2
+
+    // A choice between lambdas that capture a local needs that local while it is used.
+    int offset = base * 2;
+    (int) -> int captured = flag ? x -> x + offset : x -> x - offset;
+    print(captured(1));                                     // output: 201
+
+    // A captured reference is what the lambdas need, not the local holding it.
+    mut int[2] cells = [4, 5];
+    ref int cell = cells[0];
+    (int) -> int reads = flag ? x -> x + cell : x -> x - cell;
+    print(reads(1));                                        // output: 5
+
     // The choice is made once, where the local is declared.
     (int) -> int f = flag ? add : x -> x * 2;
     print(f(1));                                            // output: 101

@@ -1,0 +1,35 @@
+// `switch (this)` matches the object a method is called on.
+
+class Shape {
+    internal {
+        virtual String describe() {
+            return "shape";
+        }
+
+        String kind() {
+            switch (this) {
+                case Circle circle -> {
+                    return "circle";
+                }
+                default -> {
+                    return describe();
+                }
+            }
+        }
+    }
+}
+
+class Circle extends Shape {
+    internal {
+        override String describe() {
+            return "circle by describe";
+        }
+    }
+}
+
+void main() {
+    Shape shape = new Shape();
+    Shape circle = new Circle();
+    print(shape.kind());    // output: shape
+    print(circle.kind());   // output: circle
+}

@@ -46,6 +46,9 @@ void generic<T>(Holder<T> holder = Holder<T>()) {}     // error: the default val
 String amb(int a, int b = 0) { return "int"; }
 String amb(int a, String s = "") { return "String"; }
 
+void pair(int a, long b) { }
+void pair(long a, int b) { }
+
 class Animal {
     internal {
         int size;
@@ -71,6 +74,8 @@ void main() {
     spawn(pos, 1, 0.5, 4);                      // error: 'spawn' takes 3 arguments, but is given 4
     spawn(pos, count: "many");                  // error: no overload of 'spawn' accepts (Vec3, count: String)
     amb(1);                                     // error: call is ambiguous between 'amb(int, int)' and 'amb(int, String)'
+    short narrow = 1;
+    pair(narrow, narrow);                       // error: call is ambiguous between 'pair(int, long)' and 'pair(long, int)'
     Hit(damage: 3);                             // error: 'Hit' needs a value for field 'target', since its type 'Player' has no default value
     Vec3(z: 1, x: 2);                           // error: argument 'x' must come before 'z', in the order of the parameters
     (int) -> void callback = (int x) -> {};

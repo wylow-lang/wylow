@@ -1,0 +1,36 @@
+// A base constructor that takes the caller's location gets it after its computed arguments.
+
+class Base {
+    internal {
+        @CallerLocation
+        Base(int a, int b) {
+            print($"{a} {b}");
+        }
+    }
+}
+
+class Derived extends Base {
+    internal {
+        Derived() {
+            super(one(), two());
+        }
+    }
+}
+
+int one() {
+    print("one");
+    return 1;
+}
+
+int two() {
+    print("two");
+    return 2;
+}
+
+void main() {
+    var made = new Derived();
+    // output: one
+    // output: two
+    // output: 1 2
+    print("made");      // output: made
+}

@@ -673,6 +673,12 @@ postfix with the same meaning.
 Operands and arguments are evaluated left to right. This includes reads of object fields relative
 to calls; see [03-memory-model.md](03-memory-model.md#evaluation-order-and-the-heap).
 
+### Unreachable statements
+
+A statement that can never run — one after `return`, `break`, `continue`, `panic`, or a call that
+never returns — is allowed and does nothing: it is not an error, and the compiler emits no code for
+it.
+
 ### Mandatory braces
 
 Bodies of `if`, `else`, `for`, `while`, and `do` must be blocks. `else if` is allowed.

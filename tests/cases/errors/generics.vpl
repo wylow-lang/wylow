@@ -1,3 +1,9 @@
+struct Plain {
+    internal {
+        int x;
+    }
+}
+
 struct Pair<A, B> {
     internal {
         A first;
@@ -56,15 +62,27 @@ Pair<T, int> full<T>(T x) {
     return Pair<T, int>(first: x);
 }
 
+T choose<T>((int) -> T f) {
+    return f(0);
+}
+
 void main() {
     Pair p;                       // error: 'Pair' requires 2 type arguments
     Pair<int> q;                  // error: 'Pair' requires 2 type arguments
     int<bool> r;                  // error: 'int' is not generic
+    Plain<int> plain;             // error: 'Plain' is not generic
     print(make());                // error: cannot infer type argument 'T' of 'make'
     var w = Wrap<int>();
     print(w.value.first);         // error: 'int' has no member 'first'
     var pp = Pair<int, int>(1, 2, 3); // error: no constructor of 'Pair<int, int>' takes 3 arguments
     var conflict = full<int, int>(1); // error: no overload of 'full' takes 2 type arguments
+    var mixed = choose(x -> {     // error: cannot infer type argument 'T' of 'choose': it could be 'int' or 'float'
+        mut int n = 1;
+        if (x > 0) {
+            return n;
+        }
+        return 0.5;
+    });
     var bad = Pair<(() -> int)?, int>();
     print(bad == bad);            // error: its field 'first' of type '(() -> int)?' does not support '=='
 }

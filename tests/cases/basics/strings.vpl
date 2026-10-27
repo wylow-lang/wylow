@@ -1,3 +1,5 @@
+/* A block comment, which ends at the closing marker. */
+
 struct Named {
     internal {
         String name;
@@ -14,6 +16,8 @@ void main() {
     print("a\nb");
     // output: a
     // output: b
+    print("a\rb".bytes().length());    // output: 3
+    print("a\0b".bytes().length());    // output: 3
 
     // Equality compares contents, so a literal equals a string built at run time.
     int n = 5;

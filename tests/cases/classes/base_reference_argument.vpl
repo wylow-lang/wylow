@@ -1,0 +1,27 @@
+// A 'ref?' parameter of a base constructor takes a place as a 'ref' argument.
+
+class Base {
+    internal {
+        int n;
+
+        Base(ref? int source) {
+            if (source is ref int value) {
+                n = value;
+            }
+        }
+    }
+}
+
+class Derived extends Base {
+    internal {
+        Derived(ref int source) {
+            super(ref source);
+        }
+    }
+}
+
+void main() {
+    mut int mine = 5;
+    var made = new Derived(ref mine);
+    print(made.n);      // output: 5
+}

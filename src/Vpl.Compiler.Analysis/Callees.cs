@@ -99,9 +99,6 @@ public sealed class Callees
                     else if (!target.IsImplicit)
                         return null;
                 }
-                // An implicit struct constructor makes the default value.
-                if (method.Symbol is { IsImplicit: true, ContainingType.Kind: TypeKind.Struct })
-                    found.AddRange(Defaults(method.Owner!));
                 return new(found, runsExtern);
             }
             case IrRunFunctionValue(var type):

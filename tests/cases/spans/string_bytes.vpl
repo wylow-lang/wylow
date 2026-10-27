@@ -19,6 +19,7 @@ int sum(ReadOnlySpan<byte> bytes) {
 void main() {
     String word = "hé";
     print(word.bytes().length());       // output: 3
+    print("hé".bytes().length());       // output: 3
     print(word.bytes()[0]);             // output: 104
     for (byte b : word.bytes()) {
         print(b);

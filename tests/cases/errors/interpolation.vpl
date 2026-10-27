@@ -54,4 +54,5 @@ void main() {
     print($"{x:F123}");                 // error: 'F123' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
     print($"{x:}");                     // error: '' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
     print($"{x:D 2}");                  // error: 'D 2' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
+    print($"{undefined}");              // error: 'undefined' is not defined
 }

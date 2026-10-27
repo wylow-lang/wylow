@@ -39,10 +39,17 @@ int[3] makeArray() {
 void main() {
     mut int[4] a = [1, 2, 3, 4];
     print(a.length);            // output: 4
+    print(makeArray().length);  // output: 3
     print(a[0] + a[3]);         // output: 5
     a[1] = 20;
     a[2] += 10;
     print(sum(a));              // output: 38
+
+    // A compound assignment reads its element once, though the index is computed.
+    mut int[3] counted = [1, 2, 3];
+    mut int at = 1;
+    counted[at] += 4;
+    print(counted[1]);          // output: 6
 
     // Arrays are values: assignment and passing copy them.
     mut int[4] b = a;

@@ -2,10 +2,11 @@
 
 **Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
 user error and verifier check reached), except the optional runtime coverage, and so have step 2
-(`--cc asan`), step 3 (`TypeSelfTests`), and step 4 (both interaction matrices, reviewed and in
-the suite); step 4b is next. The unreached `InvalidOperationException` sites are left for the
-fuzzer (step 5) to aim at. Delete this file once every step has landed, and
-move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
+(`--cc asan`), step 3 (`TypeSelfTests`), step 4 (both interaction matrices, reviewed and in
+the suite), and step 4b (every line no test ran triaged); step 5 is next. The unreached
+`InvalidOperationException` sites are left for the fuzzer (step 5) to aim at. Delete this file once
+every step has landed, and move whatever it leaves as rules into CLAUDE.md and
+`docs/design/architecture.md`.
 
 ## Why
 
@@ -215,59 +216,51 @@ Each matrix generator lives with the runner, and adding a feature means adding i
 new CLAUDE.md rule when this lands). The fraction of cells that run, plus the cells that are errors
 the spec calls for, is the coverage number for that boundary.
 
-**Done (2026-10-27).** `MatrixTests.cs` builds `tests/matrix/places.snapshot` (14 places × 15
-operations, 210 cells) and `tests/matrix/types.snapshot` (11 kinds of type × 10 contexts, 110
-cells), runs each cell through every oracle, and records its errors or its output and exit code;
-`--update-snapshots` records them again. Of the places cells, 164 run and 46 are errors the spec
-calls for; of the types cells, 99 run and 11 are errors. The snapshots were reviewed cell by cell
-against the spec, which found two compiler bugs on the first run, both fixed with tests:
+**Done (2026-10-27).** Coverage is measured over all five modes at once: `tools/coverage.sh` runs the
+suite under each compiler and flag set, clears the precompiled-header cache so building one is
+measured too, and merges the Cobertura files, so a line counts as ran when any mode ran it.
+`tools/coverage-report.cs` takes the merged files; `--uncovered` lists every line no test ran and
+`--partial` every line whose branches didn't all run.
 
-- **A non-escaping lambda that captured a `ref` or a span crashed the verifier** once the temporary
-  holding it went out of scope: a copy of a non-escaping function value was rooted at the local it
-  was copied from, so moving it out of a temporary made every later use invalid
-  (`IrVerifier.Values.cs`; `lambdas/captures.vpl`).
-- **A narrowed nullable value, reference, or `ref?` place could not be viewed by a span**, and a
-  narrowed nullable value that isn't `mut` could not be referred to by an `in` variable either,
-  though 02-types.md §2.5 says a narrowed place is used as its non-null type (loops already
-  worked): the binder didn't narrow the place before the conversion (`SpanConversion`,
-  `BindRefLocal`; `nullable/structs.vpl`, `references/nullable.vpl`). The span hint now names the
-  nullable local whose value a span would view.
+The merged baseline before this step was 385 unrun lines (97.1% of lines, 92.9% of branches). It is
+now 234 (98.2% of lines, 94.0% of branches), and each remaining line falls into one of these groups:
 
-The review sharpened one spec sentence too: a `ref` or `ref?` variable can't refer to a nullable
-local, only to a field or element, while an `in` or `in?` one can (03-memory-model.md).
+| Lines | Why it needs no test |
+|---|---|
+| 57 | **Unreachable throws.** `throw new InvalidOperationException` in the binder, lowering, verifier, and emitter. The report's "Unreached Unreachable sites" section is the fuzzer's target list (step 5). |
+| 80 | **Guards after an error.** `return new BoundErrorExpression(...)`, `return null`, and `return false` once an operand or type has failed, so one error doesn't cause a second. The plan's kind 2: the ones whose absence would look like a second bug have a test; the rest are left. |
+| 12 | **Arms and merges only hand-built IR reaches.** The `_ => false` and `fits = false` arms of the verifier's rvalue and argument checks (each check's rule has an `IrSelfTests` case), the reference-kind message of `IrLocal.Mismatch`, "the lambda is never made", the two "may reassign" reasons for a deref whose local is rewritten (no source form writes a reference or pointer while its deref is in use), and `Dependency.Union` (a local with a dependency can't be stored twice, since references and views are single-assignment). |
+| 36 | **Unreachable by construction**, kept as guards: a returned reference from a call with no receiver (`PlaceBase.Returned`; free and static functions can't return references, 03-memory-model.md); a chosen escaping function local (the choice holds it through a conversion); the compound arms of `IrEffects`'s visitor; the emitter's narrowed-check arm and `vpl::unreachable` after a switch expression's void case; `FunctionValues`'s pointer and fixed-array arms; the map and overlap arms of variant and assumed projections (only fields and elements are written); the conversion steps of `PlacePath` and `Lowering.Places`; a literal object; a conversion between two nullable reference forms passed to `super(...)`; and the binder's arms for `super`, `ref`, named arguments, and type arguments in positions the parser doesn't produce. |
+| 12 | **Reachable but left**, each for a stated reason: an address argument inside a hold (`IrExtent`), a by-value argument kept from a copied read (`Lowering.Expressions`), a tie between exactly one generic and one non-generic overload, a deferred local assigned from an alias-copying lambda, the final-error path of inference (its message is tested where inference fails normally), the rvalue overload of `IrWalk.Places` (a nesting path no test reaches), a pattern's integer-key format, and `SyntaxFacts`' default operator name. |
+| 10 | **Parser recovery.** The `-1`s of `ScanType`, the `Advance()` after a statement that consumed nothing, and two lookahead returns: malformed syntax no error test writes yet, which the fuzzer will. |
+| 16 | **The CLI and a debugger.** `Diagnostic.ToString` and its enumerator (the `vpl` CLI prints them; the runner compares messages), the eight `Symbol` and IR-node `ToString` overrides, and building a compilation with errors. |
+| 11 | **The machine's toolchain.** The "no compiler found" messages, the PCH mutex's abandoned case and an IO failure, and the timeout kill. |
 
-Running the matrices in the sanitizer mode costs about ninety seconds more (each cell is one more
-clang-cl build without a precompiled header), so the full five-mode check now takes about seven
-minutes.
+`--partial` finds 449 lines that ran with an unrun branch: the other side of `?? throw`, `?.`,
+`is { }`, a `switch` arm's `_`, and the singular/plural inside messages. Kind 3, needing nothing.
 
-## Step 4b: triage the uncovered code
+The unrun lines that meant something now have tests. New cases reach a lambda's returns converting
+inside `while`, `for`, `for-range`, and `switch` under an inferred return type (`lambdas/returns.vpl`);
+`int main()`; an inherited method called through a `static_cast`; `switch (this)`; a write set over 64
+places; a delegating base call that also passes the location; a `ref?` base argument; a view returned
+by a type parameter's method; a struct's implicit default; a switch over each integer kind; and the
+call, operator, pattern, array, interpolation, annotation, and generics errors the matrices didn't
+reach. Extended cases cover `%` on doubles, `.length` of a non-place, a unary default value, constant
+conditions and unreachable statements, a literal and a `var` pattern, `null == x`, a reference defined
+by another, a string literal's view, a pointer assigned twice, choices of function locals and of
+capturing lambdas, an overload tie, every compound assignment and prefix `++`/`--`, a compound
+assignment through a computed index, the `\r` and `\0` escapes, a closed block comment, and a
+narrowed `int` widening to `long`.
 
-After the matrices, measure coverage again and give **every line no test runs a decision**, as step 1
-did for the error sites: a test, deletion as dead code, or a short comment marking it defensive (a
-guard against a cascade after an earlier error) or unreachable. The goal is that nothing uncovered
-is unexplained, not a percentage. Measuring after step 4 avoids writing tests the matrices would
-have written; what is left after this is the fuzzer's target list.
+Dead code is gone: `BoundTree.CallOf` and `CallSite` (nothing called them, though CLAUDE.md told a
+new call kind to update them), the unused `Count` of `BorrowedLocals` and `LastUseMoves`, `IrPrinter`'s
+`and`/`or` arms (logical operators lower to `IrChoose`), `Callees`' implicit-struct-constructor branch
+(an implicit constructor runs as `IrRunDefault`, never as a method), and `IrPlace.Prefix`.
 
-The uncovered code is of three kinds, which deserve different effort:
-
-1. **Behavior no test runs**, the kind to chase. Examples from the step 1 report: a lambda whose
-   `return` needs converting inside a `while`, `for`, or `switch` (`Binder.Lambdas.cs`,
-   `ConvertReturns`); `Dependency.Union` in `IrVerifier.Values.cs`, which never ran, so either dead
-   or a verifier path no test takes; loop states in the verifier that never differ between passes,
-   so no test has a loop whose narrowing or assignment changes on the second pass; `.length` of
-   something that isn't a place (`Lowering.Expressions.cs`); the error for `new` of an interface
-   (`Binder.Calls.cs`), a branch inside a message, which step 1's line count missed.
-2. **Guards after an error** (`if (AnyError(arguments)) return ...`), which keep one error from
-   causing more. Test the ones whose absence would show a confusing second error; leave the rest.
-3. **Branches that count only as branches**: the other side of `?? throw`, `?.`, and `is { }`. These
-   are most of the gap between line coverage (96.7%) and branch coverage (92.6%), and need nothing.
-
-So go through unrun lines everywhere, and partial branches only where they cluster in real logic
-(the verifier, lowering, lambda conversion), skipping kind 3.
-
-Merge coverage from all five modes first (`tools/coverage.sh` takes the runner's arguments, so run it
-per mode and merge the Cobertura files with ReportGenerator): the Driver's 69% is mostly the g++ path
-the MSVC run never takes.
+It found one rule the spec didn't state: a statement that can never run, after `return`, `break`,
+`continue`, `panic`, or a call that never returns, is dropped silently. It is now in 06-syntax.md and
+tested (`basics/control_flow.vpl`), and lowering's four `if (!reachable) break` guards are reached
+only that way.
 
 ## Step 5: a mutation fuzzer
 

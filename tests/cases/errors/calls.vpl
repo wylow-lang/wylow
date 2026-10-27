@@ -1,0 +1,58 @@
+// Mistakes in what a call constructs, what 'super' reaches, and what a nullable reaches.
+
+interface Shape {
+    int area();
+}
+
+abstract class Base {
+    internal {
+        static void stat() { }
+        abstract void take();
+    }
+}
+
+class Made extends Base {
+    internal {
+        override void take() { }
+        void call() {
+            super.stat();               // error: static method 'stat' must be called through the type: 'Base.stat(...)'
+            super.take();               // error: cannot call abstract method 'Base.take' through 'super'
+            super.nope();               // error: 'Base' has no method 'nope'
+        }
+    }
+}
+
+class Plain {
+    internal {
+        void call() {
+            super.nope();               // error: 'Plain' has no base class
+        }
+    }
+}
+
+enum Color { Red }
+
+struct Pair {
+    internal {
+        int a;
+    }
+}
+
+void globalCall() {
+    super.nope();                       // error: 'super' can only be used in instance methods and constructors of a class
+}
+
+void main() {
+    var shape = Shape();                // error: cannot create an instance of interface 'Shape'
+    var made = Made();                  // error: classes are created with 'new', as in 'new Made(...)'
+    var color = Color();                // error: enums are created from their variants, as in 'Color.Red'
+    print(Base.nope());                 // error: 'Base' has no method 'nope'
+    mut int n = 1;
+    print(n.compareTo<int>(1));         // error: 'int.compareTo' takes no type arguments
+    print(n.compareTo(ref n));          // error: argument 1 must not be passed with 'ref'
+    String? text = "abc";
+    print(text?.bytes().length());      // error: '?.' cannot produce a nullable 'ReadOnlySpan<byte>'
+    var bad = new int();                // error: 'int' cannot be created with 'new'
+    var pair = new Pair();              // error: structs are created without 'new', as in 'Pair(...)'
+    var shaded = new Color();           // error: enums are created from their variants without 'new', as in 'Color.Red'
+}

@@ -1,0 +1,68 @@
+// A lambda's returns convert to its function type, whether that is given where it is used or
+// inferred from the returns themselves, in every statement form.
+
+double apply((int) -> double f, int x) {
+    return f(x);
+}
+
+T run<T>((int) -> T f, int x) {
+    return f(x);
+}
+
+void main() {
+    // In a while loop.
+    print(apply(x -> {
+        mut int i = 0;
+        while (i < 10) {
+            i++;
+            if (i == x) {
+                return i;
+            }
+        }
+        return 0.5;
+    }, 3));                                     // output: 3.0
+
+    // In a while loop under an inferred return type.
+    print(run(x -> {
+        mut int i = 0;
+        while (i < 10) {
+            i++;
+            if (i == x) {
+                return i;
+            }
+        }
+        return 0.5d;
+    }, 3));                                     // output: 3.0
+
+    // In a for loop.
+    print(run(x -> {
+        for (mut int i = 0; i < 10; i++) {
+            if (i == x) {
+                return i * 2;
+            }
+        }
+        return 0.5d;
+    }, 2));                                     // output: 4.0
+
+    // In a for-range loop.
+    print(run(x -> {
+        for (int i : 0..10) {
+            if (i == x) {
+                return i * 3;
+            }
+        }
+        return 0.5d;
+    }, 2));                                     // output: 6.0
+
+    // In a switch statement.
+    print(run(x -> {
+        switch (x) {
+            case 1 -> {
+                return 1;
+            }
+            default -> {
+                return 2;
+            }
+        }
+    }, 1));                                     // output: 1
+}

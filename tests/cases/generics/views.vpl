@@ -1,0 +1,25 @@
+// A view a method of a type parameter returns views what that value holds.
+
+interface Viewable {
+    ReadOnlySpan<int> view();
+}
+
+struct Bag implements Viewable {
+    internal {
+        int[2] cells;
+
+        ReadOnlySpan<int> view() {
+            return cells;
+        }
+    }
+}
+
+void first<T extends Viewable>(T value) {
+    print(value.view()[0]);
+}
+
+void main() {
+    mut Bag bag = Bag();
+    bag.cells[0] = 7;
+    first(bag);             // output: 7
+}

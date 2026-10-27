@@ -110,6 +110,7 @@ public sealed partial class IrLowering
                 if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference)
                 {
                     Into(computed, () => arguments.Add(CallerHeld(parameter, method.ParameterRefKind(i), super.Arguments[i])));
+                    // CallerHeld adds no statements, and a C++ mem-initializer has nowhere to put one.
                     if (computed.Statements.Count > 0)
                         throw new InvalidOperationException("a reference argument to super(...) needs statements");
                     continue;

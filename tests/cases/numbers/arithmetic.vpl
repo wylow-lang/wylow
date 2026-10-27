@@ -3,6 +3,7 @@ void main() {
     print(-7 / 2);           // output: -3
     print(-7 % 3);           // output: -1
     print(7.0 / 2);          // output: 3.5
+    print(7.5 % 2);          // output: 1.5
     int count = 33;
     print(1 << count);       // output: 2
     print(-16 >> 2);         // output: -4

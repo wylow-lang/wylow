@@ -69,6 +69,19 @@ void main() {
     print(list.count());                    // output: 1
 
     print(countDown(3));                    // output: 3
+
+    // Every compound assignment, and a prefix increment or decrement as a statement.
+    mut int n = 100;
+    n /= 3;
+    n %= 7;
+    n &= 5;
+    n |= 8;
+    n >>= 1;
+    print(n);                               // output: 6
+    ++n;
+    --n;
+    ++n;
+    print(n);                               // output: 7
     print(describe(-2));                    // output: negative
     print(describe(5));                     // output: positive
 

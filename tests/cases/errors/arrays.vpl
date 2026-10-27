@@ -10,6 +10,8 @@ class Box {
     }
 }
 
+void nothing() { }
+
 int[3] makeArray() {
     return [1, 2, 3];
 }
@@ -33,6 +35,7 @@ void main() {
     print(n[0]);                    // error: 'int' cannot be indexed
     int[3000000000] huge;           // error: a fixed array's length must fit in an 'int'
     var empty = [];                 // error: cannot infer the type of an empty array
+    var blank = [nothing()];        // error: an array element must have a value
     var mixed = [1, true];          // error: the elements of the array have incompatible types 'int', 'bool'
     int[3] few = [1, 2];          // error: cannot implicitly convert 'int[2]' to 'int[3]'
     makeArray()[0] = 5;             // error: cannot assign to an element of a temporary array
@@ -47,6 +50,8 @@ void main() {
     print(r + five + b.value);      // no cascade: the variables above count as assigned
 
     for (int x : n) {               // error: cannot loop over 'int'
+    }
+    for (int i, int x : nope) {     // error: 'nope' is not defined
     }
     for (var i : 0.5..2) {          // error: a range must be of integers, not 'float' and 'int'
     }

@@ -1,0 +1,30 @@
+// Patterns that cannot be tested, and switch expressions that cannot produce a reference.
+
+struct Bag {
+    internal {
+        int[2] items;
+
+        mut ref? int at(int index) {
+            return ref items[index];
+        }
+    }
+}
+
+void nothing() { }
+
+void main() {
+    mut Bag bag = Bag();
+    nothing() is var value;                 // error: 'is' cannot test a 'void' value
+    if (bag.at(0) is int found) { }         // error: 'bag.at(0)' might refer to nothing; check it with 'is ref int name', or use '!'
+    ReadOnlySpan<byte> bytes = "a".bytes();
+    if (bytes is var copy) { }              // error: a 'ReadOnlySpan<byte>' cannot be matched against patterns
+    mut int[2] a = [1, 2];
+    Span<int> view = switch (1) {           // error: a switch expression cannot produce a 'Span<int>', since the result would view any of its cases; use a switch statement
+        case 1 -> a;
+        default -> a;
+    };
+    var reference = switch (1) {            // error: a switch expression cannot produce a reference; use a switch statement with a variable for each case
+        case 1 -> bag.at(0);
+        default -> bag.at(1);
+    };
+}

@@ -32,9 +32,6 @@ sealed class LastUseMoves
             .Select(l => l.Type.NonNull).Where(stdlib.IsWeak).Select(t => t.TypeArguments[0].NonNull).Distinct()];
     }
 
-    /// <summary>How many reads were turned into moves.</summary>
-    public int Count { get; private set; }
-
     public static LastUseMoves Apply(IrProgram program, Callees callees, LambdaWrites lambdas)
     {
         var result = new LastUseMoves(program, callees, lambdas);
@@ -66,7 +63,6 @@ sealed class LastUseMoves
                 && Consumes(found.LastStatement!, read) && Movable(local))
             {
                 read.Ownership = IrOwnership.Move;
-                Count++;
             }
         }
     }

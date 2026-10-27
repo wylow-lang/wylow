@@ -15,10 +15,6 @@ namespace Vpl.Compiler.Optimize;
 sealed class BorrowedLocals(Writes writes)
 {
     readonly Aliasing aliasing = new(writes);
-    int count;
-
-    /// <summary>How many locals were turned into borrows.</summary>
-    public int Count => count;
 
     public static BorrowedLocals Apply(IrProgram program, Writes writes)
     {
@@ -45,7 +41,6 @@ sealed class BorrowedLocals(Writes writes)
             {
                 let.Value = new IrUse(IrRead.Borrow(place));
                 aliasing.Add(local, place);
-                count++;
             }
             else
             {

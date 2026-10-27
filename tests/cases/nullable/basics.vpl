@@ -24,12 +24,15 @@ void main() {
     print(present);                         // output: 4
     print(missing == null);                 // output: true
     print(present != null);                 // output: true
+    print(null == missing);                 // output: true
 
     // A null check narrows a local, as for references.
     if (present != null) {
         print(present + 1);                 // output: 5
         int plain = present;
         print(plain * 2);                   // output: 8
+        long wider = present;               // the narrowed 'int' converts to 'long'
+        print(wider);                       // output: 4
     }
     if (missing == null) {
         print("missing");                   // output: missing

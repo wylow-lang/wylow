@@ -79,7 +79,11 @@ void main() {
     ref int slot = bag[1];
     slot += 5;
     print(bag.items[1]);        // output: 25
-    print(bag.total());         // output: 35
+    // A reference defined by another refers to the place that one refers to.
+    ref int alias = slot;
+    alias += 1;
+    print(bag.items[1]);        // output: 26
+    print(bag.total());         // output: 36
 
     mut Holder h = Holder();
     h.inner()[0, 1] = 9;

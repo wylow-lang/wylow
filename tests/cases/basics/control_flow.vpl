@@ -39,4 +39,56 @@ void main() {
     print(a && !b);     // output: true
     print(a || b);      // output: true
     print(!(a == b));   // output: true
+
+    // A constant condition is not evaluated.
+    if (true) {
+        print("then");  // output: then
+    }
+    while (false) {
+        print("never");
+    }
+
+    // A statement after one that never returns does nothing.
+    print(early(true));     // output: early
+    print(early(false));    // output: late
+    print(switchPick(0));   // output: zero
+
+    // A pattern can be a literal of another integer type, and `var` matches anything.
+    byte small = 1;
+    switch (small) {
+        case 1 -> {
+            print("one");   // output: one
+        }
+        default -> {
+            print("other");
+        }
+    }
+    mut int picked = 0;
+    switch (small) {
+        case var any -> {
+            picked = any;
+        }
+    }
+    print(picked);          // output: 1
+}
+
+String switchPick(int n) {
+    switch (n) {
+        default -> {
+            return "zero";
+            print("never");
+        }
+    }
+}
+
+String early(bool stop) {
+    if (stop) {
+        return "early";
+        print("never");
+    }
+    while (true) {
+        break;
+        print("never");
+    }
+    return "late";
 }

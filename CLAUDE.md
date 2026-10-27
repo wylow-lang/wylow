@@ -23,7 +23,8 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whos
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
-bash tools/coverage.sh [runner args]   # coverage by layer and file, and unreached error/unreachable sites, in tests/.coverage/
+bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
+                                       # test ran, and unreached error/unreachable sites, in tests/.coverage/
 ```
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
@@ -158,8 +159,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - **Evaluation order is left to right.** Lowering makes it explicit: each operand is computed by
   its own instructions in order, and the emitter nests one back into its use only where
   `IrEffects`/`IrAccess` show nothing in between can tell. A new instruction must be described
-  there correctly. A new kind of call also belongs in `BoundTree.CallOf`, which the checks and
-  analyses use to see calls.
+  there correctly.
 - **Whatever a reference or span points into must stay alive and unmoved while it is used.**
   Lowering holds the object a place goes through (`IrLowering.ObjectLocal`: a pin, or a borrow
   of a `Borrowable` that hands out storage), and the verifier checks every use is covered. Every

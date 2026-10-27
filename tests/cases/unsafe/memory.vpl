@@ -83,6 +83,19 @@ void main() {
     int* nothing = null;
     print(nothing == null);     // output: true
 
+    // A pointer local assigned twice may point into either object.
+    unsafe {
+        int* first = Memory.allocate<int>(1);
+        int* second = Memory.allocate<int>(1);
+        Memory.initialize(first, 4);
+        Memory.initialize(second, 9);
+        mut int* chosen = first;
+        chosen = second;
+        print(chosen[0]);       // output: 9
+        Memory.free(first);
+        Memory.free(second);
+    }
+
     mut var objects = new Stack<Tracked>();
     objects.push(new Tracked(1));
     objects.push(new Tracked(2));

@@ -1,0 +1,29 @@
+// 'T()' builds a struct whose fields each take their default value, and a struct's own
+// 'make_default' makes the values a field of that type starts with.
+
+struct Empty { }
+
+struct Inner {
+    internal {
+        int x;
+        String label;
+    }
+}
+
+struct Wide {
+    internal {
+        String label;
+        int n;
+        Inner inner;
+    }
+}
+
+void main() {
+    var w = Wide();
+    print(w.n);                             // output: 0
+    print(w.label == "");                   // output: true
+    print(w.inner.x);                       // output: 0
+    print(w.inner.label == "");             // output: true
+    var e = Empty();
+    print(e == Empty());                    // output: true
+}

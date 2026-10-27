@@ -17,6 +17,7 @@ void main() {
     print('😀' == '\u{1F600}');     // output: true
 
     // Characters compare by code point, and convert to integers of 32 bits or more.
+    print(1 + 'a');                 // output: 98
     print('a' < 'b');               // output: true
     print('z' >= 'a');              // output: true
     int code = 'a';

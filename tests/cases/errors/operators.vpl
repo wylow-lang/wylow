@@ -1,0 +1,34 @@
+// Operators applied to types that don't combine, and to values that need checking for null first.
+
+class Holder {
+    internal {
+        String? name;
+    }
+}
+
+struct Bag {
+    internal {
+        int[2] items;
+
+        mut ref? int at(int index) {
+            return ref items[index];
+        }
+    }
+}
+
+unsafe void main() {
+    int? maybe = 1;
+    print(maybe ?? true);               // error: operator '??' cannot be applied to 'int?' and 'bool'
+    print(1.5 << 2);                    // error: operator '<<' cannot be applied to 'float' and 'int'; use an explicit cast to convert one side
+    Holder holder = new Holder();
+    print(holder.name + 1);             // error: operator '+' cannot be applied to 'String?' and 'int'; check it for null first, or use '!' or '??'
+    print(maybe == "x");                // error: operator '==' cannot be applied to 'int?' and 'String'
+    mut Bag bag = Bag();
+    print(bag.at(0) + 1);               // error: operator '+' cannot be applied to 'ref? int' and 'int'; check it for null first, or use '!'
+    int* left = null;
+    float* right = null;
+    print(left == right);               // error: operator '==' cannot be applied to 'int*' and 'float*'
+    print(~true);                       // error: operator '~' cannot be applied to 'bool'
+    print(!1);                          // error: operator '!' cannot be applied to 'int'
+    print((int)"x");                    // error: cannot convert 'String' to 'int'
+}

@@ -1,18 +1,20 @@
-// Summarizes a Cobertura coverage file of the test suite by compiler layer and file, and lists
+// Summarizes Cobertura coverage files of the test suite by compiler layer and file, and lists
 // the sites no test reached: user errors (Error, Violation), the verifier's own checks, and
-// InvalidOperationExceptions that should be unreachable.
-// Usage: dotnet run tools/coverage-report.cs -- <coverage.xml> <repository root>
+// InvalidOperationExceptions that should be unreachable. Several files are merged (one per mode),
+// so a line counts as reached when any mode reached it.
+// Usage: dotnet run tools/coverage-report.cs -- [--uncovered] [--partial] <coverage.xml>... <repository root>
 
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-var coverage = XDocument.Load(args[0]);
-var root = Path.GetFullPath(args[1]);
+var inputs = args.Where(a => a.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)).ToList();
+var root = Path.GetFullPath(args.Single(a => !a.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) && !a.StartsWith("--", StringComparison.Ordinal)));
 var src = Path.Combine(root, "src");
+bool listUncovered = args.Contains("--uncovered"), listPartial = args.Contains("--partial");
 
 // file -> line -> (hits, covered branches, branches, method)
 var files = new Dictionary<string, Dictionary<int, LineCoverage>>(StringComparer.OrdinalIgnoreCase);
-foreach (var @class in coverage.Descendants("class"))
+foreach (var @class in inputs.SelectMany(input => XDocument.Load(input).Descendants("class")))
 {
     var file = Path.GetFullPath((string)@class.Attribute("filename")!);
     if (!file.StartsWith(src, StringComparison.OrdinalIgnoreCase) || file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
@@ -42,6 +44,31 @@ Console.WriteLine();
 Console.WriteLine("Coverage by file, least covered first (lines, branches)");
 foreach (var (file, lines) in files.OrderBy(f => LineRate(f.Value.Values)).ThenBy(f => f.Key))
     Console.WriteLine($"  {Path.GetRelativePath(src, file).Replace('\\', '/'),-58} {Rates(lines.Values)}");
+
+if (listUncovered)
+    Lines("Lines no test ran, by file", entry => entry.Hits == 0, entry => "");
+if (listPartial)
+    Lines("Lines whose branch didn't all run, by file", entry => entry.Hits > 0 && entry.CoveredBranches < entry.Branches,
+        entry => $"  ({entry.CoveredBranches}/{entry.Branches} branches)");
+
+void Lines(string title, Func<LineCoverage, bool> predicate, Func<LineCoverage, string> note)
+{
+    Console.WriteLine();
+    Console.WriteLine(title);
+    foreach (var (file, lines) in files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
+    {
+        var listed = lines.Where(l => predicate(l.Value)).OrderBy(l => l.Key).ToList();
+        if (listed.Count == 0)
+            continue;
+        Console.WriteLine($"  {Path.GetRelativePath(src, file).Replace('\\', '/')} ({listed.Count})");
+        var text = File.ReadAllLines(file);
+        foreach (var (number, entry) in listed)
+        {
+            var line = number <= text.Length ? text[number - 1].Trim() : "";
+            Console.WriteLine($"    {number}: {(line.Length > 110 ? line[..110] + "..." : line)}{note(entry)}");
+        }
+    }
+}
 
 var sites = files.SelectMany(f => Sites(f.Key, f.Value)).ToList();
 Console.WriteLine();

@@ -36,6 +36,10 @@ String constants(int offset = -1, String name = "none", char letter = 'c', bool 
     return $"{offset} {name} {letter} {flag} {color == Color.Green} {mask}";
 }
 
+String unary(int mask = ~0, bool flag = !true) {
+    return $"{mask} {flag}";
+}
+
 void tagged(int first, Tag tag = Tag(2), int last = 3) {
     print($"{first} {tag.id} {last}");
 }
@@ -115,6 +119,7 @@ void main() {
     print(spawn(pos, count: 3, spread: 1.5));           // output: 2.0 x3 ~1.5
     print(spawn(pos: pos, count: 4));                   // output: 2.0 x4 ~0.5
     print(constants());                                 // output: -1 none c true true 16
+    print(unary());                                     // output: -1 false
     print(constants(name: "set", color: Color.Red));    // output: -1 set c true false 16
 
     // Each parameter's value is evaluated in parameter order: its argument, or its default.
