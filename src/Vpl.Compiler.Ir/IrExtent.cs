@@ -17,18 +17,12 @@ public readonly record struct IrExtent(IrFootprint Extent, IrFootprint Reference
         bool lastInUse = false;
         for (int i = hold + 1; i < statements.Count; i++)
         {
-            foreach (var let in IrWalk.Descendants(statements[i]).OfType<IrLet>())
+            foreach (var let in IrWalk.Descendants(statements[i]).OfType<IrLet>().Where(l => RefersInto(l, dependents.Contains)))
             {
-                // A lambda's body runs where it is called, which is where it uses what it refers to.
-                if (let.Value is IrLambda lambda && IrWalk.Locals(lambda.Function.Body).Any(dependents.Contains))
-                    dependents.Add(let.Local);
-                else if (Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(dependents.Contains))
-                {
-                    dependents.Add(let.Local);
-                    // Inside another statement, it may be made before more of that statement runs.
-                    if (firstReference < 0)
-                        firstReference = ReferenceEquals(let, statements[i]) ? i : i - 1;
-                }
+                dependents.Add(let.Local);
+                // Inside another statement, it may be made before more of that statement runs.
+                if (let.Value is not IrLambda && firstReference < 0)
+                    firstReference = ReferenceEquals(let, statements[i]) ? i : i - 1;
             }
             if (IrWalk.Locals(statements[i]).Any(dependents.Contains))
             {
@@ -49,8 +43,17 @@ public readonly record struct IrExtent(IrFootprint Extent, IrFootprint Reference
         return new(footprint, referenced, dependents.Any(d => d.Symbol is not null));
     }
 
+    /// <summary>
+    /// Whether the local a let defines may refer into the storage of a local <paramref name="into"/>
+    /// accepts, and so needs it to last: a lambda whose body uses it, since the body runs where the
+    /// lambda is called, or a local that refers, made from it.
+    /// </summary>
+    public static bool RefersInto(IrLet let, Func<IrLocal, bool> into) => let.Value is IrLambda lambda
+        ? IrWalk.Locals(lambda.Function.Body).Any(into)
+        : Refers(let.Local) && IrWalk.Operands(let.Value).SelectMany(IrWalk.Places).SelectMany(IrWalk.PlaceLocals).Any(into);
+
     /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>
-    static bool Refers(IrLocal local) =>
+    public static bool Refers(IrLocal local) =>
         local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || local.Type.IsPointer || local.Type.NonNull.IsNonEscapingFunction;
 
     /// <summary>Whether the statement uses one of the locals while it runs code, rather than only reading a value out of it first.</summary>

@@ -160,7 +160,7 @@ Two instructions **conflict**, by the effect table (§6.1), if:
    release order (§3.4, When references are released). At first that's any value that
    `MayOwnObjects`; destructor reachability (§6.1) narrows it later.
 
-Two structural rules go with it:
+Three structural rules go with it:
 
 - A value whose release may be observable is nested only into its statement's last C++
   statement. In an earlier one, C++ would destroy it at that statement's end, before the VPL
@@ -169,6 +169,10 @@ Two structural rules go with it:
 - `store`s and holds are never nested. Holds are named because they live for an extent, and
   stores have no value. So every write inside a nested expression is inside a call, C++ never
   interleaves two calls, and its rule that unsequenced writes are undefined can't apply.
+- A temporary is not nested where a local that outlives the C++ statement may refer into it
+  (`IrExtent.RefersInto`, the rule the hold analyses use): C++ destroys it at the statement's end,
+  but the IR's lives to its block's. A reference, view, or pointer temporary may still nest, since
+  what is made from it points where it does; a function value may not, since it is the lambda.
 
 The algorithm is greedy, and starts strictly inside what the rule allows. It walks each
 instruction's operands right to left and nests a temporary if everything defined between it and

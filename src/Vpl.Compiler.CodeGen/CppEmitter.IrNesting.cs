@@ -10,7 +10,9 @@ namespace Vpl.Compiler.CodeGen;
 /// every pair of conflicting instructions runs in the same relative order, under every order C++
 /// allows, as in the IR. C++ orders an expression's parts only from the inside out, so a temporary
 /// nests only if it conflicts with nothing C++ may evaluate before it: what its use reads itself,
-/// and the operands already nested to its right. Declining to nest is always correct.
+/// and the operands already nested to its right. A nested temporary is destroyed at the end of its
+/// C++ statement, not its block's, so nothing that statement makes may keep referring into it.
+/// Declining to nest is always correct.
 /// </summary>
 public sealed partial class CppEmitter
 {
@@ -124,7 +126,7 @@ public sealed partial class CppEmitter
         {
             if (plan.Consumed.Contains(statements[i]))
                 continue;
-            Process(statements, i, last);
+            Process(statements, i, last, outlives: true);
             last = false;
         }
     }
@@ -187,13 +189,14 @@ public sealed partial class CppEmitter
     /// nests into it, so that nothing moves past a statement that stays separate. Returns the first
     /// statement nested into it, and what it and what is nested in it may do.
     /// </summary>
-    (int Frontier, IrFootprint Tree) Process(List<IrStatement> statements, int k, bool last)
+    /// <param name="outlives">Whether what the statement makes is used after the C++ statement it is printed in.</param>
+    (int Frontier, IrFootprint Tree) Process(List<IrStatement> statements, int k, bool last, bool outlives)
     {
         var statement = statements[k];
         if (DefinedBy(statement) is { } defined)
         {
             var (declare, _) = plan.Initialized[defined];
-            var (start, footprint) = statement is IrIf conditional ? ProcessOperands(statements, k, last) : (k, new IrFootprint());
+            var (start, footprint) = statement is IrIf conditional ? ProcessOperands(statements, k, last, outlives) : (k, new IrFootprint());
             foreach (var inner in InnerBlocks(statement))
                 footprint.Add(IrWalk.Footprint(inner));
             footprint.CreatesOwner |= IrWalk.Descendants(statement).OfType<IrLet>().Any(l => CreatesOwner(l.Value));
@@ -203,12 +206,27 @@ public sealed partial class CppEmitter
             int at = statements.IndexOf(declare);
             return (start == at + 1 ? at : start, footprint);
         }
-        return ProcessOperands(statements, k, last);
+        return ProcessOperands(statements, k, last, outlives);
     }
 
     IrLocal? DefinedBy(IrStatement statement) => plan.Initialized.FirstOrDefault(i => i.Value.Definition == statement).Key;
 
-    (int Frontier, IrFootprint Tree) ProcessOperands(List<IrStatement> statements, int k, bool last)
+    /// <summary>Whether the local the statement defines or stores whole may refer into <paramref name="local"/>'s storage.</summary>
+    static bool RefersInto(IrStatement statement, IrLocal local) => statement switch
+    {
+        IrLet let => IrExtent.RefersInto(let, l => l == local),
+        IrStore { Target: { IsDeref: false, Projections.Count: 0, Local: var target } } store =>
+            IrExtent.Refers(target) && IrWalk.Places(store.Value).SelectMany(IrWalk.PlaceLocals).Contains(local),
+        _ => false,
+    };
+
+    /// <summary>
+    /// Whether a local of this kind, if it refers, points where what it was made from does, rather
+    /// than into its own C++ storage, which a function value is (the lambda object).
+    /// </summary>
+    static bool PointsThrough(IrLocal local) => IrExtent.Refers(local) && !local.Type.NonNull.IsNonEscapingFunction;
+
+    (int Frontier, IrFootprint Tree) ProcessOperands(List<IrStatement> statements, int k, bool last, bool outlives)
     {
         var statement = statements[k];
         // A condition is a statement of its own, so its temporaries are released where it ends.
@@ -224,10 +242,15 @@ public sealed partial class CppEmitter
                 break;
             var candidate = statements[j];
             int mark = plan.Log.Count;
+            bool candidateOutlives = false;
             switch (nestable)
             {
                 case TemporaryUse { Local: var local }:
                     if (!Defines(candidate, local) || plan.Uses.GetValueOrDefault(local) != 1 || local.Kind is IrLocalKind.Hold or IrLocalKind.Slot)
+                        continue;
+                    // What outlives the statement may point through the temporary, but not into it.
+                    candidateOutlives = outlives && RefersInto(statement, local);
+                    if (candidateOutlives && !PointsThrough(local))
                         continue;
                     break;
                 case CheckedElement { Element: var element, Index: var index }:
@@ -239,7 +262,7 @@ public sealed partial class CppEmitter
                     plan.Uses[index]--;
                     break;
             }
-            var (childFrontier, tree) = Process(statements, j, last);
+            var (childFrontier, tree) = Process(statements, j, last, candidateOutlives);
             // What the statement reads through the candidate it can only read after evaluating it.
             var candidateLocal = nestable switch { TemporaryUse use => use.Local, CheckedElement element => element.Index, _ => null };
             var siblings = new IrFootprint();
