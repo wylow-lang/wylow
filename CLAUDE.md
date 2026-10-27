@@ -133,6 +133,10 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
   and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
   in file order, so put a called function's outputs at the call.
+- `tests/Vpl.Tests/TypeSelfTests.cs`: properties every type must have (interning, substitution,
+  `CppIdentity`, conversions, names that bind back to the type, facts that agree), checked on
+  random types from a fixed seed; the runner reports them as `types/<property>`. A new kind of
+  type, or a new fact about types, gets a case in its generator or a property here.
 
 ## Rules
 

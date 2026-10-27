@@ -65,7 +65,7 @@ var results = files
     .WithDegreeOfParallelism(Math.Max(1, Environment.ProcessorCount / 2))
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
-results.AddRange(IrSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));

@@ -81,7 +81,9 @@ is exactly a value of the target type:
 - `nint` and `nuint` convert only where the conversion is lossless on both 32- and 64-bit targets,
   so code that compiles on one compiles on the other.
 - `char` converts to its code point, which fits in every integer type of 32 bits or more. Nothing
-  converts implicitly to `char`.
+  converts implicitly to `char`. Since a `char` is not a number, it doesn't convert to `double`,
+  although `int` does: this is the one place where two implicit conversions in a row reach a type
+  that one can't.
 
 **Integer constants** (an integer literal, optionally negated) without a suffix convert implicitly to
 any integer type that holds their value, so `byte b = 200;` works and `byte b = 300;` is an error. A

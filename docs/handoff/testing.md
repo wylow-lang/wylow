@@ -2,7 +2,7 @@
 
 **Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
 user error and verifier check reached), except the optional runtime coverage, and so has step 2
-(`--cc asan`); step 3 is next. The unreached `InvalidOperationException` sites are left for the
+(`--cc asan`), and step 3 (`TypeSelfTests`); step 4 is next. The unreached `InvalidOperationException` sites are left for the
 fuzzer (step 5) to aim at. Delete this file once every step has landed, and
 move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
 
@@ -166,6 +166,22 @@ Properties to check for random types, as a new set of tests next to `IrSelfTests
   a defaultable type for every field without an initializer.
 
 Each failure is either a bug or an exception to write down in the spec. Both outcomes are useful.
+
+**Done (2026-10-26).** `tests/Vpl.Tests/TypeSelfTests.cs` generates 1,500 random types (seed 1)
+from the built-in types, every standard library type, and a fixture's, in the places the binder
+allows them (a ref struct, `ref?`, or non-escaping function only as a parameter, `void` only as a
+return, type arguments satisfying their bounds), and checks 20 properties in about 1.5 s: the ones
+above, plus that the facts decided per C++ type (`IsCounted`, `InlineTypes`, `HasDefaultCode`, ...)
+agree between a type and its `CppIdentity`, that a fixed array, a one-field generic struct, and a
+nullable value agree with what they hold, that implicit conversions are transitive and
+antisymmetric over the random types and those near them, and that distinct types have distinct
+names except a function type's two forms. Names bind back by compiling each as a parameter of a
+generic class's method and generating the types again from that compilation's symbols.
+
+It found no bug, here or with seeds 2 to 5 at 6,000 types each. Planting two (a nullable function
+type printed without parentheses, `MapParts` dropping escaping) fails five properties, so the
+properties do bite. The one exception it found is now in the spec (02-types.md §2.3): `char`
+converts to `int`, and `int` to `double`, but `char` doesn't convert to `double`.
 
 ## Step 4: interaction matrices with snapshots
 
