@@ -1,8 +1,9 @@
 # Testing: measure coverage, then generate tests
 
 **Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
-user error and verifier check reached), except the optional runtime coverage, and so has step 2
-(`--cc asan`), and step 3 (`TypeSelfTests`); step 4 is next. The unreached `InvalidOperationException` sites are left for the
+user error and verifier check reached), except the optional runtime coverage, and so have step 2
+(`--cc asan`), step 3 (`TypeSelfTests`), and step 4 (both interaction matrices, reviewed and in
+the suite); step 4b is next. The unreached `InvalidOperationException` sites are left for the
 fuzzer (step 5) to aim at. Delete this file once every step has landed, and
 move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
 
@@ -213,6 +214,31 @@ failure until the snapshot is updated on purpose.
 Each matrix generator lives with the runner, and adding a feature means adding its row or column (a
 new CLAUDE.md rule when this lands). The fraction of cells that run, plus the cells that are errors
 the spec calls for, is the coverage number for that boundary.
+
+**Done (2026-10-27).** `MatrixTests.cs` builds `tests/matrix/places.snapshot` (14 places × 15
+operations, 210 cells) and `tests/matrix/types.snapshot` (11 kinds of type × 10 contexts, 110
+cells), runs each cell through every oracle, and records its errors or its output and exit code;
+`--update-snapshots` records them again. Of the places cells, 164 run and 46 are errors the spec
+calls for; of the types cells, 99 run and 11 are errors. The snapshots were reviewed cell by cell
+against the spec, which found two compiler bugs on the first run, both fixed with tests:
+
+- **A non-escaping lambda that captured a `ref` or a span crashed the verifier** once the temporary
+  holding it went out of scope: a copy of a non-escaping function value was rooted at the local it
+  was copied from, so moving it out of a temporary made every later use invalid
+  (`IrVerifier.Values.cs`; `lambdas/captures.vpl`).
+- **A narrowed nullable value, reference, or `ref?` place could not be viewed by a span**, and a
+  narrowed nullable value that isn't `mut` could not be referred to by an `in` variable either,
+  though 02-types.md §2.5 says a narrowed place is used as its non-null type (loops already
+  worked): the binder didn't narrow the place before the conversion (`SpanConversion`,
+  `BindRefLocal`; `nullable/structs.vpl`, `references/nullable.vpl`). The span hint now names the
+  nullable local whose value a span would view.
+
+The review sharpened one spec sentence too: a `ref` or `ref?` variable can't refer to a nullable
+local, only to a field or element, while an `in` or `in?` one can (03-memory-model.md).
+
+Running the matrices in the sanitizer mode costs about ninety seconds more (each cell is one more
+clang-cl build without a precompiled header), so the full five-mode check now takes about seven
+minutes.
 
 ## Step 4b: triage the uncovered code
 

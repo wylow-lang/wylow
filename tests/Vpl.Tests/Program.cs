@@ -17,11 +17,13 @@ using Vpl.Compiler.Text;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
+// --update-snapshots rewrites tests/matrix/*.snapshot with what the matrix cells do now.
 
 Toolchain? toolchain = null;
 string? filter = null;
+bool updateSnapshots = false;
 var options = new CompileOptions();
 for (int i = 0; i < args.Length; i++)
 {
@@ -39,6 +41,8 @@ for (int i = 0; i < args.Length; i++)
         options = options with { Nest = false };
     else if (args[i] == "--no-opt")
         options = options with { Optimize = false };
+    else if (args[i] == "--update-snapshots")
+        updateSnapshots = true;
     else
         filter = args[i];
 }
@@ -66,6 +70,7 @@ var results = files
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(MatrixTests.Run(root, toolchain, options, filter, updateSnapshots));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));
