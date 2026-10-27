@@ -80,11 +80,7 @@ public sealed partial class CppEmitter
     }
 
     static bool MentionsPointerSized(VplType type) =>
-        type == VplType.NInt || type == VplType.NUInt
-        || (type.IsNullable && MentionsPointerSized(type.NonNull))
-        || (type is NullableReferenceType reference && MentionsPointerSized(reference.Referenced))
-        || (type is IndexedType indexed && MentionsPointerSized(indexed.Element))
-        || type.TypeArguments.Any(MentionsPointerSized);
+        type == VplType.NInt || type == VplType.NUInt || type.Parts.Any(MentionsPointerSized);
 
     /// <summary>Functions and methods that share their name and parameter count with another.</summary>
     HashSet<FunctionSymbol> overloaded = [];

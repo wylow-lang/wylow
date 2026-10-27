@@ -15,6 +15,25 @@ void pick(int value) {
     print(4);
 }
 
+// So do overloads that differ only so inside function types, wherever those appear.
+class Holder<T> {}
+
+void run(((nint) -> void)? f) {
+    print(5);
+}
+
+void run(((long) -> void)? f) {
+    print(6);
+}
+
+void hold(Holder<(nint) -> void>? h) {
+    print(7);
+}
+
+void hold(Holder<(long) -> void>? h) {
+    print(8);
+}
+
 void main() {
     nint n = 5;
     show(n);       // output: 1
@@ -25,4 +44,16 @@ void main() {
     pick(1);       // output: 4
     short s = 1;
     pick(s);       // output: 4
+    @Escaping ((nint) -> void)? a = null;
+    run(a);        // output: 5
+    @Escaping ((long) -> void)? c = null;
+    run(c);        // output: 6
+    Holder<(nint) -> void>? h = null;
+    hold(h);       // output: 7
+    Holder<(long) -> void>? k = null;
+    hold(k);       // output: 8
+    // One C++ class on 64-bit targets, whose traits are emitted once.
+    Holder<nint> n1 = new Holder<nint>();
+    Holder<long> n2 = new Holder<long>();
+    print(9);      // output: 9
 }

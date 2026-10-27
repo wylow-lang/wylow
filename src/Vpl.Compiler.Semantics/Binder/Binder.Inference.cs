@@ -149,7 +149,7 @@ public sealed partial class Binder
         bool LambdaCouldGive(TypeParameterSymbol parameter, IReadOnlyList<Argument?> arguments) =>
             Enumerable.Range(0, arguments.Count).Any(i =>
                 ParameterType(i) is FunctionType type
-                && TypeParametersIn(type.ReturnType).Contains(parameter)
+                && type.ReturnType.ContainedTypeParameters.Contains(parameter)
                 && arguments[i] is { } argument && Options(argument.Expression).Any(o => o is BoundPendingLambda));
 
         /// <summary>
@@ -164,8 +164,11 @@ public sealed partial class Binder
                 if (arguments[i] is not { } argument)
                     return true;
                 var type = partial.ParameterType(i);
-                if (!TypeParametersIn(type).Any(unresolved.Contains))
+                if (!type.ContainedTypeParameters.Any(unresolved.Contains))
                     return binder.IsApplicable(partial, arguments, i);
+                // `null` for a `ref?` fits whatever its type parameters turn out to be.
+                if (IsNullForReference(argument, type))
+                    return true;
                 return partial.ParameterRefKind(i) != RefKind.Ref && !argument.IsRef && Options(argument.Expression).All(o =>
                     o is not BoundPendingLambda lambda || (type is FunctionType target && target.Parameters.Count == lambda.Syntax.Parameters.Count));
             });
@@ -193,15 +196,15 @@ public sealed partial class Binder
                 var unresolved = Unresolved;
                 for (int i = 0; i < arguments.Count && !progress; i++)
                 {
-                    if (ParameterType(i) is not FunctionType target || !TypeParametersIn(target.ReturnType).Any(inferable.Contains))
+                    if (ParameterType(i) is not FunctionType target || !target.ReturnType.ContainedTypeParameters.Any(inferable.Contains))
                         continue;
                     var parameters = ((FunctionType)current.ParameterType(i)).Parameters;
-                    if (parameters.Any(p => TypeParametersIn(p.Type).Any(unresolved.Contains)))
+                    if (parameters.Any(p => p.Type.ContainedTypeParameters.Any(unresolved.Contains)))
                         continue;
                     var lambdas = arguments[i] is not { } argument ? [] : Options(argument.Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList();
                     if (lambdas.Count > 0)
                     {
-                        foreach (var p in target.Parameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))
+                        foreach (var p in target.Parameters.SelectMany(p => p.Type.ContainedTypeParameters).Where(bindings.ContainsKey))
                             fixedTypes.TryAdd(p, current.Map.Apply(p.Type));
                     }
                     foreach (var lambda in lambdas)
@@ -212,7 +215,7 @@ public sealed partial class Binder
                         if (inferred.Values.Count == 0)
                         {
                             binder.Error(lambda.Location, $"this lambda returns no value, so it cannot give '{function.Name}' its type argument "
-                                + $"'{TypeParametersIn(target.ReturnType).First(inferable.Contains).Name}'");
+                                + $"'{target.ReturnType.ContainedTypeParameters.First(inferable.Contains).Name}'");
                             return null;
                         }
                         foreach (var value in inferred.Values)

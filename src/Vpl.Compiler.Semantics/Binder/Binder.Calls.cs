@@ -48,7 +48,7 @@ public sealed partial class Binder
             var parameter = candidate.Symbol.Parameters[Array.IndexOf(arrangement!, index)];
             var type = (candidate.Owner is null ? TypeMap.Empty : TypeMap.For(candidate.Owner)).Apply(parameter.Type);
             if (parameter.RefKind == RefKind.Ref || type == VplType.Error || (agreed is not null && agreed != type)
-                || TypeParametersIn(type).Any(p => candidate.Symbol.TypeParameters.Contains(p)))
+                || type.ContainedTypeParameters.Any(p => candidate.Symbol.TypeParameters.Contains(p)))
                 return null;
             agreed = type;
         }

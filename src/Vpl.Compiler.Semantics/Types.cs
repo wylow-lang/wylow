@@ -136,12 +136,17 @@ public abstract class VplType
     public FunctionType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) => FunctionType.Of(parameters, this);
 
     /// <summary>
-    /// The type without the nullability of references, at the top or in any of its parts, which
-    /// C++ doesn't see: <c>List&lt;Node?&gt;</c> and <c>List&lt;Node&gt;</c> are one C++ type, so
-    /// whatever is decided per C++ type must be decided alike for them. <c>List&lt;int?&gt;</c> is another.
+    /// The type with what C++ doesn't tell apart erased, at the top or in any of its parts, so that
+    /// whatever is decided per C++ type is decided alike for the types it is. References lose their
+    /// nullability: <c>List&lt;Node?&gt;</c> and <c>List&lt;Node&gt;</c> are one C++ type, and
+    /// <c>List&lt;int?&gt;</c> another. <c>nint</c> and <c>nuint</c> are <c>long</c> and <c>ulong</c>,
+    /// which they are on 64-bit targets; on others, deciding alike for both is what one of them needs.
     /// </summary>
-    public VplType WithoutReferenceNullability =>
-        this is NullableType { NonNull.IsReference: true } ? NonNull.WithoutReferenceNullability : MapParts(t => t.WithoutReferenceNullability);
+    public VplType CppIdentity =>
+        this == NInt ? Long
+        : this == NUInt ? ULong
+        : this is NullableType { NonNull.IsReference: true } ? NonNull.CppIdentity
+        : MapParts(t => t.CppIdentity);
 
     public bool IsStruct => Symbol?.Kind == TypeKind.Struct;
     public bool IsClass => Symbol?.Kind == TypeKind.Class;
@@ -166,7 +171,11 @@ public abstract class VplType
 
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => IsTypeParameter || Parts.Any(p => p.ContainsTypeParameters);
+    /// <summary>The type parameters this type is or is built from.</summary>
+    public IEnumerable<TypeParameterSymbol> ContainedTypeParameters =>
+        this is TypeParameterType parameter ? [parameter.Parameter] : Parts.SelectMany(p => p.ContainedTypeParameters);
+
+    public bool ContainsTypeParameters => ContainedTypeParameters.Any();
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;

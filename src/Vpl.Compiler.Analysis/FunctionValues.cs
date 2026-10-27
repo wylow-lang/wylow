@@ -11,14 +11,14 @@ public static class FunctionValues
 {
     /// <summary>
     /// Whether a value of type <paramref name="value"/> may be a lambda of type <paramref name="lambda"/>.
-    /// Escaping is ignored, since it converts, and so is the nullability of references, which C++
-    /// doesn't see. A type parameter on either side may be anything, since generic code may be
+    /// Escaping is ignored, since it converts, and so is what C++ doesn't tell apart
+    /// (<see cref="VplType.CppIdentity"/>). A type parameter on either side may be anything, since generic code may be
     /// instantiated with any type.
     /// </summary>
     public static bool MayBe(VplType value, VplType lambda)
     {
-        value = value.WithoutReferenceNullability;
-        lambda = lambda.WithoutReferenceNullability;
+        value = value.CppIdentity;
+        lambda = lambda.CppIdentity;
         if (value.NonNull.IsTypeParameter || lambda.NonNull.IsTypeParameter)
             return true;
         if (value.IsNullable || lambda.IsNullable)

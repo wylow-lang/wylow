@@ -64,7 +64,7 @@ resolving references through what it knows they refer to.
 | A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
 | Types compare by reference | Each kind of type is a sealed subclass of `VplType` (`TypeKinds.cs`) whose constructor is private, so only its own factory, which interns, can make one. |
-| A walk over a type's structure covers every kind | `VplType.Parts` and `MapParts` are abstract, so a new kind doesn't compile until it says what it is built from; substitution (`TypeMap.Apply`), `ContainsTypeParameters`, and `WithoutReferenceNullability` are written on them, not per kind. A walk that must treat kinds differently pattern-matches on them, which **only review** checks for a missing kind. |
+| A walk over a type's structure covers every kind | `VplType.Parts` and `MapParts` are abstract, so a new kind doesn't compile until it says what it is built from; substitution (`TypeMap.Apply`), `ContainedTypeParameters`, and `CppIdentity` are written on them, not per kind. A walk that must treat kinds differently pattern-matches on them, which **only review** checks for a missing kind. |
 | Each type fact has one definition | In Semantics, used everywhere: what a type is on `VplType` and its kinds, and facts derived from it as extension members by topic (`TypeStorage`, `TypeDefaults`, `TypeEquality`), which see only its public API. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
 | No leftovers | Every C# warning fails the build (`TreatWarningsAsErrors` in `Directory.Build.props`). |
 | Only the pipeline builds facts | The fact constructors and finders (`Callees`, `Writes.Find`, `Escapes.Find`, `LambdaWrites.Find`, `CyclicClasses.Find`, `Overrides`) are `internal` to Analysis, visible only to Optimize and the tests (`InternalsVisibleTo`), so CodeGen can't build facts of its own. |
@@ -129,7 +129,7 @@ Each step deletes the old home of what it moves, and passes all four modes befor
 6. **`CyclicClasses` onto the IR** (done): it finds closures and their captures from the lowered
    program, and `Callees` finds it and `Overrides` per generation, so `WholeProgram` and `Analyses`
    are gone and the emitter gets its facts from the pipeline's last `Callees`. Erasing reference
-   nullability has one definition, `VplType.WithoutReferenceNullability` (finding 9). The generated
+   nullability has one definition, now `VplType.CppIdentity` (finding 9). The generated
    C++ and IR were identical but for the order of instantiation traits.
 7. **Local roles and the remaining walkers** (done). `IrLocalRole` replaces the local's booleans,
    and an in-place loop element is `borrow.element` (`IrRead.Element`), not a flag the verifier

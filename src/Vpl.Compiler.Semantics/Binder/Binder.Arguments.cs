@@ -184,7 +184,7 @@ public sealed partial class Binder
             Error(syntax.Location, "a default value must be a constant or a struct constructor");
             value = new BoundErrorExpression(syntax.Location);
         }
-        else if (value.Type != VplType.Error && TypeParametersIn(parameter.Type).Any() && !IsNull(value))
+        else if (value.Type != VplType.Error && parameter.Type.ContainsTypeParameters && !IsNull(value))
         {
             Error(syntax.Location, $"the default value of '{parameter.Name}' can only be 'null', since its type '{parameter.Type}' involves a type parameter");
             value = new BoundErrorExpression(syntax.Location);

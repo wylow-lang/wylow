@@ -51,7 +51,7 @@ public sealed class CyclicClasses
     /// <summary>Every class instantiation the program is known to create objects of.</summary>
     public IReadOnlyList<VplType> Classes => classes;
 
-    public bool IsCyclic(VplType classType) => cyclic.Contains(classType.WithoutReferenceNullability);
+    public bool IsCyclic(VplType classType) => cyclic.Contains(classType.CppIdentity);
 
     /// <summary>Whether the closures of an escaping lambda may be part of a cycle; one the analysis didn't see is assumed to be.</summary>
     public bool IsCyclicClosure(FunctionSymbol lambda) => !captured.ContainsKey(lambda) || cyclicClosures.Contains(lambda);
@@ -69,7 +69,7 @@ public sealed class CyclicClasses
         var pending = new Queue<VplType>();
         void Add(VplType type)
         {
-            type = type.WithoutReferenceNullability;
+            type = type.CppIdentity;
             if (type.IsClass && !type.ContainsTypeParameters && !held.ContainsKey(type))
             {
                 held[type] = [];
@@ -110,7 +110,7 @@ public sealed class CyclicClasses
         foreach (var inline in type.InlineTypes())
         {
             if (inline.IsReference)
-                references.Add(inline.WithoutReferenceNullability);
+                references.Add(inline.CppIdentity);
             else if (inline.IsTypeParameter || inline.IsFunction)
                 references.Add(inline);
         }
@@ -204,7 +204,7 @@ public sealed class CyclicClasses
     }
 
     static bool IsSubtype(VplType type, VplType target) =>
-        type == target || Conversions.Supertypes(type).Any(t => t.WithoutReferenceNullability == target);
+        type == target || Conversions.Supertypes(type).Any(t => t.CppIdentity == target);
 
     /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees.</summary>
     bool MayReferToUnknown(VplType reference) =>

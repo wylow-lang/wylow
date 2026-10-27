@@ -472,7 +472,7 @@ public sealed partial class Binder
         }
         else
         {
-            var inferable = variant.Fields.SelectMany(f => TypeParametersIn(f.Type)).ToHashSet();
+            var inferable = variant.Fields.SelectMany(f => f.Type.ContainedTypeParameters).ToHashSet();
             if (s.TypeParameters.FirstOrDefault(p => !inferable.Contains(p)) is { } missing)
             {
                 return ErrorExpression(location,
@@ -490,18 +490,5 @@ public sealed partial class Binder
         if (constructor is null)
             return new BoundErrorExpression(location);
         return new BoundVariant(location, type!, variant, ConvertArguments(constructor, arguments));
-    }
-
-    static IEnumerable<TypeParameterSymbol> TypeParametersIn(VplType type)
-    {
-        var t = type.NonNull;
-        if (t is TypeParameterType parameter)
-            return [parameter.Parameter];
-        IEnumerable<VplType> parts = [.. t.TypeArguments, .. (t as FunctionType)?.Parameters.Select(p => p.Type) ?? []];
-        if (t is IndexedType indexed)
-            parts = parts.Append(indexed.Element);
-        if (t is FunctionType function)
-            parts = parts.Append(function.ReturnType);
-        return parts.SelectMany(TypeParametersIn);
     }
 }

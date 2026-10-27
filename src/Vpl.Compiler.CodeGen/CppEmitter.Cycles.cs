@@ -16,7 +16,7 @@ public sealed partial class CppEmitter
     /// </summary>
     void EmitInstantiationTraits()
     {
-        // Nullability is erased already: `T` and `T?` are the same C++ type.
+        // What C++ doesn't tell apart is erased already (`VplType.CppIdentity`): `T` and `T?` are one C++ type.
         var instances = cycles.Classes.Where(c => c.Symbol!.IsGeneric).ToList();
         if (instances.Count == 0)
             return;
