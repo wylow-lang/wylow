@@ -210,11 +210,10 @@ public sealed partial class IrVerifier
         {
             IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true) with { Element = read.Element },
             // A copy of a reference, view, or pointer points where it does, so it outlives the local it
-            // was copied from. A non-escaping function value refers to the callable in its local.
-            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when PointsAway(local) && verifier.dependencies.TryGetValue(local, out var copied) =>
-                copied with { Alias = false, Element = false },
+            // was copied from; a non-escaping function value needs what its lambda captured. Neither
+            // needs the local itself, whose scope, ending, or being moved from changes neither.
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
-                copied with { Roots = [(local, true)], Alias = false, Element = false },
+                copied with { Alias = false, Element = false },
             _ => null,
         };
 

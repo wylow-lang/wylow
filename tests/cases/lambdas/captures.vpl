@@ -129,4 +129,21 @@ void main() {
     Runner runner = new TwiceRunner();
     print(runner.run(seven));                       // output: 14
     print(runner.run(() -> 1));                     // output: 2
+
+    // A non-escaping lambda captures references and spans by reference: it keeps referring into
+    // their storage, and what it captures must stay valid wherever the value is used.
+    mut int reached = 1;
+    ref int into = reached;
+    () -> void writeThrough = () -> {
+        into = 6;
+    };
+    writeThrough();
+    print(reached);                                 // output: 6
+    mut int[3] cells = [1, 2, 3];
+    Span<int> view = cells;
+    () -> void writeSpan = () -> {
+        view[1] = 8;
+    };
+    writeSpan();
+    print(cells[1]);                                // output: 8
 }
