@@ -267,6 +267,10 @@ public sealed partial class Binder
         var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
         if (place is not null && !mayBeNull)
             place = NarrowReference(place);
+        // A local that can't be assigned again keeps its value, so a reference may be kept into its
+        // narrowed value (02-types.md §2.5); flow analysis checks the null test.
+        if (place is BoundLocalAccess { AssumesNonNull: false, Type.IsNullableValue: true } narrowed && declared == narrowed.Type.Narrowed && PlacePath.MayReferInto(narrowed.Local))
+            place = new BoundLocalAccess(narrowed.Location, narrowed.Local, AssumesNonNull: true);
         var type = declared ?? place?.Type.Referred ?? VplType.Error;
         BoundExpression? initializer = null;
         var what = $"a '{keyword}' variable";

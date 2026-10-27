@@ -126,9 +126,15 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
 
     static LocalSymbol? NullableValueRoot(PlacePath path) =>
         path is { Base: PlaceBase.Local, Root: BoundLocalAccess { AssumesNonNull: true, Local: { Type.IsNullableValue: true } local } }
-        && (local.IsWritable || local.RefKind != RefKind.None)
+        && !MayReferInto(local)
             ? local
             : null;
+
+    /// <summary>
+    /// Whether a reference may be kept into the narrowed value of a nullable local: only one that
+    /// can never be assigned again, so assigning it null can't destroy what the reference refers to.
+    /// </summary>
+    public static bool MayReferInto(LocalSymbol local) => !local.IsWritable && local.RefKind == RefKind.None;
 
     /// <summary>
     /// The local whose nullable value a span or other <c>ref struct</c> views, as <see cref="NullableValueRoot(BoundExpression)"/>.

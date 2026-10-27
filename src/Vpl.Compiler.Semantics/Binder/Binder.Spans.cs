@@ -47,6 +47,12 @@ public sealed partial class Binder
     /// </summary>
     BoundExpression? SpanConversion(BoundExpression expression, VplType to)
     {
+        // A narrowed place may be viewed as its non-null type (02-types.md §2.5), which flow
+        // analysis checks. Assigning a nullable value's local null destroys what a span would view,
+        // so only one that can't be assigned again may be viewed; a reference's object is held.
+        if (expression is BoundLocalAccess { AssumesNonNull: false, Type.MayBeNull: true } narrowed
+            && (narrowed.Type.IsNullableReference || PlacePath.MayReferInto(narrowed.Local)))
+            expression = new BoundLocalAccess(narrowed.Location, narrowed.Local, AssumesNonNull: true);
         var from = expression.Type;
         if (!stdlib.IsSpan(to) || from == to || from == VplType.Error)
             return null;
@@ -76,10 +82,14 @@ public sealed partial class Binder
 
     string SpanConversionHint(BoundExpression expression, VplType to)
     {
-        if (stdlib.IsSpan(to) && PlacePath.NullableValueRoot(expression) is { } root
-            && ViewedElement(expression.Type, to.Symbol == stdlib.ReadOnlySpan) == to.TypeArguments[0])
+        if (!stdlib.IsSpan(to) || ViewedElement(expression.Type.Narrowed, to.Symbol == stdlib.ReadOnlySpan) != to.TypeArguments[0])
+            return "";
+        // A nullable value's local that can be assigned again would destroy what the span views.
+        if (PlacePath.NullableValueRoot(expression) is { } root)
             return $"; a span cannot view inside {DestroyedByNull(root)}";
-        if (!stdlib.IsSpan(to) || expression.Type is not FixedArrayType array || array.Element != to.TypeArguments[0])
+        if (expression is BoundLocalAccess { Type.IsNullableValue: true, Local: var local } && !PlacePath.MayReferInto(local))
+            return $"; a span cannot view inside {DestroyedByNull(local)}";
+        if (expression.Type.Narrowed is not FixedArrayType array || array.Element != to.TypeArguments[0])
             return "";
         return ClassifyPlace(expression).Kind switch
         {

@@ -125,6 +125,14 @@ void main() {
         print(first + cells[1] + view[2] + sum + total(grid.cells));   // output: 18
     }
 
+    // The value itself, not only a field of it, can be referred into when it can't be reassigned.
+    int[3]? numbers = [4, 5, 6];
+    if (numbers != null) {
+        in int[3] whole = numbers;
+        ReadOnlySpan<int> all = numbers;
+        print(whole[0] + all[2] + total(numbers));  // output: 25
+    }
+
     body.held = Holder(new Token("field"), 1);
     body = new Body();                      // output: field
 

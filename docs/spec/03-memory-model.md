@@ -433,7 +433,10 @@ if (found != null) {
 ```
 
 - It is not `ref T?`, which is a reference to a variable of type `T?` (`void reset(ref int? v)`).
-  The two combine: `ref? int?` may refer to an `int?` variable.
+  The two combine: `ref? int?` may refer to an `int?` field or element. A `ref` or `ref?` variable
+  does not refer to a nullable local, which a null check could narrow and which the reference could
+  then set to null; pass such a local by `ref` to a function instead. An `in` or `in?` variable is
+  read-only, so it may ([02-types.md](02-types.md#nullable-value-types)).
 - It is allowed where `ref` is (parameters, locals, pattern bindings, and returns into the
   receiver) and follows the same rules: second-class, and the storage it points into is held or
   borrowed while it is used.

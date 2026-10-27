@@ -203,6 +203,21 @@ void main() {
     print(view2.get(2) == null);    // output: true
     ReadOnlySpan<int> frozen = slots.items;
     print(frozen.get(1)!);          // output: 6
+
+    // A narrowed nullable reference, or a 'ref?' place, converts to a span of what it refers to.
+    List<int>? maybe = new List<int>();
+    maybe.add(1);
+    if (maybe != null) {
+        Span<int> items = maybe;
+        items[0] = 7;
+        print(maybe[0]);            // output: 7
+    }
+    mut int[3] numbers = [4, 5, 6];
+    ref? int[3] cells = numbers;
+    if (cells != null) {
+        Span<int> view3 = cells;
+        print(view3[1]);            // output: 5
+    }
 }
 
 void repeat(int times, () -> void f) {
