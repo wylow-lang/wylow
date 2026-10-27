@@ -65,7 +65,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
 - `Syntax`: tokens, AST records, parser with error recovery.
 - `Semantics`: the bound program and the checks that report errors on it.
-  `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions, equality/defaultability),
+  `Types.cs` (interned `VplType`, `TypeMap` substitution, conversions), the type facts by topic
+  (`TypeStorage.cs`, `TypeDefaults.cs`, `TypeEquality.cs`, extension members of `VplType`),
   `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
   in its storage). `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).

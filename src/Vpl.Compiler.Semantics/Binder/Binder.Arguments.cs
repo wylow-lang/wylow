@@ -77,7 +77,7 @@ public sealed partial class Binder
     {
         var parameter = candidate.Symbol.Parameters[index];
         if (parameter.Field is { } field)
-            return field.Declaration.Initializer is not null || Conversions.IsDefaultable(ParameterType(candidate, index));
+            return field.HasDefault(candidate.Owner is null ? TypeMap.Empty : TypeMap.For(candidate.Owner));
         return parameter.DefaultDeclaration is not null;
     }
 

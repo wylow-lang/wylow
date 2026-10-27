@@ -238,7 +238,7 @@ public sealed partial class IrLowering
         if (initializer is null)
         {
             // A fixed array holds its default if it has one; any other local is stored before it is read.
-            Add(symbol.Type.IsFixedArray && Conversions.IsDefaultable(symbol.Type) ? LetOf(local, new IrDefault(symbol.Type)) : new IrDeclare(local) { Origin = at });
+            Add(symbol.Type.IsFixedArray && symbol.Type.IsDefaultable ? LetOf(local, new IrDefault(symbol.Type)) : new IrDeclare(local) { Origin = at });
             return;
         }
 

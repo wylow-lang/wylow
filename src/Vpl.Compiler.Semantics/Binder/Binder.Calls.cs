@@ -480,17 +480,10 @@ public sealed partial class Binder
         if (!CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
 
-        if (constructor.Symbol.IsImplicit)
+        if (constructor.Symbol.IsImplicit && type.FindNonDefaultableField() is { } missing)
         {
-            var map = TypeMap.For(type);
-            var missing = s.Fields.FirstOrDefault(f =>
-                f.Declaration.Initializer is null
-                && !Conversions.IsDefaultable(map.Apply(f.Type)));
-            if (missing is not null)
-            {
-                return ErrorExpression(location,
-                    $"'{type}' has no default value because field '{missing.Name}' has type '{map.Apply(missing.Type)}'; pass it by name, as in '{type}({missing.Name}: ...)'");
-            }
+            return ErrorExpression(location,
+                $"'{type}' has no default value because field '{missing.Name}' has type '{TypeMap.For(type).Apply(missing.Type)}'; pass it by name, as in '{type}({missing.Name}: ...)'");
         }
 
         return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments));

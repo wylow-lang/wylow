@@ -22,7 +22,7 @@ correct.
 | Layer | Input → output | Owns | Never |
 |---|---|---|---|
 | **Syntax** | text → AST | tokens, grammar, syntax errors | meaning |
-| **Semantics** (binder) | AST → bound program | names, types, overloads, conversions; **facts about types** (`VplType`: counted, escaping, defaultable, has default code, may be Borrowable); errors about names, types, and local structure (e.g. "cannot assign to a field of a temporary") | anything about order or flow: assigned, narrowed, moved, changed, alive |
+| **Semantics** (binder) | AST → bound program | names, types, overloads, conversions; **facts about types** (`VplType` and, by topic, `TypeStorage`, `TypeDefaults`, `TypeEquality`: counted, escaping, defaultable, has default code, may be Borrowable); errors about names, types, and local structure (e.g. "cannot assign to a field of a temporary") | anything about order or flow: assigned, narrowed, moved, changed, alive |
 | **IR** (model) | none; it is data | the instruction set, what each instruction does (`IrEffects`, `IrAccess`), printing | analyses, decisions |
 | **Lowering** | bound program → IR | translation | asking questions: it **always** holds, **always** copies at an operand's turn, **always** keeps an argument's copy for its statement, and gives every statement's temporaries a block |
 | **Analysis** | IR → facts | one flow analysis (definite assignment, narrowing, moves, what each reference needs held, what lambdas change), plus the whole-program facts (callees, writes, escapes, cycles); **the user's flow errors**; **the verifier** | changing the IR |
@@ -37,7 +37,7 @@ There are two kinds of pass:
 - **Mandatory passes** decide what the spec says a program does where lowering can't on its own,
   such as which borrows a statement makes. They run under `--no-opt` too. The IR after them is the
   program's meaning, which the planned interpreter is to run as the oracle. A mandatory pass uses
-  only what the language defines (`IrEffects`, facts on `VplType`), never a whole-program analysis,
+  only what the language defines (`IrEffects`, type facts), never a whole-program analysis,
   or making an analysis more precise would change what programs do.
 - **Optimizations** change only what no program can observe, and `--no-opt` turns them off. If
   turning one off changes a program's output, it was really a language rule, and it belongs in a
@@ -63,12 +63,12 @@ resolving references through what it knows they refer to.
 | What a local is can't be left out | `IrLocalRole` (variable, temporary, parameter, `this`, capture) is a required constructor argument, and never changes. |
 | A local's kind follows from its value | `IrLet.Defines` decides a `let`'s local kind and reference kind from its rvalue. `IrLet`'s constructors either make the temporary by it or throw for a local that disagrees, and the verifier checks every `let` against it after each pass, which may change both. |
 | Every instruction is described | Already: visitors over every statement and rvalue kind. The flow analysis's transfer function is one too, so a new instruction can't compile without a rule. |
-| Each type fact has one definition | On `VplType`, used everywhere. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
+| Each type fact has one definition | In Semantics, used everywhere: what a type is on `VplType`, and facts derived from it as extension members by topic (`TypeStorage`, `TypeDefaults`, `TypeEquality`), which see only its public API. This is **enforced only by review**: C# can't forbid a private predicate that recomputes the same thing. Searching for an existing answer stays a CLAUDE.md rule. |
 | No leftovers | Every C# warning fails the build (`TreatWarningsAsErrors` in `Directory.Build.props`). |
 | Only the pipeline builds facts | The fact constructors and finders (`Callees`, `Writes.Find`, `Escapes.Find`, `LambdaWrites.Find`, `CyclicClasses.Find`, `Overrides`) are `internal` to Analysis, visible only to Optimize and the tests (`InternalsVisibleTo`), so CodeGen can't build facts of its own. |
 | A pass doesn't ask about what it has rewritten | **Enforced only by the verifier after the pass**, which re-analyzes with fresh facts and rejects a rewrite they don't justify. Within a pass, facts describe the IR as the pass got it. |
 | Language rules aren't optimizations | Mandatory passes are a type of their own (`MandatoryPass`), which only the Lowering project can make (`IrLowering.Passes`), so they can't reach a whole-program analysis; optimizations are `internal` to Optimize. The pipeline runs the mandatory passes always, verifies the program they leave (the user's errors), and runs the optimizations only without `--no-opt`. Each observable rule has a test that prints what it decides, run in every mode (`classes/borrowable_observed.vpl` for borrows). |
-| Storage is described one way | `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals (`IrAccess.Summarized`), so there is no second model to disagree with it. Strict aliasing (spec 01-safety.md §1.2) decides which accesses of different types may overlap (`VplType.MayContain`). |
+| Storage is described one way | `IrAccess`, with the type of the storage, describes every read and write, and the whole-program summaries are `IrAccess` without the locals (`IrAccess.Summarized`), so there is no second model to disagree with it. Strict aliasing (spec 01-safety.md §1.2) decides which accesses of different types may overlap (`TypeStorage.MayContain`). |
 | Docs match the code | **Enforced only by review** (a CLAUDE.md rule): a change fixes what it makes untrue in CLAUDE.md, `docs/design/`, and the spec in the same commit. |
 
 Anything only review can enforce is listed as such, so it's known to be weaker.

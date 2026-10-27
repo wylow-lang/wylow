@@ -1,5 +1,6 @@
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
+using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Compiler.Optimize;

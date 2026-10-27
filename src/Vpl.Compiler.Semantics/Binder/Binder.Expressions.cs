@@ -432,13 +432,13 @@ public sealed partial class Binder
             var valueType = left.Type;
             while (valueType.IsFixedArray)
                 valueType = valueType.ElementType!;
-            if (valueType.IsStructOrEnum && Conversions.FindNonEquatableField(valueType) is { } field)
+            if (valueType.IsStructOrEnum && valueType.FindNonEquatableField() is { } field)
             {
                 var owner = valueType == left.Type ? "its" : $"'{valueType}'s";
                 return ErrorExpression(location,
                     $"operator '{symbol}' cannot be applied to '{left.Type}' because {owner} field '{field.Name}' of type '{TypeMap.For(valueType).Apply(field.Type)}' does not support '=='");
             }
-            if (!Conversions.SupportsEquality(left.Type))
+            if (!left.Type.SupportsEquality)
                 return ErrorExpression(location, $"operator '{symbol}' cannot be applied to '{left.Type}', since '{valueType}' does not support '=='");
             return new BoundBinary(location, left, op, right, VplType.Bool);
         }
@@ -515,7 +515,7 @@ public sealed partial class Binder
         var type = candidates.FirstOrDefault(t => !t.IsReference && t.CanBeNullable && CanConvert(left, t.Nullable) && CanConvert(right, t.Nullable));
         if (type is null)
             return ErrorExpression(location, mismatch);
-        if (!Conversions.SupportsEquality(type))
+        if (!type.SupportsEquality)
             return ErrorExpression(location, $"{mismatch}, since '{type}' does not support '=='");
         return new BoundBinary(location, Convert(left, type.Nullable), op, Convert(right, type.Nullable), VplType.Bool);
     }

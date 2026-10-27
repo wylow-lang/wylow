@@ -230,7 +230,7 @@ public sealed class FieldSymbol(string name, VplType type, TypeSymbol owner, Fie
     public BoundExpression? Initializer { get; set; }
 
     /// <summary>Whether a constructor must assign it before using <c>this</c> and before returning.</summary>
-    public bool RequiresAssignment => Declaration.Initializer is null && !Conversions.IsDefaultable(Type);
+    public bool RequiresAssignment => !this.HasDefault(TypeMap.Empty);
 
     public override string ToString() => $"{Owner.Name}.{Name}";
 }

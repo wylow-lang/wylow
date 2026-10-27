@@ -85,7 +85,7 @@ public sealed partial class CppEmitter
                 Line($"static {name} {MemberwiseName(form)}({MemberwiseParameters(member, form)});");
         }
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
-        if (s.IsGeneric || Conversions.SupportsEquality(s.Type))
+        if (s.IsGeneric || s.Type.SupportsEquality)
             Line($"bool operator==(const {name}&) const = default;");
         indent--;
         Line("};");
@@ -116,7 +116,7 @@ public sealed partial class CppEmitter
         var name = TypeName(s);
         var tag = TagType(s);
         var withData = s.Variants.Where(v => v.Fields.Count > 0).ToList();
-        bool equatable = s.IsGeneric || Conversions.SupportsEquality(s.Type);
+        bool equatable = s.IsGeneric || s.Type.SupportsEquality;
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"struct {name}");

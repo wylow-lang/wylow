@@ -56,7 +56,7 @@ public sealed partial class Binder
         if (type.Symbol != stdlib.Array || constructor.Symbol.Parameters.Count != 1)
             return true;
         var element = type.TypeArguments[0];
-        if (Conversions.IsDefaultable(element))
+        if (element.IsDefaultable)
             return true;
         Error(location, $"'{element}' has no default value to fill a new array with; use 'new Array<{element}>(length, value)'");
         return false;

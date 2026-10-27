@@ -451,7 +451,7 @@ A hold that still borrows stays: which holds borrow is the language's rule, whic
 A loop element is the case where `P` is an element of the loop's held span: the writes that
 matter are those that overlap an element of `x`'s type (a write into a field of a struct element
 counts), and destructors, from the whole-program write summaries (`Writes`). Both rules apply to
-every type that borrowing saves something for (`VplType.BorrowSavesCopy`): counted types, and
+every type that borrowing saves something for (`TypeStorage.BorrowSavesCopy`): counted types, and
 structs, whose copies a borrow skips. Tests keep their `// in-place:` markers.
 
 Swift's semantic ARC optimizations do the same thing on SIL, turning a `load [copy]` into a
