@@ -7,7 +7,7 @@ using Vpl.Compiler.Text;
 
 // Hand-built IR the verifier must accept, mostly the listings of docs/design/ir.md, and IR it must
 // reject, each for one reason, so that each of its checks is known to fire.
-static class IrSelfTests
+static partial class IrSelfTests
 {
     const string Fixture = """
         class Obj {
@@ -33,6 +33,8 @@ static class IrSelfTests
         struct Counter { internal { int n = 1; } }
         struct Tally { internal { Counter c; } }
         struct Nest { internal { Vec? inner; } }
+        struct Cell { internal { int v; mut ref int at() { return ref v; } } }
+        enum Shape { Circle(int r), Dot }
 
         int f() { return 1; }
         void use(int value) { }
@@ -42,6 +44,9 @@ static class IrSelfTests
         void replace(Holder h, Obj o) { h.b = new Obj(); }
         void call(Holder h, () -> void g) { h.b = new Obj(); g(); }
         void setFirst(List<int> list) { list[0] = 2; }
+        void keep(@Escaping () -> void g) { }
+        @CallerLocation
+        void here() { }
 
         void main() { }
         """;
@@ -55,7 +60,7 @@ static class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations()];
+        return [.. Cases(b).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations()];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>

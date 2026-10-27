@@ -1,7 +1,8 @@
 # Testing: measure coverage, then generate tests
 
-**Status:** planned 2026-10-26. Step 1's measurement has landed (`tools/coverage.sh`, baseline
-below); triaging its uncovered sites is next. Delete this file once every step has landed, and
+**Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
+user error and verifier check reached), except the optional runtime coverage; step 2 is next. The
+unreached `InvalidOperationException` sites are left for the fuzzer (step 5) to aim at. Delete this file once every step has landed, and
 move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
 
 ## Why
@@ -109,6 +110,13 @@ reference can't be kept into a nullable value written out three times (`CheckRef
 `ConvertToNullableReference`, the `is ref` pattern) and the loop check twice, now one
 `CheckReferredPlace` and one loop check. What's left in the summary as "partial" is a `?:` inside
 a message's text. The verifier checks are next: each gets an `IrSelfTests` case.
+
+**Triage of the verifier checks (done).** Each unreached one got an `IrSelfTests` case
+(`tests/Vpl.Tests/IrSelfTests.Rejections.cs`) building IR that breaks that rule alone and must
+produce exactly its one error. All 65 are now reached. One check was removed instead: "only a
+memberwise constructor's call leaves fields out" was enforced by structure already, since only the
+memberwise constructor's parameters carry a `Field`, so the argument check rejects such a call. No
+check needed fixing: each fired as written.
 
 Line coverage locates a site well enough (no site lacked coverage data), so `Error` and
 `Violation` didn't need caller-location parameters. Runtime coverage (clang profiling of

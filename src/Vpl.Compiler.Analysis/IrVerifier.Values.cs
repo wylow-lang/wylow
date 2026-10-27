@@ -576,10 +576,9 @@ public sealed partial class IrVerifier
                 Slot(creation.Slot, value, state);
                 break;
             case IrConstruct construction:
+                // A field left out fits only a memberwise constructor's parameter for that field.
                 Arguments(construction.Constructor, construction.Arguments, state);
                 CheckLoc(construction.Loc);
-                if (construction.Arguments.Any(a => a is IrFieldDefault) && !construction.Constructor.Symbol.IsMemberwise)
-                    Error("only a memberwise constructor's call leaves fields out");
                 break;
             case IrVariant variant:
                 foreach (var field in variant.Fields)
