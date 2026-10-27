@@ -214,6 +214,35 @@ Each matrix generator lives with the runner, and adding a feature means adding i
 new CLAUDE.md rule when this lands). The fraction of cells that run, plus the cells that are errors
 the spec calls for, is the coverage number for that boundary.
 
+## Step 4b: triage the uncovered code
+
+After the matrices, measure coverage again and give **every line no test runs a decision**, as step 1
+did for the error sites: a test, deletion as dead code, or a short comment marking it defensive (a
+guard against a cascade after an earlier error) or unreachable. The goal is that nothing uncovered
+is unexplained, not a percentage. Measuring after step 4 avoids writing tests the matrices would
+have written; what is left after this is the fuzzer's target list.
+
+The uncovered code is of three kinds, which deserve different effort:
+
+1. **Behavior no test runs**, the kind to chase. Examples from the step 1 report: a lambda whose
+   `return` needs converting inside a `while`, `for`, or `switch` (`Binder.Lambdas.cs`,
+   `ConvertReturns`); `Dependency.Union` in `IrVerifier.Values.cs`, which never ran, so either dead
+   or a verifier path no test takes; loop states in the verifier that never differ between passes,
+   so no test has a loop whose narrowing or assignment changes on the second pass; `.length` of
+   something that isn't a place (`Lowering.Expressions.cs`); the error for `new` of an interface
+   (`Binder.Calls.cs`), a branch inside a message, which step 1's line count missed.
+2. **Guards after an error** (`if (AnyError(arguments)) return ...`), which keep one error from
+   causing more. Test the ones whose absence would show a confusing second error; leave the rest.
+3. **Branches that count only as branches**: the other side of `?? throw`, `?.`, and `is { }`. These
+   are most of the gap between line coverage (96.7%) and branch coverage (92.6%), and need nothing.
+
+So go through unrun lines everywhere, and partial branches only where they cluster in real logic
+(the verifier, lowering, lambda conversion), skipping kind 3.
+
+Merge coverage from all five modes first (`tools/coverage.sh` takes the runner's arguments, so run it
+per mode and merge the Cobertura files with ReportGenerator): the Driver's 69% is mostly the g++ path
+the MSVC run never takes.
+
 ## Step 5: a mutation fuzzer
 
 This is a new project, `tests/Vpl.Fuzz`, that turns the existing tests into many near-valid
@@ -274,6 +303,7 @@ New language features resume when:
 - the sanitizer mode passes on the whole suite;
 - the first two matrices have been reviewed against the spec, and every cell that disagreed is fixed
   or decided in the spec;
+- every line no test runs, measured across all five modes, has been triaged (step 4b);
 - the fuzzer has run for an agreed budget (for example 50,000 tier-1 and 2,000 tier-2 mutants) with
   no open findings.
 
