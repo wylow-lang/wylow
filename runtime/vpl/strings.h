@@ -151,6 +151,8 @@ public:
     ~StringBuffer() { ::operator delete(block_); }
 
     void append(const char* bytes, size_t count, const char* location) {
+        // An empty buffer has no block to point into.
+        if (count == 0) return;
         if (count > static_cast<size_t>(INT32_MAX) - length_) panic("string is too long", location);
         size_t needed = length_ + count;
         if (needed > capacity_) grow(needed);
