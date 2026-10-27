@@ -40,7 +40,7 @@ void main() {
     print(first(a));            // output: 2.0
 
     Span<float> s = a;
-    print(s.length);            // output: 4
+    print(s.length());          // output: 4
     s[0] = 5;
     print(a[0]);                // output: 5.0
     var middle = s.slice(1, 2);

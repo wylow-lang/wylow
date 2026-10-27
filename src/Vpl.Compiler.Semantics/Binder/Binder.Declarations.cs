@@ -285,7 +285,6 @@ public sealed partial class Binder
                 IsAbstract = isInterface || (modifiers & Modifiers.Abstract) != 0,
                 IsFinal = (modifiers & Modifiers.Final) != 0,
                 ReturnRefKind = decl.ReturnRefKind,
-                IsProperty = decl.IsProperty,
                 IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
                 PassesLocation = HasCallerLocation(decl),
                 BuiltinCppName = ExternName(decl, s),
@@ -300,8 +299,6 @@ public sealed partial class Binder
                 Error(decl.NameLocation, "extern methods must be static, except in an extern struct");
             else if (s.IsExtern && !method.IsBuiltin)
                 Error(decl.NameLocation, "the methods of an extern struct must be extern");
-            if (method.IsProperty && method.IsStatic)
-                Error(decl.NameLocation, "static properties are not supported yet");
             // C++ templates cannot be virtual.
             if (method.IsGeneric && isInterface)
                 Error(decl.NameLocation, "interface methods cannot have type parameters");

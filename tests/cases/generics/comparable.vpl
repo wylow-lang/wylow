@@ -25,7 +25,7 @@ T maxOf<T extends Comparable<T>>(T a, T b) {
 }
 
 void sort<T extends Comparable<T>>(Span<T> items) {
-    for (int i : 1..items.length) {
+    for (int i : 1..items.length()) {
         mut int j = i;
         while (j > 0 && items[j - 1].compareTo(items[j]) > 0) {
             T moved = items[j];

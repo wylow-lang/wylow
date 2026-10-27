@@ -43,7 +43,7 @@ void main() {
             lastSlash = at;
         }
     }
-    print(path.slice(lastSlash + 1, path.byteLength - lastSlash - 1)); // output: file.txt
+    print(path.slice(lastSlash + 1, path.byteLength() - lastSlash - 1)); // output: file.txt
 
     // The loop reads the string it started with, even if the variable is reassigned.
     mut String s = "abc";

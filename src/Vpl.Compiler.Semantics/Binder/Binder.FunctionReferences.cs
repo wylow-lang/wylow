@@ -26,9 +26,9 @@ public sealed partial class Binder
         _ => null,
     };
 
-    /// <summary>The methods found by a lookup, unless there are none or they are a property, which is used as a value.</summary>
+    /// <summary>The methods found by a lookup, unless there are none.</summary>
     static IReadOnlyList<FunctionSymbol>? Functions(List<Candidate> methods) =>
-        methods.Count == 0 || methods.Any(m => m.Symbol.IsProperty) ? null : [.. methods.Select(m => m.Symbol)];
+        methods.Count == 0 ? null : [.. methods.Select(m => m.Symbol)];
 
     /// <summary>For a function used as a value where no function type is expected, how it could be used as one.</summary>
     string ReferenceHint(Expr expression) =>

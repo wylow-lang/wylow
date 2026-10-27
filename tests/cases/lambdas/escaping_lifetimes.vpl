@@ -39,7 +39,7 @@ void main() {
         print(other);
     });
     handlers[0]();                                  // output: cleared
-    print(handlers.count);                          // output: 0
+    print(handlers.count());                        // output: 0
 
     // A non-escaping parameter given a field, which the callee replaces before calling it: a
     // template parameter, and a FunctionRef.

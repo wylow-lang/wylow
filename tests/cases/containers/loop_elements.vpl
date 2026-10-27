@@ -13,7 +13,9 @@ class Enemy {
         print(name);
     }
 
-    String label { get -> name; }
+    String label() {
+        return name;
+    }
 
     void aim(Enemy other) {
         target = other;
@@ -47,7 +49,7 @@ void main() {
     // Getters and setters of fields never store over an element.
     for (Enemy e : list) { // in-place: 1
         e.aim(e);
-        print(e.label);
+        print(e.label());
         e.target = null;
     }
     // output: a

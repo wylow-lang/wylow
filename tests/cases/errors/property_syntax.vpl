@@ -1,9 +1,8 @@
 class Player {
     int health;
 
-    bool isDead { get => health <= 0; }        // error: a getter is written 'get -> value', with '->'
-    int score { set -> 1; }                    // error: properties with 'set' are not supported yet
-    int lives { get -> 3; }
+    bool isDead { get -> health <= 0; }        // error: VPL has no properties; declare a field, or a method 'isDead()'
+    int score { get { return 1; } set { } }    // error: VPL has no properties; declare a field, or a method 'score()'
 }
 
 void main() {

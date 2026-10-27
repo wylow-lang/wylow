@@ -36,7 +36,7 @@ built-ins (value types, operator overloading, layout control).
 | [03-memory-model.md](03-memory-model.md) | Values, refcounted objects, pools and handles, references, spans |
 | [04-errors.md](04-errors.md) | `Result<T, E>`, `try`, handling errors |
 | [05-concurrency.md](05-concurrency.md) | Thread confinement, `Sendable`, `shared class`, jobs, threads, statics, isolates and panics |
-| [06-syntax.md](06-syntax.md) | Packages, construction, parameters, properties, operators, lambdas, `defer`, control flow |
+| [06-syntax.md](06-syntax.md) | Packages, construction, parameters, operators, lambdas, `defer`, control flow |
 | [07-interop.md](07-interop.md) | `extern`, `@Safe`, blittable types, C enums and flags, strings/buffers/callbacks, native shims |
 
 ## Behaviors that surprise people

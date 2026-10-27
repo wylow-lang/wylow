@@ -275,7 +275,7 @@ as in Rust. Most never change, so the marker goes on the exception.
 int lives = 3;                         // can't be assigned again
 mut int score = 0;
 score += 10;
-mut var target = enemies.first;
+mut var target = enemies.first();
 ```
 
 - **A variable that isn't `mut` always holds the same value, but an object it refers to can still
@@ -563,9 +563,9 @@ step, and the names say which unit they mean, so no `length` can be mistaken for
 
 ```java
 String word = "héllo";
-word.byteLength             // 6: 'é' takes two bytes, read in O(1)
+word.byteLength()           // 6: 'é' takes two bytes, read in O(1)
 word.charCount()            // 5: counted by reading the whole string
-word.isEmpty                // false
+word.isEmpty()              // false
 word.indexOf("l")           // 3, an int?: null when not found
 word.slice(1, 2)            // "é": 2 bytes from offset 1, copied into a new string
 word.startsWith("hé")       // also endsWith and contains
@@ -582,8 +582,8 @@ word.startsWith("hé")       // also endsWith and contains
   locale rules or Unicode normalization: `"é"` written as one code point and as `e` plus a
   combining accent are different strings.
 - `String` has no indexer, since neither a byte nor a code point is what `s[i]` would obviously
-  mean. `s.bytes` is a `ReadOnlySpan<byte>` of the UTF-8 bytes, without a copy: `s.bytes[0]`,
-  `for (byte b : s.bytes)`. Like any span (§2.11) it holds what it views, here the string, so the
+  mean. `s.bytes()` is a `ReadOnlySpan<byte>` of the UTF-8 bytes, without a copy: `s.bytes()[0]`,
+  `for (byte b : s.bytes())`. Like any span (§2.11) it holds what it views, here the string, so the
   bytes stay valid even if the variable it came from is reassigned. A method can't return a view
   of a string field, which could be replaced while the caller uses it, as for an object field.
 - A for-each loop over a string decodes its characters, and its index is each one's byte offset,
@@ -658,7 +658,7 @@ sum(spawned);   // List (borrowed for the duration of the call)
   without a default, such as a non-null class type. `new Array<T>(n, value)` fills it with copies
   of `value` instead.
 - `T?[]` is an array of nullable elements; `T[]?` is a nullable reference to an array.
-- `a.length` is a property. `new T[n]` panics if `n` is negative.
+- `a.length` is a field, which can't be assigned. `new T[n]` panics if `n` is negative.
 - Like any object, copying a `T[]` shares it.
 
 > Implemented so far: one dimension per `new`; `new T[2][3]` is not supported yet.
@@ -670,18 +670,19 @@ sum(spawned);   // List (borrowed for the duration of the call)
   the old capacity.
 - The capacity never shrinks by itself: `clear` and `removeAt` keep the storage for reuse, which
   suits lists refilled every frame. `reserve(n)` grows the capacity to at least `n`, and `trim()`
-  shrinks it to exactly `count`, freeing the storage entirely when the list is empty. Unlike C++'s
+  shrinks it to exactly `count()`, freeing the storage entirely when the list is empty. Unlike C++'s
   `shrink_to_fit`, `trim` always does so.
 - While a list is borrowed, changing its length or capacity panics
   ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)).
-- `first` and `last` are copies of the first and last elements, and `removeLast()` removes and
-  returns the last one, as a stack's pop; all three are null when the list is empty.
+- `count()` is the number of elements. `first()` and `last()` are copies of the first and last
+  elements, and `removeLast()` removes and returns the last one, as a stack's pop; all three are
+  null when the list is empty.
 
 ### Spans
 
 `Span<T>` and `ReadOnlySpan<T>` are standard library `ref struct`s
 ([03-memory-model.md](03-memory-model.md#spans)): a pointer and a length, with a bounds-checked
-indexer, `length`, and `slice(start, length)`. A `ReadOnlySpan`'s indexer returns `in T`, so its
+indexer, `length()`, and `slice(start, length)`. A `ReadOnlySpan`'s indexer returns `in T`, so its
 elements can be read but not changed.
 
 Conversions to spans are implicit, from:

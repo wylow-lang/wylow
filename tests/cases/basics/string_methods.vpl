@@ -9,12 +9,12 @@ String echo(String s) {
 
 void main() {
     String word = "héllo";
-    print(word.byteLength);             // output: 6
+    print(word.byteLength());           // output: 6
     print(word.charCount());            // output: 5
-    print("".byteLength);               // output: 0
-    print("".isEmpty);                  // output: true
-    print(word.isEmpty);                // output: false
-    print("😀".byteLength);              // output: 4
+    print("".byteLength());             // output: 0
+    print("".isEmpty());                // output: true
+    print(word.isEmpty());              // output: false
+    print("😀".byteLength());            // output: 4
     print("😀".charCount());             // output: 1
 
     print(word.startsWith("hé"));       // output: true
@@ -39,11 +39,11 @@ void main() {
     print(word.slice(0, 1));            // output: h
     print(word.slice(3, 3));            // output: llo
     print(word.slice(0, 6) == word);    // output: true
-    print(word.slice(6, 0).isEmpty);    // output: true
+    print(word.slice(6, 0).isEmpty());  // output: true
     int n = 42;
     String built = $"n = {n}!";
     print(built.slice(4, 2));           // output: 42
-    print(built.slice(4, 2).byteLength); // output: 2
+    print(built.slice(4, 2).byteLength()); // output: 2
 
     print("a".compareTo("b"));          // output: -1
     print("b".compareTo("a"));          // output: 1
@@ -56,16 +56,16 @@ void main() {
 
     // Members of a field, of a nullable once checked, and of a call's result.
     var holder = new Holder();
-    print(holder.text.byteLength);      // output: 4
+    print(holder.text.byteLength());    // output: 4
     String? maybe = holder.text;
     if (maybe != null) {
         print(maybe.startsWith("he"));  // output: true
     }
-    print(echo("abc").byteLength);
+    print(echo("abc").byteLength());
     // output: abc
     // output: 3
     // Each operand is evaluated in order, though the members themselves have no effects.
-    print(echo("ab").byteLength + echo("cde").byteLength);
+    print(echo("ab").byteLength() + echo("cde").byteLength());
     // output: ab
     // output: cde
     // output: 5

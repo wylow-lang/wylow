@@ -50,10 +50,12 @@ class Holder {
         return ref size;
     }
 
-    int count { get -> size; }
+    int count() {
+        return size;
+    }
 
     static void report() {
-        print(count);                   // error: 'count' is an instance property; static methods cannot use
+        print(count());                 // error: 'count' is an instance method; static methods cannot use 'this', fields, or instance methods
     }
 }
 
@@ -68,7 +70,6 @@ void main() {
     ref float t = makeMat()[0, 0];      // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value
     print(m[0]);                        // error: no indexer of 'Mat2' takes 1 argument
     var h = new Holder();
-    h.count = 3;                        // error: cannot assign to property 'count', which has no 'set'
-    print(h.count());                   // error: 'Holder.count' is a property; use it without '(...)'
+    h.count() = 3;                      // error: cannot assign to this expression
     print(h[0]);                        // error: 'Holder' cannot be indexed
 }

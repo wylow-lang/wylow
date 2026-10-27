@@ -62,7 +62,7 @@ void main() {
     // The variable can't be reassigned, but the object it refers to can change.
     List<int> list = new List<int>();
     list.add(4);
-    print(list.count);                      // output: 1
+    print(list.count());                    // output: 1
 
     print(countDown(3));                    // output: 3
     print(describe(-2));                    // output: negative

@@ -130,12 +130,6 @@ public sealed partial class Binder
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
-        if (currentType is not null && HasProperty(currentType.Type, e.Name))
-        {
-            if (!hasThis)
-                return ErrorExpression(e.Location, $"'{e.Name}' is an instance property; {NoInstanceReason}");
-            return BindMethodCall(e.Location, new BoundThis(e.Location, currentType.Type), e.Name, e.Location, null, [], asProperty: true);
-        }
         if (types.ContainsKey(e.Name) || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
         if (functions.ContainsKey(e.Name) || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
@@ -226,8 +220,6 @@ public sealed partial class Binder
         if (target.Type == VplType.Error)
             return new BoundErrorExpression(location);
 
-        if (HasProperty(target.Type, name))
-            return BindMethodCall(location, target, name, nameLocation, null, [], asProperty: true);
         if (target.Type.IsFixedArray)
         {
             return name == "length"
@@ -251,9 +243,6 @@ public sealed partial class Binder
         CheckAccessible(nameLocation, field.Owner, field.IsPrivate, $"field '{field.Owner.Name}.{name}'");
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
     }
-
-    bool HasProperty(VplType type, string name) =>
-        HasMembers(type) && LookupMethods(type, name).Any(c => c.Symbol.IsProperty);
 
     static bool HasMembers(VplType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || type == VplType.String;
 

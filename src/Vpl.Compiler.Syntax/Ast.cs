@@ -91,9 +91,6 @@ public sealed record FunctionDecl(
 
     /// <summary>For <c>ref T name(...)</c> or <c>in T name(...)</c>, which return a reference.</summary>
     public RefKind ReturnRefKind { get; init; }
-
-    /// <summary>A get-only property, <c>T name { get => value; }</c>, declared as a method without parameters.</summary>
-    public bool IsProperty { get; init; }
 }
 
 public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);

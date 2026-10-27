@@ -29,11 +29,13 @@ struct Scored<T> implements Ordered<Scored<T>> {
 final class Heap<T extends Ordered<T>> {
     private List<T> items = new List<T>();
 
-    int count { get -> items.count; }
+    int count() {
+        return items.count();
+    }
 
     void push(T value) {
         items.add(value);
-        mut int i = items.count - 1;
+        mut int i = items.count() - 1;
         while (i > 0) {
             int parent = (i - 1) / 2;
             if (!items[i].lessThan(items[parent])) {
@@ -46,18 +48,18 @@ final class Heap<T extends Ordered<T>> {
 
     T pop() {
         T top = items[0];
-        T last = items.removeAt(items.count - 1);
-        if (items.count > 0) {
+        T last = items.removeAt(items.count() - 1);
+        if (items.count() > 0) {
             items[0] = last;
             mut int i = 0;
             while (true) {
                 int left = i * 2 + 1;
                 int right = left + 1;
                 mut int smallest = i;
-                if (left < items.count && items[left].lessThan(items[smallest])) {
+                if (left < items.count() && items[left].lessThan(items[smallest])) {
                     smallest = left;
                 }
-                if (right < items.count && items[right].lessThan(items[smallest])) {
+                if (right < items.count() && items[right].lessThan(items[smallest])) {
                     smallest = right;
                 }
                 if (smallest == i) {
@@ -107,7 +109,7 @@ int bfs(in Grid grid, Point start, Point goal) {
     queue.add(start);
     dist[start.y][start.x] = 0;
     mut int head = 0;
-    while (head < queue.count) {
+    while (head < queue.count()) {
         Point p = queue[head];
         head++;
         if (p == goal) {
@@ -129,7 +131,7 @@ int greedy(in Grid grid, Point start, Point goal) {
     var heap = new Heap<Scored<Point>>();
     heap.push(Scored<Point>(value: start, score: distance(start, goal)));
     mut int expanded = 0;
-    while (heap.count > 0) {
+    while (heap.count() > 0) {
         var current = heap.pop();
         Point p = current.value;
         if (seen[p.y][p.x]) {
@@ -169,7 +171,7 @@ void main() {
     heap.push(Point(1, 0));
     heap.push(Point(3, 3));
     heap.push(Point(0, 0));
-    while (heap.count > 0) {
+    while (heap.count() > 0) {
         var p = heap.pop();
         print(p.x + p.y);
     }

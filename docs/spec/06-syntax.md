@@ -228,7 +228,7 @@ position.scale(2);
 - The receiver takes a parameter mode: `this T` (a copy, or a reference for a class), `this in T`,
   or `this ref T`, which needs a mutable place, as calling a mutating struct method does, but no
   `ref` at the call. `this ref` and `this in` can't be used with class types, as for parameters.
-- **Members win.** If the receiver's type has a method, field, or property of that name, its
+- **Members win.** If the receiver's type has a method or field of that name, its
   extensions are not considered, so an extension can never change what existing code calls. Among
   extensions, overload resolution chooses as for functions.
 - The receiver converts to the `this` parameter's type by identity, upcasts, and the implicit span
@@ -244,31 +244,24 @@ position.scale(2);
 
 > Not implemented yet.
 
-## 6.5 Properties
+## 6.5 No properties
 
-C#-style properties:
+VPL has no properties (C#'s `get` and `set`), as Java has none. A value is either a field, read
+and assigned directly, or a method, called with parentheses:
 
 ```java
 class Player {
-    int health { get; private set; } = 100;     // auto-property with initializer
-    bool isDead { get -> health <= 0; }         // computed, read-only
-
-    float speed {
-        get -> _speed;
-        set { _speed = clamp(value, 0, MAX_SPEED); }   // `value` is the assigned value
-    }
-    private float _speed;
+    mut int health = 100;
+    bool isDead() { return health <= 0; }
 }
+
+if (player.isDead()) { ... }
 ```
 
-- Accessors may have their own access modifier (`private set`).
-- On structs, a `get` accessor can't change `this` unless the property is declared `mut`, as for
-  methods.
-- Simple accessors are inlined by the C++ compiler and cost nothing.
-
-> Implemented so far: get-only properties, `T name { get -> value; }` or `T name { get { ... } }`,
-> and in interfaces and abstract classes `T name { get; }`. A property is read without parentheses
-> and cannot be assigned. Auto-properties, `set`, and static properties are not implemented.
+A class field that isn't `mut` can be read anywhere but assigned only by its class's constructors,
+which covers what a read-only property would: `array.length`. A struct's fields are as mutable as
+the variable holding it (§2.7), so a struct whose fields must keep an invariant makes them private
+and offers methods: `span.length()`. Turning a field into a method later means updating its uses.
 
 ## 6.6 Operator overloading
 
@@ -864,7 +857,7 @@ Every panic inside a function marked `@CallerLocation`, including those of the c
 and of other `@CallerLocation` functions it calls, reports the location of the call to it. The
 standard library uses it so that a failed `list[i]` points at the user's line rather than into
 `List`. A lambda written in such a function reports its own locations, since it may run after the
-call has returned. It applies to functions, methods, constructors, indexers, and properties, but
+call has returned. It applies to functions, methods, constructors, and indexers, but
 not yet to virtual, abstract, or interface methods.
 
 ## 6.11 Naming conventions
@@ -875,7 +868,7 @@ Enforced with compiler **warnings** (not errors):
 |---|---|---|
 | Types (classes, structs, enums, interfaces) | `PascalCase` | `EnemySystem` |
 | Enum variants | `PascalCase` | `AiState.Chasing` |
-| Methods, fields, properties, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
+| Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
 | Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
 | Packages | `lowercase` | `game.combat` |
 
@@ -897,7 +890,7 @@ public struct Enemy {
     int health = 100;
     AiState state = AiState.Idle;
 
-    bool isDead { get -> health <= 0; }
+    bool isDead() { return health <= 0; }
 }
 
 public class EnemySystem {
@@ -923,11 +916,11 @@ public class EnemySystem {
             }
             e.position += e.velocity * dt;
 
-            if (e.isDead) {
+            if (e.isDead()) {
                 enemies.remove(h);
             }
         }
-        log($"{enemies.count} enemies alive");
+        log($"{enemies.count()} enemies alive");
     }
 }
 ```

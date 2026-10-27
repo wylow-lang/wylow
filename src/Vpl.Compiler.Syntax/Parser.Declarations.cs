@@ -210,8 +210,10 @@ public sealed partial class Parser
         }
         if (At(TokenKind.OpenBrace))
         {
-            CheckMethodModifiers(kind, modifiers);
-            AddMethod(kind, modifiers, members, ParseProperty(start, modifiers.Flags, type, name) with { ReturnRefKind = returnRefKind });
+            Error(name.Span, $"VPL has no properties; declare a field, or a method '{name.Text}()'");
+            Advance();
+            for (int depth = 1; depth > 0 && !At(TokenKind.EndOfFile); Advance())
+                depth += At(TokenKind.OpenBrace) ? 1 : At(TokenKind.CloseBrace) ? -1 : 0;
             return;
         }
         if (returnRefKind != RefKind.None)
@@ -243,7 +245,7 @@ public sealed partial class Parser
 
     void AddMethod(TypeKind kind, ModifierList modifiers, Members members, FunctionDecl method)
     {
-        var what = method.IsProperty ? "property getters" : method.Name == SyntaxFacts.IndexerName ? "indexers" : "methods";
+        var what = method.Name == SyntaxFacts.IndexerName ? "indexers" : "methods";
         if (kind == TypeKind.Interface)
         {
             if (method.Body is not null)
@@ -259,48 +261,6 @@ public sealed partial class Parser
             RequireBody(method);
         }
         members.Methods.Add(method);
-    }
-
-    /// <summary><c>T name { get => value; }</c>, <c>T name { get { ... } }</c>, or without a body, <c>T name { get; }</c>.</summary>
-    FunctionDecl ParseProperty(int start, Modifiers modifiers, TypeSyntax type, Token name)
-    {
-        Advance();
-        BlockStmt? body = null;
-        if (!(At(TokenKind.Identifier) && Current.Text == "get"))
-        {
-            Error(Current.Span, At(TokenKind.Identifier) && Current.Text == "set"
-                ? "properties with 'set' are not supported yet"
-                : "expected 'get'");
-            for (int depth = 1; depth > 0 && !At(TokenKind.EndOfFile); Advance())
-                depth += At(TokenKind.OpenBrace) ? 1 : At(TokenKind.CloseBrace) ? -1 : 0;
-            // An empty body keeps the property from also being reported as missing one.
-            body = new BlockStmt(LocationFrom(start), []);
-        }
-        else
-        {
-            Advance();
-            bool csharpArrow = At(TokenKind.Assign) && Peek(1).Kind == TokenKind.Greater;
-            if (csharpArrow)
-                Error(TextSpan.FromBounds(Current.Span.Start, Peek(1).Span.End), "a getter is written 'get -> value', with '->'");
-            if (At(TokenKind.Arrow) || csharpArrow)
-            {
-                int valueStart = position;
-                Advance();
-                if (csharpArrow)
-                    Advance();
-                var value = ParseExpression();
-                body = new BlockStmt(LocationFrom(valueStart), [new ReturnStmt(LocationFrom(valueStart), value)]);
-                Expect(TokenKind.Semicolon, "';'");
-            }
-            else if (!Accept(TokenKind.Semicolon))
-            {
-                body = ParseBlock();
-            }
-            if (At(TokenKind.Identifier) && Current.Text == "set")
-                Error(Current.Span, "properties with 'set' are not supported yet");
-            Expect(TokenKind.CloseBrace, "'}'");
-        }
-        return new FunctionDecl(LocationFrom(start), modifiers, type, name.Text, Loc(name.Span), [], [], body) { IsProperty = true };
     }
 
     void CheckMethodModifiers(TypeKind kind, ModifierList modifiers)

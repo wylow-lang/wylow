@@ -35,9 +35,9 @@ void enemies() {
     var removed = list.removeAt(1);
     print(removed.name);
     list.trim();
-    print(list.capacity);
+    print(list.capacity());
     list.clear();
-    print(list.count);
+    print(list.count());
 }
 
 void main() {
@@ -45,30 +45,30 @@ void main() {
     for (int i : 0..10) {
         numbers.add(i);
     }
-    print(numbers.count);       // output: 10
-    print(numbers.capacity >= 10); // output: true
+    print(numbers.count());     // output: 10
+    print(numbers.capacity() >= 10); // output: true
     print(numbers[9]);          // output: 9
     numbers[0] = 100;
     numbers.insert(1, 50);
     print(numbers[1]);          // output: 50
     print(numbers.removeAt(0)); // output: 100
-    print(numbers.tryRemoveAt(numbers.count));  // output: null
+    print(numbers.tryRemoveAt(numbers.count()));  // output: null
     numbers.add(7);
-    print(numbers.tryRemoveAt(numbers.count - 1));  // output: 7
+    print(numbers.tryRemoveAt(numbers.count() - 1));  // output: 7
     var stack = new List<String>();
     print(stack.removeLast());              // output: null
-    print(stack.first);                     // output: null
+    print(stack.first());                   // output: null
     stack.add("a");
     stack.add("b");
-    print(stack.first);                     // output: a
-    print(stack.last);                      // output: b
+    print(stack.first());                   // output: a
+    print(stack.last());                    // output: b
     print(stack.removeLast());              // output: b
     print(stack.removeLast());              // output: a
-    print(stack.count);                     // output: 0
+    print(stack.count());                   // output: 0
     var nodes = new List<List<int>>();
-    print(nodes.last == null);              // output: true
+    print(nodes.last() == null);            // output: true
     nodes.add(numbers);
-    print(nodes.last?.count == numbers.count);  // output: true
+    print(nodes.last()?.count() == numbers.count());  // output: true
     print(total(numbers));      // output: 95
     for (ref int n : numbers) {
         n *= 2;
@@ -80,19 +80,19 @@ void main() {
         }
     }
     numbers.clear();
-    print(numbers.count);       // output: 0
+    print(numbers.count());     // output: 0
     numbers.reserve(100);
-    print(numbers.capacity);    // output: 100
+    print(numbers.capacity());  // output: 100
     numbers.trim();
-    print(numbers.capacity);    // output: 0
+    print(numbers.capacity());  // output: 0
     numbers.add(1);
     numbers.add(2);
     numbers.add(3);
     numbers.add(4);
     numbers.add(5);
-    print(numbers.capacity);    // output: 8
+    print(numbers.capacity());  // output: 8
     numbers.trim();
-    print(numbers.capacity);    // output: 5
+    print(numbers.capacity());  // output: 5
     print(numbers[4]);          // output: 5
     numbers.add(6);
     print(numbers[5]);          // output: 6
@@ -139,7 +139,7 @@ void main() {
     } else {
         scores.add(20);         // the failed test doesn't borrow the list
     }
-    print(scores.count);        // output: 2
+    print(scores.count());      // output: 2
     ref? Bullet hit = bullets.get(0);
     if (hit != null) {
         hit.x = 9;

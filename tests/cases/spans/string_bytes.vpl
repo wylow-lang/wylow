@@ -16,38 +16,38 @@ int sum(ReadOnlySpan<byte> bytes) {
 
 void main() {
     String word = "hé";
-    print(word.bytes.length);           // output: 3
-    print(word.bytes[0]);               // output: 104
-    for (byte b : word.bytes) {
+    print(word.bytes().length());       // output: 3
+    print(word.bytes()[0]);             // output: 104
+    for (byte b : word.bytes()) {
         print(b);
         // output: 104
         // output: 195
         // output: 169
     }
-    print(sum(word.bytes));             // output: 468
-    print(word.bytes.slice(1, 2)[1]);   // output: 169
-    print("".bytes.length);             // output: 0
+    print(sum(word.bytes()));           // output: 468
+    print(word.bytes().slice(1, 2)[1]);   // output: 169
+    print("".bytes().length());         // output: 0
 
     // A view holds the string it was taken from, even once nothing else does.
     int n = 7;
     mut String s = $"built {n}";
-    ReadOnlySpan<byte> view = s.bytes;
+    ReadOnlySpan<byte> view = s.bytes();
     s = "other";
-    print(view.length);                 // output: 7
+    print(view.length());               // output: 7
     print(view[6]);                     // output: 55
 
-    ReadOnlySpan<byte> temporary = make(3).bytes;
+    ReadOnlySpan<byte> temporary = make(3).bytes();
     print(temporary[5]);                // output: 51
 
     var holder = new Holder();
     holder.text = make(4);
-    ReadOnlySpan<byte> field = holder.text.bytes;
+    ReadOnlySpan<byte> field = holder.text.bytes();
     holder.text = "x";
     print(field[5]);                    // output: 52
 
     mut String? maybe = make(5);
     if (maybe != null) {
-        ReadOnlySpan<byte> inside = maybe.bytes;
+        ReadOnlySpan<byte> inside = maybe.bytes();
         maybe = null;
         print(inside[5]);               // output: 53
     }

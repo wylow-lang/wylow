@@ -190,12 +190,12 @@ warning does not apply inside `extern` blocks or to enums with `@Repr`.
 
 ### Buffers
 
-`Span<T>.data` (unsafe) returns a `T*` to the span's first element; `byteLength` gives the size in bytes.
+`Span<T>.data` (unsafe) returns a `T*` to the span's first element; `byteLength()` gives the size in bytes.
 
 ```java
 unsafe {
     Span<Vertex> verts = mesh.vertices;
-    vkCmdUpdateBuffer(cmd, buffer, 0, verts.byteLength, verts.data);
+    vkCmdUpdateBuffer(cmd, buffer, 0, verts.byteLength(), verts.data);
 }
 ```
 

@@ -93,7 +93,7 @@ void main() {
     }
     list.add(3);
     print(list[1]);                 // output: 102
-    print(list.count);              // output: 3
+    print(list.count());            // output: 3
     if (p.at(0) is ref int a && p.at(1) is ref int b) {
         print(a + b);               // output: 70
     }

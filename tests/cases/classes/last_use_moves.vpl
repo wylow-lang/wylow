@@ -75,5 +75,5 @@ void weak() {
     var other = new Other(2);
     var list = new List<Other>();
     list.add(other);
-    print(list.count);
+    print(list.count());
 }

@@ -77,7 +77,9 @@ abstract class Entity implements Describable {
         this.health = health;
     }
 
-    bool alive { get -> health > 0; }
+    bool alive() {
+        return health > 0;
+    }
 
     abstract int attackPower();
 
@@ -172,7 +174,7 @@ final class World {
 
     Entity? at(Vec2 p) {
         for (Entity e : entities) {
-            if (e.alive && e.position == p) {
+            if (e.alive() && e.position == p) {
                 return e;
             }
         }
@@ -203,7 +205,7 @@ final class World {
             }
             other.health -= actor.attackPower();
             record(Event.Attacked(actor.name, other.describe(), actor.attackPower()));
-            if (!other.alive) {
+            if (!other.alive()) {
                 record(Event.Died(other.name));
                 var item = other.loot();
                 if (actor is Hero hero) {
@@ -219,7 +221,7 @@ final class World {
     int living() {
         mut int n = 0;
         for (Entity e : entities) {
-            if (e.alive) {
+            if (e.alive()) {
                 n++;
             }
         }
@@ -228,8 +230,8 @@ final class World {
 
     void removeDead() {
         mut int i = 0;
-        while (i < entities.count) {
-            if (!entities[i].alive) {
+        while (i < entities.count()) {
+            if (!entities[i].alive()) {
                 entities.removeAt(i);
             } else {
                 i++;
@@ -262,21 +264,21 @@ void main() {
     world.entities.add(new Troll(Vec2(2, 2)));
 
     for (int turn : 0..60) {
-        if (!hero.alive || world.living() == 1) {
+        if (!hero.alive() || world.living() == 1) {
             break;
         }
-        for (int i : 0..world.entities.count) {
+        for (int i : 0..world.entities.count()) {
             var e = world.entities[i];
-            if (e.alive) {
+            if (e.alive()) {
                 world.step(e);
             }
         }
         world.removeDead();
     }
 
-    print(hero.alive);                    // output: true
+    print(hero.alive());                    // output: true
     print(hero.gold);                     // output: 5
-    print(world.entities.count);          // output: 2
+    print(world.entities.count());          // output: 2
     print(world.log.written);             // output: 16
     print(world.damageDealt);             // output: 50
     print(world.deaths);                  // output: 2
@@ -286,7 +288,7 @@ void main() {
     int[5] scores = [3, 1, 4, 1, 5];
     print(sum(scores));                   // output: 14
 
-    var healths = new int[world.entities.count];
+    var healths = new int[world.entities.count()];
     for (int i, Entity e : world.entities) {
         healths[i] = e.health;
     }

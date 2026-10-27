@@ -49,7 +49,7 @@ class Tree {
     }
 
     ~Tree() {
-        print(id * 100 + children.count);
+        print(id * 100 + children.count());
     }
 }
 

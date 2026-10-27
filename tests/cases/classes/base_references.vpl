@@ -4,7 +4,7 @@ struct Pair { int x; int y; }
 class Base {
     int v;
     Base(in int x, ref int r, ref? int n, Span<int> s) {
-        v = x + s.length;
+        v = x + s.length();
         r = 7;
         if (n is ref int k) {
             k = 9;

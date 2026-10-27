@@ -118,8 +118,6 @@ public sealed partial class Binder
             var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, typeArguments, arguments);
             if (method is null)
                 return new BoundErrorExpression(e.Location);
-            if (method.Symbol.IsProperty)
-                return ErrorExpression(name.Location, $"'{name.Name}' is a property; use it without '(...)'");
             CheckAccessible(name.Location, method.Symbol.ContainingType!, method.Symbol.IsPrivate, $"method '{method.Symbol.ContainingType!.Name}.{name.Name}'");
             if (method.Symbol.IsStatic)
                 return MakeCall(e.Location, method, null, arguments);
@@ -226,8 +224,7 @@ public sealed partial class Binder
         string name,
         Location nameLocation,
         IReadOnlyList<VplType>? typeArguments,
-        List<Argument> arguments,
-        bool asProperty = false)
+        List<Argument> arguments)
     {
         var receiverType = receiver.Type;
         if (name == "toString" && Builtins.FormattedTypes.Contains(receiverType))
@@ -252,8 +249,6 @@ public sealed partial class Binder
             return ErrorExpression(nameLocation,
                 $"static method '{name}' must be called through the type: '{declaring.Name}.{name}(...)'");
         }
-        if (method.Symbol.IsProperty && !asProperty)
-            return ErrorExpression(nameLocation, $"'{DisplayName(receiverType)}.{name}' is a property; use it without '(...)'");
         CheckAccessible(nameLocation, declaring, method.Symbol.IsPrivate, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
     }
@@ -360,7 +355,7 @@ public sealed partial class Binder
         if (access.Type == VplType.Error)
             return access;
         // The member of a nullable value is reached through a copy, which a method would change in vain.
-        if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: BoundLocalAccess { Local: var local }, Method.Symbol: { IsReadOnly: false, IsProperty: false } method } && local == value)
+        if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: BoundLocalAccess { Local: var local }, Method.Symbol: { IsReadOnly: false } method } && local == value)
         {
             return ErrorExpression(location,
                 $"'?.' would call '{method.Name}' on a copy of '{TextOf(receiver.Location)}', so its changes would be lost; check it for null and call '{method.Name}' on a variable");

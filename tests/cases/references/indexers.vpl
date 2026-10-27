@@ -9,7 +9,9 @@ struct Mat2 {
         return ref m[i];
     }
 
-    float trace { get -> m[0] + m[3]; }
+    float trace() {
+        return m[0] + m[3];
+    }
 }
 
 struct Holder {
@@ -24,12 +26,12 @@ class Bag {
     mut int[3] items;
     mut int used;
 
-    int count { get -> used; }
+    int count() {
+        return used;
+    }
 
-    bool isEmpty {
-        get {
-            return used == 0;
-        }
+    bool isEmpty() {
+        return used == 0;
     }
 
     ref int operator [](int i) {
@@ -38,7 +40,7 @@ class Bag {
 
     int total() {
         mut int sum = 0;
-        for (int i : 0..count) {
+        for (int i : 0..count()) {
             sum += this[i];
         }
         return sum;
@@ -55,19 +57,19 @@ void main() {
     m[0, 0] = 1;
     m[1, 1] = 4;
     m[0, 1] += 2;
-    print(m.trace);             // output: 5.0
+    print(m.trace());             // output: 5.0
     print(m.at(1));             // output: 2.0
     ref float corner = m[1, 0];
     corner = 7;
     print(m.m[2]);              // output: 7.0
 
     var bag = new Bag();
-    print(bag.isEmpty);         // output: true
+    print(bag.isEmpty());         // output: true
     bag[0] = 10;
     bag[1] = 20;
     bag.used = 2;
-    print(bag.count);           // output: 2
-    print(bag.isEmpty);         // output: false
+    print(bag.count());           // output: 2
+    print(bag.isEmpty());         // output: false
     ref int slot = bag[1];
     slot += 5;
     print(bag.items[1]);        // output: 25

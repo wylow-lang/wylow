@@ -6,14 +6,14 @@
 extern struct String {
     // The length in bytes, not in characters.
     @Pure
-    extern int byteLength { get; }
+    extern int byteLength();
 
     @Pure
-    extern bool isEmpty { get; }
+    extern bool isEmpty();
 
     // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
     @Pure
-    extern ReadOnlySpan<byte> bytes { get; }
+    extern ReadOnlySpan<byte> bytes();
 
     // The number of characters (code points). It reads the whole string.
     @Pure

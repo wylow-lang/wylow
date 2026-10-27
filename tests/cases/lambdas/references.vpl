@@ -138,7 +138,7 @@ void main() {
     }
 
     // Choices, and a builtin with a result discarded.
-    bool up = handlers.count == 2;
+    bool up = handlers.count() == 2;
     print(apply(up ? inc : twice, 3));              // output: 4
     (int) -> void show = print;
     show(42);                                       // output: 42

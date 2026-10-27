@@ -8,12 +8,23 @@ final class List<T> implements Borrowable, Spannable<T> {
     private mut int space;
     private mut int borrows;
 
-    int count { get -> size; }
-    int capacity { get -> space; }
+    int count() {
+        return size;
+    }
 
-    // Copies of the first and last elements, or null when the list is empty.
-    T? first { get -> size == 0 ? null : this[0]; }
-    T? last { get -> size == 0 ? null : this[size - 1]; }
+    int capacity() {
+        return space;
+    }
+
+    // A copy of the first element, or null when the list is empty.
+    T? first() {
+        return size == 0 ? null : this[0];
+    }
+
+    // A copy of the last element, or null when the list is empty.
+    T? last() {
+        return size == 0 ? null : this[size - 1];
+    }
 
     @CallerLocation
     ref T operator [](int index) {

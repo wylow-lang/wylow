@@ -103,7 +103,7 @@ void main() {
 
     // A captured reference is a copy of the reference, so the closure sees later changes to its object.
     var log = new List<int>();
-    @Escaping () -> int size = () -> log.count;
+    @Escaping () -> int size = () -> log.count();
     log.add(1);
     log.add(2);
     print(size());                                  // output: 2

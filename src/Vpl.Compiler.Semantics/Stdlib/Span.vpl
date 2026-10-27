@@ -12,7 +12,9 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
         count = length;
     }
 
-    int length { get -> count; }
+    int length() {
+        return count;
+    }
 
     @CallerLocation
     ref T operator [](int index) {
@@ -58,7 +60,9 @@ ref struct ReadOnlySpan<T> {
         count = length;
     }
 
-    int length { get -> count; }
+    int length() {
+        return count;
+    }
 
     @CallerLocation
     in T operator [](int index) {

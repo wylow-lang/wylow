@@ -631,7 +631,6 @@ public sealed partial class Binder
                 {
                     BoundFieldAccess => "cannot assign to a field of a temporary value",
                     BoundIndex => "cannot assign to an element of a temporary array",
-                    BoundCall { Method.Symbol.IsProperty: true } call => $"cannot assign to property '{call.Method.Symbol.Name}', which has no 'set'",
                     _ => "cannot assign to this expression",
                 });
                 return false;

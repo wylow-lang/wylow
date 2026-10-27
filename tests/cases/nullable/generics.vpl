@@ -20,7 +20,7 @@ class Node {
 
 // `T?` is a nullable value or a nullable reference, whichever `T` stands for.
 T? first<T>(List<T> items) {
-    if (items.count == 0) {
+    if (items.count() == 0) {
         return null;
     }
     return items[0];

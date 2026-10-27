@@ -84,9 +84,6 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>A method returning <c>ref</c> or <c>in</c> returns a reference into its receiver.</summary>
     public RefKind ReturnRefKind { get; init; }
 
-    /// <summary>A get-only property, which is used without parentheses.</summary>
-    public bool IsProperty { get; init; }
-
     public bool IsIndexer => Name == SyntaxFacts.IndexerName;
     public TypeSymbol? ContainingType { get; init; }
     public bool IsStatic { get; init; }
@@ -152,8 +149,6 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     {
         get
         {
-            if (IsProperty)
-                return Name;
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
             var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + ParameterText(p.RefKind, p.Type)));
             return $"{Name}{typeParameters}({parameters})";

@@ -13,7 +13,6 @@ void main() {
     String s = "abc";
     s.missing();                    // error: 'String' has no method 'missing'
     print(s.size);                  // error: 'String' has no member 'size'
-    print(s.byteLength());          // error: 'String.byteLength' is a property; use it without '(...)'
     print(s.charCount);             // error: 'String.charCount' is a method; call it with 'charCount(...)'
     print(s.slice(1));              // error: no overload of 'String.slice' takes 1 argument
     print(s.indexOf(5));            // error: no overload of 'String.indexOf' accepts (int)

@@ -93,7 +93,7 @@ void main() {
     var results = new List<Result<int, String>>();
     results.add(Ok(3));
     results.add(Err("x"));
-    print(results[0].orElse(0) + results.count); // output: 5
+    print(results[0].orElse(0) + results.count()); // output: 5
 
     switch (nested(4)) {
         case Ok(Ok(var v)) -> print(v);         // output: 4

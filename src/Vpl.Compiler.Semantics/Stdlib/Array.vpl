@@ -3,7 +3,7 @@
 
 final class Array<T> implements Spannable<T> {
     private T* data;
-    private int count;
+    int length;
 
     // Each element starts as `T`'s default value; the compiler checks that it has one.
     @CallerLocation
@@ -12,7 +12,7 @@ final class Array<T> implements Spannable<T> {
             data = Memory.allocate<T>(length);
             Memory.initializeDefault(data, length);
         }
-        count = length;
+        this.length = length;
     }
 
     @CallerLocation
@@ -23,23 +23,22 @@ final class Array<T> implements Spannable<T> {
                 Memory.initialize(data + i, value);
             }
         }
-        count = length;
+        this.length = length;
     }
 
     ~Array() {
         unsafe {
-            for (int i : 0..count) {
+            for (int i : 0..length) {
                 Memory.drop(data + i);
             }
             Memory.free(data);
         }
     }
 
-    int length { get -> count; }
 
     @CallerLocation
     ref T operator [](int index) {
-        Bounds.check(index, count);
+        Bounds.check(index, length);
         unsafe {
             return ref data[index];
         }
@@ -47,7 +46,7 @@ final class Array<T> implements Spannable<T> {
 
     // Like the indexer, but null instead of a panic when `index` is out of bounds.
     ref? T get(int index) {
-        if (index < 0 || index >= count) {
+        if (index < 0 || index >= length) {
             return null;
         }
         unsafe {
@@ -57,13 +56,13 @@ final class Array<T> implements Spannable<T> {
 
     Span<T> asSpan() {
         unsafe {
-            return Span<T>(data, count);
+            return Span<T>(data, length);
         }
     }
 
     ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
-            return ReadOnlySpan<T>(data, count);
+            return ReadOnlySpan<T>(data, length);
         }
     }
 }
