@@ -109,12 +109,4 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     void Error(Location location, string message) => diagnostics.Error(location, message);
 
     static string TextOf(Location location) => location.Source.Text.Substring(location.Span.Start, location.Span.Length);
-
-    static string KindName(TypeKind kind) => kind switch
-    {
-        TypeKind.Struct => "struct",
-        TypeKind.Class => "class",
-        TypeKind.Enum => "enum",
-        _ => "interface",
-    };
 }

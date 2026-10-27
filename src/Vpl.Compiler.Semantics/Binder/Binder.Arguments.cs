@@ -196,7 +196,8 @@ public sealed partial class Binder
     /// <summary>A literal, an operator on constants, an enum variant, or a struct constructor given constants.</summary>
     static bool IsConstantDefault(BoundExpression value) => value switch
     {
-        BoundLiteral or BoundNullLiteral or BoundFieldDefault => true,
+        // An error is reported already, as a default that depends on itself is in the call that needs it.
+        BoundLiteral or BoundNullLiteral or BoundFieldDefault or BoundErrorExpression => true,
         BoundConversion conversion => IsConstantDefault(conversion.Operand),
         BoundUnary unary => IsConstantDefault(unary.Operand),
         BoundBinary binary => IsConstantDefault(binary.Left) && IsConstantDefault(binary.Right),

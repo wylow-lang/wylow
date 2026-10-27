@@ -59,13 +59,10 @@ public sealed partial class Binder
     /// </summary>
     VplType BindNullableReferenceType(TypeSyntax syntax)
     {
-        // `ref? var` is only valid for a local, which infers the type itself.
-        if (syntax.Element is null)
-        {
-            Error(syntax.Location, "'var' can only be used for a local variable");
-            return VplType.Error;
-        }
-        var referenced = BindType(syntax.Element, allowVoid: false);
+        // The parser reads `ref? var` only for a local, which infers the type itself, and a loop
+        // variable, which can't be `ref?`.
+        var element = syntax.Element ?? throw new InvalidOperationException("'ref? var' is bound only where its type is inferred");
+        var referenced = BindType(element, allowVoid: false);
         return referenced == VplType.Error ? referenced : referenced.NullableReference(syntax.ReferenceKind);
     }
 
@@ -84,12 +81,7 @@ public sealed partial class Binder
             case TypeShape.FixedArray:
                 return element.FixedArrayOf((int)syntax.Length);
             default:
-                if (stdlib.Array is not { } array)
-                {
-                    Error(syntax.Location, "'T[]' arrays are not supported yet");
-                    return VplType.Error;
-                }
-                return Construct(array, [element], syntax.Location);
+                return Construct(stdlib.Array ?? throw new InvalidOperationException("the standard library declares no 'Array'"), [element], syntax.Location);
         }
     }
 

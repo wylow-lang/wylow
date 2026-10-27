@@ -13,6 +13,12 @@ String? maybeString() {
     return null;
 }
 
+void throughRef(ref int? count) {
+    if (count != null) {
+        print(count + 1);               // error: 'count' might be null here: a 'ref' parameter is not narrowed by null checks
+    }
+}
+
 void main() {
     Node? maybe = null;
     print(maybe.value);                 // error: 'maybe' might be null here

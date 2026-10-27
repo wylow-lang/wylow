@@ -490,14 +490,10 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         int start = position;
         if (Current != '\\')
         {
-            if (Rune.DecodeFromUtf16(text.AsSpan(position), out var rune, out int length) == System.Buffers.OperationStatus.Done)
-            {
-                position += length;
-                return rune;
-            }
-            position++;
-            Error(new TextSpan(start, 1), "invalid character: an unpaired surrogate");
-            return null;
+            // An unpaired surrogate decodes to U+FFFD, as reading a file already makes it.
+            Rune.DecodeFromUtf16(text.AsSpan(position), out var rune, out int length);
+            position += length;
+            return rune;
         }
 
         if (Peek(1) == 'u')

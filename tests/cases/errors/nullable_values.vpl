@@ -25,6 +25,10 @@ struct Buf implements Spannable<int> {
         mut Span<int> asSpan() {
             return data;
         }
+
+        mut ref? int first() {
+            return ref data[0];
+        }
     }
 }
 
@@ -94,6 +98,11 @@ void main() {
     mut Buf? b = Buf(data: [1, 2]);
     if (b != null) {
         ref int r = b.asSpan()[0];      // error: a 'ref' variable cannot refer into the nullable 'b'
+        for (int e : b.asSpan()) { }    // error: cannot loop over elements inside the nullable 'b'
+        Span<int> s = b.asSpan();       // error: this 'Span<int>' would view inside the nullable 'b'
+        if (b.first() is ref int g) { } // error: a 'ref' binding cannot refer into the nullable 'b'
+        ref? int q = b.first();         // error: a 'ref?' variable cannot refer into the nullable 'b'
+        ref? long w = b.first();        // error: a 'ref?' variable must have exactly the type of what it refers to, 'int', not 'long'
     }
     v?.move(1);                         // error: '?.' would call 'move' on a copy of 'v'
     print(v!.x);

@@ -99,6 +99,17 @@ Sites (reached of all):
   by `IrSelfTests` (`Callees.Fresh`, `IrLet`'s mismatch). Five more are on lines that ran with a
   `?? throw` or `: throw` that didn't fire. No test reaches one by accident.
 
+**Triage of the user errors (done).** Each unreached one got a test or was removed: the
+unpaired-surrogate error is unreachable from a file, so the lexer decodes it to U+FFFD as reading
+a file does; "constructors cannot have type parameters" was dead, since a constructor is
+recognized by its name and '('; three binder fallbacks (`ref? var` outside a local, a missing
+stdlib `Array`, a non-escaping function no variable makes so) are now `InvalidOperationException`s.
+It found: a cascade error after a default that depends on itself, "a enum", and the rule that a
+reference can't be kept into a nullable value written out three times (`CheckReference`,
+`ConvertToNullableReference`, the `is ref` pattern) and the loop check twice, now one
+`CheckReferredPlace` and one loop check. What's left in the summary as "partial" is a `?:` inside
+a message's text. The verifier checks are next: each gets an `IrSelfTests` case.
+
 Line coverage locates a site well enough (no site lacked coverage data), so `Error` and
 `Violation` didn't need caller-location parameters. Runtime coverage (clang profiling of
 `runtime/vpl/*.h`) isn't measured yet.

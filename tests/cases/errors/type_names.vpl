@@ -1,0 +1,20 @@
+T id<T>(T value) {
+    return value;
+}
+
+struct Cell {
+    internal {
+        int value;
+        mut ref void none() { }         // error: 'void' cannot be returned by 'ref'
+    }
+}
+
+void main() {
+    List<void> numbers;                 // error: 'void' cannot be used here
+    unsafe {
+        int*? p = null;                 // error: 'int*?' is not needed: a pointer can already be null
+    }
+    Result r;                           // error: 'Result' requires 2 type arguments
+    List l;                             // error: 'List' requires 1 type argument
+    print(id<int, int>(1));             // error: no overload of 'id' takes 2 type arguments
+}

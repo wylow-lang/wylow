@@ -92,7 +92,7 @@ public sealed partial class Parser
                     _ => Modifiers.Public | Modifiers.Private | Modifiers.Ref,
                 };
                 DisallowInternal(modifiers);
-                Disallow(modifiers, ~(allowed | Modifiers.Internal), token => $"'{token.Text}' is not valid on {Article(kind)}");
+                Disallow(modifiers, ~(allowed | Modifiers.Internal), token => $"'{token.Text}' is not valid on {SyntaxFacts.KindNameWithArticle(kind)}");
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
                     Error(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span, "a class cannot be both 'abstract' and 'final'");
                 declarations.Add(ParseTypeDecl(start, modifiers.Flags, kind) with { Annotations = annotations });
@@ -139,13 +139,6 @@ public sealed partial class Parser
         _ => null,
     };
 
-    static string Article(TypeKind kind) => kind switch
-    {
-        TypeKind.Struct => "a struct",
-        TypeKind.Class => "a class",
-        TypeKind.Enum => "an enum",
-        _ => "an interface",
-    };
 
     // Reported once at the name, rather than as a malformed function that confuses what follows.
     void SkipTopLevelVariable(Token name)

@@ -69,12 +69,13 @@ public sealed partial class Binder
             return ErrorStatement(s.Location);
         }
 
-        if (!iterable.Type.IsReference && PlacePath.NullableValueRoot(iterable) is { } root
-            && (iterable.Type.IsFixedArray || ViewedElement(iterable.Type, readOnly: true) is not null))
+        // The loop views the elements, of a fixed array or a span, or through the span a value converts to.
+        if (!iterable.Type.IsReference && PlacePath.ViewedNullableValue(iterable) is { } root
+            && (iterable.Type.IsFixedArray || stdlib.IsSpan(iterable.Type) || ViewedElement(iterable.Type, readOnly: true) is not null))
         {
             DeclareLoopVariables(s, VplType.Error);
             BindLoopBody(s.Body);
-            Error(s.Iterable.Location, $"cannot loop over elements inside the nullable '{root.Name}', since assigning it null would destroy them; copy the value to a variable first");
+            Error(s.Iterable.Location, $"cannot loop over elements inside {DestroyedByNull(root)}");
             return ErrorStatement(s.Location);
         }
         if (iterable.Type.IsFixedArray)

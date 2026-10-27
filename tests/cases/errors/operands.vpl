@@ -1,0 +1,13 @@
+void named(int a) { }
+void named(String b) { }
+
+void apply((() -> void) -> void f) { }
+
+void main() {
+    mut bool flag = true;
+    flag++;                             // error: '++' requires a numeric variable
+    () -> void g = () -> { };
+    ref (() -> void) h = g;             // error: 'ref' cannot be used with type '() -> void'; functions are already passed without copying
+    named(c: 1);                        // error: no overload of 'named' takes these named arguments
+    apply((mut f) -> { });              // error: a non-escaping function
+}

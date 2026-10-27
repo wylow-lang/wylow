@@ -52,11 +52,8 @@ foreach (var kind in Enum.GetValues<SiteKind>())
     Console.WriteLine($"  {kind,-12} {ofKind.Count(s => s.State == SiteState.Reached)} / {ofKind.Count}, " +
         $"{ofKind.Count(s => s.State == SiteState.Partial)} partial, {ofKind.Count(s => s.State == SiteState.Unmapped)} not in the coverage data");
 }
-// Reaching one is a compiler bug, unless a self-test reaches it on purpose.
-Console.WriteLine();
-Console.WriteLine("Reached Unreachable sites");
-foreach (var site in sites.Where(s => s.Kind == SiteKind.Unreachable && s.State != SiteState.Unreached).OrderBy(s => s.File).ThenBy(s => s.Line))
-    Console.WriteLine($"  {(site.State == SiteState.Reached ? "" : site.State.ToString().ToLowerInvariant() + " ")}{Path.GetRelativePath(root, site.File).Replace('\\', '/')}:{site.Line}: {site.Text}");
+// A reached Unreachable site needs no list: the runner fails a test that throws, so in a passing
+// suite only the self-tests that throw on purpose reach one.
 foreach (var kind in Enum.GetValues<SiteKind>())
 {
     Console.WriteLine();

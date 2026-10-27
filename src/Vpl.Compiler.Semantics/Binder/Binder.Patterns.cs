@@ -53,18 +53,11 @@ public sealed partial class Binder
         var target = syntax.Type is null ? null : BindType(syntax.Type, allowVoid: false);
         var referenced = (operand.Type as NullableReferenceType)?.Referenced;
         var text = TextOf(operand.Location);
-        var (kind, reason) = ClassifyPlace(operand);
         if (referenced is null)
             Error(operand.Location, $"'is {keyword}' tests a reference that may refer to nothing, and '{text}' has type '{operand.Type}'");
         else if (target is not null && target != VplType.Error && target != referenced)
             Error(syntax.Type!.Location, $"'{text}' refers to a value of type '{referenced}', not '{target}'");
-        else if (kind == PlaceKind.Temporary)
-            Error(operand.Location, $"a '{keyword}' binding must refer to a variable, field, or element, not a temporary value");
-        else if (kind == PlaceKind.ReadOnly && syntax.RefKind == RefKind.Ref)
-            Error(operand.Location, $"cannot take a 'ref' to what '{text}' refers to, because {reason}; use 'in' instead");
-        else if (PlacePath.NullableValueRoot(operand) is { } root)
-            Error(operand.Location, $"a '{keyword}' binding cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
-        else if (target != VplType.Error)
+        else if (CheckReferredPlace(operand, syntax.RefKind, $"a '{keyword}' binding", mayBeNull: false, throughReference: true) && target != VplType.Error)
         {
             var binding = new LocalSymbol(syntax.Name, referenced.NullableReference(syntax.RefKind), isParameter: false, syntax.RefKind) { IsReferenceBinding = true };
             Declare(binding, syntax.NameLocation);

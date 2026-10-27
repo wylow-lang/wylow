@@ -87,7 +87,8 @@ sealed record Expectations(
 
 static partial class TestCase
 {
-    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack|in-place):(.*)$")]
+    // A line may hold several, as two errors reported at one location need.
+    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack|in-place):(.*?)(?=//\s*(?:output|error|warning|panic|panic-here|mode|stack|in-place):|$)")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain, CompileOptions options)
@@ -109,9 +110,13 @@ static partial class TestCase
         var lines = File.ReadAllLines(file);
         for (int i = 0; i < lines.Length; i++)
         {
-            var match = DirectivePattern().Match(lines[i]);
-            if (!match.Success)
-                continue;
+            foreach (Match match in DirectivePattern().Matches(lines[i]))
+                Add(match, i);
+        }
+        return expectations;
+
+        void Add(Match match, int i)
+        {
             var value = match.Groups[2].Value;
             value = (value.StartsWith(' ') ? value[1..] : value).TrimEnd();
             switch (match.Groups[1].Value)
@@ -127,7 +132,6 @@ static partial class TestCase
                 case "in-place": expectations.InPlace[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
             }
         }
-        return expectations;
     }
 
     static string? Check(string file, string name, string outputDirectory, Toolchain? toolchain, CompileOptions options)

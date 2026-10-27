@@ -111,23 +111,23 @@ public sealed partial class Binder
 
     /// <summary>
     /// Reports why a non-escaping function can't be converted to the escaping form, at the variable
-    /// that makes it non-escaping where there is one, such as an option of a choice.
+    /// that makes it non-escaping, such as an option of a choice.
     /// </summary>
     void ReportNotEscaping(BoundExpression function)
     {
-        // A lambda option is non-escaping only because a variable option made the choice so.
+        // Only a variable is non-escaping by its type; a lambda option is only because a variable
+        // option made the choice so.
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
             .Select(o => o is BoundNonNull nonNull ? nonNull.Operand : o)
-            .Where(o => o.Type.NonNull.IsNonEscapingFunction)
-            .OrderBy(o => o is BoundLocalAccess ? 0 : 1)
-            .FirstOrDefault() ?? function;
-        Error(culprit.Location, culprit is BoundLocalAccess { Local: var local }
-            ? $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
-                + (local.IsParameter && local.Owner?.IsLambda == true
-                    ? "declare the parameter '@Escaping' in the lambda's function type, as in '(@Escaping () -> void) -> void'"
-                    : "declare it '@Escaping'")
-            : "a non-escaping function cannot be stored or returned; only '@Escaping' parameters and variables can");
+            .OfType<BoundLocalAccess>()
+            .FirstOrDefault(o => o.Type.NonNull.IsNonEscapingFunction)
+            ?? throw new InvalidOperationException("a non-escaping function that no variable makes so");
+        var local = culprit.Local;
+        Error(culprit.Location, $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
+            + (local.IsParameter && local.Owner?.IsLambda == true
+                ? "declare the parameter '@Escaping' in the lambda's function type, as in '(@Escaping () -> void) -> void'"
+                : "declare it '@Escaping'"));
     }
 
     /// <summary>

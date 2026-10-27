@@ -143,7 +143,7 @@ public sealed partial class Binder
 
         if (types.TryGetValue(decl.Name, out var type))
         {
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined as a {KindName(type.Kind)}");
+            Error(decl.NameLocation, $"'{decl.Name}' is already defined as {SyntaxFacts.KindNameWithArticle(type.Kind)}");
             return function;
         }
 
@@ -565,7 +565,7 @@ public sealed partial class Binder
         foreach (var s in all)
         {
             if (!reported.Contains(s) && FindCycle(s.Type, []) is { } problem)
-                Error(s.Declaration.NameLocation, $"{KindName(s.Kind)} '{s.Name}' {problem}");
+                Error(s.Declaration.NameLocation, $"{SyntaxFacts.KindName(s.Kind)} '{s.Name}' {problem}");
         }
         return reported;
     }

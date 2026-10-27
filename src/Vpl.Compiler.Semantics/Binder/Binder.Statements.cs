@@ -239,7 +239,7 @@ public sealed partial class Binder
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
             Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
         else if (type.IsRefStruct && initializer is not null && PlacePath.ViewedNullableValue(initializer) is { } root)
-            Error(initializer.Location, $"this '{type}' would view inside the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first");
+            Error(initializer.Location, $"this '{type}' would view inside {DestroyedByNull(root)}");
         var local = new LocalSymbol(s.Name, type, isParameter: false) { IsMutable = s.IsMutable, IsDeferred = s.Initializer is null };
         Declare(local, s.NameLocation);
         return new BoundVariableDeclaration(s.Location, local, initializer);
@@ -304,19 +304,36 @@ public sealed partial class Binder
         if (value.Type is not NullableReferenceType reference)
             return CheckReference(value, type.Kind, type.Referenced, what) ? new BoundConversion(value.Location, type, value) : null;
 
-        var (kind, reason) = ClassifyPlace(value);
         if (reference.Referenced != type.Referenced)
             Error(value.Location, $"{what} must have exactly the type of what it refers to, '{reference.Referenced}', not '{type.Referenced}'");
-        else if (kind == PlaceKind.Temporary)
-            Error(value.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
-        else if (kind == PlaceKind.ReadOnly && type.Kind == RefKind.Ref)
-            Error(value.Location, $"cannot take a 'ref?' to what '{TextOf(value.Location)}' refers to, because {reason}; use 'in?' instead");
-        else if (PlacePath.NullableValueRoot(value) is { } root)
-            Error(value.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
-        else
+        else if (CheckReferredPlace(value, type.Kind, what, mayBeNull: true, throughReference: true))
             return value.Type == type ? value : new BoundConversion(value.Location, type, value);
         return null;
     }
+
+    /// <summary>
+    /// Checks that a reference can be kept to a place: <paramref name="place"/> itself, or with
+    /// <paramref name="throughReference"/>, what the <c>ref?</c> or <c>in?</c> it is refers to.
+    /// </summary>
+    bool CheckReferredPlace(BoundExpression place, RefKind refKind, string what, bool mayBeNull, bool throughReference)
+    {
+        var (kind, reason) = ClassifyPlace(place);
+        var suffix = mayBeNull ? "?" : "";
+        var referred = throughReference ? $"what '{TextOf(place.Location)}' refers to," : $"'{TextOf(place.Location)}'";
+        if (PlacePath.NullableValueRoot(place) is { } root)
+            Error(place.Location, $"{what} cannot refer into {DestroyedByNull(root)}");
+        else if (kind == PlaceKind.Temporary)
+            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
+        else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
+            Error(place.Location, $"cannot take a 'ref{suffix}' to {referred} because {reason}; use 'in{suffix}' instead");
+        else
+            return true;
+        return false;
+    }
+
+    /// <summary>Why nothing may keep referring into a nullable value, which assigning its variable null destroys.</summary>
+    static string DestroyedByNull(LocalSymbol root) =>
+        $"the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first";
 
     /// <summary>A reference can't refer to a class object or a function, which are never copied anyway.</summary>
     bool CheckReferencedType(VplType type, string keyword, Location location)
@@ -352,25 +369,13 @@ public sealed partial class Binder
             Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");
             return false;
         }
-        if (PlacePath.NullableValueRoot(place) is { } root)
-        {
-            Error(place.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
-            return false;
-        }
         // Through such a reference the variable could become null after a null check narrowed it.
         if (refKind == RefKind.Ref && type.IsNullableValue && place is BoundLocalAccess { Local.RefKind: RefKind.None } local)
         {
             Error(place.Location, $"{what} cannot refer to the nullable variable '{local.Local.Name}'; pass it by 'ref' to a function instead");
             return false;
         }
-        var (kind, reason) = ClassifyPlace(place);
-        if (kind == PlaceKind.Temporary)
-            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
-        else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
-            Error(place.Location, $"cannot take a 'ref' to '{TextOf(place.Location)}' because {reason}; use 'in' instead");
-        else
-            return true;
-        return false;
+        return CheckReferredPlace(place, refKind, what, mayBeNull: false, throughReference: false);
     }
 
     BoundStatement BindWhile(WhileStmt s)

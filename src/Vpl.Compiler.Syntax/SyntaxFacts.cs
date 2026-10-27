@@ -49,6 +49,16 @@ public static class SyntaxFacts
             or TokenKind.LongKeyword or TokenKind.ULongKeyword or TokenKind.NIntKeyword or TokenKind.NUIntKeyword
             or TokenKind.CharKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
 
+    public static string KindName(TypeKind kind) => kind switch
+    {
+        TypeKind.Struct => "struct",
+        TypeKind.Class => "class",
+        TypeKind.Enum => "enum",
+        _ => "interface",
+    };
+
+    public static string KindNameWithArticle(TypeKind kind) => (kind is TypeKind.Enum or TypeKind.Interface ? "an " : "a ") + KindName(kind);
+
     /// <summary>Includes '(', which starts a function type, <c>(int) -> int</c>.</summary>
     public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.OpenParen;
 

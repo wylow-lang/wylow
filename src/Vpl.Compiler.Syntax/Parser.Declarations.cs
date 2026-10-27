@@ -388,9 +388,8 @@ public sealed partial class Parser
 
     FunctionDecl ParseFunctionRest(int start, Modifiers modifiers, TypeSyntax? returnType, Token name)
     {
+        // A constructor is recognized only by its name and '(', so it has no type parameters.
         var typeParameters = ParseTypeParameters();
-        if (returnType is null && typeParameters.Count > 0)
-            Error(typeParameters[0].Location.Span, "constructors cannot have type parameters");
         var parameters = ParseParameterList(allowRefKinds: true);
         var body = Accept(TokenKind.Semicolon) ? null : ParseBlock();
         return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body);

@@ -1,0 +1,45 @@
+interface A {
+    void f(int x = 1);
+}
+
+interface B {
+    void f(int x = 2);
+}
+
+class AB implements A, B {
+    public {
+        void f(int x) { }               // error: 'AB.f' takes different default values for parameter 'x'
+    }
+}
+
+class Static implements A {
+    public {
+        static void f(int x) { }        // error: 'Static.f' is static and cannot implement
+    }
+}
+
+class Base {
+    internal {
+        Base() { }
+        void g() { }
+    }
+}
+
+class Derived extends Base {
+    internal {
+        Derived() { super(); }
+        override void g() { }           // error: cannot override 'Base.g' because it is not 'virtual'
+    }
+}
+
+struct Loop {
+    internal {
+        int v;
+        Loop(int a, Loop seed = Loop(1)) { v = a; }  // error: the default value of 'seed' depends on itself
+    }
+}
+
+void main() {
+    int[3] cells = [1, 2, 3];
+    for (ref int i, int v : cells) { }  // error: the index cannot be borrowed; it is a copy of the position
+}

@@ -3,4 +3,12 @@ void main() {
     int b = 5lu;              // error: invalid suffix 'lu'
     int c = 1 # + 2;          // error: unexpected character '#'
     String s = "\q";          // error: unknown escape sequence
+    int d = 1_000_;           // error: misplaced '_' in number literal
+    int e = 0x;               // error: number literal has no digits
+    double f = 1e400d;        // error: double literal is out of range
+    float g = 1e39;           // error: float literal is out of range
+    ulong h = 99999999999999999999uL; // error: integer literal is too large
+    String t = "open          // error: unterminated string literal
+    ;
 }
+/* never closed               // error: unterminated block comment

@@ -78,7 +78,7 @@ public sealed partial class Binder
     {
         if (stdlib.IsSpan(to) && PlacePath.NullableValueRoot(expression) is { } root
             && ViewedElement(expression.Type, to.Symbol == stdlib.ReadOnlySpan) == to.TypeArguments[0])
-            return $"; a span cannot view inside the nullable '{root.Name}', since assigning it null would destroy what it views; copy the value to a variable first";
+            return $"; a span cannot view inside {DestroyedByNull(root)}";
         if (!stdlib.IsSpan(to) || expression.Type is not FixedArrayType array || array.Element != to.TypeArguments[0])
             return "";
         return ClassifyPlace(expression).Kind switch
@@ -123,11 +123,6 @@ public sealed partial class Binder
         if (ViewsTemporary(span))
         {
             Error(location, "cannot loop over a temporary value's elements; store the value in a variable first");
-            span = new BoundErrorExpression(location);
-        }
-        else if (PlacePath.ViewedNullableValue(span) is { } root)
-        {
-            Error(location, $"cannot loop over elements inside the nullable '{root.Name}', since assigning it null would destroy them; copy the value to a variable first");
             span = new BoundErrorExpression(location);
         }
 
