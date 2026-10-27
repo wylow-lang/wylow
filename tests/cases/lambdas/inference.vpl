@@ -93,7 +93,7 @@ void main() {
     Result<String, String> name = find(true).map(m -> m.name);
     print(name.orElse("?"));                            // output: orc
     print(find(false).map(m -> m.health).orElse(-1));   // output: -1
-    print(find(false).mapErr(e -> 404).isErr());        // output: true
+    print(find(false).mapErr(e -> 404) is Err);        // output: true
     var total = find(true).map(m -> find(false).map(n -> n.health + m.health).orElse(m.health * 10));
     print(total.orElse(0));                             // output: 50
 }

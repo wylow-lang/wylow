@@ -58,8 +58,8 @@ void main() {
                                                 // output: 1
     report(parse(-1, -1, -1));                  // output: empty
     print(doubled(52, 50).orElse(0));           // output: 84
-    print(doubled(52, 0).isErr());              // output: true
-    print(parse(55, -1, -1).isOk());            // output: true
+    print(doubled(52, 0) is Err);              // output: true
+    print(parse(55, -1, -1) is Ok);            // output: true
 
     var counter = new Counter();
     _ = counter.add(55);

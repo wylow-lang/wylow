@@ -86,8 +86,8 @@ void main() {
     print(job.outcome.orElse(0));               // output: 7
     Job? maybe = job;
     maybe?.retry(Err("again"));
-    print(job.outcome.isErr());                 // output: true
-    print(new FailedJob().outcome.isErr());     // output: true
+    print(job.outcome is Err);                 // output: true
+    print(new FailedJob().outcome is Err);     // output: true
 
     // The receiver's type arguments give the parameter its type.
     var results = new List<Result<int, String>>();

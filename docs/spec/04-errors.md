@@ -105,7 +105,8 @@ With helper methods:
 | `r.orPanic("message")` | The value, or panic with the message and the error |
 | `r.mapErr(f)` | Converts the error type |
 | `r.map(f)` | Converts the success value |
-| `r.isOk()` / `r.isErr()` | Tests |
+
+There are no `isOk()` and `isErr()`: `r is Ok` and `r is Err` test which variant a result is.
 
 > Implemented so far: all of these. `orPanic` reports the caller's location (through
 > `@CallerLocation`), but not yet the error, which needs string formatting.

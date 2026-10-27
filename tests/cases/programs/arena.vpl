@@ -293,5 +293,5 @@ void main() {
     print(sum(healths));                  // output: 31
 
     print(parseDigit(55).orElse(-1));     // output: 7
-    print(parseDigit(65).isErr());        // output: true
+    print(parseDigit(65) is Err);        // output: true
 }
