@@ -1,7 +1,7 @@
 struct Score implements Comparable<Score> {
     int points;
 
-    readonly int compareTo(Score other) {
+    int compareTo(Score other) {
         return points - other.points;
     }
 }
@@ -23,13 +23,13 @@ T max<T extends Comparable<T>>(T a, T b) {
 }
 
 interface Shape {
-    readonly float area();
+    float area();
 }
 
 struct Square implements Shape {
     float side;
 
-    readonly float area() {
+    float area() {
         return side * side;
     }
 }
@@ -52,7 +52,7 @@ struct Pair<A extends Shape, B extends Shape> {
         this.second = second;
     }
 
-    float total() {
+    mut float total() {
         return first.area() + second.area();
     }
 }

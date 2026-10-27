@@ -3,7 +3,7 @@ struct Vec {
     float x;
     float y;
 
-    void scale(float by) {
+    mut void scale(float by) {
         x *= by;
         y *= by;
     }

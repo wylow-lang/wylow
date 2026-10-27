@@ -5,7 +5,7 @@ class Node {
 struct Vec {
     float x;
 
-    void grow() {
+    mut void grow() {
         x++;
     }
 }
@@ -13,30 +13,30 @@ struct Vec {
 struct Mat2 {
     float[4] m;
 
-    ref? float at(int i) {
+    mut ref? float at(int i) {
         if (i < 0) {
             return null;
         }
         return ref m[i];
     }
 
-    readonly in? float peek(int i) {
+    in? float peek(int i) {
         return ref m[i];
     }
 
-    ref? float bad(int i) {
+    mut ref? float bad(int i) {
         return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref', or 'return null'
     }
 
-    ref? float other(ref Mat2 o) {
+    mut ref? float other(ref Mat2 o) {
         return ref o.m[0];              // error: a returned 'ref?' must point into the method's receiver
     }
 
-    ref float sure() {
+    mut ref float sure() {
         return ref at(0);               // error: 'at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
     }
 
-    ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
+    mut ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
         return null;
     }
 }
@@ -97,7 +97,7 @@ void main() {
     mut Vec[1] vecs = [Vec()];
     ref? Vec first = vecs[0];
     in? Vec frozen = first;
-    frozen?.grow();                     // error: cannot call 'grow' on 'frozen' because 'frozen' is an 'in' variable; only 'readonly' methods can be called on it
+    frozen?.grow();                     // error: cannot call 'mut' method 'grow' on 'frozen' because 'frozen' is an 'in' variable
     for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
     }
     if (x is ref int place) {           // error: 'is ref' tests a reference that may refer to nothing, and 'x' has type 'int'

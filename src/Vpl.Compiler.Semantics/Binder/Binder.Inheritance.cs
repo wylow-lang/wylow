@@ -73,7 +73,7 @@ public sealed partial class Binder
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it{EscapingDifference(implementation, required, description)}");
                 // A class method can't change the reference it is called through, so only a struct's must promise not to change 'this'.
                 else if (method.IsReadOnly && s.Kind == TypeKind.Struct && !implementation.Symbol.IsReadOnly)
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must be 'readonly', since it implements the 'readonly' method {description}");
+                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' cannot be 'mut', since {description} isn't");
                 else
                 {
                     if (!implementation.Symbol.Overridden.Contains(method))

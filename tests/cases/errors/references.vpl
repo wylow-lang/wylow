@@ -5,31 +5,31 @@ class Node {
 struct Mat2 {
     float[4] m;
 
-    ref float operator [](int row, int col) {
+    mut ref float operator [](int row, int col) {
         return ref m[row * 2 + col];
     }
 
-    readonly in float at(int i) {
+    in float at(int i) {
         return ref m[i];
     }
 
-    ref float bad(int i) {
+    mut ref float bad(int i) {
         return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref'
     }
 
-    ref float other(ref Mat2 o) {
+    mut ref float other(ref Mat2 o) {
         return ref o.m[0];              // error: a returned 'ref' must point into the method's receiver
     }
 
-    ref float temporary() {
+    mut ref float temporary() {
         return ref 1.5;                 // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
     }
 
-    readonly ref float leak() {
-        return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a readonly method; use 'in' instead
+    ref float leak() {
+        return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a method that isn't 'mut'; use 'in' instead
     }
 
-    float plain() {
+    mut float plain() {
         return ref m[0];                // error: 'return ref' can only be used in a method that returns 'ref' or 'in'
     }
 

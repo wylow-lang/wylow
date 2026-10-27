@@ -405,7 +405,7 @@ struct Mat4 {
 ```
 
 - Only instance methods return references, and for now they cannot be virtual or abstract.
-- A `ref` return must point into mutable storage, so a `readonly` method returns `in` (or a
+- A `ref` return must point into mutable storage, so a struct method that isn't `mut` returns `in` (or a
   pointer's target). Calling a method that returns `in` gives a read-only place.
 - The result is a place for as long as the receiver is: on a temporary struct, such as
   `makeMatrix()[0, 0]`, it can be read but not assigned or referred to.

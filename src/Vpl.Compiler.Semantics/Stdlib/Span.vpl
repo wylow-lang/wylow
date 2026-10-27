@@ -12,10 +12,10 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
         count = length;
     }
 
-    readonly int length { get -> count; }
+    int length { get -> count; }
 
     @CallerLocation
-    readonly ref T operator [](int index) {
+    ref T operator [](int index) {
         Bounds.check(index, count);
         unsafe {
             return ref data[index];
@@ -23,7 +23,7 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
     }
 
     // Like the indexer, but null instead of a panic when `index` is out of bounds.
-    readonly ref? T get(int index) {
+    ref? T get(int index) {
         if (index < 0 || index >= count) {
             return null;
         }
@@ -34,14 +34,14 @@ ref struct Span<T> implements ReadOnlySpannable<T> {
 
     // The `length` elements starting at `start`.
     @CallerLocation
-    readonly Span<T> slice(int start, int length) {
+    Span<T> slice(int start, int length) {
         Bounds.checkRange(start, length, count);
         unsafe {
             return Span<T>(data + start, length);
         }
     }
 
-    readonly ReadOnlySpan<T> asReadOnlySpan() {
+    ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
             return ReadOnlySpan<T>(data, count);
         }
@@ -58,10 +58,10 @@ ref struct ReadOnlySpan<T> {
         count = length;
     }
 
-    readonly int length { get -> count; }
+    int length { get -> count; }
 
     @CallerLocation
-    readonly in T operator [](int index) {
+    in T operator [](int index) {
         Bounds.check(index, count);
         unsafe {
             return ref data[index];
@@ -69,7 +69,7 @@ ref struct ReadOnlySpan<T> {
     }
 
     // Like the indexer, but null instead of a panic when `index` is out of bounds.
-    readonly in? T get(int index) {
+    in? T get(int index) {
         if (index < 0 || index >= count) {
             return null;
         }
@@ -80,7 +80,7 @@ ref struct ReadOnlySpan<T> {
 
     // The `length` elements starting at `start`.
     @CallerLocation
-    readonly ReadOnlySpan<T> slice(int start, int length) {
+    ReadOnlySpan<T> slice(int start, int length) {
         Bounds.checkRange(start, length, count);
         unsafe {
             return ReadOnlySpan<T>(data + start, length);

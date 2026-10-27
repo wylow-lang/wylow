@@ -17,7 +17,7 @@ struct Labeled {
 }
 
 interface Greeter {
-    void greet();
+    mut void greet();
 }
 
 abstract class Registry implements Greeter {

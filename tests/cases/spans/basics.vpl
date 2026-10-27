@@ -1,11 +1,11 @@
 struct Samples {
     float[4] values;
 
-    readonly ReadOnlySpan<float> view() {
+    ReadOnlySpan<float> view() {
         return values;
     }
 
-    Span<float> edit() {
+    mut Span<float> edit() {
         return values;
     }
 }

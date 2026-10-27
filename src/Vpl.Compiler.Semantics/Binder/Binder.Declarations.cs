@@ -277,8 +277,8 @@ public sealed partial class Binder
                 TypeParameters = ownTypeParameters,
                 ContainingType = s,
                 IsStatic = (modifiers & Modifiers.Static) != 0,
-                // An enum value cannot be modified, so its methods never modify `this`.
-                IsReadOnly = (modifiers & Modifiers.ReadOnly) != 0 || (s.Kind == TypeKind.Enum && (modifiers & Modifiers.Static) == 0),
+                // A class method can't change the reference it is called through; an enum value can't be modified at all.
+                IsReadOnly = s.Kind != TypeKind.Class && (modifiers & (Modifiers.Mut | Modifiers.Static)) == 0,
                 IsPrivate = isPrivate,
                 IsVirtual = (modifiers & Modifiers.Virtual) != 0,
                 IsOverride = (modifiers & Modifiers.Override) != 0,

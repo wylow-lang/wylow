@@ -2,7 +2,7 @@ struct Pair {
     int[2] values;
 
     @CallerLocation
-    int get(int index) {
+    mut int get(int index) {
         Bounds.check(index, 2);
         return values[index];
     }

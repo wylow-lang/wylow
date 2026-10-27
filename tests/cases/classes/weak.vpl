@@ -28,7 +28,7 @@ class Child {
 }
 
 interface Identified {
-    int key();
+    mut int key();
 }
 
 class Enemy implements Identified {

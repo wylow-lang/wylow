@@ -10,11 +10,11 @@ enum Choice {
 struct Samples {
     int[2] values;
 
-    Span<int> edit() {
+    mut Span<int> edit() {
         return values;
     }
 
-    Span<int> other(Span<int> given) {
+    mut Span<int> other(Span<int> given) {
         return given;                       // error: a returned 'Span<int>' must view the method's receiver
     }
 

@@ -36,7 +36,7 @@ struct Holder {
         item = new Item();
     }
 
-    void describe() { }
+    mut void describe() { }
 }
 
 void use(Partial p) { }

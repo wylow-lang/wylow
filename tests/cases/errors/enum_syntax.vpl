@@ -4,7 +4,7 @@ enum Fields {
     int count;                          // error: enums cannot have fields; data belongs to variants
     Fields(int x) { }                   // error: enums cannot have constructors
     ~Fields() { }                       // error: enums cannot have destructors
-    readonly void look() { }            // error: enum methods are always readonly
+    mut void look() { }                 // error: enum methods cannot be 'mut', since an enum value cannot be modified
     virtual void spin() { }             // error: 'virtual' is not valid on enum members
 }
 

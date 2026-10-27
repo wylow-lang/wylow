@@ -14,7 +14,7 @@ struct Bullet {
     float x;
     bool hit;
 
-    void move(float dx) {
+    mut void move(float dx) {
         x += dx;
     }
 }

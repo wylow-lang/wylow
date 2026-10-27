@@ -5,5 +5,5 @@
 
 interface Comparable<T> {
     // Negative, zero, or positive as this value sorts before, the same as, or after `other`.
-    readonly int compareTo(T other);
+    int compareTo(T other);
 }

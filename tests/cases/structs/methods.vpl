@@ -7,15 +7,15 @@ struct Box {
         this.height = height;
     }
 
-    readonly int area() {
+    int area() {
         return width * height;
     }
 
-    readonly bool isBiggerThan(in Box other) {
+    bool isBiggerThan(in Box other) {
         return area() > other.area();
     }
 
-    void grow() {
+    mut void grow() {
         width = doubled(width);
         height = doubled(height);
     }

@@ -41,7 +41,6 @@ public enum TokenKind
     PrivateKeyword,
     ProtectedKeyword,
     StaticKeyword,
-    ReadonlyKeyword,
     MutKeyword,
     ThisKeyword,
     RefKeyword,

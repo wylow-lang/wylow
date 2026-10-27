@@ -3,5 +3,5 @@
 // `T extends Printable` bound.
 
 interface Printable {
-    readonly String toString();
+    String toString();
 }

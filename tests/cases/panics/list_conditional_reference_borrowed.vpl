@@ -2,7 +2,7 @@
 struct Counter {
     int count;
 
-    void run(() -> void f) {
+    mut void run(() -> void f) {
         f();
         count++;
     }

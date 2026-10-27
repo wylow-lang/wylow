@@ -1,6 +1,6 @@
 // Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
 interface Visitor<T> {
-    readonly void visit((T) -> void f);
+    void visit((T) -> void f);
 }
 
 class Bag<T> implements Visitor<T> {

@@ -1,11 +1,11 @@
 struct Counter {
     int value;
 
-    void increment() {
+    mut void increment() {
         value++;
     }
 
-    readonly int get() {
+    int get() {
         return value;
     }
 }

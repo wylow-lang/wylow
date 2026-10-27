@@ -83,7 +83,7 @@ class Dog extends Animal {
 }
 
 interface Greeter {
-    String greet(String name = "you");
+    mut String greet(String name = "you");
 }
 
 class Friendly implements Greeter {

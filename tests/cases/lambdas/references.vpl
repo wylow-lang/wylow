@@ -77,7 +77,7 @@ void keep(List<(int) -> int> into, @Escaping (int) -> int f) {
 }
 
 interface Transform {
-    int run((int) -> int f, int value);
+    mut int run((int) -> int f, int value);
 }
 
 class Direct implements Transform {

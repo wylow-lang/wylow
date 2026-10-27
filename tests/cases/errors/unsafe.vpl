@@ -5,7 +5,7 @@ struct Raw {
         this.data = data;
     }
 
-    int first() {
+    mut int first() {
         return data[0];                 // error: indexing a pointer is only allowed in 'unsafe' code
     }
 

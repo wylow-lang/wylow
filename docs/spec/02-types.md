@@ -249,7 +249,7 @@ stored. Nullable values follow the rules above, and also:
   local itself either, since the local could then change after a null check. A narrowed local that
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
-  error when `m` is a struct method that isn't `readonly`, since its changes would be lost.
+  error when `m` is a `mut` struct method, since its changes would be lost.
 - A struct cannot contain itself through a nullable (`struct Link { Link? next; }`), since the
   value would be stored inline; use a class.
 
@@ -268,8 +268,8 @@ first element. A call infers `T` from a `T?` parameter through the value type of
 
 ## 2.7 Mutability and constants
 
-Variables, parameters, and class fields are **immutable unless declared `mut`**, as in Rust. Most
-never change, so the marker goes on the exception.
+Variables, parameters, class fields, and struct methods are **immutable unless declared `mut`**,
+as in Rust. Most never change, so the marker goes on the exception.
 
 ```java
 int lives = 3;                         // can't be assigned again
@@ -283,7 +283,7 @@ mut var target = enemies.first;
   Whether an object's own fields can change depends on their declarations (below).
 - **A value follows its variable.** A struct, enum, or fixed array is stored in its variable, so when
   the variable isn't `mut`, nothing in it can change. Its fields and elements can't be assigned, it
-  can't be passed by `ref` or bound to a `ref` variable, only its `readonly` methods can be called,
+  can't be passed by `ref` or bound to a `ref` variable, its `mut` methods can't be called,
   and a fixed array converts only to `ReadOnlySpan`. These are the rules of an `in` parameter
   ([06-syntax.md](06-syntax.md#parameter-modes)). For the same reason, struct fields take no `mut`.
 - **Class fields** are immutable unless declared `mut`. The class's own constructors may assign
@@ -310,8 +310,10 @@ mut var target = enemies.first;
   - struct fields and variant fields, which follow their value;
   - pattern bindings, which are copies; copy one to a `mut` variable to change it.
 
-  A `ref struct` variable may be `mut`, which allows calling its non-`readonly` methods, but it
+  A `ref struct` variable may be `mut`, which allows calling its `mut` methods, but it
   still can't be reassigned ([03-memory-model.md](03-memory-model.md#spans)).
+- **A struct method can't change `this` unless it is `mut`**: `mut void normalize()`. Only `mut`
+  methods need a mutable place to be called on ([06-syntax.md](06-syntax.md#mut-struct-methods)).
 - `mut` is not part of a function's signature: an override may declare its parameters `mut` or not
   regardless of the method it overrides.
 - `const` declares a compile-time constant: `const float PI = 3.14159;`.
@@ -338,7 +340,7 @@ enum AiState {
 - An enum is a **value type**, like a struct: stored inline and copied on assignment. Copies are
   shallow, as for structs. It cannot contain itself by value, directly or through other value types.
 - An enum value is **immutable**: there is no way to change the fields of a variant in place, only
-  to assign a whole new value. Its methods are therefore always `readonly`, and can be called
+  to assign a whole new value. Its methods therefore can't be `mut`, and can be called
   on `in` parameters.
 - Enums may be generic (`enum Option<T> { None, Some(T value) }`), and may implement interfaces for
   use as generic bounds, as structs can (§2.12).
@@ -686,7 +688,7 @@ Conversions to spans are implicit, from:
 
 - a fixed array stored in a variable, field, or element. A temporary fixed array, such as one a
   function returned, has no storage to view. A read-only fixed array (an `in` parameter, or a
-  field in a `readonly` method) converts only to `ReadOnlySpan`.
+  field in a struct method that isn't `mut`) converts only to `ReadOnlySpan`.
 - a value of a type implementing the standard library's `Spannable<T>`, by calling its `asSpan()`,
   or `ReadOnlySpannable<T>`, by calling `asReadOnlySpan()`. `Array`, `List`, and `Span` implement
   them, and so can user types.
@@ -758,12 +760,12 @@ struct Counter implements Named { ... }
   `override` is needed (as in C#). Implementing an interface method does not make the method
   overridable: mark it `virtual` for that.
 - An interface may not be listed twice, and a method may not be redeclared by an extending interface.
-- An interface method may be declared `readonly`, as in `readonly int compareTo(T other);`. A
-  struct implements it only with a `readonly` method; a class may use any method, since calling a
-  class's method never changes the reference it is called through. A generic body can call a
-  `readonly` interface method on any value, including one that isn't `mut` (§2.7) or is an `in`
-  parameter; calling any other interface method on a type parameter's value needs a mutable place,
-  since the type argument may be a struct.
+- An interface method may be declared `mut`, as in `mut void reset();`, which lets a struct
+  implement it with a `mut` method. A struct can't implement an interface method that isn't `mut`
+  with one that is; a class may use any method, since calling a class's method never changes the
+  reference it is called through. A generic body can call an interface method that isn't `mut` on
+  any value, including one that isn't `mut` (§2.7) or is an `in` parameter; calling a `mut` one on a
+  type parameter's value needs a mutable place, since the type argument may be a struct.
 
 ## 2.13 Generics
 
@@ -772,7 +774,7 @@ zero overhead).
 
 ```java
 interface Comparable<T> {
-    readonly int compareTo(T other);
+    int compareTo(T other);
 }
 
 T max<T extends Comparable<T>>(T a, T b) {
@@ -829,7 +831,7 @@ type parameters, as in `T extends Comparable<T>`.
 
 ```java
 interface Comparable<T> {
-    readonly int compareTo(T other);   // negative, zero, or positive
+    int compareTo(T other);            // negative, zero, or positive
 }
 
 T maxOf<T extends Comparable<T>>(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }

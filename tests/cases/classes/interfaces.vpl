@@ -1,10 +1,10 @@
 interface Named {
-    readonly String name();
+    String name();
 }
 
 interface Damageable extends Named {
-    void damage(int amount);
-    int health();
+    mut void damage(int amount);
+    mut int health();
 }
 
 class Crate implements Damageable {
@@ -53,7 +53,7 @@ void hit(Damageable target) {
 struct Counter implements Named {
     int n;
 
-    readonly String name() {
+    String name() {
         return "counter";
     }
 }

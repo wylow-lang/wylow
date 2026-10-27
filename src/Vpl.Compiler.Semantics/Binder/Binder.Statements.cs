@@ -549,7 +549,7 @@ public sealed partial class Binder
         {
             { Base: PlaceBase.Local, Root: BoundLocalAccess { Local: var local } } => ClassifyLocal(local),
             { Root: BoundThis { Type.IsReference: true } } => (PlaceKind.Temporary, ""),
-            { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a readonly method"),
+            { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a method that isn't 'mut'"),
             { Base: PlaceBase.This } => (PlaceKind.Mutable, ""),
             { Base: PlaceBase.Returned, Root: BoundCall call } => ClassifyReturnedReference(call, PlaceKind.Temporary),
             _ => (PlaceKind.Temporary, ""),

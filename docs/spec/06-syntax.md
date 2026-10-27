@@ -145,25 +145,29 @@ by reference) and are a compile error.
   type must match the parameter exactly; no conversions apply.
 - A place is read-only, and cannot be assigned or passed by `ref`, if it is rooted at an `in`
   parameter or variable, a variable, parameter, or field that isn't `mut` (§2.7), `this` inside a
-  `readonly` method, or a call that returns `in`.
+  struct method that isn't `mut`, or a call that returns `in`.
 - Arguments are evaluated left to right, and a `ref` argument is a reference to the place, not a
   snapshot of its value: in `x + increment(ref x)`, the left `x` is read before the call.
 
-### `readonly` struct methods
+### `mut` struct methods
 
-In a struct method, `this` is a `ref`, so methods may mutate the struct. A method marked `readonly`
-cannot mutate `this`. Interface methods may be `readonly` too
-([02-types.md](02-types.md#212-interfaces)). Only `readonly` methods (and properties) can be called on a read-only place:
+A struct method can't change `this` unless it is declared `mut`, as nothing else can change
+without `mut` (§2.7); in a `mut` method, `this` is a `ref`. Interface methods may be `mut` too
+([02-types.md](02-types.md#212-interfaces)). A `mut` method can't be called on a read-only place:
 through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `mut`.
 
 ```java
 struct Vec3 {
     float x, y, z;
 
-    readonly float length() { return sqrt(x*x + y*y + z*z); }
-    void normalize() { var l = length(); x /= l; y /= l; z /= l; }
+    float length() { return sqrt(x*x + y*y + z*z); }
+    mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
 }
 ```
+
+Class methods take no `mut`: calling one never changes the reference it is called through, and
+what it may change in the object is decided by which fields are `mut`. Enum methods take none
+either, since an enum value can't be changed in place. Static methods have no `this`.
 
 ### Overloading, defaults, named arguments
 
@@ -258,8 +262,8 @@ class Player {
 ```
 
 - Accessors may have their own access modifier (`private set`).
-- On structs, a `get` accessor that doesn't mutate may be marked `readonly`:
-  `readonly bool isDead { get -> health <= 0; }`.
+- On structs, a `get` accessor can't change `this` unless the property is declared `mut`, as for
+  methods.
 - Simple accessors are inlined by the C++ compiler and cost nothing.
 
 > Implemented so far: get-only properties, `T name { get -> value; }` or `T name { get { ... } }`,
@@ -768,7 +772,7 @@ in ordinary strings mean nothing special.
 
 ```java
 interface Printable {
-    readonly String toString();
+    String toString();
 }
 
 struct Vec3 implements Printable {
@@ -776,7 +780,7 @@ struct Vec3 implements Printable {
     float y;
     float z;
 
-    readonly String toString() { return $"({x}, {y}, {z})"; }
+    String toString() { return $"({x}, {y}, {z})"; }
 }
 ```
 
@@ -893,7 +897,7 @@ public struct Enemy {
     int health = 100;
     AiState state = AiState.Idle;
 
-    readonly bool isDead { get -> health <= 0; }
+    bool isDead { get -> health <= 0; }
 }
 
 public class EnemySystem {

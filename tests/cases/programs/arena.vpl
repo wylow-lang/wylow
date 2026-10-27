@@ -13,7 +13,7 @@ struct Vec2 {
         return Vec2(a.x + b.x, a.y + b.y);
     }
 
-    readonly int manhattan(in Vec2 other) {
+    int manhattan(in Vec2 other) {
         int dx = x - other.x;
         int dy = y - other.y;
         return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
@@ -24,14 +24,14 @@ struct Vec2 {
 struct Rng {
     int state;
 
-    int next() {
+    mut int next() {
         state ^= state << 13;
         state ^= state >> 17;
         state ^= state << 5;
         return state & 0x7fffffff;
     }
 
-    int range(int max) {
+    mut int range(int max) {
         return next() % max;
     }
 }
@@ -63,7 +63,7 @@ enum Event {
 }
 
 interface Describable {
-    String describe();
+    mut String describe();
 }
 
 abstract class Entity implements Describable {
@@ -149,7 +149,7 @@ struct EventLog {
     Event[4] recent = [Event.Died(""), Event.Died(""), Event.Died(""), Event.Died("")];
     int written;
 
-    void push(Event e) {
+    mut void push(Event e) {
         recent[written % recent.length] = e;
         written++;
     }

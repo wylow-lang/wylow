@@ -7,7 +7,7 @@ struct Pair<A, B> {
         this.second = second;
     }
 
-    readonly Pair<B, A> swapped() {
+    Pair<B, A> swapped() {
         return Pair<B, A>(second, first);
     }
 
@@ -20,12 +20,12 @@ struct Box<T> {
     T value;
     int reads = 0;
 
-    T get() {
+    mut T get() {
         reads++;
         return value;
     }
 
-    U convert<U>(U fallback) {
+    mut U convert<U>(U fallback) {
         return fallback;
     }
 }

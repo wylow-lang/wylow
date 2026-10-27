@@ -3,15 +3,15 @@
 struct Point {
     int x;
 
-    void move() {
+    mut void move() {
         x++;
     }
 
-    readonly int get() {
+    int get() {
         return x;
     }
 
-    () -> int getter() {
+    mut () -> int getter() {
         return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
     }
 }
@@ -73,7 +73,7 @@ void copies() {
     keep(() -> {
         value = 2;                                  // error: cannot assign to 'value' because an escaping lambda only has a copy of 'value'
         point.x = 3;                                // error: cannot assign to 'point.x' because an escaping lambda only has a copy of 'point'
-        point.move();                               // error: cannot call 'move' on 'point' because an escaping lambda only has a copy of 'point'; only 'readonly' methods can be called on it
+        point.move();                               // error: cannot call 'mut' method 'move' on 'point' because an escaping lambda only has a copy of 'point'
         bump(ref value);                            // error: cannot pass 'value' by 'ref' because an escaping lambda only has a copy of 'value'
         return value + point.get();
     });

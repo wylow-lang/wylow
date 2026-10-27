@@ -2,11 +2,11 @@ struct Vec {
     int x;
     int[2] pair;
 
-    void move(int dx) {
+    mut void move(int dx) {
         x += dx;
     }
 
-    void moveWith(ref Vec? other) {
+    mut void moveWith(ref Vec? other) {
         other = null;
         x += 1;
     }
@@ -15,11 +15,11 @@ struct Vec {
 struct Buf implements Spannable<int> {
     int[2] data;
 
-    readonly ReadOnlySpan<int> asReadOnlySpan() {
+    ReadOnlySpan<int> asReadOnlySpan() {
         return data;
     }
 
-    Span<int> asSpan() {
+    mut Span<int> asSpan() {
         return data;
     }
 }

@@ -2,7 +2,7 @@
 // through interface types. A destructor may change its cycle or let go of other objects.
 
 interface Part {
-    int id();
+    mut int id();
 }
 
 struct Edge {

@@ -6,46 +6,46 @@
 extern struct String {
     // The length in bytes, not in characters.
     @Pure
-    readonly extern int byteLength { get; }
+    extern int byteLength { get; }
 
     @Pure
-    readonly extern bool isEmpty { get; }
+    extern bool isEmpty { get; }
 
     // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
     @Pure
-    readonly extern ReadOnlySpan<byte> bytes { get; }
+    extern ReadOnlySpan<byte> bytes { get; }
 
     // The number of characters (code points). It reads the whole string.
     @Pure
-    readonly extern int charCount();
+    extern int charCount();
 
     @Pure
-    readonly extern bool startsWith(String prefix);
+    extern bool startsWith(String prefix);
 
     @Pure
-    readonly extern bool endsWith(String suffix);
+    extern bool endsWith(String suffix);
 
     @Pure
-    readonly extern bool contains(String text);
+    extern bool contains(String text);
 
     // The byte offset where `text` first occurs, or null if it doesn't.
     @Pure
-    readonly extern int? indexOf(String text);
+    extern int? indexOf(String text);
 
     // The `length` bytes from `start`. Panics if they are out of bounds or would split a character.
     @CallerLocation
-    readonly extern String slice(int start, int length);
+    extern String slice(int start, int length);
 
     // Negative, zero, or positive as this string sorts before, the same as, or after `other`: by
     // byte, which for UTF-8 is the order of the code points.
     @Pure
-    readonly extern int compareTo(String other);
+    extern int compareTo(String other);
 
     // For the compiler's loops over a string's characters. `offset` must be where one starts.
     @Pure
-    private readonly extern char charAt(int offset);
+    private extern char charAt(int offset);
 
     // The offset after the character that starts at `offset`.
     @Pure
-    private readonly extern int nextChar(int offset);
+    private extern int nextChar(int offset);
 }

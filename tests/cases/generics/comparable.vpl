@@ -2,7 +2,7 @@ struct Version implements Comparable<Version> {
     int major;
     int minor;
 
-    readonly int compareTo(Version other) {
+    int compareTo(Version other) {
         int byMajor = major.compareTo(other.major);
         return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
     }

@@ -1,21 +1,21 @@
 struct Mat2 {
     float[4] m;
 
-    ref float operator [](int row, int col) {
+    mut ref float operator [](int row, int col) {
         return ref m[row * 2 + col];
     }
 
-    readonly in float at(int i) {
+    in float at(int i) {
         return ref m[i];
     }
 
-    readonly float trace { get -> m[0] + m[3]; }
+    float trace { get -> m[0] + m[3]; }
 }
 
 struct Holder {
     Mat2 mat;
 
-    ref Mat2 inner() {
+    mut ref Mat2 inner() {
         return ref mat;
     }
 }

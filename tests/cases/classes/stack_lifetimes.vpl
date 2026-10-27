@@ -23,7 +23,7 @@ struct Vec {
 }
 
 interface Visitor {
-    void visit(Noisy n);
+    mut void visit(Noisy n);
 }
 
 class Reader implements Visitor {

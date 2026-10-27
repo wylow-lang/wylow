@@ -1,7 +1,7 @@
 struct Pair {
     int[2] items;
 
-    ref? int at(int i) {
+    mut ref? int at(int i) {
         if (i < 0 || i >= 2) {
             return null;
         }

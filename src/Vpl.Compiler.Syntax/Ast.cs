@@ -11,7 +11,6 @@ public enum Modifiers
     Private = 2,
     Protected = 4,
     Static = 8,
-    ReadOnly = 16,
     Virtual = 32,
     Override = 64,
     Abstract = 128,
@@ -22,7 +21,7 @@ public enum Modifiers
     /// <summary>On a struct: <c>ref struct</c>, a second-class type.</summary>
     Ref = 4096,
 
-    /// <summary>On a class field: assignable after construction.</summary>
+    /// <summary>On a class field: assignable after construction. On a struct or interface method: may change <c>this</c>.</summary>
     Mut = 8192,
 }
 

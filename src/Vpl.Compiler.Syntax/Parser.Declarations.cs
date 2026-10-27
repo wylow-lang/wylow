@@ -123,16 +123,13 @@ public sealed partial class Parser
                 Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
                 break;
-            case TypeKind.Class:
-                Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on struct and interface methods");
-                break;
             case TypeKind.Interface:
-                Disallow(modifiers, ~Modifiers.ReadOnly, _ => "interface members cannot have modifiers other than 'readonly'");
+                Disallow(modifiers, ~Modifiers.Mut, _ => "interface members cannot have modifiers other than 'mut'");
                 break;
             case TypeKind.Enum:
                 Disallow(modifiers, Modifiers.Protected | InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
-                Disallow(modifiers, Modifiers.ReadOnly, _ => "enum methods are always readonly, since an enum value cannot be modified");
+                Disallow(modifiers, Modifiers.Mut, _ => "enum methods cannot be 'mut', since an enum value cannot be modified");
                 break;
         }
 
@@ -151,7 +148,7 @@ public sealed partial class Parser
 
         if (At(TokenKind.Identifier) && Current.Text == typeName && Peek(1).Kind == TokenKind.OpenParen)
         {
-            Disallow(modifiers, Modifiers.Static | Modifiers.ReadOnly | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers,
+            Disallow(modifiers, Modifiers.Static | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers,
                 token => $"'{token.Text}' is not valid on a constructor");
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
@@ -189,7 +186,7 @@ public sealed partial class Parser
                 SkipDeclaration();
                 return;
             }
-            CheckMethodModifiers(modifiers);
+            CheckMethodModifiers(kind, modifiers);
             var indexerName = LocationFrom(operatorStart);
             var indexerParameters = ParseParameterList(allowRefKinds: true);
             var indexerBody = Accept(TokenKind.Semicolon) ? null : ParseBlock();
@@ -207,13 +204,13 @@ public sealed partial class Parser
         var name = Expect(TokenKind.Identifier, "a member name");
         if (At(TokenKind.OpenParen) || At(TokenKind.Less))
         {
-            CheckMethodModifiers(modifiers);
+            CheckMethodModifiers(kind, modifiers);
             AddMethod(kind, modifiers, members, ParseFunctionRest(start, modifiers.Flags, type, name) with { ReturnRefKind = returnRefKind });
             return;
         }
         if (At(TokenKind.OpenBrace))
         {
-            CheckMethodModifiers(modifiers);
+            CheckMethodModifiers(kind, modifiers);
             AddMethod(kind, modifiers, members, ParseProperty(start, modifiers.Flags, type, name) with { ReturnRefKind = returnRefKind });
             return;
         }
@@ -229,7 +226,6 @@ public sealed partial class Parser
         else if (kind == TypeKind.Enum)
             Error(name.Span, "enums cannot have fields; data belongs to variants, as in 'Name(int field)'");
         Disallow(modifiers, Modifiers.Static, _ => "static fields are not supported yet");
-        Disallow(modifiers, Modifiers.ReadOnly, _ => "'readonly' is only valid on methods");
         if (kind == TypeKind.Struct)
             Disallow(modifiers, Modifiers.Mut, _ => "struct fields cannot be 'mut'; they can be changed wherever the struct itself can be");
         Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => $"'{token.Text}' is not valid on a field");
@@ -307,13 +303,14 @@ public sealed partial class Parser
         return new FunctionDecl(LocationFrom(start), modifiers, type, name.Text, Loc(name.Span), [], [], body) { IsProperty = true };
     }
 
-    void CheckMethodModifiers(ModifierList modifiers)
+    void CheckMethodModifiers(TypeKind kind, ModifierList modifiers)
     {
         var flags = modifiers.Flags;
-        Disallow(modifiers, Modifiers.Mut, _ => "'mut' is only valid on fields, variables, and parameters");
+        if (kind == TypeKind.Class)
+            Disallow(modifiers, Modifiers.Mut, _ => "'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields");
         if ((flags & Modifiers.Static) != 0)
         {
-            Disallow(modifiers, Modifiers.ReadOnly | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");
+            Disallow(modifiers, Modifiers.Mut | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");
             return;
         }
         if ((flags & Modifiers.Private) != 0)

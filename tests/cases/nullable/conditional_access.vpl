@@ -9,11 +9,11 @@ struct Vec {
         this.y = y;
     }
 
-    void move(int dx) {
+    mut void move(int dx) {
         x += dx;
     }
 
-    readonly int sum() {
+    int sum() {
         return x + y;
     }
 }

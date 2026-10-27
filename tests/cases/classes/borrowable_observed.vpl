@@ -3,7 +3,7 @@
 struct Counter {
     int n;
 
-    void tick() {
+    mut void tick() {
         print("tick");
         n++;
     }

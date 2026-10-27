@@ -382,7 +382,7 @@ public sealed partial class Binder
             {
                 var what = receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'";
                 return ErrorExpression(location,
-                    $"cannot call '{method.Symbol.Name}' on {what} because {reason}; only 'readonly' methods can be called on it");
+                    $"cannot call 'mut' method '{method.Symbol.Name}' on {what} because {reason}");
             }
         }
         if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))

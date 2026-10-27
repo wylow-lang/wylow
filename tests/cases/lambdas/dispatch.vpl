@@ -1,7 +1,7 @@
 // Functions that can't be C++ templates take their function arguments as vpl::FunctionRef.
 
 interface Visitor {
-    readonly void visit((int) -> void action);
+    void visit((int) -> void action);
 }
 
 abstract class Shape {
@@ -53,7 +53,7 @@ class Floor extends Tile implements Visitor {
 struct Stack implements Visitor {
     int height;
 
-    readonly void visit((int) -> void action) {
+    void visit((int) -> void action) {
         action(height);
     }
 }

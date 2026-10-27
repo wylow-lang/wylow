@@ -3,5 +3,5 @@
 
 extern struct Weak<T> {
     // The target, or null once it has been destroyed.
-    readonly extern T? get();
+    extern T? get();
 }

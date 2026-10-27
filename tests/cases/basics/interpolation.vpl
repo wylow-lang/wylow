@@ -3,11 +3,11 @@ struct Vec3 implements Printable {
     float y;
     float z;
 
-    readonly String toString() { return $"({x}, {y}, {z})"; }
+    String toString() { return $"({x}, {y}, {z})"; }
 }
 
 interface Named extends Printable {
-    readonly String title();
+    String title();
 }
 
 class Animal implements Named {

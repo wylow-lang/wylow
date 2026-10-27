@@ -3,7 +3,7 @@
 struct Pair implements ReadOnlySpannable<int> {
     int[2] items;
 
-    readonly ReadOnlySpan<int> asReadOnlySpan() {
+    ReadOnlySpan<int> asReadOnlySpan() {
         return items;
     }
 }

@@ -39,7 +39,7 @@ enum Action {
 }
 
 interface Runner {
-    int run(() -> int task);
+    mut int run(() -> int task);
 }
 
 class TwiceRunner implements Runner {

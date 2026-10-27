@@ -2,11 +2,11 @@
 struct Vec {
     float x;
 
-    void grow() {
+    mut void grow() {
         x++;
     }
 
-    readonly float get() {
+    float get() {
         return x;
     }
 }
@@ -30,7 +30,7 @@ class Body {
     void move() {
         velocity.x = 1;
         position.x = 1;                     // error: cannot assign to 'position.x' because field 'position' is not 'mut'
-        position.grow();                    // error: cannot call 'grow' on 'position' because field 'position' is not 'mut'
+        position.grow();                    // error: cannot call 'mut' method 'grow' on 'position' because field 'position' is not 'mut'
         id = 4;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
     }
 }
@@ -67,7 +67,7 @@ void locals() {
 
     Vec v = Vec();
     v.x = 1;                                // error: cannot assign to 'v.x' because variable 'v' is not 'mut'
-    v.grow();                               // error: cannot call 'grow' on 'v' because variable 'v' is not 'mut'
+    v.grow();                               // error: cannot call 'mut' method 'grow' on 'v' because variable 'v' is not 'mut'
     print(v.get());
     bump(ref v.x);                          // error: cannot pass 'v.x' by 'ref' because variable 'v' is not 'mut'
     ref Vec r = v;                          // error: cannot take a 'ref' to 'v' because variable 'v' is not 'mut'; use 'in' instead

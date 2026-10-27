@@ -1,7 +1,7 @@
 // Breadth-first and best-first search on a grid, with a user-written generic heap.
 
 interface Ordered<T> {
-    bool lessThan(in T other);
+    mut bool lessThan(in T other);
 }
 
 struct Point implements Ordered<Point> {
@@ -12,7 +12,7 @@ struct Point implements Ordered<Point> {
         this.y = y;
     }
 
-    readonly bool lessThan(in Point other) {
+    bool lessThan(in Point other) {
         return x + y < other.x + other.y;
     }
 }
@@ -21,7 +21,7 @@ struct Scored<T> implements Ordered<Scored<T>> {
     T value;
     int score;
 
-    readonly bool lessThan(in Scored<T> other) {
+    bool lessThan(in Scored<T> other) {
         return score < other.score;
     }
 }
@@ -80,7 +80,7 @@ final class Heap<T extends Ordered<T>> {
 struct Grid {
     bool[8][8] walls;
 
-    readonly bool open(Point p) {
+    bool open(Point p) {
         return p.x >= 0 && p.y >= 0 && p.x < 8 && p.y < 8 && !walls[p.y][p.x];
     }
 }

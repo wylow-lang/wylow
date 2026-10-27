@@ -12,7 +12,7 @@ The language is described in [docs/spec](docs/spec/README.md).
   and named arguments, `print`, `panic`. Checked arithmetic, definite assignment, and left-to-right
   evaluation are enforced.
 - **Milestone 2:** structs: fields with initializers, constructors, memberwise constructors,
-  instance/static/`readonly` methods, `private`, memberwise `==`, and `ref`/`in` parameters.
+  instance/static/`mut` methods, `private`, memberwise `==`, and `ref`/`in` parameters.
 - **Milestone 3:** generics: generic structs, functions, and methods, type argument inference,
   default-value rules for type parameters, and recursive-struct detection through type arguments.
 - **Milestone 4:** classes: `new`, reference counting, destructors, single inheritance with

@@ -1,25 +1,25 @@
 struct Mat2 {
     float[4] m;
 
-    ref? float at(int i) {
+    mut ref? float at(int i) {
         if (i < 0 || i >= 4) {
             return null;
         }
         return ref m[i];
     }
 
-    readonly in? float peek(int i) {
+    in? float peek(int i) {
         if (i < 0 || i >= 4) {
             return null;
         }
         return ref m[i];
     }
 
-    ref? float first() {
+    mut ref? float first() {
         return ref at(0);
     }
 
-    ref float last() {
+    mut ref float last() {
         return ref at(3)!;
     }
 }
@@ -75,7 +75,7 @@ int order(int value) {
 struct Slots<T> {
     T[2] items;
 
-    ref? T find(int i) {
+    mut ref? T find(int i) {
         if (i < 0 || i >= 2) {
             return null;
         }

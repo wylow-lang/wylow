@@ -4,7 +4,7 @@ mut class Box {                    // error: 'mut' is not valid on a class
     mut Box() {                    // error: 'mut' is not valid on a constructor
     }
 
-    mut int get() {                // error: 'mut' is only valid on fields, variables, and parameters
+    mut int get() {                // error: 'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields
         return value;
     }
 }

@@ -12,12 +12,12 @@ struct Point {
         return 5;                  // error: constructors cannot return a value
     }
 
-    readonly void move() {
-        x = 1;                     // error: cannot assign to 'x' because 'this' is read-only in a readonly method
-        reset();                   // error: cannot call 'reset' on 'this' because 'this' is read-only
+    void move() {
+        x = 1;                     // error: cannot assign to 'x' because 'this' is read-only in a method that isn't 'mut'
+        reset();                   // error: cannot call 'mut' method 'reset' on 'this' because 'this' is read-only
     }
 
-    void reset() {
+    mut void reset() {
         x = 0;
     }
 
@@ -49,7 +49,7 @@ void setX(ref int value) {
 
 void readOnly(in Point p) {
     p.x = 3;                       // error: cannot assign to 'p.x' because 'p' is an 'in' parameter
-    p.reset();                     // error: cannot call 'reset' on 'p' because 'p' is an 'in' parameter
+    p.reset();                     // error: cannot call 'mut' method 'reset' on 'p' because 'p' is an 'in' parameter
     setX(ref p.x);                 // error: cannot pass 'p.x' by 'ref' because 'p' is an 'in' parameter
 }
 

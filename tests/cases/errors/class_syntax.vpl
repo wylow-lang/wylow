@@ -6,13 +6,13 @@ struct S extends T { }                 // error: structs cannot inherit
 
 struct WithDestructor {
     ~WithDestructor() { }              // error: structs cannot have destructors
-    virtual void m() { }               // error: 'virtual' is not valid on struct members
+    mut virtual void m() { }               // error: 'virtual' is not valid on struct members
 }
 
 interface I {
     int x;                             // error: interfaces cannot have fields
-    void body() { }                    // error: interface methods cannot have a body
-    public void m();                   // error: interface members cannot have modifiers
+    mut void body() { }                    // error: interface methods cannot have a body
+    public mut void m();                   // error: interface members cannot have modifiers
 }
 
 class C {
@@ -24,7 +24,6 @@ class C {
     void r();                          // error: 'r' must have a body
     ~D() { }                           // error: a destructor must be named after its class
     ~C(int x) { }                      // error: destructors cannot have parameters
-    readonly void s() { }              // error: 'readonly' is only valid on struct and interface methods
     virtual int field;                 // error: 'virtual' is not valid on a field
 }
 

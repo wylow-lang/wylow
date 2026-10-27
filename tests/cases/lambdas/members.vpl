@@ -12,13 +12,13 @@ struct Accumulator {
         });
     }
 
-    void addAll(int[3] values) {
+    mut void addAll(int[3] values) {
         each(values, v -> {
             total += v;
         });
     }
 
-    readonly int with((int) -> int f) {
+    int with((int) -> int f) {
         return f(total);
     }
 }

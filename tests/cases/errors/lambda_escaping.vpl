@@ -82,7 +82,7 @@ class Derived extends Base {
 }
 
 interface Listener {
-    void listen(@Escaping () -> void f);
+    mut void listen(@Escaping () -> void f);
 }
 
 class Quiet implements Listener {

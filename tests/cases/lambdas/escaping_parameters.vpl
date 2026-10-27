@@ -17,7 +17,7 @@ class Bus {
 }
 
 interface Registry {
-    void each((@Escaping (int) -> int) -> void visit);
+    mut void each((@Escaping (int) -> int) -> void visit);
 }
 
 class Doubler implements Registry {

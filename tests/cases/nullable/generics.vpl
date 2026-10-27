@@ -5,7 +5,7 @@ struct Score implements Comparable<Score> {
         this.points = points;
     }
 
-    readonly int compareTo(Score other) {
+    int compareTo(Score other) {
         return points - other.points;
     }
 }
@@ -46,7 +46,7 @@ T? largest<T extends Comparable<T>>(List<T> items) {
 struct Slot<T> {
     T? value;
 
-    readonly bool isEmpty() {
+    bool isEmpty() {
         return value == null;
     }
 }
