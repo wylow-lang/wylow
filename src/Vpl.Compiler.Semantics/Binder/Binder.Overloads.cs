@@ -180,9 +180,9 @@ public sealed partial class Binder
     /// another reference that may refer to nothing.
     /// </summary>
     static bool RefArgumentFits(BoundExpression argument, VplType parameter) =>
-        parameter.IsNullableReference
-            ? (argument.Type.ReferencedType ?? argument.Type) == parameter.ReferencedType
-            : argument.Type == parameter || (argument is BoundLocalAccess && argument.Type.ReferencedType == parameter);
+        parameter is NullableReferenceType reference
+            ? argument.Type.Referred == reference.Referenced
+            : argument.Type == parameter || (argument is BoundLocalAccess && argument.Type is NullableReferenceType { Referenced: var referenced } && referenced == parameter);
 
     /// <summary>A <c>ref?</c> parameter takes <c>null</c>, which needs no <c>ref</c>.</summary>
     static bool IsNullForReference(Argument argument, VplType parameter) =>
@@ -203,9 +203,9 @@ public sealed partial class Binder
                 return (argument.Location, $"{what} must not be passed with 'ref'");
             if (isRefParameter && argument.IsRef && !RefArgumentFits(argument.Expression, parameter))
             {
-                return (argument.Location, argument.Expression.Type.ReferencedType == parameter
+                return (argument.Location, argument.Expression.Type is NullableReferenceType { Referenced: var referenced } && referenced == parameter
                     ? MayReferToNothingMessage(argument.Expression)
-                    : $"a 'ref' argument must have exactly type '{parameter.ReferencedType ?? parameter}', not '{argument.Expression.Type.ReferencedType ?? argument.Expression.Type}'");
+                    : $"a 'ref' argument must have exactly type '{parameter.Referred}', not '{argument.Expression.Type.Referred}'");
             }
         }
         return null;

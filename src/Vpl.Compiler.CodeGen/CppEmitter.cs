@@ -200,14 +200,14 @@ public sealed partial class CppEmitter
 
     static string CppType(VplType type)
     {
-        if (type.TypeParameter is { } parameter) return TypeParameterName(parameter);
-        if (type.IsPointer) return CppType(type.ElementType!) + "*";
+        if (type is TypeParameterType parameter) return TypeParameterName(parameter.Parameter);
+        if (type is PointerType pointer) return CppType(pointer.Element) + "*";
         // A reference that may refer to nothing is a pointer, null when it refers to nothing.
-        if (type.IsNullableReference) return (type.ReferenceKind == RefKind.In ? "const " : "") + CppType(type.ReferencedType!) + "*";
-        if (type.IsFixedArray) return $"std::array<{CppType(type.ElementType!)}, {type.FixedLength}>";
+        if (type is NullableReferenceType reference) return (reference.Kind == RefKind.In ? "const " : "") + CppType(reference.Referenced) + "*";
+        if (type is FixedArrayType array) return $"std::array<{CppType(array.Element)}, {array.Length}>";
         if (type.IsReference) return $"vpl::Ref<{ObjectType(type)}>";
         // A local holding a lambda is `auto`, and a template parameter its own type; see CppEmitter.Lambdas.cs.
-        if (type.IsFunction) return $"vpl::{(type.IsEscaping ? "Function" : "FunctionRef")}<{FunctionSignature(type)}>";
+        if (type is FunctionType function) return $"vpl::{(function.IsEscaping ? "Function" : "FunctionRef")}<{FunctionSignature(function)}>";
         // `T?` is a reference or an Optional depending on what `T` stands for.
         if (type.IsNullableValue) return type.NonNull.IsTypeParameter ? $"vpl::Nullable<{CppType(type.NonNull)}>" : $"vpl::Optional<{CppType(type.NonNull)}>";
         if (type.IsStructOrEnum) return ObjectType(type);

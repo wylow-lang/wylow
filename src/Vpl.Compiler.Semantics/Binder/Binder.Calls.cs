@@ -320,9 +320,9 @@ public sealed partial class Binder
         if (receiver.Type == VplType.Error)
             return null;
         // Through a reference, the member is reached in the place it refers to, not in a copy.
-        if (receiver.Type.IsNullableReference)
+        if (receiver.Type is NullableReferenceType reference)
         {
-            return (receiver, new LocalSymbol(TextOf(e.Target.Location), receiver.Type, isParameter: false, receiver.Type.ReferenceKind)
+            return (receiver, new LocalSymbol(TextOf(e.Target.Location), reference, isParameter: false, reference.Kind)
             {
                 IsTemporary = true,
                 IsReferenceBinding = true,
@@ -420,9 +420,9 @@ public sealed partial class Binder
                 result.Add(Convert(argument.Expression, parameterType));
                 continue;
             }
-            if (parameterType.IsNullableReference)
+            if (parameterType is NullableReferenceType reference)
             {
-                result.Add(ConvertToNullableReference(argument.Expression, parameterType, "a 'ref?' argument") ?? new BoundErrorExpression(argument.Location));
+                result.Add(ConvertToNullableReference(argument.Expression, reference, "a 'ref?' argument") ?? new BoundErrorExpression(argument.Location));
                 continue;
             }
 

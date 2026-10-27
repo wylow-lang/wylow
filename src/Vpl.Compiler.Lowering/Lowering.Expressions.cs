@@ -94,7 +94,7 @@ public sealed partial class IrLowering
                     Place(length.Operand, Use.Read);
                 else
                     Add(DoOf(Rvalue(length.Operand, Use.Read)));
-                return new IrUse(IrConstant.Int(length.Operand.Type.FixedLength));
+                return new IrUse(IrConstant.Int(((FixedArrayType)length.Operand.Type).Length));
             case BoundArrayData data:
                 // A view isn't read right away, so the object it points into is held while it may be used.
                 return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));
@@ -216,9 +216,9 @@ public sealed partial class IrLowering
             return new IrFieldDefault(field.Field);
         if (parameter.NonNull.IsNonEscapingFunction)
             return FunctionArgument(parameter, argument);
-        if (parameter.IsNullableReference)
+        if (parameter is NullableReferenceType reference)
         {
-            var kind = parameter.ReferenceKind;
+            var kind = reference.Kind;
             return argument switch
             {
                 BoundConversion { Operand.Type: var from } when from == VplType.Null => new IrConstant(parameter, null),

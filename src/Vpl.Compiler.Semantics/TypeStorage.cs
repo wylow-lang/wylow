@@ -25,8 +25,8 @@ public static class TypeStorage
                     continue;
                 }
                 yield return next;
-                if (next.IsFixedArray)
-                    pending.Push(next.ElementType!);
+                if (next is FixedArrayType array)
+                    pending.Push(array.Element);
                 else if (next.IsStructOrEnum && !next.Symbol!.IsExtern)
                 {
                     var map = TypeMap.For(next);
@@ -68,7 +68,7 @@ public static class TypeStorage
             if (inside.Any(t => t.IsTypeParameter) || part.InlineTypes().Any(t => t.NonNull.IsTypeParameter))
                 return true;
             return element
-                ? inside.Any(t => t.IsFixedArray && t.ElementType!.NonNull == part.NonNull)
+                ? inside.Any(t => t is FixedArrayType array && array.Element.NonNull == part.NonNull)
                 : inside.Skip(1).Contains(part.NonNull);
         }
 
@@ -77,7 +77,7 @@ public static class TypeStorage
         /// object's fields, a string's bytes, or a closure's captures. Such a value is held, not
         /// itself kept in place, while something points into it.
         /// </summary>
-        public bool SharesStorage => type.NonNull.IsReference || type == VplType.String || type.NonNull.IsEscapingFunction;
+        public bool SharesStorage => type.NonNull.IsReference || type == VplType.String || type.NonNull.IsEscaping;
 
         /// <summary>Whether the copies of a value may share their storage, as a type parameter's may.</summary>
         public bool MayShareStorage => type.SharesStorage || type.IsTypeParameter;

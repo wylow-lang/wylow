@@ -592,7 +592,7 @@ public sealed partial class IrVerifier
             case IrArray array:
                 foreach (var element in array.Elements)
                     Operand(element, state);
-                if (!array.Type.IsFixedArray || array.Elements.Count != array.Type.FixedLength || array.Elements.Any(e => e.Type != array.Type.ElementType))
+                if (array.Type is not FixedArrayType fixedArray || array.Elements.Count != fixedArray.Length || array.Elements.Any(e => e.Type != fixedArray.Element))
                     Error($"the elements don't fit a '{array.Type}'");
                 break;
             case IrDefault:
@@ -730,7 +730,7 @@ public sealed partial class IrVerifier
 
     /// <summary>A function value a non-escaping function parameter takes, which the call converts to the parameter's type.</summary>
     static bool PassesFunction(VplType value, VplType parameter) =>
-        parameter.NonNull.IsNonEscapingFunction && value.NonNull.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
+        parameter.NonNull.IsNonEscapingFunction && value.NonNull is FunctionType function && function.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
 
     void Arguments(MethodReference method, IReadOnlyList<IrArgument> arguments, State state)
     {
@@ -747,9 +747,9 @@ public sealed partial class IrVerifier
             var kind = method.ParameterRefKind(i);
             bool fits = arguments[i] switch
             {
-                IrAddrArgument address => type.IsNullableReference && address.Place.Type == type.ReferencedType && (address.Kind == type.ReferenceKind || type.ReferenceKind == RefKind.In),
+                IrAddrArgument address => type is NullableReferenceType nullable && address.Place.Type == nullable.Referenced && (address.Kind == nullable.Kind || nullable.Kind == RefKind.In),
                 IrRefArgument reference => !type.IsNullableReference && reference.Place.Type == type && (reference.Kind == kind || kind == RefKind.In),
-                IrOperand operand => operand.Type == type || (type.IsNullableReference && operand.Type.ReferencedType == type.ReferencedType) || PassesFunction(operand.Type, type),
+                IrOperand operand => operand.Type == type || (type is NullableReferenceType nullable && operand.Type is NullableReferenceType passed && passed.Referenced == nullable.Referenced) || PassesFunction(operand.Type, type),
                 IrFieldDefault field => parameters[i].Field == field.Field,
                 _ => false,
             };

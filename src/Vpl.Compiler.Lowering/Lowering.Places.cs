@@ -113,7 +113,7 @@ public sealed partial class IrLowering
             case BoundIndex index:
                 var operand = IndexOperand(index.Index);
                 if (operand is not IrConstant)
-                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(current.Type.FixedLength)], Loc(index.Location)) { Origin = at });
+                    Add(new IrCheck(IrCheckKind.Index, [operand, IrConstant.Int(((FixedArrayType)current.Type).Length)], Loc(index.Location)) { Origin = at });
                 return current.Element(operand);
             case BoundCall call when current.Type.IsTypeParameter:
             {

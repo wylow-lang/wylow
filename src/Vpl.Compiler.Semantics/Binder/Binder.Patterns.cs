@@ -51,7 +51,7 @@ public sealed partial class Binder
     {
         var keyword = FunctionSymbol.RefPrefix(syntax.RefKind).Trim();
         var target = syntax.Type is null ? null : BindType(syntax.Type, allowVoid: false);
-        var referenced = operand.Type.ReferencedType;
+        var referenced = (operand.Type as NullableReferenceType)?.Referenced;
         var text = TextOf(operand.Location);
         var (kind, reason) = ClassifyPlace(operand);
         if (referenced is null)
@@ -495,13 +495,13 @@ public sealed partial class Binder
     static IEnumerable<TypeParameterSymbol> TypeParametersIn(VplType type)
     {
         var t = type.NonNull;
-        if (t.TypeParameter is { } parameter)
-            return [parameter];
-        IEnumerable<VplType> parts = [.. t.TypeArguments, .. t.FunctionParameters.Select(p => p.Type)];
-        if (t.ElementType is { } element)
-            parts = parts.Append(element);
-        if (t.FunctionReturnType is { } returnType)
-            parts = parts.Append(returnType);
+        if (t is TypeParameterType parameter)
+            return [parameter.Parameter];
+        IEnumerable<VplType> parts = [.. t.TypeArguments, .. (t as FunctionType)?.Parameters.Select(p => p.Type) ?? []];
+        if (t is IndexedType indexed)
+            parts = parts.Append(indexed.Element);
+        if (t is FunctionType function)
+            parts = parts.Append(function.ReturnType);
         return parts.SelectMany(TypeParametersIn);
     }
 }

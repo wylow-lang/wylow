@@ -13,11 +13,11 @@ public sealed partial class Binder
 {
     /// <summary>The non-escaping form of a function type or nullable function type; any other type itself.</summary>
     static VplType NonEscaping(VplType type) =>
-        type.IsNullable && type.NonNull.IsFunction ? type.NonNull.NonEscaping.Nullable : type.IsFunction ? type.NonEscaping : type;
+        type.NonNull is FunctionType function ? (type.IsNullable ? function.NonEscaping.Nullable : function.NonEscaping) : type;
 
     /// <summary>The escaping form of a function type or nullable function type; any other type itself.</summary>
     static VplType EscapingForm(VplType type) =>
-        type.IsNullable && type.NonNull.IsFunction ? type.NonNull.Escaping.Nullable : type.IsFunction ? type.Escaping : type;
+        type.NonNull is FunctionType function ? (type.IsNullable ? function.Escaping.Nullable : function.Escaping) : type;
 
 
     const string NonEscapingMutMessage =
@@ -136,8 +136,8 @@ public sealed partial class Binder
     /// </summary>
     static string OverloadEscapingHint(FunctionSymbol function, FunctionSymbol existing) =>
         function.Parameters.Zip(existing.Parameters).Any(p => p.First.Type != p.Second.Type
-            && p.First.Type.NonNull.IsFunction && p.Second.Type.NonNull.IsFunction
-            && p.First.Type.NonNull.NonEscaping == p.Second.Type.NonNull.NonEscaping)
+            && p.First.Type.NonNull is FunctionType first && p.Second.Type.NonNull is FunctionType second
+            && first.NonEscaping == second.NonEscaping)
             ? $" as '{existing.Signature}'; overloads cannot differ only in which parameters are '@Escaping'"
             : "";
 
@@ -150,8 +150,8 @@ public sealed partial class Binder
         for (int i = 0; i < method.Symbol.Parameters.Count; i++)
         {
             var (mine, theirs) = (method.ParameterType(i), other.ParameterType(i));
-            if (mine != theirs && mine.NonNull.IsFunction && theirs.NonNull.IsFunction
-                && mine.IsNullable == theirs.IsNullable && mine.NonNull.NonEscaping == theirs.NonNull.NonEscaping)
+            if (mine != theirs && mine.NonNull is FunctionType myFunction && theirs.NonNull is FunctionType theirFunction
+                && mine.IsNullable == theirs.IsNullable && myFunction.NonEscaping == theirFunction.NonEscaping)
             {
                 var name = method.Symbol.Parameters[i].Name;
                 return mine.NonNull.IsEscaping
@@ -164,7 +164,7 @@ public sealed partial class Binder
 
     /// <summary>Whether a value of type <paramref name="from"/> fails to convert only because it is non-escaping.</summary>
     static bool IsEscapingMismatch(VplType from, VplType to) =>
-        from.NonNull.IsNonEscapingFunction && to.NonNull == from.NonNull.Escaping && (to.IsNullable || !from.IsNullable);
+        from.NonNull is FunctionType { IsEscaping: false } function && to.NonNull == function.Escaping && (to.IsNullable || !from.IsNullable);
 
     /// <summary>
     /// The first argument that keeps a candidate from applying only by being non-escaping, if one

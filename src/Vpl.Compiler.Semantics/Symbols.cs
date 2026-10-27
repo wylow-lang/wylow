@@ -178,7 +178,7 @@ public sealed class TypeParameterSymbol
     public TypeParameterSymbol(string name)
     {
         Name = name;
-        Type = VplType.ForTypeParameter(this);
+        Type = TypeParameterType.Of(this);
     }
 
     public string Name { get; }
@@ -277,8 +277,6 @@ public sealed class VariantSymbol
 /// <summary>A declared struct, class, interface, or enum.</summary>
 public sealed class TypeSymbol
 {
-    readonly Dictionary<IReadOnlyList<VplType>, VplType> instances = new(TypeListComparer.Instance);
-
     public TypeSymbol(TypeDecl declaration, IReadOnlyList<TypeParameterSymbol> typeParameters)
     {
         Name = declaration.Name;
@@ -312,17 +310,12 @@ public sealed class TypeSymbol
     public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
 
     /// <summary>Every instantiation constructed so far, including ones with type parameters as arguments.</summary>
-    public IReadOnlyCollection<VplType> Instances => instances.Values;
+    public IReadOnlyCollection<VplType> Instances => NamedType.InstancesOf(this);
 
     /// <summary>The type of <c>this</c>: the type applied to its own type parameters.</summary>
     public VplType Type { get; }
 
-    public VplType Construct(IReadOnlyList<VplType> typeArguments)
-    {
-        if (!instances.TryGetValue(typeArguments, out var type))
-            instances[typeArguments] = type = VplType.ForSymbol(this, typeArguments);
-        return type;
-    }
+    public VplType Construct(IReadOnlyList<VplType> typeArguments) => NamedType.Of(this, typeArguments);
 
     /// <summary>A class's base class, in terms of this type's own type parameters.</summary>
     public VplType? BaseType { get; set; }

@@ -24,16 +24,18 @@ public static class FunctionValues
         if (value.IsNullable || lambda.IsNullable)
             return value.IsNullable && lambda.IsNullable && MayBe(value.NonNull, lambda.NonNull);
         if (value.IsNullableReference || lambda.IsNullableReference)
-            return value.ReferenceKind == lambda.ReferenceKind && value.ReferencedType is { } referenced && lambda.ReferencedType is { } other && MayBe(referenced, other);
+            return value is NullableReferenceType reference && lambda is NullableReferenceType other && reference.Kind == other.Kind && MayBe(reference.Referenced, other.Referenced);
         if (value.IsFunction || lambda.IsFunction)
         {
-            return value.IsFunction && lambda.IsFunction
-                && value.FunctionParameters.Count == lambda.FunctionParameters.Count
-                && value.FunctionParameters.Zip(lambda.FunctionParameters).All(p => p.First.RefKind == p.Second.RefKind && MayBe(p.First.Type, p.Second.Type))
-                && MayBe(value.FunctionReturnType!, lambda.FunctionReturnType!);
+            return value is FunctionType function && lambda is FunctionType other
+                && function.Parameters.Count == other.Parameters.Count
+                && function.Parameters.Zip(other.Parameters).All(p => p.First.RefKind == p.Second.RefKind && MayBe(p.First.Type, p.Second.Type))
+                && MayBe(function.ReturnType, other.ReturnType);
         }
-        if (value.ElementType is { } element)
-            return lambda.ElementType is { } other && value.IsPointer == lambda.IsPointer && value.FixedLength == lambda.FixedLength && MayBe(element, other);
+        if (value is PointerType pointer)
+            return lambda is PointerType other && MayBe(pointer.Element, other.Element);
+        if (value is FixedArrayType array)
+            return lambda is FixedArrayType other && array.Length == other.Length && MayBe(array.Element, other.Element);
         if (value.Symbol is { } symbol && value.TypeArguments.Count > 0)
             return lambda.Symbol == symbol && value.TypeArguments.Zip(lambda.TypeArguments).All(a => MayBe(a.First, a.Second));
         return value == lambda;

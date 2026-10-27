@@ -166,9 +166,9 @@ public sealed partial class Binder
     static string MethodKey(FunctionSymbol function, TypeMap map)
     {
         string Key(VplType type) =>
-            type.IsNullableReference ? Key(type.ReferencedType!)
+            type is NullableReferenceType reference ? Key(reference.Referenced)
             : type.IsNullable ? Key(type.NonNull)
-            : type.TypeParameter is { } p && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
+            : type is TypeParameterType { Parameter: var p } && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
             : type.Symbol is { } s && type.TypeArguments.Count > 0 ? $"{s.Name}<{string.Join(",", type.TypeArguments.Select(Key))}>"
             : type.Name;
         var parameters = string.Join(",", function.Parameters.Select(p => p.RefKind + Key(map.Apply(p.Type))));
@@ -420,7 +420,7 @@ public sealed partial class Binder
     {
         var location = method.Declaration!.NameLocation;
         var keyword = FunctionSymbol.RefPrefix(method.ReturnRefKind).Trim() + (method.ReturnType.IsNullableReference ? "?" : "");
-        var referenced = method.ReturnType.ReferencedType ?? method.ReturnType;
+        var referenced = method.ReturnType.Referred;
         if (method.IsStatic)
             Error(location, $"a static method cannot return '{keyword}'; a returned reference must point into the method's receiver");
         else if (method.IsDispatched)
@@ -556,7 +556,7 @@ public sealed partial class Binder
                 var fieldType = map.Apply(field.Type);
                 // A nullable value holds its value inline too.
                 while (fieldType.IsFixedArray || fieldType.IsNullableValue)
-                    fieldType = fieldType.IsFixedArray ? fieldType.ElementType! : fieldType.NonNull;
+                    fieldType = fieldType is FixedArrayType array ? array.Element : fieldType.NonNull;
                 if (fieldType.IsStructOrEnum && FindCycle(fieldType, path) is { } problem)
                     return problem;
             }

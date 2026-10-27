@@ -17,7 +17,7 @@ public static class TypeEquality
 
     static bool SupportsEquality(VplType type, HashSet<VplType> visiting) =>
         type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
-        : type.IsFixedArray ? SupportsEquality(type.ElementType!, visiting)
+        : type is FixedArrayType array ? SupportsEquality(array.Element, visiting)
         : !type.IsStructOrEnum ? type != VplType.Void && !type.IsTypeParameter && !type.IsFunction && !type.IsNullableReference
         : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
 

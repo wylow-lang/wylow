@@ -52,7 +52,7 @@ public sealed partial class Binder
         TryExpr e => BindTry(e),
         RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
         NamedArgExpr e => ErrorExpression(e.Location, "a named argument can only be used in a call"),
-        LambdaExpr e => expected is { IsFunction: true } ? BindLambda(e, expected, null)
+        LambdaExpr e => expected is FunctionType function ? BindLambda(e, function, null)
             : expected == VplType.Error ? new BoundErrorExpression(e.Location)
             : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'"),
         ErrorExpr e => new BoundErrorExpression(e.Location),
@@ -114,8 +114,8 @@ public sealed partial class Binder
 
     BoundExpression BindName(NameExpr e, VplType? expected)
     {
-        if (expected is { NonNull.IsFunction: true } && ReferencedFunctions(e) is { } referenced)
-            return BindFunctionReference(e, referenced, expected.NonNull);
+        if (expected?.NonNull is FunctionType function && ReferencedFunctions(e) is { } referenced)
+            return BindFunctionReference(e, referenced, function);
         if (e.TypeArguments.Count > 0)
             return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
 
@@ -171,8 +171,11 @@ public sealed partial class Binder
             : $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
     }
 
-    string MayReferToNothingMessage(BoundExpression reference) =>
-        $"'{TextOf(reference.Location)}' might refer to nothing; check it with 'is {FunctionSymbol.RefPrefix(reference.Type.ReferenceKind)}{reference.Type.ReferencedType} name', or use '!'";
+    string MayReferToNothingMessage(BoundExpression reference)
+    {
+        var type = (NullableReferenceType)reference.Type;
+        return $"'{TextOf(reference.Location)}' might refer to nothing; check it with 'is {FunctionSymbol.RefPrefix(type.Kind)}{type.Referenced} name', or use '!'";
+    }
 
     /// <summary>
     /// A nullable local used where only a value will do, or a <c>ref?</c> local where only a place
@@ -200,8 +203,8 @@ public sealed partial class Binder
             return ErrorExpression(e.NameLocation, $"'super' can only be used to call methods; use 'this.{e.Name}' for fields");
         if (AsEnumName(e.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(e.Name) is { } variant)
             return BindVariant(e.Location, enumSymbol, enumType, variant, null);
-        if (expected is { NonNull.IsFunction: true } && ReferencedFunctions(e) is { } referenced)
-            return BindFunctionReference(e, referenced, expected.NonNull);
+        if (expected?.NonNull is FunctionType function && ReferencedFunctions(e) is { } referenced)
+            return BindFunctionReference(e, referenced, function);
 
         if (AsTypeName(e.Target) is { } typeName)
         {
@@ -430,8 +433,8 @@ public sealed partial class Binder
             if (left.Type != right.Type)
                 return ErrorExpression(location, Mismatch());
             var valueType = left.Type;
-            while (valueType.IsFixedArray)
-                valueType = valueType.ElementType!;
+            while (valueType is FixedArrayType array)
+                valueType = array.Element;
             if (valueType.IsStructOrEnum && valueType.FindNonEquatableField() is { } field)
             {
                 var owner = valueType == left.Type ? "its" : $"'{valueType}'s";
@@ -571,7 +574,7 @@ public sealed partial class Binder
     /// it refers to it for the call.
     /// </summary>
     bool IsPassedByIn(BoundExpression expression, VplType to) =>
-        to is { IsNullableReference: true, ReferenceKind: RefKind.In } && expression.Type != VplType.Null && CanConvert(expression, to.ReferencedType!);
+        to is NullableReferenceType { Kind: RefKind.In } readOnly && expression.Type != VplType.Null && CanConvert(expression, readOnly.Referenced);
 
     /// <summary>A value converts to a nullable of any type it converts to, including by conversions only some values have.</summary>
     bool IsNullableWrapping(BoundExpression expression, VplType to) =>
@@ -603,12 +606,11 @@ public sealed partial class Binder
 
         if (expression is BoundPendingLambda lambda)
         {
-            if (!to.NonNull.IsFunction)
+            if (to.NonNull is not FunctionType function)
                 return ErrorExpression(expression.Location, NotFunctionTypeMessage(lambda, to));
-            var function = to.NonNull;
             var bound = lambda.Inferred is { } inferred
                 ? RetargetLambda(lambda, inferred, function)
-                : BindLambda(lambda.SyntaxFor(function.FunctionParameters), function, lambda.DeclaredParameters);
+                : BindLambda(lambda.SyntaxFor(function.Parameters), function, lambda.DeclaredParameters);
             return Convert(bound, to);
         }
         if (expression is BoundPendingChoice choice)
@@ -633,7 +635,7 @@ public sealed partial class Binder
         if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (IsPassedByIn(expression, to))
-            return new BoundConversion(expression.Location, to, Convert(expression, to.ReferencedType!));
+            return new BoundConversion(expression.Location, to, Convert(expression, to.Referred));
         if (SpanConversion(expression, to) is { } span)
             return span;
 

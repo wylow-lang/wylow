@@ -105,7 +105,7 @@ public sealed partial class IrLowering
         IrLocal? held = null;
         if (leaves.Any(IsHeld))
         {
-            held = new IrLocal("held", choice.Type.Escaping, IrLocalKind.Value, IrLocalRole.Variable);
+            held = new IrLocal("held", ((FunctionType)choice.Type).Escaping, IrLocalKind.Value, IrLocalRole.Variable);
             Add(LetOf(held, new IrUse(new IrConstant(held.Type, null))));
         }
 

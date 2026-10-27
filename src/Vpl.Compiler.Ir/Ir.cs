@@ -262,7 +262,7 @@ public sealed class IrLet : IrStatement
             return (kind, RefKind.None);
         var refKind = value switch
         {
-            _ when value.Type.IsNullableReference => value.Type.ReferenceKind,
+            _ when value.Type is NullableReferenceType nullable => nullable.Kind,
             IrRef reference => reference.Kind,
             IrCall call => call.Method.Symbol.ReturnRefKind,
             IrUse { Operand: IrRead read } => read.Place.Local.RefKind,

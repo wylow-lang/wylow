@@ -40,7 +40,7 @@ public sealed partial class Binder
     /// A function reference converted to the function type <paramref name="type"/>, or, without one,
     /// waiting for a type as an untyped lambda does.
     /// </summary>
-    BoundExpression BindFunctionReference(Expr reference, IReadOnlyList<FunctionSymbol> overloads, VplType? type)
+    BoundExpression BindFunctionReference(Expr reference, IReadOnlyList<FunctionSymbol> overloads, FunctionType? type)
     {
         var name = TextOf(reference.Location);
         if (overloads.Any(f => f.IsInstanceMethod))
@@ -49,7 +49,7 @@ public sealed partial class Binder
                 $"'{name}' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it");
         }
         if (type is not null)
-            return BindLambda(ReferenceLambda(reference, type.FunctionParameters), type, null);
+            return BindLambda(ReferenceLambda(reference, type.Parameters), type, null);
 
         // Overload resolution tells lambdas apart by how many parameters they take.
         var counts = overloads.Select(f => f.Parameters.Count).Distinct().ToList();

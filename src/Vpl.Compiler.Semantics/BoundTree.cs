@@ -20,8 +20,8 @@ public sealed record BoundProgram(
     /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
     public bool MayBeBorrowable(VplType type)
     {
-        if (type.TypeParameter is { } parameter)
-            return parameter.Bounds.Any(MayBeBorrowable);
+        if (type is TypeParameterType parameter)
+            return parameter.Parameter.Bounds.Any(MayBeBorrowable);
         borrowableClasses ??= [.. Types.Where(s => s.Kind == TypeKind.Class && IsBorrowable(s.Type))];
         return borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
     }
@@ -209,7 +209,7 @@ public sealed record BoundFieldAccess(Location Location, BoundExpression Receive
 
 /// <summary>An element of a fixed array, which is bounds-checked, or of a pointer, which is not.</summary>
 public sealed record BoundIndex(Location Location, BoundExpression Target, BoundExpression Index)
-    : BoundExpression(Location, Target.Type.ElementType!);
+    : BoundExpression(Location, ((IndexedType)Target.Type).Element);
 
 /// <summary>The length of a fixed array, after evaluating it.</summary>
 public sealed record BoundArrayLength(Location Location, BoundExpression Operand) : BoundExpression(Location, VplType.Int);
@@ -218,7 +218,7 @@ public sealed record BoundArrayLiteral(Location Location, VplType Type, IReadOnl
 
 /// <summary>A pointer to the first element of a fixed array, which a span then views.</summary>
 public sealed record BoundArrayData(Location Location, BoundExpression Array)
-    : BoundExpression(Location, Array.Type.ElementType!.PointerTo);
+    : BoundExpression(Location, ((FixedArrayType)Array.Type).Element.PointerTo);
 
 /// <summary>
 /// <see cref="Receiver"/> is set for instance methods. A <c>ref</c> argument is the place itself.

@@ -25,9 +25,9 @@ public sealed partial class CppEmitter
                 VisitType(type.NonNull);
                 return;
             }
-            if (type.IsFixedArray)
+            if (type is FixedArrayType array)
             {
-                VisitType(type.ElementType!);
+                VisitType(array.Element);
                 return;
             }
             if (type.Symbol is { } s)

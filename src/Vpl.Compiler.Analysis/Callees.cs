@@ -148,8 +148,8 @@ public sealed class Callees
             return [];
         return method.Symbol.Name switch
         {
-            "drop" => [new IrRunRelease(method.ParameterType(0).ElementType!)],
-            "initializeDefault" => [new IrRunDefault(method.ParameterType(0).ElementType!)],
+            "drop" => [new IrRunRelease(((PointerType)method.ParameterType(0)).Element)],
+            "initializeDefault" => [new IrRunDefault(((PointerType)method.ParameterType(0)).Element)],
             "collectCycles" => [new IrRunRelease(null)],
             _ => [],
         };
@@ -162,7 +162,7 @@ public sealed class Callees
     /// <summary>The <c>make_default</c>s making the type's default value may run; a type parameter's may be any struct's.</summary>
     IEnumerable<Callee> Defaults(VplType type) =>
         type.IsTypeParameter ? defaults.Values.Select(f => new Callee(f, TypeMap.Empty))
-        : type.IsFixedArray ? Defaults(type.ElementType!)
+        : type is FixedArrayType array ? Defaults(array.Element)
         : type.Symbol is { } symbol && defaults.TryGetValue(symbol, out var found) ? [new Callee(found, TypeMap.For(type))]
         : [];
 

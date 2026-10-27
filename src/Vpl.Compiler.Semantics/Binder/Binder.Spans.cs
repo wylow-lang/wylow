@@ -15,9 +15,9 @@ public sealed partial class Binder
     /// <summary>Reports a second-class type used where it could be stored; <paramref name="what"/> names the use.</summary>
     bool CheckStorable(VplType type, Location location, string what)
     {
-        if (type.IsNullableReference)
+        if (type is NullableReferenceType reference)
         {
-            Error(location, $"'{type}' cannot be {what}; it can only be held by a '{FunctionSymbol.RefPrefix(type.ReferenceKind).Trim()}?' variable or parameter");
+            Error(location, $"'{type}' cannot be {what}; it can only be held by a '{FunctionSymbol.RefPrefix(reference.Kind).Trim()}?' variable or parameter");
             return false;
         }
         if (!type.IsRefStruct)
@@ -32,8 +32,8 @@ public sealed partial class Binder
     /// </summary>
     VplType? ViewedElement(VplType from, bool readOnly)
     {
-        if (from.IsFixedArray)
-            return from.ElementType;
+        if (from is FixedArrayType array)
+            return array.Element;
         var hook = readOnly ? stdlib.ReadOnlySpannable : stdlib.Spannable;
         if (hook is null || from.IsNullable || !(from.IsStruct || from.IsReference))
             return null;
@@ -57,7 +57,7 @@ public sealed partial class Binder
         var location = expression.Location;
         var (kind, _) = ClassifyPlace(expression);
         bool inNullable = PlacePath.NullableValueRoot(expression) is not null;
-        if (from.IsFixedArray)
+        if (from is FixedArrayType array)
         {
             if (kind == PlaceKind.Temporary || inNullable || (kind == PlaceKind.ReadOnly && !readOnly))
                 return null;
@@ -65,7 +65,7 @@ public sealed partial class Binder
             if (constructor is null)
                 return null;
             return new BoundConstruction(location, to, new MethodReference(constructor, to, []),
-                [new BoundArrayData(location, expression), new BoundLiteral(location, VplType.Int, from.FixedLength)]);
+                [new BoundArrayData(location, expression), new BoundLiteral(location, VplType.Int, array.Length)]);
         }
 
         var method = LookupMethods(from, readOnly ? "asReadOnlySpan" : "asSpan").FirstOrDefault(c => c.Symbol.Parameters.Count == 0);
@@ -79,7 +79,7 @@ public sealed partial class Binder
         if (stdlib.IsSpan(to) && PlacePath.NullableValueRoot(expression) is { } root
             && ViewedElement(expression.Type, to.Symbol == stdlib.ReadOnlySpan) == to.TypeArguments[0])
             return $"; a span cannot view inside the nullable '{root.Name}', since assigning it null would destroy what it views; copy the value to a variable first";
-        if (!stdlib.IsSpan(to) || !expression.Type.IsFixedArray || expression.Type.ElementType != to.TypeArguments[0])
+        if (!stdlib.IsSpan(to) || expression.Type is not FixedArrayType array || array.Element != to.TypeArguments[0])
             return "";
         return ClassifyPlace(expression).Kind switch
         {

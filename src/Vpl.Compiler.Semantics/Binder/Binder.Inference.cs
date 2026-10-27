@@ -39,9 +39,9 @@ public sealed partial class Binder
                 {
                     if (option is not BoundPendingLambda lambda)
                         Unify(parameter, option, option.Type);
-                    else if (lambda.DeclaredParameters is { } declared && parameter.IsFunction && parameter.FunctionParameters.Count == declared.Count)
+                    else if (lambda.DeclaredParameters is { } declared && parameter is FunctionType functionParameter && functionParameter.Parameters.Count == declared.Count)
                     {
-                        foreach (var (target, type) in parameter.FunctionParameters.Zip(declared))
+                        foreach (var (target, type) in functionParameter.Parameters.Zip(declared))
                         {
                             if (type.Type != VplType.Error)
                                 Unify(target.Type, null, type.Type);
@@ -59,15 +59,15 @@ public sealed partial class Binder
         void Unify(VplType parameter, BoundExpression? argument, VplType argumentType)
         {
             // Type arguments are escaping, so a non-escaping argument is an error once it is converted.
-            if (parameter.TypeParameter is { } p && bindings.TryGetValue(p, out var found))
+            if (parameter is TypeParameterType { Parameter: var p } && bindings.TryGetValue(p, out var found))
             {
                 found.Add((argument, EscapingForm(argumentType)));
             }
             // A place or a reference gives `ref? T` the type referred to, exactly.
-            else if (parameter.IsNullableReference)
+            else if (parameter is NullableReferenceType reference)
             {
                 if (argumentType != VplType.Null)
-                    Unify(parameter.ReferencedType!, null, argumentType.ReferencedType ?? argumentType);
+                    Unify(reference.Referenced, null, argumentType.Referred);
             }
             // A nullable argument gives `T?` its value type; null says nothing about `T`.
             else if (parameter.IsNullableValue)
@@ -80,10 +80,13 @@ public sealed partial class Binder
             {
                 Unify(parameter.TypeArguments[0], null, viewed);
             }
-            else if ((parameter.IsPointer && argumentType.IsPointer)
-                     || (parameter.IsFixedArray && argumentType.IsFixedArray && parameter.FixedLength == argumentType.FixedLength))
+            else if (parameter is PointerType pointer && argumentType is PointerType argumentPointer)
             {
-                Unify(parameter.ElementType!, null, argumentType.ElementType!);
+                Unify(pointer.Element, null, argumentPointer.Element);
+            }
+            else if (parameter is FixedArrayType array && argumentType is FixedArrayType argumentArray && array.Length == argumentArray.Length)
+            {
+                Unify(array.Element, null, argumentArray.Element);
             }
             else if (parameter.Symbol is not null && parameter.Symbol == argumentType.Symbol)
             {
@@ -92,11 +95,12 @@ public sealed partial class Binder
                     Unify(parameter.TypeArguments[i], null, argumentType.TypeArguments[i]);
             }
             // Function types convert only to themselves, so their parts match exactly too.
-            else if (parameter.IsFunction && argumentType.IsFunction && parameter.FunctionParameters.Count == argumentType.FunctionParameters.Count)
+            else if (parameter is FunctionType parameterFunction && argumentType is FunctionType argumentFunction
+                     && parameterFunction.Parameters.Count == argumentFunction.Parameters.Count)
             {
-                foreach (var (to, from) in parameter.FunctionParameters.Zip(argumentType.FunctionParameters))
+                foreach (var (to, from) in parameterFunction.Parameters.Zip(argumentFunction.Parameters))
                     Unify(to.Type, null, from.Type);
-                Unify(parameter.FunctionReturnType!, null, argumentType.FunctionReturnType!);
+                Unify(parameterFunction.ReturnType, null, argumentFunction.ReturnType);
             }
         }
 
@@ -144,8 +148,8 @@ public sealed partial class Binder
         /// <summary>Whether a lambda argument's return type is all that could give <paramref name="parameter"/> a type.</summary>
         bool LambdaCouldGive(TypeParameterSymbol parameter, IReadOnlyList<Argument?> arguments) =>
             Enumerable.Range(0, arguments.Count).Any(i =>
-                ParameterType(i) is { IsFunction: true } type
-                && TypeParametersIn(type.FunctionReturnType!).Contains(parameter)
+                ParameterType(i) is FunctionType type
+                && TypeParametersIn(type.ReturnType).Contains(parameter)
                 && arguments[i] is { } argument && Options(argument.Expression).Any(o => o is BoundPendingLambda));
 
         /// <summary>
@@ -163,7 +167,7 @@ public sealed partial class Binder
                 if (!TypeParametersIn(type).Any(unresolved.Contains))
                     return binder.IsApplicable(partial, arguments, i);
                 return partial.ParameterRefKind(i) != RefKind.Ref && !argument.IsRef && Options(argument.Expression).All(o =>
-                    o is not BoundPendingLambda lambda || (type.IsFunction && type.FunctionParameters.Count == lambda.Syntax.Parameters.Count));
+                    o is not BoundPendingLambda lambda || (type is FunctionType target && target.Parameters.Count == lambda.Syntax.Parameters.Count));
             });
         }
 
@@ -189,16 +193,15 @@ public sealed partial class Binder
                 var unresolved = Unresolved;
                 for (int i = 0; i < arguments.Count && !progress; i++)
                 {
-                    var target = ParameterType(i);
-                    if (!target.IsFunction || !TypeParametersIn(target.FunctionReturnType!).Any(inferable.Contains))
+                    if (ParameterType(i) is not FunctionType target || !TypeParametersIn(target.ReturnType).Any(inferable.Contains))
                         continue;
-                    var parameters = current.ParameterType(i).FunctionParameters;
+                    var parameters = ((FunctionType)current.ParameterType(i)).Parameters;
                     if (parameters.Any(p => TypeParametersIn(p.Type).Any(unresolved.Contains)))
                         continue;
                     var lambdas = arguments[i] is not { } argument ? [] : Options(argument.Expression).OfType<BoundPendingLambda>().Where(l => l.Inferred is null).ToList();
                     if (lambdas.Count > 0)
                     {
-                        foreach (var p in target.FunctionParameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))
+                        foreach (var p in target.Parameters.SelectMany(p => TypeParametersIn(p.Type)).Where(bindings.ContainsKey))
                             fixedTypes.TryAdd(p, current.Map.Apply(p.Type));
                     }
                     foreach (var lambda in lambdas)
@@ -209,11 +212,11 @@ public sealed partial class Binder
                         if (inferred.Values.Count == 0)
                         {
                             binder.Error(lambda.Location, $"this lambda returns no value, so it cannot give '{function.Name}' its type argument "
-                                + $"'{TypeParametersIn(target.FunctionReturnType!).First(inferable.Contains).Name}'");
+                                + $"'{TypeParametersIn(target.ReturnType).First(inferable.Contains).Name}'");
                             return null;
                         }
                         foreach (var value in inferred.Values)
-                            Unify(target.FunctionReturnType!, value, value.Type);
+                            Unify(target.ReturnType, value, value.Type);
                         progress = true;
                     }
                 }

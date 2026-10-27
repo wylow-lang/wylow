@@ -17,14 +17,14 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
 
         var type = target.Type;
-        if (type.IsFixedArray || type.IsPointer)
+        if (type is IndexedType)
         {
             if (arguments.Count != 1 || arguments[0].IsRef)
                 return ErrorExpression(e.Location, $"an element of '{type}' is selected by a single index, as in 'a[i]'");
             if (type.IsPointer && !InUnsafe)
                 return ErrorExpression(e.Location, "indexing a pointer is only allowed in 'unsafe' code");
             var index = Convert(arguments[0].Expression, VplType.Int);
-            if (type.IsFixedArray && index is BoundLiteral { Value: int constant } && (constant < 0 || constant >= type.FixedLength))
+            if (type is FixedArrayType array && index is BoundLiteral { Value: int constant } && (constant < 0 || constant >= array.Length))
                 return ErrorExpression(index.Location, $"index {constant} is out of bounds for '{type}'");
             return new BoundIndex(e.Location, target, index);
         }
@@ -64,7 +64,7 @@ public sealed partial class Binder
 
     BoundExpression BindArrayLiteral(ArrayLiteralExpr e, VplType? expected)
     {
-        var elementExpected = expected is { IsFixedArray: true } ? expected.ElementType : null;
+        var elementExpected = (expected as FixedArrayType)?.Element;
         var elements = e.Elements.Select(element => BindExpression(element, elementExpected)).ToList();
         if (elements.Any(element => element.Type == VplType.Error))
             return new BoundErrorExpression(e.Location);

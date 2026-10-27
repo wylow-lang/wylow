@@ -62,8 +62,8 @@ public sealed partial class CppEmitter
             ? $"const {CallableTypeName(parameter)}& {LocalName(parameter)}"
             : $"{ParameterType(type, parameter.RefKind)} {LocalName(parameter)}";
 
-    static string FunctionSignature(VplType type) =>
-        $"{CppType(type.FunctionReturnType!)}({string.Join(", ", type.FunctionParameters.Select(p => ParameterType(p.Type, p.RefKind)))})";
+    static string FunctionSignature(FunctionType type) =>
+        $"{CppType(type.ReturnType)}({string.Join(", ", type.Parameters.Select(p => ParameterType(p.Type, p.RefKind)))})";
 
     /// <summary>
     /// Overloads that differ only in their function types would be the same C++ template, and ones
@@ -82,8 +82,8 @@ public sealed partial class CppEmitter
     static bool MentionsPointerSized(VplType type) =>
         type == VplType.NInt || type == VplType.NUInt
         || (type.IsNullable && MentionsPointerSized(type.NonNull))
-        || (type.ReferencedType is { } referenced && MentionsPointerSized(referenced))
-        || (type.ElementType is { } element && MentionsPointerSized(element))
+        || (type is NullableReferenceType reference && MentionsPointerSized(reference.Referenced))
+        || (type is IndexedType indexed && MentionsPointerSized(indexed.Element))
         || type.TypeArguments.Any(MentionsPointerSized);
 
     /// <summary>Functions and methods that share their name and parameter count with another.</summary>
@@ -109,12 +109,12 @@ public sealed partial class CppEmitter
         static string Name(string name) => $"{name.Length}{name}";
         static string Mode(RefKind kind) => kind switch { RefKind.Ref => "r", RefKind.In => "i", _ => "v" };
         if (type.IsNullable) return "N" + Mangle(type.NonNull);
-        if (type.IsNullableReference) return "Q" + Mode(type.ReferenceKind) + Mangle(type.ReferencedType!);
-        if (type.IsPointer) return "P" + Mangle(type.ElementType!);
-        if (type.IsFixedArray) return $"A{type.FixedLength}_" + Mangle(type.ElementType!);
-        if (type.IsFunction)
-            return $"{(type.IsEscaping ? "E" : "")}F{type.FunctionParameters.Count}{string.Concat(type.FunctionParameters.Select(p => Mode(p.RefKind) + Mangle(p.Type)))}R{Mangle(type.FunctionReturnType!)}";
-        if (type.TypeParameter is { } parameter) return "T" + Name(parameter.Name);
+        if (type is NullableReferenceType reference) return "Q" + Mode(reference.Kind) + Mangle(reference.Referenced);
+        if (type is PointerType pointer) return "P" + Mangle(pointer.Element);
+        if (type is FixedArrayType array) return $"A{array.Length}_" + Mangle(array.Element);
+        if (type is FunctionType function)
+            return $"{(function.IsEscaping ? "E" : "")}F{function.Parameters.Count}{string.Concat(function.Parameters.Select(p => Mode(p.RefKind) + Mangle(p.Type)))}R{Mangle(function.ReturnType)}";
+        if (type is TypeParameterType parameter) return "T" + Name(parameter.Parameter.Name);
         if (type.Symbol is { } s)
             return Name(s.Name) + (type.TypeArguments.Count > 0 ? $"I{string.Concat(type.TypeArguments.Select(Mangle))}E" : "");
         return Name(type.Name);
@@ -126,7 +126,7 @@ public sealed partial class CppEmitter
         var type = method.ParameterType(index);
         if (type.IsNullableNonEscapingFunction)
             return OptionalFunctionArgument(type, argument);
-        return type.IsNonEscapingFunction && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(type)}>({argument})" : argument;
+        return type is FunctionType { IsEscaping: false } function && !TakesCallables(method.Symbol) ? $"vpl::FunctionRef<{FunctionSignature(function)}>({argument})" : argument;
     }
 
 
@@ -137,7 +137,7 @@ public sealed partial class CppEmitter
     /// in it wouldn't outlive. Any other argument is passed as it is.
     /// </summary>
     string OptionalFunctionArgument(VplType parameter, string argument) =>
-        parameter.IsNullableNonEscapingFunction ? $"vpl::optional_ref<{FunctionSignature(parameter.NonNull)}>({argument})" : argument;
+        parameter.IsNullableNonEscapingFunction ? $"vpl::optional_ref<{FunctionSignature((FunctionType)parameter.NonNull)}>({argument})" : argument;
 
     /// <summary>
     /// The functions with function-typed parameters that a template would instantiate without end:

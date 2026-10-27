@@ -603,7 +603,7 @@ public sealed partial class CppEmitter
     {
         var function = LambdaText(closure.Function, "[]", closure.Function.Captures.Select(c => $"const {CppType(c.Type)}& {Name(c)}"));
         var values = closure.Captures.Select(OperandText);
-        var signature = FunctionSignature(closure.Type);
+        var signature = FunctionSignature((FunctionType)closure.Type);
         if (closure.Slot is { } slot)
             return $"vpl::closure_in<{signature}>({string.Join(", ", [Name(slot), function, .. values])})";
         return $"vpl::closure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [cycles.IsCyclicClosure(closure.Function.Symbol) ? "true" : "false", function, .. values])})";

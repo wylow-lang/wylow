@@ -33,7 +33,7 @@ public sealed partial class Binder
 
     bool CheckParameterMode(RefKind refKind, VplType type, Location location)
     {
-        type = type.ReferencedType ?? type;
+        type = type.Referred;
         if (refKind == RefKind.None || !(type.IsReference || type.IsFunction))
             return true;
         Error(location, type.IsFunction
@@ -55,30 +55,30 @@ public sealed partial class Binder
     }
 
     static bool LambdaFits(BoundPendingLambda lambda, VplType to) =>
-        to.NonNull.IsFunction
-        && to.NonNull.FunctionParameters.Count == lambda.Syntax.Parameters.Count
+        to.NonNull is FunctionType function
+        && function.Parameters.Count == lambda.Syntax.Parameters.Count
         && (lambda.DeclaredParameters is null
-            || lambda.DeclaredParameters.Zip(to.NonNull.FunctionParameters).All(p => p.First.Type == VplType.Error || p.First == p.Second));
+            || lambda.DeclaredParameters.Zip(function.Parameters).All(p => p.First.Type == VplType.Error || p.First == p.Second));
 
-    BoundExpression BindLambda(LambdaExpr e, VplType type, IReadOnlyList<FunctionParameterType>? declared)
+    BoundExpression BindLambda(LambdaExpr e, FunctionType type, IReadOnlyList<FunctionParameterType>? declared)
     {
-        var expected = type.FunctionParameters;
+        var expected = type.Parameters;
         if (e.Parameters.Count != expected.Count)
         {
             return ErrorExpression(e.Location,
                 $"this lambda has {Count(e.Parameters.Count, "parameter")}, but '{type}' takes {Count(expected.Count, "argument")}");
         }
 
-        var function = LambdaFunction(e, type, declared ?? BindDeclaredParameters(e), type.FunctionReturnType!);
+        var function = LambdaFunction(e, type, declared ?? BindDeclaredParameters(e), type.ReturnType);
         var body = e.Body ?? new BlockStmt(e.Value!.Location, [function.ReturnType == VplType.Void
             ? new ExprStmt(e.Value.Location, e.Value)
             : new ReturnStmt(e.Value.Location, e.Value)]);
         return new BoundLambda(e.Location, type, function, BindLambdaBody(e, function, () => BindBlock(body)));
     }
 
-    FunctionSymbol LambdaFunction(LambdaExpr e, VplType type, IReadOnlyList<FunctionParameterType>? declared, VplType returnType)
+    FunctionSymbol LambdaFunction(LambdaExpr e, FunctionType type, IReadOnlyList<FunctionParameterType>? declared, VplType returnType)
     {
-        var expected = type.FunctionParameters;
+        var expected = type.Parameters;
         var parameters = new List<LocalSymbol>();
         for (int i = 0; i < expected.Count; i++)
         {
@@ -157,19 +157,19 @@ public sealed partial class Binder
 
     /// <summary>An inferred lambda fits a function type with its parameters that each returned value converts to.</summary>
     bool InferredLambdaFits(InferredLambda lambda, VplType to) =>
-        to.NonNull.IsFunction
-        && to.NonNull.FunctionParameters.SequenceEqual(lambda.Function.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type)))
-        && (to.NonNull.FunctionReturnType == VplType.Void
+        to.NonNull is FunctionType function
+        && function.Parameters.SequenceEqual(lambda.Function.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type)))
+        && (function.ReturnType == VplType.Void
             ? lambda.Values.Count == 0
-            : lambda.Values.Count > 0 && lambda.Values.All(v => CanConvert(v, to.NonNull.FunctionReturnType!)));
+            : lambda.Values.Count > 0 && lambda.Values.All(v => CanConvert(v, function.ReturnType)));
 
     /// <summary>Gives an inferred lambda its function type, converting what it returns. Overload resolution has checked that it fits.</summary>
-    BoundLambda RetargetLambda(BoundPendingLambda pending, InferredLambda lambda, VplType type)
+    BoundLambda RetargetLambda(BoundPendingLambda pending, InferredLambda lambda, FunctionType type)
     {
         if (!InferredLambdaFits(lambda, type))
             throw new InvalidOperationException($"an inferred lambda was converted to '{type}', which it doesn't fit");
         // The body's locals and lambdas refer to this symbol, so it keeps being the lambda's.
-        lambda.Function.InferReturnType(type.FunctionReturnType!);
+        lambda.Function.InferReturnType(type.ReturnType);
         return new BoundLambda(pending.Location, type, lambda.Function, (BoundBlock)ConvertReturns(lambda.Body, lambda.Function));
     }
 
@@ -268,9 +268,9 @@ public sealed partial class Binder
         if (callee.Type == VplType.Error)
             return new BoundErrorExpression(e.Location);
 
-        var type = callee.Type;
+        var type = (FunctionType)callee.Type;
         var signature = new MethodReference(
-            new FunctionSymbol(TextOf(callee.Location), [.. type.FunctionParameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.FunctionReturnType!),
+            new FunctionSymbol(TextOf(callee.Location), [.. type.Parameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.ReturnType),
             null,
             []);
         if (e.Arguments.OfType<NamedArgExpr>().FirstOrDefault() is { } named)
@@ -281,10 +281,10 @@ public sealed partial class Binder
         var arguments = pending.Bind([new Candidate(signature.Symbol, null)]);
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
-        if (arguments.Count != type.FunctionParameters.Count)
+        if (arguments.Count != type.Parameters.Count)
         {
             return ErrorExpression(e.Location,
-                $"'{TextOf(callee.Location)}' takes {Count(type.FunctionParameters.Count, "argument")}, but is given {arguments.Count}");
+                $"'{TextOf(callee.Location)}' takes {Count(type.Parameters.Count, "argument")}, but is given {arguments.Count}");
         }
         if (ExplainRefMismatch(signature, arguments) is { } mismatch)
             return ErrorExpression(mismatch.Location, mismatch.Message);

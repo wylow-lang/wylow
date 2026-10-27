@@ -1,17 +1,18 @@
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Vpl.Compiler.Syntax;
 
 namespace Vpl.Compiler.Semantics;
 
 /// <summary>
-/// A VPL type. Declared types are interned per type-argument list and each type has one nullable
-/// form, so types compare by reference.
+/// A VPL type. Each kind of type is a subclass (<c>TypeKinds.cs</c>) that only its own factory
+/// builds, interning it: a declared type per type-argument list, and every other kind once per
+/// the types it is built from, so types compare by reference. What every type can be asked is here;
+/// what only one kind has is on that kind.
 /// </summary>
-public sealed class VplType
+public abstract class VplType
 {
-    public static readonly VplType Void = new("void");
-    public static readonly VplType Bool = new("bool");
+    public static readonly VplType Void = new Builtin("void");
+    public static readonly VplType Bool = new Builtin("bool");
     public static readonly VplType SByte = Integer("sbyte", sbyte.MinValue, sbyte.MaxValue);
     public static readonly VplType Byte = Integer("byte", byte.MinValue, byte.MaxValue);
     public static readonly VplType Short = Integer("short", short.MinValue, short.MaxValue);
@@ -22,220 +23,94 @@ public sealed class VplType
     public static readonly VplType ULong = Integer("ulong", ulong.MinValue, ulong.MaxValue);
     public static readonly VplType NInt = Integer("nint", long.MinValue, long.MaxValue, new(int.MinValue, int.MaxValue));
     public static readonly VplType NUInt = Integer("nuint", ulong.MinValue, ulong.MaxValue, new(uint.MinValue, uint.MaxValue));
-    public static readonly VplType Float = new("float");
-    public static readonly VplType Double = new("double");
-    public static readonly VplType String = new("String");
+    public static readonly VplType Float = new Builtin("float");
+    public static readonly VplType Double = new Builtin("double");
+    public static readonly VplType String = new Builtin("String");
 
     /// <summary>A Unicode scalar value. It converts to the integer types like one, but is not a number.</summary>
-    public static readonly VplType Char = new("char") { Range = new(0, 0x10FFFF), HeldRange = new(0, 0x10FFFF) };
+    public static readonly VplType Char = new Builtin("char", new(0, 0x10FFFF));
 
     public static IReadOnlyList<VplType> Integers { get; } = [SByte, Byte, Short, UShort, Int, UInt, Long, ULong, NInt, NUInt];
 
-    static VplType Integer(string name, Int128 min, Int128 max, IntegerRange? held = null) =>
-        new(name) { Range = new(min, max), HeldRange = held ?? new(min, max) };
+    static Builtin Integer(string name, Int128 min, Int128 max, IntegerRange? held = null) => new(name, new(min, max), held);
 
     /// <summary>The type of the <c>null</c> literal, which converts to every nullable type.</summary>
-    public static readonly VplType Null = new("null");
+    public static readonly VplType Null = new Builtin("null");
 
     /// <summary>The type of an expression that already produced an error; converts to anything to avoid cascades.</summary>
-    public static readonly VplType Error = new("<error>");
+    public static readonly VplType Error = new Builtin("<error>");
 
     /// <summary>The type of a lambda argument before overload resolution gives it a function type.</summary>
-    public static readonly VplType Lambda = new("lambda");
+    public static readonly VplType Lambda = new Builtin("lambda");
 
-    string? name;
-    VplType? nullable;
-    VplType? pointer;
-    VplType? nullableRef;
-    VplType? nullableIn;
-    ConcurrentDictionary<int, VplType>? fixedArrays;
-    ConcurrentDictionary<IReadOnlyList<FunctionParameterType>, VplType>? functionTypes;
+    private protected VplType() { }
 
-    VplType(string? name, TypeSymbol? symbol = null, IReadOnlyList<VplType>? typeArguments = null, TypeParameterSymbol? typeParameter = null)
-    {
-        this.name = name;
-        Symbol = symbol;
-        TypeArguments = typeArguments ?? [];
-        TypeParameter = typeParameter;
-        NonNull = this;
-    }
+    /// <summary>The types this one is built from, which <see cref="MapParts"/> replaces; empty for a type with none.</summary>
+    public abstract IReadOnlyList<VplType> Parts { get; }
 
-    // A nullable reference is still a reference to the same class, so it keeps the symbol; a
-    // nullable value is a different type, which must not be mistaken for its struct or enum.
-    VplType(VplType nonNull)
-    {
-        if (nonNull.IsReference)
-        {
-            Symbol = nonNull.Symbol;
-            TypeArguments = nonNull.TypeArguments;
-        }
-        else
-        {
-            TypeArguments = [];
-        }
-        NonNull = nonNull;
-    }
+    /// <summary>The same kind of type, built from <paramref name="map"/> applied to each of <see cref="Parts"/>.</summary>
+    public abstract VplType MapParts(Func<VplType, VplType> map);
 
-    VplType(VplType element, int? length)
-    {
-        ElementType = element;
-        FixedLength = length ?? 0;
-        IsPointer = length is null;
-        TypeArguments = [];
-        NonNull = this;
-    }
-
-    VplType(IReadOnlyList<FunctionParameterType> parameters, VplType returnType)
-    {
-        FunctionParameters = parameters;
-        FunctionReturnType = returnType;
-        TypeArguments = [];
-        NonNull = this;
-    }
-
-    VplType(VplType referenced, RefKind kind)
-    {
-        ReferencedType = referenced;
-        ReferenceKind = kind;
-        TypeArguments = [];
-        NonNull = this;
-    }
-
-    // The escaping form of a non-escaping function type, which is the other's twin.
-    VplType(VplType nonEscaping, bool escaping)
-    {
-        FunctionParameters = nonEscaping.FunctionParameters;
-        FunctionReturnType = nonEscaping.FunctionReturnType;
-        TypeArguments = [];
-        NonNull = this;
-        IsEscaping = escaping;
-        twin = nonEscaping;
-    }
-
-    internal static VplType ForSymbol(TypeSymbol symbol, IReadOnlyList<VplType> typeArguments) =>
-        new(typeArguments.Count == 0 ? symbol.Name : null, symbol, typeArguments);
-
-    internal static VplType ForTypeParameter(TypeParameterSymbol parameter) => new(parameter.Name, typeParameter: parameter);
+    string? builtName;
 
     // Built on demand: deeply nested generic types share structure, but their names would not.
-    public string Name => name ??=
-        IsNullableReference ? $"{FunctionSymbol.RefPrefix(ReferenceKind).Trim()}? {ReferencedType}"
-        : IsNullable ? Grouped(NonNull) + "?"
-        : IsPointer ? Grouped(ElementType!) + "*"
-        : IsFixedArray ? Grouped(ArrayBase) + ArraySuffix
-        : IsFunction ? $"({string.Join(", ", FunctionParameters)}) -> {FunctionReturnType}"
-        : $"{Symbol!.Name}<{string.Join(", ", TypeArguments)}>";
+    public string Name => builtName ??= BuildName();
+
+    private protected abstract string BuildName();
 
     // A suffix after a function type would belong to its return type.
-    static string Grouped(VplType type) => type.IsFunction ? $"({type.Name})" : type.Name;
+    private protected static string Grouped(VplType type) => type.IsFunction ? $"({type.Name})" : type.Name;
 
-    // Like C, the outer dimension comes first: `int[4][2]` is four `int[2]`s.
-    VplType ArrayBase => IsFixedArray ? ElementType!.ArrayBase : this;
-    string ArraySuffix => IsFixedArray ? $"[{FixedLength}]" + ElementType!.ArraySuffix : "";
+    private protected static T Publish<T>(ref T? field, T created) where T : class =>
+        Interlocked.CompareExchange(ref field, created, null) ?? created;
 
-    /// <summary>The declared struct, class, interface, or enum, also for its nullable form.</summary>
-    public TypeSymbol? Symbol { get; }
-    public IReadOnlyList<VplType> TypeArguments { get; }
-    public TypeParameterSymbol? TypeParameter { get; }
+    /// <summary>The declared struct, class, interface, or enum, also for its nullable form if it is a reference.</summary>
+    public virtual TypeSymbol? Symbol => null;
+    public virtual IReadOnlyList<VplType> TypeArguments => [];
 
     /// <summary>The type without <c>?</c>; the type itself when it is not nullable.</summary>
-    public VplType NonNull { get; }
-
-    /// <summary>The element type of a fixed array <c>T[N]</c> or a pointer <c>T*</c>.</summary>
-    public VplType? ElementType { get; }
-
-    /// <summary>The <c>N</c> of a fixed array <c>T[N]</c>.</summary>
-    public int FixedLength { get; }
-
-    public bool IsPointer { get; }
-    public bool IsFixedArray => ElementType is not null && !IsPointer;
+    public virtual VplType NonNull => this;
 
     /// <summary>
-    /// The <c>T</c> of <c>ref? T</c> or <c>in? T</c>, a reference that may refer to nothing. Such a
-    /// type is only ever that of a <c>ref</c> or <c>in</c> local, parameter, or return, and of the
-    /// expressions reading one; it is not nullable in the sense of <see cref="IsNullable"/>, so no
-    /// operation on values accepts it until a null check narrows it to <c>T</c>.
+    /// The values of an integer type or <c>char</c> on some target. <c>nint</c> and <c>nuint</c>
+    /// have 64-bit ranges here, and only 32-bit ones in <see cref="HeldRange"/>.
     /// </summary>
-    public VplType? ReferencedType { get; }
+    public virtual IntegerRange? Range => null;
 
-    /// <summary>Whether a <c>ref? T</c> or an <c>in? T</c>; see <see cref="ReferencedType"/>.</summary>
-    public RefKind ReferenceKind { get; }
+    /// <summary>The values an integer type or <c>char</c> holds on every target.</summary>
+    public virtual IntegerRange? HeldRange => null;
 
-    public bool IsNullableReference => ReferencedType is not null;
-
-    /// <summary>The <c>ref? T</c> or <c>in? T</c> referring to this type.</summary>
-    public VplType NullableReference(RefKind kind) => kind == RefKind.In
-        ? nullableIn ?? Publish(ref nullableIn, new VplType(this, RefKind.In))
-        : nullableRef ?? Publish(ref nullableRef, new VplType(this, RefKind.Ref));
-
-    /// <summary>The type a value of this type has where a null check proved it not null.</summary>
-    public VplType Narrowed => ReferencedType ?? NonNull;
-
-    /// <summary>A nullable value or reference, or a reference that may refer to nothing.</summary>
-    public bool MayBeNull => IsNullable || IsNullableReference;
-
-    /// <summary>The parameters of a function type <c>(A, ref B) -> R</c>; empty for other types.</summary>
-    public IReadOnlyList<FunctionParameterType> FunctionParameters { get; } = [];
-
-    /// <summary>The <c>R</c> of a function type <c>(A, ref B) -> R</c>.</summary>
-    public VplType? FunctionReturnType { get; }
+    public bool IsNullable => this is NullableType;
+    public bool IsPointer => this is PointerType;
+    public bool IsFixedArray => this is FixedArrayType;
+    public bool IsNullableReference => this is NullableReferenceType;
+    public bool IsTypeParameter => this is TypeParameterType;
 
     /// <summary>
     /// A function type. Its nullable form is not one: like <c>int?</c>, it is a nullable value
     /// holding a function or nothing.
     /// </summary>
-    public bool IsFunction => FunctionReturnType is not null;
+    public bool IsFunction => this is FunctionType;
 
-    /// <summary>
-    /// The escaping form of a function type, written the same way: a heap closure that may be
-    /// stored. The other form may only be called and passed on during the call it was given to.
-    /// </summary>
-    public bool IsEscaping { get; }
+    /// <summary>The escaping form of a function type; see <see cref="FunctionType"/>.</summary>
+    public virtual bool IsEscaping => false;
 
-    public bool IsEscapingFunction => IsFunction && IsEscaping;
-    public bool IsNonEscapingFunction => IsFunction && !IsEscaping;
+    public bool IsNonEscapingFunction => this is FunctionType { IsEscaping: false };
 
     /// <summary>A nullable non-escaping function, which only a parameter passing it on may be.</summary>
     public bool IsNullableNonEscapingFunction => IsNullable && NonNull.IsNonEscapingFunction;
 
-    VplType? twin;
-
-    /// <summary>The escaping form of a function type.</summary>
-    public VplType Escaping => IsEscaping ? this : twin ?? Publish(ref twin, new VplType(this, escaping: true));
-
-    /// <summary>The non-escaping form of a function type.</summary>
-    public VplType NonEscaping => IsEscaping ? twin! : this;
-
-    public VplType WithEscaping(bool escaping) => escaping ? Escaping : NonEscaping;
-
-    /// <summary>The non-escaping function type <c>(parameters) -> this</c>.</summary>
-    public VplType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) =>
-        LazyInitializer.EnsureInitialized(ref functionTypes, () => new(FunctionParameterListComparer.Instance))
-            .GetOrAdd(parameters, p => new VplType([.. p], this));
-
-    // The built-in types are shared by compilations running in parallel (as in the test runner),
-    // so their derived types must be created once, or two compilations' `int[3]`s would differ.
-    public VplType FixedArrayOf(int length) =>
-        LazyInitializer.EnsureInitialized(ref fixedArrays).GetOrAdd(length, n => new VplType(this, n));
-
-    public VplType PointerTo => pointer ?? Publish(ref pointer, new VplType(this, null));
-
-    public bool IsNullable => NonNull != this;
-
-    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>. A nullable function keeps its form, escaping or not.</summary>
-    public VplType Nullable => IsNullable ? this : nullable ?? Publish(ref nullable, new VplType(this));
+    /// <summary>The type a value of this type has where a null check proved it not null.</summary>
+    public VplType Narrowed => this is NullableReferenceType r ? r.Referenced : NonNull;
 
     /// <summary>
-    /// The type without the nullability of references, at the top or in its type arguments, which
-    /// C++ doesn't see: <c>List&lt;Node?&gt;</c> and <c>List&lt;Node&gt;</c> are one C++ type, so
-    /// whatever is decided per C++ type must be decided alike for them. <c>List&lt;int?&gt;</c> is another.
+    /// The type of what a reference of this type refers to: the <c>T</c> of <c>ref? T</c>, and
+    /// otherwise the type itself, as a <c>ref</c> local's type is.
     /// </summary>
-    public VplType WithoutReferenceNullability =>
-        IsNullable ? (IsNullableValue ? NonNull.WithoutReferenceNullability.Nullable : NonNull.WithoutReferenceNullability)
-        : IsPointer ? ElementType!.WithoutReferenceNullability.PointerTo
-        : IsFixedArray ? ElementType!.WithoutReferenceNullability.FixedArrayOf(FixedLength)
-        : Symbol is { } s && TypeArguments.Count > 0 ? s.Construct([.. TypeArguments.Select(a => a.WithoutReferenceNullability)])
-        : this;
+    public VplType Referred => this is NullableReferenceType r ? r.Referenced : this;
+
+    /// <summary>A nullable value or reference, or a reference that may refer to nothing.</summary>
+    public bool MayBeNull => IsNullable || IsNullableReference;
 
     /// <summary>
     /// A nullable type that is not a reference: <c>int?</c>, <c>Vec3?</c>, and <c>T?</c>, since
@@ -247,8 +122,26 @@ public sealed class VplType
     /// <summary>Pointers can already be null, and a <c>ref struct</c> can't be stored in a nullable.</summary>
     public bool CanBeNullable => this != Void && this != Null && this != Error && this != Lambda && !IsPointer && !IsRefStruct && !IsNullableReference;
 
-    static VplType Publish(ref VplType? field, VplType created) =>
-        Interlocked.CompareExchange(ref field, created, null) ?? created;
+    /// <summary>The <c>T?</c> form; see <see cref="CanBeNullable"/>. A nullable function keeps its form, escaping or not.</summary>
+    public VplType Nullable => IsNullable ? this : NullableType.Of(this);
+
+    public PointerType PointerTo => PointerType.To(this);
+
+    public FixedArrayType FixedArrayOf(int length) => FixedArrayType.Of(this, length);
+
+    /// <summary>The <c>ref? T</c> or <c>in? T</c> referring to this type.</summary>
+    public NullableReferenceType NullableReference(RefKind kind) => NullableReferenceType.To(this, kind);
+
+    /// <summary>The non-escaping function type <c>(parameters) -> this</c>.</summary>
+    public FunctionType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) => FunctionType.Of(parameters, this);
+
+    /// <summary>
+    /// The type without the nullability of references, at the top or in any of its parts, which
+    /// C++ doesn't see: <c>List&lt;Node?&gt;</c> and <c>List&lt;Node&gt;</c> are one C++ type, so
+    /// whatever is decided per C++ type must be decided alike for them. <c>List&lt;int?&gt;</c> is another.
+    /// </summary>
+    public VplType WithoutReferenceNullability =>
+        this is NullableType { NonNull.IsReference: true } ? NonNull.WithoutReferenceNullability : MapParts(t => t.WithoutReferenceNullability);
 
     public bool IsStruct => Symbol?.Kind == TypeKind.Struct;
     public bool IsClass => Symbol?.Kind == TypeKind.Class;
@@ -265,28 +158,15 @@ public sealed class VplType
     /// <summary>Class and interface types, nullable or not: values that are references to heap objects.</summary>
     public bool IsReference => IsClass || IsInterface;
 
-    public bool IsTypeParameter => TypeParameter is not null;
-
-    /// <summary>
-    /// The values of an integer type or <c>char</c> on some target. <c>nint</c> and <c>nuint</c>
-    /// have 64-bit ranges here, and only 32-bit ones in <see cref="HeldRange"/>.
-    /// </summary>
-    public IntegerRange? Range { get; private init; }
-
-    /// <summary>The values an integer type or <c>char</c> holds on every target.</summary>
-    public IntegerRange? HeldRange { get; private init; }
-
     public bool IsInteger => Range is not null && this != Char;
     public bool IsSigned => Range?.Min < 0;
 
-    /// <summary>The bits a shift count may select on every target.</summary>
-    public int ShiftWidth => this == SByte || this == Byte ? 8 : this == Short || this == UShort ? 16 : this == Long || this == ULong ? 64 : 32;
+    /// <summary>The bits of an integer type, which a shift count may select, on every target.</summary>
+    public int ShiftWidth => HeldRange is { } held ? (int)Int128.Log2(held.Max - held.Min + 1) : throw new InvalidOperationException($"'{this}' is not an integer type");
 
     public bool IsFloatingPoint => this == Float || this == Double;
     public bool IsNumeric => IsInteger || IsFloatingPoint;
-    public bool ContainsTypeParameters => NonNull.IsTypeParameter || ElementType?.ContainsTypeParameters == true || ReferencedType?.ContainsTypeParameters == true
-        || TypeArguments.Any(a => a.ContainsTypeParameters)
-        || (NonNull.IsFunction && (NonNull.FunctionReturnType!.ContainsTypeParameters || NonNull.FunctionParameters.Any(p => p.Type.ContainsTypeParameters)));
+    public bool ContainsTypeParameters => IsTypeParameter || Parts.Any(p => p.ContainsTypeParameters);
 
     /// <summary>The base class with this type's type arguments applied.</summary>
     public VplType? BaseType => Symbol?.BaseType is { } baseType ? TypeMap.For(this).Apply(baseType) : null;
@@ -295,6 +175,16 @@ public sealed class VplType
     public IEnumerable<VplType> Interfaces => Symbol is { } s ? s.Interfaces.Select(TypeMap.For(this).Apply) : [];
 
     public override string ToString() => Name;
+
+    /// <summary>The types the language defines, which are built from nothing.</summary>
+    sealed class Builtin(string name, IntegerRange? range = null, IntegerRange? held = null) : VplType
+    {
+        public override IntegerRange? Range => range;
+        public override IntegerRange? HeldRange => held ?? range;
+        public override IReadOnlyList<VplType> Parts => [];
+        public override VplType MapParts(Func<VplType, VplType> map) => this;
+        private protected override string BuildName() => name;
+    }
 }
 
 public readonly record struct IntegerRange(Int128 Min, Int128 Max)
@@ -327,18 +217,10 @@ public sealed class TypeMap
     }
 
     public VplType Apply(VplType type) =>
-        type.IsNullableReference ? Apply(type.ReferencedType!).NullableReference(type.ReferenceKind)
-        : type.IsNullable ? Apply(type.NonNull).Nullable
-        : type.IsPointer ? Apply(type.ElementType!).PointerTo
-        : type.IsFixedArray ? Apply(type.ElementType!).FixedArrayOf(type.FixedLength)
-        : type.IsFunction ? Apply(type.FunctionReturnType!).FunctionReturning([.. type.FunctionParameters.Select(p => p with { Type = Apply(p.Type) })]).WithEscaping(type.IsEscaping)
-        : type.TypeParameter is { } parameter ? map.GetValueOrDefault(parameter, type)
-        : type.Symbol is { } s && type.TypeArguments.Count > 0 ? s.Construct([.. type.TypeArguments.Select(Apply)])
-        : type;
+        type is TypeParameterType p ? map.GetValueOrDefault(p.Parameter, type) : type.MapParts(Apply);
 }
 
-/// <summary>A parameter of a function type, which has a mode but no name.</summary>
-/// <summary>A parameter of a function type, which prints @Escaping since its two forms print alike.</summary>
+/// <summary>A parameter of a function type, which has a mode but no name, and prints @Escaping since its two forms print alike.</summary>
 public readonly record struct FunctionParameterType(RefKind RefKind, VplType Type)
 {
     public override string ToString() => (Type.NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
@@ -377,82 +259,4 @@ sealed class TypeListComparer : IEqualityComparer<IReadOnlyList<VplType>>
             hash.Add(RuntimeHelpers.GetHashCode(type));
         return hash.ToHashCode();
     }
-}
-
-public static class Conversions
-{
-    /// <summary>
-    /// Only conversions that can never lose information are implicit: numeric widening, and for
-    /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
-    /// to, and a nullable value to another nullable whose value type it converts to. An escaping
-    /// function converts to its non-escaping form, and a <c>ref? T</c> to an <c>in? T</c>.
-    /// </summary>
-    public static bool IsImplicit(VplType from, VplType to) =>
-        from == to
-        || from == VplType.Error
-        || to == VplType.Error
-        || (from.IsEscaping && to == from.NonEscaping)
-        || IsNumericWidening(from, to)
-        || (from == VplType.Null && (to.IsNullable || to.IsPointer || to.IsNullableReference))
-        || (from.IsNullableReference && to.IsNullableReference && to.ReferenceKind == RefKind.In && from.ReferencedType == to.ReferencedType)
-        || (to.IsNullableValue && from != VplType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull))
-        || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
-
-    /// <summary>
-    /// An integer or <c>char</c> converts to an integer type that holds all its values on every
-    /// target, and an integer to a floating-point type that represents all of them exactly.
-    /// </summary>
-    static bool IsNumericWidening(VplType from, VplType to) =>
-        (from == VplType.Float && to == VplType.Double)
-        || (from.Range is { } range && (to.IsInteger ? to.HeldRange!.Value.Contains(range)
-            : from.IsInteger && to.IsFloatingPoint && ExactIntegers(to).Contains(range)));
-
-    static IntegerRange ExactIntegers(VplType floatingType) =>
-        floatingType == VplType.Float ? new(-(1 << 24), 1 << 24) : new(-(1L << 53), 1L << 53);
-
-    /// <summary>Casts: between numbers, between integers and <c>char</c>, and between integers and enums without data.</summary>
-    public static bool IsExplicit(VplType from, VplType to) =>
-        IsImplicit(from, to)
-        || (from.IsNumeric && to.IsNumeric)
-        || (from.IsInteger && to == VplType.Char)
-        || (from == VplType.Char && to.IsInteger)
-        || (from.IsInteger && to.IsEnum && !to.Symbol!.HasData)
-        || (from.IsEnum && !from.Symbol!.HasData && to.IsInteger);
-
-    /// <summary>
-    /// Whether <paramref name="type"/> is <paramref name="target"/> or inherits from or implements it.
-    /// A type parameter is a subtype of its bounds. Also used for structs, which may implement
-    /// interfaces as generic bounds without converting to them.
-    /// </summary>
-    public static bool IsSubtype(VplType type, VplType target) => type == target || Supertypes(type).Contains(target);
-
-    /// <summary>Every proper supertype: base classes, then all interfaces, with type arguments applied.</summary>
-    public static IEnumerable<VplType> Supertypes(VplType type)
-    {
-        var seen = new HashSet<VplType>();
-        var pending = new Queue<VplType>(DirectSupertypes(type));
-        while (pending.TryDequeue(out var next))
-        {
-            // A cycle is already a reported error; don't loop forever on it.
-            if (!seen.Add(next))
-                continue;
-            yield return next;
-            foreach (var super in DirectSupertypes(next))
-                pending.Enqueue(super);
-        }
-    }
-
-    static IEnumerable<VplType> DirectSupertypes(VplType type)
-    {
-        // `Player?` is no subtype of an interface: a bound method could not be called on null.
-        if (type.IsNullable)
-            return [];
-        if (type.TypeParameter is { } parameter)
-            return parameter.Bounds;
-        return type.BaseType is { } baseType ? [baseType, .. type.Interfaces] : type.Interfaces;
-    }
-
-    public static bool IsExactlyRepresentable(Int128 value, VplType floatingType) => floatingType == VplType.Float
-        ? (Int128)(float)value == value
-        : (Int128)(double)value == value;
 }

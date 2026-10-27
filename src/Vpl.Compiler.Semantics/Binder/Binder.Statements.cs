@@ -221,9 +221,9 @@ public sealed partial class Binder
             Error(initializer.Location, "cannot infer a type from 'null'; declare the variable with a nullable type instead of 'var'");
             type = VplType.Error;
         }
-        else if (initializer.Type.IsNullableReference)
+        else if (initializer.Type is NullableReferenceType reference)
         {
-            var keyword = FunctionSymbol.RefPrefix(initializer.Type.ReferenceKind).Trim();
+            var keyword = FunctionSymbol.RefPrefix(reference.Kind).Trim();
             Error(initializer.Location, $"'{TextOf(initializer.Location)}' is a reference that may refer to nothing; refer to it with '{keyword}? var', or copy what it refers to with '!'");
             type = VplType.Error;
         }
@@ -267,7 +267,7 @@ public sealed partial class Binder
         var place = s.Initializer is null ? null : BindExpression(s.Initializer, declared);
         if (place is not null && !mayBeNull)
             place = NarrowReference(place);
-        var type = declared ?? place?.Type.ReferencedType ?? place?.Type ?? VplType.Error;
+        var type = declared ?? place?.Type.Referred ?? VplType.Error;
         BoundExpression? initializer = null;
         var what = $"a '{keyword}' variable";
         if (place is null)
@@ -295,21 +295,21 @@ public sealed partial class Binder
     /// as a <c>ref</c> or <c>in</c> would take it. Null after reporting why it can't;
     /// <paramref name="what"/> names the reference in messages.
     /// </summary>
-    BoundExpression? ConvertToNullableReference(BoundExpression value, VplType type, string what)
+    BoundExpression? ConvertToNullableReference(BoundExpression value, NullableReferenceType type, string what)
     {
         if (value.Type == VplType.Error)
             return null;
         if (value.Type == VplType.Null)
             return new BoundConversion(value.Location, type, value);
-        if (!value.Type.IsNullableReference)
-            return CheckReference(value, type.ReferenceKind, type.ReferencedType!, what) ? new BoundConversion(value.Location, type, value) : null;
+        if (value.Type is not NullableReferenceType reference)
+            return CheckReference(value, type.Kind, type.Referenced, what) ? new BoundConversion(value.Location, type, value) : null;
 
         var (kind, reason) = ClassifyPlace(value);
-        if (value.Type.ReferencedType != type.ReferencedType)
-            Error(value.Location, $"{what} must have exactly the type of what it refers to, '{value.Type.ReferencedType}', not '{type.ReferencedType}'");
+        if (reference.Referenced != type.Referenced)
+            Error(value.Location, $"{what} must have exactly the type of what it refers to, '{reference.Referenced}', not '{type.Referenced}'");
         else if (kind == PlaceKind.Temporary)
             Error(value.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
-        else if (kind == PlaceKind.ReadOnly && type.ReferenceKind == RefKind.Ref)
+        else if (kind == PlaceKind.ReadOnly && type.Kind == RefKind.Ref)
             Error(value.Location, $"cannot take a 'ref?' to what '{TextOf(value.Location)}' refers to, because {reason}; use 'in?' instead");
         else if (PlacePath.NullableValueRoot(value) is { } root)
             Error(value.Location, $"{what} cannot refer into the nullable '{root.Name}', since assigning it null would destroy its value; copy the value to a variable first");
@@ -342,7 +342,7 @@ public sealed partial class Binder
     {
         if (!CheckReferencedType(type, FunctionSymbol.RefPrefix(refKind).Trim(), place.Location))
             return false;
-        if (place.Type.IsNullableReference && place.Type.ReferencedType == type)
+        if (place.Type is NullableReferenceType reference && reference.Referenced == type)
         {
             Error(place.Location, MayReferToNothingMessage(place));
             return false;
@@ -446,7 +446,7 @@ public sealed partial class Binder
     {
         var returnType = function.ReturnType;
         var keyword = FunctionSymbol.RefPrefix(function.ReturnRefKind).Trim() + (returnType.IsNullableReference ? "?" : "");
-        var referenced = returnType.ReferencedType ?? returnType;
+        var referenced = returnType.Referred;
         var place = BindExpression(s.Value!, referenced);
         if (!returnType.IsNullableReference)
             place = NarrowReference(place);
@@ -462,7 +462,7 @@ public sealed partial class Binder
         else if (place.Type != VplType.Error)
         {
             var what = $"a returned '{keyword}'";
-            var reference = returnType.IsNullableReference ? ConvertToNullableReference(place, returnType, what)
+            var reference = returnType is NullableReferenceType nullableReturn ? ConvertToNullableReference(place, nullableReturn, what)
                 : CheckReference(place, function.ReturnRefKind, returnType, what) ? place
                 : null;
             if (reference is not null && IsThisRooted(place))

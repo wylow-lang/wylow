@@ -253,9 +253,9 @@ public sealed partial class IrLowering
     /// <summary>What a <c>ref</c>, <c>in</c>, <c>ref?</c>, or <c>in?</c> local is initialized with.</summary>
     IrRvalue ReferenceTo(BoundExpression initializer, LocalSymbol local)
     {
-        if (!local.Type.IsNullableReference)
+        if (local.Type is not NullableReferenceType reference)
             return new IrRef(local.RefKind, Place(initializer, Use.Scope));
-        var kind = local.Type.ReferenceKind;
+        var kind = reference.Kind;
         return initializer switch
         {
             BoundConversion { Operand.Type: var from } conversion when from == VplType.Null => new IrConvert(local.Type, new IrConstant(VplType.Null, null)),
@@ -298,7 +298,7 @@ public sealed partial class IrLowering
             {
                 BoundNullLiteral or BoundConversion { Operand: BoundNullLiteral } => (IrOperand)new IrConstant(symbol.ReturnType, null),
                 BoundConversion { Type.IsNullableReference: true, Operand: var place } when !place.Type.IsNullableReference =>
-                    IrRead.Copy(new IrPlace(Let(new IrAddr(symbol.ReturnType.ReferenceKind, Place(place, Use.Scope))))),
+                    IrRead.Copy(new IrPlace(Let(new IrAddr(((NullableReferenceType)symbol.ReturnType).Kind, Place(place, Use.Scope))))),
                 _ when symbol.ReturnType.IsNullableReference => IrRead.Copy(new IrPlace(Let(ReferenceValue(value, symbol.ReturnType)))),
                 _ => IrRead.Copy(new IrPlace(Let(new IrRef(symbol.ReturnRefKind, Place(value, Use.Scope))))),
             };

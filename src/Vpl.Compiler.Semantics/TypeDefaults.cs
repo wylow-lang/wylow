@@ -20,7 +20,7 @@ public static class TypeDefaults
         /// since its type arguments' may be.
         /// </summary>
         public bool HasDefaultCode =>
-            type.IsFixedArray ? type.ElementType!.HasDefaultCode
+            type is FixedArrayType array ? array.Element.HasDefaultCode
             : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsExtern && (type.Symbol.IsGeneric || type.Symbol.Fields.Any(f => f.Initializer is not null || f.Type.HasDefaultCode)));
 
         /// <summary>
@@ -30,7 +30,7 @@ public static class TypeDefaults
         /// </summary>
         public bool DefaultRunsCode =>
             type.IsTypeParameter
-            || (type.IsFixedArray && type.ElementType!.DefaultRunsCode)
+            || (type is FixedArrayType array && array.Element.DefaultRunsCode)
             || (type.IsStruct && !type.Symbol!.IsExtern && type.Symbol.Fields.Any(f =>
                 f.Initializer is not (null or BoundLiteral or BoundNullLiteral) || (f.Initializer is null && TypeMap.For(type).Apply(f.Type).DefaultRunsCode)));
     }
@@ -46,7 +46,7 @@ public static class TypeDefaults
 
     static bool IsDefaultable(VplType type, HashSet<VplType> visiting) =>
         type.IsNullable || type.IsPointer
-        || (type.IsFixedArray ? IsDefaultable(type.ElementType!, visiting)
+        || (type is FixedArrayType array ? IsDefaultable(array.Element, visiting)
             : type.IsEnum ? type.Symbol!.Variants.FirstOrDefault()?.Fields.Count == 0
             : !type.IsTypeParameter && !type.IsReference && !type.IsFunction && !type.IsNullableReference
               && (!type.IsStruct || FindNonDefaultableField(type, visiting) is null));

@@ -153,7 +153,7 @@ public sealed partial class IrLowering
     {
         BoundConversion { Operand.Type: var from } when from == VplType.Null => new IrConstant(parameter, null),
         _ when !parameter.IsNullableReference => new IrRefArgument(refKind, Place(argument, Use.InUse)),
-        BoundConversion { Operand: var place } when !place.Type.IsNullableReference => new IrAddrArgument(parameter.ReferenceKind, Place(place, Use.InUse)),
+        BoundConversion { Operand: var place } when !place.Type.IsNullableReference => new IrAddrArgument(((NullableReferenceType)parameter).Kind, Place(place, Use.InUse)),
         BoundConversion { Operand: var other } => IrRead.Copy(Place(other, Use.Read)),
         _ => IrRead.Copy(Place(argument, Use.Read)),
     };

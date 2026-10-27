@@ -30,8 +30,8 @@ public sealed class IrPlace
 
     public VplType BaseType => !IsDeref ? Local.Type : Local.Deref switch
     {
-        IrDeref.Referenced => Local.Type.ReferencedType ?? Local.Type,
-        IrDeref.Pointee => Local.Type.ElementType!,
+        IrDeref.Referenced => Local.Type.Referred,
+        IrDeref.Pointee => ((PointerType)Local.Type).Element,
         _ => Local.Type.NonNull,
     };
 
@@ -43,7 +43,7 @@ public sealed class IrPlace
     public IrPlace Field(FieldSymbol field) => With(new IrField(field, FieldType(Type, field)));
 
     public IrPlace Element(IrOperand index) =>
-        With(new IrElement(index, IsPointerTarget ? Type : Type.IsFixedArray ? Type.ElementType! : VplType.Error));
+        With(new IrElement(index, IsPointerTarget ? Type : Type is FixedArrayType array ? array.Element : VplType.Error));
 
     public IrPlace VariantField(VariantSymbol variant, int index) =>
         With(new IrVariantField(variant, variant.Fields[index], Type.Symbol == variant.Owner ? TypeMap.For(Type).Apply(variant.Fields[index].Type) : VplType.Error));
@@ -377,7 +377,7 @@ public sealed class IrData(IrPlace place) : IrRvalue
 {
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Data(this);
     public IrPlace Place { get; } = place;
-    public override VplType Type => Place.Type.ElementType?.PointerTo ?? VplType.Error;
+    public override VplType Type => (Place.Type as FixedArrayType)?.Element.PointerTo ?? VplType.Error;
 }
 
 public enum IrTestKind
