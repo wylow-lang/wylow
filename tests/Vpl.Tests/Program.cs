@@ -17,7 +17,8 @@ using Vpl.Compiler.Text;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc] [--no-nest] [--no-opt] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [filter]
+// With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
 
 Toolchain? toolchain = null;
 string? filter = null;
@@ -25,7 +26,15 @@ var options = new CompileOptions();
 for (int i = 0; i < args.Length; i++)
 {
     if (args[i] == "--cc" && i + 1 < args.Length)
-        toolchain = args[++i] == "gcc" ? Toolchain.Gcc : Toolchain.Msvc;
+    {
+        toolchain = args[++i] switch
+        {
+            "gcc" => Toolchain.Gcc,
+            "asan" => Toolchain.ClangSanitized,
+            "msvc" => Toolchain.Msvc,
+            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, or asan"),
+        };
+    }
     else if (args[i] == "--no-nest")
         options = options with { Nest = false };
     else if (args[i] == "--no-opt")
@@ -57,6 +66,9 @@ var results = files
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+// Every program passing proves nothing if the sanitizers have silently stopped working.
+if (toolchain == Toolchain.ClangSanitized)
+    results.Add(SanitizersLive(outputDirectory));
 
 foreach (var result in results.Where(r => r.Failure is not null))
 {
@@ -68,6 +80,34 @@ foreach (var result in results.Where(r => r.Failure is not null))
 int failed = results.Count(r => r.Failure is not null);
 Console.WriteLine($"{results.Count - failed} passed, {failed} failed ({stopwatch.Elapsed.TotalSeconds:F1}s)");
 return failed == 0 ? 0 : 1;
+
+static TestResult SanitizersLive(string outputDirectory)
+{
+    const string name = "sanitizers/live";
+    var directory = Path.Combine(outputDirectory, "sanitizers");
+    Directory.CreateDirectory(directory);
+    var cpp = Path.Combine(directory, "live.cpp");
+    File.WriteAllText(cpp, """
+        #include <climits>
+        #include <cstdio>
+        int main(int argc, char**) {
+            int largest = INT_MAX - 1 + argc;
+            std::printf("%d\n", largest + argc);
+            int* freed = new int(1);
+            delete freed;
+            return *freed;
+        }
+        """);
+    var compiler = NativeCompiler.Find(Toolchain.ClangSanitized, out _)!;
+    var build = compiler.Build(cpp, Path.ChangeExtension(cpp, ".exe"), release: false);
+    if (!build.Success)
+        return new(name, build.Output);
+    var run = ProcessRunner.Run(new ProcessStartInfo(Path.ChangeExtension(cpp, ".exe")), TimeSpan.FromSeconds(30));
+    var missing = new[] { "runtime error: signed integer overflow", "heap-use-after-free" }.Where(r => !run.StandardError.Contains(r, StringComparison.Ordinal)).ToList();
+    if (NativeCompiler.SanitizerReport(run.StandardError) is null)
+        missing.Add("anything SanitizerReport finds");
+    return new(name, missing.Count == 0 ? null : $"no report of: {string.Join(", ", missing)}; stderr: {run.StandardError.Trim()}");
+}
 
 static string FindRepositoryRoot()
 {
@@ -184,6 +224,8 @@ static partial class TestCase
         }
 
         var stderr = run.StandardError.Trim().Replace("\r\n", "\n");
+        if (NativeCompiler.SanitizerReport(stderr) is { } report)
+            problems.Add($"sanitizer: {report}\n{stderr}");
         if (expected.Panic is not null)
         {
             var at = expected.PanicLine is { } line ? $"\n    at {Path.GetFileName(file)}:{line}:" : "";

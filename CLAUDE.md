@@ -18,8 +18,9 @@ default. The compiler is written in C# (.NET 10) and compiles VPL to C++20.
 dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--no-nest] [--no-opt]
+dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage by layer and file, and unreached error/unreachable sites, in tests/.coverage/
 ```
 
@@ -37,22 +38,13 @@ Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
 (unused-parameter warnings from test programs are fine).
 
-Run runtime changes (reference counting, `Weak`, the cycle collector) under AddressSanitizer: g++ here
-(MSYS2) can't link ASan, but clang-cl in `D:\LLVM\bin` can. From Git Bash, after the tests have
-generated `tests/.out`:
-
-```
-out=$(cygpath -w "$TEMP/asan"); mkdir -p "$TEMP/asan"; name=basics
-MSYS_NO_PATHCONV=1 clang-cl -std:c++20 -EHsc -fsanitize=address -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH \
-  -DVPL_DEBUG=1 -Iruntime "tests/.out/cycles/$name/$name.cpp" "-Fe$out/$name.exe" "-Fo$out/$name.obj"
-"$TEMP/asan/$name.exe"
-```
-
-- `_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`: the installed Clang 19 is older than this MSVC STL expects.
-- `MSYS_NO_PATHCONV=1` and dash-style flags (`-Fe`, not `/Fe`): Git Bash rewrites `/`-flags as paths.
-- Keep `-Fe$out/$name.exe` as written: `\\$name` escapes the `$`, so every build writes one literal file.
-- Check the program actually ran (its output appears) before calling it clean, and that ASan is live
-  at all: a deliberate use-after-free must report `heap-use-after-free`.
+`--cc asan` builds with clang-cl (found on PATH; `D:\LLVM\bin` here), AddressSanitizer, and UBSan,
+and any report fails the test; the runner also checks that both sanitizers still report a
+deliberate bug (`sanitizers/live`). It finds what the other modes can't: a use after free whose
+freed memory still holds the old bytes prints the same output. UBSan reports and continues, so a
+report is found in standard error, not the exit code. Every sanitized program prints a harmless
+`interception_win: unhandled instruction` line: Clang 19's ASan can't hook one function of this
+newer MSVC runtime. To reproduce a failure, `vpl run <file> --cc asan`.
 
 ## Architecture
 
@@ -204,12 +196,12 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   tree, an analysis from a local rule), move every caller and delete the old one in the same
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
   concept is two ways of doing the same thing.
-- Every feature gets tests for its behavior and for each error it can produce. Run the suite on
-  both MSVC and g++ before committing.
+- Every feature gets tests for its behavior and for each error it can produce. Run the suite in
+  all five modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, and `--cc asan`.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
-- Commit each coherent change once it passes the suite on both compilers (a step of a plan, not
+- Commit each coherent change once it passes the suite in every mode (a step of a plan, not
   only whole milestones), ending the message with the `Co-Authored-By` line. Don't push.
 
 ## Pitfalls already hit

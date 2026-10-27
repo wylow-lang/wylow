@@ -5,7 +5,12 @@ using System.Text;
 
 namespace Vpl.Compiler.Build;
 
-public enum Toolchain { Msvc, Gcc }
+/// <summary>
+/// The C++ compiler a program is built with. <see cref="ClangSanitized"/> is clang-cl with
+/// AddressSanitizer and UBSan, for testing: a program that runs clean under it does nothing undefined
+/// that they can see.
+/// </summary>
+public enum Toolchain { Msvc, Gcc, ClangSanitized }
 
 public sealed record NativeBuildResult(bool Success, string Output);
 
@@ -35,11 +40,14 @@ public sealed class NativeCompiler
             return msvc;
         if (preferred is null or Toolchain.Gcc && FindGcc() is { } gcc)
             return gcc;
+        if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } clang)
+            return clang;
 
         error = preferred switch
         {
             Toolchain.Msvc => "could not find MSVC; install Visual Studio with the 'Desktop development with C++' workload",
             Toolchain.Gcc => "could not find g++ on PATH",
+            Toolchain.ClangSanitized => "could not find clang-cl on PATH, or MSVC, whose headers and libraries it uses",
             _ => "no C++ compiler found; install Visual Studio with the 'Desktop development with C++' workload, or g++",
         };
         return null;
@@ -58,6 +66,23 @@ public sealed class NativeCompiler
         var gcc = FindOnPath(OperatingSystem.IsWindows() ? "g++.exe" : "g++", Environment.GetEnvironmentVariable("PATH"));
         return gcc is null ? null : new NativeCompiler(Toolchain.Gcc, gcc, null);
     }
+
+    /// <summary>clang-cl compiles against MSVC's headers and libraries, so it runs in MSVC's environment.</summary>
+    static NativeCompiler? FindClangSanitized()
+    {
+        if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
+            return null;
+        var clang = FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH"));
+        return clang is null ? null : new NativeCompiler(Toolchain.ClangSanitized, clang, env);
+    }
+
+    /// <summary>
+    /// The first report AddressSanitizer or UBSan wrote to a program's standard error, or null. UBSan
+    /// reports and continues, so the exit code doesn't show it.
+    /// </summary>
+    public static string? SanitizerReport(string standardError) =>
+        standardError.Replace("\r\n", "\n").Split('\n')
+            .FirstOrDefault(l => l.Contains("ERROR: AddressSanitizer", StringComparison.Ordinal) || l.Contains(": runtime error: ", StringComparison.Ordinal));
 
     static string? FindOnPath(string fileName, string? path) =>
         path?.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
@@ -138,6 +163,19 @@ public sealed class NativeCompiler
             args.Add(cppPath);
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "vpl.obj"));
+        }
+        else if (Toolchain == Toolchain.ClangSanitized)
+        {
+            // The installed clang may be older than the MSVC STL expects.
+            foreach (var arg in new[] { "/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH" })
+                args.Add(arg);
+            args.Add(release ? "/O2" : "/Od");
+            if (!release)
+                args.Add("/DVPL_DEBUG=1");
+            args.Add($"/I{RuntimeDirectory}");
+            args.Add($"/Fe{exePath}");
+            args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
+            args.Add(cppPath);
         }
         else
         {

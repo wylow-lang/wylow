@@ -1,8 +1,9 @@
 # Testing: measure coverage, then generate tests
 
 **Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
-user error and verifier check reached), except the optional runtime coverage; step 2 is next. The
-unreached `InvalidOperationException` sites are left for the fuzzer (step 5) to aim at. Delete this file once every step has landed, and
+user error and verifier check reached), except the optional runtime coverage, and so has step 2
+(`--cc asan`); step 3 is next. The unreached `InvalidOperationException` sites are left for the
+fuzzer (step 5) to aim at. Delete this file once every step has landed, and
 move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
 
 ## Why
@@ -34,7 +35,7 @@ every program. The compiler already has them; they only need to be run on many p
 | The verifier accepts every pass's output | A pass that broke a rule (`Pipeline.Verify` throws) | `Optimize/Pipeline.cs` |
 | The generated C++ compiles, warning-free | Emitter bugs (CLAUDE.md: a C++ compile failure is a compiler bug) | `Driver.BuildExecutable` |
 | All modes print the same and exit the same | Optimization bugs, and C++ that depends on undefined behavior or on the compiler | MSVC, g++, `--no-opt`, `--no-nest` |
-| AddressSanitizer and UBSan stay quiet | Use-after-free, overflow, and the like in generated code and the runtime | clang-cl in `D:\LLVM\bin` (manual today) |
+| AddressSanitizer and UBSan stay quiet | Use-after-free, overflow, and the like in generated code and the runtime | the runner's `--cc asan` (clang-cl) |
 | Later: the IR interpreter agrees | Emitter and pass bugs, against the program's meaning | not built yet (architecture.md: the unoptimized IR is the oracle) |
 
 The modes may legitimately differ in one case: with `--no-opt`, a budgeted `Memory.collectCycles`
@@ -130,12 +131,19 @@ CLAUDE.md lists today (`_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`, `-EHsc`, `-st
 sanitizer report fails the test. It becomes the fifth mode to run before committing, and CLAUDE.md's
 manual ASan recipe is deleted ("replace, don't layer").
 
-To check:
-- **UBSan support.** Confirm that clang-cl links UBSan's runtime on this setup. If it doesn't, ship
-  ASan alone and note why.
-- **ASan is live.** As the current recipe requires, an IrSelfTests-style check builds a deliberate
-  use-after-free and expects `heap-use-after-free`, so a sanitizer that silently stops working fails
-  the suite instead of passing everything.
+**Done (2026-10-26).** clang-cl links UBSan here, so the mode runs both; UBSan reports and
+continues, so the runner looks for reports in standard error rather than the exit code. A
+`sanitizers/live` result builds a deliberate signed overflow and use-after-free and fails unless
+both are reported. It runs without a precompiled header, at about 75 s for the suite. Its first run
+found two bugs that every other mode passed:
+
+- **Use after free in nesting** (`spans/string_bytes`): `ReadOnlySpan<byte> t = make(3).bytes();`
+  nested the string into the statement, so C++ destroyed it at the `;` while the span still pointed
+  into it; the freed bytes happened to be intact. Nesting now declines where a local that outlives
+  the statement may refer into the temporary, asking `IrExtent.RefersInto`, the rule the hold
+  analyses already used (docs/design/ir.md §5.1).
+- **Null pointer arithmetic in the runtime** (`basics/string_methods`): appending zero bytes to an
+  empty `StringBuffer` computed `block_->bytes()` on a null block.
 
 ## Step 3: property tests for the type system
 
