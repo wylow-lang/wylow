@@ -20,6 +20,7 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests,
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc] [--no-nest] [--no-opt]
+bash tools/coverage.sh [runner args]   # coverage by layer and file, and unreached error/unreachable sites, in tests/.coverage/
 ```
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner

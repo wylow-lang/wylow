@@ -1,6 +1,7 @@
 # Testing: measure coverage, then generate tests
 
-**Status:** planned 2026-10-26, nothing started. Delete this file once every step has landed, and
+**Status:** planned 2026-10-26. Step 1's measurement has landed (`tools/coverage.sh`, baseline
+below); triaging its uncovered sites is next. Delete this file once every step has landed, and
 move whatever it leaves as rules into CLAUDE.md and `docs/design/architecture.md`.
 
 ## Why
@@ -69,6 +70,38 @@ Produce numbers before changing anything, so later steps can show what they boug
 - **Record the baseline numbers** in this file, so each later step can report its change.
 
 Don't chase 100%. The number is for finding the large untested areas and for tracking the trend.
+
+### Baseline (2026-10-26, MSVC suite, 264 tests)
+
+| Layer | Lines | Branches |
+|---|---|---|
+| Syntax | 95.0% of 2069 | 89.2% of 1417 |
+| Semantics | 95.4% of 4677 | 91.4% of 4698 |
+| Ir | 95.8% of 928 | 91.6% of 823 |
+| Lowering | 97.4% of 1164 | 91.6% of 850 |
+| Analysis | 95.1% of 1785 | 88.7% of 1983 |
+| Optimize | 98.2% of 668 | 95.6% of 832 |
+| CodeGen | 97.3% of 1562 | 94.8% of 1546 |
+| Driver | 69.0% of 248 | 52.9% of 136 (the g++ toolchain path isn't run by the MSVC suite) |
+| all | 95.4% of 13101 | 91.0% of 12285 |
+
+Sites (reached of all):
+
+- **User errors** (`Error(` in Lexer, Parser, Binder; `Violation(` in the verifier): 216 of 281,
+  plus 11 on lines that ran but where a branch didn't, so the site may not have. The 65 unreached
+  are mostly the Lexer's literal errors, the Parser's declaration errors, duplicate-definition
+  errors in `Binder.Declarations.cs`, extern-struct rules, and the three "refer into the nullable"
+  errors in the binder (`Binder.Patterns.cs`, `Binder.Spans.cs`, `Binder.Statements.cs`).
+- **Verifier checks** (the verifier's `Error(`, compiler-bug checks after a pass): 14 of 66. These
+  are reached only by `IrSelfTests`, which builds bad IR on purpose; each unreached one is a check
+  no test shows works.
+- **Unreachable** (`throw new InvalidOperationException`): of 61, two are reached, both on purpose
+  by `IrSelfTests` (`Callees.Fresh`, `IrLet`'s mismatch). Five more are on lines that ran with a
+  `?? throw` or `: throw` that didn't fire. No test reaches one by accident.
+
+Line coverage locates a site well enough (no site lacked coverage data), so `Error` and
+`Violation` didn't need caller-location parameters. Runtime coverage (clang profiling of
+`runtime/vpl/*.h`) isn't measured yet.
 
 ## Step 2: sanitizers in the test runner
 

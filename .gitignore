@@ -4,3 +4,4 @@ obj/
 *.user
 .vpl/
 tests/.out/
+tests/.coverage/
