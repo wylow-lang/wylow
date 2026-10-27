@@ -1,6 +1,8 @@
 class Button {
-    (int, int) handler;                 // error: expected '->' after a function type's parameters
-    (int)? count;                       // error: expected '->' after a function type's parameters
+    internal {
+        (int, int) handler;             // error: expected '->' after a function type's parameters
+        (int)? count;                   // error: expected '->' after a function type's parameters
+    }
 }
 
 void main() {

@@ -11,35 +11,28 @@ static class IrSelfTests
 {
     const string Fixture = """
         class Obj {
-            mut int x;
-            Obj() { }
-        }
-
-        class Holder {
-            mut Obj b;
-            Obj fixed;
-
-            Holder(Obj b) {
-                this.b = b;
-                fixed = b;
+            internal {
+                mut int x;
+                Obj() { }
             }
         }
 
-        struct Vec {
-            int x;
+        class Holder {
+            internal {
+                mut Obj b;
+                Obj fixed;
+
+                Holder(Obj b) {
+                    this.b = b;
+                    fixed = b;
+                }
+            }
         }
 
-        struct Counter {
-            int n = 1;
-        }
-
-        struct Tally {
-            Counter c;
-        }
-
-        struct Nest {
-            Vec? inner;
-        }
+        struct Vec { internal { int x; } }
+        struct Counter { internal { int n = 1; } }
+        struct Tally { internal { Counter c; } }
+        struct Nest { internal { Vec? inner; } }
 
         int f() { return 1; }
         void use(int value) { }

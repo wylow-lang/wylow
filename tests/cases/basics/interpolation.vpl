@@ -1,9 +1,11 @@
 struct Vec3 implements Printable {
-    float x;
-    float y;
-    float z;
+    internal {
+        float x;
+        float y;
+        float z;
 
-    String toString() { return $"({x}, {y}, {z})"; }
+        String toString() { return $"({x}, {y}, {z})"; }
+    }
 }
 
 interface Named extends Printable {
@@ -11,37 +13,45 @@ interface Named extends Printable {
 }
 
 class Animal implements Named {
-    String name;
+    internal {
+        String name;
 
-    Animal(String name) { this.name = name; }
+        Animal(String name) { this.name = name; }
 
-    String title() { return name; }
+        String title() { return name; }
 
-    virtual String toString() { return $"animal {name}"; }
+        virtual String toString() { return $"animal {name}"; }
+    }
 }
 
 class Dog extends Animal {
-    Dog(String name) { super(name); }
+    internal {
+        Dog(String name) { super(name); }
 
-    override String toString() { return $"dog {name}"; }
+        override String toString() { return $"dog {name}"; }
+    }
 }
 
 enum Shape implements Printable {
     Circle(float radius),
     Square(float side);
 
-    String toString() {
-        return switch (this) {
-            case Circle(var r) -> $"circle of radius {r}";
-            case Square(var s) -> $"square of side {s}";
-        };
+    internal {
+        String toString() {
+            return switch (this) {
+                case Circle(var r) -> $"circle of radius {r}";
+                case Square(var s) -> $"square of side {s}";
+            };
+        }
     }
 }
 
 // A built string kept in an enum payload is copied and released with it.
 struct Pair<A, B> {
-    A first;
-    B second;
+    internal {
+        A first;
+        B second;
+    }
 }
 
 enum Message {
@@ -50,11 +60,13 @@ enum Message {
 }
 
 class Counter {
-    mut int count;
+    internal {
+        mut int count;
 
-    int next() {
-        count++;
-        return count;
+        int next() {
+            count++;
+            return count;
+        }
     }
 }
 

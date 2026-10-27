@@ -1,22 +1,24 @@
 abstract class Weapon {
-    mut int shots = 0;
-    String name;
+    internal {
+        mut int shots = 0;
+        String name;
 
-    Weapon(String name) {
-        this.name = name;
-    }
+        Weapon(String name) {
+            this.name = name;
+        }
 
-    abstract int damage();
+        abstract int damage();
 
-    virtual float cooldown() {
-        return 0.5;
-    }
+        virtual float cooldown() {
+            return 0.5;
+        }
 
-    // Non-virtual, but calls virtual methods.
-    void fire() {
-        shots++;
-        print(name);
-        print(damage());
+        // Non-virtual, but calls virtual methods.
+        void fire() {
+            shots++;
+            print(name);
+            print(damage());
+        }
     }
 
     ~Weapon() {
@@ -25,29 +27,33 @@ abstract class Weapon {
 }
 
 class Pistol extends Weapon {
-    Pistol() {
-        super("pistol");
-    }
+    internal {
+        Pistol() {
+            super("pistol");
+        }
 
-    override int damage() {
-        return 10;
+        override int damage() {
+            return 10;
+        }
     }
 }
 
 class Shotgun extends Weapon {
-    int pellets;
+    internal {
+        int pellets;
 
-    Shotgun(int pellets) {
-        super("shotgun");
-        this.pellets = pellets;
-    }
+        Shotgun(int pellets) {
+            super("shotgun");
+            this.pellets = pellets;
+        }
 
-    override int damage() {
-        return pellets * 5;
-    }
+        override int damage() {
+            return pellets * 5;
+        }
 
-    override float cooldown() {
-        return super.cooldown() * 2;
+        override float cooldown() {
+            return super.cooldown() * 2;
+        }
     }
 
     ~Shotgun() {
@@ -56,24 +62,30 @@ class Shotgun extends Weapon {
 }
 
 final class DoubleShotgun extends Shotgun {
-    DoubleShotgun() {
-        super(8);
-    }
+    internal {
+        DoubleShotgun() {
+            super(8);
+        }
 
-    final override int damage() {
-        return super.damage() * 2;
+        final override int damage() {
+            return super.damage() * 2;
+        }
     }
 }
 
 class Base {
-    int value = 1;
+    internal {
+        int value = 1;
+    }
 }
 
 class Derived extends Base {
-    int extra = 2;
+    internal {
+        int extra = 2;
 
-    int sum() {
-        return value + extra;
+        int sum() {
+            return value + extra;
+        }
     }
 }
 

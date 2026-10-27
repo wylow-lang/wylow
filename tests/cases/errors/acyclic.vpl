@@ -1,11 +1,15 @@
 @Acyclic
 class Tree {
-    Tree? next;
+    internal {
+        Tree? next;
+    }
 }
 
 @Acyclic                            // error: '@Acyclic' can only be used on classes
 struct Point {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 @Acyclic                            // error: '@Acyclic' can only be used on classes
@@ -13,11 +17,13 @@ interface Shape {
 }
 
 class Holder {
-    @Acyclic                        // error: '@Acyclic' can only be used on classes
-    Tree? tree;
+    internal {
+        @Acyclic                        // error: '@Acyclic' can only be used on classes
+        Tree? tree;
 
-    @Acyclic                        // error: '@Acyclic' can only be used on classes
-    void run() {
+        @Acyclic                        // error: '@Acyclic' can only be used on classes
+        void run() {
+        }
     }
 }
 

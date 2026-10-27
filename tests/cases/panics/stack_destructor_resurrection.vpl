@@ -1,14 +1,18 @@
 // An object on the stack whose destructor keeps a reference to it panics as one on the heap does.
 
 class Keeper {
-    mut Ghost? kept;
+    internal {
+        mut Ghost? kept;
+    }
 }
 
 class Ghost {
-    Keeper keeper;
+    internal {
+        Keeper keeper;
 
-    Ghost(Keeper keeper) {
-        this.keeper = keeper;
+        Ghost(Keeper keeper) {
+            this.keeper = keeper;
+        }
     }
 
     ~Ghost() {

@@ -11,8 +11,10 @@ int apply((int) -> int f, int x) {
 }
 
 class Runner {
-    virtual int run((int) -> int f) {
-        return f(1);
+    internal {
+        virtual int run((int) -> int f) {
+            return f(1);
+        }
     }
 }
 

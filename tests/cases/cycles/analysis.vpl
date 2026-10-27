@@ -2,24 +2,32 @@
 // zero, and only on the heap. Each `onHeap` and `drop` below makes one such release.
 
 class Leaf {
-    int value;
+    internal {
+        int value;
+    }
 }
 
 // Holds references, but none that can lead back to a Holder.
 class Holder {
-    Leaf leaf = new Leaf();
-    List<int> numbers = new List<int>();
-    List<Leaf> leaves = new List<Leaf>();
-    Weak<Holder> self;
+    internal {
+        Leaf leaf = new Leaf();
+        List<int> numbers = new List<int>();
+        List<Leaf> leaves = new List<Leaf>();
+        Weak<Holder> self;
+    }
 }
 
 class Node {
-    Node? next;
+    internal {
+        Node? next;
+    }
 }
 
 // Cyclic through a struct, an enum, a fixed array, and a list.
 struct Link {
-    Linked? target;
+    internal {
+        Linked? target;
+    }
 }
 
 enum Slot {
@@ -28,20 +36,28 @@ enum Slot {
 }
 
 class Linked {
-    Link link;
+    internal {
+        Link link;
+    }
 }
 
 class Slotted {
-    Slot[2] slots;
+    internal {
+        Slot[2] slots;
+    }
 }
 
 // Holds Linked objects, but can't reach another Holds.
 class Holds {
-    Link link;
+    internal {
+        Link link;
+    }
 }
 
 class Listed {
-    List<Listed> others = new List<Listed>();
+    internal {
+        List<Listed> others = new List<Listed>();
+    }
 }
 
 // Cyclic through a subclass: an Animal field may hold a Pet, which holds an Animal.
@@ -49,7 +65,9 @@ class Animal {
 }
 
 class Pet extends Animal {
-    Animal? friend;
+    internal {
+        Animal? friend;
+    }
 }
 
 // Cyclic through an interface's implementation.
@@ -57,25 +75,33 @@ interface Shape {
 }
 
 class Group implements Shape {
-    Shape? first;
+    internal {
+        Shape? first;
+    }
 }
 
 // Decided per instantiation: Wrapper<Owner> is cyclic, Wrapper<int> is not.
 class Wrapper<T> {
-    T value;
+    internal {
+        T value;
 
-    Wrapper(T value) {
-        this.value = value;
+        Wrapper(T value) {
+            this.value = value;
+        }
     }
 }
 
 class Owner {
-    Wrapper<Owner>? wrapper;
+    internal {
+        Wrapper<Owner>? wrapper;
+    }
 }
 
 @Acyclic
 class Declared {
-    Declared? next;
+    internal {
+        Declared? next;
+    }
 }
 
 void drop<T>(T value) {

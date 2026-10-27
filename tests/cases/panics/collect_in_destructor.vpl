@@ -1,4 +1,5 @@
 class Node {
+
     ~Node() {
         Memory.collectCycles();     // panic-here: Memory.collectCycles cannot be called from a destructor
     }

@@ -1,53 +1,57 @@
 // Lambdas in members use `this` and its fields as the member itself does.
 struct Accumulator {
-    int total;
+    internal {
+        int total;
 
-    Accumulator(int[3] values) {
-        each(values, v -> {
-            total += v;
-        });
-        // `return` in the lambda leaves the lambda, not the constructor.
-        call(() -> {
-            return;
-        });
-    }
+        Accumulator(int[3] values) {
+            each(values, v -> {
+                total += v;
+            });
+            // `return` in the lambda leaves the lambda, not the constructor.
+            call(() -> {
+                return;
+            });
+        }
 
-    mut void addAll(int[3] values) {
-        each(values, v -> {
-            total += v;
-        });
-    }
+        mut void addAll(int[3] values) {
+            each(values, v -> {
+                total += v;
+            });
+        }
 
-    int with((int) -> int f) {
-        return f(total);
+        int with((int) -> int f) {
+            return f(total);
+        }
     }
 }
 
 class Stack<T> {
-    List<T> items;
+    internal {
+        List<T> items;
 
-    Stack() {
-        items = new List<T>();
-    }
-
-    void push(T item) {
-        items.add(item);
-    }
-
-    void forEach((T) -> void action) {
-        for (T item : items) {
-            action(item);
+        Stack() {
+            items = new List<T>();
         }
-    }
 
-    int count((T) -> bool test) {
-        mut int found = 0;
-        forEach(item -> {
-            if (test(item)) {
-                found++;
+        void push(T item) {
+            items.add(item);
+        }
+
+        void forEach((T) -> void action) {
+            for (T item : items) {
+                action(item);
             }
-        });
-        return found;
+        }
+
+        int count((T) -> bool test) {
+            mut int found = 0;
+            forEach(item -> {
+                if (test(item)) {
+                    found++;
+                }
+            });
+            return found;
+        }
     }
 }
 

@@ -3,34 +3,40 @@
 // that are; every other object made in the program is on the heap.
 
 class Noisy {
-    String name;
-    mut Noisy? other;
+    internal {
+        String name;
+        mut Noisy? other;
 
-    Noisy(String name) {
-        this.name = name;
+        Noisy(String name) {
+            this.name = name;
+        }
+
+        String label() {
+            return name;
+        }
+
+        Noisy self() {
+            return this;
+        }
     }
 
     ~Noisy() {
         print(name);
     }
-
-    String label() {
-        return name;
-    }
-
-    Noisy self() {
-        return this;
-    }
 }
 
 class Registered {
-    Registered(List<Registered> all) {
-        all.add(this);
+    internal {
+        Registered(List<Registered> all) {
+            all.add(this);
+        }
     }
 }
 
 class Keeper {
-    mut Noisy? kept;
+    internal {
+        mut Noisy? kept;
+    }
 }
 
 interface Visitor {
@@ -38,69 +44,87 @@ interface Visitor {
 }
 
 class Reader implements Visitor {
-    void visit(Noisy n) {
-        print(n.label());
+    internal {
+        void visit(Noisy n) {
+            print(n.label());
+        }
     }
 }
 
 class Storer implements Visitor {
-    Keeper keeper = new Keeper();
+    internal {
+        Keeper keeper = new Keeper();
 
-    void visit(Noisy n) {
-        keeper.kept = n;
+        void visit(Noisy n) {
+            keeper.kept = n;
+        }
     }
 }
 
 // Only the methods a call may dispatch to count: Bin.put keeps its argument, but no Shelf is a Bin.
 class Shelf {
-    virtual void put(Noisy n) {
-        print(n.label());
+    internal {
+        virtual void put(Noisy n) {
+            print(n.label());
+        }
     }
 }
 
 class Bin {
-    mut Noisy? kept;
+    internal {
+        mut Noisy? kept;
 
-    virtual void put(Noisy n) {
-        kept = n;
+        virtual void put(Noisy n) {
+            kept = n;
+        }
     }
 }
 
 class Ledger {
-    virtual void put(Noisy n) {
+    internal {
+        virtual void put(Noisy n) {
+        }
     }
 }
 
 class Hoard extends Ledger {
-    mut Noisy? kept;
+    internal {
+        mut Noisy? kept;
 
-    override void put(Noisy n) {
-        kept = n;
+        override void put(Noisy n) {
+            kept = n;
+        }
     }
 }
 
 class Box<T> {
-    T value;
+    internal {
+        T value;
 
-    Box(T value) {
-        this.value = value;
+        Box(T value) {
+            this.value = value;
+        }
     }
 }
 
 class Big {
-    mut int[200] values;
+    internal {
+        mut int[200] values;
+    }
 }
 
 // Its borrows keep it, so it escapes; other Borrowable classes, such as List, don't.
 class Clinging implements Borrowable {
-    mut Clinging? self;
+    internal {
+        mut Clinging? self;
 
-    void beginBorrow() {
-        self = this;
-    }
+        void beginBorrow() {
+            self = this;
+        }
 
-    void endBorrow() {
-        self = null;
+        void endBorrow() {
+            self = null;
+        }
     }
 }
 

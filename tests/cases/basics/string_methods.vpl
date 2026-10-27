@@ -1,5 +1,7 @@
 class Holder {
-    mut String text = "held";
+    internal {
+        mut String text = "held";
+    }
 }
 
 String echo(String s) {

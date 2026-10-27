@@ -1,43 +1,49 @@
 class Node {
-    int value;
+    internal {
+        int value;
+    }
 }
 
 struct Vec {
-    float x;
+    internal {
+        float x;
 
-    mut void grow() {
-        x++;
+        mut void grow() {
+            x++;
+        }
     }
 }
 
 struct Mat2 {
-    float[4] m;
+    internal {
+        float[4] m;
 
-    mut ref? float at(int i) {
-        if (i < 0) {
+        mut ref? float at(int i) {
+            if (i < 0) {
+                return null;
+            }
+            return ref m[i];
+        }
+
+        in? float peek(int i) {
+            return ref m[i];
+        }
+
+        mut ref? float bad(int i) {
+            return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref', or 'return null'
+        }
+
+        mut ref? float other(ref Mat2 o) {
+            return ref o.m[0];              // error: a returned 'ref?' must point into the method's receiver
+        }
+
+        mut ref float sure() {
+            return ref at(0);               // error: 'at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
+        }
+
+        mut ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
             return null;
         }
-        return ref m[i];
-    }
-
-    in? float peek(int i) {
-        return ref m[i];
-    }
-
-    mut ref? float bad(int i) {
-        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref', or 'return null'
-    }
-
-    mut ref? float other(ref Mat2 o) {
-        return ref o.m[0];              // error: a returned 'ref?' must point into the method's receiver
-    }
-
-    mut ref float sure() {
-        return ref at(0);               // error: 'at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
-    }
-
-    mut ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
-        return null;
     }
 }
 

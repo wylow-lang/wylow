@@ -1,10 +1,12 @@
 class Noisy {
-    String name;
+    internal {
+        String name;
 
-    Noisy(String name) {
-        this.name = name;
-        print("create");
-        print(name);
+        Noisy(String name) {
+            this.name = name;
+            print("create");
+            print(name);
+        }
     }
 
     ~Noisy() {
@@ -14,10 +16,12 @@ class Noisy {
 }
 
 class Holder {
-    Noisy item;
+    internal {
+        Noisy item;
 
-    Holder(Noisy item) {
-        this.item = item;
+        Holder(Noisy item) {
+            this.item = item;
+        }
     }
 
     ~Holder() {

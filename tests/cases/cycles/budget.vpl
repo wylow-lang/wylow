@@ -2,11 +2,13 @@
 // of the budget waits for a later call rather than being half-visited.
 
 class Node {
-    int id;
-    mut Node? next;
+    internal {
+        int id;
+        mut Node? next;
 
-    Node(int id) {
-        this.id = id;
+        Node(int id) {
+            this.id = id;
+        }
     }
 
     ~Node() {

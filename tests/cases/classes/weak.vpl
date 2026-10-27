@@ -1,9 +1,11 @@
 class Parent {
-    String name;
-    mut Child? child;
+    internal {
+        String name;
+        mut Child? child;
 
-    Parent(String name) {
-        this.name = name;
+        Parent(String name) {
+            this.name = name;
+        }
     }
 
     ~Parent() {
@@ -12,13 +14,15 @@ class Parent {
 }
 
 class Child {
-    mut Weak<Parent> parent;
+    internal {
+        mut Weak<Parent> parent;
 
-    void greet() {
-        if (parent.get() is Parent p) {
-            print(p.name);
-        } else {
-            print("orphan");
+        void greet() {
+            if (parent.get() is Parent p) {
+                print(p.name);
+            } else {
+                print("orphan");
+            }
         }
     }
 
@@ -32,14 +36,16 @@ interface Identified {
 }
 
 class Enemy implements Identified {
-    int id;
+    internal {
+        int id;
 
-    Enemy(int id) {
-        this.id = id;
-    }
+        Enemy(int id) {
+            this.id = id;
+        }
 
-    int key() {
-        return id;
+        int key() {
+            return id;
+        }
     }
 
     ~Enemy() {
@@ -49,8 +55,10 @@ class Enemy implements Identified {
 
 // A struct holding a weak reference is an ordinary value.
 struct Target {
-    Weak<Identified> who;
-    int priority = 1;
+    internal {
+        Weak<Identified> who;
+        int priority = 1;
+    }
 }
 
 // An enum's payload copies and destroys its weak reference like any other field.
@@ -72,7 +80,9 @@ Weak<Enemy> pick(Enemy e) {
 }
 
 class SelfWatcher {
-    mut Weak<SelfWatcher> self;
+    internal {
+        mut Weak<SelfWatcher> self;
+    }
 
     // A weak reference taken while being destroyed reads as null too.
     ~SelfWatcher() {

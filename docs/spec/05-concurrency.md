@@ -37,9 +37,11 @@ A `shared class` may be referenced from multiple threads.
 
 ```java
 shared class TextureCache {
-    String rootPath;
-    Mutex<Map<String, TextureId>> entries;
-    Atomic<int> hits;
+    public {
+        String rootPath;
+        Mutex<Map<String, TextureId>> entries;
+        Atomic<int> hits;
+    }
 }
 ```
 
@@ -83,7 +85,7 @@ Jobs.run(
 
 ### Design consequence
 
-A struct containing a class reference (for example `struct Enemy { Behavior ai; }`) is not
+A struct containing a class reference (for example `struct Enemy { public { Behavior ai; } }`) is not
 sendable, so it cannot be processed by jobs. Data that needs parallel processing should be
 **plain data**, with class-heavy logic kept on the owning thread. This is intentional: it pushes
 hot data toward a data-oriented layout.
@@ -178,16 +180,19 @@ such as a mod, a script, or a game session in an editor, without stopping the pr
 
 ```java
 class ModHost {
-    mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
-
-    void tick(FrameInput input) {                                       // FrameInput: plain data
-        switch (mod.call(state -> state.update(input))) {               // Result<ModOutput, Panic>
-            case Ok(ModOutput out) -> apply(out);
-            case Err(Panic p) -> {
-                log(p.message);
-                mod = Isolate.start(() -> new ModState(config));        // start over
+    public {
+        void tick(FrameInput input) {                                   // FrameInput: plain data
+            switch (mod.call(state -> state.update(input))) {           // Result<ModOutput, Panic>
+                case Ok(ModOutput out) -> apply(out);
+                case Err(Panic p) -> {
+                    log(p.message);
+                    mod = Isolate.start(() -> new ModState(config));    // start over
+                }
             }
         }
+    }
+    private {
+        mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
     }
 }
 ```

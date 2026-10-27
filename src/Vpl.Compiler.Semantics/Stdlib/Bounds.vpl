@@ -1,11 +1,13 @@
 // Bounds checks, which report the caller's location like the checks on built-in arrays.
 
 struct Bounds {
-    // Panics unless 0 <= index < length.
-    @CallerLocation
-    static extern void check(int index, int length);
+    public {
+        // Panics unless 0 <= index < length.
+        @CallerLocation
+        static extern void check(int index, int length);
 
-    // Panics unless the `count` elements from `start` are within a sequence of `length`.
-    @CallerLocation
-    static extern void checkRange(int start, int count, int length);
+        // Panics unless the `count` elements from `start` are within a sequence of `length`.
+        @CallerLocation
+        static extern void checkRange(int start, int count, int length);
+    }
 }

@@ -1,70 +1,90 @@
 class Item { }
 
 class Base {
-    Base(int x) { }
+    internal {
+        Base(int x) { }
+    }
 }
 
 class NoSuper extends Base {
-    NoSuper() { }                       // error: 'Base' has no parameterless constructor
+    internal {
+        NoSuper() { }                       // error: 'Base' has no parameterless constructor
+    }
 }
 
 class Implicit extends Base { }         // error: 'Base' has no parameterless constructor
 
 class LateSuper extends Base {
-    LateSuper() {                       // error: 'Base' has no parameterless constructor
-        print(1);
-        super(1);                       // error: 'super(...)' must be the first statement of a constructor
+    internal {
+        LateSuper() {                       // error: 'Base' has no parameterless constructor
+            print(1);
+            super(1);                       // error: 'super(...)' must be the first statement of a constructor
+        }
     }
 }
 
 class ThisInSuper extends Base {
-    int field = 1;
-    ThisInSuper() {
-        super(field);                   // error: arguments to 'super(...)' cannot use 'this'
+    internal {
+        int field = 1;
+        ThisInSuper() {
+            super(field);                   // error: arguments to 'super(...)' cannot use 'this'
+        }
     }
 }
 
 class NoBase {
-    NoBase() {
-        super();                        // error: 'NoBase' has no base class
+    internal {
+        NoBase() {
+            super();                        // error: 'NoBase' has no base class
+        }
     }
 }
 
 class Chained {
-    Chained(int x) { }
-    Chained() {
-        this(1);                        // error: 'this(...)' constructor chaining is not supported yet
+    internal {
+        Chained(int x) { }
+        Chained() {
+            this(1);                        // error: 'this(...)' constructor chaining is not supported yet
+        }
     }
 }
 
 class ViewBase {
-    ViewBase(in int x, Span<int> view) { }
+    internal {
+        ViewBase(in int x, Span<int> view) { }
+    }
 }
 
 class ViewDerived extends ViewBase {
-    ViewDerived(int x, int[] items, Span<int> view) {
-        super(x, view);
-    }
-    ViewDerived(int x, Span<int> view) {
-        super(x + 1, view);             // error: an argument to 'super(...)' for a reference or view parameter
-    }
-    ViewDerived(int x, int[] items) {
-        super(x, items);                // error: an argument to 'super(...)' for a reference or view parameter
-    }
-    ViewDerived(Span<int> view, int i) {
-        super(view[i], view);           // error: an argument to 'super(...)' for a reference or view parameter
+    internal {
+        ViewDerived(int x, int[] items, Span<int> view) {
+            super(x, view);
+        }
+        ViewDerived(int x, Span<int> view) {
+            super(x + 1, view);             // error: an argument to 'super(...)' for a reference or view parameter
+        }
+        ViewDerived(int x, int[] items) {
+            super(x, items);                // error: an argument to 'super(...)' for a reference or view parameter
+        }
+        ViewDerived(Span<int> view, int i) {
+            super(view[i], view);           // error: an argument to 'super(...)' for a reference or view parameter
+        }
     }
 }
 
 class Unassigned {
-    Item item;                          // error: field 'item' of type 'Item' has no default value
+    internal {
+        Item item;                          // error: field 'item' of type 'Item' has no default value
+    }
 }
 
 struct Holder {
-    Item item;
+    internal {
+        Item item;
 
-    Holder(int x) {
-        item = new Item();
+        Holder(int x) {
+            item = new Item();
+        }
     }
 }
 

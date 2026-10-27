@@ -1,24 +1,31 @@
 enum Fields {
     A, B;
 
-    int count;                          // error: enums cannot have fields; data belongs to variants
-    Fields(int x) { }                   // error: enums cannot have constructors
-    ~Fields() { }                       // error: enums cannot have destructors
-    mut void look() { }                 // error: enum methods cannot be 'mut', since an enum value cannot be modified
-    virtual void spin() { }             // error: 'virtual' is not valid on enum members
+    internal {
+        int count;                          // error: enums cannot have fields; data belongs to variants
+        Fields(int x) { }                   // error: enums cannot have constructors
+        mut void look() { }                 // error: enum methods cannot be 'mut', since an enum value cannot be modified
+        virtual void spin() { }             // error: 'virtual' is not valid on enum members
+    }
 }
 
 enum Child extends Fields { C }         // error: enums cannot inherit
 
 enum Late {
     A;
-    void f() { }
+
+    internal {
+        void f() { }
+    }
     B,                                  // error: enum variants must come before the enum's methods
 }
 
 enum Missing {
     A, B                                // error: expected ',' or '}' after an enum variant, or ';' before the enum's methods
-    void f() { }
+
+    internal {
+        void f() { }
+    }
 }
 
 enum Refs { A(ref int x) }              // error: 'ref' is only valid on parameters

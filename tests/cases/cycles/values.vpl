@@ -6,8 +6,10 @@ interface Part {
 }
 
 struct Edge {
-    Part? to;
-    int weight;
+    internal {
+        Part? to;
+        int weight;
+    }
 }
 
 enum Slot {
@@ -16,15 +18,17 @@ enum Slot {
 }
 
 class Joint implements Part {
-    int number;
-    mut Slot[2] slots;
+    internal {
+        int number;
+        mut Slot[2] slots;
 
-    Joint(int number) {
-        this.number = number;
-    }
+        Joint(int number) {
+            this.number = number;
+        }
 
-    int id() {
-        return number;
+        int id() {
+            return number;
+        }
     }
 
     ~Joint() {
@@ -33,17 +37,19 @@ class Joint implements Part {
 }
 
 class Bag implements Part {
-    int number;
-    List<Edge> edges = new List<Edge>();
-    mut Leaf leaf;
+    internal {
+        int number;
+        List<Edge> edges = new List<Edge>();
+        mut Leaf leaf;
 
-    Bag(int number) {
-        this.number = number;
-        leaf = new Leaf(number + 1);
-    }
+        Bag(int number) {
+            this.number = number;
+            leaf = new Leaf(number + 1);
+        }
 
-    int id() {
-        return number;
+        int id() {
+            return number;
+        }
     }
 
     // Breaks the cycle and releases its own objects, which the collection must allow.
@@ -55,10 +61,12 @@ class Bag implements Part {
 }
 
 class Leaf {
-    int number;
+    internal {
+        int number;
 
-    Leaf(int number) {
-        this.number = number;
+        Leaf(int number) {
+            this.number = number;
+        }
     }
 
     ~Leaf() {
@@ -67,7 +75,9 @@ class Leaf {
 }
 
 class Chain {
-    mut Chain? next;
+    internal {
+        mut Chain? next;
+    }
 }
 
 Edge edge(Part to) {

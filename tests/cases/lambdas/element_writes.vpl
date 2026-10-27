@@ -4,10 +4,12 @@
 // in place.
 
 class Enemy {
-    int hp;
+    internal {
+        int hp;
 
-    Enemy(int hp) {
-        this.hp = hp;
+        Enemy(int hp) {
+            this.hp = hp;
+        }
     }
 
     ~Enemy() {
@@ -16,10 +18,12 @@ class Enemy {
 }
 
 class Hooks {
-    () -> void onTick;
+    internal {
+        () -> void onTick;
 
-    Hooks(@Escaping () -> void onTick) {
-        this.onTick = onTick;
+        Hooks(@Escaping () -> void onTick) {
+            this.onTick = onTick;
+        }
     }
 }
 

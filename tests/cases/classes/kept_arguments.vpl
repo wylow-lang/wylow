@@ -2,10 +2,12 @@
 // where the call replaces the place it was copied from (spec 03-memory-model.md, When references
 // are released). A local and an element are released at the same point.
 class C {
-    String name;
+    internal {
+        String name;
 
-    C(String name) {
-        this.name = name;
+        C(String name) {
+            this.name = name;
+        }
     }
 
     ~C() {
@@ -14,7 +16,9 @@ class C {
 }
 
 struct S {
-    C c;
+    internal {
+        C c;
+    }
 }
 
 int f(S a, ref S b) {

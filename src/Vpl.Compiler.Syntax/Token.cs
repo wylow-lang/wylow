@@ -40,6 +40,7 @@ public enum TokenKind
     PublicKeyword,
     PrivateKeyword,
     ProtectedKeyword,
+    InternalKeyword,
     StaticKeyword,
     MutKeyword,
     ThisKeyword,

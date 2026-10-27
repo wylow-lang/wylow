@@ -1,13 +1,17 @@
 class Node {
-    Weak<Node> parent;
-    Weak<Node?> maybe;                  // error: write 'Weak<Node>': a weak reference can always be null
-    Weak<int> number;                   // error: 'Weak' needs a class or interface type, not 'int'
+    internal {
+        Weak<Node> parent;
+        Weak<Node?> maybe;                  // error: write 'Weak<Node>': a weak reference can always be null
+        Weak<int> number;                   // error: 'Weak' needs a class or interface type, not 'int'
+    }
 }
 
-struct Vec { int x; }
+struct Vec { internal { int x; } }
 
 class Box<T> {
-    Weak<T> item;                       // error: 'Weak' needs a class or interface type, not 'T'
+    internal {
+        Weak<T> item;                       // error: 'Weak' needs a class or interface type, not 'T'
+    }
 }
 
 extern struct Native { }                // error: extern structs are only supported in the standard library

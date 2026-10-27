@@ -2,26 +2,30 @@
 // rest of the expression isn't.
 
 class Noisy {
-    String name;
+    internal {
+        String name;
 
-    Noisy(String name) {
-        this.name = name;
+        Noisy(String name) {
+            this.name = name;
+        }
+
+        int size() {
+            return 1;
+        }
     }
 
     ~Noisy() {
         print(name);
     }
-
-    int size() {
-        return 1;
-    }
 }
 
 class Problem {
-    String what;
+    internal {
+        String what;
 
-    Problem(String what) {
-        this.what = what;
+        Problem(String what) {
+            this.what = what;
+        }
     }
 }
 
@@ -103,10 +107,12 @@ Result<int, String> stored(Result<int, String> r) {
 }
 
 class Holder {
-    mut Result<int, String> result;
+    internal {
+        mut Result<int, String> result;
 
-    Holder(Result<int, String> result) {
-        this.result = result;
+        Holder(Result<int, String> result) {
+            this.result = result;
+        }
     }
 }
 

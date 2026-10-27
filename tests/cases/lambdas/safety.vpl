@@ -2,15 +2,17 @@
 // would read freed memory or the wrong value if the compiler assumed a call can't change a local.
 
 class Box {
-    mut int value;
+    internal {
+        mut int value;
 
-    Box(int value) {
-        this.value = value;
-    }
+        Box(int value) {
+            this.value = value;
+        }
 
-    int add(int amount) {
-        value += amount;
-        return value;
+        int add(int amount) {
+            value += amount;
+            return value;
+        }
     }
 
     ~Box() {
@@ -19,14 +21,18 @@ class Box {
 }
 
 class Crate {
-    mut Box box = new Box(2);
+    internal {
+        mut Box box = new Box(2);
+    }
 }
 
 class Enemy {
-    int hp;
+    internal {
+        int hp;
 
-    Enemy(int hp) {
-        this.hp = hp;
+        Enemy(int hp) {
+            this.hp = hp;
+        }
     }
 
     ~Enemy() {

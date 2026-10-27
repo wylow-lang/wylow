@@ -1,41 +1,49 @@
 struct Pair<A, B> {
-    A first;
-    B second;
+    internal {
+        A first;
+        B second;
 
-    Pair(A first, B second) {
-        this.first = first;
-        this.second = second;
-    }
+        Pair(A first, B second) {
+            this.first = first;
+            this.second = second;
+        }
 
-    Pair<B, A> swapped() {
-        return Pair<B, A>(second, first);
-    }
+        Pair<B, A> swapped() {
+            return Pair<B, A>(second, first);
+        }
 
-    static Pair<A, B> of(A a, B b) {
-        return Pair<A, B>(a, b);
+        static Pair<A, B> of(A a, B b) {
+            return Pair<A, B>(a, b);
+        }
     }
 }
 
 struct Box<T> {
-    T value;
-    int reads = 0;
+    internal {
+        T value;
+        int reads = 0;
 
-    mut T get() {
-        reads++;
-        return value;
-    }
+        mut T get() {
+            reads++;
+            return value;
+        }
 
-    mut U convert<U>(U fallback) {
-        return fallback;
+        mut U convert<U>(U fallback) {
+            return fallback;
+        }
     }
 }
 
 struct Stats {
-    int health = 100;
+    internal {
+        int health = 100;
+    }
 }
 
 struct Holder {
-    Pair<int, Stats> pair;
+    internal {
+        Pair<int, Stats> pair;
+    }
 }
 
 Pair<B, A> flip<A, B>(Pair<A, B> p) {

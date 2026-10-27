@@ -1,7 +1,9 @@
 // A function type's own parameters are non-escaping unless declared '@Escaping', which is part of
 // the type: a lambda of the type may store such a parameter, and must be passed an escaping value.
 class Bus {
-    List<() -> void> handlers = new List<() -> void>();
+    internal {
+        List<() -> void> handlers = new List<() -> void>();
+    }
 }
 
 void main() {

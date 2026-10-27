@@ -139,8 +139,10 @@ element: `List<Weak<Listener>>` works.
 
 ```java
 class Node {
-    List<Node> children;
-    mut Weak<Node> parent;                 // does not keep the parent alive
+    public {
+        List<Node> children;
+        mut Weak<Node> parent;             // does not keep the parent alive
+    }
 }
 
 child.parent = node;                       // a T or T? converts implicitly to Weak<T>
@@ -399,8 +401,10 @@ by a method of `this`, or, in unsafe code, the target of a pointer. Indexers are
 
 ```java
 struct Mat4 {
-    float[16] m;
-    ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
+    public {
+        float[16] m;
+        mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
+    }
 }
 ```
 

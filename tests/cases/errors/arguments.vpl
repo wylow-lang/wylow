@@ -1,26 +1,36 @@
 struct Vec3 {
-    float x, y, z;
+    internal {
+        float x, y, z;
+    }
 }
 
 struct Holder<T> {
-    int count;
-    T? item;
+    internal {
+        int count;
+        T? item;
+    }
 }
 
 struct Tag {
-    int id;
+    internal {
+        int id;
 
-    Tag(int value = 1) { id = value; }   // error: a struct constructor cannot have a default value for every parameter, since 'Tag()' is always the default value
+        Tag(int value = 1) { id = value; }   // error: a struct constructor cannot have a default value for every parameter, since 'Tag()' is always the default value
+    }
 }
 
 class Player {
-    String name;
-    Player(String name) { this.name = name; }
+    internal {
+        String name;
+        Player(String name) { this.name = name; }
+    }
 }
 
 struct Hit {
-    Player target;
-    int damage = 10;
+    internal {
+        Player target;
+        int damage = 10;
+    }
 }
 
 int compute() { return 1; }
@@ -37,14 +47,18 @@ String amb(int a, int b = 0) { return "int"; }
 String amb(int a, String s = "") { return "String"; }
 
 class Animal {
-    int size;
+    internal {
+        int size;
 
-    virtual String speak(int times = 1) { return "..."; }
-    String measure(int by = this.size) { return "measured"; }   // error: 'this' cannot be used here; default values cannot use 'this', fields, or instance methods
+        virtual String speak(int times = 1) { return "..."; }
+        String measure(int by = this.size) { return "measured"; }   // error: 'this' cannot be used here; default values cannot use 'this', fields, or instance methods
+    }
 }
 
 class Dog extends Animal {
-    override String speak(int times = 2) { return "woof"; }   // error: 'Dog.speak' cannot declare default values, since it overrides or implements a method whose defaults it takes
+    internal {
+        override String speak(int times = 2) { return "woof"; }   // error: 'Dog.speak' cannot declare default values, since it overrides or implements a method whose defaults it takes
+    }
 }
 
 void main() {

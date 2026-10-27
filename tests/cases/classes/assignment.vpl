@@ -2,22 +2,26 @@
 // reads the assigned field sees the new value.
 
 class Holder {
-    mut Item item;
-    mut Pair pair;
+    internal {
+        mut Item item;
+        mut Pair pair;
 
-    Holder() {
-        item = new Item("first", null);
-        pair = Pair(new Item("a", null), new Item("b", null));
+        Holder() {
+            item = new Item("first", null);
+            pair = Pair(new Item("a", null), new Item("b", null));
+        }
     }
 }
 
 class Item {
-    String name;
-    Weak<Holder> holder;
+    internal {
+        String name;
+        Weak<Holder> holder;
 
-    Item(String name, Holder? holder) {
-        this.name = name;
-        this.holder = holder;
+        Item(String name, Holder? holder) {
+            this.name = name;
+            this.holder = holder;
+        }
     }
 
     ~Item() {
@@ -29,12 +33,14 @@ class Item {
 }
 
 struct Pair {
-    Item first;
-    Item second;
+    internal {
+        Item first;
+        Item second;
 
-    Pair(Item first, Item second) {
-        this.first = first;
-        this.second = second;
+        Pair(Item first, Item second) {
+            this.first = first;
+            this.second = second;
+        }
     }
 }
 

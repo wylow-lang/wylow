@@ -1,8 +1,10 @@
 class Tag {
-    String name;
+    internal {
+        String name;
 
-    Tag(String name) {
-        this.name = name;
+        Tag(String name) {
+            this.name = name;
+        }
     }
 
     ~Tag() {

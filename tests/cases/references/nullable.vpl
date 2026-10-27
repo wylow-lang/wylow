@@ -1,37 +1,41 @@
 struct Mat2 {
-    float[4] m;
+    internal {
+        float[4] m;
 
-    mut ref? float at(int i) {
-        if (i < 0 || i >= 4) {
-            return null;
+        mut ref? float at(int i) {
+            if (i < 0 || i >= 4) {
+                return null;
+            }
+            return ref m[i];
         }
-        return ref m[i];
-    }
 
-    in? float peek(int i) {
-        if (i < 0 || i >= 4) {
-            return null;
+        in? float peek(int i) {
+            if (i < 0 || i >= 4) {
+                return null;
+            }
+            return ref m[i];
         }
-        return ref m[i];
-    }
 
-    mut ref? float first() {
-        return ref at(0);
-    }
+        mut ref? float first() {
+            return ref at(0);
+        }
 
-    mut ref float last() {
-        return ref at(3)!;
+        mut ref float last() {
+            return ref at(3)!;
+        }
     }
 }
 
 class Bag {
-    mut int[3] items;
+    internal {
+        mut int[3] items;
 
-    ref? int get(int i) {
-        if (i >= 3) {
-            return null;
+        ref? int get(int i) {
+            if (i >= 3) {
+                return null;
+            }
+            return ref items[i];
         }
-        return ref items[i];
     }
 }
 
@@ -73,13 +77,15 @@ int order(int value) {
 }
 
 struct Slots<T> {
-    T[2] items;
+    internal {
+        T[2] items;
 
-    mut ref? T find(int i) {
-        if (i < 0 || i >= 2) {
-            return null;
+        mut ref? T find(int i) {
+            if (i < 0 || i >= 2) {
+                return null;
+            }
+            return ref items[i];
         }
-        return ref items[i];
     }
 }
 

@@ -1,8 +1,10 @@
 class Tracked {
-    int id;
+    internal {
+        int id;
 
-    Tracked(int id) {
-        this.id = id;
+        Tracked(int id) {
+            this.id = id;
+        }
     }
 
     ~Tracked() {
@@ -12,39 +14,41 @@ class Tracked {
 
 // A growable stack built on raw memory, the way the standard library's containers are.
 class Stack<T> {
-    mut T* data;
-    mut int size;
-    mut int capacity;
+    internal {
+        mut T* data;
+        mut int size;
+        mut int capacity;
 
-    void push(T value) {
-        unsafe {
-            if (size == capacity) {
-                int grown = capacity == 0 ? 2 : capacity * 2;
-                T* bigger = Memory.allocate<T>(grown);
-                Memory.moveTo(data, bigger, size);
-                Memory.free(data);
-                data = bigger;
-                capacity = grown;
+        void push(T value) {
+            unsafe {
+                if (size == capacity) {
+                    int grown = capacity == 0 ? 2 : capacity * 2;
+                    T* bigger = Memory.allocate<T>(grown);
+                    Memory.moveTo(data, bigger, size);
+                    Memory.free(data);
+                    data = bigger;
+                    capacity = grown;
+                }
+                Memory.initialize(data + size, value);
             }
-            Memory.initialize(data + size, value);
+            size++;
         }
-        size++;
-    }
 
-    @CallerLocation
-    ref T operator [](int index) {
-        Bounds.check(index, size);
-        unsafe {
-            return ref data[index];
+        @CallerLocation
+        ref T operator [](int index) {
+            Bounds.check(index, size);
+            unsafe {
+                return ref data[index];
+            }
         }
-    }
 
-    // Rotates the elements one place to the right, moving them onto themselves.
-    void shiftRight() {
-        unsafe {
-            Memory.drop(data + size - 1);
-            Memory.moveTo(data, data + 1, size - 1);
-            Memory.initialize(data, this[size - 1]);
+        // Rotates the elements one place to the right, moving them onto themselves.
+        void shiftRight() {
+            unsafe {
+                Memory.drop(data + size - 1);
+                Memory.moveTo(data, data + 1, size - 1);
+                Memory.initialize(data, this[size - 1]);
+            }
         }
     }
 

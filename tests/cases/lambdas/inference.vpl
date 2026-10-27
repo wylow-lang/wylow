@@ -20,28 +20,32 @@ U? whenPositive<U>(int x, (int) -> U? f) {
 }
 
 struct Mob {
-    String name;
-    int health;
+    internal {
+        String name;
+        int health;
+    }
 }
 
 class Bag<T> {
-    List<T> items = new List<T>();
+    internal {
+        List<T> items = new List<T>();
 
-    void add(T item) {
-        items.add(item);
-    }
-
-    List<U> map<U>((T) -> U f) {
-        List<U> result = new List<U>();
-        for (T item : items) {
-            result.add(f(item));
+        void add(T item) {
+            items.add(item);
         }
-        return result;
-    }
 
-    // Inside a generic class, the lambda's type depends on the class's own type parameter.
-    List<String> names() {
-        return map(item -> "item");
+        List<U> map<U>((T) -> U f) {
+            List<U> result = new List<U>();
+            for (T item : items) {
+                result.add(f(item));
+            }
+            return result;
+        }
+
+        // Inside a generic class, the lambda's type depends on the class's own type parameter.
+        List<String> names() {
+            return map(item -> "item");
+        }
     }
 }
 

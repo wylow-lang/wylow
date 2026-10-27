@@ -5,44 +5,50 @@ interface Visitor {
 }
 
 abstract class Shape {
-    abstract int measure((int) -> int scale);
+    internal {
+        abstract int measure((int) -> int scale);
 
-    virtual void describe(() -> String name) {
-        print("shape");
-        print(name());
+        virtual void describe(() -> String name) {
+            print("shape");
+            print(name());
+        }
     }
 }
 
 class Square extends Shape implements Visitor {
-    int side;
+    internal {
+        int side;
 
-    Square(int side) {
-        this.side = side;
-    }
+        Square(int side) {
+            this.side = side;
+        }
 
-    override int measure((int) -> int scale) {
-        return scale(side) * scale(side);
-    }
+        override int measure((int) -> int scale) {
+            return scale(side) * scale(side);
+        }
 
-    override void describe(() -> String name) {
-        print("square");
-        print(name());
-    }
+        override void describe(() -> String name) {
+            print("square");
+            print(name());
+        }
 
-    void visit((int) -> void action) {
-        action(side);
-    }
+        void visit((int) -> void action) {
+            action(side);
+        }
 
-    // Shares a name with Visitor.visit without implementing it, so it can be a template.
-    void visit(() -> int size) {
-        print(size() + side);
+        // Shares a name with Visitor.visit without implementing it, so it can be a template.
+        void visit(() -> int size) {
+            print(size() + side);
+        }
     }
 }
 
 // Implements Visitor.visit only through Floor, which overrides it in C++ by forwarding here.
 class Tile {
-    void visit((int) -> void action) {
-        action(7);
+    internal {
+        void visit((int) -> void action) {
+            action(7);
+        }
     }
 }
 
@@ -51,10 +57,12 @@ class Floor extends Tile implements Visitor {
 
 // A struct implements an interface only as a generic bound, so its method can be a template.
 struct Stack implements Visitor {
-    int height;
+    internal {
+        int height;
 
-    void visit((int) -> void action) {
-        action(height);
+        void visit((int) -> void action) {
+            action(height);
+        }
     }
 }
 
@@ -67,15 +75,17 @@ int deepest<T extends Visitor>(T visited) {
 }
 
 class Logger {
-    int lines;
+    internal {
+        int lines;
 
-    // A constructor takes FunctionRefs, since its C++ name can't tell overloads apart.
-    Logger((int) -> int first) {
-        lines = first(1);
-    }
+        // A constructor takes FunctionRefs, since its C++ name can't tell overloads apart.
+        Logger((int) -> int first) {
+            lines = first(1);
+        }
 
-    Logger((String) -> int first) {
-        lines = first("one") + 100;
+        Logger((String) -> int first) {
+            lines = first("one") + 100;
+        }
     }
 }
 

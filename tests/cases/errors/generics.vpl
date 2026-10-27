@@ -1,26 +1,38 @@
 struct Pair<A, B> {
-    A first;
-    B second;
+    internal {
+        A first;
+        B second;
+    }
 }
 
 struct Node<T> {                  // error: struct 'Node' contains itself (Node<T> -> Node<T>)
-    Node<T> next;
+    internal {
+        Node<T> next;
+    }
 }
 
 struct Wrap<T> {
-    T value;
+    internal {
+        T value;
+    }
 }
 
 struct Rec {                      // error: struct 'Rec' contains itself (Rec -> Wrap<Rec> -> Rec)
-    Wrap<Rec> inner;
+    internal {
+        Wrap<Rec> inner;
+    }
 }
 
 struct Grow<T> {                  // error: struct 'Grow' has field types that nest without end
-    Grow<Pair<T, T>> next;
+    internal {
+        Grow<Pair<T, T>> next;
+    }
 }
 
 struct Shadow<T> {
-    mut void method<T>() {            // error: type parameter 'T' hides the type parameter of the same name
+    internal {
+        mut void method<T>() {            // error: type parameter 'T' hides the type parameter of the same name
+        }
     }
 }
 

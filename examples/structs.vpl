@@ -1,25 +1,29 @@
 struct Vec3 {
-    float x, y, z;
+    internal {
+        float x, y, z;
 
-    Vec3(float x, float y, float z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-    }
+        Vec3(float x, float y, float z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
 
-    float dot(in Vec3 other) {
-        return x * other.x + y * other.y + z * other.z;
-    }
+        float dot(in Vec3 other) {
+            return x * other.x + y * other.y + z * other.z;
+        }
 
-    static Vec3 add(Vec3 a, Vec3 b) {
-        return Vec3(a.x + b.x, a.y + b.y, a.z + b.z);
+        static Vec3 add(Vec3 a, Vec3 b) {
+            return Vec3(a.x + b.x, a.y + b.y, a.z + b.z);
+        }
     }
 }
 
 struct Particle {
-    Vec3 position;
-    Vec3 velocity = Vec3(0, 1, 0);
-    int bounces;
+    internal {
+        Vec3 position;
+        Vec3 velocity = Vec3(0, 1, 0);
+        int bounces;
+    }
 }
 
 void step(ref Particle p, float dt) {

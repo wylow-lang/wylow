@@ -2,7 +2,9 @@
 // narrowed value can be used while an operation runs, as any other's can.
 
 struct Vec {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 void show(in int a) {

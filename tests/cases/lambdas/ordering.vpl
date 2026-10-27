@@ -2,7 +2,9 @@
 // Only those locals are kept in order; others are read where C++ reads them.
 
 struct Vec {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 int add(int a, int b) {

@@ -2,11 +2,13 @@
 // fields are released, and weak references to its objects read null once it is found.
 
 class Node {
-    int id;
-    mut Node? next;
+    internal {
+        int id;
+        mut Node? next;
 
-    Node(int id) {
-        this.id = id;
+        Node(int id) {
+            this.id = id;
+        }
     }
 
     // Prints this node's id and the next one's, which is still intact even if it was destroyed first.
@@ -33,19 +35,21 @@ Node ring(int first, int count) {
 }
 
 class Tree {
-    int id;
-    mut Tree? parent;
-    List<Tree> children = new List<Tree>();
+    internal {
+        int id;
+        mut Tree? parent;
+        List<Tree> children = new List<Tree>();
 
-    Tree(int id) {
-        this.id = id;
-    }
+        Tree(int id) {
+            this.id = id;
+        }
 
-    Tree add(int id) {
-        var child = new Tree(id);
-        child.parent = this;
-        children.add(child);
-        return child;
+        Tree add(int id) {
+            var child = new Tree(id);
+            child.parent = this;
+            children.add(child);
+            return child;
+        }
     }
 
     ~Tree() {

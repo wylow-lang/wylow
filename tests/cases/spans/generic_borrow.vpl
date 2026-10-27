@@ -1,10 +1,12 @@
 // A view from a value of a type parameter holds and borrows the value, since it may be a List.
 
 struct Pair implements ReadOnlySpannable<int> {
-    int[2] items;
+    internal {
+        int[2] items;
 
-    ReadOnlySpan<int> asReadOnlySpan() {
-        return items;
+        ReadOnlySpan<int> asReadOnlySpan() {
+            return items;
+        }
     }
 }
 

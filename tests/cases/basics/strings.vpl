@@ -1,6 +1,8 @@
 struct Named {
-    String name;
-    int id;
+    internal {
+        String name;
+        int id;
+    }
 }
 
 enum Label { Text(String value), Blank }

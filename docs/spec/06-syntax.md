@@ -27,16 +27,51 @@ float damageFalloff(float d) { ... }     // top-level function
 
 A top-level `void main()` or `int main(String[] args)`.
 
-## 6.2 Access modifiers
+## 6.2 Access
 
 Java's four levels:
 
-| Modifier | Visible to |
+| Level | Visible to |
 |---|---|
 | `public` | Everyone |
 | `protected` | The package and subclasses |
-| *(none)* | The package |
+| `internal` | The package |
 | `private` | The enclosing type (or file, for top-level declarations) |
+
+**A type's members are declared in access blocks**, one per level, rather than with a modifier
+each:
+
+```java
+class Player extends Entity {
+    public {
+        Player(String name) { this.name = name; }
+        void damage(int amount) { health -= amount; }
+    }
+    protected {
+        String name;
+    }
+    private {
+        mut int health = 100;
+    }
+}
+```
+
+- Every member is in a block. A type has at most one block of each level, and they are written
+  in the order of the table: `public`, `protected`, `internal`, `private`. Any may be left out, so
+  a type's members read from the most to the least visible, and each level is in one place.
+- A member takes no access modifier of its own.
+- The destructor is written after the blocks, outside them, since only the runtime calls it.
+- An enum's variants come first, outside the blocks, and are as visible as the enum.
+- Structs and enums have no `protected` block, since they can't be inherited.
+- An interface has no blocks: its members are all public.
+- A struct's fields are laid out in declaration order (§2.9), so the blocks decide the order
+  of fields of different levels, as they do the memberwise constructor's parameters (§6.3).
+
+**Top-level declarations** (types, functions) take a modifier each: `public`, `private`, or none,
+which is internal. `internal` itself isn't written there, since it would change nothing.
+
+> Implemented so far: the blocks, and `private`. `protected` and `internal` aren't checked yet:
+> every program is a single file, which is a single package.
 
 ## 6.3 Construction
 
@@ -65,15 +100,17 @@ as C#'s `T { field = value }`; the memberwise constructor with named arguments d
 default values, positional construction, and setting fields by name are all the same call.
 
 - A struct that declares no constructor gets a **memberwise constructor**, which takes every field
-  in declaration order: `Vec2(1, 2)` for `struct Vec2 { float x, y; }`. Each parameter defaults to
+  in declaration order: `Vec2(1, 2)` for `struct Vec2 { public { float x, y; } }`. Each parameter defaults to
   its field's initializer, or else to the field type's default value, so arguments may be left out
   or passed by name (§6.4):
 
   ```java
   struct Enemy {
-      Vec3 position;
-      int health = 100;
-      Player? target;
+      public {
+          Vec3 position;
+          int health = 100;
+          Player? target;
+      }
   }
 
   Enemy()                    // every field defaulted
@@ -97,10 +134,12 @@ default values, positional construction, and setting fields by name are all the 
 
 ```java
 struct Enemy {
-    Vec3 position;
-    int health = 100;
+    public {
+        Vec3 position;
+        int health = 100;
 
-    Enemy(Vec3 pos) { position = pos; }
+        Enemy(Vec3 pos) { position = pos; }
+    }
 }
 ```
 
@@ -110,8 +149,12 @@ Java-style, including `super(...)` and `this(...)` chaining:
 
 ```java
 class Shotgun extends Weapon {
-    int pellets;
-    Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
+    public {
+        Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
+    }
+    private {
+        int pellets;
+    }
 }
 ```
 
@@ -158,10 +201,12 @@ through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `m
 
 ```java
 struct Vec3 {
-    float x, y, z;
+    public {
+        float x, y, z;
 
-    float length() { return sqrt(x*x + y*y + z*z); }
-    mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
+        float length() { return sqrt(x*x + y*y + z*z); }
+        mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
+    }
 }
 ```
 
@@ -251,8 +296,10 @@ and assigned directly, or a method, called with parentheses:
 
 ```java
 class Player {
-    mut int health = 100;
-    bool isDead() { return health <= 0; }
+    public {
+        mut int health = 100;
+        bool isDead() { return health <= 0; }
+    }
 }
 
 if (player.isDead()) { ... }
@@ -270,12 +317,14 @@ methods (below):
 
 ```java
 struct Vec3 {
-    float x, y, z;
+    public {
+        float x, y, z;
 
-    static Vec3 operator +(Vec3 a, Vec3 b) { return Vec3(a.x + b.x, a.y + b.y, a.z + b.z); }
-    static Vec3 operator *(Vec3 v, float s) { return Vec3(v.x * s, v.y * s, v.z * s); }
-    static Vec3 operator *(float s, Vec3 v) { return v * s; }
-    static Vec3 operator -(Vec3 v)          { return Vec3(-v.x, -v.y, -v.z); }   // unary
+        static Vec3 operator +(Vec3 a, Vec3 b) { return Vec3(a.x + b.x, a.y + b.y, a.z + b.z); }
+        static Vec3 operator *(Vec3 v, float s) { return Vec3(v.x * s, v.y * s, v.z * s); }
+        static Vec3 operator *(float s, Vec3 v) { return v * s; }
+        static Vec3 operator -(Vec3 v)          { return Vec3(-v.x, -v.y, -v.z); }   // unary
+    }
 }
 ```
 
@@ -291,8 +340,10 @@ struct Vec3 {
 
 ```java
 struct Mat4 {
-    float[16] m;
-    ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
+    public {
+        float[16] m;
+        mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
+    }
 }
 ```
 
@@ -308,9 +359,13 @@ A type may not declare both `operator []=` and an `operator []` that returns `re
 
 ```java
 struct Nibbles {
-    byte[2048] bytes;
-    byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
-    void operator []=(int i, byte value) { ... }
+    public {
+        byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
+        mut void operator []=(int i, byte value) { ... }
+    }
+    private {
+        byte[2048] bytes;
+    }
 }
 ```
 
@@ -769,11 +824,13 @@ interface Printable {
 }
 
 struct Vec3 implements Printable {
-    float x;
-    float y;
-    float z;
+    public {
+        float x;
+        float y;
+        float z;
 
-    String toString() { return $"({x}, {y}, {z})"; }
+        String toString() { return $"({x}, {y}, {z})"; }
+    }
 }
 ```
 
@@ -885,42 +942,47 @@ public enum AiState {
 }
 
 public struct Enemy {
-    Vec3 position;
-    Vec3 velocity;
-    int health = 100;
-    AiState state = AiState.Idle;
+    public {
+        Vec3 position;
+        Vec3 velocity;
+        int health = 100;
+        AiState state = AiState.Idle;
 
-    bool isDead() { return health <= 0; }
+        bool isDead() { return health <= 0; }
+    }
 }
 
 public class EnemySystem {
-    const float CHASE_SPEED = 4.0;
+    public {
+        Handle<Enemy> spawn(Vec3 at) {
+            return enemies.add(Enemy(position: at));
+        }
 
-    Pool<Enemy> enemies = new Pool<>();
-
-    public Handle<Enemy> spawn(Vec3 at) {
-        return enemies.add(Enemy(position: at));
-    }
-
-    public void tick(float dt) {
-        for (Handle<Enemy> h, ref Enemy e : enemies) {
-            switch (e.state) {
-                case Idle -> {}
-                case Chasing(var t) -> {
-                    if (enemies.get(t) is ref Enemy target) {
-                        e.velocity = (target.position - e.position).normalized() * CHASE_SPEED;
-                    } else {
-                        e.state = AiState.Idle;
+        void tick(float dt) {
+            for (Handle<Enemy> h, ref Enemy e : enemies) {
+                switch (e.state) {
+                    case Idle -> {}
+                    case Chasing(var t) -> {
+                        if (enemies.get(t) is ref Enemy target) {
+                            e.velocity = (target.position - e.position).normalized() * CHASE_SPEED;
+                        } else {
+                            e.state = AiState.Idle;
+                        }
                     }
                 }
-            }
-            e.position += e.velocity * dt;
+                e.position += e.velocity * dt;
 
-            if (e.isDead()) {
-                enemies.remove(h);
+                if (e.isDead()) {
+                    enemies.remove(h);
+                }
             }
+            log($"{enemies.count()} enemies alive");
         }
-        log($"{enemies.count()} enemies alive");
+    }
+    private {
+        const float CHASE_SPEED = 4.0;
+
+        Pool<Enemy> enemies = new Pool<>();
     }
 }
 ```

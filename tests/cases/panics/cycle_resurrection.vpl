@@ -2,15 +2,19 @@
 // outside the cycle.
 
 class Keeper {
-    mut Node? kept;
+    internal {
+        mut Node? kept;
+    }
 }
 
 class Node {
-    mut Node? next;
-    Keeper keeper;
+    internal {
+        mut Node? next;
+        Keeper keeper;
 
-    Node(Keeper keeper) {
-        this.keeper = keeper;
+        Node(Keeper keeper) {
+            this.keeper = keeper;
+        }
     }
 
     ~Node() {

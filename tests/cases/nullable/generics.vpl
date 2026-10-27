@@ -1,20 +1,24 @@
 struct Score implements Comparable<Score> {
-    int points;
+    internal {
+        int points;
 
-    Score(int points) {
-        this.points = points;
-    }
+        Score(int points) {
+            this.points = points;
+        }
 
-    int compareTo(Score other) {
-        return points - other.points;
+        int compareTo(Score other) {
+            return points - other.points;
+        }
     }
 }
 
 class Node {
-    int value;
+    internal {
+        int value;
 
-    Node(int value) {
-        this.value = value;
+        Node(int value) {
+            this.value = value;
+        }
     }
 }
 
@@ -44,10 +48,12 @@ T? largest<T extends Comparable<T>>(List<T> items) {
 }
 
 struct Slot<T> {
-    T? value;
+    internal {
+        T? value;
 
-    bool isEmpty() {
-        return value == null;
+        bool isEmpty() {
+            return value == null;
+        }
     }
 }
 

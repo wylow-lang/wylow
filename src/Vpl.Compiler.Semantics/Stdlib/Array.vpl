@@ -2,28 +2,63 @@
 // moves its elements, so a reference into it only keeps it alive and needs no borrow.
 
 final class Array<T> implements Spannable<T> {
-    private T* data;
-    int length;
+    public {
+        int length;
 
-    // Each element starts as `T`'s default value; the compiler checks that it has one.
-    @CallerLocation
-    Array(int length) {
-        unsafe {
-            data = Memory.allocate<T>(length);
-            Memory.initializeDefault(data, length);
+        // Each element starts as `T`'s default value; the compiler checks that it has one.
+        @CallerLocation
+        Array(int length) {
+            unsafe {
+                data = Memory.allocate<T>(length);
+                Memory.initializeDefault(data, length);
+            }
+            this.length = length;
         }
-        this.length = length;
-    }
 
-    @CallerLocation
-    Array(int length, T value) {
-        unsafe {
-            data = Memory.allocate<T>(length);
-            for (int i : 0..length) {
-                Memory.initialize(data + i, value);
+        @CallerLocation
+        Array(int length, T value) {
+            unsafe {
+                data = Memory.allocate<T>(length);
+                for (int i : 0..length) {
+                    Memory.initialize(data + i, value);
+                }
+            }
+            this.length = length;
+        }
+
+        @CallerLocation
+        ref T operator [](int index) {
+            Bounds.check(index, length);
+            unsafe {
+                return ref data[index];
             }
         }
-        this.length = length;
+
+        // Like the indexer, but null instead of a panic when `index` is out of bounds.
+        ref? T get(int index) {
+            if (index < 0 || index >= length) {
+                return null;
+            }
+            unsafe {
+                return ref data[index];
+            }
+        }
+
+        Span<T> asSpan() {
+            unsafe {
+                return Span<T>(data, length);
+            }
+        }
+
+        ReadOnlySpan<T> asReadOnlySpan() {
+            unsafe {
+                return ReadOnlySpan<T>(data, length);
+            }
+        }
+    }
+
+    private {
+        T* data;
     }
 
     ~Array() {
@@ -32,37 +67,6 @@ final class Array<T> implements Spannable<T> {
                 Memory.drop(data + i);
             }
             Memory.free(data);
-        }
-    }
-
-
-    @CallerLocation
-    ref T operator [](int index) {
-        Bounds.check(index, length);
-        unsafe {
-            return ref data[index];
-        }
-    }
-
-    // Like the indexer, but null instead of a panic when `index` is out of bounds.
-    ref? T get(int index) {
-        if (index < 0 || index >= length) {
-            return null;
-        }
-        unsafe {
-            return ref data[index];
-        }
-    }
-
-    Span<T> asSpan() {
-        unsafe {
-            return Span<T>(data, length);
-        }
-    }
-
-    ReadOnlySpan<T> asReadOnlySpan() {
-        unsafe {
-            return ReadOnlySpan<T>(data, length);
         }
     }
 }

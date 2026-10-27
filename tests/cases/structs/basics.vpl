@@ -1,24 +1,26 @@
 struct Vec3 {
-    float x, y, z;
+    internal {
+        float x, y, z;
 
-    Vec3(float x, float y, float z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-    }
+        Vec3(float x, float y, float z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
 
-    float lengthSquared() {
-        return x * x + y * y + z * z;
-    }
+        float lengthSquared() {
+            return x * x + y * y + z * z;
+        }
 
-    mut void scale(float s) {
-        x *= s;
-        y *= s;
-        z *= s;
-    }
+        mut void scale(float s) {
+            x *= s;
+            y *= s;
+            z *= s;
+        }
 
-    static Vec3 add(Vec3 a, Vec3 b) {
-        return Vec3(a.x + b.x, a.y + b.y, a.z + b.z);
+        static Vec3 add(Vec3 a, Vec3 b) {
+            return Vec3(a.x + b.x, a.y + b.y, a.z + b.z);
+        }
     }
 }
 

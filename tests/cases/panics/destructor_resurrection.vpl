@@ -1,12 +1,16 @@
 class Keeper {
-    mut Ghost? kept;
+    internal {
+        mut Ghost? kept;
+    }
 }
 
 class Ghost {
-    Keeper keeper;
+    internal {
+        Keeper keeper;
 
-    Ghost(Keeper keeper) {
-        this.keeper = keeper;
+        Ghost(Keeper keeper) {
+            this.keeper = keeper;
+        }
     }
 
     ~Ghost() {

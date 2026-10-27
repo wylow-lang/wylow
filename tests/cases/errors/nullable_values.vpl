@@ -1,37 +1,45 @@
 struct Vec {
-    int x;
-    int[2] pair;
+    internal {
+        int x;
+        int[2] pair;
 
-    mut void move(int dx) {
-        x += dx;
-    }
+        mut void move(int dx) {
+            x += dx;
+        }
 
-    mut void moveWith(ref Vec? other) {
-        other = null;
-        x += 1;
+        mut void moveWith(ref Vec? other) {
+            other = null;
+            x += 1;
+        }
     }
 }
 
 struct Buf implements Spannable<int> {
-    int[2] data;
+    internal {
+        int[2] data;
 
-    ReadOnlySpan<int> asReadOnlySpan() {
-        return data;
-    }
+        ReadOnlySpan<int> asReadOnlySpan() {
+            return data;
+        }
 
-    mut Span<int> asSpan() {
-        return data;
+        mut Span<int> asSpan() {
+            return data;
+        }
     }
 }
 
 enum Direction { North, East }
 
 struct Link {                           // error: struct 'Link' contains itself (Link -> Link)
-    Link? next;
+    internal {
+        Link? next;
+    }
 }
 
 struct Span2 {
-    Span<int>? view;                    // error: 'Span<int>' cannot be nullable, since it is a 'ref struct'
+    internal {
+        Span<int>? view;                    // error: 'Span<int>' cannot be nullable, since it is a 'ref struct'
+    }
 }
 
 int? maybe() {

@@ -1,20 +1,24 @@
 struct Score implements Comparable<Score> {
-    int points;
+    internal {
+        int points;
 
-    int compareTo(Score other) {
-        return points - other.points;
+        int compareTo(Score other) {
+            return points - other.points;
+        }
     }
 }
 
 class Version implements Comparable<Version> {
-    int number;
+    internal {
+        int number;
 
-    Version(int number) {
-        this.number = number;
-    }
+        Version(int number) {
+            this.number = number;
+        }
 
-    int compareTo(Version other) {
-        return number - other.number;
+        int compareTo(Version other) {
+            return number - other.number;
+        }
     }
 }
 
@@ -27,55 +31,65 @@ interface Shape {
 }
 
 struct Square implements Shape {
-    float side;
+    internal {
+        float side;
 
-    float area() {
-        return side * side;
+        float area() {
+            return side * side;
+        }
     }
 }
 
 class Circle implements Shape {
-    float radius = 1;
+    internal {
+        float radius = 1;
 
-    float area() {
-        return 3 * radius * radius;
+        float area() {
+            return 3 * radius * radius;
+        }
     }
 }
 
 // A generic struct whose methods use the bound, for structs and classes alike.
 struct Pair<A extends Shape, B extends Shape> {
-    A first;
-    B second;
+    internal {
+        A first;
+        B second;
 
-    Pair(A first, B second) {
-        this.first = first;
-        this.second = second;
-    }
+        Pair(A first, B second) {
+            this.first = first;
+            this.second = second;
+        }
 
-    mut float total() {
-        return first.area() + second.area();
+        mut float total() {
+            return first.area() + second.area();
+        }
     }
 }
 
 class Box<T> {
-    T value;
-    mut Box<T>? next;
+    internal {
+        T value;
+        mut Box<T>? next;
 
-    Box(T value) {
-        this.value = value;
-    }
+        Box(T value) {
+            this.value = value;
+        }
 
-    T get() {
-        return value;
+        T get() {
+            return value;
+        }
     }
 }
 
 class Labeled<T> extends Box<T> {
-    String label;
+    internal {
+        String label;
 
-    Labeled(String label, T value) {
-        super(value);
-        this.label = label;
+        Labeled(String label, T value) {
+            super(value);
+            this.label = label;
+        }
     }
 }
 

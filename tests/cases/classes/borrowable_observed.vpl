@@ -1,32 +1,36 @@
 // Each row of the spec's table of how long a borrow lasts (03-memory-model.md, Borrow counters on
 // containers), observed through a Borrowable of the test's own, so that every mode agrees.
 struct Counter {
-    int n;
+    internal {
+        int n;
 
-    mut void tick() {
-        print("tick");
-        n++;
+        mut void tick() {
+            print("tick");
+            n++;
+        }
     }
 }
 
 class Box implements Borrowable {
-    mut int[2] items;
-    mut Counter[2] counters;
+    internal {
+        mut int[2] items;
+        mut Counter[2] counters;
 
-    void beginBorrow() {
-        print("begin");
-    }
+        void beginBorrow() {
+            print("begin");
+        }
 
-    void endBorrow() {
-        print("end");
-    }
+        void endBorrow() {
+            print("end");
+        }
 
-    ref int operator [](int index) {
-        return ref items[index];
-    }
+        ref int operator [](int index) {
+            return ref items[index];
+        }
 
-    ref Counter counter(int index) {
-        return ref counters[index];
+        ref Counter counter(int index) {
+            return ref counters[index];
+        }
     }
 }
 

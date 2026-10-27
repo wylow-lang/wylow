@@ -1,12 +1,14 @@
 enum Direction { North, East, South, West }
 
 struct Vec2 {
-    float x;
-    float y;
+    internal {
+        float x;
+        float y;
 
-    Vec2(float x, float y) {
-        this.x = x;
-        this.y = y;
+        Vec2(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
     }
 }
 

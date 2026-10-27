@@ -3,10 +3,12 @@
 // what it releases. Other loops are unaffected.
 
 class Enemy {
-    String name;
+    internal {
+        String name;
 
-    Enemy(String name) {
-        this.name = name;
+        Enemy(String name) {
+            this.name = name;
+        }
     }
 
     ~Enemy() {
@@ -15,10 +17,12 @@ class Enemy {
 }
 
 class Owner {
-    List<Enemy> list;
+    internal {
+        List<Enemy> list;
 
-    Owner(List<Enemy> list) {
-        this.list = list;
+        Owner(List<Enemy> list) {
+            this.list = list;
+        }
     }
 
     ~Owner() {

@@ -1,14 +1,18 @@
 struct Vec3 {
-    float x, y, z;
+    internal {
+        float x, y, z;
+    }
 }
 
 // A declared constructor runs code, which shows when a default value is evaluated.
 struct Tag {
-    int id;
+    internal {
+        int id;
 
-    Tag(int value) {
-        print($"tag {value}");
-        id = value;
+        Tag(int value) {
+            print($"tag {value}");
+            id = value;
+        }
     }
 }
 
@@ -52,34 +56,44 @@ T? orFallback<T>(T? value, T? fallback = null) {
 }
 
 class Box<T> {
-    mut T? item;
+    internal {
+        mut T? item;
 
-    void put(T? item = null, int times = 1) {
-        this.item = item;
-        print($"put {times}");
+        void put(T? item = null, int times = 1) {
+            this.item = item;
+            print($"put {times}");
+        }
     }
 }
 
 class Weapon {
-    String name;
-    int damage;
+    internal {
+        String name;
+        int damage;
 
-    Weapon(String name, int damage = 10) {
-        this.name = name;
-        this.damage = damage;
+        Weapon(String name, int damage = 10) {
+            this.name = name;
+            this.damage = damage;
+        }
     }
 }
 
 class Sword extends Weapon {
-    Sword(int damage = 25) { super(name: "sword", damage: damage); }
+    internal {
+        Sword(int damage = 25) { super(name: "sword", damage: damage); }
+    }
 }
 
 class Animal {
-    virtual String speak(int times = 1, String sound = "...") { return $"{times} {sound}"; }
+    internal {
+        virtual String speak(int times = 1, String sound = "...") { return $"{times} {sound}"; }
+    }
 }
 
 class Dog extends Animal {
-    override String speak(int times, String sound) { return $"woof {times} {sound}"; }
+    internal {
+        override String speak(int times, String sound) { return $"woof {times} {sound}"; }
+    }
 }
 
 interface Greeter {
@@ -87,7 +101,9 @@ interface Greeter {
 }
 
 class Friendly implements Greeter {
-    String greet(String name) { return $"hi {name}"; }
+    internal {
+        String greet(String name) { return $"hi {name}"; }
+    }
 }
 
 void main() {

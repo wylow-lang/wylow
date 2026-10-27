@@ -2,16 +2,18 @@
 // can store what they are passed.
 
 class Bus {
-    List<() -> void> handlers = new List<() -> void>();
-    (@Escaping () -> void) -> void subscribe;
+    internal {
+        List<() -> void> handlers = new List<() -> void>();
+        (@Escaping () -> void) -> void subscribe;
 
-    Bus() {
-        subscribe = h -> handlers.add(h);
-    }
+        Bus() {
+            subscribe = h -> handlers.add(h);
+        }
 
-    void fire() {
-        for (() -> void h : handlers) {
-            h();
+        void fire() {
+            for (() -> void h : handlers) {
+                h();
+            }
         }
     }
 }
@@ -21,9 +23,11 @@ interface Registry {
 }
 
 class Doubler implements Registry {
-    void each((@Escaping (int) -> int) -> void visit) {
-        visit(x -> x * 2);
-        visit(x -> x * 3);
+    internal {
+        void each((@Escaping (int) -> int) -> void visit) {
+            visit(x -> x * 2);
+            visit(x -> x * 3);
+        }
     }
 }
 

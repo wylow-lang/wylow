@@ -1,8 +1,10 @@
 class Tag {
-    mut String name;
+    internal {
+        mut String name;
 
-    Tag(String name) {
-        this.name = name;
+        Tag(String name) {
+            this.name = name;
+        }
     }
 
     ~Tag() {
@@ -12,8 +14,10 @@ class Tag {
 
 // A struct holding an object: copies share it, and == compares it by identity.
 struct Labeled {
-    Tag tag;
-    int count;
+    internal {
+        Tag tag;
+        int count;
+    }
 }
 
 interface Greeter {
@@ -21,26 +25,34 @@ interface Greeter {
 }
 
 abstract class Registry implements Greeter {
-    protected mut int size = 0;
+    protected {
+        mut int size = 0;
+    }
 
-    void add(Member m) {
-        size++;
-        m.joined(this);
+    internal {
+        void add(Member m) {
+            size++;
+            m.joined(this);
+        }
     }
 }
 
 class Club extends Registry {
-    void greet() {
-        print("welcome");
+    internal {
+        void greet() {
+            print("welcome");
+        }
     }
 }
 
 class Member {
-    mut Registry? club;
+    internal {
+        mut Registry? club;
 
-    void joined(Registry registry) {
-        club = registry;
-        registry.greet();
+        void joined(Registry registry) {
+            club = registry;
+            registry.greet();
+        }
     }
 }
 

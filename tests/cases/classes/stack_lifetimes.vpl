@@ -2,24 +2,28 @@
 // statement making them, and only objects that can't outlive their scope are on the stack.
 
 class Noisy {
-    String name;
-    mut Vec pos;
+    internal {
+        String name;
+        mut Vec pos;
 
-    Noisy(String name) {
-        this.name = name;
+        Noisy(String name) {
+            this.name = name;
+        }
+
+        String label() {
+            return name;
+        }
     }
 
     ~Noisy() {
         print(name);
     }
-
-    String label() {
-        return name;
-    }
 }
 
 struct Vec {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 interface Visitor {
@@ -27,16 +31,20 @@ interface Visitor {
 }
 
 class Reader implements Visitor {
-    void visit(Noisy n) {
-        print(n.label());
+    internal {
+        void visit(Noisy n) {
+            print(n.label());
+        }
     }
 }
 
 class Storer implements Visitor {
-    mut Noisy? kept;
+    internal {
+        mut Noisy? kept;
 
-    void visit(Noisy n) {
-        kept = n;
+        void visit(Noisy n) {
+            kept = n;
+        }
     }
 }
 

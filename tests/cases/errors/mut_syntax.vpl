@@ -1,16 +1,20 @@
 mut class Box {                    // error: 'mut' is not valid on a class
-    mut int value;
+    internal {
+        mut int value;
 
-    mut Box() {                    // error: 'mut' is not valid on a constructor
-    }
+        mut Box() {                    // error: 'mut' is not valid on a constructor
+        }
 
-    mut int get() {                // error: 'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields
-        return value;
+        mut int get() {                // error: 'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields
+            return value;
+        }
     }
 }
 
 struct Vec {
-    mut float x;                   // error: struct fields cannot be 'mut'; they can be changed wherever the struct itself can be
+    internal {
+        mut float x;                   // error: struct fields cannot be 'mut'; they can be changed wherever the struct itself can be
+    }
 }
 
 enum Shape {

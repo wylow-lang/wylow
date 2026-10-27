@@ -2,13 +2,15 @@
 // a function value, or null without allocating, and is narrowed by null checks like other values.
 
 class Holder {
-    mut (int) -> int f = x -> x * 10;
-    mut ((int) -> int)? maybe = null;
-    mut int calls = 0;
+    internal {
+        mut (int) -> int f = x -> x * 10;
+        mut ((int) -> int)? maybe = null;
+        mut int calls = 0;
 
-    int next() {
-        calls++;
-        return calls;
+        int next() {
+            calls++;
+            return calls;
+        }
     }
 }
 
@@ -49,8 +51,10 @@ int replacing(Holder holder, ((int) -> int)? f) {
 }
 
 class Visitor {
-    virtual int visit(((int) -> int)? f) {
-        return run(2, f);
+    internal {
+        virtual int visit(((int) -> int)? f) {
+            return run(2, f);
+        }
     }
 }
 

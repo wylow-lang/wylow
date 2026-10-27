@@ -1,29 +1,33 @@
 // Variables, parameters, and class fields are immutable unless declared 'mut'.
 struct Vec {
-    float x;
-    float y;
+    internal {
+        float x;
+        float y;
 
-    mut void scale(float by) {
-        x *= by;
-        y *= by;
+        mut void scale(float by) {
+            x *= by;
+            y *= by;
+        }
     }
 }
 
 class Body {
-    String name;
-    mut Vec position;
-    mut int moves;
+    internal {
+        String name;
+        mut Vec position;
+        mut int moves;
 
-    Body(String name) {
-        this.name = "unnamed";
-        this.name = name;
-        position = Vec(1, 2);
-    }
+        Body(String name) {
+            this.name = "unnamed";
+            this.name = name;
+            position = Vec(1, 2);
+        }
 
-    void move() {
-        position.x += 10;
-        position.scale(2);
-        moves++;
+        void move() {
+            position.x += 10;
+            position.scale(2);
+            moves++;
+        }
     }
 }
 

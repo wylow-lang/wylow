@@ -1,8 +1,10 @@
 class Enemy {
-    String name;
+    internal {
+        String name;
 
-    Enemy(String name) {
-        this.name = name;
+        Enemy(String name) {
+            this.name = name;
+        }
     }
 
     ~Enemy() {
@@ -11,11 +13,13 @@ class Enemy {
 }
 
 struct Bullet {
-    float x;
-    bool hit;
+    internal {
+        float x;
+        bool hit;
 
-    mut void move(float dx) {
-        x += dx;
+        mut void move(float dx) {
+            x += dx;
+        }
     }
 }
 

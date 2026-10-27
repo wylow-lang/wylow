@@ -3,35 +3,43 @@
 // on the heap. Each object made for the local has a slot of its own, so `stack:` counts each.
 
 class Noisy {
-    String name;
-    mut Vec pos;
+    internal {
+        String name;
+        mut Vec pos;
 
-    Noisy(String name) {
-        this.name = name;
+        Noisy(String name) {
+            this.name = name;
+        }
+
+        String label() {
+            return name;
+        }
     }
 
     ~Noisy() {
         print(name);
     }
-
-    String label() {
-        return name;
-    }
 }
 
 struct Vec {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 class Keeper {
-    mut Noisy? kept;
+    internal {
+        mut Noisy? kept;
+    }
 }
 
 // Reads the object it replaces, which is still alive while it is made.
 class Successor {
-    Successor(Noisy before) {
-        print("after");
-        print(before.label());
+    internal {
+        Successor(Noisy before) {
+            print("after");
+            print(before.label());
+        }
     }
 
     ~Successor() {

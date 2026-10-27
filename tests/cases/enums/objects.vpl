@@ -1,11 +1,13 @@
 // Items print their name when freed.
 class Item {
-    int id;
-    String name;
+    internal {
+        int id;
+        String name;
 
-    Item(int id, String name) {
-        this.id = id;
-        this.name = name;
+        Item(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 
     ~Item() {
@@ -20,7 +22,9 @@ enum Slot {
 }
 
 class Holder {
-    mut Slot slot = Slot.Empty;
+    internal {
+        mut Slot slot = Slot.Empty;
+    }
 }
 
 enum Option<T> {

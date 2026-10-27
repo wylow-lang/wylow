@@ -2,10 +2,12 @@
 // compiler borrows the place instead of copying it: destructors run at the same points either way.
 
 class Noisy {
-    String name;
+    internal {
+        String name;
 
-    Noisy(String name) {
-        this.name = name;
+        Noisy(String name) {
+            this.name = name;
+        }
     }
 
     ~Noisy() {
@@ -14,14 +16,16 @@ class Noisy {
 }
 
 class Holder {
-    mut Noisy item;
+    internal {
+        mut Noisy item;
 
-    Holder(Noisy item) {
-        this.item = item;
-    }
+        Holder(Noisy item) {
+            this.item = item;
+        }
 
-    void replace(String name) {
-        item = new Noisy(name);
+        void replace(String name) {
+            item = new Noisy(name);
+        }
     }
 }
 

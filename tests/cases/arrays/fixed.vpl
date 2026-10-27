@@ -1,15 +1,21 @@
 struct Vec2 {
-    float x;
-    float y = 1;
+    internal {
+        float x;
+        float y = 1;
+    }
 }
 
 struct Grid {
-    int[3][2] cells;
-    Vec2[2] points;
+    internal {
+        int[3][2] cells;
+        Vec2[2] points;
+    }
 }
 
 class Mesh {
-    mut float[4] weights;
+    internal {
+        mut float[4] weights;
+    }
 }
 
 int sum(int[4] values) {

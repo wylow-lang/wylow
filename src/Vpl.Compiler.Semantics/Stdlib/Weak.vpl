@@ -2,6 +2,8 @@
 // default refers to nothing. See docs/spec/03-memory-model.md.
 
 extern struct Weak<T> {
-    // The target, or null once it has been destroyed.
-    extern T? get();
+    public {
+        // The target, or null once it has been destroyed.
+        extern T? get();
+    }
 }

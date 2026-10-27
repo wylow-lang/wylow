@@ -18,7 +18,7 @@ extern {
 
     struct SDL_Window;                              // opaque: usable only through pointers
 
-    struct SDL_Rect { int x; int y; int w; int h; } // layout-checked (§7.4)
+    struct SDL_Rect { public { int x; int y; int w; int h; } }   // layout-checked (§7.4)
 
     int  SDL_Init(uint flags);
     SDL_Window* SDL_CreateWindow(byte* title, int w, int h, ulong flags);
@@ -87,16 +87,19 @@ package game.platform;
 import sdl.*;
 
 public class Window {
-    private SDL_Window* handle;
-
-    private Window(SDL_Window* h) { handle = h; }
-
-    public static Result<Window, String> create(String title, int w, int h) {
-        unsafe {
-            var p = SDL_CreateWindow(title.cstr, w, h, 0);
-            if (p == null) return Err(String.fromCString(SDL_GetError()));
-            return Ok(new Window(p));
+    public {
+        static Result<Window, String> create(String title, int w, int h) {
+            unsafe {
+                var p = SDL_CreateWindow(title.cstr, w, h, 0);
+                if (p == null) return Err(String.fromCString(SDL_GetError()));
+                return Ok(new Window(p));
+            }
         }
+    }
+    private {
+        SDL_Window* handle;
+
+        Window(SDL_Window* h) { handle = h; }
     }
 
     ~Window() {
@@ -243,7 +246,7 @@ extern "C" BodyId physics_create_box(PhysicsWorld* w, float hx, float hy, float 
 @Include("physics_shim.h")
 extern {
     struct PhysicsWorld;
-    struct BodyId { uint value; }
+    struct BodyId { public { uint value; } }
     BodyId physics_create_box(PhysicsWorld* w, float hx, float hy, float hz);
 }
 ```

@@ -2,34 +2,40 @@
 // element of its type; then it holds its own reference, so the object it refers to stays the same.
 
 class Enemy {
-    String name;
-    mut Enemy? target;
+    internal {
+        String name;
+        mut Enemy? target;
 
-    Enemy(String name) {
-        this.name = name;
+        Enemy(String name) {
+            this.name = name;
+        }
+
+        String label() {
+            return name;
+        }
+
+        void aim(Enemy other) {
+            target = other;
+        }
     }
 
     ~Enemy() {
         print(name);
     }
-
-    String label() {
-        return name;
-    }
-
-    void aim(Enemy other) {
-        target = other;
-    }
 }
 
 class Visitor {
-    virtual void visit(List<Enemy> list) {
+    internal {
+        virtual void visit(List<Enemy> list) {
+        }
     }
 }
 
 class Replacer extends Visitor {
-    override void visit(List<Enemy> list) {
-        list[0] = new Enemy("x");
+    internal {
+        override void visit(List<Enemy> list) {
+            list[0] = new Enemy("x");
+        }
     }
 }
 

@@ -1,44 +1,50 @@
 // Only what is declared 'mut' can be reassigned or changed in place.
 struct Vec {
-    float x;
+    internal {
+        float x;
 
-    mut void grow() {
-        x++;
-    }
+        mut void grow() {
+            x++;
+        }
 
-    float get() {
-        return x;
+        float get() {
+            return x;
+        }
     }
 }
 
 class Body {
-    Vec position;
-    mut Vec velocity;
-    int id;
+    internal {
+        Vec position;
+        mut Vec velocity;
+        int id;
 
-    Body(int id) {
-        this.id = id;
-        this.id = id + 1;                   // a constructor may assign its fields any number of times
-        position.x = 1;
-        Body other = this;
-        other.id = 2;                       // error: cannot assign to 'other.id' because field 'id' is not 'mut'
-        run(() -> {
-            this.id = 3;                    // error: cannot assign to 'this.id' because field 'id' is not 'mut'
-        });
-    }
+        Body(int id) {
+            this.id = id;
+            this.id = id + 1;                   // a constructor may assign its fields any number of times
+            position.x = 1;
+            Body other = this;
+            other.id = 2;                       // error: cannot assign to 'other.id' because field 'id' is not 'mut'
+            run(() -> {
+                this.id = 3;                    // error: cannot assign to 'this.id' because field 'id' is not 'mut'
+            });
+        }
 
-    void move() {
-        velocity.x = 1;
-        position.x = 1;                     // error: cannot assign to 'position.x' because field 'position' is not 'mut'
-        position.grow();                    // error: cannot call 'mut' method 'grow' on 'position' because field 'position' is not 'mut'
-        id = 4;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+        void move() {
+            velocity.x = 1;
+            position.x = 1;                     // error: cannot assign to 'position.x' because field 'position' is not 'mut'
+            position.grow();                    // error: cannot call 'mut' method 'grow' on 'position' because field 'position' is not 'mut'
+            id = 4;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+        }
     }
 }
 
 class Ball extends Body {
-    Ball() {
-        super(1);
-        id = 5;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+    internal {
+        Ball() {
+            super(1);
+            id = 5;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+        }
     }
 }
 

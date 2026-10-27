@@ -1,10 +1,12 @@
 // A call through 'list.get(i)?.' borrows the list until it returns, since it runs in the element.
 struct Counter {
-    int count;
+    internal {
+        int count;
 
-    mut void run(() -> void f) {
-        f();
-        count++;
+        mut void run(() -> void f) {
+            f();
+            count++;
+        }
     }
 }
 

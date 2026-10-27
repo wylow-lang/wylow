@@ -250,7 +250,7 @@ stored. Nullable values follow the rules above, and also:
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
   error when `m` is a `mut` struct method, since its changes would be lost.
-- A struct cannot contain itself through a nullable (`struct Link { Link? next; }`), since the
+- A struct cannot contain itself through a nullable (`struct Link { public { Link? next; } }`), since the
   value would be stored inline; use a class.
 
 ### Nullable type parameters
@@ -301,7 +301,7 @@ mut var target = enemies.first();
       label = "dead";
   }
   ```
-- **`mut` goes first**, after any annotations and access modifiers: `private mut int count;`,
+- **`mut` goes first**, after any annotations and modifiers: `mut int count;`, `static mut int frames;`,
   `void aim(mut Vec3 dir)`, `for (mut int i = 0; i < n; i++)`, `for (mut Vec3 p : points)`,
   `(mut x) -> ...`. It is not allowed on:
   - `ref` and `in` parameters and variables, which always refer to the same place. Through a `ref`,
@@ -421,9 +421,11 @@ A `struct` is a **value type**.
 
 ```java
 struct Transform {
-    Vec3 position;
-    Quat rotation;
-    Vec3 scale = Vec3.ONE;
+    public {
+        Vec3 position;
+        Quat rotation;
+        Vec3 scale = Vec3.ONE;
+    }
 }
 ```
 
@@ -450,10 +452,12 @@ passed directly to graphics APIs.
 ```java
 @Align(16)
 struct CameraUniforms {
-    Mat4 view;
-    Mat4 proj;
-    Vec3 eye;
-    @Pad(4)
+    public {
+        Mat4 view;
+        Mat4 proj;
+        Vec3 eye;
+        @Pad(4)
+    }
 }
 ```
 
@@ -475,13 +479,17 @@ A `class` is a **heap-allocated, reference-counted object** (see
 
 ```java
 abstract class Weapon {
-    abstract void fire(World w);
-    virtual float cooldown() { return 0.5; }
+    public {
+        abstract void fire(World w);
+        virtual float cooldown() { return 0.5; }
+    }
 }
 
 final class Shotgun extends Weapon {
-    override void fire(World w) { ... }
-    override float cooldown() { return 1.0; }
+    public {
+        override void fire(World w) { ... }
+        override float cooldown() { return 1.0; }
+    }
 }
 ```
 
@@ -791,8 +799,10 @@ generic itself.
 
 ```java
 struct Pair<A, B> {
-    A first;
-    B second;
+    public {
+        A first;
+        B second;
+    }
 }
 
 T identity<T>(T value) { return value; }
@@ -869,5 +879,5 @@ requires an argument for each such field, and `T()` exists only when there are n
 ### Recursive structs
 
 A struct cannot contain itself by value, including through type arguments
-(`struct Rec { Wrap<Rec> w; }`), and its field types cannot grow without end
-(`struct Grow<T> { Grow<Pair<T, T>> next; }`).
+(`struct Rec { public { Wrap<Rec> w; } }`), and its field types cannot grow without end
+(`struct Grow<T> { public { Grow<Pair<T, T>> next; } }`).

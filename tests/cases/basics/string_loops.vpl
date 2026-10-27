@@ -1,5 +1,7 @@
 class Holder {
-    mut String text = "xy";
+    internal {
+        mut String text = "xy";
+    }
 }
 
 String make() {

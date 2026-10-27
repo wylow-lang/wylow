@@ -1,11 +1,13 @@
 struct Pair {
-    int[2] items;
+    internal {
+        int[2] items;
 
-    mut ref? int at(int i) {
-        if (i < 0 || i >= 2) {
-            return null;
+        mut ref? int at(int i) {
+            if (i < 0 || i >= 2) {
+                return null;
+            }
+            return ref items[i];
         }
-        return ref items[i];
     }
 }
 

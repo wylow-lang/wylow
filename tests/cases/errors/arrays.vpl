@@ -1,9 +1,13 @@
 struct Loop {                       // error: struct 'Loop' contains itself (Loop -> Loop)
-    Loop[2] inner;
+    internal {
+        Loop[2] inner;
+    }
 }
 
 class Box {
-    int value;
+    internal {
+        int value;
+    }
 }
 
 int[3] makeArray() {

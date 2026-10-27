@@ -1,17 +1,21 @@
 struct Counter {
-    int value;
+    internal {
+        int value;
 
-    mut void increment() {
-        value++;
-    }
+        mut void increment() {
+            value++;
+        }
 
-    int get() {
-        return value;
+        int get() {
+            return value;
+        }
     }
 }
 
 struct Holder {
-    Counter counter;
+    internal {
+        Counter counter;
+    }
 }
 
 void bump(ref Counter c) {

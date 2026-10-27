@@ -1,8 +1,10 @@
 // A nullable local is used as its non-null type only where a null check narrows it (spec 02-types.md).
 
 class Node {
-    int value;
-    Node? next;
+    internal {
+        int value;
+        Node? next;
+    }
 }
 
 void take(Node n) { }

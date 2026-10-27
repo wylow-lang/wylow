@@ -1,26 +1,28 @@
 // Escaping functions: stored in fields, returned, and held by containers and nullable values.
 
 class Button {
-    String name;
-    mut () -> void onClick;
-    mut ((int) -> int)? transform = null;
+    internal {
+        String name;
+        mut () -> void onClick;
+        mut ((int) -> int)? transform = null;
 
-    Button(String name, @Escaping () -> void onClick) {
-        this.name = name;
-        this.onClick = onClick;
-    }
-
-    void click() {
-        onClick();
-    }
-
-    int apply(int value) {
-        // A field isn't narrowed, so copy it to a local first.
-        var f = transform;
-        if (f != null) {
-            return f(value);
+        Button(String name, @Escaping () -> void onClick) {
+            this.name = name;
+            this.onClick = onClick;
         }
-        return value;
+
+        void click() {
+            onClick();
+        }
+
+        int apply(int value) {
+            // A field isn't narrowed, so copy it to a local first.
+            var f = transform;
+            if (f != null) {
+                return f(value);
+            }
+            return value;
+        }
     }
 }
 

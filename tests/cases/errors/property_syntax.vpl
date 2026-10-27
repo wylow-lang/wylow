@@ -1,8 +1,10 @@
 class Player {
-    int health;
+    internal {
+        int health;
 
-    bool isDead { get -> health <= 0; }        // error: VPL has no properties; declare a field, or a method 'isDead()'
-    int score { get { return 1; } set { } }    // error: VPL has no properties; declare a field, or a method 'score()'
+        bool isDead { get -> health <= 0; }     // error: VPL has no properties; declare a field, or a method 'isDead()'
+        int score { get { return 1; } set { } } // error: VPL has no properties; declare a field, or a method 'score()'
+    }
 }
 
 void main() {

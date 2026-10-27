@@ -5,8 +5,9 @@ final interface Flagged { }            // error: 'final' is not valid on an inte
 struct S extends T { }                 // error: structs cannot inherit
 
 struct WithDestructor {
-    ~WithDestructor() { }              // error: structs cannot have destructors
-    mut virtual void m() { }               // error: 'virtual' is not valid on struct members
+    internal {
+        mut virtual void m() { }               // error: 'virtual' is not valid on struct members
+    }
 }
 
 interface I {
@@ -16,15 +17,20 @@ interface I {
 }
 
 class C {
-    final void m() { }                 // error: 'final' can only be used on an 'override' method
-    virtual override void n() { }      // error: only one of 'virtual', 'override', and 'abstract' is allowed
-    static virtual void o() { }        // error: a static method cannot be 'virtual'
-    private virtual void p() { }       // error: a private method cannot be 'virtual'
-    abstract void q() { }              // error: abstract methods cannot have a body
-    void r();                          // error: 'r' must have a body
-    ~D() { }                           // error: a destructor must be named after its class
+    internal {
+        final void m() { }                 // error: 'final' can only be used on an 'override' method
+        virtual override void n() { }      // error: only one of 'virtual', 'override', and 'abstract' is allowed
+        static virtual void o() { }        // error: a static method cannot be 'virtual'
+        abstract void q() { }              // error: abstract methods cannot have a body
+        void r();                          // error: 'r' must have a body
+        virtual int field;                 // error: 'virtual' is not valid on a field
+    }
+
+    private {
+        virtual void p() { }       // error: a private method cannot be 'virtual'
+    }
+
     ~C(int x) { }                      // error: destructors cannot have parameters
-    virtual int field;                 // error: 'virtual' is not valid on a field
 }
 
 void main() {

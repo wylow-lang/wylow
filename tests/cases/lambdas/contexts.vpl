@@ -1,9 +1,11 @@
 // Lambdas meeting patterns, nullables, loops, evaluation order, refs, and spans.
 class Mob {
-    int hp;
+    internal {
+        int hp;
 
-    Mob(int hp) {
-        this.hp = hp;
+        Mob(int hp) {
+            this.hp = hp;
+        }
     }
 }
 
@@ -13,7 +15,9 @@ enum Shape {
 }
 
 struct Vec {
-    int x;
+    internal {
+        int x;
+    }
 }
 
 void call(() -> void f) {

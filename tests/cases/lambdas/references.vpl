@@ -2,31 +2,35 @@
 // is converted to picks the overload, and it can be passed, stored, chosen, and inferred from.
 
 class Mob {
-    int depth;
+    internal {
+        int depth;
 
-    Mob(int depth) {
-        this.depth = depth;
-    }
+        Mob(int depth) {
+            this.depth = depth;
+        }
 
-    static int byDepth(Mob a, Mob b) {
-        return a.depth - b.depth;
-    }
+        static int byDepth(Mob a, Mob b) {
+            return a.depth - b.depth;
+        }
 
-    static int scaled(int x) {
-        return x * 5;
-    }
+        static int scaled(int x) {
+            return x * 5;
+        }
 
-    int scaledTwice() {
-        // A static method of the enclosing class, by its name alone.
-        return apply(scaled, apply(scaled, depth));
+        int scaledTwice() {
+            // A static method of the enclosing class, by its name alone.
+            return apply(scaled, apply(scaled, depth));
+        }
     }
 }
 
 struct Vec {
-    int x;
+    internal {
+        int x;
 
-    static int read(in Vec v) {
-        return v.x;
+        static int read(in Vec v) {
+            return v.x;
+        }
     }
 }
 
@@ -81,13 +85,17 @@ interface Transform {
 }
 
 class Direct implements Transform {
-    int run((int) -> int f, int value) {
-        return f(value);
+    internal {
+        int run((int) -> int f, int value) {
+            return f(value);
+        }
     }
 }
 
 class Holder {
-    mut (int) -> int f = inc;
+    internal {
+        mut (int) -> int f = inc;
+    }
 }
 
 (int) -> int pick(bool up) {
