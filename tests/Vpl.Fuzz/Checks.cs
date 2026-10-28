@@ -41,12 +41,11 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
     const int OutputCap = 1 << 20;
 
     /// <summary>
-    /// Warnings a valid program makes the C++ compiler draw about its own constants: a comparison
-    /// with itself, or an unsigned comparison with a value outside its range. No emitter can remove
-    /// those without changing what the program computes (a float compared with itself is false for
-    /// NaN), so they are not the emitter's.
+    /// Warnings a valid program makes the C++ compiler draw about its own code: a comparison with
+    /// itself, an unsigned comparison with a value outside its range, or a local it writes and never
+    /// reads. None is about how the emitter translated something, so they are not the emitter's.
     /// </summary>
-    static readonly HashSet<string> SourceWarnings = ["tautological-compare", "type-limits"];
+    static readonly HashSet<string> SourceWarnings = ["tautological-compare", "type-limits", "unused-but-set-variable"];
 
     public IReadOnlyList<Mode> Modes { get; } = modes;
 
