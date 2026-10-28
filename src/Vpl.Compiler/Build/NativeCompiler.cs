@@ -19,6 +19,9 @@ public sealed class NativeCompiler
     static readonly ConcurrentDictionary<string, Lazy<string?>> PrecompiledHeaders = new();
     static readonly Lazy<IReadOnlyDictionary<string, string>?> MsvcEnvironment = new(CaptureMsvcEnvironment);
 
+    // The installed clang may be older than the MSVC STL expects.
+    static readonly string[] SanitizedFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
+
     readonly string compilerPath;
     readonly IReadOnlyDictionary<string, string>? environment;
 
@@ -30,6 +33,29 @@ public sealed class NativeCompiler
     }
 
     public Toolchain Toolchain { get; }
+
+    /// <summary>
+    /// Everything a build depends on besides the program's own directory: the generated C++, the flags,
+    /// the runtime headers, and the C++ compiler itself. Equal keys mean the executable a previous build
+    /// left is the one this build would produce.
+    /// </summary>
+    public string BuildKey(bool release, string cpp)
+    {
+        var compiler = new FileInfo(compilerPath);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{Toolchain}|{release}|{compilerPath}|{compiler.Length}|{compiler.LastWriteTimeUtc.Ticks}|{RuntimeContentHash.Value}\n{cpp}")));
+    }
+
+    static readonly Lazy<string> RuntimeContentHash = new(() =>
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var file in Directory.EnumerateFiles(RuntimeDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes(Path.GetRelativePath(RuntimeDirectory, file)));
+            hash.AppendData(File.ReadAllBytes(file));
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
+    });
 
     public static string RuntimeDirectory => Path.Combine(AppContext.BaseDirectory, "runtime");
 
@@ -130,7 +156,7 @@ public sealed class NativeCompiler
     string? PrecompiledDirectory(bool release) =>
         PrecompiledHeaders.GetOrAdd($"{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
-    public NativeBuildResult Build(string cppPath, string exePath, bool release)
+    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true)
     {
         var startInfo = new ProcessStartInfo(compilerPath)
         {
@@ -152,7 +178,7 @@ public sealed class NativeCompiler
             if (!release)
                 args.Add("/DVPL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
-            var precompiled = PrecompiledDirectory(release);
+            var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
             if (precompiled is not null)
             {
                 args.Add("/Yuvpl.h");
@@ -166,16 +192,28 @@ public sealed class NativeCompiler
         }
         else if (Toolchain == Toolchain.ClangSanitized)
         {
-            // The installed clang may be older than the MSVC STL expects.
-            foreach (var arg in new[] { "/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH" })
+            foreach (var arg in SanitizedFlags)
                 args.Add(arg);
             args.Add(release ? "/O2" : "/Od");
             if (!release)
                 args.Add("/DVPL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
             args.Add($"/Fe{exePath}");
-            args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
-            args.Add(cppPath);
+            if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
+            {
+                // As for MSVC, the program and the precompiled object link in one call; /Fo names a
+                // directory because that call has two inputs.
+                args.Add("/Yuvpl.h");
+                args.Add($"/Fp{Path.Combine(precompiled, "vpl.pch")}");
+                args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
+                args.Add(cppPath);
+                args.Add(Path.Combine(precompiled, "vpl.obj"));
+            }
+            else
+            {
+                args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
+                args.Add(cppPath);
+            }
         }
         else
         {
@@ -187,7 +225,7 @@ public sealed class NativeCompiler
             if (OperatingSystem.IsWindows())
                 args.Add("-static");
             // gcc takes vpl.h.gch from the first include directory holding one.
-            if (PrecompiledDirectory(release) is { } precompiled)
+            if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
                 args.Add($"-I{precompiled}");
             args.Add($"-I{RuntimeDirectory}");
             args.Add("-o");
@@ -207,9 +245,9 @@ public sealed class NativeCompiler
     {
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(compilerPath)))[..12];
         var directory = Path.Combine(AppContext.BaseDirectory, "pch", key, release ? "release" : "debug");
-        var artifacts = Toolchain == Toolchain.Msvc
-            ? new[] { Path.Combine(directory, "vpl.pch"), Path.Combine(directory, "vpl.obj") }
-            : [Path.Combine(directory, "vpl.h.gch")];
+        string[] artifacts = Toolchain == Toolchain.Gcc
+            ? [Path.Combine(directory, "vpl.h.gch")]
+            : [Path.Combine(directory, "vpl.pch"), Path.Combine(directory, "vpl.obj")];
 
         // The mutex serializes concurrent test runs and CLI invocations building the same files.
         using var mutex = new Mutex(false, "Global\\vpl-pch-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(directory)))[..16]);
@@ -237,6 +275,22 @@ public sealed class NativeCompiler
                 File.WriteAllText(stub, "#include \"vpl.h\"\n");
                 foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3", "/c" })
                     args.Add(arg);
+                args.Add(release ? "/O2" : "/Od");
+                if (!release)
+                    args.Add("/DVPL_DEBUG=1");
+                args.Add($"/I{RuntimeDirectory}");
+                args.Add("/Ycvpl.h");
+                args.Add($"/Fp{artifacts[0]}");
+                args.Add($"/Fo{artifacts[1]}");
+                args.Add(stub);
+            }
+            else if (Toolchain == Toolchain.ClangSanitized)
+            {
+                var stub = Path.Combine(directory, "vpl.cpp");
+                File.WriteAllText(stub, "#include \"vpl.h\"\n");
+                foreach (var arg in SanitizedFlags)
+                    args.Add(arg);
+                args.Add("/c");
                 args.Add(release ? "/O2" : "/Od");
                 if (!release)
                     args.Add("/DVPL_DEBUG=1");

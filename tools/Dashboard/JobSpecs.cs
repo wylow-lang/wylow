@@ -65,6 +65,7 @@ public static class JobSpecs
         new("msvc", "MSVC"),
         new("gcc", "g++"),
         new("asan", "clang-cl + ASan/UBSan"),
+        new("all", "All five, in parallel"),
     ];
 
     static readonly ParamOption[] Tiers = [new("1", "Tier 1 — in-process"), new("2", "Tier 2 — build and run")];
@@ -104,7 +105,11 @@ public static class JobSpecs
                 var steps = new List<StepSpec>();
                 if (values.Bool("buildFirst"))
                     steps.Add(new("dotnet", ["build", "--nologo", "-v", "minimal"]));
-                var arguments = new List<string> { TestRunner, "--cc", values.Text("cc") };
+                var arguments = new List<string> { TestRunner };
+                if (values.Text("cc") == "all")
+                    arguments.Add("--all-modes");
+                else
+                    arguments.AddRange(["--cc", values.Text("cc")]);
                 if (values.Bool("noOpt"))
                     arguments.Add("--no-opt");
                 if (values.Bool("noNest"))
@@ -117,7 +122,7 @@ public static class JobSpecs
             Idle = values => values.Bool("buildFirst"),
             Observe = Observers.Suite,
             Lock = "suite",
-            Hint = "Run all five modes before committing: MSVC, g++, --no-opt, --no-nest, and ASan.",
+            Hint = "Run all five modes before committing: MSVC, g++, --no-opt, --no-nest, and ASan. 'All five, in parallel' does it in one job.",
         },
         new()
         {

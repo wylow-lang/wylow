@@ -22,8 +22,14 @@ public static class Driver
         var cppPath = Path.Combine(outputDirectory, name + ".cpp");
         File.WriteAllText(cppPath, compilation.Cpp);
         var exePath = Path.Combine(outputDirectory, name + (OperatingSystem.IsWindows() ? ".exe" : ""));
+        var keyPath = Path.Combine(outputDirectory, name + ".key");
+        var key = compiler.BuildKey(options.Release, compilation.Cpp);
+        if (File.Exists(exePath) && File.Exists(keyPath) && File.ReadAllText(keyPath) == key)
+            return new ExecutableBuild(exePath, null);
 
         var result = compiler.Build(cppPath, exePath, options.Release);
+        if (result.Success)
+            File.WriteAllText(keyPath, key);
         // The program already passed every VPL check, so a C++ failure is a compiler bug.
         return result.Success
             ? new ExecutableBuild(exePath, null)

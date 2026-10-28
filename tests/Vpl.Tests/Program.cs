@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Vpl.Compiler;
@@ -18,13 +19,18 @@ using Vpl.Fuzz;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [--update-snapshots] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [--all-modes] [--out <dir>]
+//                  [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
+// --all-modes runs the five modes one per process at once, each writing under <out>/<mode>.
 // --update-snapshots rewrites tests/matrix/*.snapshot with what the matrix cells do now.
 
 Toolchain? toolchain = null;
 string? filter = null;
 bool updateSnapshots = false;
+bool allModes = false;
+string? outputArgument = null;
+int jobs = 0;
 var options = new CompileOptions();
 for (int i = 0; i < args.Length; i++)
 {
@@ -44,13 +50,30 @@ for (int i = 0; i < args.Length; i++)
         options = options with { Optimize = false };
     else if (args[i] == "--update-snapshots")
         updateSnapshots = true;
+    else if (args[i] == "--all-modes")
+        allModes = true;
+    else if (args[i] == "--out" && i + 1 < args.Length)
+        outputArgument = args[++i];
+    else if (args[i] == "--jobs" && i + 1 < args.Length)
+        jobs = int.Parse(args[++i]);
     else
         filter = args[i];
 }
 
 var root = FindRepositoryRoot();
 var casesDirectory = Path.Combine(root, "tests", "cases");
-var outputDirectory = Path.Combine(root, "tests", ".out");
+var outputDirectory = outputArgument is null ? Path.Combine(root, "tests", ".out") : Path.GetFullPath(outputArgument);
+var parallelism = jobs > 0 ? jobs : Math.Max(1, Environment.ProcessorCount / 2);
+
+if (allModes)
+{
+    if (toolchain is not null || !options.Nest || !options.Optimize || updateSnapshots)
+    {
+        Console.Error.WriteLine("--all-modes runs each mode itself, so it takes no --cc, --no-nest, --no-opt, or --update-snapshots");
+        return 1;
+    }
+    return RunAllModes(outputDirectory, filter, parallelism);
+}
 
 if (NativeCompiler.Find(toolchain, out var toolchainError) is null)
 {
@@ -67,14 +90,15 @@ var stopwatch = Stopwatch.StartNew();
 var results = files
     .AsParallel()
     .AsOrdered()
-    .WithDegreeOfParallelism(Math.Max(1, Environment.ProcessorCount / 2))
+    .WithDegreeOfParallelism(parallelism)
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(FuzzSelfTests.Run(casesDirectory)
     .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
     .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(MatrixTests.Run(root, toolchain, options, filter, updateSnapshots));
+results.AddRange(BuildCacheSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));
@@ -89,6 +113,66 @@ foreach (var result in results.Where(r => r.Failure is not null))
 int failed = results.Count(r => r.Failure is not null);
 Console.WriteLine($"{results.Count - failed} passed, {failed} failed ({stopwatch.Elapsed.TotalSeconds:F1}s)");
 return failed == 0 ? 0 : 1;
+
+/// <summary>
+/// The five modes, each in its own process and output directory, so the machine's cores fill instead
+/// of one mode at a time using half of them.
+/// </summary>
+static int RunAllModes(string outputDirectory, string? filter, int jobs)
+{
+    (string Key, string[] Arguments)[] modes =
+    [
+        ("msvc", []),
+        ("gcc", ["--cc", "gcc"]),
+        ("no-opt", ["--no-opt"]),
+        ("no-nest", ["--no-nest"]),
+        ("asan", ["--cc", "asan"]),
+    ];
+    var assembly = typeof(MatrixTests).Assembly.Location;
+    var stopwatch = Stopwatch.StartNew();
+    var runs = modes.Select(mode => Task.Run(() =>
+    {
+        var startInfo = new ProcessStartInfo("dotnet");
+        startInfo.ArgumentList.Add(assembly);
+        foreach (var argument in mode.Arguments)
+            startInfo.ArgumentList.Add(argument);
+        foreach (var argument in new[] { "--out", Path.Combine(outputDirectory, mode.Key), "--jobs", jobs.ToString(CultureInfo.InvariantCulture) })
+            startInfo.ArgumentList.Add(argument);
+        if (filter is not null)
+            startInfo.ArgumentList.Add(filter);
+        return (mode.Key, Result: ProcessRunner.Run(startInfo, TimeSpan.FromHours(2)));
+    })).ToList();
+    Task.WhenAll(runs).GetAwaiter().GetResult();
+
+    var summary = new Regex(@"^(\d+) passed, (\d+) failed", RegexOptions.CultureInvariant);
+    int passed = 0, failed = 0;
+    foreach (var task in runs)
+    {
+        var (key, result) = task.Result;
+        Console.WriteLine($"=== {key}");
+        bool reported = false;
+        foreach (var line in result.StandardOutput.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            Console.WriteLine(line.StartsWith("FAIL ", StringComparison.Ordinal) ? $"FAIL {key}/{line["FAIL ".Length..]}" : line);
+            var match = summary.Match(line);
+            if (match.Success)
+            {
+                passed += int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+                failed += int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+                reported = true;
+            }
+        }
+        if (result.StandardError.Trim() is { Length: > 0 } error)
+            Console.Error.WriteLine(error);
+        if (!reported)
+        {
+            failed++;
+            Console.WriteLine($"FAIL {key}: the mode did not report a result (exit {result.ExitCode}{(result.TimedOut ? ", timed out" : "")})");
+        }
+    }
+    Console.WriteLine($"{passed} passed, {failed} failed ({stopwatch.Elapsed.TotalSeconds:F1}s)");
+    return failed == 0 ? 0 : 1;
+}
 
 static TestResult SanitizersLive(string outputDirectory)
 {
@@ -108,7 +192,7 @@ static TestResult SanitizersLive(string outputDirectory)
         }
         """);
     var compiler = NativeCompiler.Find(Toolchain.ClangSanitized, out _)!;
-    var build = compiler.Build(cpp, Path.ChangeExtension(cpp, ".exe"), release: false);
+    var build = compiler.Build(cpp, Path.ChangeExtension(cpp, ".exe"), release: false, precompiledHeader: false);
     if (!build.Success)
         return new(name, build.Output);
     var run = ProcessRunner.Run(new ProcessStartInfo(Path.ChangeExtension(cpp, ".exe")), TimeSpan.FromSeconds(30));

@@ -11,6 +11,7 @@ public static class Reference
             new("Build everything", "Compile the compiler, the CLI, and both test harnesses.", "dotnet build"),
         ]),
         new("Test suite", [
+            new("All five modes, in parallel", "Pre-commit: MSVC, g++, --no-opt, --no-nest, and ASan, each in its own process.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes", Href("#/tests", ("cc", "all"))),
             new("All tests, MSVC", "The default mode. Every case, the matrices, and the self-tests.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll", Href("#/tests", ("cc", "msvc"))),
             new("All tests, g++", "The same suite through g++.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc", Href("#/tests", ("cc", "gcc"))),
             new("All tests, ASan", "clang-cl with AddressSanitizer and UBSan; any report fails.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan", Href("#/tests", ("cc", "asan"))),

@@ -19,6 +19,7 @@ dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all five modes at once, one process each
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
@@ -62,7 +63,11 @@ buffers its object for the cycle collector.)
 To show a change altered no behavior (a refactoring step): build the commit before it in a git
 worktree, run the tests in both trees, and `diff -r` the two `tests/.out` (C++ and `.ir`).
 
-Generated C++ for tests lands in `tests/.out/`. Check it compiles warning-free:
+Generated C++ for tests lands in `tests/.out/` (`--all-modes` writes each mode under
+`tests/.out/<mode>/`, so the modes can run at once without overwriting each other). A program is
+not rebuilt when the C++ and everything the build reads (flags, runtime headers, the C++ compiler)
+match the `.key` beside its executable, so a repeat run only compiles what the change touched.
+Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
 (unused-parameter warnings from test programs are fine).
 
@@ -238,7 +243,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
   concept is two ways of doing the same thing.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite in
-  all five modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, and `--cc asan`.
+  all five modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, and `--cc asan`. One
+  `--all-modes` run does all five at once.
 - **A feature adds its row or column to the matrices** (enforced only by review): a new place,
   operation, kind of type or value, context, or value edge goes in `MatrixPlaces.cs`,
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change

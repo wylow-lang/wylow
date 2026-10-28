@@ -26,7 +26,7 @@ static class MatrixTests
     /// <summary>The most differences a failing matrix lists before it says how many more there are.</summary>
     const int ShownDifferences = 24;
 
-    public static List<TestResult> Run(string root, Toolchain? toolchain, CompileOptions options, string? filter, bool update)
+    public static List<TestResult> Run(string root, string outputDirectory, Toolchain? toolchain, CompileOptions options, string? filter, bool update, int parallelism)
     {
         List<TestResult> results = [];
         foreach (var matrix in Matrices())
@@ -35,11 +35,11 @@ static class MatrixTests
             if (filter is not null && !name.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 continue;
             var snapshot = Path.Combine(root, "tests", "matrix", matrix.Name + ".snapshot");
-            var output = Path.Combine(root, "tests", ".out", "matrix", matrix.Name);
+            var output = Path.Combine(outputDirectory, "matrix", matrix.Name);
             var cells = matrix.Cells
                 .AsParallel()
                 .AsOrdered()
-                .WithDegreeOfParallelism(Math.Max(1, Environment.ProcessorCount / 2))
+                .WithDegreeOfParallelism(parallelism)
                 .Select(cell => RunCell(cell, output, toolchain, options))
                 .ToList();
             results.Add(Compare(name, snapshot, matrix, cells, update));
