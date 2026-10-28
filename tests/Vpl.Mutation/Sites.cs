@@ -199,6 +199,9 @@ static class SiteFinder
         if (statement.Parent is IfStatementSyntax or WhileStatementSyntax or ForStatementSyntax or DoStatementSyntax
             or UsingStatementSyntax or LockStatementSyntax or FixedStatementSyntax or ElseClauseSyntax or LabeledStatementSyntax)
             return;
+        // Indentation is not behavior, so deleting it can never be caught: it is not a missing test.
+        if (statement.Expression is PostfixUnaryExpressionSyntax { Operand: IdentifierNameSyntax { Identifier.Text: "indent" } })
+            return;
         var span = statement.Span;
         var lines = tree.GetText().Lines;
         var start = statement.GetLocation().GetLineSpan();
