@@ -28,6 +28,7 @@ dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild on
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
+dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, seeds, and findings
 ```
 
 The fuzzer (`tests/Vpl.Fuzz`) mutates `tests/cases/**/*.vpl` at feature boundaries and value edges
