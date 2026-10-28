@@ -23,9 +23,11 @@ as the first line of the log. The server builds argv arrays; it never takes a co
 browser. It binds to localhost only, and cross-origin POSTs are refused.
 
 History and logs live in `tools/Dashboard/.state/` (gitignored). Cancel kills the process tree. A
-build or a suite with "Build first" waits for running jobs, since it overwrites assemblies a running
-test or fuzzer has loaded. Fuzz runs may run alongside each other (each uses its own run directory
-under `tests/.out/fuzz/`); suites serialize because they share `tests/.out/`.
+fuzz run that reports findings ends as `findings`, not `failed`: the runner exits nonzero to signal
+them, and the run itself completed. A build or a suite with "Build first" waits for running jobs,
+since it overwrites assemblies a running test or fuzzer has loaded. Fuzz runs may run alongside each
+other (each uses its own run directory under `tests/.out/fuzz/`); suites serialize because they
+share `tests/.out/`.
 
 The project is not in `vpl.slnx`. It references `Vpl.Compiler` only to reuse `NativeCompiler.Find`,
 so `dotnet run --project tools/Dashboard` builds the compiler too. If the compiler does not build,

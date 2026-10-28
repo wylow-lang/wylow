@@ -6,7 +6,7 @@ using System.Threading.Channels;
 
 namespace Vpl.Dashboard;
 
-public enum JobState { Queued, Running, Succeeded, Failed, Cancelled, Interrupted }
+public enum JobState { Queued, Running, Succeeded, Findings, Failed, Cancelled, Interrupted }
 
 public sealed class JobMetrics
 {
@@ -406,6 +406,10 @@ public sealed class JobManager : IDisposable
                     job.State = JobState.Interrupted;
                     job.EndedAt ??= DateTimeOffset.Now;
                 }
+                else if (job.State == JobState.Failed && ReportedFindings(job))
+                {
+                    job.State = JobState.Findings;
+                }
                 jobs[job.Id] = job;
                 order.Add(job);
             }
@@ -618,6 +622,7 @@ public sealed class JobManager : IDisposable
         job.State = job.CancelRequested ? JobState.Cancelled
             : error is not null ? JobState.Failed
             : exit == 0 ? JobState.Succeeded
+            : ReportedFindings(job) ? JobState.Findings
             : JobState.Failed;
         job.Error = error;
         var elapsed = job.StartedAt is { } started ? (job.EndedAt.Value - started).TotalSeconds : 0;
@@ -636,6 +641,13 @@ public sealed class JobManager : IDisposable
         Persist();
         Pump();
     }
+
+    /// <summary>
+    /// Whether the job exited nonzero only to report what it was asked to look for, such as a
+    /// fuzzer's findings: the run completed, and nothing went wrong with the tool itself.
+    /// </summary>
+    static bool ReportedFindings(Job job) =>
+        job.Error is null && (job.Metrics.Findings is > 0 || job.Metrics.FindingKeys.Count > 0);
 
     void NotifyDone(Job job)
     {

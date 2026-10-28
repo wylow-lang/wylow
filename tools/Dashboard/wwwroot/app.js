@@ -128,7 +128,7 @@ function duration(job) {
 }
 
 function stateClass(value) {
-  return { queued: 'dim', running: 'run', succeeded: 'ok', failed: 'bad', cancelled: 'warn', interrupted: 'warn' }[value] || 'dim';
+  return { queued: 'dim', running: 'run', succeeded: 'ok', findings: 'warn', failed: 'bad', cancelled: 'warn', interrupted: 'warn' }[value] || 'dim';
 }
 
 function statePill(value) {
@@ -827,6 +827,7 @@ async function renderJob(view, id) {
   const lineClass = text => {
     if (text.startsWith('$ ')) return 'cmd';
     if (/^# succeeded\b/.test(text)) return 'ok';
+    if (/^# findings\b/.test(text)) return 'warn';
     if (/^# (failed|interrupted)\b/.test(text)) return 'bad';
     if (text.startsWith('# ')) return 'dim';
     if (/^\s*(FAIL|FINDING)\b/.test(text) || /^Build FAILED/i.test(text)) return 'bad';
