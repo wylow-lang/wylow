@@ -126,6 +126,12 @@ public sealed partial class Binder
                 }
                 // A non-escaping function can't convert to its escaping form, and is reported as that once the call is checked.
                 // An unsuffixed literal's type comes last, so the literal takes another argument's type when it fits.
+                // A call that returns nothing is a statement, not a value, so it can never be a type argument.
+                if (found.Any(b => b.Type == VplType.Void))
+                {
+                    error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}' from a 'void' value; a call that returns nothing cannot be an argument";
+                    return null;
+                }
                 var chosen = found.OrderBy(b => b.Expression is BoundLiteral { Integer: not null } literal && literal.Type == VplType.Int)
                     .Select(b => b.Type).Distinct().FirstOrDefault(candidate =>
                     candidate != VplType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || IsEscapingMismatch(b.Expression.Type, candidate) : b.Type == candidate));

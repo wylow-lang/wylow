@@ -87,5 +87,12 @@ public static class TypeStorage
         /// keeps the object's identity; a function value converted to another type refers to the same closure.
         /// </summary>
         public bool KeepsIdentity => type.NonNull.IsReference || type.NonNull.IsTypeParameter || type.NonNull.IsFunction;
+
+        /// <summary>
+        /// Whether a value of the type is already passed by reference, so that a <c>ref</c> or
+        /// <c>in</c> of it would refer to nothing a copy could share: a class object, or a function.
+        /// A nullable function is one too, which is why both wrappers are looked through.
+        /// </summary>
+        public bool PassedWithoutCopying => type.Referred.NonNull is { IsReference: true } or { IsFunction: true };
     }
 }

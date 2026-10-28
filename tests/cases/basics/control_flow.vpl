@@ -53,6 +53,9 @@ void main() {
     print(early(false));    // output: late
     print(switchPick(0));   // output: zero
 
+    // A switch whose only case is 'default' still evaluates its value once.
+    print(switch (7) { default -> 7; });    // output: 7
+
     // A pattern can be a literal of another integer type, and `var` matches anything.
     byte small = 1;
     switch (small) {

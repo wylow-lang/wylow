@@ -46,6 +46,11 @@ class Holder {
     internal {
         Node node = new Node();
         mut int size;
+        mut (() -> void)? callback;
+
+        ref? (() -> void)? cb() {           // error: 'ref?' cannot be used with type '() -> void'; functions are already passed without copying
+            return ref callback;
+        }
 
         ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
             return ref node;

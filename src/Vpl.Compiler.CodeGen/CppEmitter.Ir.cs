@@ -316,7 +316,8 @@ public sealed partial class CppEmitter
     {
         var name = Name(local);
         bool mayBeUnused = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || plan.Uses.GetValueOrDefault(local) == 0;
-        var unused = local.Symbol is not null && mayBeUnused ? "[[maybe_unused]] " : "";
+        // A temporary nothing reads is still emitted for what making it does, as a switch's value is.
+        var unused = mayBeUnused ? "[[maybe_unused]] " : "";
         return local.Kind switch
         {
             // A non-escaping local owns the lambda or choice it is made with, or copies a stored function. Another

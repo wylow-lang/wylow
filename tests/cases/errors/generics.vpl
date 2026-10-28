@@ -85,4 +85,5 @@ void main() {
     });
     var bad = Pair<(() -> int)?, int>();
     print(bad == bad);            // error: its field 'first' of type '(() -> int)?' does not support '=='
+    same(print(1), print(2));     // error: cannot infer type argument 'T' of 'same' from a 'void' value; a call that returns nothing cannot be an argument
 }

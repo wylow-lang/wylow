@@ -84,6 +84,9 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
     switch (use(s, d, n, b, a)) {               // error: cannot switch on a 'void' value
         default -> print(1);
     }
+    switch (null) {                             // error: cannot switch on 'null', which has no type; give it a type first
+        default -> print(1);
+    }
 
     var mixed = switch (d) {                    // error: the cases of the switch have incompatible types 'int', 'String'
         case North -> 1;

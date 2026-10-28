@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Vpl.Compiler\Vpl.Compiler.csproj" />
+    <ProjectReference Include="..\Vpl.Fuzz\Vpl.Fuzz.csproj" />
   </ItemGroup>
 
 </Project>

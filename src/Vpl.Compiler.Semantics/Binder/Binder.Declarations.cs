@@ -424,8 +424,10 @@ public sealed partial class Binder
             Error(location, $"methods returning '{keyword}' cannot be virtual or abstract yet");
         else if (referenced == VplType.Void)
             Error(location, $"'void' cannot be returned by '{keyword}'");
-        else if (referenced.IsReference)
-            Error(location, $"'{keyword}' cannot be used with type '{referenced}'; class objects are already references");
+        else if (referenced.PassedWithoutCopying)
+            Error(location, referenced.NonNull.IsFunction
+                ? $"'{keyword}' cannot be used with type '{referenced.NonNull}'; functions are already passed without copying"
+                : $"'{keyword}' cannot be used with type '{referenced}'; class objects are already references");
     }
 
     void DeclareVariants(TypeSymbol s)

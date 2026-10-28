@@ -181,7 +181,8 @@ applyDamage(ref enemy, info);
 `ref` and `in` parameters follow the reference rules in
 [03-memory-model.md](03-memory-model.md#34-references). `in` is intended for large read-only structs
 such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
-by reference) and are a compile error.
+by reference) and are a compile error. So is a function-typed parameter, nullable or not, since a
+function is already passed without copying.
 
 - A `ref` argument must be a mutable place: a `mut` local or parameter, a field path rooted at
   one (`ref enemy.position`), an element (`ref points[i]`), or a reference a method returned. Its
@@ -767,7 +768,8 @@ switch (state) {
   always matches.
 - `break` and `continue` inside a case apply to the enclosing loop, as in Kotlin; a switch is not a
   loop and needs no `break`.
-- The value is evaluated once, before any case is tried. Names a case binds are copies made before
+- The value is evaluated once, before any case is tried. It must have a type of its own: `null`
+  alone and a `void` call have none, and both are errors. Names a case binds are copies made before
   the case runs, so a case may freely change the value it matched. If the value is a temporary, it
   lives until the switch ends (for a switch expression, until the switch's value is produced).
 

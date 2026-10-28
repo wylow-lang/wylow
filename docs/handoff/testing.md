@@ -1,13 +1,10 @@
 # Testing: measure coverage, then generate tests
 
-**Status:** planned 2026-10-26. Step 1 has landed (`tools/coverage.sh`, baseline below, every
-user error and verifier check reached), except the optional runtime coverage, and so have step 2
-(`--cc asan`), step 3 (`TypeSelfTests`), step 4 (both interaction matrices, reviewed and in
-the suite), step 4b (every line no test ran triaged), and step 4c (the value axis). Next are step 5
-(a mutation fuzzer) and step 5b (mutation testing the compiler), which target two different bug
-classes and are worth doing together. The unreached
-`InvalidOperationException` sites are left for the fuzzer to aim at. Delete this file once
-every step has landed, and move whatever it leaves as rules into CLAUDE.md and
+**Status:** planned 2026-10-26. Steps 1–4c have landed (coverage, `--cc asan`, `TypeSelfTests`,
+both interaction matrices and the value axis, every line no test runs triaged), and so has step 5
+(the mutation fuzzer, below). Next is step 5b, mutation testing the compiler. The unreached
+`InvalidOperationException` sites are the fuzzer's target list. Delete this file once every step
+has landed, and move whatever it leaves as rules into CLAUDE.md and
 `docs/design/architecture.md`.
 
 ## Why
@@ -388,6 +385,60 @@ It is then written to `tests/fuzz/findings/` with its seed. Fixing it means:
 **Running.** The fuzzer takes a seed, a time budget, and a test filter, and is deterministic for a
 given seed, so a finding can be replayed. A short run (for example two minutes) is part of the
 pre-commit routine; long runs go in the background.
+
+**Done (2026-10-27).** `tests/Vpl.Fuzz` is a console project in the solution:
+
+- **Mutations.** It parses a test with the real parser and its AST locations, then splices text at
+  one site, or at two for half the mutants. The catalog crosses features (a type becomes nullable,
+  a fixed array, its integer neighbor; a parameter becomes `in`; a local becomes `mut`, a
+  reference, a nullable reference, or null; a statement goes inside an `if`, a range loop, a fixed
+  array loop, or a non-escaping lambda; an expression is duplicated through `?:`, a switch, a
+  one-element fixed array, a capturing lambda (`T eval<T>(() -> T)`) or an `in` parameter
+  (`T read<T>(in T)`) — the last two append their helper declaration) and values (every literal
+  kind's edges, `0`/`1`/`-1`/`INT_MAX`/`INT_MIN`, collection initializers reduced to one element,
+  array lengths `0`/`1`, indexes `0` and `last`, every operator moved to its neighbor). Error tests
+  are skipped by default (`--errors` includes them), and a mutation whose `unsafe`/`@Unchecked` base
+  may legitimately do undefined behavior has its sanitizer reports ignored as inconclusive.
+  Three crossings need an edit at every use of the name, so they are left out: a local becoming a
+  field, a struct becoming generic, and a parameter becoming `ref` (its calls would all need
+  `ref` too).
+- **Tiers.** Tier 1 compiles each mutant in-process, with and without `--no-opt`, compares the
+  error sets (they must not depend on optimization), and compiles it a second time to check that
+  compilation is deterministic. Tier 2 adds the five modes (MSVC, g++, ASan/UBSan, `--no-opt`,
+  `--no-nest`): the C++ must compile under `-Wall -Wextra -Wconversion -Wsign-conversion
+  -Wshadow`, every sanitizer must stay quiet, and the modes must agree on stdout, the exit code,
+  and the panic text (output is not compared when the program calls `Memory.collectCycles`). It
+  builds with a capped, time-limited runner, so a mutant that loops forever or prints without end
+  is inconclusive rather than fatal. Throughput on this machine: about 1,500 tier-1 mutants a
+  minute, and about 40 tier-2 mutants a minute with eight workers.
+- **Findings.** A failure is reduced by deleting statements, switch cases, and declarations while
+  the same coarse signature remains (the exception type, the C++ error, the sanitizer kind, the
+  disagreeing modes), writes `tests/fuzz/findings/<key>-<hash>.vpl` with the seed, mutant index,
+  and mutations, and replays with `--replay <index>`. Its per-mutator reducer re-parses after every
+  accepted deletion, so a span is never used after the text moved; a simple statement's span is
+  extended over its `;`, which the parser leaves out.
+- **The first run found a binder hole**: `in` or `ref` on a *nullable* function-typed parameter
+  (`in ((int) -> int)? f`) passed `CheckParameterMode`, which looked through `NullableReferenceType`
+  but not the nullable-value wrapper, so lowering produced an operand argument the verifier
+  rejected as a compiler bug. Running it down found the same hole for `ref?` locals and `ref`
+  returns, and `TypeSelfTests` failed at once on `ref? (() -> int)?` names that no longer bind. The
+  question is now one type fact (`VplType.PassedWithoutCopying`), used by all three checks, and
+  `tests/cases/errors/lambda_binding.vpl`, `operands.vpl`, and `references.vpl` have the errors.
+- **The long runs (30,720 tier-1 and 256 tier-2 mutants) found three more**:
+  - `switch (null)` bound, and the emitter had no C++ type for `null`; it is now a binder error
+    (`errors/switch.vpl`).
+  - A `void` call passed to a generic function inferred `T = void`, emitted as a `const void&`
+    parameter, and failed to compile; inference now rejects a `void` binding (`errors/generics.vpl`).
+  - Two switch temporaries nothing reads drew `-Wunused-variable` and `-Wunused-but-set-variable`:
+    the emitter's `[[maybe_unused]]` was applied only to source-named locals, not temporaries kept
+    for what making them does. It now covers every zero-use local; `basics/control_flow.vpl` has a
+    `default`-only switch over a literal, and the strict warning check is the oracle that sees it.
+
+The fuzzer's catalog is the matrix rule's peer: a new feature adds a mutation or value edge, and a
+finding becomes a test in `tests/cases/` and its finding file is deleted. Both are enforced only by
+review, like the matrices. The suite runs the fuzzer's own `fuzz/catalog` and `fuzz/determinism`
+checks (also `--self-test`), so a mutation that no longer applies anywhere, an edit that changes
+nothing, or generation that stops being reproducible from a seed fails like any other test.
 
 ## Step 5b: mutation testing the compiler
 

@@ -240,6 +240,8 @@ public sealed partial class Binder
         var value = BindExpression(syntax);
         if (value.Type == VplType.Void)
             return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
+        if (value.Type == VplType.Null)
+            return ErrorExpression(syntax.Location, "cannot switch on 'null', which has no type; give it a type first");
         // Patterns match values, not null: a nullable local is narrowed, as for a member access.
         if (value.Type.IsNullableValue || value.Type.IsNullableReference)
         {

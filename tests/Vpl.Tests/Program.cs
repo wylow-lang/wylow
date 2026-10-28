@@ -6,6 +6,7 @@ using Vpl.Compiler.Build;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Text;
+using Vpl.Fuzz;
 
 // Runs every tests/cases/**/*.vpl file. Expectations are comments in the file:
 //   // output: <line>     expected stdout line (in order of appearance)
@@ -70,6 +71,9 @@ var results = files
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(FuzzSelfTests.Run(casesDirectory)
+    .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
+    .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(MatrixTests.Run(root, toolchain, options, filter, updateSnapshots));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)

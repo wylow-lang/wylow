@@ -33,12 +33,12 @@ public sealed partial class Binder
 
     bool CheckParameterMode(RefKind refKind, VplType type, Location location)
     {
-        type = type.Referred;
-        if (refKind == RefKind.None || !(type.IsReference || type.IsFunction))
+        if (refKind == RefKind.None || !type.PassedWithoutCopying)
             return true;
-        Error(location, type.IsFunction
-            ? $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; functions are already passed without copying"
-            : $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{type}'; class objects are already passed by reference");
+        var target = type.Referred.NonNull;
+        Error(location, target.IsFunction
+            ? $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{target}'; functions are already passed without copying"
+            : $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{target}'; class objects are already passed by reference");
         return false;
     }
 

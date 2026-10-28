@@ -342,17 +342,13 @@ public sealed partial class Binder
     /// <summary>A reference can't refer to a class object or a function, which are never copied anyway.</summary>
     bool CheckReferencedType(VplType type, string keyword, Location location)
     {
-        if (type.IsReference)
-        {
-            Error(location, $"'{keyword}' cannot be used with type '{type}'; class objects are already references");
-            return false;
-        }
-        if (type.IsFunction)
-        {
-            Error(location, $"'{keyword}' cannot be used with type '{type}'; functions are already passed without copying");
-            return false;
-        }
-        return true;
+        var target = type.Referred.NonNull;
+        if (!type.PassedWithoutCopying)
+            return true;
+        Error(location, target.IsFunction
+            ? $"'{keyword}' cannot be used with type '{target}'; functions are already passed without copying"
+            : $"'{keyword}' cannot be used with type '{target}'; class objects are already references");
+        return false;
     }
 
     /// <summary>
@@ -466,7 +462,7 @@ public sealed partial class Binder
         else if (!s.IsRef)
             Error(s.Location, $"'{function.Name}' returns a reference; return a place with 'return ref'{(returnType.IsNullableReference ? ", or 'return null'" : "")}");
         // A return type that cannot be a reference was reported with the method.
-        else if (referenced.IsReference || referenced == VplType.Void)
+        else if (referenced.PassedWithoutCopying || referenced == VplType.Void)
             return new BoundReturn(s.Location, null);
         else if (place.Type != VplType.Error)
         {

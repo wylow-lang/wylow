@@ -339,14 +339,16 @@ sealed class TypeGenerator(BoundProgram program, int seed)
         var type = Make(Place.Parameter, depth);
         if (type is NullableReferenceType reference)
             return new(reference.Kind, type);
-        // Objects and functions are passed without copying, so they can't be 'ref' or 'in'.
-        bool passedAsIs = type.IsReference || type.IsFunction;
+        // Objects and functions are passed without copying, so they can't be 'ref' or 'in';
+        // a nullable function is such a value too.
+        bool passedAsIs = type.IsReference || type.NonNull.IsFunction;
         return new(passedAsIs ? RefKind.None : (RefKind)random.Next(3), type);
     }
 
     VplType? NullableReference(int depth)
     {
         var referenced = Make(Place.Storable, depth - 1);
-        return referenced.IsReference || referenced.IsFunction ? null : referenced.NullableReference(random.Next(2) == 0 ? RefKind.Ref : RefKind.In);
+        // A reference to a function value would be a place nothing can have, so no 'ref?' or 'in?'.
+        return referenced.IsReference || referenced.NonNull.IsFunction ? null : referenced.NullableReference(random.Next(2) == 0 ? RefKind.Ref : RefKind.In);
     }
 }

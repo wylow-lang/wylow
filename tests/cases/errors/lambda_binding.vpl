@@ -24,6 +24,12 @@ int mix((long) -> int f, int x) {
 void run(int value) {
 }
 
+void take(in ((int) -> int)? f) {               // error: 'in' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+}
+
+void takeRef(ref ((int) -> int)? f) {           // error: 'ref' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+}
+
 void check() {
     (int) -> int inc = x -> x;
     var a = x -> x;                                 // error: a lambda needs a function type from where it is used
@@ -47,6 +53,7 @@ void check() {
     calls(true ? y -> y : y -> 1);                  // error: a choice of lambdas cannot be converted to 'int', which is not a function type
     int chosen = true ? y -> y : 5;                 // error: a lambda cannot be converted to 'int', which is not a function type
     (ref (int) -> int) -> void byRef = g -> run(1); // error: 'ref' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+    (in ((int) -> int)?) -> void byIn = f -> run(1); // error: 'in' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
     int j = inc(1, 2);                              // error: 'inc' takes 1 argument, but is given 2
     int k = inc("a");                               // error: cannot implicitly convert 'String' to 'int'
     inc(ref k);                                     // error: argument 1 must not be passed with 'ref'

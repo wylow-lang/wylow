@@ -14,6 +14,7 @@ void main() {
     flag++;                             // error: '++' requires a numeric variable
     () -> void g = () -> { };
     ref (() -> void) h = g;             // error: 'ref' cannot be used with type '() -> void'; functions are already passed without copying
+    ref? (() -> void)? i = null;        // error: 'ref?' cannot be used with type '() -> void'; functions are already passed without copying
     named(c: 1);                        // error: no overload of 'named' takes these named arguments
     apply((mut f) -> { });              // error: a non-escaping function
     var type = Vec3;                    // error: 'Vec3' is a type, not a value

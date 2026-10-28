@@ -22,10 +22,23 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests,
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
+dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
+dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
+dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
 ```
+
+The fuzzer (`tests/Vpl.Fuzz`) mutates `tests/cases/**/*.vpl` at feature boundaries and value edges
+and checks every mutant with the oracles that need no expected output: no exception, the same
+errors with and without optimization, deterministic compilation, warning-free C++, the same output,
+exit code, and panic in every mode, and quiet sanitizers. A failure is reduced by deleting
+statements and declarations and written to `tests/fuzz/findings/` with the seed and mutant that
+reproduce it; a finding is a bug until it becomes a test in `tests/cases/` (with `// output:`,
+`// error:`, or `// panic:`) or a removed line. Tier 1 is in-process and runs thousands of mutants
+a minute; tier 2 builds and runs five modes per mutant, so it belongs in the background. A
+finding in `unsafe` or `@Unchecked` code is the program's undefined behavior, not a compiler bug.
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
 writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-opt` (in the CLI and the test
@@ -218,12 +231,16 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   operation, kind of type or value, context, or value edge goes in `MatrixPlaces.cs`,
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change
   that alters any cell is reviewed as a snapshot diff, which is where a cell that does something
-  the spec doesn't say is found.
+  the spec doesn't say is found. A feature likewise gets a mutation or a value edge in
+  `tests/Vpl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer finding is triaged: the
+  reduced program moves into `tests/cases/` with its expected output or errors, and the finding
+  file is deleted.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
 - Commit each coherent change once it passes the suite in every mode (a step of a plan, not
-  only whole milestones), ending the message with the `Co-Authored-By` line. Don't push.
+  only whole milestones), ending the message with the `Co-Authored-By` line. A two-minute tier-1
+  fuzz run is part of the pre-commit routine, and every finding it leaves is triaged. Don't push.
 
 ## Pitfalls already hit
 
