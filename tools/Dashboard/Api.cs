@@ -41,6 +41,8 @@ public static class Api
         app.MapGet("/api/jobs/{id}/stream", (string id, HttpContext context, JobManager jobs) =>
             StreamAsync(context, jobs, id));
 
+        app.MapGet("/api/mutation", (MutationService mutation) => Results.Ok(mutation.Get()));
+
         app.MapGet("/api/findings", (FindingsService findings) => Results.Ok(findings.List()));
         app.MapGet("/api/findings/content", (string path, FindingsService findings) =>
         {

@@ -13,7 +13,7 @@ sealed record MatrixCell(string Name, string Source);
 
 sealed record Matrix(string Name, string Title, List<MatrixCell> Cells);
 
-// Interaction matrices (docs/handoff/testing.md, step 4): a table whose rows and columns are
+// Interaction matrices: a table whose rows and columns are
 // features, and whose cells are small programs that combine them. Each cell runs through the same
 // oracles as a test case, and its result is recorded in tests/matrix/<name>.snapshot. The snapshot
 // is reviewed against the spec cell by cell; after that, a change to any cell fails the suite until

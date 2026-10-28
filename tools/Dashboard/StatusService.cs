@@ -128,15 +128,20 @@ public sealed class StatusService
 
     static BuildDto BuildInfo(string root)
     {
-        var testRunner = Path.Combine(root, "tests", "Vpl.Tests", "bin", "Debug", "net10.0", "Vpl.Tests.dll");
-        var fuzzer = Path.Combine(root, "tests", "Vpl.Fuzz", "bin", "Debug", "net10.0", "Vpl.Fuzz.dll");
+        var harnesses = new[]
+        {
+            Path.Combine(root, "tests", "Vpl.Tests", "bin", "Debug", "net10.0", "Vpl.Tests.dll"),
+            Path.Combine(root, "tests", "Vpl.Fuzz", "bin", "Debug", "net10.0", "Vpl.Fuzz.dll"),
+            Path.Combine(root, "tests", "Vpl.Mutation", "bin", "Debug", "net10.0", "Vpl.Mutation.dll"),
+        };
         var built = new List<DateTime>();
-        if (File.Exists(testRunner))
-            built.Add(File.GetLastWriteTimeUtc(testRunner));
-        if (File.Exists(fuzzer))
-            built.Add(File.GetLastWriteTimeUtc(fuzzer));
+        foreach (var harness in harnesses)
+        {
+            if (File.Exists(harness))
+                built.Add(File.GetLastWriteTimeUtc(harness));
+        }
         var lastBuilt = built.Count == 0 ? (DateTime?)null : built.Min();
-        if (built.Count < 2)
+        if (built.Count < harnesses.Length)
             return new(true, ToLocal(lastBuilt));
 
         var newest = NewestSource(root);
@@ -149,7 +154,7 @@ public sealed class StatusService
     static DateTime NewestSource(string root)
     {
         var newest = DateTime.MinValue;
-        foreach (var directory in new[] { "src", "runtime", "tests/Vpl.Tests", "tests/Vpl.Fuzz" })
+        foreach (var directory in new[] { "src", "runtime", "tests/Vpl.Tests", "tests/Vpl.Fuzz", "tests/Vpl.Mutation", "tests/mutation" })
         {
             var path = Path.Combine(root, directory);
             if (!Directory.Exists(path))

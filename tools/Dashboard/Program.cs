@@ -26,6 +26,7 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 });
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<FindingsService>();
+builder.Services.AddSingleton<MutationService>();
 builder.Services.AddSingleton<JobManager>();
 builder.Services.AddSingleton<StatusService>();
 builder.Services.AddSingleton<LinesService>();

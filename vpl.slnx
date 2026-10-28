@@ -13,5 +13,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Vpl.Tests/Vpl.Tests.csproj" />
     <Project Path="tests/Vpl.Fuzz/Vpl.Fuzz.csproj" />
+    <Project Path="tests/Vpl.Mutation/Vpl.Mutation.csproj" />
   </Folder>
 </Solution>

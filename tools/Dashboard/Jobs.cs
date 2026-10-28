@@ -16,6 +16,11 @@ public sealed class JobMetrics
     public int? Mutants { get; set; }
     public int? Compiled { get; set; }
     public int? Findings { get; set; }
+    public int? Killed { get; set; }
+    public int? Survived { get; set; }
+    public int? Invalid { get; set; }
+    public int? TimedOut { get; set; }
+    public double? Score { get; set; }
     public string? Rate { get; set; }
     public List<string> Failures { get; set; } = [];
     public List<string> FindingKeys { get; set; } = [];
@@ -101,7 +106,7 @@ public sealed class JobManager : IDisposable
     public JobManager(ServerOptions options)
     {
         root = options.Root;
-        specList = [.. JobSpecs.All()];
+        specList = [.. JobSpecs.All(root)];
         specs = specList.ToDictionary(s => s.Kind, StringComparer.Ordinal);
         var stateDirectory = Path.Combine(root, "tools", "Dashboard", ".state");
         logDirectory = Path.Combine(stateDirectory, "logs");
@@ -647,7 +652,7 @@ public sealed class JobManager : IDisposable
     /// fuzzer's findings: the run completed, and nothing went wrong with the tool itself.
     /// </summary>
     static bool ReportedFindings(Job job) =>
-        job.Error is null && (job.Metrics.Findings is > 0 || job.Metrics.FindingKeys.Count > 0);
+        job.Error is null && (job.Metrics.Findings is > 0 || job.Metrics.FindingKeys.Count > 0 || job.Metrics.Survived is > 0);
 
     void NotifyDone(Job job)
     {

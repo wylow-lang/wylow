@@ -1,11 +1,11 @@
 # Testing: measure coverage, then generate tests
 
-**Status:** planned 2026-10-26. Steps 1–4c have landed (coverage, `--cc asan`, `TypeSelfTests`,
-both interaction matrices and the value axis, every line no test runs triaged), and so has step 5
-(the mutation fuzzer, below). Next is step 5b, mutation testing the compiler. The unreached
-`InvalidOperationException` sites are the fuzzer's target list. Delete this file once every step
-has landed, and move whatever it leaves as rules into CLAUDE.md and
-`docs/design/architecture.md`.
+**Status:** planned 2026-10-26. Steps 1–5 have landed (coverage, `--cc asan`, `TypeSelfTests`,
+both interaction matrices and the value axis, every line no test runs triaged, and the mutation
+fuzzer, below). Step 5b (mutation testing the compiler) has its harness, its dashboard page, and
+its first runs; the survivors those runs found are triaged below, and the long runs continue.
+Delete this file once every step has landed, and move whatever it leaves as rules into CLAUDE.md
+and `docs/design/architecture.md`.
 
 ## Why
 
@@ -502,6 +502,57 @@ nothing needs, and that list is the only systematic way to find a wrong answer e
 
 This runs alongside step 5 rather than after it: the fuzzer finds what crashes and what disagrees,
 and this finds what is quietly wrong. They need different harnesses and share no findings.
+
+**Done (2026-10-28).** `tests/Vpl.Mutation` is a console project in the solution, and the dashboard
+runs it from its Mutation page:
+
+- **The loop, not Stryker.** Stryker.NET drives `dotnet test`; this suite is a console runner with a
+  path filter that builds C++ for every case, so the adapter would have to be the whole runner, and
+  it would rebuild the solution for every mutant. The loop is written directly: write the mutated
+  file into a private copy of its project, `dotnet build` only that project, copy its assembly into
+  a private copy of the test runner, and run the covering tests. Neither the working tree nor
+  `tests/Vpl.Tests/bin` is touched, so a cancelled run leaves nothing behind and the next run starts
+  from a refreshed copy. The runner's precompiled header (250 MB) is copied once and reused.
+- **The catalog.** Roslyn (`Microsoft.CodeAnalysis.CSharp`) finds the sites, so an operator in a
+  string, comment, or generic argument is never one: `==`/`!=`, `<`/`<=`, `>`/`>=`, `&&`/`||`,
+  `+`/`-`, `*`/`/`, `+=`/`-=`, `is T` → `is not T`, `is null`/`is not null`, `0`/`1`, `true`/`false`,
+  a removed `!` or unary `-`, a negated `if`/`while`/`do`/`for`/`?:` condition, and a whole-line
+  expression statement deleted. A parameter's default value is left out: C# compiles it into every
+  caller, so a test built against the old value can't see the change.
+- **Targets and filters.** `tests/mutation/targets.json` names the six files and the test filters
+  that cover each feature. Filters run in order and stop at the first that fails, so a cheap
+  in-process filter kills most mutants before the C++-building ones run. A filter that matches
+  nothing is a silent hole: on Windows the runner matches `values`, not `values/`, because case
+  paths use `\`.
+- **Results.** `tests/mutation/results/<target>.json` is rewritten after every mutant, so a stopped
+  run still records what it saw. The dashboard's Mutation page shows the score per target, the
+  survivors (with the `site N` that `--only` reruns), and the recent runs. `--max`, `--seconds`, and
+  `--seed` sample a target deterministically; `--only N` reruns one survivor with another filter,
+  the whole suite included, for triage.
+
+**The first runs and their triage.**
+
+- **`IrEffects.cs`.** With the verifier's self-tests (`ir/`) alone, 6 of 41 mutants were killed, and
+  the full suite killed 3 of the first 5. The two it missed — `IrEffects.None`'s and
+  `IrEffects.Releasing(type)`'s `MayPanic` — are facts no program reaches: every mode agrees with
+  the wrong answer. `tests/Vpl.Tests/IrSelfTests.Effects.cs` now states every effect fact the
+  verifier, the passes, and the emitter decide by: which locals a release runs, what a block
+  releases and what `end` leaves out, what a store writes and what a move of a named local writes,
+  which calls run and may panic, what a constructor and a default run, when an operation may panic,
+  and when a hold borrows. With it and the default filters, all 40 mutants die (100%); `ir/` alone
+  kills 40 of the 41 the old catalog had, and the survivor was the harness artifact below.
+- **`containers` is the filter that sees releases.** Under the full suite,
+  `containers/loop_elements_destructor.vpl` is what kills the `IrEffects.Ending` and
+  `ReleaseMayRunCode` mutants, so it is in the default filters (7 tests, 3 s).
+- **A parameter's default is not a mutant.** C# compiles it into every caller, so a test built
+  against the old value cannot see the change; the catalog leaves one out.
+
+The other five targets have their filters in `targets.json` and are run from the Mutation page; each
+run records its score in `tests/mutation/results/` as it goes, and the page shows the newest run.
+
+The six targets are a first pass, not the end: the survivors left by a sampled run are triaged the
+same way, into a test or a deleted line, and the runs that would find more are the ones with a
+bigger budget.
 
 ## Step 6: later
 

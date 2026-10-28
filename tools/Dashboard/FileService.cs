@@ -4,10 +4,10 @@ namespace Vpl.Dashboard;
 public sealed class FileService(ServerOptions options)
 {
     const long MaxRead = 2_000_000;
-    static readonly string[] AllowedDirectories = ["tests/cases", "examples", "tests/.out", "tests/fuzz/findings"];
+    static readonly string[] AllowedDirectories = ["tests/cases", "examples", "tests/.out", "tests/fuzz/findings", "src"];
     static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".vpl", ".cpp", ".h", ".ir", ".txt", ".md", ".snapshot", ".json", ".log",
+        ".vpl", ".cpp", ".h", ".cs", ".ir", ".txt", ".md", ".snapshot", ".json", ".log",
     };
 
     readonly string root = options.Root;

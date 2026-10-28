@@ -28,6 +28,13 @@ public static class Reference
             new("List mutations", "Prints the mutation catalog.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --list"),
             new("Fuzz options", "Seed (deterministic), time budget, mutant cap, workers, corpus filter, error tests, warning strictness, and keeping the run directory.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seed 1 --seconds 120 --tier 1 --max 0 --jobs 8 --filter values --errors --no-strict --keep", Href("#/fuzz")),
         ]),
+        new("Mutation testing", [
+            new("One target", "Mutates one compiler file, rebuilds it into a private copy, and reruns its covering tests. Survivors are written to tests/mutation/results.", "dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target ir-effects", Href("#/mutation")),
+            new("Sampled run", "Runs the first N mutants of a file.", "dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target conversions --max 20", Href("#/mutation")),
+            new("Time budget", "Stops after the budget and records the score of what ran.", "dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target emitter-ir --seconds 1800", Href("#/mutation")),
+            new("List the mutants", "Prints every mutation site of a target without running anything.", "dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target place-path --list"),
+            new("List the targets", "Prints the six files and the test filters that cover each.", "dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets"),
+        ]),
         new("Compiler CLI", [
             new("Run a program", "Builds and runs a .vpl file.", "dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run examples/hello.vpl"),
             new("Build an executable", "Writes the executable next to the source unless -o is given.", "dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll build examples/hello.vpl -o hello.exe"),

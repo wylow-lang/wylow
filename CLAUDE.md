@@ -25,10 +25,12 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
+dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets   # mutation testing: the six files and their tests
+dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
-dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, seeds, findings, and code size
+dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, mutation testing, seeds, findings, and code size
 ```
 
 The fuzzer (`tests/Vpl.Fuzz`) mutates `tests/cases/**/*.vpl` at feature boundaries and value edges
@@ -41,6 +43,14 @@ reproduce it; a finding is a bug until it becomes a test in `tests/cases/` (with
 a minute; tier 2 builds and runs five modes per mutant, so it belongs in the background. A
 finding in `unsafe` or `@Unchecked` code is the program's undefined behavior, not a compiler bug;
 a mutant whose mutation edits `unsafe` code is still compiled, but tier 2 doesn't run it.
+
+The mutation harness (`tests/Vpl.Mutation`) asks the question the oracles can't: would the tests
+notice? It changes the compiler's own source — one operator, constant, pattern, negated condition,
+or simple statement at a time — rebuilds the file's project into a private copy, and reruns the
+tests that cover that feature (`tests/mutation/targets.json`). Neither the working tree nor the
+build output is touched; the only artifact is each mutant's assembly in a private copy of the
+runner. A mutant no test catches is a **survivor**, which becomes a test or a deleted line, like a
+fuzzer finding. Results land in `tests/mutation/results/` and the dashboard's Mutation page.
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
 writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-opt` (in the CLI and the test
@@ -245,7 +255,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   fuzz run after the build is part of the pre-commit routine for changes to Syntax, Semantics,
   Lowering, Analysis, or Optimize: it is the check that sees feature combinations no fixed test
   writes. Emitter, docs, and dashboard changes rely on the suite, and a background run counts when
-  it started on the build being committed. Every finding any run leaves is triaged. Don't push.
+  it started on the build being committed. Every finding and every surviving mutant any run leaves
+  is triaged. Don't push.
 
 ## Pitfalls already hit
 

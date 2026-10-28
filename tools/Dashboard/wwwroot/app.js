@@ -167,9 +167,17 @@ function jobSummary(job) {
     return `${metrics.passed ?? 0} passed, ${metrics.failed} failed`;
   if (metrics.findings !== null && metrics.findings !== undefined)
     return `${metrics.mutants ?? 0} mutants, ${metrics.findings} findings`;
+  if (metrics.survived !== null && metrics.survived !== undefined)
+    return `${metrics.killed ?? 0} killed, ${metrics.survived} survived`;
   if (job.error) return job.error;
   if (job.exitCode !== null && job.exitCode !== undefined) return `exit ${job.exitCode}`;
   return job.state;
+}
+
+function scoreClass(value) {
+  if (value >= 90) return 'ok';
+  if (value >= 70) return 'warn';
+  return 'bad';
 }
 
 function jobTable(jobs) {
@@ -443,6 +451,7 @@ async function route() {
       case 'code': await renderCode(view); break;
       case 'tests': await renderTests(view, query); break;
       case 'fuzz': await renderFuzz(view, query); break;
+      case 'mutation': await renderMutation(view, query); break;
       case 'findings': await renderFindings(view); break;
       case 'reference': await renderReference(view); break;
       case 'job': await renderJob(view, parts[1]); break;
@@ -514,6 +523,7 @@ async function renderOverview(view) {
       el('div', { class: 'actions' },
         el('a', { class: 'btn', href: '#/tests' }, 'Run tests'),
         el('a', { class: 'btn', href: '#/fuzz' }, 'Start fuzzing'),
+        el('a', { class: 'btn', href: '#/mutation' }, 'Mutation testing'),
         el('a', { class: 'btn', href: '#/reference' }, 'Commands')))));
 
   const recent = jobs.slice(0, 8);
@@ -695,6 +705,115 @@ async function renderFuzz(view, query) {
     : el('p', { class: 'empty' }, 'No fuzz runs yet.')));
 }
 
+async function renderMutation(view, query) {
+  setTitle('Mutation testing', '');
+  const [status, jobs, kinds, mutation] = await Promise.all([
+    api('/api/status'), api('/api/jobs'), ensureKinds(), api('/api/mutation'),
+  ]);
+  view.replaceChildren();
+  state.status = status;
+  state.jobs = jobs;
+  updateSidebar(status);
+  setTitle('Mutation testing', status.git ? `${status.git.branch}@${status.git.commit}` : '');
+
+  const kind = kinds.find(candidate => candidate.kind === 'mutation');
+  if (!kind) {
+    view.append(el('p', { class: 'error-text' }, 'The mutation job is not defined.'));
+    return;
+  }
+
+  const values = storedForm('mutation', defaultValues(kind));
+  applyQuery(kind, values, query);
+  storeForm('mutation', values);
+
+  const preview = el('div', { class: 'command-preview' });
+  const form = buildForm(kind, values, (name, value) => {
+    values[name] = value;
+    storeForm('mutation', values);
+    schedulePreview('mutation', values, preview);
+  }, status);
+
+  view.append(card(kind.title,
+    el('p', { class: 'muted small' }, kind.description),
+    status.build.stale
+      ? banner('A harness is older than the sources. Turn on “Build first”, or build from the Overview, before running.')
+      : null,
+    form,
+    el('div', { class: 'form-actions' },
+      el('button', { class: 'primary', onclick: () => startJob('mutation', values) }, 'Start mutation run'),
+      el('span', { class: 'muted small' }, kind.hint || '')),
+    el('div', { class: 'label' }, 'Command'),
+    preview));
+  schedulePreview('mutation', values, preview);
+
+  const resultFor = id => mutation.results.find(result => result.target === id);
+  const rows = el('tbody');
+  for (const target of mutation.targets) {
+    const result = resultFor(target.id);
+    rows.append(el('tr', {},
+      el('td', {},
+        el('div', {}, target.title),
+        el('div', { class: 'muted small mono' }, target.path),
+        el('div', { class: 'muted small' },
+          `filters: ${((result && result.filters.length ? result.filters : target.filters) || []).join(', ') || '(all tests)'}`),
+        target.note ? el('div', { class: 'muted small' }, target.note) : null),
+      el('td', {}, result
+        ? el('span', { class: `pill ${scoreClass(result.score)}` }, `${result.score.toFixed(2)}%`)
+        : el('span', { class: 'muted' }, 'not run')),
+      el('td', { class: 'num' }, result
+        ? (result.partial ? `${formatNumber(result.mutants)}/${formatNumber(result.sites)}` : formatNumber(result.mutants))
+        : '—'),
+      el('td', { class: 'num' }, result ? formatNumber(result.killed) : '—'),
+      el('td', { class: 'num' }, result ? formatNumber(result.survived) : '—'),
+      el('td', { class: 'num' }, result ? formatNumber(result.invalid) : '—'),
+      el('td', { class: 'muted' }, result ? ago(result.startedAt) : '')));
+  }
+  view.append(section('Targets', el('div', { class: 'table-wrap' },
+    el('table', { class: 'table' },
+      el('thead', {}, el('tr', {},
+        el('th', {}, 'Target'),
+        el('th', {}, 'Score'),
+        el('th', { class: 'num' }, 'Mutants'),
+        el('th', { class: 'num' }, 'Killed'),
+        el('th', { class: 'num' }, 'Survived'),
+        el('th', { class: 'num' }, 'Invalid'),
+        el('th', {}, 'Last run'))),
+      rows))));
+
+  const survivors = el('div', { class: 'findings-list' });
+  const withSurvivors = mutation.results.filter(result => result.survived > 0);
+  if (!withSurvivors.length) {
+    survivors.append(el('p', { class: 'empty' },
+      mutation.results.length
+        ? 'No survivors in the recorded runs.'
+        : 'No mutation runs yet. A survivor is a missing test or a line nothing needs.'));
+  }
+  for (const result of withSurvivors) {
+    survivors.append(el('div', { class: 'muted small' },
+      `${result.path} · ${result.survived} of ${result.mutants} mutants survived · ${ago(result.startedAt)}`));
+    for (const item of result.items.filter(entry => entry.result === 'survived')) {
+      survivors.append(el('div', { class: 'finding' },
+        el('div', { class: 'finding-main' },
+          el('div', { class: 'finding-title' }, `${item.description}`),
+          el('div', { class: 'muted small mono' }, `site ${item.site} · ${result.path}:${item.line}:${item.column}`),
+          el('div', { class: 'muted small mono' }, item.original)),
+        el('div', { class: 'finding-side' },
+          result.killed + result.survived > 0
+            ? el('span', { class: 'muted small' }, `${((result.killed / (result.killed + result.survived)) * 100).toFixed(0)}% file score`)
+            : null),
+        el('div', { class: 'finding-actions' },
+          el('button', { class: 'small', onclick: () => showSource(result.path) }, 'Show source'),
+          el('button', { class: 'small', onclick: () => copy(`${result.path}:${item.line}`) }, 'Copy location'))));
+    }
+  }
+  view.append(section('Survivors', survivors));
+
+  const history = jobs.filter(job => job.kind === 'mutation').slice(0, 8);
+  view.append(section('Recent mutation runs', history.length
+    ? jobTable(history)
+    : el('p', { class: 'empty' }, 'No mutation runs yet.')));
+}
+
 async function renderFindings(view) {
   setTitle('Findings', '');
   const [findings, status] = await Promise.all([api('/api/findings'), api('/api/status')]);
@@ -831,6 +950,7 @@ async function renderJob(view, id) {
     if (/^# (failed|interrupted)\b/.test(text)) return 'bad';
     if (text.startsWith('# ')) return 'dim';
     if (/^\s*(FAIL|FINDING)\b/.test(text) || /^Build FAILED/i.test(text)) return 'bad';
+    if (/\] SURVIVED /.test(text) || /^survivors:$/.test(text)) return 'warn';
     if (/^\s*\d+\s+(Error|Warning)\(s\)/i.test(text)) return 'dim';
     if (/\berror\b/i.test(text)) return 'bad';
     if (/\bwarning\b/i.test(text)) return 'warn';
@@ -887,6 +1007,11 @@ async function renderJob(view, id) {
     if (metrics.mutants !== null && metrics.mutants !== undefined) tiles.push(metric('Mutants', metrics.mutants));
     if (metrics.compiled !== null && metrics.compiled !== undefined) tiles.push(metric('Compiled', metrics.compiled));
     if (metrics.findings !== null && metrics.findings !== undefined) tiles.push(metric('Findings', metrics.findings));
+    if (metrics.killed !== null && metrics.killed !== undefined) tiles.push(metric('Killed', metrics.killed));
+    if (metrics.survived !== null && metrics.survived !== undefined) tiles.push(metric('Survived', metrics.survived));
+    if (metrics.invalid !== null && metrics.invalid !== undefined) tiles.push(metric('Invalid', metrics.invalid));
+    if (metrics.timedOut !== null && metrics.timedOut !== undefined && metrics.timedOut > 0) tiles.push(metric('Timeout', metrics.timedOut));
+    if (metrics.score !== null && metrics.score !== undefined) tiles.push(metric('Score', `${metrics.score.toFixed(2)}%`));
     if (metrics.rate) tiles.push(metric('Rate', metrics.rate));
     if (metrics.seconds !== null && metrics.seconds !== undefined) tiles.push(metric('Seconds', metrics.seconds.toFixed(1)));
     metricHost.replaceChildren(...tiles);
@@ -939,6 +1064,7 @@ async function renderJob(view, id) {
 function jobFormHref(kind) {
   if (kind.startsWith('fuzz')) return '#/fuzz';
   if (kind === 'suite') return '#/tests';
+  if (kind === 'mutation') return '#/mutation';
   return '#/overview';
 }
 
@@ -997,6 +1123,15 @@ async function showFinding(finding) {
   try {
     const text = await api(`/api/findings/content?path=${encodeURIComponent(finding.path)}`);
     showDialog(finding.finding || finding.fileName, text, finding.path);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function showSource(path) {
+  try {
+    const text = await api(`/api/file?path=${encodeURIComponent(path)}`);
+    showDialog(path, text, path);
   } catch (error) {
     toast(error.message, true);
   }

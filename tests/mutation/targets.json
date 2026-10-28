@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ir-effects",
+    "title": "IR effects",
+    "path": "src/Vpl.Compiler.Ir/IrEffects.cs",
+    "filters": ["ir/", "errors", "containers", "cycles", "values"],
+    "note": "What each instruction writes, runs, and may panic on. The verifier's self-tests pin the facts; error, container, cycle, and value tests see their behavior."
+  },
+  {
+    "id": "ir-access",
+    "title": "IR access",
+    "path": "src/Vpl.Compiler.Ir/IrAccess.cs",
+    "filters": ["ir/", "errors", "containers", "values"],
+    "note": "The one storage model: which storage an instruction touches. The verifier's self-tests and the error and value tests exercise it."
+  },
+  {
+    "id": "conversions",
+    "title": "Conversions",
+    "path": "src/Vpl.Compiler.Semantics/Conversions.cs",
+    "filters": ["types/", "errors", "values"],
+    "note": "Implicit and explicit conversions. TypeSelfTests checks the properties on random types; error and value tests print the conversions a program uses."
+  },
+  {
+    "id": "place-path",
+    "title": "Place paths",
+    "path": "src/Vpl.Compiler.Semantics/PlacePath.cs",
+    "filters": ["ir/", "errors", "references"],
+    "note": "How a place is decomposed into a base and steps. The verifier's self-tests build places; the error and reference tests use them."
+  },
+  {
+    "id": "emitter-types",
+    "title": "Emitter: types",
+    "path": "src/Vpl.Compiler.CodeGen/CppEmitter.Types.cs",
+    "filters": ["classes", "structs", "values"],
+    "note": "C++ declarations from the bound program. Class, struct, and value tests exercise the shapes it prints."
+  },
+  {
+    "id": "emitter-ir",
+    "title": "Emitter: bodies",
+    "path": "src/Vpl.Compiler.CodeGen/CppEmitter.Ir.cs",
+    "filters": ["basics", "lambdas", "containers", "values"],
+    "note": "Printing lowered bodies. Basics and lambda tests cover control flow; containers and value tests cover releases, operators, and formatting."
+  }
+]

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Vpl.Dashboard;
@@ -57,6 +58,7 @@ public static class JobSpecs
 {
     public const string TestRunner = "tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll";
     public const string Fuzzer = "tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll";
+    public const string MutationTool = "tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll";
 
     static readonly ParamOption[] Compilers =
     [
@@ -67,8 +69,11 @@ public static class JobSpecs
 
     static readonly ParamOption[] Tiers = [new("1", "Tier 1 — in-process"), new("2", "Tier 2 — build and run")];
 
-    public static IReadOnlyList<JobSpec> All() =>
-    [
+    public static IReadOnlyList<JobSpec> All(string root)
+    {
+        var targets = MutationTargets(root);
+        return
+        [
         new()
         {
             Kind = "build",
@@ -210,7 +215,74 @@ public static class JobSpecs
             Parameters = [],
             Build = _ => [new("dotnet", [Fuzzer, "--self-test"])],
         },
-    ];
+        new()
+        {
+            Kind = "mutation",
+            Title = "Mutation testing",
+            Group = "mutation",
+            Description = "Changes the compiler's source one operator, constant, pattern, or statement at a time and reruns the covering tests. A surviving mutant is a missing test or a line nothing needs.",
+            Parameters =
+            [
+                new("target", "Target", ParamType.Select, targets.FirstOrDefault()?.Value ?? "", targets),
+                new("filter", "Test filters", ParamType.Text, "", Help: "Comma-separated; empty uses the target's covering tests; all runs the whole suite."),
+                new("max", "Max mutants", ParamType.Number, "0", Min: 0, Max: 100000, Help: "0 means every site."),
+                new("seconds", "Duration", ParamType.Duration, "3600", Min: 1, Max: 86400, Help: "Choose seconds or minutes."),
+                new("seed", "Seed", ParamType.Number, "0", Min: 0, Max: int.MaxValue, Help: "0 keeps source order; another value samples deterministically."),
+                new("build", "Build first", ParamType.Bool, "true", Help: "Rebuilds the test runner; turn it off to run beside a job that is using the build output."),
+            ],
+            Build = values =>
+            {
+                var arguments = new List<string>
+                {
+                    MutationTool,
+                    "--target", values.Text("target"),
+                    "--max", values.Int("max").ToString(CultureInfo.InvariantCulture),
+                    "--seconds", values.Int("seconds").ToString(CultureInfo.InvariantCulture),
+                    "--seed", values.Int("seed").ToString(CultureInfo.InvariantCulture),
+                };
+                var filterText = values.Text("filter").Trim();
+                if (filterText.Equals("all", StringComparison.OrdinalIgnoreCase))
+                {
+                    arguments.Add("--filter");
+                    arguments.Add("");
+                }
+                else
+                {
+                    foreach (var filter in filterText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        arguments.Add("--filter");
+                        arguments.Add(filter);
+                    }
+                }
+                if (values.Bool("build"))
+                {
+                    arguments.Add("--build");
+                    return [new("dotnet", ["build", "tests/Vpl.Mutation/Vpl.Mutation.csproj", "--nologo", "-v", "minimal"]), new("dotnet", arguments)];
+                }
+                return [new("dotnet", arguments)];
+            },
+            Observe = Observers.Mutation,
+            Lock = "suite",
+            Hint = "Runs for a long time; keep it in the background. A suite run waits while it runs.",
+        },
+        ];
+    }
+
+    static ParamOption[] MutationTargets(string root)
+    {
+        try
+        {
+            var path = Path.Combine(root, "tests", "mutation", "targets.json");
+            if (!File.Exists(path))
+                return [];
+            var targets = JsonSerializer.Deserialize<MutationTargetDto[]>(File.ReadAllText(path), JsonDefaults.Options) ?? [];
+            return [.. targets.Select(target => new ParamOption(target.Id, target.Title))];
+        }
+        catch (Exception exception) when (exception is IOException or JsonException)
+        {
+            return [];
+        }
+    }
 
     public static Dictionary<string, string> Validate(JobSpec spec, IReadOnlyDictionary<string, string> input)
     {
@@ -279,6 +351,12 @@ static class Observers
     static readonly Regex SuiteFailure = new(@"^FAIL (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex FuzzSummary = new(@"^(\d+) mutants, (\d+) compiled, (\d+) findings \((.*)\)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex FuzzFinding = new(@"^FINDING (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    static readonly Regex MutationSummary = new(
+        @"^(\d+) mutants: (\d+) killed, (\d+) survived, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score(?: \([\d.,]+s\))?$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    static readonly Regex MutationProgress = new(
+        @"^progress (\d+)/(\d+): (\d+) killed, (\d+) survived, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static void Suite(string line, JobMetrics metrics)
     {
@@ -315,5 +393,29 @@ static class Observers
             if (metrics.FindingKeys.Count > 50)
                 metrics.FindingKeys.RemoveAt(0);
         }
+    }
+
+    public static void Mutation(string line, JobMetrics metrics)
+    {
+        var summary = MutationSummary.Match(line);
+        if (summary.Success)
+        {
+            metrics.Mutants = int.Parse(summary.Groups[1].Value, CultureInfo.InvariantCulture);
+            metrics.Killed = int.Parse(summary.Groups[2].Value, CultureInfo.InvariantCulture);
+            metrics.Survived = int.Parse(summary.Groups[3].Value, CultureInfo.InvariantCulture);
+            metrics.Invalid = int.Parse(summary.Groups[4].Value, CultureInfo.InvariantCulture);
+            metrics.TimedOut = summary.Groups[5].Success ? int.Parse(summary.Groups[5].Value, CultureInfo.InvariantCulture) : 0;
+            metrics.Score = double.Parse(summary.Groups[6].Value, CultureInfo.InvariantCulture);
+            return;
+        }
+        var progress = MutationProgress.Match(line);
+        if (!progress.Success)
+            return;
+        metrics.Mutants = int.Parse(progress.Groups[1].Value, CultureInfo.InvariantCulture);
+        metrics.Killed = int.Parse(progress.Groups[3].Value, CultureInfo.InvariantCulture);
+        metrics.Survived = int.Parse(progress.Groups[4].Value, CultureInfo.InvariantCulture);
+        metrics.Invalid = int.Parse(progress.Groups[5].Value, CultureInfo.InvariantCulture);
+        metrics.TimedOut = progress.Groups[6].Success ? int.Parse(progress.Groups[6].Value, CultureInfo.InvariantCulture) : 0;
+        metrics.Score = double.Parse(progress.Groups[7].Value, CultureInfo.InvariantCulture);
     }
 }
