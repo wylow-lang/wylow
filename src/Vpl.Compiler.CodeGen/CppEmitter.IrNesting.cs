@@ -174,7 +174,9 @@ public sealed partial class CppEmitter
     {
         foreach (var argument in IrWalk.Operands(statement))
         {
-            bool takesPlace = argument is IrRefArgument or IrAddrArgument;
+            // A hold pins the place it names, and a borrow read is a place even when it is an rvalue's
+            // operand, as `hold`'s and a borrowed local's are.
+            bool takesPlace = argument is IrRefArgument or IrAddrArgument or IrRead { Ownership: IrOwnership.Borrow };
             foreach (var place in IrWalk.Places(argument))
             {
                 if (place.Local.IsTemporary)
@@ -273,10 +275,12 @@ public sealed partial class CppEmitter
             var siblings = new IrFootprint();
             siblings.Add(nested);
             siblings.Reads.AddRange(placeReads.Where(r => !r.Locals.Contains(candidateLocal!)).SelectMany(r => r.Accesses));
-            // A copy is a fresh value in the IR, but its C++ text is the place it copied, and C++'s
-            // `?:` of two places is an lvalue. A place use would write the original, not the copy.
-            bool aliases = nestable is TemporaryUse { TakesPlace: true } placeUse && PrintsAsPlace(placeUse.Local, candidate);
-            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last) || aliases)
+            // A place use needs the object itself, in C++ storage. Nesting prints the expression that
+            // made the value instead, which is not that object: a copy prints the place it copied
+            // (so a place use would write the original), a move prints an xvalue no place takes, and a
+            // construction prints a value with no storage.
+            bool placeUse = nestable is TemporaryUse { TakesPlace: true };
+            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last) || placeUse)
             {
                 plan.Undo(mark);
                 break;
@@ -307,29 +311,6 @@ public sealed partial class CppEmitter
         IrBlock or IrIf => plan.Initialized.TryGetValue(local, out var initialized) && initialized.Definition == statement,
         _ => false,
     };
-
-    /// <summary>
-    /// Whether a temporary printed where it is used names another object's place rather than a fresh
-    /// value. A copy prints as the place it copied, and a choice between two prints as C++'s
-    /// <c>?:</c>, an lvalue when both options are; a move prints an xvalue, which no place use takes.
-    /// </summary>
-    bool PrintsAsPlace(IrLocal local, IrStatement definition) => definition switch
-    {
-        IrLet { Value: IrUse use } => OperandIsPlace(use.Operand),
-        IrBlock block when !plan.Evaluated.ContainsKey(local) => StoredValue(block, local) is { } stored && OperandIsPlace(stored),
-        IrIf conditional => StoredValue(conditional.Then, local) is { } then && OperandIsPlace(then)
-            && StoredValue(conditional.Else!, local) is { } otherwise && OperandIsPlace(otherwise),
-        _ => false,
-    };
-
-    bool OperandIsPlace(IrOperand operand)
-    {
-        if (operand is not IrRead read)
-            return false;
-        if (read.Place is { IsDeref: false, Projections.Count: 0, Local: var local } && plan.Nested.TryGetValue(local, out var definition))
-            return PrintsAsPlace(local, definition);
-        return !(read.Ownership == IrOwnership.Move && read.Type.IsCounted);
-    }
 
     static IrFootprint OwnFootprint(IrStatement statement)
     {
