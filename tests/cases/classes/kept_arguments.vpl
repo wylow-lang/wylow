@@ -1,6 +1,7 @@
 // A by-value argument is a copy its statement keeps, released when the statement completes, even
 // where the call replaces the place it was copied from (spec 03-memory-model.md, When references
-// are released). A local and an element are released at the same point.
+// are released). A local and an element are released at the same point, and a conditional's copy
+// of a place is itself a copy the statement keeps.
 class C {
     internal {
         String name;
@@ -43,8 +44,14 @@ void main() {
     // output: f returns
     // output: g runs
     // output: destroyed third
-    print(n + m);
-    // output: 4
+    mut S z = S(new C("fourth"));
+    int k = f((true ? z : z), ref z) + g();
+    // output: f returns
+    // output: g runs
+    // output: destroyed fourth
+    print(n + m + k);
+    // output: 6
+    // output: destroyed second
     // output: destroyed second
     // output: destroyed second
 }

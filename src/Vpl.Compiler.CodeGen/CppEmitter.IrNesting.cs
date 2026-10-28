@@ -166,7 +166,7 @@ public sealed partial class CppEmitter
 
     /// <summary>Something an instruction evaluates that may be nested into it: a temporary it names, or an element whose check precedes it.</summary>
     abstract record Nestable;
-    /// <param name="TakesPlace">Whether the instruction uses what it names as a place rather than as a value.</param>
+    /// <param name="TakesPlace">Whether the instruction needs the very object the temporary names rather than a value made from it.</param>
     sealed record TemporaryUse(IrLocal Local, bool TakesPlace) : Nestable;
     sealed record CheckedElement(IrElement Element, IrLocal Index) : Nestable;
 
@@ -175,8 +175,11 @@ public sealed partial class CppEmitter
         foreach (var argument in IrWalk.Operands(statement))
         {
             // A hold pins the place it names, and a borrow read is a place even when it is an rvalue's
-            // operand, as `hold`'s and a borrowed local's are.
-            bool takesPlace = argument is IrRefArgument or IrAddrArgument or IrRead { Ownership: IrOwnership.Borrow };
+            // operand, as `hold`'s and a borrowed local's are. A call's function value is used where it
+            // is too: nesting prints the place the copy came from, and the call replaces that place
+            // while the closure must stay alive, so the call would reach the original, not the copy.
+            bool takesPlace = argument is IrRefArgument or IrAddrArgument or IrRead { Ownership: IrOwnership.Borrow }
+                || (IrWalk.Rvalue(statement) is IrInvoke invoke && ReferenceEquals(invoke.Callee, argument));
             foreach (var place in IrWalk.Places(argument))
             {
                 if (place.Local.IsTemporary)
@@ -207,6 +210,9 @@ public sealed partial class CppEmitter
             foreach (var inner in InnerBlocks(statement))
                 footprint.Add(IrWalk.Footprint(inner));
             footprint.CreatesOwner |= IrWalk.Descendants(statement).OfType<IrLet>().Any(l => CreatesOwner(l.Value));
+            // The local is released when its block ends, but nesting it into a statement makes its
+            // value that statement's temporary, released when the C++ statement ends.
+            footprint.CreatesOwner |= IrEffects.ReleaseMayRunCode(defined);
             // Storing the local is what defines it, which its use comes after.
             footprint.Writes.RemoveAll(w => w.Storage == IrStorage.Frame && w.Local == defined);
             // The declaration is part of the definition, if nothing stays between them.
@@ -275,10 +281,10 @@ public sealed partial class CppEmitter
             var siblings = new IrFootprint();
             siblings.Add(nested);
             siblings.Reads.AddRange(placeReads.Where(r => !r.Locals.Contains(candidateLocal!)).SelectMany(r => r.Accesses));
-            // A place use needs the object itself, in C++ storage. Nesting prints the expression that
-            // made the value instead, which is not that object: a copy prints the place it copied
-            // (so a place use would write the original), a move prints an xvalue no place takes, and a
-            // construction prints a value with no storage.
+            // A use that needs the object itself needs it in C++ storage. Nesting prints the
+            // expression that made the value instead, which is not that object: a copy prints the
+            // place it copied (so the use would reach the original), a move prints an xvalue no
+            // place takes, and a construction prints a value with no storage.
             bool placeUse = nestable is TemporaryUse { TakesPlace: true };
             if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last) || placeUse)
             {

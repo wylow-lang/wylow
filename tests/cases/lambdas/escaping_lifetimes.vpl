@@ -35,6 +35,15 @@ void main() {
     holder.action();                                // output: still here
     holder.action();                                // output: 1
 
+    // A conditional's copy of the place keeps the closure alive while it runs, though its body
+    // replaces the place it came from.
+    holder.action = () -> {
+        holder.action = () -> print(2);
+        print(text);
+    };
+    (true ? holder.action : holder.action)();       // output: still here
+    holder.action();                                // output: 2
+
     // A list cleared during a call of one of its closures.
     var handlers = new List<() -> void>();
     String other = "cleared";
