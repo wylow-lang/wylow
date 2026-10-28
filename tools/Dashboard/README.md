@@ -11,7 +11,8 @@ Then open <http://localhost:5178>. Options: `--port 5178`, `--open`, `--root <re
 
 | Page | |
 |---|---|
-| Overview | repository, toolchains, build freshness, recent runs, recent seeds |
+| Overview | repository, toolchains, build freshness, code size, recent runs, recent seeds |
+| Code | C# by project, VPL standard library, tests and examples, C++ runtime, and other sources, by physical and code line counts |
 | Tests | compiler, filter, `--no-opt`/`--no-nest`, build first, live output, failures linked to source/C++/IR |
 | Fuzz | seed, tier, time budget, workers, filter; live stats; replay a mutant; recent seeds |
 | Findings | `tests/fuzz/findings/*.vpl` and run logs, with the reduced source and replay |

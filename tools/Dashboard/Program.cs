@@ -28,6 +28,7 @@ builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<FindingsService>();
 builder.Services.AddSingleton<JobManager>();
 builder.Services.AddSingleton<StatusService>();
+builder.Services.AddSingleton<LinesService>();
 builder.Services.AddSingleton<FileService>();
 
 var app = builder.Build();

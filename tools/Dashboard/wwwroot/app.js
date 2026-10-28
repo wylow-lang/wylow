@@ -105,6 +105,10 @@ function plural(count, one, many) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
+function formatNumber(value) {
+  return (value ?? 0).toLocaleString();
+}
+
 function ago(value) {
   if (!value) return '—';
   const seconds = (Date.now() - new Date(value).getTime()) / 1000;
@@ -436,6 +440,7 @@ async function route() {
   try {
     switch (page) {
       case 'overview': await renderOverview(view); break;
+      case 'code': await renderCode(view); break;
       case 'tests': await renderTests(view, query); break;
       case 'fuzz': await renderFuzz(view, query); break;
       case 'findings': await renderFindings(view); break;
@@ -452,7 +457,11 @@ async function route() {
 
 async function renderOverview(view) {
   setTitle('Overview', '');
-  const [status, jobs] = await Promise.all([api('/api/status'), api('/api/jobs')]);
+  const [status, jobs, lines] = await Promise.all([
+    api('/api/status'),
+    api('/api/jobs'),
+    api('/api/lines').catch(() => null),
+  ]);
   view.replaceChildren();
   state.status = status;
   state.jobs = jobs;
@@ -477,6 +486,16 @@ async function renderOverview(view) {
     el('div', { class: 'actions' },
       el('button', { class: 'primary', onclick: () => startJob('build', {}) }, 'Build now')));
 
+  const codeCard = lines
+    ? card('Code',
+        el('div', { class: 'big' }, formatNumber(lines.code)),
+        el('p', { class: 'muted small' },
+          `code lines in ${plural(lines.files, 'file', 'files')} · ${formatNumber(lines.lines)} lines total`),
+        el('div', {}, lines.groups.filter(group => group.files).map(group =>
+          kv(group.label, formatNumber(group.code)))),
+        el('div', { class: 'actions' }, el('a', { class: 'btn small', href: '#/code' }, 'Breakdown')))
+    : card('Code', el('p', { class: 'muted small' }, 'Line counts are unavailable.'));
+
   view.append(el('div', { class: 'grid' },
     card('Repository',
       kv('Branch', status.git ? status.git.branch : 'not a checkout'),
@@ -490,6 +509,7 @@ async function renderOverview(view) {
       el('p', { class: 'muted small' },
         `${plural(status.findings.vpl, 'finding', 'findings')} and ${plural(status.findings.logs, 'run log', 'run logs')}`),
       el('div', { class: 'actions' }, el('a', { class: 'btn small', href: '#/findings' }, 'Review'))),
+    codeCard,
     card('Quick actions',
       el('div', { class: 'actions' },
         el('a', { class: 'btn', href: '#/tests' }, 'Run tests'),
@@ -503,6 +523,52 @@ async function renderOverview(view) {
 
   if (status.recentSeeds.length)
     view.append(section('Recent seeds', seedChips(status.recentSeeds)));
+}
+
+async function renderCode(view) {
+  setTitle('Code', '');
+  const [lines, status] = await Promise.all([api('/api/lines'), api('/api/status')]);
+  view.replaceChildren();
+  state.status = status;
+  updateSidebar(status);
+  setTitle('Code', status.git ? `${status.git.branch}@${status.git.commit}` : status.root);
+
+  const groups = lines.groups.filter(group => group.files > 0);
+  view.append(el('div', { class: 'metrics' },
+    metric('All code', formatNumber(lines.code)),
+    ...groups.map(group => metric(group.label, formatNumber(group.code)))));
+  view.append(el('p', { class: 'muted small' },
+    `${plural(lines.files, 'file', 'files')} · ${formatNumber(lines.lines)} physical lines. Code excludes blank and comment-only lines; generated output and dependencies are not counted.`));
+
+  for (const group of groups)
+    view.append(section(`${group.label} · ${formatNumber(group.code)} code lines`, lineTable(group)));
+}
+
+function lineTable(group) {
+  const body = el('tbody');
+  for (const item of group.items) {
+    body.append(el('tr', {},
+      el('td', {},
+        el('div', {}, item.name),
+        item.path ? el('div', { class: 'muted small mono' }, item.path) : null),
+      el('td', { class: 'num' }, formatNumber(item.files)),
+      el('td', { class: 'num' }, formatNumber(item.lines)),
+      el('td', { class: 'num' }, formatNumber(item.code))));
+  }
+  body.append(el('tr', { class: 'total' },
+    el('td', {}, 'Total'),
+    el('td', { class: 'num' }, formatNumber(group.files)),
+    el('td', { class: 'num' }, formatNumber(group.lines)),
+    el('td', { class: 'num' }, formatNumber(group.code))));
+
+  return el('div', { class: 'table-wrap' },
+    el('table', { class: 'table' },
+      el('thead', {}, el('tr', {},
+        el('th', {}, 'Name'),
+        el('th', { class: 'num' }, 'Files'),
+        el('th', { class: 'num' }, 'Lines'),
+        el('th', { class: 'num' }, 'Code'))),
+      body));
 }
 
 async function renderTests(view, query) {

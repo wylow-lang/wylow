@@ -210,6 +210,8 @@ input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); }
 }
 .table td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .table tbody tr:last-child td { border-bottom: 0; }
+.table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table tr.total td { border-top: 1px solid var(--border-strong); font-weight: 600; }
 .table a { font-weight: 500; }
 
 .form { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 18px; }

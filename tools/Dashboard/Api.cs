@@ -12,6 +12,7 @@ public static class Api
         app.MapGet("/health", () => Results.Ok(new { ok = true }));
 
         app.MapGet("/api/status", (StatusService status) => Results.Ok(status.Get()));
+        app.MapGet("/api/lines", (LinesService lines) => Results.Ok(lines.Get()));
         app.MapGet("/api/kinds", (JobManager jobs) => Results.Ok(jobs.Kinds()));
         app.MapGet("/api/reference", () => Results.Ok(Reference.All));
 
