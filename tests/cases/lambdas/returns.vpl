@@ -9,6 +9,10 @@ T run<T>((int) -> T f, int x) {
     return f(x);
 }
 
+String twice((String) -> String f, String x) {
+    return f(f(x));
+}
+
 void main() {
     // In a while loop.
     print(apply(x -> {
@@ -65,4 +69,7 @@ void main() {
             }
         }
     }, 1));                                     // output: 1
+
+    // In a switch expression, whose chosen case the lambda returns through a temporary.
+    print(twice(s -> (switch (s) { default -> s; }), "hi")); // output: hi
 }

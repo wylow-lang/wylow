@@ -145,16 +145,42 @@ public sealed partial class CppEmitter
         }
     }
 
-    /// <summary>A returned value. C++ moves a returned local itself, and <c>std::move</c> would prevent eliding the move.</summary>
-    string ReturnedText(IrOperand value) =>
-        value is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value } local } } && !plan.Nested.ContainsKey(local)
-            ? Name(local)
-            : OperandText(value);
+    /// <summary>
+    /// A returned value. C++ moves a returned local itself, and <c>std::move</c> would prevent
+    /// eliding the move, so a move that nesting forwards from a local is printed as that local.
+    /// </summary>
+    string ReturnedText(IrOperand value)
+    {
+        var current = value;
+        while (current is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local: var local } })
+        {
+            if (!plan.Nested.TryGetValue(local, out var definition))
+            {
+                if (local.Kind == IrLocalKind.Value)
+                    return Name(local);
+                break;
+            }
+            // The temporary prints as what defines it, so the move it holds is a move of that.
+            if (definition switch
+                {
+                    IrLet { Value: IrUse use } => use.Operand,
+                    IrBlock block when !plan.Evaluated.ContainsKey(local) => StoredValue(block, local),
+                    _ => null,
+                } is not { } inner)
+                break;
+            current = inner;
+        }
+        return OperandText(current);
+    }
+
+    /// <summary>The value a block stores whole into a local it defines, if the last statement does.</summary>
+    static IrOperand? StoredValue(IrBlock block, IrLocal local) =>
+        block.Statements.LastOrDefault(s => s is IrStore store && IsWholeStore(store, local)) is IrStore store ? store.Value : null;
 
     /// <summary>The value a local declared without one is defined with: a block's last store, or a choice between two.</summary>
     string InitializedText(IrLocal local)
     {
-        IrOperand Stored(IrBlock block) => ((IrStore)block.Statements.Last(s => s is IrStore store && IsWholeStore(store, local))).Value;
+        IrOperand Stored(IrBlock block) => StoredValue(block, local)!;
         switch (plan.Initialized[local].Definition)
         {
             case IrBlock block:

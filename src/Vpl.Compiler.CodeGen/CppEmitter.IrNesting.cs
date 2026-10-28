@@ -166,19 +166,24 @@ public sealed partial class CppEmitter
 
     /// <summary>Something an instruction evaluates that may be nested into it: a temporary it names, or an element whose check precedes it.</summary>
     abstract record Nestable;
-    sealed record TemporaryUse(IrLocal Local) : Nestable;
+    /// <param name="TakesPlace">Whether the instruction uses what it names as a place rather than as a value.</param>
+    sealed record TemporaryUse(IrLocal Local, bool TakesPlace) : Nestable;
     sealed record CheckedElement(IrElement Element, IrLocal Index) : Nestable;
 
     static IEnumerable<Nestable> Nestables(IrStatement statement)
     {
-        foreach (var place in IrWalk.Operands(statement).SelectMany(IrWalk.Places))
+        foreach (var argument in IrWalk.Operands(statement))
         {
-            if (place.Local.IsTemporary)
-                yield return new TemporaryUse(place.Local);
-            foreach (var element in place.Projections.OfType<IrElement>())
+            bool takesPlace = argument is IrRefArgument or IrAddrArgument;
+            foreach (var place in IrWalk.Places(argument))
             {
-                if (element.Index is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var index } })
-                    yield return new CheckedElement(element, index);
+                if (place.Local.IsTemporary)
+                    yield return new TemporaryUse(place.Local, takesPlace);
+                foreach (var element in place.Projections.OfType<IrElement>())
+                {
+                    if (element.Index is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var index } })
+                        yield return new CheckedElement(element, index);
+                }
             }
         }
     }
@@ -268,7 +273,10 @@ public sealed partial class CppEmitter
             var siblings = new IrFootprint();
             siblings.Add(nested);
             siblings.Reads.AddRange(placeReads.Where(r => !r.Locals.Contains(candidateLocal!)).SelectMany(r => r.Accesses));
-            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last))
+            // A copy is a fresh value in the IR, but its C++ text is the place it copied, and C++'s
+            // `?:` of two places is an lvalue. A place use would write the original, not the copy.
+            bool aliases = nestable is TemporaryUse { TakesPlace: true } placeUse && PrintsAsPlace(placeUse.Local, candidate);
+            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last) || aliases)
             {
                 plan.Undo(mark);
                 break;
@@ -299,6 +307,29 @@ public sealed partial class CppEmitter
         IrBlock or IrIf => plan.Initialized.TryGetValue(local, out var initialized) && initialized.Definition == statement,
         _ => false,
     };
+
+    /// <summary>
+    /// Whether a temporary printed where it is used names another object's place rather than a fresh
+    /// value. A copy prints as the place it copied, and a choice between two prints as C++'s
+    /// <c>?:</c>, an lvalue when both options are; a move prints an xvalue, which no place use takes.
+    /// </summary>
+    bool PrintsAsPlace(IrLocal local, IrStatement definition) => definition switch
+    {
+        IrLet { Value: IrUse use } => OperandIsPlace(use.Operand),
+        IrBlock block when !plan.Evaluated.ContainsKey(local) => StoredValue(block, local) is { } stored && OperandIsPlace(stored),
+        IrIf conditional => StoredValue(conditional.Then, local) is { } then && OperandIsPlace(then)
+            && StoredValue(conditional.Else!, local) is { } otherwise && OperandIsPlace(otherwise),
+        _ => false,
+    };
+
+    bool OperandIsPlace(IrOperand operand)
+    {
+        if (operand is not IrRead read)
+            return false;
+        if (read.Place is { IsDeref: false, Projections.Count: 0, Local: var local } && plan.Nested.TryGetValue(local, out var definition))
+            return PrintsAsPlace(local, definition);
+        return !(read.Ownership == IrOwnership.Move && read.Type.IsCounted);
+    }
 
     static IrFootprint OwnFootprint(IrStatement statement)
     {

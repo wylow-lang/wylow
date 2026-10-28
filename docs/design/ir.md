@@ -160,12 +160,16 @@ Two instructions **conflict**, by the effect table (§6.1), if:
    release order (§3.4, When references are released). At first that's any value that
    `MayOwnObjects`; destructor reachability (§6.1) narrows it later.
 
-Three structural rules go with it:
+Four structural rules go with it:
 
 - A value whose release may be observable is nested only into its statement's last C++
   statement. In an earlier one, C++ would destroy it at that statement's end, before the VPL
   statement completes. `vpl::keep` around it is still nesting: its temporary lives to the end of
   the full-expression.
+- A temporary that creates a value is a fresh value in the IR, but C++ may print a copy as the
+  place it copied, and `?:` of two places is an lvalue. So a copy, or a choice between copies, is
+  not nested into a use that takes a place (a `ref` or `in` argument, an address, or a store's
+  target), where the use would reach the original instead of the copy.
 - `store`s and holds are never nested. Holds are named because they live for an extent, and
   stores have no value. So every write inside a nested expression is inside a call, C++ never
   interleaves two calls, and its rule that unsequenced writes are undefined can't apply.
