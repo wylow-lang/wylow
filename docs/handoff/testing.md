@@ -4,8 +4,9 @@
 both interaction matrices and the value axis, every line no test runs triaged, and the mutation
 fuzzer, below). Step 5b (mutation testing the compiler) has its harness, its dashboard page, and
 its first runs; the survivors those runs found are triaged below, and the long runs continue.
-Delete this file once every step has landed, and move whatever it leaves as rules into CLAUDE.md
-and `docs/design/architecture.md`.
+Step 6 records a survey of what other compilers test, and the work it suggests. Delete this file
+once every step has landed, and move whatever it leaves as rules into CLAUDE.md and
+`docs/design/architecture.md`; keep Step 6's survey as the phase's research backlog.
 
 ## Why
 
@@ -563,6 +564,74 @@ bigger budget.
   planned in architecture.md.
 - **Mutation testing of the compiler, widened.** Step 5b runs it on the six files where a wrong
   answer hides; once it is routine, extend it to the binder and lowering, at a file at a time.
+
+### What other compilers test, and what to add (survey, 2026-10-28)
+
+From LLVM (lit/FileCheck regression tests, unit tests, a whole-program test-suite, `llvm-reduce`,
+`XFAIL`/`UNSUPPORTED`), GCC (DejaGnu directives, and "torture" runs of one test under many option
+sets), rustc (exact UI diagnostics with `--bless`, expected MIR after optimizations, and codegen,
+assembly, and incremental suites), Csmith and YARPGen (UB-free random program generation with
+cross-compiler and cross-optimization oracles), EMI (mutating code the current input never runs),
+Alive2 (SMT translation validation, plus an IR interpreter), Miri (an interpreter that detects UB in
+unsafe code), OSS-Fuzz (coverage-guided front-end fuzzing with sanitizers), and CompCert (a verified
+compiler that still runs Csmith, YARPGen, differential tests, and GCC's torture suite). test262 and
+the WebAssembly spec tests are the model for an external conformance suite.
+
+| Practice | VPL today | Next step |
+|---|---|---|
+| Expected-output, exact-diagnostic, unit and property tests | `tests/cases`, `IrSelfTests`, `TypeSelfTests` | — |
+| One reduced test per bug | fuzzer reducer, `tests/cases` | — |
+| Option/mode matrices ("torture") | five modes, matrices | keep every case in every mode |
+| Reviewed golden IR after each optimization (rustc `mir-opt`) | `.ir` written, `// stack:`/`// in-place:` markers | a small reviewed `.ir` snapshot per pass |
+| Well-typed random program generation (Csmith/YARPGen) | none | the generating fuzzer above |
+| A differential oracle | the five modes share lowering | the interpreter above, on every test |
+| Metamorphic/EMI transformations | some fuzzer mutations | name them, and add dead-code mutation |
+| Translation validation | verifier after each pass (invariants only) | interpreter differential; no SMT |
+| UB detection | ASan/UBSan mode | interpreter for `unsafe`/stdlib; MSan/LSan on Linux CI |
+| Coverage-guided front-end fuzzing (OSS-Fuzz) | mutations of valid tests | syntax chaos, then SharpFuzz if wanted |
+| `XFAIL`/`UNSUPPORTED` | none | runner directives for toolchain and platform cases |
+| Compile-time and code-size tracking | dashboard has code size | budgets and trends per commit |
+| External conformance suite (test262/wasm) | matrices and spec chapters | an id per spec rule, cited by a test |
+| Formal verification (CompCert) | — | not worth it; test the untrusted edges instead |
+
+**Order, highest value first.**
+
+1. **The IR interpreter as a universal oracle.** Run every test through the unoptimized IR and
+   compare its stdout, exit code, and panic with the native modes. Every current oracle shares
+   lowering, so this is the only one that checks what lowering means.
+2. **The generating fuzzer, with the interpreter as its oracle,** comparing the interpreter with
+   every native mode. This is the Csmith/YARPGen model and the source of most historical compiler
+   bugs.
+3. **Front-end fuzzing of arbitrary input.** A syntax-chaos mutator in `tests/Vpl.Fuzz` (insert,
+   delete, duplicate tokens) that requires only no exception and no hang; SharpFuzz if coverage
+   guidance is wanted. Error recovery is where OSS-Fuzz finds clang bugs and where the current
+   fuzzer, which starts from valid tests, is blindest.
+4. **Per-pass golden IR.** A few reviewed `.ir` snapshots per optimization, so a pass that silently
+   stops firing fails even though the verifier accepts its unchanged output.
+5. **Metamorphic/EMI transformations as a named oracle.** Rename locals, wrap statements in
+   `if (true)`, insert dead declarations, and mutate code the input never executes; output must not
+   change.
+6. **Runner and CI hygiene.** `XFAIL`/`UNSUPPORTED`, a nightly five-mode run plus fuzz plus one
+   mutation target, and compile-time and generated-C++-size budgets.
+7. **Runtime and stdlib model tests.** Randomized operation sequences compared with a simple model,
+   cycle collector/`Weak`/pool stress, and MSan/LSan on a Linux CI.
+8. **A spec-rule index.** One id per normative rule, and a test citing each.
+
+Not worth doing now: formal verification (CompCert's own testing still finds bugs at the untrusted
+edges), SMT translation validation (the verifier after each pass plus the interpreter differential is
+the practical version), chasing line coverage (mutation answers whether a test would notice), and
+any new oracle that shares lowering.
+
+Keep this subsection when the rest of this file is deleted; it is the phase's research backlog.
+
+Sources: [LLVM Testing Guide](https://llvm.org/docs/TestingGuide.html),
+[GCC testsuites](https://gcc.gnu.org/onlinedocs/gccint/Testsuites.html),
+[rustc-dev-guide](https://rustc-dev-guide.rust-lang.org/tests/intro.html),
+[compiler-fuzzing survey](https://ar5iv.labs.arxiv.org/html/2306.06884),
+[YARPGen](https://github.com/intel/yarpgen), [Alive2](https://github.com/AliveToolkit/alive2),
+[Miri](https://github.com/rust-lang/miri), [OSS-Fuzz](https://github.com/google/oss-fuzz),
+[CompCert testing](https://hal.science/hal-04096390v1/file/tests_CompCert_TAP23_preprint.pdf),
+[test262](https://github.com/tc39/test262).
 
 ## Exit criteria for the hardening phase
 
