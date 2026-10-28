@@ -5,3 +5,4 @@ obj/
 .vpl/
 tests/.out/
 tests/.coverage/
+tools/Dashboard/.state/
