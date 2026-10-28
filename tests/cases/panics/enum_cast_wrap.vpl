@@ -1,0 +1,13 @@
+// A cast checks the value fits before comparing it in the enum's type: this ulong wraps to -128
+// as a long, which is a declared variant, but it is not representable in the enum's type.
+@Repr(sbyte)
+enum Signed {
+    Low = -128,
+    High = 127,
+}
+
+void main() {
+    ulong huge = 0xFFFFFFFFFFFFFF80uL;
+    var signed = (Signed)huge;          // panic: integer is not a value of enum 'Signed'
+    print("unreachable");
+}

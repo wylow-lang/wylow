@@ -21,6 +21,7 @@ static partial class IrSelfTests
             internal {
                 mut Obj b;
                 Obj fixed;
+                int[2] pair;
 
                 Holder(Obj b) {
                     this.b = b;
@@ -30,6 +31,7 @@ static partial class IrSelfTests
         }
 
         struct Vec { internal { int x; } }
+        struct Boxed { internal { Obj? item; } }
         struct Counter { internal { int n = 1; } }
         struct Tally { internal { Counter c; } }
         struct Built { internal { int n = f(); } }
@@ -61,7 +63,7 @@ static partial class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b)];
+        return [.. Cases(b).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b), AccessFacts(b), PlacePathFacts()];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>

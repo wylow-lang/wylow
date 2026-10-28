@@ -1,0 +1,37 @@
+// Copy assignment copies the value; the source stays usable.
+class Item {
+    internal {
+        int id;
+
+        Item(int id) {
+            this.id = id;
+        }
+    }
+
+    ~Item() {
+        print("free");
+    }
+}
+
+enum Slot {
+    Empty,
+    Holding(Item item),
+}
+
+int describe(Slot s) {
+    return switch (s) {
+        case Empty -> 0;
+        case Holding(var item) -> item.id;
+    };
+}
+
+void main() {
+    mut var a = Slot.Holding(new Item(1));
+    mut var b = Slot.Empty;
+    b = a;                          // a is read again, so this copies rather than moves
+    print(describe(a));             // output: 1
+    print(describe(b));             // output: 1
+    a = Slot.Empty;
+    b = Slot.Empty;                 // output: free
+    print("done");                  // output: done
+}

@@ -1,0 +1,26 @@
+// A local declared without a value is a placeholder until it is assigned. Its first variant carries
+// a value, so the placeholder must construct that value too: assigning over it destroys what it holds.
+class Item {
+    internal {
+        int id;
+
+        Item(int id) {
+            this.id = id;
+        }
+    }
+
+    ~Item() {
+        print("free");
+    }
+}
+
+enum Slot {
+    Holding(Item item),
+    Empty,
+}
+
+void main() {
+    Slot slot;
+    slot = Slot.Empty;
+    print("done");            // output: done
+}

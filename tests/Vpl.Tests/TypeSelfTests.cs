@@ -46,7 +46,7 @@ static class TypeSelfTests
         if (first is null)
             return [failure!];
         var types = new TypeGenerator(first, Seed).Take(Count);
-        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types)];
+        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first)];
     }
 
     static BoundProgram? Compile(string text, string name, out TestResult? failure)
@@ -255,6 +255,30 @@ static class TypeSelfTests
         return Report("parses_back", Enumerable.Range(0, types.Count).Select(i =>
             probe.Methods[$"p{i}"].Single().Parameters.Single().Type is var bound && bound != expected[i]
                 ? $"'{expected[i]}' binds to '{bound}'{(bound.Name == expected[i].Name ? ", which prints alike" : "")}" : null));
+    }
+
+    /// <summary>
+    /// Conversions at the type-set edges no random type reaches: error recovery, the non-numeric
+    /// casts, an enum with data, and exactness at a floating type's limit.
+    /// </summary>
+    static TestResult ConversionFacts(BoundProgram program)
+    {
+        List<string> problems = [];
+        void Expect(bool condition, string problem)
+        {
+            if (!condition)
+                problems.Add(problem);
+        }
+
+        Expect(Conversions.IsImplicit(VplType.Error, VplType.Int), "an error type converts to anything");
+        Expect(!Conversions.IsExplicit(VplType.Bool, VplType.Char), "a bool doesn't cast to a char");
+        var maybe = program.Types.Single(s => s.Name == "Maybe").Construct([VplType.Int]);
+        Expect(!Conversions.IsExplicit(VplType.Int, maybe), "an integer doesn't cast to an enum whose variants carry data");
+        Expect(Conversions.IsExactlyRepresentable(1, VplType.Float), "1 is exact in a float");
+        Expect(!Conversions.IsExactlyRepresentable(((Int128)1 << 24) + 1, VplType.Float), "2^24 + 1 is not exact in a float");
+        Expect(Conversions.IsExactlyRepresentable(1, VplType.Double), "1 is exact in a double");
+        Expect(!Conversions.IsExactlyRepresentable(((Int128)1 << 53) + 1, VplType.Double), "2^53 + 1 is not exact in a double");
+        return new("types/conversions", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 }
 

@@ -1,0 +1,29 @@
+// A generic class that inherits an interface implementation from its base gets a forwarder.
+interface Named {
+    String name();
+}
+
+class Base implements Named {
+    internal {
+        String name() {
+            return "base";
+        }
+    }
+}
+
+class Generic<T> extends Base {
+    internal {
+        int value = 3;
+
+        T echo(T x) {
+            return x;
+        }
+    }
+}
+
+void main() {
+    var g = new Generic<int>();
+    print(g.name());          // output: base
+    print(g.value);           // output: 3
+    print(g.echo(7));         // output: 7
+}

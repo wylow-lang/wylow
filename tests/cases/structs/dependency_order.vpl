@@ -1,0 +1,18 @@
+// A definition comes after every type it holds by value, including a fixed array's element.
+struct Holder {
+    internal {
+        Enemy[2] enemies;
+    }
+}
+
+struct Enemy {
+    internal {
+        int id = 5;
+    }
+}
+
+void main() {
+    var h = Holder();
+    print(h.enemies[0].id);   // output: 5
+    print(h.enemies[1].id);   // output: 5
+}

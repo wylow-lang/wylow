@@ -1,0 +1,25 @@
+// A class definition comes after every interface it implements, wherever it is declared.
+class Crate implements Damageable {
+    internal {
+        mut int hp = 3;
+
+        void damage(int amount) {
+            hp -= amount;
+        }
+
+        int health() {
+            return hp;
+        }
+    }
+}
+
+interface Damageable {
+    mut void damage(int amount);
+    mut int health();
+}
+
+void main() {
+    var c = new Crate();
+    c.damage(1);
+    print(c.health());        // output: 2
+}
