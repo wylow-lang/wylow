@@ -40,6 +40,14 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
     static readonly CompileOptions NoOptOptions = new(Nest: true, Optimize: false);
     const int OutputCap = 1 << 20;
 
+    /// <summary>
+    /// Warnings a valid program makes the C++ compiler draw about its own constants: a comparison
+    /// with itself, or an unsigned comparison with a value outside its range. No emitter can remove
+    /// those without changing what the program computes (a float compared with itself is false for
+    /// NaN), so they are not the emitter's.
+    /// </summary>
+    static readonly HashSet<string> SourceWarnings = ["tautological-compare", "type-limits"];
+
     public IReadOnlyList<Mode> Modes { get; } = modes;
 
     public CheckScope Tier1 { get; } = new(DefaultCompile: true, NoOptCompile: true, Determinism: true);
@@ -50,13 +58,14 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
         Strict: strict);
 
     /// <param name="compiled">Whether the default program compiled, so tier 2 knows whether to run.</param>
-    public Finding? Check(string text, CheckScope scope, out bool compiled)
+    /// <param name="unsafeCode">Whether a mutation edited <c>unsafe</c> code, whose program may do anything at run time.</param>
+    public Finding? Check(string text, CheckScope scope, out bool compiled, bool unsafeCode = false)
     {
         var source = new SourceText("<fuzz>", text);
         var finding = CompileTier(source, scope, out compiled);
         if (finding is not null || scope.Modes.Count == 0)
             return finding;
-        return RunModes(source, text, scope, out compiled);
+        return RunModes(source, text, scope, out compiled, unsafeCode);
     }
 
     Finding? CompileTier(SourceText source, CheckScope scope, out bool compiled)
@@ -105,7 +114,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
         return null;
     }
 
-    Finding? RunModes(SourceText source, string text, CheckScope scope, out bool compiled)
+    Finding? RunModes(SourceText source, string text, CheckScope scope, out bool compiled, bool unsafeCode)
     {
         compiled = false;
         var results = new List<ModeResult>();
@@ -157,6 +166,23 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
             if (scope.Strict && index == referenceIndex && CheckWarnings(Path.Combine(directory, "prog.cpp"), referenceIndex) is { } warning)
                 return warning;
 
+            // A mutation in `unsafe` code may do what the language calls undefined, so what the
+            // program prints, crashes with, or reports to a sanitizer is the program's, not the
+            // compiler's; only the C++ it compiles to must still be sound.
+            if (unsafeCode)
+            {
+                results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                continue;
+            }
+
+            // The suite skips a test that observes an optimization under --no-opt, so what it prints
+            // there may legitimately differ (CLAUDE.md: declining an optimization is always correct).
+            if (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal))
+            {
+                results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                continue;
+            }
+
             var run = CappedRunner.Run(build.ExePath!, TimeSpan.FromSeconds(runTimeoutSeconds), OutputCap);
             if (run.TimedOut || run.TooMuchOutput)
             {
@@ -166,6 +192,15 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
 
             if (NativeCompiler.SanitizerReport(run.StandardError) is { } report)
             {
+                var kind = SanitizerKind(report);
+                // A stack overflow is a program that recursed too far, which is the runaway-recursion
+                // counterpart of the timeout below: exhaustion, not the undefined behavior these
+                // sanitizers exist to find.
+                if (kind == "stack-overflow")
+                {
+                    results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                    continue;
+                }
                 // `unsafe` and `@Unchecked` exist to do what these checks call UB, so a report there is
                 // the program's, not the compiler's; the run is also unusable for comparison.
                 if (text.Contains("unsafe", StringComparison.Ordinal) || text.Contains("@Unchecked", StringComparison.Ordinal))
@@ -173,7 +208,6 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                     results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
                     continue;
                 }
-                var kind = SanitizerKind(report);
                 return new Finding(
                     $"tier2/sanitizer/{kind}",
                     $"tier2/sanitizer/{mode.Name}/{kind}",
@@ -237,6 +271,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
         }
         var warnings = result.StandardError.Replace("\r\n", "\n").Split('\n')
             .Where(line => line.Contains(": warning: ", StringComparison.Ordinal) && !line.Contains("unused parameter", StringComparison.Ordinal))
+            .Where(line => !SourceWarnings.Contains(WarningCategory(line)))
             .ToList();
         if (warnings.Count > 0)
         {

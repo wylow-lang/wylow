@@ -1,0 +1,43 @@
+// A reference an `is ref` name keeps into a method's receiver holds the receiver's object while
+// the name is in scope, even when that object came from a temporary: a conditional's value or a
+// call's result.
+
+class Counter {
+    internal {
+        String name;
+        mut int[2] items;
+
+        Counter(String name) {
+            this.name = name;
+        }
+
+        ref? int at(int i) {
+            if (i >= 2) {
+                return null;
+            }
+            return ref items[i];
+        }
+    }
+
+    ~Counter() {
+        print(name);
+    }
+}
+
+Counter counter(String name) {
+    return new Counter(name);
+}
+
+void main() {
+    if ((true ? counter("chosen") : counter("other")).at(1) is ref int slot) {
+        slot = 7;
+        print(slot);                // output: 7
+                                        // output: chosen
+    }
+    if (counter("failed").at(5) is ref int missing) {
+        print(missing);
+    } else {
+        print("none");              // output: failed
+                                    // output: none
+    }
+}

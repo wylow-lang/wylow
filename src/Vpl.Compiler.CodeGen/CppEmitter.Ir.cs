@@ -318,6 +318,8 @@ public sealed partial class CppEmitter
         bool mayBeUnused = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || plan.Uses.GetValueOrDefault(local) == 0;
         // A temporary nothing reads is still emitted for what making it does, as a switch's value is.
         var unused = mayBeUnused ? "[[maybe_unused]] " : "";
+        // A reference local is a C++ reference to its value; an `in` one refers to it without changing it.
+        var reference = local.RefKind == RefKind.In ? ConstReferenceType(local.Type) : CppType(local.Type) + "&";
         return local.Kind switch
         {
             // A non-escaping local owns the lambda or choice it is made with, or copies a stored function. Another
@@ -327,8 +329,8 @@ public sealed partial class CppEmitter
                 : $"{unused}auto {name} = {value};",
             IrLocalKind.Value => $"{unused}{CppType(local.Type)} {name} = {value};",
             IrLocalKind.Reference when local.Type.IsNullableReference => $"{unused}{CppType(local.Type)} {name} = {value};",
-            IrLocalKind.Reference => $"{unused}{(local.RefKind == RefKind.In ? "const " : "")}{CppType(local.Type)}& {name} = {value};",
-            IrLocalKind.Borrowed => $"{unused}const {CppType(local.Type)}& {name} = {value};",
+            IrLocalKind.Reference => $"{unused}{reference} {name} = {value};",
+            IrLocalKind.Borrowed => $"{unused}{ConstReferenceType(local.Type)} {name} = {value};",
             IrLocalKind.Hold => $"{(local.Type.IsTypeParameter ? "auto&&" : "auto")} {name} = {value};",
             _ => throw new InvalidOperationException($"the IR emitter can't declare a {local.Kind} local yet"),
         };
@@ -602,7 +604,7 @@ public sealed partial class CppEmitter
     /// </summary>
     string ClosureText(IrClosure closure)
     {
-        var function = LambdaText(closure.Function, "[]", closure.Function.Captures.Select(c => $"const {CppType(c.Type)}& {Name(c)}"));
+        var function = LambdaText(closure.Function, "[]", closure.Function.Captures.Select(c => $"{ConstReferenceType(c.Type)} {Name(c)}"));
         var values = closure.Captures.Select(OperandText);
         var signature = FunctionSignature((FunctionType)closure.Type);
         if (closure.Slot is { } slot)

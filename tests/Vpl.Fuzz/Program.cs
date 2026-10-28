@@ -151,7 +151,7 @@ bool Work(Mutant mutant)
     var checker = new Checker(directory, modes, runTimeout);
     var finding = checker.Check(mutant.Text, checker.Tier1, out bool compiled);
     if (finding is null && compiled && tier == 2)
-        finding = checker.Check(mutant.Text, checker.Tier2(strict), out _);
+        finding = checker.Check(mutant.Text, checker.Tier2(strict), out _, mutant.UnsafeCode);
     if (finding is null)
         return compiled;
 
@@ -172,7 +172,7 @@ bool Work(Mutant mutant)
     }
     return compiled;
 
-    string? ReduceCheck(string candidate) => checker.Check(candidate, scope, out _)?.Signature;
+    string? ReduceCheck(string candidate) => checker.Check(candidate, scope, out _, mutant.UnsafeCode)?.Signature;
 }
 
 void Report()
@@ -201,7 +201,7 @@ int Replay(int index)
     var checker = new Checker(Path.Combine(runDirectory, $"m{index}"), modes, runTimeout);
     var finding = checker.Check(target.Text, checker.Tier1, out bool compiled);
     if (finding is null && compiled && tier == 2)
-        finding = checker.Check(target.Text, checker.Tier2(strict), out _);
+        finding = checker.Check(target.Text, checker.Tier2(strict), out _, target.UnsafeCode);
     if (finding is null)
     {
         Console.WriteLine(compiled ? "no finding" : "does not compile");
@@ -210,7 +210,7 @@ int Replay(int index)
     Console.WriteLine($"FINDING {finding.Key}: {finding.Detail}");
     if (finding.Scope is { } scope)
     {
-        var reduced = Reducer.Reduce(target.Text, candidate => checker.Check(candidate, scope, out _)?.Signature, finding.Signature, maxChecks: 120, TimeSpan.FromSeconds(90));
+        var reduced = Reducer.Reduce(target.Text, candidate => checker.Check(candidate, scope, out _, target.UnsafeCode)?.Signature, finding.Signature, maxChecks: 120, TimeSpan.FromSeconds(90));
         var reducedPath = Path.Combine(runDirectory, $"replay-{index}-reduced.vpl");
         File.WriteAllText(reducedPath, reduced + "\n");
         Console.WriteLine($"reduced to {reducedPath}");

@@ -229,4 +229,11 @@ public sealed partial class CppEmitter
         if (type == VplType.String) return "vpl::String";
         throw new InvalidOperationException($"no C++ type for '{type}'");
     }
+
+    /// <summary>
+    /// A <c>const</c> reference to a value of the type, as an <c>in</c> parameter or a borrow: the
+    /// <c>const</c> qualifies the value itself, so for a pointer it is written after the <c>*</c>.
+    /// </summary>
+    static string ConstReferenceType(VplType type) =>
+        type.IsPointer || type.IsNullableReference ? $"{CppType(type)} const&" : $"const {CppType(type)}&";
 }

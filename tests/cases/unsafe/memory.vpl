@@ -66,6 +66,20 @@ unsafe int third(int* values) {
     return values[2];
 }
 
+// A `ref` or `in` pointer parameter is a reference to the pointer, so indexing it reads the
+// pointer first; a place through it may also be written.
+unsafe int thirdIn(in int* values) {
+    return values[2];
+}
+
+unsafe int thirdRef(ref int* values) {
+    return values[2];
+}
+
+unsafe void setThird(in int* values, int value) {
+    values[2] = value;
+}
+
 void main() {
     var numbers = new Stack<int>();
     for (int i : 0..5) {
@@ -77,6 +91,10 @@ void main() {
     print(numbers.capacity);    // output: 8
     unsafe {
         print(third(numbers.data)); // output: 4
+        print(thirdIn(numbers.data)); // output: 4
+        print(thirdRef(ref numbers.data)); // output: 4
+        setThird(numbers.data, 6);
+        print(numbers.data[2]);     // output: 6
         print(numbers.data == null); // output: false
     }
 

@@ -64,7 +64,11 @@ public sealed partial class IrLowering
             case PlaceBase.Pointer:
             {
                 var index = (BoundIndex)path.Steps[0];
-                var pointer = path.Root is BoundLocalAccess { Local.Type.IsNullableReference: false } access ? Accessed(access) : Let(Rvalue(path.Root, Use.Read));
+                // A `ref` or `in` pointer parameter names the pointer's storage, so its value is read
+                // first; only a local that is the pointer itself can be its target's place.
+                var pointer = path.Root is BoundLocalAccess access && locals[access.Local].Deref == IrDeref.Pointee
+                    ? Accessed(access)
+                    : Let(Rvalue(path.Root, Use.Read));
                 place = IrPlace.Deref(pointer).Element(IndexOperand(index.Index));
                 first = 1;
                 break;
@@ -160,22 +164,25 @@ public sealed partial class IrLowering
         {
             case BoundThis:
                 return borrows ? Hold(new IrPlace(self!), borrows) : self!;
-            case BoundLocalAccess access:
-                return Hold(new IrPlace(Accessed(access)), borrows);
             case BoundLiteral:
                 return Let(Rvalue(root, Use.Read));
             case var place when IsPlace(place):
+                // A local's or field's place is the object, or a narrowed value's place, which is
+                // what a `String?` receiver must hold to keep its string.
                 return Hold(Place(place, Use.Read), borrows);
             // Held where it is once checked, as any other place's object is, rather than copied out.
+            // A nullable value's `!` checks that it has a value; a nullable reference's checks null.
             case BoundNonNull { Operand: var nullable } nonNull when IsPlace(nullable):
             {
                 var checkedPlace = Place(nullable, Use.Read);
-                Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Borrow(checkedPlace)], Loc(nonNull.Location)) { Origin = at });
-                return Hold(checkedPlace, borrows);
+                bool reference = checkedPlace.Type.IsNullableObject;
+                Add(new IrCheck(reference ? IrCheckKind.NotNull : IrCheckKind.HasValue, [IrRead.Borrow(checkedPlace)], Loc(nonNull.Location)) { Origin = at });
+                return Hold(reference ? checkedPlace : checkedPlace.Assumed(), borrows);
             }
             default:
-                var value = Let(Rvalue(root, Use.Read));
-                return borrows ? Hold(new IrPlace(value), borrows) : value;
+                // A temporary is held like a local: a reference or view into it may outlive the
+                // block that made it, which the holder is declared outside of.
+                return Hold(new IrPlace(Let(Rvalue(root, Use.Read))), borrows);
         }
     }
 

@@ -54,4 +54,9 @@ void main() {
         maybe = null;
         print(inside[5]);               // output: 53
     }
+
+    // A narrowed or asserted nullable string shares its bytes, as a string does.
+    mut String? narrowed = "héllo";
+    print(narrowed.bytes()[0]);         // output: 104
+    print(narrowed!.bytes()[0]);        // output: 104
 }

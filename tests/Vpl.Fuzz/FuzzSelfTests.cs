@@ -18,7 +18,7 @@ public static class FuzzSelfTests
             var files = Mutator.Load(casesDirectory, filter: null, includeErrors: false);
             if (files.Count == 0)
                 return [("catalog", "the corpus is empty")];
-            return [("catalog", Catalog(files)), ("determinism", Determinism(files))];
+            return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites())];
         }
         catch (Exception exception)
         {
@@ -69,5 +69,38 @@ public static class FuzzSelfTests
                 made++;
         }
         return made < 100 ? $"only {made} of 200 mutants could be made" : null;
+    }
+
+    /// <summary>
+    /// A mutation in `unsafe` code must be marked, since a mutant that has one is compiled but not
+    /// run; one in safe code, including a safe block next to an unsafe one, must not be.
+    /// </summary>
+    static string? UnsafeSites()
+    {
+        const string text = """
+            unsafe int first(int* values) {
+                return values[0];
+            }
+
+            void main() {
+                int x = 1;
+                unsafe {
+                    x = x + 2;
+                }
+                x = 3;
+            }
+            """;
+        var index = AstIndex.Of(new Parser(new SourceText("<fuzz>", text), new DiagnosticBag()).ParseCompilationUnit());
+        var literals = index.Of(SiteKind.IntegerLiteral);
+        string? Check(string what, int offset, bool expected)
+        {
+            int start = text.IndexOf(what, StringComparison.Ordinal) + offset;
+            return literals.FirstOrDefault(site => site.Span.Start == start) is { } site
+                ? site.Unsafe == expected ? null : $"the literal in '{what}' is marked {(site.Unsafe ? "unsafe" : "safe")}"
+                : $"no literal site in '{what}'";
+        }
+        return Check("values[0]", 7, expected: true)
+            ?? Check("x + 2", 4, expected: true)
+            ?? Check("x = 3", 4, expected: false);
     }
 }

@@ -94,6 +94,8 @@ static class TypeSelfTests
             : !Conversions.IsImplicit(t, t.Nullable) ? $"doesn't convert to '{t.Nullable}'"
             : !Conversions.IsImplicit(VplType.Null, t.Nullable) ? $"null doesn't convert to '{t.Nullable}'"
             : null);
+        yield return new("nullable_object", t => t.IsNullableObject == (t.MayBeNull && !t.IsNullableValue)
+            ? null : "IsNullableObject disagrees with MayBeNull and IsNullableValue");
         yield return new("storage_facts", t =>
             t.MayOwnObjects && !t.IsCounted ? "may own objects, but isn't counted"
             : t.SharesStorage && !t.IsCounted ? "shares storage, but isn't counted"
@@ -123,6 +125,9 @@ static class TypeSelfTests
             {
                 if (WrapperDifferences(t, wrapper) is { } differ)
                     return $"'{wrapper}' differs from it in {differ}";
+                // A nullable value is held where its value is, so it shares what its value shares.
+                if (wrapper.IsNullable && wrapper.SharesStorage != t.SharesStorage)
+                    return $"'{t}' and '{wrapper}' disagree on SharesStorage";
             }
             return null;
         });

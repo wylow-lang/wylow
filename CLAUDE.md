@@ -38,7 +38,8 @@ statements and declarations and written to `tests/fuzz/findings/` with the seed 
 reproduce it; a finding is a bug until it becomes a test in `tests/cases/` (with `// output:`,
 `// error:`, or `// panic:`) or a removed line. Tier 1 is in-process and runs thousands of mutants
 a minute; tier 2 builds and runs five modes per mutant, so it belongs in the background. A
-finding in `unsafe` or `@Unchecked` code is the program's undefined behavior, not a compiler bug.
+finding in `unsafe` or `@Unchecked` code is the program's undefined behavior, not a compiler bug;
+a mutant whose mutation edits `unsafe` code is still compiled, but tier 2 doesn't run it.
 
 Every function body is lowered to the mid-level IR, verified, and printed from it; the runner
 writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-opt` (in the CLI and the test

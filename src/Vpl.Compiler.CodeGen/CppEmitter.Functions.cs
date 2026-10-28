@@ -9,7 +9,7 @@ public sealed partial class CppEmitter
     {
         _ when type.IsNullableReference => CppType(type),
         RefKind.Ref => CppType(type) + "&",
-        RefKind.In => $"const {CppType(type)}&",
+        RefKind.In => ConstReferenceType(type),
         _ => CppType(type),
     };
 

@@ -77,7 +77,7 @@ public static class TypeStorage
         /// object's fields, a string's bytes, or a closure's captures. Such a value is held, not
         /// itself kept in place, while something points into it.
         /// </summary>
-        public bool SharesStorage => type.NonNull.IsReference || type == VplType.String || type.NonNull.IsEscaping;
+        public bool SharesStorage => type.NonNull.IsReference || type.NonNull == VplType.String || type.NonNull.IsEscaping;
 
         /// <summary>Whether the copies of a value may share their storage, as a type parameter's may.</summary>
         public bool MayShareStorage => type.SharesStorage || type.IsTypeParameter;

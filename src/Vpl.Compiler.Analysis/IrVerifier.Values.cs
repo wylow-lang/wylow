@@ -655,7 +655,7 @@ public sealed partial class IrVerifier
                 var type = test.Operand.Type;
                 bool fits = test.Kind switch
                 {
-                    IrTestKind.NotNull => type.IsNullableReference || (type.IsNullable && type.NonNull.IsReference) || type.IsPointer,
+                    IrTestKind.NotNull => type.IsNullableObject || type.IsPointer,
                     IrTestKind.HasValue => type.IsNullableValue,
                     IrTestKind.Tag => test.Variant is { } v && type.Symbol == v.Owner,
                     IrTestKind.Class => test.Target is not null && type.NonNull.IsReference,

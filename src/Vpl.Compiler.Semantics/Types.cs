@@ -119,6 +119,13 @@ public abstract class VplType
     /// </summary>
     public bool IsNullableValue => IsNullable && !NonNull.IsReference;
 
+    /// <summary>
+    /// A reference that may be null: <c>T?</c> where <c>T</c> is a class or interface, or a
+    /// <c>ref?</c>/<c>in?</c> reference. A <c>NotNull</c> test applies to one, and <c>!</c> makes
+    /// one non-null; a nullable value's <c>!</c> checks that it has a value instead.
+    /// </summary>
+    public bool IsNullableObject => IsNullableReference || (IsNullable && NonNull.IsReference);
+
     /// <summary>Pointers can already be null, and a <c>ref struct</c> can't be stored in a nullable.</summary>
     public bool CanBeNullable => this != Void && this != Null && this != Error && this != Lambda && !IsPointer && !IsRefStruct && !IsNullableReference;
 

@@ -28,8 +28,10 @@ enum SiteKind
 /// token, a whole statement), and <see cref="Node"/> is the syntax it read it from. <see cref="Place"/>
 /// marks an expression that is an assignment or reference target, which wrapping in a value would stop
 /// being one; <see cref="InPattern"/> marks a literal a pattern must see as a single token.
+/// <see cref="Unsafe"/> marks a site in an <c>unsafe</c> block or function, whose program may
+/// legitimately do what the language calls undefined.
 /// </summary>
-sealed record Site(SiteKind Kind, TextSpan Span, Node Node, bool InPattern = false, bool Place = false);
+sealed record Site(SiteKind Kind, TextSpan Span, Node Node, bool InPattern = false, bool Place = false, bool Unsafe = false);
 
 /// <summary>Every place a mutation may start from, and every span a reducer may delete.</summary>
 sealed class AstIndex
@@ -53,13 +55,21 @@ sealed class AstIndex
         var walker = new Walker();
         foreach (var declaration in unit.Declarations)
             walker.Declaration(declaration);
-        return new AstIndex(walker.Sites, walker.Deletable);
+        List<Site> sites = walker.Sites;
+        if (walker.UnsafeSpans.Count > 0)
+            sites = [.. walker.Sites.Select(site => !site.Unsafe && walker.UnsafeSpans.Any(span => span.Start <= site.Span.Start && site.Span.End <= span.End)
+                ? site with { Unsafe = true }
+                : site)];
+        return new AstIndex(sites, walker.Deletable);
     }
 
     sealed class Walker
     {
         public List<Site> Sites { get; } = [];
         public List<TextSpan> Deletable { get; } = [];
+
+        /// <summary>The spans whose code is <c>unsafe</c>: an <c>unsafe</c> block, or the body of an <c>unsafe</c> function.</summary>
+        public List<TextSpan> UnsafeSpans { get; } = [];
 
         public void Declaration(Declaration declaration)
         {
@@ -95,6 +105,8 @@ sealed class AstIndex
                         Expression(initializer);
                     break;
                 case FunctionDecl function:
+                    if ((function.Modifiers & Modifiers.Unsafe) != 0)
+                        UnsafeSpans.Add(function.Location.Span);
                     if (function.ReturnType is { } returnType)
                         Type(returnType);
                     foreach (var parameter in function.Parameters)
@@ -140,6 +152,8 @@ sealed class AstIndex
                         Statement(child, inList: true);
                     break;
                 case UnsafeStmt @unsafe:
+                    // The statement's location is the keyword alone, since it is made before its body is read.
+                    UnsafeSpans.Add(@unsafe.Body.Location.Span);
                     Statement(@unsafe.Body, inList: true);
                     break;
                 case VarDeclStmt local:

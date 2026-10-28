@@ -10,7 +10,8 @@ sealed record Edit(int Start, int End, string Text);
 sealed record Candidate(string Name, IReadOnlyList<Edit> Edits);
 
 /// <summary>A program the fuzzer made, and the mutations that made it.</summary>
-sealed record Mutant(int Index, string File, string Description, string Text);
+/// <param name="UnsafeCode">Whether a mutation edited <c>unsafe</c> code, where the program may do what the language calls undefined.</param>
+sealed record Mutant(int Index, string File, string Description, string Text, bool UnsafeCode = false);
 
 sealed record Mutation(
     string Name,

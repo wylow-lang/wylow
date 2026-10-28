@@ -35,19 +35,21 @@ sealed partial class Mutator
         var file = files[random.Next(files.Count)];
         var text = file.Text;
         var names = new List<string>();
+        bool unsafeCode = false;
         int mutationCount = random.Next(2) == 0 ? 1 : 2;
         for (int i = 0; i < mutationCount; i++)
         {
-            if (TryMutate(text, file, isBase: i == 0, out var description, out var mutated) is false)
+            if (TryMutate(text, file, isBase: i == 0, out var description, out var mutated, out bool unsafeSite) is false)
                 break;
             names.Add(description);
             text = mutated;
+            unsafeCode |= unsafeSite;
         }
-        return new Mutant(index, file.Name, names.Count == 0 ? "none" : string.Join(" + ", names), text);
+        return new Mutant(index, file.Name, names.Count == 0 ? "none" : string.Join(" + ", names), text, unsafeCode);
     }
 
     /// <summary>The first call is on the unmodified base file, whose index is cached; later ones re-parse.</summary>
-    bool TryMutate(string text, BaseFile file, bool isBase, out string description, out string mutated)
+    bool TryMutate(string text, BaseFile file, bool isBase, out string description, out string mutated, out bool unsafeSite)
     {
         var index = isBase
             ? baseIndexes.TryGetValue(file.Name, out var cached) ? cached : baseIndexes[file.Name] = Index(text)
@@ -69,10 +71,12 @@ sealed partial class Mutator
                 continue;
             description = candidate.Name;
             mutated = applied;
+            unsafeSite = site.Unsafe;
             return true;
         }
         description = "";
         mutated = text;
+        unsafeSite = false;
         return false;
     }
 

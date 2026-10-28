@@ -456,7 +456,7 @@ public sealed partial class IrVerifier
         bool fits = check.Kind switch
         {
             IrCheckKind.Index => check.Operands is [{ Type.IsInteger: true }, { Type.IsInteger: true }],
-            IrCheckKind.NotNull => check.Operands is [{ Type: var t }] && (t.IsNullableReference || (t.IsNullable && t.NonNull.IsReference) || t.IsPointer),
+            IrCheckKind.NotNull => check.Operands is [{ Type: var t }] && (t.IsNullableObject || t.IsPointer),
             IrCheckKind.HasValue => check.Operands is [{ Type.IsNullableValue: true }],
             IrCheckKind.NoMatch => check.Operands.Count == 0,
             IrCheckKind.Narrowed => check.Operands is [IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Symbol: not null }, Type.MayBeNull: true }],

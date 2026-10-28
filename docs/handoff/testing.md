@@ -433,6 +433,36 @@ pre-commit routine; long runs go in the background.
     the emitter's `[[maybe_unused]]` was applied only to source-named locals, not temporaries kept
     for what making them does. It now covers every zero-use local; `basics/control_flow.vpl` has a
     `default`-only switch over a literal, and the strict warning check is the oracle that sees it.
+- **The next runs found four more**, each with a new test:
+  - Indexing an `in` or `ref` pointer parameter lowering dereferenced the parameter's storage (the
+    pointer) rather than the pointer's target, so `values[2]` made an error-typed projection and the
+    verifier threw. Only a local whose dereference is its pointee takes the direct place now; the
+    one that isn't is read into a temporary first. `unsafe/memory.vpl` indexes through `in int*`
+    and `ref int*`, and writes through the former.
+  - An `is ref` name over a method called on a temporary receiver (a conditional's value, a call's
+    result) had no holder outside the condition's block, so the verifier reported the name as used
+    after its object went out of scope. A temporary receiver is held like a local now;
+    `references/temporary_holders.vpl` prints the destructor's turn on both a matching and a
+    failing test.
+  - The pointer case exposed the emitter writing `const int32_t*&` for a reference to a pointer,
+    where the `const` belongs on the pointer itself (`int32_t* const&`). `ConstReferenceType` is
+    now the one place that spelling is written, for `in` parameters, reference and borrowed locals,
+    returns, and captures.
+  - A narrowed `String?` receiver of a method that returns a view (`.bytes()`) took the no-hold
+    path, because `SharesStorage` named `String` but not a nullable value of it. The fact now looks
+    through the nullable, the receiver holds the value (`ObjectLocal` reuses the access's place
+    rather than its raw local), and a `!` on a nullable value checks `HasValue`, not `NotNull`.
+    `spans/string_bytes.vpl` takes views through a narrowed and an asserted nullable string, and
+    `TypeSelfTests` requires a nullable value and its value to agree on `SharesStorage`.
+- **The fuzzer's oracles were narrowed for four kinds of non-finding**, each with a comment saying
+  why:
+  - a `// mode: optimized` test is not compared under `--no-opt`, which the suite skips too;
+  - a warning about the program's own constant comparison (`-Wtautological-compare`,
+    `-Wtype-limits`) is the source's, not the emitter's;
+  - a mutant whose edit is in `unsafe` code is compiled but not run in tier 2 (the compiled C++ and
+    its warnings are still checked), since its behavior is undefined;
+  - an AddressSanitizer stack overflow is the runaway-recursion counterpart of a timeout, so the
+    mode is inconclusive rather than a finding.
 
 The fuzzer's catalog is the matrix rule's peer: a new feature adds a mutation or value edge, and a
 finding becomes a test in `tests/cases/` and its finding file is deleted. Both are enforced only by
