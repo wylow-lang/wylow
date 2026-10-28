@@ -242,7 +242,10 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
 - Commit each coherent change once it passes the suite in every mode (a step of a plan, not
   only whole milestones), ending the message with the `Co-Authored-By` line. A two-minute tier-1
-  fuzz run is part of the pre-commit routine, and every finding it leaves is triaged. Don't push.
+  fuzz run after the build is part of the pre-commit routine for changes to Syntax, Semantics,
+  Lowering, Analysis, or Optimize: it is the check that sees feature combinations no fixed test
+  writes. Emitter, docs, and dashboard changes rely on the suite, and a background run counts when
+  it started on the build being committed. Every finding any run leaves is triaged. Don't push.
 
 ## Pitfalls already hit
 

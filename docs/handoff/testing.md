@@ -384,7 +384,8 @@ It is then written to `tests/fuzz/findings/` with its seed. Fixing it means:
 
 **Running.** The fuzzer takes a seed, a time budget, and a test filter, and is deterministic for a
 given seed, so a finding can be replayed. A short run (for example two minutes) is part of the
-pre-commit routine; long runs go in the background.
+pre-commit routine for compiler changes; emitter, docs, and dashboard changes rely on the suite, and
+long runs go in the background.
 
 **Done (2026-10-27).** `tests/Vpl.Fuzz` is a console project in the solution:
 
