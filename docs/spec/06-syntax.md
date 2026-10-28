@@ -59,6 +59,8 @@ class Player extends Entity {
 - Every member is in a block. A type has at most one block of each level, and they are written
   in the order of the table: `public`, `protected`, `internal`, `private`. Any may be left out, so
   a type's members read from the most to the least visible, and each level is in one place.
+- A block declares its data first: its fields come before its constructors and methods, so a field
+  never follows a method.
 - A member takes no access modifier of its own.
 - The destructor is written after the blocks, outside them, since only the runtime calls it.
 - An enum's variants come first, outside the blocks, and are as visible as the enum.

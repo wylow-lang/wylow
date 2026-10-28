@@ -54,6 +54,15 @@ interface Named {
     }
 }
 
+class Interleaved {
+    public {
+        Interleaved() { }
+        int afterConstructor;           // error: a field must come before the block's constructors and methods: a block declares its data first
+        void method() { }
+        int afterMethod;                // error: a field must come before the block's constructors and methods: a block declares its data first
+    }
+}
+
 internal class Top { }                  // error: a top-level declaration is internal unless declared 'public' or 'private', so it takes no 'internal'
 
 internal void helper() { }              // error: a top-level declaration is internal unless declared 'public' or 'private', so it takes no 'internal'

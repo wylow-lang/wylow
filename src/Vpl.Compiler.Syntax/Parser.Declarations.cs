@@ -132,12 +132,18 @@ public sealed partial class Parser
                     Error(keyword.Span, $"{(kind == TypeKind.Struct ? "structs" : "enums")} cannot be inherited, so they have no 'protected' block");
                 last = Math.Max(last, level);
                 reportedLoose = false;
+                bool sawMethod = false;
                 while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
                 {
                     int memberStart = position;
                     if (IsDestructorStart())
                         Error(Current.Span, "a destructor is declared after the access blocks, outside them, since only the runtime calls it");
+                    var (methods, fields) = (members.Methods.Count, members.Fields.Count);
                     ParseMember(kind, typeName, members, AccessBlocks[level].Access);
+                    if (members.Methods.Count > methods)
+                        sawMethod = true;
+                    else if (sawMethod && members.Fields.Count > fields)
+                        Error(members.Fields[fields].NameLocation.Span, "a field must come before the block's constructors and methods: a block declares its data first");
                     if (position == memberStart)
                         Advance();
                 }
