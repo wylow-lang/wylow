@@ -53,13 +53,11 @@ public sealed partial class IrLowering
 
         if (!made.IsEscaping)
             return new IrLambda(lowered, lambda.Type);
-        var (line, column) = lambda.Location.LineColumn;
         return new IrClosure(lowered, captures, lambda.Type)
         {
-            Name = $"lambda at {lambda.Location.Source.FileName}:{line}:{column}",
+            Name = $"lambda at {lambda.Location.PanicText}",
             Origin = lambda.Location,
-        };
-    }
+        };    }
 
     /// <summary>
     /// A call of a function value. A stored closure is held until the call returns, as an object

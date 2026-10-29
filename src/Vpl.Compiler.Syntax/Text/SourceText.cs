@@ -47,4 +47,17 @@ public readonly record struct TextSpan(int Start, int Length)
 public readonly record struct Location(SourceText Source, TextSpan Span)
 {
     public (int Line, int Column) LineColumn => Source.GetLineColumn(Span.Start);
+
+    /// <summary>
+    /// Where it is as a panic reports it: the file without its directory, then the line and column
+    /// (<c>runtime/vpl/core.h</c>), which the interpreter's messages use too.
+    /// </summary>
+    public string PanicText
+    {
+        get
+        {
+            var (line, column) = LineColumn;
+            return $"{Source.FileName}:{line}:{column}";
+        }
+    }
 }

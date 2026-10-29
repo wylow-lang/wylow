@@ -261,7 +261,7 @@ public sealed class IrPrinter
         $"({string.Join(", ", (receiver is null ? arguments : arguments.Prepend(receiver)).Select(Argument))})";
 
     static string Loc(IrLoc loc) => loc.Source is { } source
-        ? $"@{source.Source.FileName}:{source.LineColumn.Line}:{source.LineColumn.Column}"
+        ? $"@{source.PanicText}"
         : "@caller";
 
     static string WithLoc(string text, IrLoc? loc) => loc is null ? text : $"{text} {Loc(loc)}";

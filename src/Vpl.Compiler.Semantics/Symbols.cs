@@ -162,6 +162,13 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
         _ => "",
     };
 
+    /// <summary>
+    /// The panic an abstract method's stub raises: a call reaching it while an object is still its
+    /// base class, during the base's constructor or destructor (spec 02-types.md, Construction).
+    /// </summary>
+    public string AbstractCallMessage =>
+        $"abstract method '{ContainingType!.Name}.{Name}' called during construction or destruction";
+
     /// <summary>A parameter's mode and type as written: <c>ref int</c>, or <c>ref? int</c>, whose type names its mode.</summary>
     public static string ParameterText(RefKind kind, VplType type) => type.IsNullableReference ? type.Name : RefPrefix(kind) + type;
 

@@ -132,11 +132,7 @@ public sealed partial class CppEmitter
 
     const string CallerLocationParameter = "vpl_location";
 
-    static string SourceLocation(Location location)
-    {
-        var (line, column) = location.LineColumn;
-        return CppStringLiteral($"{location.Source.FileName}:{line}:{column}");
-    }
+    static string SourceLocation(Location location) => CppStringLiteral(location.PanicText);
 
     static string CppStringLiteral(string value)
     {
