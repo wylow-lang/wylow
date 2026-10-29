@@ -82,7 +82,7 @@ public sealed partial class Binder
     /// <summary>A value the runtime can format: the value itself if it is a formatted type, otherwise its <c>Printable.toString()</c>.</summary>
     BoundExpression BindPrintable(Location location, BoundExpression value)
     {
-        if (Builtins.FormattedTypes.Contains(value.Type))
+        if (value.Type.IsFormatted)
             return value;
 
         var type = value.Type.NonNull;

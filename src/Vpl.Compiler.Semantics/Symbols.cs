@@ -358,10 +358,10 @@ public sealed class TypeSymbol
 
 public static class Builtins
 {
-    static readonly VplType[] FormattedValues = [.. VplType.Integers, VplType.Char, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
+    internal static readonly VplType[] FormattedValues = [.. VplType.Integers, VplType.Char, VplType.Float, VplType.Double, VplType.Bool, VplType.String];
 
-    /// <summary>The types the runtime writes as text itself (<c>vpl::format</c>), for <c>print</c> and string interpolation.</summary>
-    public static IEnumerable<VplType> FormattedTypes => FormattedValues.Concat(FormattedValues.Select(v => v.Nullable));
+    /// <summary>The types the runtime writes as text itself (<c>vpl::format</c>), with their nullables.</summary>
+    static IEnumerable<VplType> FormattedTypes => FormattedValues.Concat(FormattedValues.Select(v => v.Nullable));
 
     /// <summary>
     /// The runtime function an interpolated string calls with its parts in order, each a string or

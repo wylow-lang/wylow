@@ -227,7 +227,7 @@ public sealed partial class Binder
         List<Argument> arguments)
     {
         var receiverType = receiver.Type;
-        if (name == "toString" && Builtins.FormattedTypes.Contains(receiverType))
+        if (name == "toString" && receiverType.IsFormatted)
             return BindFormattedToString(location, receiver, typeArguments, arguments);
         if (name == "compareTo" && (receiverType.IsNumeric || receiverType == VplType.Char))
             return BindBuiltinCompareTo(location, receiver, typeArguments, arguments);

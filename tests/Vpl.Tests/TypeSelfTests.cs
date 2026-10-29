@@ -113,6 +113,11 @@ static class TypeSelfTests
         yield return new("equatable_fields", t => !t.IsStructOrEnum || t.Symbol!.IsExtern ? null
             : t.SupportsEquality != (t.FindNonEquatableField() is null) ? "SupportsEquality disagrees with FindNonEquatableField"
             : null);
+        // The runtime writes a formatted type as text itself, so it is one of the primitives or String.
+        yield return new("formatted_types", t =>
+            t.IsFormatted && t.NonNull.IsAggregate ? $"'{t}' is an aggregate, which the runtime doesn't write as text"
+            : t.IsFormatted && !t.SupportsEquality ? $"'{t}' is written by the runtime, but doesn't support equality"
+            : null);
         // A fixed array, a nullable value, and a struct with one field hold their value as it is.
         yield return new("wrapper_facts", t =>
         {

@@ -67,7 +67,7 @@ public sealed class StdlibSymbols
 
     /// <summary>Whether a type is printable: formatted by the runtime, or implementing <see cref="Printable"/>.</summary>
     public bool IsPrintable(VplType type) =>
-        Builtins.FormattedTypes.Contains(type) || (Printable is { } printable && Conversions.IsSubtype(type, printable.Type));
+        type.IsFormatted || (Printable is { } printable && Conversions.IsSubtype(type, printable.Type));
 
     public bool IsPrintableToString(FunctionSymbol method) => method.Name == "toString" && method.ContainingType is { } s && s == Printable;
 
