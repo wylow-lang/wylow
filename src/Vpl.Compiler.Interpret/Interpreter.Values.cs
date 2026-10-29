@@ -30,8 +30,8 @@ public sealed partial class Interpreter
     {
         var place = read.Place;
         // A reference local's own value is the reference it holds, not what it refers to.
-        if (!place.IsDeref && place.Projections.Count == 0 && place.Local.Kind == IrLocalKind.Reference)
-            return new RefValue(frame.Find(place.Local) is RefStorage storage ? storage.Cell : null);
+        if (IsReferenceLocal(place))
+            return ReferenceValue(place, frame);
         var cell = PlaceCell(place, frame);
         return read.Ownership switch
         {
@@ -40,6 +40,12 @@ public sealed partial class Interpreter
             _ => cell.Value,
         };
     }
+
+    static bool IsReferenceLocal(IrPlace place) =>
+        !place.IsDeref && place.Projections.Count == 0 && place.Local.Kind == IrLocalKind.Reference;
+
+    Value ReferenceValue(IrPlace place, Frame frame) =>
+        new RefValue(frame.Find(place.Local) is RefStorage storage ? storage.Cell : null);
 
     static Value Take(Cell cell)
     {
@@ -82,10 +88,17 @@ public sealed partial class Interpreter
     /// <summary>An argument the callee owns; a borrow of a place is copied so the callee can't alias it.</summary>
     Value EvalOwnedArgument(IrArgument argument, Frame frame) => argument switch
     {
-        IrRead { Ownership: IrOwnership.Borrow } read => Values.Copy(read.Type, EvalOperand(read, frame)),
+        IrRead { Ownership: IrOwnership.Borrow } read => CopyInPlace(read, frame),
         IrOperand operand => EvalOperand(operand, frame),
         _ => throw new InterpreterException($"unexpected argument {argument.GetType().Name}"),
     };
+
+    /// <summary>A copy of the value where it is, made under the place's own type so a type argument's substitution is applied.</summary>
+    Value CopyInPlace(IrRead read, Frame frame)
+    {
+        var cell = PlaceCell(read.Place, frame);
+        return Values.Copy(cell.Type, cell.Value);
+    }
 
     static Int128 Integer(Value value) => value is IntValue number ? number.Bits : throw new InterpreterException($"expected an integer, got {value.GetType().Name}");
 
@@ -211,20 +224,25 @@ public sealed partial class Interpreter
         public Value? Test(IrTest value) => interpreter.Test(value, frame);
         public Value? Convert(IrConvert value) => interpreter.Convert(value, frame);
         public Value? Hold(IrHold value) => interpreter.Hold(value, frame);
-        public Value? Invoke(IrInvoke value) => throw new UnsupportedFeature("function values land in step 3");
+        public Value? Invoke(IrInvoke value) => interpreter.CallFunctionValue(value, frame);
         public Value? New(IrNew value) => interpreter.New(value, frame);
-        public Value? Closure(IrClosure value) => throw new UnsupportedFeature("closures land in step 3");
-        public Value? Lambda(IrLambda value) => throw new UnsupportedFeature("function values land in step 3");
-        public Value? Choose(IrChoose value) => throw new UnsupportedFeature("function values land in step 3");
+        public Value? Closure(IrClosure value) => interpreter.Closure(value, frame);
+        public Value? Lambda(IrLambda value) => interpreter.Lambda(value, frame);
+        public Value? Choose(IrChoose value) => interpreter.Choose(value, frame);
         public Value? Data(IrData value) => throw new UnsupportedFeature("spans and pointers land in step 4");
     }
 
     /// <summary>
-    /// An operand an operation only reads. A move here leaves its local owning the value, which
-    /// releases it when its block ends, as C++ does when the operation binds a constant reference.
+    /// An operand an operation only reads: the value where it is, which no copy the IR names makes,
+    /// as C++ reads an operand an operation takes no ownership of. A move here leaves its local
+    /// owning the value, which releases it when its block ends.
     /// </summary>
     Value EvalOperandInPlace(IrOperand operand, Frame frame) =>
-        operand is IrRead { Ownership: IrOwnership.Move } read ? PlaceCell(read.Place, frame).Value : EvalOperand(operand, frame);
+        operand is IrRead read ? ReadInPlace(read, frame) : EvalOperand(operand, frame);
+
+    /// <summary>The value in a place, without the copy or move its read names.</summary>
+    Value ReadInPlace(IrRead read, Frame frame) =>
+        IsReferenceLocal(read.Place) ? ReferenceValue(read.Place, frame) : PlaceCell(read.Place, frame).Value;
 
     Value Unary(IrUnary unary, Frame frame)
     {

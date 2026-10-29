@@ -94,7 +94,7 @@ public sealed partial class Interpreter : IObjectLifetime
     // ---------------------------------------------------------------------------------------------
 
     /// <summary>One running function: its locals, the type arguments its body runs with, and where it was called.</summary>
-    sealed class Frame(TypeMap map)
+    internal sealed class Frame(TypeMap map)
     {
         public TypeMap Map { get; } = map;
         public Dictionary<IrLocal, Storage> Locals { get; } = [];
@@ -106,7 +106,7 @@ public sealed partial class Interpreter : IObjectLifetime
         /// <summary>The object a constructor's frame is making, which its base constructor call runs on.</summary>
         public ObjectRef? Constructing { get; set; }
 
-        /// <summary>The frame whose locals a non-escaping lambda sees, once step 3 lands.</summary>
+        /// <summary>The frame whose locals a non-escaping lambda sees.</summary>
         public Frame? Enclosing { get; init; }
 
         public VplType Type(VplType type) => Map.Apply(type);
@@ -116,10 +116,10 @@ public sealed partial class Interpreter : IObjectLifetime
             : Enclosing?.Find(local) ?? throw new InterpreterException($"local '{local.Name}' is not declared");
     }
 
-    abstract class Storage;
+    internal abstract class Storage;
 
     /// <summary>A local that owns its value: a variable, parameter, or temporary.</summary>
-    sealed class OwnedStorage(Cell cell) : Storage
+    internal sealed class OwnedStorage(Cell cell) : Storage
     {
         public Cell Cell { get; } = cell;
     }
@@ -128,14 +128,14 @@ public sealed partial class Interpreter : IObjectLifetime
     /// A hold: a counted copy that pins the object, and for <c>hold.borrow</c>, also borrows it, so
     /// that a <c>Borrowable</c> knows the storage it handed out is in use.
     /// </summary>
-    sealed class HoldStorage(Cell cell, bool borrows) : Storage
+    internal sealed class HoldStorage(Cell cell, bool borrows) : Storage
     {
         public Cell Cell { get; } = cell;
         public bool Borrows { get; set; } = borrows;
     }
 
     /// <summary>A reference, which aliases the cell it refers to, or null for a <c>ref?</c>.</summary>
-    sealed class RefStorage(Cell? cell) : Storage
+    internal sealed class RefStorage(Cell? cell) : Storage
     {
         public Cell? Cell { get; set; } = cell;
     }
@@ -163,6 +163,12 @@ public sealed partial class Interpreter : IObjectLifetime
             EndBorrow(obj);
         Release(hold.Cell.Type, value);
     }
+
+    /// <summary>
+    /// A callee's frame, whose type arguments are applied to the caller's: generic code may call a
+    /// generic method with its own type parameters as the arguments.
+    /// </summary>
+    Frame CalleeFrame(Frame caller, TypeMap map) => new(caller.Map.Compose(map));
 
     /// <summary>Declares a local in the block now running, so that its value is released when the block ends.</summary>
     void Declare(Frame frame, IrLocal local, List<IrLocal> declared)
@@ -458,7 +464,7 @@ public sealed partial class Interpreter : IObjectLifetime
             throw new VplPanic(callee.Symbol.AbstractCallMessage, callee.Symbol.Declaration!.NameLocation.PanicText);
         var function = program.Functions.Single(callee.Symbol)
             ?? throw new UnsupportedFeature($"no lowered function for '{callee.Symbol.Signature}'");
-        var frame = new Frame(callee.Map);
+        var frame = CalleeFrame(caller, callee.Map);
         if (function.HasLocationParameter)
             frame.CallerLocation = Location(call.Loc, caller);
         if (function.This is not null)
@@ -504,7 +510,8 @@ public sealed partial class Interpreter : IObjectLifetime
         IrRefArgument reference => new RefStorage(PlaceCell(reference.Place, caller)),
         IrAddrArgument address => new RefStorage(PlaceCell(address.Place, caller)),
         // The storage's type, not the read's, which a type parameter's substitution made concrete.
-        IrRead read => new OwnedStorage(new Cell(PlaceCell(read.Place, caller).Type, EvalOperand(read, caller))),
+        // `this` is never owned: a class's is a borrowed handle, a struct's the caller's cell.
+        IrRead read => new OwnedStorage(new Cell(PlaceCell(read.Place, caller).Type, ReadInPlace(read, caller))),
         _ => throw new InterpreterException($"unexpected receiver {receiver.GetType().Name}"),
     };
 
@@ -515,7 +522,7 @@ public sealed partial class Interpreter : IObjectLifetime
         var obj = caller.Constructing ?? throw new InterpreterException("a base constructor call outside a constructor");
         var function = program.Functions.Single(method.Symbol)
             ?? throw new UnsupportedFeature($"no lowered function for '{method.Symbol.Signature}'");
-        var frame = new Frame(method.Map);
+        var frame = CalleeFrame(caller, method.Map);
         frame.Constructing = obj;
         if (function.HasLocationParameter)
             frame.CallerLocation = Location(call.Loc, caller);
@@ -540,10 +547,22 @@ public sealed partial class Interpreter : IObjectLifetime
                 IrAddrArgument address => new RefStorage(PlaceCell(address.Place, caller)),
                 IrRead { Type.IsNullableReference: true } read => new RefStorage((EvalOperand(read, caller) as RefValue)?.Cell),
                 IrConstant { Type.IsNullableReference: true } => new RefStorage(null),
-                var operand => new OwnedStorage(new Cell(frame.Type(parameter.Type), EvalOwnedArgument(operand, caller))),
+                var operand => new OwnedStorage(ArgumentCell(parameter.Type, operand, frame, caller)),
             };
             frame.Locals[parameter] = storage;
         }
+    }
+
+    /// <summary>
+    /// A by-value parameter's cell. A parameter of nullable value type may be given a value that
+    /// isn't nullable, as a lambda is given to a nullable function parameter without allocating:
+    /// the value becomes the nullable's value, as <c>vpl::optional_ref</c> makes it.
+    /// </summary>
+    Cell ArgumentCell(VplType parameterType, IrArgument argument, Frame frame, Frame caller)
+    {
+        var type = frame.Type(parameterType);
+        var value = EvalOwnedArgument(argument, caller);
+        return new Cell(type, type.IsNullableValue && value is not OptionalValue ? new OptionalValue(new Cell(type.NonNull, value)) : value);
     }
 
     /// <summary>Runs a function's body and releases what it owns when it returns.</summary>
@@ -632,7 +651,7 @@ public sealed partial class Interpreter : IObjectLifetime
         var constructor = creation.Constructor;
         if (program.Functions.Single(constructor.Symbol) is { } function)
         {
-            var frame = new Frame(constructor.Map);
+            var frame = CalleeFrame(caller, constructor.Map);
             frame.Constructing = obj;
             if (function.HasLocationParameter)
                 frame.CallerLocation = Location(creation.Loc, caller);
@@ -715,7 +734,7 @@ public sealed partial class Interpreter : IObjectLifetime
         if (type.IsStruct && type.HasDefaultCode)
         {
             var build = program.Functions.Default(type.Symbol!) ?? throw new InterpreterException($"no make_default for '{type}'");
-            var frameFor = new Frame(TypeMap.For(type));
+            var frameFor = CalleeFrame(frame, TypeMap.For(type));
             return Invoke(build, frameFor) ?? throw new InterpreterException($"'{build.Name}' returned nothing");
         }
         if (type.IsEnum && type.Symbol!.Variants.Count > 0)
@@ -736,12 +755,12 @@ public sealed partial class Interpreter : IObjectLifetime
             var form = arguments.Select(a => a is not IrFieldDefault).ToList();
             var build = program.Functions.Memberwise(method.Symbol, form)
                 ?? throw new InterpreterException($"no memberwise form of '{method.Symbol.Name}'");
-            var frame = new Frame(TypeMap.For(type));
+            var frame = CalleeFrame(caller, TypeMap.For(type));
             BindArguments(arguments, build.Parameters, frame, caller);
             return Invoke(build, frame) ?? throw new InterpreterException($"'{build.Name}' returned nothing");
         }
         var function = program.Functions.Single(method.Symbol) ?? throw new UnsupportedFeature($"no lowered function for '{method.Symbol.Signature}'");
-        var body = new Frame(method.Map);
+        var body = CalleeFrame(caller, method.Map);
         if (function.HasLocationParameter)
             body.CallerLocation = Location(construction.Loc, caller);
         BindArguments(arguments, function.Parameters, body, caller);

@@ -1,4 +1,5 @@
 using System.Text;
+using Vpl.Compiler.Ir;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 
@@ -148,6 +149,45 @@ public sealed class RefValue(Cell? cell) : Value
     public override string ToString() => Cell is null ? "null ref" : "ref";
 }
 
+/// <summary>
+/// A function value: a lambda's code, the type arguments its body runs with, and what it reads when
+/// it runs — the frame whose locals it uses as places, or the closure holding copies of what it
+/// captured. Its escaping form counts its closure, as <c>vpl::Function</c> does; the non-escaping
+/// form refers to one it doesn't own.
+/// </summary>
+internal sealed class FunctionValue(IrFunction function, TypeMap map, Interpreter.Frame? enclosing, ClosureValue? closure) : Value
+{
+    public IrFunction Function { get; } = function;
+    public TypeMap Map { get; } = map;
+    public Interpreter.Frame? Enclosing { get; } = enclosing;
+    public ClosureValue? Closure { get; } = closure;
+
+    public override string ToString() => Function.Name;
+}
+
+/// <summary>
+/// An escaping lambda's captures, counted like an object: copies of the function value share it, and
+/// the last releases its captures, in the order the lambda captured them.
+/// </summary>
+public sealed class ClosureValue(Cell[] captures) : Value
+{
+    public Cell[] Captures { get; } = captures;
+
+    /// <summary>The references to it; making it holds the first.</summary>
+    public long Count { get; set; } = 1;
+
+    public override string ToString() => "closure";
+}
+
+/// <summary>A choice of functions: the index of the one it selects, and every callable it may select, which it owns.</summary>
+public sealed class ChoiceValue(int index, Cell[] options) : Value
+{
+    public int Index { get; } = index;
+    public Cell[] Options { get; } = options;
+
+    public override string ToString() => $"choice {Index}";
+}
+
 /// <summary>A value interpolation defers to write with its format specifier and alignment.</summary>
 public sealed class FormattedValue(VplType innerType, Value inner, int kind, int precision, int alignment) : Value
 {
@@ -187,6 +227,11 @@ public static class Values
     {
         IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue => value,
         ObjectRef obj => Retain(obj),
+        // A choice copies every callable it holds, as a tuple of them does.
+        ChoiceValue choice => new ChoiceValue(choice.Index, [.. choice.Options.Select(CopyCell)]),
+        // Only the escaping form holds a count; a non-escaping value refers to a closure it doesn't own.
+        FunctionValue function when type.NonNull.IsEscaping => Retain(function),
+        FunctionValue => value,
         StructValue s => new StructValue(s.Type, [.. s.Fields.Select(CopyCell)]),
         EnumValue e => new EnumValue(e.Type, e.Variant, [.. e.Fields.Select(CopyCell)]),
         ArrayValue a => new ArrayValue(a.Type, [.. a.Elements.Select(CopyCell)]),
@@ -201,11 +246,21 @@ public static class Values
         return obj;
     }
 
+    /// <summary>A copy of a function value is the same two words with the closure's count risen.</summary>
+    static FunctionValue Retain(FunctionValue function)
+    {
+        if (function.Closure is { } closure)
+            closure.Count++;
+        return function;
+    }
+
     /// <summary>
-    /// Releases what a value owns: a class reference lowers its object's count, and an object's
-    /// last reference runs its destructors (<see cref="IObjectLifetime.Destroy"/>). Fields and
-    /// elements are released in reverse declaration order, as C++ destroys members. Numbers,
-    /// strings, references, and moved-from values own nothing.
+    /// Releases what a value owns: a class reference lowers its object's count, and an object's last
+    /// reference runs its destructors (<see cref="IObjectLifetime.Destroy"/>); an escaping function
+    /// value lowers its closure's, which releases what it captured at zero. A struct's or enum's
+    /// fields and an array's elements go in reverse declaration order, as C++ destroys members; a
+    /// closure's captures and a choice's callables in the order they are held. Numbers, strings,
+    /// references, and moved-from values own nothing.
     /// </summary>
     public static void Release(VplType type, Value value, IObjectLifetime lifetime)
     {
@@ -214,6 +269,13 @@ public static class Values
             case ObjectRef obj:
                 if (--obj.Count == 0)
                     lifetime.Destroy(obj);
+                break;
+            case FunctionValue function when type.NonNull.IsEscaping && function.Closure is { } closure:
+                if (--closure.Count == 0)
+                    ReleaseHeld(closure.Captures, lifetime);
+                break;
+            case ChoiceValue choice:
+                ReleaseHeld(choice.Options, lifetime);
                 break;
             case StructValue s:
                 ReleaseCells(s.Fields, lifetime);
@@ -236,6 +298,17 @@ public static class Values
             Release(cells[i].Type, cells[i].Value, lifetime);
     }
 
+    /// <summary>
+    /// A closure's captures and a choice's callables are released in the order they are held, as the
+    /// runtime's tuples destroy them, not in the reverse order a struct's fields take
+    /// (docs/spec/03-memory-model.md, When references are released).
+    /// </summary>
+    static void ReleaseHeld(Cell[] cells, IObjectLifetime lifetime)
+    {
+        foreach (var cell in cells)
+            Release(cell.Type, cell.Value, lifetime);
+    }
+
     /// <summary>The zeroed storage of a type, which <c>IrZeroed</c> makes and a default builds on.</summary>
     public static Value Zeroed(VplType type) =>
         type.IsNullableValue ? new OptionalValue(null)
@@ -249,8 +322,8 @@ public static class Values
         : type == VplType.Char ? new CharValue(0)
         : type.IsFloatingPoint ? new FloatValue(0.0)
         : type.IsInteger ? new IntValue(0)
-        : type.IsFunction ? throw new UnsupportedFeature("function values land in step 3")
-        : type.IsTypeParameter ? throw new UnsupportedFeature("a type parameter's default lands in step 3")
+        : type.IsFunction ? NullValue.Instance
+        : type.IsTypeParameter ? throw new InterpreterException($"the type parameter '{type}' has no type argument")
         : throw new InterpreterException($"a default {type}");
 
     /// <summary>The fields of a struct type, with its type arguments applied, in declaration order.</summary>

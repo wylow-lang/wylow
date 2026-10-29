@@ -1,8 +1,8 @@
 # The IR interpreter, the universal oracle
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
-definition); step 1 done 2026-10-29; step 2 done 2026-10-29. Step 3 (generics and
-function values) is next. Sources:
+definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29. Step 4
+(unsafe memory and the standard library) is next. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
@@ -373,10 +373,51 @@ need function values or slots (steps 3 and 5); the `list_*`, array, and `memory:
 the standard library (step 4). The whole suite in the interpret mode is 345 passed and 85
 `Unsupported`, with no disagreement in any program the step covers.
 
-**Step 3 — generics and function values.** Frame type maps; non-escaping lambdas with their
-creating frame; escaping closures; function references and choices; `Printable`/`Comparable`
-through a type parameter; invocation and dispatch through interfaces. Filters: `lambdas`,
-`generics`.
+**Step 3 — generics and function values (done 2026-10-29).** Frame type maps that compose with
+the caller's, non-escaping lambdas that read their creating frame, escaping closures that count
+and release their captures, choices, and invocation of a function value.
+
+`Frame` carries the type arguments its body runs with, and a callee's are now `caller.Map.Compose(
+callee.Map)` (`TypeMap.Compose`): a generic method that calls another with its own type parameters
+as the arguments (`Pair<B, A> swapped()` inside `Pair<A, B>`) would otherwise run with `B` as its
+own field type. A non-escaping lambda's frame is the creating frame's map with that frame as its
+`Enclosing`, so its body finds the locals around it as places and their type arguments as they
+were; an escaping closure carries the map and the copies of what it captured, and its body reads
+the closure's cells by reference, which is why a capture is released by the closure and not by
+the call.
+
+`Values.FunctionValue` is the lambda's `IrFunction`, its map, either the creating frame
+(non-escaping) or a `ClosureValue` (escaping), which counts like an object. `Values.ChoiceValue`
+holds the index and every callable, owns them, and copies them with the choice. A `copy` of a
+function value counts only where the type is escaping: the non-escaping form refers to a closure it
+doesn't own, as `vpl::FunctionRef` does, and converting between the forms changes nothing about the
+value (`RuntimeArithmetic.Convert`). Invoking reads the callee where it is — never copying a
+function value or a choice, which would hold counts C++ never takes — and runs the chosen option of
+a choice or the lambda's IR.
+
+Two executor rules step 3 settled, both of which C++ already did:
+
+- An operation that only reads an operand (`test`, a comparison, a check, a choice's index) reads
+  the place in place: the `copy` the IR names makes no count. The interpreter had been copying and
+  never releasing, which the first test to narrow a nullable object found.
+- A closure releases what it captured, and a choice its callables, in the order they are held, not
+  in the reverse order a struct's fields take, because the runtime holds each in one `std::tuple`.
+  Both tested compilers destroy a tuple forwards, and `03-memory-model.md` now says so;
+  `lambdas/capture_order.vpl` pins it.
+
+`InterpreterSelfTests` grew to 50 cases: non-escaping lambdas through templates and over the
+creating frame, closures over `this` and their release, composed type maps, function-typed fields
+and nullable functions, choices, function references (a plain function, a static method, `ref`
+parameters), interface dispatch to a lambda, `Printable`/`Comparable` through a type parameter, and
+a closure over a type parameter.
+
+What the filters still reach, and so moves to the step that lands the feature: `lambdas/captures`,
+`contexts`, `element_writes`, `escaping`, `escaping_lifetimes`, `escaping_parameters`, `inference`,
+`members`, `recursion`, `references`, and `safety` build a `List` or `Array`, so they need
+`Memory.allocate`; `generics/comparable` and `generics/views` need spans. Both are step 4. `cycles/*`
+and `lambdas/stack_closures` need the collector and stack slots (step 5). The whole suite in the
+interpret mode is 373 passed and 68 `Unsupported`, with no disagreement in any program the step
+covers.
 
 **Step 4 — unsafe memory and the standard library.** Typed buffers and pointers, fixed-array
 `data`, spans, `Memory`/`Bounds` intrinsics, `String`'s extern methods, `bounds` panics, and the

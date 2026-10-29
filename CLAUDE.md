@@ -162,9 +162,10 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   produces, either form, and is provenance-blind: one visitor rule per statement and rvalue kind,
   and one `Values` definition of copy, release, default, and equality driven by `VplType`.
   `RuntimeText`/`RuntimeArithmetic` reproduce `runtime/vpl/*.h`, and the intrinsic registry keys on
-  `BuiltinCppName`. Step 1 covers values, locals, calls, control flow, panics, and text; objects,
-  closures, spans, and cycles report `Unsupported` until their steps land, and the `interpret` test
-  mode is opt-in.
+  `BuiltinCppName`. Steps 1–3 cover values, locals, calls, control flow, panics, text, objects and
+  ownership, and function values with frame type maps; spans, pointers, the standard library's
+  containers, `Weak`, stack slots, and cycles report `Unsupported` until their steps land, and the
+  `interpret` test mode is opt-in.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.

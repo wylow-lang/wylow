@@ -155,6 +155,10 @@ internal static class RuntimeArithmetic
                 return new OptionalValue(optional.Inner is null ? null : new Cell(to.NonNull, Convert(from.NonNull, to.NonNull, optional.Inner.Value, location)));
             return new OptionalValue(new Cell(to.NonNull, Convert(from, to.NonNull, value, location)));
         }
+        // A function value converted to another function type is the same value: only which form
+        // owns the closure differs, and that is the type of the storage, not of the value.
+        if (from.IsFunction && to.IsFunction)
+            return value;
         if (to.IsNullableReference || to.IsReference)
             return value;
         if (location is not null)

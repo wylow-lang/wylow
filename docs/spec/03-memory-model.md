@@ -34,6 +34,9 @@ releasing any class references it contains.
   then releases the fields it declares, in reverse declaration order, before the base class's
   destructor runs. Its abstract or virtual methods dispatch to the class being destroyed, so they
   never see a derived class's fields.
+- A closure releases the copies it captured, and a choice the callables it holds, in the order they
+  are held, not in the reverse order a struct's fields take. Either one's last reference releases
+  them, like an object's fields.
 - A temporary, such as an object returned by a call and not stored, is released when the statement
   that created it completes, not at its last use, so a destructor's timing can be read from the
   source. Within a statement:

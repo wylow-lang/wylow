@@ -232,6 +232,21 @@ public sealed class TypeMap
         return new TypeMap(combined);
     }
 
+    /// <summary>
+    /// This map applied to the types <paramref name="inner"/> maps its parameters to: a callee's
+    /// type arguments in the caller's terms, as when generic code runs a generic method with its own
+    /// type parameters as the arguments.
+    /// </summary>
+    public TypeMap Compose(TypeMap inner)
+    {
+        if (inner.map.Count == 0)
+            return this;
+        var combined = new Dictionary<TypeParameterSymbol, VplType>(map);
+        foreach (var (parameter, type) in inner.map)
+            combined[parameter] = Apply(type);
+        return new TypeMap(combined);
+    }
+
     public VplType Apply(VplType type) =>
         type is TypeParameterType p ? map.GetValueOrDefault(p.Parameter, type) : type.MapParts(Apply);
 }

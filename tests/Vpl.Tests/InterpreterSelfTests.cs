@@ -732,6 +732,343 @@ static class InterpreterSelfTests
             }
             """, output: ["2.0", "0.5", "2.0", "7.0"]);
 
+        Case(results, "lambdas", """
+            int apply((int) -> int f, int x) {
+                return f(x);
+            }
+
+            int run(() -> int f) {
+                return f();
+            }
+
+            void main() {
+                mut int total = 0;
+                int start = 2;
+                (int) -> int add = x -> x + start;
+                print(apply(add, 3));
+                run(() -> {
+                    total += 5;
+                    print(total);
+                    return total;
+                });
+                print(total);
+                print(apply(x -> x * 10, 4));
+            }
+            """, output: ["5", "5", "5", "40"]);
+
+        Case(results, "closures", """
+            class Counter {
+                internal {
+                    mut int count;
+
+                    Counter(int count) {
+                        this.count = count;
+                    }
+
+                    () -> int reader() {
+                        return () -> count;
+                    }
+
+                    () -> void adder(int by) {
+                        return () -> {
+                            count += by;
+                        };
+                    }
+                }
+
+                ~Counter() {
+                    print($"freed {count}");
+                }
+            }
+
+            (int) -> int keep(int base) {
+                return x -> base * 2 + x;
+            }
+
+            void main() {
+                var f = keep(21);
+                print(f(0));
+                @Escaping mut () -> void add;
+                {
+                    var c = new Counter(10);
+                    var read = c.reader();
+                    add = c.adder(5);
+                    add();
+                    print(read());
+                }
+                add();
+                print("end");
+            }
+            """, output: ["42", "15", "end", "freed 20"]);
+
+        Case(results, "generic_type_maps", """
+            struct Pair<A, B> {
+                internal {
+                    A first;
+                    B second;
+
+                    Pair(A first, B second) {
+                        this.first = first;
+                        this.second = second;
+                    }
+
+                    Pair<B, A> swapped() {
+                        return Pair<B, A>(second, first);
+                    }
+
+                    String text<C extends Printable>(C extra) {
+                        return extra.toString();
+                    }
+                }
+            }
+
+            Pair<B, A> flip<A, B>(Pair<A, B> p) {
+                return p.swapped();
+            }
+
+            T identity<T>(T value) {
+                return value;
+            }
+
+            void main() {
+                var p = Pair<int, String>(1, "two");
+                var q = flip(p);
+                print($"{q.first} {q.second}");
+                print(p.swapped().text(3.5));
+                print(Pair<int, int>().first + Pair<int, int>().second);
+                print(identity(identity(7)));
+            }
+            """, output: ["two 1", "3.5", "0", "7"]);
+
+        Case(results, "function_fields", """
+            class Button {
+                internal {
+                    mut (int) -> int scale = x -> x;
+                    mut ((int) -> int)? transform = null;
+                    String name;
+
+                    Button(String name) {
+                        this.name = name;
+                    }
+
+                    void set(@Escaping (int) -> int f) {
+                        scale = f;
+                    }
+
+                    int apply(int value) {
+                        var f = transform;
+                        if (f != null) {
+                            return scale(f(value));
+                        }
+                        return scale(value);
+                    }
+                }
+            }
+
+            void main() {
+                var b = new Button("b");
+                print(b.apply(3));
+                b.set(x -> x * 2);
+                print(b.apply(3));
+                b.transform = x -> x + 1;
+                print(b.apply(3));
+                b.transform = null;
+                print(b.apply(3));
+                print(b.name);
+            }
+            """, output: ["3", "6", "8", "6", "b"]);
+
+        Case(results, "choices", """
+            int pick(bool first, (int) -> int a, (int) -> int b) {
+                (int) -> int chosen = first ? a : b;
+                return chosen(10);
+            }
+
+            void main() {
+                print(pick(true, x -> x + 1, x -> x * 2));
+                print(pick(false, x -> x + 1, x -> x * 2));
+                mut bool flag = false;
+                int base = 100;
+                (int) -> int f = flag ? x -> x + base : x -> x - base;
+                print(f(1));
+                flag = true;
+                print(f(1));
+                @Escaping (int) -> int g = flag ? x -> x + 1 : x -> x + 2;
+                print(g(10));
+            }
+            """, output: ["11", "20", "-99", "-99", "11"]);
+
+        Case(results, "function_references", """
+            class Mob {
+                internal {
+                    int depth;
+
+                    Mob(int depth) {
+                        this.depth = depth;
+                    }
+
+                    static int byDepth(Mob a, Mob b) {
+                        return a.depth - b.depth;
+                    }
+
+                    static int scaled(int x) {
+                        return x * 5;
+                    }
+
+                    int scaledTwice() {
+                        return apply(scaled, apply(scaled, depth));
+                    }
+                }
+            }
+
+            int apply((int) -> int f, int x) {
+                return f(x);
+            }
+
+            int inc(int x) {
+                return x + 1;
+            }
+
+            double halve(double x) {
+                return x / 2;
+            }
+
+            void main() {
+                (int) -> int f = inc;
+                print(f(1));
+                print(apply(inc, 41));
+                print(new Mob(2).scaledTwice());
+                (double) -> double h = halve;
+                print(h(5));
+                (Mob, Mob) -> int byDepth = Mob.byDepth;
+                print(byDepth(new Mob(1), new Mob(4)));
+            }
+            """, output: ["2", "42", "50", "2.5", "-3"]);
+
+        Case(results, "interface_dispatch", """
+            interface Runner {
+                mut int run(() -> int task);
+            }
+
+            class Twice implements Runner {
+                internal {
+                    int run(() -> int task) {
+                        return task() + task();
+                    }
+                }
+            }
+
+            int callTemplate(() -> int f) {
+                return f();
+            }
+
+            void main() {
+                Runner r = new Twice();
+                mut int calls = 0;
+                print(r.run(() -> {
+                    calls += 1;
+                    return calls;
+                }));
+                print(calls);
+                print(r.run(() -> 7));
+                print(callTemplate(() -> 3));
+            }
+            """, output: ["3", "2", "14", "3"]);
+
+        Case(results, "ref_function_values", """
+            void bump(ref int x) {
+                x += 10;
+            }
+
+            int write(ref int place, int value) {
+                place = value;
+                return value;
+            }
+
+            void main() {
+                (ref int) -> void twice = v -> {
+                    v += 1;
+                    v *= 2;
+                };
+                mut int a = 3;
+                twice(ref a);
+                print(a);
+                (ref int) -> void f = bump;
+                f(ref a);
+                print(a);
+                (ref int, int) -> int w = write;
+                print(w(ref a, 4));
+                print(a);
+            }
+            """, output: ["8", "18", "4", "4"]);
+
+        Case(results, "type_parameter_bounds", """
+            String show<T extends Printable>(T value) {
+                return value.toString();
+            }
+
+            int order<T extends Comparable<T>>(T a, T b) {
+                return a.compareTo(b);
+            }
+
+            T max<T extends Comparable<T>>(T a, T b) {
+                return a.compareTo(b) < 0 ? b : a;
+            }
+
+            void main() {
+                print(show(42));
+                print(show('x'));
+                print(show("text"));
+                print(show(true));
+                print(show(2.5));
+                print(order(3, 5));
+                print(order("b", "a"));
+                print(max(9, 4));
+                print(max('a', 'b'));
+            }
+            """, output: ["42", "x", "text", "true", "2.5", "-1", "1", "9", "b"]);
+
+        Case(results, "generic_closures", """
+            struct Cell<T extends Printable> {
+                internal {
+                    T value;
+
+                    Cell(T value) {
+                        this.value = value;
+                    }
+
+                    String show() {
+                        return value.toString();
+                    }
+                }
+            }
+
+            () -> String maker<T extends Printable>(T value) {
+                return () -> Cell<T>(value).show();
+            }
+
+            class Box<T extends Printable> {
+                internal {
+                    T value;
+
+                    Box(T value) {
+                        this.value = value;
+                    }
+
+                    () -> T reader() {
+                        return () -> value;
+                    }
+                }
+            }
+
+            void main() {
+                print(maker(7)());
+                print(maker("text")());
+                var b = new Box<int>(5);
+                print(b.reader()());
+            }
+            """, output: ["7", "text", "5"]);
+
         return results;
     }
 
