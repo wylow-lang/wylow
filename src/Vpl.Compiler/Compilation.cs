@@ -17,6 +17,15 @@ namespace Vpl.Compiler;
 /// </summary>
 public sealed record CompileOptions(bool Nest = true, bool Optimize = true);
 
+/// <summary>
+/// A program lowered and run through the pipeline: its diagnostics, and the bound program, IR, and
+/// facts the pipeline produced, each null if the program failed before making it.
+/// </summary>
+public sealed record LowerResult(IReadOnlyList<Diagnostic> Diagnostics, BoundProgram? Program, IrProgram? Ir, Optimized? Optimized)
+{
+    public bool Success => Optimized is not null;
+}
+
 public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, string? Cpp)
 {
     public bool Success => Cpp is not null;
@@ -52,7 +61,12 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
 
 public static class Compilation
 {
-    public static CompilationResult Compile(SourceText source, CompileOptions? options = null)
+    /// <summary>
+    /// Lowers a program and runs the pipeline on it: the mandatory passes, the verifier, and the
+    /// optimizations unless <paramref name="options"/> turns them off. The IR is the program's
+    /// meaning when they are off, which the oracle interprets (docs/design/ir.md §9.11).
+    /// </summary>
+    public static LowerResult Lower(SourceText source, CompileOptions? options = null)
     {
         options ??= new CompileOptions();
         var diagnostics = new DiagnosticBag();
@@ -60,17 +74,25 @@ public static class Compilation
         var unit = new Parser(source, diagnostics).ParseCompilationUnit();
         // Binding a broken tree mostly produces noise, so stop at syntax errors.
         if (diagnostics.HasErrors)
-            return new CompilationResult(diagnostics.Sorted(), null);
+            return new LowerResult(diagnostics.Sorted(), null, null, null);
 
         var program = new Binder(diagnostics).BindProgram(unit with { Declarations = [.. stdlib, .. unit.Declarations] });
         // Only a program that binds is lowered, where the flow analysis finds the errors about order and flow.
         if (diagnostics.HasErrors)
-            return new CompilationResult(diagnostics.Sorted(), null);
+            return new LowerResult(diagnostics.Sorted(), program, null, null);
 
         var ir = IrLowering.Lower(program);
-        if (Pipeline.Run(ir, diagnostics, options.Optimize) is not { } optimized)
-            return new CompilationResult(diagnostics.Sorted(), null);
-        return new CompilationResult(diagnostics.Sorted(), new CppEmitter().Emit(program, ir, optimized.Callees, optimized.Lambdas, options.Nest))
+        var optimized = Pipeline.Run(ir, diagnostics, options.Optimize);
+        return new LowerResult(diagnostics.Sorted(), program, ir, optimized);
+    }
+
+    public static CompilationResult Compile(SourceText source, CompileOptions? options = null)
+    {
+        options ??= new CompileOptions();
+        var lowered = Lower(source, options);
+        if (lowered is not { Program: { } program, Ir: { } ir, Optimized: { } optimized })
+            return new CompilationResult(lowered.Diagnostics, null);
+        return new CompilationResult(lowered.Diagnostics, new CppEmitter().Emit(program, ir, optimized.Callees, optimized.Lambdas, options.Nest))
         {
             StackObjects = optimized.StackObjects,
             InPlaceElements = optimized.InPlaceElements,
