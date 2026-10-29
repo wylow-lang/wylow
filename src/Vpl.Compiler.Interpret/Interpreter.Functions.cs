@@ -14,19 +14,29 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// An escaping lambda's closure: copies of what it captures, or nothing when it captures none,
-    /// which allocates nothing as the runtime's does.
+    /// which allocates nothing as the runtime's does. A closure the compiler put in a stack slot
+    /// leaves the collector and ends with the slot.
     /// </summary>
     Value Closure(IrClosure closure, Frame frame)
     {
-        if (closure.Slot is not null)
-            throw new UnsupportedFeature("stack slots land in step 5");
         var captures = new Cell[closure.Captures.Count];
         for (int i = 0; i < captures.Length; i++)
         {
             var capture = closure.Captures[i];
             captures[i] = new Cell(frame.Type(capture.Type), EvalOperand(capture, frame));
         }
-        return new FunctionValue(closure.Function, frame.Map, null, new ClosureValue(captures));
+        var value = new ClosureValue(closure.Name, captures) { Created = objectsCreated++ };
+        if (closure.Slot is { } slot)
+        {
+            // The slot takes the object's first reference, and the function value a counted copy.
+            FillSlot(slot, value, frame);
+            value.Count++;
+        }
+        else
+        {
+            value.Cyclic = callees.Cycles.IsCyclicClosure(closure.Function.Symbol);
+        }
+        return new FunctionValue(closure.Function, frame.Map, null, value);
     }
 
     /// <summary>

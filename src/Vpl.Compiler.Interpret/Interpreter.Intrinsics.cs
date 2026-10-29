@@ -16,6 +16,8 @@ public sealed partial class Interpreter
         if (symbol.IsInstanceMethod && symbol.ContainingType is { IsExtern: true } owner)
             key = $"{owner.Name}::{key}";
         var location = call.Loc is { } loc ? Location(loc, caller) : null;
+        if (key == "Weak::get")
+            return WeakGet(call, caller);
         if (key.StartsWith("vpl::memory::", StringComparison.Ordinal))
             return MemoryIntrinsic(key["vpl::memory::".Length..], call, caller, location);
         var receiver = call.Receiver is { } given ? ArgumentValue(given, caller) : null;
@@ -51,6 +53,23 @@ public sealed partial class Interpreter
         output.AddRange(RuntimeText.Format(method.ParameterType(0), arguments[0]));
         output.Add((byte)'\n');
         return null;
+    }
+
+    /// <summary><c>Weak&lt;T&gt;.get()</c>: a counted reference to the target while it lives, or a null reference.</summary>
+    Value WeakGet(IrCall call, Frame caller)
+    {
+        var receiver = call.Receiver switch
+        {
+            null => throw new InterpreterException("Weak.get was called without a receiver"),
+            IrRead read => ReadInPlace(read, caller),
+            var other => ArgumentValue(other, caller),
+        };
+        return receiver switch
+        {
+            WeakValue weak => weak.Get(),
+            NullValue => new RefValue(null),
+            var other => throw new InterpreterException($"Weak.get was called on a {other.GetType().Name}"),
+        };
     }
 
     static Value? Panic(IReadOnlyList<Value> arguments, string? location)

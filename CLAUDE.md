@@ -19,8 +19,8 @@ dotnet build
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all five modes at once, one process each
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # opt-in sixth mode: run the IR interpreter, no C++
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all six modes at once, one process each
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # only the IR interpreter: run the meaning, no C++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
@@ -162,10 +162,12 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   produces, either form, and is provenance-blind: one visitor rule per statement and rvalue kind,
   and one `Values` definition of copy, release, default, and equality driven by `VplType`.
   `RuntimeText`/`RuntimeArithmetic` reproduce `runtime/vpl/*.h`, and the intrinsic registry keys on
-  `BuiltinCppName`. Steps 1–4 cover values, locals, calls, control flow, panics, text, objects and
-  ownership, function values with frame type maps, and raw memory: pointers over a `Values.Buffer`,
-  fixed-array `data`, spans, and the standard library's containers. `Weak`, stack slots, and cycles
-  report `Unsupported` until step 5, and the `interpret` test mode is opt-in.
+  `BuiltinCppName`. It covers the whole instruction set: values, locals, calls, control flow,
+  panics, text, objects and ownership, function values with frame type maps, raw memory (pointers
+  over a `Values.Buffer`, fixed-array `data`, spans, the standard library's containers), `Weak`
+  blocks, stack slots, and the cycle collector (`Interpreter.Cycles.cs` mirrors
+  `runtime/vpl/cycles.h`, with its stats and debug diagnostics). The `interpret` test mode runs the
+  program's meaning and is part of `--all-modes`.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
@@ -253,8 +255,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
   concept is two ways of doing the same thing.
 - Every feature gets tests for its behavior and for each error it can produce. Run the suite in
-  all five modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, and `--cc asan`. One
-  `--all-modes` run does all five at once.
+  all six modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, `--cc asan`, and
+  `--interpret`. One `--all-modes` run does all six at once.
 - **A feature adds its row or column to the matrices** (enforced only by review): a new place,
   operation, kind of type or value, context, or value edge goes in `MatrixPlaces.cs`,
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change

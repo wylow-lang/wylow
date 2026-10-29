@@ -11,6 +11,9 @@ public sealed partial class Interpreter
 
     Value? MemoryIntrinsic(string name, IrCall call, Frame caller, string? location)
     {
+        // The collector returns nothing and takes no owned value; its `ref` arguments are cells.
+        if (name is "collectCycles" or "takeCycleStats")
+            return CollectorIntrinsic(name, call, caller, location ?? "<unknown>");
         var arguments = call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller)).ToList();
         var map = caller.Map.Compose(call.Method.Map);
         // A generic method's `T*` parameter, with the caller's and the method's type arguments applied.
@@ -74,6 +77,39 @@ public sealed partial class Interpreter
             default:
                 throw new UnsupportedFeature($"the intrinsic 'vpl::memory::{name}'");
         }
+    }
+
+    /// <summary><c>Memory.collectCycles</c> and <c>Memory.cycleStats</c>, as <c>vpl::memory</c> has them.</summary>
+    Value? CollectorIntrinsic(string name, IrCall call, Frame caller, string location)
+    {
+        var given = call.Arguments.Where(a => a is not IrFieldDefault).ToList();
+        if (name == "collectCycles")
+        {
+            if (given.Count == 0)
+            {
+                Collect(long.MaxValue, location);
+                return null;
+            }
+            var visits = Integer(ArgumentValue(given[0], caller));
+            if (visits < 0)
+                throw new VplPanic("cannot visit a negative number of objects", location);
+            Collect((long)visits, location);
+            return null;
+        }
+
+        var stats = TakeStats();
+        var values = new[] { stats.Buffered, stats.Visited, stats.Freed };
+        for (int i = 0; i < values.Length; i++)
+        {
+            var cell = given[i] switch
+            {
+                IrRefArgument reference => PlaceCell(reference.Place, caller),
+                IrAddrArgument address => PlaceCell(address.Place, caller),
+                _ => throw new InterpreterException("Memory.cycleStats was given a value, not a ref"),
+            };
+            cell.Value = new IntValue(values[i] < int.MaxValue ? values[i] : int.MaxValue);
+        }
+        return null;
     }
 
     static PointerValue PointerAt(Value value) => value switch

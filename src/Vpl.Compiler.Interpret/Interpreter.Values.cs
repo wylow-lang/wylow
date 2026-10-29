@@ -40,6 +40,9 @@ public sealed partial class Interpreter
         if (IsReferenceLocal(place))
             return ReferenceValue(place, frame);
         var cell = PlaceCell(place, frame);
+        // The type the copy holds is applied: which form of a function value counts is asked of
+        // the concrete type, not of a type parameter standing for it.
+        type = frame.Type(type);
         return read.Ownership switch
         {
             IrOwnership.Copy => Values.Copy(type, cell.Value),
@@ -114,7 +117,7 @@ public sealed partial class Interpreter
     Value CopyInPlace(IrRead read, Frame frame, VplType type)
     {
         var cell = PlaceCell(read.Place, frame);
-        return Values.Copy(type, cell.Value);
+        return Values.Copy(frame.Type(type), cell.Value);
     }
 
     static Int128 Integer(Value value) => value is IntValue number ? number.Bits : throw new InterpreterException($"expected an integer, got {value.GetType().Name}");
@@ -276,7 +279,7 @@ public sealed partial class Interpreter
         public Value? Variant(IrVariant value) => interpreter.Variant(value, frame);
         public Value? Array(IrArray value) => interpreter.Array(value, frame);
         public Value? Default(IrDefault value) => interpreter.DefaultValue(value.Type, frame);
-        public Value? Zeroed(IrZeroed value) => Values.Zeroed(frame.Type(value.Type));
+        public Value? Zeroed(IrZeroed value) => Values.Zeroed(frame.Type(value.Type), interpreter.program.Bound.Stdlib);
         public Value? Ref(IrRef value) => new RefValue(interpreter.PlaceCell(value.Place, frame));
         public Value? Addr(IrAddr value) => new RefValue(interpreter.PlaceCell(value.Place, frame));
         public Value? Test(IrTest value) => interpreter.Test(value, frame);
@@ -467,9 +470,23 @@ public sealed partial class Interpreter
     {
         var from = frame.Type(conversion.Operand.Type);
         var to = frame.Type(conversion.Type);
-        if (program.Bound.Stdlib.IsWeak(to) || program.Bound.Stdlib.IsWeak(from))
-            throw new UnsupportedFeature("weak references land in step 5");
         var operand = EvalOperand(conversion.Operand, frame);
+        // A weak reference watches the object but does not keep it: the conversion takes no count,
+        // and lets go of the strong one its operand held, as the runtime's temporary does.
+        if (program.Bound.Stdlib.IsWeak(to))
+        {
+            var weak = WeakValue.Of(operand switch
+            {
+                ObjectRef obj => obj,
+                RefValue { Cell: { Value: ObjectRef inner } } => inner,
+                NullValue or RefValue => null,
+                _ => throw new InterpreterException($"cannot convert a {operand.GetType().Name} to '{to}'"),
+            });
+            // A borrow took no count of its own, so there is nothing to let go of.
+            if (conversion.Operand is not IrRead { Ownership: IrOwnership.Borrow })
+                Release(from, operand);
+            return weak;
+        }
         return RuntimeArithmetic.Convert(from, to, operand, conversion.Loc is { } loc ? Required(loc, frame) : null);
     }
 

@@ -22,8 +22,8 @@ using Vpl.Fuzz;
 // Usage: Vpl.Tests [--cc msvc|gcc|asan|interpret] [--interpret] [--no-nest] [--no-opt] [--all-modes]
 //                  [--out <dir>] [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
-// --interpret runs the IR interpreter instead of a native build; it is opt-in until step 5.
-// --all-modes runs the five modes one per process at once, each writing under <out>/<mode>.
+// --interpret runs the IR interpreter instead of a native build.
+// --all-modes runs the six modes one per process at once, each writing under <out>/<mode>.
 // --update-snapshots rewrites tests/matrix/*.snapshot with what the matrix cells do now.
 
 Toolchain? toolchain = null;
@@ -127,7 +127,7 @@ Console.WriteLine($"{results.Count - failed} passed, {failed} failed ({stopwatch
 return failed == 0 ? 0 : 1;
 
 /// <summary>
-/// The five modes, each in its own process and output directory, so the machine's cores fill instead
+/// The six modes, each in its own process and output directory, so the machine's cores fill instead
 /// of one mode at a time using half of them.
 /// </summary>
 static int RunAllModes(string outputDirectory, string? filter, int jobs)
@@ -139,6 +139,7 @@ static int RunAllModes(string outputDirectory, string? filter, int jobs)
         ("no-opt", ["--no-opt"]),
         ("no-nest", ["--no-nest"]),
         ("asan", ["--cc", "asan"]),
+        ("interpret", ["--interpret"]),
     ];
     var assembly = typeof(MatrixTests).Assembly.Location;
     var stopwatch = Stopwatch.StartNew();

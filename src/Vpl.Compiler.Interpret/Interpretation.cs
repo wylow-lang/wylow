@@ -30,20 +30,24 @@ public sealed record Interpretation(byte[] Output, string Error, int ExitCode, I
 
     public string OutputText => Encoding.UTF8.GetString(Output);
 
-    public static Interpretation Completed(byte[] output, int exitCode) =>
-        new(output, "", exitCode, InterpretationStatus.Completed);
+    /// <summary>
+    /// The run finished. <paramref name="before"/> is what the program already wrote to standard
+    /// error, such as the collector's performance warnings.
+    /// </summary>
+    public static Interpretation Completed(byte[] output, int exitCode, string before = "") =>
+        new(output, before, exitCode, InterpretationStatus.Completed);
 
-    public static Interpretation Panicked(byte[] output, string message, string location) =>
-        new(output, $"panic: {message}\n    at {location}\n", AbortExitCode, InterpretationStatus.Panicked);
+    public static Interpretation Panicked(byte[] output, string message, string location, string before = "") =>
+        new(output, $"{before}panic: {message}\n    at {location}\n", AbortExitCode, InterpretationStatus.Panicked);
 
-    public static Interpretation BudgetExceeded(byte[] output) =>
-        new(output, "interpreter budget exceeded\n", 0, InterpretationStatus.BudgetExceeded);
+    public static Interpretation BudgetExceeded(byte[] output, string before = "") =>
+        new(output, $"{before}interpreter budget exceeded\n", 0, InterpretationStatus.BudgetExceeded);
 
-    public static Interpretation Unsupported(byte[] output, string what) =>
-        new(output, $"unsupported: {what}\n", 0, InterpretationStatus.Unsupported);
+    public static Interpretation Unsupported(byte[] output, string what, string before = "") =>
+        new(output, $"{before}unsupported: {what}\n", 0, InterpretationStatus.Unsupported);
 
-    public static Interpretation Undefined(byte[] output, string what) =>
-        new(output, $"undefined behavior: {what}\n", 0, InterpretationStatus.UndefinedBehavior);
+    public static Interpretation Undefined(byte[] output, string what, string before = "") =>
+        new(output, $"{before}undefined behavior: {what}\n", 0, InterpretationStatus.UndefinedBehavior);
 }
 
 /// <summary>How much interpreting may do before it is inconclusive, and whether integer overflow wraps.</summary>

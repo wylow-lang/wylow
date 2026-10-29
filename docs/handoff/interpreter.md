@@ -2,7 +2,7 @@
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
 definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
-2026-10-29. Step 5 (Weak, stack slots, and cycles) is next. Sources:
+2026-10-29; step 5 done 2026-10-29. Step 6 (harness and hardening) is next. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
@@ -471,10 +471,47 @@ overlapping ranges, `drop`, `free` of null, pointer arithmetic and comparison), 
 arrays and a struct's fields with `slice` and `for ref`, `String.bytes`, `Array` and `List`, the
 index and range panics, and undefined behavior for uninitialized storage and a null pointer.
 
-**Step 5 — Weak, slots, and cycles.** Weak blocks and `get`; stack slots and their collector
-interaction; the collector mirror, its stats, and its debug diagnostics; at-exit reporting.
-Filters: `cycles`, and then the whole suite. Add the `interpret` mode to `--all-modes`, the
-matrix run, and the optimized-IR comparison.
+**Step 5 — Weak, slots, and cycles (done 2026-10-29).** Weak blocks and `get`; stack slots and
+their collector interaction; the collector mirror, its stats, and its debug diagnostics; at-exit
+reporting. The `interpret` mode is now part of `--all-modes`, and the whole suite passes in it:
+460 passed, no `Unsupported` left, with no disagreement in any program the mode covers.
+
+`Values.HeapObject` is the runtime's `vpl::Object` header: the count, the cyclic, buffered, dying,
+gray, white, and finalized flags, the buffer slot, and the creation number that orders a collected
+cycle's destructors. `ObjectRef` and `ClosureValue` derive from it, so a closure on a heap is
+buffered, visited, and collected as the runtime's `Closure` is. `ObjectRef`'s weak block takes the
+slot and creation number over from the header while it exists, exactly as `vpl::WeakBlock` does.
+
+`Interpreter.Cycles.cs` mirrors `runtime/vpl/cycles.h`: the buffer and its compaction, `mark_gray`
+with its budget rollback, `scan`, `scan_black`, `collect_white`, `destroy_garbage` with the finalize
+phase and the resurrection panic, `CycleStats`, the three debug diagnostics (a growing buffer, a
+class freed by ten collections, uncollected cycles at exit), and the `destroying` guard that makes
+`Memory.collectCycles` panic in a destructor. `Released` is `vpl::Object::release`: destroy at zero,
+or buffer a cyclic object whose count stayed above it. Reading a value's strong references follows
+the generated `vpl_visit`: a base class's before its own, fields in declaration order, a
+container's elements last through the container's own `asReadOnlySpan` (so the interpreter never
+assumes a container's layout), and a closure's captures in the order it holds them.
+
+Three things step 5 settled, all of which C++ already did:
+
+- **A container's destructor body is not a separate destructor.** `TypeSymbol.HasSeparateDestructor`
+  excludes the standard library, whose containers release their elements with their fields: their
+  destructor bodies run while the garbage is deleted, after every separate destructor of the cycle.
+  Finalizing them early freed a list's storage before the collector's next walk read it.
+- **A `vpl::Function` holds one `Ref` per copy, and the collector clears each one.** A copy of a
+  function value is a new `FunctionValue` with its own closure reference, so clearing a reference
+  from a garbage object releases exactly the count that copy held.
+- **A read's type is applied through the frame before it decides what a copy costs.** Generic code
+  reads a value through a type parameter, and a type parameter is not an escaping function type:
+  copying a closure under `T` counted nothing while releasing the element under the instantiated
+  type counted, so the first `List<() -> void>` that cleared itself freed its closure twice.
+
+`ValueKinds.cs` and `Values.cs` split the kinds from their copy/release/default/equality operations,
+and `Interpreter.Calls.cs` holds calls, construction, and destruction, so no interpreter file passes
+the ~600-line guideline. `InterpreterSelfTests` grew to 69 cases: weak references before and after
+death and in a struct, a collected cycle and its stats, the budgeted rollback, a weak target found
+null after a collection, `Memory.collectCycles` in a destructor, the resurrection panic, the
+at-exit warning, and a stack slot left unbuffered in the optimized IR.
 
 **Step 6 — harness and hardening.** Matrix cells run interpreted against the same snapshots;
 the fuzzer gets an interpreter mode in tier 2 (interpreter vs `--no-opt` first, then the optimized

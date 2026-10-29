@@ -1228,18 +1228,240 @@ static class InterpreterSelfTests
             }
             """, undefined: "dereferenced the null pointer 'nothing'");
 
+        Case(results, "weak_reference", """
+            class Target {
+                internal {
+                    int id;
+
+                    Target(int id) {
+                        this.id = id;
+                    }
+                }
+
+                ~Target() {
+                    print($"gone {id}");
+                }
+            }
+
+            void main() {
+                mut var a = new Target(1);
+                Weak<Target> watch = a;
+                if (watch.get() is Target t) {
+                    print(t.id);
+                }
+                a = new Target(2);
+                print(watch.get() == null);
+            }
+            """, output: ["1", "gone 1", "true", "gone 2"]);
+
+        Case(results, "weak_while_dying", """
+            class Watcher {
+                internal {
+                    mut Weak<Watcher> self;
+                }
+
+                ~Watcher() {
+                    self = this;
+                    print(self.get() == null);
+                }
+            }
+
+            void main() {
+                _ = new Watcher();
+            }
+            """, output: ["true"]);
+
+        Case(results, "weak_in_struct", """
+            class Target {
+                internal {
+                    int id;
+
+                    Target(int id) {
+                        this.id = id;
+                    }
+                }
+            }
+
+            struct Holder {
+                internal {
+                    Weak<Target> target;
+                    int priority = 1;
+                }
+            }
+
+            void main() {
+                var a = new Target(5);
+                mut Holder holder = Holder();
+                holder.target = a;
+                Holder copy = holder;
+                holder.target = null;
+                if (copy.target.get() is Target t) {
+                    print(t.id);
+                }
+            }
+            """, output: ["5"]);
+
+        Case(results, "cycle_collected", """
+            class Node {
+                internal {
+                    int id;
+                    mut Node? next;
+
+                    Node(int id) {
+                        this.id = id;
+                    }
+                }
+
+                ~Node() {
+                    print(id);
+                }
+            }
+
+            void main() {
+                mut var a = new Node(1);
+                a.next = new Node(2);
+                a.next!.next = a;
+                a = new Node(3);
+                Memory.collectCycles();
+                print(Memory.cycleStats().freed);
+            }
+            """, output: ["1", "2", "2", "3"]);
+
+        Case(results, "cycle_budget", """
+            class Node {
+                internal {
+                    mut Node? next;
+                }
+            }
+
+            void main() {
+                mut var a = new Node();
+                a.next = new Node();
+                a.next!.next = a;
+                a = new Node();
+                Memory.collectCycles(1);
+                var budgeted = Memory.cycleStats();
+                print(budgeted.visited);
+                Memory.collectCycles();
+                var collected = Memory.cycleStats();
+                print(collected.visited);
+                print(collected.freed);
+            }
+            """, output: ["0", "2", "2"]);
+
+        Case(results, "weak_after_collection", """
+            class Node {
+                internal {
+                    mut Node? next;
+                }
+            }
+
+            void main() {
+                mut Weak<Node> watch = null;
+                if (true) {
+                    var a = new Node();
+                    a.next = a;
+                    watch = a;
+                }
+                print(watch.get() != null);
+                Memory.collectCycles();
+                print(watch.get() == null);
+            }
+            """, output: ["true", "true"]);
+
+        Case(results, "collect_in_destructor", """
+            class Node {
+                ~Node() {
+                    Memory.collectCycles();
+                }
+            }
+
+            void main() {
+                mut var n = new Node();
+                n = new Node();
+            }
+            """, panic: "Memory.collectCycles cannot be called from a destructor", panicAtLine: 3);
+
+        Case(results, "cycle_resurrection", """
+            class Keeper {
+                internal {
+                    mut Node? kept;
+                }
+            }
+
+            class Node {
+                internal {
+                    mut Node? next;
+                    Keeper keeper;
+
+                    Node(Keeper keeper) {
+                        this.keeper = keeper;
+                    }
+                }
+
+                ~Node() {
+                    keeper.kept = next;
+                }
+            }
+
+            void main() {
+                var keeper = new Keeper();
+                mut var a = new Node(keeper);
+                a.next = new Node(keeper);
+                a.next!.next = a;
+                a = new Node(new Keeper());
+                Memory.collectCycles();
+            }
+            """, panic: "a destructor kept a reference to an object of the cycle being collected");
+
+        Case(results, "uncollected_warning", """
+            class Node {
+                internal {
+                    mut Node? next;
+                }
+            }
+
+            void main() {
+                var a = new Node();
+                a.next = a;
+            }
+            """, warnings: ["at exit, 1 objects in cycles were never freed: 1 Node."]);
+
+        Case(results, "stack_slot", """
+            class Node {
+                internal {
+                    mut Node? next;
+                }
+
+                ~Node() {
+                    print("destroyed");
+                }
+            }
+
+            void drop<T>(T value) {
+            }
+
+            void main() {
+                var local = new Node();
+                drop(local);
+                print(Memory.cycleStats().buffered);
+            }
+            """, optimized: true, output: ["0", "destroyed"]);
+
         return results;
     }
 
     static void Case(
         List<TestResult> results, string name, string source, string? panic = null, int? panicAtLine = null,
-        bool release = false, string? undefined = null, params string[] output) =>
-        results.Add(new TestResult("interpreter/" + name, Check(name, source, output, panic, panicAtLine, release, undefined)));
+        bool release = false, string? undefined = null, IReadOnlyList<string>? warnings = null, bool optimized = false, params string[] output) =>
+        results.Add(new TestResult("interpreter/" + name, Check(name, source, output, panic, panicAtLine, release, undefined, warnings, optimized)));
 
-    static string? Check(string name, string source, IReadOnlyList<string> expected, string? panic, int? panicAtLine, bool release, string? undefined = null)
+    static string? Check(
+        string name, string source, IReadOnlyList<string> expected, string? panic, int? panicAtLine, bool release,
+        string? undefined = null, IReadOnlyList<string>? warningsExpected = null, bool optimized = false)
     {
         var text = new SourceText(name + ".vpl", source);
-        var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: false), new InterpreterOptions(Release: release));
+        var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: optimized), new InterpreterOptions(Release: release));
         var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (errors.Count > 0)
             return "did not compile: " + string.Join(" | ", errors);
@@ -1267,6 +1489,24 @@ static class InterpreterSelfTests
         {
             problems.Add($"expected completion, got {result.Status}: {result.Error.Trim()}");
         }
+
+        // A case that lists warnings checks them exactly; one that doesn't leaves them unchecked,
+        // since the interpret mode over the suite already checks every test's.
+        if (warningsExpected is not null)
+        {
+            const string warningPrefix = "performance warning: ";
+            var warnings = result.Error.Split('\n').Where(l => l.StartsWith(warningPrefix, StringComparison.Ordinal)).Select(l => l[warningPrefix.Length..]).ToList();
+            foreach (var warning in warningsExpected)
+            {
+                int index = warnings.FindIndex(w => w.Contains(warning, StringComparison.Ordinal));
+                if (index >= 0)
+                    warnings.RemoveAt(index);
+                else
+                    problems.Add($"missing warning: {warning}");
+            }
+            problems.AddRange(warnings.Select(w => $"unexpected warning: {w}"));
+        }
+
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }
 }
