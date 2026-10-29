@@ -42,9 +42,11 @@ extern {
 > implemented.
 >
 > The standard library may also declare an `extern struct`, a value type implemented by the C++
-> class `vpl::Name` (`Weak<T>` is `vpl::Weak`). It has no fields or constructors, its default value
-> is the class's default constructor, it doesn't support `==`, and its methods are all `extern`:
-> instance methods call the C++ class's member function of the same name.
+> class `vpl::Name` (`Weak<T>` is `vpl::Weak`, `String` is `vpl::String`). This is currently both
+> the C++ interop value type and the representation of the language's built-in resource values
+> (`String`, `Weak<T>`); user code cannot declare one. It has no fields or constructors, its
+> default value is the class's default constructor, it doesn't support `==`, and its methods are
+> all `extern`: instance methods call the C++ class's member function of the same name.
 ### C++ names
 
 Since the output is C++ source, a declaration can map to any C++ name, including namespaced and
@@ -128,7 +130,7 @@ signatures and extern struct fields. This is checked at compile time.
 | Structs whose fields are all blittable | Same layout | ✅ |
 | `T[N]` with blittable `T` | `T[N]` | ✅ |
 | `@CCallback` function pointers (§7.6) | Function pointer | ✅ |
-| Class references, `String`, `List<T>`, `T[]`, `Span<T>`, `ref T`, enums with data, nullable values | — | ❌ |
+| Class references, `List<T>`, `T[]`, `Span<T>`, `ref T`, enums with data, nullable values, and `String` (it holds a counted block) | — | ❌ |
 
 ### Layout verification
 

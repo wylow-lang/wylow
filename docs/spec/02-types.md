@@ -438,9 +438,10 @@ struct Transform {
 - **No destructors, no copy constructors, no move semantics.** Resource ownership belongs to classes.
 - No inheritance. Structs may implement interfaces, but only for use as generic bounds (§2.12).
 
-> ⚠️ **Struct copies are shallow.** If a struct contains a class reference (a `List`, a `String`,
-> any class), the copy refers to the *same* object. Mutating the list through one copy is visible
-> through the other. Use `.clone()` when a deep copy is wanted.
+> ⚠️ **Struct copies are shallow.** If a struct contains a class reference (a `List`, any class),
+> the copy refers to the *same* object. Mutating the list through one copy is visible through the
+> other. A `String` copy shares its counted bytes, which is unobservable because a string never
+> changes. Use `.clone()` when a deep copy is wanted.
 
 ### Layout
 
@@ -500,7 +501,8 @@ final class Shotgun extends Weapon {
 - Class references are non-null unless typed `T?`.
 - Classes may have a destructor, declared `~ClassName() { ... }`, which runs deterministically when
   the last reference is released.
-- Standard library collections and strings are classes: `List<T>`, `Map<K, V>`, `T[]`, `String`.
+- Standard library collections are classes: `List<T>`, `Map<K, V>`, `T[]`. `String` is a built-in
+  value type (§2.10, "Strings").
 
 ### Inheritance rules
 
@@ -557,8 +559,13 @@ that requires a derived class to assign its fields *before* calling `super`.
 
 ### Strings
 
-`String` is an immutable, UTF-8, reference-counted `shared class` (it may cross threads; see
-[05-concurrency.md](05-concurrency.md)).
+`String` is an immutable, UTF-8, reference-counted **built-in value type**: its bytes live in one
+counted block that its copies share (it may cross threads; see
+[05-concurrency.md](05-concurrency.md)). It is not a class, since a non-null class reference has no
+default and a `String`'s default is the empty string (§2.13), and it is not a user struct, since
+structs own no resource and a `String` owns its block. The standard library declares it as an
+`extern struct`, which the runtime implements; `String` and `Weak<T>` are the only such built-in
+values.
 
 Strings are joined by [interpolation](06-syntax.md#string-interpolation), `$"{a}{b}"`, which
 builds the result in one allocation. There is no `+` on strings, so there is one way to do it.
@@ -611,6 +618,11 @@ for (int at, char c : path) {
 ```
 
 The standard library declares these methods in `String.vpl`, implemented by the runtime.
+
+The block and its count stay native. When extension methods land (§6.4), the higher-level methods
+move into VPL as extensions over the primitive `bytes()`, `byteLength()`, and the slicing
+primitive, so only the counted storage remains runtime code; user-defined `==` (§6.6) can later
+replace the compiler's content-equality rule.
 
 > Implemented so far: literals, interpolation, `print`, `==`, and the methods above. The count is
 > not atomic yet, since there are no threads. `StringBuilder` is not implemented.

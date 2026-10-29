@@ -290,7 +290,8 @@ position.scale(2);
 - Once packages exist, an extension is found only where its package is imported. Until then, every
   extension in the program and the standard library is visible.
 
-> Not implemented yet.
+> Not implemented yet. The standard library will use extensions to move `String`'s higher-level
+> methods into VPL over its native primitives.
 
 ## 6.5 No properties
 

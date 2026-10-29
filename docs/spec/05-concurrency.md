@@ -24,7 +24,8 @@ never written on structs.
 | Enums whose variants hold only sendable data | ✅ |
 | Structs whose fields are all sendable ("plain data") | ✅ |
 | `T[N]` where `T` is sendable | ✅ |
-| References to a `shared class` (including `String`, `Frozen<T>`) | ✅ |
+| `String` (an immutable built-in value whose copies share one counted block) | ✅ |
+| References to a `shared class` (including `Frozen<T>`) | ✅ |
 | References to normal classes (`List<T>`, `T[]`, `Map`, user classes), and `Weak<T>` | ❌ |
 | Structs/enums containing any non-sendable field | ❌ |
 
@@ -49,7 +50,8 @@ shared class TextureCache {
 - No field may be `mut` ([02-types.md](02-types.md#27-mutability-and-constants)), and every field
   must be sendable or a synchronization type (`Mutex<T>`, `RwLock<T>`, `Atomic<T>`,
   `Channel<T>`, ...), through which the shared state changes. The compiler enforces this.
-- `String` is a `shared class`.
+- `String` is an immutable built-in value: its bytes are shared and never change, so it may cross
+  threads. Its block's count becomes atomic when threads exist.
 
 ## 5.2 Jobs
 
