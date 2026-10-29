@@ -34,4 +34,26 @@ public sealed class Overrides
         }
         return targets[method] = all;
     }
+
+    /// <summary>
+    /// The method a dispatched call of <paramref name="method"/> runs on an object of the runtime
+    /// type: the override in the nearest class of its chain, or a struct's own method that implements
+    /// it. An abstract method's answer is the method itself, whose stub panics when a call reaches it
+    /// during a base constructor or destructor; null if no method of the type does.
+    /// </summary>
+    public MethodReference? Implementation(MethodReference method, VplType runtimeType)
+    {
+        var candidates = Targets(method.Symbol);
+        for (var type = runtimeType.NonNull; type is not null; type = type.BaseType)
+        {
+            if (type.Symbol is not { } symbol)
+                continue;
+            foreach (var candidate in candidates)
+            {
+                if (candidate.ContainingType == symbol)
+                    return new MethodReference(candidate, type, method.TypeArguments);
+            }
+        }
+        return null;
+    }
 }

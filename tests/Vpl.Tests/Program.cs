@@ -93,7 +93,7 @@ var results = files
     .WithDegreeOfParallelism(parallelism)
     .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
-results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(FuzzSelfTests.Run(casesDirectory)
     .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
     .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
