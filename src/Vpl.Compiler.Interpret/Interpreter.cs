@@ -57,6 +57,10 @@ public sealed partial class Interpreter : IObjectLifetime
             {
                 outcome = Interpretation.Unsupported([.. interpreter.output], unsupported.Message);
             }
+            catch (UndefinedBehavior undefined)
+            {
+                outcome = Interpretation.Undefined([.. interpreter.output], undefined.Message);
+            }
             catch (Exception exception)
             {
                 failure = exception;
@@ -374,11 +378,11 @@ public sealed partial class Interpreter : IObjectLifetime
                 return;
             }
             case IrCheckKind.NotNull:
-                if (EvalOperandInPlace(check.Operands[0], frame) is NullValue or RefValue { Cell: null })
+                if (IsNull(EvalOperandInPlace(check.Operands[0], frame)))
                     throw new VplPanic(NullUnwrapMessage(check.Operands[0].Type), Location(check.Loc, frame) ?? "<unknown>");
                 return;
             case IrCheckKind.HasValue:
-                if (EvalOperandInPlace(check.Operands[0], frame) is not OptionalValue { Inner: not null })
+                if (IsNull(EvalOperandInPlace(check.Operands[0], frame)))
                     throw new VplPanic("null value unwrapped with '!'", Location(check.Loc, frame) ?? "<unknown>");
                 return;
             case IrCheckKind.NoMatch:
@@ -561,7 +565,7 @@ public sealed partial class Interpreter : IObjectLifetime
     Cell ArgumentCell(VplType parameterType, IrArgument argument, Frame frame, Frame caller)
     {
         var type = frame.Type(parameterType);
-        var value = EvalOwnedArgument(argument, caller);
+        var value = EvalArgument(argument, type, caller);
         return new Cell(type, type.IsNullableValue && value is not OptionalValue ? new OptionalValue(new Cell(type.NonNull, value)) : value);
     }
 

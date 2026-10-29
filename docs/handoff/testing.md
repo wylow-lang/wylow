@@ -38,7 +38,7 @@ every program. The compiler already has them; they only need to be run on many p
 | The generated C++ compiles, warning-free | Emitter bugs (CLAUDE.md: a C++ compile failure is a compiler bug) | `Driver.BuildExecutable` |
 | All modes print the same and exit the same | Optimization bugs, and C++ that depends on undefined behavior or on the compiler | MSVC, g++, `--no-opt`, `--no-nest` |
 | AddressSanitizer and UBSan stay quiet | Use-after-free, overflow, and the like in generated code and the runtime | the runner's `--cc asan` (clang-cl) |
-| The IR interpreter agrees | Emitter and pass bugs, against the program's meaning | `--interpret` (opt-in; steps 1–3 of `interpreter.md` are done, and it joins `--all-modes` at step 5) |
+| The IR interpreter agrees | Emitter and pass bugs, against the program's meaning | `--interpret` (opt-in; steps 1–4 of `interpreter.md` are done, and it joins `--all-modes` at step 5) |
 
 The modes may legitimately differ in one case: with `--no-opt`, a budgeted `Memory.collectCycles`
 may reach other cycles (CLAUDE.md). A program that calls it is compared on everything but that.

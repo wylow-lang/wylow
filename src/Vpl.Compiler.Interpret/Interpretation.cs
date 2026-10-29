@@ -13,6 +13,11 @@ public enum InterpretationStatus
     BudgetExceeded,
     /// <summary>It reached a feature a later step of the interpreter lands.</summary>
     Unsupported,
+    /// <summary>
+    /// It used memory outside what it owns in <c>unsafe</c> code, which nothing defines, so a
+    /// differential comparison has no behavior to expect.
+    /// </summary>
+    UndefinedBehavior,
 }
 
 /// <summary>What interpreting a program produced.</summary>
@@ -36,6 +41,9 @@ public sealed record Interpretation(byte[] Output, string Error, int ExitCode, I
 
     public static Interpretation Unsupported(byte[] output, string what) =>
         new(output, $"unsupported: {what}\n", 0, InterpretationStatus.Unsupported);
+
+    public static Interpretation Undefined(byte[] output, string what) =>
+        new(output, $"undefined behavior: {what}\n", 0, InterpretationStatus.UndefinedBehavior);
 }
 
 /// <summary>How much interpreting may do before it is inconclusive, and whether integer overflow wraps.</summary>
@@ -46,6 +54,9 @@ public sealed class InterpreterException(string message) : Exception(message);
 
 /// <summary>An instruction or intrinsic a later step of the interpreter lands.</summary>
 public sealed class UnsupportedFeature(string what) : Exception(what);
+
+/// <summary>What <c>unsafe</c> code does when it uses memory it doesn't own, which nothing defines.</summary>
+public sealed class UndefinedBehavior(string message) : Exception(message);
 
 /// <summary>A panic: the program aborted, so nothing is released on the way out.</summary>
 public sealed class VplPanic(string message, string location) : Exception(message)

@@ -12,13 +12,15 @@ public sealed partial class Interpreter
     Value? CallIntrinsic(IrCall call, Frame caller)
     {
         var symbol = call.Method.Symbol;
-        var receiver = call.Receiver is { } given ? ArgumentValue(given, caller) : null;
-        var arguments = call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller)).ToList();
         var key = symbol.BuiltinCppName ?? throw new InterpreterException($"builtin '{symbol.Name}' has no runtime name");
         if (symbol.IsInstanceMethod && symbol.ContainingType is { IsExtern: true } owner)
             key = $"{owner.Name}::{key}";
         var location = call.Loc is { } loc ? Location(loc, caller) : null;
-        return Invoke(key, call.Method, receiver, arguments, location);
+        if (key.StartsWith("vpl::memory::", StringComparison.Ordinal))
+            return MemoryIntrinsic(key["vpl::memory::".Length..], call, caller, location);
+        var receiver = call.Receiver is { } given ? ArgumentValue(given, caller) : null;
+        var arguments = call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller)).ToList();
+        return Invoke(key, call.Method, receiver, arguments, location, caller);
     }
 
     /// <summary>An argument's value: the value in a place passed by reference, or a copy of a value.</summary>
@@ -26,11 +28,11 @@ public sealed partial class Interpreter
     {
         IrRefArgument reference => PlaceCell(reference.Place, frame).Value,
         IrAddrArgument address => new RefValue(PlaceCell(address.Place, frame)),
-        IrOperand operand => EvalOwnedArgument(operand, frame),
+        IrOperand operand => EvalArgument(operand, operand.Type, frame),
         _ => throw new InterpreterException($"unexpected argument {argument.GetType().Name}"),
     };
 
-    Value? Invoke(string key, MethodReference method, Value? receiver, IReadOnlyList<Value> arguments, string? location) => key switch
+    Value? Invoke(string key, MethodReference method, Value? receiver, IReadOnlyList<Value> arguments, string? location, Frame caller) => key switch
     {
         "vpl::print" => Print(method, arguments),
         "vpl::panic" => Panic(arguments, location),
@@ -40,7 +42,7 @@ public sealed partial class Interpreter
         "vpl::compare" => Compare(method, arguments),
         "vpl::bounds::check" => BoundsCheck(arguments, location),
         "vpl::bounds::checkRange" => BoundsCheckRange(arguments, location),
-        _ when key.StartsWith("String::", StringComparison.Ordinal) => StringMethod(key["String::".Length..], receiver, arguments, location),
+        _ when key.StartsWith("String::", StringComparison.Ordinal) => StringMethod(key["String::".Length..], receiver, arguments, location, caller),
         _ => throw new UnsupportedFeature($"the intrinsic '{key}'"),
     };
 
@@ -104,7 +106,7 @@ public sealed partial class Interpreter
     }
 
     /// <summary>The members of <c>String</c>, over its UTF-8 bytes, as <c>runtime/vpl/core.h</c> and <c>strings.h</c> write them.</summary>
-    static Value? StringMethod(string name, Value? receiver, IReadOnlyList<Value> arguments, string? location)
+    Value? StringMethod(string name, Value? receiver, IReadOnlyList<Value> arguments, string? location, Frame caller)
     {
         var bytes = (receiver as StringValue ?? throw new InterpreterException($"'{name}' was called on something that is not a String")).Bytes;
         switch (name)
@@ -113,6 +115,8 @@ public sealed partial class Interpreter
                 return new IntValue(bytes.Length);
             case "isEmpty":
                 return new BoolValue(bytes.Length == 0);
+            case "bytes":
+                return StringBytes(bytes, caller);
             case "charCount":
                 return new IntValue(CharCount(bytes));
             case "startsWith":
@@ -140,6 +144,38 @@ public sealed partial class Interpreter
     }
 
     static byte[] Text(Value value) => (value as StringValue ?? throw new InterpreterException("a String argument is not one")).Bytes;
+
+    /// <summary>
+    /// The bytes as a <c>ReadOnlySpan&lt;byte&gt;</c> over a buffer of them, made by the span's own
+    /// constructor, so the interpreter never assumes the span's layout. The string is immutable, so
+    /// the span reads a copy that nothing can tell from the string's own storage.
+    /// </summary>
+    Value StringBytes(byte[] bytes, Frame caller)
+    {
+        var storage = Buffer.Allocate(bytes.Length);
+        for (int i = 0; i < bytes.Length; i++)
+            storage.Write(i, new Cell(VplType.Byte, new IntValue(bytes[i])));
+        var span = program.Bound.Stdlib.ReadOnlySpan?.Construct([VplType.Byte])
+            ?? throw new InterpreterException("the standard library declares no 'ReadOnlySpan'");
+        var constructor = span.Symbol!.Constructors.FirstOrDefault(c => c.Parameters.Count == 2 && c.Parameters[0].Type.IsPointer)
+            ?? throw new InterpreterException($"'{span}' declares no constructor from a pointer and a length");
+        var method = new MethodReference(constructor, span, []);
+        return ConstructWith(method, [
+            new Cell(method.ParameterType(0), new PointerValue(storage, 0)),
+            new Cell(VplType.Int, new IntValue(bytes.Length)),
+        ], caller);
+    }
+
+    /// <summary>Makes a struct by running its constructor's IR with values the interpreter already has.</summary>
+    Value ConstructWith(MethodReference constructor, IReadOnlyList<Cell> arguments, Frame caller)
+    {
+        var function = program.Functions.Single(constructor.Symbol)
+            ?? throw new InterpreterException($"no lowered function for '{constructor.Symbol.Signature}'");
+        var frame = CalleeFrame(caller, constructor.Map);
+        for (int i = 0; i < arguments.Count; i++)
+            frame.Locals[function.Parameters[i]] = new OwnedStorage(new Cell(frame.Type(function.Parameters[i].Type), arguments[i].Value));
+        return Invoke(function, frame) ?? throw new InterpreterException($"'{function.Name}' returned nothing");
+    }
 
     static int CharCount(byte[] bytes)
     {

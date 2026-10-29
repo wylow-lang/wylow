@@ -1,8 +1,8 @@
 # The IR interpreter, the universal oracle
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
-definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29. Step 4
-(unsafe memory and the standard library) is next. Sources:
+definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
+2026-10-29. Step 5 (Weak, stack slots, and cycles) is next. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
@@ -422,7 +422,54 @@ covers.
 **Step 4 — unsafe memory and the standard library.** Typed buffers and pointers, fixed-array
 `data`, spans, `Memory`/`Bounds` intrinsics, `String`'s extern methods, `bounds` panics, and the
 calls that make `Array`/`List` work. Filters: `containers`, `spans`, `arrays`, `unsafe`,
-`programs`.
+`programs`. **Done 2026-10-29.**
+
+`Values.PointerValue` is a `Buffer` and an element index; `Values.Buffer` is a slot per element
+that is empty until a value is initialized in it, and is marked freed by `Memory.free`. A fixed
+array's `ArrayValue.View` is one buffer over the array's own element cells, so `data P` points at
+storage a write through the array sees, and two `data` of the same array compare equal as their
+addresses do. `PlaceCell` reads `*p[i]` as `p[i]` — the pointer's target indexed — and an element
+projection of any cell holding a pointer indexes its buffer, which is how a span's `this.data[i]`
+works. `IrBinary` compares pointers and moves them by elements; `test.not_null` and a null
+constant handle pointers as the runtime's `nullptr` does.
+
+`Memory.allocate` panics on a negative count and otherwise hands out a buffer. Its size check is
+not modelled: a 32-bit count can't overflow `SIZE_MAX / sizeof(T)` on a 64-bit target, since no
+type is 2^33 bytes, so the check is unreachable and the interpreter decides it that way rather
+than computing `sizeof` for every type. `initializeDefault` builds each value with
+`DefaultValue`, which runs `make_default` where the type has code, so `new T[n]` works for it.
+`moveTo` moves forward or backward as the runtime does, so overlapping ranges work; it is a no-op
+for a zero count, which is how a `List` that has allocated nothing moves from its null pointer.
+`String.bytes` returns a `ReadOnlySpan<byte>` made by the span's own constructor IR
+(`ConstructWith`) over a buffer of the string's bytes, so the interpreter never assumes the span's
+layout.
+
+Three executor rules step 4 settled, all of which C++ already did:
+
+- **A `T?` is a nullable value or a nullable reference, and the frame's type arguments decide
+  which.** `T?` in generic code is `Optional<T>` in C++ unless `T` is a class, where it is a
+  `Ref<T>`; the interpreter's `null` constant and its `!` and null tests therefore read the type
+  through the frame, and ask the *value* whether it is null, so one rule covers both forms.
+- **A function value passed to a non-escaping parameter counts nothing.** The copy that an
+  argument makes is under the *parameter's* type, not the type of the place it came from, because
+  only an escaping type holds a closure count (`vpl::FunctionRef`). Otherwise every
+  `tick(hooks.onTick)` leaked a closure count.
+- **Using memory outside its storage, after freeing it, or uninitialized is the program's
+  undefined behavior.** It ends the run as `InterpretationStatus.UndefinedBehavior` with what it
+  was, not as a panic and not as a compiler bug.
+
+What the filters still reach, and so moves to the step that lands the feature: `classes/weak`,
+`classes/assignment`, `classes/last_use_moves`, `classes/pinning`, `classes/stack_objects`,
+`cycles/*`, `enums/matching`, `enums/safety`, `lambdas/escaping_parameters`, and
+`lambdas/stack_closures` need `Weak`, stack slots, or the cycle collector, and
+`cycles/never_collected` needs the at-exit diagnostic. Those 22 are every failure left: the whole
+suite in the interpret mode is 428 passed and 22 `Unsupported`, with no disagreement in any
+program the step covers.
+
+`InterpreterSelfTests` grew to 59 cases: raw memory (allocate, `initialize`, `moveTo` over
+overlapping ranges, `drop`, `free` of null, pointer arithmetic and comparison), spans over fixed
+arrays and a struct's fields with `slice` and `for ref`, `String.bytes`, `Array` and `List`, the
+index and range panics, and undefined behavior for uninitialized storage and a null pointer.
 
 **Step 5 — Weak, slots, and cycles.** Weak blocks and `get`; stack slots and their collector
 interaction; the collector mirror, its stats, and its debug diagnostics; at-exit reporting.

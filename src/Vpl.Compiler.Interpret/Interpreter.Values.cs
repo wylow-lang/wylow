@@ -20,13 +20,20 @@ public sealed partial class Interpreter
         Step();
         return operand switch
         {
-            IrConstant constant => ConstantValue(constant),
+            IrConstant constant => ConstantValue(constant, frame),
             IrRead read => EvalRead(read, frame),
             _ => throw new InterpreterException($"unexpected operand {operand.GetType().Name}"),
         };
     }
 
-    Value EvalRead(IrRead read, Frame frame)
+    Value EvalRead(IrRead read, Frame frame) => EvalRead(read, frame, read.Place.Type);
+
+    /// <summary>
+    /// A read copied as <paramref name="type"/> holds it, which is the parameter's type when the
+    /// value is an argument: a function value that an escaping type holds is a count only there,
+    /// so a non-escaping parameter refers to it without one, as <c>vpl::FunctionRef</c> does.
+    /// </summary>
+    Value EvalRead(IrRead read, Frame frame, VplType type)
     {
         var place = read.Place;
         // A reference local's own value is the reference it holds, not what it refers to.
@@ -35,7 +42,7 @@ public sealed partial class Interpreter
         var cell = PlaceCell(place, frame);
         return read.Ownership switch
         {
-            IrOwnership.Copy => Values.Copy(cell.Type, cell.Value),
+            IrOwnership.Copy => Values.Copy(type, cell.Value),
             IrOwnership.Move => Take(cell),
             _ => cell.Value,
         };
@@ -54,13 +61,19 @@ public sealed partial class Interpreter
         return value;
     }
 
-    static Value ConstantValue(IrConstant constant)
+    /// <summary>
+    /// A literal. <c>null</c> of a nullable is what the type it is used as says: a nullable value
+    /// holds nothing, while a nullable reference is a null reference and a pointer is a null
+    /// pointer. A type parameter's <c>T?</c> may be either, so the frame's type arguments decide.
+    /// </summary>
+    static Value ConstantValue(IrConstant constant, Frame frame)
     {
+        var type = frame.Type(constant.Type);
         if (constant.Value is null)
         {
-            if (constant.Type.IsNullableValue)
+            if (type.IsNullableValue)
                 return new OptionalValue(null);
-            if (constant.Type.IsNullableReference)
+            if (type.IsNullableReference)
                 return new RefValue(null);
             return NullValue.Instance;
         }
@@ -85,19 +98,23 @@ public sealed partial class Interpreter
         };
     }
 
-    /// <summary>An argument the callee owns; a borrow of a place is copied so the callee can't alias it.</summary>
-    Value EvalOwnedArgument(IrArgument argument, Frame frame) => argument switch
+    /// <summary>
+    /// An argument the callee owns, copied as the parameter's type holds it: what a function value
+    /// costs to pass is the parameter's form, not the form of the place it came from. A borrow of a
+    /// place is copied, so the callee can't alias it.
+    /// </summary>
+    Value EvalArgument(IrArgument argument, VplType type, Frame frame) => argument switch
     {
-        IrRead { Ownership: IrOwnership.Borrow } read => CopyInPlace(read, frame),
+        IrRead { Ownership: IrOwnership.Borrow } read => CopyInPlace(read, frame, type),
+        IrRead read => EvalRead(read, frame, type),
         IrOperand operand => EvalOperand(operand, frame),
         _ => throw new InterpreterException($"unexpected argument {argument.GetType().Name}"),
     };
 
-    /// <summary>A copy of the value where it is, made under the place's own type so a type argument's substitution is applied.</summary>
-    Value CopyInPlace(IrRead read, Frame frame)
+    Value CopyInPlace(IrRead read, Frame frame, VplType type)
     {
         var cell = PlaceCell(read.Place, frame);
-        return Values.Copy(cell.Type, cell.Value);
+        return Values.Copy(type, cell.Value);
     }
 
     static Int128 Integer(Value value) => value is IntValue number ? number.Bits : throw new InterpreterException($"expected an integer, got {value.GetType().Name}");
@@ -109,9 +126,21 @@ public sealed partial class Interpreter
     /// <summary>The cell a place names: a local's storage, what a reference refers to, then projections.</summary>
     Cell PlaceCell(IrPlace place, Frame frame)
     {
-        var cell = BaseCell(place, frame);
-        foreach (var projection in place.Projections)
-            cell = Project(cell, projection, frame);
+        Cell cell;
+        int start = 0;
+        // `*p[i]`: the pointer's target indexed, which the emitter prints as `p[i]`, so the base
+        // cell alone (which is the target) is not what the first projection indexes.
+        if (place.IsDeref && place.Local.Deref == IrDeref.Pointee && place.Projections is [IrElement first, ..])
+        {
+            cell = PointerTargetCell(Pointer(frame, place.Local), first, frame);
+            start = 1;
+        }
+        else
+        {
+            cell = BaseCell(place, frame);
+        }
+        for (int i = start; i < place.Projections.Count; i++)
+            cell = Project(cell, place.Projections[i], frame);
         return cell;
     }
 
@@ -126,10 +155,30 @@ public sealed partial class Interpreter
             // The object itself is the value in the local; its fields are projections into the object.
             // A hold of a type parameter is the object it holds, or its own copy of a struct.
             IrDeref.Object or IrDeref.Generic => LocalCell(frame, local),
-            IrDeref.Pointee => throw new UnsupportedFeature("pointers land in step 4"),
+            IrDeref.Pointee => PointerTargetCell(Pointer(frame, local), null, frame),
             _ => throw new InterpreterException($"unexpected dereference of '{local.Name}'"),
         };
     }
+
+    /// <summary>The pointer a local of pointer type holds; a null one is undefined behavior to dereference.</summary>
+    PointerValue Pointer(Frame frame, IrLocal local) => Pointer(LocalCell(frame, local), local.Name);
+
+    static PointerValue Pointer(Cell cell, string name) => cell.Value switch
+    {
+        PointerValue pointer => pointer,
+        NullValue => throw new UndefinedBehavior($"dereferenced the null pointer '{name}'"),
+        var other => throw new InterpreterException($"'{name}' holds a {other.GetType().Name}, not a pointer"),
+    };
+
+    /// <summary>
+    /// The cell at a pointer's target, or the one <paramref name="element"/> indexes from it, which
+    /// is uninitialized storage until a value is written there.
+    /// </summary>
+    Cell PointerTargetCell(PointerValue pointer, IrElement? element, Frame frame) =>
+        ElementCell(pointer, element is null ? 0 : (int)(long)Integer(EvalOperand(element.Index, frame)));
+
+    static Cell ElementCell(PointerValue pointer, int index) =>
+        pointer.Buffer.Read(pointer.Index + index) ?? throw new UndefinedBehavior("read storage that was never initialized");
 
     Cell Project(Cell cell, IrProjection projection, Frame frame) => projection switch
     {
@@ -153,7 +202,8 @@ public sealed partial class Interpreter
         return cell.Value switch
         {
             ArrayValue array => array.Elements[index],
-            _ => throw new UnsupportedFeature("pointer elements land in step 4"),
+            PointerValue pointer => ElementCell(pointer, index),
+            _ => throw new InterpreterException($"an element of a {cell.Value.GetType().Name}"),
         };
     }
 
@@ -166,8 +216,16 @@ public sealed partial class Interpreter
         return value.Fields[index];
     }
 
-    static Cell AssumedCell(Cell cell) =>
-        cell.Value is OptionalValue { Inner: { } inner } ? inner : throw new InterpreterException("a null nullable value was used as narrowed");
+    /// <summary>
+    /// <c>!</c>: the value inside a nullable value, or for a nullable reference, the reference
+    /// itself, which is what <c>vpl::assume_value</c> hands back.
+    /// </summary>
+    static Cell AssumedCell(Cell cell) => cell.Value switch
+    {
+        OptionalValue { Inner: { } inner } => inner,
+        OptionalValue or NullValue => throw new InterpreterException("a null nullable value was used as narrowed"),
+        _ => cell,
+    };
 
     /// <summary>Stores a new value, then releases the old one (spec 03-memory-model.md §3.2).</summary>
     void Assign(IrPlace place, Value value, Frame frame)
@@ -229,7 +287,7 @@ public sealed partial class Interpreter
         public Value? Closure(IrClosure value) => interpreter.Closure(value, frame);
         public Value? Lambda(IrLambda value) => interpreter.Lambda(value, frame);
         public Value? Choose(IrChoose value) => interpreter.Choose(value, frame);
-        public Value? Data(IrData value) => throw new UnsupportedFeature("spans and pointers land in step 4");
+        public Value? Data(IrData value) => interpreter.Data(value, frame);
     }
 
     /// <summary>
@@ -270,6 +328,8 @@ public sealed partial class Interpreter
             bool same = SameReference(left, right);
             return new BoolValue(op == BoundBinaryOperator.Equal ? same : !same);
         }
+        if (operandType.IsPointer)
+            return PointerBinary(op, left, right);
         if (binary.Loc is { } panicAt)
         {
             var location = Required(panicAt, frame);
@@ -334,8 +394,22 @@ public sealed partial class Interpreter
         (NullValue, NullValue) => true,
         (ObjectRef a, ObjectRef b) => ReferenceEquals(a, b),
         (RefValue a, RefValue b) => ReferenceEquals(a.Cell, b.Cell),
+        (PointerValue a, PointerValue b) => Values.SameAddress(a, b),
         _ => false,
     };
+
+    /// <summary>Pointers compare by address, and move by a number of elements, which is unchecked.</summary>
+    static Value PointerBinary(BoundBinaryOperator op, Value left, Value right)
+    {
+        if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
+        {
+            bool same = SameReference(left, right);
+            return new BoolValue(op == BoundBinaryOperator.Equal ? same : !same);
+        }
+        var pointer = left as PointerValue ?? throw new UndefinedBehavior("pointer arithmetic on a null pointer");
+        int offset = (int)(long)Integer(right);
+        return new PointerValue(pointer.Buffer, pointer.Index + (op == BoundBinaryOperator.Add ? offset : -offset));
+    }
 
     Value Variant(IrVariant variant, Frame frame)
     {
@@ -354,24 +428,40 @@ public sealed partial class Interpreter
         return new ArrayValue(type, [.. array.Elements.Select(e => new Cell(element, EvalOperand(e, frame)))]);
     }
 
+    /// <summary>
+    /// <c>data P</c>: a pointer to a fixed array's first element, into the array's own cells, so a
+    /// write through the pointer is a write to the array.
+    /// </summary>
+    Value Data(IrData data, Frame frame)
+    {
+        var cell = PlaceCell(data.Place, frame);
+        return cell.Value is ArrayValue array
+            ? new PointerValue(array.View, 0)
+            : throw new InterpreterException($"the data of a {cell.Value.GetType().Name}");
+    }
+
     Value Test(IrTest test, Frame frame)
     {
         var operand = EvalOperandInPlace(test.Operand, frame);
         return test.Kind switch
         {
-            IrTestKind.NotNull => new BoolValue(operand switch
-            {
-                NullValue => false,
-                RefValue reference => reference.Cell is not null,
-                ObjectRef => true,
-                _ => throw new InterpreterException($"a not-null test of a {operand.GetType().Name}"),
-            }),
-            IrTestKind.HasValue => new BoolValue(operand is OptionalValue { Inner: not null }),
+            // A `T?` is a nullable value or a nullable reference, whichever `T` stands for, so the
+            // two null tests ask the same question of the value, which knows its own form.
+            IrTestKind.NotNull or IrTestKind.HasValue => new BoolValue(!IsNull(operand)),
             IrTestKind.Tag => new BoolValue(operand is EnumValue value && value.Variant == test.Variant),
             IrTestKind.Class => new BoolValue(operand is ObjectRef obj && Conversions.IsSubtype(obj.Active, test.Target!.NonNull)),
             _ => throw new InterpreterException($"unexpected test {test.Kind}"),
         };
     }
+
+    /// <summary>Whether a nullable value holds nothing, a reference refers to nothing, or a pointer or function is null.</summary>
+    static bool IsNull(Value value) => value switch
+    {
+        NullValue => true,
+        RefValue reference => reference.Cell is null,
+        OptionalValue optional => optional.Inner is null,
+        _ => false,
+    };
 
     Value Convert(IrConvert conversion, Frame frame)
     {

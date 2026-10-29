@@ -130,7 +130,67 @@ public sealed class ArrayValue(VplType type, Cell[] elements) : Value
     public VplType Type { get; } = type;
     public Cell[] Elements { get; } = elements;
 
+    /// <summary>
+    /// The storage <c>data</c> points into, made once so that two pointers to this array compare
+    /// equal, as their addresses do. Its cells are this array's own, so a write through a pointer
+    /// is seen through the array.
+    /// </summary>
+    public Buffer View => view ??= Buffer.Over(Elements);
+
+    Buffer? view;
+
     public override string ToString() => $"{Type} [{Elements.Length}]";
+}
+
+/// <summary>
+/// Raw storage a pointer walks, a slot per element that is empty until a value is initialized in
+/// it, as <c>Memory.allocate</c> hands out. A fixed array's elements are a buffer whose cells it
+/// shares; a string's bytes are a buffer of their own.
+/// </summary>
+public sealed class Buffer
+{
+    readonly Cell?[] cells;
+    bool freed;
+
+    Buffer(Cell?[] cells) => this.cells = cells;
+
+    public static Buffer Allocate(int count) => new(new Cell?[count]);
+
+    /// <summary>A buffer over an array's own element cells, which a write through a pointer reaches.</summary>
+    public static Buffer Over(Cell[] elements) => new([.. elements.Select(cell => (Cell?)cell)]);
+
+    /// <summary>The cell at <paramref name="index"/>, or null while the storage is uninitialized.</summary>
+    public Cell? Read(int index)
+    {
+        Check(index);
+        return cells[index];
+    }
+
+    public void Write(int index, Cell? cell)
+    {
+        Check(index);
+        cells[index] = cell;
+    }
+
+    public void Free() => freed = true;
+
+    /// <summary>Indexing outside a buffer, or using freed storage, is the program's undefined behavior.</summary>
+    void Check(int index)
+    {
+        if (freed)
+            throw new UndefinedBehavior("memory was used after it was freed");
+        if ((uint)index >= (uint)cells.Length)
+            throw new UndefinedBehavior($"a pointer read element {index} of storage holding {cells.Length}");
+    }
+}
+
+/// <summary>A pointer: a buffer and the element it points at, which may be one past the end. Null is <see cref="NullValue"/>.</summary>
+public sealed class PointerValue(Buffer buffer, int index) : Value
+{
+    public Buffer Buffer { get; } = buffer;
+    public int Index { get; } = index;
+
+    public override string ToString() => $"pointer to element {Index}";
 }
 
 /// <summary>A nullable value: the value, or null.</summary>
@@ -225,7 +285,7 @@ public static class Values
     /// </summary>
     public static Value Copy(VplType type, Value value) => value switch
     {
-        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue => value,
+        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue => value,
         ObjectRef obj => Retain(obj),
         // A choice copies every callable it holds, as a tuple of them does.
         ChoiceValue choice => new ChoiceValue(choice.Index, [.. choice.Options.Select(CopyCell)]),
@@ -368,6 +428,7 @@ public static class Values
             (NullValue, NullValue) => true,
             (ObjectRef x, ObjectRef y) => ReferenceEquals(x, y),
             (RefValue x, RefValue y) => ReferenceEquals(x.Cell, y.Cell),
+            (PointerValue x, PointerValue y) => SameAddress(x, y),
             (StructValue x, StructValue y) => x.Fields.Length == y.Fields.Length && x.Fields.Zip(y.Fields).All(p => Equal(p.First.Type, p.First.Value, p.Second.Value)),
             (EnumValue x, EnumValue y) => x.Variant == y.Variant && x.Fields.Length == y.Fields.Length && x.Fields.Zip(y.Fields).All(p => Equal(p.First.Type, p.First.Value, p.Second.Value)),
             (ArrayValue x, ArrayValue y) => x.Elements.Length == y.Elements.Length && x.Elements.Zip(y.Elements).All(p => Equal(p.First.Type, p.First.Value, p.Second.Value)),
@@ -376,6 +437,10 @@ public static class Values
     }
 
     public static IntValue Int(Int128 value) => new(value);
+
+    /// <summary>Whether two pointers point at the same element of the same storage, as their addresses comparing equal.</summary>
+    public static bool SameAddress(PointerValue one, PointerValue other) =>
+        ReferenceEquals(one.Buffer, other.Buffer) && one.Index == other.Index;
 
     public static bool Truth(Value value) => value is BoolValue flag && flag.Flag;
 

@@ -1069,15 +1069,174 @@ static class InterpreterSelfTests
             }
             """, output: ["7", "text", "5"]);
 
+        Case(results, "raw_memory", """
+            unsafe int third(int* values) {
+                return values[2];
+            }
+
+            void main() {
+                unsafe {
+                    int* nothing = null;
+                    print(nothing == null);
+                    int* values = Memory.allocate<int>(3);
+                    for (int i : 0..3) {
+                        Memory.initialize(values + i, i * 10);
+                    }
+                    print(values[0]);
+                    print(third(values));
+                    int* middle = values + 1;
+                    print(middle[1]);
+                    print(values == middle);
+                    Memory.moveTo(values, values + 1, 2);
+                    print(values[1]);
+                    print(values[2]);
+                    Memory.drop(values + 2);
+                    Memory.free(values);
+                    Memory.free<int>(null);
+                }
+            }
+            """, output: ["true", "0", "20", "20", "false", "0", "10"]);
+
+        Case(results, "spans", """
+            int total(ReadOnlySpan<int> values) {
+                mut int sum = 0;
+                for (int v : values) {
+                    sum += v;
+                }
+                return sum;
+            }
+
+            struct Numbers {
+                internal {
+                    int[3] items;
+
+                    ReadOnlySpan<int> view() {
+                        return items;
+                    }
+                }
+            }
+
+            void main() {
+                mut int[3] numbers = [1, 2, 3];
+                print(total(numbers));
+                Span<int> span = numbers;
+                span[0] = 10;
+                print(numbers[0]);
+                print(span.length());
+                Span<int> tail = span.slice(1, 2);
+                print(total(tail));
+                for (ref int v : tail) {
+                    v *= 2;
+                }
+                print(numbers[2]);
+                ReadOnlySpan<int> view = tail;
+                print(view[0]);
+                mut Numbers holder = Numbers();
+                holder.items[1] = 7;
+                print(total(holder.view()));
+            }
+            """, output: ["6", "10", "3", "5", "6", "4", "7"]);
+
+        Case(results, "string_bytes", """
+            int total(ReadOnlySpan<byte> bytes) {
+                mut int sum = 0;
+                for (byte b : bytes) {
+                    sum += b;
+                }
+                return sum;
+            }
+
+            void main() {
+                String text = "hé";
+                print(text.bytes().length());
+                print(text.bytes()[0]);
+                print(total(text.bytes()));
+                print(text.bytes().slice(1, 2)[1]);
+                print("".bytes().length());
+            }
+            """, output: ["3", "104", "468", "169", "0"]);
+
+        Case(results, "containers", """
+            class Item {
+                internal {
+                    int id;
+
+                    Item(int id) {
+                        this.id = id;
+                    }
+                }
+
+                ~Item() {
+                    print(-id);
+                }
+            }
+
+            void main() {
+                Item?[] slots = new Item?[3];
+                print(slots[0] == null);
+                slots[1] = new Item(5);
+                print(slots[1]!.id);
+                var list = new List<int>();
+                list.add(3);
+                list.add(4);
+                print(list.count());
+                print(list[1]);
+            }
+            """, output: ["true", "5", "2", "4", "-5"]);
+
+        Case(results, "bounds_index", """
+            void main() {
+                int[] values = new int[2];
+                int index = 2;
+                print(values[index]);
+            }
+            """, panic: "index 2 is out of bounds for length 2", panicAtLine: 4);
+
+        Case(results, "bounds_range", """
+            void main() {
+                mut int[3] numbers = [1, 2, 3];
+                Span<int> span = numbers;
+                Span<int> tail = span.slice(2, 2);
+                print(tail.length());
+            }
+            """, panic: "range of 2 from 2 is out of bounds for length 3", panicAtLine: 4);
+
+        Case(results, "allocate_negative", """
+            void main() {
+                unsafe {
+                    int* values = Memory.allocate<int>(-1);
+                    print(values == null);
+                }
+            }
+            """, panic: "cannot allocate a negative number of elements", panicAtLine: 3);
+
+        Case(results, "uninitialized_read", """
+            void main() {
+                unsafe {
+                    int* values = Memory.allocate<int>(1);
+                    print(values[0]);
+                }
+            }
+            """, undefined: "read storage that was never initialized");
+
+        Case(results, "null_pointer", """
+            void main() {
+                unsafe {
+                    int* nothing = null;
+                    print(nothing[0]);
+                }
+            }
+            """, undefined: "dereferenced the null pointer 'nothing'");
+
         return results;
     }
 
     static void Case(
         List<TestResult> results, string name, string source, string? panic = null, int? panicAtLine = null,
-        bool release = false, params string[] output) =>
-        results.Add(new TestResult("interpreter/" + name, Check(name, source, output, panic, panicAtLine, release)));
+        bool release = false, string? undefined = null, params string[] output) =>
+        results.Add(new TestResult("interpreter/" + name, Check(name, source, output, panic, panicAtLine, release, undefined)));
 
-    static string? Check(string name, string source, IReadOnlyList<string> expected, string? panic, int? panicAtLine, bool release)
+    static string? Check(string name, string source, IReadOnlyList<string> expected, string? panic, int? panicAtLine, bool release, string? undefined = null)
     {
         var text = new SourceText(name + ".vpl", source);
         var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: false), new InterpreterOptions(Release: release));
@@ -1088,6 +1247,10 @@ static class InterpreterSelfTests
             return "the pipeline produced no IR";
         if (result.Status == InterpretationStatus.Unsupported)
             return "unsupported: " + result.Error.Trim();
+        if (undefined is not null)
+            return result.Status == InterpretationStatus.UndefinedBehavior && result.Error.Contains(undefined, StringComparison.Ordinal)
+                ? null
+                : $"expected undefined behavior '{undefined}', got {result.Status}: {result.Error.Trim()}";
         var problems = new List<string>();
         var actual = result.OutputText.Replace("\r\n", "\n").Split('\n').ToList();
         if (actual.Count > 0 && actual[^1] == "")
