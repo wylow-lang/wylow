@@ -1,6 +1,7 @@
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.CodeGen;
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Interpret;
 using Vpl.Compiler.Ir;
 using Vpl.Compiler.Lowering;
 using Vpl.Compiler.Optimize;
@@ -24,6 +25,12 @@ public sealed record CompileOptions(bool Nest = true, bool Optimize = true);
 public sealed record LowerResult(IReadOnlyList<Diagnostic> Diagnostics, BoundProgram? Program, IrProgram? Ir, Optimized? Optimized)
 {
     public bool Success => Optimized is not null;
+}
+
+/// <summary>What interpreting a program produced: its diagnostics, and what it did if the pipeline accepted it.</summary>
+public sealed record InterpretResult(IReadOnlyList<Diagnostic> Diagnostics, Interpretation? Interpretation)
+{
+    public bool Success => Interpretation is not null;
 }
 
 public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, string? Cpp)
@@ -84,6 +91,20 @@ public static class Compilation
         var ir = IrLowering.Lower(program);
         var optimized = Pipeline.Run(ir, diagnostics, options.Optimize);
         return new LowerResult(diagnostics.Sorted(), program, ir, optimized);
+    }
+
+    /// <summary>
+    /// Interprets the IR <see cref="Lower"/> produces: the program's meaning when
+    /// <see cref="CompileOptions.Optimize"/> is off, and the IR the emitter would get otherwise. A
+    /// program the pipeline rejects runs nothing, and its diagnostics are all there is.
+    /// </summary>
+    public static InterpretResult Interpret(SourceText source, CompileOptions? options = null, InterpreterOptions? interpreterOptions = null)
+    {
+        options ??= new CompileOptions();
+        var lowered = Lower(source, options);
+        if (lowered is not { Ir: { } ir, Optimized: { } optimized })
+            return new InterpretResult(lowered.Diagnostics, null);
+        return new InterpretResult(lowered.Diagnostics, Interpreter.Run(ir, optimized.Callees, interpreterOptions));
     }
 
     public static CompilationResult Compile(SourceText source, CompileOptions? options = null)

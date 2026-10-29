@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Vpl.Compiler;
 using Vpl.Compiler.Build;
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Interpret;
 using Vpl.Compiler.Text;
 
 const string Usage = """
@@ -13,6 +14,8 @@ const string Usage = """
       check    report errors without building
       emit     print the generated C++
       ir       print the mid-level IR of the program's functions
+      interpret
+               run the program on the IR interpreter, with no C++ toolchain
 
     options:
       --release        optimized build; integer overflow wraps instead of panicking
@@ -24,7 +27,7 @@ const string Usage = """
       --no-opt         run no optimizations: keep every hold and copy lowering made, every object on the heap
     """;
 
-string[] commands = ["run", "build", "check", "emit", "ir"];
+string[] commands = ["run", "build", "check", "emit", "ir", "interpret"];
 if (args.Length < 2 || !commands.Contains(args[0]))
 {
     Console.Error.WriteLine(Usage);
@@ -69,15 +72,24 @@ if (!File.Exists(file))
     return 2;
 }
 
-var compilation = Compilation.Compile(SourceText.FromFile(file), options);
-foreach (var diagnostic in compilation.Diagnostics)
-    Console.Error.WriteLine(diagnostic);
-if (!compilation.Success)
+var source = SourceText.FromFile(file);
+if (command == "interpret")
 {
-    int errors = compilation.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
-    Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")}");
-    return 1;
+    var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release));
+    ReportErrors(interpreted.Diagnostics);
+    if (!interpreted.Success)
+        return 1;
+    var result = interpreted.Interpretation!;
+    using var stdout = Console.OpenStandardOutput();
+    stdout.Write(result.Output);
+    Console.Error.Write(result.Error);
+    return result.Status is InterpretationStatus.Completed or InterpretationStatus.Panicked ? result.ExitCode : 1;
 }
+
+var compilation = Compilation.Compile(source, options);
+ReportErrors(compilation.Diagnostics);
+if (!compilation.Success)
+    return 1;
 
 switch (command)
 {
@@ -89,6 +101,15 @@ switch (command)
     case "ir":
         Console.Write(compilation.IrText());
         return 0;
+}
+
+static void ReportErrors(IReadOnlyList<Diagnostic> diagnostics)
+{
+    foreach (var diagnostic in diagnostics)
+        Console.Error.WriteLine(diagnostic);
+    int errors = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
+    if (errors > 0)
+        Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")}");
 }
 
 var name = Path.GetFileNameWithoutExtension(file);

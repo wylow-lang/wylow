@@ -20,6 +20,7 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests,
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all five modes at once, one process each
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # opt-in sixth mode: run the IR interpreter, no C++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
@@ -28,7 +29,7 @@ dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900  # a
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
 dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets   # mutation testing: the six files and their tests
 dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
+dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir|interpret <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
 dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, mutation testing, seeds, findings, and code size
@@ -85,7 +86,7 @@ newer MSVC runtime. To reproduce a failure, `vpl run <file> --cc asan`.
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
-only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes), so
+only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes; Interpret references Ir and Analysis), so
 reaching across is a compile error; `src/Vpl.Compiler` runs them in order (`Compilation.cs`). The
 Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
@@ -121,8 +122,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   `Pipeline.cs` is the only code that runs them (they are internal to the project): it runs
   lowering's mandatory passes and verifies the program they leave, then runs each optimization,
   unless `--no-opt`, with facts found fresh for it, bumps the generation, and verifies again. Lowering itself decides
-  nothing optional: the unoptimized IR is the program's meaning, which a future interpreter is to
-  run as an oracle. `ReadsInPlace.cs` (reads a place instead of the temporary lowering copied it
+  nothing optional: the unoptimized IR is the program's meaning, which `Interpret` runs as an
+  oracle. `ReadsInPlace.cs` (reads a place instead of the temporary lowering copied it
   into at its turn, or kept for a by-value argument, where nothing may change the place while the
   copy matters, and passes a temporary itself where its kept copy's release runs no code). `HoldElision.cs` (§6.2 of the design: turns a hold that doesn't borrow and that nothing in its
   extent can disturb into an alias of its place, or the local itself if that is the place, then
@@ -156,6 +157,14 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   the bound program, and function bodies from the IR. `CppEmitter.Ir.cs` prints a lowered body,
   and `CppEmitter.IrNesting.cs` decides which temporaries it prints inside their one use (§5.1 of
   the design).
+- `Interpret/Interpreter*.cs`: the IR interpreter, a second implementation of the instruction
+  set beside the emitter (`docs/design/ir.md` §9.11). It executes the IR `Compilation.Lower`
+  produces, either form, and is provenance-blind: one visitor rule per statement and rvalue kind,
+  and one `Values` definition of copy, release, default, and equality driven by `VplType`.
+  `RuntimeText`/`RuntimeArithmetic` reproduce `runtime/vpl/*.h`, and the intrinsic registry keys on
+  `BuiltinCppName`. Step 1 covers values, locals, calls, control flow, panics, and text; objects,
+  closures, spans, and cycles report `Unsupported` until their steps land, and the `interpret` test
+  mode is opt-in.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.

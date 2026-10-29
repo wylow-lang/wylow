@@ -19,9 +19,10 @@ using Vpl.Fuzz;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Vpl.Tests [--cc msvc|gcc|asan] [--no-nest] [--no-opt] [--all-modes] [--out <dir>]
-//                  [--jobs <n>] [--update-snapshots] [filter]
+// Usage: Vpl.Tests [--cc msvc|gcc|asan|interpret] [--interpret] [--no-nest] [--no-opt] [--all-modes]
+//                  [--out <dir>] [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
+// --interpret runs the IR interpreter instead of a native build; it is opt-in until step 5.
 // --all-modes runs the five modes one per process at once, each writing under <out>/<mode>.
 // --update-snapshots rewrites tests/matrix/*.snapshot with what the matrix cells do now.
 
@@ -29,6 +30,7 @@ Toolchain? toolchain = null;
 string? filter = null;
 bool updateSnapshots = false;
 bool allModes = false;
+bool interpret = false;
 string? outputArgument = null;
 int jobs = 0;
 var options = new CompileOptions();
@@ -41,9 +43,14 @@ for (int i = 0; i < args.Length; i++)
             "gcc" => Toolchain.Gcc,
             "asan" => Toolchain.ClangSanitized,
             "msvc" => Toolchain.Msvc,
-            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, or asan"),
+            "interpret" => null,
+            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, asan, or interpret"),
         };
+        if (args[i] == "interpret")
+            interpret = true;
     }
+    else if (args[i] == "--interpret")
+        interpret = true;
     else if (args[i] == "--no-nest")
         options = options with { Nest = false };
     else if (args[i] == "--no-opt")
@@ -67,15 +74,15 @@ var parallelism = jobs > 0 ? jobs : Math.Max(1, Environment.ProcessorCount / 2);
 
 if (allModes)
 {
-    if (toolchain is not null || !options.Nest || !options.Optimize || updateSnapshots)
+    if (toolchain is not null || interpret || !options.Nest || !options.Optimize || updateSnapshots)
     {
-        Console.Error.WriteLine("--all-modes runs each mode itself, so it takes no --cc, --no-nest, --no-opt, or --update-snapshots");
+        Console.Error.WriteLine("--all-modes runs each mode itself, so it takes no --cc, --interpret, --no-nest, --no-opt, or --update-snapshots");
         return 1;
     }
     return RunAllModes(outputDirectory, filter, parallelism);
 }
 
-if (NativeCompiler.Find(toolchain, out var toolchainError) is null)
+if (!interpret && NativeCompiler.Find(toolchain, out var toolchainError) is null)
 {
     Console.Error.WriteLine(toolchainError);
     return 1;
@@ -91,14 +98,19 @@ var results = files
     .AsParallel()
     .AsOrdered()
     .WithDegreeOfParallelism(parallelism)
-    .Select(file => TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
+    .Select(file => interpret ? TestCase.RunInterpreted(file, casesDirectory) : TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
-results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Concat(InterpreterSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(FuzzSelfTests.Run(casesDirectory)
     .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
     .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(BuildCacheSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism));
+// The build cache and the matrices need a C++ toolchain; the interpret mode must not, and step 6
+// runs the matrices interpreted.
+if (!interpret)
+{
+    results.AddRange(BuildCacheSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+    results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism));
+}
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));

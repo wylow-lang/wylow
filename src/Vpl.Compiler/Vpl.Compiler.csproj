@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Vpl.Compiler.Lowering\Vpl.Compiler.Lowering.csproj" />
     <ProjectReference Include="..\Vpl.Compiler.Optimize\Vpl.Compiler.Optimize.csproj" />
     <ProjectReference Include="..\Vpl.Compiler.CodeGen\Vpl.Compiler.CodeGen.csproj" />
+    <ProjectReference Include="..\Vpl.Compiler.Interpret\Vpl.Compiler.Interpret.csproj" />
   </ItemGroup>
 
   <ItemGroup>

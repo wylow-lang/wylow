@@ -1,7 +1,8 @@
 # The IR interpreter, the universal oracle
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
-definition); step 1 next. Sources: `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
+definition); step 1 done 2026-10-29. Step 2 (objects and ownership) is next. Sources:
+`docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
 ## Why
@@ -148,7 +149,8 @@ modes after each commit, and tier-1 fuzzing is clean.
    abstract-call stub's text, so the interpreter can raise exactly what the emitter does. The
    other runtime-header messages (arithmetic, checks, `enum from_value`, `to_char`, ...) are
    still the emitter's or `runtime/vpl/*.h`'s; porting them into the interpreter's own
-   `RuntimeText` is part of step 1, and `tests/cases/panics/` already pins them.
+   `RuntimeText`/`RuntimeArithmetic` was part of step 1, and `tests/cases/panics/` already pins
+   them.
 
 ## The semantic model
 
@@ -296,13 +298,24 @@ step lands (a container, a closure, `Weak`), which move to that step's filter.
 the `.cpp` and `.ir` of every test are byte-identical in all five modes after each of the six
 commits.
 
-**Step 1 — the core (next).** Cells and values; locals, parameters, calls, and returns; if/loop/
-break/continue; checks, panics, and locations; conversions, arithmetic, equality; string
-formatting and printing; `interpolate`/`formatted`/`toString`/`compare`; the CLI command and the
-runner mode; `InterpreterSelfTests` per instruction kind and per panic message. Filters: `values`,
-`numbers`, `basics`, `enums`, `panics` (the value-side ones).
+**Step 1 — the core (done 2026-10-29).** `src/Vpl.Compiler.Interpret` has `Values` (cells, the
+value kinds, and the one copy/release/default/equality definition driven by `VplType`),
+`Interpreter` (frames, locals, calls, returns, if/loop/break/continue, block release order, the
+`@CallerLocation` text), `Interpreter.Values` (operands, places, and the rvalue visitors),
+`RuntimeText`/`RuntimeArithmetic` (the runtime's text, checked arithmetic, and conversions),
+`Interpreter.Intrinsics` (the builtins, `Bounds`, and `String`'s non-span members), and
+`Interpretation` (the result, statuses, and budgets). The CLI has `interpret`; the runner has
+`--interpret`/`--cc interpret`, which runs the meaning, skips `// mode: optimized`, checks a
+panic's message and location, and treats a budget exhaustion as inconclusive. `InterpreterSelfTests`
+has 30 cases, one or more per instruction kind and per panic message.
 
-Where step 1 starts:
+What the filters still reach, and so moves to the step that lands the feature: `values/string` and
+`basics/strings` need `String.bytes` (step 4); `enums/*` mostly construct classes (step 2);
+`basics/arguments`, `interpolation`, `mutability`, and the string loops use classes (step 2);
+`panics` has objects, lambdas, and the cycle collector. The whole suite in the interpret mode is
+298 passed and 122 `Unsupported`, with no disagreement in any program the step covers.
+
+Where step 1 started:
 
 - **The project.** `src/Vpl.Compiler.Interpret`, referencing `Vpl.Compiler.Ir` and
   `Vpl.Compiler.Analysis` only (the Semantics reference comes with them), added to `vpl.slnx`.

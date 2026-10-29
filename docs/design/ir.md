@@ -593,9 +593,9 @@ The migration now under way is [architecture.md](architecture.md)'s.
    its own over the lowered IR (`src/Vpl.Compiler.Optimize`), using facts from `Analysis`, verified
    after it runs, and off under `--no-opt`. What lowering can't decide alone, such as which borrows
    a statement makes, is a mandatory pass, which runs under `--no-opt` too. The IR after the
-   mandatory passes is then the reference behavior: a planned interpreter is to execute it as an
-   oracle for the C++ build. The spec states only what makes an optimization legal (that it
-   can't be observed), not how it is done.
+   mandatory passes is then the reference behavior: the interpreter (`src/Vpl.Compiler.Interpret`)
+   executes it as an oracle for the C++ build. The spec states only what makes an optimization
+   legal (that it can't be observed), not how it is done.
 
 ## 10. Prior art for reference-count optimization
 
