@@ -27,7 +27,8 @@ Not SSA. Not monomorphized (C++ templates still do that).
 ### 3.1 Structure
 
 ```
-IrProgram   = functions (including every lambda, and the stdlib's), plus the symbol tables, unchanged
+IrProgram   = functions (including every lambda, and the stdlib's), indexed by the symbol each
+              instruction names, plus the symbol tables, unchanged
 IrFunction  = symbol, parameters, location parameter?, captures (for lambdas), body: Block
 Block       = statements; a local is scoped to the block that declares it
 Statement   = let x = Rvalue            declare and define a temporary or local
