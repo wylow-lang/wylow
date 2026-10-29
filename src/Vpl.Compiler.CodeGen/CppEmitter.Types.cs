@@ -297,7 +297,7 @@ public sealed partial class CppEmitter
             if (s.Constructors.Count == 0)
                 Line($"{TypeName(s)}();");
             // Declared here and defined after every type, where the field types are complete.
-            if (s.Destructor is null || HasSeparateDestructor(s))
+            if (s.Destructor is null || s.HasSeparateDestructor)
                 Line($"~{TypeName(s)}() override;");
         }
         foreach (var member in s.Members.Where(m => !m.IsExtern))

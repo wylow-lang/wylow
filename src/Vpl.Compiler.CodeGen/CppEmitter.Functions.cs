@@ -34,7 +34,7 @@ public sealed partial class CppEmitter
                 : $"{TypeName(owner)}({Parameters(member)})";
         }
         if (member.IsDestructor)
-            return HasSeparateDestructor(owner) ? "void vpl_destructor()" : $"~{TypeName(owner)}() override";
+            return owner.HasSeparateDestructor ? "void vpl_destructor()" : $"~{TypeName(owner)}() override";
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
@@ -66,7 +66,7 @@ public sealed partial class CppEmitter
                 : $"{owner}::{TypeName(s)}({Parameters(function)})";
         }
         if (function.IsDestructor)
-            return HasSeparateDestructor(s) ? $"void {owner}::vpl_destructor()" : $"{owner}::~{TypeName(s)}()";
+            return s.HasSeparateDestructor ? $"void {owner}::vpl_destructor()" : $"{owner}::~{TypeName(s)}()";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly ? signature + " const" : signature;
     }

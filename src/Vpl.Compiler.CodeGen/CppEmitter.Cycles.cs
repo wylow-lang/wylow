@@ -45,14 +45,6 @@ public sealed partial class CppEmitter
             ? element
             : null;
 
-    /// <summary>
-    /// The collector runs the destructors of a cycle's objects before releasing any of their fields,
-    /// so a destructor's body is a method of its own. The standard library's destructors only
-    /// release storage, so they run with the fields, after every destructor of the cycle.
-    /// </summary>
-    static bool HasSeparateDestructor(TypeSymbol s) =>
-        s.Kind == TypeKind.Class && s.Destructor is not null && !Stdlib.Contains(s.Declaration.Location.Source);
-
     void DeclareCollectorMembers(TypeSymbol s)
     {
         if (s.Kind == TypeKind.Interface)
@@ -60,7 +52,7 @@ public sealed partial class CppEmitter
         bool isClass = s.Kind == TypeKind.Class;
         if (isClass ? HasOwnReferences(s) : NeedsValueVisit(s))
             Line($"void vpl_visit(vpl::Visitor& visitor){(isClass ? " override" : "")};");
-        if (HasSeparateDestructor(s))
+        if (s.HasSeparateDestructor)
             Line("void vpl_finalize() override;");
         if (isClass)
             Line($"const char* vpl_class_name() const override {{ return {ClassName(s)}; }}");
@@ -122,7 +114,7 @@ public sealed partial class CppEmitter
             });
         }
 
-        if (HasSeparateDestructor(s))
+        if (s.HasSeparateDestructor)
         {
             Line();
             EmitOwnerTemplatePrefix(s);

@@ -348,6 +348,15 @@ public sealed class TypeSymbol
     public Dictionary<string, List<FunctionSymbol>> Methods { get; } = new();
     public FunctionSymbol? Destructor { get; set; }
 
+    /// <summary>
+    /// Whether its destructor body is a method of its own, which the collector runs before releasing
+    /// any field of a cycle's objects. The standard library's containers release their elements with
+    /// their fields, so their destructor bodies run after every destructor of the cycle
+    /// (spec 03-memory-model.md, Destroying a cycle).
+    /// </summary>
+    public bool HasSeparateDestructor =>
+        Kind == TypeKind.Class && Destructor is not null && !Stdlib.Contains(Declaration.Location.Source);
+
     /// <summary>Declared constructors, methods, and the destructor, in source order.</summary>
     public List<FunctionSymbol> Members { get; } = [];
 
