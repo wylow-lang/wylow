@@ -38,11 +38,10 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
     {
         if (Ir is null || Program is null)
             return null;
-        var lowered = Ir.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol);
         var text = new System.Text.StringBuilder();
         foreach (var function in Program.Functions.Where(f => f.Symbol.Declaration?.Location.Source == Program.Source))
         {
-            if (lowered.TryGetValue(function.Symbol, out var ir))
+            if (Ir.Functions.Single(function.Symbol) is { } ir)
                 text.Append(IrPrinter.Print(ir));
         }
         foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source == Program.Source))

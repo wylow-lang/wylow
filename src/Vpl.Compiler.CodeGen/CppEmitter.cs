@@ -29,30 +29,24 @@ public sealed partial class CppEmitter
     HashSet<TypeSymbol> sharedObjectRoots = [];
     CyclicClasses cycles = null!;
 
-    /// <summary>For each memberwise constructor, which fields its calls pass: one C++ function for each.</summary>
-    Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> memberwiseForms = null!;
-
-    /// <summary>Each function's IR; <see cref="nest"/> is whether temporaries are nested back into their uses.</summary>
-    Dictionary<FunctionSymbol, IrFunction> irFunctions = [];
-
-    /// <summary>Each struct's lowered <c>make_default</c> and memberwise constructors, by type and C++ name.</summary>
-    Dictionary<(TypeSymbol, string), IrFunction> irBuilt = [];
-    bool nest = true;
+    /// <summary>The program's lowered functions, indexed by the symbol each instruction names.</summary>
+    IrFunctions functions = null!;
 
     /// <summary>What the program's lambdas change, which decides what code nested past a call may see change.</summary>
     IIrLambdaChanges lambdas = null!;
 
+    /// <summary>Whether temporaries are nested back into their uses.</summary>
+    bool nest = true;
+
     public string Emit(BoundProgram program, IrProgram ir, Callees callees, IIrLambdaChanges lambdas, bool nest = true)
     {
         this.lambdas = lambdas;
-        irFunctions = ir.Functions.Where(f => !f.IsLambda && f.Builds is null).ToDictionary(f => f.Symbol);
-        irBuilt = ir.Functions.Where(f => f.Builds is not null).ToDictionary(f => (f.Symbol.ContainingType!, BuiltName(f)));
+        functions = ir.Functions;
         this.nest = nest;
         cycles = callees.Cycles;
         recursive = FindRecursive(ir);
         overloaded = FindOverloaded(program);
         unoverridden = FindUnoverridden(program, callees.Overrides);
-        memberwiseForms = ir.Functions.Where(f => f.Symbol.IsMemberwise).GroupBy(f => f.Symbol).ToDictionary(g => g.Key, g => g.Select(f => f.Builds!).ToList());
         var main = program.Main ?? throw new ArgumentException("program has no main function", nameof(program));
         stdlib = program.Stdlib;
         sharedObjectRoots = [.. program.Types.Where(s => s.Kind == TypeKind.Class && s.Interfaces.Count > 0).Select(RootClass)];
@@ -111,7 +105,7 @@ public sealed partial class CppEmitter
         {
             if (function.Symbol.IsMemberwise)
             {
-                foreach (var form in memberwiseForms.GetValueOrDefault(function.Symbol) ?? [])
+                foreach (var form in functions.MemberwiseForms(function.Symbol))
                 {
                     Line();
                     EmitMemberwiseConstructor(function, form);

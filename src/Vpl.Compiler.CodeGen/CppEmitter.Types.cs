@@ -81,8 +81,8 @@ public sealed partial class CppEmitter
             Line(FunctionTemplatePrefix(member) + MemberDeclaration(member) + ";");
         foreach (var member in s.Members.Where(m => m.IsMemberwise))
         {
-            foreach (var form in memberwiseForms.GetValueOrDefault(member) ?? [])
-                Line($"static {name} {MemberwiseName(form)}({MemberwiseParameters(member, form)});");
+            foreach (var form in functions.MemberwiseForms(member))
+                Line($"static {name} {MemberwiseName(form.Builds!)}({MemberwiseParameters(member, form.Builds!)});");
         }
         // In a template, a defaulted == whose members lack == is deleted rather than an error.
         if (s.IsGeneric || s.Type.SupportsEquality)
@@ -309,8 +309,9 @@ public sealed partial class CppEmitter
         }
         foreach (var (constructor, index) in s.Constructors.Select((c, i) => (c, i)))
         {
-            if (DelegatesBaseCall(irFunctions[constructor]))
-                EmitBaseArgumentsConstructor(s, index, irFunctions[constructor]);
+            var built = functions.Single(constructor)!;
+            if (DelegatesBaseCall(built))
+                EmitBaseArgumentsConstructor(s, index, built);
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
@@ -349,15 +350,13 @@ public sealed partial class CppEmitter
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"{type} {type}::make_default()");
         currentType = s;
-        EmitIrFunction(irBuilt[(s, "make_default")]);
+        EmitIrFunction(functions.Default(s)!);
         currentType = null;
     }
 
     /// <summary><c>make</c> when a call passes every field, and otherwise named for those it passes.</summary>
     static string MemberwiseName(IReadOnlyList<bool> form) =>
         form.All(given => given) ? "make" : "make_" + string.Concat(form.Select(given => given ? '1' : '0'));
-
-    static string BuiltName(IrFunction function) => function.Symbol.IsMemberwise ? MemberwiseName(function.Builds!) : "make_default";
 
     string MemberwiseParameters(FunctionSymbol constructor, IReadOnlyList<bool> form) =>
         string.Join(", ", constructor.Parameters.Where((_, i) => form[i]).Select(p => ParameterDeclaration(constructor, p, p.Type)));
@@ -366,17 +365,18 @@ public sealed partial class CppEmitter
     /// A memberwise constructor as calls with these fields use it: it sets each field, in order, to
     /// its argument, or for one left out, to its initializer or its type's default value.
     /// </summary>
-    void EmitMemberwiseConstructor(BoundFunction function, IReadOnlyList<bool> form)
+    void EmitMemberwiseConstructor(BoundFunction function, IrFunction built)
     {
         var symbol = function.Symbol;
         var s = symbol.ContainingType!;
+        var form = built.Builds!;
         currentType = s;
         usedLocalNames.Clear();
         usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
         Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
-        EmitIrFunction(irBuilt[(s, MemberwiseName(form))]);
+        EmitIrFunction(built);
         currentType = null;
     }
 

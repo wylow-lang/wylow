@@ -82,7 +82,7 @@ public sealed partial class CppEmitter
         if (FunctionTemplatePrefix(symbol) is { Length: > 0 } prefix)
             Line(prefix.TrimEnd());
         Line(DefinitionSignature(symbol));
-        EmitIrFunction(irFunctions[symbol]);
+        EmitIrFunction(functions.Single(symbol)!);
         currentType = null;
     }
 }

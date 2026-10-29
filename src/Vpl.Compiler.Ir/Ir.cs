@@ -1,3 +1,4 @@
+using System.Collections;
 using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Syntax;
 using Vpl.Compiler.Text;
@@ -13,7 +14,7 @@ namespace Vpl.Compiler.Ir;
 public sealed class IrProgram(BoundProgram bound)
 {
     public BoundProgram Bound { get; } = bound;
-    public List<IrFunction> Functions { get; } = [];
+    public IrFunctions Functions { get; } = new();
 
     /// <summary>
     /// How many times the pipeline has changed the program, so that facts found from it can tell
@@ -22,6 +23,69 @@ public sealed class IrProgram(BoundProgram bound)
     public int Generation { get; private set; }
 
     public void Changed() => Generation++;
+}
+
+/// <summary>
+/// A program's lowered functions in the order they were lowered, with the index of what an
+/// instruction names. A memberwise constructor is one function per form a call uses, so its symbol
+/// names several; a struct's <c>make_default</c> is under a symbol no call names, found by its type.
+/// Adding a function rebuilds the index, so it can't describe an earlier program.
+/// </summary>
+public sealed class IrFunctions : IReadOnlyList<IrFunction>
+{
+    static readonly IReadOnlyList<IrFunction> None = [];
+
+    readonly List<IrFunction> functions = [];
+    Dictionary<FunctionSymbol, List<IrFunction>>? bySymbol;
+    Dictionary<TypeSymbol, IrFunction>? defaults;
+
+    public int Count => functions.Count;
+    public IrFunction this[int index] => functions[index];
+
+    public void Add(IrFunction function)
+    {
+        functions.Add(function);
+        bySymbol = null;
+        defaults = null;
+    }
+
+    public void AddRange(IEnumerable<IrFunction> added)
+    {
+        functions.AddRange(added);
+        bySymbol = null;
+        defaults = null;
+    }
+
+    /// <summary>The functions under the symbol: one, or a memberwise constructor's forms.</summary>
+    public IReadOnlyList<IrFunction> Of(FunctionSymbol symbol) =>
+        (bySymbol ??= functions.GroupBy(f => f.Symbol).ToDictionary(g => g.Key, g => g.ToList())).TryGetValue(symbol, out var found) ? found : None;
+
+    /// <summary>Whether any function is under the symbol.</summary>
+    public bool Contains(FunctionSymbol symbol) => Of(symbol).Count > 0;
+
+    /// <summary>The one function under the symbol, which every symbol but a memberwise constructor's names.</summary>
+    public IrFunction? Single(FunctionSymbol symbol) => Of(symbol) is [var one] ? one : null;
+
+    /// <summary>A memberwise constructor's forms, one function each.</summary>
+    public IReadOnlyList<IrFunction> MemberwiseForms(FunctionSymbol constructor) =>
+        [.. Of(constructor).Where(f => f.Builds is not null)];
+
+    /// <summary>The form of a memberwise constructor that passes the fields of <paramref name="form"/>.</summary>
+    public IrFunction? Memberwise(FunctionSymbol constructor, IReadOnlyList<bool> form) =>
+        Of(constructor).FirstOrDefault(f => f.Builds is { } builds && builds.SequenceEqual(form));
+
+    /// <summary>The function making a struct's default value, from the symbol no call names.</summary>
+    public IrFunction? Default(TypeSymbol type) => DefaultsByType.GetValueOrDefault(type);
+
+    /// <summary>Every struct's <c>make_default</c>, which a type parameter's default may be.</summary>
+    public IReadOnlyList<IrFunction> Defaults => [.. DefaultsByType.Values];
+
+    Dictionary<TypeSymbol, IrFunction> DefaultsByType => defaults ??= functions
+        .Where(f => f is { Builds: not null, Symbol.IsMemberwise: false, Symbol.ContainingType: not null })
+        .ToDictionary(f => f.Symbol.ContainingType!, f => f);
+
+    public IEnumerator<IrFunction> GetEnumerator() => functions.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 public sealed class IrFunction(FunctionSymbol symbol, string name)

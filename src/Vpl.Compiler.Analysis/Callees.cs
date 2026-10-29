@@ -19,8 +19,7 @@ public sealed class Callees
 {
     readonly Overrides overrides;
     readonly CyclicClasses cycles;
-    readonly Dictionary<FunctionSymbol, List<IrFunction>> functions = [];
-    readonly Dictionary<TypeSymbol, IrFunction> defaults = [];
+    readonly IrFunctions functions;
     readonly List<(IrFunction Function, VplType Type)> lambdas = [];
     readonly Dictionary<VplType, IReadOnlyList<IrFunction>> lambdasOfType = [];
     readonly int generation;
@@ -31,15 +30,9 @@ public sealed class Callees
         generation = program.Generation;
         overrides = new Overrides(program.Bound);
         cycles = CyclicClasses.Find(program);
+        functions = program.Functions;
         foreach (var function in program.Functions)
         {
-            // A struct's make_default is under a symbol of its own, which no call names.
-            if (function is { Builds: not null, Symbol: { IsMemberwise: false, ContainingType: { } type } })
-                defaults[type] = function;
-            else if (!functions.TryGetValue(function.Symbol, out var list))
-                functions[function.Symbol] = [function];
-            else
-                list.Add(function);
             foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
             {
                 switch (statement)
@@ -54,7 +47,7 @@ public sealed class Callees
             }
         }
         var borrowable = program.Bound.Stdlib.Borrowable;
-        borrows = [.. borrowable is null ? [] : borrowable.Methods.Values.SelectMany(m => m).SelectMany(Targets).SelectMany(f => functions.GetValueOrDefault(f) ?? [])];
+        borrows = [.. borrowable is null ? [] : borrowable.Methods.Values.SelectMany(m => m).SelectMany(Targets).SelectMany(functions.Of)];
         released = [.. program.Functions.Where(f => f.Symbol.IsDestructor), .. borrows];
     }
 
@@ -92,7 +85,8 @@ public sealed class Callees
                 bool runsExtern = false;
                 foreach (var target in direct || !method.Symbol.IsDispatched ? [method.Symbol] : Targets(method.Symbol))
                 {
-                    if (functions.TryGetValue(target, out var lowered))
+                    var lowered = functions.Of(target);
+                    if (lowered.Count > 0)
                         found.AddRange(lowered.Select(f => new Callee(f, method.Map)));
                     else if (target.IsExtern || target.IsBuiltin)
                         runsExtern = true;
@@ -127,7 +121,7 @@ public sealed class Callees
             {
                 var map = TypeMap.For(c);
                 if (c.Symbol!.Destructor is { } destructor)
-                    found.AddRange((functions.GetValueOrDefault(destructor) ?? []).Select(f => new Callee(f, map)));
+                    found.AddRange(functions.Of(destructor).Select(f => new Callee(f, map)));
                 found.AddRange(borrows.Where(f => f.Symbol.ContainingType == c.Symbol).Select(f => new Callee(f, map)));
             }
         }
@@ -154,13 +148,13 @@ public sealed class Callees
 
     /// <summary>The methods a dispatched call may run, except abstract ones, which run nothing.</summary>
     IEnumerable<FunctionSymbol> Targets(FunctionSymbol method) =>
-        overrides.Targets(method).Where(f => !(f.IsAbstract || f.ContainingType?.Kind == TypeKind.Interface) || functions.ContainsKey(f));
+        overrides.Targets(method).Where(f => !(f.IsAbstract || f.ContainingType?.Kind == TypeKind.Interface) || functions.Contains(f));
 
     /// <summary>The <c>make_default</c>s making the type's default value may run; a type parameter's may be any struct's.</summary>
     IEnumerable<Callee> Defaults(VplType type) =>
-        type.IsTypeParameter ? defaults.Values.Select(f => new Callee(f, TypeMap.Empty))
+        type.IsTypeParameter ? functions.Defaults.Select(f => new Callee(f, TypeMap.Empty))
         : type is FixedArrayType array ? Defaults(array.Element)
-        : type.Symbol is { } symbol && defaults.TryGetValue(symbol, out var found) ? [new Callee(found, TypeMap.For(type))]
+        : type.Symbol is { } symbol && functions.Default(symbol) is { } found ? [new Callee(found, TypeMap.For(type))]
         : [];
 
     /// <summary>The lambdas a function value of the type may be (<see cref="FunctionValues.MayBe"/>).</summary>
