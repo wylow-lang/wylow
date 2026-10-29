@@ -30,6 +30,10 @@ releasing any class references it contains.
 
 - A local or parameter releases its reference when it goes out of scope; fields when their object
   is destroyed, after its destructor body has run (fields first, then the base class's destructor).
+  Destruction starts at the object's own class: each class in turn runs its destructor body and
+  then releases the fields it declares, in reverse declaration order, before the base class's
+  destructor runs. Its abstract or virtual methods dispatch to the class being destroyed, so they
+  never see a derived class's fields.
 - A temporary, such as an object returned by a call and not stored, is released when the statement
   that created it completes, not at its last use, so a destructor's timing can be read from the
   source. Within a statement:

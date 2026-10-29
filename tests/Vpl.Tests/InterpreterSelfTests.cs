@@ -352,6 +352,386 @@ static class InterpreterSelfTests
             }
             """, panic: "byte offset 1 is inside a character");
 
+        Case(results, "objects", """
+            class Counter {
+                internal {
+                    mut int count = 10;
+
+                    Counter(int step) {
+                        this.step = step;
+                    }
+
+                    void tick() {
+                        count += step;
+                    }
+
+                    int get() {
+                        return count;
+                    }
+                }
+
+                private {
+                    int step;
+                }
+            }
+
+            void main() {
+                var a = new Counter(2);
+                a.tick();
+                print(a.get());
+                Counter b = a;
+                b.tick();
+                print(a.count);
+                print(a == b);
+                print(a == new Counter(2));
+            }
+            """, output: ["12", "14", "true", "false"]);
+
+        Case(results, "inheritance_dispatch", """
+            interface Named {
+                String name();
+            }
+
+            abstract class Shape implements Named {
+                internal {
+                    int sides = 4;
+
+                    int perimeter() {
+                        return sides * side();
+                    }
+
+                    abstract int side();
+                }
+            }
+
+            class Square extends Shape {
+                internal {
+                    int size = 3;
+
+                    override int side() {
+                        return size;
+                    }
+
+                    String name() {
+                        return "square";
+                    }
+                }
+            }
+
+            class Unit extends Shape {
+                internal {
+                    override int side() {
+                        return 1;
+                    }
+
+                    String name() {
+                        return "unit";
+                    }
+                }
+            }
+
+            void show(Named n, Shape? s) {
+                print(n.name());
+                if (s is Shape shape) {
+                    print(shape.perimeter());
+                }
+            }
+
+            void main() {
+                var s = new Square();
+                show(s, s);
+                print(s.perimeter());
+                Shape u = new Unit();
+                print(u.perimeter());
+                print(u is Square);
+                Named named = s;
+                print(named.name());
+            }
+            """, output: ["square", "12", "12", "4", "false", "square"]);
+
+        Case(results, "destruction_order", """
+            class Part {
+                internal {
+                    String name;
+
+                    Part(String name) {
+                        this.name = name;
+                    }
+                }
+
+                ~Part() {
+                    print($"gone {name}");
+                }
+            }
+
+            class Whole {
+                internal {
+                    Part first = new Part("first");
+                    Part second = new Part("second");
+
+                    Whole() {
+                        print("whole body");
+                    }
+                }
+
+                ~Whole() {
+                    print("whole body done");
+                }
+            }
+
+            void main() {
+                mut var w = new Whole();
+                w = new Whole();
+                print("after");
+            }
+            """, output: ["whole body", "whole body", "whole body done", "gone second", "gone first", "after", "whole body done", "gone second", "gone first"]);
+
+        Case(results, "assignment_sees_new_value", """
+            class Item {
+                internal {
+                    String name;
+                    mut Holder? holder;
+
+                    Item(String name, Holder? holder) {
+                        this.name = name;
+                        this.holder = holder;
+                    }
+                }
+
+                ~Item() {
+                    if (holder is Holder h && h.item is Item now) {
+                        print(now.name);
+                    }
+                }
+            }
+
+            class Holder {
+                internal {
+                    mut Item? item;
+                }
+            }
+
+            void main() {
+                var h = new Holder();
+                h.item = new Item("second", h);
+                h.item = new Item("third", h);
+            }
+            """, output: ["third"]);
+
+        Case(results, "construction_and_destruction_phases", """
+            int mark(String text, int value) {
+                print(text);
+                return value;
+            }
+
+            class Base {
+                internal {
+                    int field = mark("base field", 1);
+
+                    Base() {
+                        print("base body");
+                        whoami();
+                    }
+
+                    virtual void whoami() {
+                        print("as base");
+                    }
+                }
+
+                ~Base() {
+                    print("~base body");
+                    whoami();
+                }
+            }
+
+            class Derived extends Base {
+                internal {
+                    int other = mark("derived field", 2);
+
+                    Derived() {
+                        print("derived body");
+                        whoami();
+                    }
+
+                    override void whoami() {
+                        print("as derived");
+                    }
+                }
+
+                ~Derived() {
+                    print("~derived body");
+                    whoami();
+                }
+            }
+
+            void main() {
+                var x = new Derived();
+                print("end");
+            }
+            """, output: ["base field", "base body", "as base", "derived field", "derived body", "as derived", "end",
+                          "~derived body", "as derived", "~base body", "as base"]);
+
+        Case(results, "abstract_in_constructor", """
+            abstract class Shape {
+                internal {
+                    Shape() {
+                        print(area());
+                    }
+
+                    abstract int area();
+                }
+            }
+
+            class Square extends Shape {
+                internal {
+                    override int area() {
+                        return 4;
+                    }
+                }
+            }
+
+            void main() {
+                var s = new Square();
+            }
+            """, panic: "abstract method 'Shape.area' called during construction or destruction", panicAtLine: 7);
+
+        Case(results, "destructor_kept_reference", """
+            class Keeper {
+                internal {
+                    mut Ghost? kept;
+                }
+            }
+
+            class Ghost {
+                internal {
+                    Keeper keeper;
+
+                    Ghost(Keeper keeper) {
+                        this.keeper = keeper;
+                    }
+                }
+
+                ~Ghost() {
+                    keeper.kept = this;
+                }
+            }
+
+            void main() {
+                var keeper = new Keeper();
+                mut var g = new Ghost(keeper);
+                g = new Ghost(new Keeper());
+            }
+            """, panic: "an object's destructor kept a reference to the object");
+
+        Case(results, "borrow_hooks", """
+            class Box implements Borrowable {
+                internal {
+                    mut int[2] items;
+
+                    void beginBorrow() {
+                        print("begin");
+                    }
+
+                    void endBorrow() {
+                        print("end");
+                    }
+
+                    ref int operator [](int index) {
+                        return ref items[index];
+                    }
+                }
+            }
+
+            void bump(ref int n) {
+                print("bump");
+                n++;
+            }
+
+            void main() {
+                Box box = new Box();
+                int plain = box[1];
+                print(plain);
+                bump(ref box[0]);
+                print(box.items[0]);
+                {
+                    ref int held = box[1];
+                    held = 4;
+                }
+                print(box.items[1]);
+            }
+            """, output: ["0", "begin", "bump", "end", "1", "begin", "end", "4"]);
+
+        Case(results, "references_into_objects", """
+            struct Pair {
+                internal {
+                    int[2] items;
+
+                    mut ref int at(int i) {
+                        return ref items[i];
+                    }
+                }
+            }
+
+            class Bag {
+                internal {
+                    mut int value;
+
+                    ref int slot() {
+                        return ref value;
+                    }
+                }
+            }
+
+            void write(ref int place, int value) {
+                place = value;
+            }
+
+            void main() {
+                mut Pair p = Pair();
+                p.at(1) = 3;
+                write(ref p.at(0), 5);
+                print(p.items[0] + p.items[1]);
+                var bag = new Bag();
+                ref int slot = bag.slot();
+                slot = 8;
+                print(bag.value);
+                bag.slot() = 9;
+                print(bag.value);
+            }
+            """, output: ["8", "8", "9"]);
+
+        Case(results, "struct_field_of_object", """
+            struct Vec3 {
+                internal {
+                    float x;
+                    float y;
+                    float z;
+                }
+            }
+
+            class Particle {
+                internal {
+                    Vec3 position;
+                    mut Vec3 velocity;
+
+                    Particle(Vec3 position) {
+                        this.position = position;
+                    }
+                }
+            }
+
+            void main() {
+                var p = new Particle(Vec3(1, 2, 3));
+                p.velocity = Vec3(0.5f, 0, 0);
+                print(p.position.y);
+                print(p.velocity.x);
+                mut var copy = p.position;
+                copy.y = 7;
+                print(p.position.y);
+                print(copy.y);
+            }
+            """, output: ["2.0", "0.5", "2.0", "7.0"]);
+
         return results;
     }
 

@@ -110,9 +110,10 @@ public sealed partial class Interpreter
         return local.Deref switch
         {
             IrDeref.Referenced => frame.Find(local) is RefStorage { Cell: { } referenced } ? referenced : throw new InterpreterException($"dereferenced the null reference '{local.Name}'"),
-            IrDeref.Object => throw new UnsupportedFeature("objects land in step 2"),
+            // The object itself is the value in the local; its fields are projections into the object.
+            // A hold of a type parameter is the object it holds, or its own copy of a struct.
+            IrDeref.Object or IrDeref.Generic => LocalCell(frame, local),
             IrDeref.Pointee => throw new UnsupportedFeature("pointers land in step 4"),
-            IrDeref.Generic => throw new UnsupportedFeature("generic values land in step 2"),
             _ => throw new InterpreterException($"unexpected dereference of '{local.Name}'"),
         };
     }
@@ -129,7 +130,8 @@ public sealed partial class Interpreter
     static Cell FieldCell(Cell cell, FieldSymbol field) => cell.Value switch
     {
         StructValue value => value.Fields[value.Type.Symbol!.Fields.IndexOf(field)],
-        _ => throw new UnsupportedFeature("object fields land in step 2"),
+        ObjectRef obj => obj.FieldCell(field),
+        _ => throw new InterpreterException($"a field of a {cell.Value.GetType().Name}"),
     };
 
     Cell ElementCell(Cell cell, IrElement element, Frame frame)
@@ -168,7 +170,7 @@ public sealed partial class Interpreter
         var cell = PlaceCell(place, frame);
         var old = cell.Value;
         cell.Value = value;
-        Values.Release(cell.Type, old);
+        Release(cell.Type, old);
     }
 
     /// <summary>The cell a reference local is bound to, from <c>ref</c>, <c>addr</c>, or a reference a call returns.</summary>
@@ -210,16 +212,23 @@ public sealed partial class Interpreter
         public Value? Convert(IrConvert value) => interpreter.Convert(value, frame);
         public Value? Hold(IrHold value) => interpreter.Hold(value, frame);
         public Value? Invoke(IrInvoke value) => throw new UnsupportedFeature("function values land in step 3");
-        public Value? New(IrNew value) => throw new UnsupportedFeature("objects land in step 2");
+        public Value? New(IrNew value) => interpreter.New(value, frame);
         public Value? Closure(IrClosure value) => throw new UnsupportedFeature("closures land in step 3");
         public Value? Lambda(IrLambda value) => throw new UnsupportedFeature("function values land in step 3");
         public Value? Choose(IrChoose value) => throw new UnsupportedFeature("function values land in step 3");
         public Value? Data(IrData value) => throw new UnsupportedFeature("spans and pointers land in step 4");
     }
 
+    /// <summary>
+    /// An operand an operation only reads. A move here leaves its local owning the value, which
+    /// releases it when its block ends, as C++ does when the operation binds a constant reference.
+    /// </summary>
+    Value EvalOperandInPlace(IrOperand operand, Frame frame) =>
+        operand is IrRead { Ownership: IrOwnership.Move } read ? PlaceCell(read.Place, frame).Value : EvalOperand(operand, frame);
+
     Value Unary(IrUnary unary, Frame frame)
     {
-        var operand = EvalOperand(unary.Operand, frame);
+        var operand = EvalOperandInPlace(unary.Operand, frame);
         var type = frame.Type(unary.Operand.Type);
         return unary.Operator switch
         {
@@ -233,8 +242,8 @@ public sealed partial class Interpreter
 
     Value Binary(IrBinary binary, Frame frame)
     {
-        var left = EvalOperand(binary.Left, frame);
-        var right = EvalOperand(binary.Right, frame);
+        var left = EvalOperandInPlace(binary.Left, frame);
+        var right = EvalOperandInPlace(binary.Right, frame);
         var operandType = frame.Type(binary.Left.Type);
         var op = binary.Operator;
         // A reference or null compares by identity.
@@ -305,6 +314,7 @@ public sealed partial class Interpreter
     static bool SameReference(Value left, Value right) => (left, right) switch
     {
         (NullValue, NullValue) => true,
+        (ObjectRef a, ObjectRef b) => ReferenceEquals(a, b),
         (RefValue a, RefValue b) => ReferenceEquals(a.Cell, b.Cell),
         _ => false,
     };
@@ -328,18 +338,19 @@ public sealed partial class Interpreter
 
     Value Test(IrTest test, Frame frame)
     {
-        var operand = EvalOperand(test.Operand, frame);
+        var operand = EvalOperandInPlace(test.Operand, frame);
         return test.Kind switch
         {
             IrTestKind.NotNull => new BoolValue(operand switch
             {
                 NullValue => false,
                 RefValue reference => reference.Cell is not null,
+                ObjectRef => true,
                 _ => throw new InterpreterException($"a not-null test of a {operand.GetType().Name}"),
             }),
             IrTestKind.HasValue => new BoolValue(operand is OptionalValue { Inner: not null }),
             IrTestKind.Tag => new BoolValue(operand is EnumValue value && value.Variant == test.Variant),
-            IrTestKind.Class => throw new UnsupportedFeature("class tests land in step 2"),
+            IrTestKind.Class => new BoolValue(operand is ObjectRef obj && Conversions.IsSubtype(obj.Active, test.Target!.NonNull)),
             _ => throw new InterpreterException($"unexpected test {test.Kind}"),
         };
     }
@@ -348,6 +359,8 @@ public sealed partial class Interpreter
     {
         var from = frame.Type(conversion.Operand.Type);
         var to = frame.Type(conversion.Type);
+        if (program.Bound.Stdlib.IsWeak(to) || program.Bound.Stdlib.IsWeak(from))
+            throw new UnsupportedFeature("weak references land in step 5");
         var operand = EvalOperand(conversion.Operand, frame);
         return RuntimeArithmetic.Convert(from, to, operand, conversion.Loc is { } loc ? Required(loc, frame) : null);
     }
@@ -355,9 +368,8 @@ public sealed partial class Interpreter
     Value Hold(IrHold hold, Frame frame)
     {
         var cell = PlaceCell(hold.Place, frame);
-        if (cell.Type.NonNull.IsReference)
-            throw new UnsupportedFeature("holding an object lands in step 2");
-        // A string's copies share its bytes and a struct's value is held in place; neither makes a count.
+        // An object's hold is a counted reference; a string's copies share its bytes and a struct's
+        // value is held by value, so neither makes a count. A borrow starts where the hold is stored.
         return Values.Copy(cell.Type, cell.Value);
     }
 

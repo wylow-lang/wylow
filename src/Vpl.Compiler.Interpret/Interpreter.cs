@@ -12,7 +12,7 @@ namespace Vpl.Compiler.Interpret;
 /// an instruction carries, not the instruction set, so each instruction has one rule that covers
 /// everything it may hold (docs/design/ir.md §9.11).
 /// </summary>
-public sealed partial class Interpreter
+public sealed partial class Interpreter : IObjectLifetime
 {
     readonly IrProgram program;
     readonly Callees callees;
@@ -103,6 +103,9 @@ public sealed partial class Interpreter
         /// <summary>The text an <c>@CallerLocation</c> function reports, which its caller passed.</summary>
         public string? CallerLocation { get; set; }
 
+        /// <summary>The object a constructor's frame is making, which its base constructor call runs on.</summary>
+        public ObjectRef? Constructing { get; set; }
+
         /// <summary>The frame whose locals a non-escaping lambda sees, once step 3 lands.</summary>
         public Frame? Enclosing { get; init; }
 
@@ -121,6 +124,16 @@ public sealed partial class Interpreter
         public Cell Cell { get; } = cell;
     }
 
+    /// <summary>
+    /// A hold: a counted copy that pins the object, and for <c>hold.borrow</c>, also borrows it, so
+    /// that a <c>Borrowable</c> knows the storage it handed out is in use.
+    /// </summary>
+    sealed class HoldStorage(Cell cell, bool borrows) : Storage
+    {
+        public Cell Cell { get; } = cell;
+        public bool Borrows { get; set; } = borrows;
+    }
+
     /// <summary>A reference, which aliases the cell it refers to, or null for a <c>ref?</c>.</summary>
     sealed class RefStorage(Cell? cell) : Storage
     {
@@ -130,10 +143,26 @@ public sealed partial class Interpreter
     Cell LocalCell(Frame frame, IrLocal local) => frame.Find(local) switch
     {
         OwnedStorage owned => owned.Cell,
+        HoldStorage hold => hold.Cell,
         RefStorage { Cell: { } cell } => cell,
         RefStorage => throw new InterpreterException($"the null reference '{local.Name}' was used"),
         _ => throw new InterpreterException($"unexpected storage for '{local.Name}'"),
     };
+
+    /// <summary>Releases a value, which runs an object's destructors where its last reference goes.</summary>
+    void Release(VplType type, Value value) => Values.Release(type, value, this);
+
+    void Release(Cell cell) => Release(cell.Type, cell.Value);
+
+    /// <summary>Ends a hold: a borrow stops before the count it holds goes, as <c>vpl::Borrow</c> does.</summary>
+    void EndHold(HoldStorage hold)
+    {
+        var value = hold.Cell.Value;
+        hold.Cell.Value = MovedValue.Instance;
+        if (hold.Borrows && value is ObjectRef obj)
+            EndBorrow(obj);
+        Release(hold.Cell.Type, value);
+    }
 
     /// <summary>Declares a local in the block now running, so that its value is released when the block ends.</summary>
     void Declare(Frame frame, IrLocal local, List<IrLocal> declared)
@@ -149,8 +178,15 @@ public sealed partial class Interpreter
         if (frame.Locals.Remove(local, out var storage))
         {
             frame.Ended.Add(local);
-            if (storage is OwnedStorage owned)
-                Values.Release(owned.Cell.Type, owned.Cell.Value);
+            switch (storage)
+            {
+                case OwnedStorage owned:
+                    Release(owned.Cell);
+                    break;
+                case HoldStorage hold:
+                    EndHold(hold);
+                    break;
+            }
         }
     }
 
@@ -164,16 +200,18 @@ public sealed partial class Interpreter
     // Statements
     // ---------------------------------------------------------------------------------------------
 
-    void ExecBlock(IrBlock block, Frame frame)
+    void ExecBlock(IrBlock block, Frame frame) => ExecBlock(block, frame, 0);
+
+    void ExecBlock(IrBlock block, Frame frame, int start)
     {
         var declared = new List<IrLocal>();
         var visitor = new StatementVisitor(this, frame, declared);
         try
         {
-            foreach (var statement in block.Statements)
+            for (int i = start; i < block.Statements.Count; i++)
             {
                 Step();
-                statement.Accept(visitor);
+                block.Statements[i].Accept(visitor);
             }
         }
         catch (ControlSignal)
@@ -229,13 +267,14 @@ public sealed partial class Interpreter
         }
     }
 
-    void Discard(Value value, VplType type, Frame frame) => Values.Release(frame.Type(type), value);
+    void Discard(Value value, VplType type, Frame frame) => Release(frame.Type(type), value);
 
     void ExecDeclare(IrLocal local, Frame frame, List<IrLocal> declared)
     {
         frame.Locals[local] = local.Kind switch
         {
-            IrLocalKind.Value or IrLocalKind.Hold => new OwnedStorage(new Cell(frame.Type(local.Type), Values.Zeroed(frame.Type(local.Type)))),
+            IrLocalKind.Value => new OwnedStorage(new Cell(frame.Type(local.Type), Values.Zeroed(frame.Type(local.Type)))),
+            IrLocalKind.Hold => new HoldStorage(new Cell(frame.Type(local.Type), Values.Zeroed(frame.Type(local.Type))), borrows: false),
             IrLocalKind.Reference => new RefStorage(null),
             IrLocalKind.Borrowed => throw new InterpreterException($"a borrowed local '{local.Name}' is declared without an alias"),
             IrLocalKind.Slot => throw new UnsupportedFeature("stack slots land in step 5"),
@@ -267,19 +306,43 @@ public sealed partial class Interpreter
         if (local.Kind is IrLocalKind.Slot)
             throw new UnsupportedFeature("stack slots land in step 5");
 
+        bool borrows = let.Value is IrHold { Borrows: true };
         var value = EvalRvalue(let.Value, frame) ?? throw new InterpreterException($"'{local.Name}' is defined by a value that returned nothing");
         if (frame.Locals.TryGetValue(local, out var existing))
         {
             // A declared local (a hold, or a value out of control flow): this is its assignment.
-            AssignStorage(existing, value);
+            AssignStorage(existing, value, borrows);
             return;
         }
-        frame.Locals[local] = new OwnedStorage(new Cell(frame.Type(local.Type), value));
+        if (local.Kind is IrLocalKind.Hold)
+        {
+            frame.Locals[local] = new HoldStorage(new Cell(frame.Type(local.Type), value), borrows);
+            if (borrows && value is ObjectRef held)
+                BeginBorrow(held);
+        }
+        else
+        {
+            frame.Locals[local] = new OwnedStorage(new Cell(frame.Type(local.Type), value));
+        }
         Declare(frame, local, declared);
     }
 
-    static void AssignStorage(Storage storage, Value value)
+    /// <summary>
+    /// Stores a declared local's new value. A hold lets go of the old one first, as
+    /// <c>vpl::hold</c> does; any other local stores the new value before releasing the old one
+    /// (spec 03-memory-model.md §3.2).
+    /// </summary>
+    void AssignStorage(Storage storage, Value value, bool borrows)
     {
+        if (storage is HoldStorage hold)
+        {
+            EndHold(hold);
+            hold.Cell.Value = value;
+            hold.Borrows = borrows;
+            if (borrows && value is ObjectRef obj)
+                BeginBorrow(obj);
+            return;
+        }
         var cell = storage switch
         {
             OwnedStorage owned => owned.Cell,
@@ -287,7 +350,7 @@ public sealed partial class Interpreter
         };
         var old = cell.Value;
         cell.Value = value;
-        Values.Release(cell.Type, old);
+        Release(cell.Type, old);
     }
 
     void ExecCheck(IrCheck check, Frame frame)
@@ -298,18 +361,18 @@ public sealed partial class Interpreter
                 return;
             case IrCheckKind.Index:
             {
-                var index = Integer(EvalOperand(check.Operands[0], frame));
-                var length = Integer(EvalOperand(check.Operands[1], frame));
+                var index = Integer(EvalOperandInPlace(check.Operands[0], frame));
+                var length = Integer(EvalOperandInPlace(check.Operands[1], frame));
                 if ((Int128)(uint)(long)index >= (Int128)(uint)(long)length)
                     throw new VplPanic(RuntimeText.IndexMessage(index, length), Location(check.Loc, frame) ?? "<unknown>");
                 return;
             }
             case IrCheckKind.NotNull:
-                if (EvalOperand(check.Operands[0], frame) is NullValue or RefValue { Cell: null })
+                if (EvalOperandInPlace(check.Operands[0], frame) is NullValue or RefValue { Cell: null })
                     throw new VplPanic(NullUnwrapMessage(check.Operands[0].Type), Location(check.Loc, frame) ?? "<unknown>");
                 return;
             case IrCheckKind.HasValue:
-                if (EvalOperand(check.Operands[0], frame) is not OptionalValue { Inner: not null })
+                if (EvalOperandInPlace(check.Operands[0], frame) is not OptionalValue { Inner: not null })
                     throw new VplPanic("null value unwrapped with '!'", Location(check.Loc, frame) ?? "<unknown>");
                 return;
             case IrCheckKind.NoMatch:
@@ -367,50 +430,99 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// Runs a call. A method, constructor, or extern is found from the IR's one index, and a
-    /// dispatched call's implementation from the analysis's answer.
+    /// dispatched call's implementation from the object's class, or the class being constructed or
+    /// destroyed, as C++ dispatches.
     /// </summary>
     Value? Call(IrCall call, Frame caller)
     {
         var method = call.Method;
         if (method.Symbol.IsBuiltin)
             return CallIntrinsic(call, caller);
+        // A base constructor call has no receiver in the IR: it runs on the object being made.
+        if (call.IsSuperCall && method.Symbol.IsConstructor)
+            return BaseConstruct(call, caller);
 
-        var callee = Resolve(method, call.Receiver);
+        var storage = call.Receiver is { } receiver ? ReceiverStorage(receiver, caller) : null;
+        var obj = (storage as OwnedStorage)?.Cell.Value as ObjectRef;
+        // A formatted type, or the numbers, char, and String, satisfy a Printable or Comparable
+        // bound without implementing it: the runtime writes and compares those itself.
+        if (Received(storage) is { Value: var received, Type: var concrete })
+        {
+            if (program.Bound.Stdlib.IsPrintableToString(method.Symbol) && concrete.IsFormatted)
+                return new StringValue(RuntimeText.Format(concrete, received));
+            if (program.Bound.Stdlib.IsComparableCompareTo(method.Symbol) && StdlibSymbols.IsBuiltinComparable(concrete))
+                return new IntValue(RuntimeArithmetic.CompareTotal(concrete, received, ArgumentValue(call.Arguments[0], caller)));
+        }
+        var callee = Resolve(call, storage, obj);
+        if (callee.Symbol.IsAbstract)
+            throw new VplPanic(callee.Symbol.AbstractCallMessage, callee.Symbol.Declaration!.NameLocation.PanicText);
         var function = program.Functions.Single(callee.Symbol)
             ?? throw new UnsupportedFeature($"no lowered function for '{callee.Symbol.Signature}'");
         var frame = new Frame(callee.Map);
         if (function.HasLocationParameter)
             frame.CallerLocation = Location(call.Loc, caller);
-        if (function.This is { } self)
-            frame.Locals[self] = ReceiverStorage(call.Receiver, function, caller);
+        if (function.This is not null)
+            frame.Locals[function.This] = storage ?? throw new InterpreterException($"no receiver for '{function.Name}'");
         BindArguments(call.Arguments, function.Parameters, frame, caller);
         return Invoke(function, frame);
     }
 
-    /// <summary>Which method a call runs: the one named, or for a dispatched call the receiver's implementation.</summary>
-    MethodReference Resolve(MethodReference method, IrArgument? receiver)
+    /// <summary>The receiver's value and the type of the storage holding it, which a type parameter's substitution made concrete.</summary>
+    static (Value Value, VplType Type)? Received(Storage? storage) => storage switch
     {
-        if (!method.Symbol.IsDispatched || receiver is not IrRead read || !read.Type.NonNull.IsReference)
+        OwnedStorage owned => (owned.Cell.Value, owned.Cell.Type),
+        RefStorage { Cell: { } cell } => (cell.Value, cell.Type),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Which method a call runs: the one named, or for a dispatched call the receiver's
+    /// implementation. An object dispatches as its current class, and a struct as its own.
+    /// </summary>
+    MethodReference Resolve(IrCall call, Storage? storage, ObjectRef? obj)
+    {
+        var method = call.Method;
+        if (call.IsSuperCall || !method.Symbol.IsDispatched)
             return method;
-        var runtime = read.Type.NonNull;
-        return callees.Overrides.Implementation(method, runtime) ?? method;
+        // A struct value carries the type it was made as, which a type parameter's substitution
+        // gives to the call; a reference dispatches on its object's current class.
+        VplType? runtime = obj?.Active ?? storage switch
+        {
+            OwnedStorage { Cell.Value: StructValue value } => value.Type,
+            OwnedStorage owned => owned.Cell.Type,
+            RefStorage { Cell: { } cell } => cell.Type,
+            _ => null,
+        };
+        if (runtime is null || runtime.ContainsTypeParameters)
+            return method;
+        return callees.Overrides.Implementation(method, runtime.NonNull) ?? method;
     }
 
-    Storage ReceiverStorage(IrArgument? receiver, IrFunction function, Frame caller)
+    /// <summary>A method's <c>this</c>: a reference to the caller's place for a struct, the object for a class.</summary>
+    Storage ReceiverStorage(IrArgument receiver, Frame caller) => receiver switch
     {
-        switch (receiver)
-        {
-            case IrRefArgument reference:
-                return new RefStorage(PlaceCell(reference.Place, caller));
-            case IrRead read when read.Type.NonNull.IsReference:
-                return new OwnedStorage(new Cell(read.Type, EvalOperand(read, caller)));
-            case IrRead read:
-                return new OwnedStorage(new Cell(read.Type, EvalOperand(read, caller)));
-            case null:
-                throw new InterpreterException($"no receiver for '{function.Name}'");
-            default:
-                throw new InterpreterException($"unexpected receiver {receiver.GetType().Name}");
-        }
+        IrRefArgument reference => new RefStorage(PlaceCell(reference.Place, caller)),
+        IrAddrArgument address => new RefStorage(PlaceCell(address.Place, caller)),
+        // The storage's type, not the read's, which a type parameter's substitution made concrete.
+        IrRead read => new OwnedStorage(new Cell(PlaceCell(read.Place, caller).Type, EvalOperand(read, caller))),
+        _ => throw new InterpreterException($"unexpected receiver {receiver.GetType().Name}"),
+    };
+
+    /// <summary>Runs a base class constructor on the object the calling constructor is making.</summary>
+    Value? BaseConstruct(IrCall call, Frame caller)
+    {
+        var method = call.Method;
+        var obj = caller.Constructing ?? throw new InterpreterException("a base constructor call outside a constructor");
+        var function = program.Functions.Single(method.Symbol)
+            ?? throw new UnsupportedFeature($"no lowered function for '{method.Symbol.Signature}'");
+        var frame = new Frame(method.Map);
+        frame.Constructing = obj;
+        if (function.HasLocationParameter)
+            frame.CallerLocation = Location(call.Loc, caller);
+        if (function.This is { } self)
+            frame.Locals[self] = new OwnedStorage(new Cell(method.Owner ?? obj.Type, obj));
+        BindArguments(call.Arguments, function.Parameters, frame, caller);
+        return RunConstructor(function, frame, obj, method.Owner ?? obj.Type);
     }
 
     /// <summary>Binds a call's arguments in order, skipping the fields a memberwise form defaults.</summary>
@@ -450,18 +562,145 @@ public sealed partial class Interpreter
             {
                 result = returned.Value;
             }
-            // By-value parameters are released after the body's own locals, the last first.
-            for (int i = function.Parameters.Count - 1; i >= 0; i--)
-            {
-                if (frame.Locals.TryGetValue(function.Parameters[i], out var storage) && storage is OwnedStorage owned)
-                    Values.Release(owned.Cell.Type, owned.Cell.Value);
-            }
+            ReleaseParameters(function, frame);
             return result;
         }
         finally
         {
             depth--;
         }
+    }
+
+    /// <summary>
+    /// Runs a class constructor on the object being made, in the order C++ constructs it: the base
+    /// constructor first (whose frame runs the base's own body), then the class's field
+    /// initializers and body, with dispatch on the derived class only from there on.
+    /// </summary>
+    Value? RunConstructor(IrFunction function, Frame frame, ObjectRef obj, VplType type)
+    {
+        if (++depth > options.CallDepthBudget)
+            throw new BudgetExceededException();
+        try
+        {
+            Value? result = null;
+            try
+            {
+                int start = 0;
+                if (function.BaseCall is { } baseCall)
+                {
+                    if (function.Body.Statements.Count == 0 || !ReferenceEquals(function.Body.Statements[0], baseCall))
+                        throw new InterpreterException($"'{function.Name}' does not run its base constructor first");
+                    ExecBlock(baseCall, frame);
+                    start = 1;
+                }
+                obj.Active = type;
+                ExecBlock(function.Body, frame, start);
+            }
+            catch (ReturnSignal returned)
+            {
+                result = returned.Value;
+            }
+            ReleaseParameters(function, frame);
+            return result;
+        }
+        finally
+        {
+            depth--;
+        }
+    }
+
+    /// <summary>By-value parameters are released after the body's own locals, the last first.</summary>
+    void ReleaseParameters(IrFunction function, Frame frame)
+    {
+        for (int i = function.Parameters.Count - 1; i >= 0; i--)
+        {
+            if (frame.Locals.TryGetValue(function.Parameters[i], out var storage) && storage is OwnedStorage owned)
+                Release(owned.Cell);
+        }
+    }
+
+    /// <summary>
+    /// Makes a class object and runs its constructor. The <c>new</c> expression owns the object's
+    /// first reference; a stack slot's object is step 5.
+    /// </summary>
+    Value New(IrNew creation, Frame caller)
+    {
+        if (creation.Slot is not null)
+            throw new UnsupportedFeature("stack slots land in step 5");
+        var type = caller.Type(creation.Type);
+        var obj = Values.Allocate(type);
+        var constructor = creation.Constructor;
+        if (program.Functions.Single(constructor.Symbol) is { } function)
+        {
+            var frame = new Frame(constructor.Map);
+            frame.Constructing = obj;
+            if (function.HasLocationParameter)
+                frame.CallerLocation = Location(creation.Loc, caller);
+            if (function.This is { } self)
+                frame.Locals[self] = new OwnedStorage(new Cell(type, obj));
+            BindArguments(creation.Arguments, function.Parameters, frame, caller);
+            RunConstructor(function, frame, obj, type);
+        }
+        return obj;
+    }
+
+    /// <summary>
+    /// Releases an object's last reference: runs each class's destructor and then releases that
+    /// class's fields, most derived first, with dispatch on each class in turn as C++ destroys it.
+    /// The count is held at one throughout, so the object outlives its destructor's temporaries;
+    /// one left over is the spec's panic.
+    /// </summary>
+    public void Destroy(ObjectRef obj)
+    {
+        if (++depth > options.CallDepthBudget)
+            throw new BudgetExceededException();
+        try
+        {
+            obj.Count = 1;
+            foreach (var type in obj.Chain.ToList())
+            {
+                obj.Active = type;
+                var symbol = type.Symbol!;
+                if (symbol.Destructor is { } destructor && program.Functions.Single(destructor) is { } function)
+                {
+                    var frame = new Frame(TypeMap.For(type));
+                    if (function.This is { } self)
+                        frame.Locals[self] = new OwnedStorage(new Cell(type, obj));
+                    Invoke(function, frame);
+                }
+                var cells = obj.Fields[symbol];
+                for (int i = cells.Length - 1; i >= 0; i--)
+                    Release(cells[i]);
+            }
+            if (obj.Count != 1)
+                throw new VplPanic("an object's destructor kept a reference to the object", "<destructor>");
+            obj.Count = 0;
+        }
+        finally
+        {
+            depth--;
+        }
+    }
+
+    /// <summary>The compiler's calls around a borrow of a <c>Borrowable</c> object, which its own class implements.</summary>
+    void BeginBorrow(ObjectRef obj) => BorrowHook(obj, "beginBorrow");
+
+    void EndBorrow(ObjectRef obj) => BorrowHook(obj, "endBorrow");
+
+    void BorrowHook(ObjectRef obj, string name)
+    {
+        if (!program.Bound.IsBorrowable(obj.Type) || program.Bound.Stdlib.Borrowable is not { } borrowable)
+            return;
+        if (!borrowable.Methods.TryGetValue(name, out var methods) || methods.FirstOrDefault() is not { } declared)
+            throw new InterpreterException($"the standard library's Borrowable declares no '{name}'");
+        var implementation = callees.Overrides.Implementation(new MethodReference(declared, borrowable.Type, []), obj.Active)
+            ?? throw new InterpreterException($"'{obj.Type}' implements Borrowable without '{name}'");
+        var function = program.Functions.Single(implementation.Symbol)
+            ?? throw new UnsupportedFeature($"no lowered function for '{implementation.Symbol.Signature}'");
+        var frame = new Frame(implementation.Map);
+        if (function.This is { } self)
+            frame.Locals[self] = new OwnedStorage(new Cell(implementation.Owner ?? obj.Type, obj));
+        Invoke(function, frame);
     }
 
     /// <summary>Makes the type's default value: its <c>make_default</c> where it has code, and zeroed storage otherwise.</summary>

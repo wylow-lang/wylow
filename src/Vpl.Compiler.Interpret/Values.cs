@@ -1,5 +1,6 @@
 using System.Text;
 using Vpl.Compiler.Semantics;
+using Vpl.Compiler.Syntax;
 
 namespace Vpl.Compiler.Interpret;
 
@@ -71,6 +72,38 @@ public sealed class NullValue : Value
     public override string ToString() => "null";
 }
 
+/// <summary>
+/// A class object: its fields, one array per class that declares them, an intrusive count, and the
+/// class a dispatched call runs on it now (a base during its construction or destruction, as C++).
+/// Every copy of a reference is this same instance with the count raised, so a field written
+/// through one is seen through every other.
+/// </summary>
+public sealed class ObjectRef(VplType type, Dictionary<TypeSymbol, Cell[]> fields) : Value
+{
+    public VplType Type { get; } = type;
+    public Dictionary<TypeSymbol, Cell[]> Fields { get; } = fields;
+
+    /// <summary>The references to it; the <c>new</c> expression owns the first.</summary>
+    public long Count { get; set; } = 1;
+
+    /// <summary>The class whose methods dispatch on it: its own, or a base while it is constructed or destroyed.</summary>
+    public VplType Active { get; set; } = type;
+
+    /// <summary>The classes of its chain, most derived first, which each own the fields they declare.</summary>
+    public IEnumerable<VplType> Chain
+    {
+        get
+        {
+            for (VplType? current = Type.NonNull; current is not null && current.Symbol is { Kind: TypeKind.Class }; current = current.BaseType)
+                yield return current;
+        }
+    }
+
+    public Cell FieldCell(FieldSymbol field) => Fields[field.Owner][field.Owner.Fields.IndexOf(field)];
+
+    public override string ToString() => $"{Type}";
+}
+
 /// <summary>A struct: its fields, in declaration order.</summary>
 public sealed class StructValue(VplType type, Cell[] fields) : Value
 {
@@ -135,18 +168,25 @@ public sealed class MovedValue : Value
     public override string ToString() => "<moved>";
 }
 
+/// <summary>What releasing a value asks when an object's last reference goes: to run its destruction.</summary>
+public interface IObjectLifetime
+{
+    void Destroy(ObjectRef obj);
+}
+
 /// <summary>Making a value from a literal or a default, copying, releasing, and comparing it.</summary>
 public static class Values
 {
     public static Cell CopyCell(Cell cell) => new(cell.Type, Copy(cell.Type, cell.Value));
 
     /// <summary>
-    /// A copy of the value: aggregates are deep copies of their cells, and everything immutable
-    /// (numbers, strings, a reference) is shared. An object's count rises in step 2.
+    /// A copy of the value: aggregates are deep copies of their cells, everything immutable
+    /// (numbers, strings) is shared, and a class reference is shared with its object's count risen.
     /// </summary>
     public static Value Copy(VplType type, Value value) => value switch
     {
         IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue => value,
+        ObjectRef obj => Retain(obj),
         StructValue s => new StructValue(s.Type, [.. s.Fields.Select(CopyCell)]),
         EnumValue e => new EnumValue(e.Type, e.Variant, [.. e.Fields.Select(CopyCell)]),
         ArrayValue a => new ArrayValue(a.Type, [.. a.Elements.Select(CopyCell)]),
@@ -155,12 +195,45 @@ public static class Values
         _ => throw new InterpreterException($"copy of a {value.GetType().Name}"),
     };
 
-    /// <summary>
-    /// Releases what a value owns. Nothing in step 1 releases observably: strings and numbers own
-    /// nothing, and no struct has a destructor. Objects release their counts in step 2.
-    /// </summary>
-    public static void Release(VplType type, Value value)
+    static ObjectRef Retain(ObjectRef obj)
     {
+        obj.Count++;
+        return obj;
+    }
+
+    /// <summary>
+    /// Releases what a value owns: a class reference lowers its object's count, and an object's
+    /// last reference runs its destructors (<see cref="IObjectLifetime.Destroy"/>). Fields and
+    /// elements are released in reverse declaration order, as C++ destroys members. Numbers,
+    /// strings, references, and moved-from values own nothing.
+    /// </summary>
+    public static void Release(VplType type, Value value, IObjectLifetime lifetime)
+    {
+        switch (value)
+        {
+            case ObjectRef obj:
+                if (--obj.Count == 0)
+                    lifetime.Destroy(obj);
+                break;
+            case StructValue s:
+                ReleaseCells(s.Fields, lifetime);
+                break;
+            case EnumValue e:
+                ReleaseCells(e.Fields, lifetime);
+                break;
+            case ArrayValue a:
+                ReleaseCells(a.Elements, lifetime);
+                break;
+            case OptionalValue { Inner: { } inner }:
+                Release(inner.Type, inner.Value, lifetime);
+                break;
+        }
+    }
+
+    static void ReleaseCells(Cell[] cells, IObjectLifetime lifetime)
+    {
+        for (int i = cells.Length - 1; i >= 0; i--)
+            Release(cells[i].Type, cells[i].Value, lifetime);
     }
 
     /// <summary>The zeroed storage of a type, which <c>IrZeroed</c> makes and a default builds on.</summary>
@@ -187,6 +260,23 @@ public static class Values
         return [.. type.Symbol!.Fields.Select(f => (f, map.Apply(f.Type)))];
     }
 
+    /// <summary>
+    /// An object of a class, its fields zeroed, one reference held by the <c>new</c> expression, and
+    /// dispatching as the root class until a constructor reaches its own class.
+    /// </summary>
+    public static ObjectRef Allocate(VplType type)
+    {
+        var fields = new Dictionary<TypeSymbol, Cell[]>();
+        VplType? deepest = null;
+        for (VplType? current = type.NonNull; current is not null && current.Symbol is { Kind: TypeKind.Class } symbol; current = current.BaseType)
+        {
+            var map = TypeMap.For(current);
+            fields[symbol] = [.. symbol.Fields.Select(f => new Cell(map.Apply(f.Type), Zeroed(map.Apply(f.Type))))];
+            deepest = current;
+        }
+        return new ObjectRef(type, fields) { Active = deepest ?? type };
+    }
+
     public static bool Equal(VplType type, Value left, Value right)
     {
         if (type.IsNullableValue)
@@ -203,6 +293,7 @@ public static class Values
             (CharValue x, CharValue y) => x.CodePoint == y.CodePoint,
             (StringValue x, StringValue y) => x.Bytes.AsSpan().SequenceEqual(y.Bytes),
             (NullValue, NullValue) => true,
+            (ObjectRef x, ObjectRef y) => ReferenceEquals(x, y),
             (RefValue x, RefValue y) => ReferenceEquals(x.Cell, y.Cell),
             (StructValue x, StructValue y) => x.Fields.Length == y.Fields.Length && x.Fields.Zip(y.Fields).All(p => Equal(p.First.Type, p.First.Value, p.Second.Value)),
             (EnumValue x, EnumValue y) => x.Variant == y.Variant && x.Fields.Length == y.Fields.Length && x.Fields.Zip(y.Fields).All(p => Equal(p.First.Type, p.First.Value, p.Second.Value)),

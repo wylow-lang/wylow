@@ -1,7 +1,8 @@
 # The IR interpreter, the universal oracle
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
-definition); step 1 done 2026-10-29. Step 2 (objects and ownership) is next. Sources:
+definition); step 1 done 2026-10-29; step 2 done 2026-10-29. Step 3 (generics and
+function values) is next. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
@@ -336,11 +337,41 @@ Where step 1 started:
   executor must implement; `IrFunctions` answers which function a call, `new`, construction,
   or `default` runs, and `Overrides.Implementation` which method a dispatched call runs.
 
-**Step 2 — objects and ownership.** Reference-counted objects, fields, constructors and
-`make_default`/memberwise forms, destructors and release order, dispatch and the construction
-phase, holds and borrows, `ref`/`in`/`ref?`/`in?` places, `end`, store/assign semantics, borrowed
-locals and in-place element reads. Filters: `classes`, `structs`, `references`, the remaining
-`panics`.
+**Step 2 — objects and ownership (done 2026-10-29).** Reference-counted objects, fields,
+constructors and `make_default`/memberwise forms, destructors and release order, dispatch and the
+construction phase, holds and borrows, `ref`/`in`/`ref?`/`in?` places, `end`, store/assign
+semantics, borrowed locals and in-place element reads. Filters: `classes`, `structs`,
+`references`, the remaining `panics`.
+
+`Values.ObjectRef` is the object: a cell array per class of its chain, an intrusive count, and the
+class a dispatched call runs as. Copy retains it; release lowers the count and, at zero, runs each
+class's destructor body and then releases that class's fields, most derived first, holding the
+count at one throughout so the destructor's temporaries cannot free it, and panicking when one
+survived. `new` allocates zeroed fields and runs the constructor as C++ constructs: the base
+constructor first (whose own frame runs the base's body), then the class's field initializers and
+body, with a dispatched call resolving on the base until the base constructor returns, so an
+abstract method called from a base constructor or destructor panics exactly as the emitter's stub
+does. Dispatch resolves a call on an object's current class, and on a struct value's own type,
+which a type parameter's substitution made concrete. A hold is a counted reference, and
+`hold.borrow` also calls a `Borrowable`'s `beginBorrow`/`endBorrow`; `ref`, `in`, `ref?`, and
+`in?` places, `end`, and stored assignments all work on objects. A formatted type and the built-in
+comparable types answer `Printable.toString` and `Comparable.compareTo` the way
+`vpl::to_string`/`vpl::compare_to` do, since they satisfy a bound without implementing it.
+`InterpreterSelfTests` grew to 40 cases: construction/destruction order and phases, dispatch
+through a base and an interface, assignment storing before releasing, borrow hooks, references
+into objects, and the abstract-call and kept-reference panics.
+
+Two executor rules step 2 settled, both of which C++ already did: an operand a pure operation only
+reads (a comparison, a test, a check) keeps its local owning it even when the IR says `move`, so it
+is released at its block's end as the emitter's temporary is; and an object dispatches as the
+class its construction or destruction has reached, which is also what a `vpl::is` test sees.
+
+What the filters still reach, and so moves to the step that lands the feature:
+`classes/assignment`, `last_use_moves`, `pinning`, and `weak` need `Weak` (step 5);
+`classes/base_references` needs pointers (step 4); `classes/stack_*` and `references/nullable`
+need function values or slots (steps 3 and 5); the `list_*`, array, and `memory::*` panics need
+the standard library (step 4). The whole suite in the interpret mode is 345 passed and 85
+`Unsupported`, with no disagreement in any program the step covers.
 
 **Step 3 — generics and function values.** Frame type maps; non-escaping lambdas with their
 creating frame; escaping closures; function references and choices; `Printable`/`Comparable`
