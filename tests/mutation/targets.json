@@ -53,33 +53,33 @@
     "id": "interpreter-value-kinds",
     "title": "Interpreter: cells and values",
     "path": "src/Vpl.Compiler.Interpret/ValueKinds.cs",
-    "filters": ["structs", "references", "basics"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "The cells a place is, and the value kinds. Struct, reference, and basic tests put every kind of place through the executor."
+    "note": "The cells a place is, and the value kinds. Every program has places and values, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-core",
     "title": "Interpreter: frames and control flow",
     "path": "src/Vpl.Compiler.Interpret/Interpreter.cs",
-    "filters": ["basics", "classes"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Frames, locals, calls, returns, blocks and their release order. Basic and class tests exercise every path."
+    "note": "Frames, locals, calls, returns, blocks and their release order. Every program has frames and control flow, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-executor",
     "title": "Interpreter: operands and places",
     "path": "src/Vpl.Compiler.Interpret/Interpreter.Values.cs",
-    "filters": ["basics", "references", "values"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Operands, places, and the rvalue visitors: the instruction set's meaning as an expression."
+    "note": "Operands, places, and the rvalue visitors: the instruction set's meaning as an expression. Every program evaluates operands and places, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-calls",
     "title": "Interpreter: calls and destruction",
     "path": "src/Vpl.Compiler.Interpret/Interpreter.Calls.cs",
-    "filters": ["classes", "structs"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Construction, dispatch, destruction, and the release order that mirrors C++ parameter destruction."
+    "note": "Construction, dispatch, destruction, and the release order that mirrors C++ parameter destruction. Every program calls and destroys, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-functions",
@@ -101,9 +101,9 @@
     "id": "interpreter-intrinsics",
     "title": "Interpreter: intrinsics",
     "path": "src/Vpl.Compiler.Interpret/Interpreter.Intrinsics.cs",
-    "filters": ["values", "containers", "panics"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "The builtins and the standard library's extern methods. Value, container, and panic tests reach them."
+    "note": "The builtins and the standard library's extern methods. They cover String, the containers, spans, memory, and Weak, which every part of the suite uses, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-cycles",
