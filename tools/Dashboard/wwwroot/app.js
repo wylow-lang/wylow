@@ -756,6 +756,9 @@ async function renderMutation(view, query) {
         el('div', { class: 'muted small mono' }, target.path),
         el('div', { class: 'muted small' },
           `filters: ${((result && result.filters.length ? result.filters : target.filters) || []).join(', ') || '(all tests)'}`),
+        target.arguments && target.arguments.length
+          ? el('div', { class: 'muted small mono' }, `mode: ${target.arguments.join(' ')}`)
+          : null,
         target.note ? el('div', { class: 'muted small' }, target.note) : null),
       el('td', {}, result
         ? el('span', { class: `pill ${scoreClass(result.score)}` }, `${result.score.toFixed(2)}%`)
