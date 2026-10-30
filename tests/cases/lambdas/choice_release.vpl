@@ -1,0 +1,35 @@
+// A choice owns the callable it may select, and releases it when the choice is released, so what
+// the unchosen call never made is still let go.
+class Token {
+    internal {
+        int id;
+
+        Token(int id) {
+            this.id = id;
+        }
+    }
+
+    ~Token() {
+        print($"free {id}");
+    }
+}
+
+bool choose(bool value) {
+    return value;
+}
+
+// An escaping function value whose closure holds a counted reference.
+(int) -> int make(Token token) {
+    return x -> x + token.id;
+}
+
+void main() {
+    var token = new Token(1);
+    {
+        // The target is non-escaping, so the call is deferred into the choice.
+        (int) -> int f = choose(false) ? (x -> x + 0) : make(token);
+        print(f(1));            // output: 2
+    }
+    print("done");              // output: done
+}
+// output: free 1

@@ -45,9 +45,9 @@
     "id": "interpreter-values",
     "title": "Interpreter: value ownership",
     "path": "src/Vpl.Compiler.Interpret/Values.cs",
-    "filters": ["classes", "containers", "values"],
+    "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them."
+    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them. Every program copies and releases, so the whole suite is the covering set."
   },
   {
     "id": "interpreter-value-kinds",

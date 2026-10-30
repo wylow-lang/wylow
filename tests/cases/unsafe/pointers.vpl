@@ -1,0 +1,14 @@
+// Pointers compare by address: the same element of the same storage, not the same type.
+void main() {
+    unsafe {
+        int* first = Memory.allocate<int>(2);
+        Memory.initialize(first, 4);
+        Memory.initialize(first + 1, 9);
+        int* alias = first;
+        int* second = first + 1;
+        print(alias == first);      // output: true
+        print(alias == second);     // output: false
+        print(first != second);     // output: true
+        Memory.free(first);
+    }
+}

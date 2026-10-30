@@ -2,6 +2,12 @@
 // arithmetic operator converts it to its code point as an `int`, and a cast back checks that the
 // value is a Unicode scalar value (§2.2, §2.4).
 
+struct CharHolder {
+    internal {
+        char c;
+    }
+}
+
 void main() {
     char a = 'a';
     char e = 'é';
@@ -49,4 +55,7 @@ void main() {
     print((char)97);               // output: a
     print('A' + 1);                // output: 66
     print($"{a,-3}|");             // output: a  |
+
+    // A struct's default zeroes its fields, so a default char is the code point zero.
+    print((int)CharHolder().c);    // output: 0
 }
