@@ -22,7 +22,7 @@ public static class Reference
             new("Update matrix snapshots", "Records what every matrix cell does now; review the diff in the same change.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots", Note: "Not wired to the dashboard yet; copy the command."),
         ]),
         new("Fuzz", [
-            new("Tier 1, two minutes", "Compiles mutants in-process; thousands a minute. Part of the pre-commit routine.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120", Href("#/fuzz")),
+            new("Tier 1, two minutes", "Compiles mutants in-process; thousands a minute. Run it on the current build whenever you like.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120", Href("#/fuzz")),
             new("Tier 2, fifteen minutes", "Builds and runs every compiling mutant in six modes. Belongs in the background.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900", Href("#/fuzz", ("tier", "2"), ("seconds", "900"))),
             new("Replay a finding", "Rebuilds one mutant of a seed, using the index in the finding file.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seed 7 --tier 2 --replay 42", Href("#/fuzz")),
             new("Self-test the fuzzer", "Checks that mutations still apply and generation is deterministic.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --self-test"),

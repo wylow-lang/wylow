@@ -1,0 +1,17 @@
+#!/bin/sh
+# Enforces CLAUDE.md "Commit messages": the subject starts with one or more listed areas.
+areas='lexer|parser|binder|types|verifier|lowering|analysis|opt|emitter|interp|runtime|stdlib|cli|spec|docs|tests|fuzz|mutation|dashboard|build'
+subject=$(grep -v '^#' "$1" | head -n 1)
+
+case "$subject" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+if printf '%s\n' "$subject" | grep -Eq "^($areas)(, ($areas))*: [^ ]"; then
+  exit 0
+fi
+
+echo "commit-msg: the subject must start with 'area: ' (CLAUDE.md, Commit messages)." >&2
+echo "  areas: $(printf '%s' "$areas" | tr '|' ' ')" >&2
+echo "  got:   $subject" >&2
+exit 1

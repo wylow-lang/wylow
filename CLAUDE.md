@@ -273,12 +273,36 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
 - Commit each coherent change once it passes the suite in every mode (a step of a plan, not
-  only whole milestones), ending the message with the `Co-Authored-By` line. A two-minute tier-1
-  fuzz run after the build is part of the pre-commit routine for changes to Syntax, Semantics,
-  Lowering, Analysis, or Optimize: it is the check that sees feature combinations no fixed test
-  writes. Emitter, docs, and dashboard changes rely on the suite, and a background run counts when
-  it started on the build being committed. Every finding and every surviving mutant any run leaves
-  is triaged. Don't push.
+  only whole milestones), ending the message with the `Co-Authored-By` line. Every finding and
+  every surviving mutant any run leaves is triaged. Don't push.
+
+## When tests run
+
+| When | What |
+|---|---|
+| While editing | one mode with a filter (`Vpl.Tests.dll --interpret structs`): seconds |
+| Before each commit | `--all-modes`: about a minute warm, about six after a runtime or emitter change |
+| Whenever the user starts it | fuzzing (tier 1 or 2), mutation targets, coverage |
+
+The fuzzer and mutation testing are not part of committing. The user runs them on the current
+build when they choose, often in the background or the next day, and their findings are fixed
+then. Hand over the command for any run longer than a couple of minutes rather than waiting on it.
+
+## Commit messages
+
+The subject says which part of the compiler changed and what it does now, so `git log --oneline`
+reads as a changelog: `area: what changed`. The `commit-msg` hook in `.githooks/` rejects a
+subject without a listed area (enable it once per clone: `git config core.hooksPath .githooks`).
+
+Areas: `lexer`, `parser`, `binder`, `types`, `verifier`, `lowering`, `analysis`, `opt`,
+`emitter`, `interp`, `runtime`, `stdlib`, `cli`, `spec`, `docs`, `tests`, `fuzz`, `mutation`,
+`dashboard`, `build`. Two areas are written `lowering, emitter: ...`.
+
+- Name the feature, construct, or component, never a plan step or a handoff: not "step 3" or
+  "what the survivors found", but `interp: test choice release, enum default, pointer equality`.
+- A fix names the symptom and what triggers it: `emitter: fix use after free nesting a string
+  temporary under a span`.
+- The body says why, then what, and names the test that pins the behavior.
 
 ## Pitfalls already hit
 
