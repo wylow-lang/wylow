@@ -3,7 +3,8 @@ using System.Text.Json;
 namespace Vpl.Mutation;
 
 /// <summary>A file the harness mutates, with the tests that cover its feature.</summary>
-public sealed record MutationTarget(string Id, string Title, string Path, string[] Filters, string? Note);
+/// <param name="Arguments">What the test runner is given before the filter, such as <c>--interpret</c>.</param>
+public sealed record MutationTarget(string Id, string Title, string Path, string[] Filters, string? Note, string[]? Arguments = null);
 
 public static class Targets
 {

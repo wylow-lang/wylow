@@ -18,7 +18,7 @@ public static class FuzzSelfTests
             var files = Mutator.Load(casesDirectory, filter: null, includeErrors: false);
             if (files.Count == 0)
                 return [("catalog", "the corpus is empty")];
-            return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites())];
+            return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites()), ("comparison", Comparison())];
         }
         catch (Exception exception)
         {
@@ -69,6 +69,44 @@ public static class FuzzSelfTests
                 made++;
         }
         return made < 100 ? $"only {made} of 200 mutants could be made" : null;
+    }
+
+    /// <summary>
+    /// The comparison rule the runner and the fuzzer share: each mode pair must be held to exactly
+    /// what docs/design/ir.md §9.11 says, neither more nor less.
+    /// </summary>
+    static string? Comparison()
+    {
+        static RunOutcome Run(string output = "ok", int exit = 0, string error = "") =>
+            RunOutcome.FromNative(output, exit, error);
+        var failures = new List<string>();
+        void Expect(string name, RunDifference? difference, string? kind)
+        {
+            if (difference?.Kind != kind)
+                failures.Add($"{name}: expected {kind ?? "no difference"}, got {difference?.Kind ?? "no difference"}");
+        }
+
+        Expect("identical runs", RunComparison.Compare(Run(), Run(), ""), null);
+        Expect("stdout", RunComparison.Compare(Run("a"), Run("b"), ""), "stdout");
+        Expect("a budgeted collector's stdout", RunComparison.Compare(Run("a"), Run("b"), "Memory.collectCycles()"), null);
+        Expect("exit code", RunComparison.Compare(Run(exit: 0), Run(exit: 2), ""), "exit");
+        Expect("the abort code is the platform's",
+            RunComparison.Compare(Run(exit: 3, error: "panic: x\n    at f:1:2"), Run(exit: 134, error: "panic: x\n    at f:1:2"), ""), null);
+        Expect("panic location",
+            RunComparison.Compare(Run(exit: 3, error: "panic: x\n    at f:1:2"), Run(exit: 3, error: "panic: x\n    at f:1:3"), ""), "panic");
+        Expect("one run panicked", RunComparison.Compare(Run(), Run(exit: 3, error: "panic: x\n    at f:1:2"), ""), "exit");
+        Expect("warnings where the caller asks",
+            RunComparison.Compare(Run(error: "performance warning: a"), Run(error: "performance warning: b"), "", compareWarnings: true), "warning");
+        Expect("warnings otherwise ignored",
+            RunComparison.Compare(Run(error: "performance warning: a"), Run(error: "performance warning: b"), ""), null);
+        Expect("an inconclusive run", RunComparison.Compare(RunOutcome.Inconclusive, Run(), ""), null);
+        if (!RunComparison.SkipsComparison("// mode: optimized", unsafeCode: false))
+            failures.Add("a `// mode: optimized` test is compared");
+        if (!RunComparison.SkipsComparison("void main() { }", unsafeCode: true))
+            failures.Add("a mutant in unsafe code is compared");
+        if (RunComparison.SkipsComparison("void main() { }", unsafeCode: false))
+            failures.Add("a plain test is skipped");
+        return failures.Count == 0 ? null : string.Join("; ", failures);
     }
 
     /// <summary>

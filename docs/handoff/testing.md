@@ -38,7 +38,7 @@ every program. The compiler already has them; they only need to be run on many p
 | The generated C++ compiles, warning-free | Emitter bugs (CLAUDE.md: a C++ compile failure is a compiler bug) | `Driver.BuildExecutable` |
 | All modes print the same and exit the same | Optimization bugs, and C++ that depends on undefined behavior or on the compiler | MSVC, g++, `--no-opt`, `--no-nest` |
 | AddressSanitizer and UBSan stay quiet | Use-after-free, overflow, and the like in generated code and the runtime | the runner's `--cc asan` (clang-cl) |
-| The IR interpreter agrees | Emitter and pass bugs, against the program's meaning | `--interpret` (opt-in; steps 1–4 of `interpreter.md` are done, and it joins `--all-modes` at step 5) |
+| The IR interpreter agrees | Emitter and pass bugs, against the program's meaning; a pass bug, without a C++ build | `--interpret`: part of `--all-modes`, running the meaning, the optimized IR against it, and the matrices (`interpreter.md`) |
 
 The modes may legitimately differ in one case: with `--no-opt`, a budgeted `Memory.collectCycles`
 may reach other cycles (CLAUDE.md). A program that calls it is compared on everything but that.
@@ -216,7 +216,7 @@ Each matrix generator lives with the runner, and adding a feature means adding i
 new CLAUDE.md rule when this lands). The fraction of cells that run, plus the cells that are errors
 the spec calls for, is the coverage number for that boundary.
 
-**Done (2026-10-27).** Coverage is measured over all five modes at once: `tools/coverage.sh` runs the
+**Done (2026-10-27).** Coverage is measured over all six modes at once: `tools/coverage.sh` runs the
 suite under each compiler and flag set, clears the precompiled-header cache so building one is
 measured too, and merges the Cobertura files, so a line counts as ran when any mode ran it.
 `tools/coverage-report.cs` takes the merged files; `--uncovered` lists every line no test ran and
@@ -406,9 +406,10 @@ long runs go in the background.
   `ref` too).
 - **Tiers.** Tier 1 compiles each mutant in-process, with and without `--no-opt`, compares the
   error sets (they must not depend on optimization), and compiles it a second time to check that
-  compilation is deterministic. Tier 2 adds the five modes (MSVC, g++, ASan/UBSan, `--no-opt`,
-  `--no-nest`): the C++ must compile under `-Wall -Wextra -Wconversion -Wsign-conversion
-  -Wshadow`, every sanitizer must stay quiet, and the modes must agree on stdout, the exit code,
+  compilation is deterministic. Tier 2 adds the six modes (the interpreter, MSVC, g++, ASan/UBSan,
+  `--no-opt`, `--no-nest`), the interpreter as the reference: the C++ must compile under `-Wall
+  -Wextra -Wconversion -Wsign-conversion -Wshadow`, every sanitizer must stay quiet, and the modes
+  must agree on stdout, the exit code,
   and the panic text (output is not compared when the program calls `Memory.collectCycles`). It
   builds with a capped, time-limited runner, so a mutant that loops forever or prints without end
   is inconclusive rather than fatal. Throughput on this machine: about 1,500 tier-1 mutants a
@@ -477,8 +478,9 @@ nothing, or generation that stops being reproducible from a seed fails like any 
 Every oracle in steps 4 and 5 checks that the compiler is *consistent*: no exception, every pass's
 output accepted, every mode agrees. A simple defect — `<` emitted as `<=`, an index into `args` off
 by one, a field not zeroed, a message naming the wrong type — is none of those, and all five modes
-make the same mistake, so every oracle passes it. Line coverage does not help here either: it says
-the line ran, not that it did the right thing.
+make the same mistake, so every oracle passes it. (The interpreter checks the passes against the
+meaning, and its agreement with the native modes checks the emitter, but it shares lowering.) Line
+coverage does not help here either: it says the line ran, not that it did the right thing.
 
 Mutation testing asks the other question: *would the tests notice?* It changes the compiler's own
 source — flip a comparison, delete a statement, swap a constant — reruns the tests, and reports every
@@ -559,9 +561,9 @@ bigger budget.
 
 - **A generating fuzzer.** Build well-typed programs from scratch, driven by types (Csmith-style),
   for combinations no existing test is near. Wait for this until mutations stop finding things.
-- **The IR interpreter as an oracle.** It lets tier 2 check what a program prints, not only that the
-  modes agree, and it checks the emitter and the passes against the program's meaning. It's already
-  planned in architecture.md.
+- **The IR interpreter as an oracle (done, `interpreter.md` step 6).** It lets tier 2 check what a
+  program prints, not only that the modes agree, and it checks the emitter and the passes against
+  the program's meaning. It is the sixth mode, runs the matrices, and is a mutation target.
 - **Mutation testing of the compiler, widened.** Step 5b runs it on the six files where a wrong
   answer hides; once it is routine, extend it to the binder and lowering, at a file at a time.
 
@@ -581,10 +583,10 @@ the WebAssembly spec tests are the model for an external conformance suite.
 |---|---|---|
 | Expected-output, exact-diagnostic, unit and property tests | `tests/cases`, `IrSelfTests`, `TypeSelfTests` | — |
 | One reduced test per bug | fuzzer reducer, `tests/cases` | — |
-| Option/mode matrices ("torture") | five modes, matrices | keep every case in every mode |
+| Option/mode matrices ("torture") | six modes, matrices | keep every case in every mode |
 | Reviewed golden IR after each optimization (rustc `mir-opt`) | `.ir` written, `// stack:`/`// in-place:` markers | a small reviewed `.ir` snapshot per pass |
 | Well-typed random program generation (Csmith/YARPGen) | none | the generating fuzzer above |
-| A differential oracle | the five modes share lowering | the interpreter above, on every test |
+| A differential oracle | the interpreter, on every test and in tier 2 (done) | the generating fuzzer above, with no expected outputs |
 | Metamorphic/EMI transformations | some fuzzer mutations | name them, and add dead-code mutation |
 | Translation validation | verifier after each pass (invariants only) | interpreter differential; no SMT |
 | UB detection | ASan/UBSan mode | interpreter for `unsafe`/stdlib; MSan/LSan on Linux CI |
@@ -642,7 +644,7 @@ New language features resume when:
 - the sanitizer mode passes on the whole suite;
 - the first two matrices have been reviewed against the spec, and every cell that disagreed is fixed
   or decided in the spec;
-- every line no test runs, measured across all five modes, has been triaged (step 4b);
+- every line no test runs, measured across all six modes, has been triaged (step 4b);
 - the value axis has landed (step 4c): the widened cells, the added rows, and the values × operations
   matrix are reviewed against the spec, and the value-printing tests are in the suite;
 - the fuzzer has run for an agreed budget (for example 50,000 tier-1 and 2,000 tier-2 mutants) with a

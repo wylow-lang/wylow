@@ -50,7 +50,8 @@ var targets = Targets.Load(root);
 if (listTargets)
 {
     foreach (var candidate in targets)
-        Console.WriteLine($"{candidate.Id,-14} {candidate.Path,-48} {candidate.Title}  filters: {string.Join(", ", candidate.Filters)}");
+        Console.WriteLine($"{candidate.Id,-14} {candidate.Path,-48} {candidate.Title}  filters: {string.Join(", ", candidate.Filters)}" +
+            (candidate.Arguments is { Length: > 0 } arguments ? $"  mode: {string.Join(" ", arguments)}" : ""));
     return 0;
 }
 
@@ -105,6 +106,8 @@ var filterText = string.Join(", ", filters.Select(f => f.Length == 0 ? "(all)" :
 Console.WriteLine($"target: {resolved.Id} - {displayPath}");
 Console.WriteLine($"project: {displayProject}");
 Console.WriteLine($"filters: {filterText}");
+if (resolved.Arguments is { Length: > 0 } modeArguments)
+    Console.WriteLine($"mode: {string.Join(" ", modeArguments)}");
 Console.WriteLine($"sites: {sites.Count}" + (seed != 0 ? $" (shuffled with seed {seed})" : ""));
 
 if (list)
@@ -120,7 +123,7 @@ if (sites.Count == 0)
 }
 
 var started = DateTimeOffset.Now;
-var runner = new MutationRunner(root, projectPath, sourceFile, filters, TimeSpan.FromMinutes(3), TimeSpan.FromSeconds(timeout));
+var runner = new MutationRunner(root, projectPath, sourceFile, filters, resolved.Arguments ?? [], TimeSpan.FromMinutes(3), TimeSpan.FromSeconds(timeout));
 int killed = 0, survived = 0, invalid = 0, timedOut = 0, ran = 0;
 List<MutationItem> items = [];
 // --only retests one site (the index --list prints) with another filter, which is how a survivor

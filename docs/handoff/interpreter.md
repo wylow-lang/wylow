@@ -2,7 +2,7 @@
 
 **Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
 definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
-2026-10-29; step 5 done 2026-10-29. Step 6 (harness and hardening) is next. Sources:
+2026-10-29; step 5 done 2026-10-29; step 6 done 2026-10-29. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
 `docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
 
@@ -513,14 +513,60 @@ death and in a struct, a collected cycle and its stats, the budgeted rollback, a
 null after a collection, `Memory.collectCycles` in a destructor, the resurrection panic, the
 at-exit warning, and a stack slot left unbuffered in the optimized IR.
 
-**Step 6 — harness and hardening.** Matrix cells run interpreted against the same snapshots;
-the fuzzer gets an interpreter mode in tier 2 (interpreter vs `--no-opt` first, then the optimized
-modes, with the shared comparison rule) and the optimized-vs-meaning interpretation check in
-tier 1, which already compiles both forms — a pass bug then fails without any C++ build. If
-throughput allows, tier 1 also gets "the interpreter neither throws nor disagrees with itself".
-Add the interpreter's files to the mutation targets with the interpreter filters. Measure
-coverage. Update `CLAUDE.md` (six modes), the `docs/design/architecture.md` layer and enforcement
-tables, this file's status, and the spec for any order or message the interpreter had to decide.
+**Step 6 — harness and hardening (done 2026-10-29).** The interpreter is one of the suite's six
+modes now, and every harness asks it what it asks the native modes:
+
+- **Matrices.** Under `--interpret`, `MatrixTests` interprets every cell and compares it with the
+  same `tests/matrix/*.snapshot` the native modes record. A budget, an unsupported feature, or
+  undefined behavior fails the cell: every cell is a reviewed program with a defined result.
+- **One comparison rule.** `RunOutcome`/`RunComparison` (`tests/Vpl.Fuzz/RunOutcome.cs`) hold the
+  rule above: stdout, the panic's message and location, the exit code, and the warnings where the
+  caller asks, with the documented exceptions (a budgeted collector's stdout; two panics compared
+  by their text, not the platform's abort code; `// mode: optimized` and `unsafe` programs not
+  compared). The runner's optimized-vs-meaning check, the fuzzer's tier-1 pass check, and its
+  tier-2 interpreter mode all call it, and `FuzzSelfTests`'s `comparison` case pins every rule of
+  it. That covers the plan's "neither throws nor disagrees with itself": a thrown exception is a
+  finding, and the two interpretations are the disagreement.
+- **The runner.** The interpret mode checks the meaning against the test's expectations, then
+  interprets the optimized IR and compares it with the meaning, warnings included. An optimized run
+  that ends unsupported or in undefined behavior in safe code fails; a budget is inconclusive.
+- **The fuzzer.** `Compilation.Emit` now emits from a `LowerResult`, so the fuzzer lowers each form
+  once and has both the IR and the C++.
+  - Tier 1 interprets the optimized IR and the meaning with a 20M-step and two-second budget and
+    compares them: a pass that changes the answer fails without a C++ build. `Unsupported` or
+    `UndefinedBehavior` in safe code is a finding; `BudgetExceeded` is inconclusive. On this machine
+    tier 1 runs about 28 mutants a second (three compiles and two interpretations per compiling
+    mutant), and a two-minute run checked 3,072 with no finding.
+  - Tier 2 runs the interpreter as the first mode. It is the reference, and each native mode is
+    compared with it, `--no-opt` first (that pair is held to the performance warnings too), then
+    the optimized modes: six modes per mutant. A five-minute run checked 704 mutants with no
+    finding after the runtime fix below.
+- **Mutation testing.** Every interpreter source file is a target in
+  `tests/mutation/targets.json` with `"arguments": ["--interpret"]` and the filters that reach its
+  feature. The harness passes a target's arguments to the runner, so the covering tests run
+  interpreted; a mutation in a rule the native modes never reach is caught. A sampled run
+  (`--target interpreter-arithmetic --max 2`) killed both mutants.
+- **Intrinsic registry.** The intrinsics are one table (`Interpreter.Intrinsics`), which is both the
+  dispatch and the answer `Interpreter.Handles` gives. `InterpreterSelfTests`'s
+  `interpreter/registry` case binds the empty program, walks every builtin and every stdlib extern
+  method, and fails when a key has no handler, so a library method added without one fails the
+  suite instead of a program meeting it at run time.
+- **Coverage.** `tools/coverage.sh` runs the interpret mode too. Merged over the six modes the
+  Interpret layer is 93.2% of its lines and 82.9% of its branches, against 97.5% and 93.0% overall;
+  most of the 160 uncovered lines are guard throws that a valid program cannot reach (an
+  `InterpreterException` reporting a compiler bug, or the `Unsupported` status no feature uses any
+  more), and the rest are narrow value cases such as `bool.compareTo` and a null conversion. They
+  are listed, file by file, in `tests/.coverage/summary.txt`.
+- **Docs.** `CLAUDE.md`, `docs/design/architecture.md`, `docs/design/ir.md` §9.11, and
+  `docs/handoff/testing.md` state the sixth mode, the shared rule, and the enforcement rows.
+
+The step found one disagreement, and it was the runtime's: on Windows, standard output was in text
+mode, so `print`'s `\n` became `\r\n` and a program that printed a `char` carriage return before it
+ended the line with two `\r`s natively and one interpreted. `vpl::init` now opens standard output in
+binary mode, the spec says output is the bytes a program writes (§06, String interpolation), and a
+replay of the mutant is clean. That finding cannot become a `tests/cases/` test, since a line-based
+expected output cannot tell the two apart: the fuzzer's byte comparison of the interpreter against
+`--no-opt` is the guard. No order or message needed a new decision in the spec.
 
 ## Testing the interpreter itself
 
@@ -556,30 +602,34 @@ tables, this file's status, and the spec for any order or message the interprete
 - **The abort exit code** is the platform's; the comparison helper uses "panicked" rather than a
   fixed code where it can, and the matrix snapshot keeps the platform's number.
 - **Performance.** A tree-walking interpreter is enough for the suite's ~400 small programs and
-  matrices, but `cycles/values.vpl` runs 100,000 iterations and the fuzzer wants throughput. Start
-  simple; profile before deciding whether to pre-resolve places or compile bodies to delegates.
-- **When the mode gates commits.** Do not add it to `--all-modes` early with a skip list; that is
-  how a whole oracle rots. Keep it opt-in until step 5's criteria pass.
+  matrices: the interpret mode over the suite, with the optimized-IR comparison, takes about 40s on
+  eight workers, and tier 1 fuzzing runs about 14 mutants a second. `cycles/values.vpl`'s 100,000
+  iterations fit in the step budget. Profile before deciding whether to pre-resolve places or
+  compile bodies to delegates.
 - **Diagnostics under optimization.** Interpreting the optimized IR can surface a difference the
   spec treats as cost but a program can read (`cycleStats().buffered`, with borrows replacing
   copies). Stack objects are the documented exception; anything else is a finding to decide in the
-  spec, not a comparison exception to add quietly. The shared rule must name every exception.
+  spec, not a comparison exception to add quietly. The shared rule must name every exception — so
+  far it names only the budgeted collector's stdout.
 
 ## Exit criteria for the interpreter
 
-- Every non-error test not marked `// mode: optimized` passes in the interpret mode, with the same
-  stdout, panic text and location, warnings, and exit code as its expectations; the matrices pass
-  against unchanged snapshots.
-- Interpreting the optimized IR agrees with interpreting the meaning on every program that
-  compiles, under the documented exceptions, on the whole suite and a fuzzer budget.
-- The fuzzer's tier 2 finds no disagreement between the interpreter and `--no-opt` over an agreed
-  budget, and no design exception was added to the comparison.
-- The intrinsic registry test covers every stdlib extern and builtin; no `Unsupported` result
-  remains in the suite.
-- Each interpreter source file has a mutation score with every survivor triaged into a self-test or
-  a deleted line.
-- `CLAUDE.md`, `architecture.md`, and the spec state the new mode, layer, and every semantic
-  decision the interpreter forced.
+- **Done.** Every non-error test not marked `// mode: optimized` passes in the interpret mode, with
+  the same stdout, panic text and location, warnings, and exit code as its expectations; the
+  matrices pass against unchanged snapshots.
+- **Done.** Interpreting the optimized IR agrees with interpreting the meaning on every program
+  that compiles, under the documented exceptions, on the whole suite and in fuzzer tier 1.
+- **Done within the budget run.** The fuzzer's tier 2 found one disagreement in its first
+  five-minute run (the runtime's Windows newline translation, fixed in `vpl::init`) and none in the
+  second over 704 mutants, between the interpreter and `--no-opt` and the optimized modes; no
+  design exception was added to the comparison.
+- **Done.** The intrinsic registry test covers every stdlib extern and builtin; no `Unsupported`
+  result remains in the suite.
+- **Targets added; triage still open.** Each interpreter source file is a mutation target with the
+  tests that reach it; running every target and triaging each survivor is the remaining chore, one
+  file at a time, like the other targets.
+- **Done.** `CLAUDE.md`, `architecture.md`, `ir.md` §9.11, and the spec state the new mode, layer,
+  and every semantic decision the interpreter forced.
 
 ## Follow-on: the type-directed generator
 

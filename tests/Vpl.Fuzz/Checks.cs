@@ -3,11 +3,16 @@ using System.Text;
 using Vpl.Compiler;
 using Vpl.Compiler.Build;
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Interpret;
 using Vpl.Compiler.Text;
 
 namespace Vpl.Fuzz;
 
-sealed record Mode(string Name, Toolchain Toolchain, CompileOptions Options);
+sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options)
+{
+    /// <summary>The run is the IR interpreter, not a native build: no C++ and no toolchain.</summary>
+    public bool Interpret => Toolchain is null;
+}
 
 /// <summary>A failure the fuzzer found, with the narrowest scope in which it can be reproduced.</summary>
 /// <param name="Key">What dedupes findings: a coarse kind, not the failing text, which a reduction changes.</param>
@@ -23,22 +28,32 @@ sealed record CheckScope(
     bool Determinism = false,
     IReadOnlyList<int>? ModeIndexes = null,
     bool Compare = false,
-    bool Strict = false)
+    bool Strict = false,
+    bool Interpretation = false)
 {
     public IReadOnlyList<int> Modes => ModeIndexes ?? [];
 }
 
-sealed record CompileOutcome(CompilationResult? Result, IReadOnlyList<Diagnostic>? Errors, Exception? Exception);
+sealed record CompileOutcome(CompilationResult? Result, IReadOnlyList<Diagnostic>? Errors, Exception? Exception, LowerResult? Lowered);
 
 /// <summary>
-/// The oracles from the testing plan: tier 1 compiles in-process with and without optimization, and tier
-/// 2 builds and runs every mode and compares them. A finding says which scope reproduces it.
+/// The oracles from the testing plan: tier 1 compiles in-process with and without optimization and
+/// interprets both IR forms, and tier 2 builds and runs every mode, the interpreter among them, and
+/// compares them with one rule. A finding says which scope reproduces it.
 /// </summary>
 sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double runTimeoutSeconds)
 {
     static readonly CompileOptions DefaultOptions = new();
     static readonly CompileOptions NoOptOptions = new(Nest: true, Optimize: false);
     const int OutputCap = 1 << 20;
+
+    /// <summary>
+    /// A fuzz budget: a program that runs longer than this is inconclusive rather than a finding, so
+    /// one runaway mutant can't hold up tier 1. The step budget bounds cheap loops and the time limit
+    /// bounds the interpreter's slow ones.
+    /// </summary>
+    static readonly InterpreterOptions InterpretationOptions =
+        new(StepBudget: 20_000_000, TimeLimit: TimeSpan.FromSeconds(2));
 
     /// <summary>
     /// Warnings a valid program makes the C++ compiler draw about its own code: a comparison with
@@ -49,7 +64,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
 
     public IReadOnlyList<Mode> Modes { get; } = modes;
 
-    public CheckScope Tier1 { get; } = new(DefaultCompile: true, NoOptCompile: true, Determinism: true);
+    public CheckScope Tier1 { get; } = new(DefaultCompile: true, NoOptCompile: true, Determinism: true, Interpretation: true);
 
     public CheckScope Tier2(bool strict) => new(
         ModeIndexes: [.. Enumerable.Range(0, Modes.Count)],
@@ -61,13 +76,13 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
     public Finding? Check(string text, CheckScope scope, out bool compiled, bool unsafeCode = false)
     {
         var source = new SourceText("<fuzz>", text);
-        var finding = CompileTier(source, scope, out compiled);
+        var finding = CompileTier(source, scope, unsafeCode, out compiled);
         if (finding is not null || scope.Modes.Count == 0)
             return finding;
         return RunModes(source, text, scope, out compiled, unsafeCode);
     }
 
-    Finding? CompileTier(SourceText source, CheckScope scope, out bool compiled)
+    Finding? CompileTier(SourceText source, CheckScope scope, bool unsafeCode, out bool compiled)
     {
         compiled = false;
         CompileOutcome? plain = null, noOpt = null;
@@ -110,23 +125,111 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                         : "compiling twice gave different diagnostics or C++",
                     null);
         }
+        if (scope.Interpretation && plain is { Lowered: { Ir: not null, Optimized: not null } } && noOpt is { Lowered: { Ir: not null, Optimized: not null } })
+        {
+            if (CheckInterpretation(plain.Lowered, noOpt.Lowered, source, unsafeCode) is { } finding)
+                return finding;
+        }
         return null;
+    }
+
+    /// <summary>
+    /// The pass-regression oracle: the interpreter runs the optimized IR and the meaning, and the two
+    /// must agree, all without a C++ compiler (docs/design/ir.md §9.11). This is where a pass that
+    /// changes the answer fails even when every native mode happens to agree.
+    /// </summary>
+    Finding? CheckInterpretation(LowerResult optimized, LowerResult meaning, SourceText source, bool unsafeCode)
+    {
+        var text = source.Text;
+        if (RunComparison.SkipsComparison(text, unsafeCode))
+            return null;
+        var scope = new CheckScope(DefaultCompile: true, NoOptCompile: true, Interpretation: true);
+        Interpretation optimizedRun, meaningRun;
+        try
+        {
+            meaningRun = Interpreter.Run(meaning.Ir!, meaning.Optimized!.Callees, InterpretationOptions);
+            optimizedRun = Interpreter.Run(optimized.Ir!, optimized.Optimized!.Callees, InterpretationOptions);
+        }
+        catch (Exception exception)
+        {
+            return new Finding(
+                $"tier1/interpreter-exception/{ExceptionKey(exception)}",
+                $"tier1/interpreter-exception/{ExceptionKey(exception)}",
+                Format(exception),
+                scope);
+        }
+        if (Unexpected(optimizedRun) is { } optimizedFailure)
+            return new Finding($"tier1/interpretation/{optimizedFailure}", $"tier1/interpretation/{optimizedFailure}",
+                $"the optimized IR: {optimizedRun.Error.Trim()}", scope);
+        if (Unexpected(meaningRun) is { } meaningFailure)
+            return new Finding($"tier1/interpretation/{meaningFailure}", $"tier1/interpretation/{meaningFailure}",
+                $"the meaning: {meaningRun.Error.Trim()}", scope);
+        if (RunComparison.Compare(RunOutcome.From(meaningRun), RunOutcome.From(optimizedRun), text, compareWarnings: true) is { } difference)
+            return new Finding(
+                $"tier1/interpretation/{difference.Kind}",
+                $"tier1/interpretation/{difference.Kind}",
+                $"the optimized IR disagrees with the meaning\n{difference.Detail}",
+                scope);
+        return null;
+
+        string? Unexpected(Interpretation result) => result.Status switch
+        {
+            InterpretationStatus.Completed or InterpretationStatus.Panicked or InterpretationStatus.BudgetExceeded => null,
+            InterpretationStatus.Unsupported => "unsupported",
+            // Undefined behavior is the program's in `unsafe` code, which is skipped above; in safe
+            // code it is the interpreter's or a pass's.
+            _ => text.Contains("unsafe", StringComparison.Ordinal) || text.Contains("@Unchecked", StringComparison.Ordinal) ? null : "undefined-behavior",
+        };
     }
 
     Finding? RunModes(SourceText source, string text, CheckScope scope, out bool compiled, bool unsafeCode)
     {
         compiled = false;
         var results = new List<ModeResult>();
-        int referenceIndex = scope.Modes[0];
+        int firstIndex = scope.Modes[0];
+        int? warningIndex = scope.Strict
+            ? scope.Modes.Where(i => !Modes[i].Interpret && Modes[i].Options.Optimize).Select(i => (int?)i).FirstOrDefault()
+            : null;
         foreach (var index in scope.Modes)
         {
             var mode = Modes[index];
+            if (mode.Interpret)
+            {
+                var interpretation = Interpret(source, mode.Options);
+                if (interpretation.Exception is { } exception)
+                    return new Finding(
+                        $"tier2/exception/{mode.Name}/{ExceptionKey(exception)}",
+                        $"tier2/exception/{mode.Name}/{ExceptionKey(exception)}",
+                        Format(exception),
+                        new CheckScope(ModeIndexes: [index]));
+                if (interpretation.Errors is { Count: > 0 } interpretationErrors)
+                {
+                    if (results.Count == 0)
+                        return null;
+                    return new Finding(
+                        $"tier2/options-errors/{mode.Name}",
+                        $"tier2/options-errors/{mode.Name}",
+                        $"'{mode.Name}' reports errors the first mode doesn't:\n{Describe(interpretationErrors)}",
+                        new CheckScope(ModeIndexes: [firstIndex, index]));
+                }
+                if (interpretation.Run is null)
+                    return new Finding(
+                        $"tier2/no-run/{mode.Name}",
+                        $"tier2/no-run/{mode.Name}",
+                        $"'{mode.Name}' produced no interpretation",
+                        new CheckScope(ModeIndexes: [index]));
+                if (index == firstIndex)
+                    compiled = true;
+                results.Add(new ModeResult(mode, Skipped(mode) ? RunOutcome.Inconclusive : RunOutcome.From(interpretation.Run)));
+                continue;
+            }
+
             var compile = Compile(source, mode.Options);
-            if (compile.Exception is { } exception)
+            if (compile.Exception is { } compileException)
                 return new Finding(
-                    $"tier2/exception/{mode.Name}/{ExceptionKey(exception)}",
-                    $"tier2/exception/{mode.Name}/{ExceptionKey(exception)}",
-                    Format(exception),
+                    $"tier2/exception/{mode.Name}/{ExceptionKey(compileException)}",
+                    $"tier2/exception/{mode.Name}/{ExceptionKey(compileException)}",
+                    Format(compileException),
                     new CheckScope(ModeIndexes: [index]));
 
             if (compile.Errors is { Count: > 0 } errors)
@@ -139,7 +242,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                     $"tier2/options-errors/{mode.Name}",
                     $"tier2/options-errors/{mode.Name}",
                     $"'{mode.Name}' reports errors the first mode doesn't:\n{Describe(errors)}",
-                    new CheckScope(ModeIndexes: [referenceIndex, index]));
+                    new CheckScope(ModeIndexes: [firstIndex, index]));
             }
             if (compile.Result?.Cpp is null)
                 return new Finding(
@@ -147,11 +250,11 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                     $"tier2/no-cpp/{mode.Name}",
                     $"'{mode.Name}' compiled with no errors and no C++",
                     new CheckScope(ModeIndexes: [index]));
-            if (index == referenceIndex)
+            if (index == firstIndex)
                 compiled = true;
 
             var directory = Path.Combine(outputDirectory, mode.Name);
-            var build = Driver.BuildExecutable(compile.Result, "prog", directory, new BuildOptions(false, mode.Toolchain));
+            var build = Driver.BuildExecutable(compile.Result, "prog", directory, new BuildOptions(false, mode.Toolchain!.Value));
             if (!build.Success)
             {
                 var fingerprint = BuildFingerprint(build.Error!);
@@ -162,30 +265,22 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                     new CheckScope(ModeIndexes: [index]));
             }
 
-            if (scope.Strict && index == referenceIndex && CheckWarnings(Path.Combine(directory, "prog.cpp"), referenceIndex) is { } warning)
+            if (warningIndex is { } warningAt && index == warningAt && CheckWarnings(Path.Combine(directory, "prog.cpp"), index) is { } warning)
                 return warning;
 
             // A mutation in `unsafe` code may do what the language calls undefined, so what the
             // program prints, crashes with, or reports to a sanitizer is the program's, not the
             // compiler's; only the C++ it compiles to must still be sound.
-            if (unsafeCode)
+            if (Skipped(mode))
             {
-                results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
-                continue;
-            }
-
-            // The suite skips a test that observes an optimization under --no-opt, so what it prints
-            // there may legitimately differ (CLAUDE.md: declining an optimization is always correct).
-            if (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal))
-            {
-                results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                 continue;
             }
 
             var run = CappedRunner.Run(build.ExePath!, TimeSpan.FromSeconds(runTimeoutSeconds), OutputCap);
             if (run.TimedOut || run.TooMuchOutput)
             {
-                results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                 continue;
             }
 
@@ -197,14 +292,14 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                 // sanitizers exist to find.
                 if (kind == "stack-overflow")
                 {
-                    results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                    results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                     continue;
                 }
                 // `unsafe` and `@Unchecked` exist to do what these checks call UB, so a report there is
                 // the program's, not the compiler's; the run is also unusable for comparison.
                 if (text.Contains("unsafe", StringComparison.Ordinal) || text.Contains("@Unchecked", StringComparison.Ordinal))
                 {
-                    results.Add(new ModeResult(mode.Name, "", -1, "", Conclusive: false));
+                    results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                     continue;
                 }
                 return new Finding(
@@ -213,41 +308,38 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
                     $"{mode.Name}: {report}",
                     new CheckScope(ModeIndexes: [index]));
             }
-            results.Add(new ModeResult(mode.Name, Normalize(run.StandardOutput), run.ExitCode, PanicText(run.StandardError), Conclusive: true));
+            results.Add(new ModeResult(mode, RunOutcome.FromNative(run.StandardOutput, run.ExitCode, run.StandardError)));
         }
 
         if (!scope.Compare)
             return null;
-        var conclusive = results.Where(r => r.Conclusive).ToList();
+        var conclusive = results.Where(r => r.Outcome.Conclusive).ToList();
         if (conclusive.Count < 2)
             return null;
-        var reference = conclusive[0];
-        // A budgeted collector may legitimately reach other cycles when an optimization is off.
-        bool compareOutput = !text.Contains("collectCycles", StringComparison.Ordinal);
-        foreach (var other in conclusive.Skip(1))
+        // The interpreter is the reference where it could run: it is the program's meaning, so every
+        // native mode is checked against it, the unoptimized one first, which is the pair the
+        // documented collector exception is about.
+        var reference = conclusive.FirstOrDefault(r => r.Mode.Interpret) ?? conclusive[0];
+        var others = conclusive.Where(r => r != reference).OrderBy(r => r.Mode.Options.Optimize ? 1 : 0).ToList();
+        foreach (var other in others)
         {
-            var pair = $"{reference.Name},{other.Name}";
-            var recheck = new CheckScope(ModeIndexes: [IndexOfMode(reference.Name), IndexOfMode(other.Name)], Compare: true);
-            if (compareOutput && other.Output != reference.Output)
+            var pair = $"{reference.Mode.Name},{other.Mode.Name}";
+            var recheck = new CheckScope(ModeIndexes: [IndexOfMode(reference.Mode.Name), IndexOfMode(other.Mode.Name)], Compare: true);
+            // The interpreter mirrors the unoptimized IR's releases, so its pair with --no-opt is held
+            // to the performance warnings too; an optimization may change what the collector reports.
+            bool compareWarnings = reference.Mode.Interpret && !other.Mode.Options.Optimize;
+            if (RunComparison.Compare(reference.Outcome, other.Outcome, text, compareWarnings) is { } difference)
                 return new Finding(
-                    $"tier2/disagree/{pair}/stdout",
-                    $"tier2/disagree/{pair}/stdout",
-                    $"stdout differs between {reference.Name} and {other.Name}\n  {reference.Name}: {Truncate(reference.Output)}\n  {other.Name}: {Truncate(other.Output)}",
-                    recheck);
-            if (other.ExitCode != reference.ExitCode)
-                return new Finding(
-                    $"tier2/disagree/{pair}/exit",
-                    $"tier2/disagree/{pair}/exit",
-                    $"exit code differs between {reference.Name} ({reference.ExitCode}) and {other.Name} ({other.ExitCode})\n  {other.Name} stderr: {Truncate(other.Panic)}",
-                    recheck);
-            if (other.Panic != reference.Panic)
-                return new Finding(
-                    $"tier2/disagree/{pair}/panic",
-                    $"tier2/disagree/{pair}/panic",
-                    $"panic output differs between {reference.Name} and {other.Name}\n  {reference.Name}: {Truncate(reference.Panic)}\n  {other.Name}: {Truncate(other.Panic)}",
+                    $"tier2/disagree/{pair}/{difference.Kind}",
+                    $"tier2/disagree/{pair}/{difference.Kind}",
+                    $"{difference.Kind} differs between {reference.Mode.Name} and {other.Mode.Name}\n{difference.Detail}",
                     recheck);
         }
         return null;
+
+        // A mode the program is not compared in: its mutation edited `unsafe` code, or the test
+        // observes an optimization that --no-opt (and the meaning) turns off.
+        bool Skipped(Mode mode) => unsafeCode || (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal));
     }
 
     int IndexOfMode(string name) => Modes.Select((mode, index) => (mode, index)).First(pair => pair.mode.Name == name).index;
@@ -304,12 +396,27 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
     {
         try
         {
-            var result = Compilation.Compile(source, options);
-            return new CompileOutcome(result, [.. result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)], null);
+            var lowered = Compilation.Lower(source, options);
+            var result = Compilation.Emit(lowered, options.Nest);
+            return new CompileOutcome(result, [.. result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)], null, lowered);
         }
         catch (Exception exception)
         {
-            return new CompileOutcome(null, null, exception);
+            return new CompileOutcome(null, null, exception, null);
+        }
+    }
+
+    /// <summary>Interprets the form the mode names, so a mode can be the interpreter beside the builds.</summary>
+    static (Interpretation? Run, IReadOnlyList<Diagnostic>? Errors, Exception? Exception) Interpret(SourceText source, CompileOptions options)
+    {
+        try
+        {
+            var result = Compilation.Interpret(source, options, InterpretationOptions);
+            return (result.Interpretation, [.. result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)], null);
+        }
+        catch (Exception exception)
+        {
+            return (null, null, exception);
         }
     }
 
@@ -380,23 +487,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
         return "report";
     }
 
-    static string Normalize(string output)
-    {
-        var text = output.Replace("\r\n", "\n");
-        return text.EndsWith('\n') ? text[..^1] : text;
-    }
-
-    /// <summary>Only the panic and its location: performance warnings may legitimately differ by mode.</summary>
-    static string PanicText(string standardError)
-    {
-        var lines = standardError.Replace("\r\n", "\n").Split('\n');
-        int start = Array.FindIndex(lines, line => line.StartsWith("panic: ", StringComparison.Ordinal));
-        return start < 0 ? "" : string.Join("\n", lines[start..]).Trim();
-    }
-
-    static string Truncate(string text) => text.Length > 2000 ? text[..2000] + "…" : text;
-
-    sealed record ModeResult(string Name, string Output, int ExitCode, string Panic, bool Conclusive);
+    sealed record ModeResult(Mode Mode, RunOutcome Outcome);
 }
 
 /// <summary>The generated program's run, with a cap on output so a mutant in an infinite loop can't fill memory.</summary>

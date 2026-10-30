@@ -11,7 +11,7 @@ public static class Reference
             new("Build everything", "Compile the compiler, the CLI, and both test harnesses.", "dotnet build"),
         ]),
         new("Test suite", [
-            new("All five modes, in parallel", "Pre-commit: MSVC, g++, --no-opt, --no-nest, and ASan, each in its own process.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes", Href("#/tests", ("cc", "all"))),
+            new("All six modes, in parallel", "Pre-commit: the interpreter, MSVC, g++, --no-opt, --no-nest, and ASan, each in its own process.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes", Href("#/tests", ("cc", "all"))),
             new("All tests, MSVC", "The default mode. Every case, the matrices, and the self-tests.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll", Href("#/tests", ("cc", "msvc"))),
             new("All tests, g++", "The same suite through g++.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc", Href("#/tests", ("cc", "gcc"))),
             new("All tests, ASan", "clang-cl with AddressSanitizer and UBSan; any report fails.", "dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan", Href("#/tests", ("cc", "asan"))),
@@ -23,7 +23,7 @@ public static class Reference
         ]),
         new("Fuzz", [
             new("Tier 1, two minutes", "Compiles mutants in-process; thousands a minute. Part of the pre-commit routine.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120", Href("#/fuzz")),
-            new("Tier 2, fifteen minutes", "Builds and runs every compiling mutant in five modes. Belongs in the background.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900", Href("#/fuzz", ("tier", "2"), ("seconds", "900"))),
+            new("Tier 2, fifteen minutes", "Builds and runs every compiling mutant in six modes. Belongs in the background.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900", Href("#/fuzz", ("tier", "2"), ("seconds", "900"))),
             new("Replay a finding", "Rebuilds one mutant of a seed, using the index in the finding file.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seed 7 --tier 2 --replay 42", Href("#/fuzz")),
             new("Self-test the fuzzer", "Checks that mutations still apply and generation is deterministic.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --self-test"),
             new("List mutations", "Prints the mutation catalog.", "dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --list"),
@@ -45,7 +45,7 @@ public static class Reference
             new("CLI options", "Release, compiler choice, output path, nesting, and optimizations.", "vpl <run|build|check|emit|ir> <file.vpl> [--release] [--cc msvc|gcc|asan] [-o out.exe] [--no-nest] [--no-opt]"),
         ]),
         new("Coverage", [
-            new("All five modes", "Runs the suite under dotnet-coverage in every mode and merges the results.", "bash tools/coverage.sh", Note: "Not wired to the dashboard yet; copy the command."),
+            new("All six modes", "Runs the suite under dotnet-coverage in every mode and merges the results.", "bash tools/coverage.sh", Note: "Not wired to the dashboard yet; copy the command."),
             new("One mode", "A quicker look; a line it misses may be covered by a mode that didn't run.", "VPL_COVERAGE_MODES=msvc bash tools/coverage.sh", Note: "Not wired to the dashboard yet; copy the command."),
         ]),
         new("Generated C++", [

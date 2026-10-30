@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Vpl.Dashboard;
 
-public sealed record MutationTargetDto(string Id, string Title, string Path, string[] Filters, string? Note);
+public sealed record MutationTargetDto(string Id, string Title, string Path, string[] Filters, string? Note, string[]? Arguments = null);
 
 public sealed record MutationItemDto(
     int Site,

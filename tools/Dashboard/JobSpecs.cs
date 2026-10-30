@@ -62,10 +62,11 @@ public static class JobSpecs
 
     static readonly ParamOption[] Compilers =
     [
+        new("interpret", "IR interpreter"),
         new("msvc", "MSVC"),
         new("gcc", "g++"),
         new("asan", "clang-cl + ASan/UBSan"),
-        new("all", "All five, in parallel"),
+        new("all", "All six, in parallel"),
     ];
 
     static readonly ParamOption[] Tiers = [new("1", "Tier 1 — in-process"), new("2", "Tier 2 — build and run")];
@@ -122,7 +123,7 @@ public static class JobSpecs
             Idle = values => values.Bool("buildFirst"),
             Observe = Observers.Suite,
             Lock = "suite",
-            Hint = "Run all five modes before committing: MSVC, g++, --no-opt, --no-nest, and ASan. 'All five, in parallel' does it in one job.",
+            Hint = "Run all six modes before committing: the interpreter, MSVC, g++, --no-opt, --no-nest, and ASan. 'All six, in parallel' does it in one job.",
         },
         new()
         {
@@ -177,7 +178,7 @@ public static class JobSpecs
                 return [new("dotnet", arguments)];
             },
             Observe = Observers.Fuzz,
-            Hint = "Tier 2 builds and runs every mutant in five modes; keep long runs in the background. Another fuzz run can start before this one finishes.",
+            Hint = "Tier 2 builds and runs every mutant in six modes, the interpreter first; keep long runs in the background. Another fuzz run can start before this one finishes.",
         },
         new()
         {

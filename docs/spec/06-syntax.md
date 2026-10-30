@@ -856,6 +856,10 @@ struct Vec3 implements Printable {
   `$"{value}"` or `value.toString()`. Outside generic code too, they have a `toString()` that
   writes them as interpolation does: `5.toString()` is `"5"`.
 
+`print` writes its value and then one `\n` byte. The runtime writes standard output unchanged on
+every platform (the stream is binary), so a value that ends in a newline character carries exactly
+what the program made, with no translation of its own.
+
 #### Format specifiers and alignment
 
 ```java

@@ -107,18 +107,26 @@ public static class Compilation
         return new InterpretResult(lowered.Diagnostics, Interpreter.Run(ir, optimized.Callees, interpreterOptions));
     }
 
-    public static CompilationResult Compile(SourceText source, CompileOptions? options = null)
+    /// <summary>
+    /// The C++ of a program the pipeline accepted, from the <see cref="Lower"/> result that produced
+    /// it, so a caller that needs both the IR and the C++ lowers once.
+    /// </summary>
+    public static CompilationResult Emit(LowerResult lowered, bool nest = true)
     {
-        options ??= new CompileOptions();
-        var lowered = Lower(source, options);
         if (lowered is not { Program: { } program, Ir: { } ir, Optimized: { } optimized })
             return new CompilationResult(lowered.Diagnostics, null);
-        return new CompilationResult(lowered.Diagnostics, new CppEmitter().Emit(program, ir, optimized.Callees, optimized.Lambdas, options.Nest))
+        return new CompilationResult(lowered.Diagnostics, new CppEmitter().Emit(program, ir, optimized.Callees, optimized.Lambdas, nest))
         {
             StackObjects = optimized.StackObjects,
             InPlaceElements = optimized.InPlaceElements,
             Program = program,
             Ir = ir,
         };
+    }
+
+    public static CompilationResult Compile(SourceText source, CompileOptions? options = null)
+    {
+        options ??= new CompileOptions();
+        return Emit(Lower(source, options), options.Nest);
     }
 }

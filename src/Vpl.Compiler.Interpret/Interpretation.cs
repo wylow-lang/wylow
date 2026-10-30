@@ -50,8 +50,13 @@ public sealed record Interpretation(byte[] Output, string Error, int ExitCode, I
         new(output, $"{before}undefined behavior: {what}\n", 0, InterpretationStatus.UndefinedBehavior);
 }
 
-/// <summary>How much interpreting may do before it is inconclusive, and whether integer overflow wraps.</summary>
-public sealed record InterpreterOptions(bool Release = false, long StepBudget = 50_000_000, int CallDepthBudget = 10_000);
+/// <summary>
+/// How much interpreting may do before it is inconclusive, and whether integer overflow wraps. A
+/// time limit is for a harness that must bound a mutant that loops: the suite leaves it null, since
+/// one run of a program must give the same answer as another.
+/// </summary>
+public sealed record InterpreterOptions(
+    bool Release = false, long StepBudget = 50_000_000, int CallDepthBudget = 10_000, TimeSpan? TimeLimit = null);
 
 /// <summary>A compiler bug the interpreter met, which is not the user's program's fault.</summary>
 public sealed class InterpreterException(string message) : Exception(message);

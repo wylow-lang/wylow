@@ -104,13 +104,11 @@ results.AddRange(IrSelfTests.Run().Concat(TypeSelfTests.Run()).Concat(DispatchSe
 results.AddRange(FuzzSelfTests.Run(casesDirectory)
     .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
     .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-// The build cache and the matrices need a C++ toolchain; the interpret mode must not, and step 6
-// runs the matrices interpreted.
+// The build cache needs a C++ toolchain; the matrices run through the mode's own oracle, which the
+// interpret mode supplies without one.
 if (!interpret)
-{
     results.AddRange(BuildCacheSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-    results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism));
-}
+results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism, interpret));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));

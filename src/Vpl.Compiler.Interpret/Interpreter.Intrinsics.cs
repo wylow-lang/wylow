@@ -9,20 +9,63 @@ public sealed partial class Interpreter
     // the C++ name the compiler already gives them (BuiltinCppName), with an extern struct's own
     // methods under their owner's name so that two String methods can't collide.
 
-    Value? CallIntrinsic(IrCall call, Frame caller)
+    delegate Value? IntrinsicHandler(Interpreter interpreter, IrCall call, string? location, Frame caller);
+
+    static readonly string[] MemoryNames =
+        ["collectCycles", "takeCycleStats", "allocate", "free", "initialize", "initializeDefault", "drop", "moveTo"];
+
+    static readonly string[] StringNames =
+        ["byteLength", "isEmpty", "bytes", "charCount", "startsWith", "endsWith", "contains", "indexOf", "slice", "compareTo", "charAt", "nextChar"];
+
+    /// <summary>
+    /// Every intrinsic the interpreter runs, keyed by <see cref="RuntimeKey"/>. The table is both the
+    /// dispatch and the answer the registry self-test asks, so a key cannot be known and unhandled.
+    /// </summary>
+    static readonly IReadOnlyDictionary<string, IntrinsicHandler> Intrinsics = BuildIntrinsics();
+
+    static Dictionary<string, IntrinsicHandler> BuildIntrinsics()
     {
-        var symbol = call.Method.Symbol;
+        var table = new Dictionary<string, IntrinsicHandler>(StringComparer.Ordinal)
+        {
+            ["vpl::print"] = (i, call, location, caller) => i.Print(call.Method, i.ArgumentsOf(call, caller)),
+            ["vpl::panic"] = (i, call, location, caller) => Panic(i.ArgumentsOf(call, caller), location),
+            ["vpl::interpolate"] = (i, call, location, caller) => i.Interpolate(call.Method, i.ArgumentsOf(call, caller), location),
+            ["vpl::formatted"] = (i, call, location, caller) => Formatted(call.Method, i.ArgumentsOf(call, caller)),
+            ["vpl::format_string"] = (i, call, location, caller) => FormatString(call.Method, i.ArgumentsOf(call, caller)),
+            ["vpl::compare"] = (i, call, location, caller) => Compare(call.Method, i.ArgumentsOf(call, caller)),
+            ["vpl::bounds::check"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
+            ["vpl::bounds::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
+            ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
+        };
+        foreach (var name in MemoryNames)
+            table["vpl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
+        foreach (var name in StringNames)
+            table["String::" + name] = (i, call, location, caller) => i.StringMethod(name, i.ReceiverOf(call, caller), i.ArgumentsOf(call, caller), location, caller);
+        return table;
+    }
+
+    /// <summary>
+    /// The runtime name an intrinsic is keyed by: the C++ name the compiler gives the builtin, with
+    /// an extern struct's own method under its owner's name so that two String methods can't collide.
+    /// </summary>
+    public static string RuntimeKey(FunctionSymbol symbol)
+    {
         var key = symbol.BuiltinCppName ?? throw new InterpreterException($"builtin '{symbol.Name}' has no runtime name");
         if (symbol.IsInstanceMethod && symbol.ContainingType is { IsExtern: true } owner)
             key = $"{owner.Name}::{key}";
+        return key;
+    }
+
+    /// <summary>Whether the interpreter has a handler for a runtime name, which the registry self-test asks.</summary>
+    public static bool Handles(string key) => Intrinsics.ContainsKey(key);
+
+    Value? CallIntrinsic(IrCall call, Frame caller)
+    {
+        var key = RuntimeKey(call.Method.Symbol);
+        if (!Intrinsics.TryGetValue(key, out var handler))
+            throw new UnsupportedFeature($"the intrinsic '{key}'");
         var location = call.Loc is { } loc ? Location(loc, caller) : null;
-        if (key == "Weak::get")
-            return WeakGet(call, caller);
-        if (key.StartsWith("vpl::memory::", StringComparison.Ordinal))
-            return MemoryIntrinsic(key["vpl::memory::".Length..], call, caller, location);
-        var receiver = call.Receiver is { } given ? ArgumentValue(given, caller) : null;
-        var arguments = call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller)).ToList();
-        return Invoke(key, call.Method, receiver, arguments, location, caller);
+        return handler(this, call, location, caller);
     }
 
     /// <summary>An argument's value: the value in a place passed by reference, or a copy of a value.</summary>
@@ -34,19 +77,10 @@ public sealed partial class Interpreter
         _ => throw new InterpreterException($"unexpected argument {argument.GetType().Name}"),
     };
 
-    Value? Invoke(string key, MethodReference method, Value? receiver, IReadOnlyList<Value> arguments, string? location, Frame caller) => key switch
-    {
-        "vpl::print" => Print(method, arguments),
-        "vpl::panic" => Panic(arguments, location),
-        "vpl::interpolate" => Interpolate(method, arguments, location),
-        "vpl::formatted" => Formatted(method, arguments),
-        "vpl::format_string" => FormatString(method, arguments),
-        "vpl::compare" => Compare(method, arguments),
-        "vpl::bounds::check" => BoundsCheck(arguments, location),
-        "vpl::bounds::checkRange" => BoundsCheckRange(arguments, location),
-        _ when key.StartsWith("String::", StringComparison.Ordinal) => StringMethod(key["String::".Length..], receiver, arguments, location, caller),
-        _ => throw new UnsupportedFeature($"the intrinsic '{key}'"),
-    };
+    IReadOnlyList<Value> ArgumentsOf(IrCall call, Frame caller) =>
+        [.. call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller))];
+
+    Value? ReceiverOf(IrCall call, Frame caller) => call.Receiver is { } given ? ArgumentValue(given, caller) : null;
 
     Value? Print(MethodReference method, IReadOnlyList<Value> arguments)
     {

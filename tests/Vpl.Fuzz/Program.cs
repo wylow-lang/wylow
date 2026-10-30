@@ -8,9 +8,11 @@ using Vpl.Compiler.Build;
 using Vpl.Fuzz;
 
 // Makes near-valid programs by mutating tests/cases/**/*.vpl and checks them against the oracles:
-//   tier 1  compile in-process, with and without --no-opt: no exception, the same errors, determinism
-//   tier 2  build and run every compiler mode: the C++ compiles warning-free, the sanitizers are quiet,
-//           and every mode prints the same output, exits the same, and panics the same
+//   tier 1  compile in-process, with and without --no-opt: no exception, the same errors, determinism,
+//           and the optimized IR interpreted the same as the meaning
+//   tier 2  build and run every mode, the interpreter first: the C++ compiles warning-free, the
+//           sanitizers are quiet, and every mode prints the same output, exits the same, and panics
+//           the same
 // A finding is reduced, then written to tests/fuzz/findings/ with the seed that reproduces it.
 // Usage: Vpl.Fuzz [--seed N] [--seconds S] [--max N] [--tier 1|2] [--jobs N] [--filter text]
 //                 [--errors] [--no-strict] [--keep] [--replay N] [--list] [--self-test]
@@ -229,13 +231,19 @@ List<Mode>? AvailableModes()
         return null;
     }
     var name = preferred == Toolchain.Msvc ? "msvc" : "gcc";
-    var result = new List<Mode> { new(name, preferred.Value, new CompileOptions()) };
+    // The interpreter is the reference: it runs the meaning, and every native mode is compared
+    // against it, the unoptimized build first.
+    var result = new List<Mode>
+    {
+        new("interpret", null, new CompileOptions(Nest: true, Optimize: false)),
+        new(name + "-no-opt", preferred.Value, new CompileOptions(Nest: true, Optimize: false)),
+        new(name, preferred.Value, new CompileOptions()),
+    };
     var other = preferred == Toolchain.Msvc ? Toolchain.Gcc : Toolchain.Msvc;
     if (NativeCompiler.Find(other, out _) is not null)
         result.Add(new(other == Toolchain.Msvc ? "msvc" : "gcc", other, new CompileOptions()));
     if (NativeCompiler.Find(Toolchain.ClangSanitized, out _) is not null)
         result.Add(new("asan", Toolchain.ClangSanitized, new CompileOptions()));
-    result.Add(new(name + "-no-opt", preferred.Value, new CompileOptions(Nest: true, Optimize: false)));
     result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
     return result;
 }

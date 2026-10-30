@@ -2,11 +2,13 @@ using Vpl.Compiler;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Interpret;
 using Vpl.Compiler.Text;
+using Vpl.Fuzz;
 
 // The interpret mode runs the program's meaning (lowering and the mandatory passes, no
 // optimization) and checks a test's expectations as a native mode does, except that it skips
 // `// mode: optimized` tests and the `// stack:` and `// in-place:` markers, which count
-// optimizations. The optimized IR's own comparison with the meaning is step 6's.
+// optimizations. Every program that runs is then interpreted in its optimized form too, and the
+// two must mean the same thing, which checks the passes without the emitter or a C++ compiler.
 
 static partial class TestCase
 {
@@ -77,6 +79,25 @@ static partial class TestCase
                 problems.Add($"missing warning: {warning}");
         }
         problems.AddRange(warnings.Select(w => $"unexpected warning: {w}"));
+
+        // The pass-regression check: the optimized IR is the same program, so interpreting it must
+        // agree with interpreting the meaning (docs/design/ir.md §9.11).
+        var optimized = Compilation.Interpret(source, new CompileOptions(), new InterpreterOptions(Release: expected.Release));
+        if (optimized.Interpretation is { } optimizedResult)
+        {
+            switch (optimizedResult.Status)
+            {
+                case InterpretationStatus.Completed or InterpretationStatus.Panicked:
+                    if (RunComparison.Compare(RunOutcome.From(result), RunOutcome.From(optimizedResult), source.Text, compareWarnings: true) is { } difference)
+                        problems.Add($"the optimized IR disagrees with the meaning ({difference.Kind}): {difference.Detail}");
+                    break;
+                case InterpretationStatus.BudgetExceeded:
+                    break;
+                default:
+                    problems.Add($"the optimized IR ended as {optimizedResult.Status}: {optimizedResult.Error.Trim()}");
+                    break;
+            }
+        }
 
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }

@@ -18,6 +18,11 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 #ifndef VPL_DEBUG
 #define VPL_DEBUG 0
 #endif
@@ -220,9 +225,14 @@ const auto& argument(const Arguments<T, Rest...>& arguments) {
 }
 
 inline void init() {
-#if defined(_WIN32) && defined(_WRITE_ABORT_MSG)
+#if defined(_WIN32)
+    // Output is the bytes the program writes, on every platform: in text mode, print's '\n' would
+    // become "\r\n" and a program's own '\r' would merge with it.
+    _setmode(_fileno(stdout), _O_BINARY);
+#if defined(_WRITE_ABORT_MSG)
     // Abort quietly instead of showing a dialog or invoking Windows Error Reporting.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
 #endif
 }
 

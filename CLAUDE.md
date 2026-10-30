@@ -20,17 +20,17 @@ dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests,
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all six modes at once, one process each
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # only the IR interpreter: run the meaning, no C++
+dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # only the IR interpreter: the meaning against its expectations, and the optimized IR against it
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
 dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
 dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
-dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets   # mutation testing: the six files and their tests
+dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets   # mutation testing: the files and their tests
 dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
 dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir|interpret <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
-bash tools/coverage.sh [runner args]   # coverage merged over all five modes: by layer and file, the lines no
+bash tools/coverage.sh [runner args]   # coverage merged over all six modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
 dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, mutation testing, seeds, findings, and code size
 ```
@@ -38,13 +38,15 @@ dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuz
 The fuzzer (`tests/Vpl.Fuzz`) mutates `tests/cases/**/*.vpl` at feature boundaries and value edges
 and checks every mutant with the oracles that need no expected output: no exception, the same
 errors with and without optimization, deterministic compilation, warning-free C++, the same output,
-exit code, and panic in every mode, and quiet sanitizers. A failure is reduced by deleting
-statements and declarations and written to `tests/fuzz/findings/` with the seed and mutant that
-reproduce it; a finding is a bug until it becomes a test in `tests/cases/` (with `// output:`,
-`// error:`, or `// panic:`) or a removed line. Tier 1 is in-process and runs thousands of mutants
-a minute; tier 2 builds and runs five modes per mutant, so it belongs in the background. A
-finding in `unsafe` or `@Unchecked` code is the program's undefined behavior, not a compiler bug;
-a mutant whose mutation edits `unsafe` code is still compiled, but tier 2 doesn't run it.
+exit code, and panic in every mode, and quiet sanitizers. Tier 1 also interprets the optimized IR
+and the meaning and compares them, so a pass that changes the answer fails without any C++ build. A
+failure is reduced by deleting statements and declarations and written to `tests/fuzz/findings/`
+with the seed and mutant that reproduce it; a finding is a bug until it becomes a test in
+`tests/cases/` (with `// output:`, `// error:`, or `// panic:`) or a removed line. Tier 1 is
+in-process and runs thousands of mutants a minute; tier 2 builds and runs every mode per mutant,
+the interpreter first, so it belongs in the background. A finding in `unsafe` or `@Unchecked` code
+is the program's undefined behavior, not a compiler bug; a mutant whose mutation edits `unsafe` code
+is still compiled, but tier 2 doesn't run it.
 
 The mutation harness (`tests/Vpl.Mutation`) asks the question the oracles can't: would the tests
 notice? It changes the compiler's own source — one operator, constant, pattern, negated condition,
@@ -167,7 +169,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   over a `Values.Buffer`, fixed-array `data`, spans, the standard library's containers), `Weak`
   blocks, stack slots, and the cycle collector (`Interpreter.Cycles.cs` mirrors
   `runtime/vpl/cycles.h`, with its stats and debug diagnostics). The `interpret` test mode runs the
-  program's meaning and is part of `--all-modes`.
+  program's meaning, checks it against the test's expectations, and interprets the optimized IR to
+  compare it with the meaning; it is part of `--all-modes`, and runs the matrix cells too.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
@@ -185,7 +188,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `tests/matrix/*.snapshot`: the interaction matrices, generated by `MatrixPlaces.cs` (a place
   crossed with an operation), `MatrixTypes.cs` (a kind of type or value crossed with a context),
   and `MatrixValues.cs` (a value at an edge crossed with an operation) in `MatrixTests.cs`, one
-  small program per cell, each run through every oracle like a test case. A snapshot is reviewed
+  small program per cell, each run through every oracle like a test case: the interpret mode runs
+  every cell interpreted against the same snapshot. A snapshot is reviewed
   against `docs/spec/` cell by cell once; after that any change to a cell fails the suite until
   `--update-snapshots` records it, and the diff is reviewed in that change. A cell the spec refuses
   belongs in the snapshot too: its error, or its panic, is what it does.

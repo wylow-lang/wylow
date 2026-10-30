@@ -31,14 +31,16 @@ sealed class MutationRunner
     readonly string mutatedSourcePath;
     readonly string assemblyName;
     readonly IReadOnlyList<string> filters;
+    readonly IReadOnlyList<string> arguments;
     readonly TimeSpan buildTimeout;
     readonly TimeSpan testTimeout;
 
     public MutationRunner(string root, string sourceProjectPath, string sourceFile, IReadOnlyList<string> filters,
-        TimeSpan buildTimeout, TimeSpan testTimeout)
+        IReadOnlyList<string> arguments, TimeSpan buildTimeout, TimeSpan testTimeout)
     {
         this.root = root;
         this.filters = filters;
+        this.arguments = arguments;
         this.buildTimeout = buildTimeout;
         this.testTimeout = testTimeout;
 
@@ -76,10 +78,10 @@ sealed class MutationRunner
         foreach (var filter in filters)
         {
             // The runner takes one filter, so each is a run of its own, as it is for a mutant.
-            List<string> arguments = [Path.Combine(runnerDirectory, "Vpl.Tests.dll")];
+            List<string> runArguments = [Path.Combine(runnerDirectory, "Vpl.Tests.dll"), .. arguments];
             if (filter.Length > 0)
-                arguments.Add(filter);
-            var result = Run("dotnet", arguments, root, testTimeout);
+                runArguments.Add(filter);
+            var result = Run("dotnet", runArguments, root, testTimeout);
             if (result.TimedOut)
                 throw new InvalidOperationException($"the baseline run of '{filter}' timed out");
             if (result.ExitCode != 0)
@@ -111,10 +113,10 @@ sealed class MutationRunner
 
         foreach (var filter in filters)
         {
-            List<string> arguments = [Path.Combine(runnerDirectory, "Vpl.Tests.dll")];
+            List<string> runArguments = [Path.Combine(runnerDirectory, "Vpl.Tests.dll"), .. arguments];
             if (filter.Length > 0)
-                arguments.Add(filter);
-            var run = Run("dotnet", arguments, root, testTimeout);
+                runArguments.Add(filter);
+            var run = Run("dotnet", runArguments, root, testTimeout);
             var seconds = stopwatch.Elapsed.TotalSeconds;
             if (run.TimedOut)
                 return new(MutantState.TimedOut, $"the tests timed out on '{filter}'", seconds);

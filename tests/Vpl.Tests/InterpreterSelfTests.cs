@@ -1,6 +1,7 @@
 using Vpl.Compiler;
 using Vpl.Compiler.Diagnostics;
 using Vpl.Compiler.Interpret;
+using Vpl.Compiler.Semantics;
 using Vpl.Compiler.Text;
 
 // Small programs with what they must print, panic with, or exit with, one per instruction kind and
@@ -1448,7 +1449,53 @@ static class InterpreterSelfTests
             }
             """, optimized: true, output: ["0", "destroyed"]);
 
+        results.Add(Registry());
+        results.Add(Budget());
         return results;
+    }
+
+    /// <summary>A budget is inconclusive, like a timeout: it stops the interpretation, not the suite.</summary>
+    static TestResult Budget()
+    {
+        const string name = "interpreter/budget";
+        var source = new SourceText("budget.vpl", """
+            void main() {
+                mut int i = 0;
+                while (true) {
+                    i = i + 1;
+                }
+            }
+            """);
+        var interpreted = Compilation.Interpret(source, new CompileOptions(Optimize: false), new InterpreterOptions(StepBudget: 10_000));
+        if (interpreted.Interpretation is not { } result)
+            return new(name, "the pipeline produced no IR");
+        return new(name, result.Status == InterpretationStatus.BudgetExceeded
+            ? null
+            : $"expected the budget to run out, got {result.Status}: {result.Error.Trim()}");
+    }
+
+    /// <summary>
+    /// Every extern the standard library declares, and every builtin, has a handler: a stdlib method
+    /// added without one fails the suite instead of a program meeting it at run time.
+    /// </summary>
+    static TestResult Registry()
+    {
+        const string name = "interpreter/registry";
+        var lowered = Compilation.Lower(new SourceText("registry.vpl", "void main() { }"), new CompileOptions(Optimize: false));
+        if (lowered.Program is not { } program)
+            return new(name, "the empty program did not bind");
+        var symbols = program.Types
+            .SelectMany(type => type.Members)
+            .Where(member => member.IsBuiltin)
+            .Concat(Builtins.All)
+            .Concat([
+                Builtins.Interpolate([]),
+                Builtins.ToString(VplType.Int),
+                Builtins.CompareTo(VplType.Int),
+                Builtins.Formatted(VplType.Int),
+            ]);
+        var missing = symbols.Select(Interpreter.RuntimeKey).Distinct().Where(key => !Interpreter.Handles(key)).Order().ToList();
+        return new(name, missing.Count == 0 ? null : "no handler for: " + string.Join(", ", missing));
     }
 
     static void Case(

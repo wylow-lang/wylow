@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the test suite under dotnet-coverage in every mode (MSVC, g++, --no-opt, --no-nest, clang-cl
-# with the sanitizers) and writes, to tests/.coverage/:
+# with the sanitizers, and the IR interpreter) and writes, to tests/.coverage/:
 #   summary.txt  coverage by layer and file, the lines no test ran, and the error, check, and
 #                unreachable sites no test reached, merged over the modes
 #   html/        ReportGenerator's report, to read the uncovered lines in their source
@@ -17,8 +17,8 @@ dotnet build --nologo -v quiet
 # The precompiled header is cached between runs; a run that finds one never covers building it.
 rm -rf tests/Vpl.Tests/bin/Debug/net10.0/pch
 export DOTNET_COVERAGE_NOLOGO=1
-declare -A modes=( [msvc]="" [gcc]="--cc gcc" [noopt]="--no-opt" [nonest]="--no-nest" [asan]="--cc asan" )
-for name in ${VPL_COVERAGE_MODES:-msvc gcc noopt nonest asan}; do
+declare -A modes=( [msvc]="" [gcc]="--cc gcc" [noopt]="--no-opt" [nonest]="--no-nest" [asan]="--cc asan" [interpret]="--interpret" )
+for name in ${VPL_COVERAGE_MODES:-msvc gcc noopt nonest asan interpret}; do
     # Unquoted, so a mode's arguments split into words; an empty one adds none.
     dotnet-coverage collect -f cobertura -o "$out/$name.xml" -- \
         dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll ${modes[$name]} "$@" \

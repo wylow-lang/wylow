@@ -40,5 +40,101 @@
     "path": "src/Vpl.Compiler.CodeGen/CppEmitter.Ir.cs",
     "filters": ["basics", "lambdas", "containers", "values"],
     "note": "Printing lowered bodies. Basics and lambda tests cover control flow; containers and value tests cover releases, operators, and formatting."
+  },
+  {
+    "id": "interpreter-values",
+    "title": "Interpreter: value ownership",
+    "path": "src/Vpl.Compiler.Interpret/Values.cs",
+    "filters": ["classes", "containers", "values"],
+    "arguments": ["--interpret"],
+    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them."
+  },
+  {
+    "id": "interpreter-value-kinds",
+    "title": "Interpreter: cells and values",
+    "path": "src/Vpl.Compiler.Interpret/ValueKinds.cs",
+    "filters": ["structs", "references", "basics"],
+    "arguments": ["--interpret"],
+    "note": "The cells a place is, and the value kinds. Struct, reference, and basic tests put every kind of place through the executor."
+  },
+  {
+    "id": "interpreter-core",
+    "title": "Interpreter: frames and control flow",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.cs",
+    "filters": ["basics", "classes"],
+    "arguments": ["--interpret"],
+    "note": "Frames, locals, calls, returns, blocks and their release order. Basic and class tests exercise every path."
+  },
+  {
+    "id": "interpreter-executor",
+    "title": "Interpreter: operands and places",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Values.cs",
+    "filters": ["basics", "references", "values"],
+    "arguments": ["--interpret"],
+    "note": "Operands, places, and the rvalue visitors: the instruction set's meaning as an expression."
+  },
+  {
+    "id": "interpreter-calls",
+    "title": "Interpreter: calls and destruction",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Calls.cs",
+    "filters": ["classes", "structs"],
+    "arguments": ["--interpret"],
+    "note": "Construction, dispatch, destruction, and the release order that mirrors C++ parameter destruction."
+  },
+  {
+    "id": "interpreter-functions",
+    "title": "Interpreter: function values",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Functions.cs",
+    "filters": ["lambdas", "generics"],
+    "arguments": ["--interpret"],
+    "note": "Lambdas, closures, choices, and invocation. Lambda and generic tests exercise both forms."
+  },
+  {
+    "id": "interpreter-memory",
+    "title": "Interpreter: raw memory",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Memory.cs",
+    "filters": ["spans", "arrays", "unsafe"],
+    "arguments": ["--interpret"],
+    "note": "Buffers, pointers, spans, and the Memory intrinsics, as runtime/vpl/intrinsics.h implements them."
+  },
+  {
+    "id": "interpreter-intrinsics",
+    "title": "Interpreter: intrinsics",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Intrinsics.cs",
+    "filters": ["values", "containers", "panics"],
+    "arguments": ["--interpret"],
+    "note": "The builtins and the standard library's extern methods. Value, container, and panic tests reach them."
+  },
+  {
+    "id": "interpreter-cycles",
+    "title": "Interpreter: cycle collector",
+    "path": "src/Vpl.Compiler.Interpret/Interpreter.Cycles.cs",
+    "filters": ["cycles"],
+    "arguments": ["--interpret"],
+    "note": "The port of runtime/vpl/cycles.h, down to its stats and debug diagnostics. Cycle tests pin the order and the messages."
+  },
+  {
+    "id": "interpreter-text",
+    "title": "Interpreter: text",
+    "path": "src/Vpl.Compiler.Interpret/RuntimeText.cs",
+    "filters": ["values", "basics"],
+    "arguments": ["--interpret"],
+    "note": "Formatting, interpolation, and String's members, which must print exactly what runtime/vpl/*.h does."
+  },
+  {
+    "id": "interpreter-arithmetic",
+    "title": "Interpreter: arithmetic",
+    "path": "src/Vpl.Compiler.Interpret/RuntimeArithmetic.cs",
+    "filters": ["values", "numbers", "panics"],
+    "arguments": ["--interpret"],
+    "note": "Checked arithmetic and conversions, as runtime/vpl/arithmetic.h implements them: panics, wrapping, shifts, and conversions."
+  },
+  {
+    "id": "interpreter-results",
+    "title": "Interpreter: results",
+    "path": "src/Vpl.Compiler.Interpret/Interpretation.cs",
+    "filters": ["panics", "matrix"],
+    "arguments": ["--interpret"],
+    "note": "The result statuses, the abort exit code, and the text a panic or a budget writes. The panic tests and the interpreted matrix cells pin them."
   }
 ]

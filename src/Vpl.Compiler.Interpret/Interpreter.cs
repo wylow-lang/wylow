@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Vpl.Compiler.Analysis;
 using Vpl.Compiler.Ir;
@@ -25,6 +26,7 @@ public sealed partial class Interpreter : IObjectLifetime
 
     long steps;
     int depth;
+    long started = Stopwatch.GetTimestamp();
 
     Interpreter(IrProgram program, Callees callees, InterpreterOptions options)
     {
@@ -107,6 +109,9 @@ public sealed partial class Interpreter : IObjectLifetime
     void Step()
     {
         if (++steps > options.StepBudget)
+            throw new BudgetExceededException();
+        // A harness's time limit is checked rarely: the clock is far more expensive than a step.
+        if (options.TimeLimit is { } limit && (steps & 0xFFFF) == 0 && Stopwatch.GetElapsedTime(started) > limit)
             throw new BudgetExceededException();
     }
 

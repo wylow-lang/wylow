@@ -3,6 +3,7 @@ using System.Text;
 using Vpl.Compiler;
 using Vpl.Compiler.Build;
 using Vpl.Compiler.Diagnostics;
+using Vpl.Compiler.Interpret;
 using Vpl.Compiler.Text;
 
 /// <summary>
@@ -26,7 +27,10 @@ static class MatrixTests
     /// <summary>The most differences a failing matrix lists before it says how many more there are.</summary>
     const int ShownDifferences = 24;
 
-    public static List<TestResult> Run(string root, string outputDirectory, Toolchain? toolchain, CompileOptions options, string? filter, bool update, int parallelism)
+    /// <summary>The meaning, which the interpreter runs: a cell is compared to the same snapshot in every mode.</summary>
+    static readonly CompileOptions MeaningOptions = new(Optimize: false);
+
+    public static List<TestResult> Run(string root, string outputDirectory, Toolchain? toolchain, CompileOptions options, string? filter, bool update, int parallelism, bool interpret)
     {
         List<TestResult> results = [];
         foreach (var matrix in Matrices())
@@ -40,7 +44,7 @@ static class MatrixTests
                 .AsParallel()
                 .AsOrdered()
                 .WithDegreeOfParallelism(parallelism)
-                .Select(cell => RunCell(cell, output, toolchain, options))
+                .Select(cell => interpret ? RunInterpretedCell(cell) : RunCell(cell, output, toolchain, options))
                 .ToList();
             results.Add(Compare(name, snapshot, matrix, cells, update));
         }
@@ -59,12 +63,7 @@ static class MatrixTests
         try
         {
             var compilation = Compilation.Compile(new SourceText(cell.Name + ".vpl", cell.Source), options);
-            var lines = new List<string>();
-            foreach (var diagnostic in compilation.Diagnostics)
-            {
-                var severity = diagnostic.Severity == DiagnosticSeverity.Error ? "error" : "warning";
-                lines.Add($"{severity} {diagnostic.Line}: {diagnostic.Message}");
-            }
+            var lines = DiagnosticLines(compilation.Diagnostics);
             if (!compilation.Success)
                 return new(cell.Name, lines, null);
 
@@ -105,6 +104,57 @@ static class MatrixTests
         {
             return new(cell.Name, [], $"exception: {e.GetType().Name}: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// The same cell interpreted: the meaning, no C++ and no toolchain. A budget, an unsupported
+    /// feature, or undefined behavior is a failure of the cell rather than of a mode, since a matrix
+    /// cell is a reviewed program and every feature it reaches has an interpretation.
+    /// </summary>
+    static CellResult RunInterpretedCell(MatrixCell cell)
+    {
+        try
+        {
+            var interpreted = Compilation.Interpret(new SourceText(cell.Name + ".vpl", cell.Source), MeaningOptions);
+            var lines = DiagnosticLines(interpreted.Diagnostics);
+            if (!interpreted.Success)
+                return new(cell.Name, lines, null);
+            var result = interpreted.Interpretation!;
+            switch (result.Status)
+            {
+                case InterpretationStatus.Completed:
+                case InterpretationStatus.Panicked:
+                    break;
+                case InterpretationStatus.BudgetExceeded:
+                    return new(cell.Name, lines, "the interpreter exceeded its budget");
+                case InterpretationStatus.Unsupported:
+                    return new(cell.Name, lines, "unsupported: " + result.Error.Trim());
+                default:
+                    return new(cell.Name, lines, "undefined behavior: " + result.Error.Trim());
+            }
+
+            foreach (var line in SuffixLines(result.OutputText))
+                lines.Add(line.Length == 0 ? "out" : "out " + line);
+            foreach (var line in SuffixLines(result.Error))
+                lines.Add(line.Length == 0 ? "err" : "err " + line);
+            lines.Add("exit " + result.ExitCode);
+            return new(cell.Name, lines, null);
+        }
+        catch (Exception e)
+        {
+            return new(cell.Name, [], $"exception: {e.GetType().Name}: {e.Message}");
+        }
+    }
+
+    static List<string> DiagnosticLines(IReadOnlyList<Diagnostic> diagnostics)
+    {
+        var lines = new List<string>();
+        foreach (var diagnostic in diagnostics)
+        {
+            var severity = diagnostic.Severity == DiagnosticSeverity.Error ? "error" : "warning";
+            lines.Add($"{severity} {diagnostic.Line}: {diagnostic.Message}");
+        }
+        return lines;
     }
 
     /// <summary>The lines of a stream, without the empty line after a trailing newline.</summary>
