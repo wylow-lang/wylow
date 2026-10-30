@@ -6,10 +6,13 @@ using Vpl.Mutation;
 // Mutation testing of the compiler: change one operator,
 // constant, pattern, condition, or statement at a time, rebuild the file's project into a private
 // copy, and rerun the covering tests. A mutant no test catches is a **survivor**: a missing test or
-// a line nothing needs. The results are written to tests/mutation/results for the dashboard.
+// a line nothing needs. A target's equivalent entries are sites no program can observe; they are
+// reported separately and left out of the score. The results are written to
+// tests/mutation/results for the dashboard.
 // Usage: Vpl.Mutation --target <id> | --file <path> [--filter <text>]... [--max N] [--seconds S]
-//                     [--seed N] [--timeout S] [--list] [--list-targets] [--build]
-// The target list and its default test filters are tests/mutation/targets.json.
+//                     [--seed N] [--timeout S] [--list] [--list-targets] [--build] [--only N]
+// The target list, its default test filters, and its equivalent sites are
+// tests/mutation/targets.json.
 
 string? targetId = null;
 string? file = null;
@@ -110,10 +113,30 @@ if (resolved.Arguments is { Length: > 0 } modeArguments)
     Console.WriteLine($"mode: {string.Join(" ", modeArguments)}");
 Console.WriteLine($"sites: {sites.Count}" + (seed != 0 ? $" (shuffled with seed {seed})" : ""));
 
+// A recorded equivalence names a site by what it changes and the statement it is in. A changed
+// statement makes the entry match nothing, which must fail loudly, not quietly stop applying.
+var equivalents = new Dictionary<int, EquivalentSpec>();
+foreach (var entry in resolved.Equivalent ?? [])
+{
+    var matches = Enumerable.Range(0, sites.Count)
+        .Where(index => sites[index].Kind == entry.Kind && sites[index].Original == entry.Original
+            && sites[index].Replacement == entry.Replacement && sites[index].Context == entry.Context)
+        .ToList();
+    if (matches.Count != 1)
+        throw new ArgumentException(
+            $"the equivalent entry {entry.Kind} `{entry.Original}` -> `{entry.Replacement}` in \"{entry.Context}\" matches {matches.Count} sites, not one");
+    equivalents[matches[0]] = entry;
+}
+
 if (list)
 {
-    foreach (var site in sites)
-        Console.WriteLine($"{displayPath}:{site.Line}:{site.Column}  {site.Kind,-9} {site.Description}  `{site.Original}`");
+    for (int index = 0; index < sites.Count; index++)
+    {
+        var site = sites[index];
+        var recorded = equivalents.TryGetValue(index, out var entry) ? $"  [equivalent: {entry.Reason}]" : "";
+        Console.WriteLine($"{index + 1}  {displayPath}:{site.Line}:{site.Column}  {site.Kind,-9} {site.Description}  `{site.Original}`{recorded}");
+        Console.WriteLine($"    in {site.Context}");
+    }
     return 0;
 }
 if (sites.Count == 0)
@@ -124,7 +147,7 @@ if (sites.Count == 0)
 
 var started = DateTimeOffset.Now;
 var runner = new MutationRunner(root, projectPath, sourceFile, filters, resolved.Arguments ?? [], TimeSpan.FromMinutes(3), TimeSpan.FromSeconds(timeout));
-int killed = 0, survived = 0, invalid = 0, timedOut = 0, ran = 0;
+int killed = 0, survived = 0, invalid = 0, timedOut = 0, equivalent = 0, ran = 0;
 List<MutationItem> items = [];
 // --only retests one site (the index --list prints) with another filter, which is how a survivor
 // is triaged against a broader set of tests.
@@ -146,8 +169,8 @@ void Save()
     var directory = Path.Combine(root, "tests", "mutation", "results");
     Directory.CreateDirectory(directory);
     var report = new MutationReport(resolved.Id, displayPath, displayProject, [.. filters], started,
-        stopwatch.Elapsed.TotalSeconds, sites.Count, ran < sites.Count, ran, killed, survived, invalid, timedOut,
-        Score(killed, survived, timedOut), [.. items]);
+        stopwatch.Elapsed.TotalSeconds, sites.Count, ran + equivalent < sites.Count, ran, killed, survived,
+        equivalent, invalid, timedOut, Score(killed, survived, timedOut), [.. items]);
     File.WriteAllText(Path.Combine(directory, resolved.Id + ".json"), JsonSerializer.Serialize(report, Targets.JsonOptions));
 }
 
@@ -161,6 +184,16 @@ try
         if (seconds > 0 && stopwatch.Elapsed >= TimeSpan.FromSeconds(seconds))
             break;
         var site = sites[chosen[index]];
+        // A recorded equivalence is not run, except by --only, which is how one is confirmed.
+        if (only is null && equivalents.TryGetValue(chosen[index], out var recorded))
+        {
+            equivalent++;
+            Console.WriteLine($"[{index + 1}/{total}] site {chosen[index] + 1} equivalent {displayPath}:{site.Line}:{site.Column} {recorded.Reason}");
+            items.Add(new MutationItem(chosen[index] + 1, site.Line, site.Column, site.Kind, site.Description,
+                site.Original, "equivalent", recorded.Reason));
+            Save();
+            continue;
+        }
         var mutated = source[..site.Position] + site.Replacement + source[(site.Position + site.Length)..];
         var outcome = runner.RunMutant(mutated);
         ran++;
@@ -192,7 +225,7 @@ try
         if (stopwatch.Elapsed - lastProgress >= TimeSpan.FromSeconds(15) && index + 1 < total)
         {
             lastProgress = stopwatch.Elapsed;
-            Console.WriteLine($"progress {index + 1}/{total}: {killed} killed, {survived} survived, {invalid} invalid" +
+            Console.WriteLine($"progress {index + 1}/{total}: {killed} killed, {survived} survived, {equivalent} equivalent, {invalid} invalid" +
                 (timedOut > 0 ? $", {timedOut} timeout" : "") + $" - {Score(killed, survived, timedOut):F2}% mutation score");
         }
     }
@@ -204,9 +237,9 @@ finally
 
 var elapsed = stopwatch.Elapsed.TotalSeconds;
 var score = Score(killed, survived, timedOut);
-if (ran < sites.Count)
-    Console.WriteLine($"sampled: {ran} of {sites.Count} sites");
-Console.WriteLine($"{ran} mutants: {killed} killed, {survived} survived, {invalid} invalid" +
+if (ran + equivalent < sites.Count)
+    Console.WriteLine($"sampled: {ran + equivalent} of {sites.Count} sites");
+Console.WriteLine($"{ran} mutants: {killed} killed, {survived} survived, {equivalent} equivalent, {invalid} invalid" +
     (timedOut > 0 ? $", {timedOut} timeout" : "") + $" - {score:F2}% mutation score ({elapsed:F1}s)");
 if (survived > 0)
 {
@@ -266,6 +299,7 @@ sealed record MutationReport(
     int Mutants,
     int Killed,
     int Survived,
+    int Equivalent,
     int Invalid,
     int TimedOut,
     double Score,

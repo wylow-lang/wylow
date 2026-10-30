@@ -4,7 +4,16 @@ namespace Vpl.Mutation;
 
 /// <summary>A file the harness mutates, with the tests that cover its feature.</summary>
 /// <param name="Arguments">What the test runner is given before the filter, such as <c>--interpret</c>.</param>
-public sealed record MutationTarget(string Id, string Title, string Path, string[] Filters, string? Note, string[]? Arguments = null);
+/// <param name="Equivalent">Sites whose mutation no program can observe, with the reason.</param>
+public sealed record MutationTarget(string Id, string Title, string Path, string[] Filters, string? Note,
+    string[]? Arguments = null, EquivalentSpec[]? Equivalent = null);
+
+/// <summary>
+/// A site no test can kill because the change cannot change what a program observes. A site is
+/// named by what it changes and the statement it is in, not by its line, so unrelated lines moving
+/// leave the record valid; the harness refuses an entry that stops matching exactly one site.
+/// </summary>
+public sealed record EquivalentSpec(string Kind, string Original, string Replacement, string Context, string Reason);
 
 public static class Targets
 {

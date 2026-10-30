@@ -8,6 +8,8 @@ namespace Vpl.Mutation;
 /// <summary>
 /// One place a mutant can change: a span of the source text, what to put there, and what a person
 /// reads. A mutation is a text splice, so every site records the line the original sat on.
+/// <paramref name="Context"/> is the statement the site is in, which names a site independently of
+/// where it sits, so a recorded equivalence still finds it after unrelated lines move.
 /// </summary>
 sealed record Site(
     string Kind,
@@ -17,7 +19,8 @@ sealed record Site(
     string Replacement,
     int Line,
     int Column,
-    string Original)
+    string Original,
+    string Context)
 {
     public string Where(string file) => $"{file}:{Line}:{Column}";
 }
@@ -60,7 +63,7 @@ static class SiteFinder
 
         foreach (var condition in Conditions(root))
             AddSite(sites, tree, condition.Span.Start, condition.Span.Length,
-                "!(" + condition + ")", "condition", "negate condition", condition.ToString());
+                "!(" + condition + ")", "condition", "negate condition", condition.ToString(), Context(condition));
 
         return [.. sites
             .OrderBy(site => site.Position)
@@ -97,7 +100,7 @@ static class SiteFinder
         if (node.Kind() == SyntaxKind.IsExpression)
         {
             AddSite(sites, tree, token.SpanStart, token.Span.Length, replacement, "pattern",
-                "is T -> is not T", node.ToString());
+                "is T -> is not T", node.ToString(), Context(node));
             return;
         }
         // "a" - "b" is not an expression; an arithmetic mutant with a string operand is only noise.
@@ -106,7 +109,7 @@ static class SiteFinder
         if (arithmetic && (IsStringLike(node.Left) || IsStringLike(node.Right)))
             return;
         AddSite(sites, tree, token.SpanStart, token.Span.Length, replacement, "operator",
-            $"{token.Text} -> {replacement}", token.Text);
+            $"{token.Text} -> {replacement}", token.Text, Context(node));
     }
 
     static bool IsStringLike(ExpressionSyntax expression) =>
@@ -119,10 +122,10 @@ static class SiteFinder
         switch (node.Kind())
         {
             case SyntaxKind.LogicalNotExpression:
-                AddSite(sites, tree, token.SpanStart, token.Span.Length, "", "unary", "remove !", "!");
+                AddSite(sites, tree, token.SpanStart, token.Span.Length, "", "unary", "remove !", "!", Context(node));
                 break;
             case SyntaxKind.UnaryMinusExpression:
-                AddSite(sites, tree, token.SpanStart, token.Span.Length, "", "unary", "remove -", "-");
+                AddSite(sites, tree, token.SpanStart, token.Span.Length, "", "unary", "remove -", "-", Context(node));
                 break;
         }
     }
@@ -136,15 +139,15 @@ static class SiteFinder
         switch (node.Kind())
         {
             case SyntaxKind.TrueLiteralExpression:
-                AddSite(sites, tree, node.SpanStart, node.Span.Length, "false", "literal", "true -> false", "true");
+                AddSite(sites, tree, node.SpanStart, node.Span.Length, "false", "literal", "true -> false", "true", Context(node));
                 break;
             case SyntaxKind.FalseLiteralExpression:
-                AddSite(sites, tree, node.SpanStart, node.Span.Length, "true", "literal", "false -> true", "false");
+                AddSite(sites, tree, node.SpanStart, node.Span.Length, "true", "literal", "false -> true", "false", Context(node));
                 break;
             case SyntaxKind.NumericLiteralExpression:
                 if (NumericReplacement(node.Token.Text) is { } replacement)
                     AddSite(sites, tree, node.SpanStart, node.Span.Length, replacement, "literal",
-                        $"{node.Token.Text} -> {replacement}", node.Token.Text);
+                        $"{node.Token.Text} -> {replacement}", node.Token.Text, Context(node));
                 break;
         }
     }
@@ -171,22 +174,22 @@ static class SiteFinder
             && unary.Pattern is ConstantPatternSyntax { Expression.RawKind: (int)SyntaxKind.NullLiteralExpression })
         {
             AddSite(sites, tree, unary.SpanStart, unary.Span.Length, "null", "pattern",
-                "is not null -> is null", unary.ToString());
+                "is not null -> is null", unary.ToString(), Context(node));
         }
         else if (pattern is ConstantPatternSyntax { Expression.RawKind: (int)SyntaxKind.NullLiteralExpression } constant)
         {
             AddSite(sites, tree, constant.SpanStart, constant.Span.Length, "not null", "pattern",
-                "is null -> is not null", constant.ToString());
+                "is null -> is not null", constant.ToString(), Context(node));
         }
         else if (pattern is TypePatternSyntax type)
         {
             AddSite(sites, tree, type.SpanStart, type.Span.Length, "not " + type, "pattern",
-                "is T -> is not T", type.ToString());
+                "is T -> is not T", type.ToString(), Context(node));
         }
         else if (pattern is UnaryPatternSyntax { Pattern: TypePatternSyntax negated })
         {
             AddSite(sites, tree, pattern.SpanStart, pattern.Span.Length, negated.ToString(), "pattern",
-                "is not T -> is T", pattern.ToString());
+                "is not T -> is T", pattern.ToString(), Context(node));
         }
     }
 
@@ -213,8 +216,26 @@ static class SiteFinder
         var after = text[span.End..line.End].Trim();
         if (after.Length != 0 && !after.StartsWith("//", StringComparison.Ordinal))
             return;
-        AddSite(sites, tree, span.Start, span.Length, "", "statement", "delete statement", statement.ToString());
+        AddSite(sites, tree, span.Start, span.Length, "", "statement", "delete statement", statement.ToString(),
+            Normalize(statement.ToString()));
     }
+
+    /// <summary>
+    /// The smallest unit around a site that names it: its switch arm, else its statement, else its
+    /// member declaration, with whitespace flattened. A recorded equivalence names a site by this,
+    /// so it survives unrelated lines moving; an arm is what tells two sites in the same switch apart.
+    /// </summary>
+    static string Context(SyntaxNode node)
+    {
+        var around = node.AncestorsAndSelf().FirstOrDefault(n => n is SwitchExpressionArmSyntax or SwitchSectionSyntax or StatementSyntax)
+            ?? (SyntaxNode?)node.AncestorsAndSelf().OfType<MemberDeclarationSyntax>().FirstOrDefault()
+            ?? node;
+        var text = Normalize(around.ToString());
+        return text.Length <= 300 ? text : text[..300];
+    }
+
+    static string Normalize(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     static IEnumerable<ExpressionSyntax> Conditions(SyntaxNode root)
     {
@@ -235,12 +256,12 @@ static class SiteFinder
     }
 
     static void AddSite(List<Site> sites, SyntaxTree tree, int position, int length, string replacement,
-        string kind, string description, string original)
+        string kind, string description, string original, string context)
     {
         var point = tree.GetLineSpan(new TextSpan(position, length)).StartLinePosition;
         var shown = original.Replace("\r", " ").Replace("\n", " ").Trim();
         if (shown.Length > 80)
             shown = shown[..77] + "...";
-        sites.Add(new Site(kind, description, position, length, replacement, point.Line + 1, point.Character + 1, shown));
+        sites.Add(new Site(kind, description, position, length, replacement, point.Line + 1, point.Character + 1, shown, context));
     }
 }

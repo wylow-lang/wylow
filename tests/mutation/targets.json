@@ -47,7 +47,19 @@
     "path": "src/Vpl.Compiler.Interpret/Values.cs",
     "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them. Every program copies and releases, so the whole suite is the covering set."
+    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them. Every program copies and releases, so the whole suite is the covering set.",
+    "equivalent": [
+      { "kind": "statement", "original": "weak.Release();", "replacement": "", "context": "weak.Release();", "reason": "The count it lowers has no reader in the interpreter, which leaves weak blocks to the managed collector." },
+      { "kind": "literal", "original": "0", "replacement": "1", "context": "return new ArrayValue(type, [.. Enumerable.Range(0, array.Length).Select(_ => new Cell(array.Element, Zeroed(array.Element, stdlib)))]);", "reason": "The Range start index is unused; only the number of elements is observed." },
+      { "kind": "operator", "original": ">", "replacement": ">=", "context": "if (type.IsEnum && type.Symbol!.Variants.Count > 0) return new EnumValue(type, type.Symbol.Variants[0], []);", "reason": "An enum always has a variant, so >= 0 selects the same first variant." },
+      { "kind": "condition", "original": "type.IsTypeParameter", "replacement": "!(type.IsTypeParameter)", "context": "return type == VplType.String ? StringValue.Empty : type.IsPointer ? NullValue.Instance : type == VplType.Bool ? new BoolValue(false) : type == VplType.Char ? new CharValue(0) : type.IsFloatingPoint ? new FloatValue(0.0) : type.IsInteger ? new IntValue(0) : type.IsFunction ? NullValue.Instance : typ", "reason": "A type parameter is substituted before a default is made; both arms throw a compiler-bug error." },
+      { "kind": "statement", "original": "deepest = current;", "replacement": "", "context": "deepest = current;", "reason": "Every constructor sets Active before its body, so the class allocation started with is never observed." },
+      { "kind": "literal", "original": "true", "replacement": "false", "context": "(NullValue, NullValue) => true", "reason": "A reference or null comparison lowers to an identity test, so Equal never sees two nulls." },
+      { "kind": "literal", "original": "false", "replacement": "true", "context": "_ => false", "reason": "A well-typed comparison's operands have the same kind, so no arm falls through to the fallback." },
+      { "kind": "operator", "original": "==", "replacement": "!=", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
+      { "kind": "literal", "original": "32", "replacement": "0", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
+      { "kind": "literal", "original": "false", "replacement": "true", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." }
+    ]
   },
   {
     "id": "interpreter-value-kinds",
@@ -135,6 +147,11 @@
     "path": "src/Vpl.Compiler.Interpret/Interpretation.cs",
     "filters": ["panics", "matrix"],
     "arguments": ["--interpret"],
-    "note": "The result statuses, the abort exit code, and the text a panic or a budget writes. The panic tests and the interpreted matrix cells pin them."
+    "note": "The result statuses, the abort exit code, and the text a panic or a budget writes. The panic tests and the interpreted matrix cells pin them.",
+    "equivalent": [
+      { "kind": "literal", "original": "0", "replacement": "1", "context": "public static Interpretation BudgetExceeded(byte[] output, string before = \"\") => new(output, $\"{before}interpreter budget exceeded\\n\", 0, InterpretationStatus.BudgetExceeded);", "reason": "An inconclusive status's exit code is normalized away, so nothing compares it." },
+      { "kind": "literal", "original": "0", "replacement": "1", "context": "public static Interpretation Unsupported(byte[] output, string what, string before = \"\") => new(output, $\"{before}unsupported: {what}\\n\", 0, InterpretationStatus.Unsupported);", "reason": "An inconclusive status's exit code is normalized away, so nothing compares it." },
+      { "kind": "literal", "original": "0", "replacement": "1", "context": "public static Interpretation Undefined(byte[] output, string what, string before = \"\") => new(output, $\"{before}undefined behavior: {what}\\n\", 0, InterpretationStatus.UndefinedBehavior);", "reason": "An inconclusive status's exit code is normalized away, so nothing compares it." }
+    ]
   }
 ]

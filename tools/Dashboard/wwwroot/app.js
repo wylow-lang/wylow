@@ -768,6 +768,7 @@ async function renderMutation(view, query) {
         : '—'),
       el('td', { class: 'num' }, result ? formatNumber(result.killed) : '—'),
       el('td', { class: 'num' }, result ? formatNumber(result.survived) : '—'),
+      el('td', { class: 'num' }, result ? formatNumber(result.equivalent) : '—'),
       el('td', { class: 'num' }, result ? formatNumber(result.invalid) : '—'),
       el('td', { class: 'muted' }, result ? ago(result.startedAt) : '')));
   }
@@ -779,6 +780,7 @@ async function renderMutation(view, query) {
         el('th', { class: 'num' }, 'Mutants'),
         el('th', { class: 'num' }, 'Killed'),
         el('th', { class: 'num' }, 'Survived'),
+        el('th', { class: 'num', title: 'Sites whose mutation no program can observe' }, 'Equivalent'),
         el('th', { class: 'num' }, 'Invalid'),
         el('th', {}, 'Last run'))),
       rows))));
@@ -1012,6 +1014,7 @@ async function renderJob(view, id) {
     if (metrics.findings !== null && metrics.findings !== undefined) tiles.push(metric('Findings', metrics.findings));
     if (metrics.killed !== null && metrics.killed !== undefined) tiles.push(metric('Killed', metrics.killed));
     if (metrics.survived !== null && metrics.survived !== undefined) tiles.push(metric('Survived', metrics.survived));
+    if (metrics.equivalent !== null && metrics.equivalent !== undefined && metrics.equivalent > 0) tiles.push(metric('Equivalent', metrics.equivalent));
     if (metrics.invalid !== null && metrics.invalid !== undefined) tiles.push(metric('Invalid', metrics.invalid));
     if (metrics.timedOut !== null && metrics.timedOut !== undefined && metrics.timedOut > 0) tiles.push(metric('Timeout', metrics.timedOut));
     if (metrics.score !== null && metrics.score !== undefined) tiles.push(metric('Score', `${metrics.score.toFixed(2)}%`));

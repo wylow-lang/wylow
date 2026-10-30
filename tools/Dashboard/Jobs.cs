@@ -18,6 +18,7 @@ public sealed class JobMetrics
     public int? Findings { get; set; }
     public int? Killed { get; set; }
     public int? Survived { get; set; }
+    public int? Equivalent { get; set; }
     public int? Invalid { get; set; }
     public int? TimedOut { get; set; }
     public double? Score { get; set; }

@@ -26,6 +26,7 @@ public sealed record MutationResultDto(
     int Mutants,
     int Killed,
     int Survived,
+    int Equivalent,
     int Invalid,
     int TimedOut,
     double Score,

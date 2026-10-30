@@ -358,10 +358,10 @@ static class Observers
     static readonly Regex FuzzSummary = new(@"^(\d+) mutants, (\d+) compiled, (\d+) findings \((.*)\)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex FuzzFinding = new(@"^FINDING (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex MutationSummary = new(
-        @"^(\d+) mutants: (\d+) killed, (\d+) survived, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score(?: \([\d.,]+s\))?$",
+        @"^(\d+) mutants: (\d+) killed, (\d+) survived, (\d+) equivalent, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score(?: \([\d.,]+s\))?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex MutationProgress = new(
-        @"^progress (\d+)/(\d+): (\d+) killed, (\d+) survived, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score$",
+        @"^progress (\d+)/(\d+): (\d+) killed, (\d+) survived, (\d+) equivalent, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static void Suite(string line, JobMetrics metrics)
@@ -409,9 +409,10 @@ static class Observers
             metrics.Mutants = int.Parse(summary.Groups[1].Value, CultureInfo.InvariantCulture);
             metrics.Killed = int.Parse(summary.Groups[2].Value, CultureInfo.InvariantCulture);
             metrics.Survived = int.Parse(summary.Groups[3].Value, CultureInfo.InvariantCulture);
-            metrics.Invalid = int.Parse(summary.Groups[4].Value, CultureInfo.InvariantCulture);
-            metrics.TimedOut = summary.Groups[5].Success ? int.Parse(summary.Groups[5].Value, CultureInfo.InvariantCulture) : 0;
-            metrics.Score = double.Parse(summary.Groups[6].Value, CultureInfo.InvariantCulture);
+            metrics.Equivalent = int.Parse(summary.Groups[4].Value, CultureInfo.InvariantCulture);
+            metrics.Invalid = int.Parse(summary.Groups[5].Value, CultureInfo.InvariantCulture);
+            metrics.TimedOut = summary.Groups[6].Success ? int.Parse(summary.Groups[6].Value, CultureInfo.InvariantCulture) : 0;
+            metrics.Score = double.Parse(summary.Groups[7].Value, CultureInfo.InvariantCulture);
             return;
         }
         var progress = MutationProgress.Match(line);
@@ -420,8 +421,9 @@ static class Observers
         metrics.Mutants = int.Parse(progress.Groups[1].Value, CultureInfo.InvariantCulture);
         metrics.Killed = int.Parse(progress.Groups[3].Value, CultureInfo.InvariantCulture);
         metrics.Survived = int.Parse(progress.Groups[4].Value, CultureInfo.InvariantCulture);
-        metrics.Invalid = int.Parse(progress.Groups[5].Value, CultureInfo.InvariantCulture);
-        metrics.TimedOut = progress.Groups[6].Success ? int.Parse(progress.Groups[6].Value, CultureInfo.InvariantCulture) : 0;
-        metrics.Score = double.Parse(progress.Groups[7].Value, CultureInfo.InvariantCulture);
+        metrics.Equivalent = int.Parse(progress.Groups[5].Value, CultureInfo.InvariantCulture);
+        metrics.Invalid = int.Parse(progress.Groups[6].Value, CultureInfo.InvariantCulture);
+        metrics.TimedOut = progress.Groups[7].Success ? int.Parse(progress.Groups[7].Value, CultureInfo.InvariantCulture) : 0;
+        metrics.Score = double.Parse(progress.Groups[8].Value, CultureInfo.InvariantCulture);
     }
 }
