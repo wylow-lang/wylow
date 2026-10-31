@@ -23,4 +23,23 @@ void main() {
     Slot slot;
     slot = Slot.Empty;
     print("done");            // output: done
+
+    // Assigned in branches, so the placeholder is constructed and then assigned over; the second
+    // iteration's placeholder sits where the first one's item was.
+    for (int i : 0..2) {
+        Slot chosen;
+        if (i == 0) {
+            print("holding");
+            chosen = Slot.Holding(new Item(i));
+        } else {
+            print("empty");
+            chosen = Slot.Empty;
+        }
+        print(chosen is Slot.Holding);
+    }
+    // output: holding
+    // output: true
+    // output: free
+    // output: empty
+    // output: false
 }

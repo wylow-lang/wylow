@@ -1,0 +1,20 @@
+// Calls that pass different fields of one type each get a constructor, named for the fields they
+// pass, so two forms with the same parameter types don't collide.
+struct Size {
+    internal {
+        int width = 1;
+        int height = 2;
+    }
+}
+
+void main() {
+    var wide = Size(width: 5);
+    var tall = Size(height: 7);
+    var both = Size(3, 4);
+    print(wide.width);      // output: 5
+    print(wide.height);     // output: 2
+    print(tall.width);      // output: 1
+    print(tall.height);     // output: 7
+    print(both.width);      // output: 3
+    print(both.height);     // output: 4
+}

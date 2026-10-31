@@ -1,0 +1,33 @@
+// A generic class may implement an interface with a method its base class declares: it gets a
+// forwarder to the base's method, which is a template like the class.
+interface Named {
+    String name();
+}
+
+class Base {
+    internal {
+        String name() {
+            return "base";
+        }
+    }
+}
+
+class Holder<T> extends Base implements Named {
+    internal {
+        T held;
+
+        Holder(T held) {
+            this.held = held;
+        }
+    }
+}
+
+String describe(Named named) {
+    return named.name();
+}
+
+void main() {
+    var holder = new Holder<int>(5);
+    print(describe(holder));    // output: base
+    print(holder.held);         // output: 5
+}

@@ -35,15 +35,37 @@
     "id": "emitter-types",
     "title": "Emitter: types",
     "path": "src/Wyl.Compiler.CodeGen/CppEmitter.Types.cs",
-    "filters": ["classes", "structs", "enums", "generics", "panics", "values"],
-    "note": "C++ declarations from the bound program. Class, struct, enum, generic, panic, and value tests exercise the shapes it prints."
+    "filters": ["classes", "structs", "enums", "generics", "panics", "values", "borrowable"],
+    "note": "C++ declarations from the bound program. Class, struct, enum, generic, panic, and value tests exercise the shapes it prints.",
+    "equivalent": [
+      { "kind": "operator", "original": "&&", "replacement": "||", "context": "if (type.IsTypeParameter || (type.IsFixedArray && type.HasDefaultCode)) return $\"wyl::default_value<{CppType(type)}>()\";", "reason": "default_value<T> makes what make_default or T{} would: it calls make_default where there is one and defaults arrays element by element." },
+      { "kind": "operator", "original": "<=", "replacement": "<", "context": "if (s.Variants.Count <= 256) return \"uint8_t\";", "reason": "Only widens the tag of an enum with exactly 256 variants; no program can read a tag's width." },
+      { "kind": "literal", "original": "256", "replacement": "0", "context": "if (s.Variants.Count <= 256) return \"uint8_t\";", "reason": "Only widens the tag; no program can read a tag's width." },
+      { "kind": "condition", "original": "s.Variants.Count <= 65536", "replacement": "!(s.Variants.Count <= 65536)", "context": "return s.Variants.Count <= 65536 ? \"uint16_t\" : \"uint32_t\";", "reason": "Widens the tag of an enum with 257 to 65536 variants; only one with more could tell, and no program can read a tag's width." },
+      { "kind": "operator", "original": "<=", "replacement": "<", "context": "return s.Variants.Count <= 65536 ? \"uint16_t\" : \"uint32_t\";", "reason": "Only widens the tag of an enum with exactly 65536 variants." },
+      { "kind": "literal", "original": "65536", "replacement": "0", "context": "return s.Variants.Count <= 65536 ? \"uint16_t\" : \"uint32_t\";", "reason": "Only widens the tag; no program can read a tag's width." },
+      { "kind": "operator", "original": ">", "replacement": ">=", "context": "var withData = s.Variants.Where(v => v.Fields.Count > 0).ToList();", "reason": "A variant without data gets an empty payload, which copies, destroys, and compares as nothing." },
+      { "kind": "operator", "original": ">", "replacement": ">=", "context": "if (withData.Count > 0) { Line(\"union\"); Line(\"{\"); indent++; foreach (var variant in withData) Line($\"{PayloadName(variant)} {UnionMember(variant)};\"); indent--; Line(\"};\"); }", "reason": "An enum without data gets an empty union, which holds nothing." },
+      { "kind": "operator", "original": ">", "replacement": ">=", "context": "if (withData.Count > 0 && s.Type.IsCounted) EmitEnumLifetime(name, withData);", "reason": "An enum without data holds no references, so it is never counted." },
+      { "kind": "operator", "original": "&&", "replacement": "||", "context": "if (withData.Count > 0 && s.Type.IsCounted) EmitEnumLifetime(name, withData);", "reason": "Writes out the copy, move, and destruction of a trivially copyable enum, which do what the defaults do." },
+      { "kind": "statement", "original": "Line(\"    *this = std::move(copy);\");", "replacement": "", "context": "Line(\" *this = std::move(copy);\");", "reason": "Every store of an enum with data is wyl::assign, which swaps, so nothing copy-assigns one." },
+      { "kind": "statement", "original": "Line(\"    if (this == &other) return;\");", "replacement": "", "context": "Line(\" if (this == &other) return;\");", "reason": "wyl::assign swaps with a by-value copy, so an enum is never moved into itself." },
+      { "kind": "statement", "original": "Line($\"    {name} old(std::move(*this));\");", "replacement": "", "context": "Line($\" {name} old(std::move(*this));\");", "reason": "wyl::assign swaps, so the target of a move assignment has always been moved from and holds nothing to release." },
+      { "kind": "statement", "original": "Line(\"    wyl_destroy();\");", "replacement": "", "context": "Line(\" wyl_destroy();\");", "reason": "wyl::assign swaps, so the target of a move assignment has always been moved from and holds nothing to destroy." },
+      { "kind": "statement", "original": "Line(\"        default: break;\");", "replacement": "", "context": "Line(\" default: break;\");", "reason": "A value with no variant falls out of the switch either way, into the panic after it." },
+      { "kind": "condition", "original": "given", "replacement": "!(given)", "context": "static string MemberwiseName(IReadOnlyList<bool> form) => form.All(given => given) ? \"make\" : \"make_\" + string.Concat(form.Select(given => given ? '1' : '0'));", "reason": "Flips every bit of every form's name the same way, so the names stay distinct and calls still match definitions." }
+    ]
   },
   {
     "id": "emitter-ir",
     "title": "Emitter: bodies",
     "path": "src/Wyl.Compiler.CodeGen/CppEmitter.Ir.cs",
-    "filters": ["basics", "lambdas", "containers", "values"],
-    "note": "Printing lowered bodies. Basics and lambda tests cover control flow; containers and value tests cover releases, operators, and formatting."
+    "filters": ["basics", "lambdas", "containers", "values", "initializer_binding"],
+    "note": "Printing lowered bodies. Basics and lambda tests cover control flow; containers and value tests cover releases, operators, and formatting.",
+    "equivalent": [
+      { "kind": "statement", "original": "usedLocalNames.Clear();", "replacement": "", "context": "usedLocalNames.Clear();", "reason": "Names used by earlier functions stay taken, so a local may get a suffix it didn't need; every name is still unique in its function." },
+      { "kind": "statement", "original": "currentType = function.Symbol.ContainingType;", "replacement": "", "context": "currentType = function.Symbol.ContainingType;", "reason": "currentType only chooses 'this->' over a static_cast of 'this' to the same class." }
+    ]
   },
   {
     "id": "interpreter-values",

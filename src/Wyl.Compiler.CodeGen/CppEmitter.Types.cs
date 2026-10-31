@@ -96,11 +96,14 @@ public sealed partial class CppEmitter
     static string VariantFactory(VariantSymbol variant) => "make_" + variant.Name;
 
     /// <summary>The tag's C++ type: the underlying type if there is one, else the smallest that numbers the variants.</summary>
-    static string TagType(TypeSymbol s) =>
-        s.UnderlyingType is { } underlying ? CppType(underlying)
-        : s.Variants.Count <= 256 ? "uint8_t"
-        : s.Variants.Count <= 65536 ? "uint16_t"
-        : "uint32_t";
+    static string TagType(TypeSymbol s)
+    {
+        if (s.UnderlyingType is { } underlying)
+            return CppType(underlying);
+        if (s.Variants.Count <= 256)
+            return "uint8_t";
+        return s.Variants.Count <= 65536 ? "uint16_t" : "uint32_t";
+    }
 
     static string TagValue(VariantSymbol variant) =>
         variant.Owner.UnderlyingType is { } underlying ? Literal(BoundLiteral.Number(variant.Declaration.Location, underlying, variant.Value))
@@ -316,12 +319,12 @@ public sealed partial class CppEmitter
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
         DeclareCollectorMembers(s);
-        if (s.Kind == TypeKind.Class && stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(s.Type, borrowable.Type)
-            && !(s.Type.BaseType is { } inherited && Conversions.IsSubtype(inherited, borrowable.Type)))
+        // The runtime borrows any object through these hooks; the interface's methods dispatch to the
+        // class that implements them, so every Borrowable gets them from the interface.
+        if (s == stdlib.Borrowable)
         {
-            var hooks = $"static_cast<{ObjectType(borrowable.Type)}*>(this)";
-            Line($"void wyl_begin_borrow() override {{ {hooks}->m_beginBorrow(); }}");
-            Line($"void wyl_end_borrow() override {{ {hooks}->m_endBorrow(); }}");
+            Line("void wyl_begin_borrow() override { m_beginBorrow(); }");
+            Line("void wyl_end_borrow() override { m_endBorrow(); }");
         }
         indent--;
         Line("};");
@@ -349,9 +352,7 @@ public sealed partial class CppEmitter
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"{type} {type}::make_default()");
-        currentType = s;
         EmitIrFunction(functions.Default(s)!);
-        currentType = null;
     }
 
     /// <summary><c>make</c> when a call passes every field, and otherwise named for those it passes.</summary>
@@ -370,12 +371,10 @@ public sealed partial class CppEmitter
         var symbol = function.Symbol;
         var s = symbol.ContainingType!;
         var form = built.Builds!;
-        currentType = s;
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
         Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
         EmitIrFunction(built);
-        currentType = null;
     }
 
     /// <summary>Connects an interface method to the base class method that implements it.</summary>

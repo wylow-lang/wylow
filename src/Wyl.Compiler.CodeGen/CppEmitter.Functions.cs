@@ -74,13 +74,11 @@ public sealed partial class CppEmitter
     void EmitFunction(BoundFunction function)
     {
         var symbol = function.Symbol;
-        currentType = symbol.ContainingType;
-        if (currentType is { IsGeneric: true } owner)
+        if (symbol.ContainingType is { IsGeneric: true } owner)
             Line(TemplatePrefix(owner.TypeParameters).TrimEnd());
         if (FunctionTemplatePrefix(symbol) is { Length: > 0 } prefix)
             Line(prefix.TrimEnd());
         Line(DefinitionSignature(symbol));
         EmitIrFunction(functions.Single(symbol)!);
-        currentType = null;
     }
 }

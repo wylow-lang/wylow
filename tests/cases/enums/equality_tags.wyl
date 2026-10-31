@@ -1,0 +1,14 @@
+// Two variants with payloads of one shape are different values: equality compares the variant
+// before the payload.
+enum Shape {
+    Circle(int size),
+    Square(int size),
+    Point,
+}
+
+void main() {
+    print(Shape.Circle(3) == Shape.Square(3));    // output: false
+    print(Shape.Circle(3) != Shape.Square(3));    // output: true
+    print(Shape.Circle(3) == Shape.Circle(3));    // output: true
+    print(Shape.Point == Shape.Circle(0));        // output: false
+}
