@@ -2,19 +2,27 @@
 
 `tests/Wyl.Generate` makes random, well-typed Wylow programs from a seed, without expected outputs:
 the IR interpreter is the program's meaning, so a generated program needs only to agree with every
-native mode. This directory holds the findings the runner will write, each named by the finding's
-key and signature.
+native mode. Findings are written here, each named by the finding's key and signature.
 
-A seed and a program index together choose one program (`--seed 7 --replay 12` will rebuild it
-once the runner lands); the same pair gives the same text in every process and on every machine.
-Stage 1 makes integers, `bool`, `char`, `float`, `double`, and `String` programs; later stages add
-structured values, classes and containers, then generics and lambdas.
+A seed and a program index together choose one program; `--seed 7 --replay 12` rebuilds it. The
+same pair gives the same text in every process and on every machine. Stage 1 makes integers,
+`bool`, `char`, `float`, `double`, and `String` programs; later stages add structured values,
+classes and containers, then generics and lambdas.
 
-A generated program that does not bind is a **generator bug**, not a compiler finding: the tool
-prints its diagnostics and exits with its own code. A finding is a bug until it becomes a test in
-`tests/cases/`, with `// output:`, `// error:`, or `// panic:`, and the finding file is deleted.
+Each run works in `tests/.out/generate/seed<S>-<pid>/p<N>/`, where `p<N>.wyl` is the source and the
+subdirectories are the modes' builds. Without `--keep` the run directory is deleted; the findings
+here survive.
+
+A finding is a bug until it becomes a test in `tests/cases/`, with `// output:`, `// error:`, or
+`// panic:`, and the finding file is deleted. Its header names the seed, program, stage and size,
+and the `--replay` command that reproduces it.
+
+A generated program that does not bind is a **generator bug**, printed as `GENERATOR BUG`, written
+here with the binder's diagnostics, and exiting with code 2; it is never a compiler finding. Any
+generator bug means the typed emitter, not the compiler, is wrong.
 
 `Wyl.Generate --self-test` checks the generator itself: the same seed generates the same text,
-every constructor of every type can make that type, the random corpus reaches every type, the
-budgets hold, and no program contains the text the oracles scan for (`unsafe`, `@Unchecked`,
-`// mode: optimized`, `Memory.collectCycles`, `cycleStats`, `panic(`).
+every operation's range contains its true result, every constructor of every type can make that
+type, the random corpus reaches every type, the budgets hold, and no program contains the text the
+oracles scan for (`unsafe`, `@Unchecked`, `// mode: optimized`, `Memory.collectCycles`,
+`cycleStats`, `panic(`).

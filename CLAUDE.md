@@ -27,8 +27,10 @@ dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix --update-snapshots
 dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
 dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
 dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --seconds 60  # generate and check in-process (tier 1)
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --tier 2 --seconds 600  # also build and run every mode
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --replay 12  # rebuild one generated program
 dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test  # the generator's own checks
-dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --max 1 --seed 1  # print one generated program
 dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --list-targets   # mutation testing: the files and their tests
 dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
