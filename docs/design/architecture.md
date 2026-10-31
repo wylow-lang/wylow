@@ -40,7 +40,7 @@ There are two kinds of pass:
 
 - **Mandatory passes** decide what the spec says a program does where lowering can't on its own,
   such as which borrows a statement makes. They run under `--no-opt` too. The IR after them is the
-  program's meaning, which the interpreter runs as the oracle. A mandatory pass uses
+  program's meaning, which the interpreter runs as a second executor to compare the C++ against. A mandatory pass uses
   only what the language defines (`IrEffects`, type facts), never a whole-program analysis,
   or making an analysis more precise would change what programs do.
 - **Optimizations** change only what no program can observe, and `--no-opt` turns them off. If

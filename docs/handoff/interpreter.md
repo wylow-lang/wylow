@@ -1,4 +1,4 @@
-# The IR interpreter, the universal oracle
+# The IR interpreter
 
 **Status:** step 0 done 2026-10-28 (commits `42f6f6c`..`92e0338`, one per shared
 definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
@@ -625,9 +625,10 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
   design exception was added to the comparison.
 - **Done.** The intrinsic registry test covers every stdlib extern and builtin; no `Unsupported`
   result remains in the suite.
-- **Targets added; triage still open.** Each interpreter source file is a mutation target with the
-  tests that reach it; running every target and triaging each survivor is the remaining chore, one
-  file at a time, like the other targets.
+- **Not an exit criterion.** Each interpreter source file is a mutation target with the tests that
+  reach it. Running and triaging them is later work, outside both this plan and the hardening
+  phase: the interpreter is a second executor, not a trusted reference, so its own bugs surface as
+  disagreements and get fixed when they do.
 - **Done.** `CLAUDE.md`, `architecture.md`, `ir.md` §9.11, and the spec state the new mode, layer,
   and every semantic decision the interpreter forced.
 

@@ -601,8 +601,9 @@ The migration now under way is [architecture.md](architecture.md)'s.
    after it runs, and off under `--no-opt`. What lowering can't decide alone, such as which borrows
    a statement makes, is a mandatory pass, which runs under `--no-opt` too. The IR after the
    mandatory passes is then the reference behavior: the interpreter (`src/Wyl.Compiler.Interpret`)
-   executes it as an oracle for the C++ build, and the runner, the fuzzer, and the matrices compare
-   the two through one rule (`RunComparison` in `Wyl.Harness`). The spec states only what makes an
+   executes it as a second, independent executor for the C++ build, and the runner, the fuzzer, and the matrices compare
+   the two through one rule (`RunComparison` in `Wyl.Harness`). A disagreement is a bug in one of
+   the two, or in the IR both read; the interpreter is not presumed right. The spec states only what makes an
    optimization legal (that it can't be observed), not how it is done.
 
 ## 10. Prior art for reference-count optimization
