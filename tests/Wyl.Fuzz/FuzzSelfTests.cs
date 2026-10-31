@@ -90,6 +90,7 @@ public static class FuzzSelfTests
         Expect("identical runs", RunComparison.Compare(Run(), Run(), ""), null);
         Expect("stdout", RunComparison.Compare(Run("a"), Run("b"), ""), "stdout");
         Expect("a budgeted collector's stdout", RunComparison.Compare(Run("a"), Run("b"), "Memory.collectCycles()"), null);
+        Expect("stdout of a program reading the collector's stats", RunComparison.Compare(Run("a"), Run("b"), "Memory.cycleStats().buffered"), null);
         Expect("exit code", RunComparison.Compare(Run(exit: 0), Run(exit: 2), ""), "exit");
         Expect("the abort code is the platform's",
             RunComparison.Compare(Run(exit: 3, error: "panic: x\n    at f:1:2"), Run(exit: 134, error: "panic: x\n    at f:1:2"), ""), null);

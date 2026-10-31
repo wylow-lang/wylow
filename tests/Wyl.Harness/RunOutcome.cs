@@ -72,7 +72,8 @@ public static partial class RunComparison
     /// <summary>
     /// Compares two runs: stdout, the panic's message and location, the exit code, and, where the
     /// caller asks, the performance warnings. A program with a budgeted collector may legitimately
-    /// reach other cycles when an optimization is off, so its stdout is not compared. The abort exit
+    /// reach other cycles when an optimization is off, and one reading `cycleStats` counts what an optimization
+    /// keeps off the heap (spec 03-memory-model.md, diagnostics), so neither program's stdout is compared. The abort exit
     /// code is the platform's, so two panics are compared by their text, not their code.
     /// <para>
     /// With <paramref name="ignoreZeroSign"/>, which only a comparison involving a native build asks
@@ -87,7 +88,8 @@ public static partial class RunComparison
     {
         if (!reference.Conclusive || !other.Conclusive)
             return null;
-        bool compareOutput = !text.Contains("Memory.collectCycles", StringComparison.Ordinal);
+        bool compareOutput = !text.Contains("Memory.collectCycles", StringComparison.Ordinal)
+            && !text.Contains("cycleStats", StringComparison.Ordinal);
         if (compareOutput && reference.Output != other.Output
             && !(ignoreZeroSign && WithoutZeroSign(reference.Output) == WithoutZeroSign(other.Output)))
             return new("stdout", $"stdout differs\n  reference: {Truncate(reference.Output)}\n  other:     {Truncate(other.Output)}");
