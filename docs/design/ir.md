@@ -532,7 +532,7 @@ Datalog earns its keep.
 
 ## 7. Migration from the bound-tree emitter
 
-Done. Its steps are in git history (up to commit ae88e59, which trimmed them from this document).
+Done. Its steps are in git history (up to commit 62f975b, which trimmed them from this document).
 The migration now under way is [architecture.md](architecture.md)'s.
 
 ## 9. Decisions

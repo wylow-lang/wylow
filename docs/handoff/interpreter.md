@@ -1,6 +1,6 @@
 # The IR interpreter, the universal oracle
 
-**Status:** step 0 done 2026-10-28 (commits `60bb49a`..`bf63b87`, one per shared
+**Status:** step 0 done 2026-10-28 (commits `42f6f6c`..`92e0338`, one per shared
 definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
 2026-10-29; step 5 done 2026-10-29; step 6 done 2026-10-29. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
