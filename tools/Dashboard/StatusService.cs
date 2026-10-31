@@ -132,6 +132,8 @@ public sealed class StatusService
         {
             Path.Combine(root, "tests", "Wyl.Tests", "bin", "Debug", "net10.0", "Wyl.Tests.dll"),
             Path.Combine(root, "tests", "Wyl.Fuzz", "bin", "Debug", "net10.0", "Wyl.Fuzz.dll"),
+            Path.Combine(root, "tests", "Wyl.Harness", "bin", "Debug", "net10.0", "Wyl.Harness.dll"),
+            Path.Combine(root, "tests", "Wyl.Generate", "bin", "Debug", "net10.0", "Wyl.Generate.dll"),
             Path.Combine(root, "tests", "Wyl.Mutation", "bin", "Debug", "net10.0", "Wyl.Mutation.dll"),
         };
         var built = new List<DateTime>();
@@ -154,7 +156,7 @@ public sealed class StatusService
     static DateTime NewestSource(string root)
     {
         var newest = DateTime.MinValue;
-        foreach (var directory in new[] { "src", "runtime", "tests/Wyl.Tests", "tests/Wyl.Fuzz", "tests/Wyl.Mutation", "tests/mutation" })
+        foreach (var directory in new[] { "src", "runtime", "tests/Wyl.Tests", "tests/Wyl.Fuzz", "tests/Wyl.Harness", "tests/Wyl.Generate", "tests/Wyl.Mutation", "tests/mutation", "tests/generate" })
         {
             var path = Path.Combine(root, directory);
             if (!Directory.Exists(path))

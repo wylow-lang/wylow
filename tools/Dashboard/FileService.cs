@@ -4,7 +4,7 @@ namespace Wyl.Dashboard;
 public sealed class FileService(ServerOptions options)
 {
     const long MaxRead = 2_000_000;
-    static readonly string[] AllowedDirectories = ["tests/cases", "examples", "tests/.out", "tests/fuzz/findings", "src"];
+    static readonly string[] AllowedDirectories = ["tests/cases", "examples", "tests/.out", "tests/fuzz/findings", "tests/generate/findings", "src"];
     static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".wyl", ".cpp", ".h", ".cs", ".ir", ".txt", ".md", ".snapshot", ".json", ".log",

@@ -211,7 +211,7 @@ void Write(GeneratedProgram program, string key, string signature, string detail
     [
         $"// {kind}: {key}",
         $"// seed {seed}, program {program.Index}, stage {options.Stage}, size {options.Size}",
-        $"// replay: Wyl.Generate --seed {seed} --replay {program.Index} --tier {tier}",
+        $"// replay: Wyl.Generate --seed {seed} --replay {program.Index} --tier {tier} --size {options.Size}",
     ];
     foreach (var line in detail.Split('\n').Take(20))
         header.Add("// " + (line.Length > 300 ? line[..300] : line).TrimEnd());

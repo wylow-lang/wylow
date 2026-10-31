@@ -15,6 +15,9 @@ public sealed class JobMetrics
     public double? Seconds { get; set; }
     public int? Mutants { get; set; }
     public int? Compiled { get; set; }
+    public int? Programs { get; set; }
+    public int? Bound { get; set; }
+    public int? GeneratorBugs { get; set; }
     public int? Findings { get; set; }
     public int? Killed { get; set; }
     public int? Survived { get; set; }

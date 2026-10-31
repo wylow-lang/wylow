@@ -165,6 +165,8 @@ function jobSummary(job) {
   const metrics = job.metrics || {};
   if (metrics.failed !== null && metrics.failed !== undefined)
     return `${metrics.passed ?? 0} passed, ${metrics.failed} failed`;
+  if (metrics.programs !== null && metrics.programs !== undefined)
+    return `${metrics.programs} programs, ${metrics.bound ?? 0} bound, ${metrics.findings ?? 0} findings`;
   if (metrics.findings !== null && metrics.findings !== undefined)
     return `${metrics.mutants ?? 0} mutants, ${metrics.findings} findings`;
   if (metrics.survived !== null && metrics.survived !== undefined)
@@ -324,7 +326,7 @@ function buildForm(kind, values, onChange, status) {
         parameter.help ? el('span', { class: 'help' }, parameter.help) : null));
     } else {
       let control = input;
-      if (kind.kind === 'fuzz' && parameter.name === 'seed') {
+      if ((kind.kind === 'fuzz' || kind.kind === 'generate') && parameter.name === 'seed') {
         const random = el('button', {
           type: 'button',
           class: 'small',
@@ -451,6 +453,7 @@ async function route() {
       case 'code': await renderCode(view); break;
       case 'tests': await renderTests(view, query); break;
       case 'fuzz': await renderFuzz(view, query); break;
+      case 'generate': await renderGenerate(view, query); break;
       case 'mutation': await renderMutation(view, query); break;
       case 'findings': await renderFindings(view); break;
       case 'reference': await renderReference(view); break;
@@ -705,6 +708,84 @@ async function renderFuzz(view, query) {
     : el('p', { class: 'empty' }, 'No fuzz runs yet.')));
 }
 
+async function renderGenerate(view, query) {
+  setTitle('Generate', '');
+  const [status, jobs, kinds] = await Promise.all([api('/api/status'), api('/api/jobs'), ensureKinds()]);
+  view.replaceChildren();
+  state.status = status;
+  state.jobs = jobs;
+  updateSidebar(status);
+  setTitle('Generate', status.git ? `${status.git.branch}@${status.git.commit}` : '');
+
+  const kind = kinds.find(candidate => candidate.kind === 'generate');
+  const replayKind = kinds.find(candidate => candidate.kind === 'generate-replay');
+  if (!kind || !replayKind) {
+    view.append(el('p', { class: 'error-text' }, 'The generator jobs are not defined.'));
+    return;
+  }
+
+  const values = storedForm('generate', defaultValues(kind));
+  const replayValues = storedForm('generate-replay', defaultValues(replayKind));
+  applyQuery(kind, values, query);
+  if (query.has('seed')) replayValues.seed = query.get('seed');
+  if (query.has('tier')) replayValues.tier = query.get('tier');
+  if (query.has('size')) replayValues.size = query.get('size');
+  if (query.has('index')) replayValues.index = query.get('index');
+  storeForm('generate', values);
+
+  const preview = el('div', { class: 'command-preview' });
+  const replayPreview = el('div', { class: 'command-preview' });
+
+  const form = buildForm(kind, values, (name, value) => {
+    values[name] = value;
+    storeForm('generate', values);
+    schedulePreview('generate', values, preview);
+    if (name === 'seed') {
+      replayValues.seed = value;
+      storeForm('generate-replay', replayValues);
+      schedulePreview('generate-replay', replayValues, replayPreview);
+    }
+  }, status);
+
+  const replayForm = buildForm(replayKind, replayValues, (name, value) => {
+    replayValues[name] = value;
+    storeForm('generate-replay', replayValues);
+    schedulePreview('generate-replay', replayValues, replayPreview);
+  }, status);
+
+  const generateCard = card(kind.title,
+    el('p', { class: 'muted small' }, kind.description),
+    form,
+    el('div', { class: 'form-actions' },
+      el('button', { class: 'primary', onclick: () => startJob('generate', values) }, 'Start generating'),
+      el('button', { class: 'small', onclick: () => startJob('generate-self-test', {}) }, 'Self-test'),
+      el('span', { class: 'muted small' }, kind.hint || '')),
+    el('div', { class: 'label' }, 'Command'),
+    preview);
+
+  const replayCard = card('Replay a program',
+    el('p', { class: 'muted small' }, replayKind.description),
+    replayForm,
+    el('div', { class: 'form-actions' },
+      el('button', { onclick: () => startJob('generate-replay', replayValues) }, 'Replay')),
+    el('div', { class: 'label' }, 'Command'),
+    replayPreview);
+
+  const findingsCard = card('Findings',
+    el('p', { class: 'muted small' },
+      'A compiler disagreement is written to tests/generate/findings/ with its seed, program, tier, and size. A program that does not bind is a generator bug and exits 2.'),
+    el('a', { class: 'btn small', href: '#/findings' }, 'Open findings'));
+
+  view.append(el('div', { class: 'split' }, generateCard, el('div', { class: 'stack' }, replayCard, findingsCard)));
+  schedulePreview('generate', values, preview);
+  schedulePreview('generate-replay', replayValues, replayPreview);
+
+  const history = jobs.filter(job => job.kind === 'generate' || job.kind === 'generate-replay' || job.kind === 'generate-self-test').slice(0, 10);
+  view.append(section('Recent generator runs', history.length
+    ? jobTable(history)
+    : el('p', { class: 'empty' }, 'No generator runs yet.')));
+}
+
 async function renderMutation(view, query) {
   setTitle('Mutation testing', '');
   const [status, jobs, kinds, mutation] = await Promise.all([
@@ -837,14 +918,15 @@ async function renderFindings(view) {
   });
 
   if (!findings.length) {
-    list.append(el('p', { class: 'empty' }, 'No findings. The fuzzer writes failures to tests/fuzz/findings/.'));
+    list.append(el('p', { class: 'empty' }, 'No findings. The fuzzer and the generator write failures to tests/fuzz/findings/ and tests/generate/findings/.'));
   }
 
   for (const finding of findings) {
     const meta = [
       finding.seed != null ? `seed ${finding.seed}` : null,
-      finding.mutant != null ? `mutant ${finding.mutant}` : null,
+      finding.mutant != null ? `${finding.source === 'generate' ? 'program' : 'mutant'} ${finding.mutant}` : null,
       finding.tier != null ? `tier ${finding.tier}` : null,
+      finding.programSize != null ? `size ${finding.programSize}` : null,
       finding.mutation,
     ].filter(Boolean).join(' · ');
 
@@ -855,6 +937,7 @@ async function renderFindings(view) {
         finding.summary ? el('div', { class: 'muted small' }, finding.summary) : null),
       el('div', { class: 'finding-side' },
         el('span', { class: `pill ${finding.kind === 'log' ? 'dim' : 'warn'}` }, finding.kind),
+        el('span', { class: 'muted small' }, finding.source),
         el('span', { class: 'muted small' }, ago(finding.modified))),
       el('div', { class: 'finding-actions' },
         el('button', { class: 'small', onclick: () => showFinding(finding) }, 'View'),
@@ -863,13 +946,14 @@ async function renderFindings(view) {
           ? el('button', { class: 'small primary', onclick: () => { location.hash = replayHash(finding); } }, 'Replay')
           : null));
     row.dataset.search = [
-      finding.finding, finding.fileName, finding.path, finding.mutation, finding.seed, finding.mutant, finding.summary,
+      finding.finding, finding.fileName, finding.path, finding.mutation, finding.seed, finding.mutant,
+      finding.programSize, finding.source, finding.summary,
     ].filter(value => value !== null && value !== undefined).join(' ').toLowerCase();
     list.append(row);
   }
 
   view.append(el('div', { class: 'row between' },
-    el('span', { class: 'muted small' }, `${plural(findings.length, 'file', 'files')} in tests/fuzz/findings`),
+    el('span', { class: 'muted small' }, `${plural(findings.length, 'file', 'files')} in tests/fuzz/findings and tests/generate/findings`),
     el('div', { class: 'row' }, search, el('button', { onclick: () => route() }, 'Refresh'))));
   view.append(el('div', { class: 'section' }, list));
 }
@@ -1009,6 +1093,9 @@ async function renderJob(view, id) {
     const tiles = [];
     if (metrics.passed !== null && metrics.passed !== undefined) tiles.push(metric('Passed', metrics.passed));
     if (metrics.failed !== null && metrics.failed !== undefined) tiles.push(metric('Failed', metrics.failed));
+    if (metrics.programs !== null && metrics.programs !== undefined) tiles.push(metric('Programs', metrics.programs));
+    if (metrics.bound !== null && metrics.bound !== undefined) tiles.push(metric('Bound', metrics.bound));
+    if (metrics.generatorBugs !== null && metrics.generatorBugs !== undefined && metrics.generatorBugs > 0) tiles.push(metric('Generator bugs', metrics.generatorBugs));
     if (metrics.mutants !== null && metrics.mutants !== undefined) tiles.push(metric('Mutants', metrics.mutants));
     if (metrics.compiled !== null && metrics.compiled !== undefined) tiles.push(metric('Compiled', metrics.compiled));
     if (metrics.findings !== null && metrics.findings !== undefined) tiles.push(metric('Findings', metrics.findings));
@@ -1068,6 +1155,7 @@ async function renderJob(view, id) {
 }
 
 function jobFormHref(kind) {
+  if (kind.startsWith('generate')) return '#/generate';
   if (kind.startsWith('fuzz')) return '#/fuzz';
   if (kind === 'suite') return '#/tests';
   if (kind === 'mutation') return '#/mutation';
@@ -1110,6 +1198,15 @@ function openStream(id) {
 }
 
 function replayHash(finding) {
+  if (finding.source === 'generate') {
+    const query = new URLSearchParams({
+      seed: String(finding.seed),
+      index: String(finding.mutant),
+      tier: String(finding.tier ?? 1),
+      size: String(finding.programSize ?? 40),
+    });
+    return `#/generate?${query.toString()}`;
+  }
   const query = new URLSearchParams({
     seed: String(finding.seed),
     tier: String(finding.tier ?? 2),

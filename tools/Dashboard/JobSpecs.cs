@@ -58,6 +58,7 @@ public static class JobSpecs
 {
     public const string TestRunner = "tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll";
     public const string Fuzzer = "tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll";
+    public const string Generator = "tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll";
     public const string MutationTool = "tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll";
 
     static readonly ParamOption[] Compilers =
@@ -223,6 +224,89 @@ public static class JobSpecs
         },
         new()
         {
+            Kind = "generate",
+            Title = "Generated programs",
+            Group = "generate",
+            Description = "Generates well-typed programs from a seed and checks each against the interpreter and every mode.",
+            Parameters =
+            [
+                new("seed", "Seed", ParamType.Number, "1", Min: 0, Max: int.MaxValue),
+                new("tier", "Tier", ParamType.Select, "1", Tiers),
+                new("seconds", "Duration", ParamType.Duration, "120", Min: 1, Max: 86400, Help: "Choose seconds or minutes."),
+                new("size", "Statements", ParamType.Number, "40", Min: 1, Max: 400, Help: "Statements in main's body."),
+                new("max", "Max programs", ParamType.Number, "0", Min: 0, Max: int.MaxValue, Help: "0 means no limit."),
+                new("jobs", "Jobs", ParamType.Number, "0", Min: 0, Max: 64, Help: "0 means half the CPU count."),
+                new("noStrict", "No strict warnings", ParamType.Bool, "false"),
+                new("keep", "Keep run directory", ParamType.Bool, "false"),
+            ],
+            Build = values =>
+            {
+                var arguments = new List<string>
+                {
+                    Generator,
+                    "--seed", values.Int("seed").ToString(CultureInfo.InvariantCulture),
+                    "--tier", values.Text("tier"),
+                    "--seconds", values.Int("seconds").ToString(CultureInfo.InvariantCulture),
+                    "--size", values.Int("size").ToString(CultureInfo.InvariantCulture),
+                };
+                var max = values.Int("max");
+                if (max > 0)
+                {
+                    arguments.Add("--max");
+                    arguments.Add(max.ToString(CultureInfo.InvariantCulture));
+                }
+                var jobs = values.Int("jobs");
+                if (jobs > 0)
+                {
+                    arguments.Add("--jobs");
+                    arguments.Add(jobs.ToString(CultureInfo.InvariantCulture));
+                }
+                if (values.Bool("noStrict"))
+                    arguments.Add("--no-strict");
+                if (values.Bool("keep"))
+                    arguments.Add("--keep");
+                return [new("dotnet", arguments)];
+            },
+            Observe = Observers.Generate,
+            Hint = "Tier 1 is in-process and quick; tier 2 builds and runs every program in every mode, so keep it in the background. A program that does not bind is a generator bug.",
+        },
+        new()
+        {
+            Kind = "generate-replay",
+            Title = "Replay a generated program",
+            Group = "generate",
+            Description = "Rebuilds and checks one program of a seed again.",
+            Parameters =
+            [
+                new("seed", "Seed", ParamType.Number, "1", Min: 0, Max: int.MaxValue),
+                new("index", "Program index", ParamType.Number, "0", Min: 0, Max: int.MaxValue),
+                new("tier", "Tier", ParamType.Select, "1", Tiers),
+                new("size", "Statements", ParamType.Number, "40", Min: 1, Max: 400, Help: "Must match the run that produced the finding."),
+            ],
+            Build = values =>
+            [
+                new("dotnet", [
+                    Generator,
+                    "--seed", values.Int("seed").ToString(CultureInfo.InvariantCulture),
+                    "--tier", values.Text("tier"),
+                    "--replay", values.Int("index").ToString(CultureInfo.InvariantCulture),
+                    "--size", values.Int("size").ToString(CultureInfo.InvariantCulture),
+                ]),
+            ],
+            Observe = Observers.Generate,
+            Hint = "Use the seed, program index, tier, and size recorded by the finding.",
+        },
+        new()
+        {
+            Kind = "generate-self-test",
+            Title = "Generator self-test",
+            Group = "generate",
+            Description = "Checks determinism, integer facts, constructor and type coverage, and budgets.",
+            Parameters = [],
+            Build = _ => [new("dotnet", [Generator, "--self-test"])],
+        },
+        new()
+        {
             Kind = "mutation",
             Title = "Mutation testing",
             Group = "mutation",
@@ -357,6 +441,8 @@ static class Observers
     static readonly Regex SuiteFailure = new(@"^FAIL (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex FuzzSummary = new(@"^(\d+) mutants, (\d+) compiled, (\d+) findings \((.*)\)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex FuzzFinding = new(@"^FINDING (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    static readonly Regex GenerateSummary = new(@"^(\d+) programs, (\d+) bound, (\d+) findings \((.*)\)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    static readonly Regex GenerateBug = new(@"^GENERATOR BUG (.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     static readonly Regex MutationSummary = new(
         @"^(\d+) mutants: (\d+) killed, (\d+) survived, (\d+) equivalent, (\d+) invalid(?:, (\d+) timeout)? - ([\d.]+)% mutation score(?: \([\d.,]+s\))?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -396,6 +482,34 @@ static class Observers
         if (finding.Success)
         {
             metrics.FindingKeys.Add(finding.Groups[1].Value.Trim());
+            if (metrics.FindingKeys.Count > 50)
+                metrics.FindingKeys.RemoveAt(0);
+        }
+    }
+
+    public static void Generate(string line, JobMetrics metrics)
+    {
+        var summary = GenerateSummary.Match(line);
+        if (summary.Success)
+        {
+            metrics.Programs = int.Parse(summary.Groups[1].Value, CultureInfo.InvariantCulture);
+            metrics.Bound = int.Parse(summary.Groups[2].Value, CultureInfo.InvariantCulture);
+            metrics.Findings = int.Parse(summary.Groups[3].Value, CultureInfo.InvariantCulture);
+            metrics.Rate = summary.Groups[4].Value;
+        }
+        var finding = FuzzFinding.Match(line);
+        if (finding.Success)
+            AddKey(finding.Groups[1].Value);
+        var bug = GenerateBug.Match(line);
+        if (bug.Success)
+        {
+            metrics.GeneratorBugs = (metrics.GeneratorBugs ?? 0) + 1;
+            AddKey("generator bug: " + bug.Groups[1].Value);
+        }
+
+        void AddKey(string key)
+        {
+            metrics.FindingKeys.Add(key.Trim());
             if (metrics.FindingKeys.Count > 50)
                 metrics.FindingKeys.RemoveAt(0);
         }

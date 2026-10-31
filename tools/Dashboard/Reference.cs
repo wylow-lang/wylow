@@ -29,6 +29,13 @@ public static class Reference
             new("List mutations", "Prints the mutation catalog.", "dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --list"),
             new("Fuzz options", "Seed (deterministic), time budget, mutant cap, workers, corpus filter, error tests, warning strictness, and keeping the run directory.", "dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --seed 1 --seconds 120 --tier 1 --max 0 --jobs 8 --filter values --errors --no-strict --keep", Href("#/fuzz")),
         ]),
+        new("Generated programs", [
+            new("Tier 1, two minutes", "Generates well-typed programs and checks them in-process: no C++ build, no expected output.", "dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --seconds 120", Href("#/generate")),
+            new("Tier 2, ten minutes", "Builds and runs every program in every mode, the interpreter first. Belongs in the background.", "dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --tier 2 --seconds 600", Href("#/generate", ("tier", "2"), ("seconds", "600"))),
+            new("Replay a program", "Rebuilds one program of a seed, using the index and size in the finding file.", "dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --seed 7 --replay 12 --tier 1 --size 40", Href("#/generate")),
+            new("Self-test the generator", "Checks determinism, integer facts, constructor and type coverage, and budgets.", "dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test"),
+            new("Generator options", "Seed (deterministic), tier, time budget, main's statement count, program cap, workers, warning strictness, and keeping the run directory.", "dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --seed 1 --tier 1 --seconds 120 --size 40 --max 0 --jobs 8 --no-strict --keep", Href("#/generate")),
+        ]),
         new("Mutation testing", [
             new("One target", "Mutates one compiler file, rebuilds it into a private copy, and reruns its covering tests. Survivors are written to tests/mutation/results.", "dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects", Href("#/mutation")),
             new("Sampled run", "Runs the first N mutants of a file.", "dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target conversions --max 20", Href("#/mutation")),
