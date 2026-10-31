@@ -519,7 +519,7 @@ modes now, and every harness asks it what it asks the native modes:
 - **Matrices.** Under `--interpret`, `MatrixTests` interprets every cell and compares it with the
   same `tests/matrix/*.snapshot` the native modes record. A budget, an unsupported feature, or
   undefined behavior fails the cell: every cell is a reviewed program with a defined result.
-- **One comparison rule.** `RunOutcome`/`RunComparison` (`tests/Wyl.Fuzz/RunOutcome.cs`) hold the
+- **One comparison rule.** `RunOutcome`/`RunComparison` (`tests/Wyl.Harness/RunOutcome.cs`) hold the
   rule above: stdout, the panic's message and location, the exit code, and the warnings where the
   caller asks, with the documented exceptions (a budgeted collector's stdout; two panics compared
   by their text, not the platform's abort code; `// mode: optimized` and `unsafe` programs not

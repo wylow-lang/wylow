@@ -1,9 +1,9 @@
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
-namespace Wyl.Fuzz;
+namespace Wyl.Harness;
 
-enum SiteKind
+public enum SiteKind
 {
     Type,
     TypeDecl,
@@ -31,10 +31,10 @@ enum SiteKind
 /// <see cref="Unsafe"/> marks a site in an <c>unsafe</c> block or function, whose program may
 /// legitimately do what the language calls undefined.
 /// </summary>
-sealed record Site(SiteKind Kind, TextSpan Span, Node Node, bool InPattern = false, bool Place = false, bool Unsafe = false);
+public sealed record Site(SiteKind Kind, TextSpan Span, Node Node, bool InPattern = false, bool Place = false, bool Unsafe = false);
 
 /// <summary>Every place a mutation may start from, and every span a reducer may delete.</summary>
-sealed class AstIndex
+public sealed class AstIndex
 {
     readonly List<Site> sites;
     readonly List<Site>?[] byKind = new List<Site>?[Enum.GetValues<SiteKind>().Length];

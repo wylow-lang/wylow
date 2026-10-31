@@ -1,6 +1,6 @@
 using Wyl.Compiler.Interpret;
 
-namespace Wyl.Fuzz;
+namespace Wyl.Harness;
 
 /// <summary>
 /// What a run produced, reduced to what every mode must agree on: a native build's run or an

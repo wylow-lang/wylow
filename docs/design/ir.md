@@ -597,7 +597,7 @@ The migration now under way is [architecture.md](architecture.md)'s.
    a statement makes, is a mandatory pass, which runs under `--no-opt` too. The IR after the
    mandatory passes is then the reference behavior: the interpreter (`src/Wyl.Compiler.Interpret`)
    executes it as an oracle for the C++ build, and the runner, the fuzzer, and the matrices compare
-   the two through one rule (`RunComparison` in `Wyl.Fuzz`). The spec states only what makes an
+   the two through one rule (`RunComparison` in `Wyl.Harness`). The spec states only what makes an
    optimization legal (that it can't be observed), not how it is done.
 
 ## 10. Prior art for reference-count optimization

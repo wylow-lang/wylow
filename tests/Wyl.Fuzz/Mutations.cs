@@ -1,6 +1,7 @@
 using System.Text;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 namespace Wyl.Fuzz;
 

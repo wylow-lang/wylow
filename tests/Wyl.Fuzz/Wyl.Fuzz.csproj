@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Wyl.Compiler\Wyl.Compiler.csproj" />
+    <ProjectReference Include="..\Wyl.Harness\Wyl.Harness.csproj" />
   </ItemGroup>
 
 </Project>

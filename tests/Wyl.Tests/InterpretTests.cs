@@ -2,7 +2,7 @@ using Wyl.Compiler;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Interpret;
 using Wyl.Compiler.Text;
-using Wyl.Fuzz;
+using Wyl.Harness;
 
 // The interpret mode runs the program's meaning (lowering and the mandatory passes, no
 // optimization) and checks a test's expectations as a native mode does, except that it skips

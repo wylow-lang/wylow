@@ -6,9 +6,9 @@ using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Interpret;
 using Wyl.Compiler.Text;
 
-namespace Wyl.Fuzz;
+namespace Wyl.Harness;
 
-sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options)
+public sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options)
 {
     /// <summary>The run is the IR interpreter, not a native build: no C++ and no toolchain.</summary>
     public bool Interpret => Toolchain is null;
@@ -19,10 +19,10 @@ sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options)
 /// <param name="Signature">What a reduction must preserve, which is narrower than the key where it can be.</param>
 /// <param name="Detail">What a person reads.</param>
 /// <param name="Scope">The check to re-run while reducing, or null when the finding can't reproduce reliably.</param>
-sealed record Finding(string Key, string Signature, string Detail, CheckScope? Scope);
+public sealed record Finding(string Key, string Signature, string Detail, CheckScope? Scope);
 
 /// <summary>Which oracles to run, so a reduction pays for only the one that found the bug.</summary>
-sealed record CheckScope(
+public sealed record CheckScope(
     bool DefaultCompile = false,
     bool NoOptCompile = false,
     bool Determinism = false,
@@ -34,14 +34,14 @@ sealed record CheckScope(
     public IReadOnlyList<int> Modes => ModeIndexes ?? [];
 }
 
-sealed record CompileOutcome(CompilationResult? Result, IReadOnlyList<Diagnostic>? Errors, Exception? Exception, LowerResult? Lowered);
+public sealed record CompileOutcome(CompilationResult? Result, IReadOnlyList<Diagnostic>? Errors, Exception? Exception, LowerResult? Lowered);
 
 /// <summary>
 /// The oracles from the testing plan: tier 1 compiles in-process with and without optimization and
 /// interprets both IR forms, and tier 2 builds and runs every mode, the interpreter among them, and
 /// compares them with one rule. A finding says which scope reproduces it.
 /// </summary>
-sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double runTimeoutSeconds)
+public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double runTimeoutSeconds, string sourceName = "<fuzz>")
 {
     static readonly CompileOptions DefaultOptions = new();
     static readonly CompileOptions NoOptOptions = new(Nest: true, Optimize: false);
@@ -75,7 +75,7 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
     /// <param name="unsafeCode">Whether a mutation edited <c>unsafe</c> code, whose program may do anything at run time.</param>
     public Finding? Check(string text, CheckScope scope, out bool compiled, bool unsafeCode = false)
     {
-        var source = new SourceText("<fuzz>", text);
+        var source = new SourceText(sourceName, text);
         var finding = CompileTier(source, scope, unsafeCode, out compiled);
         if (finding is not null || scope.Modes.Count == 0)
             return finding;
@@ -491,9 +491,9 @@ sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, double r
 }
 
 /// <summary>The generated program's run, with a cap on output so a mutant in an infinite loop can't fill memory.</summary>
-sealed record RunResult(int ExitCode, string StandardOutput, string StandardError, bool TimedOut, bool TooMuchOutput);
+public sealed record RunResult(int ExitCode, string StandardOutput, string StandardError, bool TimedOut, bool TooMuchOutput);
 
-static class CappedRunner
+public static class CappedRunner
 {
     public static RunResult Run(string exePath, TimeSpan timeout, int cap)
     {

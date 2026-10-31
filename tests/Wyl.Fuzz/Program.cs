@@ -1,11 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 using Wyl.Compiler;
 using Wyl.Compiler.Build;
 using Wyl.Fuzz;
+using Wyl.Harness;
 
 // Makes near-valid programs by mutating tests/cases/**/*.wyl and checks them against the oracles:
 //   tier 1  compile in-process, with and without --no-opt: no exception, the same errors, determinism,
@@ -65,7 +63,7 @@ if (list)
     return 0;
 }
 
-var root = FindRepositoryRoot();
+var root = Repository.Root();
 var casesDirectory = Path.Combine(root, "tests", "cases");
 var runDirectory = Path.Combine(root, "tests", ".out", "fuzz", $"seed{seed}-{Environment.ProcessId}");
 var findingsDirectory = Path.Combine(root, "tests", "fuzz", "findings");
@@ -76,11 +74,14 @@ if (corpus.Count == 0)
     return 1;
 }
 
-List<Mode> modes = [new("msvc", Toolchain.Msvc, new CompileOptions())];
+IReadOnlyList<Mode> modes = [new("msvc", Toolchain.Msvc, new CompileOptions())];
 if (tier == 2)
 {
-    if (AvailableModes() is not { } available)
+    if (!Modes.TryAvailable(out var available))
+    {
+        Console.Error.WriteLine("tier 2 needs MSVC or g++; none was found");
         return 1;
+    }
     modes = available;
 }
 
@@ -220,49 +221,17 @@ int Replay(int index)
     return 1;
 }
 
-List<Mode>? AvailableModes()
-{
-    var preferred = NativeCompiler.Find(Toolchain.Msvc, out _) is not null ? Toolchain.Msvc
-        : NativeCompiler.Find(Toolchain.Gcc, out _) is not null ? Toolchain.Gcc
-        : (Toolchain?)null;
-    if (preferred is null)
-    {
-        Console.Error.WriteLine("tier 2 needs MSVC or g++; none was found");
-        return null;
-    }
-    var name = preferred == Toolchain.Msvc ? "msvc" : "gcc";
-    // The interpreter is the reference: it runs the meaning, and every native mode is compared
-    // against it, the unoptimized build first.
-    var result = new List<Mode>
-    {
-        new("interpret", null, new CompileOptions(Nest: true, Optimize: false)),
-        new(name + "-no-opt", preferred.Value, new CompileOptions(Nest: true, Optimize: false)),
-        new(name, preferred.Value, new CompileOptions()),
-    };
-    var other = preferred == Toolchain.Msvc ? Toolchain.Gcc : Toolchain.Msvc;
-    if (NativeCompiler.Find(other, out _) is not null)
-        result.Add(new(other == Toolchain.Msvc ? "msvc" : "gcc", other, new CompileOptions()));
-    if (NativeCompiler.Find(Toolchain.ClangSanitized, out _) is not null)
-        result.Add(new("asan", Toolchain.ClangSanitized, new CompileOptions()));
-    result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
-    return result;
-}
-
 static void WriteFinding(string directory, Finding finding, Mutant mutant, string reduced, int seed)
 {
-    var slug = Regex.Replace(finding.Key.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
-    if (slug.Length > 60)
-        slug = slug[..60].Trim('-');
-    var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(finding.Key + "\n" + finding.Signature)))[..8].ToLowerInvariant();
-    var path = Path.Combine(directory, $"{slug}-{hash}.wyl");
-    var header = new StringBuilder();
-    header.AppendLine("// fuzz finding: " + finding.Key);
-    header.AppendLine($"// seed {seed}, mutant {mutant.Index}, mutation: {mutant.Description}");
+    List<string> header =
+    [
+        "// fuzz finding: " + finding.Key,
+        $"// seed {seed}, mutant {mutant.Index}, mutation: {mutant.Description}",
+    ];
     foreach (var line in finding.Detail.Split('\n').Take(20))
-        header.AppendLine("// " + (line.Length > 300 ? line[..300] : line).TrimEnd());
-    header.AppendLine("// Turn this into a test in tests/cases/ with // output:, // error:, or // panic: comments, then delete it.");
-    header.AppendLine();
-    File.WriteAllText(path, header + reduced.TrimEnd('\n') + "\n");
+        header.Add("// " + (line.Length > 300 ? line[..300] : line).TrimEnd());
+    header.Add("// Turn this into a test in tests/cases/ with // output:, // error:, or // panic: comments, then delete it.");
+    var path = Findings.Write(directory, finding.Key, finding.Signature, reduced, header);
     Console.WriteLine($"        written to {path}");
 }
 
@@ -279,14 +248,4 @@ static void TryDelete(string directory)
     catch (UnauthorizedAccessException)
     {
     }
-}
-
-static string FindRepositoryRoot()
-{
-    for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-    {
-        if (Directory.Exists(Path.Combine(directory.FullName, "tests", "cases")))
-            return directory.FullName;
-    }
-    throw new DirectoryNotFoundException("could not find tests/cases above " + AppContext.BaseDirectory);
 }

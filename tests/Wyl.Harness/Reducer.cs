@@ -2,10 +2,10 @@ using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
-namespace Wyl.Fuzz;
+namespace Wyl.Harness;
 
 /// <summary>Deletes statements and declarations while the same failure signature remains.</summary>
-static class Reducer
+public static class Reducer
 {
     public static string Reduce(string text, Func<string, string?> check, string signature, int maxChecks, TimeSpan budget)
     {
