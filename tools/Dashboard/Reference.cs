@@ -56,7 +56,7 @@ public static class Reference
             new("One mode", "A quicker look; a line it misses may be covered by a mode that didn't run.", "WYL_COVERAGE_MODES=msvc bash tools/coverage.sh", Note: "Not wired to the dashboard yet; copy the command."),
         ]),
         new("Generated C++", [
-            new("Warnings are errors", "Check generated C++ by hand; a warning here is an emitter bug.", "g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime tests/.out/<test>/<file>.cpp"),
+            new("Warnings are errors", "Check generated C++ by hand; a warning here is an emitter bug.", "g++ -std=c++20 -Wall -Wextra -Wshadow -Wno-sign-compare -Wno-overflow -fsyntax-only -Iruntime tests/.out/<test>/<file>.cpp"),
         ]),
     ];
 

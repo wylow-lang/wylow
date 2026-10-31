@@ -407,7 +407,7 @@ and local runs are started by the user, in the background.
   error sets (they must not depend on optimization), and compiles it a second time to check that
   compilation is deterministic. Tier 2 adds the six modes (the interpreter, MSVC, g++, ASan/UBSan,
   `--no-opt`, `--no-nest`), the interpreter as the reference: the C++ must compile under `-Wall
-  -Wextra -Wconversion -Wsign-conversion -Wshadow`, every sanitizer must stay quiet, and the modes
+  -Wextra -Wshadow`, integer conversion warnings excepted, every sanitizer must stay quiet, and the modes
   must agree on stdout, the exit code,
   and the panic text (output is not compared when the program calls `Memory.collectCycles`). It
   builds with a capped, time-limited runner, so a mutant that loops forever or prints without end

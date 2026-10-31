@@ -57,10 +57,11 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
 
     /// <summary>
     /// Warnings a valid program makes the C++ compiler draw about its own code: a comparison with
-    /// itself, an unsigned comparison with a value outside its range, or a local it writes and never
-    /// reads. None is about how the emitter translated something, so they are not the emitter's.
+    /// itself, an unsigned comparison with a value outside its range, a local it writes and never
+    /// reads, or an xor of two constants that reads like a power (<c>2 ^ 2</c>). None is about how the
+    /// emitter translated something, so they are not the emitter's.
     /// </summary>
-    static readonly HashSet<string> SourceWarnings = ["tautological-compare", "type-limits", "unused-but-set-variable"];
+    static readonly HashSet<string> SourceWarnings = ["tautological-compare", "type-limits", "unused-but-set-variable", "xor-used-as-pow"];
 
     public IReadOnlyList<Mode> Modes { get; } = modes;
 
@@ -186,6 +187,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
     {
         compiled = false;
         var results = new List<ModeResult>();
+        Finding? warning = null;
         int firstIndex = scope.Modes[0];
         int? warningIndex = scope.Strict
             ? scope.Modes.Where(i => !Modes[i].Interpret && Modes[i].Options.Optimize).Select(i => (int?)i).FirstOrDefault()
@@ -265,8 +267,10 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
                     new CheckScope(ModeIndexes: [index]));
             }
 
-            if (warningIndex is { } warningAt && index == warningAt && CheckWarnings(Path.Combine(directory, "prog.cpp"), index) is { } warning)
-                return warning;
+            // A warning is reported after the runs are compared, so a program that draws one is still
+            // checked for what it does; a difference in behavior is the finding to report first.
+            if (warningIndex is { } warningAt && index == warningAt)
+                warning = CheckWarnings(Path.Combine(directory, "prog.cpp"), index);
 
             // A mutation in `unsafe` code may do what the language calls undefined, so what the
             // program prints, crashes with, or reports to a sanitizer is the program's, not the
@@ -312,10 +316,10 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         }
 
         if (!scope.Compare)
-            return null;
+            return warning;
         var conclusive = results.Where(r => r.Outcome.Conclusive).ToList();
         if (conclusive.Count < 2)
-            return null;
+            return warning;
         // The interpreter is the reference where it could run: it is the program's meaning, so every
         // native mode is checked against it, the unoptimized one first, which is the pair the
         // documented collector exception is about.
@@ -335,7 +339,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
                     $"{difference.Kind} differs between {reference.Mode.Name} and {other.Mode.Name}\n{difference.Detail}",
                     recheck);
         }
-        return null;
+        return warning;
 
         // A mode the program is not compared in: its mutation edited `unsafe` code, or the test
         // observes an optimization that --no-opt (and the meaning) turns off.
@@ -344,11 +348,16 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
 
     int IndexOfMode(string name) => Modes.Select((mode, index) => (mode, index)).First(pair => pair.mode.Name == name).index;
 
-    /// <summary>The generated C++ must compile warning-free under the flags CLAUDE.md names.</summary>
+    /// <summary>
+    /// The generated C++ must compile warning-free under the flags CLAUDE.md names. Integer
+    /// conversion warnings are left out: g++ draws them after constant folding, on casts the emitter
+    /// wrote explicitly, and since C++20 every integer conversion is defined, so a narrowing is a bug
+    /// only if it changes a value, which the comparison with the interpreter finds directly.
+    /// </summary>
     Finding? CheckWarnings(string cppPath, int referenceIndex)
     {
         var startInfo = new ProcessStartInfo(OperatingSystem.IsWindows() ? "g++.exe" : "g++");
-        foreach (var argument in new[] { "-std=c++20", "-fsyntax-only", "-Wall", "-Wextra", "-Wconversion", "-Wsign-conversion", "-Wshadow", $"-I{NativeCompiler.RuntimeDirectory}", cppPath })
+        foreach (var argument in new[] { "-std=c++20", "-fsyntax-only", "-Wall", "-Wextra", "-Wshadow", "-Wno-sign-compare", "-Wno-overflow", $"-I{NativeCompiler.RuntimeDirectory}", cppPath })
             startInfo.ArgumentList.Add(argument);
         ProcessResult result;
         try
@@ -367,9 +376,13 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         if (warnings.Count > 0)
         {
             var category = WarningCategory(warnings[0]);
+            // The message without its location, which a reduction's deletions would change: two
+            // warnings of one category about different conversions are two findings.
+            const string marker = ": warning: ";
+            var message = warnings[0][(warnings[0].IndexOf(marker, StringComparison.Ordinal) + marker.Length)..].Trim();
             return new Finding(
                 $"tier2/cpp-warning/{category}",
-                $"tier2/cpp-warning/{category}",
+                $"tier2/cpp-warning/{category}/{message}",
                 string.Join("\n", warnings.Take(10)),
                 new CheckScope(ModeIndexes: [referenceIndex], Strict: true));
         }

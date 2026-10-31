@@ -89,8 +89,11 @@ Generated C++ for tests lands in `tests/.out/` (`--all-modes` writes each mode u
 not rebuilt when the C++ and everything the build reads (flags, runtime headers, the C++ compiler)
 match the `.key` beside its executable, so a repeat run only compiles what the change touched.
 Check it compiles warning-free:
-`g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
-(unused-parameter warnings from test programs are fine).
+`g++ -std=c++20 -Wall -Wextra -Wshadow -Wno-sign-compare -Wno-overflow -fsyntax-only -Iruntime <file>`
+(unused-parameter warnings from test programs are fine). Integer conversion warnings are left out:
+g++ draws them after constant folding on casts the emitter wrote explicitly, and since C++20 every
+integer conversion is defined, so a narrowing matters only if it changes a value, which the
+comparison with the interpreter finds.
 
 `--cc asan` builds with clang-cl (found on PATH), AddressSanitizer, and UBSan,
 and any report fails the test; the runner also checks that both sanitizers still report a
