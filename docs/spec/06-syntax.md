@@ -951,6 +951,8 @@ Enforced with compiler **warnings** (not errors):
 | Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
 | Packages | `lowercase` | `game.combat` |
 
+> Not implemented yet: the compiler emits no warnings, so these conventions aren't checked.
+
 ## 6.12 Complete example
 
 ```java

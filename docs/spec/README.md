@@ -1,6 +1,6 @@
 # Wylow Language Specification
 
-**Wylow** (Videogame Programming Language) is a personal, purpose-built language for writing 3D games.
+**Wylow** is a personal, purpose-built language for writing 3D games.
 
 - **Looks like Java:** naming, class syntax, packages, generics syntax.
 - **Performs like C++:** value types, inline arrays, explicit layout, no tracing GC (cycles are
@@ -98,8 +98,9 @@ change anything, so the compiler orders calls of them like operators rather than
 
 ## Not yet designed
 
-- Compiler architecture and implementation language.
-- The rest of the standard library: pools and handles, `Map`, `Box`, strings.
+- The rest of the standard library: `Map` and the other collections beyond `List` and `Array`.
+  Pools and handles (03-memory-model.md) and `Box<T>` (02-types.md) are designed but not
+  implemented.
 - **Performance warnings**: a kind of diagnostic, separate from errors and from ordinary warnings,
   for code that compiles and is correct but that the compiler can't optimize the way a reader would
   expect. The first planned one: a destructor that stores over an element of some type, which

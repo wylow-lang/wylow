@@ -23,6 +23,13 @@ The language is described in [docs/spec](docs/spec/README.md).
 - **Milestone 6:** containers: fixed arrays `T[N]`, `Span`/`ReadOnlySpan`, `Array` (`T[]`), `List`,
   and for-each, written in a Wylow standard library on `ref` locals and returns, indexers, `unsafe`
   pointers, `@CallerLocation`, and borrow counting.
+- **Since then:** lambdas and function types (escaping and not), `String` with interpolation,
+  `char`, `Weak<T>` and the cycle collector (`Memory.collectCycles`), annotations, a mid-level IR
+  with a verifier that is the flow analysis, optimization passes (stack objects, borrowed and
+  moved locals), and an IR interpreter (`wyl interpret`) that runs programs without a C++
+  toolchain.
+
+What's next is tracked in the roadmap issue (#6).
 
 ## Requirements
 
@@ -42,14 +49,16 @@ dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run examples/hello.wyl
 | `wyl build <file> [-o out.exe]` | build an executable |
 | `wyl check <file>` | report errors only |
 | `wyl emit <file>` | print the generated C++ |
+| `wyl ir <file>` | print the lowered IR |
+| `wyl interpret <file>` | run with the IR interpreter, no C++ toolchain needed |
 
-Options: `--release` (optimized; integer overflow wraps instead of panicking), `--cc msvc|gcc`.
+Options: `--release` (optimized; integer overflow wraps instead of panicking), `--cc msvc|gcc|asan`.
 
 ## Layout
 
 | Path | |
 |---|---|
-| `src/Wyl.Compiler.*` | One project per compiler layer: syntax, semantics, IR, lowering, analysis, optimize, codegen (`docs/design/architecture.md`) |
+| `src/Wyl.Compiler.*` | One project per compiler layer: syntax, semantics, IR, lowering, analysis, optimize, codegen, interpret (`docs/design/architecture.md`) |
 | `src/Wyl.Compiler` | Runs the layers in order, plus the native build driver |
 | `src/Wyl.Cli` | The `wyl` command |
 | `runtime/wyl.h` | C++ support code included by every generated program, split by topic into `runtime/wyl/` |
@@ -59,5 +68,8 @@ Options: `--release` (optimized; integer overflow wraps instead of panicking), `
 
 ```
 dotnet build
-dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll [--cc gcc] [filter]
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll [--cc gcc|asan] [--interpret] [filter]
 ```
+
+The fuzzer, the program generator, and mutation testing are in `tests/`; `CLAUDE.md` lists their
+commands and `docs/design/testing.md` the testing strategy.

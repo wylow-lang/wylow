@@ -10,6 +10,8 @@ default. The compiler is written in C# (.NET 10) and compiles Wylow to C++20.
 - `docs/design/architecture.md` is the compiler's layer contract: which layer answers which
   question, and how each rule is enforced. Check every change against it; a question that seems
   to need a second answer in another layer means the work is in the wrong layer.
+- `docs/design/testing.md` is the testing strategy: what each oracle and harness catches, what
+  none of them can see, how findings and survivors are triaged, and the testing backlog.
 - `docs/handoff/` holds task prompts for upcoming milestones.
 
 ## Commands

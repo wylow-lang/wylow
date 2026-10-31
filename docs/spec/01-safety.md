@@ -131,3 +131,5 @@ single local exceeds a threshold:
 
 Large data should go on the heap: in a class field, a `T[]`, or a `Box<T>`
 ([02-types.md](02-types.md#211-arrays-and-spans)).
+
+> Not implemented yet: the warning, its flag, and `@AllowLargeStack`.
