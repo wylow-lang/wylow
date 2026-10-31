@@ -54,7 +54,7 @@ sealed class StatementGenerator(
         writer.Open($"{helper.Return.Name} {helper.Name}({string.Join(", ", parameters)}) {{");
         for (int i = 0, count = 1 + rng.Next(3); i < count; i++)
             WriteStatement(scope, expressions, depth: 0);
-        writer.Line($"return {expressions.Generate(helper.Return, options.Depth).Text};");
+        writer.Line($"return {expressions.Slot(helper.Return, options.Depth).Text};");
         writer.Close();
     }
 
@@ -115,7 +115,7 @@ sealed class StatementGenerator(
     {
         var type = rng.Pick(GenerateOptions.Types);
         bool mutable = rng.Chance(30);
-        var value = expressions.Generate(type, options.Depth);
+        var value = expressions.Slot(type, options.Depth);
         var local = scope.Declare(type, mutable, value.Range, value.Exact);
         writer.Line($"{(mutable ? "mut " : "")}{type.Name} {local.Name} = {value.Text};");
         Print(local.Name);
@@ -132,7 +132,8 @@ sealed class StatementGenerator(
         {
             var op = rng.Pick(CompoundOperators);
             bool divides = op == "/" || op == "%";
-            var right = divides ? expressions.GenerateNonZero(type, options.Depth - 1) : expressions.Generate(type, options.Depth - 1);
+            // `b += 1` stays a byte and `i += s` with a short is an int, so the right side is a slot too.
+            var right = divides ? expressions.GenerateNonZero(type, options.Depth - 1) : expressions.Slot(type, options.Depth - 1, compound: true);
             var left = local.Range ?? IntegerFacts.Full(type);
             if (right.Range is { } divisor
                 && (!divides || !(left.Contains(IntegerFacts.Full(type).Min) && divisor.Contains(-1)))
@@ -146,7 +147,7 @@ sealed class StatementGenerator(
                 return;
             }
         }
-        var value = expressions.Generate(type, options.Depth);
+        var value = expressions.Slot(type, options.Depth);
         writer.Line($"{local.Name} = {value.Text};");
         local.Range = value.Range;
         local.Exact = value.Exact;
@@ -200,7 +201,7 @@ sealed class StatementGenerator(
     void Call(ExpressionGenerator expressions)
     {
         var helper = rng.Pick(helpers);
-        var arguments = helper.Parameters.Select(type => expressions.Generate(type, options.Depth - 1).Text);
+        var arguments = helper.Parameters.Select(type => expressions.Slot(type, options.Depth - 1).Text);
         Print($"{helper.Name}({string.Join(", ", arguments)})");
     }
 

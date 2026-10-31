@@ -111,7 +111,7 @@ static class IntegerFacts
     /// <summary>Spells a value as a literal of exactly this type (docs/spec/02-types.md §2.2).</summary>
     public static string Literal(WylType type, Int128 value)
     {
-        var digits = value.ToString(CultureInfo.InvariantCulture);
+        var digits = Constant(value);
         if (type == WylType.UInt)
             return digits + "u";
         if (type == WylType.Long)
@@ -119,11 +119,21 @@ static class IntegerFacts
         if (type == WylType.ULong)
             return digits + "uL";
         if (type == WylType.Int)
-            return digits;
+            return Constant(value);
         // sbyte, byte, short, and ushort have no suffix, and an unsuffixed literal is an int: a cast
         // makes its type intrinsic, since a binary operator or conditional branch would widen it.
         return $"(({type.Name})({digits}))";
     }
+
+    /// <summary>
+    /// An unsuffixed constant: an <c>int</c> that converts to any integer type holding its value and to
+    /// a float that holds it exactly (docs/spec/02-types.md §2.3). A negative one is a negated literal,
+    /// which is still a constant.
+    /// </summary>
+    public static string Constant(Int128 value) => value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Whether <see cref="Literal"/> spells this type's values as unsuffixed constants.</summary>
+    public static bool SpellsConstant(WylType type) => type == WylType.Int;
 
     /// <summary>The curated edges: zero, one, both extremes, and the sign bit, where a type has one.</summary>
     public static IReadOnlyList<Int128> Literals(WylType type)

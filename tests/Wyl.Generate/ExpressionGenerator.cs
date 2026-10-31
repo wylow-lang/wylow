@@ -11,7 +11,7 @@ sealed record Helper(string Name, WylType Return, IReadOnlyList<WylType> Paramet
 /// Every constructor either yields the requested type or is rejected before it is written, and
 /// <see cref="Ground"/> is total, so generation cannot fail and emits no text the binder rejects.
 /// </summary>
-sealed class ExpressionGenerator(
+sealed partial class ExpressionGenerator(
     Rng rng,
     GenerateOptions options,
     Scope scope,
@@ -25,31 +25,46 @@ sealed class ExpressionGenerator(
     [
         "literal", "local", "add", "subtract", "multiply", "and", "or", "xor",
         "divide", "remainder", "shift-left", "shift-right", "negate", "complement",
-        "cast", "call", "conditional",
+        "cast", "call", "conditional", "mixed", "adopt", "from-float", "from-char",
     ];
-
-    /// <summary>Unary minus is an error on unsigned types (docs/spec/02-types.md §2.4).</summary>
-    static readonly string[] UnsignedIntegerConstructors = [.. IntegerConstructors.Where(name => name != "negate")];
 
     static readonly string[] BoolConstructors =
     [
         "literal", "local", "not", "and", "or",
-        "compare-integer", "compare-char", "compare-float", "compare-bool", "compare-string",
+        "compare-integer", "compare-char", "compare-float", "compare-bool", "compare-string", "compare-mixed",
         "call", "conditional",
     ];
 
-    static readonly string[] CharConstructors = ["literal", "local", "call", "conditional"];
+    static readonly string[] CharConstructors = ["literal", "local", "call", "conditional", "from-integer"];
 
     static readonly string[] FloatConstructors =
     [
         "literal", "local", "add", "subtract", "multiply", "divide", "negate",
-        "cast", "call", "conditional",
+        "cast", "call", "conditional", "mixed", "adopt", "from-integer",
     ];
+
+    /// <summary>
+    /// An integer type's constructors without those that cannot make it: unary minus is an error on
+    /// unsigned types (docs/spec/02-types.md §2.4), no two other types mix into a <c>sbyte</c> or a
+    /// <c>byte</c>, and a constant beside an <c>int</c> is an <c>int</c> already.
+    /// </summary>
+    static readonly Dictionary<WylType, string[]> IntegerConstructorsByType = IntegerFacts.Types.ToDictionary(
+        type => type,
+        type => IntegerConstructors.Where(name => name switch
+        {
+            "negate" => type.IsSigned,
+            "mixed" => ConversionFacts.ArithmeticPairs(type).Count > 0,
+            "adopt" => type != WylType.Int,
+            _ => true,
+        }).ToArray());
 
     static readonly string[] StringConstructors = ["literal", "local", "interpolation", "call", "conditional"];
 
-    static readonly string[] CharLiterals =
-        ["'a'", "'b'", "'Z'", "'0'", "' '", "'~'", "'\\\\'", "'\\''", "'\\u{e9}'"];
+    static readonly (string Text, int CodePoint)[] CharLiterals =
+    [
+        ("'a'", 'a'), ("'b'", 'b'), ("'Z'", 'Z'), ("'0'", '0'), ("' '", ' '), ("'~'", '~'),
+        ("'\\\\'", '\\'), ("'\\''", '\''), ("'\\u{e9}'", 0xE9),
+    ];
 
     static readonly string[] StringLiterals = ["\"hello\"", "\"a\"", "\"xyz\"", "\"\"", "\"Wylow\"", "\"test\""];
 
@@ -59,7 +74,7 @@ sealed class ExpressionGenerator(
     public static IReadOnlyList<string> ConstructorsFor(WylType type)
     {
         if (type.IsInteger)
-            return type.IsSigned ? IntegerConstructors : UnsignedIntegerConstructors;
+            return IntegerConstructorsByType[type];
         if (type == WylType.Bool)
             return BoolConstructors;
         if (type == WylType.Char)
@@ -100,7 +115,7 @@ sealed class ExpressionGenerator(
         if (type == WylType.Bool)
             return Boolean(name, type, depth);
         if (type == WylType.Char)
-            return Character(name, type);
+            return Character(name, type, depth);
         if (type == WylType.Float || type == WylType.Double)
             return Floating(name, type, depth);
         if (type == WylType.String)
@@ -145,19 +160,16 @@ sealed class ExpressionGenerator(
         if (locals.Count > 0 && rng.Chance(50))
         {
             var local = rng.Pick(locals);
-            return new(local.Name, type, type.IsInteger ? local.Range ?? IntegerFacts.Full(type) : null, local.Exact);
+            return new(local.Name, type, RangeOf(local), local.Exact);
         }
+        // A curated edge, not a uniform value: the fallback is also where an operation's operands
+        // come from at the depth limit, and an edge is likelier to keep it in range.
         if (type.IsInteger)
-        {
-            // A curated edge, not a uniform value: the fallback is also where an operation's
-            // operands come from at the depth limit, and an edge is likelier to keep it in range.
-            var value = rng.Pick(IntegerFacts.Literals(type));
-            return new(IntegerFacts.Literal(type, value), type, new IntegerRange(value, value));
-        }
+            return IntegerLiteral(type, rng.Pick(IntegerFacts.Literals(type)));
         if (type == WylType.Bool)
             return new(rng.NextBool() ? "true" : "false", type);
         if (type == WylType.Char)
-            return new(rng.Pick(CharLiterals), type);
+            return CharLiteral();
         if (type == WylType.Float || type == WylType.Double)
         {
             var literal = rng.Pick(FloatFacts.Literals(type));
@@ -168,19 +180,31 @@ sealed class ExpressionGenerator(
         throw new ArgumentException($"stage 1 has no ground value for '{type.Name}'");
     }
 
+    static GenExpr IntegerLiteral(WylType type, Int128 value) =>
+        new(IntegerFacts.Literal(type, value), type, new IntegerRange(value, value), Constant: IntegerFacts.SpellsConstant(type));
+
+    GenExpr CharLiteral()
+    {
+        var (text, codePoint) = rng.Pick(CharLiterals);
+        return new(text, WylType.Char, new IntegerRange(codePoint, codePoint));
+    }
+
+    /// <summary>Every value of an integer type, or every code point of a <c>char</c>.</summary>
+    static IntegerRange? FullRange(WylType type) =>
+        type.IsInteger ? IntegerFacts.Full(type) : type == WylType.Char ? ConversionFacts.CodePoints : null;
+
+    static IntegerRange? RangeOf(Local local) => local.Range ?? FullRange(local.Type);
+
     GenExpr? Integer(string name, WylType type, int depth)
     {
         switch (name)
         {
             case "literal":
-            {
-                var value = rng.Chance(25) ? IntegerFacts.Random(type, rng) : rng.Pick(IntegerFacts.Literals(type));
-                return new(IntegerFacts.Literal(type, value), type, new IntegerRange(value, value));
-            }
+                return IntegerLiteral(type, rng.Chance(25) ? IntegerFacts.Random(type, rng) : rng.Pick(IntegerFacts.Literals(type)));
             case "local":
             {
                 var local = rng.Pick(scope.OfType(type));
-                return new(local.Name, type, local.Range ?? IntegerFacts.Full(type));
+                return new(local.Name, type, RangeOf(local));
             }
             case "add":
                 return Arithmetic(type, "+", depth);
@@ -208,6 +232,14 @@ sealed class ExpressionGenerator(
                 return Complement(type, depth);
             case "cast":
                 return IntegerCast(type, depth);
+            case "mixed":
+                return MixedInteger(type, depth);
+            case "adopt":
+                return AdoptInteger(type, depth);
+            case "from-float":
+                return IntegerFromFloat(type, depth);
+            case "from-char":
+                return IntegerFromChar(type, depth);
             default:
                 return null;
         }
@@ -254,8 +286,7 @@ sealed class ExpressionGenerator(
             if (value.Range is { } range && !range.Contains(0))
                 return value;
         }
-        var fallback = rng.Pick([.. IntegerFacts.Literals(type).Where(value => value != 0)]);
-        return new(IntegerFacts.Literal(type, fallback), type, new IntegerRange(fallback, fallback));
+        return IntegerLiteral(type, rng.Pick([.. IntegerFacts.Literals(type).Where(value => value != 0)]));
     }
 
     GenExpr? Shift(WylType type, bool left, int depth)
@@ -280,7 +311,8 @@ sealed class ExpressionGenerator(
             return null;
         if (IntegerFacts.Negate(a) is not { } range || !IntegerFacts.Fits(type, range))
             return null;
-        return new($"(-({value.Text}))", type, range);
+        // The binder folds a negated literal into a constant.
+        return new($"(-({value.Text}))", type, range, Constant: value.Constant);
     }
 
     GenExpr? Complement(WylType type, int depth)
@@ -337,6 +369,8 @@ sealed class ExpressionGenerator(
                 return Compare(WylType.Bool, depth, ordering: false);
             case "compare-string":
                 return Compare(WylType.String, depth, ordering: false);
+            case "compare-mixed":
+                return CompareMixed(depth);
             default:
                 return null;
         }
@@ -351,12 +385,23 @@ sealed class ExpressionGenerator(
         return new($"({left.Text} {op} {right.Text})", WylType.Bool);
     }
 
-    GenExpr? Character(string name, WylType type) => name switch
+    GenExpr? Character(string name, WylType type, int depth)
     {
-        "literal" => new(rng.Pick(CharLiterals), type),
-        "local" => new(rng.Pick(scope.OfType(type)).Name, type),
-        _ => null,
-    };
+        switch (name)
+        {
+            case "literal":
+                return CharLiteral();
+            case "local":
+            {
+                var local = rng.Pick(scope.OfType(type));
+                return new(local.Name, type, RangeOf(local));
+            }
+            case "from-integer":
+                return CharFromInteger(depth);
+            default:
+                return null;
+        }
+    }
 
     GenExpr? Floating(string name, WylType type, int depth)
     {
@@ -388,6 +433,12 @@ sealed class ExpressionGenerator(
             }
             case "cast":
                 return FloatCast(type, depth);
+            case "mixed":
+                return MixedFloat(type, depth);
+            case "adopt":
+                return AdoptFloat(type, depth);
+            case "from-integer":
+                return FloatFromInteger(type, depth);
             default:
                 return null;
         }
@@ -459,7 +510,7 @@ sealed class ExpressionGenerator(
         var whenTrue = Build(type, depth - 1);
         var whenFalse = Build(type, depth - 1);
         IntegerRange? range = null;
-        if (type.IsInteger && whenTrue.Range is { } a && whenFalse.Range is { } b)
+        if (whenTrue.Range is { } a && whenFalse.Range is { } b)
             range = new IntegerRange(a.Min < b.Min ? a.Min : b.Min, a.Max > b.Max ? a.Max : b.Max);
         return new($"({condition.Text} ? {whenTrue.Text} : {whenFalse.Text})", type, range);
     }
@@ -470,7 +521,7 @@ sealed class ExpressionGenerator(
         if (candidates.Count == 0)
             return null;
         var helper = rng.Pick(candidates);
-        var arguments = helper.Parameters.Select(parameter => Build(parameter, depth - 1).Text).ToList();
-        return new($"{helper.Name}({string.Join(", ", arguments)})", type, type.IsInteger ? IntegerFacts.Full(type) : null);
+        var arguments = helper.Parameters.Select(parameter => SlotValue(parameter, depth - 1).Text).ToList();
+        return new($"{helper.Name}({string.Join(", ", arguments)})", type, FullRange(type));
     }
 }

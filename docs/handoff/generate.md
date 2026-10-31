@@ -54,8 +54,13 @@ alone, and the same pair gives byte-identical text in every process and on every
 
 - **Stage 1 (this one):** integers (`sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`,
   `ulong`), `bool`, `char`, `float`, `double`, and `String`; locals, assignment, `if`/`else`,
-  bounded range loops, and zero to three helpers. `nint`/`nuint` are excluded: their width is the
-  platform's, and the spec reserves them for unsafe code and interop.
+  bounded range loops, and zero to three helpers. Types mix as §2.3–2.4 of the spec allow: an
+  operator on two types the spec converts to one (a widening, two integers meeting in a third, a
+  `char`'s code point, an integer or a `float` beside a `double`), an unsuffixed constant taking
+  its partner's type, slots (initializers, assignments, arguments, returns) given a type that
+  widens to theirs or a constant, and casts between integers, floats, and `char`. `nint`/`nuint`
+  are excluded: their width is the platform's, and the spec reserves them for unsafe code and
+  interop.
 - **Stage 2:** fixture structs and enums, nullables, `??`/`?.`, `switch`, fixed arrays and
   constant indexing.
 - **Stage 3:** classes with constructors, methods, and destructors (destructor order is an oracle),
@@ -65,26 +70,47 @@ alone, and the same pair gives byte-identical text in every process and on every
 ## Trap-free by construction
 
 A panic truncates output and hides later bugs, and integer overflow differs by build mode (debug
-panics, release wraps; the interpreter is debug). Because no generated program overflows, tier 2's
-release build is a free oracle: any difference from the interpreter is the optimizer's or the
-emitter's. So `IntegerFacts` is the one home for range
+panics, release wraps; the interpreter is debug). So `IntegerFacts` is the one home for range
 arithmetic and literal spelling, and a constructor is emitted only when its result range fits the
 type. Division and remainder need a divisor range excluding zero and never `MIN / -1`; shifts use
 constant counts in `0..width-1`; loops are `for (int i : 0..N)` with `N` in `1..4`; calls go only
 to earlier helpers. Float arithmetic is emitted only when both operands are exact dyadic rationals
 and the result is exactly representable (`FloatFacts`), so a C++ compiler cannot contract an add
-and a multiply into an FMA and change a bit.
+and a multiply into an FMA and change a bit. Because no generated program overflows, tier 2's
+release build is a free oracle: any difference from the interpreter is the optimizer's or the
+emitter's.
 
-Never generated: `unsafe`, `@Unchecked`, pointers, `panic`, integer-to-`char` or integer-to-enum
-casts, `Memory.*`, or `cycleStats`. `GeneratorSelfTests` checks that no program contains the text
-the oracles scan for.
+Mixing types keeps both properties. `ConversionFacts` holds the spec's §2.3 table and §2.4 operand
+rule, written from the spec rather than asked of the compiler; a mixed operation's range is computed
+in the type it works in, with a `char` operand's range its code points. A `GenExpr` marks text the
+binder may read as an unsuffixed constant (an `int` literal, or one negated), and a mixed operator
+refuses such an operand beside an integer, which it would turn into a same-type operation in the
+narrower type. The right side of a compound assignment is an operand, so only a source whose
+arithmetic with the variable stays in its type goes there (a `char` is an `int` first). An integer
+converted to a float is exact only when its range is one value that fits; a float cast to an
+integer truncates and saturates, one value when the float's is known and the target's whole range
+otherwise. An integer is cast to `char` only when its whole range is scalar values, since that cast
+panics otherwise. NaN is never made, so the saturating cast's NaN case is the values tests' to cover.
+
+Never generated: `unsafe`, `@Unchecked`, pointers, `panic`, integer-to-enum casts, `Memory.*`, or
+`cycleStats`. `GeneratorSelfTests` checks that no program contains the text the oracles scan for.
 
 ## Self-check
 
 Every run, and `--self-test`, checks the generator before it generates: determinism, forbidden
 text, integer facts (each operation's range contains the true result exactly when it fits),
-constructor and type coverage (each constructor is forced once per type), and budgets. A generator
-that silently collapsed to one constructor or one type says so instead of fuzzing.
+conversion facts (the spec's table agrees with `Conversions.IsImplicit`, and exactness, truncation,
+and scalar ranges are sound), constructor and type coverage (each constructor is forced once per
+type), and budgets. A generator that silently collapsed to one constructor or one type says so
+instead of fuzzing.
+
+What the generator meant and what the compiler read can differ without any error: a constant that
+gained a suffix, or an operand that is already its partner's type, still binds, but tests a
+same-type operation. So the self-check also binds a corpus and finds each mixed construct in the
+bound tree, as an implicit conversion (an operand, an argument, an initializer, a returned value;
+two integer operands meeting in a third type; a `char`'s code point; an integer or a `float`
+widened to a float), an unsuffixed literal bound to a type other than `int`, or a cast between
+integers, floats, and `char`.
 
 ## Limits
 

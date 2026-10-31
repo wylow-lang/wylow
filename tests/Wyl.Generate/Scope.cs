@@ -2,7 +2,10 @@ using Wyl.Compiler.Semantics;
 
 namespace Wyl.Generate;
 
-/// <summary>A local in scope: its name, exact type, whether it may be assigned, and the range every path keeps.</summary>
+/// <summary>
+/// A local in scope: its name, exact type, whether it may be assigned, and the range (of an integer,
+/// or a <c>char</c>'s code point) every path keeps.
+/// </summary>
 sealed class Local(string name, WylType type, bool mutable)
 {
     public string Name { get; } = name;
@@ -71,6 +74,8 @@ sealed class Scope
     {
         if (local.Type.IsInteger)
             local.Range = IntegerFacts.Full(local.Type);
+        else if (local.Type == WylType.Char)
+            local.Range = ConversionFacts.CodePoints;
         else if (local.Type == WylType.Float || local.Type == WylType.Double)
             local.Exact = null;
     }

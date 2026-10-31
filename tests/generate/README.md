@@ -26,7 +26,9 @@ exiting with code 2; it is never a compiler finding. Any
 generator bug means the typed emitter, not the compiler, is wrong.
 
 `Wyl.Generate --self-test` checks the generator itself: the same seed generates the same text,
-every operation's range contains its true result, every constructor of every type can make that
-type, the random corpus reaches every type, the budgets hold, and no program contains the text the
+every operation's range contains its true result, its table of the spec's implicit conversions
+agrees with the compiler's, every constructor of every type can make that type, the random corpus
+reaches every type, the bound corpus contains each mixed-type construct as the compiler reads it
+(widenings, adopted constants, casts), the budgets hold, and no program contains the text the
 oracles scan for (`unsafe`, `@Unchecked`, `// mode: optimized`, `Memory.collectCycles`,
 `cycleStats`, `panic(`).

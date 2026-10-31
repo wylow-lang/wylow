@@ -57,15 +57,17 @@ existing ones, and checks each with the same oracles: tier 1 compiles in-process
 optimized IR against the meaning, tier 2 builds and runs every mode with the interpreter first,
 plus a `--release` build (a generated program never overflows, so wrapping can't change its output).
 There are no expected outputs, so it reaches combinations no test is near. Stage 1 makes integers,
-`bool`, `char`, `float`, `double`, and `String` programs with locals, bounded loops, and helpers;
+`bool`, `char`, `float`, `double`, and `String` programs with locals, bounded loops, and helpers,
+mixing types where the spec converts them (widenings, adopted constants, casts between kinds);
 stages 2–4 add structured values, classes and containers, then generics and lambdas. A generated
 program that does not bind, or whose meaning panics or never finishes, is a **generator bug** in
 the typed emitter, reported with the binder's diagnostics or the panic and exit code 2, never a
 compiler finding; a compiler that throws on one is a compiler finding. A finding is written to
 `tests/generate/findings/` with the seed, program, tier, and size, and is a bug until it becomes a
 test in `tests/cases/`, triaged like a fuzzer finding. `--self-test`, and every run before it
-generates, checks determinism, the integer range facts, constructor and type coverage, and budgets,
-so a degraded generator says so instead of finding nothing; CI runs `--self-test` on every push. The
+generates, checks determinism, the integer range and conversion facts, constructor and type
+coverage, that a bound corpus contains each mixed-type construct as the compiler reads it, and
+budgets, so a degraded generator says so instead of finding nothing; CI runs `--self-test` on every push. The
 generator's runs are not part of the suite; they run nightly (`generate.yml`).
 
 The mutation harness (`tests/Wyl.Mutation`) asks the question the oracles can't: would the tests
