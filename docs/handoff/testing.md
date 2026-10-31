@@ -69,7 +69,7 @@ Produce numbers before changing anything, so later steps can show what they boug
     a bug, and the list of the ones no test reaches is the fuzzer's target list.
 - **Runtime coverage (optional).** Build the tests' C++ with clang-cl and
   `-fprofile-instr-generate -fcoverage-mapping`, then merge with `llvm-profdata` and report with
-  `llvm-cov` (both in `D:\LLVM\bin`). This shows which parts of `runtime/vpl/*.h` (the cycle
+  `llvm-cov` (both ship with LLVM). This shows which parts of `runtime/vpl/*.h` (the cycle
   collector, `Weak`, pools) no test runs.
 - **Record the baseline numbers** in this file, so each later step can report its change.
 

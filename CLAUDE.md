@@ -74,7 +74,7 @@ Check it compiles warning-free:
 `g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -fsyntax-only -Iruntime <file>`
 (unused-parameter warnings from test programs are fine).
 
-`--cc asan` builds with clang-cl (found on PATH; `D:\LLVM\bin` here), AddressSanitizer, and UBSan,
+`--cc asan` builds with clang-cl (found on PATH), AddressSanitizer, and UBSan,
 and any report fails the test; the runner also checks that both sanitizers still report a
 deliberate bug (`sanitizers/live`). It finds what the other modes can't: a use after free whose
 freed memory still holds the old bytes prints the same output. UBSan reports and continues, so a
