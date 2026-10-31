@@ -1,0 +1,63 @@
+# Generates well-typed programs nightly, a new seed each run, and checks them against the
+# interpreter and every mode. The generator's self-check runs first: a generator that silently
+# collapsed to one constructor says so instead of fuzzing. A finding or a generator bug fails the
+# job and is uploaded as an artifact; a finding becomes a test in tests/cases/ like a fuzzer finding.
+name: Generate
+
+on:
+  schedule:
+    - cron: "30 7 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds per tier
+        default: "1800"
+      seed:
+        description: Seed (empty for the run number)
+        default: ""
+      stage:
+        description: Generator stage
+        default: "1"
+
+jobs:
+  self-test:
+    name: self-check
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build
+      - name: Self-check
+        shell: pwsh
+        run: dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test
+
+  generate:
+    name: tier ${{ matrix.tier }}
+    needs: self-test
+    runs-on: windows-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: [1, 2]
+    env:
+      SECONDS_BUDGET: ${{ inputs.seconds || '1800' }}
+      SEED: ${{ inputs.seed || github.run_number }}
+      STAGE: ${{ inputs.stage || '1' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build
+      - name: Generate
+        shell: pwsh
+        run: dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --tier ${{ matrix.tier }} --seed $env:SEED --stage $env:STAGE --seconds $env:SECONDS_BUDGET --jobs $env:NUMBER_OF_PROCESSORS
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: findings-tier${{ matrix.tier }}-seed${{ env.SEED }}
+          path: tests/generate/findings/
