@@ -310,11 +310,25 @@ An indexer is an instance method named `operator []`, as in C++, so `m[1, 2]` ca
 rule in [03-memory-model.md](03-memory-model.md#returning-references)), and one returning `in`
 gives read-only access.
 
-An indexer may return `ref`, `in`, or a value, and take any number of parameters. A type whose
-elements aren't stored as themselves, such as packed 4-bit values, returns a value and offers a
-`set` method for writing.
+An indexer may return `ref`, `in`, or a value, and take any number of parameters.
 
-> Implemented so far: everything above.
+Where there is no element to refer to, such as in a packed array of 4-bit values, `operator []=`
+handles assignment: it takes the indices and then the assigned value, and returns `void`.
+`grid[i] = v` calls it, and `grid[i] += v` reads with `operator []` and writes with `operator []=`.
+A type may not declare both `operator []=` and an `operator []` that returns `ref`, so an
+assignment never has two meanings. Such an element is not a place: `ref grid[i]` and passing
+`grid[i]` by `ref` are errors.
+
+```java
+struct Nibbles {
+    private byte[2048] bytes;
+
+    public byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
+    public mut void operator []=(int i, byte value) { ... }
+}
+```
+
+> Implemented so far: everything above except `operator []=`.
 
 ### Equality
 
