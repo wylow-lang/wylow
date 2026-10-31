@@ -36,7 +36,7 @@ dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all six modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
-dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, mutation testing, seeds, findings, and code size
+dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, generated programs, mutation, findings, and code size
 ```
 
 The fuzzer (`tests/Wyl.Fuzz`) mutates `tests/cases/**/*.wyl` at feature boundaries and value edges
@@ -51,6 +51,20 @@ in-process and runs thousands of mutants a minute; tier 2 builds and runs every 
 the interpreter first, so it belongs in the background. A finding in `unsafe` or `@Unchecked` code
 is the program's undefined behavior, not a compiler bug; a mutant whose mutation edits `unsafe` code
 is still compiled, but tier 2 doesn't run it.
+
+The generator (`tests/Wyl.Generate`) makes well-typed programs from a seed instead of mutating
+existing ones, and checks each with the same oracles: tier 1 compiles in-process and interprets the
+optimized IR against the meaning, tier 2 builds and runs every mode with the interpreter first.
+There are no expected outputs, so it reaches combinations no test is near. Stage 1 makes integers,
+`bool`, `char`, `float`, `double`, and `String` programs with locals, bounded loops, and helpers;
+stages 2–4 add structured values, classes and containers, then generics and lambdas. A generated
+program that does not bind is a **generator bug** in the typed emitter, reported with the binder's
+diagnostics and exit code 2, never a compiler finding. A finding is written to
+`tests/generate/findings/` with the seed, program, tier, and size, and is a bug until it becomes a
+test in `tests/cases/`, triaged like a fuzzer finding. `--self-test`, and every run before it
+generates, checks determinism, the integer range facts, constructor and type coverage, and budgets,
+so a degraded generator says so instead of finding nothing. The generator is not part of the suite;
+it runs nightly (`generate.yml`).
 
 The mutation harness (`tests/Wyl.Mutation`) asks the question the oracles can't: would the tests
 notice? It changes the compiler's own source — one operator, constant, pattern, negated condition,
@@ -269,9 +283,9 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change
   that alters any cell is reviewed as a snapshot diff, which is where a cell that does something
   the spec doesn't say is found. A feature likewise gets a mutation or a value edge in
-  `tests/Wyl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer finding is triaged: the
-  reduced program moves into `tests/cases/` with its expected output or errors, and the finding
-  file is deleted.
+  `tests/Wyl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer or generator finding is
+  triaged: the reduced program moves into `tests/cases/` with its expected output or errors, and
+  the finding file is deleted.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
@@ -289,15 +303,15 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 | While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
 | Before each commit | the whole suite in `--interpret` (about 20 s, no C++ build) and MSVC filtered to the area the change touches (`Wyl.Tests.dll structs`). Docs-only changes run nothing; dashboard-only changes only build. Nothing else: no `--all-modes`, other modes, fuzzing, mutation, or coverage unless the user asks |
 | On every push to `dev` or `main` (CI) | each of the six modes on its own runner (`.github/workflows/ci.yml`) |
-| Nightly (CI) | tier 1 and tier 2 fuzzing, 30 minutes each, a new seed per run (`fuzz.yml`) |
+| Nightly (CI) | tier 1 and tier 2 fuzzing and generated-program checking, 30 minutes each, a new seed per run (`fuzz.yml`, `generate.yml`) |
 | Weekly, or started by hand (CI) | every mutation target on its own runner, or one target (`mutation.yml`) |
-| Whenever the user starts it | local fuzzing, mutation targets, coverage |
+| Whenever the user starts it | local fuzzing, generated programs, mutation targets, coverage |
 
-The fuzzer and mutation testing are not part of committing; their findings are fixed when a run
-reports them. A CI run uploads its findings or mutation results as artifacts: a finding moves into
-`tests/cases/` like a local one, and a results JSON copied into `tests/mutation/results/` shows on
-the dashboard. Hand over the command for any local run longer than a couple of minutes rather than
-waiting on it.
+The fuzzer, the generator, and mutation testing are not part of committing; their findings are
+fixed when a run reports them. A CI run uploads its findings or mutation results as artifacts: a
+finding moves into `tests/cases/` like a local one, and a results JSON copied into
+`tests/mutation/results/` shows on the dashboard. Hand over the command for any local run longer
+than a couple of minutes rather than waiting on it.
 
 ## Commit messages
 

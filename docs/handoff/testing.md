@@ -558,8 +558,14 @@ bigger budget.
 
 ## Step 6: later
 
-- **A generating fuzzer.** Build well-typed programs from scratch, driven by types (Csmith-style),
-  for combinations no existing test is near. Wait for this until mutations stop finding things.
+- **A generating fuzzer (stage 1 done, 2026-10-31).** `tests/Wyl.Generate` builds well-typed
+  programs from scratch, driven by types (Csmith-style), for combinations no existing test is near.
+  Stage 1 covers integers, `bool`, `char`, `float`, `double`, and `String` with locals, bounded
+  loops, and helpers; tier 1 checks them in-process, tier 2 in every mode with the interpreter as
+  the oracle, a finding is reduced and written with its seed, program, tier, and size, and the
+  generator runs nightly (`generate.yml`) behind its own self-check. A program that does not bind
+  is a generator bug, not a compiler finding. Stage 2 adds structs, enums, nullables, `switch`, and
+  fixed arrays; stage 3 classes, spans, and containers; stage 4 generics, lambdas, and `Weak`.
 - **The IR interpreter as an oracle (done, `interpreter.md` step 6).** It lets tier 2 check what a
   program prints, not only that the modes agree, and it checks the emitter and the passes against
   the program's meaning. It is the sixth mode, runs the matrices, and is a mutation target.
@@ -584,8 +590,8 @@ the WebAssembly spec tests are the model for an external conformance suite.
 | One reduced test per bug | fuzzer reducer, `tests/cases` | — |
 | Option/mode matrices ("torture") | six modes, matrices | keep every case in every mode |
 | Reviewed golden IR after each optimization (rustc `mir-opt`) | `.ir` written, `// stack:`/`// in-place:` markers | a small reviewed `.ir` snapshot per pass |
-| Well-typed random program generation (Csmith/YARPGen) | none | the generating fuzzer above |
-| A differential oracle | the interpreter, on every test and in tier 2 (done) | the generating fuzzer above, with no expected outputs |
+| Well-typed random program generation (Csmith/YARPGen) | stage 1: `tests/Wyl.Generate` | the structured, ownership, and generic stages above |
+| A differential oracle | the interpreter, on every test and in tier 2 (done) | generated programs compare it with every mode, with no expected outputs (done for stage 1) |
 | Metamorphic/EMI transformations | some fuzzer mutations | name them, and add dead-code mutation |
 | Translation validation | verifier after each pass (invariants only) | interpreter differential; no SMT |
 | UB detection | ASan/UBSan mode | interpreter for `unsafe`/stdlib; MSan/LSan on Linux CI |
@@ -600,9 +606,10 @@ the WebAssembly spec tests are the model for an external conformance suite.
 1. **The IR interpreter as a universal oracle.** Run every test through the unoptimized IR and
    compare its stdout, exit code, and panic with the native modes. Every current oracle shares
    lowering, so this is the only one that checks what lowering means.
-2. **The generating fuzzer, with the interpreter as its oracle,** comparing the interpreter with
-   every native mode. This is the Csmith/YARPGen model and the source of most historical compiler
-   bugs.
+2. **The generating fuzzer, with the interpreter as its oracle (stage 1 done, 2026-10-31),**
+   comparing the interpreter with every native mode. This is the Csmith/YARPGen model and the
+   source of most historical compiler bugs; stages 2–4 add the structured, ownership, and generic
+   shapes.
 3. **Front-end fuzzing of arbitrary input.** A syntax-chaos mutator in `tests/Wyl.Fuzz` (insert,
    delete, duplicate tokens) that requires only no exception and no hang; SharpFuzz if coverage
    guidance is wanted. Error recovery is where OSS-Fuzz finds clang bugs and where the current
