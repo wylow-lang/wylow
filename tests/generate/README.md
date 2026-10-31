@@ -17,8 +17,9 @@ A finding is a bug until it becomes a test in `tests/cases/`, with `// output:`,
 `// panic:`, and the finding file is deleted. Its header names the seed, program, stage and size,
 and the `--replay` command that reproduces it.
 
-A generated program that does not bind is a **generator bug**, printed as `GENERATOR BUG`, written
-here with the binder's diagnostics, and exiting with code 2; it is never a compiler finding. Any
+A generated program that does not bind, or whose meaning panics or never finishes, is a **generator
+bug**, printed as `GENERATOR BUG`, written here with the binder's diagnostics or the panic, and
+exiting with code 2; it is never a compiler finding. Any
 generator bug means the typed emitter, not the compiler, is wrong.
 
 `Wyl.Generate --self-test` checks the generator itself: the same seed generates the same text,

@@ -65,6 +65,12 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
 
     public IReadOnlyList<Mode> Modes { get; } = modes;
 
+    /// <summary>
+    /// How the program's meaning ended when tier 1 interpreted it, for a tool whose programs make a
+    /// promise about it: a generated program is trap-free by construction, so a panic is the generator's.
+    /// </summary>
+    public Interpretation? Meaning { get; private set; }
+
     public CheckScope Tier1 { get; } = new(DefaultCompile: true, NoOptCompile: true, Determinism: true, Interpretation: true);
 
     public CheckScope Tier2(bool strict) => new(
@@ -148,7 +154,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         Interpretation optimizedRun, meaningRun;
         try
         {
-            meaningRun = Interpreter.Run(meaning.Ir!, meaning.Optimized!.Callees, InterpretationOptions);
+            meaningRun = Meaning = Interpreter.Run(meaning.Ir!, meaning.Optimized!.Callees, InterpretationOptions);
             optimizedRun = Interpreter.Run(optimized.Ir!, optimized.Optimized!.Callees, InterpretationOptions);
         }
         catch (Exception exception)

@@ -1,5 +1,9 @@
 using System.Numerics;
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Semantics;
+using Wyl.Compiler.Syntax;
+using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 namespace Wyl.Generate;
 
@@ -85,7 +89,27 @@ static class GeneratorSelfTests
         for (int index = 0; index < 64; index++)
             types.UnionWith(generator.Generate(7, index).Types);
         var missing = GenerateOptions.Types.Where(type => !types.Contains(type)).Select(type => type.Name).ToList();
-        return missing.Count == 0 ? null : "the corpus never made " + string.Join(", ", missing);
+        if (missing.Count > 0)
+            return "the corpus never made " + string.Join(", ", missing);
+        return Parsed(generator, 7, 64, node => node is InterpolatedStringExpr { Values.Count: > 0 })
+            ? null
+            : "the corpus never made an interpolated string with a hole";
+    }
+
+    /// <summary>
+    /// Whether the parser finds a node in the corpus: a constructor is checked by what the compiler
+    /// reads, not by the text the generator meant, which a quoting slip silently changes.
+    /// </summary>
+    static bool Parsed(ProgramGenerator generator, int seed, int programs, Func<Node, bool> found)
+    {
+        for (int index = 0; index < programs; index++)
+        {
+            var source = new SourceText("<generate>", generator.Generate(seed, index).Text);
+            var unit = new Parser(source, new DiagnosticBag()).ParseCompilationUnit();
+            if (AstIndex.Of(unit).Of(SiteKind.Expression).Any(site => found(site.Node)))
+                return true;
+        }
+        return false;
     }
 
     static bool Force(GenerateOptions options, WylType type, string constructor)

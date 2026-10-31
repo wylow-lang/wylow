@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using Wyl.Compiler;
+using Wyl.Compiler.Interpret;
 using Wyl.Generate;
 using Wyl.Harness;
 
@@ -151,10 +152,13 @@ return generatorBugCount > 0 ? 2 : findingCount > 0 ? 1 : 0;
     File.WriteAllText(Path.Combine(directory, $"p{program.Index}.wyl"), program.Text);
     var checker = new Checker(directory, modes, runTimeout, "<generate>");
     var finding = checker.Check(program.Text, checker.Tier1, out bool compiled);
-    if (!compiled)
-        return (false, finding is null ? 0 : ReportFinding(program, finding, checker), ReportGeneratorBug(program));
+    // A compiler that throws leaves the program uncompiled too, and that is the compiler's finding.
     if (finding is not null)
-        return (true, ReportFinding(program, finding, checker), 0);
+        return (compiled, ReportFinding(program, finding, checker), 0);
+    if (!compiled)
+        return (false, 0, ReportGeneratorBug(program, Unbound(program)));
+    if (Trapped(checker) is { } trap)
+        return (true, 0, ReportGeneratorBug(program, trap));
     if (tier == 2)
         finding = checker.Check(program.Text, checker.Tier2(strict), out _);
     return (true, finding is null ? 0 : ReportFinding(program, finding, checker), 0);
@@ -177,24 +181,33 @@ int ReportFinding(GeneratedProgram program, Finding finding, Checker checker)
     return 1;
 }
 
-int ReportGeneratorBug(GeneratedProgram program)
+// A program that compiled with no finding yet does not bind is well-typed only in the generator's mind.
+(string Key, string Detail) Unbound(GeneratedProgram program)
 {
-    IReadOnlyList<(int Line, int Column, string Message)> errors;
-    try
-    {
-        errors = generator.Validate(program.Text);
-    }
-    catch (Exception exception)
-    {
-        errors = [(0, 0, exception.ToString())];
-    }
+    var errors = generator.Validate(program.Text);
     var message = errors.Count == 0 ? "no diagnostics" : errors[0].Message;
-    var key = "generator/bind/" + (message.Length > 100 ? message[..100] : message);
+    return (
+        "generator/bind/" + (message.Length > 100 ? message[..100] : message),
+        errors.Count == 0
+            ? "the program did not compile without diagnostics"
+            : string.Join("\n", errors.Select(error => $"{error.Line}:{error.Column}: {error.Message}")));
+}
+
+// Every generated program is trap-free by construction (its integer ranges, divisors, and loop
+// bounds), so a meaning that panics or never finishes means a range fact or a guard is wrong.
+static (string Key, string Detail)? Trapped(Checker checker)
+{
+    if (checker.Meaning is not { Status: not InterpretationStatus.Completed } run)
+        return null;
+    var first = run.Error.Trim().Split('\n')[0].Trim();
+    return ($"generator/trap/{run.Status}/{(first.Length > 100 ? first[..100] : first)}", $"the program's meaning did not complete\n{run.Error.Trim()}");
+}
+
+int ReportGeneratorBug(GeneratedProgram program, (string Key, string Detail) bug)
+{
+    var (key, detail) = bug;
     if (!seen.TryAdd(key, 0))
         return 0;
-    var detail = errors.Count == 0
-        ? "the program did not compile without diagnostics"
-        : string.Join("\n", errors.Select(error => $"{error.Line}:{error.Column}: {error.Message}"));
     lock (printLock)
     {
         Console.WriteLine($"GENERATOR BUG {key}");
@@ -239,9 +252,9 @@ int Replay(int index)
     Console.WriteLine($"written to {path}");
     var checker = new Checker(Path.Combine(runDirectory, $"p{index}"), modes, runTimeout, "<generate>");
     var finding = checker.Check(program.Text, checker.Tier1, out bool compiled);
-    if (!compiled)
+    if (finding is null && (!compiled ? Unbound(program) : Trapped(checker)) is { } bug)
     {
-        ReportGeneratorBug(program);
+        ReportGeneratorBug(program, bug);
         return 2;
     }
     if (finding is null && tier == 2)

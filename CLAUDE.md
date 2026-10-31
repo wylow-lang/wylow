@@ -58,8 +58,9 @@ optimized IR against the meaning, tier 2 builds and runs every mode with the int
 There are no expected outputs, so it reaches combinations no test is near. Stage 1 makes integers,
 `bool`, `char`, `float`, `double`, and `String` programs with locals, bounded loops, and helpers;
 stages 2–4 add structured values, classes and containers, then generics and lambdas. A generated
-program that does not bind is a **generator bug** in the typed emitter, reported with the binder's
-diagnostics and exit code 2, never a compiler finding. A finding is written to
+program that does not bind, or whose meaning panics or never finishes, is a **generator bug** in
+the typed emitter, reported with the binder's diagnostics or the panic and exit code 2, never a
+compiler finding; a compiler that throws on one is a compiler finding. A finding is written to
 `tests/generate/findings/` with the seed, program, tier, and size, and is a bug until it becomes a
 test in `tests/cases/`, triaged like a fuzzer finding. `--self-test`, and every run before it
 generates, checks determinism, the integer range facts, constructor and type coverage, and budgets,

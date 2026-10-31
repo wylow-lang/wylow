@@ -26,8 +26,10 @@ unless `--keep`. A finding is reduced with the fuzzer's reducer, written to
 program, stage, size and the `--replay` command. In-run dedupe is by key.
 
 Exit codes: 0 clean, 1 findings, 2 **generator bugs** — a generated program that does not bind,
-reported with the binder's diagnostics instead of as a compiler finding. That is what proves the
-programs are well-typed by construction; it is not a suite hook.
+reported with the binder's diagnostics, or whose meaning panics or exceeds its budget in tier 1,
+reported with the panic, instead of as a compiler finding. That is what proves the programs are
+well-typed and trap-free by construction; it is not a suite hook. A compiler that throws on a
+program is a compiler finding, even though the program did not compile.
 
 ## Shape
 

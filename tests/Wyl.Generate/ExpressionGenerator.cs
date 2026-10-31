@@ -445,7 +445,7 @@ sealed class ExpressionGenerator(
                 // hole ends the interpolated string.
                 var holes = new List<string>();
                 for (int i = 0, count = 1 + rng.Next(2); i < count; i++)
-                    holes.Add(Ground(rng.Pick(Interpolated)).Text);
+                    holes.Add("{" + Ground(rng.Pick(Interpolated)).Text + "}");
                 return new($"$\"value {string.Join(" ", holes)}\"", type);
             }
             default:
