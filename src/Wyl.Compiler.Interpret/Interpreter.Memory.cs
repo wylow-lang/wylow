@@ -9,6 +9,17 @@ public sealed partial class Interpreter
     // element, empty until a value is initialized in it. These are unsafe in Wylow, so using a
     // pointer outside its storage, or after freeing it, is the program's undefined behavior.
 
+    /// <summary>
+    /// Storage of the program's own size, paid from the step budget, so that a count no run could
+    /// afford is a budget overrun rather than the host's out-of-memory. Every later path over the
+    /// storage is then bounded by its length, which the budget has already paid for.
+    /// </summary>
+    Buffer AllocateBuffer(int count)
+    {
+        Charge(count);
+        return Buffer.Allocate(count);
+    }
+
     Value? MemoryIntrinsic(string name, IrCall call, Frame caller, string? location)
     {
         // The collector returns nothing and takes no owned value; its `ref` arguments are cells.
@@ -27,7 +38,7 @@ public sealed partial class Interpreter
                     throw new WylPanic("cannot allocate a negative number of elements", location ?? "<unknown>");
                 // The runtime's size check can't trigger for a 32-bit count on a 64-bit target: no
                 // type is 2^33 bytes, so SIZE_MAX / sizeof(T) always exceeds the largest count.
-                return new PointerValue(Buffer.Allocate(count), 0);
+                return new PointerValue(AllocateBuffer(count), 0);
             }
             case "free":
                 switch (arguments[0])

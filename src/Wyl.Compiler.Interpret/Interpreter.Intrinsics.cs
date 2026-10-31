@@ -205,7 +205,7 @@ public sealed partial class Interpreter
     /// </summary>
     Value StringBytes(byte[] bytes, Frame caller)
     {
-        var storage = Buffer.Allocate(bytes.Length);
+        var storage = AllocateBuffer(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
             storage.Write(i, new Cell(WylType.Byte, new IntValue(bytes[i])));
         var span = program.Bound.Stdlib.ReadOnlySpan?.Construct([WylType.Byte])

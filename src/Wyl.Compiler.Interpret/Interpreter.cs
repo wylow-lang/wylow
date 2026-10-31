@@ -106,9 +106,17 @@ public sealed partial class Interpreter : IObjectLifetime
         return Interpretation.Completed(Output, exitCode, ErrorText);
     }
 
-    void Step()
+    void Step() => Charge(1);
+
+    /// <summary>
+    /// Spends work the budget bounds: one instruction, or one cell of storage the program asked
+    /// for. A count no run could afford then ends as a budget overrun, like a timeout, rather than
+    /// as the host running out of memory, which would make the answer depend on the machine.
+    /// </summary>
+    void Charge(long amount)
     {
-        if (++steps > options.StepBudget)
+        steps += amount;
+        if (steps > options.StepBudget)
             throw new BudgetExceededException();
         // A harness's time limit is checked rarely: the clock is far more expensive than a step.
         if (options.TimeLimit is { } limit && (steps & 0xFFFF) == 0 && Stopwatch.GetElapsedTime(started) > limit)

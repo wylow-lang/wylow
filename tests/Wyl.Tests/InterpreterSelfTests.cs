@@ -1451,6 +1451,7 @@ static class InterpreterSelfTests
 
         results.Add(Registry());
         results.Add(Budget());
+        results.Add(AllocationBudget());
         return results;
     }
 
@@ -1472,6 +1473,30 @@ static class InterpreterSelfTests
         return new(name, result.Status == InterpretationStatus.BudgetExceeded
             ? null
             : $"expected the budget to run out, got {result.Status}: {result.Error.Trim()}");
+    }
+
+    /// <summary>
+    /// Storage the program asks for is work the budget bounds too, so a count no run could afford
+    /// is inconclusive rather than the host running out of memory: an `integer-edge` mutation of a
+    /// length must not fail as a finding about the fuzzer's machine.
+    /// </summary>
+    static TestResult AllocationBudget()
+    {
+        const string name = "interpreter/allocation_budget";
+        var source = new SourceText("budget.wyl", """
+            void main() {
+                unsafe {
+                    int* values = Memory.allocate<int>(20_000);
+                    Memory.free(values);
+                }
+            }
+            """);
+        var interpreted = Compilation.Interpret(source, new CompileOptions(Optimize: false), new InterpreterOptions(StepBudget: 1_000));
+        if (interpreted.Interpretation is not { } result)
+            return new(name, "the pipeline produced no IR");
+        return new(name, result.Status == InterpretationStatus.BudgetExceeded
+            ? null
+            : $"expected the allocation to run out of budget, got {result.Status}: {result.Error.Trim()}");
     }
 
     /// <summary>
