@@ -76,8 +76,7 @@ public sealed partial class CppEmitter
         {
             // The statements run in order in the delegating constructor's lambda, which returns the arguments.
             plan.Consumed.Add(statements[^1]);
-            if (nest)
-                PlanBlock(baseCall);
+            PlanBlock(baseCall, nest);
             return;
         }
         for (int i = 0; i + 1 < statements.Count; i += 2)
@@ -85,8 +84,7 @@ public sealed partial class CppEmitter
             var declare = (IrDeclare)statements[i];
             var computed = (IrBlock)statements[i + 1];
             var local = declare.Local;
-            if (nest)
-                PlanBlock(computed);
+            PlanBlock(computed, nest);
             var store = (IrStore)computed.Statements[^1];
             var moved = IrWalk.Descendants(computed).SelectMany(IrWalk.Operands).OfType<IrRead>()
                 .Where(r => r is { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } }).Select(r => r.Place.Local).ToHashSet();

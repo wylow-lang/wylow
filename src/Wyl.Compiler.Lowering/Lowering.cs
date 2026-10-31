@@ -213,11 +213,28 @@ public sealed partial class IrLowering
         Add(scope);
     }
 
-    IrLocal Declare(LocalSymbol local)
+    IrLocal Declare(LocalSymbol local, WylType? storage = null)
     {
-        var lowered = new IrLocal(local.Name, local.Type, KindOf(local), IrLocalRole.Variable) { Symbol = local, RefKind = local.RefKind };
+        var lowered = new IrLocal(local.Name, storage ?? local.Type, KindOf(local), IrLocalRole.Variable) { Symbol = local, RefKind = local.RefKind };
         locals[local] = lowered;
         return lowered;
+    }
+
+    /// <summary>
+    /// The escaping function value a non-escaping local is made with, or null. The local owns what it
+    /// holds (spec 06-syntax.md, Escaping and non-escaping), so it is stored as the escaping form and
+    /// releases the closure when its scope ends; the non-escaping form refers to a closure it doesn't own.
+    /// </summary>
+    BoundExpression? OwnedFunction(LocalSymbol symbol, BoundExpression initializer)
+    {
+        if (!symbol.Type.IsNonEscapingFunction)
+            return null;
+        return initializer switch
+        {
+            BoundConversion { Operand: { Type.IsEscaping: true } escaping } => escaping,
+            BoundLocalAccess access when locals[access.Local].Type.IsEscaping => access,
+            _ => null,
+        };
     }
 
     void Declaration(BoundVariableDeclaration declaration)
@@ -231,6 +248,12 @@ public sealed partial class IrLowering
         {
             var value = symbol.Type.IsRefStruct ? Rvalue(initializer!, Use.Scope) : ReferenceTo(initializer!, symbol);
             Add(LetOf(Declare(symbol), value));
+            return;
+        }
+
+        if (initializer is not null && OwnedFunction(symbol, initializer) is { } owned)
+        {
+            Define(Declare(symbol, ((FunctionType)symbol.Type).Escaping), owned);
             return;
         }
 

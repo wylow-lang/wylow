@@ -77,14 +77,18 @@ public sealed partial class CppEmitter
         }
         if (function.BaseCall is not null)
             PlanBaseCall(function, nest);
-        if (nest)
-            PlanBlock(function.Body);
+        PlanBlock(function.Body, nest);
     }
 
     static bool IsWholeStoreTarget(IrStatement statement, IrPlace place) =>
         statement is IrStore store && ReferenceEquals(store.Target, place) && place is { IsDeref: false, Projections.Count: 0 };
 
-    void PlanBlock(IrBlock block)
+    /// <param name="nest">
+    /// Whether to nest temporaries. A non-escaping local is evaluated either way: it owns the lambda
+    /// or choice it is made with, whose C++ type it can only take from its initializer, so declaring
+    /// it first would make it a <c>wyl::FunctionRef</c> to a value its block destroys.
+    /// </param>
+    void PlanBlock(IrBlock block, bool nest)
     {
         var statements = block.Statements;
         foreach (var statement in statements)
@@ -93,9 +97,9 @@ public sealed partial class CppEmitter
             if (plan.Consumed.Contains(statement))
                 continue;
             foreach (var inner in InnerBlocks(statement))
-                PlanBlock(inner);
+                PlanBlock(inner, nest);
             if (statement is IrLet { Value: IrLambda or IrClosure } made)
-                PlanBlock(made.Value is IrLambda lambda ? lambda.Function.Body : ((IrClosure)made.Value).Function.Body);
+                PlanBlock(made.Value is IrLambda lambda ? lambda.Function.Body : ((IrClosure)made.Value).Function.Body, nest);
         }
         for (int j = 0; j + 1 < statements.Count; j++)
         {
@@ -107,6 +111,8 @@ public sealed partial class CppEmitter
                 plan.Consumed.Add(stored);
             }
         }
+        if (!nest)
+            return;
         for (int j = 0; j < statements.Count; j++)
         {
             if (statements[j] is not IrDeclare { Local: { Kind: IrLocalKind.Value } local } declare || local.Type.IsNonEscapingFunction)

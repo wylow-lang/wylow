@@ -377,7 +377,12 @@ Each lambda is an `IrFunction`.
   computed by ordinary control flow, and an escaping option is evaluated only on its branch, into
   a held local, as `wyl::choose_held` does. A `!` option's check runs on its branch too, which is
   why its option is a `borrow` of the nullable itself: the emitter passes it as
-  `wyl::narrowed`, which unwraps the option the choice selected when it is called.
+  `wyl::narrowed`, which unwraps the option the choice selected when it is called. A choice owns
+  the lambdas made into it and the copies it takes, and refers to its `borrow` options.
+- A **non-escaping local** owns what it is made with (spec 06-syntax.md): a lambda or a choice is
+  its value, which the emitter declares `auto` in every mode. Made from an escaping value, the
+  local's type is the escaping form, unconverted, so it holds and releases the closure; a value of
+  the non-escaping form never owns a closure.
 
 ### 5.9 Stack slots and the cycle collector
 

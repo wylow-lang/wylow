@@ -40,7 +40,9 @@ public sealed partial class Interpreter
     }
 
     /// <summary>
-    /// A choice: its index, and every callable it may select, which it owns. The index is computed by
+    /// A choice: its index, and every callable it may select. It owns the lambdas made into it and the
+    /// copies it takes; a borrowed option, a non-escaping local or a nullable parameter, is referred to,
+    /// so releasing the choice doesn't release it, as C++ refers to the local. The index is computed by
     /// ordinary control flow, so only the option that was chosen was evaluated into it.
     /// </summary>
     Value Choose(IrChoose choice, Frame frame)
@@ -50,7 +52,10 @@ public sealed partial class Interpreter
         for (int i = 0; i < options.Length; i++)
         {
             var option = choice.Options[i];
-            options[i] = new Cell(frame.Type(option.Type), EvalOperand(option, frame));
+            var value = option is IrRead { Ownership: IrOwnership.Borrow } borrowed
+                ? new RefValue(PlaceCell(borrowed.Place, frame))
+                : EvalOperand(option, frame);
+            options[i] = new Cell(frame.Type(option.Type), value);
         }
         return new ChoiceValue(index, options);
     }
@@ -68,11 +73,12 @@ public sealed partial class Interpreter
         // function value is one like any other, so `?:` around it makes a choice of choices. An
         // option that is a nullable function is still optional, as `wyl::narrowed` holds one: only
         // the option the choice selected was checked by the `!` that made it.
-        while (callee is ChoiceValue or OptionalValue)
+        while (callee is ChoiceValue or OptionalValue or RefValue)
         {
             callee = callee switch
             {
                 ChoiceValue choice => choice.Options[Chosen(choice)].Value,
+                RefValue { Cell: { } referred } => referred.Value,
                 OptionalValue { Inner: { } inner } => inner.Value,
                 _ => throw new InterpreterException("a null nullable value was used as narrowed"),
             };
