@@ -123,7 +123,7 @@ public static class JobSpecs
             Idle = values => values.Bool("buildFirst"),
             Observe = Observers.Suite,
             Lock = "suite",
-            Hint = "Run all six modes before committing: the interpreter, MSVC, g++, --no-opt, --no-nest, and ASan. 'All six, in parallel' does it in one job.",
+            Hint = "Before committing: the whole suite in the interpreter, and MSVC filtered to the change. CI runs all six modes on the push; 'All six, in parallel' runs them here.",
         },
         new()
         {

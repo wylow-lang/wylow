@@ -1,9 +1,9 @@
-# The suite in every mode, one runner per mode, on every push to main.
+# The suite in every mode, one runner per mode, on every push to dev or main.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 concurrency:

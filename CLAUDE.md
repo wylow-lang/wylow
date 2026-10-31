@@ -19,7 +19,7 @@ dotnet build
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll              # all tests, MSVC
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
-dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # pre-commit: all six modes at once, one process each
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # all six modes at once, one process each (CI's job; only when asked)
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret  # only the IR interpreter: the meaning against its expectations, and the optimized IR against it
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix       # only the interaction matrices
@@ -258,9 +258,8 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   tree, an analysis from a local rule), move every caller and delete the old one in the same
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
   concept is two ways of doing the same thing.
-- Every feature gets tests for its behavior and for each error it can produce. Run the suite in
-  all six modes before committing: MSVC, g++, `--no-opt`, `--no-nest`, `--cc asan`, and
-  `--interpret`. One `--all-modes` run does all six at once.
+- Every feature gets tests for its behavior and for each error it can produce. Before committing,
+  run two modes and nothing more (see "When tests run"); CI runs all six on the push.
 - **A feature adds its row or column to the matrices** (enforced only by review): a new place,
   operation, kind of type or value, context, or value edge goes in `MatrixPlaces.cs`,
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change
@@ -272,17 +271,20 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
-- Commit each coherent change once it passes the suite in every mode (a step of a plan, not
+- Commit each coherent change on `dev` once it passes the pre-commit check (a step of a plan, not
   only whole milestones), ending the message with the `Co-Authored-By` line. Every finding and
-  every surviving mutant any run leaves is triaged. Don't push.
+  every surviving mutant any run leaves is triaged. Don't push: the user pushes `dev`, and when
+  its CI run is green, `main` is fast-forwarded to it (`git push origin dev:main`), so `main`
+  only ever points at commits that passed every mode. A CI failure is read with
+  `gh run view --log-failed` and fixed on `dev`.
 
 ## When tests run
 
 | When | What |
 |---|---|
 | While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
-| Before each commit | `--all-modes`: about a minute warm, about three when everything rebuilds (ASan is the longest mode) |
-| On every push to `main` (CI) | each of the six modes on its own runner (`.github/workflows/ci.yml`) |
+| Before each commit | the whole suite in `--interpret` (about 20 s, no C++ build) and MSVC filtered to the area the change touches (`Wyl.Tests.dll structs`). Docs-only changes run nothing; dashboard-only changes only build. Nothing else: no `--all-modes`, other modes, fuzzing, mutation, or coverage unless the user asks |
+| On every push to `dev` or `main` (CI) | each of the six modes on its own runner (`.github/workflows/ci.yml`) |
 | Nightly (CI) | tier 1 and tier 2 fuzzing, 30 minutes each, a new seed per run (`fuzz.yml`) |
 | Weekly, or started by hand (CI) | every mutation target on its own runner, or one target (`mutation.yml`) |
 | Whenever the user starts it | local fuzzing, mutation targets, coverage |

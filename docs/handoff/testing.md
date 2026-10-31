@@ -130,7 +130,7 @@ Line coverage locates a site well enough (no site lacked coverage data), so `Err
 Add a toolchain to `NativeCompiler` (`Toolchain.ClangSanitized`, runner flag `--cc asan`) that
 compiles with clang-cl, `-fsanitize=address,undefined`, and `-DWYL_DEBUG=1`, using the flags
 CLAUDE.md lists today (`_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`, `-EHsc`, `-std:c++20`). Any
-sanitizer report fails the test. It becomes the fifth mode to run before committing, and CLAUDE.md's
+sanitizer report fails the test. It becomes the fifth mode CI runs, and CLAUDE.md's
 manual ASan recipe is deleted ("replace, don't layer").
 
 **Done (2026-10-26).** clang-cl links UBSan here, so the mode runs both; UBSan reports and
@@ -384,9 +384,8 @@ It is then written to `tests/fuzz/findings/` with its seed. Fixing it means:
 - asking the question we already ask of every bug: what structure would have made it impossible?
 
 **Running.** The fuzzer takes a seed, a time budget, and a test filter, and is deterministic for a
-given seed, so a finding can be replayed. A short run (for example two minutes) is part of the
-pre-commit routine for compiler changes; emitter, docs, and dashboard changes rely on the suite, and
-long runs go in the background.
+given seed, so a finding can be replayed. Fuzzing is not part of committing: CI fuzzes nightly,
+and local runs are started by the user, in the background.
 
 **Done (2026-10-27).** `tests/Wyl.Fuzz` is a console project in the solution:
 
