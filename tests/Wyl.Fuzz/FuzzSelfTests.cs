@@ -101,6 +101,14 @@ public static class FuzzSelfTests
         Expect("warnings otherwise ignored",
             RunComparison.Compare(Run(error: "performance warning: a"), Run(error: "performance warning: b"), ""), null);
         Expect("an inconclusive run", RunComparison.Compare(RunOutcome.Inconclusive, Run(), ""), null);
+        Expect("a zero's sign where a native build is compared",
+            RunComparison.Compare(Run("-0.0\nv -0.00 -0e+00\n"), Run("0.0\nv 0.00 0e+00\n"), "", ignoreZeroSign: true), null);
+        Expect("a zero's sign otherwise",
+            RunComparison.Compare(Run("-0.0\n"), Run("0.0\n"), ""), "stdout");
+        Expect("a nonzero's sign where a native build is compared",
+            RunComparison.Compare(Run("-0.05 -10.0 -0.1\n"), Run("0.05 10.0 0.1\n"), "", ignoreZeroSign: true), "stdout");
+        Expect("other output where a native build is compared",
+            RunComparison.Compare(Run("-0.0 a\n"), Run("0.0 b\n"), "", ignoreZeroSign: true), "stdout");
         if (!RunComparison.SkipsComparison("// mode: optimized", unsafeCode: false))
             failures.Add("a `// mode: optimized` test is compared");
         if (!RunComparison.SkipsComparison("void main() { }", unsafeCode: true))

@@ -342,7 +342,8 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
             // The interpreter mirrors the unoptimized IR's releases, so its pair with --no-opt is held
             // to the performance warnings too; an optimization may change what the collector reports.
             bool compareWarnings = reference.Mode.Interpret && !other.Mode.Options.Optimize;
-            if (RunComparison.Compare(reference.Outcome, other.Outcome, text, compareWarnings) is { } difference)
+            // Every pair here has a native build, and the C++ compilers don't keep a zero's sign.
+            if (RunComparison.Compare(reference.Outcome, other.Outcome, text, compareWarnings, ignoreZeroSign: true) is { } difference)
                 return new Finding(
                     $"tier2/disagree/{pair}/{difference.Kind}",
                     $"tier2/disagree/{pair}/{difference.Kind}",

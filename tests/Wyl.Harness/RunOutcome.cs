@@ -60,7 +60,7 @@ public sealed record RunOutcome(
 public sealed record RunDifference(string Kind, string Detail);
 
 /// <summary>The comparison rule the runner and the fuzzer share (docs/design/ir.md §9.11).</summary>
-public static class RunComparison
+public static partial class RunComparison
 {
     /// <summary>
     /// A program the modes are not compared on: it observes an optimization, or its mutation edited
@@ -74,13 +74,21 @@ public static class RunComparison
     /// caller asks, the performance warnings. A program with a budgeted collector may legitimately
     /// reach other cycles when an optimization is off, so its stdout is not compared. The abort exit
     /// code is the platform's, so two panics are compared by their text, not their code.
+    /// <para>
+    /// With <paramref name="ignoreZeroSign"/>, which only a comparison involving a native build asks
+    /// for, stdout that differs only in the sign of a printed zero is equal: g++ 15.1 compiles
+    /// <c>0.0 - (double)i</c> as a negation even at -O0, and MSVC /O2 moves a negation across an
+    /// integer-to-float conversion, so either prints <c>0.0</c> where IEEE 754 gives <c>-0.0</c>
+    /// or the reverse, from correct C++.
+    /// </para>
     /// </summary>
-    public static RunDifference? Compare(RunOutcome reference, RunOutcome other, string text, bool compareWarnings = false)
+    public static RunDifference? Compare(RunOutcome reference, RunOutcome other, string text, bool compareWarnings = false, bool ignoreZeroSign = false)
     {
         if (!reference.Conclusive || !other.Conclusive)
             return null;
         bool compareOutput = !text.Contains("Memory.collectCycles", StringComparison.Ordinal);
-        if (compareOutput && reference.Output != other.Output)
+        if (compareOutput && reference.Output != other.Output
+            && !(ignoreZeroSign && WithoutZeroSign(reference.Output) == WithoutZeroSign(other.Output)))
             return new("stdout", $"stdout differs\n  reference: {Truncate(reference.Output)}\n  other:     {Truncate(other.Output)}");
         if (reference.Panicked != other.Panicked)
             return new("exit", reference.Panicked
@@ -99,6 +107,13 @@ public static class RunComparison
             return new("warning", $"performance warnings differ\n  reference: {string.Join(" | ", reference.Warnings)}\n  other:     {string.Join(" | ", other.Warnings)}");
         return null;
     }
+
+    /// <summary>Stdout with the sign of every printed zero dropped (<c>-0.0</c>, <c>-0.00</c>, <c>-0e+00</c>).</summary>
+    public static string WithoutZeroSign(string output) => NegativeZero().Replace(output, "$1");
+
+    // A whole printed number: not part of a longer one (-10.0, -0.05) or a word.
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<![\w.])-(0(?:\.0*)?(?:[eE][+-]?\d+)?)(?![\w.])")]
+    private static partial System.Text.RegularExpressions.Regex NegativeZero();
 
     static string Truncate(string text) => text.Length > 2000 ? text[..2000] + "…" : text;
 }
