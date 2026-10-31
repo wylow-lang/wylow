@@ -29,6 +29,22 @@ int unwrapped(((int) -> int)? f) {
     return f!(3);
 }
 
+int chosen(int value, ((int) -> int)? f, ((int) -> int)? g, bool first) {
+    return (first ? f! : g!)(value);
+}
+
+int chosenMixed(int value, ((int) -> int)? f, bool first) {
+    return (first ? f! : x -> x - 1)(value);
+}
+
+int chosenSwitch(((int) -> int)? f, int which) {
+    return (switch (which) {
+        case 0 -> f!;
+        case 1 -> x -> x * 10;
+        default -> x -> x + 100;
+    })(3);
+}
+
 int twice((int) -> int f) {
     return f(f(1));
 }
@@ -97,8 +113,23 @@ void main() {
     print(run(1, flag ? x -> x + 1 : null));        // output: 2
     print(run(1, !flag ? x -> x + 1 : null));       // output: 1
 
+    // A '!' in a choice checks only where its option is chosen, so a null option that isn't
+    // chosen does not panic.
+    print(chosen(3, x -> x * 3, x -> x + 1, true));         // output: 9
+    print(chosen(3, x -> x * 3, x -> x + 1, false));        // output: 4
+    print(chosen(3, null, x -> x + 1, false));              // output: 4
+    print(chosenMixed(3, x -> x * 3, true));                // output: 9
+    print(chosenMixed(3, x -> x * 3, false));               // output: 2
+    print(chosenMixed(3, null, false));                     // output: 2
+    print(chosenSwitch(x -> x * 3, 0));                     // output: 9
+    print(chosenSwitch(null, 1));                           // output: 30
+    print(chosenSwitch(null, 2));                           // output: 103
+
     // A function type's nullable parameters are non-escaping too.
     (((int) -> int)?) -> int g = h -> h == null ? 7 : h(1);
     print(g(null));                                 // output: 7
     print(g(x -> x + 8));                           // output: 9
+
+    // The option the choice selects is checked, where the choice is made.
+    print(chosen(3, null, x -> x + 1, true));       // panic: null value unwrapped with '!'
 }

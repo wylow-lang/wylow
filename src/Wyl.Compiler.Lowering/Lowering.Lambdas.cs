@@ -119,6 +119,12 @@ public sealed partial class IrLowering
                 case var escaping when IsHeld(escaping):
                     Add(new IrStore(new IrPlace(held!), OperandOf(Rvalue(((BoundConversion)escaping).Operand, Use.Read))) { Origin = at });
                     return IrConstant.Int(made.Count);
+                case BoundNonNull { Operand: var nullable } nonNull:
+                    // The check runs only where its option is chosen, unlike a lambda, which is made
+                    // wherever it is.
+                    Add(new IrCheck(nullable.Type.IsNullableValue ? IrCheckKind.HasValue : IrCheckKind.NotNull,
+                        [IrRead.Borrow(Place(nullable, Use.Read))], Loc(nonNull.Location)) { Origin = at });
+                    return IrConstant.Int(made.FindIndex(l => ReferenceEquals(l, option)));
                 default:
                     return IrConstant.Int(made.FindIndex(l => ReferenceEquals(l, option)));
             }
@@ -130,6 +136,9 @@ public sealed partial class IrLowering
             BoundLambda lambda => IrRead.Move(new IrPlace(Let(Lambda(lambda)))),
             BoundLocalAccess { Type.IsEscaping: false } local => IrRead.Borrow(Place(local, Use.Read)),
             BoundLocalAccess local => (IrOperand)IrRead.Copy(Place(local, Use.Read)),
+            // The option that isn't chosen may be null, so the choice refers to the nullable and
+            // unwraps it when called, after the check its index made.
+            BoundNonNull { Operand: var nullable } => IrRead.Borrow(Place(nullable, Use.Read)),
             _ => throw new InvalidOperationException($"a chosen function cannot be a {leaf.GetType().Name}"),
         })];
         if (held is not null)

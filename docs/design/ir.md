@@ -375,7 +375,9 @@ Each lambda is an `IrFunction`.
   its fields.
 - A **choice** of non-escaping functions is `choose %index [λ1, λ2, borrow g]`. The index is
   computed by ordinary control flow, and an escaping option is evaluated only on its branch, into
-  a held local, as `wyl::choose_held` does.
+  a held local, as `wyl::choose_held` does. A `!` option's check runs on its branch too, which is
+  why its option is a `borrow` of the nullable itself: the emitter passes it as
+  `wyl::narrowed`, which unwraps the option the choice selected when it is called.
 
 ### 5.9 Stack slots and the cycle collector
 

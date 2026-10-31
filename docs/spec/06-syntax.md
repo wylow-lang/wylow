@@ -531,8 +531,9 @@ be reassigned if it is `mut`.
   `Memory.collectCycles` collects like any other.
 - **Choices.** A `?:` or switch expression of escaping type evaluates only the option it chooses,
   like any other. One of non-escaping type makes its lambdas and refers to its non-escaping
-  locals up front, which no one can observe, and evaluates an escaping option (a field, a call, an
-  escaping local) only when it is chosen.
+  locals up front, which no one can observe; the check a `!` makes runs only where its option is
+  chosen, so an option that isn't chosen may still be null, and an escaping option (a field, a
+  call, an escaping local) is evaluated only when it is chosen.
 - **Signatures.** An override or interface implementation must declare the same parameters
   `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
   parameters are `@Escaping`. A function type's `@Escaping` parameters are part of the type, and

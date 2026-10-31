@@ -212,6 +212,28 @@ Borrowed<F> borrowed(const F& f) {
     return Borrowed<F>(f);
 }
 
+// A choice's option that is a nullable non-escaping function: an option that isn't chosen may still
+// be null, so the choice refers to the nullable and unwraps it where it is called, after the check
+// that made its option non-null. A narrowed local that flow analysis proved non-null is borrowed
+// itself instead.
+template <class F>
+class Narrowed {
+    const F* nullable;
+
+public:
+    explicit Narrowed(const F& f) : nullable(std::addressof(f)) {}
+
+    template <class... A>
+    decltype(auto) operator()(A&&... arguments) const {
+        return nullable->assumed()(std::forward<A>(arguments)...);
+    }
+};
+
+template <class F>
+Narrowed<F> narrowed(const F& f) {
+    return Narrowed<F>(f);
+}
+
 template <class... F>
 Choice<F...> choose(int index, F... options) {
     return Choice<F...>(index, std::move(options)...);

@@ -641,7 +641,15 @@ public sealed partial class CppEmitter
     string ClosureObjectType(IrClosure closure) =>
         $"wyl::Closure<{string.Join(", ", [CppStringLiteral(closure.Name), .. closure.Captures.Select(c => CppType(c.Type))])}>";
 
-    /// <summary>A choice's option: a non-escaping local or parameter it refers to, which outlives it, or a value it holds.</summary>
-    string OptionText(IrOperand option) =>
-        option is IrRead { Ownership: IrOwnership.Borrow } ? $"wyl::borrowed({OperandText(option)})" : OperandText(option);
+    /// <summary>
+    /// A choice's option: a non-escaping local or parameter it refers to, which outlives it, or a
+    /// value it holds. A narrowed nullable one stays wrapped, since an option that isn't chosen may
+    /// still be null.
+    /// </summary>
+    string OptionText(IrOperand option) => option switch
+    {
+        IrRead { Ownership: IrOwnership.Borrow, Type.IsNullableNonEscapingFunction: true } => $"wyl::narrowed({OperandText(option)})",
+        IrRead { Ownership: IrOwnership.Borrow } => $"wyl::borrowed({OperandText(option)})",
+        _ => OperandText(option),
+    };
 }
