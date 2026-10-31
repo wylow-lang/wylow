@@ -64,7 +64,7 @@ Some notes on the choices:
 - **Dereference only at the base.** `a.b.x = f()` can't be one place `(*(*a).b).x`, since `f`
   could replace `a.b` between finding the target and storing to it. Lowering must read `a.b` into
   a temporary first. That is exactly the spec's rule that the object holding the target is
-  evaluated before the value (§3.4, Evaluation order and the heap), and the temporary is exactly
+  evaluated before the value (§3.3, Evaluation order and the heap), and the temporary is exactly
   the pin the emitter adds today. So "the root to hold" isn't computed by a walker. It's the base,
   by construction.
 - **Narrowing is a check that never runs.** Where the source uses a nullable local as not null, as
@@ -104,7 +104,7 @@ Some notes on the choices:
 | `end %h` | `wyl::unhold(h)` / `slot.end()` |
 
 Destruction order inside a statement becomes a C++ scope's reverse declaration order, which is
-fully specified, and is the order the spec now requires (§3.4, When references are released). A
+fully specified, and is the order the spec now requires (§3.2, When references are released). A
 statement's temporaries are declared in the statement's scope; a temporary of an operand that may
 not be evaluated is declared in that operand's block, so it is released when the operand completes.
 Today a by-value parameter's destruction point is ABI-dependent, which is why `wyl::keep` exists.
@@ -158,7 +158,7 @@ Two instructions **conflict**, by the effect table (§6.1), if:
    panic aborts without unwinding, so nothing sees them. The table models this as a pseudo-place,
    the world, which panics, I/O, and unknown code all write;
 4. both create a value whose release may be observable, since their creation order decides their
-   release order (§3.4, When references are released). At first that's any value that
+   release order (§3.2, When references are released). At first that's any value that
    `MayOwnObjects`; destructor reachability (§6.1) narrows it later.
 
 Four structural rules go with it:
@@ -254,7 +254,7 @@ store *%r = move %v
 
 `list[0] = 5` lowers the same way. The mandatory `Borrows` pass then drops the borrow, because
 nothing runs between taking `%r` and storing through it. That reproduces the spec's table of borrow
-extents (§3.4, Borrow counters) from one lowering rule and one pass, instead of from the cases in
+extents (§3.3, Borrow counters) from one lowering rule and one pass, instead of from the cases in
 `Assignment`, `LocatedAssignment`, and `ArgumentOperand`. A borrow is a language rule, so it is
 decided the same with or without optimizations (`classes/borrowable_observed.wyl`).
 
@@ -446,7 +446,7 @@ caller's (`IrAccess.Summarized`): there is one storage model, per function and w
 It is the only place that knows what each instruction does, and there are about twenty instruction kinds
 rather than about forty bound node kinds.
 
-Releases being explicit made one imprecision the spec documented cheap to fix (§3.4, "One
+Releases being explicit made one imprecision the spec documented cheap to fix (§3.3, "One
 destructor can slow down unrelated loops"; since fixed). The destructors that may run at a release of a `T` are
 those of the classes reachable from `T` through strong fields, which is the graph `CyclicClasses`
 already builds. A loop that releases no `Squad` would no longer be slowed by `~Squad`.
@@ -585,7 +585,7 @@ The migration now under way is [architecture.md](architecture.md)'s.
    `switch` over classes for exhaustiveness), so a new kind can't compile without an entry, and `--no-opt` turns every optimization off (every `copy` stays a copy, every hold a hold, every
    object on the heap), so the suite can compare outputs.
 10. **Destruction order inside a statement.** **Decided: specify it now**, before step 3, so that
-   step 3 targets the spec rather than whatever today's emitter does (§3.4, When references are
+   step 3 targets the spec rather than whatever today's emitter does (§3.2, When references are
    released). Temporaries are released when their statement completes, not at last use, in
    reverse order of creation, after an assignment's old value; a temporary of an operand that may
    not be evaluated is released when that operand completes; each evaluation of a condition or

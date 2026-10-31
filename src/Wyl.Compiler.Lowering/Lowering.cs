@@ -337,7 +337,7 @@ public sealed partial class IrLowering
     void Assignment(BoundAssignment assignment)
     {
         // The target, its indices and their checks included, is found before the value, which reads
-        // it from there in a compound assignment like `a[f()] += 1` (spec §3.4, Evaluation order and the heap).
+        // it from there in a compound assignment like `a[f()] += 1` (spec §3.3, Evaluation order and the heap).
         var target = Place(assignment.Target, Use.InUse);
         bool compound = BoundTree.AllExpressions(assignment.Value).Any(e => ReferenceEquals(e, assignment.Target));
         if (compound && target.Projections.Any(p => p is IrElement { Index: IrRead }))

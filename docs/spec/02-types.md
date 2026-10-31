@@ -255,7 +255,7 @@ stored. Nullable values follow the rules above, and also:
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
   error when `m` is a `mut` struct method, since its changes would be lost.
-- A struct cannot contain itself through a nullable (`struct Link { public { Link? next; } }`), since the
+- A struct cannot contain itself through a nullable (`struct Link { public Link? next; }`), since the
   value would be stored inline; use a class.
 
 ### Nullable type parameters
@@ -269,7 +269,7 @@ first element. A call infers `T` from a `T?` parameter through the value type of
 
 ## 2.6 Type inference
 
-`var` declares a local with an inferred type: `var enemies = new Pool<Enemy>();`
+`var` declares a local with an inferred type: `var enemies = new List<Enemy>();`
 
 ## 2.7 Mutability and constants
 
@@ -334,7 +334,7 @@ enum Direction { North, East, South, West }
 
 enum AiState {
     Idle,
-    Chasing(Handle<Enemy> target),
+    Chasing(int target),
     Fleeing(Vec3 from, float timeLeft),
 }
 ```
@@ -426,11 +426,9 @@ A `struct` is a **value type**.
 
 ```java
 struct Transform {
-    public {
-        Vec3 position;
-        Quat rotation;
-        Vec3 scale = Vec3.ONE;
-    }
+    public Vec3 position;
+    public Quat rotation;
+    public Vec3 scale = Vec3.ONE;
 }
 ```
 
@@ -458,12 +456,10 @@ passed directly to graphics APIs.
 ```java
 @Align(16)
 struct CameraUniforms {
-    public {
-        Mat4 view;
-        Mat4 proj;
-        Vec3 eye;
-        @Pad(4)
-    }
+    public Mat4 view;
+    public Mat4 proj;
+    public Vec3 eye;
+    @Pad(4)
 }
 ```
 
@@ -485,17 +481,13 @@ A `class` is a **heap-allocated, reference-counted object** (see
 
 ```java
 abstract class Weapon {
-    public {
-        abstract void fire(World w);
-        virtual float cooldown() { return 0.5; }
-    }
+    public abstract void fire(World w);
+    public virtual float cooldown() { return 0.5; }
 }
 
 final class Shotgun extends Weapon {
-    public {
-        override void fire(World w) { ... }
-        override float cooldown() { return 1.0; }
-    }
+    public override void fire(World w) { ... }
+    public override float cooldown() { return 1.0; }
 }
 ```
 
@@ -651,7 +643,7 @@ List<Enemy> spawned = new List<Enemy>();       // heap, growable
 - `T[N]`, `T[]`, and `List<T>` convert **implicitly** to `Span<T>` and `ReadOnlySpan<T>`.
 - `Span<T>` follows the same rules as `ref` (cannot be a field, cannot be captured by an escaping
   closure, and can be returned only by a method viewing its receiver). Taking a span of a `List`
-  borrows the list ([03-memory-model.md](03-memory-model.md#34-references)).
+  borrows the list ([03-memory-model.md](03-memory-model.md#33-references)).
 
 ```java
 float sum(ReadOnlySpan<float> values) { ... }
@@ -816,10 +808,8 @@ generic itself.
 
 ```java
 struct Pair<A, B> {
-    public {
-        A first;
-        B second;
-    }
+    public A first;
+    public B second;
 }
 
 T identity<T>(T value) { return value; }
@@ -897,5 +887,5 @@ requires an argument for each such field, and `T()` exists only when there are n
 ### Recursive structs
 
 A struct cannot contain itself by value, including through type arguments
-(`struct Rec { public { Wrap<Rec> w; } }`), and its field types cannot grow without end
-(`struct Grow<T> { public { Grow<Pair<T, T>> next; } }`).
+(`struct Rec { public Wrap<Rec> w; }`), and its field types cannot grow without end
+(`struct Grow<T> { public Grow<Pair<T, T>> next; }`).

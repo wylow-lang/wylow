@@ -20,7 +20,6 @@ never written on structs.
 | Type | Sendable |
 |---|---|
 | Primitives | ✅ |
-| `Handle<T>` | ✅ |
 | Enums whose variants hold only sendable data | ✅ |
 | Structs whose fields are all sendable ("plain data") | ✅ |
 | `T[N]` where `T` is sendable | ✅ |
@@ -38,11 +37,9 @@ A `shared class` may be referenced from multiple threads.
 
 ```java
 shared class TextureCache {
-    public {
-        String rootPath;
-        Mutex<Map<String, TextureId>> entries;
-        Atomic<int> hits;
-    }
+    public String rootPath;
+    public Mutex<Map<String, TextureId>> entries;
+    public Atomic<int> hits;
 }
 ```
 
@@ -87,7 +84,7 @@ Jobs.run(
 
 ### Design consequence
 
-A struct containing a class reference (for example `struct Enemy { public { Behavior ai; } }`) is not
+A struct containing a class reference (for example `struct Enemy { public Behavior ai; }`) is not
 sendable, so it cannot be processed by jobs. Data that needs parallel processing should be
 **plain data**, with class-heavy logic kept on the owning thread. This is intentional: it pushes
 hot data toward a data-oriented layout.
@@ -156,7 +153,7 @@ Locks give access through a scoped `ref`:
 stats.lock((ref Stats s) -> { s.frames++; });
 ```
 
-Because `ref` cannot escape (see [03-memory-model.md](03-memory-model.md#34-references)), protected
+Because `ref` cannot escape (see [03-memory-model.md](03-memory-model.md#33-references)), protected
 data cannot be accessed after the lock is released.
 A lock held while a panic unwinds is poisoned (§5.6).
 
@@ -182,20 +179,16 @@ such as a mod, a script, or a game session in an editor, without stopping the pr
 
 ```java
 class ModHost {
-    public {
-        void tick(FrameInput input) {                                   // FrameInput: plain data
-            switch (mod.call(state -> state.update(input))) {           // Result<ModOutput, Panic>
-                case Ok(ModOutput out) -> apply(out);
-                case Err(Panic p) -> {
-                    log(p.message);
-                    mod = Isolate.start(() -> new ModState(config));    // start over
-                }
+    public void tick(FrameInput input) {                                   // FrameInput: plain data
+        switch (mod.call(state -> state.update(input))) {           // Result<ModOutput, Panic>
+            case Ok(ModOutput out) -> apply(out);
+            case Err(Panic p) -> {
+                log(p.message);
+                mod = Isolate.start(() -> new ModState(config));    // start over
             }
         }
     }
-    private {
-        mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
-    }
+    private mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
 }
 ```
 
@@ -220,8 +213,8 @@ objects belong to which isolate.
 
 | Member | Does |
 |---|---|
-| `Isolate.start(() -> S)` | Creates an isolate whose state is the lambda's result, made inside it |
-| `call((S) -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
+| `Isolate.start(fn() -> S)` | Creates an isolate whose state is the lambda's result, made inside it |
+| `call(fn(S) -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
 | `isAlive` | Whether the isolate has not panicked |
 
 - After a panic, the isolate is **dead**: its stack has unwound (running destructors and ending

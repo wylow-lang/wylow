@@ -27,7 +27,7 @@ int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
 | Null dereference | Types are non-null by default; nullable types must be checked. `x!` panics on null |
 | Uninitialized variables | Compile error to read before assignment; fields are default-initialized |
 | Use-after-free / dangling pointer | Prevented by the memory model ([03-memory-model.md](03-memory-model.md)) |
-| Iterator / reference invalidation | Prevented by borrow counters ([03-memory-model.md](03-memory-model.md#34-references)) |
+| Iterator / reference invalidation | Prevented by borrow counters ([03-memory-model.md](03-memory-model.md#33-references)) |
 | Float → int out of range | Saturates; NaN → 0 |
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
 | Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`). Storage of one type is never read or written as another, which the compiler relies on (§1.4, `unsafe`) |
@@ -83,9 +83,6 @@ Removes **runtime checks** from a function while keeping the language's type rul
 void skinMesh(ref Mesh m, Span<Mat4> bones) { ... }
 ```
 
-Pools additionally offer unchecked accessors, e.g. `pool.getUnchecked(handle)`, which skip the
-generation check.
-
 ### `unsafe`
 
 An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plus:
@@ -102,7 +99,7 @@ An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plu
 unsafe {
     Vertex* v = vertices.data();
     for (mut int i = 0; i < count; i++) {
-        v[i].position *= scale;
+        v[i].position = v[i].position.scale(scale);
     }
 }
 ```

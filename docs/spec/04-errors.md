@@ -126,7 +126,7 @@ code where failure would be a bug.
 
 | Panics | Doesn't |
 |---|---|
-| `list[i]`, `array[i]`, `span[i]` | `list.get(i)`, `array.get(i)`, `span.get(i)`: a `ref? T` (`in? T` for a `ReadOnlySpan`), null if `i` is out of bounds, like `pool.get(h)` |
+| `list[i]`, `array[i]`, `span[i]` | `list.get(i)`, `array.get(i)`, `span.get(i)`: a `ref? T` (`in? T` for a `ReadOnlySpan`), null if `i` is out of bounds |
 | `list.removeAt(i)` | `list.tryRemoveAt(i)`: a `T?` |
 | `list.insert(i, v)` | none: an insertion index is the caller's own arithmetic, so a bad one is a bug |
 | `(Direction)i` | `Direction.tryFrom(i)`: a `Direction?` |

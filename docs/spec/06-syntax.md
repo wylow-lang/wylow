@@ -29,51 +29,40 @@ A top-level `void main()` or `int main(String[] args)`.
 
 ## 6.2 Access
 
-Java's four levels:
+Java's four levels, written as Java writes them: a modifier on each member, or none.
 
-| Level | Visible to |
-|---|---|
-| `public` | Everyone |
-| `protected` | The package and subclasses |
-| `internal` | The package |
-| `private` | The enclosing type (or file, for top-level declarations) |
-
-**A type's members are declared in access blocks**, one per level, rather than with a modifier
-each:
+| Level | Written | Visible to |
+|---|---|---|
+| public | `public` | Everyone |
+| protected | `protected` | The package and subclasses |
+| package | no modifier | The package |
+| private | `private` | The enclosing type (or file, for top-level declarations) |
 
 ```java
 class Player extends Entity {
-    public {
-        Player(String name) { this.name = name; }
-        void damage(int amount) { health -= amount; }
-    }
-    protected {
-        String name;
-    }
-    private {
-        mut int health = 100;
-    }
+    protected String name;
+    private mut int health = 100;
+
+    public Player(String name) { this.name = name; }
+    public void damage(int amount) { health -= amount; }
 }
 ```
 
-- Every member is in a block. A type has at most one block of each level, and they are written
-  in the order of the table: `public`, `protected`, `internal`, `private`. Any may be left out, so
-  a type's members read from the most to the least visible, and each level is in one place.
-- A block declares its data first: its fields come before its constructors and methods, so a field
-  never follows a method.
-- A member takes no access modifier of its own.
-- The destructor is written after the blocks, outside them, since only the runtime calls it.
-- An enum's variants come first, outside the blocks, and are as visible as the enum.
-- Structs and enums have no `protected` block, since they can't be inherited.
-- An interface has no blocks: its members are all public.
-- A struct's fields are laid out in declaration order (§2.9), so the blocks decide the order
-  of fields of different levels, as they do the memberwise constructor's parameters (§6.3).
+- Members may be declared in any order. A struct's fields are laid out in declaration order
+  (§2.9), which is also the order of the memberwise constructor's parameters (§6.3).
+- The access modifier comes first among a member's modifiers, after its annotations:
+  `@CallerLocation public static void check(...)`.
+- The destructor takes no modifier, since only the runtime calls it.
+- An enum's variants take no modifier: they are as visible as the enum.
+- Structs and enums have no `protected` members, since they can't be inherited.
+- An interface's members take no modifier: they are all public.
 
 **Top-level declarations** (types, functions) take a modifier each: `public`, `private`, or none,
-which is internal. `internal` itself isn't written there, since it would change nothing.
+which is package.
 
-> Implemented so far: the blocks, and `private`. `protected` and `internal` aren't checked yet:
-> every program is a single file, which is a single package.
+> Not implemented yet: the modifiers; the compiler still takes the access blocks it had before
+> (`public { ... }`, one per level, in a fixed order). Only `private` is checked: every program is
+> a single file, which is a single package.
 
 ## 6.3 Construction
 
@@ -102,17 +91,15 @@ as C#'s `T { field = value }`; the memberwise constructor with named arguments d
 default values, positional construction, and setting fields by name are all the same call.
 
 - A struct that declares no constructor gets a **memberwise constructor**, which takes every field
-  in declaration order: `Vec2(1, 2)` for `struct Vec2 { public { float x, y; } }`. Each parameter defaults to
+  in declaration order: `Vec2(1, 2)` for `struct Vec2 { public float x, y; }`. Each parameter defaults to
   its field's initializer, or else to the field type's default value, so arguments may be left out
   or passed by name (§6.4):
 
   ```java
   struct Enemy {
-      public {
-          Vec3 position;
-          int health = 100;
-          Player? target;
-      }
+      public Vec3 position;
+      public int health = 100;
+      public Player? target;
   }
 
   Enemy()                    // every field defaulted
@@ -121,13 +108,13 @@ default values, positional construction, and setting fields by name are all the 
   ```
 
   A field with no initializer whose type has no default (a non-null reference, a type parameter, or
-  a struct containing one) is a required argument. The memberwise constructor is private if any
-  field is.
+  a struct containing one) is a required argument. The memberwise constructor is as visible as its
+  least visible field.
 - Arguments are evaluated in the order written, as in any call. Then each field is set, in
   declaration order, to its argument or, for one left out, to its initializer. Initializers may call
   functions but cannot use `this` or other fields.
 - **`T()` is the default value.** It exists for a struct whose fields all have defaults, including
-  one that declares constructors, since arrays and pools rely on it, and it cannot be declared.
+  one that declares constructors, since arrays rely on it, and it cannot be declared.
 - Declaring any constructor removes the memberwise one, apart from `T()`. A declared constructor
   starts from the default value, then runs its body. `this` refers to the value being built, and
   `return;` ends construction early. To set fields its parameters don't cover, assign them after the
@@ -136,12 +123,10 @@ default values, positional construction, and setting fields by name are all the 
 
 ```java
 struct Enemy {
-    public {
-        Vec3 position;
-        int health = 100;
+    public Vec3 position;
+    public int health = 100;
 
-        Enemy(Vec3 pos) { position = pos; }
-    }
+    public Enemy(Vec3 pos) { position = pos; }
 }
 ```
 
@@ -151,12 +136,8 @@ Java-style, including `super(...)` and `this(...)` chaining:
 
 ```java
 class Shotgun extends Weapon {
-    public {
-        Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
-    }
-    private {
-        int pellets;
-    }
+    public Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
+    private int pellets;
 }
 ```
 
@@ -181,7 +162,7 @@ applyDamage(ref enemy, info);
 ```
 
 `ref` and `in` parameters follow the reference rules in
-[03-memory-model.md](03-memory-model.md#34-references). `in` is intended for large read-only structs
+[03-memory-model.md](03-memory-model.md#33-references). `in` is intended for large read-only structs
 such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error. So is a function-typed parameter, nullable or not, since a
 function is already passed without copying.
@@ -204,12 +185,10 @@ through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `m
 
 ```java
 struct Vec3 {
-    public {
-        float x, y, z;
+    public float x, y, z;
 
-        float length() { return sqrt(x*x + y*y + z*z); }
-        mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
-    }
+    public float length() { return sqrt(x*x + y*y + z*z); }
+    public mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
 }
 ```
 
@@ -258,7 +237,7 @@ type, as in C#. It adds methods to types its author can't change, and to interfa
 have method bodies or generic methods themselves (§2.12).
 
 ```java
-bool any<T>(this ReadOnlySpan<T> items, (T) -> bool test) {
+bool any<T>(this ReadOnlySpan<T> items, fn(T) -> bool test) {
     for (in T item : items) {
         if (test(item)) {
             return true;
@@ -300,10 +279,8 @@ and assigned directly, or a method, called with parentheses:
 
 ```java
 class Player {
-    public {
-        mut int health = 100;
-        bool isDead() { return health <= 0; }
-    }
+    public mut int health = 100;
+    public bool isDead() { return health <= 0; }
 }
 
 if (player.isDead()) { ... }
@@ -314,40 +291,17 @@ which covers what a read-only property would: `array.length`. A struct's fields 
 the variable holding it (§2.7), so a struct whose fields must keep an invariant makes them private
 and offers methods: `span.length()`. Turning a field into a method later means updating its uses.
 
-## 6.6 Operator overloading
+## 6.6 Indexers
 
-Operators are `static` methods named `operator <symbol>`, except indexers, which are instance
-methods (below):
-
-```java
-struct Vec3 {
-    public {
-        float x, y, z;
-
-        static Vec3 operator +(Vec3 a, Vec3 b) { return Vec3(a.x + b.x, a.y + b.y, a.z + b.z); }
-        static Vec3 operator *(Vec3 v, float s) { return Vec3(v.x * s, v.y * s, v.z * s); }
-        static Vec3 operator *(float s, Vec3 v) { return v * s; }
-        static Vec3 operator -(Vec3 v)          { return Vec3(-v.x, -v.y, -v.z); }   // unary
-    }
-}
-```
-
-| Category | Operators |
-|---|---|
-| Overloadable | `+ - * / %`, unary `- ! ~`, `& \| ^ << >>`, `== != < > <= >=`, `[]` and `[]=` (indexers) |
-| Not overloadable | `&& \|\| = . ?? ?.`, casts, `new` |
-
-- **Compound assignment** (`+=`, `*=`, ...) is derived automatically from the binary operator.
-- Defining `==` derives `!=` (it may be defined explicitly instead).
-
-### Indexers
+There is no operator overloading: an operator always means what it means for the built-in types,
+as in Java, so `a + b` never runs user code. Vector math is written with methods
+(`a.add(b)`, `v.scale(s)`). The one exception is indexing: any struct or class may declare an
+indexer, so that a user's container indexes like the standard library's.
 
 ```java
 struct Mat4 {
-    public {
-        float[16] m;
-        mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
-    }
+    public float[16] m;
+    public mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
 }
 ```
 
@@ -356,50 +310,38 @@ An indexer is an instance method named `operator []`, as in C++, so `m[1, 2]` ca
 rule in [03-memory-model.md](03-memory-model.md#returning-references)), and one returning `in`
 gives read-only access.
 
-Where there is no element to refer to, such as in a packed array of 4-bit values, `operator []=`
-handles assignment: it takes the indices and then the assigned value, and returns `void`.
-`grid[i] = v` calls it, and `grid[i] += v` reads with `operator []` and writes with `operator []=`.
-A type may not declare both `operator []=` and an `operator []` that returns `ref`.
+An indexer may return `ref`, `in`, or a value, and take any number of parameters. A type whose
+elements aren't stored as themselves, such as packed 4-bit values, returns a value and offers a
+`set` method for writing.
 
-```java
-struct Nibbles {
-    public {
-        byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
-        mut void operator []=(int i, byte value) { ... }
-    }
-    private {
-        byte[2048] bytes;
-    }
-}
-```
-
-> Implemented so far: `operator []` returning `ref`, `in`, or a value, with any number of
-> parameters. `operator []=` is not implemented.
+> Implemented so far: everything above.
 
 ### Equality
 
 | Kind | `==` means |
 |---|---|
-| Struct | Memberwise equality, **generated automatically** if every field supports `==` (can be overridden) |
+| Struct | Memberwise equality, **generated automatically** if every field supports `==`; it cannot be redefined |
 | Class, interface | **Reference identity** (same object), as in Java. Value equality is `equals()`. Allowed only when one side could be the other (or is `null`) |
 | Enum | Same variant and equal data |
 | `String` | **Same contents** (the same bytes), as in C#, unlike Java's identity: a literal equals a string built at run time with the same text |
 
 ## 6.7 Lambdas and function types
 
-Lambda syntax is Java's. Function types are written `(Params) -> Return`:
+Lambda syntax is Java's. Function types are written `fn(Params) -> Return`, a built-in type like
+`int`, so a function type never looks like a lambda:
 
 ```java
-(int, int) -> int add = (a, b) -> a + b;
+fn(int, int) -> int add = (a, b) -> a + b;
 list.sort((a, b) -> a.depth - b.depth);
 button.onClick(() -> { play(sound); });
 ```
 
-- A function type's parameters are always parenthesized, even one: `(Mob) -> bool`. They take
-  parameter modes, which are part of the type: `(ref Vec3) -> void`.
-- The return type takes any suffix: `(int) -> int?` returns an `int?`. To make the function itself
-  nullable, or an array of functions, parenthesize it: `((int) -> int)?`, `((int) -> int)?[]`.
-- `->` groups to the right: `(int) -> (int) -> int` returns a function.
+- A function type's parameters are always parenthesized, even none or one: `fn() -> void`,
+  `fn(Mob) -> bool`. They take parameter modes, which are part of the type: `fn(ref Vec3) -> void`.
+- The return type is always written, `void` included, and takes any suffix: `fn(int) -> int?`
+  returns an `int?`. To make the function itself nullable, or an array of functions, parenthesize
+  it: `(fn(int) -> int)?`, `(fn(int) -> int)?[]`.
+- `->` groups to the right: `fn(int) -> fn(int) -> int` returns a function.
 - A lambda's parameters are either all untyped, taking their types and modes from the target
   (`x -> ...`, `(a, b) -> ...`), or all typed (`(int a, ref Vec3 v) -> ...`). Its body is an
   expression or a block.
@@ -436,7 +378,7 @@ button.onClick(() -> { play(sound); });
   can't be used as a value (`enemy::update` may come later); use a lambda that calls it.
 - `return` in a lambda returns from the lambda; `break` and `continue` can't leave it.
 - `?:` and switch expressions choose between functions, wherever a function can be used:
-  `(int) -> int f = up ? x -> x + 1 : x -> x - 1;`, or `sort(items, up ? ascending : descending)`.
+  `fn(int) -> int f = up ? x -> x + 1 : x -> x - 1;`, or `sort(items, up ? ascending : descending)`.
   The choice is made once, when the expression is evaluated. Passed as an argument, a choice
   whose options include lambdas waits for its function type as a lambda does: overloads and
   generic inference treat each option as the argument (`apply(3, up ? x -> x * 2 : x -> x + 1L)`
@@ -446,7 +388,7 @@ button.onClick(() -> { play(sound); });
   (`case Add(var n) -> x -> x + n` is an error), since the lambda is made outside the case; use a
   switch statement.
 - A function type has no default value, so a field of one must be assigned by every constructor
-  or be nullable. `((int) -> int)?` is a nullable value, like `int?`, narrowed by null checks.
+  or be nullable. `(fn(int) -> int)?` is a nullable value, like `int?`, narrowed by null checks.
   Function values have no `==`.
 - A lambda can use a local only if it is definitely assigned where the lambda is created. A null
   check outside a lambda doesn't narrow inside it, since the code before the lambda runs could
@@ -466,7 +408,8 @@ are told apart by the C++ name. A function chosen by `?:` or a switch expression
 function it could be and the index of the chosen one, so calling it branches to a direct call,
 and each lambda can still be inlined.
 
-> Implemented so far: everything above.
+> Implemented so far: everything above, except that the compiler still writes function types
+> without `fn`, as `(Params) -> Return`.
 
 ### Escaping and non-escaping
 
@@ -484,10 +427,10 @@ escaping parameter. `@Escaping` on the parameter or local opts in.
 mut int count = 0;
 enemies.forEach(e -> { if (e.isDead) count++; });   // non-escaping: mutates local, no allocation
 
-void onEvent(@Escaping () -> void handler) { handlers.add(handler); }
+void onEvent(@Escaping fn() -> void handler) { handlers.add(handler); }
 
-(Mob) -> bool isDead = m -> m.health <= threshold;   // non-escaping: no allocation
-@Escaping () -> void onDone = () -> play(sound);      // escaping: a heap closure, can be stored
+fn(Mob) -> bool isDead = m -> m.health <= threshold; // non-escaping: no allocation
+@Escaping fn() -> void onDone = () -> play(sound);    // escaping: a heap closure, can be stored
 handlers.add(onDone);
 ```
 
@@ -500,7 +443,7 @@ be reassigned if it is `mut`.
 - **Escaping is part of the function type.** Each function type has a non-escaping and an
   escaping form, written the same way. Written as the type of a parameter, a local, or a function
   type's own parameter, it is non-escaping unless that is declared `@Escaping`, as in
-  `(@Escaping () -> void) -> void`; anywhere else (a field, a return type, a type argument, an
+  `fn(@Escaping fn() -> void) -> void`; anywhere else (a field, a return type, a type argument, an
   array element, or a function type's return type) it is escaping. A nullable function follows the
   same rule, except where noted below. `var` takes the form of its initializer. An escaping value
   converts to the non-escaping form, so it can be passed to a non-escaping parameter or bind a
@@ -510,7 +453,7 @@ be reassigned if it is `mut`.
   passed as an argument takes the form of the parameter that overload resolution picks.
 - **Type arguments are always escaping**, so a type argument inferred from a function is its
   escaping form: `identity(f)` needs `f` to be `@Escaping`.
-- **Nullable functions.** A parameter of type `((int) -> int)?` is non-escaping unless declared
+- **Nullable functions.** A parameter of type `(fn(int) -> int)?` is non-escaping unless declared
   `@Escaping`, so an optional callback is passed without allocating. Like any non-escaping
   parameter it is bound once, and it is narrowed by null checks. Only a parameter can hold one: a
   local of nullable function type must be `@Escaping`, since a non-escaping local owns the lambda
@@ -537,9 +480,9 @@ be reassigned if it is `mut`.
 - **Signatures.** An override or interface implementation must declare the same parameters
   `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
   parameters are `@Escaping`. A function type's `@Escaping` parameters are part of the type, and
-  print as written: `(@Escaping () -> void) -> void` and `(() -> void) -> void` are different
+  print as written: `fn(@Escaping fn() -> void) -> void` and `fn(fn() -> void) -> void` are different
   types, and neither converts to the other. A lambda of the first may store its argument.
-- A type pattern can't name a function type (`f is (int) -> int g`); narrow a nullable function
+- A type pattern can't name a function type (`f is fn(int) -> int g`); narrow a nullable function
   with a null check.
 
 ```java
@@ -547,7 +490,7 @@ for (Mob m : mobs) {
     handlers.add(() -> m.hit());            // fine: each iteration has its own 'm'
 }
 mut int total = 0;
-@Escaping () -> int f = () -> total;        // error: 'total' is 'mut'
+@Escaping fn() -> int f = () -> total;      // error: 'total' is 'mut'
 total++;
 ```
 
@@ -610,8 +553,8 @@ be done when profiling shows it matters.
   that. Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
   block nesting. Real code doesn't nest that deep, so this is a known limit, not a planned fix.
 - **Element aliasing and cycles.** A call of a function value counts as writing what every lambda
-  of its type writes, so one `(Mob) -> void` lambda storing into elements of type `X` anywhere
-  makes every loop over `X` that calls a `(Mob) -> void` count references per element
+  of its type writes, so one `fn(Mob) -> void` lambda storing into elements of type `X` anywhere
+  makes every loop over `X` that calls a `fn(Mob) -> void` count references per element
   ([03-memory-model.md](03-memory-model.md#loop-elements)); likewise, a function field may hold
   any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
   that call or field.
@@ -712,7 +655,6 @@ Collections that have keys allow a two-variable for-each:
 
 ```java
 for (ref Enemy e : enemies) { ... }                       // values only
-for (Handle<Enemy> h, ref Enemy e : enemies) { ... }      // Pool: handle + value
 for (int i, ref Bullet b : bullets) { ... }               // List / arrays / spans: index + value
 for (String name, int score : scores) { ... }             // Map: key + value
 ```
@@ -735,7 +677,7 @@ A for-each loops over a range, a fixed array, a span, a value that converts to a
 - A nullable local can be looped over where it is known not to be null, as for using its members.
 
 > Implemented so far: ranges, fixed arrays, spans, `Spannable` types (`Array`, `List`), and strings.
-> Pools and maps don't exist yet.
+> Maps don't exist yet.
 
 ### `switch`
 
@@ -758,6 +700,23 @@ switch (state) {
 
 - Arrow form only (`case X -> ...`). **No fallthrough.** `case A, B -> ...` matches either pattern;
   such a case cannot bind names.
+- **Guards**, as in Java: `case Pattern when condition -> ...` matches only if the pattern matches
+  and then the condition, a `bool`, is true. The names the pattern binds are in scope in the
+  condition, and names an `is` in the condition binds are in scope in the case, as in an `if`. A guarded case never counts toward exhaustiveness, and never makes a later case
+  unreachable, since its condition may be false.
+
+  ```java
+  switch (shape) {
+      case Circle(var r) when r > 10 -> big();
+      case Circle(var r) -> small(r);
+      case Rect(var w, var h) -> area(w, h);
+  }
+  ```
+
+- **`case null`**, as in Java: a switch may take a nullable value without narrowing it first, and
+  must then have a `case null`, which matches only null. `default` doesn't match null; write
+  `case null, default ->` for both. In the other cases the value is the non-null one, so `case
+  Enemy e` and `case Chasing(var t)` match as they would on a narrowed value.
 - A **switch statement**'s case is a block or a single statement other than a declaration. A
   **switch expression**'s case is an expression followed by `;`. A case that cannot complete, such
   as `default -> panic("...")`, needs no value; the others must all convert to one type (the
@@ -787,6 +746,8 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 | `var name` | Anything, and binds it to `name` |
 | `Variant`, `Enum.Variant` | That variant, whatever its fields |
 | `Variant(p1, p2)` | That variant, if each field matches its pattern; every field must be listed |
+| `Struct(p1, p2)` | A struct value, if each field, in declaration order, matches its pattern; every field must be listed |
+| `null` | Null, in a `case` of a switch over a nullable value (above) |
 | `Type name`, `Type` | A class or interface value that is non-null and a `Type`. For a value type, only its own type, which just states it |
 | `42`, `-1`, `'a'`, `true` | An integer, `char`, or `bool` equal to the literal |
 
@@ -797,7 +758,14 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
   value past `INT_MAX` writes `case 2147483648L`, since a literal too large for `int` needs a suffix
   (§2.2).
 - A lone name is a variant when matching an enum, and otherwise a type: `x is Dog` tests a class.
-- `null`, floating-point, and string literals are not patterns.
+- A struct pattern deconstructs, as Java's record patterns do. A struct value is always its own
+  type, so the pattern matches whenever its field patterns do; it is useful nested, as in
+  `case Moved(Vec3(var x, _, _))`, or on a nullable value, where `pos is Vec3(var x, _, var z)`
+  tests that a `Vec3?` isn't null and binds two fields. On a `Vec3` with only `_` and `var` field
+  patterns it always matches, so it is an error after `is`, like `var x`. Every field must be
+  visible where the pattern is written.
+- Floating-point and string literals are not patterns, and `null` is one only as a `case` (use
+  `== null` elsewhere).
 - `x is pattern` is `true` when the pattern matches. Patterns that always match (`_`, `var x`) are
   errors after `is`. Names bound in an `if` or `while` condition follow the rules of §2.5: in scope
   for the whole statement, definitely assigned where the test succeeded.
@@ -810,6 +778,8 @@ while (node is Some(var n)) { node = n.next; }
 - Binding names in an `is` stores to existing locals, left to right, which releases their old
   values. Every bound value is copied out of the matched value before any of those releases, since a
   destructor they run may change it.
+
+> Not implemented yet: guards (`when`), struct patterns, and `case null`.
 
 ### String interpolation
 
@@ -842,13 +812,11 @@ interface Printable {
 }
 
 struct Vec3 implements Printable {
-    public {
-        float x;
-        float y;
-        float z;
+    public float x;
+    public float y;
+    public float z;
 
-        String toString() { return $"({x}, {y}, {z})"; }
-    }
+    public String toString() { return $"({x}, {y}, {z})"; }
 }
 ```
 
@@ -922,8 +890,8 @@ change how a declaration is laid out or treated, rather than what it is, are ann
 than new syntax.
 
 Parentheses right after an annotation are its arguments unless they belong to the type it
-annotates, which they do when followed by `->`, `?`, `[`, or `*`: `@Escaping (int) -> int f` and
-`@Escaping ((int) -> int)? f` annotate a function type.
+annotates, which they do when followed by `?`, `[`, or `*`: `@Escaping (fn(int) -> int)? f`
+annotates a nullable function type.
 
 User-defined annotations (and reflection) are *open*.
 
@@ -962,51 +930,40 @@ import game.math.*;
 
 public enum AiState {
     Idle,
-    Chasing(Handle<Enemy> target),
+    Chasing(int target),
 }
 
 public struct Enemy {
-    public {
-        Vec3 position;
-        Vec3 velocity;
-        int health = 100;
-        AiState state = AiState.Idle;
+    public Vec3 position;
+    public Vec3 velocity;
+    public int health = 100;
+    public AiState state = AiState.Idle;
 
-        bool isDead() { return health <= 0; }
-    }
+    public bool isDead() { return health <= 0; }
 }
 
 public class EnemySystem {
-    public {
-        Handle<Enemy> spawn(Vec3 at) {
-            return enemies.add(Enemy(position: at));
-        }
+    private const float CHASE_SPEED = 4.0;
 
-        void tick(float dt) {
-            for (Handle<Enemy> h, ref Enemy e : enemies) {
-                switch (e.state) {
-                    case Idle -> {}
-                    case Chasing(var t) -> {
-                        if (enemies.get(t) is ref Enemy target) {
-                            e.velocity = (target.position - e.position).normalized() * CHASE_SPEED;
-                        } else {
-                            e.state = AiState.Idle;
-                        }
-                    }
-                }
-                e.position += e.velocity * dt;
+    private List<Enemy> enemies = new List<Enemy>();
 
-                if (e.isDead()) {
-                    enemies.remove(h);
-                }
-            }
-            log($"{enemies.count()} enemies alive");
-        }
+    public int spawn(Vec3 at) {
+        enemies.add(Enemy(position: at));
+        return enemies.count() - 1;
     }
-    private {
-        const float CHASE_SPEED = 4.0;
 
-        Pool<Enemy> enemies = new Pool<>();
+    public void tick(float dt) {
+        for (ref Enemy e : enemies) {
+            switch (e.state) {
+                case Idle -> {}
+                case Chasing(var t) when enemies.get(t) is ref Enemy target -> {
+                    e.velocity = target.position.sub(e.position).normalized().scale(CHASE_SPEED);
+                }
+                case Chasing -> e.state = AiState.Idle;
+            }
+            e.position = e.position.add(e.velocity.scale(dt));
+        }
+        log($"{enemies.count()} enemies alive");
     }
 }
 ```

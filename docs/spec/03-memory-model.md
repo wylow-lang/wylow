@@ -1,6 +1,6 @@
 # 3. Memory model
 
-Wylow has no tracing garbage collector and no borrow checker. Memory safety comes from four kinds of
+Wylow has no tracing garbage collector and no borrow checker. Memory safety comes from three kinds of
 storage, each with one simple rule. Objects are freed by reference counting, and cycles of objects
 by a collector that runs only when the program calls it.
 
@@ -8,7 +8,6 @@ by a collector that runs only when the program calls it.
 |---|---|---|---|
 | **Values** (primitives, `struct`, `T[N]`) | Inline | Whatever contains them | None needed |
 | **Objects** (`class`) | Heap | Reference counting | Refcount; `Weak<T>` and `Memory.collectCycles` for cycles |
-| **Pool slots** (`Pool<T>` + `Handle<T>`) | Stable chunks owned by the pool | The pool | Generation check |
 | **References** (`ref T`, `Span<T>`) | Local only | — (a view) | Cannot escape; runtime borrow tracking |
 
 ## 3.1 Values
@@ -146,10 +145,8 @@ element: `List<Weak<Listener>>` works.
 
 ```java
 class Node {
-    public {
-        List<Node> children;
-        mut Weak<Node> parent;             // does not keep the parent alive
-    }
+    public List<Node> children;
+    public mut Weak<Node> parent;             // does not keep the parent alive
 }
 
 child.parent = node;                       // a T or T? converts implicitly to Weak<T>
@@ -223,10 +220,10 @@ container elements (`List<Node>`), and counting every class a field's type could
 
 An escaping function ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) holds a closure
 object with copies of what its lambda captured, and can only be a lambda of its own type. So a
-function field (or a `List<() -> void>`) counts as able to reach what any lambda of that type
+function field (or a `List<fn() -> void>`) counts as able to reach what any lambda of that type
 captures, and each lambda's closures are decided like a class: cyclic only if what it captures can
 reach one of them back. A lambda in generic code may capture anything, and counts for every type it
-could be: `() -> T` for any `() -> X`. A class holding `() -> void` handlers whose lambdas capture
+could be: `fn() -> T` for any `fn() -> X`. A class holding `fn() -> void` handlers whose lambdas capture
 only values, or objects that can't lead back to it, is not cyclic, and neither are those closures.
 
 Generic classes are decided per instantiation: `List<Node>` is cyclic, `List<int>` is not. Container
@@ -290,100 +287,10 @@ instantiation.
 > affects correctness, only how much is buffered. `visited` counts the objects of the groups that
 > fit in the budget.
 
-## 3.3 Pools and handles
-
-`Pool<T>` stores many values of a **struct** type `T` and hands out `Handle<T>` values to refer to
-them. **Classes cannot be stored in pools.**
-
-A pool is one way to store many things that refer to each other, suited to data-oriented code
-where that number is large: handles replace references, so there is no reference counting and no
-cycles, and the values stay together in memory. Classes, with inheritance and references between
-objects, are just as good a way to model entities when there are fewer of them. `Pool` is a
-standard library type built on general features (`ref? T`, borrow counting, `unsafe` storage), with
-no compiler support of its own.
-
-```java
-Pool<Enemy> enemies = new Pool<>();
-
-Handle<Enemy> h = enemies.add(Enemy(...));
-// a Handle is a plain value: store it in structs, lists, classes, save files
-
-enemies.remove(h);
-```
-
-### Handles
-
-A handle is two integers: `{ uint index; uint generation; }`. It is a value type, 8 bytes, and
-freely copyable. `Handle.NONE` is a handle that never refers to anything.
-
-Each pool slot stores its own `generation`. Removing an element increments the slot's
-generation, so every existing handle to it becomes **stale**. A stale handle never refers to a
-different element, even if the slot is later reused.
-
-### Access
-
-`get` returns a nullable reference, which must be checked:
-
-```java
-if (enemies.get(target) is ref Enemy e) {
-    e.health -= 10;
-} else {
-    target = Handle.NONE;    // target is gone
-}
-```
-
-| Method | Behavior |
-|---|---|
-| `get(h)` | `ref? T`; null if `h` is stale |
-| `contains(h)` | `true` if `h` is live |
-| `getUnchecked(h)` | No generation check (`@Unchecked` / `unsafe` only) |
-
-Iterating a pool (`for (ref Enemy e : enemies)`) visits live elements only.
-
-### Stable storage
-
-A pool allocates storage in fixed-size chunks. Growing adds a new chunk; **existing elements never
-move**. Adding to a pool therefore never invalidates references into it, even while it is being
-iterated.
-
-### Deferred reclamation
-
-Removal happens in two steps:
-
-1. **Logical removal (immediate):** the slot's generation is incremented and it is marked dead.
-   All handles to it are stale right away: `get` returns null, `contains` returns false, iteration
-   skips it.
-2. **Physical removal (deferred):** if the pool is currently **borrowed** (some `ref` or `Span`
-   into it is live), the slot is put on a pending list. Its value is not destroyed and the slot
-   cannot be reused. When the pool's borrow count returns to zero, pending slots are destroyed
-   and become reusable. If the pool is not borrowed, this happens immediately.
-
-The result: **a reference always sees exactly the element it was taken from**, unchanged,
-for as long as the reference exists. It never observes a destroyed or reset value, and never a
-different element that reused the slot.
-
-```java
-for (Handle<Enemy> h, ref Enemy e : enemies) {
-    if (e.health <= 0) {
-        enemies.remove(h);          // handle is dead now
-        e.dropLoot();               // still the same enemy, still valid
-    }
-}                                   // borrow ends: destroyed here
-```
-
-> ⚠️ **Destruction may be later than `remove()`.** When removing during a borrow (such as while
-> iterating), the element is destroyed when the outermost borrow of the pool ends, not at the
-> `remove` call. Memory for removed elements is held until then. Remove outside the borrow if
-> immediate destruction matters.
-
-### Destroying a pool
-
-Destroying a pool while it is borrowed panics.
-
-## 3.4 References
+## 3.3 References
 
 `ref T` is a reference to a value that lives somewhere else (a local, a struct field, an array
-element, a pool slot). References avoid copying and allow mutation in place. An `in T` reference
+element). References avoid copying and allow mutation in place. An `in T` reference
 is the same but read-only.
 
 References are **second-class**:
@@ -393,7 +300,7 @@ References are **second-class**:
 | Method parameters: `void damage(ref Enemy e)` | Struct or class fields |
 | Local variables: `ref Transform t = player.transform;` | Return values, except from a method into its receiver (below) |
 | Loop variables: `for (ref Enemy e : enemies)` | Capture by a closure that may outlive the call |
-| Pattern bindings: `if (pool.get(h) is ref Enemy e)` | Storing in any container |
+| Pattern bindings: `if (list.get(i) is ref Enemy e)` | Storing in any container |
 
 A `ref` or `in` variable must be initialized with the place it refers to: a variable, field, or
 element, never a temporary value. It cannot refer to a class object itself (objects are already
@@ -408,10 +315,8 @@ by a method of `this`, or, in unsafe code, the target of a pointer. Indexers are
 
 ```java
 struct Mat4 {
-    public {
-        float[16] m;
-        mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
-    }
+    public float[16] m;
+    public mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
 }
 ```
 
@@ -420,20 +325,18 @@ struct Mat4 {
   pointer's target). Calling a method that returns `in` gives a read-only place.
 - The result is a place for as long as the receiver is: on a temporary struct, such as
   `makeMatrix()[0, 0]`, it can be read but not assigned or referred to.
-- Free functions and static methods cannot return references yet. (`Pool.get`, which returns a
-  `ref? T`, will be a method.)
+- Free functions and static methods cannot return references yet.
 
 ### Nullable references: `ref? T`
 
 `ref? T` (and `in? T`) is a reference that may refer to nothing, for lookups that can fail without
-copying what they find: `pool.get(h)` is null for a stale handle, and `list.get(i)` for an index
-out of bounds.
+copying what they find: `list.get(i)` is null for an index out of bounds.
 
 ```java
-if (enemies.get(target) is ref Enemy e) {
+if (enemies.get(i) is ref Enemy e) {
     e.health -= 10;
 }
-ref? Enemy found = enemies.get(target);
+ref? Enemy found = enemies.get(i);
 if (found != null) {
     found.health -= 10;
 }
@@ -455,7 +358,7 @@ if (found != null) {
 - It converts implicitly from `ref T` to `ref? T`, and from `ref` to `in`, never the other way.
 - It compiles to a C++ pointer that is null when there is no place, so it costs nothing over `ref`.
 - It is initialized or passed like a `ref`, or with `null`: `ref? T x = place;`, `ref? T x = null;`,
-  and `ref? var x = pool.get(h);`, which takes the type of what it is initialized with. A `ref?`
+  and `ref? var x = list.get(i);`, which takes the type of what it is initialized with. A `ref?`
   parameter takes `ref place`, `ref other` for another `ref?`, or `null`, which needs no `ref`, and
   may default to `null`. An `in?` parameter takes whatever an `in` one takes, including a temporary
   value, as well as `null` and any `ref?` or `in?`.
@@ -465,7 +368,7 @@ if (found != null) {
 - `x?.member` reaches the member in the place referred to, not in a copy as for a nullable value,
   so `list.get(i)?.takeDamage(5)` changes the element; what the place lies in is held or borrowed
   until the member is done.
-- It is not a value: `var x = pool.get(h);` is an error (write `ref? var`, or copy with `!`), and so
+- It is not a value: `var x = list.get(i);` is an error (write `ref? var`, or copy with `!`), and so
   are `??` on one (whether it would give a place or a copy is unclear), a `?:` or switch expression
   producing one, and using one as a type argument.
 - Overloads cannot differ only in `ref` and `ref?` (`f(ref int)` and `f(ref? int)`), since
@@ -566,7 +469,6 @@ into the container increments it; the end of the reference's scope decrements it
 | Container | Operations that panic while borrowed |
 |---|---|
 | `List<T>` | `add`, `insert`, `removeAt`, `clear`, `reserve`, `trim`: anything that changes its length or may reallocate |
-| `Pool<T>` | Destruction only (`remove` is deferred, `add` never moves elements) |
 | `T[]` | None (never reallocates; kept alive by pinning) |
 
 ```java
@@ -575,8 +477,7 @@ for (ref Bullet b : bullets) {
 }
 ```
 
-The usual fix is to collect changes in a second list and apply them after the loop, or to use a
-`Pool`, which supports adding and removing while iterating.
+The usual fix is to collect changes in a second list and apply them after the loop.
 
 Destroying a borrowed container cannot happen: a borrow also pins the container.
 
@@ -629,12 +530,11 @@ is gone after the statement. A temporary object is fine: the span holds it.
 > and an extension method may return a `ref struct` that views its `this` parameter and holds its
 > function-typed parameters.
 
-## 3.5 What the checks cost
+## 3.4 What the checks cost
 
 | Operation | Checked | `@Unchecked` |
 |---|---|---|
 | Array/span index | 1 compare | 0 |
-| `pool.get(h)` | 1 compare | 0 (`getUnchecked`) |
 | Copy a class reference | refcount inc/dec | same (pass by `ref` to avoid) |
 | For-each over class elements | refcount inc/dec per element only if the loop may store over one | same |
 | Release a reference to a cyclic class, count stays above 0 | 1 branch; a buffer append the first time | same |
@@ -642,7 +542,6 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | Cycle collection | only where `Memory.collectCycles` is called, proportional to objects visited | same |
 | Borrow from class field | refcount inc/dec, often elided | 0 |
 | Borrow from container | counter inc/dec | 0 |
-| Pool iteration | skip dead slots | same |
 | Pass a lambda to a function parameter | nothing: inlined, like a hand-written loop | same |
 | Pass a lambda to an overridden or interface method, a recursive function passing itself new lambdas, or an overloaded constructor | an indirect call per call of it | same |
 | Choose a function with `?:` | a branch on the choice per call; every lambda it could be is still inlined | same |
