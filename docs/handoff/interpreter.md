@@ -4,7 +4,7 @@
 definition); step 1 done 2026-10-29; step 2 done 2026-10-29; step 3 done 2026-10-29; step 4 done
 2026-10-29; step 5 done 2026-10-29; step 6 done 2026-10-29. Sources:
 `docs/design/ir.md` (§4, §9.11), `docs/design/architecture.md`,
-`docs/handoff/testing.md` ("The oracles we already have", Step 6), `docs/handoff/remaining-work.md` §4.
+`docs/handoff/testing.md` ("The oracles we already have", Step 6), the roadmap (GitHub issue #6) §4.
 
 ## Why
 
