@@ -1,6 +1,6 @@
 #!/bin/sh
 # Enforces CLAUDE.md "Commit messages": the subject starts with one or more listed areas.
-areas='lexer|parser|binder|types|verifier|lowering|analysis|opt|emitter|interp|runtime|stdlib|cli|spec|docs|tests|fuzz|mutation|dashboard|build'
+areas='lexer|parser|binder|types|verifier|lowering|analysis|opt|emitter|interp|runtime|stdlib|cli|spec|docs|tests|fuzz|generate|mutation|dashboard|build'
 subject=$(grep -v '^#' "$1" | head -n 1)
 
 case "$subject" in

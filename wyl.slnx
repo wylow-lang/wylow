@@ -15,6 +15,7 @@
     <Project Path="tests/Wyl.Tests/Wyl.Tests.csproj" />
     <Project Path="tests/Wyl.Fuzz/Wyl.Fuzz.csproj" />
     <Project Path="tests/Wyl.Harness/Wyl.Harness.csproj" />
+    <Project Path="tests/Wyl.Generate/Wyl.Generate.csproj" />
     <Project Path="tests/Wyl.Mutation/Wyl.Mutation.csproj" />
   </Folder>
 </Solution>
