@@ -64,7 +64,9 @@ public sealed partial class Interpreter
         // The callee is called where it is: no copy of a function value or a choice is made, which
         // would hold counts C++ never takes.
         var callee = EvalOperandInPlace(invoke.Callee, caller);
-        if (callee is ChoiceValue choice)
+        // A choice's option may be a choice, which C++ calls through its own operator(): a chosen
+        // function value is one like any other, so `?:` around it makes a choice of choices.
+        while (callee is ChoiceValue choice)
             callee = choice.Options[Chosen(choice)].Value;
         var value = callee switch
         {

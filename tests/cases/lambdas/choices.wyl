@@ -105,6 +105,12 @@ void main() {
     };
     print(step(10));                                        // output: 13
 
+    // A function value that is itself a choice can be chosen again, from either side.
+    (int) -> int either = n > 1 ? x -> x + 1 : x -> x + 2;
+    (int) -> int again = n > 1 ? either : x -> 0;
+    print(again(10));                                       // output: 11
+    print((n > 5 ? either : x -> 0)(10));                   // output: 0
+
     (int) -> int twice = switch (Op.Double) {
         case Add(_) -> add;
         // A lambda may declare names inside itself.
