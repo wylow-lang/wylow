@@ -282,11 +282,16 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 |---|---|
 | While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
 | Before each commit | `--all-modes`: about a minute warm, about three when everything rebuilds (ASan is the longest mode) |
-| Whenever the user starts it | fuzzing (tier 1 or 2), mutation targets, coverage |
+| On every push to `main` (CI) | each of the six modes on its own runner (`.github/workflows/ci.yml`) |
+| Nightly (CI) | tier 1 and tier 2 fuzzing, 30 minutes each, a new seed per run (`fuzz.yml`) |
+| Weekly, or started by hand (CI) | every mutation target on its own runner, or one target (`mutation.yml`) |
+| Whenever the user starts it | local fuzzing, mutation targets, coverage |
 
-The fuzzer and mutation testing are not part of committing. The user runs them on the current
-build when they choose, often in the background or the next day, and their findings are fixed
-then. Hand over the command for any run longer than a couple of minutes rather than waiting on it.
+The fuzzer and mutation testing are not part of committing; their findings are fixed when a run
+reports them. A CI run uploads its findings or mutation results as artifacts: a finding moves into
+`tests/cases/` like a local one, and a results JSON copied into `tests/mutation/results/` shows on
+the dashboard. Hand over the command for any local run longer than a couple of minutes rather than
+waiting on it.
 
 ## Commit messages
 

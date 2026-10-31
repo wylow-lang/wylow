@@ -1,0 +1,56 @@
+# Mutation tests the compiler weekly, one runner per target in tests/mutation/targets.json. A
+# target with survivors fails; each target's results JSON is uploaded, and copied into
+# tests/mutation/results/ it shows on the dashboard's Mutation page.
+name: Mutation
+
+on:
+  schedule:
+    - cron: "0 6 * * 6"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target id, or "all"
+        default: all
+
+jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      ids: ${{ steps.list.outputs.ids }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: list
+        env:
+          TARGET: ${{ inputs.target || 'all' }}
+        run: |
+          if [ "$TARGET" = all ]; then
+            echo "ids=$(jq -c '[.[].id]' tests/mutation/targets.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "ids=$(jq -cn --arg t "$TARGET" '[$t]')" >> "$GITHUB_OUTPUT"
+          fi
+
+  mutate:
+    name: ${{ matrix.target }}
+    needs: targets
+    runs-on: windows-latest
+    # The harness stops at its own budget and saves a partial result before the job limit.
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.ids) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build
+      - name: Mutate
+        shell: pwsh
+        run: dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ${{ matrix.target }} --seconds 19800
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-${{ matrix.target }}
+          path: tests/mutation/results/${{ matrix.target }}.json
+          if-no-files-found: ignore
