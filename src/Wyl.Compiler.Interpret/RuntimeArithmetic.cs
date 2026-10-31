@@ -174,10 +174,7 @@ internal static class RuntimeArithmetic
         if (from == WylType.Char && to.IsInteger)
             return new IntValue(Values.Wrap(to, ((CharValue)value).CodePoint));
         if (from.IsInteger && to.IsFloatingPoint)
-        {
-            var number = ((IntValue)value).Bits;
-            return new FloatValue(to == WylType.Float ? (float)number : (double)number);
-        }
+            return new FloatValue(IntegerToFloating(to, ((IntValue)value).Bits));
         if (from.IsInteger && to.IsInteger)
             return new IntValue(Values.Wrap(to, ((IntValue)value).Bits));
         if (from == WylType.Bool || from == WylType.String || from.IsPointer)
@@ -221,6 +218,32 @@ internal static class RuntimeArithmetic
         if (number >= (double)maximum)
             return maximum;
         return Values.Wrap(type, (Int128)Math.Truncate(number));
+    }
+
+    /// <summary>
+    /// Rounds to nearest, ties to even, once (docs/spec/02-types.md §2.3), as C++ converts a 64-bit
+    /// integer. <see cref="Int128"/>'s own conversion to <c>float</c> rounds to a double first, which
+    /// can make a tie the integer wasn't: 2^63 + 2^39 + 1 would land on 2^63 instead of 2^63 + 2^40.
+    /// </summary>
+    static double IntegerToFloating(WylType to, Int128 number)
+    {
+        if (to == WylType.Double)
+            return number < 0 ? (long)number : (double)(ulong)number;
+        var magnitude = (UInt128)(number < 0 ? -number : number);
+        // A double holds 53 bits, more than float's 24 + 2, so rounding the dropped bits to odd keeps
+        // the final rounding to float exact.
+        int excess = 128 - (int)UInt128.LeadingZeroCount(magnitude) - 53;
+        double rounded;
+        if (excess > 0)
+        {
+            var kept = magnitude >> excess;
+            if (kept << excess != magnitude)
+                kept |= 1;
+            rounded = Math.ScaleB((ulong)kept, excess);
+        }
+        else
+            rounded = (ulong)magnitude;
+        return (float)(number < 0 ? -rounded : rounded);
     }
 
     static double DoubleToFloat(double number)

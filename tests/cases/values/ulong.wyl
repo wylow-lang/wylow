@@ -18,6 +18,11 @@ void main() {
     print((int)max);                // output: -1
     print((uint)max);               // output: 4294967295
     print((double)(1uL << 63));     // output: 9223372036854775808.0
+    print((float)max);              // output: 1.8446744e+19
+    // 2^63 + 2^39 + 1 rounds once, up to 2^63 + 2^40; through a double it would tie down to 2^63.
+    print((float)9223372586610589697uL); // output: 9.223373e+18
+    print((float)9223372586610589697uL == (float)9223373136366403584uL); // output: true
+    print((double)9223372036854776833uL); // output: 9223372036854777856.0
 
     print($"{max:X16}");            // output: FFFFFFFFFFFFFFFF
     print($"{max:D21}");            // output: 018446744073709551615
