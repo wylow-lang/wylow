@@ -24,8 +24,12 @@
     "id": "place-path",
     "title": "Place paths",
     "path": "src/Wyl.Compiler.Semantics/PlacePath.cs",
-    "filters": ["ir/", "errors", "references"],
-    "note": "How a place is decomposed into a base and steps. The verifier's self-tests build places; the error and reference tests use them."
+    "filters": ["ir/", "errors", "references", "base_reference"],
+    "note": "How a place is decomposed into a base and steps. The verifier's self-tests build places; the error and reference tests use them, and a base constructor's 'ref?' parameter is the one place that converts.",
+    "equivalent": [
+      { "kind": "statement", "original": "steps.Add(conversion);", "replacement": "", "context": "steps.Add(conversion);", "reason": "A 'ref?' conversion refers to the same place, so every reader of a path's steps passes over it: lowering steps through it unchanged, and the place's kind and holder come from the other steps." },
+      { "kind": "literal", "original": "0", "replacement": "1", "context": "while (count > 0 && view.Steps[count - 1] is BoundCall { Type.IsRefStruct: true, Receiver.Type.IsRefStruct: true }) count--;", "reason": "Stopping at the first call leaves it for the check after the loop, which returns the same prefix; the two differ only on a view built from a fixed array, which has no methods to call." }
+    ]
   },
   {
     "id": "emitter-types",

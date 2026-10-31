@@ -80,7 +80,7 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
                     steps.Add(nonNull);
                     current = nonNull.Operand;
                     break;
-                case BoundConversion conversion when conversion.Type.IsNullableReference || conversion.Type.IsRefStruct:
+                case BoundConversion { Type.IsNullableReference: true } conversion:
                     steps.Add(conversion);
                     current = conversion.Operand;
                     break;
@@ -107,7 +107,7 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
     public static IEnumerable<PlacePath> Viewed(PlacePath view)
     {
         int count = view.Steps.Count;
-        while (count > 0 && view.Steps[count - 1] is BoundConversion { Type.IsRefStruct: true } or BoundCall { Type.IsRefStruct: true, Receiver.Type.IsRefStruct: true })
+        while (count > 0 && view.Steps[count - 1] is BoundCall { Type.IsRefStruct: true, Receiver.Type.IsRefStruct: true })
             count--;
         if (count > 0 && view.Steps[count - 1] is BoundCall { Type.IsRefStruct: true })
             return [view.Prefix(count - 1)];

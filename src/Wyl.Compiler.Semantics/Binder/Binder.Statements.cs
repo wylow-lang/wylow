@@ -569,7 +569,7 @@ public sealed partial class Binder
                 BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
                 BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call, place.Kind),
                 // A view is a value, whatever it views.
-                BoundCall or BoundConversion { Type.IsRefStruct: true } => (PlaceKind.Temporary, ""),
+                BoundCall => (PlaceKind.Temporary, ""),
                 _ => place,
             };
         }

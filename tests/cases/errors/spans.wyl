@@ -27,6 +27,21 @@ struct Samples {
     }
 }
 
+// A ref struct made from another views what that one does, so it is not the receiver's to return.
+ref struct Window {
+    internal {
+        int n;
+
+        Window(Window from) {
+            n = from.n;
+        }
+
+        Window other(Window from) {
+            return Window(from);                // error: a returned 'Window' must view the method's receiver
+        }
+    }
+}
+
 Span<int> free() {                          // error: only instance methods can return 'Span<int>'
     return Span<int>();
 }
