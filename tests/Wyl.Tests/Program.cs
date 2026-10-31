@@ -23,7 +23,7 @@ using Wyl.Fuzz;
 //                  [--out <dir>] [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
 // --interpret runs the IR interpreter instead of a native build.
-// --all-modes runs the six modes one per process at once, each writing under <out>/<mode>.
+// --all-modes runs CI's seven modes one per process at once, each writing under <out>/<mode>.
 // --update-snapshots rewrites tests/matrix/*.snapshot with what the matrix cells do now.
 
 Toolchain? toolchain = null;
@@ -125,7 +125,7 @@ Console.WriteLine($"{results.Count - failed} passed, {failed} failed ({stopwatch
 return failed == 0 ? 0 : 1;
 
 /// <summary>
-/// The six modes, each in its own process and output directory, so the machine's cores fill instead
+/// CI's seven modes, each in its own process and output directory, so the machine's cores fill instead
 /// of one mode at a time using half of them.
 /// </summary>
 static int RunAllModes(string outputDirectory, string? filter, int jobs)
@@ -137,6 +137,7 @@ static int RunAllModes(string outputDirectory, string? filter, int jobs)
         ("no-opt", ["--no-opt"]),
         ("no-nest", ["--no-nest"]),
         ("asan", ["--cc", "asan"]),
+        ("asan-no-nest", ["--cc", "asan", "--no-nest"]),
         ("interpret", ["--interpret"]),
     ];
     var assembly = typeof(MatrixTests).Assembly.Location;

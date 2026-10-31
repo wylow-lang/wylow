@@ -1,4 +1,5 @@
-# The suite in every mode, one runner per mode, on every push to dev or main.
+# The suite in every mode, one runner per mode, on every push to dev or main, and the generator's
+# self-check, so a change that breaks the generator fails the push instead of the nightly run.
 name: CI
 
 on:
@@ -24,6 +25,9 @@ jobs:
           - { mode: no-opt, args: "--no-opt" }
           - { mode: no-nest, args: "--no-nest" }
           - { mode: asan, args: "--cc asan" }
+          # Declining to nest changes which temporaries live how long, so a use after free can hide
+          # in this combination alone; MSVC's --no-nest run prints the old bytes and passes.
+          - { mode: asan-no-nest, args: "--cc asan --no-nest" }
           - { mode: interpret, args: "--interpret" }
     steps:
       - uses: actions/checkout@v5
@@ -38,3 +42,17 @@ jobs:
       - name: Test (${{ matrix.mode }})
         shell: pwsh
         run: dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll ${{ matrix.args }} --jobs $env:NUMBER_OF_PROCESSORS
+
+  generator:
+    name: generator self-check
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build
+      - name: Self-check
+        shell: pwsh
+        run: dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test

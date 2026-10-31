@@ -67,7 +67,7 @@ public static class JobSpecs
         new("msvc", "MSVC"),
         new("gcc", "g++"),
         new("asan", "clang-cl + ASan/UBSan"),
-        new("all", "All six, in parallel"),
+        new("all", "All seven, in parallel"),
     ];
 
     static readonly ParamOption[] Tiers = [new("1", "Tier 1 — in-process"), new("2", "Tier 2 — build and run")];
@@ -124,7 +124,7 @@ public static class JobSpecs
             Idle = values => values.Bool("buildFirst"),
             Observe = Observers.Suite,
             Lock = "suite",
-            Hint = "Before committing: the whole suite in the interpreter, and MSVC filtered to the change. CI runs all six modes on the push; 'All six, in parallel' runs them here.",
+            Hint = "Before committing: the whole suite in the interpreter, and MSVC filtered to the change. CI runs all seven modes on the push; 'All seven, in parallel' runs them here.",
         },
         new()
         {

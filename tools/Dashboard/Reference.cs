@@ -11,7 +11,7 @@ public static class Reference
             new("Build everything", "Compile the compiler, the CLI, and both test harnesses.", "dotnet build"),
         ]),
         new("Test suite", [
-            new("All six modes, in parallel", "Pre-commit: the interpreter, MSVC, g++, --no-opt, --no-nest, and ASan, each in its own process.", "dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes", Href("#/tests", ("cc", "all"))),
+            new("All seven modes, in parallel", "CI's modes: the interpreter, MSVC, g++, --no-opt, --no-nest, ASan, and ASan with --no-nest, each in its own process.", "dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes", Href("#/tests", ("cc", "all"))),
             new("All tests, MSVC", "The default mode. Every case, the matrices, and the self-tests.", "dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll", Href("#/tests", ("cc", "msvc"))),
             new("All tests, g++", "The same suite through g++.", "dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc", Href("#/tests", ("cc", "gcc"))),
             new("All tests, ASan", "clang-cl with AddressSanitizer and UBSan; any report fails.", "dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan", Href("#/tests", ("cc", "asan"))),

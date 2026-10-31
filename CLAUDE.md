@@ -19,7 +19,7 @@ dotnet build
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll              # all tests, MSVC
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
-dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # all six modes at once, one process each (CI's job; only when asked)
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # CI's seven modes at once, one process each (CI's job; only when asked)
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret  # only the IR interpreter: the meaning against its expectations, and the optimized IR against it
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs      # tests whose path contains "structs"
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix       # only the interaction matrices
@@ -64,8 +64,8 @@ compiler finding; a compiler that throws on one is a compiler finding. A finding
 `tests/generate/findings/` with the seed, program, tier, and size, and is a bug until it becomes a
 test in `tests/cases/`, triaged like a fuzzer finding. `--self-test`, and every run before it
 generates, checks determinism, the integer range facts, constructor and type coverage, and budgets,
-so a degraded generator says so instead of finding nothing. The generator is not part of the suite;
-it runs nightly (`generate.yml`).
+so a degraded generator says so instead of finding nothing; CI runs `--self-test` on every push. The
+generator's runs are not part of the suite; they run nightly (`generate.yml`).
 
 The mutation harness (`tests/Wyl.Mutation`) asks the question the oracles can't: would the tests
 notice? It changes the compiler's own source — one operator, constant, pattern, negated condition,
@@ -281,7 +281,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   change. Don't adapt old code to the new model or keep it alongside "for now"; a half-migrated
   concept is two ways of doing the same thing.
 - Every feature gets tests for its behavior and for each error it can produce. Before committing,
-  run two modes and nothing more (see "When tests run"); CI runs all six on the push.
+  run two modes and nothing more (see "When tests run"); CI runs all seven on the push.
 - **A feature adds its row or column to the matrices** (enforced only by review): a new place,
   operation, kind of type or value, context, or value edge goes in `MatrixPlaces.cs`,
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change
@@ -306,7 +306,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 |---|---|
 | While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
 | Before each commit | the whole suite in `--interpret` (about 20 s, no C++ build) and MSVC filtered to the area the change touches (`Wyl.Tests.dll structs`). Docs-only changes run nothing; dashboard-only changes only build. Nothing else: no `--all-modes`, other modes, fuzzing, mutation, or coverage unless the user asks |
-| On every push to `dev` or `main` (CI) | each of the six modes on its own runner (`.github/workflows/ci.yml`) |
+| On every push to `dev` or `main` (CI) | each of the seven modes of `--all-modes` on its own runner (ASan with `--no-nest` among them, where a use after free can hide that MSVC's `--no-nest` run misses), and the generator's `--self-test` (`.github/workflows/ci.yml`) |
 | Nightly (CI) | tier 1 and tier 2 fuzzing and generated-program checking, 30 minutes each, a new seed per run (`fuzz.yml`, `generate.yml`) |
 | Weekly, or started by hand (CI) | every mutation target on its own runner, or one target (`mutation.yml`) |
 | Whenever the user starts it | local fuzzing, generated programs, mutation targets, coverage |
