@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record StepSpec(string FileName, IReadOnlyList<string> Arguments);
 
@@ -56,9 +56,9 @@ public sealed class JobSpec
 
 public static class JobSpecs
 {
-    public const string TestRunner = "tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll";
-    public const string Fuzzer = "tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll";
-    public const string MutationTool = "tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll";
+    public const string TestRunner = "tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll";
+    public const string Fuzzer = "tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll";
+    public const string MutationTool = "tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll";
 
     static readonly ParamOption[] Compilers =
     [
@@ -263,7 +263,7 @@ public static class JobSpecs
                 if (values.Bool("build"))
                 {
                     arguments.Add("--build");
-                    return [new("dotnet", ["build", "tests/Vpl.Mutation/Vpl.Mutation.csproj", "--nologo", "-v", "minimal"]), new("dotnet", arguments)];
+                    return [new("dotnet", ["build", "tests/Wyl.Mutation/Wyl.Mutation.csproj", "--nologo", "-v", "minimal"]), new("dotnet", arguments)];
                 }
                 return [new("dotnet", arguments)];
             },

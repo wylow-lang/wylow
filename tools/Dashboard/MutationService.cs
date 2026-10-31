@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record MutationTargetDto(string Id, string Title, string Path, string[] Filters, string? Note, string[]? Arguments = null);
 

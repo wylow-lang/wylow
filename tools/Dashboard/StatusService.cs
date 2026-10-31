@@ -1,15 +1,15 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
-using Vpl.Compiler.Build;
+using Wyl.Compiler.Build;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record GitDto(string Branch, string Commit, string Subject, int Dirty);
 public sealed record ToolchainDto(string Id, string Name, bool Available, string? Error);
 public sealed record BuildDto(bool Stale, DateTimeOffset? LastBuilt);
 public sealed record SeedDto(int Seed, int Tier, DateTimeOffset At, int Findings, string State, string JobId, string Kind);
-public sealed record FindingsDto(int Total, int Vpl, int Logs);
+public sealed record FindingsDto(int Total, int Wyl, int Logs);
 
 public sealed record StatusDto(
     string Root,
@@ -32,7 +32,7 @@ public sealed class StatusService
     };
     static readonly HashSet<string> SourceExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".cs", ".csproj", ".h", ".vpl", ".props",
+        ".cs", ".csproj", ".h", ".wyl", ".props",
     };
 
     readonly ServerOptions options;
@@ -77,7 +77,7 @@ public sealed class StatusService
     {
         var root = options.Root;
         var (running, queued) = jobs.Counts();
-        var (total, vpl, logs) = findings.Counts();
+        var (total, wyl, logs) = findings.Counts();
         return new(
             root,
             new DirectoryInfo(root).Name,
@@ -88,7 +88,7 @@ public sealed class StatusService
             running,
             queued,
             jobs.RecentSeeds(),
-            new FindingsDto(total, vpl, logs));
+            new FindingsDto(total, wyl, logs));
     }
 
     static GitDto? GitInfo(string root)
@@ -130,9 +130,9 @@ public sealed class StatusService
     {
         var harnesses = new[]
         {
-            Path.Combine(root, "tests", "Vpl.Tests", "bin", "Debug", "net10.0", "Vpl.Tests.dll"),
-            Path.Combine(root, "tests", "Vpl.Fuzz", "bin", "Debug", "net10.0", "Vpl.Fuzz.dll"),
-            Path.Combine(root, "tests", "Vpl.Mutation", "bin", "Debug", "net10.0", "Vpl.Mutation.dll"),
+            Path.Combine(root, "tests", "Wyl.Tests", "bin", "Debug", "net10.0", "Wyl.Tests.dll"),
+            Path.Combine(root, "tests", "Wyl.Fuzz", "bin", "Debug", "net10.0", "Wyl.Fuzz.dll"),
+            Path.Combine(root, "tests", "Wyl.Mutation", "bin", "Debug", "net10.0", "Wyl.Mutation.dll"),
         };
         var built = new List<DateTime>();
         foreach (var harness in harnesses)
@@ -154,7 +154,7 @@ public sealed class StatusService
     static DateTime NewestSource(string root)
     {
         var newest = DateTime.MinValue;
-        foreach (var directory in new[] { "src", "runtime", "tests/Vpl.Tests", "tests/Vpl.Fuzz", "tests/Vpl.Mutation", "tests/mutation" })
+        foreach (var directory in new[] { "src", "runtime", "tests/Wyl.Tests", "tests/Wyl.Fuzz", "tests/Wyl.Mutation", "tests/mutation" })
         {
             var path = Path.Combine(root, directory);
             if (!Directory.Exists(path))
@@ -176,7 +176,7 @@ public sealed class StatusService
                     newest = written;
             }
         }
-        foreach (var file in new[] { "Directory.Build.props", "vpl.slnx" })
+        foreach (var file in new[] { "Directory.Build.props", "wyl.slnx" })
         {
             var path = Path.Combine(root, file);
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > newest)

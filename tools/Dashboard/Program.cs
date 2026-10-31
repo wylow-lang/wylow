@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.FileProviders;
-using Vpl.Dashboard;
+using Wyl.Dashboard;
 
 ServerOptions options;
 try
@@ -11,7 +11,7 @@ try
 }
 catch (ArgumentException ex)
 {
-    Console.Error.WriteLine("vpl-dashboard: " + ex.Message);
+    Console.Error.WriteLine("wyl-dashboard: " + ex.Message);
     return 2;
 }
 
@@ -40,10 +40,10 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Method is "POST" or "PUT" or "PATCH" or "DELETE")
     {
-        if (!string.Equals(context.Request.Headers["X-Vpl-Dashboard"].ToString(), "1", StringComparison.Ordinal))
+        if (!string.Equals(context.Request.Headers["X-Wyl-Dashboard"].ToString(), "1", StringComparison.Ordinal))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = "missing X-Vpl-Dashboard header" });
+            await context.Response.WriteAsJsonAsync(new { error = "missing X-Wyl-Dashboard header" });
             return;
         }
         var origin = context.Request.Headers["Origin"].ToString();
@@ -77,7 +77,7 @@ var status = app.Services.GetRequiredService<StatusService>();
 var jobs = app.Services.GetRequiredService<JobManager>();
 app.Lifetime.ApplicationStopping.Register(jobs.Shutdown);
 
-Console.WriteLine($"VPL dashboard  http://localhost:{options.Port}");
+Console.WriteLine($"Wylow dashboard  http://localhost:{options.Port}");
 Console.WriteLine($"repository     {options.Root}");
 status.Warm();
 

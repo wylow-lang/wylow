@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public enum JobState { Queued, Running, Succeeded, Findings, Failed, Cancelled, Interrupted }
 

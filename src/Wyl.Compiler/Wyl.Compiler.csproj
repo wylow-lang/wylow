@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wyl.Compiler.Lowering\Wyl.Compiler.Lowering.csproj" />
+    <ProjectReference Include="..\Wyl.Compiler.Optimize\Wyl.Compiler.Optimize.csproj" />
+    <ProjectReference Include="..\Wyl.Compiler.CodeGen\Wyl.Compiler.CodeGen.csproj" />
+    <ProjectReference Include="..\Wyl.Compiler.Interpret\Wyl.Compiler.Interpret.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\runtime\**\*" LinkBase="runtime" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

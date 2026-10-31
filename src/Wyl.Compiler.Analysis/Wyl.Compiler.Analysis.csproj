@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Wyl.Compiler.Ir/Wyl.Compiler.Ir.csproj" />
+  </ItemGroup>
+
+  <!-- Facts are built only by the pipeline, and by the tests that verify hand-written IR. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wyl.Compiler.Optimize" />
+    <InternalsVisibleTo Include="Wyl.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,15 +1,15 @@
-# VPL Language Specification
+# Wylow Language Specification
 
-**VPL** (Videogame Programming Language) is a personal, purpose-built language for writing 3D games.
+**Wylow** (Videogame Programming Language) is a personal, purpose-built language for writing 3D games.
 
 - **Looks like Java:** naming, class syntax, packages, generics syntax.
 - **Performs like C++:** value types, inline arrays, explicit layout, no tracing GC (cycles are
   collected only where you call the collector), zero-cost generics.
-- **Compiles to C++:** the VPL compiler emits C++ which is then built by clang/MSVC/gcc.
+- **Compiles to C++:** the Wylow compiler emits C++ which is then built by clang/MSVC/gcc.
 - **No undefined behavior by default:** everything the compiler generates is UB-free unless you
   explicitly opt out with `unsafe` or `@Unchecked`, similar to C#.
 
-VPL is built for games and similar applications, but is not limited to them. Game-specific
+Wylow is built for games and similar applications, but is not limited to them. Game-specific
 functionality (vectors, matrices, rendering, etc.) lives in a small standard library rather than
 the language itself; the language provides the tools needed to make that library as fast as
 built-ins (value types, operator overloading, layout control).
@@ -85,8 +85,8 @@ Each is explained in detail in its chapter.
 
 ## Standard library
 
-The standard library is VPL source in `src/Vpl.Compiler.Semantics/Stdlib/`, compiled with every program, so
-what it does can be read like any other VPL code. The compiler knows its types only through narrow
+The standard library is Wylow source in `src/Wyl.Compiler.Semantics/Stdlib/`, compiled with every program, so
+what it does can be read like any other Wylow code. The compiler knows its types only through narrow
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
 loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which
 built-in types satisfy without implementing them), and `String`, whose `extern struct`

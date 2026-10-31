@@ -1,6 +1,6 @@
 # 5. Concurrency
 
-Data races are undefined behavior in C++, so safe VPL must make them impossible. The model has
+Data races are undefined behavior in C++, so safe Wylow must make them impossible. The model has
 three parts:
 
 1. **Thread confinement:** normal objects belong to one thread.

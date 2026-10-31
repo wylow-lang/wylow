@@ -1,7 +1,7 @@
-# VPL
+# Wylow
 
 A personal programming language for 3D games: Java-style syntax, C++-level control, no undefined
-behavior by default. VPL compiles to C++.
+behavior by default. Wylow compiles to C++.
 
 The language is described in [docs/spec](docs/spec/README.md).
 
@@ -21,7 +21,7 @@ The language is described in [docs/spec](docs/spec/README.md).
   narrowing, `weak` fields, and pinning of receivers and `ref` arguments that live inside objects.
 - **Milestone 5:** enums with and without data, exhaustive `switch` with patterns, and `Result`.
 - **Milestone 6:** containers: fixed arrays `T[N]`, `Span`/`ReadOnlySpan`, `Array` (`T[]`), `List`,
-  and for-each, written in a VPL standard library on `ref` locals and returns, indexers, `unsafe`
+  and for-each, written in a Wylow standard library on `ref` locals and returns, indexers, `unsafe`
   pointers, `@CallerLocation`, and borrow counting.
 
 ## Requirements
@@ -33,15 +33,15 @@ The language is described in [docs/spec](docs/spec/README.md).
 
 ```
 dotnet build
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run examples/hello.vpl
+dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run examples/hello.wyl
 ```
 
 | Command | |
 |---|---|
-| `vpl run <file>` | build and run |
-| `vpl build <file> [-o out.exe]` | build an executable |
-| `vpl check <file>` | report errors only |
-| `vpl emit <file>` | print the generated C++ |
+| `wyl run <file>` | build and run |
+| `wyl build <file> [-o out.exe]` | build an executable |
+| `wyl check <file>` | report errors only |
+| `wyl emit <file>` | print the generated C++ |
 
 Options: `--release` (optimized; integer overflow wraps instead of panicking), `--cc msvc|gcc`.
 
@@ -49,15 +49,15 @@ Options: `--release` (optimized; integer overflow wraps instead of panicking), `
 
 | Path | |
 |---|---|
-| `src/Vpl.Compiler.*` | One project per compiler layer: syntax, semantics, IR, lowering, analysis, optimize, codegen (`docs/design/architecture.md`) |
-| `src/Vpl.Compiler` | Runs the layers in order, plus the native build driver |
-| `src/Vpl.Cli` | The `vpl` command |
-| `runtime/vpl.h` | C++ support code included by every generated program, split by topic into `runtime/vpl/` |
+| `src/Wyl.Compiler.*` | One project per compiler layer: syntax, semantics, IR, lowering, analysis, optimize, codegen (`docs/design/architecture.md`) |
+| `src/Wyl.Compiler` | Runs the layers in order, plus the native build driver |
+| `src/Wyl.Cli` | The `wyl` command |
+| `runtime/wyl.h` | C++ support code included by every generated program, split by topic into `runtime/wyl/` |
 | `tests/cases` | Test programs; expectations are `// output:`, `// error:`, `// panic:` comments |
 
 ## Tests
 
 ```
 dotnet build
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll [--cc gcc] [filter]
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll [--cc gcc] [filter]
 ```

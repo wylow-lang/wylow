@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Wyl.Compiler.Analysis/Wyl.Compiler.Analysis.csproj" />
+    <ProjectReference Include="../Wyl.Compiler.Lowering/Wyl.Compiler.Lowering.csproj" />
+  </ItemGroup>
+
+</Project>

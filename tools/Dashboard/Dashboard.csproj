@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <RootNamespace>Vpl.Dashboard</RootNamespace>
-    <AssemblyName>Vpl.Dashboard</AssemblyName>
+    <RootNamespace>Wyl.Dashboard</RootNamespace>
+    <AssemblyName>Wyl.Dashboard</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Vpl.Compiler\Vpl.Compiler.csproj" />
+    <ProjectReference Include="..\..\src\Wyl.Compiler\Wyl.Compiler.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />

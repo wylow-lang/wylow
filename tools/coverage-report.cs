@@ -127,8 +127,8 @@ static SiteState State(Dictionary<int, LineCoverage> lines, int line)
 
 static string Layer(string file)
 {
-    var project = file.Split(Path.DirectorySeparatorChar).First(p => p.StartsWith("Vpl.", StringComparison.Ordinal));
-    return project == "Vpl.Compiler" ? "Driver" : project["Vpl.Compiler.".Length..];
+    var project = file.Split(Path.DirectorySeparatorChar).First(p => p.StartsWith("Wyl.", StringComparison.Ordinal));
+    return project == "Wyl.Compiler" ? "Driver" : project["Wyl.Compiler.".Length..];
 }
 
 static (int Covered, int Total) Branches(string? conditionCoverage)

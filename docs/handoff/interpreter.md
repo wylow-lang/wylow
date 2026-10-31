@@ -22,7 +22,7 @@ test:
   gain a reference that does not need `// output:` comments.
 - It is the oracle the **type-directed program generator** needs, which is the other missing
   oracle (`testing.md` Step 6, order 1 and 2).
-- `vpl interpret file.vpl` runs a program with no C++ toolchain, and is how the interpreter is
+- `wyl interpret file.wyl` runs a program with no C++ toolchain, and is how the interpreter is
   debugged.
 
 What it does **not** check: lowering. Every mode and the interpreter lower the same program, so a
@@ -45,7 +45,7 @@ is a question about what is being checked:
   two interpretations. This checks every pass in isolation from the emitter and C++: a pass that
   changes the answer fails even when the C++ happens to agree with the optimized IR. It uses the
   same observability rule as the modes (below).
-- The CLI runs either: `vpl interpret` interprets what `vpl run` builds (the optimized IR), and
+- The CLI runs either: `wyl interpret` interprets what `wyl run` builds (the optimized IR), and
   `--no-opt` interprets the meaning. Both are useful when localizing a bug: an emitter
   disagreement that only appears in the optimized program is a pass or emitter problem, and the
   two runs say which.
@@ -96,13 +96,13 @@ those expectations, and the optimized IR only for the pipeline comparison.
 
 A new layer beside CodeGen, not inside it:
 
-- `src/Vpl.Compiler.Interpret` references `Vpl.Compiler.Ir` and `Vpl.Compiler.Analysis` only
+- `src/Wyl.Compiler.Interpret` references `Wyl.Compiler.Ir` and `Wyl.Compiler.Analysis` only
   (the transitive Semantics reference comes with them). It cannot see Lowering, Optimize, or
   CodeGen, so it cannot grow a second lowering or borrow the emitter's decisions.
 - It receives its facts from the pipeline, like CodeGen: `Optimized.Callees` gives the overrides
   used for dispatch, the cyclic flags, and the lambda decisions. It never builds a fact.
 - `Compilation.Lower` is the one entry point that produces everything it runs (with
-  `Optimize` on or off); `Vpl.Compiler` wires it, the CLI adds `vpl interpret`, and the test
+  `Optimize` on or off); `Wyl.Compiler` wires it, the CLI adds `wyl interpret`, and the test
   runner adds an `interpret` mode.
 
 The architecture gains a layer and these rows in its enforcement table:
@@ -122,34 +122,34 @@ twice. All six are in; the generated C++ and IR of every test are byte-identical
 modes after each commit, and tier-1 fuzzing is clean.
 
 1. **The function an instruction runs.** `IrProgram.Functions` is now an `IrFunctions`
-   (`src/Vpl.Compiler.Ir/Ir.cs`) that indexes every lowered function by the symbol an
+   (`src/Wyl.Compiler.Ir/Ir.cs`) that indexes every lowered function by the symbol an
    instruction names: `Of(symbol)` for all a symbol names (a memberwise constructor's forms),
    `Single(symbol)`, `MemberwiseForms`, `Memberwise(symbol, form)`, `Contains`, `Default(type)`
    for the struct `make_default` under a symbol no call names, and `Defaults` for every one.
    `Callees`, `CppEmitter`, and `CompilationResult.IrText` use it; their copies are deleted.
 2. **Lowering without C++.** `Compilation.Lower(source, options)`
-   (`src/Vpl.Compiler/Compilation.cs`) returns a `LowerResult(Diagnostics, Program, Ir,
+   (`src/Wyl.Compiler/Compilation.cs`) returns a `LowerResult(Diagnostics, Program, Ir,
    Optimized)`; `Compilation.Compile` is `Lower` plus the emitter. A program that fails the
    pipeline still returns its `Ir`, with `Optimized` null. No behavior change.
 3. **The implementation a dispatched call runs.** `Overrides.Implementation(MethodReference
-   call, VplType runtimeType)` returns the `MethodReference` that runs, with the runtime owner's
+   call, WylType runtimeType)` returns the `MethodReference` that runs, with the runtime owner's
    type arguments (so a generic owner's `TypeMap` is right), or null if the type has no method.
    It walks the class chain, and a struct takes its own method. An abstract method's answer is
    the method itself, whose stub panics during construction or destruction.
-   `tests/Vpl.Tests/DispatchSelfTests.cs` covers overrides, the base's own method, direct and
+   `tests/Wyl.Tests/DispatchSelfTests.cs` covers overrides, the base's own method, direct and
    inherited interface implementations, structs, generic owners, and the abstract case.
-4. **A formatted type.** `VplType.IsFormatted` (`src/Vpl.Compiler.Semantics/TypeFormatting.cs`),
+4. **A formatted type.** `WylType.IsFormatted` (`src/Wyl.Compiler.Semantics/TypeFormatting.cs`),
    derived from the one list of formatted values, is what the binder, `StdlibSymbols`, and the
    interpreter ask. `TypeSelfTests` has a `formatted_types` property.
 5. **A separate destructor.** `TypeSymbol.HasSeparateDestructor`
-   (`src/Vpl.Compiler.Semantics/Symbols.cs`) carries the emitter's rule, with the spec sentence
+   (`src/Wyl.Compiler.Semantics/Symbols.cs`) carries the emitter's rule, with the spec sentence
    it implements (03-memory-model.md, Destroying a cycle), for the interpreter's collector.
 6. **Runtime message and location text.** `Location.PanicText`
-   (`src/Vpl.Compiler.Syntax/Text/SourceText.cs`) is the `file:line:column` text, now used by
+   (`src/Wyl.Compiler.Syntax/Text/SourceText.cs`) is the `file:line:column` text, now used by
    the emitter, `IrPrinter`, and a lambda's name. `FunctionSymbol.AbstractCallMessage` is the
    abstract-call stub's text, so the interpreter can raise exactly what the emitter does. The
    other runtime-header messages (arithmetic, checks, `enum from_value`, `to_char`, ...) are
-   still the emitter's or `runtime/vpl/*.h`'s; porting them into the interpreter's own
+   still the emitter's or `runtime/wyl/*.h`'s; porting them into the interpreter's own
    `RuntimeText`/`RuntimeArithmetic` was part of step 1, and `tests/cases/panics/` already pins
    them.
 
@@ -172,12 +172,12 @@ asks for, and which comparison exceptions it applies.
 - Every place is a **`Cell`**: a type and a value, mutable in place. A struct, fixed array, enum
   payload, nullable value, and object field is itself a small tree of cells, so a `ref` to a field
   is a reference to the same cell after any number of projections.
-- Values: the boxed primitive of the VPL type (with `char` as a code point), `String` as immutable
+- Values: the boxed primitive of the Wylow type (with `char` as a code point), `String` as immutable
   UTF-8 bytes, `StructValue`/`EnumValue`/`ArrayValue`/`OptionalValue` over cells, `ObjectRef`,
   `FunctionValue`, `PointerValue`, `WeakValue`, and the deferred `Formatted` value that
   interpolation consumes.
 - **Copy, move, release, default, and equality of a value are defined once each, driven by
-  `VplType`** and its existing facts (`InlineTypes`, `MayOwnObjects`, `IsCounted`, `HasDefaultCode`,
+  `WylType`** and its existing facts (`InlineTypes`, `MayOwnObjects`, `IsCounted`, `HasDefaultCode`,
   `SupportsEquality`, `SharesStorage`): the interpreter must not grow its own type predicates.
 - A **move** takes the value and leaves the source moved-from (empty), so its later release does
   nothing. A **copy** of an aggregate copies every field, in declaration order. A **release**
@@ -187,7 +187,7 @@ asks for, and which comparison exceptions it applies.
 - **The store rule** is the spec's: store every part of the new value, then release the old one
   (`docs/spec/03-memory-model.md` §3.2). Aggregates store all fields before releasing any old
   field. The exact order in which the old aggregate's fields are released is currently the C++
-  `vpl::assign` swap; if a test can observe an order the spec does not state, **decide it in the
+  `wyl::assign` swap; if a test can observe an order the spec does not state, **decide it in the
   spec** and make the runtime and the interpreter both follow that sentence.
 
 ### Frames, blocks, and release order
@@ -231,12 +231,12 @@ copies the struct, a type-parameter hold does whichever its runtime type needs (
 - **Dispatch uses the object's current construction phase**: during a base constructor and a base
   destructor the dynamic type is the base, exactly as C++ does. A call that lands on an abstract
   method there panics `abstract method '<Owner>.<Name>' called during construction or destruction`
-  (the emitter's stub text). `tests/cases/panics/abstract_in_constructor.vpl` pins it.
+  (the emitter's stub text). `tests/cases/panics/abstract_in_constructor.wyl` pins it.
 - **Constructors** execute the IR as written: the base call block, field initializers, body; a
   struct constructor's `Struct` local; `make_default`/memberwise `Builds` forms chosen from the
   call's `IrFieldDefault` arguments. `IrDefault` runs `make_default` where the type has default
   code and zeroes otherwise.
-- **Cycle collector**: mirror `runtime/vpl/cycles.h` exactly. Buffer a cyclic object when a
+- **Cycle collector**: mirror `runtime/wyl/cycles.h` exactly. Buffer a cyclic object when a
   release leaves its count above zero; trial-delete from the buffer with the same budget rule;
   clear weak targets; run destructor bodies oldest first with every field intact (the finalize
   phase); then release fields and memory, where a standard library container's destructor body
@@ -247,7 +247,7 @@ copies the struct, a type-parameter hold does whichever its runtime type needs (
   to the slot local, which holds the reference for the object's whole life; `IrEnd` or the slot's
   block destroys it. The object leaves the collector, so it is never buffered or visited, and
   `cycleStats().buffered` and the diagnostics match the optimized build
-  (`cycles/stack_unbuffered.vpl`). This is exactly why the interpreter cannot assume the
+  (`cycles/stack_unbuffered.wyl`). This is exactly why the interpreter cannot assume the
   unoptimized instruction set: the optimized IR is a valid program in its own right.
 
 ### Generics, functions, and views
@@ -264,7 +264,7 @@ copies the struct, a type-parameter hold does whichever its runtime type needs (
 - `data P` gives a pointer into a fixed array's element cells; `Memory.allocate` gives a typed
   buffer of cells with initialized flags. Pointer arithmetic scales by element; `initialize`,
   `initializeDefault`, `drop`, `moveTo` (including overlapping ranges), and `free` follow
-  `runtime/vpl/intrinsics.h`. `String.bytes()` returns a span built by calling the span's own
+  `runtime/wyl/intrinsics.h`. `String.bytes()` returns a span built by calling the span's own
   constructor IR, not by knowing its layout.
 - A type parameter receiver of `Printable.toString`/`Comparable.compareTo` uses the concrete type:
   formatted types are written by the runtime, everything else dispatches to its method.
@@ -272,12 +272,12 @@ copies the struct, a type-parameter hold does whichever its runtime type needs (
 ### Text, numbers, and intrinsics
 
 - `print`, interpolation, format specifiers, `toString`, and `compareTo` are the intrinsics
-  `vpl::print`, `vpl::interpolate`, `vpl::formatted`, `vpl::format_string`, `vpl::compare`.
+  `wyl::print`, `wyl::interpolate`, `wyl::formatted`, `wyl::format_string`, `wyl::compare`.
   Integers are decimal; a `char` prints as UTF-8; a float prints the **shortest text that reads
   back exactly**, with `.0` on a whole number, in `std::to_chars`'s choice of plain or exponent
   form, and `inf`/`-inf`/`nan` (`docs/spec/06-syntax.md`, String interpolation; strings.h). C#
   supplies the shortest digits; the exponent layout is the interpreter's. A golden format table and
-  `tests/cases/values/*.vpl` are the check.
+  `tests/cases/values/*.wyl` are the check.
 - Integer arithmetic reproduces `arithmetic.h`: checked in debug and wrapping in release, division
   and `MIN / -1` always panic, shifts mask, float→int saturates (NaN → 0), double→float rounds,
   `int→char` and `int→enum` panic. Comparisons use the total order for floats.
@@ -299,8 +299,8 @@ step lands (a container, a closure, `Weak`), which move to that step's filter.
 the `.cpp` and `.ir` of every test are byte-identical in all five modes after each of the six
 commits.
 
-**Step 1 — the core (done 2026-10-29).** `src/Vpl.Compiler.Interpret` has `Values` (cells, the
-value kinds, and the one copy/release/default/equality definition driven by `VplType`),
+**Step 1 — the core (done 2026-10-29).** `src/Wyl.Compiler.Interpret` has `Values` (cells, the
+value kinds, and the one copy/release/default/equality definition driven by `WylType`),
 `Interpreter` (frames, locals, calls, returns, if/loop/break/continue, block release order, the
 `@CallerLocation` text), `Interpreter.Values` (operands, places, and the rvalue visitors),
 `RuntimeText`/`RuntimeArithmetic` (the runtime's text, checked arithmetic, and conversions),
@@ -318,17 +318,17 @@ What the filters still reach, and so moves to the step that lands the feature: `
 
 Where step 1 started:
 
-- **The project.** `src/Vpl.Compiler.Interpret`, referencing `Vpl.Compiler.Ir` and
-  `Vpl.Compiler.Analysis` only (the Semantics reference comes with them), added to `vpl.slnx`.
-  `src/Vpl.Compiler` references it to wire `Compilation`/CLI, as it does `Vpl.Compiler.CodeGen`,
-  so the interpreter project itself must not reference `Vpl.Compiler`.
+- **The project.** `src/Wyl.Compiler.Interpret`, referencing `Wyl.Compiler.Ir` and
+  `Wyl.Compiler.Analysis` only (the Semantics reference comes with them), added to `wyl.slnx`.
+  `src/Wyl.Compiler` references it to wire `Compilation`/CLI, as it does `Wyl.Compiler.CodeGen`,
+  so the interpreter project itself must not reference `Wyl.Compiler`.
 - **The entry point.** `Compilation.Lower(source, options)` gives `LowerResult.Ir` and
   `LowerResult.Optimized` (its `Callees` carries `Overrides`, `Cycles`, and `Lambdas`). The
   oracle runs `Optimize: false`; the pipeline check runs the optimized IR and compares the two
   interpretations.
-- **The CLI.** `src/Vpl.Cli/Program.cs` lists its commands and usage text; add `interpret` (and
+- **The CLI.** `src/Wyl.Cli/Program.cs` lists its commands and usage text; add `interpret` (and
   its `--no-opt` meaning, which already exists) there.
-- **The runner mode.** `tests/Vpl.Tests/Program.cs` parses `--cc`, `--no-opt`, and `--no-nest`,
+- **The runner mode.** `tests/Wyl.Tests/Program.cs` parses `--cc`, `--no-opt`, and `--no-nest`,
   and `RunAllModes` lists the five modes; the interpret mode is opt-in from step 1 and joins
   `--all-modes` only at step 5. `README`-style self-tests are registered in
   `results.AddRange(...)` there (`DispatchSelfTests` is the newest example).
@@ -356,7 +356,7 @@ which a type parameter's substitution made concrete. A hold is a counted referen
 `hold.borrow` also calls a `Borrowable`'s `beginBorrow`/`endBorrow`; `ref`, `in`, `ref?`, and
 `in?` places, `end`, and stored assignments all work on objects. A formatted type and the built-in
 comparable types answer `Printable.toString` and `Comparable.compareTo` the way
-`vpl::to_string`/`vpl::compare_to` do, since they satisfy a bound without implementing it.
+`wyl::to_string`/`wyl::compare_to` do, since they satisfy a bound without implementing it.
 `InterpreterSelfTests` grew to 40 cases: construction/destruction order and phases, dispatch
 through a base and an interface, assignment storing before releasing, borrow hooks, references
 into objects, and the abstract-call and kept-reference panics.
@@ -364,7 +364,7 @@ into objects, and the abstract-call and kept-reference panics.
 Two executor rules step 2 settled, both of which C++ already did: an operand a pure operation only
 reads (a comparison, a test, a check) keeps its local owning it even when the IR says `move`, so it
 is released at its block's end as the emitter's temporary is; and an object dispatches as the
-class its construction or destruction has reached, which is also what a `vpl::is` test sees.
+class its construction or destruction has reached, which is also what a `wyl::is` test sees.
 
 What the filters still reach, and so moves to the step that lands the feature:
 `classes/assignment`, `last_use_moves`, `pinning`, and `weak` need `Weak` (step 5);
@@ -390,7 +390,7 @@ the call.
 (non-escaping) or a `ClosureValue` (escaping), which counts like an object. `Values.ChoiceValue`
 holds the index and every callable, owns them, and copies them with the choice. A `copy` of a
 function value counts only where the type is escaping: the non-escaping form refers to a closure it
-doesn't own, as `vpl::FunctionRef` does, and converting between the forms changes nothing about the
+doesn't own, as `wyl::FunctionRef` does, and converting between the forms changes nothing about the
 value (`RuntimeArithmetic.Convert`). Invoking reads the callee where it is — never copying a
 function value or a choice, which would hold counts C++ never takes — and runs the chosen option of
 a choice or the lambda's IR.
@@ -403,7 +403,7 @@ Two executor rules step 3 settled, both of which C++ already did:
 - A closure releases what it captured, and a choice its callables, in the order they are held, not
   in the reverse order a struct's fields take, because the runtime holds each in one `std::tuple`.
   Both tested compilers destroy a tuple forwards, and `03-memory-model.md` now says so;
-  `lambdas/capture_order.vpl` pins it.
+  `lambdas/capture_order.wyl` pins it.
 
 `InterpreterSelfTests` grew to 50 cases: non-escaping lambdas through templates and over the
 creating frame, closures over `this` and their release, composed type maps, function-typed fields
@@ -452,7 +452,7 @@ Three executor rules step 4 settled, all of which C++ already did:
   through the frame, and ask the *value* whether it is null, so one rule covers both forms.
 - **A function value passed to a non-escaping parameter counts nothing.** The copy that an
   argument makes is under the *parameter's* type, not the type of the place it came from, because
-  only an escaping type holds a closure count (`vpl::FunctionRef`). Otherwise every
+  only an escaping type holds a closure count (`wyl::FunctionRef`). Otherwise every
   `tick(hooks.onTick)` leaked a closure count.
 - **Using memory outside its storage, after freeing it, or uninitialized is the program's
   undefined behavior.** It ends the run as `InterpretationStatus.UndefinedBehavior` with what it
@@ -476,19 +476,19 @@ their collector interaction; the collector mirror, its stats, and its debug diag
 reporting. The `interpret` mode is now part of `--all-modes`, and the whole suite passes in it:
 460 passed, no `Unsupported` left, with no disagreement in any program the mode covers.
 
-`Values.HeapObject` is the runtime's `vpl::Object` header: the count, the cyclic, buffered, dying,
+`Values.HeapObject` is the runtime's `wyl::Object` header: the count, the cyclic, buffered, dying,
 gray, white, and finalized flags, the buffer slot, and the creation number that orders a collected
 cycle's destructors. `ObjectRef` and `ClosureValue` derive from it, so a closure on a heap is
 buffered, visited, and collected as the runtime's `Closure` is. `ObjectRef`'s weak block takes the
-slot and creation number over from the header while it exists, exactly as `vpl::WeakBlock` does.
+slot and creation number over from the header while it exists, exactly as `wyl::WeakBlock` does.
 
-`Interpreter.Cycles.cs` mirrors `runtime/vpl/cycles.h`: the buffer and its compaction, `mark_gray`
+`Interpreter.Cycles.cs` mirrors `runtime/wyl/cycles.h`: the buffer and its compaction, `mark_gray`
 with its budget rollback, `scan`, `scan_black`, `collect_white`, `destroy_garbage` with the finalize
 phase and the resurrection panic, `CycleStats`, the three debug diagnostics (a growing buffer, a
 class freed by ten collections, uncollected cycles at exit), and the `destroying` guard that makes
-`Memory.collectCycles` panic in a destructor. `Released` is `vpl::Object::release`: destroy at zero,
+`Memory.collectCycles` panic in a destructor. `Released` is `wyl::Object::release`: destroy at zero,
 or buffer a cyclic object whose count stayed above it. Reading a value's strong references follows
-the generated `vpl_visit`: a base class's before its own, fields in declaration order, a
+the generated `wyl_visit`: a base class's before its own, fields in declaration order, a
 container's elements last through the container's own `asReadOnlySpan` (so the interpreter never
 assumes a container's layout), and a closure's captures in the order it holds them.
 
@@ -498,7 +498,7 @@ Three things step 5 settled, all of which C++ already did:
   excludes the standard library, whose containers release their elements with their fields: their
   destructor bodies run while the garbage is deleted, after every separate destructor of the cycle.
   Finalizing them early freed a list's storage before the collector's next walk read it.
-- **A `vpl::Function` holds one `Ref` per copy, and the collector clears each one.** A copy of a
+- **A `wyl::Function` holds one `Ref` per copy, and the collector clears each one.** A copy of a
   function value is a new `FunctionValue` with its own closure reference, so clearing a reference
   from a garbage object releases exactly the count that copy held.
 - **A read's type is applied through the frame before it decides what a copy costs.** Generic code
@@ -519,7 +519,7 @@ modes now, and every harness asks it what it asks the native modes:
 - **Matrices.** Under `--interpret`, `MatrixTests` interprets every cell and compares it with the
   same `tests/matrix/*.snapshot` the native modes record. A budget, an unsupported feature, or
   undefined behavior fails the cell: every cell is a reviewed program with a defined result.
-- **One comparison rule.** `RunOutcome`/`RunComparison` (`tests/Vpl.Fuzz/RunOutcome.cs`) hold the
+- **One comparison rule.** `RunOutcome`/`RunComparison` (`tests/Wyl.Fuzz/RunOutcome.cs`) hold the
   rule above: stdout, the panic's message and location, the exit code, and the warnings where the
   caller asks, with the documented exceptions (a budgeted collector's stdout; two panics compared
   by their text, not the platform's abort code; `// mode: optimized` and `unsafe` programs not
@@ -562,7 +562,7 @@ modes now, and every harness asks it what it asks the native modes:
 
 The step found one disagreement, and it was the runtime's: on Windows, standard output was in text
 mode, so `print`'s `\n` became `\r\n` and a program that printed a `char` carriage return before it
-ended the line with two `\r`s natively and one interpreted. `vpl::init` now opens standard output in
+ended the line with two `\r`s natively and one interpreted. `wyl::init` now opens standard output in
 binary mode, the spec says output is the bytes a program writes (§06, String interpolation), and a
 replay of the mutant is clean. That finding cannot become a `tests/cases/` test, since a line-based
 expected output cannot tell the two apart: the fuzzer's byte comparison of the interpreter against
@@ -570,7 +570,7 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
 
 ## Testing the interpreter itself
 
-- **Self-tests** (`tests/Vpl.Tests/InterpreterSelfTests.cs`): small source programs with expected
+- **Self-tests** (`tests/Wyl.Tests/InterpreterSelfTests.cs`): small source programs with expected
   stdout, panic text and location, or exit code, one per instruction kind and per runtime message;
   release vs debug overflow; budget exhaustion as inconclusive. These are the only tests that
   distinguish "the interpreter is wrong" from "the program is wrong" when no native mode is run.
@@ -593,7 +593,7 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
   instruction kind must add both, and a self-test case for each.
 - **Float text.** The shortest round-trip digits are standard; the choice between plain and
   exponent form and the `.0` rule are the runtime's. Validate against a table generated from
-  `std::to_chars` for the edges in `values/double.vpl` before trusting the general case.
+  `std::to_chars` for the edges in `values/double.wyl` before trusting the general case.
 - **`Memory.allocate`'s "allocation is too large"** needs C++ `sizeof(T)`. Either model sizes the
   ABI way and test, or decide the case is out of scope with a comment and no test. Do not let it
   silently differ.
@@ -603,7 +603,7 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
   fixed code where it can, and the matrix snapshot keeps the platform's number.
 - **Performance.** A tree-walking interpreter is enough for the suite's ~400 small programs and
   matrices: the interpret mode over the suite, with the optimized-IR comparison, takes about 40s on
-  eight workers, and tier 1 fuzzing runs about 14 mutants a second. `cycles/values.vpl`'s 100,000
+  eight workers, and tier 1 fuzzing runs about 14 mutants a second. `cycles/values.wyl`'s 100,000
   iterations fit in the step budget. Profile before deciding whether to pre-resolve places or
   compile bodies to delegates.
 - **Diagnostics under optimization.** Interpreting the optimized IR can surface a difference the
@@ -620,7 +620,7 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
 - **Done.** Interpreting the optimized IR agrees with interpreting the meaning on every program
   that compiles, under the documented exceptions, on the whole suite and in fuzzer tier 1.
 - **Done within the budget run.** The fuzzer's tier 2 found one disagreement in its first
-  five-minute run (the runtime's Windows newline translation, fixed in `vpl::init`) and none in the
+  five-minute run (the runtime's Windows newline translation, fixed in `wyl::init`) and none in the
   second over 704 mutants, between the interpreter and `--no-opt` and the optimized modes; no
   design exception was added to the comparison.
 - **Done.** The intrinsic registry test covers every stdlib extern and builtin; no `Unsupported`
@@ -635,7 +635,7 @@ expected output cannot tell the two apart: the fuzzer's byte comparison of the i
 
 Not this plan, but it is why the interpreter comes first. Sketch, for its own handoff:
 
-- A deterministic, seeded generator of **well-typed VPL source** (a typed generator that prints;
+- A deterministic, seeded generator of **well-typed Wylow source** (a typed generator that prints;
   the parser and binder validate every program; a generated program that fails to bind is a
   generator bug). Start with expressions, locals, and control flow with bounded loops; add
   structs/enums/nullables/fixed arrays, then classes and destructors, then generics, lambdas, and

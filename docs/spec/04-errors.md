@@ -1,6 +1,6 @@
 # 4. Errors
 
-VPL has **no exceptions**. There are two kinds of failure:
+Wylow has **no exceptions**. There are two kinds of failure:
 
 | Kind | Mechanism | Example |
 |---|---|---|
@@ -11,7 +11,7 @@ Panics are covered in [01-safety.md](01-safety.md#13-panics). This chapter cover
 
 ## 4.1 `Result<T, E>`
 
-`Result<T, E>` is an enum declared in the **prelude**, VPL source compiled with every program:
+`Result<T, E>` is an enum declared in the **prelude**, Wylow source compiled with every program:
 
 ```java
 enum Result<T, E> {
@@ -77,7 +77,7 @@ var bytes = try File.readAll(path).mapErr(e -> LoadError.NotFound(path));
 ```
 
 `try` is a prefix keyword (rather than Rust's postfix `?`) because `?` already means "nullable"
-in VPL.
+in Wylow.
 
 ## 4.4 Handling results
 

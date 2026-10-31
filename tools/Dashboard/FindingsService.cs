@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record FindingDto(
     string Path,
@@ -53,7 +53,7 @@ public sealed class FindingsService(ServerOptions options)
         }
 
         foreach (var file in files
-                     .Where(f => Path.GetExtension(f).ToLowerInvariant() is ".vpl" or ".txt")
+                     .Where(f => Path.GetExtension(f).ToLowerInvariant() is ".wyl" or ".txt")
                      .OrderByDescending(File.GetLastWriteTimeUtc)
                      .Take(500))
         {
@@ -71,13 +71,13 @@ public sealed class FindingsService(ServerOptions options)
         return result;
     }
 
-    public (int Total, int Vpl, int Logs) Counts()
+    public (int Total, int Wyl, int Logs) Counts()
     {
         if (!Directory.Exists(directory))
             return (0, 0, 0);
         try
         {
-            int total = 0, vpl = 0, logs = 0;
+            int total = 0, wyl = 0, logs = 0;
             foreach (var file in Directory.EnumerateFiles(directory, "*", new EnumerationOptions
                      {
                          RecurseSubdirectories = true,
@@ -87,11 +87,11 @@ public sealed class FindingsService(ServerOptions options)
             {
                 switch (Path.GetExtension(file).ToLowerInvariant())
                 {
-                    case ".vpl": vpl++; total++; break;
+                    case ".wyl": wyl++; total++; break;
                     case ".txt": logs++; total++; break;
                 }
             }
-            return (total, vpl, logs);
+            return (total, wyl, logs);
         }
         catch (IOException)
         {
@@ -197,7 +197,7 @@ public sealed class FindingsService(ServerOptions options)
             error = "path is outside the findings directory";
             return false;
         }
-        if (Path.GetExtension(full).ToLowerInvariant() is not (".vpl" or ".txt"))
+        if (Path.GetExtension(full).ToLowerInvariant() is not (".wyl" or ".txt"))
         {
             error = "only findings and logs can be shown here";
             return false;

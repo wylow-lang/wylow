@@ -1,7 +1,7 @@
-# VPL
+# Wylow
 
 A personal language for 3D games: Java-style syntax, C++-level control, no undefined behavior by
-default. The compiler is written in C# (.NET 10) and compiles VPL to C++20.
+default. The compiler is written in C# (.NET 10) and compiles Wylow to C++20.
 
 ## Read first
 
@@ -16,26 +16,26 @@ default. The compiler is written in C# (.NET 10) and compiles VPL to C++20.
 
 ```
 dotnet build
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll              # all tests, MSVC
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc gcc     # all tests, g++
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --all-modes  # pre-commit: all six modes at once, one process each
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll --interpret  # only the IR interpreter: the meaning against its expectations, and the optimized IR against it
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll structs      # tests whose path contains "structs"
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix       # only the interaction matrices
-dotnet tests/Vpl.Tests/bin/Debug/net10.0/Vpl.Tests.dll matrix --update-snapshots  # record what they do now
-dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
-dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
-dotnet tests/Vpl.Fuzz/bin/Debug/net10.0/Vpl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
-dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --list-targets   # mutation testing: the files and their tests
-dotnet tests/Vpl.Mutation/bin/Debug/net10.0/Vpl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
-dotnet src/Vpl.Cli/bin/Debug/net10.0/vpl.dll run|build|check|emit|ir|interpret <file.vpl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll              # all tests, MSVC
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc     # all tests, g++
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan    # all tests, clang-cl with ASan and UBSan
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # pre-commit: all six modes at once, one process each
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret  # only the IR interpreter: the meaning against its expectations, and the optimized IR against it
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs      # tests whose path contains "structs"
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix       # only the interaction matrices
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix --update-snapshots  # record what they do now
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --seconds 120  # fuzz: mutate the tests and check them in-process (tier 1)
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
+dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --list-targets   # mutation testing: the files and their tests
+dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
+dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all six modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
 dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, mutation testing, seeds, findings, and code size
 ```
 
-The fuzzer (`tests/Vpl.Fuzz`) mutates `tests/cases/**/*.vpl` at feature boundaries and value edges
+The fuzzer (`tests/Wyl.Fuzz`) mutates `tests/cases/**/*.wyl` at feature boundaries and value edges
 and checks every mutant with the oracles that need no expected output: no exception, the same
 errors with and without optimization, deterministic compilation, warning-free C++, the same output,
 exit code, and panic in every mode, and quiet sanitizers. Tier 1 also interprets the optimized IR
@@ -48,7 +48,7 @@ the interpreter first, so it belongs in the background. A finding in `unsafe` or
 is the program's undefined behavior, not a compiler bug; a mutant whose mutation edits `unsafe` code
 is still compiled, but tier 2 doesn't run it.
 
-The mutation harness (`tests/Vpl.Mutation`) asks the question the oracles can't: would the tests
+The mutation harness (`tests/Wyl.Mutation`) asks the question the oracles can't: would the tests
 notice? It changes the compiler's own source — one operator, constant, pattern, negated condition,
 or simple statement at a time — rebuilds the file's project into a private copy, and reruns the
 tests that cover that feature (`tests/mutation/targets.json`). Neither the working tree nor the
@@ -80,24 +80,24 @@ deliberate bug (`sanitizers/live`). It finds what the other modes can't: a use a
 freed memory still holds the old bytes prints the same output. UBSan reports and continues, so a
 report is found in standard error, not the exit code. Every sanitized program prints a harmless
 `interception_win: unhandled instruction` line: Clang 19's ASan can't hook one function of this
-newer MSVC runtime. To reproduce a failure, `vpl run <file> --cc asan`.
+newer MSVC runtime. To reproduce a failure, `wyl run <file> --cc asan`.
 
 ## Architecture
 
 `Lexer → Parser (AST) → Binder (bound tree, types, overloads) → IrLowering → Pipeline (Borrows → IrVerifier → ReadsInPlace, HoldElision, InPlaceElements, BorrowedLocals, LastUseMoves, StackSlots, each followed by IrVerifier) → CppEmitter → MSVC/g++`
 
 This is the pipeline as it is; the target, and the order of work to reach it, is
-`docs/design/architecture.md`. Each layer is a project, `src/Vpl.Compiler.<Layer>`, referencing
+`docs/design/architecture.md`. Each layer is a project, `src/Wyl.Compiler.<Layer>`, referencing
 only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes; Interpret references Ir and Analysis), so
-reaching across is a compile error; `src/Vpl.Compiler` runs them in order (`Compilation.cs`). The
+reaching across is a compile error; `src/Wyl.Compiler` runs them in order (`Compilation.cs`). The
 Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
 - `Syntax`: tokens, AST records, parser with error recovery.
 - `Semantics`: the bound program and the checks that report errors on it.
-  `Types.cs` (`VplType`, what every type can be asked, and `TypeMap` substitution), `TypeKinds.cs`
+  `Types.cs` (`WylType`, what every type can be asked, and `TypeMap` substitution), `TypeKinds.cs`
   (a sealed subclass per kind of type, each interning its own), `Conversions.cs`, the type facts by
   topic (`TypeStorage.cs`, `TypeDefaults.cs`, `TypeEquality.cs`, `TypeFormatting.cs`, extension
-  members of `VplType`), `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
+  members of `WylType`), `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or view as a base and the steps that stay
   in its storage). `Binder/` holds the binder's partial files and
   `MatchSpace.cs` (switch exhaustiveness and unreachable cases).
 - `Analysis`: whole-program facts the passes and the emitter use, found after every check has
@@ -105,7 +105,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   narrowing, returns, constructor fields, scoping, single assignment, moves, places, and that every
   reference, view, and borrowed local is used only while what it points into is held. On the
   lowered program its violations of the source's rules are the user's errors (`Violation`), and
-  after a pass, compiler bugs; `tests/Vpl.Tests/IrSelfTests.cs` builds IR it must accept or reject.
+  after a pass, compiler bugs; `tests/Wyl.Tests/IrSelfTests.cs` builds IR it must accept or reject.
   Every whole-program fact is found from the IR and
   throws if asked after the program's `Generation` has changed (`Callees.Fresh`).
   `Callees.cs` resolves what each instruction runs (`IrEffects.Runs`) to the lowered functions, each
@@ -135,14 +135,14 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   copied from, where nothing to the end of its block may change the place; `Aliasing.cs` is shared with `HoldElision`). `LastUseMoves.cs` (moves a named local into its last
   use where releasing its type can't be observed). Tests
   mark their loops with `// in-place: <n>`. `StackSlots.cs` (puts objects and closures that can't
-  outlive their scope in a `vpl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
+  outlive their scope in a `wyl::StackSlot`; docs/design/stack-objects.md). Tests mark their lines
   with `// stack: <n>`, and a test observing an optimization through diagnostics is
   `// mode: optimized`.
-- `Semantics/Stdlib/*.vpl`: the standard library, VPL source compiled with every program
+- `Semantics/Stdlib/*.wyl`: the standard library, Wylow source compiled with every program
   (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
-  hooks; prefer writing library code in VPL over adding compiler special cases. `extern` functions
-  (stdlib only) are implemented in `runtime/vpl/intrinsics.h`.
+  hooks; prefer writing library code in Wylow over adding compiler special cases. `extern` functions
+  (stdlib only) are implemented in `runtime/wyl/intrinsics.h`.
 - `Ir`: the mid-level IR every function body is lowered to (`docs/design/ir.md`).
   `Ir.cs` and `Ir.Values.cs` (the model), `IrPrinter.cs`, `IrEffects.cs` (what each instruction
   may write, run, or panic on; every analysis asks it), and `IrAccess.cs` (which storage an
@@ -162,26 +162,26 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `Interpret/Interpreter*.cs`: the IR interpreter, a second implementation of the instruction
   set beside the emitter (`docs/design/ir.md` §9.11). It executes the IR `Compilation.Lower`
   produces, either form, and is provenance-blind: one visitor rule per statement and rvalue kind,
-  and one `Values` definition of copy, release, default, and equality driven by `VplType`.
-  `RuntimeText`/`RuntimeArithmetic` reproduce `runtime/vpl/*.h`, and the intrinsic registry keys on
+  and one `Values` definition of copy, release, default, and equality driven by `WylType`.
+  `RuntimeText`/`RuntimeArithmetic` reproduce `runtime/wyl/*.h`, and the intrinsic registry keys on
   `BuiltinCppName`. It covers the whole instruction set: values, locals, calls, control flow,
   panics, text, objects and ownership, function values with frame type maps, raw memory (pointers
   over a `Values.Buffer`, fixed-array `data`, spans, the standard library's containers), `Weak`
   blocks, stack slots, and the cycle collector (`Interpreter.Cycles.cs` mirrors
-  `runtime/vpl/cycles.h`, with its stats and debug diagnostics). The `interpret` test mode runs the
+  `runtime/wyl/cycles.h`, with its stats and debug diagnostics). The `interpret` test mode runs the
   program's meaning, checks it against the test's expectations, and interprets the optimized IR to
   compare it with the meaning; it is part of `--all-modes`, and runs the matrix cells too.
 - `Parser`, `Binder`, and `CppEmitter` are partial classes split by topic (`Binder.Calls.cs`,
   `CppEmitter.Types.cs`, ...); put new code in the file for its topic, and split a file that
   grows past ~600 lines.
-- `runtime/vpl.h`: C++ support included by every generated program, which includes one file per
-  topic from `runtime/vpl/` (`arithmetic.h`, `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...).
+- `runtime/wyl.h`: C++ support included by every generated program, which includes one file per
+  topic from `runtime/wyl/` (`arithmetic.h`, `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...).
   Each file includes what it depends on and compiles on its own.
-- `tests/cases/**/*.vpl`: each test is a program with `// output:`, `// error:` (on the erroring
+- `tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error:` (on the erroring
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
   and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
   in file order, so put a called function's outputs at the call.
-- `tests/Vpl.Tests/TypeSelfTests.cs`: properties every type must have (interning, substitution,
+- `tests/Wyl.Tests/TypeSelfTests.cs`: properties every type must have (interning, substitution,
   `CppIdentity`, conversions, names that bind back to the type, facts that agree), checked on
   random types from a fixed seed; the runner reports them as `types/<property>`. A new kind of
   type, or a new fact about types, gets a case in its generator or a property here.
@@ -193,7 +193,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   against `docs/spec/` cell by cell once; after that any change to a cell fails the suite until
   `--update-snapshots` records it, and the diff is reviewed in that change. A cell the spec refuses
   belongs in the snapshot too: its error, or its panic, is what it does.
-- `tests/cases/values/*.vpl`: one file per builtin kind, printing thirty or more computed results
+- `tests/cases/values/*.wyl`: one file per builtin kind, printing thirty or more computed results
   at the edges. This is the one test kind that catches a wrong answer every mode agrees on, so
   every operator, conversion, and format specifier of a kind belongs in its file.
 
@@ -223,7 +223,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   after lowering.
 - **Each question about the program has one answer, in one place.** Whether copying a type counts
   references, whether a place may change, whether a function value may escape: if two passes ask
-  it, they call the same definition, on `VplType`, `IrLocal`, `IrEffects`, or an analysis, not a
+  it, they call the same definition, on `WylType`, `IrLocal`, `IrEffects`, or an analysis, not a
   private helper each. A second copy drifts, and in a compiler the drift is a miscompile or a
   missed check that nothing reports. Before writing a predicate, search for one that answers the
   same question; if its answer is wrong for you, fix it there, for every caller. If a layer needs
@@ -243,7 +243,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   program's meaning, which `--no-opt` emits as directly as it can. An optimization may only change
   what no program can observe: if turning it off changes output (`--no-opt`), it was really a
   language rule. A mandatory pass uses only what the language defines (`IrEffects`, facts on
-  `VplType`), never a whole-program analysis, or making an analysis more precise would change
+  `WylType`), never a whole-program analysis, or making an analysis more precise would change
   what programs do. Every observable language rule has a test that prints what it decides, which
   the suite runs in every mode.
 - **Facts come from the pipeline.** Passes and the emitter use the facts the pipeline hands them,
@@ -266,7 +266,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
   `MatrixTypes.cs`, or `MatrixValues.cs`, so the boundary is tested against every peer. A change
   that alters any cell is reviewed as a snapshot diff, which is where a cell that does something
   the spec doesn't say is found. A feature likewise gets a mutation or a value edge in
-  `tests/Vpl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer finding is triaged: the
+  `tests/Wyl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer finding is triaged: the
   reduced program moves into `tests/cases/` with its expected output or errors, and the finding
   file is deleted.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
@@ -280,7 +280,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 
 | When | What |
 |---|---|
-| While editing | one mode with a filter (`Vpl.Tests.dll --interpret structs`): seconds |
+| While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
 | Before each commit | `--all-modes`: about a minute warm, about six after a runtime or emitter change |
 | Whenever the user starts it | fuzzing (tier 1 or 2), mutation targets, coverage |
 

@@ -1,6 +1,6 @@
 # 6. Syntax
 
-VPL syntax is Java's unless stated otherwise. This chapter covers the differences and additions.
+Wylow syntax is Java's unless stated otherwise. This chapter covers the differences and additions.
 
 ## 6.1 Files, packages, imports
 
@@ -291,11 +291,11 @@ position.scale(2);
   extension in the program and the standard library is visible.
 
 > Not implemented yet. The standard library will use extensions to move `String`'s higher-level
-> methods into VPL over its native primitives.
+> methods into Wylow over its native primitives.
 
 ## 6.5 No properties
 
-VPL has no properties (C#'s `get` and `set`), as Java has none. A value is either a field, read
+Wylow has no properties (C#'s `get` and `set`), as Java has none. A value is either a field, read
 and assigned directly, or a method, called with parentheses:
 
 ```java
@@ -550,7 +550,7 @@ mut int total = 0;
 total++;
 ```
 
-An escaping function is a `vpl::Function`, two words: a pointer to the code that runs the lambda's
+An escaping function is a `wyl::Function`, two words: a pointer to the code that runs the lambda's
 body, and a reference to a closure object, with the same header and reference count as a class
 object, that holds copies of what its lambda captured. A lambda that captures nothing has no
 closure, so making one allocates nothing, and copying it only tests for null; a function reference
@@ -561,9 +561,9 @@ could replace it (a field, a list element, a local that a lambda assigns) holds 
 closure until the call returns. A closure that provably can't outlive the scope making it may be
 on the stack, as a class object can be ([03-memory-model.md](03-memory-model.md#stack-allocation)).
 
-A nullable non-escaping parameter is a `vpl::Optional` of a `vpl::FunctionRef`, made where the call
+A nullable non-escaping parameter is a `wyl::Optional` of a `wyl::FunctionRef`, made where the call
 is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
-returns. A `vpl::FunctionRef` made from a stored function refers to its closure and calls its code,
+returns. A `wyl::FunctionRef` made from a stored function refers to its closure and calls its code,
 so the call is no more indirect than the stored function's.
 
 Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
@@ -581,7 +581,7 @@ where it may return a `ref struct` at all. This is what lets a lazy query such a
 ([02-types.md](02-types.md#queries)).
 
 Each such field is compiled as a C++ template parameter of the struct, so the optimizer can inline
-the lambda into the loop that calls it: `Where<T>` in VPL is `Where<T, F>` in C++, one type per
+the lambda into the loop that calls it: `Where<T>` in Wylow is `Where<T, F>` in C++, one type per
 lambda. A `ref struct` can't be reassigned or chosen by `?:`, so a variable never needs to hold two
 of them; a function taking one as a parameter is compiled once per lambda, as a generic function
 is once per type argument.
@@ -593,7 +593,7 @@ is once per type argument.
 What the implementation above pays that it needn't. None of these changes behavior, so each can
 be done when profiling shows it matters.
 
-- **Indirect calls where templates can't be used.** A `vpl::FunctionRef` costs an indirect call
+- **Indirect calls where templates can't be used.** A `wyl::FunctionRef` costs an indirect call
   and keeps the lambda from being inlined. It could be avoided by devirtualizing calls whose
   receiver type is known, and for constructors sharing a parameter count, by telling them apart
   with a tag argument.
@@ -633,7 +633,7 @@ be done when profiling shows it matters.
 - **Parameter modes are part of a function type**, and an untyped lambda takes them from its
   target; function-typed parameters can't be `ref` or `in`.
 - **Expression-bodied `void` lambdas** must have a call as their body, as statements must.
-- **Which functions take a `vpl::FunctionRef`**: the rules are simple and conservative, and could
+- **Which functions take a `wyl::FunctionRef`**: the rules are simple and conservative, and could
   be wrong in the slow direction often enough to matter.
 - **Inferring from a lambda's body needs one overload left.** Two generic overloads whose lambdas
   take the same number of parameters, or a generic and a non-generic one, make
@@ -643,7 +643,7 @@ be done when profiling shows it matters.
 ### Standard library
 
 > Not implemented yet: `List.removeWhere`, and a `sort` on spans that takes a comparison, both
-> written in VPL.
+> written in Wylow.
 
 ## 6.8 `defer`
 
@@ -889,7 +889,7 @@ As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
 - `F` and `E` round to the nearest digit. Infinities and NaN are written as `print` writes them
   (`inf`, `-inf`, `nan`). Every NaN is written `nan`, whatever its sign.
 - The other C# specifiers (`N`, `P`, `G`, `C`, `R`) and custom formats such as `0.00` are not
-  supported. `N` and `C` depend on a culture, which VPL doesn't have. A `Printable` type has no
+  supported. `N` and `C` depend on a culture, which Wylow doesn't have. A `Printable` type has no
   specifiers of its own; it may only be aligned.
 
 > Implemented so far: everything above. Not yet implemented:
@@ -899,7 +899,7 @@ As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
 > - a generated field dump for debugging, like Rust's `#[derive(Debug)]`, so small types needn't
 >   write `toString()` by hand;
 > - `StringBuilder` (§2.10), for strings built up piece by piece, as in a loop. Interpolation builds
->   strings with the runtime's `vpl::StringBuffer`, which a `StringBuilder` could wrap.
+>   strings with the runtime's `wyl::StringBuffer`, which a `StringBuilder` could wrap.
 
 ## 6.10 Annotations
 

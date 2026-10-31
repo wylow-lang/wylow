@@ -1,0 +1,55 @@
+// The members of `String`, the built-in immutable UTF-8 text. `String` itself is not a struct: this
+// declaration only gives it methods, which the runtime's `wyl::String` implements. Offsets and
+// lengths count bytes of UTF-8, which is what a string stores; a character (`char`) takes 1 to 4.
+// See docs/spec/02-types.md.
+
+extern struct String {
+    public {
+        // The length in bytes, not in characters.
+        @Pure
+        extern int byteLength();
+
+        @Pure
+        extern bool isEmpty();
+
+        // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
+        @Pure
+        extern ReadOnlySpan<byte> bytes();
+
+        // The number of characters (code points). It reads the whole string.
+        @Pure
+        extern int charCount();
+
+        @Pure
+        extern bool startsWith(String prefix);
+
+        @Pure
+        extern bool endsWith(String suffix);
+
+        @Pure
+        extern bool contains(String text);
+
+        // The byte offset where `text` first occurs, or null if it doesn't.
+        @Pure
+        extern int? indexOf(String text);
+
+        // The `length` bytes from `start`. Panics if they are out of bounds or would split a character.
+        @CallerLocation
+        extern String slice(int start, int length);
+
+        // Negative, zero, or positive as this string sorts before, the same as, or after `other`: by
+        // byte, which for UTF-8 is the order of the code points.
+        @Pure
+        extern int compareTo(String other);
+    }
+
+    private {
+        // For the compiler's loops over a string's characters. `offset` must be where one starts.
+        @Pure
+        extern char charAt(int offset);
+
+        // The offset after the character that starts at `offset`.
+        @Pure
+        extern int nextChar(int offset);
+    }
+}

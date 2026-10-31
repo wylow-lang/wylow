@@ -2,23 +2,23 @@
 
 ## 1.1 The rule
 
-**Code generated from safe VPL never contains undefined behavior.** The compiler performs all
+**Code generated from safe Wylow never contains undefined behavior.** The compiler performs all
 safety checking in its own semantic analysis; the generated C++ is never "trusted" to be correct
 on its own. Operations that are UB in C++ are emitted through small inline helpers with defined
 behavior, which compile down to a compare and a predictable branch (or nothing).
 
 ```java
-// VPL
+// Wylow
 int x = arr[i] + y;
 ```
 ```cpp
 // generated C++ (illustrative)
-int32_t x = vpl::add(vpl::at(arr, i), y);   // checked index, defined overflow
+int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
 ```
 
 ## 1.2 How each source of C++ UB is handled
 
-| C++ UB | VPL behavior |
+| C++ UB | Wylow behavior |
 |---|---|
 | Out-of-bounds index | Checked; panics |
 | Signed integer overflow | Panics in debug builds, wraps in release builds (defined either way) |

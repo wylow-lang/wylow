@@ -2,69 +2,69 @@
   {
     "id": "ir-effects",
     "title": "IR effects",
-    "path": "src/Vpl.Compiler.Ir/IrEffects.cs",
+    "path": "src/Wyl.Compiler.Ir/IrEffects.cs",
     "filters": ["ir/", "errors", "containers", "cycles", "values"],
     "note": "What each instruction writes, runs, and may panic on. The verifier's self-tests pin the facts; error, container, cycle, and value tests see their behavior."
   },
   {
     "id": "ir-access",
     "title": "IR access",
-    "path": "src/Vpl.Compiler.Ir/IrAccess.cs",
+    "path": "src/Wyl.Compiler.Ir/IrAccess.cs",
     "filters": ["ir/", "errors", "containers", "values"],
     "note": "The one storage model: which storage an instruction touches. The verifier's self-tests and the error and value tests exercise it."
   },
   {
     "id": "conversions",
     "title": "Conversions",
-    "path": "src/Vpl.Compiler.Semantics/Conversions.cs",
+    "path": "src/Wyl.Compiler.Semantics/Conversions.cs",
     "filters": ["types/", "errors", "values"],
     "note": "Implicit and explicit conversions. TypeSelfTests checks the properties on random types; error and value tests print the conversions a program uses."
   },
   {
     "id": "place-path",
     "title": "Place paths",
-    "path": "src/Vpl.Compiler.Semantics/PlacePath.cs",
+    "path": "src/Wyl.Compiler.Semantics/PlacePath.cs",
     "filters": ["ir/", "errors", "references"],
     "note": "How a place is decomposed into a base and steps. The verifier's self-tests build places; the error and reference tests use them."
   },
   {
     "id": "emitter-types",
     "title": "Emitter: types",
-    "path": "src/Vpl.Compiler.CodeGen/CppEmitter.Types.cs",
+    "path": "src/Wyl.Compiler.CodeGen/CppEmitter.Types.cs",
     "filters": ["classes", "structs", "enums", "generics", "panics", "values"],
     "note": "C++ declarations from the bound program. Class, struct, enum, generic, panic, and value tests exercise the shapes it prints."
   },
   {
     "id": "emitter-ir",
     "title": "Emitter: bodies",
-    "path": "src/Vpl.Compiler.CodeGen/CppEmitter.Ir.cs",
+    "path": "src/Wyl.Compiler.CodeGen/CppEmitter.Ir.cs",
     "filters": ["basics", "lambdas", "containers", "values"],
     "note": "Printing lowered bodies. Basics and lambda tests cover control flow; containers and value tests cover releases, operators, and formatting."
   },
   {
     "id": "interpreter-values",
     "title": "Interpreter: value ownership",
-    "path": "src/Vpl.Compiler.Interpret/Values.cs",
+    "path": "src/Wyl.Compiler.Interpret/Values.cs",
     "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Copying, releasing, defaults, and equality, driven by VplType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them. Every program copies and releases, so the whole suite is the covering set.",
+    "note": "Copying, releasing, defaults, and equality, driven by WylType. Run interpreted: these are the interpreter's own rules, so the native modes never reach them. Every program copies and releases, so the whole suite is the covering set.",
     "equivalent": [
       { "kind": "statement", "original": "weak.Release();", "replacement": "", "context": "weak.Release();", "reason": "The count it lowers has no reader in the interpreter, which leaves weak blocks to the managed collector." },
       { "kind": "literal", "original": "0", "replacement": "1", "context": "return new ArrayValue(type, [.. Enumerable.Range(0, array.Length).Select(_ => new Cell(array.Element, Zeroed(array.Element, stdlib)))]);", "reason": "The Range start index is unused; only the number of elements is observed." },
       { "kind": "operator", "original": ">", "replacement": ">=", "context": "if (type.IsEnum && type.Symbol!.Variants.Count > 0) return new EnumValue(type, type.Symbol.Variants[0], []);", "reason": "An enum always has a variant, so >= 0 selects the same first variant." },
-      { "kind": "condition", "original": "type.IsTypeParameter", "replacement": "!(type.IsTypeParameter)", "context": "return type == VplType.String ? StringValue.Empty : type.IsPointer ? NullValue.Instance : type == VplType.Bool ? new BoolValue(false) : type == VplType.Char ? new CharValue(0) : type.IsFloatingPoint ? new FloatValue(0.0) : type.IsInteger ? new IntValue(0) : type.IsFunction ? NullValue.Instance : typ", "reason": "A type parameter is substituted before a default is made; both arms throw a compiler-bug error." },
+      { "kind": "condition", "original": "type.IsTypeParameter", "replacement": "!(type.IsTypeParameter)", "context": "return type == WylType.String ? StringValue.Empty : type.IsPointer ? NullValue.Instance : type == WylType.Bool ? new BoolValue(false) : type == WylType.Char ? new CharValue(0) : type.IsFloatingPoint ? new FloatValue(0.0) : type.IsInteger ? new IntValue(0) : type.IsFunction ? NullValue.Instance : typ", "reason": "A type parameter is substituted before a default is made; both arms throw a compiler-bug error." },
       { "kind": "statement", "original": "deepest = current;", "replacement": "", "context": "deepest = current;", "reason": "Every constructor sets Active before its body, so the class allocation started with is never observed." },
       { "kind": "literal", "original": "true", "replacement": "false", "context": "(NullValue, NullValue) => true", "reason": "A reference or null comparison lowers to an identity test, so Equal never sees two nulls." },
       { "kind": "literal", "original": "false", "replacement": "true", "context": "_ => false", "reason": "A well-typed comparison's operands have the same kind, so no arm falls through to the fallback." },
-      { "kind": "operator", "original": "==", "replacement": "!=", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
-      { "kind": "literal", "original": "32", "replacement": "0", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
-      { "kind": "literal", "original": "false", "replacement": "true", "context": "_ when type == VplType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." }
+      { "kind": "operator", "original": "==", "replacement": "!=", "context": "_ when type == WylType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
+      { "kind": "literal", "original": "32", "replacement": "0", "context": "_ when type == WylType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." },
+      { "kind": "literal", "original": "false", "replacement": "true", "context": "_ when type == WylType.Char => (32, false)", "reason": "char has no arithmetic of its own, so nothing asks Bits for its width or signedness." }
     ]
   },
   {
     "id": "interpreter-value-kinds",
     "title": "Interpreter: cells and values",
-    "path": "src/Vpl.Compiler.Interpret/ValueKinds.cs",
+    "path": "src/Wyl.Compiler.Interpret/ValueKinds.cs",
     "filters": [""],
     "arguments": ["--interpret"],
     "note": "The cells a place is, and the value kinds. Every program has places and values, so the whole suite is the covering set."
@@ -72,7 +72,7 @@
   {
     "id": "interpreter-core",
     "title": "Interpreter: frames and control flow",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.cs",
     "filters": [""],
     "arguments": ["--interpret"],
     "note": "Frames, locals, calls, returns, blocks and their release order. Every program has frames and control flow, so the whole suite is the covering set."
@@ -80,7 +80,7 @@
   {
     "id": "interpreter-executor",
     "title": "Interpreter: operands and places",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Values.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Values.cs",
     "filters": [""],
     "arguments": ["--interpret"],
     "note": "Operands, places, and the rvalue visitors: the instruction set's meaning as an expression. Every program evaluates operands and places, so the whole suite is the covering set."
@@ -88,7 +88,7 @@
   {
     "id": "interpreter-calls",
     "title": "Interpreter: calls and destruction",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Calls.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Calls.cs",
     "filters": [""],
     "arguments": ["--interpret"],
     "note": "Construction, dispatch, destruction, and the release order that mirrors C++ parameter destruction. Every program calls and destroys, so the whole suite is the covering set."
@@ -96,7 +96,7 @@
   {
     "id": "interpreter-functions",
     "title": "Interpreter: function values",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Functions.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Functions.cs",
     "filters": ["lambdas", "generics"],
     "arguments": ["--interpret"],
     "note": "Lambdas, closures, choices, and invocation. Lambda and generic tests exercise both forms."
@@ -104,15 +104,15 @@
   {
     "id": "interpreter-memory",
     "title": "Interpreter: raw memory",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Memory.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Memory.cs",
     "filters": ["spans", "arrays", "unsafe"],
     "arguments": ["--interpret"],
-    "note": "Buffers, pointers, spans, and the Memory intrinsics, as runtime/vpl/intrinsics.h implements them."
+    "note": "Buffers, pointers, spans, and the Memory intrinsics, as runtime/wyl/intrinsics.h implements them."
   },
   {
     "id": "interpreter-intrinsics",
     "title": "Interpreter: intrinsics",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Intrinsics.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Intrinsics.cs",
     "filters": [""],
     "arguments": ["--interpret"],
     "note": "The builtins and the standard library's extern methods. They cover String, the containers, spans, memory, and Weak, which every part of the suite uses, so the whole suite is the covering set."
@@ -120,31 +120,31 @@
   {
     "id": "interpreter-cycles",
     "title": "Interpreter: cycle collector",
-    "path": "src/Vpl.Compiler.Interpret/Interpreter.Cycles.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Cycles.cs",
     "filters": ["cycles"],
     "arguments": ["--interpret"],
-    "note": "The port of runtime/vpl/cycles.h, down to its stats and debug diagnostics. Cycle tests pin the order and the messages."
+    "note": "The port of runtime/wyl/cycles.h, down to its stats and debug diagnostics. Cycle tests pin the order and the messages."
   },
   {
     "id": "interpreter-text",
     "title": "Interpreter: text",
-    "path": "src/Vpl.Compiler.Interpret/RuntimeText.cs",
+    "path": "src/Wyl.Compiler.Interpret/RuntimeText.cs",
     "filters": ["values", "basics"],
     "arguments": ["--interpret"],
-    "note": "Formatting, interpolation, and String's members, which must print exactly what runtime/vpl/*.h does."
+    "note": "Formatting, interpolation, and String's members, which must print exactly what runtime/wyl/*.h does."
   },
   {
     "id": "interpreter-arithmetic",
     "title": "Interpreter: arithmetic",
-    "path": "src/Vpl.Compiler.Interpret/RuntimeArithmetic.cs",
+    "path": "src/Wyl.Compiler.Interpret/RuntimeArithmetic.cs",
     "filters": ["values", "numbers", "panics"],
     "arguments": ["--interpret"],
-    "note": "Checked arithmetic and conversions, as runtime/vpl/arithmetic.h implements them: panics, wrapping, shifts, and conversions."
+    "note": "Checked arithmetic and conversions, as runtime/wyl/arithmetic.h implements them: panics, wrapping, shifts, and conversions."
   },
   {
     "id": "interpreter-results",
     "title": "Interpreter: results",
-    "path": "src/Vpl.Compiler.Interpret/Interpretation.cs",
+    "path": "src/Wyl.Compiler.Interpret/Interpretation.cs",
     "filters": ["panics", "matrix"],
     "arguments": ["--interpret"],
     "note": "The result statuses, the abort exit code, and the text a panic or a budget writes. The panic tests and the interpreted matrix cells pin them.",

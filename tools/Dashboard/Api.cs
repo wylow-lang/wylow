@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Threading.Channels;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record StartJobRequest(string Kind, Dictionary<string, string>? Params);
 

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 static class JsonDefaults
 {

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Wyl.Compiler.Ir/Wyl.Compiler.Ir.csproj" />
+  </ItemGroup>
+
+</Project>

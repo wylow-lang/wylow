@@ -1,4 +1,4 @@
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record LineCountDto(string Name, string? Path, int Files, int Lines, int Code);
 
@@ -52,7 +52,7 @@ public sealed class LinesService
         var groups = new[]
         {
             Group("csharp", "C#", CSharpItems(root, projects)),
-            Group("vpl", "VPL", VplItems(root)),
+            Group("wyl", "Wylow", WylItems(root)),
             Group("cpp", "C++", NonEmpty([
                 Count(root, "Runtime", "runtime", Files(root, "runtime", ["*.h", "*.hpp", "*.cpp"])),
             ])),
@@ -122,12 +122,12 @@ public sealed class LinesService
         return items;
     }
 
-    static IReadOnlyList<LineCountDto> VplItems(string root) => NonEmpty([
-        Count(root, "Standard library", "src/Vpl.Compiler.Semantics/Stdlib",
-            Files(root, "src/Vpl.Compiler.Semantics/Stdlib", ["*.vpl"])),
-        Count(root, "Test cases", "tests/cases", Files(root, "tests/cases", ["*.vpl"])),
+    static IReadOnlyList<LineCountDto> WylItems(string root) => NonEmpty([
+        Count(root, "Standard library", "src/Wyl.Compiler.Semantics/Stdlib",
+            Files(root, "src/Wyl.Compiler.Semantics/Stdlib", ["*.wyl"])),
+        Count(root, "Test cases", "tests/cases", Files(root, "tests/cases", ["*.wyl"])),
         Count(root, "Matrix snapshots", "tests/matrix", Files(root, "tests/matrix", ["*.snapshot"])),
-        Count(root, "Examples", "examples", Files(root, "examples", ["*.vpl"], recursive: false)),
+        Count(root, "Examples", "examples", Files(root, "examples", ["*.wyl"], recursive: false)),
     ]);
 
     static LineCountDto Count(string root, string name, string path, IEnumerable<string> files)

@@ -44,7 +44,7 @@ function append(node, children) {
 async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
-    headers: { 'Content-Type': 'application/json', 'X-Vpl-Dashboard': '1', ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', 'X-Wyl-Dashboard': '1', ...(options.headers || {}) },
   });
   const text = await response.text();
   const contentType = response.headers.get('content-type') || '';
@@ -217,7 +217,7 @@ function defaultValues(kind) {
 
 function storedForm(kind, defaults) {
   try {
-    const raw = localStorage.getItem(`vpl.form.${kind}`);
+    const raw = localStorage.getItem(`wyl.form.${kind}`);
     if (!raw) return defaults;
     const saved = JSON.parse(raw);
     for (const parameter of kind.parameters) {
@@ -232,7 +232,7 @@ function storedForm(kind, defaults) {
 }
 
 function storeForm(kind, values) {
-  try { localStorage.setItem(`vpl.form.${kind}`, JSON.stringify(values)); } catch { }
+  try { localStorage.setItem(`wyl.form.${kind}`, JSON.stringify(values)); } catch { }
 }
 
 function applyQuery(kind, values, query) {
@@ -270,7 +270,7 @@ function buildForm(kind, values, onChange, status) {
       input.addEventListener('change', () => onChange(parameter.name, input.checked ? 'true' : 'false'));
     } else if (parameter.type === 'duration') {
       const number = el('input', { type: 'number', step: 'any' });
-      const unitKey = `vpl.unit.${kind.kind}.${parameter.name}`;
+      const unitKey = `wyl.unit.${kind.kind}.${parameter.name}`;
       let unit = 'seconds';
       try {
         if (localStorage.getItem(unitKey) === 'minutes') unit = 'minutes';
@@ -516,7 +516,7 @@ async function renderOverview(view) {
     card('Open findings',
       el('div', { class: 'big' }, String(status.findings.total)),
       el('p', { class: 'muted small' },
-        `${plural(status.findings.vpl, 'finding', 'findings')} and ${plural(status.findings.logs, 'run log', 'run logs')}`),
+        `${plural(status.findings.wyl, 'finding', 'findings')} and ${plural(status.findings.logs, 'run log', 'run logs')}`),
       el('div', { class: 'actions' }, el('a', { class: 'btn small', href: '#/findings' }, 'Review'))),
     codeCard,
     card('Quick actions',
@@ -1144,7 +1144,7 @@ async function showSource(path) {
 }
 
 async function showCase(name) {
-  const path = `tests/cases/${name}.vpl`;
+  const path = `tests/cases/${name}.wyl`;
   try {
     const text = await api(`/api/file?path=${encodeURIComponent(path)}`);
     showDialog(path, text, path);

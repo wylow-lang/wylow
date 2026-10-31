@@ -2,8 +2,8 @@
 
 How the compiler puts objects made by `new`, and closures, in a stack frame instead of on the heap.
 The language only allows it (spec 03-memory-model.md, Stack allocation): no program can tell. This
-is an optimization pass over the lowered IR (`src/Vpl.Compiler.Optimize/StackSlots.cs`), off under
-`--no-opt`, using the escape summaries in `src/Vpl.Compiler.Analysis/Escapes.cs` (ir.md §6.5,
+is an optimization pass over the lowered IR (`src/Wyl.Compiler.Optimize/StackSlots.cs`), off under
+`--no-opt`, using the escape summaries in `src/Wyl.Compiler.Analysis/Escapes.cs` (ir.md §6.5,
 §9.11).
 
 ## Why no program can tell
@@ -68,9 +68,9 @@ whenever it is called, may let it escape or return it, which each lambda's summa
 
 ## The runtime
 
-- `vpl::StackSlot<T>` holds the object. A closure's slot is a
-  `vpl::StackSlot<vpl::Closure<Name, C...>>`, declared with the types of what the lambda captures: the
-  closure's type doesn't depend on the lambda's code, which `vpl::closure_in` gives the function value
+- `wyl::StackSlot<T>` holds the object. A closure's slot is a
+  `wyl::StackSlot<wyl::Closure<Name, C...>>`, declared with the types of what the lambda captures: the
+  closure's type doesn't depend on the lambda's code, which `wyl::closure_in` gives the function value
   where the lambda is.
 - **The reference count still works.** The slot holds the reference `new` starts the object with, so
   passing the object to functions that hold and release it never brings the count to 0 early. At the
@@ -91,7 +91,7 @@ storage for a few elements, or arenas).
 
 Tests mark each line with `// stack: <n>`, the number of objects made there that are on the stack;
 the runner skips the markers under `--no-opt`. A test that observes the optimization itself, through
-`Memory.cycleStats()`, is `// mode: optimized` (`cycles/stack_unbuffered.vpl`).
+`Memory.cycleStats()`, is `// mode: optimized` (`cycles/stack_unbuffered.wyl`).
 
 ## Not done
 

@@ -1,4 +1,4 @@
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 /// <summary>Reads text files from the directories the dashboard is allowed to expose.</summary>
 public sealed class FileService(ServerOptions options)
@@ -7,7 +7,7 @@ public sealed class FileService(ServerOptions options)
     static readonly string[] AllowedDirectories = ["tests/cases", "examples", "tests/.out", "tests/fuzz/findings", "src"];
     static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".vpl", ".cpp", ".h", ".cs", ".ir", ".txt", ".md", ".snapshot", ".json", ".log",
+        ".wyl", ".cpp", ".h", ".cs", ".ir", ".txt", ".md", ".snapshot", ".json", ".log",
     };
 
     readonly string root = options.Root;

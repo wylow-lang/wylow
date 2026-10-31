@@ -1,4 +1,4 @@
-# VPL Dashboard
+# Wylow Dashboard
 
 A local browser UI for the compiler's testing tools: build, run the suite, fuzz with a seed, replay a
 mutant, and triage findings without remembering flags.
@@ -12,10 +12,10 @@ Then open <http://localhost:5178>. Options: `--port 5178`, `--open`, `--root <re
 | Page | |
 |---|---|
 | Overview | repository, toolchains, build freshness, code size, recent runs, recent seeds |
-| Code | C# by project, VPL standard library, tests and examples, C++ runtime, and other sources, by physical and code line counts |
+| Code | C# by project, Wylow standard library, tests and examples, C++ runtime, and other sources, by physical and code line counts |
 | Tests | compiler, filter, `--no-opt`/`--no-nest`, build first, live output, failures linked to source/C++/IR |
 | Fuzz | seed, tier, time budget, workers, filter; live stats; replay a mutant; recent seeds |
-| Findings | `tests/fuzz/findings/*.vpl` and run logs, with the reduced source and replay |
+| Findings | `tests/fuzz/findings/*.wyl` and run logs, with the reduced source and replay |
 | Reference | every documented command and flag, with copy buttons and links to the matching form |
 
 Every job is a child process of the existing runners, and the exact argv is shown before starting and
@@ -29,7 +29,7 @@ since it overwrites assemblies a running test or fuzzer has loaded. Fuzz runs ma
 other (each uses its own run directory under `tests/.out/fuzz/`); suites serialize because they
 share `tests/.out/`.
 
-The project is not in `vpl.slnx`. It references `Vpl.Compiler` only to reuse `NativeCompiler.Find`,
+The project is not in `wyl.slnx`. It references `Wyl.Compiler` only to reuse `NativeCompiler.Find`,
 so `dotnet run --project tools/Dashboard` builds the compiler too. If the compiler does not build,
 the dashboard cannot start either; run `dotnet build` to see the error.
 

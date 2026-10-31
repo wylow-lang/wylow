@@ -226,7 +226,7 @@ int? cachedIndex = null;         // value + presence flag
 ### Nullable value types
 
 `int?`, `Vec3?`, `Direction?`, and `int[4]?` are values like the type they make nullable, stored
-inline with a presence flag (a C++ `vpl::Optional<T>`; `int?` costs an `int` and a `bool`). Any type
+inline with a presence flag (a C++ `wyl::Optional<T>`; `int?` costs an `int` and a `bool`). Any type
 can be made nullable except a pointer, which can already be null, and a `ref struct`, which can't be
 stored. Nullable values follow the rules above, and also:
 
@@ -617,10 +617,10 @@ for (int at, char c : path) {
 }
 ```
 
-The standard library declares these methods in `String.vpl`, implemented by the runtime.
+The standard library declares these methods in `String.wyl`, implemented by the runtime.
 
 The block and its count stay native. When extension methods land (§6.4), the higher-level methods
-move into VPL as extensions over the primitive `bytes()`, `byteLength()`, and the slicing
+move into Wylow as extensions over the primitive `bytes()`, `byteLength()`, and the slicing
 primitive, so only the counted storage remains runtime code; user-defined `==` (§6.6) can later
 replace the compiler's content-equality rule.
 

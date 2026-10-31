@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Vpl.Dashboard;
+namespace Wyl.Dashboard;
 
 public sealed record ServerOptions(int Port, bool Open, string Root)
 {
@@ -43,7 +43,7 @@ public sealed record ServerOptions(int Port, bool Open, string Root)
 
         root = Path.GetFullPath(root ?? RepoRoot.Find());
         if (!Directory.Exists(Path.Combine(root, "tests", "cases")))
-            throw new ArgumentException($"not a VPL repository (no tests/cases): {root}");
+            throw new ArgumentException($"not a Wylow repository (no tests/cases): {root}");
         return new(port, open, root);
     }
 }

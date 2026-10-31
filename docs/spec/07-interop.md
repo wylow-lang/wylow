@@ -1,11 +1,11 @@
 # 7. Interop
 
-VPL compiles to C++, so interop needs no foreign function interface in the usual sense: no calling
+Wylow compiles to C++, so interop needs no foreign function interface in the usual sense: no calling
 conventions, ABI handling, or dynamic loading. The generated C++ includes the relevant header and
-calls foreign functions by name. Interop in VPL is about two things:
+calls foreign functions by name. Interop in Wylow is about two things:
 
-1. **Declaring** foreign functions, types, and constants so the VPL compiler can type-check them.
-2. **Marking** where VPL's safety guarantees end.
+1. **Declaring** foreign functions, types, and constants so the Wylow compiler can type-check them.
+2. **Marking** where Wylow's safety guarantees end.
 
 ## 7.1 `extern` blocks
 
@@ -37,12 +37,12 @@ extern {
 
 > Implemented so far: only the standard library may declare extern functions, one at a time:
 > `static extern void check(int index, int length);` in a struct, or a free `extern` function.
-> The C++ runtime (`runtime/vpl/intrinsics.h`) implements them, as `vpl::name`, or `vpl::type::name` for a
+> The C++ runtime (`runtime/wyl/intrinsics.h`) implements them, as `wyl::name`, or `wyl::type::name` for a
 > method of a type (the type's name in lower camel case). Extern blocks and `@Include` are not
 > implemented.
 >
 > The standard library may also declare an `extern struct`, a value type implemented by the C++
-> class `vpl::Name` (`Weak<T>` is `vpl::Weak`, `String` is `vpl::String`). This is currently both
+> class `wyl::Name` (`Weak<T>` is `wyl::Weak`, `String` is `wyl::String`). This is currently both
 > the C++ interop value type and the representation of the language's built-in resource values
 > (`String`, `Weak<T>`); user code cannot declare one. It has no fields or constructors, its
 > default value is the class's default constructor, it doesn't support `==`, and its methods are
@@ -78,7 +78,7 @@ Reading an extern constant does not require `unsafe`.
 The intended structure is two layers:
 
 1. A **binding package** containing raw `extern` declarations.
-2. A **safe wrapper** in VPL that owns foreign resources in classes, converts errors to `Result`,
+2. A **safe wrapper** in Wylow that owns foreign resources in classes, converts errors to `Result`,
    and exposes only safe types.
 
 Game code uses only the wrapper.
@@ -118,7 +118,7 @@ A class destructor (`~ClassName()`) runs when the last reference is released (se
 Only **blittable** types (types with an identical memory representation in C) may appear in extern
 signatures and extern struct fields. This is checked at compile time.
 
-| VPL type | C type | Blittable |
+| Wylow type | C type | Blittable |
 |---|---|---|
 | `bool` | `bool` | ✅ |
 | `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong` | `int8_t` ... `uint64_t` | ✅ |
@@ -144,7 +144,7 @@ static_assert(offsetof(SDL_Rect, w) == 8);
 // ...
 ```
 
-If the VPL declaration does not match the real header, **the build fails**.
+If the Wylow declaration does not match the real header, **the build fails**.
 
 ## 7.5 Enums with integer representations
 
@@ -219,8 +219,8 @@ unsafe { SDL_SetAudioCallback(device, onAudio, null); }
 - Only **static or top-level functions** marked `@CCallback` can be converted to C function pointers.
   Their signatures must be blittable. Lambdas cannot be converted (they may have captures).
 - Context is passed with the C library's `void* userdata` mechanism. Casting `userdata` back to a
-  VPL type is `unsafe`.
-- A **panic** inside a callback aborts the process. (VPL never unwinds, so there is no unwinding
+  Wylow type is `unsafe`.
+- A **panic** inside a callback aborts the process. (Wylow never unwinds, so there is no unwinding
   through C frames.)
 - A callback may run on a thread created by the foreign library. Safe code inside it can only reach
   that thread's statics; reaching other data requires the `unsafe` userdata cast, and the
@@ -228,8 +228,8 @@ unsafe { SDL_SetAudioCallback(device, onAudio, null); }
 
 ## 7.7 C++ exceptions
 
-VPL has no exceptions. Extern calls are emitted through `noexcept` wrappers, so a C++ exception that
-would propagate into VPL code calls `std::terminate`, aborting the process. Libraries that use
+Wylow has no exceptions. Extern calls are emitted through `noexcept` wrappers, so a C++ exception that
+would propagate into Wylow code calls `std::terminate`, aborting the process. Libraries that use
 exceptions for ordinary errors need a native shim (§7.8) that catches them and returns error codes.
 
 ## 7.8 Native C++ files
@@ -253,21 +253,21 @@ extern {
 }
 ```
 
-## 7.9 Exporting VPL functions
+## 7.9 Exporting Wylow functions
 
 `@Export` on a top-level function gives it C linkage and a stable, unmangled name so C/C++ code can
 call it. Its signature must be blittable.
 
 ```java
 @Export
-int vpl_plugin_version() { return 3; }
+int wyl_plugin_version() { return 3; }
 ```
 
 ## 7.10 Binding generation (tooling)
 
 Hand-writing large bindings is impractical. Planned tooling:
 
-- **`vpl bindgen <header>`** parses a C header with libclang and emits a VPL file of `extern`
+- **`wyl bindgen <header>`** parses a C header with libclang and emits a Wylow file of `extern`
   declarations.
 - **Vulkan** bindings are generated from the official `vk.xml` registry.
 

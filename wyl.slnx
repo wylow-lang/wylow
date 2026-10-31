@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Wyl.Cli/Wyl.Cli.csproj" />
+    <Project Path="src/Wyl.Compiler.Syntax/Wyl.Compiler.Syntax.csproj" />
+    <Project Path="src/Wyl.Compiler.Semantics/Wyl.Compiler.Semantics.csproj" />
+    <Project Path="src/Wyl.Compiler.Ir/Wyl.Compiler.Ir.csproj" />
+    <Project Path="src/Wyl.Compiler.Lowering/Wyl.Compiler.Lowering.csproj" />
+    <Project Path="src/Wyl.Compiler.Analysis/Wyl.Compiler.Analysis.csproj" />
+    <Project Path="src/Wyl.Compiler.Optimize/Wyl.Compiler.Optimize.csproj" />
+    <Project Path="src/Wyl.Compiler.CodeGen/Wyl.Compiler.CodeGen.csproj" />
+    <Project Path="src/Wyl.Compiler.Interpret/Wyl.Compiler.Interpret.csproj" />
+    <Project Path="src/Wyl.Compiler/Wyl.Compiler.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Wyl.Tests/Wyl.Tests.csproj" />
+    <Project Path="tests/Wyl.Fuzz/Wyl.Fuzz.csproj" />
+    <Project Path="tests/Wyl.Mutation/Wyl.Mutation.csproj" />
+  </Folder>
+</Solution>

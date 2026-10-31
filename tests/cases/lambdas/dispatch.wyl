@@ -1,0 +1,135 @@
+// Functions that can't be C++ templates take their function arguments as wyl::FunctionRef.
+
+interface Visitor {
+    void visit((int) -> void action);
+}
+
+abstract class Shape {
+    internal {
+        abstract int measure((int) -> int scale);
+
+        virtual void describe(() -> String name) {
+            print("shape");
+            print(name());
+        }
+    }
+}
+
+class Square extends Shape implements Visitor {
+    internal {
+        int side;
+
+        Square(int side) {
+            this.side = side;
+        }
+
+        override int measure((int) -> int scale) {
+            return scale(side) * scale(side);
+        }
+
+        override void describe(() -> String name) {
+            print("square");
+            print(name());
+        }
+
+        void visit((int) -> void action) {
+            action(side);
+        }
+
+        // Shares a name with Visitor.visit without implementing it, so it can be a template.
+        void visit(() -> int size) {
+            print(size() + side);
+        }
+    }
+}
+
+// Implements Visitor.visit only through Floor, which overrides it in C++ by forwarding here.
+class Tile {
+    internal {
+        void visit((int) -> void action) {
+            action(7);
+        }
+    }
+}
+
+class Floor extends Tile implements Visitor {
+}
+
+// A struct implements an interface only as a generic bound, so its method can be a template.
+struct Stack implements Visitor {
+    internal {
+        int height;
+
+        void visit((int) -> void action) {
+            action(height);
+        }
+    }
+}
+
+int deepest<T extends Visitor>(T visited) {
+    mut int found = 0;
+    visited.visit(n -> {
+        found = n;
+    });
+    return found;
+}
+
+class Logger {
+    internal {
+        int lines;
+
+        // A constructor takes FunctionRefs, since its C++ name can't tell overloads apart.
+        Logger((int) -> int first) {
+            lines = first(1);
+        }
+
+        Logger((String) -> int first) {
+            lines = first("one") + 100;
+        }
+    }
+}
+
+// Recursion: each call could otherwise instantiate a new template for its new lambda.
+int countDown(int n, (int) -> void each) {
+    if (n == 0) {
+        return 0;
+    }
+    each(n);
+    return 1 + countDown(n - 1, x -> each(x * 10));
+}
+
+int applyTwice(((int) -> int) -> int run) {
+    return run(x -> x + 1) + run(x -> x + 2);
+}
+
+void main() {
+    Square square = new Square(3);
+    Shape shape = square;
+    print(shape.measure(x -> x * 2));                // output: 36
+    shape.describe(() -> "named");                   // output: square
+                                                     // output: named
+    mut Visitor visitor = square;
+    mut int seen = 0;
+    visitor.visit(side -> {
+        seen = side;
+    });
+    print(seen);                                     // output: 3
+    square.visit(() -> 10);                          // output: 13
+
+    Floor floor = new Floor();
+    visitor = floor;
+    visitor.visit(n -> print(n));                    // output: 7
+    floor.visit(n -> print(n + 1));                  // output: 8
+    print(deepest(Stack(4)));                    // output: 4
+    print(deepest(floor));                           // output: 7
+
+    print(new Logger((int i) -> i + 1).lines);       // output: 2
+    print(new Logger((String s) -> 5).lines);        // output: 105
+
+    print(countDown(3, x -> print(x)));              // output: 3
+                                                     // output: 20
+                                                     // output: 100
+                                                     // output: 3
+
+    print(applyTwice(f -> f(10)));                   // output: 23
+}

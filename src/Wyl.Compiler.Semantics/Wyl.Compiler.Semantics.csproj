@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wyl.Compiler.Syntax\Wyl.Compiler.Syntax.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Stdlib/*.wyl" LogicalName="Wyl.Compiler.Stdlib.%(Filename).wyl" />
+  </ItemGroup>
+
+</Project>

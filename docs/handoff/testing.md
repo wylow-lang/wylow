@@ -69,7 +69,7 @@ Produce numbers before changing anything, so later steps can show what they boug
     a bug, and the list of the ones no test reaches is the fuzzer's target list.
 - **Runtime coverage (optional).** Build the tests' C++ with clang-cl and
   `-fprofile-instr-generate -fcoverage-mapping`, then merge with `llvm-profdata` and report with
-  `llvm-cov` (both ship with LLVM). This shows which parts of `runtime/vpl/*.h` (the cycle
+  `llvm-cov` (both ship with LLVM). This shows which parts of `runtime/wyl/*.h` (the cycle
   collector, `Weak`, pools) no test runs.
 - **Record the baseline numbers** in this file, so each later step can report its change.
 
@@ -115,7 +115,7 @@ reference can't be kept into a nullable value written out three times (`CheckRef
 a message's text. The verifier checks are next: each gets an `IrSelfTests` case.
 
 **Triage of the verifier checks (done).** Each unreached one got an `IrSelfTests` case
-(`tests/Vpl.Tests/IrSelfTests.Rejections.cs`) building IR that breaks that rule alone and must
+(`tests/Wyl.Tests/IrSelfTests.Rejections.cs`) building IR that breaks that rule alone and must
 produce exactly its one error. All 65 are now reached. One check was removed instead: "only a
 memberwise constructor's call leaves fields out" was enforced by structure already, since only the
 memberwise constructor's parameters carry a `Field`, so the argument check rejects such a call. No
@@ -123,12 +123,12 @@ check needed fixing: each fired as written.
 
 Line coverage locates a site well enough (no site lacked coverage data), so `Error` and
 `Violation` didn't need caller-location parameters. Runtime coverage (clang profiling of
-`runtime/vpl/*.h`) isn't measured yet.
+`runtime/wyl/*.h`) isn't measured yet.
 
 ## Step 2: sanitizers in the test runner
 
 Add a toolchain to `NativeCompiler` (`Toolchain.ClangSanitized`, runner flag `--cc asan`) that
-compiles with clang-cl, `-fsanitize=address,undefined`, and `-DVPL_DEBUG=1`, using the flags
+compiles with clang-cl, `-fsanitize=address,undefined`, and `-DWYL_DEBUG=1`, using the flags
 CLAUDE.md lists today (`_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`, `-EHsc`, `-std:c++20`). Any
 sanitizer report fails the test. It becomes the fifth mode to run before committing, and CLAUDE.md's
 manual ASan recipe is deleted ("replace, don't layer").
@@ -149,7 +149,7 @@ found two bugs that every other mode passed:
 
 ## Step 3: property tests for the type system
 
-These run in-process and fast, with no C++. Since `VplType` became one sealed subclass per kind,
+These run in-process and fast, with no C++. Since `WylType` became one sealed subclass per kind,
 random types are easy to generate: pick a kind, then pick its parts recursively from the built-in
 types and a small set of declared stdlib types, with a depth limit.
 
@@ -169,7 +169,7 @@ Properties to check for random types, as a new set of tests next to `IrSelfTests
 
 Each failure is either a bug or an exception to write down in the spec. Both outcomes are useful.
 
-**Done (2026-10-26).** `tests/Vpl.Tests/TypeSelfTests.cs` generates 1,500 random types (seed 1)
+**Done (2026-10-26).** `tests/Wyl.Tests/TypeSelfTests.cs` generates 1,500 random types (seed 1)
 from the built-in types, every standard library type, and a fixture's, in the places the binder
 allows them (a ref struct, `ref?`, or non-escaping function only as a parameter, `void` only as a
 return, type arguments satisfying their bounds), and checks 20 properties in about 1.5 s: the ones
@@ -230,17 +230,17 @@ now 234 (98.2% of lines, 94.0% of branches), and each remaining line falls into 
 | 57 | **Unreachable throws.** `throw new InvalidOperationException` in the binder, lowering, verifier, and emitter. The report's "Unreached Unreachable sites" section is the fuzzer's target list (step 5). |
 | 80 | **Guards after an error.** `return new BoundErrorExpression(...)`, `return null`, and `return false` once an operand or type has failed, so one error doesn't cause a second. The plan's kind 2: the ones whose absence would look like a second bug have a test; the rest are left. |
 | 12 | **Arms and merges only hand-built IR reaches.** The `_ => false` and `fits = false` arms of the verifier's rvalue and argument checks (each check's rule has an `IrSelfTests` case), the reference-kind message of `IrLocal.Mismatch`, "the lambda is never made", the two "may reassign" reasons for a deref whose local is rewritten (no source form writes a reference or pointer while its deref is in use), and `Dependency.Union` (a local with a dependency can't be stored twice, since references and views are single-assignment). |
-| 36 | **Unreachable by construction**, kept as guards: a returned reference from a call with no receiver (`PlaceBase.Returned`; free and static functions can't return references, 03-memory-model.md); a chosen escaping function local (the choice holds it through a conversion); the compound arms of `IrEffects`'s visitor; the emitter's narrowed-check arm and `vpl::unreachable` after a switch expression's void case; `FunctionValues`'s pointer and fixed-array arms; the map and overlap arms of variant and assumed projections (only fields and elements are written); the conversion steps of `PlacePath` and `Lowering.Places`; a literal object; a conversion between two nullable reference forms passed to `super(...)`; and the binder's arms for `super`, `ref`, named arguments, and type arguments in positions the parser doesn't produce. |
+| 36 | **Unreachable by construction**, kept as guards: a returned reference from a call with no receiver (`PlaceBase.Returned`; free and static functions can't return references, 03-memory-model.md); a chosen escaping function local (the choice holds it through a conversion); the compound arms of `IrEffects`'s visitor; the emitter's narrowed-check arm and `wyl::unreachable` after a switch expression's void case; `FunctionValues`'s pointer and fixed-array arms; the map and overlap arms of variant and assumed projections (only fields and elements are written); the conversion steps of `PlacePath` and `Lowering.Places`; a literal object; a conversion between two nullable reference forms passed to `super(...)`; and the binder's arms for `super`, `ref`, named arguments, and type arguments in positions the parser doesn't produce. |
 | 12 | **Reachable but left**, each for a stated reason: an address argument inside a hold (`IrExtent`), a by-value argument kept from a copied read (`Lowering.Expressions`), a tie between exactly one generic and one non-generic overload, a deferred local assigned from an alias-copying lambda, the final-error path of inference (its message is tested where inference fails normally), the rvalue overload of `IrWalk.Places` (a nesting path no test reaches), a pattern's integer-key format, and `SyntaxFacts`' default operator name. |
 | 10 | **Parser recovery.** The `-1`s of `ScanType`, the `Advance()` after a statement that consumed nothing, and two lookahead returns: malformed syntax no error test writes yet, which the fuzzer will. |
-| 16 | **The CLI and a debugger.** `Diagnostic.ToString` and its enumerator (the `vpl` CLI prints them; the runner compares messages), the eight `Symbol` and IR-node `ToString` overrides, and building a compilation with errors. |
+| 16 | **The CLI and a debugger.** `Diagnostic.ToString` and its enumerator (the `wyl` CLI prints them; the runner compares messages), the eight `Symbol` and IR-node `ToString` overrides, and building a compilation with errors. |
 | 11 | **The machine's toolchain.** The "no compiler found" messages, the PCH mutex's abandoned case and an IO failure, and the timeout kill. |
 
 `--partial` finds 449 lines that ran with an unrun branch: the other side of `?? throw`, `?.`,
 `is { }`, a `switch` arm's `_`, and the singular/plural inside messages. Kind 3, needing nothing.
 
 The unrun lines that meant something now have tests. New cases reach a lambda's returns converting
-inside `while`, `for`, `for-range`, and `switch` under an inferred return type (`lambdas/returns.vpl`);
+inside `while`, `for`, `for-range`, and `switch` under an inferred return type (`lambdas/returns.wyl`);
 `int main()`; an inherited method called through a `static_cast`; `switch (this)`; a write set over 64
 places; a delegating base call that also passes the location; a `ref?` base argument; a view returned
 by a type parameter's method; a struct's implicit default; a switch over each integer kind; and the
@@ -259,7 +259,7 @@ new call kind to update them), the unused `Count` of `BorrowedLocals` and `LastU
 
 It found one rule the spec didn't state: a statement that can never run, after `return`, `break`,
 `continue`, `panic`, or a call that never returns, is dropped silently. It is now in 06-syntax.md and
-tested (`basics/control_flow.vpl`), and lowering's four `if (!reachable) break` guards are reached
+tested (`basics/control_flow.wyl`), and lowering's four `if (!reachable) break` guards are reached
 only that way.
 
 ## Step 4c: the cells test shapes, not values
@@ -325,16 +325,16 @@ The review found four places the spec didn't decide, and one compiler bug:
   defaultable, but not that its default is the empty string, nor what a primitive's is). Now:
   zero for primitives, the empty string for `String`.
 - **Floating-point division by zero** was not decided: "Division by zero panics in every build" read
-  as if it covered floats, but the language (and `conversions.vpl`'s `0.0 / 0.0`) means IEEE. 2.4
+  as if it covered floats, but the language (and `conversions.wyl`'s `0.0 / 0.0`) means IEEE. 2.4
   now says integer division panics and floating-point division is an infinity or NaN.
 - **A floating value's printed text** was unspecified beyond examples. `String` interpolation now
   says it is the shortest text that reads back exactly, in `std::to_chars`'s choice of plain or
   exponential form, with `.0` on a whole number, and `inf`/`-inf`/`nan`.
 - **A case literal must be written with a suffix when it is past `INT_MAX`** (`case 2147483648L`),
   since a literal too large for `int` is an error before it takes the subject's type.
-- **The bug:** `float.vpl` and `double.vpl` failed to compile under MSVC, which diagnoses
-  `1.0 / 0.0` in generated C++ as C2124 (divide or mod by zero) even though VPL defines the result
-  as an infinity. The emitter now emits floating division through `vpl::fdiv`, which is not a
+- **The bug:** `float.wyl` and `double.wyl` failed to compile under MSVC, which diagnoses
+  `1.0 / 0.0` in generated C++ as C2124 (divide or mod by zero) even though Wylow defines the result
+  as an infinity. The emitter now emits floating division through `wyl::fdiv`, which is not a
   constant expression, and the value tests show `inf`, `-inf`, and `nan` in every mode.
 
 The value files also pinned down what the two toolchains agree on: both MSVC and libstdc++ print
@@ -343,7 +343,7 @@ text. `--update-snapshots` was run once for each matrix; the reviewed diff is in
 
 ## Step 5: a mutation fuzzer
 
-This is a new project, `tests/Vpl.Fuzz`, that turns the existing tests into many near-valid
+This is a new project, `tests/Wyl.Fuzz`, that turns the existing tests into many near-valid
 programs on feature boundaries and at value edges, and checks every one with the oracles.
 
 **Mutations.** Parse a test with the real parser, use the AST's locations to pick a span, and splice
@@ -388,7 +388,7 @@ given seed, so a finding can be replayed. A short run (for example two minutes) 
 pre-commit routine for compiler changes; emitter, docs, and dashboard changes rely on the suite, and
 long runs go in the background.
 
-**Done (2026-10-27).** `tests/Vpl.Fuzz` is a console project in the solution:
+**Done (2026-10-27).** `tests/Wyl.Fuzz` is a console project in the solution:
 
 - **Mutations.** It parses a test with the real parser and its AST locations, then splices text at
   one site, or at two for half the mutants. The catalog crosses features (a type becomes nullable,
@@ -416,7 +416,7 @@ long runs go in the background.
   minute, and about 40 tier-2 mutants a minute with eight workers.
 - **Findings.** A failure is reduced by deleting statements, switch cases, and declarations while
   the same coarse signature remains (the exception type, the C++ error, the sanitizer kind, the
-  disagreeing modes), writes `tests/fuzz/findings/<key>-<hash>.vpl` with the seed, mutant index,
+  disagreeing modes), writes `tests/fuzz/findings/<key>-<hash>.wyl` with the seed, mutant index,
   and mutations, and replays with `--replay <index>`. Its per-mutator reducer re-parses after every
   accepted deletion, so a span is never used after the text moved; a simple statement's span is
   extended over its `;`, which the parser leaves out.
@@ -425,27 +425,27 @@ long runs go in the background.
   but not the nullable-value wrapper, so lowering produced an operand argument the verifier
   rejected as a compiler bug. Running it down found the same hole for `ref?` locals and `ref`
   returns, and `TypeSelfTests` failed at once on `ref? (() -> int)?` names that no longer bind. The
-  question is now one type fact (`VplType.PassedWithoutCopying`), used by all three checks, and
-  `tests/cases/errors/lambda_binding.vpl`, `operands.vpl`, and `references.vpl` have the errors.
+  question is now one type fact (`WylType.PassedWithoutCopying`), used by all three checks, and
+  `tests/cases/errors/lambda_binding.wyl`, `operands.wyl`, and `references.wyl` have the errors.
 - **The long runs (30,720 tier-1 and 256 tier-2 mutants) found three more**:
   - `switch (null)` bound, and the emitter had no C++ type for `null`; it is now a binder error
-    (`errors/switch.vpl`).
+    (`errors/switch.wyl`).
   - A `void` call passed to a generic function inferred `T = void`, emitted as a `const void&`
-    parameter, and failed to compile; inference now rejects a `void` binding (`errors/generics.vpl`).
+    parameter, and failed to compile; inference now rejects a `void` binding (`errors/generics.wyl`).
   - Two switch temporaries nothing reads drew `-Wunused-variable` and `-Wunused-but-set-variable`:
     the emitter's `[[maybe_unused]]` was applied only to source-named locals, not temporaries kept
-    for what making them does. It now covers every zero-use local; `basics/control_flow.vpl` has a
+    for what making them does. It now covers every zero-use local; `basics/control_flow.wyl` has a
     `default`-only switch over a literal, and the strict warning check is the oracle that sees it.
 - **The next runs found four more**, each with a new test:
   - Indexing an `in` or `ref` pointer parameter lowering dereferenced the parameter's storage (the
     pointer) rather than the pointer's target, so `values[2]` made an error-typed projection and the
     verifier threw. Only a local whose dereference is its pointee takes the direct place now; the
-    one that isn't is read into a temporary first. `unsafe/memory.vpl` indexes through `in int*`
+    one that isn't is read into a temporary first. `unsafe/memory.wyl` indexes through `in int*`
     and `ref int*`, and writes through the former.
   - An `is ref` name over a method called on a temporary receiver (a conditional's value, a call's
     result) had no holder outside the condition's block, so the verifier reported the name as used
     after its object went out of scope. A temporary receiver is held like a local now;
-    `references/temporary_holders.vpl` prints the destructor's turn on both a matching and a
+    `references/temporary_holders.wyl` prints the destructor's turn on both a matching and a
     failing test.
   - The pointer case exposed the emitter writing `const int32_t*&` for a reference to a pointer,
     where the `const` belongs on the pointer itself (`int32_t* const&`). `ConstReferenceType` is
@@ -455,7 +455,7 @@ long runs go in the background.
     path, because `SharesStorage` named `String` but not a nullable value of it. The fact now looks
     through the nullable, the receiver holds the value (`ObjectLocal` reuses the access's place
     rather than its raw local), and a `!` on a nullable value checks `HasValue`, not `NotNull`.
-    `spans/string_bytes.vpl` takes views through a narrowed and an asserted nullable string, and
+    `spans/string_bytes.wyl` takes views through a narrowed and an asserted nullable string, and
     `TypeSelfTests` requires a nullable value and its value to agree on `SharesStorage`.
 - **The fuzzer's oracles were narrowed for four kinds of non-finding**, each with a comment saying
   why:
@@ -488,9 +488,9 @@ change no test caught as a **surviving mutant**. A survivor is either a missing 
 nothing needs, and that list is the only systematic way to find a wrong answer every mode agrees on.
 
 - **Tool.** Try Stryker.NET (`dotnet tool install -g dotnet-stryker`). It drives a test framework
-  through `dotnet test`, and this project's runner is a console app (`Vpl.Tests`, with a path
+  through `dotnet test`, and this project's runner is a console app (`Wyl.Tests`, with a path
   filter), so if the adapter isn't straightforward, write the loop directly: apply one mutation to
-  the compiler's source, `dotnet build`, run `Vpl.Tests <filter>`, restore, repeat. Either way the
+  the compiler's source, `dotnet build`, run `Wyl.Tests <filter>`, restore, repeat. Either way the
   output is the same survivor list.
 - **Scope, first pass**, one file at a time: `Ir/IrEffects.cs`, `Ir/IrAccess.cs`,
   `Semantics/Conversions.cs`, `Semantics/PlacePath.cs`, `CodeGen/CppEmitter.Types.cs`,
@@ -506,7 +506,7 @@ nothing needs, and that list is the only systematic way to find a wrong answer e
 This runs alongside step 5 rather than after it: the fuzzer finds what crashes and what disagrees,
 and this finds what is quietly wrong. They need different harnesses and share no findings.
 
-**Done (2026-10-28).** `tests/Vpl.Mutation` is a console project in the solution, and the dashboard
+**Done (2026-10-28).** `tests/Wyl.Mutation` is a console project in the solution, and the dashboard
 runs it from its Mutation page:
 
 - **The loop, not Stryker.** Stryker.NET drives `dotnet test`; this suite is a console runner with a
@@ -514,7 +514,7 @@ runs it from its Mutation page:
   it would rebuild the solution for every mutant. The loop is written directly: write the mutated
   file into a private copy of its project, `dotnet build` only that project, copy its assembly into
   a private copy of the test runner, and run the covering tests. Neither the working tree nor
-  `tests/Vpl.Tests/bin` is touched, so a cancelled run leaves nothing behind and the next run starts
+  `tests/Wyl.Tests/bin` is touched, so a cancelled run leaves nothing behind and the next run starts
   from a refreshed copy. The runner's precompiled header (250 MB) is copied once and reused.
 - **The catalog.** Roslyn (`Microsoft.CodeAnalysis.CSharp`) finds the sites, so an operator in a
   string, comment, or generic argument is never one: `==`/`!=`, `<`/`<=`, `>`/`>=`, `&&`/`||`,
@@ -538,14 +538,14 @@ runs it from its Mutation page:
 - **`IrEffects.cs`.** With the verifier's self-tests (`ir/`) alone, 6 of 41 mutants were killed, and
   the full suite killed 3 of the first 5. The two it missed — `IrEffects.None`'s and
   `IrEffects.Releasing(type)`'s `MayPanic` — are facts no program reaches: every mode agrees with
-  the wrong answer. `tests/Vpl.Tests/IrSelfTests.Effects.cs` now states every effect fact the
+  the wrong answer. `tests/Wyl.Tests/IrSelfTests.Effects.cs` now states every effect fact the
   verifier, the passes, and the emitter decide by: which locals a release runs, what a block
   releases and what `end` leaves out, what a store writes and what a move of a named local writes,
   which calls run and may panic, what a constructor and a default run, when an operation may panic,
   and when a hold borrows. With it and the default filters, all 40 mutants die (100%); `ir/` alone
   kills 40 of the 41 the old catalog had, and the survivor was the harness artifact below.
 - **`containers` is the filter that sees releases.** Under the full suite,
-  `containers/loop_elements_destructor.vpl` is what kills the `IrEffects.Ending` and
+  `containers/loop_elements_destructor.wyl` is what kills the `IrEffects.Ending` and
   `ReleaseMayRunCode` mutants, so it is in the default filters (7 tests, 3 s).
 - **A parameter's default is not a mutant.** C# compiles it into every caller, so a test built
   against the old value cannot see the change; the catalog leaves one out.
@@ -579,7 +579,7 @@ unsafe code), OSS-Fuzz (coverage-guided front-end fuzzing with sanitizers), and 
 compiler that still runs Csmith, YARPGen, differential tests, and GCC's torture suite). test262 and
 the WebAssembly spec tests are the model for an external conformance suite.
 
-| Practice | VPL today | Next step |
+| Practice | Wylow today | Next step |
 |---|---|---|
 | Expected-output, exact-diagnostic, unit and property tests | `tests/cases`, `IrSelfTests`, `TypeSelfTests` | — |
 | One reduced test per bug | fuzzer reducer, `tests/cases` | — |
@@ -604,7 +604,7 @@ the WebAssembly spec tests are the model for an external conformance suite.
 2. **The generating fuzzer, with the interpreter as its oracle,** comparing the interpreter with
    every native mode. This is the Csmith/YARPGen model and the source of most historical compiler
    bugs.
-3. **Front-end fuzzing of arbitrary input.** A syntax-chaos mutator in `tests/Vpl.Fuzz` (insert,
+3. **Front-end fuzzing of arbitrary input.** A syntax-chaos mutator in `tests/Wyl.Fuzz` (insert,
    delete, duplicate tokens) that requires only no exception and no hang; SharpFuzz if coverage
    guidance is wanted. Error recovery is where OSS-Fuzz finds clang bugs and where the current
    fuzzer, which starts from valid tests, is blindest.
