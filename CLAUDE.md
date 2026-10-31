@@ -54,7 +54,8 @@ is still compiled, but tier 2 doesn't run it.
 
 The generator (`tests/Wyl.Generate`) makes well-typed programs from a seed instead of mutating
 existing ones, and checks each with the same oracles: tier 1 compiles in-process and interprets the
-optimized IR against the meaning, tier 2 builds and runs every mode with the interpreter first.
+optimized IR against the meaning, tier 2 builds and runs every mode with the interpreter first,
+plus a `--release` build (a generated program never overflows, so wrapping can't change its output).
 There are no expected outputs, so it reaches combinations no test is near. Stage 1 makes integers,
 `bool`, `char`, `float`, `double`, and `String` programs with locals, bounded loops, and helpers;
 stages 2–4 add structured values, classes and containers, then generics and lambdas. A generated

@@ -8,7 +8,11 @@ using Wyl.Compiler.Text;
 
 namespace Wyl.Harness;
 
-public sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options)
+/// <param name="Release">
+/// A native build with <c>--release</c>, where integer overflow wraps instead of panicking: it agrees
+/// with the interpreter only for programs that never overflow.
+/// </param>
+public sealed record Mode(string Name, Toolchain? Toolchain, CompileOptions Options, bool Release = false)
 {
     /// <summary>The run is the IR interpreter, not a native build: no C++ and no toolchain.</summary>
     public bool Interpret => Toolchain is null;
@@ -262,7 +266,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
                 compiled = true;
 
             var directory = Path.Combine(outputDirectory, mode.Name);
-            var build = Driver.BuildExecutable(compile.Result, "prog", directory, new BuildOptions(false, mode.Toolchain!.Value));
+            var build = Driver.BuildExecutable(compile.Result, "prog", directory, new BuildOptions(mode.Release, mode.Toolchain!.Value));
             if (!build.Success)
             {
                 var fingerprint = BuildFingerprint(build.Error!);

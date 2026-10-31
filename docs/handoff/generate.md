@@ -12,7 +12,10 @@ Tier 1 compiles each program in-process, with and without optimization, checks t
 the same, that compiling twice gives the same C++, and interprets the optimized IR against the
 meaning: no C++ compiler and no expected output. Tier 2 builds and runs every mode with the
 interpreter first, and compares stdout, the panic and its location, the exit code, and (where
-asked) the performance warnings with the fuzzer's one rule.
+asked) the performance warnings with the fuzzer's one rule. Its modes are the fuzzer's plus a
+`--release` build (`Modes.TryAvailable(release: true)`), which only the generator asks for: release
+wraps on overflow where the interpreter panics, so it agrees exactly only with programs that never
+overflow, which a fuzzer mutant may.
 
 ```
 Wyl.Generate [--seed N] [--seconds S] [--max N] [--tier 1|2] [--jobs N] [--stage 1]
@@ -62,7 +65,9 @@ alone, and the same pair gives byte-identical text in every process and on every
 ## Trap-free by construction
 
 A panic truncates output and hides later bugs, and integer overflow differs by build mode (debug
-panics, release wraps; the interpreter is debug). So `IntegerFacts` is the one home for range
+panics, release wraps; the interpreter is debug). Because no generated program overflows, tier 2's
+release build is a free oracle: any difference from the interpreter is the optimizer's or the
+emitter's. So `IntegerFacts` is the one home for range
 arithmetic and literal spelling, and a constructor is emitted only when its result range fits the
 type. Division and remainder need a divisor range excluding zero and never `MIN / -1`; shifts use
 constant counts in `0..width-1`; loops are `for (int i : 0..N)` with `N` in `1..4`; calls go only

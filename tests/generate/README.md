@@ -4,6 +4,9 @@
 the IR interpreter is the program's meaning, so a generated program needs only to agree with every
 native mode. Findings are written here, each named by the finding's key and signature.
 
+Tier 2's modes include a `--release` build, which the fuzzer's don't: a generated program never
+overflows, so release, where overflow wraps instead of panicking, must agree with the interpreter.
+
 A seed and a program index together choose one program; `--seed 7 --replay 12` rebuilds it. The
 same pair gives the same text in every process and on every machine. Stage 1 makes integers,
 `bool`, `char`, `float`, `double`, and `String` programs; later stages add structured values,

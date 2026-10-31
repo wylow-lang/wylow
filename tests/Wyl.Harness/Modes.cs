@@ -6,8 +6,13 @@ namespace Wyl.Harness;
 /// <summary>The modes tier 2 builds and runs: the interpreter is the reference, the unoptimized build first.</summary>
 public static class Modes
 {
+    /// <param name="release">
+    /// Adds a <c>--release</c> build, for a caller whose programs never overflow (the generator's are
+    /// guarded): overflow wraps there instead of panicking, so a program that may overflow, like a
+    /// fuzzer mutant, legitimately disagrees with the interpreter in it.
+    /// </param>
     /// <returns>False when neither MSVC nor g++ is installed; the caller reports that.</returns>
-    public static bool TryAvailable(out IReadOnlyList<Mode> modes)
+    public static bool TryAvailable(out IReadOnlyList<Mode> modes, bool release = false)
     {
         var preferred = NativeCompiler.Find(Toolchain.Msvc, out _) is not null ? Toolchain.Msvc
             : NativeCompiler.Find(Toolchain.Gcc, out _) is not null ? Toolchain.Gcc
@@ -30,6 +35,8 @@ public static class Modes
         if (NativeCompiler.Find(Toolchain.ClangSanitized, out _) is not null)
             result.Add(new("asan", Toolchain.ClangSanitized, new CompileOptions()));
         result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
+        if (release)
+            result.Add(new(name + "-release", preferred.Value, new CompileOptions(), Release: true));
         modes = result;
         return true;
     }

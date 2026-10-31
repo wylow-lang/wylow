@@ -11,7 +11,7 @@ using Wyl.Harness;
 //           determinism, and the optimized IR interpreted the same as the meaning
 //   tier 2  build and run every mode, the interpreter first: the C++ compiles warning-free, the
 //           sanitizers are quiet, and every mode prints the same output, exits the same, and
-//           panics the same
+//           panics the same, a --release build among them (generated programs never overflow)
 // A program that does not bind is a GENERATOR BUG, never a compiler finding.
 // Usage: Wyl.Generate [--seed N] [--seconds S] [--max N] [--tier 1|2] [--jobs N] [--stage 1]
 //                     [--size N] [--no-strict] [--keep] [--replay N] [--self-test]
@@ -85,7 +85,9 @@ Directory.CreateDirectory(findingsDirectory);
 IReadOnlyList<Mode> modes = [new("interpret", null, new CompileOptions(Nest: true, Optimize: false))];
 if (tier == 2)
 {
-    if (!Modes.TryAvailable(out var available))
+    // A generated program never overflows, so a release build must print exactly what the
+    // interpreter does.
+    if (!Modes.TryAvailable(out var available, release: true))
     {
         Console.Error.WriteLine("tier 2 needs MSVC or g++; none was found");
         return 1;
