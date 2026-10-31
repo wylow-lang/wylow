@@ -99,7 +99,28 @@ public sealed class NativeCompiler
         if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
             return null;
         var clang = FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH"));
-        return clang is null ? null : new NativeCompiler(Toolchain.ClangSanitized, clang, env);
+        if (clang is null)
+            return null;
+        AddSanitizerRuntimeToPath(clang);
+        return new NativeCompiler(Toolchain.ClangSanitized, clang, env);
+    }
+
+    /// <summary>
+    /// Since LLVM 20, sanitized programs on Windows always load the ASan runtime as a DLL, which lives
+    /// in clang's resource directory rather than on PATH; every program this process starts inherits
+    /// its PATH, so the runner, the matrices, the fuzzer, and `wyl run` all find it.
+    /// </summary>
+    static void AddSanitizerRuntimeToPath(string clang)
+    {
+        var query = new ProcessStartInfo(clang);
+        query.ArgumentList.Add("/clang:-print-file-name=clang_rt.asan_dynamic-x86_64.dll");
+        var dll = ProcessRunner.Run(query).StandardOutput.Trim();
+        if (!Path.IsPathRooted(dll) || !File.Exists(dll))
+            return;
+        var directory = Path.GetDirectoryName(dll)!;
+        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
+        if (!path.Split(Path.PathSeparator).Contains(directory, StringComparer.OrdinalIgnoreCase))
+            Environment.SetEnvironmentVariable("PATH", directory + Path.PathSeparator + path);
     }
 
     /// <summary>
