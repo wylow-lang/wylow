@@ -1,0 +1,42 @@
+// A call's receiver is the place it is written on: a field's object or another class's method,
+// never `this`.
+class Inner {
+    internal {
+        int value = 3;
+
+        int read() {
+            return value;
+        }
+    }
+}
+
+class Outer {
+    internal {
+        Inner inner = new Inner();
+
+        int throughField() {
+            return this.inner.read();
+        }
+    }
+}
+
+class Base {
+    internal {
+        virtual int pick() {
+            return 1;
+        }
+    }
+}
+
+class Derived extends Base {
+    internal {
+        override int pick() {
+            return super.pick() + 1;
+        }
+    }
+}
+
+void main() {
+    print(new Outer().throughField());  // output: 3
+    print(new Derived().pick());        // output: 2
+}

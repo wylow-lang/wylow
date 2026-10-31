@@ -57,10 +57,12 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
-    void IrStatements(IrBlock block)
+    void IrStatements(IrBlock block) => IrStatements(block.Statements);
+
+    void IrStatements(IReadOnlyList<IrStatement> statements)
     {
         IrStatement? previous = null;
-        foreach (var statement in block.Statements.Where(s => !plan.Consumed.Contains(s)))
+        foreach (var statement in statements.Where(s => !plan.Consumed.Contains(s)))
         {
             IrStatement(statement, previous);
             previous = statement;
@@ -248,11 +250,14 @@ public sealed partial class CppEmitter
     {
         var body = TopLevel(loop.Body);
         string? condition = null;
-        if (body.FirstOrDefault() is IrIf head && TopLevel(head.Then).Count == 0 && head.Else is { } exit
-            && TopLevel(exit) is [IrBreak { Loop: var exited }] && exited == loop && DefinedBy(head) is null)
+        if (body.FirstOrDefault() is IrIf head && TopLevel(head.Then).Count == 0)
         {
-            condition = OperandText(head.Condition);
-            body.RemoveAt(0);
+            bool exits = head.Else is { } exit && TopLevel(exit) is [IrBreak { Loop: var exited }] && exited == loop && DefinedBy(head) is null;
+            if (exits)
+            {
+                condition = OperandText(head.Condition);
+                body.RemoveAt(0);
+            }
         }
         var update = loop.Continue is { } next ? TopLevel(next) : [];
         bool continues = IrWalk.Descendants(loop.Body).OfType<IrContinue>().Any(c => c.Loop == loop);
@@ -273,12 +278,7 @@ public sealed partial class CppEmitter
             body = TopLevel(only);
         Line("{");
         indent++;
-        IrStatement? previous = null;
-        foreach (var statement in body)
-        {
-            IrStatement(statement, previous);
-            previous = statement;
-        }
+        IrStatements(body);
         if (continueLabels.TryGetValue(loop, out var label))
             Line($"{label}:;");
         foreach (var statement in update)
@@ -294,10 +294,11 @@ public sealed partial class CppEmitter
 
     static bool IsParenthesized(string text)
     {
-        if (!text.StartsWith('(') || !text.EndsWith(')'))
+        if (!(text.StartsWith('(') && text.EndsWith(')')))
             return false;
         int depth = 0;
         bool quoted = false;
+        bool parenthesized = true;
         for (int i = 0; i < text.Length; i++)
         {
             if (quoted)
@@ -311,9 +312,12 @@ public sealed partial class CppEmitter
             quoted = text[i] == '"';
             depth += text[i] switch { '(' => 1, ')' => -1, _ => 0 };
             if (depth == 0 && i < text.Length - 1)
-                return false;
+            {
+                parenthesized = false;
+                break;
+            }
         }
-        return true;
+        return parenthesized;
     }
 
     /// <summary>A store or evaluation as C++ without its semicolon, as a <c>for</c> loop's update.</summary>
@@ -326,7 +330,8 @@ public sealed partial class CppEmitter
 
     static string StoreText(WylType type, string target, string value)
     {
-        bool plain = type.IsReference || !(type.IsAggregate || type.IsTypeParameter);
+        bool aggregate = type.IsAggregate || type.IsTypeParameter;
+        bool plain = type.IsReference || !aggregate;
         return plain ? $"{target} = {value}" : $"wyl::assign({target}, {value})";
     }
 
@@ -348,7 +353,8 @@ public sealed partial class CppEmitter
     string Declaration(IrLocal local, string value, IrRvalue? rvalue = null)
     {
         var name = Name(local);
-        bool mayBeUnused = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct || plan.Uses.GetValueOrDefault(local) == 0;
+        bool unusedByKind = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct;
+        bool mayBeUnused = unusedByKind || plan.Uses.GetValueOrDefault(local) == 0;
         // A temporary nothing reads is still emitted for what making it does, as a switch's value is.
         var unused = mayBeUnused ? "[[maybe_unused]] " : "";
         // A reference local is a C++ reference to its value; an `in` one refers to it without changing it.
@@ -357,7 +363,7 @@ public sealed partial class CppEmitter
         {
             // A non-escaping local owns the lambda or choice it is made with, or copies a stored function. Another
             // non-escaping local or parameter can't be reassigned and outlives it, so it is referred to instead.
-            IrLocalKind.Value when local.Type.IsNonEscapingFunction => rvalue is IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: false } aliased } } } && aliased.Type.IsNonEscapingFunction
+            IrLocalKind.Value when local.Type.IsNonEscapingFunction => AliasOf(rvalue) is { } aliased && aliased.Type.IsNonEscapingFunction
                 ? $"{unused}const auto& {name} = {value};"
                 : $"{unused}auto {name} = {value};",
             IrLocalKind.Value => $"{unused}{CppType(local.Type)} {name} = {value};",
@@ -367,6 +373,16 @@ public sealed partial class CppEmitter
             IrLocalKind.Hold => $"{(local.Type.IsTypeParameter ? "auto&&" : "auto")} {name} = {value};",
             _ => throw new InvalidOperationException($"the IR emitter can't declare a {local.Kind} local yet"),
         };
+    }
+
+    /// <summary>The local a read refers to directly, if the value is that read and the local outlives it.</summary>
+    static IrLocal? AliasOf(IrRvalue? rvalue)
+    {
+        if (rvalue is not IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } })
+            return null;
+        if (place.Local.IsTemporary)
+            return null;
+        return place.Local;
     }
 
     /// <summary>The value of a temporary printed where it is used.</summary>
@@ -381,15 +397,25 @@ public sealed partial class CppEmitter
     /// <summary>An immediately invoked lambda running the block, which returns what it stores last.</summary>
     string EvaluatedText(IrLocal local, IrBlock block, IrStore store)
     {
+        var body = IndentedBody(() =>
+        {
+            IrStatements(block);
+            Line($"return {ReturnedText(store.Value)};");
+        });
+        var type = local.Type.IsNonEscapingFunction ? "auto" : CppType(local.Type);
+        return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
+    }
+
+    /// <summary>A body's statements printed one indentation level deeper than the statement it is nested in.</summary>
+    string IndentedBody(Action emit)
+    {
         var (enclosingOutput, enclosingIndent) = (output, indent);
         output = new StringBuilder();
         indent = enclosingIndent + 1;
-        IrStatements(block);
-        Line($"return {ReturnedText(store.Value)};");
+        emit();
         var body = output.ToString();
         (output, indent) = (enclosingOutput, enclosingIndent);
-        var type = local.Type.IsNonEscapingFunction ? "auto" : CppType(local.Type);
-        return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
+        return body;
     }
 
     string BaseText(IrLocal local) =>
@@ -620,12 +646,7 @@ public sealed partial class CppEmitter
     string LambdaText(IrFunction lambda, string introducer, IEnumerable<string> leading)
     {
         var parameters = leading.Concat(lambda.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {Name(p)}"));
-        var (enclosingOutput, enclosingIndent) = (output, indent);
-        output = new StringBuilder();
-        indent = enclosingIndent + 1;
-        IrStatements(lambda.Body);
-        var body = output.ToString();
-        (output, indent) = (enclosingOutput, enclosingIndent);
+        var body = IndentedBody(() => IrStatements(lambda.Body));
         return $"{introducer}({string.Join(", ", parameters)}) -> {CppType(lambda.Symbol.ReturnType)} {{\n{body}{new string(' ', indent * 4)}}}";
     }
 

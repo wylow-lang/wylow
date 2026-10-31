@@ -43,7 +43,10 @@ class Scaled {
         int seed;
 
         Scaled((int) -> int f) {
-            seed = f(2);
+            // The base's argument is a lambda the emitter computes in an immediately invoked lambda
+            // and passes on; it must own the lambda rather than refer to one that call destroyed.
+            int[16] pad = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            seed = f(2) + pad[0];
         }
     }
 }

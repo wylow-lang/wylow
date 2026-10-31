@@ -1,0 +1,18 @@
+// A choice between a value and a constant folds to && or || only for the constant it drops: false
+// on the false side and true on the true side.
+
+bool no() {
+    return false;
+}
+
+bool yes() {
+    return true;
+}
+
+void main() {
+    print(no() ? no() : true);      // output: true
+    print(yes() ? false : no());    // output: false
+    print(yes() ? no() : true);     // output: false
+    print(no() ? yes() : false);    // output: false
+    print(yes() ? yes() : false);   // output: true
+}

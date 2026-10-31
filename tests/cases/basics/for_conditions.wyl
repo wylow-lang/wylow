@@ -1,0 +1,81 @@
+// A for loop's condition is printed in the for header, which strips the parentheses the condition
+// text came wrapped in, and a condition that is a call must be evaluated once per iteration.
+
+// A folded for loop's condition is a bare name, which the header keeps as it is.
+void leading() {
+    mut bool go = true;
+    for (mut int j = 0; go; j++) {
+        print(j);
+        if (j == 2) {
+            go = false;
+        }
+    }
+}
+
+bool more(ref int step) {
+    step++;
+    return step <= 3;
+}
+
+// The head of the loop is the for header: evaluating it twice would step twice.
+void counted() {
+    mut int step = 0;
+    for (mut int i = 0; more(ref step); i++) {
+        print(i);
+    }
+    print(step);
+}
+
+// A condition-less loop whose first statement is an if is a while (true): the if's then branch is a
+// statement, not a test to fold into the for header.
+void guarded() {
+    for (mut int i = 0; ; i++) {
+        if (i < 2) {
+            print(i);
+        } else {
+            break;
+        }
+        print("x");
+    }
+}
+
+// A loop that tests nothing is a while (true), whose continue must reach the update.
+void jumping() {
+    mut int guard = 0;
+    for (mut int i = 0; ; i++) {
+        guard++;
+        if (guard > 5) {
+            break;
+        }
+        if (i == 2) {
+            print("two");
+            continue;
+        }
+        print(i);
+    }
+    print(guard);
+}
+
+void main() {
+    leading();
+    // output: 0
+    // output: 1
+    // output: 2
+    counted();
+    // output: 0
+    // output: 1
+    // output: 2
+    // output: 4
+    guarded();
+    // output: 0
+    // output: x
+    // output: 1
+    // output: x
+    jumping();
+    // output: 0
+    // output: 1
+    // output: two
+    // output: 3
+    // output: 4
+    // output: 6
+}
