@@ -98,7 +98,8 @@ work. `float f = 16777217;` is an error (2^24 + 1 has no exact `float`).
 |---|---|
 | Integer narrowing | Wraps (`(byte)300 == 44`) |
 | Signed ↔ unsigned (same size) | Reinterprets bits |
-| Float → integer | Saturates to the target range; NaN → 0 |
+| Float → integer | Rounds toward zero, then saturates to the target range; NaN → 0 (`(int)-2.5 == -2`) |
+| Integer → float or double | Rounds to nearest, ties to even, in one step (`(float)16777219L == 16777220`) |
 | Double → float | Rounds to nearest |
 | `char` → integer below 32 bits | The code point, then as integer narrowing |
 | Integer → `char` | Panics if the value is not a Unicode scalar value (above `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`) |

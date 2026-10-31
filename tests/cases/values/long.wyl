@@ -26,6 +26,9 @@ void main() {
     print((uint)max);                   // output: 4294967295
     print((short)2147483648L);          // output: 0
     print((float)16777217L);            // output: 16777216.0
+    print((float)16777219L);            // output: 16777220.0
+    print((float)-33554435L);           // output: -33554436.0
+    print((double)9007199254740995L);   // output: 9007199254740996.0
     print((double)9007199254740993L);   // output: 9007199254740992.0
     print((long)1e30d);                 // output: 9223372036854775807
     print((double)(1L << 63));          // output: -9223372036854775808.0
