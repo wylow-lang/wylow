@@ -23,6 +23,12 @@ public sealed partial class CppEmitter
     /// <summary>A lowered function's mem-initializer, if it is a class constructor calling its base's, and its body.</summary>
     void EmitIrFunction(IrFunction function)
     {
+        // A name is chosen against the function it is used in: lowering puts one source local in
+        // several functions, as a field initializer's binding is in every constructor form that leaves
+        // its field out, and one form's parameter may have the name another form gave the binding.
+        localNames.Clear();
+        usedLocalNames.Clear();
+        usedLocalNames.UnionWith(function.Symbol.Parameters.Select(LocalName));
         irNames.Clear();
         continueLabels.Clear();
         closureSlots.Clear();

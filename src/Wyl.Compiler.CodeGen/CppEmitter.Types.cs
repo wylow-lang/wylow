@@ -371,8 +371,6 @@ public sealed partial class CppEmitter
         var s = symbol.ContainingType!;
         var form = built.Builds!;
         currentType = s;
-        usedLocalNames.Clear();
-        usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
         Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");

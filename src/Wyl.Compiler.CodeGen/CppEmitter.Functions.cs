@@ -75,8 +75,6 @@ public sealed partial class CppEmitter
     {
         var symbol = function.Symbol;
         currentType = symbol.ContainingType;
-        usedLocalNames.Clear();
-        usedLocalNames.UnionWith(symbol.Parameters.Select(LocalName));
         if (currentType is { IsGeneric: true } owner)
             Line(TemplatePrefix(owner.TypeParameters).TrimEnd());
         if (FunctionTemplatePrefix(symbol) is { Length: > 0 } prefix)
