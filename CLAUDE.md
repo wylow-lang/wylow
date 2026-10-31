@@ -281,7 +281,7 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 | When | What |
 |---|---|
 | While editing | one mode with a filter (`Wyl.Tests.dll --interpret structs`): seconds |
-| Before each commit | `--all-modes`: about a minute warm, about six after a runtime or emitter change |
+| Before each commit | `--all-modes`: about a minute warm, about three when everything rebuilds (ASan is the longest mode) |
 | Whenever the user starts it | fuzzing (tier 1 or 2), mutation targets, coverage |
 
 The fuzzer and mutation testing are not part of committing. The user runs them on the current

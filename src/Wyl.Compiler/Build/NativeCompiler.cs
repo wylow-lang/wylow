@@ -194,6 +194,9 @@ public sealed class NativeCompiler
         {
             foreach (var arg in SanitizedFlags)
                 args.Add(arg);
+            // link.exe took over ten seconds per sanitized program, since every link writes its debug
+            // information through the one shared PDB server; lld-link has no such server.
+            args.Add("-fuse-ld=lld");
             args.Add(release ? "/O2" : "/Od");
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
