@@ -76,10 +76,11 @@ public static partial class RunComparison
     /// code is the platform's, so two panics are compared by their text, not their code.
     /// <para>
     /// With <paramref name="ignoreZeroSign"/>, which only a comparison involving a native build asks
-    /// for, stdout that differs only in the sign of a printed zero is equal: g++ 15.1 compiles
-    /// <c>0.0 - (double)i</c> as a negation even at -O0, and MSVC /O2 moves a negation across an
-    /// integer-to-float conversion, so either prints <c>0.0</c> where IEEE 754 gives <c>-0.0</c>
-    /// or the reverse, from correct C++.
+    /// for, stdout that differs only in the sign of a printed zero is equal. Two compiler bugs
+    /// print <c>0.0</c> where IEEE 754 gives <c>-0.0</c>, or the reverse, from correct C++:
+    /// GCC 13 (at least, we didn't test earlier versions) through 16 fold <c>0.0 - (double)i</c> to <c>-(double)i</c> even at -O0 (GCC PR
+    /// 126467, fixed for GCC 17), and MSVC /O1 and /O2 fold <c>-(float)(-i)</c> to <c>(float)i</c>
+    /// under every /fp mode (https://developercommunity.visualstudio.com/t/MSVC-x64-O2-folds--float-x-to-floa/11176874).
     /// </para>
     /// </summary>
     public static RunDifference? Compare(RunOutcome reference, RunOutcome other, string text, bool compareWarnings = false, bool ignoreZeroSign = false)
