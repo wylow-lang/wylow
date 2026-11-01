@@ -7,7 +7,7 @@ by a collector that runs only when the program calls it.
 | Kind | Lives | Freed by | Safety mechanism |
 |---|---|---|---|
 | **Values** (primitives, `struct`, `T[N]`) | Inline | Whatever contains them | None needed |
-| **Objects** (`class`) | Heap | Reference counting | Refcount; `Weak<T>` and `Memory.collectCycles` for cycles |
+| **Objects** (`class`) | Heap | Reference counting | Refcount; `Weak<T>` and `memory::collectCycles` for cycles |
 | **References** (`ref T`, `Span<T>`) | Local only | — (a view) | Cannot escape; runtime borrow tracking |
 
 ## 3.1 Values
@@ -66,7 +66,7 @@ releasing any class references it contains.
 
 - A destructor may use `this` freely, but must not keep a reference to its object: if a reference
   to it still exists when the destructor finishes, the program panics.
-- Objects in a cycle are released only by `Memory.collectCycles` ([below](#cycles-memorycollectcycles)).
+- Objects in a cycle are released only by `memory::collectCycles` ([below](#cycles-memorycollectcycles)).
 
 > ⚠️ **Long chains are destroyed recursively.** Releasing the head of a long linked list destroys
 > each node from inside the previous node's destruction, which can overflow the stack (an abort, see
@@ -128,7 +128,7 @@ No program can tell the difference, which is what allows it. An object is destro
 reference is released (see [When references are released](#when-references-are-released)), and the
 compiler does this only where the stack object is destroyed at exactly that point, in the same order
 relative to everything else. Panics abort without unwinding, so there is no other way out of the
-scope. The only exception is diagnostics: `Memory.cycleStats()` counts what the cycle collector
+scope. The only exception is diagnostics: `memory::cycleStats()` counts what the cycle collector
 buffered, and it never buffers an object on the stack.
 
 Which objects qualify is the compiler's business and may change between versions; an object
@@ -180,7 +180,7 @@ set to null; the block itself is freed when the target and the last `Weak` to it
 object that is never referred to weakly costs nothing extra; one that is costs one small
 allocation, once.
 
-### Cycles: `Memory.collectCycles`
+### Cycles: `memory::collectCycles`
 
 Reference counting alone never frees a cycle: objects that refer to each other keep each other's
 counts above zero. Wylow frees them with a **cycle collector that runs only when the program calls
@@ -188,7 +188,7 @@ it**:
 
 ```java
 void endFrame() {
-    Memory.collectCycles(2000);            // visit at most 2000 objects, at this point in the frame
+    memory::collectCycles(2000);            // visit at most 2000 objects, at this point in the frame
 }
 ```
 
@@ -199,12 +199,12 @@ calls it simply never frees its cycles, as in the past.
 
 | Call | Does |
 |---|---|
-| `Memory.collectCycles()` | Processes every buffered object (below) and frees every cycle found |
-| `Memory.collectCycles(int maxVisits)` | Stops after visiting about `maxVisits` objects; the rest wait for the next call |
-| `Memory.cycleStats()` | Counts since the last call: objects buffered, visited, and freed, as a `CycleStats` struct |
+| `memory::collectCycles()` | Processes every buffered object (below) and frees every cycle found |
+| `memory::collectCycles(int maxVisits)` | Stops after visiting about `maxVisits` objects; the rest wait for the next call |
+| `memory::cycleStats()` | Counts since the last call: objects buffered, visited, and freed, as a `CycleStats` struct |
 
 The work done is the same on every run of the same build, on every machine: each thread collects
-only its own objects, and a budget counts objects, not time. `Memory.cycleStats()` reports how long
+only its own objects, and a budget counts objects, not time. `memory::cycleStats()` reports how long
 visits take, to choose a budget. A call without a budget frees exactly the cycles that are
 unreachable, in any build. Which of them a budgeted call gets to may differ between builds (another
 compiler version, debug or release), since references the compiler keeps for itself, such as pins,
@@ -281,7 +281,7 @@ Generic classes are named with their type arguments (`List<Node>`) where the com
 instantiation.
 
 > Implemented so far: everything above except per-class counts and visit timing in
-> `Memory.cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).
+> `memory::cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).
 > Instantiations of generic classes that only C++ sees, through a generic function's type arguments,
 > are treated as cyclic, and a field whose type could refer to one as reaching every class; neither
 > affects correctness, only how much is buffered. `visited` counts the objects of the groups that
@@ -442,7 +442,7 @@ value whose type involves a type parameter, or a class only generic code instant
 destroy anything. So a destructor that stores over an element of a type (`~Squad() { members[0] =
 new Enemy(...); }`) keeps a loop over elements of that type, such as `for (Enemy e : enemies) {
 e.hp -= 1; }`, holding its own reference to each element only if the loop may release a `Squad`,
-or something that may hold one; `Memory.collectCycles()` may release anything. Destructors that
+or something that may hold one; `memory::collectCycles()` may release anything. Destructors that
 only assign fields, or store elements of other types, never affect it.
 
 ### Evaluation order and the heap
@@ -539,7 +539,7 @@ is gone after the statement. A temporary object is fine: the span holds it.
 | For-each over class elements | refcount inc/dec per element only if the loop may store over one | same |
 | Release a reference to a cyclic class, count stays above 0 | 1 branch; a buffer append the first time | same |
 | Copy a `Weak<T>` | weak block count inc/dec | same |
-| Cycle collection | only where `Memory.collectCycles` is called, proportional to objects visited | same |
+| Cycle collection | only where `memory::collectCycles` is called, proportional to objects visited | same |
 | Borrow from class field | refcount inc/dec, often elided | 0 |
 | Borrow from container | counter inc/dec | 0 |
 | Pass a lambda to a function parameter | nothing: inlined, like a hand-written loop | same |

@@ -7,7 +7,7 @@
 namespace wyl {
 
 // Synchronous trial deletion (Bacon and Rajan, "Concurrent Cycle Collection in Reference Counted
-// Systems", 2001), run only when the program calls Memory.collectCycles. Traversals use explicit
+// Systems", 2001), run only when the program calls memory::collectCycles. Traversals use explicit
 // stacks, since a cycle may be a long chain. A reference wyl_visit misses only makes its target
 // look referenced from outside, so the collector frees less, never something in use.
 
@@ -77,7 +77,7 @@ class CycleCollector {
 
     void add(Object* object) {
         if (buffer.size() == buffer.capacity() && holes * 2 >= buffer.size()) compact();
-        if (buffer.size() >= UINT32_MAX) panic("too many objects are waiting for Memory.collectCycles", "<runtime>");
+        if (buffer.size() >= UINT32_MAX) raise_panic("too many objects are waiting for memory::collectCycles", "<runtime>");
         buffer.push_back(object);
         object->state |= Object::buffered;
         object->set_slot(static_cast<uint32_t>(buffer.size()));
@@ -231,7 +231,7 @@ class CycleCollector {
         warned_growing = true;
         char message[256];
         std::snprintf(message, sizeof message,
-                      "%llu objects are waiting for Memory.collectCycles, more after each of the last %d calls; its "
+                      "%llu objects are waiting for memory::collectCycles, more after each of the last %d calls; its "
                       "budget is too small to keep up",
                       static_cast<unsigned long long>(waiting), growing_calls);
         performance_warning(message);
@@ -248,7 +248,7 @@ class CycleCollector {
             entry->second = -1;
             char message[256];
             std::snprintf(message, sizeof message,
-                          "objects of class '%s' were freed by %d calls of Memory.collectCycles; a Weak<T> in their "
+                          "objects of class '%s' were freed by %d calls of memory::collectCycles; a Weak<T> in their "
                           "cycles would let them be destroyed as soon as they are unreachable",
                           freed.name, collections_to_warn);
             performance_warning(message);
@@ -277,7 +277,7 @@ class CycleCollector {
         }
         if (length >= 0 && static_cast<size_t>(length) < sizeof message) {
             std::snprintf(message + length, sizeof message - static_cast<size_t>(length),
-                          ". Call Memory.collectCycles to free them, or break the cycles with Weak<T>");
+                          ". Call memory::collectCycles to free them, or break the cycles with Weak<T>");
         }
         performance_warning(message);
     }
@@ -311,7 +311,7 @@ class CycleCollector {
             });
         }
         for (Object* object : garbage) {
-            if (object->refs() != 1) panic("a destructor kept a reference to an object of the cycle being collected", "<destructor>");
+            if (object->refs() != 1) raise_panic("a destructor kept a reference to an object of the cycle being collected", "<destructor>");
         }
 
         // Clearing a reference among the garbage releases the count just taken off for it.
@@ -326,7 +326,7 @@ class CycleCollector {
 
 public:
     void collect(size_t budget, const char* location) {
-        if (destroying > 0) panic("Memory.collectCycles cannot be called from a destructor", location);
+        if (destroying > 0) raise_panic("memory::collectCycles cannot be called from a destructor", location);
         ++destroying;
         roots.swap(buffer);
         holes = 0;
@@ -402,7 +402,7 @@ inline void Object::leave_collector() {
 // As destroy(), except that the slot's reference is still held: it is the 1 that ~Object checks for.
 inline void Object::destroy_in_slot(bool in_place) {
     if constexpr (WYL_DEBUG != 0) {
-        if (refs() != 1) panic("internal compiler error: an object on the stack outlived its scope", "<runtime>");
+        if (refs() != 1) raise_panic("internal compiler error: an object on the stack outlived its scope", "<runtime>");
     }
     clear_weak();
     if (state & buffered) cycles.remove(this);

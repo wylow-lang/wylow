@@ -1,7 +1,7 @@
-// Cycles are freed only by Memory.collectCycles, all of a cycle's destructors run before any of its
+// Cycles are freed only by memory::collectCycles, all of a cycle's destructors run before any of its
 // fields are released, and weak references to its objects read null once it is found.
 
-import std::{List, Memory, Weak, print};
+import std::{List, Weak, memory, print};
 
 class Node {
     int id;
@@ -63,18 +63,18 @@ void main() {
         watched = a;
     }
     print(watched.get() != null);       // output: true
-    Memory.collectCycles();
+    memory::collectCycles();
     // output: 102
     // output: 201
     print(watched.get() == null);       // output: true
 
     // A cycle still referenced from a local is live.
     mut var kept = ring(3, 3);
-    Memory.collectCycles();
+    memory::collectCycles();
     print(kept.next!.next!.id);         // output: 5
     kept = new Node(9);
     print(0);                           // output: 0
-    Memory.collectCycles();
+    memory::collectCycles();
     // output: 304
     // output: 405
     // output: 503
@@ -83,7 +83,7 @@ void main() {
     mut var self = new Node(6);
     self.next = self;
     self = new Node(7);
-    Memory.collectCycles();
+    memory::collectCycles();
     // output: 606
 
     // A cycle through a list: each child refers to its parent, and the parent's list to the children.
@@ -91,16 +91,16 @@ void main() {
     root.add(2).add(3);
     root.add(4);
     root = new Tree(5);
-    Memory.collectCycles();
+    memory::collectCycles();
     // output: 102
     // output: 201
     // output: 300
     // output: 400
 
     // Nothing left to free.
-    _ = Memory.cycleStats();
-    Memory.collectCycles();
-    var stats = Memory.cycleStats();
+    _ = memory::cycleStats();
+    memory::collectCycles();
+    var stats = memory::cycleStats();
     print(stats.freed);                 // output: 0
 }
 // output: 500

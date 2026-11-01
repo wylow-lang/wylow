@@ -1,4 +1,4 @@
-import std::{List, Memory};
+import std::{List, memory};
 
 pub class Base {
     pub virtual void shown() { }
@@ -52,7 +52,7 @@ pub class Maker {
 
 void main() {
     mut int a = 0;
-    Memory.takeCycleStats(ref a, ref a, ref a); // error: method 'Memory.takeCycleStats' is visible only in its file (memory.wyl)
+    memory::takeCycleStats(ref a, ref a, ref a); // error: function 'takeCycleStats' is visible only in its file (memory/memory.wyl)
     var list = new List<int>();
     list.grow(4);                               // error: method 'List.grow' is visible only in its file (list.wyl)
 }

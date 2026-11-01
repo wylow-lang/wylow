@@ -26,7 +26,7 @@ public:
     template <class... A>
     Ref<T> make(A&&... arguments) {
         if constexpr (WYL_DEBUG != 0) {
-            if (object != nullptr) panic("internal compiler error: a stack slot was filled twice", "<runtime>");
+            if (object != nullptr) raise_panic("internal compiler error: a stack slot was filled twice", "<runtime>");
         }
         if constexpr (in_place) {
             object = ::new (static_cast<void*>(storage)) T(std::forward<A>(arguments)...);

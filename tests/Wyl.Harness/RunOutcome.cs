@@ -88,7 +88,7 @@ public static partial class RunComparison
     {
         if (!reference.Conclusive || !other.Conclusive)
             return null;
-        bool compareOutput = !text.Contains("Memory.collectCycles", StringComparison.Ordinal)
+        bool compareOutput = !text.Contains("collectCycles", StringComparison.Ordinal)
             && !text.Contains("cycleStats", StringComparison.Ordinal);
         if (compareOutput && reference.Output != other.Output
             && !(ignoreZeroSign && WithoutZeroSign(reference.Output) == WithoutZeroSign(other.Output)))

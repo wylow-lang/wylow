@@ -24,7 +24,7 @@ The language is described in [docs/spec](docs/spec/README.md).
   and for-each, written in a Wylow standard library on `ref` locals and returns, indexers, `unsafe`
   pointers, `@CallerLocation`, and borrow counting.
 - **Since then:** lambdas and function types (escaping and not), `String` with interpolation,
-  `char`, `Weak<T>` and the cycle collector (`Memory.collectCycles`), annotations, a mid-level IR
+  `char`, `Weak<T>` and the cycle collector (`memory::collectCycles`), annotations, a mid-level IR
   with a verifier that is the flow analysis, optimization passes (stack objects, borrowed and
   moved locals), and an IR interpreter (`wyl interpret`) that runs programs without a C++
   toolchain.

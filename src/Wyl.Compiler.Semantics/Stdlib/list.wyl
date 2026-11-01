@@ -23,7 +23,7 @@ pub final class List<T> implements Borrowable, Spannable<T> {
 
     @CallerLocation
     pub ref T operator [](int index) {
-        Bounds.check(index, size);
+        panic::checkIndex(index, size);
         unsafe {
             return ref data[index];
         }
@@ -46,7 +46,7 @@ pub final class List<T> implements Borrowable, Spannable<T> {
             grow(size + 1);
         }
         unsafe {
-            Memory.initialize(data + size, value);
+            memory::initialize(data + size, value);
         }
         size++;
     }
@@ -54,13 +54,13 @@ pub final class List<T> implements Borrowable, Spannable<T> {
     @CallerLocation
     pub void insert(int index, T value) {
         checkNotBorrowed();
-        Bounds.check(index, size + 1);
+        panic::checkIndex(index, size + 1);
         if (size == space) {
             grow(size + 1);
         }
         unsafe {
-            Memory.moveTo(data + index, data + index + 1, size - index);
-            Memory.initialize(data + index, value);
+            memory::moveTo(data + index, data + index + 1, size - index);
+            memory::initialize(data + index, value);
         }
         size++;
     }
@@ -68,12 +68,12 @@ pub final class List<T> implements Borrowable, Spannable<T> {
     @CallerLocation
     pub T removeAt(int index) {
         checkNotBorrowed();
-        Bounds.check(index, size);
+        panic::checkIndex(index, size);
         unsafe {
             // A copy keeps the element alive, so no destructor runs while the list is rearranged.
             T removed = data[index];
-            Memory.drop(data + index);
-            Memory.moveTo(data + index + 1, data + index, size - index - 1);
+            memory::drop(data + index);
+            memory::moveTo(data + index + 1, data + index, size - index - 1);
             size--;
             return removed;
         }
@@ -106,7 +106,7 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         borrows++;
         unsafe {
             for (int i : 0..old) {
-                Memory.drop(data + i);
+                memory::drop(data + i);
             }
         }
         borrows--;
@@ -177,10 +177,10 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         unsafe {
             mut T* moved = null;
             if (length > 0) {
-                moved = Memory.allocate<T>(length);
-                Memory.moveTo(data, moved, size);
+                moved = memory::allocate<T>(length);
+                memory::moveTo(data, moved, size);
             }
-            Memory.free(data);
+            memory::free(data);
             data = moved;
         }
         space = length;
@@ -189,9 +189,9 @@ pub final class List<T> implements Borrowable, Spannable<T> {
     ~List() {
         unsafe {
             for (int i : 0..size) {
-                Memory.drop(data + i);
+                memory::drop(data + i);
             }
-            Memory.free(data);
+            memory::free(data);
         }
     }
 }

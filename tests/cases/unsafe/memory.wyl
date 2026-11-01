@@ -1,4 +1,4 @@
-import std::{Bounds, Memory, print};
+import std::{memory, panic, print};
 
 class Tracked {
     int id;
@@ -22,20 +22,20 @@ class Stack<T> {
         unsafe {
             if (size == capacity) {
                 int grown = capacity == 0 ? 2 : capacity * 2;
-                T* bigger = Memory.allocate<T>(grown);
-                Memory.moveTo(data, bigger, size);
-                Memory.free(data);
+                T* bigger = memory::allocate<T>(grown);
+                memory::moveTo(data, bigger, size);
+                memory::free(data);
                 data = bigger;
                 capacity = grown;
             }
-            Memory.initialize(data + size, value);
+            memory::initialize(data + size, value);
         }
         size++;
     }
 
     @CallerLocation
     ref T operator [](int index) {
-        Bounds.check(index, size);
+        panic::checkIndex(index, size);
         unsafe {
             return ref data[index];
         }
@@ -44,18 +44,18 @@ class Stack<T> {
     // Rotates the elements one place to the right, moving them onto themselves.
     void shiftRight() {
         unsafe {
-            Memory.drop(data + size - 1);
-            Memory.moveTo(data, data + 1, size - 1);
-            Memory.initialize(data, this[size - 1]);
+            memory::drop(data + size - 1);
+            memory::moveTo(data, data + 1, size - 1);
+            memory::initialize(data, this[size - 1]);
         }
     }
 
     ~Stack() {
         unsafe {
             for (int i : 0..size) {
-                Memory.drop(data + i);
+                memory::drop(data + i);
             }
-            Memory.free(data);
+            memory::free(data);
         }
     }
 }
@@ -101,15 +101,15 @@ void main() {
 
     // A pointer local assigned twice may point into either object.
     unsafe {
-        int* first = Memory.allocate<int>(1);
-        int* second = Memory.allocate<int>(1);
-        Memory.initialize(first, 4);
-        Memory.initialize(second, 9);
+        int* first = memory::allocate<int>(1);
+        int* second = memory::allocate<int>(1);
+        memory::initialize(first, 4);
+        memory::initialize(second, 9);
         mut int* chosen = first;
         chosen = second;
         print(chosen[0]);       // output: 9
-        Memory.free(first);
-        Memory.free(second);
+        memory::free(first);
+        memory::free(second);
     }
 
     mut var objects = new Stack<Tracked>();

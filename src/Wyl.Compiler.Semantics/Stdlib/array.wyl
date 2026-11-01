@@ -9,8 +9,8 @@ pub final class Array<T> implements Spannable<T> {
     @CallerLocation
     pub Array(int length) {
         unsafe {
-            data = Memory.allocate<T>(length);
-            Memory.initializeDefault(data, length);
+            data = memory::allocate<T>(length);
+            memory::initializeDefault(data, length);
         }
         this.length = length;
     }
@@ -18,9 +18,9 @@ pub final class Array<T> implements Spannable<T> {
     @CallerLocation
     pub Array(int length, T value) {
         unsafe {
-            data = Memory.allocate<T>(length);
+            data = memory::allocate<T>(length);
             for (int i : 0..length) {
-                Memory.initialize(data + i, value);
+                memory::initialize(data + i, value);
             }
         }
         this.length = length;
@@ -28,7 +28,7 @@ pub final class Array<T> implements Spannable<T> {
 
     @CallerLocation
     pub ref T operator [](int index) {
-        Bounds.check(index, length);
+        panic::checkIndex(index, length);
         unsafe {
             return ref data[index];
         }
@@ -59,9 +59,9 @@ pub final class Array<T> implements Spannable<T> {
     ~Array() {
         unsafe {
             for (int i : 0..length) {
-                Memory.drop(data + i);
+                memory::drop(data + i);
             }
-            Memory.free(data);
+            memory::free(data);
         }
     }
 }

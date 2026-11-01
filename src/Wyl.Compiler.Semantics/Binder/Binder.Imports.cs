@@ -129,9 +129,11 @@ public sealed partial class Binder
                 var entry = Target(imported, source);
                 if (entry.IsEmpty)
                 {
-                    Error(name.Location, imported.From is { } module
-                        ? $"{DescribeModule(module)} has no name '{name.Name}'"
-                        : $"'{name.Name}' is not a top-level module, a package, or a name of the root module");
+                    var module = imported.From ?? imported.Package.Root;
+                    Error(name.Location, PrivateIn(module, name.Name)
+                        ?? (imported.From is null
+                            ? $"'{name.Name}' is not a top-level module, a package, or a name of the root module"
+                            : $"{DescribeModule(module)} has no name '{name.Name}'"));
                     continue;
                 }
                 var reach = entry.Type?.Reach ?? entry.Functions?.MaxBy(f => f.Reach.Level)?.Reach;
@@ -193,7 +195,25 @@ public sealed partial class Binder
         var entry = NamesOf(module, name, nameLocation.Source);
         if (entry.HasValue)
             return entry;
-        Error(nameLocation, $"{DescribeModule(module)} has no name '{name}'");
+        Error(nameLocation, PrivateIn(module, name) ?? $"{DescribeModule(module)} has no name '{name}'");
+        return null;
+    }
+
+    /// <summary>
+    /// How far a file-private declaration of the name in one of the module's files reaches, which
+    /// isn't one of the module's names, so that a miss says it is private (§6.1, Imports).
+    /// </summary>
+    string? PrivateIn(Module module, string name)
+    {
+        foreach (var file in module.Files)
+        {
+            if (!fileNames.TryGetValue(file, out var table))
+                continue;
+            if (table.Types.TryGetValue(name, out var type))
+                return $"'{name}' is visible {type.Reach.Describe()}";
+            if (table.Functions.TryGetValue(name, out var functions))
+                return $"function '{name}' is visible {functions[0].Reach.Describe()}";
+        }
         return null;
     }
 

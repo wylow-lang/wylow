@@ -113,7 +113,7 @@ anywhere (a struct may have a `T*` field); only using a pointer needs unsafe cod
 > Implemented so far: `unsafe` blocks, methods, and constructors; pointer types `T*`, which default
 > to `null` and compare with `==`; `p[i]`, an unchecked place; and `p + n` and `p - n`. There is no
 > address-of and no pointer casts yet, and unsafe code still has its runtime checks (`@Unchecked` is
-> not implemented). Memory comes from the standard library's `Memory`: `allocate<T>(count)`
+> not implemented). Memory comes from the standard library's `std::memory`: `allocate<T>(count)`
 > (uninitialized), `free`, `initialize(place, value)`, `initializeDefault(data, count)`,
 > `drop(place)`, and `moveTo(from, to, count)`, which `Array` and `List` are written with.
 

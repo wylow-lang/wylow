@@ -128,7 +128,10 @@ The user wants the no-prelude choice revisited as std changes.
    `Binder.ResolveName`/`ResolveModule` (`Binder.Names.cs`). Self-test programs see std through
    `Wyl.Harness/TestPrograms.WithStd`. Left for 5: a package-level miss, which needs a
    `pub(package)` declaration in std.
-5. `stdlib`: `std::panic` and `std::memory`.
+5. `stdlib`: `std::panic` and `std::memory` (done): std's subdirectories are modules, built-in
+   `panic` is a name of `std::panic` that `std` re-exports (`exports.wyl`), an extern's C++ name is
+   in its module's runtime namespace, and the runtime's own panic is `wyl::raise_panic`.
+   `memory::initializeDefault` is `pub(package)` (the package-level miss in `errors/imports.wyl`).
 6. `emitter`: a method doesn't override a base method it can't see; delete this file.
 
 ## After this

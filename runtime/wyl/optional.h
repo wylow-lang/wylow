@@ -90,7 +90,7 @@ public:
     // Flow analysis proved there is a value.
     T& assumed() {
         if constexpr (WYL_DEBUG != 0) {
-            if (!has_) panic("internal compiler error: null value used as narrowed", "<runtime>");
+            if (!has_) raise_panic("internal compiler error: null value used as narrowed", "<runtime>");
         }
         return value_;
     }
@@ -120,7 +120,7 @@ public:
     // Flow analysis proved there is a value.
     T& assumed() {
         if constexpr (WYL_DEBUG != 0) {
-            if (value_.wyl_is_null()) panic("internal compiler error: null value used as narrowed", "<runtime>");
+            if (value_.wyl_is_null()) raise_panic("internal compiler error: null value used as narrowed", "<runtime>");
         }
         return value_;
     }
@@ -178,19 +178,19 @@ inline const T& assume_value(const Optional<T>& value) {
 // A copy: a reference into the nullable could outlive its value.
 template <class T>
 inline T unwrap(const Optional<T>& value, const char* location) {
-    if (!value.has_value()) panic("null value unwrapped with '!'", location);
+    if (!value.has_value()) raise_panic("null value unwrapped with '!'", location);
     return value.assumed();
 }
 
 // Checks printed apart from the value they guard, like check_index.
 template <class T>
 inline void check_not_null(const Ref<T>& value, const char* location) {
-    if (!value) panic("null value unwrapped with '!'", location);
+    if (!value) raise_panic("null value unwrapped with '!'", location);
 }
 
 template <class T>
 inline void check_has_value(const Optional<T>& value, const char* location) {
-    if (!value.has_value()) panic("null value unwrapped with '!'", location);
+    if (!value.has_value()) raise_panic("null value unwrapped with '!'", location);
 }
 
 // Stores every part of the new value before releasing any part of the old one: a memberwise copy

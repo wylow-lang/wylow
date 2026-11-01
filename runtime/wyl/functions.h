@@ -43,7 +43,7 @@ public:
 
     R operator()(A... arguments) const {
         if constexpr (WYL_DEBUG != 0) {
-            if (code == nullptr) panic("internal compiler error: null function called", "<runtime>");
+            if (code == nullptr) raise_panic("internal compiler error: null function called", "<runtime>");
         }
         return code(closure.get(), std::forward<A>(arguments)...);
     }

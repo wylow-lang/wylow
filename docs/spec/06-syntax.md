@@ -128,10 +128,9 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
   the cycle collector (`collectCycles`, `cycleStats`, §3).
 
-> Implemented, but for extensions found through imports (extensions aren't implemented). The
-> standard library is still one module: until `std::panic` and `std::memory` are, the checks are
-> `Bounds.check` and `Bounds.checkRange`, raw memory and the collector are `Memory`'s static
-> methods, and `print` and `panic` are names of `std` itself, imported as `std::print`.
+> Implemented, but for extensions found through imports (extensions aren't implemented). Only
+> the standard library's sources are in modules other than a root so far: `std::memory`,
+> `std::panic`, and `std` itself.
 
 ### Functions or static methods
 
@@ -662,7 +661,7 @@ be reassigned if it is `mut`.
   `ref struct`, a non-escaping function, or `this` in a struct's method or constructor (copy what it
   needs to a local first). A captured class reference, including `this`, keeps its object alive.
   So a closure can be part of a cycle, as in `this.onHit = () -> react(this);`, which
-  `Memory.collectCycles` collects like any other.
+  `memory::collectCycles` collects like any other.
 - **Choices.** A `?:` or switch expression of escaping type evaluates only the option it chooses,
   like any other. One of non-escaping type makes its lambdas and refers to its non-escaping
   locals up front, which no one can observe; the check a `!` makes runs only where its option is

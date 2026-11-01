@@ -2,7 +2,7 @@
 // it is destroyed exactly where it would have been released. `stack:` counts the objects of a line
 // that are; every other object made in the program is on the heap.
 
-import std::{List, Memory, Weak, print};
+import std::{List, Weak, memory, print};
 
 class Noisy {
     String name;
@@ -307,8 +307,8 @@ void main() {
         var node = new Noisy("node"); // stack: 1
         node.other = new Noisy("next"); // stack: 0
         print(read(node));
-        Memory.collectCycles();
-        print(Memory.cycleStats().freed);
+        memory::collectCycles();
+        print(memory::cycleStats().freed);
     }
     // output: node
     // output: 0

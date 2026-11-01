@@ -1,4 +1,4 @@
-// Without a call to Memory.collectCycles, a cycle is never freed, not even at exit, while
+// Without a call to memory::collectCycles, a cycle is never freed, not even at exit, while
 // everything else is still freed as soon as nothing refers to it.
 
 import std::print;

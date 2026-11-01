@@ -84,7 +84,7 @@ Every function body is lowered to the mid-level IR, verified, and printed from i
 writes `<name>.ir` next to each test's C++. `--no-nest` and `--no-opt` (in the CLI and the test
 runner) must pass too: declining to nest a temporary or to run an optimization is always correct,
 and `--no-opt` skips the `// stack:` and `// in-place:` markers, which count optimizations. (With
-`--no-opt`, a budgeted `Memory.collectCycles` may reach other cycles, since a pin's release
+`--no-opt`, a budgeted `memory::collectCycles` may reach other cycles, since a pin's release
 buffers its object for the cycle collector.)
 
 To show a change altered no behavior (a refactoring step): build the commit before it in a git
@@ -168,7 +168,7 @@ is in, `Packages.cs`), `Diagnostics`, and the manifest reader (`Manifest.cs`).
   with `// stack: <n>`, and a test observing an optimization through diagnostics is
   `// mode: optimized`.
 - `Semantics/Stdlib/*.wyl`: the standard library, Wylow source compiled with every program
-  (`Result`, `Array`, `List`, `Span`, `Memory`, ...), declared before the user's code. The compiler
+  (`Result`, `Array`, `List`, `Span`, the modules `std::memory` and `std::panic`, ...), declared before the user's code. The compiler
   knows stdlib types only through `StdlibSymbols` (found by name in stdlib sources) and narrow
   hooks; prefer writing library code in Wylow over adding compiler special cases. `extern` functions
   (stdlib only) are implemented in `runtime/wyl/intrinsics.h`.

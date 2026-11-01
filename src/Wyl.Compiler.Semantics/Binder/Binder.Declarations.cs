@@ -417,7 +417,10 @@ public sealed partial class Binder
             Error(decl.NameLocation, "extern functions are only supported in the standard library for now");
         if (owner is { IsExtern: true } && (decl.Modifiers & Modifiers.Static) == 0)
             return decl.Name;
-        return owner is null ? $"wyl::{decl.Name}" : $"wyl::{char.ToLowerInvariant(owner.Name[0])}{owner.Name[1..]}::{decl.Name}";
+        if (owner is not null)
+            return $"wyl::{char.ToLowerInvariant(owner.Name[0])}{owner.Name[1..]}::{decl.Name}";
+        // A function of std::memory is wyl::memory::allocate, as the runtime declares it.
+        return $"wyl::{string.Concat(decl.Location.Source.Module.Path.Select(name => name + "::"))}{decl.Name}";
     }
 
     /// <summary>A returned span views the receiver, so only instance methods may return one.</summary>

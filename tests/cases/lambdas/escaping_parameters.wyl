@@ -1,7 +1,7 @@
 // A function type's parameter declared '@Escaping' is escaping in the lambdas of that type, so they
 // can store what they are passed.
 
-import std::{List, Memory, print};
+import std::{List, memory, print};
 
 class Bus {
     List<() -> void> handlers = new List<() -> void>();
@@ -45,7 +45,7 @@ void main() {
     // Stored by a lambda held in a field, then called later. The lambda captures its bus, a cycle.
     subscribed();                                   // output: 1
                                                     // output: 2
-    Memory.collectCycles();
+    memory::collectCycles();
 
     // A typed lambda declares the parameter '@Escaping' too, and is passed through an interface.
     var kept = new List<(int) -> int>();

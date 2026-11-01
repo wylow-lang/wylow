@@ -1,7 +1,7 @@
 // An object's weak block and its place in the cycle buffer share one word of its header: an object
 // with both still leaves the buffer when destroyed, and the collector still finds it.
 
-import std::{Memory, Weak, print};
+import std::{Weak, memory, print};
 
 class Node {
     int id;
@@ -38,7 +38,7 @@ void main() {
     mut var f = e;
     f = new Node(6);
     Weak<Node> third = e;
-    Memory.collectCycles(0);
+    memory::collectCycles(0);
     e = f;                              // output: 5
     print(third.get() == null);         // output: true
 
@@ -50,7 +50,7 @@ void main() {
         g.next = g;
     }
     print(fourth.get() != null);        // output: true
-    Memory.collectCycles();             // output: 7
+    memory::collectCycles();             // output: 7
     print(fourth.get() == null);        // output: true
 }
 // output: 6

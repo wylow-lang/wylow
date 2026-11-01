@@ -14,9 +14,9 @@ inline T add(T a, T b, const char* location) {
     T r = static_cast<T>(static_cast<Wide<T>>(a) + static_cast<Wide<T>>(b));
     if constexpr (WYL_DEBUG != 0) {
         if constexpr (std::is_signed_v<T>) {
-            if (((a ^ r) & (b ^ r)) < 0) panic("integer overflow", location);
+            if (((a ^ r) & (b ^ r)) < 0) raise_panic("integer overflow", location);
         } else {
-            if (r < a) panic("integer overflow", location);
+            if (r < a) raise_panic("integer overflow", location);
         }
     }
     return r;
@@ -27,9 +27,9 @@ inline T sub(T a, T b, const char* location) {
     T r = static_cast<T>(static_cast<Wide<T>>(a) - static_cast<Wide<T>>(b));
     if constexpr (WYL_DEBUG != 0) {
         if constexpr (std::is_signed_v<T>) {
-            if (((a ^ b) & (a ^ r)) < 0) panic("integer overflow", location);
+            if (((a ^ b) & (a ^ r)) < 0) raise_panic("integer overflow", location);
         } else {
-            if (a < b) panic("integer overflow", location);
+            if (a < b) raise_panic("integer overflow", location);
         }
     }
     return r;
@@ -51,7 +51,7 @@ inline bool mul_overflows(T a, T b) {
 template <class T>
 inline T mul(T a, T b, const char* location) {
     if constexpr (WYL_DEBUG != 0) {
-        if (mul_overflows(a, b)) panic("integer overflow", location);
+        if (mul_overflows(a, b)) raise_panic("integer overflow", location);
     }
     return static_cast<T>(static_cast<Wide<T>>(a) * static_cast<Wide<T>>(b));
 }
@@ -59,7 +59,7 @@ inline T mul(T a, T b, const char* location) {
 template <class T>
 inline T neg(T a, const char* location) {
     if constexpr (WYL_DEBUG != 0) {
-        if (a == std::numeric_limits<T>::min()) panic("integer overflow", location);
+        if (a == std::numeric_limits<T>::min()) raise_panic("integer overflow", location);
     }
     return static_cast<T>(Wide<T>(0) - static_cast<Wide<T>>(a));
 }
@@ -67,9 +67,9 @@ inline T neg(T a, const char* location) {
 // MIN / -1 has no wrapped result that is useful, so it panics in every build.
 template <class T>
 inline T div(T a, T b, const char* location) {
-    if (b == 0) panic("division by zero", location);
+    if (b == 0) raise_panic("division by zero", location);
     if constexpr (std::is_signed_v<T>) {
-        if (b == -1 && a == std::numeric_limits<T>::min()) panic("integer overflow", location);
+        if (b == -1 && a == std::numeric_limits<T>::min()) raise_panic("integer overflow", location);
     }
     return static_cast<T>(a / b);
 }
@@ -84,7 +84,7 @@ inline F fdiv(F a, F b) {
 
 template <class T>
 inline T rem(T a, T b, const char* location) {
-    if (b == 0) panic("division by zero", location);
+    if (b == 0) raise_panic("division by zero", location);
     if constexpr (std::is_signed_v<T>) {
         if (b == -1) return 0;
     }
@@ -121,7 +121,7 @@ inline char32_t to_char(T value, const char* location) {
         auto v = static_cast<uint32_t>(value);
         if (v <= 0x10FFFFu && (v < 0xD800u || v > 0xDFFFu)) return static_cast<char32_t>(v);
     }
-    panic("integer is not a Unicode scalar value", location);
+    raise_panic("integer is not a Unicode scalar value", location);
 }
 
 // Rounds to nearest like IEEE, including overflow to infinity; a plain C++ cast is UB out of range.

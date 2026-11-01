@@ -226,7 +226,7 @@ static class InterpreterSelfTests
 
                 @CallerLocation
                 mut int get(int index) {
-                    Bounds.check(index, 2);
+                    panic::checkIndex(index, 2);
                     return values[index];
                 }
             }
@@ -326,9 +326,9 @@ static class InterpreterSelfTests
 
         Case(results, "bounds_range", """
             void main() {
-                Bounds.checkRange(1, 3, 4);
+                panic::checkRange(1, 3, 4);
                 print("ok");
-                Bounds.checkRange(2, 3, 4);
+                panic::checkRange(2, 3, 4);
             }
             """, panic: "range of 3 from 2 is out of bounds for length 4", output: ["ok"]);
 
@@ -1018,21 +1018,21 @@ static class InterpreterSelfTests
                 unsafe {
                     int* nothing = null;
                     print(nothing == null);
-                    int* values = Memory.allocate<int>(3);
+                    int* values = memory::allocate<int>(3);
                     for (int i : 0..3) {
-                        Memory.initialize(values + i, i * 10);
+                        memory::initialize(values + i, i * 10);
                     }
                     print(values[0]);
                     print(third(values));
                     int* middle = values + 1;
                     print(middle[1]);
                     print(values == middle);
-                    Memory.moveTo(values, values + 1, 2);
+                    memory::moveTo(values, values + 1, 2);
                     print(values[1]);
                     print(values[2]);
-                    Memory.drop(values + 2);
-                    Memory.free(values);
-                    Memory.free<int>(null);
+                    memory::drop(values + 2);
+                    memory::free(values);
+                    memory::free<int>(null);
                 }
             }
             """, output: ["true", "0", "20", "20", "false", "0", "10"]);
@@ -1140,7 +1140,7 @@ static class InterpreterSelfTests
         Case(results, "allocate_negative", """
             void main() {
                 unsafe {
-                    int* values = Memory.allocate<int>(-1);
+                    int* values = memory::allocate<int>(-1);
                     print(values == null);
                 }
             }
@@ -1149,7 +1149,7 @@ static class InterpreterSelfTests
         Case(results, "uninitialized_read", """
             void main() {
                 unsafe {
-                    int* values = Memory.allocate<int>(1);
+                    int* values = memory::allocate<int>(1);
                     print(values[0]);
                 }
             }
@@ -1248,8 +1248,8 @@ static class InterpreterSelfTests
                 a.next = new Node(2);
                 a.next!.next = a;
                 a = new Node(3);
-                Memory.collectCycles();
-                print(Memory.cycleStats().freed);
+                memory::collectCycles();
+                print(memory::cycleStats().freed);
             }
             """, output: ["1", "2", "2", "3"]);
 
@@ -1263,11 +1263,11 @@ static class InterpreterSelfTests
                 a.next = new Node();
                 a.next!.next = a;
                 a = new Node();
-                Memory.collectCycles(1);
-                var budgeted = Memory.cycleStats();
+                memory::collectCycles(1);
+                var budgeted = memory::cycleStats();
                 print(budgeted.visited);
-                Memory.collectCycles();
-                var collected = Memory.cycleStats();
+                memory::collectCycles();
+                var collected = memory::cycleStats();
                 print(collected.visited);
                 print(collected.freed);
             }
@@ -1286,7 +1286,7 @@ static class InterpreterSelfTests
                     watch = a;
                 }
                 print(watch.get() != null);
-                Memory.collectCycles();
+                memory::collectCycles();
                 print(watch.get() == null);
             }
             """, output: ["true", "true"]);
@@ -1294,7 +1294,7 @@ static class InterpreterSelfTests
         Case(results, "collect_in_destructor", """
             class Node {
                 ~Node() {
-                    Memory.collectCycles();
+                    memory::collectCycles();
                 }
             }
 
@@ -1302,7 +1302,7 @@ static class InterpreterSelfTests
                 mut var n = new Node();
                 n = new Node();
             }
-            """, panic: "Memory.collectCycles cannot be called from a destructor", panicAtLine: 3);
+            """, panic: "memory::collectCycles cannot be called from a destructor", panicAtLine: 3);
 
         Case(results, "cycle_resurrection", """
             class Keeper {
@@ -1328,7 +1328,7 @@ static class InterpreterSelfTests
                 a.next = new Node(keeper);
                 a.next!.next = a;
                 a = new Node(new Keeper());
-                Memory.collectCycles();
+                memory::collectCycles();
             }
             """, panic: "a destructor kept a reference to an object of the cycle being collected");
 
@@ -1358,7 +1358,7 @@ static class InterpreterSelfTests
             void main() {
                 var local = new Node();
                 drop(local);
-                print(Memory.cycleStats().buffered);
+                print(memory::cycleStats().buffered);
             }
             """, optimized: true, output: ["0", "destroyed"]);
 
@@ -1397,12 +1397,12 @@ static class InterpreterSelfTests
     {
         const string name = "interpreter/allocation_budget";
         var source = new SourceText("budget.wyl", """
-            import std::Memory;
+            import std::memory;
 
             void main() {
                 unsafe {
-                    int* values = Memory.allocate<int>(20_000);
-                    Memory.free(values);
+                    int* values = memory::allocate<int>(20_000);
+                    memory::free(values);
                 }
             }
             """);
@@ -1426,8 +1426,9 @@ static class InterpreterSelfTests
             return new(name, "the empty program did not bind");
         var symbols = program.Types
             .SelectMany(type => type.Members)
-            .Where(member => member.IsBuiltin)
-            .Concat(Builtins.All)
+            .Concat(program.FreeFunctions)
+            .Where(function => function.IsBuiltin)
+            .Concat(Builtins.All.Select(builtin => builtin.Function))
             .Concat([
                 Builtins.Interpolate([]),
                 Builtins.ToString(WylType.Int),

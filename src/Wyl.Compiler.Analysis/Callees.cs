@@ -129,13 +129,13 @@ public sealed class Callees
     }
 
     /// <summary>
-    /// What an extern function runs that analyses must know of, as other runs: <c>Memory</c>'s
+    /// What an extern function runs that analyses must know of, as other runs: <c>std::memory</c>'s
     /// destroy values and make default ones, and its cycle collector destroys any garbage.
     /// </summary>
     public IReadOnlyList<IrRun> ExternRuns(MethodReference method)
     {
         Fresh(method);
-        if (method.Symbol.ContainingType != Program.Bound.Stdlib.Memory)
+        if (!StdlibSymbols.IsMemoryFunction(method.Symbol))
             return [];
         return method.Symbol.Name switch
         {

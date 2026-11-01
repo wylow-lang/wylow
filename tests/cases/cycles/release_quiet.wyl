@@ -1,7 +1,7 @@
 // mode: release
 // Release builds report no performance warnings.
 
-import std::{Memory, print};
+import std::{memory, print};
 
 class Node {
     mut Node? next;
@@ -11,7 +11,7 @@ void main() {
     for (int i : 0..10) {
         var n = new Node();
         n.next = n;
-        Memory.collectCycles();
+        memory::collectCycles();
     }
     var left = new Node();
     left.next = left;

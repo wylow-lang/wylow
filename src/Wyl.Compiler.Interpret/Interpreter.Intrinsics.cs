@@ -28,13 +28,13 @@ public sealed partial class Interpreter
         var table = new Dictionary<string, IntrinsicHandler>(StringComparer.Ordinal)
         {
             ["wyl::print"] = (i, call, location, caller) => i.Print(call.Method, i.ArgumentsOf(call, caller)),
-            ["wyl::panic"] = (i, call, location, caller) => Panic(i.ArgumentsOf(call, caller), location),
+            ["wyl::panic::panic"] = (i, call, location, caller) => Panic(i.ArgumentsOf(call, caller), location),
             ["wyl::interpolate"] = (i, call, location, caller) => i.Interpolate(call.Method, i.ArgumentsOf(call, caller), location),
             ["wyl::formatted"] = (i, call, location, caller) => Formatted(call.Method, i.ArgumentsOf(call, caller)),
             ["wyl::format_string"] = (i, call, location, caller) => FormatString(call.Method, i.ArgumentsOf(call, caller)),
             ["wyl::compare"] = (i, call, location, caller) => Compare(call.Method, i.ArgumentsOf(call, caller)),
-            ["wyl::bounds::check"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
-            ["wyl::bounds::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
+            ["wyl::panic::checkIndex"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
+            ["wyl::panic::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
         };
         foreach (var name in MemoryNames)

@@ -153,7 +153,7 @@ public:
     void append(const char* bytes, size_t count, const char* location) {
         // An empty buffer has no block to point into.
         if (count == 0) return;
-        if (count > static_cast<size_t>(INT32_MAX) - length_) panic("string is too long", location);
+        if (count > static_cast<size_t>(INT32_MAX) - length_) raise_panic("string is too long", location);
         size_t needed = length_ + count;
         if (needed > capacity_) grow(needed);
         std::memcpy(block_->bytes() + length_, bytes, count);
@@ -227,7 +227,7 @@ private:
         if (characters >= width) return;
         size_t count = width - characters;
         size_t end = length_;
-        if (count > static_cast<size_t>(INT32_MAX) - length_) panic("string is too long", location);
+        if (count > static_cast<size_t>(INT32_MAX) - length_) raise_panic("string is too long", location);
         if (length_ + count > capacity_) grow(length_ + count);
         char* bytes = block_->bytes();
         if (alignment > 0) {
@@ -276,13 +276,13 @@ inline String String::slice(int32_t start, int32_t count, const char* location) 
         char message[128];
         std::snprintf(message, sizeof message, "byte range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
                       length_);
-        panic(message, location);
+        raise_panic(message, location);
     }
     for (int32_t offset : {start, start + count}) {
         if (!is_boundary(offset)) {
             char message[96];
             std::snprintf(message, sizeof message, "byte offset %" PRId32 " is inside a character", offset);
-            panic(message, location);
+            raise_panic(message, location);
         }
     }
     if (count == length_) return *this;

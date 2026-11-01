@@ -1,7 +1,7 @@
 // A budget limits how many objects a collection visits. A cycle that doesn't fit in what is left
 // of the budget waits for a later call rather than being half-visited.
 
-import std::{Memory, print};
+import std::{memory, print};
 
 class Node {
     int id;
@@ -24,7 +24,7 @@ void pair(int first) {
 }
 
 void report() {
-    var stats = Memory.cycleStats();
+    var stats = memory::cycleStats();
     print(stats.visited * 100 + stats.freed);
 }
 
@@ -32,27 +32,27 @@ void main() {
     pair(10);
     pair(20);
     pair(30);
-    _ = Memory.cycleStats();
+    _ = memory::cycleStats();
 
-    Memory.collectCycles(2);
+    memory::collectCycles(2);
     // output: 10
     // output: 11
     report();                       // output: 202
 
     // A cycle of two doesn't fit in a budget of one, so nothing is visited.
-    Memory.collectCycles(1);
+    memory::collectCycles(1);
     report();                       // output: 0
-    Memory.collectCycles(0);
+    memory::collectCycles(0);
     report();                       // output: 0
 
-    Memory.collectCycles(3);
+    memory::collectCycles(3);
     // output: 20
     // output: 21
     report();                       // output: 202
 
-    Memory.collectCycles();
+    memory::collectCycles();
     // output: 30
     // output: 31
     report();                       // output: 202
-    Memory.collectCycles(-1);       // panic-here: cannot visit a negative number of objects
+    memory::collectCycles(-1);       // panic-here: cannot visit a negative number of objects
 }

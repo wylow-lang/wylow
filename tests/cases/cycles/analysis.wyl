@@ -1,7 +1,7 @@
 // Only objects of classes that may be cyclic are buffered when a release leaves their count above
 // zero, and only on the heap. Each `onHeap` and `drop` below makes one such release.
 
-import std::{List, Memory, Weak, print};
+import std::{List, Weak, memory, print};
 
 class Leaf {
     int value;
@@ -89,7 +89,7 @@ T onHeap<T>(T value) {
 }
 
 void report(String name) {
-    var stats = Memory.cycleStats();
+    var stats = memory::cycleStats();
     print(name);
     print(stats.buffered);
 }
@@ -133,8 +133,8 @@ void main() {
     var owned = onHeap(new Wrapper<Owner>(new Owner()));
     var number = onHeap(new Wrapper<int>(1));
     // Collecting empties the buffer, which onHeap added to, so that only the drops count.
-    Memory.collectCycles();
-    _ = Memory.cycleStats();
+    memory::collectCycles();
+    _ = memory::cycleStats();
     drop(owned);
     drop(number);
     report("generic");                  // output: generic
@@ -146,7 +146,7 @@ void main() {
     // output: 0
 
     // A collection leaves nothing buffered, so the object is buffered again.
-    Memory.collectCycles();
+    memory::collectCycles();
     drop(node);
     report("after collecting");         // output: after collecting
     // output: 1

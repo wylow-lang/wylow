@@ -13,8 +13,8 @@ namespace memory {
 // Uninitialized storage for count values of T.
 template <class T>
 inline T* allocate(int32_t count, const char* location) {
-    if (count < 0) panic("cannot allocate a negative number of elements", location);
-    if (static_cast<size_t>(count) > SIZE_MAX / sizeof(T)) panic("allocation is too large", location);
+    if (count < 0) raise_panic("cannot allocate a negative number of elements", location);
+    if (static_cast<size_t>(count) > SIZE_MAX / sizeof(T)) raise_panic("allocation is too large", location);
     return static_cast<T*>(::operator new(sizeof(T) * static_cast<size_t>(count), std::align_val_t(alignof(T))));
 }
 
@@ -58,7 +58,7 @@ inline void moveTo(T* from, T* to, int32_t count) {
 inline void collectCycles(const char* location) { cycles.collect(SIZE_MAX, location); }
 
 inline void collectCycles(int32_t maxVisits, const char* location) {
-    if (maxVisits < 0) panic("cannot visit a negative number of objects", location);
+    if (maxVisits < 0) raise_panic("cannot visit a negative number of objects", location);
     cycles.collect(static_cast<size_t>(maxVisits), location);
 }
 
@@ -72,9 +72,12 @@ inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) 
 
 }  // namespace memory
 
-namespace bounds {
+// std::panic (spec 06-syntax.md §6.1): panic itself and the checks built-in arrays make.
+namespace panic {
 
-inline void check(int32_t index, int32_t length, const char* location) {
+[[noreturn]] inline void panic(const String& message, const char* location) { raise_panic(message, location); }
+
+inline void checkIndex(int32_t index, int32_t length, const char* location) {
     if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) panic_index(index, length, location);
 }
 
@@ -83,11 +86,11 @@ inline void checkRange(int32_t start, int32_t count, int32_t length, const char*
         char message[128];
         std::snprintf(message, sizeof message, "range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
                       length);
-        panic(message, location);
+        raise_panic(message, location);
     }
 }
 
-}  // namespace bounds
+}  // namespace panic
 
 template <class T>
     requires requires(FormatBuffer& buffer, T value) { format(buffer, value); }

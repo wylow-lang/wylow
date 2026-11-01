@@ -274,7 +274,7 @@ public sealed partial class CppEmitter
         Line("        default: break;");
         Line("        }");
         Line("    }");
-        Line($"    wyl::panic({message}, location);");
+        Line($"    wyl::raise_panic({message}, location);");
         Line("}");
     }
 
@@ -349,7 +349,7 @@ public sealed partial class CppEmitter
         var location = SourceLocation(method.Declaration!.NameLocation);
         var message = CppStringLiteral(method.AbstractCallMessage);
         var signature = $"{CppType(method.ReturnType)} {MethodName(method)}({parameterTypes})";
-        Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ wyl::panic({message}, {location}); }}");
+        Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ wyl::raise_panic({message}, {location}); }}");
     }
 
     void EmitDefaultFunction(TypeSymbol s)

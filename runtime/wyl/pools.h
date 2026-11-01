@@ -111,7 +111,7 @@ private:
 
     static Chunk* new_chunk(size_t index) {
         void* memory = map_chunk();
-        if (memory == nullptr) panic("out of memory", "<runtime>");
+        if (memory == nullptr) raise_panic("out of memory", "<runtime>");
         Chunk* chunk = ::new (memory) Chunk{};
         chunk->size_class = static_cast<uint8_t>(index);
         chunk->capacity = static_cast<uint32_t>((chunk_size - header_size) / (index * granule));

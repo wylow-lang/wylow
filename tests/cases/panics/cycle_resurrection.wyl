@@ -1,7 +1,7 @@
 // A destructor run by the collector may not leave a reference to an object of its cycle anywhere
 // outside the cycle.
 
-import std::Memory;
+import std::memory;
 
 class Keeper {
     mut Node? kept;
@@ -26,5 +26,5 @@ void main() {
     a.next = new Node(keeper);
     a.next!.next = a;
     a = new Node(new Keeper());
-    Memory.collectCycles();         // panic: a destructor kept a reference to an object of the cycle being collected
+    memory::collectCycles();         // panic: a destructor kept a reference to an object of the cycle being collected
 }

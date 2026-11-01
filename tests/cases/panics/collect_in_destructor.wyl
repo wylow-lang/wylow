@@ -1,9 +1,9 @@
-import std::Memory;
+import std::memory;
 
 class Node {
 
     ~Node() {
-        Memory.collectCycles();     // panic-here: Memory.collectCycles cannot be called from a destructor
+        memory::collectCycles();     // panic-here: memory::collectCycles cannot be called from a destructor
     }
 }
 

@@ -1,4 +1,4 @@
-import std::Memory;
+import std::memory;
 
 @Acyclic
 class Tree {
@@ -24,5 +24,5 @@ class Holder {
 }
 
 void main() {
-    Memory.collectCycles(1L);       // error: no overload of 'Memory.collectCycles' accepts (long)
+    memory::collectCycles(1L);       // error: no overload of 'collectCycles' accepts (long)
 }

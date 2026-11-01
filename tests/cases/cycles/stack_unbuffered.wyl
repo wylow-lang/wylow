@@ -2,7 +2,7 @@
 // cyclic: nothing outside its scope refers to it. Without optimizations it is on the heap and is.
 // mode: optimized
 
-import std::{Memory, print};
+import std::{memory, print};
 
 class Node {
     Node? next;
@@ -14,6 +14,6 @@ void drop<T>(T value) {
 void main() {
     var local = new Node(); // stack: 1
     drop(local);
-    print(Memory.cycleStats().buffered);
+    print(memory::cycleStats().buffered);
     // output: 0
 }

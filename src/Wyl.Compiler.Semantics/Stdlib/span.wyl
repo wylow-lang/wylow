@@ -15,7 +15,7 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
 
     @CallerLocation
     pub ref T operator [](int index) {
-        Bounds.check(index, count);
+        panic::checkIndex(index, count);
         unsafe {
             return ref data[index];
         }
@@ -34,7 +34,7 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
     // The `length` elements starting at `start`.
     @CallerLocation
     pub Span<T> slice(int start, int length) {
-        Bounds.checkRange(start, length, count);
+        panic::checkRange(start, length, count);
         unsafe {
             return Span<T>(data + start, length);
         }
@@ -63,7 +63,7 @@ pub ref struct ReadOnlySpan<T> {
 
     @CallerLocation
     pub in T operator [](int index) {
-        Bounds.check(index, count);
+        panic::checkIndex(index, count);
         unsafe {
             return ref data[index];
         }
@@ -82,7 +82,7 @@ pub ref struct ReadOnlySpan<T> {
     // The `length` elements starting at `start`.
     @CallerLocation
     pub ReadOnlySpan<T> slice(int start, int length) {
-        Bounds.checkRange(start, length, count);
+        panic::checkRange(start, length, count);
         unsafe {
             return ReadOnlySpan<T>(data + start, length);
         }

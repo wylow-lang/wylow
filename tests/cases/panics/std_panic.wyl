@@ -1,0 +1,12 @@
+// `import std::panic;` brings in the module std::panic and the function panic that std re-exports
+// (spec 06-syntax.md §6.1, Imports).
+
+import std::{panic, print};
+
+void main() {
+    panic::checkIndex(1, 2);
+    panic::checkRange(0, 2, 2);
+    panic::checkRange(2, 0, 2);
+    print("in bounds");                 // output: in bounds
+    panic("closed");                    // panic-here: closed
+}

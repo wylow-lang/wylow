@@ -1,6 +1,6 @@
 // A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
 
-import std::{List, Memory, print};
+import std::{List, memory, print};
 
 class Enemy {
     int id;
@@ -64,7 +64,7 @@ void main() {
         enemy.onHit();                              // output: 10
     }
     print(-9);                                      // output: -9
-    Memory.collectCycles();                         // output: 1
+    memory::collectCycles();                         // output: 1
 
     // A cycle through a list of closures.
     if (true) {
@@ -76,7 +76,7 @@ void main() {
                                                     // output: 3
         }
     }
-    Memory.collectCycles();                         // output: -1
+    memory::collectCycles();                         // output: -1
                                                     // output: 200
                                                     // output: 300
 
@@ -87,7 +87,7 @@ void main() {
         box.f = x -> x + (held.f != null ? 1 : 0);
         print(box.f!(1));                           // output: 2
     }
-    Memory.collectCycles();                         // output: -2
+    memory::collectCycles();                         // output: -2
 
     // Breaking the cycle by hand frees it without the collector.
     mut var enemy = new Enemy(4);
@@ -96,8 +96,8 @@ void main() {
     print(-9);                                      // output: -9
     enemy = new Enemy(6);                           // output: 4
 
-    _ = Memory.cycleStats();
-    Memory.collectCycles();
-    print(Memory.cycleStats().freed);               // output: 0
+    _ = memory::cycleStats();
+    memory::collectCycles();
+    print(memory::cycleStats().freed);               // output: 0
 }
 // output: 6

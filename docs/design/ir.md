@@ -632,7 +632,7 @@ release earlier only where nothing can tell.
 - **Nim, ARC/ORC.** [Destructors and Move Semantics](https://nim-lang.org/docs/destructors.html):
   "Cursor inference / copy elision" (a local copied from a place nothing mutates while it lives
   becomes a non-owning cursor, which is §6.3), sink parameter inference, and destructor removal.
-  ORC is a cycle collector over ARC, as `Memory.collectCycles` is.
+  ORC is a cycle collector over ARC, as `memory::collectCycles` is.
 - **Lobster.** [Memory management](https://aardappel.github.io/lobster/memory_management.html):
   one owner per allocation inferred at compile time and every other use a borrow, with functions
   specialized by their arguments' ownership; the author reports most count operations removed.

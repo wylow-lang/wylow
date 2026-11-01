@@ -16,11 +16,14 @@ public static class Stdlib
         const string prefix = "Wyl.Compiler.Stdlib.";
         var assembly = typeof(Stdlib).Assembly;
         var result = new List<SourceText>();
-        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith(prefix) && n.EndsWith(".wyl")).Order(StringComparer.Ordinal))
+        foreach (var resource in assembly.GetManifestResourceNames().Where(n => n.StartsWith(prefix) && n.EndsWith(".wyl")).Order(StringComparer.Ordinal))
         {
-            using var stream = assembly.GetManifestResourceStream(name)!;
+            using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            result.Add(new SourceText(name[prefix.Length..], reader.ReadToEnd(), Package.Std.Root));
+            // Each directory of Stdlib/ is a module, as under a package's src/ (spec 06-syntax.md §6.1).
+            var path = resource[prefix.Length..].Replace('\\', '/');
+            var module = path.Split('/')[..^1].Aggregate(Package.Std.Root, (parent, name) => parent.Child(name));
+            result.Add(new SourceText(path, reader.ReadToEnd(), module, path));
         }
         if (result.Count == 0)
             throw new InvalidOperationException("the standard library is missing from the compiler");

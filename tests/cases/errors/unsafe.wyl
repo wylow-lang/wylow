@@ -1,4 +1,4 @@
-import std::{Memory, print};
+import std::{memory, print};
 
 struct Raw {
     int* data;
@@ -28,7 +28,7 @@ class Base {
 }
 
 void main() {
-    int* p = Memory.allocate<int>(4);   // error: 'allocate' is unsafe and can only be called from 'unsafe' code
+    int* p = memory::allocate<int>(4);   // error: 'allocate' is unsafe and can only be called from 'unsafe' code
     int* q = p + 1;                     // error: pointer arithmetic is only allowed in 'unsafe' code
     Raw r = Raw(p);                     // error: constructor 'Raw(int*)' is unsafe
     unsafe {

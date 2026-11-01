@@ -2,7 +2,7 @@
 // reference to it can outlive its scope, as an object made by `new` is; `stack:` counts closures
 // too. What it captures then only has to outlive the closure, so that can be on the stack as well.
 
-import std::{List, Memory, print};
+import std::{List, memory, print};
 
 class Noisy {
     String name;
@@ -133,8 +133,8 @@ void collected() {
     var node = new Noisy("node"); // stack: 1
     @Escaping () -> void f = () -> print(node.label()); // stack: 1
     f();
-    Memory.collectCycles();
-    print(Memory.cycleStats().freed);
+    memory::collectCycles();
+    print(memory::cycleStats().freed);
 }
 
 // Each way a closure, or what it captures, can still be referred to after its scope.

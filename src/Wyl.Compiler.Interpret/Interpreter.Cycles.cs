@@ -5,7 +5,7 @@ namespace Wyl.Compiler.Interpret;
 
 // The cycle collector, a port of runtime/wyl/cycles.h: synchronous trial deletion (Bacon and Rajan,
 // "Concurrent Cycle Collection in Reference Counted Systems", 2001), run only when the program
-// calls Memory.collectCycles. Traversals use explicit stacks, since a cycle may be a long chain. A
+// calls memory::collectCycles. Traversals use explicit stacks, since a cycle may be a long chain. A
 // reference the walk misses only makes its target look referenced from outside, so the collector
 // frees less, never something in use.
 
@@ -430,7 +430,7 @@ public sealed partial class Interpreter
     void Collect(long budget, string location)
     {
         if (destroying > 0)
-            throw new WylPanic("Memory.collectCycles cannot be called from a destructor", location);
+            throw new WylPanic("memory::collectCycles cannot be called from a destructor", location);
         destroying++;
         try
         {
@@ -522,7 +522,7 @@ public sealed partial class Interpreter
         if (growingCalls < GrowingCallsToWarn || warnedGrowing)
             return;
         warnedGrowing = true;
-        PerformanceWarning($"{waiting} objects are waiting for Memory.collectCycles, more after each of the last {growingCalls} calls; its budget is too small to keep up");
+        PerformanceWarning($"{waiting} objects are waiting for memory::collectCycles, more after each of the last {growingCalls} calls; its budget is too small to keep up");
     }
 
     void NoteFreed()
@@ -542,7 +542,7 @@ public sealed partial class Interpreter
                 continue;
             }
             freedClasses[found] = (reported, -1);
-            PerformanceWarning($"objects of class '{name}' were freed by {CollectionsToWarn} calls of Memory.collectCycles; a Weak<T> in their cycles would let them be destroyed as soon as they are unreachable");
+            PerformanceWarning($"objects of class '{name}' were freed by {CollectionsToWarn} calls of memory::collectCycles; a Weak<T> in their cycles would let them be destroyed as soon as they are unreachable");
         }
     }
 
@@ -569,7 +569,7 @@ public sealed partial class Interpreter
             message += $"{separator}{count} {name}";
             separator = ", ";
         }
-        message += ". Call Memory.collectCycles to free them, or break the cycles with Weak<T>";
+        message += ". Call memory::collectCycles to free them, or break the cycles with Weak<T>";
         PerformanceWarning(message);
     }
 }

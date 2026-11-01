@@ -1,7 +1,7 @@
 // What each visibility reaches across modules (spec 06-syntax.md §6.2).
 
 import world::local;                // error: 'local' is visible only in module 'module_visibility::world'
-import world::Hidden;               // error: 'module_visibility::world' has no name 'Hidden'
+import world::Hidden;               // error: 'Hidden' is visible only in its file (world/w.wyl)
 import world::count;
 import world::Shared;               // error: 'Shared' is already a name of this module; import it under another name with 'as'
 import world::Shared as WorldShared;

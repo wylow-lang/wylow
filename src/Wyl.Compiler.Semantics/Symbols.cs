@@ -441,26 +441,27 @@ public static class Builtins
             IsPure = true,
         };
 
-    public static IEnumerable<FunctionSymbol> All
+    /// <summary>The functions the compiler declares, each with the path of the std module it is a name of.</summary>
+    public static IEnumerable<(string[] Module, FunctionSymbol Function)> All
     {
         get
         {
             foreach (var type in FormattedTypes)
             {
-                yield return new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], WylType.Void)
+                yield return ([], new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], WylType.Void)
                 {
                     BuiltinCppName = "wyl::print",
                     Reach = Reach.Everywhere,
-                };
+                });
             }
 
-            yield return new FunctionSymbol("panic", [new LocalSymbol("message", WylType.String, isParameter: true)], WylType.Void)
+            yield return (["panic"], new FunctionSymbol("panic", [new LocalSymbol("message", WylType.String, isParameter: true)], WylType.Void)
             {
-                BuiltinCppName = "wyl::panic",
+                BuiltinCppName = "wyl::panic::panic",
                 Reach = Reach.Everywhere,
                 IsNoReturn = true,
                 PassesLocation = true,
-            };
+            });
         }
     }
 }

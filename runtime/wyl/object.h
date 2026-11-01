@@ -140,7 +140,7 @@ public:
     Object& operator=(const Object&) = delete;
 
     virtual ~Object() {
-        if (refs() != 1) panic("an object's destructor kept a reference to the object", "<destructor>");
+        if (refs() != 1) raise_panic("an object's destructor kept a reference to the object", "<destructor>");
     }
 
     // The virtual destructor has every delete pass the size of the object's dynamic type.
@@ -247,7 +247,7 @@ public:
 
     T* operator->() const {
         if constexpr (WYL_DEBUG != 0) {
-            if (ptr == nullptr) panic("internal compiler error: null dereference", "<runtime>");
+            if (ptr == nullptr) raise_panic("internal compiler error: null dereference", "<runtime>");
         }
         return ptr;
     }
@@ -463,7 +463,7 @@ inline Ref<T> downcast(const Ref<U>& value) {
 
 template <class T>
 inline Ref<T> unwrap(Ref<T> value, const char* location) {
-    if (!value) panic("null value unwrapped with '!'", location);
+    if (!value) raise_panic("null value unwrapped with '!'", location);
     return value;
 }
 

@@ -37,7 +37,7 @@ namespace wyl {
 template <class t_T>
 struct ReadOnlySpan;
 
-[[noreturn]] inline void panic(const char* message, const char* location) {
+[[noreturn]] inline void raise_panic(const char* message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);
     std::fflush(stderr);
@@ -169,7 +169,7 @@ private:
     Block* block_;
 };
 
-[[noreturn]] inline void panic(const String& message, const char* location) {
+[[noreturn]] inline void raise_panic(const String& message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.length()), message.data(), location);
     std::fflush(stderr);
@@ -185,12 +185,12 @@ inline void performance_warning(const char* message) {
 
 // Flow analysis rules this out; reaching it means a compiler bug, which must still not be UB.
 [[noreturn]] inline void unreachable(const char* location) {
-    panic("reached the end of a non-void function", location);
+    raise_panic("reached the end of a non-void function", location);
 }
 
 // Exhaustiveness checking rules this out too.
 [[noreturn]] inline void no_match(const char* location) {
-    panic("internal compiler error: no switch case matched", location);
+    raise_panic("internal compiler error: no switch case matched", location);
 }
 
 // Selects the constructor that sets an enum's tag and leaves its payload to be constructed.
@@ -259,7 +259,7 @@ inline T default_value() {
 [[noreturn]] inline void panic_index(int64_t index, int64_t length, const char* location) {
     char message[96];
     std::snprintf(message, sizeof message, "index %" PRId64 " is out of bounds for length %" PRId64, index, length);
-    panic(message, location);
+    raise_panic(message, location);
 }
 
 // Fixed array indexing. The index may be given as a function, called after the array is found,
@@ -291,7 +291,7 @@ inline std::remove_reference_t<T>* address_of(T&& place) {
 
 template <class T>
 inline T* unwrap(T* reference, const char* location) {
-    if (reference == nullptr) panic("null reference unwrapped with '!'", location);
+    if (reference == nullptr) raise_panic("null reference unwrapped with '!'", location);
     return reference;
 }
 
@@ -302,7 +302,7 @@ inline void check_index(int32_t index, int32_t length, const char* location) {
 
 template <class T>
 inline void check_not_null(const T* reference, const char* location) {
-    if (reference == nullptr) panic("null reference unwrapped with '!'", location);
+    if (reference == nullptr) raise_panic("null reference unwrapped with '!'", location);
 }
 
 }  // namespace wyl

@@ -5,12 +5,17 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary><see cref="Functions"/> holds free functions, methods, and constructors.</summary>
-/// <summary>A bound package with the standard library: <see cref="Sources"/> are the package's own files.</summary>
+/// <summary>
+/// A bound package with the standard library: <see cref="Sources"/> are the package's own files,
+/// <see cref="Functions"/> every function body, and <see cref="FreeFunctions"/> every top-level
+/// function declared, extern ones with no body among them.
+/// </summary>
 public sealed record BoundProgram(
     Package Package,
     IReadOnlyList<SourceText> Sources,
     IReadOnlyList<TypeSymbol> Types,
     IReadOnlyList<BoundFunction> Functions,
+    IReadOnlyList<FunctionSymbol> FreeFunctions,
     FunctionSymbol? Main,
     StdlibSymbols Stdlib)
 {

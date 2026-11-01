@@ -91,7 +91,7 @@ storage for a few elements, or arenas).
 
 Tests mark each line with `// stack: <n>`, the number of objects made there that are on the stack;
 the runner skips the markers under `--no-opt`. A test that observes the optimization itself, through
-`Memory.cycleStats()`, is `// mode: optimized` (`cycles/stack_unbuffered.wyl`).
+`memory::cycleStats()`, is `// mode: optimized` (`cycles/stack_unbuffered.wyl`).
 
 ## Not done
 

@@ -26,7 +26,7 @@ harness's rule is enforced. This file is why they exist, what each can't see, an
 value-printing files, and the reviewed matrix snapshots check it. The interpreter is a second
 executor, not a trusted reference: a disagreement means one of the two is wrong.
 
-The modes may differ in one documented case: with `--no-opt`, a budgeted `Memory.collectCycles`
+The modes may differ in one documented case: with `--no-opt`, a budgeted `memory::collectCycles`
 may reach other cycles, so a program calling it is compared on everything but stdout. Stdout that
 differs only in a printed zero's sign is equal where a native build is compared
 (`RunComparison.WithoutZeroSign`). Any further exception must be decided in the spec and named in
@@ -80,7 +80,7 @@ surface as disagreements.
   runs keep them honest; a new instruction adds both and a self-test for each.
 - **Unstated orders.** Aggregate assignment's release order is not in the spec; decide it when a
   test can see it.
-- **`Memory.allocate`'s "too large" check** needs C++ `sizeof(T)`, which the interpreter only
+- **`memory::allocate`'s "too large" check** needs C++ `sizeof(T)`, which the interpreter only
   models.
 - **Diagnostics under optimization.** A program can read costs the spec treats as unobservable
   (`cycleStats().buffered`). Stack objects are the documented exception; anything else is a spec

@@ -58,8 +58,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     /// </summary>
     public BoundProgram BindProgram(Package package, IReadOnlyList<CompilationUnit> units)
     {
-        foreach (var builtin in Builtins.All)
-            AddBuiltin(builtin);
+        foreach (var (module, builtin) in Builtins.All)
+            AddBuiltin(module, builtin);
         RegisterImports(units);
         var declarations = units.SelectMany(u => u.Declarations).ToList();
 
@@ -112,7 +112,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             bodies.Add(new BoundFunction(function, BindBody(function)));
 
         CheckBounds();
-        return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, FindMain(package), stdlib);
+        return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, functionList, FindMain(package), stdlib);
     }
 
     void Error(Location location, string message) => diagnostics.Error(location, message);

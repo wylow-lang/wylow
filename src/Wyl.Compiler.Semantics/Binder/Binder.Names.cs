@@ -77,7 +77,7 @@ public sealed partial class Binder
         {
             if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { HasValue: true } named)
                 return named;
-            if (FromAll(imports, name, from, use, e => e.HasValue) is { } all)
+            if (FromAll(imports, name, from, use, modules: false) is { } all)
                 return all;
         }
         return new Entry(stdlib.LanguageType(name), null, null);
@@ -95,20 +95,22 @@ public sealed partial class Binder
             return null;
         if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { Module: { } module })
             return module;
-        return FromAll(imports, name, from, use, e => e.Module is not null)?.Module;
+        return FromAll(imports, name, from, use, modules: true)?.Module;
     }
 
     /// <summary>
-    /// The one meaning a name has among a file's <c>*</c> imports, of those they make visible to it.
-    /// Two different ones are an error where the name is used, and the first is taken.
+    /// The one meaning a name has among a file's <c>*</c> imports, of those they make visible to it,
+    /// in the namespace of modules or of everything else. Two different ones are an error where the
+    /// name is used, and the first is taken.
     /// </summary>
-    Entry? FromAll(ImportTable imports, string name, SourceText from, Location use, Func<Entry, bool> wanted)
+    Entry? FromAll(ImportTable imports, string name, SourceText from, Location use, bool modules)
     {
         var found = new List<(Entry Entry, Module From)>();
         foreach (var all in imports.All)
         {
             var entry = VisibleTo(NamesOf(all.From, name, from), from);
-            if (wanted(entry) && !found.Any(f => f.Entry.SameAs(entry)))
+            entry = modules ? new Entry(null, null, entry.Module) : entry with { Module = null };
+            if (!entry.IsEmpty && !found.Any(f => f.Entry.SameAs(entry)))
                 found.Add((entry, all.From));
         }
         if (found.Count > 1 && reportedAmbiguities.Add((use, name)))
@@ -191,10 +193,12 @@ public sealed partial class Binder
         return true;
     }
 
-    /// <summary>A function the compiler declares (<c>print</c>, <c>panic</c>), one of the standard library's root names.</summary>
-    void AddBuiltin(FunctionSymbol function)
+    /// <summary>A function the compiler declares (<c>print</c>, <c>panic</c>), a name of the std module at <paramref name="path"/>.</summary>
+    void AddBuiltin(string[] path, FunctionSymbol function)
     {
-        var table = ModuleNames(Package.Std.Root);
+        var module = path.Aggregate(Package.Std.Root, (parent, name) => parent.FindChild(name)
+            ?? throw new InvalidOperationException($"the standard library has no module '{name}' for '{function.Name}'"));
+        var table = ModuleNames(module);
         if (!table.Functions.TryGetValue(function.Name, out var overloads))
             table.Functions[function.Name] = overloads = [];
         overloads.Add(function);

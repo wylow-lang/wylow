@@ -240,7 +240,7 @@ public sealed class ArrayValue(WylType type, Cell[] elements) : Value
 
 /// <summary>
 /// Raw storage a pointer walks, a slot per element that is empty until a value is initialized in
-/// it, as <c>Memory.allocate</c> hands out. A fixed array's elements are a buffer whose cells it
+/// it, as <c>memory::allocate</c> hands out. A fixed array's elements are a buffer whose cells it
 /// shares; a string's bytes are a buffer of their own.
 /// </summary>
 public sealed class Buffer

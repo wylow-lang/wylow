@@ -50,7 +50,7 @@ public sealed partial class Interpreter
                     case NullValue:
                         break;
                     default:
-                        throw new InterpreterException("Memory.free was given something that is not a pointer");
+                        throw new InterpreterException("memory::free was given something that is not a pointer");
                 }
                 return null;
             case "initialize":
@@ -90,7 +90,7 @@ public sealed partial class Interpreter
         }
     }
 
-    /// <summary><c>Memory.collectCycles</c> and <c>Memory.cycleStats</c>, as <c>wyl::memory</c> has them.</summary>
+    /// <summary><c>memory::collectCycles</c> and <c>memory::cycleStats</c>, as <c>wyl::memory</c> has them.</summary>
     Value? CollectorIntrinsic(string name, IrCall call, Frame caller, string location)
     {
         var given = call.Arguments.Where(a => a is not IrFieldDefault).ToList();
@@ -116,7 +116,7 @@ public sealed partial class Interpreter
             {
                 IrRefArgument reference => PlaceCell(reference.Place, caller),
                 IrAddrArgument address => PlaceCell(address.Place, caller),
-                _ => throw new InterpreterException("Memory.cycleStats was given a value, not a ref"),
+                _ => throw new InterpreterException("memory::cycleStats was given a value, not a ref"),
             };
             cell.Value = new IntValue(values[i] < int.MaxValue ? values[i] : int.MaxValue);
         }

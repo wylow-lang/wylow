@@ -1,0 +1,53 @@
+// Raw memory, for building containers, and the cycle collector. The raw memory functions are
+// unsafe: the compiler cannot check how they are used, and misusing them is undefined behavior, as
+// in C++.
+
+// Uninitialized storage for `count` values. Panics if `count` is negative or too large.
+@CallerLocation
+pub unsafe extern T* allocate<T>(int count);
+
+// Frees storage from `allocate`. Its values must already have been dropped.
+pub unsafe extern void free<T>(T* data);
+
+// Stores a value in uninitialized storage.
+pub unsafe extern void initialize<T>(T* place, T value);
+
+// Stores the default value in each of `count` places. The caller must know that `T` has one, which
+// only the standard library's containers can, so it is the package's own.
+pub(package) unsafe extern void initializeDefault<T>(T* data, int count);
+
+// Destroys a value, leaving its storage uninitialized.
+pub unsafe extern void drop<T>(T* place);
+
+// Moves `count` values into uninitialized storage, leaving the source uninitialized. The two
+// ranges may overlap.
+pub unsafe extern void moveTo<T>(T* from, T* to, int count);
+
+// Frees every cycle of objects that nothing outside the cycle refers to. Reference counting
+// alone never frees them, and this never runs on its own. Panics in a destructor. See
+// docs/spec/03-memory-model.md.
+@CallerLocation
+pub extern void collectCycles();
+
+// Like `collectCycles()`, but stops after visiting about `maxVisits` objects; the rest wait
+// for the next call.
+@CallerLocation
+pub extern void collectCycles(int maxVisits);
+
+// What the cycle collector did since the last call.
+pub CycleStats cycleStats() {
+    mut var stats = CycleStats();
+    takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
+    return stats;
+}
+
+extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);
+
+pub struct CycleStats {
+    // Objects that may have been left in a cycle, to be looked at by the next collection.
+    pub int buffered;
+    // Objects the collector looked at.
+    pub int visited;
+    // Objects in cycles the collector freed.
+    pub int freed;
+}

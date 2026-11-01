@@ -224,7 +224,7 @@ objects belong to which isolate.
 - `Panic` is a sendable struct: the message, the source location, and the stack trace.
 - An `Isolate` is a normal object that belongs to the thread that created it.
 - Isolates nest. A panic stops the innermost isolate it is in.
-- Cycles among a dead isolate's objects are freed by the next `Memory.collectCycles` on the thread,
+- Cycles among a dead isolate's objects are freed by the next `memory::collectCycles` on the thread,
   like any others ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)).
 
 ### Statics
