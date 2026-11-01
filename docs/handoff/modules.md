@@ -50,8 +50,6 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
 
 ## Left open by step 1
 
-- `Reach.PackageOf`/`ModuleOf` say "std or the program, one root module each"; step 2 replaces
-  them with the source's real package and module path, and nothing else should need to change.
 - A subclass in another file declaring a method with the signature of a base method it can't see
   is allowed (`CheckOverride` returns early), but C++ would make it an override. Rename one in
   the emitter or reject it; untestable until a class can be extended from another file.
@@ -116,10 +114,11 @@ The user wants the no-prelude choice revisited as std changes.
 
 ### Commits planned
 
-1. `lexer, parser`: `::`, import declarations, paths in expressions and types.
-2. `emitter`: C++ names qualified by package and module.
-3. `cli, binder`: package directories, the manifest, `SourceText.Module`, real `Reach`, per-module
-   namespaces with file-private scopes, multi-file test cases.
+1. `lexer, parser`: `::`, import declarations, paths in expressions and types (done, `2400d1f`).
+2. `binder, emitter`: `SourceText.Module` and `Package` (`Text/Packages.cs`), `Reach` from them, C++
+   names qualified by module, `TypeSymbol.RuntimeName` (done).
+3. `cli, binder`: package directories, the manifest, per-module namespaces with file-private
+   scopes, multi-file test cases.
 4. `binder`: imports, paths in code, std's built-in names, collisions, cross-module visibility tests.
 5. `stdlib`: `std::panic` and `std::memory`.
 6. `emitter`: a method doesn't override a base method it can't see; delete this file.

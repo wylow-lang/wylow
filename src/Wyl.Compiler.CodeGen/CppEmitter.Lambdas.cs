@@ -112,7 +112,7 @@ public sealed partial class CppEmitter
             return $"{(function.IsEscaping ? "E" : "")}F{function.Parameters.Count}{string.Concat(function.Parameters.Select(p => Mode(p.RefKind) + Mangle(p.Type)))}R{Mangle(function.ReturnType)}";
         if (type is TypeParameterType parameter) return "T" + Name(parameter.Parameter.Name);
         if (type.Symbol is { } s)
-            return Name(s.Name) + (type.TypeArguments.Count > 0 ? $"I{string.Concat(type.TypeArguments.Select(Mangle))}E" : "");
+            return Name(s.RuntimeName is not null ? s.Name : QualifiedName(s)) + (type.TypeArguments.Count > 0 ? $"I{string.Concat(type.TypeArguments.Select(Mangle))}E" : "");
         return Name(type.Name);
     }
 

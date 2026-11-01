@@ -118,7 +118,7 @@ public sealed partial class CppEmitter
         {
             Line();
             EmitOwnerTemplatePrefix(s);
-            Line($"{owner}::~{TypeName(s)}()");
+            Line($"{owner}::~{OwnName(s)}()");
             Line("{");
             Line("    if (!this->wyl_finalized()) this->wyl_destructor();");
             Line("}");

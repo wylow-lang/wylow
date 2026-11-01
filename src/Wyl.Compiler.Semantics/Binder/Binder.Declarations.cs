@@ -48,14 +48,14 @@ public sealed partial class Binder
     TypeSymbol? DeclareType(TypeDecl decl)
     {
         // Only declares the built-in String's members, so its name keeps naming the built-in type.
-        if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && Stdlib.Contains(decl.Location.Source))
+        if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
             return new TypeSymbol(decl, []);
         if (types.ContainsKey(decl.Name) || BuiltinType(decl.Name) is not null)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
             return null;
         }
-        if ((decl.Modifiers & Modifiers.Extern) != 0 && !Stdlib.Contains(decl.Location.Source))
+        if ((decl.Modifiers & Modifiers.Extern) != 0 && !decl.Location.Source.Module.Package.IsStd)
             Error(decl.NameLocation, "extern structs are only supported in the standard library");
         HasCallerLocation(decl);
         var symbol = new TypeSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
@@ -390,7 +390,7 @@ public sealed partial class Binder
 
     /// <summary>An extern function marked <c>@Pure</c>, which the standard library uses for what can't panic or change anything.</summary>
     static bool IsPure(FunctionDecl decl) =>
-        decl.Annotations.Any(a => a.Name == "Pure") && (decl.Modifiers & Modifiers.Extern) != 0 && Stdlib.Contains(decl.Location.Source);
+        decl.Annotations.Any(a => a.Name == "Pure") && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd;
 
     /// <summary>
     /// The C++ function an extern function calls: <c>wyl::name</c>, or for a method of a standard
@@ -400,7 +400,7 @@ public sealed partial class Binder
     {
         if ((decl.Modifiers & Modifiers.Extern) == 0)
             return null;
-        if (!Stdlib.Contains(decl.Location.Source))
+        if (!decl.Location.Source.Module.Package.IsStd)
             Error(decl.NameLocation, "extern functions are only supported in the standard library for now");
         if (owner is { IsExtern: true } && (decl.Modifiers & Modifiers.Static) == 0)
             return decl.Name;

@@ -3,6 +3,7 @@ using Wyl.Compiler.Analysis;
 using Wyl.Compiler.Ir;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Syntax;
+using Wyl.Compiler.Text;
 
 namespace Wyl.Compiler.CodeGen;
 
@@ -57,7 +58,8 @@ public sealed partial class CppEmitter
         if (program.Types.Count > 0)
         {
             Line();
-            foreach (var s in program.Types.Where(s => !s.IsExtern))
+            // The runtime declares what it names, and C++ can't declare it again by its qualified name.
+            foreach (var s in program.Types.Where(s => s.RuntimeName is null))
                 Line(TemplatePrefix(s.TypeParameters) + $"struct {TypeName(s)};");
         }
         EmitInstantiationTraits();
@@ -89,7 +91,7 @@ public sealed partial class CppEmitter
             {
                 Line();
                 EmitOwnerTemplatePrefix(s);
-                Line($"{ObjectType(s.Type)}::~{TypeName(s)}() {{}}");
+                Line($"{ObjectType(s.Type)}::~{OwnName(s)}() {{}}");
             }
             foreach (var implementation in s.InheritedImplementations)
             {
@@ -145,19 +147,37 @@ public sealed partial class CppEmitter
     string NewTemp() => $"tmp_{tempCounter++}";
 
     // Prefixes keep Wylow names from colliding with C++ keywords, the runtime, and each other.
-    string FunctionName(FunctionSymbol function) => "fn_" + function.Name + OverloadSuffix(function);
+    string FunctionName(FunctionSymbol function) =>
+        "fn_" + (function.Declaration is { } declaration ? ModulePrefix(declaration.Location.Source.Module) : "") + function.Name + OverloadSuffix(function);
     string MethodName(FunctionSymbol method) => (method.IsIndexer ? "wyl_index" : "m_" + method.Name) + OverloadSuffix(method);
     static string FieldName(FieldSymbol field) => "f_" + field.Name;
     static string TypeParameterName(TypeParameterSymbol parameter) => "t_" + parameter.Name;
 
-    static string TypeName(TypeSymbol s) => s.Kind switch
+    static string TypeName(TypeSymbol s) => s.RuntimeName ?? s.Kind switch
     {
-        TypeKind.Struct when s.IsExtern => "wyl::" + s.Name,
-        TypeKind.Struct => "s_" + s.Name,
-        TypeKind.Enum => "e_" + s.Name,
-        TypeKind.Class => "c_" + s.Name,
-        _ => "i_" + s.Name,
+        TypeKind.Struct => "s_" + QualifiedName(s),
+        TypeKind.Enum => "e_" + QualifiedName(s),
+        TypeKind.Class => "c_" + QualifiedName(s),
+        _ => "i_" + QualifiedName(s),
     };
+
+    static string QualifiedName(TypeSymbol s) => ModulePrefix(s.Declaration.Location.Source.Module) + s.Name;
+
+    /// <summary>
+    /// What a top-level name's C++ name starts with, so equal names in different modules differ in
+    /// C++: nothing in the program's root module, and elsewhere each name of its path, with the
+    /// package's for the standard library, after its length (<c>3std5panic_</c>). No name in the
+    /// root module can be one of these, since an identifier never starts with a digit. Only the
+    /// program's own package goes unnamed, so a dependency's names will be qualified by its package
+    /// like <c>std</c>'s.
+    /// </summary>
+    static string ModulePrefix(Module module)
+    {
+        if (module.IsRoot && !module.Package.IsStd)
+            return "";
+        IEnumerable<string> names = module.Package.IsStd ? ["std", .. module.Path] : module.Path;
+        return string.Concat(names.Select(n => $"{n.Length}{n}")) + "_";
+    }
 
     /// <summary>
     /// Parameters keep their names, so that declarations and definitions agree. Other locals get a

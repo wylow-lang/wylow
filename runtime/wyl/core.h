@@ -30,11 +30,12 @@
 static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<double>::is_iec559,
               "Wylow requires IEEE 754 floating point");
 
-// The standard library's ReadOnlySpan, by the name CppEmitter gives it, which String::bytes returns.
-template <class t_T>
-struct s_ReadOnlySpan;
-
 namespace wyl {
+
+// The standard library's ReadOnlySpan, which String::bytes returns. The runtime names it, and the
+// emitter defines it under this name (TypeSymbol.RuntimeName).
+template <class t_T>
+struct ReadOnlySpan;
 
 [[noreturn]] inline void panic(const char* message, const char* location) {
     std::fflush(stdout);
@@ -105,8 +106,8 @@ public:
     // A template so that the span is a complete type by the time a program instantiates it. The
     // span is read-only, so a literal's static bytes are never written.
     template <class Byte = uint8_t>
-    ::s_ReadOnlySpan<Byte> bytes() const {
-        return ::s_ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(data_)), length_);
+    wyl::ReadOnlySpan<Byte> bytes() const {
+        return wyl::ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(data_)), length_);
     }
 
     int32_t charCount() const {

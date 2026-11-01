@@ -25,7 +25,7 @@ public sealed partial class CppEmitter
         if (call.Loc is { } loc)
             arguments.Add(LocText(loc));
         Line("template <class A>");
-        Line($"{TypeName(s)}(wyl::BaseArguments<{index}>, A&& arguments) : {ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}} {{}}");
+        Line($"{OwnName(s)}(wyl::BaseArguments<{index}>, A&& arguments) : {ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}} {{}}");
     }
 
     /// <summary>The delegation to <see cref="EmitBaseArgumentsConstructor"/>'s constructor, with a lambda computing the arguments.</summary>
@@ -44,7 +44,7 @@ public sealed partial class CppEmitter
         Line($"return wyl::Arguments{{{string.Join(", ", values)}}};");
         var body = output.ToString();
         (output, indent) = (enclosingOutput, enclosingIndent);
-        return $"{TypeName(s)}{{wyl::BaseArguments<{s.Constructors.IndexOf(function.Symbol)}>{{}}, [&] {{\n{body}    }}()}}";
+        return $"{OwnName(s)}{{wyl::BaseArguments<{s.Constructors.IndexOf(function.Symbol)}>{{}}, [&] {{\n{body}    }}()}}";
     }
 
     /// <summary>

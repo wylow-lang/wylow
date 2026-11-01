@@ -437,7 +437,8 @@ position.scale(2);
   is visible.
 
 > Not implemented yet. The standard library will use extensions to move `String`'s higher-level
-> methods into Wylow over its native primitives.
+> methods into Wylow over its native primitives, `bytes()` among them, so the C++ runtime no longer
+> refers to the standard library's `ReadOnlySpan`.
 
 ## 6.5 No properties
 

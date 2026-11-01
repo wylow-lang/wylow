@@ -8,9 +8,8 @@ namespace Wyl.Compiler;
 /// </summary>
 public static class Stdlib
 {
+    /// <summary>The files of the package <c>std</c>, so whether code is the standard library's is <c>Module.Package.IsStd</c>.</summary>
     public static IReadOnlyList<SourceText> Sources { get; } = Load();
-
-    public static bool Contains(SourceText source) => Sources.Contains(source);
 
     static List<SourceText> Load()
     {
@@ -21,7 +20,7 @@ public static class Stdlib
         {
             using var stream = assembly.GetManifestResourceStream(name)!;
             using var reader = new StreamReader(stream);
-            result.Add(new SourceText(name[prefix.Length..], reader.ReadToEnd()));
+            result.Add(new SourceText(name[prefix.Length..], reader.ReadToEnd(), Package.Std.Root));
         }
         if (result.Count == 0)
             throw new InvalidOperationException("the standard library is missing from the compiler");

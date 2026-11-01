@@ -4,14 +4,22 @@ public sealed class SourceText
 {
     readonly int[] lineStarts;
 
-    public SourceText(string path, string text)
+    /// <summary>
+    /// A file of <paramref name="module"/>; without one, a file compiled on its own, which is the
+    /// one file of an unnamed package's one module (spec 06-syntax.md §6.1).
+    /// </summary>
+    public SourceText(string path, string text, Module? module = null)
     {
         Path = path;
         Text = text;
+        Module = module ?? Package.Unnamed().Root;
         lineStarts = ComputeLineStarts(text);
     }
 
     public string Path { get; }
+
+    /// <summary>The module the file belongs to, which decides what it sees and who sees it.</summary>
+    public Module Module { get; }
     public string Text { get; }
     public string FileName => System.IO.Path.GetFileName(Path);
 

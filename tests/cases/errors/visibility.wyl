@@ -32,12 +32,12 @@ pub void sorted<T extends Hidden>(T x) { }      // error: function 'sorted' is v
 
 pub struct Holder {
     pub Secret inside;                          // error: field 'Holder.inside' is visible everywhere, but its type 'Secret' is visible only in its file (visibility.wyl)
-    pub(module) Secret? maybe;                  // error: field 'Holder.maybe' is visible only in this program's root module, but its type 'Secret?', which names 'Secret', is visible only in its file (visibility.wyl)
+    pub(module) Secret? maybe;                  // error: field 'Holder.maybe' is visible only in the root module, but its type 'Secret?', which names 'Secret', is visible only in its file (visibility.wyl)
     Secret kept;
 }
 
 pub class Outer extends Inner { }               // error: class 'Outer' is visible everywhere, but its base class 'Inner' is visible only in its file (visibility.wyl)
-pub(package) class Shown implements Hidden { }  // error: class 'Shown' is visible only in this program's package, but its interface 'Hidden' is visible only in its file (visibility.wyl)
+pub(package) class Shown implements Hidden { }  // error: class 'Shown' is visible only in this package, but its interface 'Hidden' is visible only in its file (visibility.wyl)
 
 pub enum Choice {
     Some(Secret value),                         // error: variant 'Choice.Some' is visible everywhere, but its field type 'Secret' is visible only in its file (visibility.wyl)

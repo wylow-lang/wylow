@@ -30,11 +30,11 @@ public sealed partial class CppEmitter
         if (member.IsConstructor)
         {
             return owner.Kind == TypeKind.Struct
-                ? $"static {TypeName(owner)} make({Parameters(member)})"
-                : $"{TypeName(owner)}({Parameters(member)})";
+                ? $"static {OwnName(owner)} make({Parameters(member)})"
+                : $"{OwnName(owner)}({Parameters(member)})";
         }
         if (member.IsDestructor)
-            return owner.HasSeparateDestructor ? "void wyl_destructor()" : $"~{TypeName(owner)}() override";
+            return owner.HasSeparateDestructor ? "void wyl_destructor()" : $"~{OwnName(owner)}() override";
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic)
             return "static " + signature;
@@ -63,10 +63,10 @@ public sealed partial class CppEmitter
         {
             return s.Kind == TypeKind.Struct
                 ? $"{owner} {owner}::make({Parameters(function)})"
-                : $"{owner}::{TypeName(s)}({Parameters(function)})";
+                : $"{owner}::{OwnName(s)}({Parameters(function)})";
         }
         if (function.IsDestructor)
-            return s.HasSeparateDestructor ? $"void {owner}::wyl_destructor()" : $"{owner}::~{TypeName(s)}()";
+            return s.HasSeparateDestructor ? $"void {owner}::wyl_destructor()" : $"{owner}::~{OwnName(s)}()";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly ? signature + " const" : signature;
     }

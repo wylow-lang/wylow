@@ -50,7 +50,8 @@ public sealed class StdlibSymbols
             case "Result": Result = symbol; break;
             case "Array": Array = symbol; break;
             case "Span": Span = symbol; break;
-            case "ReadOnlySpan": ReadOnlySpan = symbol; break;
+            // The runtime's String::bytes returns one (runtime/wyl/core.h).
+            case "ReadOnlySpan": ReadOnlySpan = symbol; symbol.IsNamedByRuntime = true; break;
             case "Spannable": Spannable = symbol; break;
             case "ReadOnlySpannable": ReadOnlySpannable = symbol; break;
             case "Borrowable": Borrowable = symbol; break;
@@ -94,7 +95,7 @@ public sealed class StdlibSymbols
     /// </summary>
     public WylType? ContainerElement(WylType type)
     {
-        if (type.Symbol is not { Kind: TypeKind.Class } s || ReadOnlySpannable is not { } hook || !Stdlib.Contains(s.Declaration.Location.Source))
+        if (type.Symbol is not { Kind: TypeKind.Class } s || ReadOnlySpannable is not { } hook || !s.Declaration.Location.Source.Module.Package.IsStd)
             return null;
         IEnumerable<WylType> candidates = [type, .. Conversions.Supertypes(type)];
         return candidates.FirstOrDefault(t => t.Symbol == hook)?.TypeArguments[0];

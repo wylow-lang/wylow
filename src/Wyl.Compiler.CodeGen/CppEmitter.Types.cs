@@ -64,12 +64,18 @@ public sealed partial class CppEmitter
         return type.IsStruct && type.HasDefaultCode ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
     }
 
+    /// <summary>
+    /// How a type's own definition names it: C++'s injected class name, unqualified, since a type
+    /// defined by a qualified name (<c>wyl::ReadOnlySpan</c>) can't name itself so without type arguments.
+    /// </summary>
+    static string OwnName(TypeSymbol s) => TypeName(s).Split("::")[^1];
+
     void EmitStructDefinition(TypeSymbol s)
     {
-        var name = TypeName(s);
+        var name = OwnName(s);
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
-        Line($"struct {name}");
+        Line($"struct {TypeName(s)}");
         Line("{");
         indent++;
         foreach (var field in s.Fields)
@@ -116,13 +122,13 @@ public sealed partial class CppEmitter
     /// </summary>
     void EmitEnumDefinition(TypeSymbol s)
     {
-        var name = TypeName(s);
+        var name = OwnName(s);
         var tag = TagType(s);
         var withData = s.Variants.Where(v => v.Fields.Count > 0).ToList();
         bool equatable = s.IsGeneric || s.Type.SupportsEquality;
         if (s.IsGeneric)
             Line(TemplatePrefix(s.TypeParameters).TrimEnd());
-        Line($"struct {name}");
+        Line($"struct {TypeName(s)}");
         Line("{");
         indent++;
         foreach (var variant in withData)
@@ -298,10 +304,10 @@ public sealed partial class CppEmitter
         if (s.Kind == TypeKind.Class)
         {
             if (s.Constructors.Count == 0)
-                Line($"{TypeName(s)}();");
+                Line($"{OwnName(s)}();");
             // Declared here and defined after every type, where the field types are complete.
             if (s.Destructor is null || s.HasSeparateDestructor)
-                Line($"~{TypeName(s)}() override;");
+                Line($"~{OwnName(s)}() override;");
         }
         foreach (var member in s.Members.Where(m => !m.IsExtern))
         {

@@ -67,7 +67,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             if (DeclareType(decl) is not { } symbol)
                 continue;
             typeList.Add(symbol);
-            if (Stdlib.Contains(decl.Location.Source))
+            if (decl.Location.Source.Module.Package.IsStd)
                 stdlib.Register(symbol);
         }
         foreach (var s in typeList)

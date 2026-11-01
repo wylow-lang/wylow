@@ -316,6 +316,16 @@ public sealed class TypeSymbol
     /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
     public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 
+    /// <summary>
+    /// The name the C++ runtime declares the type by, which the emitter then gives it: an extern
+    /// struct's class, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
+    /// <c>String.bytes</c> returns), so the runtime never depends on how the emitter names things.
+    /// </summary>
+    public string? RuntimeName => IsExtern || IsNamedByRuntime ? "wyl::" + Name : null;
+
+    /// <summary>Set by <see cref="StdlibSymbols.Register"/> for the hooks the runtime refers to.</summary>
+    internal bool IsNamedByRuntime { get; set; }
+
     /// <summary>A class declared <c>@Acyclic</c>, whose objects the cycle collector never looks at.</summary>
     public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
 
@@ -370,7 +380,7 @@ public sealed class TypeSymbol
     /// (spec 03-memory-model.md, Destroying a cycle).
     /// </summary>
     public bool HasSeparateDestructor =>
-        Kind == TypeKind.Class && Destructor is not null && !Stdlib.Contains(Declaration.Location.Source);
+        Kind == TypeKind.Class && Destructor is not null && !Declaration.Location.Source.Module.Package.IsStd;
 
     /// <summary>Declared constructors, methods, and the destructor, in source order.</summary>
     public List<FunctionSymbol> Members { get; } = [];

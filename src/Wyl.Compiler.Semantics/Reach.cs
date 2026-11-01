@@ -21,8 +21,9 @@ public readonly record struct Reach(Visibility Level, SourceText? Source)
     public bool Includes(SourceText use) => Level switch
     {
         Visibility.Public => true,
-        Visibility.Package => PackageOf(use) == PackageOf(Source!),
-        Visibility.Module => PackageOf(use) == PackageOf(Source!) && ModuleOf(use) == ModuleOf(Source!),
+        Visibility.Package => use.Module.Package == Source!.Module.Package,
+        // Exactly its directory: a module and its submodules see each other as any two modules do.
+        Visibility.Module => use.Module == Source!.Module,
         _ => use == Source,
     };
 
@@ -30,14 +31,16 @@ public readonly record struct Reach(Visibility Level, SourceText? Source)
     public string Describe() => Level switch
     {
         Visibility.Public => "everywhere",
-        Visibility.Package => PackageOf(Source!) is { Length: > 0 } package ? $"only in package '{package}'" : "only in this program's package",
-        Visibility.Module => ModuleOf(Source!) is { Length: > 0 } module ? $"only in module '{module}'" : "only in this program's root module",
+        Visibility.Package => Source!.Module.Package.Name is { } package ? $"only in package '{package}'" : "only in this package",
+        Visibility.Module => $"only in {DescribeModule(Source!.Module)}",
         _ => $"only in its file ({Source!.FileName})",
     };
 
-    // Until packages are directories (§6.1), the standard library is the package 'std', the program
-    // being compiled is the other, and each is one root module.
-    static string PackageOf(SourceText source) => Stdlib.Contains(source) ? "std" : "";
-
-    static string ModuleOf(SourceText source) => PackageOf(source);
+    static string DescribeModule(Module module) => (module.IsRoot, module.Package.Name) switch
+    {
+        (true, null) => "the root module",
+        (true, { } package) => $"the root module of '{package}'",
+        (false, null) => $"module '{module}'",
+        (false, { } package) => $"module '{package}::{module}'",
+    };
 }
