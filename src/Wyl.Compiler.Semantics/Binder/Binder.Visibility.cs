@@ -10,6 +10,14 @@ namespace Wyl.Compiler.Semantics;
 /// </summary>
 public sealed partial class Binder
 {
+    const string ModulesNotImplemented = "modules and imports are not implemented yet";
+
+    WylType ModulePathsNotImplemented(Location location)
+    {
+        Error(location, ModulesNotImplemented);
+        return WylType.Error;
+    }
+
     void CheckVisible(Location use, Reach reach, string description)
     {
         if (!reach.Includes(use.Source))

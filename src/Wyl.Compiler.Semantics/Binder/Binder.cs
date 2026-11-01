@@ -58,6 +58,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     {
         foreach (var builtin in Builtins.All)
             AddFunction(builtin);
+        foreach (var import in unit.Imports)
+            Error(import.Location, ModulesNotImplemented);
 
         var typeList = new List<TypeSymbol>();
         foreach (var decl in unit.Declarations.OfType<TypeDecl>())

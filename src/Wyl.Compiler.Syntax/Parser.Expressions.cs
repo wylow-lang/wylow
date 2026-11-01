@@ -175,7 +175,12 @@ public sealed partial class Parser
             return Peek(2).Kind == TokenKind.CloseParen;
         if (Peek(1).Kind != TokenKind.Identifier)
             return false;
-        int end = ScanTypeArguments(position + 2) is > 0 and var afterArguments ? afterArguments : position + 2;
+        int name = position + 1;
+        while (KindAt(name) == TokenKind.Identifier && KindAt(name + 1) == TokenKind.ColonColon)
+            name += 2;
+        if (KindAt(name) != TokenKind.Identifier)
+            return false;
+        int end = ScanTypeArguments(name + 1) is > 0 and var afterArguments ? afterArguments : name + 1;
         if (Peek(end - position).Kind != TokenKind.CloseParen)
             return false;
         return Peek(end - position + 1).Kind is TokenKind.Identifier or TokenKind.IntLiteral or TokenKind.FloatLiteral
@@ -349,9 +354,12 @@ public sealed partial class Parser
             case TokenKind.Identifier:
             {
                 int start = position;
-                Advance();
+                var modules = ParseModulePath();
+                int nameStart = position;
+                var name = modules.Count > 0 ? Expect(TokenKind.Identifier, "a name") : Advance();
                 var typeArguments = ParseExpressionTypeArguments();
-                return new NameExpr(LocationFrom(start), token.Text, typeArguments);
+                var nameExpr = new NameExpr(modules.Count > 0 ? LocationFrom(nameStart) : LocationFrom(start), name.Text, typeArguments);
+                return modules.Count > 0 ? new PathExpr(LocationFrom(start), modules, nameExpr) : nameExpr;
             }
             case TokenKind.ThisKeyword:
                 Advance();

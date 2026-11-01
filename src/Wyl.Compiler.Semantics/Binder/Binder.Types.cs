@@ -33,6 +33,7 @@ public sealed partial class Binder
     {
         var type = syntax.Shape switch
         {
+            TypeShape.Named when syntax.Modules.Count > 0 => ModulePathsNotImplemented(syntax.Location),
             TypeShape.Named => BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location),
             TypeShape.Function => BindFunctionType(syntax),
             TypeShape.NullableReference => BindNullableReferenceType(syntax),

@@ -64,13 +64,14 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["unsafe"] = TokenKind.UnsafeKeyword,
         ["extern"] = TokenKind.ExternKeyword,
         ["operator"] = TokenKind.OperatorKeyword,
+        ["import"] = TokenKind.ImportKeyword,
         ["_"] = TokenKind.Underscore,
     };
 
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "const", "defer", "do", "import", "package", "shared",
+        "const", "defer", "do", "package", "shared",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
@@ -82,7 +83,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ("<<", TokenKind.LessLess), (">>", TokenKind.GreaterGreater), ("++", TokenKind.PlusPlus),
         ("--", TokenKind.MinusMinus), ("->", TokenKind.Arrow), ("+=", TokenKind.PlusAssign), ("-=", TokenKind.MinusAssign),
         ("*=", TokenKind.StarAssign), ("/=", TokenKind.SlashAssign), ("%=", TokenKind.PercentAssign),
-        ("&=", TokenKind.AmpersandAssign), ("|=", TokenKind.PipeAssign), ("^=", TokenKind.CaretAssign),
+        ("&=", TokenKind.AmpersandAssign), ("|=", TokenKind.PipeAssign), ("^=", TokenKind.CaretAssign), ("::", TokenKind.ColonColon),
         ("(", TokenKind.OpenParen), (")", TokenKind.CloseParen), ("{", TokenKind.OpenBrace),
         ("}", TokenKind.CloseBrace), ("[", TokenKind.OpenBracket), ("]", TokenKind.CloseBracket),
         (";", TokenKind.Semicolon), (",", TokenKind.Comma), (".", TokenKind.Dot), (":", TokenKind.Colon),

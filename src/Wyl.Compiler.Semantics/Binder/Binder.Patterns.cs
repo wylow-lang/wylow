@@ -203,7 +203,7 @@ public sealed partial class Binder
         if (v.Enum is { } enumSyntax)
         {
             // `Result.Ok(...)` may leave out the type arguments, which the value determines.
-            bool sameEnum = enumSyntax.TypeArguments.Count == 0 && LookupTypeParameter(enumSyntax.Name) is null
+            bool sameEnum = enumSyntax is { TypeArguments.Count: 0, Modules.Count: 0 } && LookupTypeParameter(enumSyntax.Name) is null
                 ? types.GetValueOrDefault(enumSyntax.Name) == s
                 : BindType(enumSyntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
             if (!sameEnum)

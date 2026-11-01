@@ -32,6 +32,7 @@ public sealed partial class Binder
         InterpolatedStringExpr e => BindInterpolatedString(e),
         NullLiteralExpr e => new BoundNullLiteral(e.Location),
         NameExpr e => BindName(e, expected),
+        PathExpr e => ErrorExpression(e.Location, ModulesNotImplemented),
         ThisExpr e => BindThis(e),
         SuperExpr e => ErrorExpression(e.Location, "'super' can only be used to call a base class constructor or method"),
         MemberAccessExpr e => BindMemberAccess(e, expected),

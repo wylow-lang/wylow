@@ -120,7 +120,7 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
   the cycle collector (`collectCycles`, `cycleStats`, §3).
 
-> Not implemented yet: modules and imports. Until they are, the checks are the standard
+> Not implemented yet: modules and imports, which parse but are an error to use. Until they are, the checks are the standard
 > library's `Bounds.check` and `Bounds.checkRange`, raw memory and the collector are `Memory`'s
 > static methods, and every file sees the whole standard library.
 

@@ -114,9 +114,10 @@ public sealed partial class Parser
     PatternSyntax ParseNamePattern()
     {
         int start = position;
-        var first = Advance();
+        var modules = ParseModulePath();
+        var first = modules.Count > 0 ? Expect(TokenKind.Identifier, "a type name") : Advance();
         var typeArguments = ScanTypeArguments(position) > 0 ? ParseTypeArguments() : [];
-        var type = new TypeSyntax(LocationFrom(start), first.Text, typeArguments);
+        var type = new TypeSyntax(LocationFrom(start), first.Text, typeArguments) { Modules = modules };
 
         if (Accept(TokenKind.Dot))
         {
@@ -124,6 +125,9 @@ public sealed partial class Parser
             var qualifiedFields = At(TokenKind.OpenParen) ? ParsePatternList() : null;
             return new VariantPatternSyntax(LocationFrom(start), type, variant.Text, Loc(variant.Span), qualifiedFields);
         }
+        // A variant is reached through its enum, so a name in a module is a type.
+        if (modules.Count > 0)
+            return FinishTypePattern(start, type);
         if (At(TokenKind.OpenParen) && typeArguments.Count == 0)
             return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), ParsePatternList());
         if (typeArguments.Count > 0 || At(TokenKind.Identifier))

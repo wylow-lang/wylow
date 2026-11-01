@@ -66,6 +66,7 @@ public enum TokenKind
     UnsafeKeyword,
     ExternKeyword,
     OperatorKeyword,
+    ImportKeyword,
     Underscore,
     ReservedKeyword,
 
@@ -81,6 +82,9 @@ public enum TokenKind
     DotDot,
     DotDotEqual,
     Colon,
+
+    /// <summary><c>::</c>, which walks modules (spec 06-syntax.md §6.1).</summary>
+    ColonColon,
     Question,
     QuestionQuestion,
     QuestionDot,

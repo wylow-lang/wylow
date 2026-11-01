@@ -41,7 +41,24 @@ public enum TypeKind { Struct, Class, Interface, Enum }
 
 public abstract record Node(Location Location);
 
-public sealed record CompilationUnit(SourceText Source, IReadOnlyList<Declaration> Declarations);
+public sealed record CompilationUnit(SourceText Source, IReadOnlyList<ImportDecl> Imports, IReadOnlyList<Declaration> Declarations);
+
+/// <summary>One name of a <c>::</c> path, where it is written.</summary>
+public sealed record PathName(string Name, Location Location);
+
+/// <summary>
+/// <c>import a::b::C;</c>, <c>import a::{B, C as D};</c>, or <c>import a::*;</c> (spec 06-syntax.md
+/// §6.1): <see cref="Module"/> is the path before the last <c>::</c>, empty for <c>import std;</c>,
+/// and <see cref="Names"/> what is imported from it, empty for <c>*</c>.
+/// </summary>
+public sealed record ImportDecl(Location Location, Visibility Visibility, IReadOnlyList<PathName> Module, IReadOnlyList<ImportedName> Names, bool IsAll)
+    : Node(Location);
+
+/// <summary>A name an import brings in, and what the file calls it if <c>as</c> renames it.</summary>
+public sealed record ImportedName(PathName Name, PathName? Alias)
+{
+    public PathName Local => Alias ?? Name;
+}
 
 public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location)
 {
@@ -119,6 +136,9 @@ public enum TypeShape { Named, FixedArray, Array, Pointer, Function, NullableRef
 public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
     : Node(Location)
 {
+    /// <summary>The modules a <see cref="TypeShape.Named"/> type is written in, as in <c>memory::CycleStats</c>; empty for a plain name.</summary>
+    public IReadOnlyList<PathName> Modules { get; init; } = [];
+
     public TypeShape Shape { get; init; }
     public TypeSyntax? Element { get; init; }
 
@@ -236,6 +256,13 @@ public sealed record NullLiteralExpr(Location Location) : Expr(Location);
 
 /// <summary><see cref="TypeArguments"/> is non-empty for generic calls and constructions, like <c>max&lt;int&gt;(...)</c>.</summary>
 public sealed record NameExpr(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments) : Expr(Location);
+
+/// <summary>
+/// A name in a module, as in <c>gen::seed</c> or <c>world::Chunk</c>: <see cref="Modules"/> are
+/// walked with <c>::</c>, and <see cref="Name"/> is looked up in the last of them. It is a node of
+/// its own, not a <see cref="NameExpr"/>, so that nothing binds it as a name in scope by mistake.
+/// </summary>
+public sealed record PathExpr(Location Location, IReadOnlyList<PathName> Modules, NameExpr Name) : Expr(Location);
 
 public sealed record ThisExpr(Location Location) : Expr(Location);
 

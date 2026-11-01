@@ -72,12 +72,24 @@ public sealed partial class Parser
 
     public CompilationUnit ParseCompilationUnit()
     {
+        var imports = new List<ImportDecl>();
         var declarations = new List<Declaration>();
         while (!At(TokenKind.EndOfFile))
         {
             int start = position;
             var annotations = ParseAnnotations();
             var modifiers = ParseModifiers();
+            if (At(TokenKind.ImportKeyword))
+            {
+                if (annotations.Count > 0)
+                    Error(annotations[0].Location.Span, "an import takes no annotations");
+                Disallow(modifiers, ~Modifiers.None, token => $"'{token.Text}' is not valid on an import");
+                // As in Java, so a file's first lines say what it uses.
+                if (declarations.Count > 0)
+                    Error(Current.Span, "imports come before the file's declarations");
+                imports.Add(ParseImport(start, modifiers.Visibility));
+                continue;
+            }
             if (At(TokenKind.RefKeyword) && Peek(1).Kind == TokenKind.StructKeyword)
             {
                 Advance();
@@ -125,7 +137,90 @@ public sealed partial class Parser
             if (position == start)
                 Advance();
         }
-        return new CompilationUnit(source, declarations);
+        return new CompilationUnit(source, imports, declarations);
+    }
+
+    /// <summary>
+    /// <c>import a::b::C;</c>, <c>import a::b::{C, D as E};</c>, or <c>import a::b::*;</c>, with
+    /// <c>as</c> also after a single name; the visibility before it is already read.
+    /// </summary>
+    ImportDecl ParseImport(int start, Visibility visibility)
+    {
+        Advance();
+        var path = new List<PathName> { ParsePathName("a module or package name") };
+        var names = new List<ImportedName>();
+        bool all = false;
+        while (Accept(TokenKind.ColonColon))
+        {
+            if (Accept(TokenKind.Star))
+            {
+                all = true;
+                break;
+            }
+            if (Accept(TokenKind.OpenBrace))
+            {
+                if (!At(TokenKind.CloseBrace))
+                {
+                    do
+                        names.Add(ParseImportedName());
+                    while (Accept(TokenKind.Comma) && !At(TokenKind.CloseBrace));
+                }
+                else
+                {
+                    Error(Current.Span, "expected a name to import");
+                }
+                Expect(TokenKind.CloseBrace, "'}'");
+                break;
+            }
+            path.Add(ParsePathName("a name"));
+        }
+        if (!all && names.Count == 0)
+        {
+            var last = path[^1];
+            path.RemoveAt(path.Count - 1);
+            names.Add(new ImportedName(last, ParseAlias()));
+        }
+        var location = LocationFrom(start);
+        if (!Accept(TokenKind.Semicolon))
+        {
+            Error(new TextSpan(Previous.Span.End, 0), "expected ';'");
+            if (!At(TokenKind.ImportKeyword))
+                SkipDeclaration();
+        }
+        return new ImportDecl(location, visibility, path, names, all);
+    }
+
+    ImportedName ParseImportedName() => new(ParsePathName("a name to import"), ParseAlias());
+
+    // `as` is a name like any other everywhere but here, so it isn't a keyword.
+    PathName? ParseAlias()
+    {
+        if (!At(TokenKind.Identifier) || Current.Text != "as")
+            return null;
+        Advance();
+        return ParsePathName("the name to import it as");
+    }
+
+    PathName ParsePathName(string description)
+    {
+        var name = Expect(TokenKind.Identifier, description);
+        return new PathName(name.Text, Loc(name.Span));
+    }
+
+    /// <summary>
+    /// The <c>a::b::</c> before a name, as in <c>a::b::c</c>; empty if the identifier here isn't
+    /// followed by <c>::</c>. Leaves the last name unconsumed.
+    /// </summary>
+    List<PathName> ParseModulePath()
+    {
+        var modules = new List<PathName>();
+        while (At(TokenKind.Identifier) && Peek(1).Kind == TokenKind.ColonColon)
+        {
+            var name = Advance();
+            modules.Add(new PathName(name.Text, Loc(name.Span)));
+            Advance();
+        }
+        return modules;
     }
 
     static TypeKind? TypeKeywordKind(TokenKind kind) => kind switch

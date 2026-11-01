@@ -77,7 +77,7 @@ public sealed partial class Parser
             }
             else if (ScanArraySuffix(i) is >= 0 and var next)
                 i = next - 1;
-            else if (kind is not (TokenKind.Comma or TokenKind.Question or TokenKind.Star) && !SyntaxFacts.IsTypeStart(kind))
+            else if (kind is not (TokenKind.Comma or TokenKind.Question or TokenKind.Star or TokenKind.ColonColon) && !SyntaxFacts.IsTypeStart(kind))
                 return -1;
 
             if (depth == 0)
@@ -130,9 +130,10 @@ public sealed partial class Parser
         }
         else
         {
-            var token = Advance();
+            var modules = ParseModulePath();
+            var token = modules.Count > 0 ? Expect(TokenKind.Identifier, "a type name") : Advance();
             var arguments = At(TokenKind.Less) ? ParseTypeArguments() : [];
-            type = new TypeSyntax(LocationFrom(start), token.Text, arguments);
+            type = new TypeSyntax(LocationFrom(start), token.Text, arguments) { Modules = modules };
         }
         while (true)
         {
@@ -219,6 +220,10 @@ public sealed partial class Parser
         }
         else
         {
+            while (KindAt(index) == TokenKind.Identifier && KindAt(index + 1) == TokenKind.ColonColon)
+                index += 2;
+            if (KindAt(index) is not TokenKind.Identifier && !SyntaxFacts.IsPrimitiveTypeKeyword(KindAt(index)))
+                return -1;
             index++;
             if (ScanTypeArguments(index) is > 0 and var end)
                 index = end;

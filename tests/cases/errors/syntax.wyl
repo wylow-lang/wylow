@@ -1,4 +1,4 @@
-import Player {               // error: 'import' is not supported yet
+import Player {               // error: expected ';'
 }
 
 int counter = 0;                // error: top-level variables and constants are not supported yet; declare 'counter' inside a function or type
