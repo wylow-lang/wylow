@@ -39,42 +39,14 @@ Why file privacy rather than Go's directory privacy: safe abstractions over `uns
 must stay small. `unsafe` belongs only in the floor (`Array`, `List`, `Span`, native `String`);
 every other container is built safely on them.
 
-## Step 1: `pub` levels and file privacy, on today's programs
+## Step 1 (done): `pub` levels and file privacy on today's programs
 
-No multi-file user programs yet, but the user's file and each `Stdlib/*.wyl` file are already
-separate sources, and the stdlib is another package (`std`), so file and package checks are real
-now.
-
-- **Syntax** (`Lexer.cs`, `Token.cs`, `Parser.cs`, `Parser.Declarations.cs`, `Ast.cs`): add the
-  `pub` keyword, with an optional `(module)` or `(package)`; remove `public`, `protected`, and
-  `private` as access keywords (a leftover one gets one clear error pointing at `pub`, like the
-  leftover access block does now). Replace `Modifiers.Public/Protected/Private` with a visibility
-  value on declarations (an enum: File, Module, Package, Public), not three flags that can combine.
-  The parser's struct/enum `protected` errors and the interface "no access modifier" error become
-  the `pub` equivalents.
-- **Symbols and the binder** (`Symbols.cs` `IsPrivate`, `Binder.Expressions.cs` `CheckAccessible`,
-  `Binder.Calls.cs`, `Binder.Statements.cs`, `Binder.Inheritance.cs`, `Binder.Declarations.cs`):
-  a symbol records its visibility and its declaring source and package. `CheckAccessible` asks
-  "is the use's file/module/package inside the declaration's reach", replacing
-  `currentType != owner`. One definition of reach, used by every caller (fields, methods,
-  constructors, base calls, overrides, the memberwise constructor).
-- **New checks:** override and interface-implementation visibility must match exactly; a visible
-  signature can't name a less visible type; a member is capped by its type's visibility.
-- **Stdlib:** everything a program uses becomes `pub`; helpers shared between stdlib files become
-  `pub(package)`; `List.data`, `size`, and the like stay unmarked (file-private). Names the
-  compiler finds through `StdlibSymbols` must stay findable.
-- **Conversion:** `public` → `pub`, `private` → nothing, `protected` → whatever the use needs
-  (usually nothing in a one-file test), across `tests/cases`, the stdlib, `examples/`, and the
-  Wylow embedded in `tests/Wyl.Tests/*.cs` (matrix generators, self-tests). Script it; the last
-  conversion was one Python script over every file, then a hand pass over the templates in
-  `MatrixPlaces.cs` and `TypeSelfTests.cs`.
-- **Tests:** single-file "X is private" tests stop being errors (one file sees everything), so
-  they become passing tests of same-file access, or move to reaching a stdlib file's private member
-  (`list.size`), which must fail. New error tests: a leftover Java keyword, a bad `pub(...)`, an
-  override with different visibility, a `pub` signature naming a file-private type. Cross-module
-  cases wait for step 2.
-- **Docs in the same commit:** the "Not implemented yet" note in §6.2, CLAUDE.md if it mentions
-  access, and architecture.md's enforcement table for the reach definition.
+`ce3c1c6`, then `3bea6b8` (`Bounds` is `pub`), `70d77ec` (`::` paths, `std::panic` in the spec),
+and `e4deb4d` (snake_case files). `Visibility` is on each `Declaration` (`Ast.cs`); `Reach`
+(`Semantics/Reach.cs`) is the one definition of what a visibility reaches; `Binder.Visibility.cs`
+has `CheckVisible`, `VisibleFrom` (overloads), and the signature rule; override and implementation
+visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
+`errors/visibility_syntax.wyl`, `classes/visibility.wyl`.
 
 ## Left open by step 1
 
@@ -101,7 +73,6 @@ now.
   `checkRange` become its `checkIndex` and `checkRange`. `struct Memory`, also only static
   functions, becomes a module the same way (§6.1: a type holding only functions is a module in
   disguise); its spec mentions (`Memory.allocate`, ...) change with it.
-
 - The driver and CLI accept a package directory (with `wylow.toml`) as well as one file; modules
   come from the directory tree under `src/`.
 - The binder gets one namespace per module (its files' non-file-private names plus submodules),
@@ -134,4 +105,10 @@ cycle collector easier or automatic. The live list is the roadmap, GitHub issue 
   `tests/matrix/*.snapshot`. Update with `--interpret matrix --update-snapshots`, then check the
   diff differs only in numbers (strip digits from the removed and added lines and compare).
 - The Bash tool can eat backslashes in heredocs; write scripts with the file tool instead.
-- `tests/cases/basics/.wyl` is a stray untracked directory; skip directories when globbing.
+- `tests/cases/basics/.wyl` and `tests/cases/classes/.wyl` are stray untracked directories; skip
+  directories when globbing.
+- The test runner takes one filter per run (`Wyl.Tests.dll errors`), so run MSVC per area.
+- In PowerShell, `git commit -F -` with a here-string doesn't work; write the message to a file in
+  the scratchpad and pass `-F <file>`.
+- Stdlib files are snake_case (`list.wyl`), and error messages print them ("visible only in its
+  file (list.wyl)").
