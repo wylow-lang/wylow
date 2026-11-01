@@ -106,7 +106,7 @@ void main() {
     }
     if (m.at(0) is ref int wrong) {     // error: 'm.at(0)' refers to a value of type 'float', not 'int'
     }
-    if (makeMat().at(0) is ref float gone) { // error: a 'ref' binding must refer to a variable, field, or element, not a temporary value
+    if (makeMat().at(0) is ref float gone) { // error: cannot call 'mut' method 'at' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
     }
     if (m.peek(0) is ref float fixedRef) { // error: cannot take a 'ref' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in' instead
     }

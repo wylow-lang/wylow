@@ -364,6 +364,14 @@ without `mut` (§2.7); in a `mut` method, `this` is a `ref`. Interface methods m
 ([02-types.md](02-types.md#212-interfaces)). A `mut` method can't be called on a read-only place:
 through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `mut`.
 
+A temporary struct or fixed array (one a call or constructor returned, a `?:` of two values, `v!`)
+is a value, not a variable, so nothing writes to it: what the write changed would be gone after
+the statement. Its `mut` methods can't be called, its fields and elements can't be assigned (through
+`operator []=` either), it can't be passed by `ref` or referred to, and a `ref` loop can't iterate it;
+store it in a `mut` variable first. This is Swift's and Go's rule; C#, C++, and Rust allow some of these
+writes, which then change a copy no one sees. A write that reaches an object through a temporary
+is kept, as in `makeList().add(1)` or a struct's `operator []=` that isn't `mut`.
+
 ```java
 struct Vec3 {
     pub float x, y, z;
@@ -528,7 +536,7 @@ half of an indexer:
   is evaluated into a temporary that both calls take, so the value can't change it in between.
 - It is an instance method, which may be `virtual` or declared in an interface, and may be less
   visible than its `operator []`, as C#'s `private set`. On a struct it needs `mut` to change the
-  struct, and then a mutable place, as any `mut` method call does; one that isn't `mut` suits a
+  struct, and then a mutable place, not a temporary, as any `mut` method call does (§6.4); one that isn't `mut` suits a
   struct that writes through a class it refers to. A class receiver needs neither.
 - Indexing a type parameter, to read or to assign, is not supported yet.
 
@@ -881,7 +889,7 @@ A for-each loops over a range, a fixed array, a span, a value that converts to a
 
 - `T x` copies each element, `ref T x` refers to it, and `in T x` refers to it read-only. `var x`
   copies with the element's type. A `ref` loop needs a mutable source: not an `in` parameter, a
-  `ReadOnlySpan`, or a fixed array in a variable or field that isn't `mut`.
+  `ReadOnlySpan`, a fixed array in a variable or field that isn't `mut`, or a temporary fixed array (§6.4).
 - Each variable, including a range's, is a new variable in each iteration and is immutable unless
   declared `mut`, as in `for (mut Vec3 p : points)`; changing a copy doesn't change the element.
 - `int i, ... x` adds the element's index, a copy of the position.

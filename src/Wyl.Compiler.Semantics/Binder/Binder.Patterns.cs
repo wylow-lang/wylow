@@ -61,7 +61,7 @@ public sealed partial class Binder
             Error(operand.Location, $"'is {keyword}' tests a reference that may refer to nothing, and '{text}' has type '{operand.Type}'");
         else if (target is not null && target != WylType.Error && target != referenced)
             Error(syntax.Type!.Location, $"'{text}' refers to a value of type '{referenced}', not '{target}'");
-        else if (CheckReferredPlace(operand, syntax.RefKind, $"a '{keyword}' binding", mayBeNull: false, throughReference: true) && target != WylType.Error)
+        else if (CheckReferredPlace(operand, syntax.RefKind, $"{WithArticle(keyword)} binding", mayBeNull: false, throughReference: true) && target != WylType.Error)
         {
             var binding = new LocalSymbol(syntax.Name, referenced.NullableReference(syntax.RefKind), isParameter: false, syntax.RefKind) { IsReferenceBinding = true };
             Declare(binding, syntax.NameLocation);

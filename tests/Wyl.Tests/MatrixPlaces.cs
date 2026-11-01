@@ -19,7 +19,8 @@ static class MatrixPlaces
         places.AddRange(IndexPlaces("list-element", ListElement));
         places.AddRange(IndexPlaces("span-element", SpanElement));
         places.AddRange([RefLocal(), InLocal(), RefNullableLocal(), InNullableLocal(),
-            NullableValue(), CapturedLocal(), ThisField(), ChainedField(), SetterElement()]);
+            NullableValue(), CapturedLocal(), ThisField(), ChainedField(), SetterElement(),
+            TemporaryField(), TemporarySetterElement()]);
         var cells = new List<MatrixCell>();
         foreach (var place in places)
         {
@@ -171,6 +172,20 @@ static class MatrixPlaces
         (use, operation, body) => MainHost(use, operation, body) + "\n" + SetterTypes,
         _ => SetterElementReturnRef + "\n\n" + SetterTypes);
 
+    // A part of a value a call returned, which is not a variable: every write to it is refused,
+    // since what it changed would be gone after the statement. Its functions follow the program too.
+    static Place TemporaryField() => new("temporary-field",
+        U("int", "", "pair().value", mutable: true),
+        U("int[3]", "", "pair().values", mutable: true),
+        (use, operation, body) => MainHost(use, operation, body) + "\n" + TemporaryFunctions + "\n" + SetterTypes,
+        use => GenericReturnRef(use) + "\n" + TemporaryFunctions + "\n" + SetterTypes);
+
+    static Place TemporarySetterElement() => new("temporary-setter-element",
+        U("int", "", "cells()[0]", mutable: true),
+        U("int[3]", "", "rows()[0]", mutable: true),
+        (use, operation, body) => MainHost(use, operation, body) + "\n" + TemporaryFunctions + "\n" + SetterTypes,
+        use => GenericReturnRef(use) + "\n" + TemporaryFunctions + "\n" + SetterTypes);
+
     /// <summary>The statements of one operation, with the place's own expression substituted.</summary>
     static string Body(Use use, string operation)
     {
@@ -320,6 +335,20 @@ static class MatrixPlaces
             mut Owner owner = Owner();
             owner.at() = 5;
             print(owner.cells[0]);
+        }
+        """;
+
+    const string TemporaryFunctions = """
+        Pair pair() {
+            return Pair();
+        }
+
+        Cells cells() {
+            return Cells();
+        }
+
+        Rows rows() {
+            return Rows();
         }
         """;
 

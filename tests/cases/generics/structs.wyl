@@ -57,7 +57,8 @@ void main() {
     print(s.first);              // output: hi
 
     mut var b = Box<Box<int>>(value: Box<int>(value: 7));
-    print(b.get().get());        // output: 7
+    mut var inner = b.get();
+    print(inner.get());          // output: 7
     print(b.reads);              // output: 1
     print(b.convert<long>(9));   // output: 9
     print(b.convert(true));      // output: true

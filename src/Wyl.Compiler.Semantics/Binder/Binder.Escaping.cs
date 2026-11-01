@@ -224,7 +224,7 @@ public sealed partial class Binder
     {
         var what = local.IsParameter ? "parameter" : "variable";
         if (local.RefKind != RefKind.None)
-            return $"which is {(local.RefKind == RefKind.In ? "an" : "a")} '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' {what}; copy its value to a local first";
+            return $"which is {WithArticle(FunctionSymbol.RefPrefix(local.RefKind).Trim())} {what}; copy its value to a local first";
         if (local.Type.IsRefStruct)
             return $"a '{local.Type}' that may not outlive what it views";
         if (local.Type.NonNull.IsNonEscapingFunction)

@@ -1,0 +1,88 @@
+// A temporary struct can't be written to (spec 06-syntax.md §6.4), but it can be read, and a
+// write that reaches an object through it, or through a temporary reference, is kept.
+
+import std::{List, print};
+
+struct Counter {
+    int count;
+
+    int peek() {
+        return count;
+    }
+
+    mut void add() {
+        count++;
+    }
+}
+
+class Bits {
+    mut int word;
+}
+
+// Its elements are an object's, so assigning one changes nothing in the struct.
+struct BitView {
+    Bits bits;
+
+    bool operator [](int i) {
+        return (bits.word >> i & 1) != 0;
+    }
+
+    void operator []=(int i, bool value) {
+        bits.word = value ? bits.word | (1 << i) : bits.word & ~(1 << i);
+    }
+}
+
+class Grid {
+    mut int[3] cells;
+
+    int operator [](int i) {
+        return cells[i];
+    }
+
+    void operator []=(int i, int value) {
+        cells[i] = value;
+    }
+}
+
+Counter counter(int count) {
+    return Counter(count);
+}
+
+Grid same(Grid grid) {
+    return grid;
+}
+
+int[3] numbers() {
+    return [1, 2, 3];
+}
+
+void main() {
+    print(counter(4).peek());           // output: 4
+    mut Counter kept = counter(4);
+    kept.add();
+    print(kept.count);                  // output: 5
+
+    var bits = new Bits();
+    BitView(bits)[2] = true;
+    BitView(bits)[0] = true;
+    print(bits.word);                   // output: 5
+
+    var grid = new Grid();
+    same(grid)[1] = 7;
+    same(grid)[1] += 1;
+    print(grid.cells[1]);               // output: 8
+
+    for (in int n : numbers()) {
+        print(n);
+    }
+    // output: 1
+    // output: 2
+    // output: 3
+
+    var rows = new List<int[3]>();
+    rows.add([1, 2, 3]);
+    for (ref int n : rows[0]) {
+        n *= 10;
+    }
+    print(rows[0][2]);                  // output: 30
+}

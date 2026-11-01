@@ -16,6 +16,10 @@ struct Samples {
         return values;
     }
 
+    ReadOnlySpan<int> view() {
+        return values;
+    }
+
     mut Span<int> other(Span<int> given) {
         return given;                       // error: a returned 'Span<int>' must view the method's receiver
     }
@@ -62,8 +66,9 @@ void main() {
     s = b;                                  // error: 's' cannot be reassigned: a 'Span<int>' views what it was initialized with
     Span<int> later;                        // error: a 'Span<int>' variable must be initialized where it is declared
     Span<int> t = makeArray();              // error: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
-    Span<int> u = makeSamples().edit();     // error: this 'Span<int>' would view a temporary value
-    for (int x : makeSamples().edit()) {    // error: cannot loop over a temporary value's elements
+    Span<int> e = makeSamples().edit();     // error: cannot call 'mut' method 'edit' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    ReadOnlySpan<int> u = makeSamples().view(); // error: this 'ReadOnlySpan<int>' would view a temporary value
+    for (int x : makeSamples().view()) {    // error: cannot loop over a temporary value's elements
     }
     bool flag = true;
     var either = flag ? s : s;              // error: '?:' cannot choose between two 'Span<int>'s

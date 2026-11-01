@@ -74,7 +74,8 @@ void main() {
     Mat2 m = Mat2();
     m.at(0) = 3;                        // error: cannot assign to 'm.at(0)' because 'at(int)' returns 'in'
     ref float r = m.at(0);              // error: cannot take a 'ref' to 'm.at(0)' because 'at(int)' returns 'in'; use 'in' instead
-    ref float t = makeMat()[0, 0];      // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value
+    ref float t = makeMat()[0, 0];      // error: cannot call 'mut' method 'operator []' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    in float v = makeMat().at(0);       // error: an 'in' variable must refer to a variable, field, or element, not a temporary value
     print(m[0]);                        // error: no indexer of 'Mat2' takes 1 argument
     var h = new Holder();
     h.count() = 3;                      // error: cannot assign to this expression

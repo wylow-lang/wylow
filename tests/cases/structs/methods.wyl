@@ -40,9 +40,4 @@ void main() {
     print(small.area());                    // output: 24
     print(Box(1, 1).area());                // output: 1
     print(Box.square(3).isBiggerThan(big)); // output: false
-
-    // A `?:` of two places is a copy, so a `mut` method changes the copy rather than either place.
-    (true ? small : big).grow();
-    print(small.area());                    // output: 24
-    print(big.area());                      // output: 16
 }

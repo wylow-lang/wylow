@@ -31,7 +31,7 @@ struct Samples {
 
 struct Hidden {
     static Hidden make(int secret) { return Hidden(secret); }
-    mut int reveal() { return secret; }
+    int reveal() { return secret; }
 
     int secret;
 }

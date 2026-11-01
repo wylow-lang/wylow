@@ -85,7 +85,7 @@ void main() {
     }
     if (v != null) {
         ref int r = v.x;                // error: a 'ref' variable cannot refer into the nullable 'v'
-        in int[2] p = v.pair;           // error: a 'in' variable cannot refer into the nullable 'v'
+        in int[2] p = v.pair;           // error: an 'in' variable cannot refer into the nullable 'v'
         Span<int> span = v.pair;        // error: a span cannot view inside the nullable 'v'
         for (int e : v.pair) { }        // error: cannot loop over elements inside the nullable 'v'
     }

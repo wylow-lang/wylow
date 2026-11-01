@@ -398,16 +398,23 @@ public sealed partial class Binder
         return new BoundCall(location, method, receiver, ConvertArguments(method, arguments), isSuperCall);
     }
 
-    bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver)
+    /// <summary>
+    /// A <c>mut</c> method changes its receiver, which must be a variable it may change: a temporary
+    /// is a value, not a variable, so its changes would be lost (06-syntax.md §6.4).
+    /// <paramref name="onTemporary"/> says so in the words of what the call does, if it isn't a call in the source.
+    /// </summary>
+    bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver, string? onTemporary = null)
     {
         // Calling a method on an object never modifies the place holding the reference.
         if (receiver.Type.IsReference || method.Symbol.IsReadOnly)
             return true;
         var (kind, reason) = ClassifyPlace(receiver);
-        if (kind != PlaceKind.ReadOnly)
+        if (kind == PlaceKind.Mutable)
             return true;
-        var what = receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'";
-        Error(location, $"cannot call 'mut' method '{method.Symbol.Name}' on {what} because {reason}");
+        if (kind == PlaceKind.Temporary)
+            Error(location, onTemporary ?? $"cannot call 'mut' method '{method.Symbol.Name}' on a temporary value, whose changes would be lost; {StoreTemporaryHint}");
+        else
+            Error(location, $"cannot call 'mut' method '{method.Symbol.Name}' on {(receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'")} because {reason}");
         return false;
     }
 

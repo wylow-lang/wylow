@@ -325,8 +325,9 @@ struct Mat4 {
 - Only instance methods return references, and for now they cannot be virtual or abstract.
 - A `ref` return must point into mutable storage, so a struct method that isn't `mut` returns `in` (or a
   pointer's target). Calling a method that returns `in` gives a read-only place.
-- The result is a place for as long as the receiver is: on a temporary struct, such as
-  `makeMatrix()[0, 0]`, it can be read but not assigned or referred to.
+- The result is a place for as long as the receiver is. A temporary struct can't be the receiver of
+  a `mut` method ([06-syntax.md](06-syntax.md#mut-struct-methods)), and on one, such as
+  `makeMatrix().at(0)`, an `in` result can be read but not referred to.
 - Free functions and static methods cannot return references yet.
 
 ### Nullable references: `ref? T`

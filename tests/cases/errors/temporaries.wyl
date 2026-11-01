@@ -1,0 +1,69 @@
+// A temporary struct or array is a value, not a variable, so nothing may write to it: what the
+// write changed would be gone after the statement (spec 06-syntax.md §6.4).
+
+struct Counter {
+    int count;
+
+    mut void add() {
+        count++;
+    }
+
+    mut int take() {
+        int taken = count;
+        count = 0;
+        return taken;
+    }
+}
+
+struct Cells {
+    int[2] items;
+
+    int operator [](int i) {
+        return items[i];
+    }
+
+    mut void operator []=(int i, int value) {
+        items[i] = value;
+    }
+}
+
+struct Holder {
+    Counter counter;
+}
+
+Counter counter() {
+    return Counter();
+}
+
+Cells cells() {
+    return Cells();
+}
+
+Holder holder() {
+    return Holder();
+}
+
+int[3] numbers() {
+    return [1, 2, 3];
+}
+
+void main() {
+    counter().add();                    // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    int taken = counter().take();       // error: cannot call 'mut' method 'take' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    Counter().add();                    // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    holder().counter.add();             // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    mut Counter a = Counter();
+    mut Counter b = Counter();
+    (true ? a : b).add();               // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    mut Counter? maybe = Counter();
+    maybe!.add();                       // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+
+    cells()[0] = 1;                     // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+    cells()[0] += 1;                    // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+    cells()[1]++;                       // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+    Cells()[0] = 1;                     // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+
+    for (ref int n : numbers()) {       // error: cannot loop over a temporary array by 'ref', whose changes would be lost; store it in a 'mut' variable first
+        n += 1;
+    }
+}

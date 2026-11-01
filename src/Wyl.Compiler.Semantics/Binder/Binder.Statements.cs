@@ -273,7 +273,7 @@ public sealed partial class Binder
             place = new BoundLocalAccess(narrowed.Location, narrowed.Local, AssumesNonNull: true);
         var type = declared ?? place?.Type.Referred ?? WylType.Error;
         BoundExpression? initializer = null;
-        var what = $"a '{keyword}' variable";
+        var what = $"{WithArticle(keyword)} variable";
         if (place is null)
             Error(s.Location, $"{what} must be initialized with the variable, field, or element it refers to");
         else if (place.Type == WylType.Null && declared is null)
@@ -549,6 +549,15 @@ public sealed partial class Binder
         return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 
+    /// <summary>
+    /// A temporary struct or array is a value, not a variable, so nothing writes to it: what a write
+    /// changed would be gone after the statement (06-syntax.md §6.4).
+    /// </summary>
+    const string StoreTemporaryHint = "store it in a 'mut' variable first";
+
+    /// <summary>A reference keyword with its article, as in "an 'in?'" or "a 'ref'".</summary>
+    static string WithArticle(string keyword) => $"{(keyword.StartsWith("in") ? "an" : "a")} '{keyword}'";
+
     (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => ClassifyPlace(PlacePath.Of(expression));
 
     (PlaceKind Kind, string Reason) ClassifyPlace(PlacePath path)
@@ -639,8 +648,8 @@ public sealed partial class Binder
             case PlaceKind.Temporary:
                 Error(target.Location, target switch
                 {
-                    BoundFieldAccess => "cannot assign to a field of a temporary value",
-                    BoundIndex => "cannot assign to an element of a temporary array",
+                    BoundFieldAccess => $"cannot assign to a field of a temporary value; {StoreTemporaryHint}",
+                    BoundIndex => $"cannot assign to an element of a temporary array; {StoreTemporaryHint}",
                     _ => "cannot assign to this expression",
                 });
                 return false;

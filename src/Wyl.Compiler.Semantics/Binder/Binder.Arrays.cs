@@ -51,7 +51,8 @@ public sealed partial class Binder
         if (write is null)
             return ErrorExpression(e.Location, $"'{DisplayName(type)}' has no 'operator []=' to assign an element read by '{read.Method.Symbol.Signature}'");
         CheckVisible(e.Target.Location, write.Symbol.Reach, $"'operator []=' of '{DisplayName(type)}'");
-        if (!CheckUnsafeCall(e.Location, write) || !CheckMutReceiver(e.Location, write, read.Receiver))
+        if (!CheckUnsafeCall(e.Location, write)
+            || !CheckMutReceiver(e.Location, write, read.Receiver, $"cannot assign to an element of a temporary value; {StoreTemporaryHint}"))
             return new BoundErrorExpression(e.Location);
         return new BoundIndexerElement(e.Location, read, write);
     }
@@ -64,7 +65,7 @@ public sealed partial class Binder
             : "";
 
     /// <summary>
-    /// <c>operator []=</c> is the writing half of an indexer (ง6.6): each pairs with the
+    /// <c>operator []=</c> is the writing half of an indexer (ยง6.6): each pairs with the
     /// <c>operator []</c> taking the same indices, whose element type it assigns, and which resolves
     /// the indices of an assignment for both. Beside a <c>ref</c> indexer, an assignment would have two meanings.
     /// </summary>

@@ -253,8 +253,9 @@ stored. Nullable values follow the rules above, and also:
   narrowing where it is made, and one made later can't run before then. A `ref` variable can't refer to a nullable
   local itself either, since the local could then change after a null check. A narrowed local that
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
-- `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
-  error when `m` is a `mut` struct method, since its changes would be lost.
+- `v!` and `v?.m()` work on a copy: `v!.x = 1` and `v!.m()` are errors, as for any temporary
+  ([06-syntax.md](06-syntax.md#mut-struct-methods)), and so is `v?.m()`, when `m` is a `mut` struct
+  method, since its changes would be lost.
 - A struct cannot contain itself through a nullable (`struct Link { pub Link? next; }`), since the
   value would be stored inline; use a class.
 

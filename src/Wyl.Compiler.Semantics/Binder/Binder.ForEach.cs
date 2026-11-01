@@ -109,7 +109,8 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// Loops over a fixed array through a reference to it, or through a copy of a temporary one,
+    /// Loops over a fixed array through a reference to it, or through a copy of a temporary one, which
+    /// a <c>ref</c> loop would change only to lose,
     /// as <c>for (int i = 0; i &lt; N; i++) { element = array[i]; ... }</c>.
     /// </summary>
     BoundStatement BindFixedArrayLoop(ForEachStmt s, BoundExpression iterable)
@@ -128,6 +129,8 @@ public sealed partial class Binder
         bool readOnly = kind == PlaceKind.ReadOnly && s.Element.RefKind == RefKind.Ref;
         if (readOnly)
             Error(location, $"cannot loop over '{TextOf(location)}' by 'ref' because {ClassifyPlace(iterable).Reason}; use 'in'");
+        else if (kind == PlaceKind.Temporary && s.Element.RefKind == RefKind.Ref)
+            Error(location, $"cannot loop over a temporary array by 'ref', whose changes would be lost; {StoreTemporaryHint}");
 
         var loop = BindCountingLoop(s, counter, new BoundLiteral(location, WylType.Int, ((FixedArrayType)iterable.Type).Length), readOnly ? null : element);
         return new BoundBlock(s.Location, [new BoundVariableDeclaration(location, array, iterable), loop]);
@@ -204,7 +207,7 @@ public sealed partial class Binder
             value = null;
         else if (elementSyntax.RefKind == RefKind.None)
             value = Convert(element, type);
-        else if (!CheckReference(element, elementSyntax.RefKind, type, $"a '{FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim()}' variable"))
+        else if (!CheckReference(element, elementSyntax.RefKind, type, $"{WithArticle(FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim())} variable"))
             value = null;
         var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind)
         {

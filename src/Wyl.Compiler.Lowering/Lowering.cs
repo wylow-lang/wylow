@@ -356,7 +356,7 @@ public sealed partial class IrLowering
     /// <summary>
     /// An assignment through <c>operator []=</c>, which is a call: the receiver and indices are
     /// found once, before the value, and a compound assignment reads the element with the paired
-    /// <c>operator []</c> in between (spec ง3.3, Evaluation order and the heap).
+    /// <c>operator []</c> in between (spec ยง3.3, Evaluation order and the heap).
     /// </summary>
     void IndexerAssignment(BoundIndexerElement element, BoundExpression value)
     {
