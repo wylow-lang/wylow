@@ -108,7 +108,7 @@ Everything is private to its file unless it says otherwise:
 | Written | Visible to |
 |---|---|
 | nothing | The file it's declared in |
-| `pub(module)` | Every file of its module, and of the modules inside it |
+| `pub(module)` | Every file of its module: its directory, not the directories inside it |
 | `pub(package)` | The whole package |
 | `pub` | Everyone, including other packages |
 
@@ -123,6 +123,8 @@ pub abstract class Entity {
 }
 ```
 
+- A module and the modules inside it see each other only as any two modules do: `world.gen` reaches
+  `world`'s names that are `pub(package)` or wider, never its `pub(module)` ones.
 - The same levels apply to top-level declarations and to members. A member is visible only where
   its type is too: a `pub` method of a `pub(module)` class is visible within the module.
 - **There is no type-private level.** A type's unmarked members are visible to the rest of its
