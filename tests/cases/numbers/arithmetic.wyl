@@ -1,3 +1,5 @@
+import std::print;
+
 void main() {
     print(7 / 2);            // output: 3
     print(-7 / 2);           // output: -3

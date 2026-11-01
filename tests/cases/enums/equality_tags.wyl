@@ -1,5 +1,8 @@
 // Two variants with payloads of one shape are different values: equality compares the variant
 // before the payload.
+
+import std::print;
+
 enum Shape {
     Circle(int size),
     Square(int size),

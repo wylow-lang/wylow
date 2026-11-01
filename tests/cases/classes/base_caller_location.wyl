@@ -1,5 +1,7 @@
 // A base constructor that takes the caller's location gets it after its computed arguments.
 
+import std::print;
+
 class Base {
     @CallerLocation
     Base(int a, int b) {

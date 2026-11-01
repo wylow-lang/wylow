@@ -1,3 +1,5 @@
+import std::print;
+
 interface Shape {
     mut float area();
 }

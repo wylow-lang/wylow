@@ -1,3 +1,5 @@
+import std::print;
+
 T identity<T>(T value) {
     return value;
 }

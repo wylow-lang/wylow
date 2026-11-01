@@ -1,4 +1,7 @@
 // A lambda can't grow a list while a 'ref' into it is in use.
+
+import std::List;
+
 void bump(ref int v, () -> void during) {
     during();
     v += 1;

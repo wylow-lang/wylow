@@ -1,0 +1,14 @@
+// A submodule reaches its parent's names like any other module's, through an import.
+import world::Chunk;
+
+pub int seed() {
+    return 42;
+}
+
+pub int noise(int x) {
+    return x * 10;
+}
+
+pub Chunk origin() {
+    return Chunk.make(0);
+}

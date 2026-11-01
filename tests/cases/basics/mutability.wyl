@@ -1,4 +1,7 @@
 // Variables, parameters, and class fields are immutable unless declared 'mut'.
+
+import std::{List, print};
+
 struct Vec {
     float x;
     float y;

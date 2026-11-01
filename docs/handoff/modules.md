@@ -112,7 +112,8 @@ The user wants the no-prelude choice revisited as std changes.
   `// output:`, `// panic:`, `// mode:` only in the file with `main`. The fuzzer skips them (done).
 - A function's overloads may be in any files of a module; no file may see one signature twice
   (decided with the user, in §6.1).
-- The cycle collector names a class outside the root module by its path (`world::Chunk`).
+- The cycle collector names a class by its name alone, as before; a class's module path in its
+  diagnostics is open.
 
 ### Commits planned
 
@@ -122,7 +123,11 @@ The user wants the no-prelude choice revisited as std changes.
 3. `cli, binder`: package directories, the manifest, per-module namespaces with file-private
    scopes, multi-file test cases (done). Until 4, every file still sees all of `std`, functions
    merge across tables, and a program can't redeclare a std type's name.
-4. `binder`: imports, paths in code, std's built-in names, collisions, cross-module visibility tests.
+4. `binder`: imports, paths in code, std's built-in names, collisions, cross-module visibility
+   tests (done). Imports resolve lazily (`Binder.Imports.cs`); every lookup is
+   `Binder.ResolveName`/`ResolveModule` (`Binder.Names.cs`). Self-test programs see std through
+   `Wyl.Harness/TestPrograms.WithStd`. Left for 5: a package-level miss, which needs a
+   `pub(package)` declaration in std.
 5. `stdlib`: `std::panic` and `std::memory`.
 6. `emitter`: a method doesn't override a base method it can't see; delete this file.
 

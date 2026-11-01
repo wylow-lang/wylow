@@ -1,5 +1,7 @@
 // Breadth-first and best-first search on a grid, with a user-written generic heap.
 
+import std::{List, print};
+
 interface Ordered<T> {
     mut bool lessThan(in T other);
 }

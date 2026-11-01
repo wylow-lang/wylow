@@ -82,6 +82,7 @@ public sealed partial class Binder
         var call = e.Callee switch
         {
             NameExpr name => BindNameCall(e, name, arguments, expected),
+            PathExpr path => BindPathCall(e, path, arguments),
             MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
             ConditionalAccessExpr access => BindConditionalCall(e, access, arguments),
             ThisExpr => ErrorExpression(e.Callee.Location, "'this(...)' constructor chaining is not supported yet"),
@@ -126,7 +127,28 @@ public sealed partial class Binder
             return MakeCall(e.Location, method, new BoundThis(name.Location, s.Type), arguments);
         }
 
-        if (LookupType(name.Name, name.Location.Source) is { } type)
+        if (ResolveName(name.Name, name.Location) is { HasValue: true } entry)
+            return BindTopLevelCall(e, name, entry, typeArguments, pending);
+        if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
+            return BindVariant(e.Location, variant.Owner, expected, variant, pending);
+        if (HiddenElsewhere(name.Name, name.Location.Source) is { } hidden)
+            return ErrorExpression(name.Location, hidden);
+        return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name, name.Location.Source)}");
+    }
+
+    /// <summary><c>gen::seed()</c> or <c>world::Chunk(...)</c>: a call of a name in a module (§6.1, Imports).</summary>
+    BoundExpression BindPathCall(CallExpr e, PathExpr path, PendingArguments pending)
+    {
+        var typeArguments = BindTypeArguments(path.Name.TypeArguments);
+        if (typeArguments?.Contains(WylType.Error) == true || ResolvePath(path.Modules, path.Name.Name, path.Name.Location) is not { } entry)
+            return new BoundErrorExpression(e.Location);
+        return BindTopLevelCall(e, path.Name, entry, typeArguments, pending);
+    }
+
+    /// <summary>A call of a top-level type, which constructs a struct, or of a function's overloads, found by name or by a path.</summary>
+    BoundExpression BindTopLevelCall(CallExpr e, NameExpr name, Entry entry, IReadOnlyList<WylType>? typeArguments, PendingArguments pending)
+    {
+        if (entry.Type is { } type)
         {
             if (type.Kind != TypeKind.Struct)
             {
@@ -143,15 +165,7 @@ public sealed partial class Binder
                 : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)));
         }
 
-        if (LookupFunctions(name.Name, name.Location.Source) is not { } overloads)
-        {
-            if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
-                return BindVariant(e.Location, variant.Owner, expected, variant, pending);
-            if (HiddenElsewhere(name.Name, name.Location.Source) is { } hidden)
-                return ErrorExpression(name.Location, hidden);
-            return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name, name.Location.Source)}");
-        }
-        List<Candidate> candidates = [.. overloads.Select(f => new Candidate(f, null))];
+        List<Candidate> candidates = [.. entry.Functions!.Select(f => new Candidate(f, null))];
         var functionArguments = pending.Bind(candidates);
         if (AnyError(functionArguments))
             return new BoundErrorExpression(e.Location);

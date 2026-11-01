@@ -1,6 +1,8 @@
 // A budget limits how many objects a collection visits. A cycle that doesn't fit in what is left
 // of the budget waits for a later call rather than being half-visited.
 
+import std::{Memory, print};
+
 class Node {
     int id;
     mut Node? next;

@@ -1,6 +1,9 @@
 // When matching reads, copies, and releases values. Each case is a function of its own, without
 // objects on the stack. Items print their name when freed, and may empty their holder's slot
 // when freed, which changes an enum while it is being matched.
+
+import std::{Weak, print};
+
 class Item {
     int id;
     String name;

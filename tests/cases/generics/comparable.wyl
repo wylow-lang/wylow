@@ -1,3 +1,5 @@
+import std::{List, print};
+
 struct Version implements Comparable<Version> {
     int major;
     int minor;

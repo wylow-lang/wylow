@@ -1,6 +1,8 @@
 // Within one file everything is visible, whatever its visibility, and a member is visible only as
 // far as its type (spec 06-syntax.md §6.2).
 
+import std::print;
+
 pub(module) class Counter {
     mut int count;                          // file-private, yet the rest of this file sees it
     pub (int) -> int step;                  // a public field of function type, not 'pub(...)'

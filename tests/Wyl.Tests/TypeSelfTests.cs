@@ -3,6 +3,7 @@ using Wyl.Compiler;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 // Properties every type must have, checked on random types built from the built-in types, the
 // standard library's, and the fixture's. Each failure is a bug, or an exception the spec must name.
@@ -49,7 +50,7 @@ static class TypeSelfTests
 
     static BoundProgram? Compile(string text, string name, out TestResult? failure)
     {
-        var compilation = Compilation.Compile(new SourceText("type_self_test.wyl", text));
+        var compilation = Compilation.Compile(new SourceText("type_self_test.wyl", TestPrograms.WithStd(text)));
         failure = compilation.Program is null ? new(name, string.Join('\n', compilation.Diagnostics.Take(20))) : null;
         return compilation.Program;
     }
@@ -244,7 +245,7 @@ static class TypeSelfTests
             text.AppendLine($"    void p{i}({annotation}{types[i].Name} x) {{ }}");
         }
         text.AppendLine("}\nvoid main() { }");
-        var compilation = Compilation.Compile(new SourceText("type_self_test.wyl", text.ToString()));
+        var compilation = Compilation.Compile(new SourceText("type_self_test.wyl", TestPrograms.WithStd(text.ToString())));
         if (compilation.Program is not { } program)
         {
             // The parser's recovery spills a syntax error onto the next probe.

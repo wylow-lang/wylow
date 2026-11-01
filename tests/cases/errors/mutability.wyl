@@ -1,4 +1,7 @@
 // Only what is declared 'mut' can be reassigned or changed in place.
+
+import std::{List, print};
+
 struct Vec {
     float x;
 

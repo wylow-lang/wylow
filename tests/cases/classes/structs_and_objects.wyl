@@ -1,3 +1,5 @@
+import std::print;
+
 class Tag {
     mut String name;
 

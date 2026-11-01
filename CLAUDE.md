@@ -212,7 +212,10 @@ is in, `Packages.cs`), `Diagnostics`, and the manifest reader (`Manifest.cs`).
   in file order, so put a called function's outputs at the call. A directory with a
   `package.wylcfg` (`tests/cases/packages/`) is one test of all its files: `// error:` may be in
   any of them, the manifest too, and every other marker only in the file with `main`. The fuzzer
-  skips them (`Wyl.Harness/TestCases.cs` says which files are tests on their own).
+  skips them (`Wyl.Harness/TestCases.cs` says which files are tests on their own). A test imports
+  the standard library's names it uses (`import std::{List, print};`), since only the language's
+  own types are seen without one; a program a self-test or matrix cell writes sees all of `std`
+  through `Wyl.Harness/TestPrograms.WithStd`.
 - `tests/Wyl.Tests/TypeSelfTests.cs`: properties every type must have (interning, substitution,
   `CppIdentity`, conversions, names that bind back to the type, facts that agree), checked on
   random types from a fixed seed; the runner reports them as `types/<property>`. A new kind of

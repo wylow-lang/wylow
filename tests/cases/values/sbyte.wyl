@@ -1,5 +1,7 @@
 // The `sbyte` kind at its edges: a signed 8-bit type whose arithmetic keeps its type.
 
+import std::print;
+
 void main() {
     sbyte min = -128;
     sbyte max = 127;

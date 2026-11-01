@@ -1,6 +1,8 @@
 // The `ulong` kind at its edges: past INT64_MAX, logical shifts, and reinterpretation as signed
 // (§2.3, §2.4).
 
+import std::print;
+
 void main() {
     ulong max = 18446744073709551615uL;
 

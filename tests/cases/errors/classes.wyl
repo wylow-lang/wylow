@@ -1,3 +1,5 @@
+import std::print;
+
 abstract class Weapon {
     abstract void fire();
     virtual int ammo() { return 0; }

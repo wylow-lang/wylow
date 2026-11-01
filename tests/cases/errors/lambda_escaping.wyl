@@ -1,5 +1,8 @@
 // Parameters and locals hold non-escaping functions unless declared '@Escaping'; fields, returns,
 // type arguments, array elements, and nullable variables are escaping.
+
+import std::List;
+
 class Button {
     (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
     @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping

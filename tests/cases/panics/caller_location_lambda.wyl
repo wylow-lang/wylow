@@ -1,4 +1,7 @@
 // A lambda made in an @CallerLocation function reports its own location, even after the call returns.
+
+import std::print;
+
 @CallerLocation
 () -> int divider(int x) {
     return () -> 10 / x;        // panic-here: division by zero

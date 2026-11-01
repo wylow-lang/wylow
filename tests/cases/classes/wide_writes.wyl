@@ -1,5 +1,7 @@
 // A function that may write more places than the write analysis tracks is taken to write anywhere.
 
+import std::print;
+
 class Wide {
     mut int f0;
     mut int f1;

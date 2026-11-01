@@ -1,6 +1,8 @@
 // Debug builds warn when the collector isn't keeping up with its budget, when it keeps freeing
 // objects of one class, and at exit about cycles never freed.
 
+import std::{List, Memory};
+
 class Node {
     mut Node? next;
 }

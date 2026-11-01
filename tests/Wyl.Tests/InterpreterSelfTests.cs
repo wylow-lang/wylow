@@ -3,6 +3,7 @@ using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Interpret;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 // Small programs with what they must print, panic with, or exit with, one per instruction kind and
 // per runtime message. They are what says whether the interpreter is wrong when no native mode runs.
@@ -1396,6 +1397,8 @@ static class InterpreterSelfTests
     {
         const string name = "interpreter/allocation_budget";
         var source = new SourceText("budget.wyl", """
+            import std::Memory;
+
             void main() {
                 unsafe {
                     int* values = Memory.allocate<int>(20_000);
@@ -1444,7 +1447,7 @@ static class InterpreterSelfTests
         string name, string source, IReadOnlyList<string> expected, string? panic, int? panicAtLine, bool release,
         string? undefined = null, IReadOnlyList<string>? warningsExpected = null, bool optimized = false)
     {
-        var text = new SourceText(name + ".wyl", source);
+        var text = new SourceText(name + ".wyl", TestPrograms.WithStd(source));
         var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: optimized), new InterpreterOptions(Release: release));
         var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (errors.Count > 0)

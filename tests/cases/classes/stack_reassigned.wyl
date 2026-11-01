@@ -2,6 +2,8 @@
 // once the local is reassigned: the assignment releases it, which destroys it there, as it would
 // on the heap. Each object made for the local has a slot of its own, so `stack:` counts each.
 
+import std::print;
+
 class Noisy {
     String name;
     mut Vec pos;

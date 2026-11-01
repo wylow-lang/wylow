@@ -1,5 +1,7 @@
 // The `short` kind at its edges: a signed 16-bit type whose arithmetic keeps its type.
 
+import std::print;
+
 void main() {
     short min = -32768;
     short max = 32767;

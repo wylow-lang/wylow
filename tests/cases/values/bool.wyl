@@ -1,5 +1,7 @@
 // The `bool` kind: its operators, its two values, and its default.
 
+import std::print;
+
 struct Flag {
     bool value;
 }

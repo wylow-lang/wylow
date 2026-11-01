@@ -1,5 +1,7 @@
 // A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
 
+import std::{List, Memory, print};
+
 class Enemy {
     int id;
     mut () -> void onHit = () -> print(0);

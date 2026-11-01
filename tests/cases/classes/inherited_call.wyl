@@ -1,5 +1,7 @@
 // A class calls a method it inherits, without naming the base it comes from.
 
+import std::print;
+
 class Base {
     int value() {
         return 7;

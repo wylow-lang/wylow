@@ -1,4 +1,7 @@
 // panic: integer overflow
+
+import std::print;
+
 void main() {
     uint x = 0u;
     print(1);   // output: 1

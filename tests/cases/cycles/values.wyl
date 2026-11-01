@@ -1,6 +1,8 @@
 // The collector follows references inside structs, enums, fixed arrays, and list elements, and
 // through interface types. A destructor may change its cycle or let go of other objects.
 
+import std::{List, Memory, print};
+
 interface Part {
     mut int id();
 }

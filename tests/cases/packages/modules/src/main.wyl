@@ -1,0 +1,37 @@
+// Imports and paths across modules (spec 06-syntax.md §6.1, Imports).
+
+import std::print;
+import world::Chunk;                        // one name
+import world::{Block, Kind as BlockKind};   // several, one renamed
+import world::gen;                          // a module itself
+import world::gen::*;                       // every name of 'world::gen' visible here
+
+void main() {
+    var c = Chunk.make(3);
+    print(c.x);                             // output: 3
+    print(world::describe(c));              // output: chunk 3
+    print(gen::seed());                     // output: 42
+    print(noise(2));                        // output: 20
+    var b = Block(id: 7);
+    print(b.id);                            // output: 7
+    BlockKind kind = BlockKind.Dirt;
+    print(world::name(kind));               // output: dirt
+    world::Chunk other = world::Chunk.make(5);
+    print(other.x);                         // output: 5
+    print(origin().x);                      // output: 0
+    print(world::worldSeed());              // output: 42
+    // The int overload is visible only in 'world', so it never wins here.
+    print(world::pick(1));                  // output: long
+    print(world::pickHere());               // output: int
+    (int) -> int f = gen::noise;
+    print(f(4));                            // output: 40
+    bool isBlock = describeAny(b);
+    print(isBlock);                         // output: true
+}
+
+bool describeAny(Block b) {
+    return switch (world::kindOf(b)) {
+        case world::Kind.Stone -> false;
+        case Dirt -> true;
+    };
+}

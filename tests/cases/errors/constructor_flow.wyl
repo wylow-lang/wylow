@@ -1,5 +1,7 @@
 // A constructor assigns every field without a default before it uses 'this' or returns.
 
+import std::print;
+
 class Item { }
 
 class Partial {

@@ -81,9 +81,11 @@ import engine::math;                    // the module itself: math::clamp(x)
 pub import world::Chunk;                // re-exported: also one of this module's names
 ```
 
-- A path starts with a top-level module of this package, or with the name of a package it depends
-  on; `std` is always one. A top-level module named like a dependency is an error, so a path's
-  first name has one meaning.
+- An import's path starts with a top-level module of this package, or with the name of a package
+  it depends on; `std` is always one. A top-level module named like a dependency is an error, so a
+  path's first name has one meaning. A name of the root module is imported by itself:
+  `import Config;`. An import's path walks directories; a name another module re-exports is
+  imported from the module that re-exports it.
 - An import is visible in its own file only, as in Java and Rust. A visibility on it (`pub import`,
   `pub(package) import`) also makes the name one of the module's, visible that far, which is how a
   package presents a public surface whose layout differs from its directories.
@@ -97,10 +99,10 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **A path in code starts with a module the file already sees**: one it imported, or a submodule
   of its own module, which is one of the module's names. In `src/main.wyl`, `world::Chunk.make()`
   needs no import, but in `src/world/gen/noise.wyl` it needs `import world;` (or
-  `import world::Chunk;` and then `Chunk.make()`), and `std::memory::free(p)` is never written in
-  code: the file imports `std::memory` and writes `memory::free(p)`. So a file's imports list every
-  module outside its own that it uses. Imports themselves always start at the top (a top-level
-  module or a package), never relative to the file.
+  `import world::Chunk;` and then `Chunk.make()`), and `std::memory::free(p)` needs `import std;`:
+  the usual way is to import `std::memory` and write `memory::free(p)`. So a file's imports list
+  every module outside its own that it uses. Imports themselves always start at the top, never
+  relative to the file.
 - An import brings in what its last name names in each namespace: `import std::panic;` is the
   module `std::panic` (`panic::checkIndex(i, n)`) and the function `panic` that `std` re-exports
   (`panic("message")`).
@@ -126,9 +128,10 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
   the cycle collector (`collectCycles`, `cycleStats`, §3).
 
-> Not implemented yet: modules and imports, which parse but are an error to use. Until they are, the checks are the standard
-> library's `Bounds.check` and `Bounds.checkRange`, raw memory and the collector are `Memory`'s
-> static methods, and every file sees the whole standard library.
+> Implemented, but for extensions found through imports (extensions aren't implemented). The
+> standard library is still one module: until `std::panic` and `std::memory` are, the checks are
+> `Bounds.check` and `Bounds.checkRange`, raw memory and the collector are `Memory`'s static
+> methods, and `print` and `panic` are names of `std` itself, imported as `std::print`.
 
 ### Functions or static methods
 
@@ -233,9 +236,8 @@ pub abstract class Entity {
 - The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
   interface's methods take none either: they are as visible as the enum or interface.
 
-> Implemented for packages of many files and modules, but without imports or paths in code, so
-> a file reaches only its own module's names and the standard library's (`std`, one module), and
-> `pub(module)` and `pub(package)` can't be told apart from outside a module yet.
+> Implemented. A subclass in another file can't override a method it can't see, but nothing yet
+> keeps its own method of that signature from overriding it in C++.
 
 ## 6.3 Construction
 

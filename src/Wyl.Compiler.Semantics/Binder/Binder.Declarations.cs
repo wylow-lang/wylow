@@ -48,11 +48,13 @@ public sealed partial class Binder
             Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
             return null;
         }
-        if (LookupType(decl.Name, decl.Location.Source) is not null || BuiltinType(decl.Name) is not null)
+        if (OwnType(decl.Name, decl.Location.Source) is not null || BuiltinType(decl.Name) is not null)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
             return null;
         }
+        if (IsLanguageName(decl, decl.Name, decl.NameLocation))
+            return null;
         if ((decl.Modifiers & Modifiers.Extern) != 0 && !decl.Location.Source.Module.Package.IsStd)
             Error(decl.NameLocation, "extern structs are only supported in the standard library");
         HasCallerLocation(decl);
@@ -145,7 +147,9 @@ public sealed partial class Binder
             Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
             return function;
         }
-        if (LookupType(decl.Name, decl.Location.Source) is { } type)
+        if (IsLanguageName(decl, decl.Name, decl.NameLocation))
+            return function;
+        if (OwnType(decl.Name, decl.Location.Source) is { } type)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined as {SyntaxFacts.KindNameWithArticle(type.Kind)}");
             return function;
@@ -153,7 +157,7 @@ public sealed partial class Binder
 
         // Within what any one file sees, each signature is declared once: the overloads this file
         // sees, and if this one is visible beyond its file, the private ones of the module's others.
-        var existing = FindSameSignature(LookupFunctions(decl.Name, decl.Location.Source), function)
+        var existing = FindSameSignature(OwnFunctions(decl.Name, decl.Location.Source), function)
             ?? (decl.Visibility == Visibility.File ? null : FindSameSignature(PrivateElsewhere(decl.Name, decl.Location.Source), function));
         if (existing is null)
             AddFunction(function, decl);

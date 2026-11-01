@@ -1,5 +1,7 @@
 // `?:` and switch expressions over escaping functions evaluate only the option they choose.
 
+import std::print;
+
 class Holder {
     (int) -> int stored;
 

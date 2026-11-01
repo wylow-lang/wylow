@@ -92,8 +92,8 @@ loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Compara
 built-in types satisfy without implementing them), and `String`, whose `extern struct`
 declares the methods of the built-in type. It is the package `std`. A file imports what it uses
 from it, except the types the language is built on, which every file sees
-([06-syntax.md](06-syntax.md#imports)). Until programs have more than one file, a program cannot
-declare a type with the name of a standard library type.
+([06-syntax.md](06-syntax.md#imports)), so a program may declare its own `List`, but not its own
+`Result`.
 
 Its `extern` functions are implemented by the C++ runtime. Those marked `@Pure` can't panic or
 change anything, so the compiler orders calls of them like operators rather than like calls.

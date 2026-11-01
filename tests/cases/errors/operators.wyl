@@ -1,5 +1,7 @@
 // Operators applied to types that don't combine, and to values that need checking for null first.
 
+import std::print;
+
 class Holder {
     String? name;
 }

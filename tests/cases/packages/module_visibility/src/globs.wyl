@@ -1,0 +1,18 @@
+// Names a '*' import brings in give way to the module's own and to named imports, and two of them
+// bringing one name in is an error only where it is used.
+
+import alpha::*;
+import beta::*;
+import beta::named;
+
+int fromAll() {
+    return only() + named() + value();  // error: 'value' is ambiguous here: '*' imports it from both 'module_visibility::alpha' and 'module_visibility::beta'; import the one meant by name
+}
+
+int fromOwn() {
+    return common();
+}
+
+int common() {
+    return 0;
+}

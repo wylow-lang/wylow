@@ -1,6 +1,8 @@
 // The `byte` kind at its edges: arithmetic keeps the operands' type (no promotion to `int`), so a
 // result that does not fit panics in debug builds; shifts mask and never panic; casts wrap (§2.4).
 
+import std::print;
+
 void main() {
     byte b = 200;
 

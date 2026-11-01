@@ -1,6 +1,8 @@
 // A for loop's condition is printed in the for header, which strips the parentheses the condition
 // text came wrapped in, and a condition that is a call must be evaluated once per iteration.
 
+import std::print;
+
 // A folded for loop's condition is a bare name, which the header keeps as it is.
 void leading() {
     mut bool go = true;

@@ -1,6 +1,8 @@
 // Objects on the stack are destroyed exactly where they would have been released, whatever the
 // statement making them, and only objects that can't outlive their scope are on the stack.
 
+import std::print;
+
 class Noisy {
     String name;
     mut Vec pos;

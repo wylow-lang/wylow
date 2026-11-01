@@ -1,3 +1,5 @@
+import std::print;
+
 void main() {
     // 'é' takes the bytes at offsets 1 and 2.
     String s = "héllo";

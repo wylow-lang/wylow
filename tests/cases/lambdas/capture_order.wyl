@@ -1,6 +1,8 @@
 // A closure releases what it captured in the order it captured it, when its last reference goes
 // (03-memory-model.md, When references are released).
 
+import std::print;
+
 class Noisy {
     String name;
     int id;

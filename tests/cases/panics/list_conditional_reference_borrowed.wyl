@@ -1,4 +1,7 @@
 // A call through 'list.get(i)?.' borrows the list until it returns, since it runs in the element.
+
+import std::{List, print};
+
 struct Counter {
     int count;
 

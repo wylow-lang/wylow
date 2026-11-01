@@ -1,3 +1,5 @@
+import std::print;
+
 void main() {
     print((byte)300);             // output: 44
     print((sbyte)200);            // output: -56

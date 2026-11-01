@@ -1,4 +1,7 @@
 // Items print their name when freed.
+
+import std::print;
+
 class Item {
     int id;
     String name;

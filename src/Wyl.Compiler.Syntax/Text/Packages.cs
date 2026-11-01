@@ -64,6 +64,9 @@ public sealed class Module
 
     internal void Add(SourceText file) => files.Add(file);
 
+    /// <summary>The submodule of that name, or null.</summary>
+    public Module? FindChild(string name) => children.GetValueOrDefault(name);
+
     /// <summary>The submodule of that name, made if there is none yet.</summary>
     public Module Child(string name)
     {

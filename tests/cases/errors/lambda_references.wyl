@@ -1,5 +1,8 @@
 // A function used as a value needs a function type to be converted to, and can only be a free
 // function or static method.
+
+import std::print;
+
 class Mob {
     int score(int x) {
         return x;

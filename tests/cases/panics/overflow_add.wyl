@@ -1,4 +1,7 @@
 // panic: integer overflow
+
+import std::print;
+
 void main() {
     int x = 2147483647;
     print(1); // output: 1

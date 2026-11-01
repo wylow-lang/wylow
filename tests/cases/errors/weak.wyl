@@ -1,3 +1,5 @@
+import std::{Weak, print};
+
 class Node {
     Weak<Node> parent;
     Weak<Node?> maybe;                  // error: write 'Weak<Node>': a weak reference can always be null

@@ -1,4 +1,7 @@
 // panic: n must be positive
+
+import std::{panic, print};
+
 int checked(int n) {
     if (n > 0) {
         return n;

@@ -2,6 +2,8 @@
 // to null meanwhile would destroy it. These are found on the IR, so they are reported only once
 // nothing else is wrong with the program (see nullable_values.wyl for the rest).
 
+import std::print;
+
 struct Vec {
     int x;
     int[2] pair;

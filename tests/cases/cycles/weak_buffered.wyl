@@ -1,6 +1,8 @@
 // An object's weak block and its place in the cycle buffer share one word of its header: an object
 // with both still leaves the buffer when destroyed, and the collector still finds it.
 
+import std::{Memory, Weak, print};
+
 class Node {
     int id;
     mut Node? next;

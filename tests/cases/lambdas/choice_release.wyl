@@ -1,5 +1,8 @@
 // A choice owns the callable it may select, and releases it when the choice is released, so what
 // the unchosen call never made is still let go.
+
+import std::print;
+
 class Token {
     int id;
 

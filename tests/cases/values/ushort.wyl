@@ -1,5 +1,7 @@
 // The `ushort` kind at its edges: an unsigned 16-bit type whose arithmetic keeps its type.
 
+import std::print;
+
 void main() {
     ushort max = 65535;
 

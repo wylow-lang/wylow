@@ -1,5 +1,8 @@
 // A call's receiver is the place it is written on: a field's object or another class's method,
 // never `this`.
+
+import std::print;
+
 class Inner {
     int value = 3;
 

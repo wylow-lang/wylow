@@ -1,5 +1,7 @@
 // Escaping functions: stored in fields, returned, and held by containers and nullable values.
 
+import std::{List, print};
+
 class Button {
     String name;
     mut () -> void onClick;

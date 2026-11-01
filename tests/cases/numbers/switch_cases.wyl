@@ -1,5 +1,7 @@
 // A case literal takes the subject's integer type, so matching reads every integer kind.
 
+import std::print;
+
 void main() {
     sbyte signed = -1;
     print(switch (signed) {

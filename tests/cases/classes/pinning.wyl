@@ -1,5 +1,7 @@
 // Each case would read freed memory without pinning; the output order shows when objects die.
 
+import std::{Weak, print};
+
 struct Stats {
     int hp;
 }

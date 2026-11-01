@@ -1,0 +1,27 @@
+// A file imports what it uses, except the types the language is built on (spec 06-syntax.md §6.1,
+// Imports), and a name has one meaning in a file.
+
+import std::{List, print};
+import std::print;                  // error: 'print' is already imported; import one of them under another name with 'as'
+import std::Nothing;                // error: 'std' has no name 'Nothing'
+import nowhere::Thing;              // error: 'nowhere' is not a top-level module or a package
+import std::nowhere::Thing;         // error: 'std' has no module 'nowhere'
+import std::Weak as Shared;
+import std::Memory as Box;          // error: 'Box' is already a name of this module; import it under another name with 'as'
+
+struct Box { }
+struct Result { }                   // error: 'Result' is one of the types the language is built on, which every file sees, so no module may declare it
+void Comparable() { }               // error: 'Comparable' is one of the types the language is built on
+
+class Animal { }
+
+void main() {
+    List<int> numbers = new List<int>();
+    Animal animal = new Animal();
+    Shared<Animal> weak = animal;
+    Result<int, String> fine = Result<int, String>.Ok(1);
+    Weak<Animal> unnamed = weak;    // error: unknown type 'Weak'
+    std::Memory.collectCycles();    // error: module 'std' is not imported here; a path starts with a module the file imports or one of its own submodules, as in 'import std;'
+    int n = nowhere::count();       // error: 'nowhere' is not a module here
+    var stats = cycleStats();       // error: function 'cycleStats' is not defined
+}

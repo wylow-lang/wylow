@@ -1,6 +1,8 @@
 // A 'try' may be anywhere in an expression: an Err returns from where it is evaluated, and the
 // rest of the expression isn't.
 
+import std::print;
+
 class Noisy {
     String name;
 

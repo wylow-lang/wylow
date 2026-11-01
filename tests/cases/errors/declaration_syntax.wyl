@@ -1,3 +1,5 @@
+import std::print;
+
 pub pub void twoAccess() { }            // error: only one visibility is allowed
 unsafe unsafe void twice() { }          // error: duplicate 'unsafe' modifier
 extern void withBody() { }              // error: extern function 'withBody' cannot have a body; it is implemented in C++

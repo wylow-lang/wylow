@@ -1,5 +1,7 @@
 // 'main' may return 'int', which becomes the process's exit code.
 
+import std::print;
+
 int main() {
     print("running");                   // output: running
     return 0;

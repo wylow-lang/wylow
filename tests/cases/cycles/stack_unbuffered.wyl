@@ -2,6 +2,8 @@
 // cyclic: nothing outside its scope refers to it. Without optimizations it is on the heap and is.
 // mode: optimized
 
+import std::{Memory, print};
+
 class Node {
     Node? next;
 }

@@ -1,4 +1,7 @@
 // Lambdas meeting patterns, nullables, loops, evaluation order, refs, and spans.
+
+import std::{List, print};
+
 class Mob {
     int hp;
 

@@ -1,5 +1,8 @@
 // Items print their name when freed. An item may empty its holder's slot when freed, which
 // changes an enum while code may be reading it.
+
+import std::{Weak, print};
+
 class Item {
     int id;
     String name;

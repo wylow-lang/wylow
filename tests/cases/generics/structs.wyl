@@ -1,3 +1,5 @@
+import std::print;
+
 struct Pair<A, B> {
     A first;
     B second;

@@ -1,3 +1,5 @@
+import std::print;
+
 struct Vec2 {
     float x;
     float y = 1;

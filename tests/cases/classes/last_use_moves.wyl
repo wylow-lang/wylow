@@ -1,6 +1,8 @@
 // Handing a local to its last use must not release its object earlier than its scope's end when
 // that can be seen: here a destructor runs, so the local keeps the object alive.
 
+import std::{List, Weak, print};
+
 class Noisy {
     String name;
 

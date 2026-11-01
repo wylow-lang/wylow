@@ -43,6 +43,16 @@ public sealed class StdlibSymbols
     /// </summary>
     public TypeSymbol? String { get; private set; }
 
+    /// <summary>
+    /// The types the language itself is built on, because its syntax needs them (spec 06-syntax.md
+    /// §6.1, Imports): every file sees them without importing them, and no other module may declare
+    /// their names. <c>String</c> is a builtin type, and <c>Weak</c> and <c>Memory</c> are imported.
+    /// </summary>
+    public IEnumerable<TypeSymbol> LanguageTypes =>
+        new[] { Result, Array, Span, ReadOnlySpan, Spannable, ReadOnlySpannable, Borrowable, Printable, Comparable }.OfType<TypeSymbol>();
+
+    public TypeSymbol? LanguageType(string name) => LanguageTypes.FirstOrDefault(t => t.Name == name);
+
     public void Register(TypeSymbol symbol)
     {
         switch (symbol.Name)

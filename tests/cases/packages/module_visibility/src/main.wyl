@@ -1,0 +1,19 @@
+// What each visibility reaches across modules (spec 06-syntax.md §6.2).
+
+import world::local;                // error: 'local' is visible only in module 'module_visibility::world'
+import world::Hidden;               // error: 'module_visibility::world' has no name 'Hidden'
+import world::count;
+import world::Shared;               // error: 'Shared' is already a name of this module; import it under another name with 'as'
+import world::Shared as WorldShared;
+
+pub(module) struct Shared { }
+
+void main() {
+    int a = count();
+    int b = world::local();         // error: function 'local' is visible only in module 'module_visibility::world'
+    int c = world::gen::deep();
+    int d = world::gen::nested();   // error: function 'nested' is visible only in module 'module_visibility::world::gen'
+    int e = gen::deep();            // error: 'gen' is not a module here
+    var s = WorldShared();
+    world::Secret t;                // error: 'module_visibility::world' has no name 'Secret'
+}

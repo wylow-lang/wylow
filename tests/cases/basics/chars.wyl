@@ -1,3 +1,5 @@
+import std::print;
+
 String describe(char c) {
     return switch (c) {
         case 'a' -> "first";

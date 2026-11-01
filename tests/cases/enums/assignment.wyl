@@ -1,4 +1,7 @@
 // Copy assignment copies the value; the source stays usable.
+
+import std::print;
+
 class Item {
     int id;
 

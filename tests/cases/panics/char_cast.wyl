@@ -1,3 +1,5 @@
+import std::print;
+
 void main() {
     int code = 0xD800;
     print((char)0x10FFFF == (char)1114111);   // output: true

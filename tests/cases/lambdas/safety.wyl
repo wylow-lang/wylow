@@ -1,6 +1,8 @@
 // A lambda may assign the locals it captures during any call it is passed to. Each case here
 // would read freed memory or the wrong value if the compiler assumed a call can't change a local.
 
+import std::{List, print};
+
 class Box {
     mut int value;
 

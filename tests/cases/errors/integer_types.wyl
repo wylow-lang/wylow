@@ -1,3 +1,5 @@
+import std::print;
+
 @Repr(byte)
 enum TooBig {
     A = 256,                      // error: the value does not fit in the enum's integer type 'byte'

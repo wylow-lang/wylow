@@ -1,5 +1,7 @@
 // A nullable value is used as its value only where a null check narrows it (spec 02-types.md).
 
+import std::print;
+
 int? maybe() {
     return null;
 }

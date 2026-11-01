@@ -1,5 +1,7 @@
 // `switch (this)` matches the object a method is called on.
 
+import std::print;
+
 class Shape {
     virtual String describe() {
         return "shape";

@@ -1,6 +1,9 @@
 // A field initializer is lowered into every constructor form that leaves its field out, so a name it
 // binds must not clash with any form's parameters: here the name is another field's, which a form
 // passing that field takes as a parameter.
+
+import std::print;
+
 int? maybe() {
     return 6;
 }

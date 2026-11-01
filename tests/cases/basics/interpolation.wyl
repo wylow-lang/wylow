@@ -1,3 +1,5 @@
+import std::{List, print};
+
 struct Vec3 implements Printable {
     float x;
     float y;

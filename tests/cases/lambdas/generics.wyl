@@ -1,4 +1,7 @@
 // Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
+
+import std::{List, print};
+
 interface Visitor<T> {
     void visit((T) -> void f);
 }

@@ -19,10 +19,10 @@ public sealed partial class Binder
         NameExpr name when IsValueName(name.Name) => null,
         NameExpr name when currentType is not null && LookupMethods(currentType.Type, name.Name) is { Count: > 0 } methods =>
             Functions(methods),
-        NameExpr name when LookupType(name.Name, name.Location.Source) is not null => null,
-        NameExpr name => LookupFunctions(name.Name, name.Location.Source),
-        MemberAccessExpr { Target: NameExpr target } member when !IsValueName(target.Name) && LookupType(target.Name, target.Location.Source) is { } type =>
-            Functions(LookupMethods(type.Type, member.Name)),
+        NameExpr name when LookupType(name.Name, name.Location) is not null => null,
+        NameExpr name => LookupFunctions(name.Name, name.Location),
+        PathExpr path => FindPath(path.Modules, path.Name.Name, path.Name.Location)?.Functions,
+        MemberAccessExpr member when AsTypeSymbol(member.Target) is var (type, _) => Functions(LookupMethods(type.Type, member.Name)),
         _ => null,
     };
 

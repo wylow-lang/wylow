@@ -1,3 +1,5 @@
+import std::{List, print};
+
 struct Score implements Comparable<Score> {
     int points;
 

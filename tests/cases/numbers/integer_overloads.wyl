@@ -1,4 +1,7 @@
 // nint and long are the same C++ type on 64-bit targets, so these overloads need distinct names.
+
+import std::print;
+
 void show(nint value) {
     print(1);
 }

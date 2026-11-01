@@ -1,5 +1,8 @@
 // mode: release
 // panic: integer overflow
+
+import std::print;
+
 void main() {
     int min = -2147483648;
     int minusOne = -1;

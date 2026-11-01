@@ -2,6 +2,8 @@
 // reference wherever the loop may release an object of the destructor's class, directly or through
 // what it releases. Other loops are unaffected.
 
+import std::{List, print};
+
 class Enemy {
     String name;
 

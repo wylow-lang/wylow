@@ -1,6 +1,8 @@
 // A function type's parameter declared '@Escaping' is escaping in the lambdas of that type, so they
 // can store what they are passed.
 
+import std::{List, Memory, print};
+
 class Bus {
     List<() -> void> handlers = new List<() -> void>();
     (@Escaping () -> void) -> void subscribe;

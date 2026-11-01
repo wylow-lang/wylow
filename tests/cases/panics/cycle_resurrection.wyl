@@ -1,6 +1,8 @@
 // A destructor run by the collector may not leave a reference to an object of its cycle anywhere
 // outside the cycle.
 
+import std::Memory;
+
 class Keeper {
     mut Node? kept;
 }

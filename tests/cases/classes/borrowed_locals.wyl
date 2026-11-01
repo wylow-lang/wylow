@@ -1,6 +1,8 @@
 // A local copied from a place keeps its object alive until its scope ends, whether or not the
 // compiler borrows the place instead of copying it: destructors run at the same points either way.
 
+import std::print;
+
 class Noisy {
     String name;
 

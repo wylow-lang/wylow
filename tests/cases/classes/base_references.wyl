@@ -1,4 +1,7 @@
 // A base constructor's reference and view parameters take what the derived constructor was given.
+
+import std::print;
+
 struct Pair { int x; int y; }
 
 class Base {

@@ -1,3 +1,5 @@
+import std::print;
+
 class Counter {
     mut int count = 0;
 

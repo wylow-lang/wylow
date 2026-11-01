@@ -1,6 +1,8 @@
 // The `String` kind: immutable UTF-8 text. Offsets and lengths count bytes, `==` compares contents,
 // and interpolation is the one way to join strings (§2.10, §6.9).
 
+import std::print;
+
 void main() {
     String text = "héllo";
     String empty = "";

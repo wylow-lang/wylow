@@ -1,6 +1,8 @@
 // The `double` kind at its edges: IEEE 754 double precision, and the places where binary floating
 // point is not the decimal it looks like (§2.4).
 
+import std::print;
+
 void main() {
     double value = 1.5d;
 

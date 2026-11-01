@@ -1,6 +1,8 @@
 // 'T()' builds a struct whose fields each take their default value, and a struct's own
 // 'make_default' makes the values a field of that type starts with.
 
+import std::print;
+
 struct Empty { }
 
 struct Inner {

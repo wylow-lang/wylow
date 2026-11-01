@@ -1,5 +1,8 @@
 // Assigning a struct stores every field before releasing any old one, so the old fields' destructors
 // run in reverse declaration order, after the new fields are in place.
+
+import std::print;
+
 class Tag {
     int id;
 

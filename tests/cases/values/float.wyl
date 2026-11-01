@@ -1,6 +1,8 @@
 // The `float` kind at its edges: IEEE 754 single precision. print writes the shortest text that
 // reads back as the same float, and non-finite values are `inf`, `-inf`, and `nan` (§2.4).
 
+import std::print;
+
 void main() {
     float value = 1.5;
 

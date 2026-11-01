@@ -1,3 +1,5 @@
+import std::print;
+
 extern struct String { }            // error: 'String' is already defined
 
 @Pure                               // error: '@Pure' can only be used on extern functions of the standard library

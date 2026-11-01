@@ -1,5 +1,8 @@
 // A local declared without a value is a placeholder until it is assigned. Its first variant carries
 // a value, so the placeholder must construct that value too: assigning over it destroys what it holds.
+
+import std::print;
+
 class Item {
     int id;
 

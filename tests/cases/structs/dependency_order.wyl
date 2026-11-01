@@ -1,4 +1,7 @@
 // A definition comes after every type it holds by value, including a fixed array's element.
+
+import std::print;
+
 struct Holder {
     Enemy[2] enemies;
 }

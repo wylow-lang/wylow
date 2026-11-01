@@ -1,4 +1,7 @@
 // Function values passed on between template parameters and FunctionRefs, and nested lambdas.
+
+import std::print;
+
 abstract class Base {
     abstract int run((int) -> int f);
 }

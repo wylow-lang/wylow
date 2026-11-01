@@ -33,7 +33,7 @@ public sealed partial class Binder
     {
         var type = syntax.Shape switch
         {
-            TypeShape.Named when syntax.Modules.Count > 0 => ModulePathsNotImplemented(syntax.Location),
+            TypeShape.Named when syntax.Modules.Count > 0 => BindPathType(syntax),
             TypeShape.Named => BindTypeName(syntax.Name, syntax.TypeArguments, syntax.Location),
             TypeShape.Function => BindFunctionType(syntax),
             TypeShape.NullableReference => BindNullableReferenceType(syntax),
@@ -96,7 +96,7 @@ public sealed partial class Binder
             return arguments.Count == 0 ? parameter.Type : NotGeneric(name, location);
         if (BuiltinType(name) is { } builtin)
             return arguments.Count == 0 ? builtin : NotGeneric(name, location);
-        if (LookupType(name, location.Source) is { } s)
+        if (LookupType(name, location) is { } s)
             return Construct(s, arguments, location);
 
         Error(location, HiddenElsewhere(name, location.Source) ?? $"unknown type '{name}'");

@@ -1,3 +1,5 @@
+import std::{Weak, print};
+
 struct Loop {                       // error: struct 'Loop' contains itself (Loop -> Loop)
     Loop[2] inner;
 }

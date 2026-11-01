@@ -1,3 +1,5 @@
+import std::print;
+
 Result<int, String> half(int value) {
     if (value % 2 != 0) {
         return Err("odd");

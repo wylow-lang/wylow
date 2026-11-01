@@ -1,6 +1,8 @@
 // A struct local copied from a place is a copy, whether or not the compiler refers to the place
 // instead: a later write into a part of the place, directly or by a call, doesn't change it.
 
+import std::print;
+
 struct Vec {
     int x;
 }

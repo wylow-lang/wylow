@@ -5,6 +5,7 @@ using Wyl.Compiler.Build;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Interpret;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 /// <summary>
 /// A cell of an interaction matrix: one small program, named by its row and column
@@ -62,7 +63,7 @@ static class MatrixTests
     {
         try
         {
-            var compilation = Compilation.Compile(new SourceText(cell.Name + ".wyl", cell.Source), options);
+            var compilation = Compilation.Compile(new SourceText(cell.Name + ".wyl", TestPrograms.WithStd(cell.Source)), options);
             var lines = DiagnosticLines(compilation.Diagnostics);
             if (!compilation.Success)
                 return new(cell.Name, lines, null);
@@ -115,7 +116,7 @@ static class MatrixTests
     {
         try
         {
-            var interpreted = Compilation.Interpret(new SourceText(cell.Name + ".wyl", cell.Source), MeaningOptions);
+            var interpreted = Compilation.Interpret(new SourceText(cell.Name + ".wyl", TestPrograms.WithStd(cell.Source)), MeaningOptions);
             var lines = DiagnosticLines(interpreted.Diagnostics);
             if (!interpreted.Success)
                 return new(cell.Name, lines, null);

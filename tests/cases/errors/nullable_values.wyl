@@ -1,3 +1,5 @@
+import std::print;
+
 struct Vec {
     int x;
     int[2] pair;

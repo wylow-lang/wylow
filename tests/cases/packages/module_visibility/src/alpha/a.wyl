@@ -1,0 +1,4 @@
+pub int value() { return 1; }
+pub int only() { return 2; }
+pub int named() { return 3; }
+pub int common() { return 4; }

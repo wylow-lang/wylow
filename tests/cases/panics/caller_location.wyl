@@ -1,3 +1,5 @@
+import std::{Bounds, print};
+
 struct Pair {
     int[2] values;
 

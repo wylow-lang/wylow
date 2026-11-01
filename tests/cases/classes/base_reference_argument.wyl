@@ -1,5 +1,7 @@
 // A 'ref?' parameter of a base constructor takes a place as a 'ref' argument.
 
+import std::print;
+
 class Base {
     int n;
 

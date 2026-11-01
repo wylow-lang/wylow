@@ -1,4 +1,7 @@
 // Lambdas in members use `this` and its fields as the member itself does.
+
+import std::{List, print};
+
 struct Accumulator {
     int total;
 

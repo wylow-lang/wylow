@@ -1,4 +1,7 @@
 // A generic class that inherits an interface implementation from its base gets a forwarder.
+
+import std::print;
+
 interface Named {
     String name();
 }

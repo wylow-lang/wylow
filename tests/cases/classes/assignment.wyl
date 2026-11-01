@@ -1,6 +1,8 @@
 // Assigning a reference stores the new value before releasing the old one, so a destructor that
 // reads the assigned field sees the new value.
 
+import std::{Weak, print};
+
 class Holder {
     mut Item item;
     mut Pair pair;

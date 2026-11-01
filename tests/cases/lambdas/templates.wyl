@@ -1,6 +1,8 @@
 // Constructors, and virtual methods that nothing overrides, take lambdas as templates; constructors
 // sharing their parameter count with another, and overridden methods, call them indirectly.
 
+import std::print;
+
 class Box<T> {
     T value;
 

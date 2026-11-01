@@ -1,5 +1,7 @@
 // '?:' and switch expressions choose between functions: lambdas, function-typed locals, and parameters.
 
+import std::{panic, print};
+
 enum Op {
     Add(int amount),
     Double,

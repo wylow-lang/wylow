@@ -1,5 +1,8 @@
 // Each row of the spec's table of how long a borrow lasts (03-memory-model.md, Borrow counters on
 // containers), observed through a Borrowable of the test's own, so that every mode agrees.
+
+import std::print;
+
 struct Counter {
     int n;
 

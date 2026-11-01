@@ -1,3 +1,5 @@
+import std::print;
+
 struct Holder {
     Span<int> held;                         // error: 'Span<int>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
 }

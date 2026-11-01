@@ -5,7 +5,7 @@ void f(int n) {
 void f(int m) {               // error: function 'f(int)' is already defined
 }
 
-void print(int x) {           // error: conflicts with a built-in function
+void print(int x) {           // std's print is seen only through an import, so a module may declare its own
 }
 
 void pick(long x) {

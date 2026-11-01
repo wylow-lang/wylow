@@ -32,7 +32,7 @@ public sealed partial class Binder
         InterpolatedStringExpr e => BindInterpolatedString(e),
         NullLiteralExpr e => new BoundNullLiteral(e.Location),
         NameExpr e => BindName(e, expected),
-        PathExpr e => ErrorExpression(e.Location, ModulesNotImplemented),
+        PathExpr e => BindPath(e, expected),
         ThisExpr e => BindThis(e),
         SuperExpr e => ErrorExpression(e.Location, "'super' can only be used to call a base class constructor or method"),
         MemberAccessExpr e => BindMemberAccess(e, expected),
@@ -108,9 +108,37 @@ public sealed partial class Binder
     /// </summary>
     WylType? AsTypeName(Expr expression)
     {
-        if (expression is not NameExpr name || IsValueName(name.Name) || LookupType(name.Name, name.Location.Source) is not { } s)
+        if (AsTypeSymbol(expression) is not var (s, name))
             return null;
-        return BindTypeName(s.Name, name.TypeArguments, name.Location);
+        if (expression is NameExpr)
+            return BindTypeName(name.Name, name.TypeArguments, name.Location);
+        var arguments = name.TypeArguments.Select(a => BindType(a, allowVoid: false)).ToList();
+        return arguments.Contains(WylType.Error) ? WylType.Error : Construct(s, arguments, name.Location);
+    }
+
+    /// <summary>
+    /// The declared type an expression names, as <c>Vec3</c> or <c>world::Chunk</c> write it, with
+    /// the name that carries its type arguments; null if it names none. Looking doesn't report a
+    /// path that leads nowhere, which binding the expression then does.
+    /// </summary>
+    (TypeSymbol Symbol, NameExpr Name)? AsTypeSymbol(Expr expression) => expression switch
+    {
+        NameExpr name when !IsValueName(name.Name) && LookupType(name.Name, name.Location) is { } s => (s, name),
+        PathExpr path when FindPath(path.Modules, path.Name.Name, path.Name.Location) is { Type: { } s } => (s, path.Name),
+        _ => null,
+    };
+
+    /// <summary>A name in a module used as a value: a function, as a reference where a function type is expected.</summary>
+    BoundExpression BindPath(PathExpr e, WylType? expected)
+    {
+        if (ResolvePath(e.Modules, e.Name.Name, e.Name.Location) is not { } entry)
+            return new BoundErrorExpression(e.Location);
+        var written = TextOf(e.Location);
+        if (entry.Type is not null)
+            return ErrorExpression(e.Location, $"'{written}' is a type, not a value");
+        if (expected?.NonNull is FunctionType function)
+            return BindFunctionReference(e, entry.Functions!, function);
+        return ErrorExpression(e.Location, $"'{written}' is a function; call it with '{written}(...)'{ReferenceHint(e)}");
     }
 
     BoundExpression BindName(NameExpr e, WylType? expected)
@@ -131,9 +159,9 @@ public sealed partial class Binder
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
-        if (LookupType(e.Name, e.Location.Source) is not null || LookupTypeParameter(e.Name) is not null)
+        if (LookupType(e.Name, e.Location) is not null || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
-        if (LookupFunctions(e.Name, e.Location.Source) is not null || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
+        if (LookupFunctions(e.Name, e.Location) is not null || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
             return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'{ReferenceHint(e)}");
         if (ExpectedVariant(e.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, null);

@@ -1,0 +1,43 @@
+// A re-export makes a name of another module one of this one's.
+pub import world::gen::seed as worldSeed;
+
+pub struct Chunk {
+    pub int x;
+
+    pub static Chunk make(int x) {
+        return Chunk(x: x);
+    }
+}
+
+pub struct Block {
+    pub int id;
+}
+
+pub enum Kind { Stone, Dirt }
+
+pub String describe(Chunk c) {
+    return $"chunk {c.x}";
+}
+
+pub String name(Kind kind) {
+    return switch (kind) {
+        case Stone -> "stone";
+        case Dirt -> "dirt";
+    };
+}
+
+pub Kind kindOf(Block b) {
+    return b.id > 5 ? Kind.Dirt : Kind.Stone;
+}
+
+pub(module) String pick(int x) {
+    return "int";
+}
+
+pub String pick(long x) {
+    return "long";
+}
+
+pub String pickHere() {
+    return pick(1);
+}

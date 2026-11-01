@@ -4,6 +4,7 @@ using Wyl.Compiler.Ir;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 // Hand-built IR the verifier must accept, mostly the listings of docs/design/ir.md, and IR it must
 // reject, each for one reason, so that each of its checks is known to fire.
@@ -54,7 +55,7 @@ static partial class IrSelfTests
 
     public static List<TestResult> Run()
     {
-        var source = new SourceText("ir_self_test.wyl", Fixture);
+        var source = new SourceText("ir_self_test.wyl", TestPrograms.WithStd(Fixture));
         var compilation = Compilation.Compile(source);
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];

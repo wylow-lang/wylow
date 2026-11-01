@@ -3,6 +3,8 @@
 // one would print the replacing element, or read a freed one, if its element referred to the list
 // in place.
 
+import std::{List, print};
+
 class Enemy {
     int hp;
 

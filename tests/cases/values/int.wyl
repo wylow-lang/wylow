@@ -1,6 +1,8 @@
 // The `int` kind at its edges: every operator, conversion, and formatting, on computed values.
 // Arithmetic keeps the operands' type, division truncates toward zero, and casts wrap (§2.3, §2.4).
 
+import std::print;
+
 struct Holder {
     int value;
 }

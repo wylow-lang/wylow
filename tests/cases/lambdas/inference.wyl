@@ -1,4 +1,7 @@
 // Type arguments inferred from what lambdas return.
+
+import std::{List, print};
+
 U apply<T, U>(T value, (T) -> U f) {
     return f(value);
 }

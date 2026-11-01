@@ -1,3 +1,5 @@
+import std::print;
+
 enum ParseError {
     Empty,
     BadDigit(int position),

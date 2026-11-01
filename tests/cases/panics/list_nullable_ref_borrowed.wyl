@@ -1,4 +1,7 @@
 // A 'ref?' variable into a list borrows it for its whole scope, even when it refers to nothing.
+
+import std::{List, print};
+
 void main() {
     var numbers = new List<int>();
     numbers.add(1);

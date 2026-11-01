@@ -1,6 +1,8 @@
 // A choice between a value and a constant folds to && or || only for the constant it drops: false
 // on the false side and true on the true side.
 
+import std::print;
+
 bool no() {
     return false;
 }

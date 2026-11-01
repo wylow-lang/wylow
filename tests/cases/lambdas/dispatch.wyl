@@ -1,5 +1,7 @@
 // Functions that can't be C++ templates take their function arguments as wyl::FunctionRef.
 
+import std::print;
+
 interface Visitor {
     void visit((int) -> void action);
 }

@@ -2,6 +2,8 @@
 // is cyclic only if a lambda of that type captures something that can lead back to it. Each `drop`
 // below makes one release that leaves the count above zero.
 
+import std::{List, Memory, print};
+
 class Leaf {
     int value;
 }

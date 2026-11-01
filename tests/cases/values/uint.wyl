@@ -1,6 +1,8 @@
 // The `uint` kind at its edges: unsigned wrap-free arithmetic (debug builds panic on overflow),
 // logical right shift, and reinterpretation as a signed value (§2.3, §2.4).
 
+import std::print;
+
 void main() {
     uint max = 4294967295u;
     uint one = 1u;

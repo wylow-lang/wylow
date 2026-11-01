@@ -1,5 +1,8 @@
 // A generic class may implement an interface with a method its base class declares: it gets a
 // forwarder to the base's method, which is a template like the class.
+
+import std::print;
+
 interface Named {
     String name();
 }

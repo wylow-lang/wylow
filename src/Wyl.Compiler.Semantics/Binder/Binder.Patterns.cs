@@ -204,7 +204,7 @@ public sealed partial class Binder
         {
             // `Result.Ok(...)` may leave out the type arguments, which the value determines.
             bool sameEnum = enumSyntax is { TypeArguments.Count: 0, Modules.Count: 0 } && LookupTypeParameter(enumSyntax.Name) is null
-                ? LookupType(enumSyntax.Name, enumSyntax.Location.Source) == s
+                ? LookupType(enumSyntax.Name, enumSyntax.Location) == s
                 : BindType(enumSyntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
             if (!sameEnum)
                 return ErrorPattern(v, type, $"a '{type}' can never be '{written}'");
@@ -416,14 +416,17 @@ public sealed partial class Binder
     /// </summary>
     (TypeSymbol Enum, WylType? Type)? AsEnumName(Expr target, WylType? expected)
     {
-        if (target is not NameExpr name || IsValueName(name.Name) || LookupType(name.Name, name.Location.Source) is not { } s || s.Kind != TypeKind.Enum)
+        if (AsTypeSymbol(target) is not var (s, name) || s.Kind != TypeKind.Enum)
             return null;
         if (name.TypeArguments.Count == 0 && s.IsGeneric)
         {
             CheckVisible(name.Location, s.Reach, $"enum '{s.Name}'");
             return (s, expected?.Symbol == s ? expected : null);
         }
-        return (s, BindTypeName(s.Name, name.TypeArguments, name.Location));
+        if (target is NameExpr)
+            return (s, BindTypeName(name.Name, name.TypeArguments, name.Location));
+        var arguments = name.TypeArguments.Select(a => BindType(a, allowVoid: false)).ToList();
+        return (s, arguments.Contains(WylType.Error) ? WylType.Error : Construct(s, arguments, name.Location));
     }
 
     /// <summary>A variant of the expected enum written without its enum, as in <c>return Ok(value);</c>.</summary>
@@ -433,7 +436,8 @@ public sealed partial class Binder
     /// <summary>A hint for an undefined name that is the name of a variant.</summary>
     string VariantHint(string name, SourceText from)
     {
-        if (Visible(from).SelectMany(t => t.Types.Values).FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
+        IEnumerable<TypeSymbol> types = [.. FileNames(from).Types.Values, .. ModuleNames(from.Module).Types.Values, .. stdlib.LanguageTypes];
+        if (types.FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
             return "";
         return owner.IsGeneric
             ? $"; to create the '{owner.Name}' variant, write '{owner.Name}<...>.{name}', or use it where a '{owner.Name}' is expected"

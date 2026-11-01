@@ -1,5 +1,7 @@
 // Mistakes in what a call constructs, what 'super' reaches, and what a nullable reaches.
 
+import std::print;
+
 interface Shape {
     int area();
 }

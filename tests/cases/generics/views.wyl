@@ -1,5 +1,7 @@
 // A view a method of a type parameter returns views what that value holds.
 
+import std::print;
+
 interface Viewable {
     ReadOnlySpan<int> view();
 }

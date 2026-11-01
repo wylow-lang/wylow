@@ -1,4 +1,7 @@
 // Pointers compare by address: the same element of the same storage, not the same type.
+
+import std::{Memory, print};
+
 void main() {
     unsafe {
         int* first = Memory.allocate<int>(2);

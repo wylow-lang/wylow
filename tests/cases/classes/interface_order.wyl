@@ -1,4 +1,7 @@
 // A class definition comes after every interface it implements, wherever it is declared.
+
+import std::print;
+
 class Crate implements Damageable {
     mut int hp = 3;
 

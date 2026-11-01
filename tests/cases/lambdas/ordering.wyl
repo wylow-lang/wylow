@@ -1,6 +1,8 @@
 // Operands are evaluated left to right around calls that may run a lambda changing what they read.
 // Only those locals are kept in order; others are read where C++ reads them.
 
+import std::print;
+
 struct Vec {
     int x;
 }

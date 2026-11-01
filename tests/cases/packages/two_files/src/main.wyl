@@ -1,6 +1,8 @@
 // The files of a module see each other's names without importing them, and each may keep a
 // private declaration of a name another file also uses privately.
 
+import std::print;
+
 struct Node {
     String name;
 }

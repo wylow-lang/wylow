@@ -1,6 +1,8 @@
 // The `nint` kind: pointer-sized and signed. Its values are kept small, since what it holds depends
 // on the target, but its operators, conversions, and formatting are the same (§2.1, §2.3).
 
+import std::print;
+
 void main() {
     nint value = 5;
 

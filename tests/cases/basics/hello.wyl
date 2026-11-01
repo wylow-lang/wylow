@@ -1,3 +1,5 @@
+import std::print;
+
 void main() {
     print("Hello, Wylow!"); // output: Hello, Wylow!
     print(42);            // output: 42

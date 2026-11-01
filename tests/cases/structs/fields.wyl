@@ -1,3 +1,5 @@
+import std::print;
+
 int next(String label, int value) {
     print(label);
     return value;

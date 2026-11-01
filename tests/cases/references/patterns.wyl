@@ -1,3 +1,5 @@
+import std::{List, print};
+
 struct Pair {
     int[2] items;
 

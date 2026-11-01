@@ -60,8 +60,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     {
         foreach (var builtin in Builtins.All)
             AddBuiltin(builtin);
-        foreach (var import in units.SelectMany(u => u.Imports))
-            Error(import.Location, ModulesNotImplemented);
+        RegisterImports(units);
         var declarations = units.SelectMany(u => u.Declarations).ToList();
 
         var typeList = new List<TypeSymbol>();
@@ -83,6 +82,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         CheckInheritanceCycles(typeList);
 
         var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
+        CheckImports();
         foreach (var s in typeList)
             DeclareMembers(s);
         foreach (var s in typeList)

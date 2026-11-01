@@ -1,4 +1,7 @@
 // A ?: or switch expression of lambdas passed as an argument waits for its type, as a lambda does.
+
+import std::print;
+
 enum Op {
     Add(int amount),
     Neg,

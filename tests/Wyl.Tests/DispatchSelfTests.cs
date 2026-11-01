@@ -3,6 +3,7 @@ using Wyl.Compiler.Analysis;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
+using Wyl.Harness;
 
 // The method a dispatched call runs on an object of a runtime type: the nearest override in its
 // class chain, or a struct's own method, which a type parameter's bound dispatches to.
@@ -43,7 +44,7 @@ static class DispatchSelfTests
 
     public static List<TestResult> Run()
     {
-        var compilation = Compilation.Compile(new SourceText("dispatch_self_test.wyl", Source));
+        var compilation = Compilation.Compile(new SourceText("dispatch_self_test.wyl", TestPrograms.WithStd(Source)));
         if (compilation.Program is not { } program)
             return [new("dispatch/fixture", string.Join('\n', compilation.Diagnostics))];
         var overrides = new Overrides(program);

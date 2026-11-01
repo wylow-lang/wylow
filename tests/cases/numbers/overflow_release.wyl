@@ -1,4 +1,7 @@
 // mode: release
+
+import std::print;
+
 void main() {
     int x = 2147483647;
     print(x + 1);     // output: -2147483648

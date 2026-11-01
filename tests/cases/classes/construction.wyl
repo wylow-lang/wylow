@@ -1,3 +1,5 @@
+import std::print;
+
 int trace(String s, int value) {
     print(s);
     return value;

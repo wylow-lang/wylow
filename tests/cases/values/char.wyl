@@ -2,6 +2,8 @@
 // arithmetic operator converts it to its code point as an `int`, and a cast back checks that the
 // value is a Unicode scalar value (§2.2, §2.4).
 
+import std::print;
+
 struct CharHolder {
     char c;
 }

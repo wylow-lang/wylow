@@ -1,6 +1,8 @@
 // A lambda's returns convert to its function type, whether that is given where it is used or
 // inferred from the returns themselves, in every statement form.
 
+import std::print;
+
 double apply((int) -> double f, int x) {
     return f(x);
 }

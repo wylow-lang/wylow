@@ -1,6 +1,8 @@
 // Module 'world': its names may repeat the root module's, and nothing in the root uses them yet,
 // but they are compiled with the package, and equal names must stay apart in C++.
 
+import std::print;
+
 pub struct Point {
     pub float x;
     pub float z;

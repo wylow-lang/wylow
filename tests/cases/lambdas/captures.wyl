@@ -1,5 +1,7 @@
 // What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
 
+import std::{List, print};
+
 class Counter {
     mut int count = 0;
     String name;

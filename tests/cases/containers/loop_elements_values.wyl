@@ -3,6 +3,8 @@
 // is never another's (spec 01-safety.md, Strict aliasing), so a write of an unrelated type doesn't
 // count.
 
+import std::{List, print};
+
 struct Vec {
     int x;
 }

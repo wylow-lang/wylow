@@ -1,3 +1,5 @@
+import std::print;
+
 struct Box {
     Box(int width, int height) {
         this.width = width;

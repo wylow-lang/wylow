@@ -1,3 +1,5 @@
+import std::{panic, print};
+
 enum Direction { North, East, South, West }
 
 enum Color { Red, Green }

@@ -1,6 +1,8 @@
 // A lambda that assigns a variable can only run once it is made, so before then the variable's
 // narrowed value can be used while an operation runs, as any other's can.
 
+import std::print;
+
 struct Vec {
     int x;
 }

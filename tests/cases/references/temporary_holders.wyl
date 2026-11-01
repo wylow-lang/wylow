@@ -2,6 +2,8 @@
 // the name is in scope, even when that object came from a temporary: a conditional's value or a
 // call's result.
 
+import std::print;
+
 class Counter {
     String name;
     mut int[2] items;

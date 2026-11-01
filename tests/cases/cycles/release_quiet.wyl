@@ -1,6 +1,8 @@
 // mode: release
 // Release builds report no performance warnings.
 
+import std::{Memory, print};
+
 class Node {
     mut Node? next;
 }

@@ -2,6 +2,8 @@
 // only its receiver, so the chain views only 'this'. A ref struct made from such a chain views what
 // the chain does.
 
+import std::print;
+
 ref struct Window {
     pub int n;
 

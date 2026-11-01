@@ -1,6 +1,8 @@
 // The `nuint` kind: pointer-sized and unsigned. Its values are kept small, since what it holds
 // depends on the target (§2.1, §2.3).
 
+import std::print;
+
 void main() {
     nuint value = 7u;
 

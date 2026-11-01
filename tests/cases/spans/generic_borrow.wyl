@@ -1,5 +1,7 @@
 // A view from a value of a type parameter holds and borrows the value, since it may be a List.
 
+import std::{List, print};
+
 struct Pair implements ReadOnlySpannable<int> {
     int[2] items;
 
