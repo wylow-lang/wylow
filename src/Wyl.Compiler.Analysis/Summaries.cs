@@ -2,13 +2,20 @@ using Wyl.Compiler.Semantics;
 
 namespace Wyl.Compiler.Analysis;
 
+/// <summary>A summary whose elements only grow: what it held before, it holds still.</summary>
+interface IMonotone<TSelf> where TSelf : IMonotone<TSelf>
+{
+    /// <summary>Whether this holds everything <paramref name="earlier"/> did.</summary>
+    bool Contains(TSelf earlier);
+}
+
 /// <summary>
 /// A summary of each unit of code, which may depend on the summaries of the units it calls. Every
 /// unit is summarized once, then again whenever a summary it read has grown since, until none
 /// grows. A summary must only grow as those it reads do, so this ends; recursion is what makes a
 /// unit need summarizing more than once.
 /// </summary>
-sealed class Summaries<TUnit, T>(IEnumerable<TUnit> units, Func<T> empty, Func<T, int> size) where TUnit : class where T : class
+sealed class Summaries<TUnit, T>(IEnumerable<TUnit> units, Func<T> empty) where TUnit : class where T : class, IMonotone<T>
 {
     readonly IReadOnlyList<TUnit> units = [.. units];
     readonly Dictionary<TUnit, T> found = new(ReferenceEqualityComparer.Instance);
@@ -42,10 +49,10 @@ sealed class Summaries<TUnit, T>(IEnumerable<TUnit> units, Func<T> empty, Func<T
             summarizing = unit;
             var summary = summarize(unit);
             summarizing = null;
-            int growth = size(summary) - size(found[unit]);
-            if (growth < 0)
+            if (!summary.Contains(found[unit]))
                 throw new InvalidOperationException($"the summary of '{unit}' shrank");
-            if (growth == 0)
+            // Both contain each other, so they hold the same elements: nothing new for its readers.
+            if (found[unit].Contains(summary))
                 continue;
             found[unit] = summary;
             foreach (var reader in readers.GetValueOrDefault(unit) ?? [])

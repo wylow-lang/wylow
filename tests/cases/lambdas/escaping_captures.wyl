@@ -1,0 +1,29 @@
+// A closure holds its captures, so a capture the lambda's body lets escape is reachable from the
+// closure too. The escape summaries say both, and reach the same answer whether a callee's
+// summary was read before or after it grew.
+
+import std::print;
+
+T eval<T>(fn() -> T f) {
+    return f();
+}
+
+fn() -> fn() -> int nested(int base) {
+    int offset = base * 2;
+    return () -> {
+        int inner = offset + 1;
+        return () -> base + offset + inner;
+    };
+}
+
+fn(int) -> int make(int id) {
+    return x -> x + eval(() -> id);
+}
+
+void main() {
+    var outer = nested(5);
+    var inner = outer();
+    print(inner());                                 // output: 26
+    var f = make(7);
+    print(f(35));                                   // output: 42
+}

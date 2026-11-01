@@ -9,7 +9,7 @@ namespace Wyl.Compiler.Analysis;
 /// summary also has the types of the values it may release, which <see cref="Writes.Of"/>
 /// resolves to what their destructors write once the type arguments are known.
 /// </summary>
-public sealed class WriteSet
+public sealed class WriteSet : IMonotone<WriteSet>
 {
     const int MaxWrites = 64;
 
@@ -18,7 +18,9 @@ public sealed class WriteSet
 
     public bool Unknown { get; private set; }
 
-    public int Size => Unknown ? int.MaxValue : writes.Count + released.Count;
+    /// <summary>Whether it holds every write and release <paramref name="earlier"/> may have.</summary>
+    public bool Contains(WriteSet earlier) =>
+        (Unknown || !earlier.Unknown) && earlier.writes.IsSubsetOf(writes) && earlier.released.IsSubsetOf(released);
 
     /// <summary>The types of the values it may release, null among them if any.</summary>
     public IReadOnlyCollection<WylType?> Released => released;
@@ -70,7 +72,7 @@ public sealed class Writes
     {
         this.callees = callees;
         Lambdas = LambdaWrites.Find(callees);
-        summaries = new Summaries<IrFunction, WriteSet>(callees.Program.Functions, () => new WriteSet(), s => s.Size);
+        summaries = new Summaries<IrFunction, WriteSet>(callees.Program.Functions, () => new WriteSet());
     }
 
     internal static Writes Find(Callees callees)

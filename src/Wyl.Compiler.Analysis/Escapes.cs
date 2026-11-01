@@ -13,11 +13,16 @@ namespace Wyl.Compiler.Analysis;
 /// </summary>
 public sealed class Escapes
 {
-    public sealed record Summary(IReadOnlySet<int> Parameters, bool This, IReadOnlySet<int> ReturnedParameters, bool ReturnsThis, IReadOnlySet<IrLocal> Captures)
+    public sealed record Summary(IReadOnlySet<int> Parameters, bool This, IReadOnlySet<int> ReturnedParameters, bool ReturnsThis, IReadOnlySet<IrLocal> Captures) : IMonotone<Summary>
     {
         public static Summary Empty() => new(new HashSet<int>(), false, new HashSet<int>(), false, new HashSet<IrLocal>());
 
-        public int Size => Parameters.Count + (This ? 1 : 0) + ReturnedParameters.Count + (ReturnsThis ? 1 : 0) + Captures.Count;
+        public bool Contains(Summary earlier) =>
+            earlier.Parameters.IsSubsetOf(Parameters)
+            && (!earlier.This || This)
+            && earlier.ReturnedParameters.IsSubsetOf(ReturnedParameters)
+            && (!earlier.ReturnsThis || ReturnsThis)
+            && earlier.Captures.IsSubsetOf(Captures);
     }
 
     readonly Callees callees;
@@ -26,7 +31,7 @@ public sealed class Escapes
     Escapes(Callees callees)
     {
         this.callees = callees;
-        summaries = new Summaries<IrFunction, Summary>(callees.Program.Functions, Summary.Empty, s => s.Size);
+        summaries = new Summaries<IrFunction, Summary>(callees.Program.Functions, Summary.Empty);
     }
 
     internal static Escapes Find(Callees callees)
@@ -293,19 +298,23 @@ public sealed class EscapeFlow
         return returned;
     }
 
-    /// <summary>Gives values to a parameter, or the <c>this</c>, of the functions a call may run; <paramref name="targets"/> is null if one is unknown.</summary>
+    /// <summary>
+    /// Gives values to a parameter, or the <c>this</c>, of the functions a call may run; <paramref name="targets"/> is null if one is unknown.
+    /// </summary>
     void Pass(List<object> values, List<Escapes.Summary>? targets, Func<Escapes.Summary, bool> escapes, Func<Escapes.Summary, bool> isReturned, List<object> returned)
     {
+        // A target that may return the value doesn't stop one that may let it escape: both facts
+        // hold, and a summary that only grows must keep the returned one when the escaped one appears.
         if (targets is null || targets.Any(escapes))
             escaping.UnionWith(values);
-        else if (targets.Any(isReturned))
+        if (targets is not null && targets.Any(isReturned))
             returned.AddRange(values);
     }
 
     /// <summary>
     /// An escaping lambda copies what it captures into a closure, the lambda's value, which holds the
-    /// copies as an object holds its fields, unless the lambda's body may let them escape or return
-    /// them, whenever it is called.
+    /// copies as an object holds its fields, and lets them escape when the lambda's body may let them
+    /// escape or return them, whenever it is called.
     /// </summary>
     List<object> Closure(IrClosure closure)
     {
@@ -315,10 +324,9 @@ public sealed class EscapeFlow
         foreach (var (operand, capture) in closure.Captures.Zip(closure.Function.Captures))
         {
             var values = Operand(operand);
+            Store(values, closure);
             if (summary.Captures.Contains(capture))
                 escaping.UnionWith(values);
-            else
-                Store(values, closure);
         }
         return [closure];
     }
