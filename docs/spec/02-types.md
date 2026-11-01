@@ -255,7 +255,7 @@ stored. Nullable values follow the rules above, and also:
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` is an error, as for any temporary, and `v?.m()` is an
   error when `m` is a `mut` struct method, since its changes would be lost.
-- A struct cannot contain itself through a nullable (`struct Link { public Link? next; }`), since the
+- A struct cannot contain itself through a nullable (`struct Link { pub Link? next; }`), since the
   value would be stored inline; use a class.
 
 ### Nullable type parameters
@@ -426,9 +426,9 @@ A `struct` is a **value type**.
 
 ```java
 struct Transform {
-    public Vec3 position;
-    public Quat rotation;
-    public Vec3 scale = Vec3.ONE;
+    pub Vec3 position;
+    pub Quat rotation;
+    pub Vec3 scale = Vec3.ONE;
 }
 ```
 
@@ -456,9 +456,9 @@ passed directly to graphics APIs.
 ```java
 @Align(16)
 struct CameraUniforms {
-    public Mat4 view;
-    public Mat4 proj;
-    public Vec3 eye;
+    pub Mat4 view;
+    pub Mat4 proj;
+    pub Vec3 eye;
     @Pad(4)
 }
 ```
@@ -481,13 +481,13 @@ A `class` is a **heap-allocated, reference-counted object** (see
 
 ```java
 abstract class Weapon {
-    public abstract void fire(World w);
-    public virtual float cooldown() { return 0.5; }
+    pub abstract void fire(World w);
+    pub virtual float cooldown() { return 0.5; }
 }
 
 final class Shotgun extends Weapon {
-    public override void fire(World w) { ... }
-    public override float cooldown() { return 1.0; }
+    pub override void fire(World w) { ... }
+    pub override float cooldown() { return 1.0; }
 }
 ```
 
@@ -504,7 +504,7 @@ final class Shotgun extends Weapon {
   unchecked cast.
 - `override` must match the overridden method's parameter types (including nullability) and return
   type exactly. Return types are not covariant.
-- **No hiding.** A method with the signature of an inherited non-private method must be an
+- **No hiding.** A method with the signature of an inherited method the class can see must be an
   `override`; if the inherited method isn't `virtual`, that is an error. A field may not have the
   name of an inherited field.
 - `super.method(...)` calls the base class's implementation without dispatch; it cannot call an
@@ -513,11 +513,10 @@ final class Shotgun extends Weapon {
   interface it implements, directly or through a base class. An `abstract` class may leave them to
   its subclasses.
 - Generic methods cannot be `virtual`, `override`, or `abstract` (they compile to C++ templates).
-- A class that declares no constructor gets a public parameterless one. That is an error if a field
+- A class that declares no constructor gets a parameterless one, as visible as the class. That is an error if a field
   needs a value (see construction below) or the base class has no parameterless constructor.
-- Access: `private` members are visible only inside their class, and are not inherited for
-  overriding. `protected` and package access are not restricted yet: every program is a single
-  file, which is a single package.
+- Visibility is §6.2's: a subclass sees what its file and module see, and a method it can't see
+  isn't inherited for overriding.
 
 ### Construction
 
@@ -773,7 +772,7 @@ struct Counter implements Named { ... }
 
 - Interfaces contain only method signatures: no fields, constructors, bodies, static methods, or
   type parameters on methods. An interface may `extend` other interfaces.
-- A class or struct implements an interface method with a non-private method of the same name and
+- A class or struct implements an interface method with a method of the same name, written with the interface's visibility (§6.2), and
   exactly the same parameter and return types, declared in it or inherited from a base class. No
   `override` is needed (as in C#). Implementing an interface method does not make the method
   overridable: mark it `virtual` for that.
@@ -808,8 +807,8 @@ generic itself.
 
 ```java
 struct Pair<A, B> {
-    public A first;
-    public B second;
+    pub A first;
+    pub B second;
 }
 
 T identity<T>(T value) { return value; }
@@ -887,5 +886,5 @@ requires an argument for each such field, and `T()` exists only when there are n
 ### Recursive structs
 
 A struct cannot contain itself by value, including through type arguments
-(`struct Rec { public Wrap<Rec> w; }`), and its field types cannot grow without end
-(`struct Grow<T> { public Grow<Pair<T, T>> next; }`).
+(`struct Rec { pub Wrap<Rec> w; }`), and its field types cannot grow without end
+(`struct Grow<T> { pub Grow<Pair<T, T>> next; }`).

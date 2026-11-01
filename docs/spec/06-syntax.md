@@ -2,67 +2,153 @@
 
 Wylow syntax is Java's unless stated otherwise. This chapter covers the differences and additions.
 
-## 6.1 Files, packages, imports
+## 6.1 Packages, modules, imports
 
-```java
-package game.combat;
+Code is organized as in Go and Swift, with Rust's explicit `pub`: a **package** is a project, a
+**module** is a directory of it, and **visibility** starts at the file.
 
-import game.math.Vec3;
-import game.math.*;                      // everything in a package
-import game.physics.Body as PhysBody;    // alias
-
-public struct Hit { ... }
-public class Weapon { ... }
-float damageFalloff(float d) { ... }     // top-level function
+```
+mygame/
+    wylow.toml            the manifest: the package's name, and later its dependencies
+    src/
+        main.wyl          the root module
+        world/
+            chunk.wyl     module world
+            mesher.wyl    module world
+            gen/
+                noise.wyl module world.gen
 ```
 
-- **Package = directory.** The `package` declaration must match the file's directory.
-- **Any number of types per file**, public or not. (Java's one-public-class-per-file rule does not apply.)
-- **Top-level functions and constants are allowed.** They belong to the file's package and are
-  called unqualified after import, or qualified (`math.lerp(...)`).
-- **No declaration order and no headers.** Any declaration may reference any other, including across
-  circular imports. The compiler emits C++ forward declarations itself.
+```java
+// src/world/chunk.wyl
+import world.gen.Noise;
+import std.Memory;
 
-### Entry point
+pub struct Chunk {
+    pub int x, z;
+    byte[4096] blocks;                  // file-private: only chunk.wyl sees it
 
-A top-level `void main()` or `int main(String[] args)`.
+    pub byte get(int i) { return blocks[i]; }
+}
 
-## 6.2 Access
-
-Java's four levels, written as Java writes them: a modifier on each member, or none.
-
-| Level | Written | Visible to |
-|---|---|---|
-| public | `public` | Everyone |
-| protected | `protected` | The package and subclasses |
-| package | no modifier | The package |
-| private | `private` | The enclosing type (or file, for top-level declarations) |
+pub(module) int chunkIndex(int x, int y, int z) { ... }   // every file of 'world' sees it
+```
 
 ```java
-class Player extends Entity {
-    protected String name;
-    private mut int health = 100;
+// src/main.wyl
+import world.Chunk;
+import world.gen;                       // a module itself
 
-    public Player(String name) { this.name = name; }
-    public void damage(int amount) { health -= amount; }
+void main() {
+    var c = Chunk(x: 0, z: 0);
+    print(gen.seed());
 }
 ```
 
-- Members may be declared in any order. A struct's fields are laid out in declaration order
-  (§2.9), which is also the order of the memberwise constructor's parameters (§6.3).
-- The access modifier comes first among a member's modifiers, after its annotations:
-  `@CallerLocation public static void check(...)`.
-- The destructor takes no modifier, since only the runtime calls it.
-- An enum's variants take no modifier: they are as visible as the enum.
-- Structs and enums have no `protected` members, since they can't be inherited.
-- An interface's members take no modifier: they are all public.
+- **A package** is the unit of compilation and of dependencies, like a Rust crate: a directory with
+  a `wylow.toml` manifest and a `src/` directory. A single `.wyl` file compiled on its own is a
+  package with one module and one file. The whole package is compiled together, so declarations
+  may refer to each other in any order and across files, and modules of one package may import
+  each other in a cycle. Packages may not depend on each other in a cycle.
+- **A module is a directory.** `src/` is the root module, and each directory below it is a module
+  named by its path: `src/world/gen/` is `world.gen`. Every `.wyl` file in the directory belongs to
+  the module, and a file doesn't declare which: there is no `package` line. Module names are
+  lowercase (§6.11).
+- **A module's names** are the declarations its files make visible beyond themselves
+  (`pub(module)` or wider, §6.2), and its submodules. Two files of a module may not declare the same
+  such name. A file-private declaration is not one of the module's names, so two files may each
+  have a private helper of the same name.
+- **Within a module**, a file sees the module's names without importing them, as Java's classes
+  see their package. Everything else is reached through an import.
+- **Any number of declarations per file**, of any visibility. Types, functions, and constants may
+  all be top-level.
 
-**Top-level declarations** (types, functions) take a modifier each: `public`, `private`, or none,
-which is package.
+### Imports
 
-> Implemented so far: the modifiers, and checking `private`. `protected` and package access aren't
-> checked yet: every program is a single file, which is a single package, where both allow
-> everything.
+```java
+import world.Chunk;                     // one name
+import world.{Chunk, Block};            // several
+import world.*;                         // every name of 'world' visible here
+import physics.Body as PhysicsBody;     // renamed
+import engine.math;                     // the module itself: math.clamp(x)
+pub import world.Chunk;                 // re-exported: also one of this module's names
+```
+
+- A path starts with a top-level module of this package, or with the name of a package it depends
+  on; `std` is always one. A top-level module named like a dependency is an error, so a path's
+  first name has one meaning.
+- An import is visible in its own file only, as in Java and Rust. A visibility on it (`pub import`,
+  `pub(package) import`) also makes the name one of the module's, visible that far, which is how a
+  package presents a public surface whose layout differs from its directories.
+- **Paths are written only in imports.** Code names what it imported: `Chunk`, `math.clamp(x)`.
+  A local, parameter, or member may not take the name of an imported module, so `math.clamp`
+  always means the module's function.
+- Importing a name that isn't visible to the importing file is an error that says how far it is
+  visible.
+- **The prelude**: every file imports the standard library's common names (`String`, `List`,
+  `Array`, `Span`, `ReadOnlySpan`, `Result`, `Weak`, `print`, `panic`, ...) without writing it. A
+  module's own declaration or an explicit import of the same name takes precedence, so a program may
+  declare its own `List`.
+
+### Functions or static methods
+
+Both exist, for different things. A **free function** belongs to a concept, and lives in the
+module named for it: `math.clamp(x, lo, hi)`, `noise.sample(p)`. A **static method** belongs to a
+thing, a type: its factories and constants, `Vec3.zero()`, `Color.WHITE`. A class with only static
+members, written to hold functions, is a module in disguise; make it a module.
+
+### Entry point
+
+A top-level `void main()` or `int main(String[] args)` in the root module.
+
+## 6.2 Visibility
+
+Everything is private to its file unless it says otherwise:
+
+| Written | Visible to |
+|---|---|
+| nothing | The file it's declared in |
+| `pub(module)` | Every file of its module, and of the modules inside it |
+| `pub(package)` | The whole package |
+| `pub` | Everyone, including other packages |
+
+```java
+pub abstract class Entity {
+    pub Vec3 position;
+    int ticksAlive;                                 // this file only
+
+    pub abstract void onUpdate(float dt);           // game code overrides it
+    pub(package) virtual void onPhysics(float dt) { }   // only the engine's package overrides it
+    pub(package) void tick(float dt) { ticksAlive++; onPhysics(dt); onUpdate(dt); }
+}
+```
+
+- The same levels apply to top-level declarations and to members. A member is visible only where
+  its type is too: a `pub` method of a `pub(module)` class is visible within the module.
+- **There is no type-private level.** A type's unmarked members are visible to the rest of its
+  file, including other types there. A type whose internals must be sealed from its neighbours
+  goes in a file of its own.
+- **There is no `protected`.** A subclass sees what its file and module see, like any other code.
+  A method that subclasses elsewhere override is as visible as those subclasses need, often `pub`.
+  A method that isn't visible can't be overridden.
+- **An override is written with exactly the visibility of the method it overrides**, and an
+  interface method's implementation with the interface's visibility, so a method's reach is the
+  same in the base class and every subclass.
+- **A visible signature names only types visible as far:** a function's parameter and return types,
+  a field's type, a class's base class and interfaces, and their type arguments. A `pub` function
+  returning a file-private type is an error, since a caller couldn't name what it got.
+- A type's memberwise constructor is as visible as its least visible field. A `pub` struct with a
+  private field can be named everywhere but built only where the field is visible, or through a
+  constructor or factory that is `pub`.
+- Members may be declared in any order. A struct's fields are laid out in declaration order (§2.9),
+  which is also the order of the memberwise constructor's parameters (§6.3).
+- The visibility comes first among a declaration's modifiers, after its annotations:
+  `@CallerLocation pub static void check(...)`.
+- The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
+  interface's methods take none either: they are as visible as the enum or interface.
+
+> Not implemented yet. The compiler still takes Java's `public`, `protected`, and `private` on
+> each member, checks only `private` (to the type), and compiles one file.
 
 ## 6.3 Construction
 
@@ -91,15 +177,15 @@ as C#'s `T { field = value }`; the memberwise constructor with named arguments d
 default values, positional construction, and setting fields by name are all the same call.
 
 - A struct that declares no constructor gets a **memberwise constructor**, which takes every field
-  in declaration order: `Vec2(1, 2)` for `struct Vec2 { public float x, y; }`. Each parameter defaults to
+  in declaration order: `Vec2(1, 2)` for `struct Vec2 { pub float x, y; }`. Each parameter defaults to
   its field's initializer, or else to the field type's default value, so arguments may be left out
   or passed by name (§6.4):
 
   ```java
   struct Enemy {
-      public Vec3 position;
-      public int health = 100;
-      public Player? target;
+      pub Vec3 position;
+      pub int health = 100;
+      pub Player? target;
   }
 
   Enemy()                    // every field defaulted
@@ -123,10 +209,10 @@ default values, positional construction, and setting fields by name are all the 
 
 ```java
 struct Enemy {
-    public Vec3 position;
-    public int health = 100;
+    pub Vec3 position;
+    pub int health = 100;
 
-    public Enemy(Vec3 pos) { position = pos; }
+    pub Enemy(Vec3 pos) { position = pos; }
 }
 ```
 
@@ -136,8 +222,8 @@ Java-style, including `super(...)` and `this(...)` chaining:
 
 ```java
 class Shotgun extends Weapon {
-    public Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
-    private int pellets;
+    pub Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
+    int pellets;
 }
 ```
 
@@ -185,10 +271,10 @@ through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `m
 
 ```java
 struct Vec3 {
-    public float x, y, z;
+    pub float x, y, z;
 
-    public float length() { return sqrt(x*x + y*y + z*z); }
-    public mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
+    pub float length() { return sqrt(x*x + y*y + z*z); }
+    pub mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
 }
 ```
 
@@ -264,10 +350,11 @@ position.scale(2);
   argument.
 - A nullable receiver needs `?.` or a check, as for members, unless the `this` parameter's type
   is itself nullable: `bool isNullOrEmpty(this String? s)` can be called on a `String?` directly.
-- An extension is an ordinary function: it sees only the receiver's public members, is statically
+- An extension is an ordinary function: it sees the receiver's members that its own file can see, is statically
   dispatched (never virtual), and can also be called as `any(mobs, test)`.
-- Once packages exist, an extension is found only where its package is imported. Until then, every
-  extension in the program and the standard library is visible.
+- An extension is found where it is visible and its name is imported, or within its own module.
+  Until programs have more than one file, every extension in the program and the standard library
+  is visible.
 
 > Not implemented yet. The standard library will use extensions to move `String`'s higher-level
 > methods into Wylow over its native primitives.
@@ -279,8 +366,8 @@ and assigned directly, or a method, called with parentheses:
 
 ```java
 class Player {
-    public mut int health = 100;
-    public bool isDead() { return health <= 0; }
+    pub mut int health = 100;
+    pub bool isDead() { return health <= 0; }
 }
 
 if (player.isDead()) { ... }
@@ -288,7 +375,7 @@ if (player.isDead()) { ... }
 
 A class field that isn't `mut` can be read anywhere but assigned only by its class's constructors,
 which covers what a read-only property would: `array.length`. A struct's fields are as mutable as
-the variable holding it (§2.7), so a struct whose fields must keep an invariant makes them private
+the variable holding it (§2.7), so a struct whose fields must keep an invariant leaves them unmarked, private to its file,
 and offers methods: `span.length()`. Turning a field into a method later means updating its uses.
 
 ## 6.6 Indexers
@@ -300,8 +387,8 @@ indexer, so that a user's container indexes like the standard library's.
 
 ```java
 struct Mat4 {
-    public float[16] m;
-    public mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
+    pub float[16] m;
+    pub mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
 }
 ```
 
@@ -321,10 +408,10 @@ assignment never has two meanings. Such an element is not a place: `ref grid[i]`
 
 ```java
 struct Nibbles {
-    private byte[2048] bytes;
+    byte[2048] bytes;
 
-    public byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
-    public mut void operator []=(int i, byte value) { ... }
+    pub byte operator [](int i) { return bytes[i >> 1] >> ((i & 1) * 4) & 0xF; }
+    pub mut void operator []=(int i, byte value) { ... }
 }
 ```
 
@@ -826,11 +913,11 @@ interface Printable {
 }
 
 struct Vec3 implements Printable {
-    public float x;
-    public float y;
-    public float z;
+    pub float x;
+    pub float y;
+    pub float z;
 
-    public String toString() { return $"({x}, {y}, {z})"; }
+    pub String toString() { return $"({x}, {y}, {z})"; }
 }
 ```
 
@@ -931,42 +1018,41 @@ Enforced with compiler **warnings** (not errors):
 | Enum variants | `PascalCase` | `AiState.Chasing` |
 | Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
 | Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
-| Packages | `lowercase` | `game.combat` |
+| Modules | `lowercase` | `world.gen` |
 
 > Not implemented yet: the compiler emits no warnings, so these conventions aren't checked.
 
 ## 6.12 Complete example
 
 ```java
-package game.enemies;
+// src/enemies/system.wyl, in module enemies
+import math.*;
 
-import game.math.*;
-
-public enum AiState {
+pub enum AiState {
     Idle,
     Chasing(int target),
 }
 
-public struct Enemy {
-    public Vec3 position;
-    public Vec3 velocity;
-    public int health = 100;
-    public AiState state = AiState.Idle;
+pub struct Enemy {
+    pub Vec3 position;
+    pub Vec3 velocity;
+    pub int health = 100;
+    pub AiState state = AiState.Idle;
 
-    public bool isDead() { return health <= 0; }
+    pub bool isDead() { return health <= 0; }
 }
 
-public class EnemySystem {
-    private const float CHASE_SPEED = 4.0;
+pub class EnemySystem {
+    const float CHASE_SPEED = 4.0;
 
-    private List<Enemy> enemies = new List<Enemy>();
+    List<Enemy> enemies = new List<Enemy>();
 
-    public int spawn(Vec3 at) {
+    pub int spawn(Vec3 at) {
         enemies.add(Enemy(position: at));
         return enemies.count() - 1;
     }
 
-    public void tick(float dt) {
+    pub void tick(float dt) {
         for (ref Enemy e : enemies) {
             switch (e.state) {
                 case Idle -> {}

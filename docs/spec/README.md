@@ -79,6 +79,9 @@ Each is explained in detail in its chapter.
 13. **Variables, parameters, and fields are immutable unless declared `mut`**, as in Rust. For a
    class reference, this means the variable can't be reassigned; the object itself can still
    change. See [02-types.md](02-types.md#27-mutability-and-constants).
+14. **Unmarked means private to the file, not to the type.** Other types in the same file see a
+   type's unmarked members; `pub(module)`, `pub(package)`, and `pub` widen it. There is no
+   `protected`. See [06-syntax.md](06-syntax.md#62-visibility).
 
 ## Standard library
 
@@ -87,8 +90,9 @@ what it does can be read like any other Wylow code. The compiler knows its types
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
 loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which
 built-in types satisfy without implementing them), and `String`, whose `extern struct`
-declares the methods of the built-in type. Until packages exist, a program cannot declare a type
-with the name of a standard library type.
+declares the methods of the built-in type. It is the package `std`, whose common names every file
+imports (the prelude, [06-syntax.md](06-syntax.md#imports)). Until programs have more than one file, a
+program cannot declare a type with the name of a standard library type.
 
 Its `extern` functions are implemented by the C++ runtime. Those marked `@Pure` can't panic or
 change anything, so the compiler orders calls of them like operators rather than like calls.

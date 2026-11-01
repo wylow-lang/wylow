@@ -10,7 +10,7 @@ calls foreign functions by name. Interop in Wylow is about two things:
 ## 7.1 `extern` blocks
 
 ```java
-package sdl;
+// module sdl
 
 @Include("SDL3/SDL.h")
 extern {
@@ -18,7 +18,7 @@ extern {
 
     struct SDL_Window;                              // opaque: usable only through pointers
 
-    struct SDL_Rect { public int x; public int y; public int w; public int h; }   // layout-checked (§7.4)
+    struct SDL_Rect { pub int x; pub int y; pub int w; pub int h; }   // layout-checked (§7.4)
 
     int  SDL_Init(uint flags);
     SDL_Window* SDL_CreateWindow(byte* title, int w, int h, ulong flags);
@@ -84,21 +84,20 @@ The intended structure is two layers:
 Game code uses only the wrapper.
 
 ```java
-package game.platform;
-
+// module platform
 import sdl.*;
 
-public class Window {
-    public static Result<Window, String> create(String title, int w, int h) {
+pub class Window {
+    pub static Result<Window, String> create(String title, int w, int h) {
         unsafe {
             var p = SDL_CreateWindow(title.cstr, w, h, 0);
             if (p == null) return Err(String.fromCString(SDL_GetError()));
             return Ok(new Window(p));
         }
     }
-    private SDL_Window* handle;
+    SDL_Window* handle;
 
-    private Window(SDL_Window* h) { handle = h; }
+    Window(SDL_Window* h) { handle = h; }
 
     ~Window() {
         unsafe { SDL_DestroyWindow(handle); }
@@ -244,7 +243,7 @@ extern "C" BodyId physics_create_box(PhysicsWorld* w, float hx, float hy, float 
 @Include("physics_shim.h")
 extern {
     struct PhysicsWorld;
-    struct BodyId { public uint value; }
+    struct BodyId { pub uint value; }
     BodyId physics_create_box(PhysicsWorld* w, float hx, float hy, float hz);
 }
 ```
