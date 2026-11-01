@@ -61,9 +61,9 @@ public sealed partial class CppEmitter
     string ClassName(TypeSymbol s)
     {
         if (!s.IsGeneric)
-            return CppStringLiteral(s.Name);
+            return CppStringLiteral(s.DisplayName);
         var name = $"wyl::class_name<{ObjectType(s.Type)}>";
-        return $"{name} != nullptr ? {name} : {CppStringLiteral(s.Name)}";
+        return $"{name} != nullptr ? {name} : {CppStringLiteral(s.DisplayName)}";
     }
 
     bool NeedsValueVisit(TypeSymbol s) => !s.IsRefStruct && (s.IsGeneric || s.Type.MayOwnObjects);

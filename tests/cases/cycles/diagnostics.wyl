@@ -47,4 +47,4 @@ void main() {
     var item = new Item();
     item.others.add(item);
 }
-// warning: at exit, 8 objects in cycles were never freed: 6 Spark, 1 Item, 1 List<Item>.
+// warning: at exit, 8 objects in cycles were never freed: 1 Item, 1 List<Item>, 6 Spark.

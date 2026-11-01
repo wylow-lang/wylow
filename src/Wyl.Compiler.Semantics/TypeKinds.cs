@@ -48,7 +48,7 @@ public sealed class NamedType : WylType
         TypeArguments.Count == 0 ? this : Symbol.Construct([.. TypeArguments.Select(map)]);
 
     private protected override string BuildName() =>
-        TypeArguments.Count == 0 ? Symbol.Name : $"{Symbol.Name}<{string.Join(", ", TypeArguments)}>";
+        TypeArguments.Count == 0 ? Symbol.DisplayName : $"{Symbol.DisplayName}<{string.Join(", ", TypeArguments)}>";
 }
 
 /// <summary>A type parameter, which stands for the type argument it is given.</summary>

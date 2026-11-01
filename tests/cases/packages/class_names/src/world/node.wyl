@@ -1,0 +1,8 @@
+pub class Node {
+    pub mut Node? next;
+}
+
+pub void loop() {
+    var b = new Node();
+    b.next = b;
+}

@@ -220,6 +220,8 @@ class CycleCollector {
             }
             if (!found) counts.push_back({name, 1});
         }
+        // By name, since the order objects are found in may change with optimization.
+        std::sort(counts.begin(), counts.end(), [](const ClassCount& a, const ClassCount& b) { return std::strcmp(a.name, b.name) < 0; });
         return counts;
     }
 

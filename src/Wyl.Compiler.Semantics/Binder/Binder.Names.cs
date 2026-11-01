@@ -241,6 +241,27 @@ public sealed partial class Binder
         from.Module.Files.Where(f => f != from && fileNames.ContainsKey(f))
             .SelectMany(f => fileNames[f].Functions.GetValueOrDefault(name) ?? []);
 
+    /// <summary>
+    /// Gives each type that shares its name with another type of the program a name messages can
+    /// tell apart (§6.1, How messages name types): its package and module path, as rustc trims
+    /// paths, and the file too for file-private types of one module. Before any type is named, so
+    /// every name built from it says the same.
+    /// </summary>
+    static void NameAmbiguousTypes(IReadOnlyList<TypeSymbol> types)
+    {
+        foreach (var same in types.GroupBy(t => t.Name).Where(g => g.Count() > 1))
+        {
+            foreach (var type in same)
+            {
+                var module = type.Declaration.Location.Source.Module;
+                IEnumerable<string> path = module.Package.Name is { } package ? [package, .. module.Path, type.Name] : [.. module.Path, type.Name];
+                type.DisplayName = string.Join("::", path);
+            }
+            foreach (var still in same.GroupBy(t => t.DisplayName).Where(g => g.Count() > 1).SelectMany(g => g))
+                still.DisplayName += $" ({still.Declaration.Location.Source.Name})";
+        }
+    }
+
     /// <summary>The program's entry point: the one <c>main</c> of the package's root module (§6.1, Entry point).</summary>
     FunctionSymbol? FindMain(Package package)
     {

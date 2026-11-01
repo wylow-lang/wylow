@@ -259,7 +259,7 @@ public sealed partial class CppEmitter
     /// </summary>
     void EmitFromValue(TypeSymbol s, string name, string tag)
     {
-        var message = CppStringLiteral($"integer is not a value of enum '{s.Name}'");
+        var message = CppStringLiteral($"integer is not a value of enum '{s.DisplayName}'");
         var compared = s.UnderlyingType == WylType.ULong ? WylType.ULong : WylType.Long;
         Line("template <class T>");
         Line($"static {name} from_value(T value, const char* location)");

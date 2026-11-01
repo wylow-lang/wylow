@@ -278,7 +278,9 @@ Debug builds report, as performance warnings:
 They go to stderr as `performance warning: ...`. The buffer warning fires after it grows on 5
 consecutive calls, the class warning once a class has been freed by 10 calls, each once per program.
 Generic classes are named with their type arguments (`List<Node>`) where the compiler knows the
-instantiation.
+instantiation, and classes as messages name types (06-syntax.md §6.1, How messages name types).
+Classes are listed by name, since the order the collector finds objects in may change with
+optimization.
 
 > Implemented so far: everything above except per-class counts and visit timing in
 > `memory::cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).

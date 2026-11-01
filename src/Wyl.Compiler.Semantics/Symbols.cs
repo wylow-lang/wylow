@@ -294,6 +294,7 @@ public sealed class TypeSymbol
     public TypeSymbol(TypeDecl declaration, IReadOnlyList<TypeParameterSymbol> typeParameters)
     {
         Name = declaration.Name;
+        DisplayName = declaration.Name;
         Kind = declaration.Kind;
         Declaration = declaration;
         TypeParameters = typeParameters;
@@ -308,6 +309,14 @@ public sealed class TypeSymbol
     }
 
     public string Name { get; }
+
+    /// <summary>
+    /// How messages and runtime diagnostics name it: <see cref="Name"/>, unless another type of the
+    /// program has that name, and then its package and module path (spec 06-syntax.md §6.1, How
+    /// messages name types); set by the binder once every type is declared.
+    /// </summary>
+    public string DisplayName { get; internal set; }
+
     public TypeKind Kind { get; }
     public TypeDecl Declaration { get; }
     public IReadOnlyList<TypeParameterSymbol> TypeParameters { get; }
@@ -393,7 +402,7 @@ public sealed class TypeSymbol
 
     public FieldSymbol? FindField(string name) => Fields.FirstOrDefault(f => f.Name == name);
 
-    public override string ToString() => Name;
+    public override string ToString() => DisplayName;
 }
 
 public static class Builtins

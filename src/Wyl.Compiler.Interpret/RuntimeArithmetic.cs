@@ -204,7 +204,7 @@ internal static class RuntimeArithmetic
                     return new EnumValue(to, variant, []);
             }
         }
-        new Panic($"integer is not a value of enum '{to.Symbol.Name}'", location).Raise();
+        new Panic($"integer is not a value of enum '{to.Symbol.DisplayName}'", location).Raise();
         throw new UnreachableException();
     }
 

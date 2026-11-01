@@ -1,0 +1,14 @@
+// A message names a type by its name, unless another type of the program has it; then by its
+// package and module path (spec 06-syntax.md §6.1, How messages name types).
+
+import std::List as StdList;
+
+struct Chunk { int x; }
+class List { }
+struct Unique { }
+
+void main() {
+    world::Chunk c = Chunk(x: 1);           // error: 'type_names::Chunk' to 'type_names::world::Chunk'
+    StdList<int> numbers = new List();      // error: 'type_names::List' to 'std::List<int>'
+    int n = Unique();                       // error: 'Unique'
+}

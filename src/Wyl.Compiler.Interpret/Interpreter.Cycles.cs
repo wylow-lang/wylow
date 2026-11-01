@@ -511,6 +511,8 @@ public sealed partial class Interpreter
             else
                 counts.Add((name, 1));
         }
+        // By name, as runtime/wyl/cycles.h orders them, since the order objects are found in may change with optimization.
+        counts.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
         return counts;
     }
 

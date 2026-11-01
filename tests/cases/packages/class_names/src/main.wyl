@@ -1,0 +1,16 @@
+// The cycle collector names a class as messages do: by its package and module path when another
+// class of the program has its name (spec 06-syntax.md §6.1, How messages name types).
+
+import std::print;
+
+class Node {
+    mut Node? next;
+}
+
+void main() {
+    var a = new Node();
+    a.next = a;
+    world::loop();
+    print("done");                          // output: done
+}
+// warning: at exit, 2 objects in cycles were never freed: 1 class_names::Node, 1 class_names::world::Node

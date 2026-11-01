@@ -72,6 +72,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             if (decl.Location.Source.Module.Package.IsStd)
                 stdlib.Register(symbol);
         }
+        NameAmbiguousTypes(typeList);
         foreach (var s in typeList)
         {
             typeParameters = s.TypeParameters;
