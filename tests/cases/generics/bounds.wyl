@@ -1,7 +1,7 @@
 struct Score implements Comparable<Score> {
     int points;
 
-    int compareTo(Score other) {
+    pub int compareTo(Score other) {
         return points - other.points;
     }
 }
@@ -13,7 +13,7 @@ class Version implements Comparable<Version> {
         this.number = number;
     }
 
-    int compareTo(Version other) {
+    pub int compareTo(Version other) {
         return number - other.number;
     }
 }

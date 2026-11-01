@@ -88,7 +88,13 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public TypeSymbol? ContainingType { get; init; }
     public bool IsStatic { get; init; }
     public bool IsReadOnly { get; init; }
-    public bool IsPrivate { get; init; }
+
+    /// <summary>
+    /// Where it can be named from, already within its type's. A symbol the binder doesn't give one
+    /// is visible nowhere, so a missed one is an error rather than a hole.
+    /// </summary>
+    public Reach Reach { get; init; }
+
     public bool IsConstructor { get; init; }
     public bool IsDestructor { get; init; }
     public bool IsVirtual { get; init; }
@@ -224,7 +230,7 @@ public sealed class FieldSymbol(string name, WylType type, TypeSymbol owner, Fie
     public WylType Type { get; } = type;
     public TypeSymbol Owner { get; } = owner;
     public FieldDecl Declaration { get; } = declaration;
-    public bool IsPrivate => (Declaration.Modifiers & Modifiers.Private) != 0;
+    public Reach Reach => Reach.Of(Declaration).Within(Owner.Reach);
 
     /// <summary>Declared <c>mut</c>, so it may be assigned after construction.</summary>
     public bool IsMutable => (Declaration.Modifiers & Modifiers.Mut) != 0;
@@ -252,7 +258,7 @@ public sealed class VariantSymbol
         Declaration = declaration;
         Fields = fields;
         var parameters = fields.Select(f => new LocalSymbol(f.Name, f.Type, isParameter: true)).ToList();
-        Constructor = new FunctionSymbol(name, parameters, WylType.Void) { ContainingType = owner };
+        Constructor = new FunctionSymbol(name, parameters, WylType.Void) { ContainingType = owner, Reach = owner.Reach };
         InferringConstructor = new FunctionSymbol(name, parameters, WylType.Void) { TypeParameters = owner.TypeParameters };
     }
 
@@ -291,6 +297,7 @@ public sealed class TypeSymbol
             ContainingType = this,
             IsConstructor = true,
             IsImplicit = true,
+            Reach = Reach.Of(declaration),
         };
     }
 
@@ -301,6 +308,7 @@ public sealed class TypeSymbol
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsAbstract => (Declaration.Modifiers & Modifiers.Abstract) != 0;
     public bool IsFinal => (Declaration.Modifiers & Modifiers.Final) != 0;
+    public Reach Reach => Reach.Of(Declaration);
 
     /// <summary>A <c>ref struct</c>: second-class, like a <c>ref</c>, so it can only be a local or parameter.</summary>
     public bool IsRefStruct => (Declaration.Modifiers & Modifiers.Ref) != 0;
@@ -432,12 +440,14 @@ public static class Builtins
                 yield return new FunctionSymbol("print", [new LocalSymbol("value", type, isParameter: true)], WylType.Void)
                 {
                     BuiltinCppName = "wyl::print",
+                    Reach = Reach.Everywhere,
                 };
             }
 
             yield return new FunctionSymbol("panic", [new LocalSymbol("message", WylType.String, isParameter: true)], WylType.Void)
             {
                 BuiltinCppName = "wyl::panic",
+                Reach = Reach.Everywhere,
                 IsNoReturn = true,
                 PassesLocation = true,
             };

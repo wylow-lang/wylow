@@ -70,9 +70,9 @@ final class Heap<T extends Ordered<T>> {
         return top;
     }
 
-    private List<T> items = new List<T>();
+    List<T> items = new List<T>();
 
-    private void swap(int a, int b) {
+    void swap(int a, int b) {
         T temp = items[a];
         items[a] = items[b];
         items[b] = temp;

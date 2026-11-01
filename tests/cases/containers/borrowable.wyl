@@ -9,11 +9,11 @@ class Store {
 class Tracked extends Store implements Borrowable {
     mut int borrows;
 
-    void beginBorrow() {
+    pub void beginBorrow() {
         borrows++;
     }
 
-    void endBorrow() {
+    pub void endBorrow() {
         borrows--;
     }
 }

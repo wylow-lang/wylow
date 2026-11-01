@@ -10,7 +10,7 @@ class Square implements Shape {         // error: 'Square' does not implement 'S
 }
 
 class Circle implements Shape {
-    private float area() { return 1; }  // error: implements 'Shape.area()' and cannot be private
+    pub float area() { return 1; }      // error: 'Circle.area' implements 'Shape.area()', so it must have no visibility, as interface 'Shape' has
 }
 
 class Wrong implements Shape {

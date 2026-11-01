@@ -8,15 +8,15 @@ struct Unmarked {
 }
 
 struct Counted implements Printable {
-    int toString() { return 1; }  // error: 'Counted.toString' must have the same parameter and return types as 'Printable.toString()' to implement it
+    pub int toString() { return 1; }  // error: 'Counted.toString' must have the same parameter and return types as 'Printable.toString()' to implement it
 }
 
 struct Changing implements Printable {
-    mut String toString() { return "changing"; }  // error: 'Changing.toString' cannot be 'mut', since 'Printable.toString()' isn't
+    pub mut String toString() { return "changing"; }  // error: 'Changing.toString' cannot be 'mut', since 'Printable.toString()' isn't
 }
 
 class Animal implements Printable {
-    String toString() { return "animal"; }
+    pub String toString() { return "animal"; }
 }
 
 String describe<T extends Printable>(T value) { return $"{value}"; }

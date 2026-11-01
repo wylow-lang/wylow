@@ -137,11 +137,17 @@ pub abstract class Entity {
   interface method's implementation with the interface's visibility, so a method's reach is the
   same in the base class and every subclass.
 - **A visible signature names only types visible as far:** a function's parameter and return types,
-  a field's type, a class's base class and interfaces, and their type arguments. A `pub` function
-  returning a file-private type is an error, since a caller couldn't name what it got.
+  a field's type, a variant's field types, a class's base class and interfaces, type parameters'
+  bounds, and their type arguments. A `pub` function returning a file-private type is an error,
+  since a caller couldn't name what it got. "As far" is how far the declaration really reaches,
+  within its type's: a `pub` method of a file-private struct may take a file-private type.
 - A type's memberwise constructor is as visible as its least visible field. A `pub` struct with a
   private field can be named everywhere but built only where the field is visible, or through a
-  constructor or factory that is `pub`.
+  constructor or factory that is `pub`. A class's implicit parameterless constructor is as visible
+  as the class.
+- **A call chooses only among the overloads visible where it is**, as in Java: one it can't see
+  never wins over one it can. If none is visible, the error says how far the one that fits reaches.
+- The entry point needs no visibility: the compiler, not other code, calls `main`.
 - Members may be declared in any order. A struct's fields are laid out in declaration order (§2.9),
   which is also the order of the memberwise constructor's parameters (§6.3).
 - The visibility comes first among a declaration's modifiers, after its annotations:
@@ -149,8 +155,9 @@ pub abstract class Entity {
 - The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
   interface's methods take none either: they are as visible as the enum or interface.
 
-> Not implemented yet. The compiler still takes Java's `public`, `protected`, and `private` on
-> each member, checks only `private` (to the type), and compiles one file.
+> Implemented for one file and the standard library: a program is one file, and the standard
+> library is the package `std`, with one module, so `pub(module)` and `pub(package)` reach the same
+> files until packages are directories. Imports and multi-file packages are not implemented yet.
 
 ## 6.3 Construction
 

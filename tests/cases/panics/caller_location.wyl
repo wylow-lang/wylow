@@ -3,7 +3,9 @@ struct Pair {
 
     @CallerLocation
     mut int get(int index) {
-        Bounds.check(index, 2);
+        if (index < 0 || index >= 2) {
+            panic($"index {index} is out of bounds for length 2");
+        }
         return values[index];
     }
 }

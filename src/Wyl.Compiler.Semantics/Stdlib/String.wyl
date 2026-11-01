@@ -3,49 +3,49 @@
 // lengths count bytes of UTF-8, which is what a string stores; a character (`char`) takes 1 to 4.
 // See docs/spec/02-types.md.
 
-extern struct String {
+pub extern struct String {
     // The length in bytes, not in characters.
     @Pure
-    public extern int byteLength();
+    pub extern int byteLength();
 
     @Pure
-    public extern bool isEmpty();
+    pub extern bool isEmpty();
 
     // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
     @Pure
-    public extern ReadOnlySpan<byte> bytes();
+    pub extern ReadOnlySpan<byte> bytes();
 
     // The number of characters (code points). It reads the whole string.
     @Pure
-    public extern int charCount();
+    pub extern int charCount();
 
     @Pure
-    public extern bool startsWith(String prefix);
+    pub extern bool startsWith(String prefix);
 
     @Pure
-    public extern bool endsWith(String suffix);
+    pub extern bool endsWith(String suffix);
 
     @Pure
-    public extern bool contains(String text);
+    pub extern bool contains(String text);
 
     // The byte offset where `text` first occurs, or null if it doesn't.
     @Pure
-    public extern int? indexOf(String text);
+    pub extern int? indexOf(String text);
 
     // The `length` bytes from `start`. Panics if they are out of bounds or would split a character.
     @CallerLocation
-    public extern String slice(int start, int length);
+    pub extern String slice(int start, int length);
 
     // Negative, zero, or positive as this string sorts before, the same as, or after `other`: by
     // byte, which for UTF-8 is the order of the code points.
     @Pure
-    public extern int compareTo(String other);
+    pub extern int compareTo(String other);
 
     // For the compiler's loops over a string's characters. `offset` must be where one starts.
     @Pure
-    private extern char charAt(int offset);
+    extern char charAt(int offset);
 
     // The offset after the character that starts at `offset`.
     @Pure
-    private extern int nextChar(int offset);
+    extern int nextChar(int offset);
 }

@@ -1,8 +1,8 @@
 # Packages, modules, and `pub` visibility
 
-**Status:** designed 2026-10-31 (spec `7f41683`, `33a499c`), not implemented. The compiler still
-takes Java's `public` / `protected` / `private` per member (`a4b8bf6`), checks only `private` (to
-the type), and compiles one file plus the standard library. Delete this file when step 2 lands.
+**Status:** designed 2026-10-31 (spec `7f41683`, `33a499c`). Step 1 is done: `pub` levels and
+file privacy on one file plus the standard library, with one definition of reach (`Reach.cs`) and
+the checks in `Binder.Visibility.cs`. Step 2 is next. Delete this file when step 2 lands.
 
 Read first: `docs/spec/06-syntax.md` §6.1–6.2 (the design, which wins over this file), CLAUDE.md,
 and `docs/design/architecture.md`.
@@ -72,6 +72,20 @@ now.
   cases wait for step 2.
 - **Docs in the same commit:** the "Not implemented yet" note in §6.2, CLAUDE.md if it mentions
   access, and architecture.md's enforcement table for the reach definition.
+
+## Left open by step 1
+
+- `Reach.PackageOf`/`ModuleOf` say "std or the program, one root module each"; step 2 replaces
+  them with the source's real package and module path, and nothing else should need to change.
+- A subclass in another file declaring a method with the signature of a base method it can't see
+  is allowed (`CheckOverride` returns early), but C++ would make it an override. Rename one in
+  the emitter or reject it; untestable until a class can be extended from another file.
+- Overload filtering by visibility (`VisibleFrom` in `Resolve`) has no test: no stdlib type has
+  overloads of mixed visibility. Add one with the cross-module tests.
+- `Bounds` is `pub(package)`, so user containers on raw memory (`unsafe/memory.wyl`,
+  `panics/caller_location.wyl`) write their own `@CallerLocation` panic. Revisit if the floor
+  should offer it to user containers.
+- `module` and `package` are reserved words in the lexer already, which `pub(...)` matches by text.
 
 ## Step 2: multi-file packages and imports
 

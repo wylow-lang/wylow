@@ -5,7 +5,7 @@ struct Score implements Comparable<Score> {
         this.points = points;
     }
 
-    int compareTo(Score other) {
+    pub int compareTo(Score other) {
         return points - other.points;
     }
 }

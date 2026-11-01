@@ -293,7 +293,7 @@ sealed class TypeGenerator(BoundProgram program, int seed)
     readonly Random random = new(seed);
 
     // By name, so that two compilations of one fixture generate alike.
-    readonly TypeSymbol[] symbols = [.. program.Types.Where(s => s.Name != "String").OrderBy(s => s.Name, StringComparer.Ordinal)];
+    readonly TypeSymbol[] symbols = [.. program.Types.Where(s => s.Name != "String" && s.Reach.Includes(program.Source)).OrderBy(s => s.Name, StringComparer.Ordinal)];
     readonly IReadOnlyList<TypeParameterSymbol> parameters = Parameters(program);
 
     static readonly WylType[] Builtins = [WylType.Bool, WylType.Char, WylType.Float, WylType.Double, WylType.String, .. WylType.Integers];

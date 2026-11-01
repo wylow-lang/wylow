@@ -1,0 +1,40 @@
+class Java {
+    public int a;                       // error: Wylow writes 'pub', not 'public'
+    private int b;                      // error: declarations are private to their file unless marked 'pub'; remove 'private'
+    protected int c;                    // error: Wylow has no 'protected'; a subclass sees what its file and module see, so write the 'pub' level that subclasses elsewhere need
+    public {                            // error: visibility is written on each member, as in 'pub int x;', not as a 'public { ... }' block
+        int d;
+    }
+}
+
+class Blocked {
+    pub {                               // error: visibility is written on each member, as in 'pub int x;', not as a 'pub { ... }' block
+        int a;
+    }
+    int b;
+}
+
+class Twice {
+    pub pub(module) int a;              // error: only one visibility is allowed
+    static pub void f() { }             // error: the visibility comes first among modifiers, as in 'pub static'
+    mut pub(package) int b;             // error: the visibility comes first among modifiers, as in 'pub(package) mut'
+    pub(crate) int c;                   // error: expected 'pub(module)' or 'pub(package)', not 'pub(crate)'
+}
+
+class Destroyed {
+    pub ~Destroyed() { }                // error: a destructor takes no visibility, since only the runtime calls it
+}
+
+enum Shape {
+    pub Circle,                         // error: an enum's variants take no visibility; they are as visible as the enum
+    Square;
+}
+
+interface Named {
+    pub String name();                  // error: an interface's methods take no visibility; they are as visible as the interface
+}
+
+final pub class Late { }                // error: the visibility comes first among modifiers, as in 'pub final'
+
+void main() {
+}

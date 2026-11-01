@@ -12,7 +12,7 @@ public sealed partial class Parser
         public DestructorDecl? Destructor;
     }
 
-    TypeDecl ParseTypeDecl(int start, Modifiers modifiers, TypeKind kind)
+    TypeDecl ParseTypeDecl(int start, ModifierList modifiers, TypeKind kind)
     {
         Advance();
         var name = Expect(TokenKind.Identifier, kind switch
@@ -67,16 +67,26 @@ public sealed partial class Parser
         var members = new Members();
         ParseMembers(kind, name.Text, members);
         Expect(TokenKind.CloseBrace, "'}'");
-        return new TypeDecl(LocationFrom(start), modifiers, kind, name.Text, Loc(name.Span), typeParameters,
-            kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants);
+        return new TypeDecl(LocationFrom(start), modifiers.Flags, kind, name.Text, Loc(name.Span), typeParameters,
+            kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants)
+        {
+            Visibility = modifiers.Visibility,
+        };
     }
 
     /// <summary>Variants separated by commas, then, if members follow, a ';' as in Java.</summary>
     List<VariantDecl> ParseVariants()
     {
         var variants = new List<VariantDecl>();
-        while (At(TokenKind.Identifier))
+        while (At(TokenKind.Identifier) || SyntaxFacts.IsVisibilityKeyword(Current.Kind))
         {
+            if (SyntaxFacts.IsVisibilityKeyword(Current.Kind))
+            {
+                int keyword = Current.Span.Start;
+                ParseVisibility();
+                Error(TextSpan.FromBounds(keyword, Previous.Span.End), "an enum's variants take no visibility; they are as visible as the enum");
+                continue;
+            }
             int start = position;
             var name = Advance();
             var fields = At(TokenKind.OpenParen) ? ParseParameterList(allowRefKinds: false) : null;
@@ -95,16 +105,16 @@ public sealed partial class Parser
     const Modifiers InheritanceModifiers = Modifiers.Virtual | Modifiers.Override | Modifiers.Abstract | Modifiers.Final;
 
     /// <summary>
-    /// A type's members, in any order, each with its own access modifier or none, which is the
-    /// package. An interface's members are all public and take no modifier.
+    /// A type's members, in any order, each with its own visibility or none, which is the file. An
+    /// interface's methods take none: they are as visible as the interface.
     /// </summary>
     void ParseMembers(TypeKind kind, string typeName, Members members)
     {
         while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
         {
             int before = position;
-            if (SyntaxFacts.IsAccessKeyword(Current.Kind) && Peek(1).Kind == TokenKind.OpenBrace)
-                ParseAccessBlock();
+            if (SyntaxFacts.IsVisibilityKeyword(Current.Kind) && Peek(1).Kind == TokenKind.OpenBrace)
+                ParseVisibilityBlock();
             else
                 ParseMember(kind, typeName, members);
             if (position == before)
@@ -112,11 +122,11 @@ public sealed partial class Parser
         }
 
         // A block, as the language once had, is reported once and its members parsed as members.
-        void ParseAccessBlock()
+        void ParseVisibilityBlock()
         {
             var keyword = Advance();
             Advance();
-            Error(keyword.Span, $"access is written on each member, as in '{keyword.Text} int x;', not as a '{keyword.Text} {{ ... }}' block");
+            Error(keyword.Span, $"visibility is written on each member, as in 'pub int x;', not as a '{keyword.Text} {{ ... }}' block");
             while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
             {
                 int before = position;
@@ -154,17 +164,17 @@ public sealed partial class Parser
         switch (kind)
         {
             case TypeKind.Struct:
-                Disallow(modifiers, InheritanceModifiers | Modifiers.Protected,
+                Disallow(modifiers, InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
                 break;
             case TypeKind.Interface:
-                Disallow(modifiers, ~Modifiers.Mut, token => SyntaxFacts.IsAccessKeyword(token.Kind)
-                    ? "an interface's members are all public, so they take no access modifier"
-                    : "interface members cannot have modifiers other than 'mut'");
-                modifiers = modifiers with { Flags = (modifiers.Flags & ~AccessModifiers) | Modifiers.Public };
+                if (modifiers.VisibilitySpan is { } visibility)
+                    Error(visibility, "an interface's methods take no visibility; they are as visible as the interface");
+                Disallow(modifiers, ~Modifiers.Mut, _ => "interface members cannot have modifiers other than 'mut'");
+                modifiers = modifiers with { Visibility = Visibility.File };
                 break;
             case TypeKind.Enum:
-                Disallow(modifiers, InheritanceModifiers | Modifiers.Protected,
+                Disallow(modifiers, InheritanceModifiers,
                     token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
                 Disallow(modifiers, Modifiers.Mut, _ => "enum methods cannot be 'mut', since an enum value cannot be modified");
                 break;
@@ -192,7 +202,7 @@ public sealed partial class Parser
                 Error(constructorName.Span, "interfaces cannot have constructors");
             else if (kind == TypeKind.Enum)
                 Error(constructorName.Span, "enums cannot have constructors; their values are created from variants");
-            var constructor = ParseFunctionRest(start, modifiers.Flags, null, constructorName);
+            var constructor = ParseFunctionRest(start, modifiers, null, constructorName);
             RequireBody(constructor);
             members.Methods.Add(constructor);
             return;
@@ -228,7 +238,7 @@ public sealed partial class Parser
             var indexerParameters = ParseParameterList(allowRefKinds: true);
             var indexerBody = Accept(TokenKind.Semicolon) ? null : ParseBlock();
             AddMethod(kind, modifiers, members, new FunctionDecl(LocationFrom(start), modifiers.Flags, type, SyntaxFacts.IndexerName,
-                indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind });
+                indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind, Visibility = modifiers.Visibility });
             return;
         }
         if (At(TokenKind.ThisKeyword) && Peek(1).Kind == TokenKind.OpenBracket)
@@ -242,7 +252,7 @@ public sealed partial class Parser
         if (At(TokenKind.OpenParen) || At(TokenKind.Less))
         {
             CheckMethodModifiers(kind, modifiers);
-            AddMethod(kind, modifiers, members, ParseFunctionRest(start, modifiers.Flags, type, name) with { ReturnRefKind = returnRefKind });
+            AddMethod(kind, modifiers, members, ParseFunctionRest(start, modifiers, type, name) with { ReturnRefKind = returnRefKind });
             return;
         }
         if (At(TokenKind.OpenBrace))
@@ -272,7 +282,7 @@ public sealed partial class Parser
         while (true)
         {
             var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
-            members.Fields.Add(new FieldDecl(LocationFrom(start), modifiers.Flags, type, name.Text, Loc(name.Span), initializer));
+            members.Fields.Add(new FieldDecl(LocationFrom(start), modifiers.Flags, type, name.Text, Loc(name.Span), initializer) { Visibility = modifiers.Visibility });
             if (!Accept(TokenKind.Comma))
                 break;
             name = Expect(TokenKind.Identifier, "a field name");
@@ -310,9 +320,6 @@ public sealed partial class Parser
             Disallow(modifiers, Modifiers.Mut | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");
             return;
         }
-        if ((flags & Modifiers.Private) != 0)
-            Disallow(modifiers, InheritanceModifiers, token => $"a private method cannot be '{token.Text}'");
-
         bool seenDispatch = false;
         foreach (var (flag, token) in modifiers.Tokens)
         {
@@ -328,6 +335,8 @@ public sealed partial class Parser
 
     void ParseDestructor(int start, TypeKind kind, string typeName, ModifierList modifiers, Members members)
     {
+        if (modifiers.VisibilitySpan is { } visibility)
+            Error(visibility, "a destructor takes no visibility, since only the runtime calls it");
         Disallow(modifiers, ~Modifiers.None, token => $"'{token.Text}' is not valid on a destructor");
         Advance();
         var name = Advance();
@@ -355,13 +364,16 @@ public sealed partial class Parser
             members.Destructor = new DestructorDecl(LocationFrom(start), Loc(name.Span), body);
     }
 
-    FunctionDecl ParseFunctionRest(int start, Modifiers modifiers, TypeSyntax? returnType, Token name)
+    FunctionDecl ParseFunctionRest(int start, ModifierList modifiers, TypeSyntax? returnType, Token name)
     {
         // A constructor is recognized only by its name and '(', so it has no type parameters.
         var typeParameters = ParseTypeParameters();
         var parameters = ParseParameterList(allowRefKinds: true);
         var body = Accept(TokenKind.Semicolon) ? null : ParseBlock();
-        return new FunctionDecl(LocationFrom(start), modifiers, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body);
+        return new FunctionDecl(LocationFrom(start), modifiers.Flags, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body)
+        {
+            Visibility = modifiers.Visibility,
+        };
     }
 
     /// <summary>Function parameters, or with <paramref name="allowRefKinds"/> false, the fields of an enum variant.</summary>

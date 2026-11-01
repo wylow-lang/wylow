@@ -16,7 +16,7 @@ void main() {
     list.beginBorrow();                     // error: 'beginBorrow' is called by the compiler around every borrow, and cannot be called directly
     var numbers = new int[3];
     numbers.length = 4;                     // error: cannot assign to 'numbers.length' because field 'length' is not 'mut'
-    print(list.size);                       // error: field 'List.size' is private
+    print(list.size);                       // error: field 'List.size' is visible only in its file (List.wyl)
     Span<int> view = list;
     List<int> other = new List<int>();
     view = other;                           // error: 'view' cannot be reassigned

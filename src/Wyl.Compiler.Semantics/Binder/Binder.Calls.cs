@@ -15,7 +15,7 @@ public sealed partial class Binder
     List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null)
     {
         var names = ArgumentNames(arguments);
-        var arrangements = candidates?
+        var arrangements = (candidates is not null && arguments.Count > 0 ? VisibleFrom(candidates, arguments[0].Location.Source) : candidates)?
             .Select(c => (Candidate: c, Arrangement: Arrange(c, names, out _)))
             .Where(c => c.Arrangement is not null)
             .ToList();
@@ -118,7 +118,7 @@ public sealed partial class Binder
             var method = Resolve(e.Location, $"overload of '{name.Name}'", methods, typeArguments, arguments);
             if (method is null)
                 return new BoundErrorExpression(e.Location);
-            CheckAccessible(name.Location, method.Symbol.ContainingType!, method.Symbol.IsPrivate, $"method '{method.Symbol.ContainingType!.Name}.{name.Name}'");
+            CheckVisible(name.Location, method.Symbol.Reach, $"method '{method.Symbol.ContainingType!.Name}.{name.Name}'");
             if (method.Symbol.IsStatic)
                 return MakeCall(e.Location, method, null, arguments);
             if (!hasThis)
@@ -154,7 +154,10 @@ public sealed partial class Binder
         if (AnyError(functionArguments))
             return new BoundErrorExpression(e.Location);
         var function = Resolve(e.Location, $"overload of '{name.Name}'", candidates, typeArguments, functionArguments);
-        return function is null ? new BoundErrorExpression(e.Location) : MakeCall(e.Location, function, null, functionArguments);
+        if (function is null)
+            return new BoundErrorExpression(e.Location);
+        CheckVisible(name.Location, function.Symbol.Reach, $"function '{name.Name}'");
+        return MakeCall(e.Location, function, null, functionArguments);
     }
 
     BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, PendingArguments pending, WylType? expected)
@@ -193,7 +196,7 @@ public sealed partial class Binder
                     $"'{s.Name}.{member.Name}' is an instance method; call it on a value of type '{type}'");
             }
             var declaring = staticMethod.Symbol.ContainingType!;
-            CheckAccessible(member.NameLocation, declaring, staticMethod.Symbol.IsPrivate, $"method '{declaring.Name}.{member.Name}'");
+            CheckVisible(member.NameLocation, staticMethod.Symbol.Reach, $"method '{declaring.Name}.{member.Name}'");
             return MakeCall(e.Location, staticMethod, null, arguments);
         }
 
@@ -249,7 +252,7 @@ public sealed partial class Binder
             return ErrorExpression(nameLocation,
                 $"static method '{name}' must be called through the type: '{declaring.Name}.{name}(...)'");
         }
-        CheckAccessible(nameLocation, declaring, method.Symbol.IsPrivate, $"method '{declaring.Name}.{name}'");
+        CheckVisible(nameLocation, method.Symbol.Reach, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
     }
 
@@ -304,7 +307,7 @@ public sealed partial class Binder
             return ErrorExpression(member.NameLocation, $"static method '{member.Name}' must be called through the type: '{declaring.Name}.{member.Name}(...)'");
         if (method.Symbol.IsAbstract)
             return ErrorExpression(member.NameLocation, $"cannot call abstract method '{declaring.Name}.{member.Name}' through 'super'");
-        CheckAccessible(member.NameLocation, declaring, method.Symbol.IsPrivate, $"method '{declaring.Name}.{member.Name}'");
+        CheckVisible(member.NameLocation, method.Symbol.Reach, $"method '{declaring.Name}.{member.Name}'");
         return MakeCall(e.Location, method, new BoundThis(super.Location, currentType.Type), arguments, isSuperCall: true);
     }
 
@@ -456,7 +459,7 @@ public sealed partial class Binder
         var constructor = Resolve(location, $"constructor of '{type}'", ConstructorsOf(type), null, arguments);
         if (constructor is null)
             return new BoundErrorExpression(location);
-        CheckAccessible(location, type.Symbol!, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        CheckVisible(location, constructor.Symbol.Reach, $"constructor '{constructor}'");
         if (!CheckArrayElementsDefaultable(typeLocation, type, constructor) || !CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
         return new BoundNew(location, type, constructor, ConvertArguments(constructor, arguments));
@@ -471,7 +474,7 @@ public sealed partial class Binder
         var constructor = Resolve(location, $"constructor of '{type}'", ConstructorsOf(type), null, arguments);
         if (constructor is null)
             return new BoundErrorExpression(location);
-        CheckAccessible(location, s, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        CheckVisible(location, constructor.Symbol.Reach, $"constructor '{constructor}'");
         if (!CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
 

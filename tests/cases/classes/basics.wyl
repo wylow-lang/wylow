@@ -17,7 +17,7 @@ class Counter {
         return new Counter(1);
     }
 
-    private int step;
+    int step;
 }
 
 class Pair {

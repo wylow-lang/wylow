@@ -1,0 +1,69 @@
+// Within one file everything is visible, whatever its visibility, and a member is visible only as
+// far as its type (spec 06-syntax.md §6.2).
+
+pub(module) class Counter {
+    mut int count;                          // file-private, yet the rest of this file sees it
+    pub (int) -> int step;                  // a public field of function type, not 'pub(...)'
+    pub(package) (int) -> int scale;
+
+    pub Counter(@Escaping (int) -> int step, @Escaping (int) -> int scale) {
+        this.step = step;
+        this.scale = scale;
+    }
+
+    void bump() {
+        count = scale(step(count));
+    }
+}
+
+// A file-private method may be virtual; only this file can override it.
+class Shape {
+    virtual String name() { return "shape"; }
+    pub virtual int sides() { return 0; }
+}
+
+class Square extends Shape {
+    override String name() { return "square"; }
+    pub override int sides() { return 4; }
+}
+
+// A file-private interface's methods are implemented without a visibility.
+interface Sized {
+    int size();
+}
+
+struct Box implements Sized, Printable {
+    int width;                              // file-private, so the memberwise constructor is too
+    pub int height;
+
+    int size() { return width * height; }
+    pub String toString() { return $"box {width}x{height}"; }
+}
+
+// A pub method of a file-private type is file-private too, so it may name file-private types.
+struct Plain {
+    pub Box make() { return Box(2, 3); }
+}
+
+pub(module) int twice(int n) {
+    return n * 2;
+}
+
+void main() {
+    var c = new Counter(x -> x + 1, x -> x * 3);
+    c.bump();
+    c.bump();
+    print(c.count);                         // output: 12
+    c.count = 0;
+    print(c.count);                         // output: 0
+
+    Shape s = new Square();
+    print(s.name());                        // output: square
+    print(s.sides());                       // output: 4
+
+    var b = Plain().make();
+    print(b.width);                         // output: 2
+    print(b.size());                        // output: 6
+    print($"{b}");                          // output: box 2x3
+    print(twice(21));                       // output: 42
+}

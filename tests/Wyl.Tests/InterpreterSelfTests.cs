@@ -220,22 +220,14 @@ static class InterpreterSelfTests
             """, panic: "index 3 is out of bounds for length 3", panicAtLine: 4);
 
         Case(results, "bounds_check", """
-            struct Pair {
-                int[2] values;
-
-                @CallerLocation
-                mut int get(int index) {
-                    Bounds.check(index, 2);
-                    return values[index];
-                }
-            }
-
             void main() {
-                mut Pair p = Pair();
-                print(p.get(1));
-                print(p.get(2));
+                var list = new List<int>();
+                list.add(0);
+                list.add(0);
+                print(list[1]);
+                print(list[2]);
             }
-            """, panic: "index 2 is out of bounds for length 2", panicAtLine: 14, output: ["0"]);
+            """, panic: "index 2 is out of bounds for length 2", panicAtLine: 6, output: ["0"]);
 
         Case(results, "interpolation_specifiers", """
             void main() {
@@ -325,11 +317,15 @@ static class InterpreterSelfTests
 
         Case(results, "bounds_range", """
             void main() {
-                Bounds.checkRange(1, 3, 4);
-                print("ok");
-                Bounds.checkRange(2, 3, 4);
+                var list = new List<int>();
+                for (int i : 0..4) {
+                    list.add(i);
+                }
+                Span<int> view = list;
+                print(view.slice(1, 3).length());
+                print(view.slice(2, 3).length());
             }
-            """, panic: "range of 3 from 2 is out of bounds for length 4", output: ["ok"]);
+            """, panic: "range of 3 from 2 is out of bounds for length 4", output: ["3"]);
 
         Case(results, "null_reference_panic", """
             void main() {
@@ -361,7 +357,7 @@ static class InterpreterSelfTests
                     return count;
                 }
 
-                private int step;
+                int step;
             }
 
             void main() {
@@ -590,11 +586,11 @@ static class InterpreterSelfTests
             class Box implements Borrowable {
                 mut int[2] items;
 
-                void beginBorrow() {
+                pub void beginBorrow() {
                     print("begin");
                 }
 
-                void endBorrow() {
+                pub void endBorrow() {
                     print("end");
                 }
 

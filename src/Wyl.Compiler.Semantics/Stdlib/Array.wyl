@@ -1,12 +1,12 @@
 // A fixed-length array on the heap, written `T[]` and created with `new T[length]`. It never
 // moves its elements, so a reference into it only keeps it alive and needs no borrow.
 
-final class Array<T> implements Spannable<T> {
-    public int length;
+pub final class Array<T> implements Spannable<T> {
+    pub int length;
 
     // Each element starts as `T`'s default value; the compiler checks that it has one.
     @CallerLocation
-    public Array(int length) {
+    pub Array(int length) {
         unsafe {
             data = Memory.allocate<T>(length);
             Memory.initializeDefault(data, length);
@@ -15,7 +15,7 @@ final class Array<T> implements Spannable<T> {
     }
 
     @CallerLocation
-    public Array(int length, T value) {
+    pub Array(int length, T value) {
         unsafe {
             data = Memory.allocate<T>(length);
             for (int i : 0..length) {
@@ -26,7 +26,7 @@ final class Array<T> implements Spannable<T> {
     }
 
     @CallerLocation
-    public ref T operator [](int index) {
+    pub ref T operator [](int index) {
         Bounds.check(index, length);
         unsafe {
             return ref data[index];
@@ -34,7 +34,7 @@ final class Array<T> implements Spannable<T> {
     }
 
     // Like the indexer, but null instead of a panic when `index` is out of bounds.
-    public ref? T get(int index) {
+    pub ref? T get(int index) {
         if (index < 0 || index >= length) {
             return null;
         }
@@ -43,19 +43,19 @@ final class Array<T> implements Spannable<T> {
         }
     }
 
-    public Span<T> asSpan() {
+    pub Span<T> asSpan() {
         unsafe {
             return Span<T>(data, length);
         }
     }
 
-    public ReadOnlySpan<T> asReadOnlySpan() {
+    pub ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
             return ReadOnlySpan<T>(data, length);
         }
     }
 
-    private T* data;
+    T* data;
 
     ~Array() {
         unsafe {

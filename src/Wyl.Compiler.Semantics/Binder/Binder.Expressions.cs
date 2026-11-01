@@ -126,7 +126,7 @@ public sealed partial class Binder
         {
             if (!hasThis)
                 return ErrorExpression(e.Location, $"'{e.Name}' is an instance field; {NoInstanceReason}");
-            CheckAccessible(e.Location, field.Owner, field.IsPrivate, $"field '{field.Owner.Name}.{e.Name}'");
+            CheckVisible(e.Location, field.Reach, $"field '{field.Owner.Name}.{e.Name}'");
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
@@ -240,19 +240,11 @@ public sealed partial class Binder
                 ? $"'{DisplayName(target.Type)}.{name}' is a method; call it with '{name}(...)'"
                 : $"'{DisplayName(target.Type)}' has no field '{name}'");
         }
-        CheckAccessible(nameLocation, field.Owner, field.IsPrivate, $"field '{field.Owner.Name}.{name}'");
+        CheckVisible(nameLocation, field.Reach, $"field '{field.Owner.Name}.{name}'");
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
     }
 
     static bool HasMembers(WylType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || type == WylType.String;
-
-    // Private members are visible only inside their declaring type. Protected and package access
-    // need no checks yet: every program is a single file, which is a single package.
-    void CheckAccessible(Location location, TypeSymbol owner, bool isPrivate, string description)
-    {
-        if (isPrivate && currentType != owner)
-            Error(location, $"{description} is private");
-    }
 
     BoundExpression BindUnary(UnaryExpr e)
     {

@@ -50,10 +50,6 @@ class FieldChild extends Field {
 
 class Secretive {
     Secretive() { }
-
-    private int hidden;
-    private void quiet() { }
-    private Secretive(int x) { }
 }
 
 class Generic {
@@ -66,9 +62,6 @@ void main() {
     var q = new Point();                // error: structs are created without 'new'
     var g = Gun();                      // error: classes are created with 'new'
     var s = new Secretive();
-    print(s.hidden);                    // error: field 'Secretive.hidden' is private
-    s.quiet();                          // error: method 'Secretive.quiet' is private
-    var s2 = new Secretive(1);          // error: constructor 'Secretive(int)' is private
     Point pt = Point(x: 1);
     print(s == pt);                     // error: operator '==' cannot be applied to 'Secretive' and 'Point'
     print(s == new Field());            // error: operator '==' cannot be applied to 'Secretive' and 'Field'

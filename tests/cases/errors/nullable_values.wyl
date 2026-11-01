@@ -15,11 +15,11 @@ struct Vec {
 struct Buf implements Spannable<int> {
     int[2] data;
 
-    ReadOnlySpan<int> asReadOnlySpan() {
+    pub ReadOnlySpan<int> asReadOnlySpan() {
         return data;
     }
 
-    mut Span<int> asSpan() {
+    pub mut Span<int> asSpan() {
         return data;
     }
 

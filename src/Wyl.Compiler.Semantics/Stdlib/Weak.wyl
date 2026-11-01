@@ -1,7 +1,7 @@
 // A reference that does not keep its target alive. A `T` or `T?` converts to it implicitly; its
 // default refers to nothing. See docs/spec/03-memory-model.md.
 
-extern struct Weak<T> {
+pub extern struct Weak<T> {
     // The target, or null once it has been destroyed.
-    public extern T? get();
+    pub extern T? get();
 }

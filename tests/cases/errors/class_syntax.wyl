@@ -11,7 +11,7 @@ struct WithDestructor {
 interface I {
     int x;                             // error: interfaces cannot have fields
     mut void body() { }                    // error: interface methods cannot have a body
-    public mut void m();                   // error: an interface's members are all public, so they take no access modifier
+    pub mut void m();                      // error: an interface's methods take no visibility; they are as visible as the interface
 }
 
 class C {
@@ -21,8 +21,6 @@ class C {
     static virtual void o() { }        // error: a static method cannot be 'virtual'
     abstract void q() { }              // error: abstract methods cannot have a body
     void r();                          // error: 'r' must have a body
-
-    private virtual void p() { }       // error: a private method cannot be 'virtual'
 
     ~C(int x) { }                      // error: destructors cannot have parameters
 }

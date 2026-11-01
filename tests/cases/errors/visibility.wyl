@@ -1,0 +1,57 @@
+pub class Base {
+    pub virtual void shown() { }
+    pub(package) virtual void engine() { }
+    virtual void local() { }
+}
+
+pub class Derived extends Base {
+    override void shown() { }                   // error: 'shown' overrides 'Base.shown', so it must have 'pub', as that method has
+    pub override void engine() { }              // error: 'engine' overrides 'Base.engine', so it must have 'pub(package)', as that method has
+    pub(module) override void local() { }       // error: 'local' overrides 'Base.local', so it must have no visibility, as that method has
+}
+
+pub interface Named {
+    String name();
+}
+
+pub struct Tag implements Named {
+    pub(package) String name() { return "tag"; }    // error: 'Tag.name' implements 'Named.name()', so it must have 'pub', as interface 'Named' has
+}
+
+struct Secret {
+    int x;
+}
+
+interface Hidden { }
+
+class Inner { }
+
+pub Secret leak() { return Secret(1); }         // error: function 'leak' is visible everywhere, but its return type 'Secret' is visible only in its file (visibility.wyl)
+pub void take(List<Secret> s) { }               // error: function 'take' is visible everywhere, but its parameter type 'List<Secret>', which names 'Secret', is visible only in its file (visibility.wyl)
+pub void sorted<T extends Hidden>(T x) { }      // error: function 'sorted' is visible everywhere, but its type parameter's bound 'Hidden' is visible only in its file (visibility.wyl)
+
+pub struct Holder {
+    pub Secret inside;                          // error: field 'Holder.inside' is visible everywhere, but its type 'Secret' is visible only in its file (visibility.wyl)
+    pub(module) Secret? maybe;                  // error: field 'Holder.maybe' is visible only in this program's root module, but its type 'Secret?', which names 'Secret', is visible only in its file (visibility.wyl)
+    Secret kept;
+}
+
+pub class Outer extends Inner { }               // error: class 'Outer' is visible everywhere, but its base class 'Inner' is visible only in its file (visibility.wyl)
+pub(package) class Shown implements Hidden { }  // error: class 'Shown' is visible only in this program's package, but its interface 'Hidden' is visible only in its file (visibility.wyl)
+
+pub enum Choice {
+    Some(Secret value),                         // error: variant 'Choice.Some' is visible everywhere, but its field type 'Secret' is visible only in its file (visibility.wyl)
+    Nothing,
+}
+
+pub class Maker {
+    pub Maker(Secret s) { }                     // error: constructor 'Maker(Secret)' is visible everywhere, but its parameter type 'Secret' is visible only in its file (visibility.wyl)
+}
+
+void main() {
+    Bounds.check(0, 1);                         // error: struct 'Bounds' is visible only in package 'std'
+    mut int a = 0;
+    Memory.takeCycleStats(ref a, ref a, ref a); // error: method 'Memory.takeCycleStats' is visible only in its file (Memory.wyl)
+    var list = new List<int>();
+    list.grow(4);                               // error: method 'List.grow' is visible only in its file (List.wyl)
+}

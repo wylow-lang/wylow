@@ -1,10 +1,10 @@
 // Types whose elements can be viewed as a span. A value of such a type converts implicitly to the
 // span, by a call of the method below, and a for-each loop iterates over it through that span.
 
-interface ReadOnlySpannable<T> {
+pub interface ReadOnlySpannable<T> {
     ReadOnlySpan<T> asReadOnlySpan();
 }
 
-interface Spannable<T> extends ReadOnlySpannable<T> {
+pub interface Spannable<T> extends ReadOnlySpannable<T> {
     mut Span<T> asSpan();
 }

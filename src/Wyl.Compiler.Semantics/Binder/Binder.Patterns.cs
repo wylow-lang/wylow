@@ -419,7 +419,10 @@ public sealed partial class Binder
         if (target is not NameExpr name || IsValueName(name.Name) || !types.TryGetValue(name.Name, out var s) || s.Kind != TypeKind.Enum)
             return null;
         if (name.TypeArguments.Count == 0 && s.IsGeneric)
+        {
+            CheckVisible(name.Location, s.Reach, $"enum '{s.Name}'");
             return (s, expected?.Symbol == s ? expected : null);
+        }
         return (s, BindTypeName(s.Name, name.TypeArguments, name.Location));
     }
 

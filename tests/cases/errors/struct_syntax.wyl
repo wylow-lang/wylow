@@ -1,5 +1,5 @@
-protected struct A {              // error: 'protected' is not valid on a struct
-    protected int x;               // error: 'protected' is not valid on struct members; structs cannot be inherited
+pub struct A {
+    pub int x;
 
     static int count;              // error: static fields are not supported yet
     static mut void f() {          // error: a static method cannot be 'mut'

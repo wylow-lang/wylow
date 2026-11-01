@@ -18,6 +18,7 @@ public sealed partial class Binder
         IReadOnlyList<WylType>? typeArguments,
         List<Argument> arguments)
     {
+        candidates = VisibleFrom(candidates, location.Source);
         var names = arguments.Select(a => a.Name).ToList();
         var fitting = candidates.Where(c => typeArguments is null || c.Symbol.TypeParameters.Count == typeArguments.Count).ToList();
         var arranged = new Dictionary<FunctionSymbol, (int[] ArgumentOf, List<Argument?> Arguments)>();

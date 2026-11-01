@@ -49,8 +49,16 @@ public static class SyntaxFacts
             or TokenKind.LongKeyword or TokenKind.ULongKeyword or TokenKind.NIntKeyword or TokenKind.NUIntKeyword
             or TokenKind.CharKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
 
-    public static bool IsAccessKeyword(TokenKind kind) =>
-        kind is TokenKind.PublicKeyword or TokenKind.ProtectedKeyword or TokenKind.PrivateKeyword;
+    public static bool IsVisibilityKeyword(TokenKind kind) => kind is TokenKind.PubKeyword or TokenKind.JavaAccessKeyword;
+
+    /// <summary>The visibility as written; a file-private declaration writes none.</summary>
+    public static string VisibilityText(Visibility visibility) => visibility switch
+    {
+        Visibility.Module => "pub(module)",
+        Visibility.Package => "pub(package)",
+        Visibility.Public => "pub",
+        _ => "",
+    };
 
     public static string KindName(TypeKind kind) => kind switch
     {

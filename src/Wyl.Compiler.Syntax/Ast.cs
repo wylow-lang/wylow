@@ -7,9 +7,6 @@ namespace Wyl.Compiler.Syntax;
 public enum Modifiers
 {
     None = 0,
-    Public = 1,
-    Private = 2,
-    Protected = 4,
     Static = 8,
     Virtual = 32,
     Override = 64,
@@ -25,6 +22,19 @@ public enum Modifiers
     Mut = 8192,
 }
 
+/// <summary>
+/// How far a declaration is visible (spec 06-syntax.md §6.2), narrowest first, so that the lesser
+/// of two is the narrower.
+/// </summary>
+public enum Visibility
+{
+    /// <summary>Written as nothing: the file it is declared in.</summary>
+    File,
+    Module,
+    Package,
+    Public,
+}
+
 public enum RefKind { None, Ref, In }
 
 public enum TypeKind { Struct, Class, Interface, Enum }
@@ -36,6 +46,9 @@ public sealed record CompilationUnit(SourceText Source, IReadOnlyList<Declaratio
 public abstract record Declaration(Location Location, Modifiers Modifiers) : Node(Location)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+
+    /// <summary>As written; an interface method writes none, and is as visible as its interface.</summary>
+    public Visibility Visibility { get; init; }
 }
 
 /// <summary>

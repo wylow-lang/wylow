@@ -21,10 +21,10 @@ struct Box {
         return Box(size, size);
     }
 
-    private int width;
-    private int height;
+    int width;
+    int height;
 
-    private static int doubled(int n) {
+    static int doubled(int n) {
         return n * 2;
     }
 }

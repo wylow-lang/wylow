@@ -15,5 +15,5 @@ void main() {
     }
     for (char c : maybe()) {            // error: cannot loop over 'String?'
     }
-    s.charAt(0);                        // error: method 'String.charAt' is private
+    s.charAt(0);                        // error: method 'String.charAt' is visible only in its file (String.wyl)
 }

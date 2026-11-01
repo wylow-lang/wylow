@@ -13,11 +13,11 @@ class Box implements Borrowable {
     mut int[2] items;
     mut Counter[2] counters;
 
-    void beginBorrow() {
+    pub void beginBorrow() {
         print("begin");
     }
 
-    void endBorrow() {
+    pub void endBorrow() {
         print("end");
     }
 

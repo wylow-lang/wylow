@@ -2,27 +2,27 @@
 // reference, span, or loop into the list exists, the list is borrowed, and changing its length
 // panics. See docs/spec/03-memory-model.md.
 
-final class List<T> implements Borrowable, Spannable<T> {
-    public int count() {
+pub final class List<T> implements Borrowable, Spannable<T> {
+    pub int count() {
         return size;
     }
 
-    public int capacity() {
+    pub int capacity() {
         return space;
     }
 
     // A copy of the first element, or null when the list is empty.
-    public T? first() {
+    pub T? first() {
         return size == 0 ? null : this[0];
     }
 
     // A copy of the last element, or null when the list is empty.
-    public T? last() {
+    pub T? last() {
         return size == 0 ? null : this[size - 1];
     }
 
     @CallerLocation
-    public ref T operator [](int index) {
+    pub ref T operator [](int index) {
         Bounds.check(index, size);
         unsafe {
             return ref data[index];
@@ -30,7 +30,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     // Like the indexer, but null instead of a panic when `index` is out of bounds.
-    public ref? T get(int index) {
+    pub ref? T get(int index) {
         if (index < 0 || index >= size) {
             return null;
         }
@@ -40,7 +40,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     @CallerLocation
-    public void add(T value) {
+    pub void add(T value) {
         checkNotBorrowed();
         if (size == space) {
             grow(size + 1);
@@ -52,7 +52,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     @CallerLocation
-    public void insert(int index, T value) {
+    pub void insert(int index, T value) {
         checkNotBorrowed();
         Bounds.check(index, size + 1);
         if (size == space) {
@@ -66,7 +66,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     @CallerLocation
-    public T removeAt(int index) {
+    pub T removeAt(int index) {
         checkNotBorrowed();
         Bounds.check(index, size);
         unsafe {
@@ -81,7 +81,7 @@ final class List<T> implements Borrowable, Spannable<T> {
 
     // Like `removeAt`, but null instead of a panic when `index` is out of bounds.
     @CallerLocation
-    public T? tryRemoveAt(int index) {
+    pub T? tryRemoveAt(int index) {
         if (index < 0 || index >= size) {
             return null;
         }
@@ -90,7 +90,7 @@ final class List<T> implements Borrowable, Spannable<T> {
 
     // Removes and returns the last element, or null when the list is empty: a stack's pop.
     @CallerLocation
-    public T? removeLast() {
+    pub T? removeLast() {
         if (size == 0) {
             return null;
         }
@@ -98,7 +98,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     @CallerLocation
-    public void clear() {
+    pub void clear() {
         checkNotBorrowed();
         int old = size;
         size = 0;
@@ -114,7 +114,7 @@ final class List<T> implements Borrowable, Spannable<T> {
 
     // Makes room for at least `minimum` elements, so adding up to that many never moves them.
     @CallerLocation
-    public void reserve(int minimum) {
+    pub void reserve(int minimum) {
         checkNotBorrowed();
         if (minimum > space) {
             grow(minimum);
@@ -124,47 +124,47 @@ final class List<T> implements Borrowable, Spannable<T> {
     // Shrinks the capacity to exactly the count, always, unlike C++'s shrink_to_fit. An empty
     // list frees its storage entirely.
     @CallerLocation
-    public void trim() {
+    pub void trim() {
         checkNotBorrowed();
         if (size < space) {
             reallocate(size);
         }
     }
 
-    public void beginBorrow() {
+    pub void beginBorrow() {
         borrows++;
     }
 
-    public void endBorrow() {
+    pub void endBorrow() {
         borrows--;
     }
 
-    public Span<T> asSpan() {
+    pub Span<T> asSpan() {
         unsafe {
             return Span<T>(data, size);
         }
     }
 
-    public ReadOnlySpan<T> asReadOnlySpan() {
+    pub ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
             return ReadOnlySpan<T>(data, size);
         }
     }
 
-    private mut T* data;
-    private mut int size;
-    private mut int space;
-    private mut int borrows;
+    mut T* data;
+    mut int size;
+    mut int space;
+    mut int borrows;
 
     @CallerLocation
-    private void checkNotBorrowed() {
+    void checkNotBorrowed() {
         if (borrows > 0) {
             panic("cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop");
         }
     }
 
     @CallerLocation
-    private void grow(int minimum) {
+    void grow(int minimum) {
         mut int grown = space < 4 ? 4 : space * 2;
         if (grown < minimum) {
             grown = minimum;
@@ -173,7 +173,7 @@ final class List<T> implements Borrowable, Spannable<T> {
     }
 
     @CallerLocation
-    private void reallocate(int length) {
+    void reallocate(int length) {
         unsafe {
             mut T* moved = null;
             if (length > 0) {

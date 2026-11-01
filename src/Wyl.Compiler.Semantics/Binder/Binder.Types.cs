@@ -110,6 +110,11 @@ public sealed partial class Binder
 
     WylType Construct(TypeSymbol s, IReadOnlyList<WylType> arguments, Location location)
     {
+        if (!s.Reach.Includes(location.Source))
+        {
+            CheckVisible(location, s.Reach, $"{SyntaxFacts.KindName(s.Kind)} '{s.Name}'");
+            return WylType.Error;
+        }
         if (!CheckTypeArguments(arguments, location))
             return WylType.Error;
         if (arguments.Count == s.TypeParameters.Count)

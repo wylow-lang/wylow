@@ -510,7 +510,7 @@ static class MatrixValues
                 this.value = value;
             }
 
-            String toString() {
+            pub String toString() {
                 return $"Cell({value})";
             }
         }

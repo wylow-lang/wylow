@@ -21,7 +21,7 @@ interface Greeter {
 }
 
 abstract class Registry implements Greeter {
-    protected mut int size = 0;
+    mut int size = 0;
 
     void add(Member m) {
         size++;

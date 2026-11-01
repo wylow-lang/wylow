@@ -133,6 +133,7 @@ public sealed partial class Binder
             Declaration = decl,
             Body = decl.Body,
             TypeParameters = ownTypeParameters,
+            Reach = Reach.Of(decl),
             IsUnsafe = (decl.Modifiers & Modifiers.Unsafe) != 0,
             PassesLocation = HasCallerLocation(decl),
             BuiltinCppName = ExternName(decl, null),
@@ -236,7 +237,9 @@ public sealed partial class Binder
             BindBounds(decl.TypeParameters, ownTypeParameters);
             var parameters = BindParameters(decl.Parameters);
             var modifiers = decl.Modifiers;
-            bool isPrivate = (modifiers & Modifiers.Private) != 0;
+            bool isInterface = s.Kind == TypeKind.Interface;
+            // An interface method is as visible as its interface (§6.2).
+            var reach = isInterface ? s.Reach : Reach.Of(decl).Within(s.Reach);
             if (decl.IsConstructor)
             {
                 if (s.IsExtern)
@@ -255,7 +258,7 @@ public sealed partial class Binder
                     Body = decl.Body,
                     ContainingType = s,
                     IsConstructor = true,
-                    IsPrivate = isPrivate,
+                    Reach = reach,
                     IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
                     PassesLocation = HasCallerLocation(decl),
                 };
@@ -269,7 +272,6 @@ public sealed partial class Binder
                 continue;
             }
 
-            bool isInterface = s.Kind == TypeKind.Interface;
             var method = new FunctionSymbol(decl.Name, parameters, BindType(decl.ReturnType!, allowVoid: true))
             {
                 Declaration = decl,
@@ -279,7 +281,7 @@ public sealed partial class Binder
                 IsStatic = (modifiers & Modifiers.Static) != 0,
                 // A class method can't change the reference it is called through; an enum value can't be modified at all.
                 IsReadOnly = s.Kind != TypeKind.Class && (modifiers & (Modifiers.Mut | Modifiers.Static)) == 0,
-                IsPrivate = isPrivate,
+                Reach = reach,
                 IsVirtual = (modifiers & Modifiers.Virtual) != 0,
                 IsOverride = (modifiers & Modifiers.Override) != 0,
                 IsAbstract = isInterface || (modifiers & Modifiers.Abstract) != 0,
@@ -351,8 +353,8 @@ public sealed partial class Binder
             Body = body,
             ContainingType = s,
             IsConstructor = true,
-            // Private fields can't be set from outside, so neither can this set them.
-            IsPrivate = s.Fields.Any(f => f.IsPrivate),
+            // It sets every field, so it reaches only where all of them do (§6.2).
+            Reach = s.Fields.Select(f => f.Reach).Aggregate(s.Reach, (least, field) => field.Within(least)),
         };
         s.Constructors.Add(constructor);
         s.Members.Add(constructor);
@@ -439,7 +441,11 @@ public sealed partial class Binder
             {
                 if (fields.Any(f => f.Name == parameter.Name))
                     Error(parameter.Location, $"duplicate field '{parameter.Name}'");
-                var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null);
+                // A variant's fields are as visible as the enum.
+                var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null)
+                {
+                    Visibility = s.Declaration.Visibility,
+                };
                 foreach (var annotation in parameter.Annotations)
                     ReportMisplacedAnnotation(annotation);
                 var fieldType = BindType(parameter.Type, allowVoid: false);

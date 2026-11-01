@@ -2,53 +2,53 @@
 // unsafe: the compiler cannot check how they are used, and misusing them is undefined behavior, as
 // in C++.
 
-struct Memory {
+pub struct Memory {
     // Uninitialized storage for `count` values. Panics if `count` is negative or too large.
     @CallerLocation
-    public static unsafe extern T* allocate<T>(int count);
+    pub static unsafe extern T* allocate<T>(int count);
 
     // Frees storage from `allocate`. Its values must already have been dropped.
-    public static unsafe extern void free<T>(T* data);
+    pub static unsafe extern void free<T>(T* data);
 
     // Stores a value in uninitialized storage.
-    public static unsafe extern void initialize<T>(T* place, T value);
+    pub static unsafe extern void initialize<T>(T* place, T value);
 
     // Stores the default value in each of `count` places. The caller must check that `T` has one.
-    public static unsafe extern void initializeDefault<T>(T* data, int count);
+    pub static unsafe extern void initializeDefault<T>(T* data, int count);
 
     // Destroys a value, leaving its storage uninitialized.
-    public static unsafe extern void drop<T>(T* place);
+    pub static unsafe extern void drop<T>(T* place);
 
     // Moves `count` values into uninitialized storage, leaving the source uninitialized. The two
     // ranges may overlap.
-    public static unsafe extern void moveTo<T>(T* from, T* to, int count);
+    pub static unsafe extern void moveTo<T>(T* from, T* to, int count);
 
     // Frees every cycle of objects that nothing outside the cycle refers to. Reference counting
     // alone never frees them, and this never runs on its own. Panics in a destructor. See
     // docs/spec/03-memory-model.md.
     @CallerLocation
-    public static extern void collectCycles();
+    pub static extern void collectCycles();
 
     // Like `collectCycles()`, but stops after visiting about `maxVisits` objects; the rest wait
     // for the next call.
     @CallerLocation
-    public static extern void collectCycles(int maxVisits);
+    pub static extern void collectCycles(int maxVisits);
 
     // What the cycle collector did since the last call.
-    public static CycleStats cycleStats() {
+    pub static CycleStats cycleStats() {
         mut var stats = CycleStats();
         takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
         return stats;
     }
 
-    private static extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);
+    static extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);
 }
 
-struct CycleStats {
+pub struct CycleStats {
     // Objects that may have been left in a cycle, to be looked at by the next collection.
-    public int buffered;
+    pub int buffered;
     // Objects the collector looked at.
-    public int visited;
+    pub int visited;
     // Objects in cycles the collector freed.
-    public int freed;
+    pub int freed;
 }

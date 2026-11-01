@@ -23,8 +23,6 @@ struct Point {
     static int origin() {
         return x;                  // error: 'x' is an instance field; static methods cannot use
     }
-
-    private int secret;
 }
 
 struct Named {
@@ -61,7 +59,6 @@ Point make() {
 void main() {
     var p = Point(1, 2);
     print(p.z);                    // error: 'Point' has no field 'z'
-    print(p.secret);               // error: field 'Point.secret' is private
     p.missing();                   // error: 'Point' has no method 'missing'
     setX(p.x);                     // error: argument 1 must be passed with 'ref'
     setX(ref 5);                   // error: a 'ref' argument must be a variable or field

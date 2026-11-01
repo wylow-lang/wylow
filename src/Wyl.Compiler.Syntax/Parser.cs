@@ -87,19 +87,19 @@ public sealed partial class Parser
             {
                 var allowed = kind switch
                 {
-                    TypeKind.Class => Modifiers.Public | Modifiers.Private | Modifiers.Abstract | Modifiers.Final,
-                    TypeKind.Struct => Modifiers.Public | Modifiers.Private | Modifiers.Ref | Modifiers.Extern,
-                    _ => Modifiers.Public | Modifiers.Private | Modifiers.Ref,
+                    TypeKind.Class => Modifiers.Abstract | Modifiers.Final,
+                    TypeKind.Struct => Modifiers.Ref | Modifiers.Extern,
+                    _ => Modifiers.Ref,
                 };
                 Disallow(modifiers, ~allowed, token => $"'{token.Text}' is not valid on {SyntaxFacts.KindNameWithArticle(kind)}");
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
                     Error(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span, "a class cannot be both 'abstract' and 'final'");
-                declarations.Add(ParseTypeDecl(start, modifiers.Flags, kind) with { Annotations = annotations });
+                declarations.Add(ParseTypeDecl(start, modifiers, kind) with { Annotations = annotations });
                 continue;
             }
             if (SyntaxFacts.IsTypeStart(Current.Kind))
             {
-                Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private | Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
+                Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
                 if (name.Text != "" && (At(TokenKind.Assign) || At(TokenKind.Semicolon)))
@@ -107,7 +107,7 @@ public sealed partial class Parser
                     SkipTopLevelVariable(name);
                     continue;
                 }
-                var function = ParseFunctionRest(start, modifiers.Flags, returnType, name);
+                var function = ParseFunctionRest(start, modifiers, returnType, name);
                 RequireBody(function);
                 declarations.Add(function with { Annotations = annotations });
                 continue;
@@ -204,21 +204,37 @@ public sealed partial class Parser
     Node ParseAnnotationArgument() =>
         SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) || At(TokenKind.Identifier) ? ParseType(allowNullable: false) : ParseExpression();
 
-    sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens);
-
-    const Modifiers AccessModifiers = Modifiers.Public | Modifiers.Protected | Modifiers.Private;
+    /// <summary>A declaration's modifiers, and its visibility with where it is written, if it is.</summary>
+    sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens, Visibility Visibility, TextSpan? VisibilitySpan);
 
     ModifierList ParseModifiers()
     {
         var flags = Modifiers.None;
         var tokens = new List<(Modifiers, Token)>();
+        var visibility = Visibility.File;
+        TextSpan? visibilitySpan = null;
         while (true)
         {
+            if (SyntaxFacts.IsVisibilityKeyword(Current.Kind))
+            {
+                int start = Current.Span.Start;
+                var level = ParseVisibility();
+                var span = TextSpan.FromBounds(start, Previous.Span.End);
+                if (visibilitySpan is not null)
+                {
+                    Error(span, "only one visibility is allowed");
+                    continue;
+                }
+                if (tokens.Count > 0)
+                {
+                    var written = level == Visibility.File ? "pub" : SyntaxFacts.VisibilityText(level);
+                    Error(span, $"the visibility comes first among modifiers, as in '{written} {tokens[0].Item2.Text}'");
+                }
+                (visibility, visibilitySpan) = (level, span);
+                continue;
+            }
             var flag = Current.Kind switch
             {
-                TokenKind.PublicKeyword => Modifiers.Public,
-                TokenKind.PrivateKeyword => Modifiers.Private,
-                TokenKind.ProtectedKeyword => Modifiers.Protected,
                 TokenKind.StaticKeyword => Modifiers.Static,
                 TokenKind.MutKeyword => Modifiers.Mut,
                 TokenKind.VirtualKeyword => Modifiers.Virtual,
@@ -230,15 +246,45 @@ public sealed partial class Parser
                 _ => Modifiers.None,
             };
             if (flag == Modifiers.None)
-                return new ModifierList(flags, tokens);
+                return new ModifierList(flags, tokens, visibility, visibilitySpan);
 
             var token = Advance();
             if ((flags & flag) != 0)
                 Error(token.Span, $"duplicate '{token.Text}' modifier");
-            else if ((flag & AccessModifiers) != 0 && (flags & AccessModifiers) != 0)
-                Error(token.Span, "only one access modifier is allowed");
             flags |= flag;
             tokens.Add((flag, token));
+        }
+    }
+
+    /// <summary><c>pub</c>, <c>pub(module)</c>, or <c>pub(package)</c>; or a Java access keyword, reported as what to write instead.</summary>
+    Visibility ParseVisibility()
+    {
+        var keyword = Advance();
+        if (keyword.Kind == TokenKind.JavaAccessKeyword)
+        {
+            Error(keyword.Span, keyword.Text switch
+            {
+                "public" => "Wylow writes 'pub', not 'public'",
+                "private" => "declarations are private to their file unless marked 'pub'; remove 'private'",
+                _ => "Wylow has no 'protected'; a subclass sees what its file and module see, so write the 'pub' level that subclasses elsewhere need",
+            });
+            return keyword.Text == "public" ? Visibility.Public : Visibility.File;
+        }
+        // `pub (int) -> int f;` is a field of function type, not a visibility in parentheses.
+        if (!At(TokenKind.OpenParen) || Peek(2).Kind != TokenKind.CloseParen || Peek(3).Kind == TokenKind.Arrow)
+            return Visibility.Public;
+        Advance();
+        var scope = Advance();
+        Advance();
+        switch (scope.Text)
+        {
+            case "module":
+                return Visibility.Module;
+            case "package":
+                return Visibility.Package;
+            default:
+                Error(scope.Span, $"expected 'pub(module)' or 'pub(package)', not 'pub({scope.Text})'");
+                return Visibility.Public;
         }
     }
 

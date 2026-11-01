@@ -7,11 +7,11 @@ interface B {
 }
 
 class AB implements A, B {
-    public void f(int x) { }               // error: 'AB.f' takes different default values for parameter 'x'
+    void f(int x) { }                      // error: 'AB.f' takes different default values for parameter 'x'
 }
 
 class Static implements A {
-    public static void f(int x) { }        // error: 'Static.f' is static and cannot implement
+    static void f(int x) { }               // error: 'Static.f' is static and cannot implement
 }
 
 class Base {

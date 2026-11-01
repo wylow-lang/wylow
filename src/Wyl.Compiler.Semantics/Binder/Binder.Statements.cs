@@ -73,7 +73,7 @@ public sealed partial class Binder
         var constructor = Resolve(call.Location, $"constructor of '{baseType}'", ConstructorsOf(baseType), null, arguments);
         if (constructor is null)
             return null;
-        CheckAccessible(call.Location, baseType.Symbol!, constructor.Symbol.IsPrivate, $"constructor '{constructor}'");
+        CheckVisible(call.Location, constructor.Symbol.Reach, $"constructor '{constructor}'");
         var converted = ConvertArguments(constructor, arguments);
         for (int i = 0; i < converted.Count; i++)
         {
@@ -109,7 +109,7 @@ public sealed partial class Binder
             return null;
         }
         var reference = new MethodReference(constructor.Symbol, baseType, []);
-        CheckAccessible(location, baseType.Symbol!, reference.Symbol.IsPrivate, $"constructor '{reference}'");
+        CheckVisible(location, reference.Symbol.Reach, $"constructor '{reference}'");
         return new BoundSuperCall(location, reference, []);
     }
 

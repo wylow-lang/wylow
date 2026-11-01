@@ -1,10 +1,10 @@
 // The standard library's result type, for operations that can fail. See docs/spec/04-errors.md.
 
-enum Result<T, E> {
+pub enum Result<T, E> {
     Ok(T value),
     Err(E error);
 
-    public T orElse(T fallback) {
+    pub T orElse(T fallback) {
         return switch (this) {
             case Ok(var value) -> value;
             case Err -> fallback;
@@ -12,7 +12,7 @@ enum Result<T, E> {
     }
 
     // The value given by f, or the same error.
-    public Result<U, E> map<U>((T) -> U f) {
+    pub Result<U, E> map<U>((T) -> U f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(f(value));
             case Err(var error) -> Result.Err(error);
@@ -20,7 +20,7 @@ enum Result<T, E> {
     }
 
     // The same value, or the error given by f.
-    public Result<T, F> mapErr<F>((E) -> F f) {
+    pub Result<T, F> mapErr<F>((E) -> F f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(value);
             case Err(var error) -> Result.Err(f(error));
@@ -29,7 +29,7 @@ enum Result<T, E> {
 
     // The value, or a panic with the message, reported where this was called.
     @CallerLocation
-    public T orPanic(String message) {
+    pub T orPanic(String message) {
         return switch (this) {
             case Ok(var value) -> value;
             case Err -> panic(message);

@@ -3,7 +3,7 @@
 // `T extends Comparable<T>` bound. `float` and `double` are in a total order, as in Java: -0 sorts
 // before 0, and NaN after every other value and the same as any other NaN.
 
-interface Comparable<T> {
+pub interface Comparable<T> {
     // Negative, zero, or positive as this value sorts before, the same as, or after `other`.
     int compareTo(T other);
 }

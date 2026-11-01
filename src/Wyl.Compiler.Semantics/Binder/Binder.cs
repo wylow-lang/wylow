@@ -88,6 +88,10 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
                      && !cyclic.Contains(s) && s.Fields.All(f => !f.Type.IsRefStruct)))
             DeclareMemberwiseConstructor(s);
         foreach (var s in typeList)
+            CheckSignatures(s);
+        foreach (var function in functionList)
+            CheckFunctionSignature(function, $"function '{function.Name}'");
+        foreach (var s in typeList)
             BindFieldInitializers(s);
         BindDefaults([.. functionList, .. typeList.SelectMany(s => s.Members)]);
 

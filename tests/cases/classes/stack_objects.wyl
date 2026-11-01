@@ -95,11 +95,11 @@ class Big {
 class Clinging implements Borrowable {
     mut Clinging? self;
 
-    void beginBorrow() {
+    pub void beginBorrow() {
         self = this;
     }
 
-    void endBorrow() {
+    pub void endBorrow() {
         self = null;
     }
 }
