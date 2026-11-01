@@ -3,6 +3,7 @@
 
 pub final class Array<T> implements Spannable<T> {
     pub int length;
+    T* data;
 
     // Each element starts as `T`'s default value; the compiler checks that it has one.
     @CallerLocation
@@ -54,8 +55,6 @@ pub final class Array<T> implements Spannable<T> {
             return ReadOnlySpan<T>(data, length);
         }
     }
-
-    T* data;
 
     ~Array() {
         unsafe {

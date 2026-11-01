@@ -53,7 +53,7 @@ void main() {
 - **A module is a directory.** `src/` is the root module, and each directory below it is a module
   named by its path: `src/world/gen/` is `world::gen`. Every `.wyl` file in the directory belongs to
   the module, and a file doesn't declare which: there is no `package` line. Module names are
-  lowercase (§6.11).
+  `snake_case` (§6.11).
 - **A module's names** are the declarations its files make visible beyond themselves
   (`pub(module)` or wider, §6.2), and its submodules. Two files of a module may not declare the same
   such name. A file-private declaration is not one of the module's names, so two files may each
@@ -1040,7 +1040,8 @@ Enforced with compiler **warnings** (not errors):
 | Enum variants | `PascalCase` | `AiState.Chasing` |
 | Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
 | Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
-| Modules | `lowercase` | `world::gen` |
+| Modules, and the directories that are them | `snake_case` | `world_gen::noise` |
+| Files | `snake_case`, named for what they hold | `chunk_mesher.wyl` |
 
 > Not implemented yet: the compiler emits no warnings, so these conventions aren't checked.
 

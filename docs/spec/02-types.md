@@ -609,7 +609,7 @@ for (int at, char c : path) {
 }
 ```
 
-The standard library declares these methods in `String.wyl`, implemented by the runtime.
+The standard library declares these methods in `string.wyl`, implemented by the runtime.
 
 The block and its count stay native. When extension methods land (§6.4), the higher-level methods
 move into Wylow as extensions over the primitive `bytes()`, `byteLength()`, and the slicing

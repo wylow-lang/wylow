@@ -26,7 +26,7 @@ public readonly record struct Reach(Visibility Level, SourceText? Source)
         _ => use == Source,
     };
 
-    /// <summary>How far it reaches, for messages: "everywhere", "only in its file (List.wyl)", ...</summary>
+    /// <summary>How far it reaches, for messages: "everywhere", "only in its file (list.wyl)", ...</summary>
     public string Describe() => Level switch
     {
         Visibility.Public => "everywhere",
