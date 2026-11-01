@@ -1,0 +1,17 @@
+// The keys are fixed, so a misspelled or repeated one fails instead of being ignored.
+name = "manifest_keys";
+name = "again";                         // error: 'name' is given more than once
+version = "1.0";                        // error: 'version' is not a key here; the keys are 'name', 'dependencies', 'native'
+
+dependencies {                          // error: 'dependencies' is not supported yet
+    engine { path = "../engine"; }
+    tools = "../tools";                 // error: a dependency is a block, as in 'tools { path = "../tools"; }'
+    empty { }                           // error: dependency 'empty' needs a 'path'
+    other { path = ["../other"]; }      // error: 'path' is a string
+}
+
+native {                                // error: 'native' is not supported yet
+    include = "third_party/sdl";        // error: 'include' is a list of strings
+    link = ["SDL3", "opengl32"];
+    flags = [];                         // error: 'flags' is not a key here; the keys are 'include', 'link'
+}

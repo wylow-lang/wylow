@@ -3,10 +3,11 @@ using Wyl.Compiler;
 using Wyl.Compiler.Build;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Interpret;
+using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
 const string Usage = """
-    usage: wyl <command> <file.wyl> [options]
+    usage: wyl <command> <file.wyl | package directory> [options]
 
     commands:
       run      build and run the program
@@ -66,13 +67,14 @@ for (int i = 2; i < args.Length; i++)
     }
 }
 
-if (!File.Exists(file))
+bool isPackage = PackageSources.IsPackage(file);
+if (!isPackage && !File.Exists(file))
 {
-    Console.Error.WriteLine($"wyl: file not found: {file}");
+    Console.Error.WriteLine(Directory.Exists(file) ? $"wyl: {file} has no {Manifest.FileName}" : $"wyl: file not found: {file}");
     return 2;
 }
 
-var source = SourceText.FromFile(file);
+var source = isPackage ? PackageSources.Load(file) : PackageSources.Of(SourceText.FromFile(file));
 if (command == "interpret")
 {
     var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release));
@@ -112,8 +114,11 @@ static void ReportErrors(IReadOnlyList<Diagnostic> diagnostics)
         Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")}");
 }
 
-var name = Path.GetFileNameWithoutExtension(file);
-var buildDirectory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, ".wyl", name);
+var name = source.Package.Name ?? Path.GetFileNameWithoutExtension(file);
+// Beside a lone file, and in a package's own directory, outside its src/.
+var buildDirectory = isPackage
+    ? Path.Combine(Path.GetFullPath(file), ".wyl", name)
+    : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, ".wyl", name);
 var build = Driver.BuildExecutable(compilation, name, buildDirectory, new BuildOptions(release, toolchain));
 if (!build.Success)
 {

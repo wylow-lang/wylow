@@ -1,0 +1,1 @@
+name = "no_src";                        // error: the package's sources go in 'src/', which is missing

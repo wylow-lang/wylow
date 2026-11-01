@@ -108,7 +108,7 @@ public sealed partial class Binder
     /// </summary>
     WylType? AsTypeName(Expr expression)
     {
-        if (expression is not NameExpr name || IsValueName(name.Name) || !types.TryGetValue(name.Name, out var s))
+        if (expression is not NameExpr name || IsValueName(name.Name) || LookupType(name.Name, name.Location.Source) is not { } s)
             return null;
         return BindTypeName(s.Name, name.TypeArguments, name.Location);
     }
@@ -131,13 +131,15 @@ public sealed partial class Binder
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
-        if (types.ContainsKey(e.Name) || LookupTypeParameter(e.Name) is not null)
+        if (LookupType(e.Name, e.Location.Source) is not null || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
-        if (functions.ContainsKey(e.Name) || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
+        if (LookupFunctions(e.Name, e.Location.Source) is not null || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
             return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'{ReferenceHint(e)}");
         if (ExpectedVariant(e.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, null);
-        return ErrorExpression(e.Location, $"'{e.Name}' is not defined{VariantHint(e.Name)}");
+        if (HiddenElsewhere(e.Name, e.Location.Source) is { } hidden)
+            return ErrorExpression(e.Location, hidden);
+        return ErrorExpression(e.Location, $"'{e.Name}' is not defined{VariantHint(e.Name, e.Location.Source)}");
     }
 
     BoundExpression BindThis(ThisExpr e)

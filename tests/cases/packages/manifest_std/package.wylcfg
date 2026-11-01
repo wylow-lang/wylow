@@ -1,0 +1,1 @@
+name = "std";                           // error: 'std' is the standard library's name

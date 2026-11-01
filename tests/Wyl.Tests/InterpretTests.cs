@@ -27,12 +27,14 @@ static partial class TestCase
 
     static string? CheckInterpreted(string file)
     {
-        var expected = Parse(file);
+        var test = Load(file);
+        if (test.Problem is not null)
+            return test.Problem;
+        var expected = test.Expected;
         // A test that observes an optimization isn't compared without one.
         if (expected.Optimized)
             return null;
-        var source = SourceText.FromFile(file);
-        var interpreted = Compilation.Interpret(source, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release));
+        var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release));
         var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (expected.Errors.Count > 0 || errors.Count > 0)
             return CompareErrors(expected.Errors, errors);
@@ -59,7 +61,7 @@ static partial class TestCase
         var stderr = result.Error.Trim().Replace("\r\n", "\n");
         if (expected.Panic is not null)
         {
-            var at = expected.PanicLine is { } line ? $"\n    at {Path.GetFileName(file)}:{line}:" : "";
+            var at = expected.PanicLine is { } line ? $"\n    at {test.MainName}:{line}:" : "";
             if (result.Status != InterpretationStatus.Panicked || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got {result.Status} and stderr: {stderr}");
         }
@@ -82,13 +84,13 @@ static partial class TestCase
 
         // The pass-regression check: the optimized IR is the same program, so interpreting it must
         // agree with interpreting the meaning (docs/design/ir.md §9.11).
-        var optimized = Compilation.Interpret(source, new CompileOptions(), new InterpreterOptions(Release: expected.Release));
+        var optimized = Compilation.Interpret(test.Sources, new CompileOptions(), new InterpreterOptions(Release: expected.Release));
         if (optimized.Interpretation is { } optimizedResult)
         {
             switch (optimizedResult.Status)
             {
                 case InterpretationStatus.Completed or InterpretationStatus.Panicked:
-                    if (RunComparison.Compare(RunOutcome.From(result), RunOutcome.From(optimizedResult), source.Text, compareWarnings: true) is { } difference)
+                    if (RunComparison.Compare(RunOutcome.From(result), RunOutcome.From(optimizedResult), test.Text, compareWarnings: true) is { } difference)
                         problems.Add($"the optimized IR disagrees with the meaning ({difference.Kind}): {difference.Detail}");
                     break;
                 case InterpretationStatus.BudgetExceeded:

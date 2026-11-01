@@ -126,7 +126,7 @@ public sealed partial class Binder
             return MakeCall(e.Location, method, new BoundThis(name.Location, s.Type), arguments);
         }
 
-        if (types.TryGetValue(name.Name, out var type))
+        if (LookupType(name.Name, name.Location.Source) is { } type)
         {
             if (type.Kind != TypeKind.Struct)
             {
@@ -143,11 +143,13 @@ public sealed partial class Binder
                 : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)));
         }
 
-        if (!functions.TryGetValue(name.Name, out var overloads))
+        if (LookupFunctions(name.Name, name.Location.Source) is not { } overloads)
         {
             if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
                 return BindVariant(e.Location, variant.Owner, expected, variant, pending);
-            return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name)}");
+            if (HiddenElsewhere(name.Name, name.Location.Source) is { } hidden)
+                return ErrorExpression(name.Location, hidden);
+            return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name, name.Location.Source)}");
         }
         List<Candidate> candidates = [.. overloads.Select(f => new Candidate(f, null))];
         var functionArguments = pending.Bind(candidates);

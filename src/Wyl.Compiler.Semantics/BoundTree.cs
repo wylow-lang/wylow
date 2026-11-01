@@ -5,8 +5,10 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary><see cref="Functions"/> holds free functions, methods, and constructors.</summary>
+/// <summary>A bound package with the standard library: <see cref="Sources"/> are the package's own files.</summary>
 public sealed record BoundProgram(
-    SourceText Source,
+    Package Package,
+    IReadOnlyList<SourceText> Sources,
     IReadOnlyList<TypeSymbol> Types,
     IReadOnlyList<BoundFunction> Functions,
     FunctionSymbol? Main,

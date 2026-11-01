@@ -1,0 +1,2 @@
+// error: directory 'my-world' holds Wylow files, but 'my-world' is not a module name
+pub struct Chunk { }

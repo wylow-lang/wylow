@@ -48,17 +48,21 @@ void main() {
 
 - **A package** is the unit of compilation and of dependencies, like a Rust crate: a directory with
   a `package.wylcfg` manifest and a `src/` directory. A single `.wyl` file compiled on its own is a
-  package with one module and one file. The whole package is compiled together, so declarations
+  package with one module and one file, and no name, so no other package can depend on it. Messages
+  and panics name a file by its path under `src/`: `world/chunk.wyl:3:5`. The whole package is
+  compiled together, so declarations
   may refer to each other in any order and across files, and modules of one package may import
   each other in a cycle. Packages may not depend on each other in a cycle.
 - **A module is a directory.** `src/` is the root module, and each directory below it is a module
   named by its path: `src/world/gen/` is `world::gen`. Every `.wyl` file in the directory belongs to
   the module, and a file doesn't declare which: there is no `package` line. Module names are
-  `snake_case` (§6.11).
+  `snake_case` (§6.11). A directory holding `.wyl` files must be named like a module (an identifier,
+  not a keyword); one holding none, and one whose name starts with `.`, is no module.
 - **A module's names** are the declarations its files make visible beyond themselves
   (`pub(module)` or wider, §6.2), and its submodules. Two files of a module may not declare the same
-  such name. A file-private declaration is not one of the module's names, so two files may each
-  have a private helper of the same name.
+  such name, nor may one declare a name another keeps private, since that file would see two meanings
+  of it; so a function's overloads are all declared in one file. A file-private declaration is not
+  one of the module's names, so two files may each have a private helper of the same name.
 - **Within a module**, a file sees the module's names without importing them, as Java's classes
   see their package. Everything else is reached through an import.
 - **Any number of declarations per file**, of any visibility. Types, functions, and constants may
@@ -159,7 +163,8 @@ native {
 - The keys are fixed. An unknown key, a repeated one, or a value of the wrong kind is an error, so
   a misspelled key fails rather than being ignored.
 - `name` is required: the package's name as other packages write it, `voxel_game::world`. It is
-  a `snake_case` module name (§6.11), not `std`, and need not match the directory's name.
+  written like a module's name (an identifier, `snake_case` by §6.11), is not `std`, and need not
+  match the directory's name.
 - `dependencies` names other packages, each found by a `path` relative to the manifest. Packages
   may not depend on each other in a cycle.
 - `native` gives the include directories and the libraries to link for `extern` code (§7).
@@ -169,8 +174,8 @@ native {
   stay on the command line. A version and a language edition wait until a registry and
   stability promises give them a meaning.
 
-> Not implemented yet: any of it. The first version reads `name` alone; `dependencies` and
-> `native` come after.
+> Implemented: `name`. `dependencies` and `native` are read and checked against their keys, then
+> reported as not supported yet. A package needs its `main` until libraries can be depended on.
 
 ## 6.2 Visibility
 
@@ -226,9 +231,9 @@ pub abstract class Entity {
 - The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
   interface's methods take none either: they are as visible as the enum or interface.
 
-> Implemented for one file and the standard library: a program is one file, and the standard
-> library is the package `std`, with one module, so `pub(module)` and `pub(package)` reach the same
-> files until packages are directories. Imports and multi-file packages are not implemented yet.
+> Implemented for packages of many files and modules, but without imports or paths in code, so
+> a file reaches only its own module's names and the standard library's (`std`, one module), and
+> `pub(module)` and `pub(package)` can't be told apart from outside a module yet.
 
 ## 6.3 Construction
 

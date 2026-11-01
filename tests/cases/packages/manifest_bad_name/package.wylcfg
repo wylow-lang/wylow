@@ -1,0 +1,1 @@
+name = "voxel-game";                    // error: 'voxel-game' is not a package name, which is written like a module's, as in 'voxel_game'

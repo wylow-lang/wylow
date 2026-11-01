@@ -92,7 +92,7 @@ sealed partial class Mutator
     public static List<BaseFile> Load(string casesDirectory, string? filter, bool includeErrors)
     {
         var files = new List<BaseFile>();
-        foreach (var path in Directory.GetFiles(casesDirectory, "*.wyl", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        foreach (var path in TestCases.SingleFiles(casesDirectory))
         {
             var name = Path.GetRelativePath(casesDirectory, path).Replace('\\', '/');
             if (filter is not null && !name.Contains(filter, StringComparison.OrdinalIgnoreCase))

@@ -6,9 +6,6 @@ namespace Wyl.Compiler.Semantics;
 
 public sealed partial class Binder(DiagnosticBag diagnostics)
 {
-    readonly Dictionary<string, List<FunctionSymbol>> functions = new();
-    readonly Dictionary<string, TypeSymbol> types = new();
-
     // Bounds may mention types whose own bounds are not bound yet, so satisfaction is checked last.
     readonly List<(WylType Argument, TypeParameterSymbol Parameter, TypeMap Map, Location Location)> boundChecks = [];
 
@@ -54,15 +51,21 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
 
     enum NoThisContext { Static, FieldInitializer, SuperArguments, DefaultValue }
 
-    public BoundProgram BindProgram(CompilationUnit unit)
+    /// <summary>
+    /// Binds a package with the standard library, whose units are among <paramref name="units"/>:
+    /// every file's top-level declarations first, so any may name any other (spec 06-syntax.md §6.1),
+    /// then their signatures and bodies.
+    /// </summary>
+    public BoundProgram BindProgram(Package package, IReadOnlyList<CompilationUnit> units)
     {
         foreach (var builtin in Builtins.All)
-            AddFunction(builtin);
-        foreach (var import in unit.Imports)
+            AddBuiltin(builtin);
+        foreach (var import in units.SelectMany(u => u.Imports))
             Error(import.Location, ModulesNotImplemented);
+        var declarations = units.SelectMany(u => u.Declarations).ToList();
 
         var typeList = new List<TypeSymbol>();
-        foreach (var decl in unit.Declarations.OfType<TypeDecl>())
+        foreach (var decl in declarations.OfType<TypeDecl>())
         {
             if (DeclareType(decl) is not { } symbol)
                 continue;
@@ -79,7 +82,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         }
         CheckInheritanceCycles(typeList);
 
-        var functionList = unit.Declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
+        var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
         foreach (var s in typeList)
             DeclareMembers(s);
         foreach (var s in typeList)
@@ -109,7 +112,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             bodies.Add(new BoundFunction(function, BindBody(function)));
 
         CheckBounds();
-        return new BoundProgram(unit.Source, typeList, bodies, FindMain(unit.Source), stdlib);
+        return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, FindMain(package), stdlib);
     }
 
     void Error(Location location, string message) => diagnostics.Error(location, message);

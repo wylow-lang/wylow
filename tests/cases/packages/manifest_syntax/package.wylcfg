@@ -1,0 +1,10 @@
+// Comments, strings, and names are read as in a .wyl file; line breaks don't matter.
+name
+    = "manifest_syntax"
+;
+native { include = ["a", "b"] link = ["c"]; }   // error: expected ';' // error: 'native' is not supported yet
+native "x";                             // error: expected '=' or '{' after 'native'
+= "x";                                  // error: expected a key
+dependencies = 3;                       // error: expected a string
+dependencies = $"x{name}";              // error: a manifest's strings can't be interpolated // error: 'dependencies' is a block of entries
+}                                       // error: expected a key

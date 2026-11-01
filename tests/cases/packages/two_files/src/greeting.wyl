@@ -1,0 +1,38 @@
+pub(module) String greeting() {
+    return "hello from greeting.wyl";
+}
+
+pub(module) struct Point {
+    pub int x;
+    pub int y;
+}
+
+pub(module) String describe(Point p) {
+    return $"({p.x}, {p.y})";
+}
+
+pub(module) enum Shape { Triangle, Square }
+
+pub(module) int sides(Shape shape) {
+    return switch (shape) {
+        case Triangle -> 3;
+        case Square -> 4;
+    };
+}
+
+// Private to this file, like main.wyl's of the same names.
+struct Node {
+    int value;
+}
+
+String helper() {
+    return "greeting's helper";
+}
+
+pub(module) String otherHelper() {
+    return helper();
+}
+
+pub(module) int otherNode() {
+    return Node(value: 7).value;
+}

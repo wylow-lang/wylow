@@ -35,6 +35,7 @@ public sealed class Package
 public sealed class Module
 {
     readonly Dictionary<string, Module> children = new(StringComparer.Ordinal);
+    readonly List<SourceText> files = [];
 
     internal Module(Package package, Module? parent, string name)
     {
@@ -57,6 +58,11 @@ public sealed class Module
     public IReadOnlyList<string> Path => Parent is null ? [] : [.. Parent.Path, Name];
 
     public IReadOnlyCollection<Module> Children => children.Values;
+
+    /// <summary>The module's files, in the order they were made, which each <see cref="SourceText"/> joins as it is.</summary>
+    public IReadOnlyList<SourceText> Files => files;
+
+    internal void Add(SourceText file) => files.Add(file);
 
     /// <summary>The submodule of that name, made if there is none yet.</summary>
     public Module Child(string name)

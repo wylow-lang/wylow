@@ -33,7 +33,7 @@ public readonly record struct Reach(Visibility Level, SourceText? Source)
         Visibility.Public => "everywhere",
         Visibility.Package => Source!.Module.Package.Name is { } package ? $"only in package '{package}'" : "only in this package",
         Visibility.Module => $"only in {DescribeModule(Source!.Module)}",
-        _ => $"only in its file ({Source!.FileName})",
+        _ => $"only in its file ({Source!.Name})",
     };
 
     static string DescribeModule(Module module) => (module.IsRoot, module.Package.Name) switch

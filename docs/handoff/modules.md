@@ -109,7 +109,8 @@ The user wants the no-prelude choice revisited as std changes.
 - A subclass method with the signature of a base method it can't see is a new method: a method's
   C++ name comes from the root method it overrides.
 - Multi-file test: a directory with `package.wylcfg`; `// error:` in any file (the manifest too);
-  `// output:`, `// panic:`, `// mode:` only in the file with `main`. The fuzzer skips them.
+  `// output:`, `// panic:`, `// mode:` only in the file with `main`. The fuzzer skips them (done).
+- A function's overloads are declared in one file of a module (decided in step 3, in §6.1).
 - The cycle collector names a class outside the root module by its path (`world::Chunk`).
 
 ### Commits planned
@@ -118,7 +119,8 @@ The user wants the no-prelude choice revisited as std changes.
 2. `binder, emitter`: `SourceText.Module` and `Package` (`Text/Packages.cs`), `Reach` from them, C++
    names qualified by module, `TypeSymbol.RuntimeName` (done).
 3. `cli, binder`: package directories, the manifest, per-module namespaces with file-private
-   scopes, multi-file test cases.
+   scopes, multi-file test cases (done). Until 4, every file still sees all of `std`, functions
+   merge across tables, and a program can't redeclare a std type's name.
 4. `binder`: imports, paths in code, std's built-in names, collisions, cross-module visibility tests.
 5. `stdlib`: `std::panic` and `std::memory`.
 6. `emitter`: a method doesn't override a base method it can't see; delete this file.

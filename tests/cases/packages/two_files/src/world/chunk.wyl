@@ -1,0 +1,18 @@
+// Module 'world': its names may repeat the root module's, and nothing in the root uses them yet,
+// but they are compiled with the package, and equal names must stay apart in C++.
+
+pub struct Point {
+    pub float x;
+    pub float z;
+}
+
+pub enum Shape { Cube }
+
+String helper() {
+    return "world's helper";
+}
+
+pub Point origin() {
+    print(helper());
+    return Point(x: 0, z: 0);
+}

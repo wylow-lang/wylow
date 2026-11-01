@@ -6,10 +6,14 @@ using Wyl.Compiler;
 using Wyl.Compiler.Build;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Ir;
+using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 using Wyl.Fuzz;
+using Wyl.Harness;
 
-// Runs every tests/cases/**/*.wyl file. Expectations are comments in the file:
+// Runs every tests/cases/**/*.wyl file, and every package directory there (one with a package.wylcfg,
+// spec 06-syntax.md §6.1) as one program. Expectations are comments in the file; in a package,
+// `// error:` may be in any of its files, the manifest too, and the others only in the file with main:
 //   // output: <line>     expected stdout line (in order of appearance)
 //   // error: <text>      an error on this line whose message contains <text>
 //   // panic: <text>      the program panics with a message starting with <text>
@@ -88,9 +92,8 @@ if (!interpret && NativeCompiler.Find(toolchain, out var toolchainError) is null
     return 1;
 }
 
-var files = Directory.GetFiles(casesDirectory, "*.wyl", SearchOption.AllDirectories)
+var files = TestCases.All(casesDirectory)
     .Where(f => filter is null || f.Contains(filter, StringComparison.OrdinalIgnoreCase))
-    .Order(StringComparer.Ordinal)
     .ToList();
 
 var stopwatch = Stopwatch.StartNew();
@@ -227,7 +230,7 @@ static string FindRepositoryRoot()
 sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
-    List<string> Output, List<(int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
+    List<string> Output, List<(string File, int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
     Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false);
 
 static partial class TestCase
@@ -267,7 +270,7 @@ static partial class TestCase
             switch (match.Groups[1].Value)
             {
                 case "output": expectations.Output.Add(value); break;
-                case "error": expectations.Errors.Add((i + 1, value)); break;
+                case "error": expectations.Errors.Add((Path.GetFullPath(file), i + 1, value)); break;
                 case "warning": expectations.Warnings.Add(value); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
@@ -279,17 +282,54 @@ static partial class TestCase
         }
     }
 
+    /// <summary>A case's sources, what its comments expect, and the file with every marker but errors.</summary>
+    sealed record Case(PackageSources Sources, Expectations Expected, string MainFile, string MainName, string Text, string? Problem);
+
+    /// <summary>
+    /// A file on its own, or a package directory, whose <c>// error:</c> comments come from all of its
+    /// files and whose other markers come from the one file that has any, which must be the file with
+    /// <c>main</c>.
+    /// </summary>
+    static Case Load(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            var file = Path.GetFullPath(path);
+            return new Case(PackageSources.Of(SourceText.FromFile(file)), Parse(file), file, Path.GetFileName(file), File.ReadAllText(file), null);
+        }
+        var sources = PackageSources.Load(path);
+        var files = Directory.GetFiles(path, "*.wyl", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+            .Prepend(Path.Combine(path, Manifest.FileName))
+            .Select(Path.GetFullPath)
+            .ToList();
+        var parsed = files.Select(f => (File: f, Expected: Parse(f))).ToList();
+        var marked = parsed.Where(p => p.Expected is { Output.Count: > 0 } or { Panic: not null } or { Warnings.Count: > 0 } or { Release: true }
+            or { Optimized: true } or { Stack.Count: > 0 } or { InPlace.Count: > 0 }).ToList();
+        string? problem = marked.Count > 1
+            ? $"only the file with 'main' may have markers other than // error:, but {string.Join(" and ", marked.Select(m => Path.GetRelativePath(path, m.File)))} do"
+            : null;
+        var (mainFile, main) = marked.Count > 0 ? marked[0] : (files[0], parsed[0].Expected);
+        var mainName = sources.Files.FirstOrDefault(f => Path.GetFullPath(f.Path) == mainFile)?.Name ?? Path.GetFileName(mainFile);
+        return new Case(sources, main with { Errors = [.. parsed.SelectMany(p => p.Expected.Errors)] }, mainFile, mainName,
+            string.Join("\n", files.Select(File.ReadAllText)), problem);
+    }
+
     static string? Check(string file, string name, string outputDirectory, Toolchain? toolchain, CompileOptions options)
     {
-        var expected = Parse(file);
+        var test = Load(file);
+        if (test.Problem is not null)
+            return test.Problem;
+        var expected = test.Expected;
         if (expected.Optimized && !options.Optimize)
             return null;
-        var source = SourceText.FromFile(file);
-        var compilation = Compilation.Compile(source, options);
+        var compilation = Compilation.Compile(test.Sources, options);
         var errors = compilation.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 
         if (expected.Errors.Count > 0 || errors.Count > 0)
             return CompareErrors(expected.Errors, errors);
+        if (test.Sources.Files.Count > 1 && compilation.Program?.Main?.Declaration?.Location.Source is { } mainSource
+            && Path.GetFullPath(mainSource.Path) != test.MainFile && (expected.Output.Count > 0 || expected.Panic is not null))
+            return $"the markers are in {test.MainName}, but 'main' is in {mainSource.Name}";
 
         var directory = Path.Combine(outputDirectory, Path.ChangeExtension(name, null));
         var build = Driver.BuildExecutable(
@@ -315,9 +355,9 @@ static partial class TestCase
         var problems = new List<string>();
         // The markers count optimizations, which --no-opt turns off.
         if (expected.Stack.Count > 0 && options.Optimize)
-            problems.AddRange(CompareCounts("objects on the stack", expected.Stack, compilation.StackObjects.Where(l => l.Source == source)));
+            problems.AddRange(CompareCounts("objects on the stack", expected.Stack, compilation.StackObjects.Where(l => Path.GetFullPath(l.Source.Path) == test.MainFile)));
         if (expected.InPlace.Count > 0 && options.Optimize)
-            problems.AddRange(CompareCounts("loop elements in place", expected.InPlace, compilation.InPlaceElements.Where(l => l.Source == source)));
+            problems.AddRange(CompareCounts("loop elements in place", expected.InPlace, compilation.InPlaceElements.Where(l => Path.GetFullPath(l.Source.Path) == test.MainFile)));
         var actualOutput = run.StandardOutput.Replace("\r\n", "\n").Split('\n').ToList();
         if (actualOutput[^1] == "")
             actualOutput.RemoveAt(actualOutput.Count - 1);
@@ -333,7 +373,7 @@ static partial class TestCase
             problems.Add($"sanitizer: {report}\n{stderr}");
         if (expected.Panic is not null)
         {
-            var at = expected.PanicLine is { } line ? $"\n    at {Path.GetFileName(file)}:{line}:" : "";
+            var at = expected.PanicLine is { } line ? $"\n    at {test.MainName}:{line}:" : "";
             if (run.ExitCode == 0 || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got exit code {run.ExitCode} and stderr: {stderr}");
         }
@@ -365,20 +405,22 @@ static partial class TestCase
             .Select(line => $"line {line}: expected {expected.GetValueOrDefault(line)} {what}, got {counts.GetValueOrDefault(line)}");
     }
 
-    static string? CompareErrors(List<(int Line, string Text)> expected, List<Diagnostic> actual)
+    static string? CompareErrors(List<(string File, int Line, string Text)> expected, List<Diagnostic> actual)
     {
-        var unmatched = new List<(int Line, string Text)>(expected);
+        var unmatched = new List<(string File, int Line, string Text)>(expected);
         var problems = new List<string>();
         foreach (var diagnostic in actual)
         {
-            int index = unmatched.FindIndex(e => e.Line == diagnostic.Line && diagnostic.Message.Contains(e.Text, StringComparison.Ordinal));
+            var file = Path.GetFullPath(diagnostic.Location.Source.Path);
+            int index = unmatched.FindIndex(e => e.File == file && e.Line == diagnostic.Line && diagnostic.Message.Contains(e.Text, StringComparison.Ordinal));
             if (index >= 0)
                 unmatched.RemoveAt(index);
             else
                 problems.Add($"unexpected error: {diagnostic}");
         }
-        foreach (var (line, text) in unmatched)
-            problems.Add($"missing error on line {line}: {text}");
+        bool files = expected.Select(e => e.File).Distinct().Count() > 1;
+        foreach (var (file, line, text) in unmatched)
+            problems.Add($"missing error on line {line}{(files ? $" of {Path.GetFileName(file)}" : "")}: {text}");
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }
 }

@@ -1,0 +1,16 @@
+// Two files of a module may not both give a name beyond themselves, or give one that the other
+// keeps private, since a file would then see two meanings of it (spec 06-syntax.md §6.1).
+
+pub(module) struct Shared { }
+struct Mine { }
+pub(module) void overloaded(int x) { }
+
+pub(module) enum Shape { Dot }
+pub(package) int corners(Shape shape) { return 0; }   // error: function 'corners' is visible only in package 'clashes', but its parameter type 'Shape' is visible only in the root module of 'clashes'
+
+void main() {
+    secret();                       // error: function 'secret' is visible only in its file (other.wyl)
+    Hidden h;                       // error: 'Hidden' is visible only in its file (other.wyl)
+    var n = Hidden();               // error: 'Hidden' is visible only in its file (other.wyl)
+    var f = secretValue;            // error: function 'secretValue' is visible only in its file (other.wyl)
+}

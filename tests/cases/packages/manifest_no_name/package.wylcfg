@@ -1,0 +1,4 @@
+// error: the manifest must give the package's 'name'
+native {                                // error: 'native' is not supported yet
+    link = ["SDL3"];
+}

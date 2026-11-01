@@ -1,0 +1,22 @@
+// The files of a module see each other's names without importing them, and each may keep a
+// private declaration of a name another file also uses privately.
+
+struct Node {
+    String name;
+}
+
+String helper() {
+    return "main's helper";
+}
+
+void main() {
+    print(greeting());                      // output: hello from greeting.wyl
+    print(describe(Point(x: 1, y: 2)));     // output: (1, 2)
+    print(helper());                        // output: main's helper
+    print(otherHelper());                   // output: greeting's helper
+    var node = Node(name: "main's node");
+    print(node.name);                       // output: main's node
+    print(otherNode());                     // output: 7
+    var shape = Shape.Square;
+    print(sides(shape));                    // output: 4
+}

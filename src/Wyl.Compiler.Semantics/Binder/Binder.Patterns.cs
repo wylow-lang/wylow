@@ -204,7 +204,7 @@ public sealed partial class Binder
         {
             // `Result.Ok(...)` may leave out the type arguments, which the value determines.
             bool sameEnum = enumSyntax is { TypeArguments.Count: 0, Modules.Count: 0 } && LookupTypeParameter(enumSyntax.Name) is null
-                ? types.GetValueOrDefault(enumSyntax.Name) == s
+                ? LookupType(enumSyntax.Name, enumSyntax.Location.Source) == s
                 : BindType(enumSyntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
             if (!sameEnum)
                 return ErrorPattern(v, type, $"a '{type}' can never be '{written}'");
@@ -416,7 +416,7 @@ public sealed partial class Binder
     /// </summary>
     (TypeSymbol Enum, WylType? Type)? AsEnumName(Expr target, WylType? expected)
     {
-        if (target is not NameExpr name || IsValueName(name.Name) || !types.TryGetValue(name.Name, out var s) || s.Kind != TypeKind.Enum)
+        if (target is not NameExpr name || IsValueName(name.Name) || LookupType(name.Name, name.Location.Source) is not { } s || s.Kind != TypeKind.Enum)
             return null;
         if (name.TypeArguments.Count == 0 && s.IsGeneric)
         {
@@ -431,9 +431,9 @@ public sealed partial class Binder
         expected is { IsEnum: true } ? expected.Symbol!.FindVariant(name) : null;
 
     /// <summary>A hint for an undefined name that is the name of a variant.</summary>
-    string VariantHint(string name)
+    string VariantHint(string name, SourceText from)
     {
-        if (types.Values.FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
+        if (Visible(from).SelectMany(t => t.Types.Values).FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
             return "";
         return owner.IsGeneric
             ? $"; to create the '{owner.Name}' variant, write '{owner.Name}<...>.{name}', or use it where a '{owner.Name}' is expected"

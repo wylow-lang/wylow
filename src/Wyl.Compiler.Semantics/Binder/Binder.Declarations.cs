@@ -6,13 +6,6 @@ namespace Wyl.Compiler.Semantics;
 
 public sealed partial class Binder
 {
-    void AddFunction(FunctionSymbol function)
-    {
-        if (!functions.TryGetValue(function.Name, out var overloads))
-            functions[function.Name] = overloads = [];
-        overloads.Add(function);
-    }
-
     List<TypeParameterSymbol> DeclareTypeParameters(IReadOnlyList<TypeParameterSyntax> syntax, IReadOnlyList<TypeParameterSymbol> outer)
     {
         var result = new List<TypeParameterSymbol>();
@@ -50,7 +43,12 @@ public sealed partial class Binder
         // Only declares the built-in String's members, so its name keeps naming the built-in type.
         if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
             return new TypeSymbol(decl, []);
-        if (types.ContainsKey(decl.Name) || BuiltinType(decl.Name) is not null)
+        if (ClashingFile(decl, decl.Name) is { } other)
+        {
+            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
+            return null;
+        }
+        if (LookupType(decl.Name, decl.Location.Source) is not null || BuiltinType(decl.Name) is not null)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined");
             return null;
@@ -59,7 +57,7 @@ public sealed partial class Binder
             Error(decl.NameLocation, "extern structs are only supported in the standard library");
         HasCallerLocation(decl);
         var symbol = new TypeSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
-        types[decl.Name] = symbol;
+        TableOf(decl).Types[decl.Name] = symbol;
         return symbol;
     }
 
@@ -142,15 +140,21 @@ public sealed partial class Binder
         typeParameters = [];
         CheckReturnsView(function);
 
-        if (types.TryGetValue(decl.Name, out var type))
+        if (ClashingFile(decl, decl.Name) is { } other)
+        {
+            var hint = DeclaresFunction(other, decl.Name) ? "; a function's overloads are declared in one file" : "";
+            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module{hint}");
+            return function;
+        }
+        if (LookupType(decl.Name, decl.Location.Source) is { } type)
         {
             Error(decl.NameLocation, $"'{decl.Name}' is already defined as {SyntaxFacts.KindNameWithArticle(type.Kind)}");
             return function;
         }
 
-        var existing = FindSameSignature(functions.GetValueOrDefault(decl.Name), function);
+        var existing = FindSameSignature(LookupFunctions(decl.Name, decl.Location.Source), function);
         if (existing is null)
-            AddFunction(function);
+            AddFunction(function, decl);
         else if (existing.IsBuiltin)
             Error(decl.NameLocation, $"'{function.Signature}' conflicts with a built-in function");
         else
@@ -594,26 +598,5 @@ public sealed partial class Binder
             noThisContext = NoThisContext.Static;
             scope = null;
         }
-    }
-
-    FunctionSymbol? FindMain(SourceText source)
-    {
-        if (!functions.TryGetValue("main", out var candidates))
-        {
-            Error(new Location(source, new TextSpan(0, 0)), "program has no 'main' function");
-            return null;
-        }
-
-        FunctionSymbol? main = null;
-        foreach (var candidate in candidates)
-        {
-            if (candidate.Parameters.Count != 0 || candidate.IsGeneric)
-                Error(candidate.Declaration!.NameLocation, "'main' must not take parameters or type parameters");
-            else if (candidate.ReturnType != WylType.Void && candidate.ReturnType != WylType.Int)
-                Error(candidate.Declaration!.NameLocation, "'main' must return 'void' or 'int'");
-            else
-                main = candidate;
-        }
-        return main;
     }
 }

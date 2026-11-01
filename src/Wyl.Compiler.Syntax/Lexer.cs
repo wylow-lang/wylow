@@ -7,6 +7,14 @@ namespace Wyl.Compiler.Syntax;
 
 public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
 {
+    /// <summary>Whether <paramref name="text"/> lexes as one identifier, as a module or package name must.</summary>
+    public static bool IsIdentifier(string text)
+    {
+        var diagnostics = new DiagnosticBag();
+        var tokens = new Lexer(new SourceText("", text), diagnostics).Lex();
+        return !diagnostics.HasErrors && tokens is [{ Kind: TokenKind.Identifier } token, { Kind: TokenKind.EndOfFile }] && token.Text == text;
+    }
+
     static readonly Dictionary<string, TokenKind> Keywords = new()
     {
         ["void"] = TokenKind.VoidKeyword,

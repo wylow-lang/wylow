@@ -1,0 +1,2 @@
+// error: a top-level module can't be named 'std', which names the standard library
+pub struct Arena { }

@@ -96,10 +96,10 @@ public sealed partial class Binder
             return arguments.Count == 0 ? parameter.Type : NotGeneric(name, location);
         if (BuiltinType(name) is { } builtin)
             return arguments.Count == 0 ? builtin : NotGeneric(name, location);
-        if (types.TryGetValue(name, out var s))
+        if (LookupType(name, location.Source) is { } s)
             return Construct(s, arguments, location);
 
-        Error(location, $"unknown type '{name}'");
+        Error(location, HiddenElsewhere(name, location.Source) ?? $"unknown type '{name}'");
         return WylType.Error;
     }
 

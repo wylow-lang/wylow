@@ -27,7 +27,10 @@ public sealed class DiagnosticBag : IEnumerable<Diagnostic>
     public void Error(Location location, string message) =>
         diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, location, message));
 
-    public IReadOnlyList<Diagnostic> Sorted() => [.. diagnostics.OrderBy(d => d.Location.Span.Start)];
+    public void AddRange(IEnumerable<Diagnostic> reported) => diagnostics.AddRange(reported);
+
+    public IReadOnlyList<Diagnostic> Sorted() =>
+        [.. diagnostics.OrderBy(d => d.Location.Source.Path, StringComparer.Ordinal).ThenBy(d => d.Location.Span.Start)];
 
     public IEnumerator<Diagnostic> GetEnumerator() => diagnostics.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();

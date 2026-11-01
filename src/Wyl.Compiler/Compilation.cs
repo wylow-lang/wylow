@@ -55,12 +55,12 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
         if (Ir is null || Program is null)
             return null;
         var text = new System.Text.StringBuilder();
-        foreach (var function in Program.Functions.Where(f => f.Symbol.Declaration?.Location.Source == Program.Source))
+        foreach (var function in Program.Functions.Where(f => f.Symbol.Declaration?.Location.Source.Module.Package == Program.Package))
         {
             if (Ir.Functions.Single(function.Symbol) is { } ir)
                 text.Append(IrPrinter.Print(ir));
         }
-        foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source == Program.Source))
+        foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source.Module.Package == Program.Package))
             text.Append(IrPrinter.Print(built));
         return text.ToString();
     }
@@ -73,17 +73,19 @@ public static class Compilation
     /// optimizations unless <paramref name="options"/> turns them off. The IR is the program's
     /// meaning when they are off, which the oracle interprets (docs/design/ir.md §9.11).
     /// </summary>
-    public static LowerResult Lower(SourceText source, CompileOptions? options = null)
+    public static LowerResult Lower(PackageSources sources, CompileOptions? options = null)
     {
         options ??= new CompileOptions();
         var diagnostics = new DiagnosticBag();
-        var stdlib = Stdlib.Sources.SelectMany(s => new Parser(s, diagnostics).ParseCompilationUnit().Declarations).ToList();
-        var unit = new Parser(source, diagnostics).ParseCompilationUnit();
-        // Binding a broken tree mostly produces noise, so stop at syntax errors.
+        diagnostics.AddRange(sources.Diagnostics);
+        // Binding a broken tree mostly produces noise, so stop at syntax errors and a broken package.
+        if (diagnostics.HasErrors)
+            return new LowerResult(diagnostics.Sorted(), null, null, null);
+        var units = Stdlib.Sources.Concat(sources.Files).Select(s => new Parser(s, diagnostics).ParseCompilationUnit()).ToList();
         if (diagnostics.HasErrors)
             return new LowerResult(diagnostics.Sorted(), null, null, null);
 
-        var program = new Binder(diagnostics).BindProgram(unit with { Declarations = [.. stdlib, .. unit.Declarations] });
+        var program = new Binder(diagnostics).BindProgram(sources.Package, units);
         // Only a program that binds is lowered, where the flow analysis finds the errors about order and flow.
         if (diagnostics.HasErrors)
             return new LowerResult(diagnostics.Sorted(), program, null, null);
@@ -93,15 +95,20 @@ public static class Compilation
         return new LowerResult(diagnostics.Sorted(), program, ir, optimized);
     }
 
+    public static LowerResult Lower(SourceText source, CompileOptions? options = null) => Lower(PackageSources.Of(source), options);
+
+    public static InterpretResult Interpret(SourceText source, CompileOptions? options = null, InterpreterOptions? interpreterOptions = null) =>
+        Interpret(PackageSources.Of(source), options, interpreterOptions);
+
     /// <summary>
-    /// Interprets the IR <see cref="Lower"/> produces: the program's meaning when
-    /// <see cref="CompileOptions.Optimize"/> is off, and the IR the emitter would get otherwise. A
-    /// program the pipeline rejects runs nothing, and its diagnostics are all there is.
+    /// Interprets the IR <see cref="Lower(PackageSources, CompileOptions?)"/> produces: the program's
+    /// meaning when <see cref="CompileOptions.Optimize"/> is off, and the IR the emitter would get
+    /// otherwise. A program the pipeline rejects runs nothing, and its diagnostics are all there is.
     /// </summary>
-    public static InterpretResult Interpret(SourceText source, CompileOptions? options = null, InterpreterOptions? interpreterOptions = null)
+    public static InterpretResult Interpret(PackageSources sources, CompileOptions? options = null, InterpreterOptions? interpreterOptions = null)
     {
         options ??= new CompileOptions();
-        var lowered = Lower(source, options);
+        var lowered = Lower(sources, options);
         if (lowered is not { Ir: { } ir, Optimized: { } optimized })
             return new InterpretResult(lowered.Diagnostics, null);
         return new InterpretResult(lowered.Diagnostics, Interpreter.Run(ir, optimized.Callees, interpreterOptions));
@@ -124,9 +131,11 @@ public static class Compilation
         };
     }
 
-    public static CompilationResult Compile(SourceText source, CompileOptions? options = null)
+    public static CompilationResult Compile(SourceText source, CompileOptions? options = null) => Compile(PackageSources.Of(source), options);
+
+    public static CompilationResult Compile(PackageSources sources, CompileOptions? options = null)
     {
         options ??= new CompileOptions();
-        return Emit(Lower(source, options), options.Nest);
+        return Emit(Lower(sources, options), options.Nest);
     }
 }

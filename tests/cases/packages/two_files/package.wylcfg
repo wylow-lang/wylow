@@ -1,0 +1,2 @@
+// A package of a root module with two files and a submodule (spec 06-syntax.md §6.1).
+name = "two_files";

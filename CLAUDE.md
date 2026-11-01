@@ -35,7 +35,7 @@ dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --replay 12  # rebu
 dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test  # the generator's own checks
 dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --list-targets   # mutation testing: the files and their tests
 dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
-dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
+dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl | package dir> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
 bash tools/coverage.sh [runner args]   # coverage merged over all six modes: by layer and file, the lines no
                                        # test ran, and unreached error/unreachable sites, in tests/.coverage/
 dotnet run --project tools/Dashboard   # local browser UI for builds, tests, fuzzing, generated programs, mutation, findings, and code size
@@ -116,8 +116,10 @@ newer MSVC runtime. To reproduce a failure, `wyl run <file> --cc asan`.
 This is the pipeline as it is; the target, and the order of work to reach it, is
 `docs/design/architecture.md`. Each layer is a project, `src/Wyl.Compiler.<Layer>`, referencing
 only the layers below it (Syntax ← Semantics ← Ir ← Lowering, Analysis ← Optimize ← CodeGen, and Lowering ← Optimize for the mandatory passes; Interpret references Ir and Analysis), so
-reaching across is a compile error; `src/Wyl.Compiler` runs them in order (`Compilation.cs`). The
-Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
+reaching across is a compile error; `src/Wyl.Compiler` runs them in order (`Compilation.cs`) on a
+package's files (`PackageSources.cs`: one file, or a directory with `package.wylcfg` and `src/`).
+The Syntax project also holds `Text` (sources, locations, and the package and module each source
+is in, `Packages.cs`), `Diagnostics`, and the manifest reader (`Manifest.cs`).
 
 - `Syntax`: tokens, AST records, parser with error recovery.
 - `Semantics`: the bound program and the checks that report errors on it.
@@ -207,7 +209,10 @@ Syntax project also holds `Text` (sources, locations) and `Diagnostics`.
 - `tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error:` (on the erroring
   line), `// panic:` (or `// panic-here:`, which also checks the panic is reported at that line),
   and `// mode: release` comments. Error tests must list every error exactly. Outputs are matched
-  in file order, so put a called function's outputs at the call.
+  in file order, so put a called function's outputs at the call. A directory with a
+  `package.wylcfg` (`tests/cases/packages/`) is one test of all its files: `// error:` may be in
+  any of them, the manifest too, and every other marker only in the file with `main`. The fuzzer
+  skips them (`Wyl.Harness/TestCases.cs` says which files are tests on their own).
 - `tests/Wyl.Tests/TypeSelfTests.cs`: properties every type must have (interning, substitution,
   `CppIdentity`, conversions, names that bind back to the type, facts that agree), checked on
   random types from a fixed seed; the runner reports them as `types/<property>`. A new kind of
