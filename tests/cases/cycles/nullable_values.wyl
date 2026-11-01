@@ -2,13 +2,11 @@
 // only nullable numbers is never buffered.
 
 class Room {
-    internal {
-        int number;
-        mut Door? door;
+    int number;
+    mut Door? door;
 
-        Room(int number) {
-            this.number = number;
-        }
+    Room(int number) {
+        this.number = number;
     }
 
     ~Room() {
@@ -17,21 +15,17 @@ class Room {
 }
 
 struct Door {
-    internal {
-        Room to;
-        int? lock;
+    Room to;
+    int? lock;
 
-        Door(Room to) {
-            this.to = to;
-        }
+    Door(Room to) {
+        this.to = to;
     }
 }
 
 class Counter {
-    internal {
-        int? best;
-        List<int?> history = new List<int?>();
-    }
+    int? best;
+    List<int?> history = new List<int?>();
 }
 
 void main() {

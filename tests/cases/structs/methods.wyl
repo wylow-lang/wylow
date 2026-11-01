@@ -1,35 +1,31 @@
 struct Box {
-    internal {
-        Box(int width, int height) {
-            this.width = width;
-            this.height = height;
-        }
-
-        int area() {
-            return width * height;
-        }
-
-        bool isBiggerThan(in Box other) {
-            return area() > other.area();
-        }
-
-        mut void grow() {
-            width = doubled(width);
-            height = doubled(height);
-        }
-
-        static Box square(int size) {
-            return Box(size, size);
-        }
+    Box(int width, int height) {
+        this.width = width;
+        this.height = height;
     }
 
-    private {
-        int width;
-        int height;
+    int area() {
+        return width * height;
+    }
 
-        static int doubled(int n) {
-            return n * 2;
-        }
+    bool isBiggerThan(in Box other) {
+        return area() > other.area();
+    }
+
+    mut void grow() {
+        width = doubled(width);
+        height = doubled(height);
+    }
+
+    static Box square(int size) {
+        return Box(size, size);
+    }
+
+    private int width;
+    private int height;
+
+    private static int doubled(int n) {
+        return n * 2;
     }
 }
 

@@ -1,19 +1,15 @@
 // A base constructor that takes the caller's location gets it after its computed arguments.
 
 class Base {
-    internal {
-        @CallerLocation
-        Base(int a, int b) {
-            print($"{a} {b}");
-        }
+    @CallerLocation
+    Base(int a, int b) {
+        print($"{a} {b}");
     }
 }
 
 class Derived extends Base {
-    internal {
-        Derived() {
-            super(one(), two());
-        }
+    Derived() {
+        super(one(), two());
     }
 }
 

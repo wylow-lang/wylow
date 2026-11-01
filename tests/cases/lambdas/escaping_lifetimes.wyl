@@ -3,18 +3,14 @@
 // replaced, which AddressSanitizer reports if the closure was freed.
 
 class Holder {
-    internal {
-        mut () -> void action = () -> print(0);
-        mut (int) -> int f = x -> x;
-    }
+    mut () -> void action = () -> print(0);
+    mut (int) -> int f = x -> x;
 }
 
 class Visitor {
-    internal {
-        int visit(Holder holder, (int) -> int f) {
-            holder.f = x -> -x;
-            return f(1);
-        }
+    int visit(Holder holder, (int) -> int f) {
+        holder.f = x -> -x;
+        return f(1);
     }
 }
 

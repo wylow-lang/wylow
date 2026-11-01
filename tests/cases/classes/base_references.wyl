@@ -1,24 +1,20 @@
 // A base constructor's reference and view parameters take what the derived constructor was given.
-struct Pair { internal { int x; int y; } }
+struct Pair { int x; int y; }
 
 class Base {
-    internal {
-        int v;
-        Base(in int x, ref int r, ref? int n, Span<int> s) {
-            v = x + s.length();
-            r = 7;
-            if (n is ref int k) {
-                k = 9;
-            }
+    int v;
+    Base(in int x, ref int r, ref? int n, Span<int> s) {
+        v = x + s.length();
+        r = 7;
+        if (n is ref int k) {
+            k = 9;
         }
     }
 }
 
 class Derived extends Base {
-    internal {
-        Derived(Pair p, ref int r, ref? int n, Span<int> s) { super(p.y, ref r, ref n, s); }
-        Derived(ref int r, Span<int> s) { super(r, ref r, null, s); }
-    }
+    Derived(Pair p, ref int r, ref? int n, Span<int> s) { super(p.y, ref r, ref n, s); }
+    Derived(ref int r, Span<int> s) { super(r, ref r, null, s); }
 }
 
 void main() {

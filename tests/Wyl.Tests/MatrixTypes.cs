@@ -146,12 +146,10 @@ static class MatrixTypes
                 main.Add(row.Show("holder.value"));
                 return $$"""
                     class Holder {
-                        internal {
-                            mut {{row.Type}} value;
+                        mut {{row.Type}} value;
 
-                            Holder({{row.ParameterType}} value) {
-                                this.value = value;
-                            }
+                        Holder({{row.ParameterType}} value) {
+                            this.value = value;
                         }
                     }
 
@@ -267,9 +265,7 @@ static class MatrixTypes
                 }
                 return $$"""
                     struct Defaults {
-                        internal {
-                            {{row.Type}} value;
-                        }
+                        {{row.Type}} value;
                     }
 
                     {{Wrap(main)}}
@@ -301,19 +297,15 @@ static class MatrixTypes
 
     const string Fixture = """
         struct Vec {
-            internal {
-                int x = 1;
-                int y = 2;
-            }
+            int x = 1;
+            int y = 2;
         }
 
         final class Cell {
-            internal {
-                mut int value = 1;
+            mut int value = 1;
 
-                Cell(int value) {
-                    this.value = value;
-                }
+            Cell(int value) {
+                this.value = value;
             }
         }
 
@@ -323,15 +315,11 @@ static class MatrixTypes
         }
 
         struct Box<T> {
-            internal {
-                T value;
-            }
+            T value;
         }
 
         struct Other {
-            internal {
-                int value;
-            }
+            int value;
         }
 
         int radiusOf(Shape shape) {

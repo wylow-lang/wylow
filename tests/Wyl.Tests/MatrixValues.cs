@@ -504,16 +504,14 @@ static class MatrixValues
 
     const string Fixture = """
         final class Cell implements Printable {
-            internal {
-                mut int value = 1;
+            mut int value = 1;
 
-                Cell(int value) {
-                    this.value = value;
-                }
+            Cell(int value) {
+                this.value = value;
+            }
 
-                String toString() {
-                    return $"Cell({value})";
-                }
+            String toString() {
+                return $"Cell({value})";
             }
         }
         """;

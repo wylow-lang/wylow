@@ -3,28 +3,26 @@
 // the chain does.
 
 ref struct Window {
-    public {
-        int n;
+    public int n;
 
-        Window(int n) {
-            this.n = n;
-        }
+    public Window(int n) {
+        this.n = n;
+    }
 
-        Window(Window from) {
-            this.n = from.n + 1;
-        }
+    public Window(Window from) {
+        this.n = from.n + 1;
+    }
 
-        Window self() {
-            return this;
-        }
+    public Window self() {
+        return this;
+    }
 
-        Window twice() {
-            return this.self().self();
-        }
+    public Window twice() {
+        return this.self().self();
+    }
 
-        Window wrapped() {
-            return Window(this.self());
-        }
+    public Window wrapped() {
+        return Window(this.self());
     }
 }
 

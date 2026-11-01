@@ -2,12 +2,10 @@
 // that can be seen: here a destructor runs, so the local keeps the object alive.
 
 class Noisy {
-    internal {
-        String name;
+    String name;
 
-        Noisy(String name) {
-            this.name = name;
-        }
+    Noisy(String name) {
+        this.name = name;
     }
 
     ~Noisy() {
@@ -16,12 +14,10 @@ class Noisy {
 }
 
 class Box {
-    internal {
-        Noisy item;
+    Noisy item;
 
-        Box(Noisy item) {
-            this.item = item;
-        }
+    Box(Noisy item) {
+        this.item = item;
     }
 }
 
@@ -45,32 +41,26 @@ void main() {
 // them where the weak reference would see the object die early.
 
 class Target {
-    internal {
-        int id;
+    int id;
 
-        Target(int id) {
-            this.id = id;
-        }
+    Target(int id) {
+        this.id = id;
     }
 }
 
 class Other {
-    internal {
-        int id;
+    int id;
 
-        Other(int id) {
-            this.id = id;
-        }
+    Other(int id) {
+        this.id = id;
     }
 }
 
 class Keeper {
-    internal {
-        Target target;
+    Target target;
 
-        Keeper(Target target) {
-            this.target = target;
-        }
+    Keeper(Target target) {
+        this.target = target;
     }
 }
 

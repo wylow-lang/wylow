@@ -1,7 +1,5 @@
 class Node {
-    internal {
-        int value = 1;
-    }
+    int value = 1;
 }
 
 void main() {

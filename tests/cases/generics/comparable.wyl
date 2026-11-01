@@ -1,26 +1,22 @@
 struct Version implements Comparable<Version> {
-    internal {
-        int major;
-        int minor;
+    int major;
+    int minor;
 
-        int compareTo(Version other) {
-            int byMajor = major.compareTo(other.major);
-            return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
-        }
+    int compareTo(Version other) {
+        int byMajor = major.compareTo(other.major);
+        return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
     }
 }
 
 class Score implements Comparable<Score> {
-    internal {
-        int points;
+    int points;
 
-        Score(int points) {
-            this.points = points;
-        }
+    Score(int points) {
+        this.points = points;
+    }
 
-        int compareTo(Score other) {
-            return points.compareTo(other.points);
-        }
+    int compareTo(Score other) {
+        return points.compareTo(other.points);
     }
 }
 

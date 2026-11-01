@@ -1,7 +1,5 @@
 struct Vec3 {
-    internal {
-        int x;
-    }
+    int x;
 }
 
 void named(int a) { }

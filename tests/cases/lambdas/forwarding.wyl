@@ -1,15 +1,11 @@
 // Function values passed on between template parameters and FunctionRefs, and nested lambdas.
 abstract class Base {
-    internal {
-        abstract int run((int) -> int f);
-    }
+    abstract int run((int) -> int f);
 }
 
 class Impl extends Base {
-    internal {
-        override int run((int) -> int f) {
-            return twice(f, 1);
-        }
+    override int run((int) -> int f) {
+        return twice(f, 1);
     }
 }
 
@@ -39,23 +35,19 @@ int curried(int a) {
 
 // super(...) takes a lambda capturing a constructor parameter.
 class Scaled {
-    internal {
-        int seed;
+    int seed;
 
-        Scaled((int) -> int f) {
-            // The base's argument is a lambda the emitter computes in an immediately invoked lambda
-            // and passes on; it must own the lambda rather than refer to one that call destroyed.
-            int[16] pad = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            seed = f(2) + pad[0];
-        }
+    Scaled((int) -> int f) {
+        // The base's argument is a lambda the emitter computes in an immediately invoked lambda
+        // and passes on; it must own the lambda rather than refer to one that call destroyed.
+        int[16] pad = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        seed = f(2) + pad[0];
     }
 }
 
 class Tripled extends Scaled {
-    internal {
-        Tripled(int k) {
-            super(x -> x * k);
-        }
+    Tripled(int k) {
+        super(x -> x * k);
     }
 }
 

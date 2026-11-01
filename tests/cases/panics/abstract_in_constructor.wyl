@@ -1,18 +1,14 @@
 abstract class Shape {
-    internal {
-        Shape() {
-            print(area());
-        }
-
-        abstract int area();
+    Shape() {
+        print(area());
     }
+
+    abstract int area();
 }
 
 class Square extends Shape {
-    internal {
-        override int area() {
-            return 4;
-        }
+    override int area() {
+        return 4;
     }
 }
 

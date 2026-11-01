@@ -33,13 +33,11 @@ Result<long, ParseError> doubled(int a, int b) {
 }
 
 class Counter {
-    internal {
-        mut int total;
+    mut int total;
 
-        Result<int, ParseError> add(int code) {
-            total = try digit(code, 0);
-            return Ok(total);
-        }
+    Result<int, ParseError> add(int code) {
+        total = try digit(code, 0);
+        return Ok(total);
     }
 }
 

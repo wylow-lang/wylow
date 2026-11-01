@@ -3,10 +3,8 @@ T id<T>(T value) {
 }
 
 struct Cell {
-    internal {
-        int value;
-        mut ref void none() { }         // error: 'void' cannot be returned by 'ref'
-    }
+    int value;
+    mut ref void none() { }         // error: 'void' cannot be returned by 'ref'
 }
 
 void main() {

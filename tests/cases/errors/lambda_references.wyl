@@ -1,19 +1,17 @@
 // A function used as a value needs a function type to be converted to, and can only be a free
 // function or static method.
 class Mob {
-    internal {
-        int score(int x) {
-            return x;
-        }
+    int score(int x) {
+        return x;
+    }
 
-        void test() {
-            (int) -> int f = score;                     // error: 'score' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it
-            var g = score;                              // error: 'score' is a function; call it with 'score(...)'
-        }
+    void test() {
+        (int) -> int f = score;                     // error: 'score' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it
+        var g = score;                              // error: 'score' is a function; call it with 'score(...)'
+    }
 
-        static int rank(int x) {
-            return x;
-        }
+    static int rank(int x) {
+        return x;
     }
 }
 

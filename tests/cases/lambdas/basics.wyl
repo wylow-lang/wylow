@@ -1,27 +1,23 @@
 struct Vec3 {
-    internal {
-        float x, y, z;
-    }
+    float x, y, z;
 }
 
 class Counter {
-    internal {
-        mut int count;
-        int doubled = twice(x -> x * 2, 1);
+    mut int count;
+    int doubled = twice(x -> x * 2, 1);
 
-        Counter() {
-            // `return` in a lambda leaves the lambda, not the constructor.
-            call(() -> {
-                return;
-            });
-            count = 0;
-        }
+    Counter() {
+        // `return` in a lambda leaves the lambda, not the constructor.
+        call(() -> {
+            return;
+        });
+        count = 0;
+    }
 
-        void add(int amount) {
-            call(() -> {
-                count += amount;
-            });
-        }
+    void add(int amount) {
+        call(() -> {
+            count += amount;
+        });
     }
 }
 

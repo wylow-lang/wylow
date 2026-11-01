@@ -1,21 +1,17 @@
 struct Samples {
-    internal {
-        float[4] values;
+    float[4] values;
 
-        ReadOnlySpan<float> view() {
-            return values;
-        }
+    ReadOnlySpan<float> view() {
+        return values;
+    }
 
-        mut Span<float> edit() {
-            return values;
-        }
+    mut Span<float> edit() {
+        return values;
     }
 }
 
 class Sensor {
-    internal {
-        mut float[3] readings;
-    }
+    mut float[3] readings;
 }
 
 float sum(ReadOnlySpan<float> values) {

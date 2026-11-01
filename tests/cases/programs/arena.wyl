@@ -2,56 +2,50 @@
 // Written to exercise the language as a whole rather than one feature at a time.
 
 struct Vec2 {
-    internal {
-        int x, y;
+    int x, y;
 
-        Vec2(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    Vec2(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
 
-        static Vec2 add(Vec2 a, Vec2 b) {
-            return Vec2(a.x + b.x, a.y + b.y);
-        }
+    static Vec2 add(Vec2 a, Vec2 b) {
+        return Vec2(a.x + b.x, a.y + b.y);
+    }
 
-        int manhattan(in Vec2 other) {
-            int dx = x - other.x;
-            int dy = y - other.y;
-            return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
-        }
+    int manhattan(in Vec2 other) {
+        int dx = x - other.x;
+        int dy = y - other.y;
+        return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
     }
 }
 
 // Deterministic xorshift so runs are reproducible.
 struct Rng {
-    internal {
-        int state;
+    int state;
 
-        mut int next() {
-            state ^= state << 13;
-            state ^= state >> 17;
-            state ^= state << 5;
-            return state & 0x7fffffff;
-        }
+    mut int next() {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state & 0x7fffffff;
+    }
 
-        mut int range(int max) {
-            return next() % max;
-        }
+    mut int range(int max) {
+        return next() % max;
     }
 }
 
 enum Direction {
     North, East, South, West;
 
-    internal {
-        Vec2 offset() {
-            return switch (this) {
-                case North -> Vec2(0, -1);
-                case East -> Vec2(1, 0);
-                case South -> Vec2(0, 1);
-                case West -> Vec2(-1, 0);
-            };
-        }
+    Vec2 offset() {
+        return switch (this) {
+            case North -> Vec2(0, -1);
+            case East -> Vec2(1, 0);
+            case South -> Vec2(0, 1);
+            case West -> Vec2(-1, 0);
+        };
     }
 }
 
@@ -73,186 +67,174 @@ interface Describable {
 }
 
 abstract class Entity implements Describable {
-    internal {
-        String name;
-        mut Vec2 position;
-        mut int health;
+    String name;
+    mut Vec2 position;
+    mut int health;
 
-        Entity(String name, Vec2 position, int health) {
-            this.name = name;
-            this.position = position;
-            this.health = health;
-        }
+    Entity(String name, Vec2 position, int health) {
+        this.name = name;
+        this.position = position;
+        this.health = health;
+    }
 
-        bool alive() {
-            return health > 0;
-        }
+    bool alive() {
+        return health > 0;
+    }
 
-        abstract int attackPower();
+    abstract int attackPower();
 
-        virtual Item loot() {
-            return Item.Nothing;
-        }
+    virtual Item loot() {
+        return Item.Nothing;
+    }
 
-        virtual String describe() {
-            return name;
-        }
+    virtual String describe() {
+        return name;
     }
 }
 
 class Hero extends Entity {
-    internal {
-        mut int gold;
-        Entity? target;
+    mut int gold;
+    Entity? target;
 
-        Hero(String name, Vec2 position) {
-            super(name, position, 30);
-        }
+    Hero(String name, Vec2 position) {
+        super(name, position, 30);
+    }
 
-        override int attackPower() {
-            return 6;
-        }
+    override int attackPower() {
+        return 6;
+    }
 
-        void pickUp(Item item) {
-            switch (item) {
-                case Gold(var amount) -> gold += amount;
-                case Potion(var heal) -> health += heal;
-                case Nothing -> { }
-            }
+    void pickUp(Item item) {
+        switch (item) {
+            case Gold(var amount) -> gold += amount;
+            case Potion(var heal) -> health += heal;
+            case Nothing -> { }
         }
     }
 }
 
 class Goblin extends Entity {
-    internal {
-        Goblin(String name, Vec2 position) {
-            super(name, position, 10);
-        }
+    Goblin(String name, Vec2 position) {
+        super(name, position, 10);
+    }
 
-        override int attackPower() {
-            return 3;
-        }
+    override int attackPower() {
+        return 3;
+    }
 
-        override Item loot() {
-            return Item.Gold(5);
-        }
+    override Item loot() {
+        return Item.Gold(5);
     }
 }
 
 final class Troll extends Goblin {
-    internal {
-        Troll(Vec2 position) {
-            super("troll", position);
-            health = 25;
-        }
+    Troll(Vec2 position) {
+        super("troll", position);
+        health = 25;
+    }
 
-        override int attackPower() {
-            return 5;
-        }
+    override int attackPower() {
+        return 5;
+    }
 
-        override Item loot() {
-            return Item.Potion(10);
-        }
+    override Item loot() {
+        return Item.Potion(10);
+    }
 
-        override String describe() {
-            return "a big troll";
-        }
+    override String describe() {
+        return "a big troll";
     }
 }
 
 // A fixed-capacity log that keeps the most recent events.
 struct EventLog {
-    internal {
-        Event[4] recent = [Event.Died(""), Event.Died(""), Event.Died(""), Event.Died("")];
-        int written;
+    Event[4] recent = [Event.Died(""), Event.Died(""), Event.Died(""), Event.Died("")];
+    int written;
 
-        mut void push(Event e) {
-            recent[written % recent.length] = e;
-            written++;
-        }
+    mut void push(Event e) {
+        recent[written % recent.length] = e;
+        written++;
     }
 }
 
 final class World {
-    internal {
-        int size = 8;
+    int size = 8;
 
-        List<Entity> entities = new List<Entity>();
-        mut EventLog log;
-        mut Rng rng = Rng(state: 12345);
-        mut int damageDealt;
-        mut int deaths;
-        mut int goldFound;
-        mut int potionsFound;
+    List<Entity> entities = new List<Entity>();
+    mut EventLog log;
+    mut Rng rng = Rng(state: 12345);
+    mut int damageDealt;
+    mut int deaths;
+    mut int goldFound;
+    mut int potionsFound;
 
-        bool inBounds(Vec2 p) {
-            return p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
-        }
+    bool inBounds(Vec2 p) {
+        return p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
+    }
 
-        Entity? at(Vec2 p) {
-            for (Entity e : entities) {
-                if (e.alive() && e.position == p) {
-                    return e;
-                }
-            }
-            return null;
-        }
-
-        void record(Event e) {
-            log.push(e);
-            switch (e) {
-                case Moved(_, _) -> { }
-                case Attacked(_, _, var damage) -> damageDealt += damage;
-                case Died(_) -> deaths++;
-                case Looted(_, Gold(var amount)) -> goldFound += amount;
-                case Looted(_, Potion(_)) -> potionsFound++;
-                case Looted(_, Nothing) -> { }
+    Entity? at(Vec2 p) {
+        for (Entity e : entities) {
+            if (e.alive() && e.position == p) {
+                return e;
             }
         }
+        return null;
+    }
 
-        void step(Entity actor) {
-            var dir = (Direction)rng.range(4);
-            var next = Vec2.add(actor.position, dir.offset());
-            if (!inBounds(next)) {
+    void record(Event e) {
+        log.push(e);
+        switch (e) {
+            case Moved(_, _) -> { }
+            case Attacked(_, _, var damage) -> damageDealt += damage;
+            case Died(_) -> deaths++;
+            case Looted(_, Gold(var amount)) -> goldFound += amount;
+            case Looted(_, Potion(_)) -> potionsFound++;
+            case Looted(_, Nothing) -> { }
+        }
+    }
+
+    void step(Entity actor) {
+        var dir = (Direction)rng.range(4);
+        var next = Vec2.add(actor.position, dir.offset());
+        if (!inBounds(next)) {
+            return;
+        }
+        if (at(next) is Entity other) {
+            if (other == actor) {
                 return;
             }
-            if (at(next) is Entity other) {
-                if (other == actor) {
-                    return;
+            other.health -= actor.attackPower();
+            record(Event.Attacked(actor.name, other.describe(), actor.attackPower()));
+            if (!other.alive()) {
+                record(Event.Died(other.name));
+                var item = other.loot();
+                if (actor is Hero hero) {
+                    hero.pickUp(item);
+                    record(Event.Looted(hero.name, item));
                 }
-                other.health -= actor.attackPower();
-                record(Event.Attacked(actor.name, other.describe(), actor.attackPower()));
-                if (!other.alive()) {
-                    record(Event.Died(other.name));
-                    var item = other.loot();
-                    if (actor is Hero hero) {
-                        hero.pickUp(item);
-                        record(Event.Looted(hero.name, item));
-                    }
-                }
+            }
+        } else {
+            actor.position = next;
+        }
+    }
+
+    int living() {
+        mut int n = 0;
+        for (Entity e : entities) {
+            if (e.alive()) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    void removeDead() {
+        mut int i = 0;
+        while (i < entities.count()) {
+            if (!entities[i].alive()) {
+                entities.removeAt(i);
             } else {
-                actor.position = next;
-            }
-        }
-
-        int living() {
-            mut int n = 0;
-            for (Entity e : entities) {
-                if (e.alive()) {
-                    n++;
-                }
-            }
-            return n;
-        }
-
-        void removeDead() {
-            mut int i = 0;
-            while (i < entities.count()) {
-                if (!entities[i].alive()) {
-                    entities.removeAt(i);
-                } else {
-                    i++;
-                }
+                i++;
             }
         }
     }

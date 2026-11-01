@@ -1,12 +1,10 @@
 // A non-escaping local owns the function value it is made with, so a closure it is given lives
 // until the local's scope ends and is released once, however it is called or chosen.
 class Token {
-    internal {
-        int id;
+    int id;
 
-        Token(int id) {
-            this.id = id;
-        }
+    Token(int id) {
+        this.id = id;
     }
 
     ~Token() {

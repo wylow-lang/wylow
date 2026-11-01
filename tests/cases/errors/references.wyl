@@ -1,72 +1,66 @@
 class Node {
-    internal {
-        int value;
-    }
+    int value;
 }
 
 struct Mat2 {
-    internal {
-        float[4] m;
+    float[4] m;
 
-        mut ref float operator [](int row, int col) {
-            return ref m[row * 2 + col];
-        }
+    mut ref float operator [](int row, int col) {
+        return ref m[row * 2 + col];
+    }
 
-        in float at(int i) {
-            return ref m[i];
-        }
+    in float at(int i) {
+        return ref m[i];
+    }
 
-        mut ref float bad(int i) {
-            return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref'
-        }
+    mut ref float bad(int i) {
+        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref'
+    }
 
-        mut ref float other(ref Mat2 o) {
-            return ref o.m[0];              // error: a returned 'ref' must point into the method's receiver
-        }
+    mut ref float other(ref Mat2 o) {
+        return ref o.m[0];              // error: a returned 'ref' must point into the method's receiver
+    }
 
-        mut ref float temporary() {
-            return ref 1.5;                 // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
-        }
+    mut ref float temporary() {
+        return ref 1.5;                 // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+    }
 
-        ref float leak() {
-            return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a method that isn't 'mut'; use 'in' instead
-        }
+    ref float leak() {
+        return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a method that isn't 'mut'; use 'in' instead
+    }
 
-        mut float plain() {
-            return ref m[0];                // error: 'return ref' can only be used in a method that returns 'ref' or 'in'
-        }
+    mut float plain() {
+        return ref m[0];                // error: 'return ref' can only be used in a method that returns 'ref' or 'in'
+    }
 
-        static ref float global() {         // error: a static method cannot return 'ref'
-            return ref Mat2().m[0];         // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
-        }
+    static ref float global() {         // error: a static method cannot return 'ref'
+        return ref Mat2().m[0];         // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
     }
 }
 
 class Holder {
-    internal {
-        Node node = new Node();
-        mut int size;
-        mut (() -> void)? callback;
+    Node node = new Node();
+    mut int size;
+    mut (() -> void)? callback;
 
-        ref? (() -> void)? cb() {           // error: 'ref?' cannot be used with type '() -> void'; functions are already passed without copying
-            return ref callback;
-        }
+    ref? (() -> void)? cb() {           // error: 'ref?' cannot be used with type '() -> void'; functions are already passed without copying
+        return ref callback;
+    }
 
-        ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
-            return ref node;
-        }
+    ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
+        return ref node;
+    }
 
-        virtual ref int sizeRef() {         // error: methods returning 'ref' cannot be virtual or abstract yet
-            return ref size;
-        }
+    virtual ref int sizeRef() {         // error: methods returning 'ref' cannot be virtual or abstract yet
+        return ref size;
+    }
 
-        int count() {
-            return size;
-        }
+    int count() {
+        return size;
+    }
 
-        static void report() {
-            print(count());                 // error: 'count' is an instance method; static methods cannot use 'this', fields, or instance methods
-        }
+    static void report() {
+        print(count());                 // error: 'count' is an instance method; static methods cannot use 'this', fields, or instance methods
     }
 }
 

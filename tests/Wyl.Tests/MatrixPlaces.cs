@@ -222,22 +222,20 @@ static class MatrixPlaces
         var call = operation == "return"
             ? $"var result = widget.run();\n{use.Read("result")}"
             : "widget.run();";
-        return $"class Widget {{\n    internal {{\n        mut int value = 1;\n        mut int[3] values = [1, 2, 3];\n\n        {method}\n    }}\n}}\n\nvoid main() {{\n    var widget = new Widget();\n    {call}\n}}\n";
+        return $"class Widget {{\n    mut int value = 1;\n    mut int[3] values = [1, 2, 3];\n\n    {method}\n}}\n\nvoid main() {{\n    var widget = new Widget();\n    {call}\n}}\n";
     }
 
     // A reference may only be returned into the receiver's own storage, so a place outside a
     // receiver can't be returned at all; that error is what most places' cell records.
     static string GenericReturnRef(Use use) =>
-        $"struct Owner {{\n    internal {{\n        mut ref {use.Type} at() {{\n{use.Setup}\n            return ref {use.Expr};\n        }}\n    }}\n}}\n\nvoid main() {{\n    mut Owner owner = Owner();\n    owner.at() = {use.Value};\n}}\n";
+        $"struct Owner {{\n    mut ref {use.Type} at() {{\n{use.Setup}\n        return ref {use.Expr};\n    }}\n}}\n\nvoid main() {{\n    mut Owner owner = Owner();\n    owner.at() = {use.Value};\n}}\n";
 
     static string FieldReturnRef(Use use) => """
         struct Owned {
-            internal {
-                int value = 1;
+            int value = 1;
 
-                mut ref int at() {
-                    return ref value;
-                }
+            mut ref int at() {
+                return ref value;
             }
         }
 
@@ -250,12 +248,10 @@ static class MatrixPlaces
 
     static string FixedElementReturnRef(int index, int length) => $$"""
         struct Fixed {
-            internal {
-                int[{{length}}] a = {{Sequence(length)}};
+            int[{{length}}] a = {{Sequence(length)}};
 
-                mut ref int at() {
-                    return ref a[{{index}}];
-                }
+            mut ref int at() {
+                return ref a[{{index}}];
             }
         }
 
@@ -268,16 +264,14 @@ static class MatrixPlaces
 
     static string ListElementReturnRef(int index, int length) => $$"""
         class Store {
-            internal {
-                List<int> list = new List<int>();
+            List<int> list = new List<int>();
 
-                Store() {
+            Store() {
         {{Adds(length)}}
-                }
+            }
 
-                ref int at() {
-                    return ref list[{{index}}];
-                }
+            ref int at() {
+                return ref list[{{index}}];
             }
         }
 
@@ -290,13 +284,11 @@ static class MatrixPlaces
 
     static string SpanElementReturnRef(int index, int length) => $$"""
         struct Fixed {
-            internal {
-                int[{{length}}] a = {{Sequence(length)}};
+            int[{{length}}] a = {{Sequence(length)}};
 
-                mut ref int at() {
-                    Span<int> view = a;
-                    return ref view[{{index}}];
-                }
+            mut ref int at() {
+                Span<int> view = a;
+                return ref view[{{index}}];
             }
         }
 
@@ -309,13 +301,11 @@ static class MatrixPlaces
 
     static string ThisFieldReturnRef(Use use) => """
         class Widget {
-            internal {
-                mut int value = 1;
-                mut int[3] values = [1, 2, 3];
+            mut int value = 1;
+            mut int[3] values = [1, 2, 3];
 
-                ref int at() {
-                    return ref value;
-                }
+            ref int at() {
+                return ref value;
             }
         }
 
@@ -328,12 +318,10 @@ static class MatrixPlaces
 
     static string ChainedFieldReturnRef(Use use) => """
         class Chain {
-            internal {
-                mut Inner inner = Inner();
+            mut Inner inner = Inner();
 
-                ref int at() {
-                    return ref inner.value;
-                }
+            ref int at() {
+                return ref inner.value;
             }
         }
 
@@ -346,23 +334,17 @@ static class MatrixPlaces
 
     const string World = """
         struct Pair {
-            internal {
-                int value = 1;
-                int[3] values = [1, 2, 3];
-            }
+            int value = 1;
+            int[3] values = [1, 2, 3];
         }
 
         struct Inner {
-            internal {
-                int value = 1;
-                int[3] values = [1, 2, 3];
-            }
+            int value = 1;
+            int[3] values = [1, 2, 3];
         }
 
         class Node {
-            internal {
-                mut Inner inner = Inner();
-            }
+            mut Inner inner = Inner();
         }
 
         int take(int value) {

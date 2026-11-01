@@ -21,12 +21,10 @@ enum E {
 }
 
 class C {
-    internal {
-        int operator +(int a) { return a; }  // error: only the indexer, 'operator []', can be declared
-        int this[int i] { return i; }   // error: an indexer is declared as 'operator []'
-        +;                              // error: expected a field, method, or constructor
-        const int limit;                // error: 'const' is not supported yet
-    }
+    int operator +(int a) { return a; }  // error: only the indexer, 'operator []', can be declared
+    int this[int i] { return i; }   // error: an indexer is declared as 'operator []'
+    +;                              // error: expected a field, method, or constructor
+    const int limit;                // error: 'const' is not supported yet
 
     ~D() { }                            // error: a destructor must be named after its class, as in '~C()'
 }

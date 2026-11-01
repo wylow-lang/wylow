@@ -1,20 +1,18 @@
 // An escaping lambda copies what it captures, so each captured local must not be 'mut', and can't be
 // something only valid during the call.
 struct Point {
-    internal {
-        int x;
+    int x;
 
-        mut void move() {
-            x++;
-        }
+    mut void move() {
+        x++;
+    }
 
-        int get() {
-            return x;
-        }
+    int get() {
+        return x;
+    }
 
-        mut () -> int getter() {
-            return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
-        }
+    mut () -> int getter() {
+        return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
     }
 }
 

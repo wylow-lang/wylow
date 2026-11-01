@@ -4,33 +4,31 @@ interface Visitor<T> {
 }
 
 class Bag<T> implements Visitor<T> {
-    internal {
-        List<T> items = new List<T>();
+    List<T> items = new List<T>();
 
-        void add(T item) {
-            items.add(item);
-        }
+    void add(T item) {
+        items.add(item);
+    }
 
-        void visit((T) -> void f) {
-            for (T item : items) {
-                f(item);
-            }
+    void visit((T) -> void f) {
+        for (T item : items) {
+            f(item);
         }
+    }
 
-        static Bag<T> of(T a, T b) {
-            Bag<T> bag = new Bag<T>();
-            bag.add(a);
-            bag.add(b);
-            return bag;
-        }
+    static Bag<T> of(T a, T b) {
+        Bag<T> bag = new Bag<T>();
+        bag.add(a);
+        bag.add(b);
+        return bag;
+    }
 
-        U fold<U>(U start, (U, T) -> U step) {
-            mut U acc = start;
-            visit(item -> {
-                acc = step(acc, item);
-            });
-            return acc;
-        }
+    U fold<U>(U start, (U, T) -> U step) {
+        mut U acc = start;
+        visit(item -> {
+            acc = step(acc, item);
+        });
+        return acc;
     }
 }
 

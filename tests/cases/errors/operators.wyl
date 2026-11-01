@@ -1,18 +1,14 @@
 // Operators applied to types that don't combine, and to values that need checking for null first.
 
 class Holder {
-    internal {
-        String? name;
-    }
+    String? name;
 }
 
 struct Bag {
-    internal {
-        int[2] items;
+    int[2] items;
 
-        mut ref? int at(int index) {
-            return ref items[index];
-        }
+    mut ref? int at(int index) {
+        return ref items[index];
     }
 }
 

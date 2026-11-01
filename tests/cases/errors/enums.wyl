@@ -6,9 +6,7 @@ enum Repeated {
     B(int x, int x),                    // error: duplicate field 'x'
     ;
 
-    internal {
-        void B() { }                        // error: 'B' is already defined as a variant
-    }
+    void B() { }                        // error: 'B' is already defined as a variant
 }
 
 @Repr(int)

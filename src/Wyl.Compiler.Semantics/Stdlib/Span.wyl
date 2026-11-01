@@ -3,99 +3,91 @@
 // held and borrowed for as long as the span exists. See docs/spec/03-memory-model.md.
 
 ref struct Span<T> implements ReadOnlySpannable<T> {
-    public {
-        // The caller must keep the storage alive and unmoved while the span exists.
-        unsafe Span(T* data, int length) {
-            this.data = data;
-            count = length;
-        }
+    // The caller must keep the storage alive and unmoved while the span exists.
+    public unsafe Span(T* data, int length) {
+        this.data = data;
+        count = length;
+    }
 
-        int length() {
-            return count;
-        }
+    public int length() {
+        return count;
+    }
 
-        @CallerLocation
-        ref T operator [](int index) {
-            Bounds.check(index, count);
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        // Like the indexer, but null instead of a panic when `index` is out of bounds.
-        ref? T get(int index) {
-            if (index < 0 || index >= count) {
-                return null;
-            }
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        // The `length` elements starting at `start`.
-        @CallerLocation
-        Span<T> slice(int start, int length) {
-            Bounds.checkRange(start, length, count);
-            unsafe {
-                return Span<T>(data + start, length);
-            }
-        }
-
-        ReadOnlySpan<T> asReadOnlySpan() {
-            unsafe {
-                return ReadOnlySpan<T>(data, count);
-            }
+    @CallerLocation
+    public ref T operator [](int index) {
+        Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
         }
     }
 
-    private {
-        T* data;
-        int count;
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    public ref? T get(int index) {
+        if (index < 0 || index >= count) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
     }
+
+    // The `length` elements starting at `start`.
+    @CallerLocation
+    public Span<T> slice(int start, int length) {
+        Bounds.checkRange(start, length, count);
+        unsafe {
+            return Span<T>(data + start, length);
+        }
+    }
+
+    public ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(data, count);
+        }
+    }
+
+    private T* data;
+    private int count;
 }
 
 ref struct ReadOnlySpan<T> {
-    public {
-        // The caller must keep the storage alive and unmoved while the span exists.
-        unsafe ReadOnlySpan(T* data, int length) {
-            this.data = data;
-            count = length;
-        }
+    // The caller must keep the storage alive and unmoved while the span exists.
+    public unsafe ReadOnlySpan(T* data, int length) {
+        this.data = data;
+        count = length;
+    }
 
-        int length() {
-            return count;
-        }
+    public int length() {
+        return count;
+    }
 
-        @CallerLocation
-        in T operator [](int index) {
-            Bounds.check(index, count);
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        // Like the indexer, but null instead of a panic when `index` is out of bounds.
-        in? T get(int index) {
-            if (index < 0 || index >= count) {
-                return null;
-            }
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        // The `length` elements starting at `start`.
-        @CallerLocation
-        ReadOnlySpan<T> slice(int start, int length) {
-            Bounds.checkRange(start, length, count);
-            unsafe {
-                return ReadOnlySpan<T>(data + start, length);
-            }
+    @CallerLocation
+    public in T operator [](int index) {
+        Bounds.check(index, count);
+        unsafe {
+            return ref data[index];
         }
     }
 
-    private {
-        T* data;
-        int count;
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    public in? T get(int index) {
+        if (index < 0 || index >= count) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
     }
+
+    // The `length` elements starting at `start`.
+    @CallerLocation
+    public ReadOnlySpan<T> slice(int start, int length) {
+        Bounds.checkRange(start, length, count);
+        unsafe {
+            return ReadOnlySpan<T>(data + start, length);
+        }
+    }
+
+    private T* data;
+    private int count;
 }

@@ -1,12 +1,10 @@
 // A choice owns the callable it may select, and releases it when the choice is released, so what
 // the unchosen call never made is still let go.
 class Token {
-    internal {
-        int id;
+    int id;
 
-        Token(int id) {
-            this.id = id;
-        }
+    Token(int id) {
+        this.id = id;
     }
 
     ~Token() {

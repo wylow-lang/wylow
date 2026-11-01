@@ -5,20 +5,16 @@ interface Named {
 }
 
 class Base {
-    internal {
-        String name() {
-            return "base";
-        }
+    String name() {
+        return "base";
     }
 }
 
 class Holder<T> extends Base implements Named {
-    internal {
-        T held;
+    T held;
 
-        Holder(T held) {
-            this.held = held;
-        }
+    Holder(T held) {
+        this.held = held;
     }
 }
 

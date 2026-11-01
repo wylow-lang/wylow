@@ -10,31 +10,23 @@ enum Option<T> {
 enum Only { Value }
 
 struct Single {
-    internal {
-        Only only;
-    }
+    Only only;
 }
 
 class Item {
-    internal {
-        int id = 3;
-    }
+    int id = 3;
 }
 
 // The default of an enum is its first variant, when that variant carries no data.
 struct Settings {
-    internal {
-        Mode mode;
-        Option<Item> item;
-        Option<int> count = Option<int>.Some(1);
-    }
+    Mode mode;
+    Option<Item> item;
+    Option<int> count = Option<int>.Some(1);
 }
 
 class Machine {
-    internal {
-        mut Mode mode;
-        mut Settings settings;
-    }
+    mut Mode mode;
+    mut Settings settings;
 }
 
 void toggle(ref Mode mode) {

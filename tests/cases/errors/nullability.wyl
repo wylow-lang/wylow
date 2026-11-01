@@ -1,11 +1,9 @@
 class Node {
-    internal {
-        int value;
-        Node? next;
-    }
+    int value;
+    Node? next;
 }
 
-struct Vec { internal { int x; } }
+struct Vec { int x; }
 
 class Animal { }
 class Dog extends Animal { }

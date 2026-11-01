@@ -3,12 +3,10 @@
 // are released). A local and an element are released at the same point, and a conditional's copy
 // of a place is itself a copy the statement keeps.
 class C {
-    internal {
-        String name;
+    String name;
 
-        C(String name) {
-            this.name = name;
-        }
+    C(String name) {
+        this.name = name;
     }
 
     ~C() {
@@ -17,9 +15,7 @@ class C {
 }
 
 struct S {
-    internal {
-        C c;
-    }
+    C c;
 }
 
 int f(S a, ref S b) {

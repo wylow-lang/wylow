@@ -1,10 +1,8 @@
 /* A block comment, which ends at the closing marker. */
 
 struct Named {
-    internal {
-        String name;
-        int id;
-    }
+    String name;
+    int id;
 }
 
 enum Label { Text(String value), Blank }

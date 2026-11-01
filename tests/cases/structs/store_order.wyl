@@ -1,12 +1,10 @@
 // Assigning a struct stores every field before releasing any old one, so the old fields' destructors
 // run in reverse declaration order, after the new fields are in place.
 class Tag {
-    internal {
-        int id;
+    int id;
 
-        Tag(int id) {
-            this.id = id;
-        }
+    Tag(int id) {
+        this.id = id;
     }
 
     ~Tag() {
@@ -15,10 +13,8 @@ class Tag {
 }
 
 struct Pair {
-    internal {
-        Tag first;
-        Tag second;
-    }
+    Tag first;
+    Tag second;
 }
 
 void main() {

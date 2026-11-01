@@ -1,0 +1,36 @@
+class Blocked {
+    public {                            // error: access is written on each member, as in 'public int x;', not as a 'public { ... }' block
+        int a;
+    }
+    int b;
+}
+
+class Twice {
+    public private int a;               // error: only one access modifier is allowed
+    private private int b;              // error: duplicate 'private' modifier
+}
+
+class Destroyed {
+    public ~Destroyed() { }             // error: 'public' is not valid on a destructor
+}
+
+struct Point {
+    protected int x;                    // error: 'protected' is not valid on struct members; structs cannot be inherited
+}
+
+enum Shape {
+    Circle, Square;
+
+    protected void f() { }              // error: 'protected' is not valid on enum members; enums cannot be inherited
+}
+
+interface Named {
+    public String name();               // error: an interface's members are all public, so they take no access modifier
+}
+
+class Hidden {
+    private virtual void f() { }        // error: a private method cannot be 'virtual'
+}
+
+void main() {
+}

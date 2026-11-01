@@ -1,30 +1,26 @@
 struct Vec {
-    internal {
-        int x;
-        int y;
+    int x;
+    int y;
 
-        Vec(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    Vec(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
 
-        mut void move(int dx) {
-            x += dx;
-        }
+    mut void move(int dx) {
+        x += dx;
+    }
 
-        int sum() {
-            return x + y;
-        }
+    int sum() {
+        return x + y;
     }
 }
 
 class Token {
-    internal {
-        String name;
+    String name;
 
-        Token(String name) {
-            this.name = name;
-        }
+    Token(String name) {
+        this.name = name;
     }
 
     ~Token() {
@@ -33,14 +29,12 @@ class Token {
 }
 
 struct Holder {
-    internal {
-        Token token;
-        int? count;
+    Token token;
+    int? count;
 
-        Holder(Token token, int? count) {
-            this.token = token;
-            this.count = count;
-        }
+    Holder(Token token, int? count) {
+        this.token = token;
+        this.count = count;
     }
 }
 
@@ -55,9 +49,7 @@ enum Slot {
 }
 
 struct Grid {
-    internal {
-        int[3] cells;
-    }
+    int[3] cells;
 }
 
 int total(in int[3] cells) {
@@ -65,10 +57,8 @@ int total(in int[3] cells) {
 }
 
 class Body {
-    internal {
-        mut Vec? velocity;
-        mut Holder? held;
-    }
+    mut Vec? velocity;
+    mut Holder? held;
 }
 
 Vec? offset(bool some) {

@@ -11,32 +11,28 @@ static partial class IrSelfTests
 {
     const string Fixture = """
         class Obj {
-            internal {
-                mut int x;
-                Obj() { }
-            }
+            mut int x;
+            Obj() { }
         }
 
         class Holder {
-            internal {
-                mut Obj b;
-                Obj fixed;
-                int[2] pair;
+            mut Obj b;
+            Obj fixed;
+            int[2] pair;
 
-                Holder(Obj b) {
-                    this.b = b;
-                    fixed = b;
-                }
+            Holder(Obj b) {
+                this.b = b;
+                fixed = b;
             }
         }
 
-        struct Vec { internal { int x; } }
-        struct Boxed { internal { Obj? item; } }
-        struct Counter { internal { int n = 1; } }
-        struct Tally { internal { Counter c; } }
-        struct Built { internal { int n = f(); } }
-        struct Nest { internal { Vec? inner; } }
-        struct Cell { internal { int v; mut ref int at() { return ref v; } } }
+        struct Vec { int x; }
+        struct Boxed { Obj? item; }
+        struct Counter { int n = 1; }
+        struct Tally { Counter c; }
+        struct Built { int n = f(); }
+        struct Nest { Vec? inner; }
+        struct Cell { int v; mut ref int at() { return ref v; } }
         enum Shape { Circle(int r), Dot }
 
         int f() { return 1; }

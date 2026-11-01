@@ -1,31 +1,25 @@
 // Each case would read freed memory without pinning; the output order shows when objects die.
 
 struct Stats {
-    internal {
-        int hp;
-    }
+    int hp;
 }
 
 struct Gear {
-    internal {
-        Weapon spare;
-    }
+    Weapon spare;
 }
 
 class Player {
-    internal {
-        String name;
-        mut Weapon weapon;
-        mut Stats stats;
-        mut Gear gear;
+    String name;
+    mut Weapon weapon;
+    mut Stats stats;
+    mut Gear gear;
 
-        Player(String name) {
-            weapon = new Weapon("old");
-            gear = Gear(new Weapon("spare"));
-            this.name = name;
-            weapon.owner = this;
-            gear.spare.owner = this;
-        }
+    Player(String name) {
+        weapon = new Weapon("old");
+        gear = Gear(new Weapon("spare"));
+        this.name = name;
+        weapon.owner = this;
+        gear.spare.owner = this;
     }
 
     ~Player() {
@@ -34,30 +28,28 @@ class Player {
 }
 
 class Weapon {
-    internal {
-        String name;
-        mut Weak<Player> owner;
+    String name;
+    mut Weak<Player> owner;
 
-        Weapon(String name) {
-            this.name = name;
+    Weapon(String name) {
+        this.name = name;
 
+    }
+
+    // Replaces the owner's weapon, which is `this`, while running on it.
+    void fire() {
+        if (owner.get() is Player p) {
+            p.weapon = new Weapon("new");
         }
+        print(name);
+    }
 
-        // Replaces the owner's weapon, which is `this`, while running on it.
-        void fire() {
-            if (owner.get() is Player p) {
-                p.weapon = new Weapon("new");
-            }
-            print(name);
+    // Replaces the owner's spare, which is `this`, through a reference to the struct holding it.
+    void swap() {
+        if (owner.get() is Player p) {
+            restock(ref p.gear);
         }
-
-        // Replaces the owner's spare, which is `this`, through a reference to the struct holding it.
-        void swap() {
-            if (owner.get() is Player p) {
-                restock(ref p.gear);
-            }
-            print(name);
-        }
+        print(name);
     }
 
     ~Weapon() {
@@ -66,33 +58,29 @@ class Weapon {
 }
 
 class World {
-    internal {
-        mut Player player;
+    mut Player player;
 
-        World(Player player) {
-            this.player = player;
-        }
+    World(Player player) {
+        this.player = player;
     }
 }
 
 class Team {
-    internal {
-        Player leader;
+    Player leader;
 
-        // Its constructors can still replace a field that isn't 'mut', so `s` holds the first leader.
-        Team() {
-            leader = new Player("x");
-            ref Stats s = leader.stats;
-            leader = new Player("y");
-            s.hp = 3;
-            print(s.hp);
-        }
+    // Its constructors can still replace a field that isn't 'mut', so `s` holds the first leader.
+    Team() {
+        leader = new Player("x");
+        ref Stats s = leader.stats;
+        leader = new Player("y");
+        s.hp = 3;
+        print(s.hp);
+    }
 
-        // Elsewhere it is never replaced, so nothing holds it while `heal` runs.
-        void rally(World world) {
-            heal(ref leader.stats, world);
-            print(leader.name);
-        }
+    // Elsewhere it is never replaced, so nothing holds it while `heal` runs.
+    void rally(World world) {
+        heal(ref leader.stats, world);
+        print(leader.name);
     }
 }
 

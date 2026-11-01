@@ -1,53 +1,39 @@
 abstract class Weapon {
-    internal {
-        abstract void fire();
-        virtual int ammo() { return 0; }
-        int weight() { return 1; }
-    }
+    abstract void fire();
+    virtual int ammo() { return 0; }
+    int weight() { return 1; }
 }
 
 class Gun extends Weapon {               // error: 'Gun' must implement abstract method 'Weapon.fire()'
-    internal {
-        int ammo() { return 1; }            // error: must be marked 'override' to override 'Weapon.ammo()'
-        int weight() { return 2; }          // error: hides inherited method 'Weapon.weight()'
-        override int missing() { return 0; }    // error: does not override anything
-    }
+    int ammo() { return 1; }            // error: must be marked 'override' to override 'Weapon.ammo()'
+    int weight() { return 2; }          // error: hides inherited method 'Weapon.weight()'
+    override int missing() { return 0; }    // error: does not override anything
 }
 
 class Rifle extends Weapon {
-    internal {
-        override void fire() { }
-        override long ammo() { return 1L; }     // error: must have the same parameter and return types as 'Weapon.ammo'
-    }
+    override void fire() { }
+    override long ammo() { return 1L; }     // error: must have the same parameter and return types as 'Weapon.ammo'
 }
 
 final class Sealed {
-    internal {
-        virtual void m() { }
-    }
+    virtual void m() { }
 }
 
 class Breaks extends Sealed { }         // error: cannot extend final class 'Sealed'
 
 class Pistol extends Weapon {
-    internal {
-        final override void fire() { }
-    }
+    final override void fire() { }
 }
 
 class Derringer extends Pistol {
-    internal {
-        override void fire() { }            // error: cannot override 'Pistol.fire' because it is final
-    }
+    override void fire() { }            // error: cannot override 'Pistol.fire' because it is final
 }
 
 class NotAbstract {
-    internal {
-        abstract void m();                  // error: 'NotAbstract' must be declared 'abstract'
-    }
+    abstract void m();                  // error: 'NotAbstract' must be declared 'abstract'
 }
 
-struct Point { internal { int x; } }
+struct Point { int x; }
 
 class FromStruct extends Point { }      // error: 'Point' is not a class and cannot be extended
 
@@ -55,33 +41,23 @@ class A extends B { }                   // error: 'A' inherits from itself
 class B extends A { }
 
 class Field {
-    internal {
-        int x;
-    }
+    int x;
 }
 
 class FieldChild extends Field {
-    internal {
-        int x;                              // error: field 'x' is already defined in base class 'Field'
-    }
+    int x;                              // error: field 'x' is already defined in base class 'Field'
 }
 
 class Secretive {
-    internal {
-        Secretive() { }
-    }
+    Secretive() { }
 
-    private {
-        int hidden;
-        void quiet() { }
-        Secretive(int x) { }
-    }
+    private int hidden;
+    private void quiet() { }
+    private Secretive(int x) { }
 }
 
 class Generic {
-    internal {
-        virtual void m<T>(T x) { }          // error: generic methods cannot be 'virtual'
-    }
+    virtual void m<T>(T x) { }          // error: generic methods cannot be 'virtual'
 }
 
 void main() {

@@ -1,12 +1,10 @@
 // Patterns that cannot be tested, and switch expressions that cannot produce a reference.
 
 struct Bag {
-    internal {
-        int[2] items;
+    int[2] items;
 
-        mut ref? int at(int index) {
-            return ref items[index];
-        }
+    mut ref? int at(int index) {
+        return ref items[index];
     }
 }
 

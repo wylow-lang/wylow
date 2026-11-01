@@ -1,23 +1,17 @@
 protected struct A {              // error: 'protected' is not valid on a struct
-    protected {                    // error: structs cannot be inherited, so they have no 'protected' block
-        int x;
-    }
+    protected int x;               // error: 'protected' is not valid on struct members; structs cannot be inherited
 
-    internal {
-        static int count;              // error: static fields are not supported yet
-        static mut void f() {          // error: a static method cannot be 'mut'
-        }
+    static int count;              // error: static fields are not supported yet
+    static mut void f() {          // error: a static method cannot be 'mut'
     }
 }
 
 struct Grid {
-    internal {
-        int[4] cells;
-        mut int size() {
-            return 4;
-        }
-        ref? int first;                // error: fields cannot be references; only methods can return 'ref' or 'in'
+    int[4] cells;
+    mut int size() {
+        return 4;
     }
+    ref? int first;                // error: fields cannot be references; only methods can return 'ref' or 'in'
 }
 
 static void g() {                  // error: 'static' is not valid on a function

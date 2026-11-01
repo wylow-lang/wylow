@@ -5,95 +5,85 @@ interface Ordered<T> {
 }
 
 struct Point implements Ordered<Point> {
-    internal {
-        int x, y;
+    int x, y;
 
-        Point(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
 
-        bool lessThan(in Point other) {
-            return x + y < other.x + other.y;
-        }
+    bool lessThan(in Point other) {
+        return x + y < other.x + other.y;
     }
 }
 
 struct Scored<T> implements Ordered<Scored<T>> {
-    internal {
-        T value;
-        int score;
+    T value;
+    int score;
 
-        bool lessThan(in Scored<T> other) {
-            return score < other.score;
-        }
+    bool lessThan(in Scored<T> other) {
+        return score < other.score;
     }
 }
 
 final class Heap<T extends Ordered<T>> {
-    internal {
-        int count() {
-            return items.count();
-        }
+    int count() {
+        return items.count();
+    }
 
-        void push(T value) {
-            items.add(value);
-            mut int i = items.count() - 1;
-            while (i > 0) {
-                int parent = (i - 1) / 2;
-                if (!items[i].lessThan(items[parent])) {
-                    break;
-                }
-                swap(i, parent);
-                i = parent;
+    void push(T value) {
+        items.add(value);
+        mut int i = items.count() - 1;
+        while (i > 0) {
+            int parent = (i - 1) / 2;
+            if (!items[i].lessThan(items[parent])) {
+                break;
             }
-        }
-
-        T pop() {
-            T top = items[0];
-            T last = items.removeAt(items.count() - 1);
-            if (items.count() > 0) {
-                items[0] = last;
-                mut int i = 0;
-                while (true) {
-                    int left = i * 2 + 1;
-                    int right = left + 1;
-                    mut int smallest = i;
-                    if (left < items.count() && items[left].lessThan(items[smallest])) {
-                        smallest = left;
-                    }
-                    if (right < items.count() && items[right].lessThan(items[smallest])) {
-                        smallest = right;
-                    }
-                    if (smallest == i) {
-                        break;
-                    }
-                    swap(i, smallest);
-                    i = smallest;
-                }
-            }
-            return top;
+            swap(i, parent);
+            i = parent;
         }
     }
 
-    private {
-        List<T> items = new List<T>();
-
-        void swap(int a, int b) {
-            T temp = items[a];
-            items[a] = items[b];
-            items[b] = temp;
+    T pop() {
+        T top = items[0];
+        T last = items.removeAt(items.count() - 1);
+        if (items.count() > 0) {
+            items[0] = last;
+            mut int i = 0;
+            while (true) {
+                int left = i * 2 + 1;
+                int right = left + 1;
+                mut int smallest = i;
+                if (left < items.count() && items[left].lessThan(items[smallest])) {
+                    smallest = left;
+                }
+                if (right < items.count() && items[right].lessThan(items[smallest])) {
+                    smallest = right;
+                }
+                if (smallest == i) {
+                    break;
+                }
+                swap(i, smallest);
+                i = smallest;
+            }
         }
+        return top;
+    }
+
+    private List<T> items = new List<T>();
+
+    private void swap(int a, int b) {
+        T temp = items[a];
+        items[a] = items[b];
+        items[b] = temp;
     }
 }
 
 struct Grid {
-    internal {
-        bool[8][8] walls;
+    bool[8][8] walls;
 
-        bool open(Point p) {
-            return p.x >= 0 && p.y >= 0 && p.x < 8 && p.y < 8 && !walls[p.y][p.x];
-        }
+    bool open(Point p) {
+        return p.x >= 0 && p.y >= 0 && p.x < 8 && p.y < 8 && !walls[p.y][p.x];
     }
 }
 

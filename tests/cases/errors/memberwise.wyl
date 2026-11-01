@@ -1,28 +1,20 @@
 struct Vec2 {
-    internal {
-        float x, y;
-    }
+    float x, y;
 }
 
 struct Scaled {
-    internal {
-        float x, y;
+    float x, y;
 
-        Scaled(float both) {
-            x = both;
-            y = both;
-        }
+    Scaled(float both) {
+        x = both;
+        y = both;
     }
 }
 
 struct Hidden {
-    internal {
-        int shown;
-    }
+    int shown;
 
-    private {
-        int secret;
-    }
+    private int secret;
 }
 
 void main() {

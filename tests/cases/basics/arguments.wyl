@@ -1,18 +1,14 @@
 struct Vec3 {
-    internal {
-        float x, y, z;
-    }
+    float x, y, z;
 }
 
 // A declared constructor runs code, which shows when a default value is evaluated.
 struct Tag {
-    internal {
-        int id;
+    int id;
 
-        Tag(int value) {
-            print($"tag {value}");
-            id = value;
-        }
+    Tag(int value) {
+        print($"tag {value}");
+        id = value;
     }
 }
 
@@ -60,44 +56,34 @@ T? orFallback<T>(T? value, T? fallback = null) {
 }
 
 class Box<T> {
-    internal {
-        mut T? item;
+    mut T? item;
 
-        void put(T? item = null, int times = 1) {
-            this.item = item;
-            print($"put {times}");
-        }
+    void put(T? item = null, int times = 1) {
+        this.item = item;
+        print($"put {times}");
     }
 }
 
 class Weapon {
-    internal {
-        String name;
-        int damage;
+    String name;
+    int damage;
 
-        Weapon(String name, int damage = 10) {
-            this.name = name;
-            this.damage = damage;
-        }
+    Weapon(String name, int damage = 10) {
+        this.name = name;
+        this.damage = damage;
     }
 }
 
 class Sword extends Weapon {
-    internal {
-        Sword(int damage = 25) { super(name: "sword", damage: damage); }
-    }
+    Sword(int damage = 25) { super(name: "sword", damage: damage); }
 }
 
 class Animal {
-    internal {
-        virtual String speak(int times = 1, String sound = "...") { return $"{times} {sound}"; }
-    }
+    virtual String speak(int times = 1, String sound = "...") { return $"{times} {sound}"; }
 }
 
 class Dog extends Animal {
-    internal {
-        override String speak(int times, String sound) { return $"woof {times} {sound}"; }
-    }
+    override String speak(int times, String sound) { return $"woof {times} {sound}"; }
 }
 
 interface Greeter {
@@ -105,9 +91,7 @@ interface Greeter {
 }
 
 class Friendly implements Greeter {
-    internal {
-        String greet(String name) { return $"hi {name}"; }
-    }
+    String greet(String name) { return $"hi {name}"; }
 }
 
 void main() {

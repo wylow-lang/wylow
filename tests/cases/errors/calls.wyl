@@ -5,37 +5,29 @@ interface Shape {
 }
 
 abstract class Base {
-    internal {
-        static void stat() { }
-        abstract void take();
-    }
+    static void stat() { }
+    abstract void take();
 }
 
 class Made extends Base {
-    internal {
-        override void take() { }
-        void call() {
-            super.stat();               // error: static method 'stat' must be called through the type: 'Base.stat(...)'
-            super.take();               // error: cannot call abstract method 'Base.take' through 'super'
-            super.nope();               // error: 'Base' has no method 'nope'
-        }
+    override void take() { }
+    void call() {
+        super.stat();               // error: static method 'stat' must be called through the type: 'Base.stat(...)'
+        super.take();               // error: cannot call abstract method 'Base.take' through 'super'
+        super.nope();               // error: 'Base' has no method 'nope'
     }
 }
 
 class Plain {
-    internal {
-        void call() {
-            super.nope();               // error: 'Plain' has no base class
-        }
+    void call() {
+        super.nope();               // error: 'Plain' has no base class
     }
 }
 
 enum Color { Red }
 
 struct Pair {
-    internal {
-        int a;
-    }
+    int a;
 }
 
 void globalCall() {

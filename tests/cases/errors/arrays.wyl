@@ -1,13 +1,9 @@
 struct Loop {                       // error: struct 'Loop' contains itself (Loop -> Loop)
-    internal {
-        Loop[2] inner;
-    }
+    Loop[2] inner;
 }
 
 class Box {
-    internal {
-        int value;
-    }
+    int value;
 }
 
 void nothing() { }

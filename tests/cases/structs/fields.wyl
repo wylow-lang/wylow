@@ -4,19 +4,15 @@ int next(String label, int value) {
 }
 
 struct Stats {
-    internal {
-        int health = 100;
-        int armor;
-        float speed = 2.5;
-    }
+    int health = 100;
+    int armor;
+    float speed = 2.5;
 }
 
 struct Enemy {
-    internal {
-        Stats stats;
-        int id = next("id initializer", 7);
-        bool alive = true;
-    }
+    Stats stats;
+    int id = next("id initializer", 7);
+    bool alive = true;
 }
 
 void main() {

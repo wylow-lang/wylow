@@ -1,28 +1,26 @@
 // What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
 
 class Counter {
-    internal {
-        mut int count = 0;
-        String name;
+    mut int count = 0;
+    String name;
 
-        Counter(String name) {
-            this.name = name;
-        }
+    Counter(String name) {
+        this.name = name;
+    }
 
-        () -> int reader() {
-            return () -> count;
-        }
+    () -> int reader() {
+        return () -> count;
+    }
 
-        () -> void incrementer(int by) {
-            return () -> {
-                count += by;
-                bump();
-            };
-        }
+    () -> void incrementer(int by) {
+        return () -> {
+            count += by;
+            bump();
+        };
+    }
 
-        void bump() {
-            count += 1000;
-        }
+    void bump() {
+        count += 1000;
     }
 
     ~Counter() {
@@ -31,10 +29,8 @@ class Counter {
 }
 
 struct Labeled {
-    internal {
-        String label;
-        () -> String describe;
-    }
+    String label;
+    () -> String describe;
 }
 
 enum Action {
@@ -47,10 +43,8 @@ interface Runner {
 }
 
 class TwiceRunner implements Runner {
-    internal {
-        int run(() -> int task) {
-            return task() + task();
-        }
+    int run(() -> int task) {
+        return task() + task();
     }
 }
 

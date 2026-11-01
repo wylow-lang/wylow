@@ -14,18 +14,16 @@ static class TypeSelfTests
     // `Probe`'s type parameters are the ones the random types use, so that the same types can be
     // written as parameters of its methods.
     const string Fixture = """
-        struct Vec { internal { int x; float y; } }
-        struct Init { internal { int n = 1; } }
-        struct Box<T> { internal { T value; } }
-        struct Pair<A, B> { internal { A first; B second; } }
-        struct Holds { internal { Node node; } }
-        struct Sorted<T extends Comparable<T>> { internal { T item; } }
-        class Node { internal { mut Node? next; } }
+        struct Vec { int x; float y; }
+        struct Init { int n = 1; }
+        struct Box<T> { T value; }
+        struct Pair<A, B> { A first; B second; }
+        struct Holds { Node node; }
+        struct Sorted<T extends Comparable<T>> { T item; }
+        class Node { mut Node? next; }
         class Cell<T> {
-            internal {
-                T value;
-                Cell(T value) { this.value = value; }
-            }
+            T value;
+            Cell(T value) { this.value = value; }
         }
         class Animal { }
         class Dog extends Animal { }
@@ -239,14 +237,13 @@ static class TypeSelfTests
     static TestResult ParsesBack(IReadOnlyList<WylType> types)
     {
         var text = new StringBuilder(Fixture);
-        text.AppendLine("    internal {");
         int firstLine = text.ToString().Count(c => c == '\n') + 1;
         for (int i = 0; i < types.Count; i++)
         {
             var annotation = types[i].NonNull.IsEscaping ? "@Escaping " : "";
-            text.AppendLine($"        void p{i}({annotation}{types[i].Name} x) {{ }}");
+            text.AppendLine($"    void p{i}({annotation}{types[i].Name} x) {{ }}");
         }
-        text.AppendLine("    }\n}\nvoid main() { }");
+        text.AppendLine("}\nvoid main() { }");
         var compilation = Compilation.Compile(new SourceText("type_self_test.wyl", text.ToString()));
         if (compilation.Program is not { } program)
         {

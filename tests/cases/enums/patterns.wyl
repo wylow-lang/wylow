@@ -5,21 +5,19 @@ interface Named {
 enum Suit implements Named {
     Hearts, Spades;
 
-    internal {
-        String name() {
-            return switch (this) {
-                case Hearts -> "hearts";
-                case Spades -> "spades";
-            };
-        }
+    String name() {
+        return switch (this) {
+            case Hearts -> "hearts";
+            case Spades -> "spades";
+        };
+    }
 
-        bool isRed() {
-            return this == Hearts;
-        }
+    bool isRed() {
+        return this == Hearts;
+    }
 
-        static Suit fromRed(bool red) {
-            return red ? Hearts : Spades;
-        }
+    static Suit fromRed(bool red) {
+        return red ? Hearts : Spades;
     }
 }
 
@@ -36,9 +34,7 @@ enum Tree {
 class Animal { }
 
 class Dog extends Animal {
-    internal {
-        int tricks = 3;
-    }
+    int tricks = 3;
 }
 
 @Repr(int)

@@ -1,15 +1,13 @@
 // Items print their name when freed. An item may empty its holder's slot when freed, which
 // changes an enum while code may be reading it.
 class Item {
-    internal {
-        int id;
-        String name;
-        mut Weak<Holder> clears;
+    int id;
+    String name;
+    mut Weak<Holder> clears;
 
-        Item(int id, String name) {
-            this.id = id;
-            this.name = name;
-        }
+    Item(int id, String name) {
+        this.id = id;
+        this.name = name;
     }
 
     ~Item() {
@@ -33,9 +31,7 @@ enum Slot {
 }
 
 class Holder {
-    internal {
-        mut Slot slot = Slot.Empty;
-    }
+    mut Slot slot = Slot.Empty;
 
     ~Holder() {
         print("free holder");

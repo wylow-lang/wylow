@@ -1,35 +1,29 @@
 class Node {
-    internal {
-        int value;
-        mut Node? next;
+    int value;
+    mut Node? next;
 
-        Node(int value) {
-            this.value = value;
-        }
+    Node(int value) {
+        this.value = value;
+    }
 
-        Node? after() {
-            return next;
-        }
+    Node? after() {
+        return next;
     }
 }
 
 class Animal {
-    internal {
-        virtual String sound() {
-            return "...";
-        }
+    virtual String sound() {
+        return "...";
     }
 }
 
 class Dog extends Animal {
-    internal {
-        override String sound() {
-            return "woof";
-        }
+    override String sound() {
+        return "woof";
+    }
 
-        void fetch() {
-            print("fetching");
-        }
+    void fetch() {
+        print("fetching");
     }
 }
 

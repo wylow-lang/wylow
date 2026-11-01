@@ -2,13 +2,11 @@
 // with both still leaves the buffer when destroyed, and the collector still finds it.
 
 class Node {
-    internal {
-        int id;
-        mut Node? next;
+    int id;
+    mut Node? next;
 
-        Node(int id) {
-            this.id = id;
-        }
+    Node(int id) {
+        this.id = id;
     }
 
     ~Node() {

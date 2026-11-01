@@ -1,24 +1,20 @@
 class Store {
-    internal {
-        mut int[4] items;
+    mut int[4] items;
 
-        ref int operator [](int index) {
-            return ref items[index];
-        }
+    ref int operator [](int index) {
+        return ref items[index];
     }
 }
 
 class Tracked extends Store implements Borrowable {
-    internal {
-        mut int borrows;
+    mut int borrows;
 
-        void beginBorrow() {
-            borrows++;
-        }
+    void beginBorrow() {
+        borrows++;
+    }
 
-        void endBorrow() {
-            borrows--;
-        }
+    void endBorrow() {
+        borrows--;
     }
 }
 

@@ -10,15 +10,11 @@ static class DispatchSelfTests
 {
     const string Source = """
         abstract class Shape {
-            internal {
-                abstract int area();
-            }
+            abstract int area();
         }
 
         class Square extends Shape {
-            internal {
-                override int area() { return 4; }
-            }
+            override int area() { return 4; }
         }
 
         interface Named {
@@ -26,26 +22,20 @@ static class DispatchSelfTests
         }
 
         class Root implements Named {
-            internal {
-                int name() { return 1; }
-            }
+            int name() { return 1; }
         }
 
         class Leaf extends Root { }
 
         struct Point implements Named {
-            internal {
-                int x;
-                int name() { return x; }
-            }
+            int x;
+            int name() { return x; }
         }
 
         class Box<T> implements Named {
-            internal {
-                T value;
-                Box(T value) { this.value = value; }
-                int name() { return 1; }
-            }
+            T value;
+            Box(T value) { this.value = value; }
+            int name() { return 1; }
         }
 
         void main() { }

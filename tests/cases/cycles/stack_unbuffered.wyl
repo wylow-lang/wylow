@@ -3,9 +3,7 @@
 // mode: optimized
 
 class Node {
-    internal {
-        Node? next;
-    }
+    Node? next;
 }
 
 void drop<T>(T value) {

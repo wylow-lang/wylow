@@ -1,7 +1,5 @@
 struct Holder {
-    internal {
-        Span<int> held;                         // error: 'Span<int>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
-    }
+    Span<int> held;                         // error: 'Span<int>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
 }
 
 enum Choice {
@@ -10,35 +8,31 @@ enum Choice {
 }
 
 struct Samples {
-    internal {
-        int[2] values;
+    int[2] values;
 
-        mut Span<int> edit() {
-            return values;
-        }
+    mut Span<int> edit() {
+        return values;
+    }
 
-        mut Span<int> other(Span<int> given) {
-            return given;                       // error: a returned 'Span<int>' must view the method's receiver
-        }
+    mut Span<int> other(Span<int> given) {
+        return given;                       // error: a returned 'Span<int>' must view the method's receiver
+    }
 
-        static Span<int> make() {               // error: only instance methods can return 'Span<int>', which views the method's receiver
-            return Span<int>();
-        }
+    static Span<int> make() {               // error: only instance methods can return 'Span<int>', which views the method's receiver
+        return Span<int>();
     }
 }
 
 // A ref struct made from another views what that one does, so it is not the receiver's to return.
 ref struct Window {
-    internal {
-        int n;
+    int n;
 
-        Window(Window from) {
-            n = from.n;
-        }
+    Window(Window from) {
+        n = from.n;
+    }
 
-        Window other(Window from) {
-            return Window(from);                // error: a returned 'Window' must view the method's receiver
-        }
+    Window other(Window from) {
+        return Window(from);                // error: a returned 'Window' must view the method's receiver
     }
 }
 

@@ -1,15 +1,13 @@
 // A class definition comes after every interface it implements, wherever it is declared.
 class Crate implements Damageable {
-    internal {
-        mut int hp = 3;
+    mut int hp = 3;
 
-        void damage(int amount) {
-            hp -= amount;
-        }
+    void damage(int amount) {
+        hp -= amount;
+    }
 
-        int health() {
-            return hp;
-        }
+    int health() {
+        return hp;
     }
 }
 

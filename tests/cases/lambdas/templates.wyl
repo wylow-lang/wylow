@@ -2,50 +2,42 @@
 // sharing their parameter count with another, and overridden methods, call them indirectly.
 
 class Box<T> {
-    internal {
-        T value;
+    T value;
 
-        Box(T seed, (T) -> T step) {
-            value = step(step(seed));
-        }
+    Box(T seed, (T) -> T step) {
+        value = step(step(seed));
     }
 }
 
 struct Point {
-    internal {
-        int x, y;
+    int x, y;
 
-        Point(int seed, (int) -> int f) {
-            x = f(seed);
-            y = f(x);
-        }
+    Point(int seed, (int) -> int f) {
+        x = f(seed);
+        y = f(x);
     }
 }
 
 class Counted {
-    internal {
-        int total;
+    int total;
 
-        Counted(int n, (int) -> int f) {
-            total = f(n);
-        }
+    Counted(int n, (int) -> int f) {
+        total = f(n);
+    }
 
-        Counted(String name, (String) -> int f) {
-            total = f(name) + 1000;
-        }
+    Counted(String name, (String) -> int f) {
+        total = f(name) + 1000;
     }
 }
 
 class Tool {
-    internal {
-        virtual int use((int) -> int f) {
-            return f(1);
-        }
+    virtual int use((int) -> int f) {
+        return f(1);
+    }
 
-        // Overridden below, by a subclass of a subclass.
-        virtual int aim((int) -> int f) {
-            return f(2);
-        }
+    // Overridden below, by a subclass of a subclass.
+    virtual int aim((int) -> int f) {
+        return f(2);
     }
 }
 
@@ -53,10 +45,8 @@ class Hammer extends Tool {
 }
 
 class Mallet extends Hammer {
-    internal {
-        override int aim((int) -> int f) {
-            return f(3) * 10;
-        }
+    override int aim((int) -> int f) {
+        return f(3) * 10;
     }
 }
 

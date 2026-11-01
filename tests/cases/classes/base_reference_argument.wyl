@@ -1,22 +1,18 @@
 // A 'ref?' parameter of a base constructor takes a place as a 'ref' argument.
 
 class Base {
-    internal {
-        int n;
+    int n;
 
-        Base(ref? int source) {
-            if (source is ref int value) {
-                n = value;
-            }
+    Base(ref? int source) {
+        if (source is ref int value) {
+            n = value;
         }
     }
 }
 
 class Derived extends Base {
-    internal {
-        Derived(ref int source) {
-            super(ref source);
-        }
+    Derived(ref int source) {
+        super(ref source);
     }
 }
 

@@ -7,36 +7,26 @@ interface B {
 }
 
 class AB implements A, B {
-    public {
-        void f(int x) { }               // error: 'AB.f' takes different default values for parameter 'x'
-    }
+    public void f(int x) { }               // error: 'AB.f' takes different default values for parameter 'x'
 }
 
 class Static implements A {
-    public {
-        static void f(int x) { }        // error: 'Static.f' is static and cannot implement
-    }
+    public static void f(int x) { }        // error: 'Static.f' is static and cannot implement
 }
 
 class Base {
-    internal {
-        Base() { }
-        void g() { }
-    }
+    Base() { }
+    void g() { }
 }
 
 class Derived extends Base {
-    internal {
-        Derived() { super(); }
-        override void g() { }           // error: cannot override 'Base.g' because it is not 'virtual'
-    }
+    Derived() { super(); }
+    override void g() { }           // error: cannot override 'Base.g' because it is not 'virtual'
 }
 
 struct Loop {
-    internal {
-        int v;
-        Loop(int a, Loop seed = Loop(1)) { v = a; }  // error: the default value of 'seed' depends on itself
-    }
+    int v;
+    Loop(int a, Loop seed = Loop(1)) { v = a; }  // error: the default value of 'seed' depends on itself
 }
 
 void main() {

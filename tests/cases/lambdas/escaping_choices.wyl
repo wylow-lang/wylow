@@ -1,12 +1,10 @@
 // `?:` and switch expressions over escaping functions evaluate only the option they choose.
 
 class Holder {
-    internal {
-        (int) -> int stored;
+    (int) -> int stored;
 
-        Holder(@Escaping (int) -> int stored) {
-            this.stored = stored;
-        }
+    Holder(@Escaping (int) -> int stored) {
+        this.stored = stored;
     }
 }
 

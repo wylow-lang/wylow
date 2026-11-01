@@ -4,20 +4,16 @@ interface Named {
 }
 
 class Base implements Named {
-    internal {
-        String name() {
-            return "base";
-        }
+    String name() {
+        return "base";
     }
 }
 
 class Generic<T> extends Base {
-    internal {
-        int value = 3;
+    int value = 3;
 
-        T echo(T x) {
-            return x;
-        }
+    T echo(T x) {
+        return x;
     }
 }
 

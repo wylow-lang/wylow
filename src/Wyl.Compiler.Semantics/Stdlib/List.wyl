@@ -3,191 +3,187 @@
 // panics. See docs/spec/03-memory-model.md.
 
 final class List<T> implements Borrowable, Spannable<T> {
-    public {
-        int count() {
-            return size;
-        }
+    public int count() {
+        return size;
+    }
 
-        int capacity() {
-            return space;
-        }
+    public int capacity() {
+        return space;
+    }
 
-        // A copy of the first element, or null when the list is empty.
-        T? first() {
-            return size == 0 ? null : this[0];
-        }
+    // A copy of the first element, or null when the list is empty.
+    public T? first() {
+        return size == 0 ? null : this[0];
+    }
 
-        // A copy of the last element, or null when the list is empty.
-        T? last() {
-            return size == 0 ? null : this[size - 1];
-        }
+    // A copy of the last element, or null when the list is empty.
+    public T? last() {
+        return size == 0 ? null : this[size - 1];
+    }
 
-        @CallerLocation
-        ref T operator [](int index) {
-            Bounds.check(index, size);
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        // Like the indexer, but null instead of a panic when `index` is out of bounds.
-        ref? T get(int index) {
-            if (index < 0 || index >= size) {
-                return null;
-            }
-            unsafe {
-                return ref data[index];
-            }
-        }
-
-        @CallerLocation
-        void add(T value) {
-            checkNotBorrowed();
-            if (size == space) {
-                grow(size + 1);
-            }
-            unsafe {
-                Memory.initialize(data + size, value);
-            }
-            size++;
-        }
-
-        @CallerLocation
-        void insert(int index, T value) {
-            checkNotBorrowed();
-            Bounds.check(index, size + 1);
-            if (size == space) {
-                grow(size + 1);
-            }
-            unsafe {
-                Memory.moveTo(data + index, data + index + 1, size - index);
-                Memory.initialize(data + index, value);
-            }
-            size++;
-        }
-
-        @CallerLocation
-        T removeAt(int index) {
-            checkNotBorrowed();
-            Bounds.check(index, size);
-            unsafe {
-                // A copy keeps the element alive, so no destructor runs while the list is rearranged.
-                T removed = data[index];
-                Memory.drop(data + index);
-                Memory.moveTo(data + index + 1, data + index, size - index - 1);
-                size--;
-                return removed;
-            }
-        }
-
-        // Like `removeAt`, but null instead of a panic when `index` is out of bounds.
-        @CallerLocation
-        T? tryRemoveAt(int index) {
-            if (index < 0 || index >= size) {
-                return null;
-            }
-            return removeAt(index);
-        }
-
-        // Removes and returns the last element, or null when the list is empty: a stack's pop.
-        @CallerLocation
-        T? removeLast() {
-            if (size == 0) {
-                return null;
-            }
-            return removeAt(size - 1);
-        }
-
-        @CallerLocation
-        void clear() {
-            checkNotBorrowed();
-            int old = size;
-            size = 0;
-            // Dropping an element may run a destructor, which must not change the list meanwhile.
-            borrows++;
-            unsafe {
-                for (int i : 0..old) {
-                    Memory.drop(data + i);
-                }
-            }
-            borrows--;
-        }
-
-        // Makes room for at least `minimum` elements, so adding up to that many never moves them.
-        @CallerLocation
-        void reserve(int minimum) {
-            checkNotBorrowed();
-            if (minimum > space) {
-                grow(minimum);
-            }
-        }
-
-        // Shrinks the capacity to exactly the count, always, unlike C++'s shrink_to_fit. An empty
-        // list frees its storage entirely.
-        @CallerLocation
-        void trim() {
-            checkNotBorrowed();
-            if (size < space) {
-                reallocate(size);
-            }
-        }
-
-        void beginBorrow() {
-            borrows++;
-        }
-
-        void endBorrow() {
-            borrows--;
-        }
-
-        Span<T> asSpan() {
-            unsafe {
-                return Span<T>(data, size);
-            }
-        }
-
-        ReadOnlySpan<T> asReadOnlySpan() {
-            unsafe {
-                return ReadOnlySpan<T>(data, size);
-            }
+    @CallerLocation
+    public ref T operator [](int index) {
+        Bounds.check(index, size);
+        unsafe {
+            return ref data[index];
         }
     }
 
-    private {
-        mut T* data;
-        mut int size;
-        mut int space;
-        mut int borrows;
+    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    public ref? T get(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        unsafe {
+            return ref data[index];
+        }
+    }
 
-        @CallerLocation
-        void checkNotBorrowed() {
-            if (borrows > 0) {
-                panic("cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop");
+    @CallerLocation
+    public void add(T value) {
+        checkNotBorrowed();
+        if (size == space) {
+            grow(size + 1);
+        }
+        unsafe {
+            Memory.initialize(data + size, value);
+        }
+        size++;
+    }
+
+    @CallerLocation
+    public void insert(int index, T value) {
+        checkNotBorrowed();
+        Bounds.check(index, size + 1);
+        if (size == space) {
+            grow(size + 1);
+        }
+        unsafe {
+            Memory.moveTo(data + index, data + index + 1, size - index);
+            Memory.initialize(data + index, value);
+        }
+        size++;
+    }
+
+    @CallerLocation
+    public T removeAt(int index) {
+        checkNotBorrowed();
+        Bounds.check(index, size);
+        unsafe {
+            // A copy keeps the element alive, so no destructor runs while the list is rearranged.
+            T removed = data[index];
+            Memory.drop(data + index);
+            Memory.moveTo(data + index + 1, data + index, size - index - 1);
+            size--;
+            return removed;
+        }
+    }
+
+    // Like `removeAt`, but null instead of a panic when `index` is out of bounds.
+    @CallerLocation
+    public T? tryRemoveAt(int index) {
+        if (index < 0 || index >= size) {
+            return null;
+        }
+        return removeAt(index);
+    }
+
+    // Removes and returns the last element, or null when the list is empty: a stack's pop.
+    @CallerLocation
+    public T? removeLast() {
+        if (size == 0) {
+            return null;
+        }
+        return removeAt(size - 1);
+    }
+
+    @CallerLocation
+    public void clear() {
+        checkNotBorrowed();
+        int old = size;
+        size = 0;
+        // Dropping an element may run a destructor, which must not change the list meanwhile.
+        borrows++;
+        unsafe {
+            for (int i : 0..old) {
+                Memory.drop(data + i);
             }
         }
+        borrows--;
+    }
 
-        @CallerLocation
-        void grow(int minimum) {
-            mut int grown = space < 4 ? 4 : space * 2;
-            if (grown < minimum) {
-                grown = minimum;
-            }
-            reallocate(grown);
+    // Makes room for at least `minimum` elements, so adding up to that many never moves them.
+    @CallerLocation
+    public void reserve(int minimum) {
+        checkNotBorrowed();
+        if (minimum > space) {
+            grow(minimum);
         }
+    }
 
-        @CallerLocation
-        void reallocate(int length) {
-            unsafe {
-                mut T* moved = null;
-                if (length > 0) {
-                    moved = Memory.allocate<T>(length);
-                    Memory.moveTo(data, moved, size);
-                }
-                Memory.free(data);
-                data = moved;
-            }
-            space = length;
+    // Shrinks the capacity to exactly the count, always, unlike C++'s shrink_to_fit. An empty
+    // list frees its storage entirely.
+    @CallerLocation
+    public void trim() {
+        checkNotBorrowed();
+        if (size < space) {
+            reallocate(size);
         }
+    }
+
+    public void beginBorrow() {
+        borrows++;
+    }
+
+    public void endBorrow() {
+        borrows--;
+    }
+
+    public Span<T> asSpan() {
+        unsafe {
+            return Span<T>(data, size);
+        }
+    }
+
+    public ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(data, size);
+        }
+    }
+
+    private mut T* data;
+    private mut int size;
+    private mut int space;
+    private mut int borrows;
+
+    @CallerLocation
+    private void checkNotBorrowed() {
+        if (borrows > 0) {
+            panic("cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop");
+        }
+    }
+
+    @CallerLocation
+    private void grow(int minimum) {
+        mut int grown = space < 4 ? 4 : space * 2;
+        if (grown < minimum) {
+            grown = minimum;
+        }
+        reallocate(grown);
+    }
+
+    @CallerLocation
+    private void reallocate(int length) {
+        unsafe {
+            mut T* moved = null;
+            if (length > 0) {
+                moved = Memory.allocate<T>(length);
+                Memory.moveTo(data, moved, size);
+            }
+            Memory.free(data);
+            data = moved;
+        }
+        space = length;
     }
 
     ~List() {

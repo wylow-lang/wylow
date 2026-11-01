@@ -4,18 +4,14 @@
 struct Empty { }
 
 struct Inner {
-    internal {
-        int x;
-        String label;
-    }
+    int x;
+    String label;
 }
 
 struct Wide {
-    internal {
-        String label;
-        int n;
-        Inner inner;
-    }
+    String label;
+    int n;
+    Inner inner;
 }
 
 void main() {

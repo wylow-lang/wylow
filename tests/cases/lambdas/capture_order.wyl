@@ -2,14 +2,12 @@
 // (03-memory-model.md, When references are released).
 
 class Noisy {
-    internal {
-        String name;
-        int id;
+    String name;
+    int id;
 
-        Noisy(String name, int id) {
-            this.name = name;
-            this.id = id;
-        }
+    Noisy(String name, int id) {
+        this.name = name;
+        this.id = id;
     }
 
     ~Noisy() {

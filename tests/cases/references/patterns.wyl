@@ -1,38 +1,34 @@
 struct Pair {
-    internal {
-        int[2] items;
+    int[2] items;
 
-        mut ref? int at(int i) {
-            if (i < 0 || i >= 2) {
-                return null;
-            }
-            return ref items[i];
+    mut ref? int at(int i) {
+        if (i < 0 || i >= 2) {
+            return null;
         }
+        return ref items[i];
+    }
 
-        in? int peek(int i) {
-            if (i < 0 || i >= 2) {
-                return null;
-            }
-            return ref items[i];
+    in? int peek(int i) {
+        if (i < 0 || i >= 2) {
+            return null;
         }
+        return ref items[i];
     }
 }
 
 class Bag {
-    internal {
-        String name;
-        mut int[3] items;
+    String name;
+    mut int[3] items;
 
-        Bag(String name) {
-            this.name = name;
-        }
+    Bag(String name) {
+        this.name = name;
+    }
 
-        ref? int get(int i) {
-            if (i >= 3) {
-                return null;
-            }
-            return ref items[i];
+    ref? int get(int i) {
+        if (i >= 3) {
+            return null;
         }
+        return ref items[i];
     }
 
     ~Bag() {

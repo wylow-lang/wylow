@@ -1,55 +1,49 @@
 struct Mat2 {
-    internal {
-        float[4] m;
+    float[4] m;
 
-        mut ref float operator [](int row, int col) {
-            return ref m[row * 2 + col];
-        }
+    mut ref float operator [](int row, int col) {
+        return ref m[row * 2 + col];
+    }
 
-        in float at(int i) {
-            return ref m[i];
-        }
+    in float at(int i) {
+        return ref m[i];
+    }
 
-        float trace() {
-            return m[0] + m[3];
-        }
+    float trace() {
+        return m[0] + m[3];
     }
 }
 
 struct Holder {
-    internal {
-        Mat2 mat;
+    Mat2 mat;
 
-        mut ref Mat2 inner() {
-            return ref mat;
-        }
+    mut ref Mat2 inner() {
+        return ref mat;
     }
 }
 
 class Bag {
-    internal {
-        mut int[3] items;
-        mut int used;
+    mut int[3] items;
+    mut int used;
 
-        int count() {
-            return used;
-        }
+    int count() {
+        return used;
+    }
 
-        bool isEmpty() {
-            return used == 0;
-        }
+    bool isEmpty() {
+        return used == 0;
+    }
 
-        ref int operator [](int i) {
-            return ref items[i];
-        }
+    ref int operator [](int i) {
+        return ref items[i];
+    }
 
-        int total() {
-            mut int sum = 0;
-            for (int i : 0..count()) {
-                sum += this[i];
-            }
-            return sum;
+    int total() {
+        mut int sum = 0;
+        for (int i : 0..count()) {
+            sum += this[i];
         }
+        return sum;
     }
 }
 

@@ -1,61 +1,43 @@
 struct Vec2 {
-    internal {
-        float x, y;
-    }
+    float x, y;
 }
 
 struct Transform {
-    internal {
-        Vec2 position;
-        float scale = 1;
-    }
+    Vec2 position;
+    float scale = 1;
 }
 
 struct Pair<A, B> {
-    internal {
-        A first;
-        B second;
-    }
+    A first;
+    B second;
 }
 
 class Player {
-    internal {
-        String name;
-        Player(String name) { this.name = name; }
-    }
+    String name;
+    Player(String name) { this.name = name; }
 }
 
 // Without a default value, a memberwise constructor is the only way to build it positionally.
 struct Hit {
-    internal {
-        Player target;
-        int damage = 10;
-    }
+    Player target;
+    int damage = 10;
 }
 
 struct Samples {
-    internal {
-        int[2] values;
-    }
+    int[2] values;
 }
 
 struct Hidden {
-    internal {
-        static Hidden make(int secret) { return Hidden(secret); }
-        mut int reveal() { return secret; }
-    }
+    static Hidden make(int secret) { return Hidden(secret); }
+    mut int reveal() { return secret; }
 
-    private {
-        int secret;
-    }
+    private int secret;
 }
 
 struct Enemy {
-    internal {
-        Vec2 position;
-        int health = 100;
-        Player? target;
-    }
+    Vec2 position;
+    int health = 100;
+    Player? target;
 }
 
 int announce(int value) {
@@ -64,10 +46,8 @@ int announce(int value) {
 }
 
 struct Counted {
-    internal {
-        int id = announce(7);
-        String label;
-    }
+    int id = announce(7);
+    String label;
 }
 
 float next(float value) {

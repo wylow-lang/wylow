@@ -1,45 +1,41 @@
 // `?.` and `!` in functions of their own, without objects on the stack. Tokens print their name
 // when freed.
 struct Vec {
-    internal {
-        int x;
-        int y;
+    int x;
+    int y;
 
-        Vec(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    Vec(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
 
-        mut void move(int dx) {
-            x += dx;
-        }
+    mut void move(int dx) {
+        x += dx;
+    }
 
-        int sum() {
-            return x + y;
-        }
+    int sum() {
+        return x + y;
     }
 }
 
 class Token {
-    internal {
-        String name;
-        mut Token? next;
+    String name;
+    mut Token? next;
 
-        Token(String name) {
-            this.name = name;
-        }
+    Token(String name) {
+        this.name = name;
+    }
 
-        Token named(String name) {
-            return token(name);
-        }
+    Token named(String name) {
+        return token(name);
+    }
 
-        String greet(Token other) {
-            return $"{name} greets {other.name}";
-        }
+    String greet(Token other) {
+        return $"{name} greets {other.name}";
+    }
 
-        void poke() {
-            print($"poke {name}");
-        }
+    void poke() {
+        print($"poke {name}");
     }
 
     ~Token() {

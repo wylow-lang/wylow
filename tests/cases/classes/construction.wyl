@@ -4,49 +4,43 @@ int trace(String s, int value) {
 }
 
 class Base {
-    internal {
-        int a = trace("base field", 1);
+    int a = trace("base field", 1);
 
-        Base(int x) {
-            print("base body");
-            describe();
-        }
+    Base(int x) {
+        print("base body");
+        describe();
+    }
 
-        virtual void describe() {
-            print("as base");
-        }
+    virtual void describe() {
+        print("as base");
     }
 }
 
 class Derived extends Base {
-    internal {
-        int b = trace("derived field", 2);
-        Base other;
+    int b = trace("derived field", 2);
+    Base other;
 
-        Derived() {
-            super(trace("super argument", 0));
-            print("derived body");
-            other = new Base(1);
-            // Every field is assigned, so `this` may be used.
-            describe();
-        }
+    Derived() {
+        super(trace("super argument", 0));
+        print("derived body");
+        other = new Base(1);
+        // Every field is assigned, so `this` may be used.
+        describe();
+    }
 
-        override void describe() {
-            print("as derived");
-        }
+    override void describe() {
+        print("as derived");
     }
 }
 
 class Probe {
-    internal {
-        String name;
-        int value;
+    String name;
+    int value;
 
-        Probe(String name, int value) {
-            this.name = name;
-            this.value = value;
-            print($"make {name}");
-        }
+    Probe(String name, int value) {
+        this.name = name;
+        this.value = value;
+        print($"make {name}");
     }
 
     ~Probe() {
@@ -55,63 +49,51 @@ class Probe {
 }
 
 class Pair {
-    internal {
-        int first = trace("pair field", 0);
+    int first = trace("pair field", 0);
 
-        Pair(int a, int b) {
-            print($"pair body {a} {b}");
-        }
+    Pair(int a, int b) {
+        print($"pair body {a} {b}");
     }
 }
 
 // An argument that needs statements, here an index check, is computed before the base constructor.
 class Picked extends Pair {
-    internal {
-        Picked(int[3] values, int i) {
-            super(values[i], values[i + 1]);
-        }
+    Picked(int[3] values, int i) {
+        super(values[i], values[i + 1]);
     }
 }
 
 class Keeper {
-    internal {
-        Keeper(Probe passed) {
-            print($"keeper body {passed.value}");
-        }
+    Keeper(Probe passed) {
+        print($"keeper body {passed.value}");
     }
 }
 
 // What is passed is released once the base constructor returns, before the field initializers.
 class Kept extends Keeper {
-    internal {
-        int after = trace("kept field", 0);
+    int after = trace("kept field", 0);
 
-        Kept() {
-            super(new Probe("passed", 3));
-        }
+    Kept() {
+        super(new Probe("passed", 3));
     }
 }
 
 struct Clamped {
-    internal {
-        int value = trace("clamped field", 7);
+    int value = trace("clamped field", 7);
 
-        // A struct constructor's `return` returns the value it is making.
-        Clamped(int v) {
-            if (v < 0) {
-                return;
-            }
-            value = v;
+    // A struct constructor's `return` returns the value it is making.
+    Clamped(int v) {
+        if (v < 0) {
+            return;
         }
+        value = v;
     }
 }
 
 class Defaults {
-    internal {
-        int count;
-        Base? maybe;
-        String name = "defaults";
-    }
+    int count;
+    Base? maybe;
+    String name = "defaults";
 }
 
 void main() {

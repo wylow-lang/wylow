@@ -49,6 +49,9 @@ public static class SyntaxFacts
             or TokenKind.LongKeyword or TokenKind.ULongKeyword or TokenKind.NIntKeyword or TokenKind.NUIntKeyword
             or TokenKind.CharKeyword or TokenKind.FloatKeyword or TokenKind.DoubleKeyword;
 
+    public static bool IsAccessKeyword(TokenKind kind) =>
+        kind is TokenKind.PublicKeyword or TokenKind.ProtectedKeyword or TokenKind.PrivateKeyword;
+
     public static string KindName(TypeKind kind) => kind switch
     {
         TypeKind.Struct => "struct",

@@ -3,20 +3,18 @@
 // call's result.
 
 class Counter {
-    internal {
-        String name;
-        mut int[2] items;
+    String name;
+    mut int[2] items;
 
-        Counter(String name) {
-            this.name = name;
-        }
+    Counter(String name) {
+        this.name = name;
+    }
 
-        ref? int at(int i) {
-            if (i >= 2) {
-                return null;
-            }
-            return ref items[i];
+    ref? int at(int i) {
+        if (i >= 2) {
+            return null;
         }
+        return ref items[i];
     }
 
     ~Counter() {

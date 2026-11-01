@@ -60,9 +60,9 @@ class Player extends Entity {
 **Top-level declarations** (types, functions) take a modifier each: `public`, `private`, or none,
 which is package.
 
-> Not implemented yet: the modifiers; the compiler still takes the access blocks it had before
-> (`public { ... }`, one per level, in a fixed order). Only `private` is checked: every program is
-> a single file, which is a single package.
+> Implemented so far: the modifiers, and checking `private`. `protected` and package access aren't
+> checked yet: every program is a single file, which is a single package, where both allow
+> everything.
 
 ## 6.3 Construction
 

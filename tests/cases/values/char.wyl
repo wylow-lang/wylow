@@ -3,9 +3,7 @@
 // value is a Unicode scalar value (§2.2, §2.4).
 
 struct CharHolder {
-    internal {
-        char c;
-    }
+    char c;
 }
 
 void main() {

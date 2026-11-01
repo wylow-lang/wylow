@@ -8,43 +8,37 @@ interface Damageable extends Named {
 }
 
 class Crate implements Damageable {
-    internal {
-        mut int hp = 30;
+    mut int hp = 30;
 
-        String name() {
-            return "crate";
-        }
+    String name() {
+        return "crate";
+    }
 
-        void damage(int amount) {
-            hp -= amount;
-        }
+    void damage(int amount) {
+        hp -= amount;
+    }
 
-        int health() {
-            return hp;
-        }
+    int health() {
+        return hp;
     }
 }
 
 class Unit {
-    internal {
-        mut int hp = 100;
+    mut int hp = 100;
 
-        void damage(int amount) {
-            hp -= amount * 2;
-        }
+    void damage(int amount) {
+        hp -= amount * 2;
+    }
 
-        int health() {
-            return hp;
-        }
+    int health() {
+        return hp;
     }
 }
 
 // The interface is implemented with methods inherited from Unit.
 class Soldier extends Unit implements Damageable {
-    internal {
-        String name() {
-            return "soldier";
-        }
+    String name() {
+        return "soldier";
     }
 }
 
@@ -57,12 +51,10 @@ void hit(Damageable target) {
 
 // Through a bound: static dispatch, for structs and classes alike.
 struct Counter implements Named {
-    internal {
-        int n;
+    int n;
 
-        String name() {
-            return "counter";
-        }
+    String name() {
+        return "counter";
     }
 }
 

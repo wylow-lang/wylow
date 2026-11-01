@@ -1,7 +1,5 @@
 class Box {
-    internal {
-        mut int x = 1;
-    }
+    mut int x = 1;
 }
 
 int bump(Box b) {
@@ -14,9 +12,7 @@ int sum(int a, int b) {
 }
 
 class Holder {
-    internal {
-        mut Box box = new Box();
-    }
+    mut Box box = new Box();
 }
 
 Box replace(Holder h) {

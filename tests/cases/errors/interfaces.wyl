@@ -10,40 +10,28 @@ class Square implements Shape {         // error: 'Square' does not implement 'S
 }
 
 class Circle implements Shape {
-    private {
-        float area() { return 1; }  // error: implements 'Shape.area()' and cannot be private
-    }
+    private float area() { return 1; }  // error: implements 'Shape.area()' and cannot be private
 }
 
 class Wrong implements Shape {
-    internal {
-        int area() { return 1; }            // error: must have the same parameter and return types as 'Shape.area()'
-    }
+    int area() { return 1; }            // error: must have the same parameter and return types as 'Shape.area()'
 }
 
 struct Point implements Named {
-    internal {
-        String name() { return "p"; }
-    }
+    String name() { return "p"; }
 }
 
 struct Changing implements Named {
-    internal {
-        mut String name() { return "c"; }      // error: 'Changing.name' cannot be 'mut', since 'Named.name()' isn't
-    }
+    mut String name() { return "c"; }      // error: 'Changing.name' cannot be 'mut', since 'Named.name()' isn't
 }
 
 // A class method never changes the reference it is called through.
 class Label implements Named {
-    internal {
-        String name() { return "l"; }
-    }
+    String name() { return "l"; }
 }
 
 class Twice implements Shape, Shape {   // error: 'Shape' is listed more than once
-    internal {
-        float area() { return 1; }
-    }
+    float area() { return 1; }
 }
 
 class NotInterface implements Point { } // error: 'Point' is not an interface

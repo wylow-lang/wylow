@@ -2,14 +2,12 @@
 // everything else is still freed as soon as nothing refers to it.
 
 class Node {
-    internal {
-        int id;
-        mut Node? next;
-        mut ((int) -> int)? onVisit = null;
+    int id;
+    mut Node? next;
+    mut ((int) -> int)? onVisit = null;
 
-        Node(int id) {
-            this.id = id;
-        }
+    Node(int id) {
+        this.id = id;
     }
 
     ~Node() {
@@ -34,4 +32,4 @@ void main() {
     // output: 2
 }
 // output: 3
-// warning: at exit, 2002 objects in cycles were never freed: 2001 Node, 1 lambda at never_collected.wyl:29:23.
+// warning: at exit, 2002 objects in cycles were never freed: 2001 Node, 1 lambda at never_collected.wyl:27:23.

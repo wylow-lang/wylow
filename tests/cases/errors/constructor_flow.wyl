@@ -3,44 +3,40 @@
 class Item { }
 
 class Partial {
-    internal {
-        Item item;
-        Item other;
-        int count;
+    Item item;
+    Item other;
+    int count;
 
-        Partial(bool flag) {
-            print(count);
-            use(this);                      // error: 'this' cannot be used until every field is assigned, and 'item' might not be
-            print(item == null);            // error: field 'item' might not have been assigned
-            item = new Item();
-            if (flag) {
-                other = item;
-                return;
-            }
-        }                                   // error: field 'other' must be assigned before the constructor returns
-
-        Partial(int early) {
-            if (early > 0) {
-                return;                     // error: field 'item' must be assigned
-            }
-            item = new Item();
+    Partial(bool flag) {
+        print(count);
+        use(this);                      // error: 'this' cannot be used until every field is assigned, and 'item' might not be
+        print(item == null);            // error: field 'item' might not have been assigned
+        item = new Item();
+        if (flag) {
             other = item;
-            use(this);
+            return;
         }
+    }                                   // error: field 'other' must be assigned before the constructor returns
+
+    Partial(int early) {
+        if (early > 0) {
+            return;                     // error: field 'item' must be assigned
+        }
+        item = new Item();
+        other = item;
+        use(this);
     }
 }
 
 struct Holder {
-    internal {
-        Item item;
+    Item item;
 
-        Holder(int x) {
-            describe();                     // error: 'this' cannot be used until every field is assigned
-            item = new Item();
-        }
-
-        mut void describe() { }
+    Holder(int x) {
+        describe();                     // error: 'this' cannot be used until every field is assigned
+        item = new Item();
     }
+
+    mut void describe() { }
 }
 
 void use(Partial p) { }

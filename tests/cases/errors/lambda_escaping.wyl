@@ -1,14 +1,12 @@
 // Parameters and locals hold non-escaping functions unless declared '@Escaping'; fields, returns,
 // type arguments, array elements, and nullable variables are escaping.
 class Button {
-    internal {
-        (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
-        @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
-        mut () -> void stored = () -> {};
+    (int) -> void onClick;                          // error: field 'onClick' of type '(int) -> void' has no default value; give it an initializer or assign it in a constructor
+    @Escaping () -> void other = () -> {};          // error: '@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping
+    mut () -> void stored = () -> {};
 
-        void set(() -> void f) {
-            stored = f;                                 // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-        }
+    void set(() -> void f) {
+        stored = f;                                 // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     }
 }
 
@@ -69,22 +67,18 @@ void check(bool flag, () -> void g) {
 }
 
 class Base {
-    internal {
-        virtual void on(@Escaping () -> void f) {
-        }
+    virtual void on(@Escaping () -> void f) {
+    }
 
-        virtual void off(() -> void f) {
-        }
+    virtual void off(() -> void f) {
     }
 }
 
 class Derived extends Base {
-    internal {
-        override void on(() -> void f) {                // error: 'on' must have the same parameter and return types as 'Base.on' to override it; parameter 'f' is '@Escaping' in 'Base.on' but not here
-        }
+    override void on(() -> void f) {                // error: 'on' must have the same parameter and return types as 'Base.on' to override it; parameter 'f' is '@Escaping' in 'Base.on' but not here
+    }
 
-        override void off(@Escaping () -> void f) {     // error: 'off' must have the same parameter and return types as 'Base.off' to override it; parameter 'f' is '@Escaping' here but not in 'Base.off'
-        }
+    override void off(@Escaping () -> void f) {     // error: 'off' must have the same parameter and return types as 'Base.off' to override it; parameter 'f' is '@Escaping' here but not in 'Base.off'
     }
 }
 
@@ -93,19 +87,15 @@ interface Listener {
 }
 
 class Quiet implements Listener {
-    internal {
-        void listen(() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(@Escaping () -> void)' to implement it; parameter 'f' is '@Escaping' in 'Listener.listen(@Escaping () -> void)' but not here
-        }
+    void listen(() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(@Escaping () -> void)' to implement it; parameter 'f' is '@Escaping' in 'Listener.listen(@Escaping () -> void)' but not here
     }
 }
 
 class Events {
-    internal {
-        void on(() -> void f) {
-        }
+    void on(() -> void f) {
+    }
 
-        void on(@Escaping () -> void f) {               // error: method 'on(@Escaping () -> void)' is already defined as 'on(() -> void)'; overloads cannot differ only in which parameters are '@Escaping'
-        }
+    void on(@Escaping () -> void f) {               // error: method 'on(@Escaping () -> void)' is already defined as 'on(() -> void)'; overloads cannot differ only in which parameters are '@Escaping'
     }
 }
 

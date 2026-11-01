@@ -82,7 +82,7 @@ out true
 exit 0
 
 === class/default
-error 50: 'Defaults' has no default value because field 'value' has type 'Cell'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type 'Cell'; pass it by name, as in 'Defaults(value: ...)'
 
 === class/overloads
 out typed
@@ -125,7 +125,7 @@ out true
 exit 0
 
 === enum/default
-error 50: 'Defaults' has no default value because field 'value' has type 'Shape'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type 'Shape'; pass it by name, as in 'Defaults(value: ...)'
 
 === enum/overloads
 out typed
@@ -316,10 +316,10 @@ out 3
 exit 0
 
 === function-escaping/equality
-error 46: operator '==' cannot be applied to '() -> int' and '() -> int'
+error 38: operator '==' cannot be applied to '() -> int' and '() -> int'
 
 === function-escaping/default
-error 50: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
 
 === function-escaping/overloads
 out typed
@@ -330,32 +330,32 @@ out 3
 exit 0
 
 === function-nonescaping/field
-error 48: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-error 58: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 39: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+error 48: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === function-nonescaping/parameter
 out 3
 exit 0
 
 === function-nonescaping/return
-error 45: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === function-nonescaping/type-argument
-error 45: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === function-nonescaping/element
-error 46: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-error 46: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-error 48: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 40: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === function-nonescaping/capture
-error 46: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it '@Escaping'
+error 38: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it '@Escaping'
 
 === function-nonescaping/equality
-error 46: operator '==' cannot be applied to '() -> int' and '() -> int'
+error 38: operator '==' cannot be applied to '() -> int' and '() -> int'
 
 === function-nonescaping/default
-error 50: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
 
 === function-nonescaping/overloads
 out typed

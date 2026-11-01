@@ -65,7 +65,7 @@ public sealed partial class Parser
         Expect(TokenKind.OpenBrace, "'{'");
         var variants = kind == TypeKind.Enum ? ParseVariants() : [];
         var members = new Members();
-        ParseAccessBlocks(kind, name.Text, members);
+        ParseMembers(kind, name.Text, members);
         Expect(TokenKind.CloseBrace, "'}'");
         return new TypeDecl(LocationFrom(start), modifiers, kind, name.Text, Loc(name.Span), typeParameters,
             kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants);
@@ -94,76 +94,39 @@ public sealed partial class Parser
 
     const Modifiers InheritanceModifiers = Modifiers.Virtual | Modifiers.Override | Modifiers.Abstract | Modifiers.Final;
 
-    // The access levels, in the order their blocks are written.
-    static readonly (TokenKind Keyword, Modifiers Access)[] AccessBlocks =
-    [
-        (TokenKind.PublicKeyword, Modifiers.Public),
-        (TokenKind.ProtectedKeyword, Modifiers.Protected),
-        (TokenKind.InternalKeyword, Modifiers.Internal),
-        (TokenKind.PrivateKeyword, Modifiers.Private),
-    ];
-
     /// <summary>
-    /// A type's members, each in the block of its access level, at most one block per level, in the
-    /// order of <see cref="AccessBlocks"/>; then the destructor, which only the runtime calls. An
-    /// interface's members are all public, and have no blocks.
+    /// A type's members, in any order, each with its own access modifier or none, which is the
+    /// package. An interface's members are all public and take no modifier.
     /// </summary>
-    void ParseAccessBlocks(TypeKind kind, string typeName, Members members)
+    void ParseMembers(TypeKind kind, string typeName, Members members)
     {
-        int last = -1;
-        bool reportedLoose = false;
         while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
         {
             int before = position;
-            int level = Array.FindIndex(AccessBlocks, b => b.Keyword == Current.Kind);
-            if (level >= 0 && Peek(1).Kind == TokenKind.OpenBrace)
-            {
-                var keyword = Advance();
-                Advance();
-                if (kind == TypeKind.Interface)
-                    Error(keyword.Span, "an interface's members are all public, so it has no access blocks");
-                else if (members.Destructor is not null)
-                    Error(keyword.Span, "the destructor comes after the access blocks");
-                else if (level == last)
-                    Error(keyword.Span, $"a type has at most one '{keyword.Text}' block");
-                else if (level < last)
-                    Error(keyword.Span, $"the '{keyword.Text}' block must come before the '{AccessName(last)}' block: the blocks go public, protected, internal, then private");
-                else if (AccessBlocks[level].Access == Modifiers.Protected && kind is TypeKind.Struct or TypeKind.Enum)
-                    Error(keyword.Span, $"{(kind == TypeKind.Struct ? "structs" : "enums")} cannot be inherited, so they have no 'protected' block");
-                last = Math.Max(last, level);
-                reportedLoose = false;
-                bool sawMethod = false;
-                while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
-                {
-                    int memberStart = position;
-                    if (IsDestructorStart())
-                        Error(Current.Span, "a destructor is declared after the access blocks, outside them, since only the runtime calls it");
-                    var (methods, fields) = (members.Methods.Count, members.Fields.Count);
-                    ParseMember(kind, typeName, members, AccessBlocks[level].Access);
-                    if (members.Methods.Count > methods)
-                        sawMethod = true;
-                    else if (sawMethod && members.Fields.Count > fields)
-                        Error(members.Fields[fields].NameLocation.Span, "a field must come before the block's constructors and methods: a block declares its data first");
-                    if (position == memberStart)
-                        Advance();
-                }
-                Expect(TokenKind.CloseBrace, "'}'");
-            }
+            if (SyntaxFacts.IsAccessKeyword(Current.Kind) && Peek(1).Kind == TokenKind.OpenBrace)
+                ParseAccessBlock();
             else
-            {
-                if (kind != TypeKind.Interface && !IsDestructorStart() && !IsLateVariant(kind) && !reportedLoose)
-                {
-                    Error(Current.Span, "a member belongs in an access block: 'public { ... }', 'protected { ... }', 'internal { ... }', or 'private { ... }'");
-                    reportedLoose = true;
-                }
-                ParseMember(kind, typeName, members, kind == TypeKind.Interface ? Modifiers.Public : Modifiers.Internal);
-            }
+                ParseMember(kind, typeName, members);
             if (position == before)
                 Advance();
         }
-    }
 
-    static string AccessName(int level) => AccessBlocks[level].Access.ToString().ToLowerInvariant();
+        // A block, as the language once had, is reported once and its members parsed as members.
+        void ParseAccessBlock()
+        {
+            var keyword = Advance();
+            Advance();
+            Error(keyword.Span, $"access is written on each member, as in '{keyword.Text} int x;', not as a '{keyword.Text} {{ ... }}' block");
+            while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
+            {
+                int before = position;
+                ParseMember(kind, typeName, members);
+                if (position == before)
+                    Advance();
+            }
+            Expect(TokenKind.CloseBrace, "'}'");
+        }
+    }
 
     // Reported by the member's declaration, as a variant after the enum's methods.
     bool IsLateVariant(TypeKind kind) =>
@@ -171,11 +134,11 @@ public sealed partial class Parser
 
     bool IsDestructorStart() => At(TokenKind.Tilde) && Peek(1).Kind == TokenKind.Identifier && Peek(2).Kind == TokenKind.OpenParen;
 
-    void ParseMember(TypeKind kind, string typeName, Members members, Modifiers access)
+    void ParseMember(TypeKind kind, string typeName, Members members)
     {
         var annotations = ParseAnnotations();
         var (methods, fields) = (members.Methods.Count, members.Fields.Count);
-        ParseMemberDeclaration(kind, typeName, members, access);
+        ParseMemberDeclaration(kind, typeName, members);
         if (annotations.Count == 0)
             return;
         for (int i = methods; i < members.Methods.Count; i++)
@@ -184,24 +147,24 @@ public sealed partial class Parser
             members.Fields[i] = members.Fields[i] with { Annotations = annotations };
     }
 
-    void ParseMemberDeclaration(TypeKind kind, string typeName, Members members, Modifiers access)
+    void ParseMemberDeclaration(TypeKind kind, string typeName, Members members)
     {
         int start = position;
         var modifiers = ParseModifiers();
-        if (kind != TypeKind.Interface)
-            Disallow(modifiers, AccessModifiers, token => $"'{token.Text}' is given by the access block a member is in, not written on the member");
-        modifiers = modifiers with { Flags = (modifiers.Flags & ~AccessModifiers) | access };
         switch (kind)
         {
             case TypeKind.Struct:
-                Disallow(modifiers, InheritanceModifiers,
+                Disallow(modifiers, InheritanceModifiers | Modifiers.Protected,
                     token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
                 break;
             case TypeKind.Interface:
-                Disallow(modifiers, ~Modifiers.Mut, _ => "interface members cannot have modifiers other than 'mut'");
+                Disallow(modifiers, ~Modifiers.Mut, token => SyntaxFacts.IsAccessKeyword(token.Kind)
+                    ? "an interface's members are all public, so they take no access modifier"
+                    : "interface members cannot have modifiers other than 'mut'");
+                modifiers = modifiers with { Flags = (modifiers.Flags & ~AccessModifiers) | Modifiers.Public };
                 break;
             case TypeKind.Enum:
-                Disallow(modifiers, InheritanceModifiers,
+                Disallow(modifiers, InheritanceModifiers | Modifiers.Protected,
                     token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
                 Disallow(modifiers, Modifiers.Mut, _ => "enum methods cannot be 'mut', since an enum value cannot be modified");
                 break;

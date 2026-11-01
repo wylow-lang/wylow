@@ -1,59 +1,47 @@
 struct Point {
-    internal {
-        int x;
-        int y;
+    int x;
+    int y;
 
-        Point() {                      // error: cannot declare a parameterless constructor
-        }
-
-        Point(int x, int y) {
-            this.x = x;
-            this.y = y;
-            return 5;                  // error: constructors cannot return a value
-        }
-
-        void move() {
-            x = 1;                     // error: cannot assign to 'x' because 'this' is read-only in a method that isn't 'mut'
-            reset();                   // error: cannot call 'mut' method 'reset' on 'this' because 'this' is read-only
-        }
-
-        mut void reset() {
-            x = 0;
-        }
-
-        static int origin() {
-            return x;                  // error: 'x' is an instance field; static methods cannot use
-        }
+    Point() {                      // error: cannot declare a parameterless constructor
     }
 
-    private {
-        int secret;
+    Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+        return 5;                  // error: constructors cannot return a value
     }
+
+    void move() {
+        x = 1;                     // error: cannot assign to 'x' because 'this' is read-only in a method that isn't 'mut'
+        reset();                   // error: cannot call 'mut' method 'reset' on 'this' because 'this' is read-only
+    }
+
+    mut void reset() {
+        x = 0;
+    }
+
+    static int origin() {
+        return x;                  // error: 'x' is an instance field; static methods cannot use
+    }
+
+    private int secret;
 }
 
 struct Named {
-    internal {
-        (() -> int)? name;
-    }
+    (() -> int)? name;
 }
 
 struct Loop {                      // error: struct 'Loop' contains itself (Loop -> Inner -> Loop)
-    internal {
-        Inner inner;
-    }
+    Inner inner;
 }
 
 struct Inner {
-    internal {
-        Loop loop;
-    }
+    Loop loop;
 }
 
 struct Defaults {
-    internal {
-        int a = 1;
-        int b = a;                     // error: field initializers cannot use
-    }
+    int a = 1;
+    int b = a;                     // error: field initializers cannot use
 }
 
 void setX(ref int value) {

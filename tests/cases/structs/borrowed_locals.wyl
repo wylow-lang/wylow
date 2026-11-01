@@ -2,22 +2,18 @@
 // instead: a later write into a part of the place, directly or by a call, doesn't change it.
 
 struct Vec {
-    internal {
-        int x;
-    }
+    int x;
 }
 
 class Holder {
-    internal {
-        mut Vec v;
+    mut Vec v;
 
-        Holder() {
-            v = Vec(1);
-        }
+    Holder() {
+        v = Vec(1);
+    }
 
-        void bumpX() {
-            v.x++;
-        }
+    void bumpX() {
+        v.x++;
     }
 }
 

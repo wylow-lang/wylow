@@ -3,17 +3,15 @@
 // too. What it captures then only has to outlive the closure, so that can be on the stack as well.
 
 class Noisy {
-    internal {
-        String name;
-        mut Noisy? other;
+    String name;
+    mut Noisy? other;
 
-        Noisy(String name) {
-            this.name = name;
-        }
+    Noisy(String name) {
+        this.name = name;
+    }
 
-        String label() {
-            return name;
-        }
+    String label() {
+        return name;
     }
 
     ~Noisy() {
@@ -22,30 +20,26 @@ class Noisy {
 }
 
 class Keeper {
-    internal {
-        mut (() -> void)? stored = null;
-        mut Noisy? kept = null;
-    }
+    mut (() -> void)? stored = null;
+    mut Noisy? kept = null;
 }
 
 class Greeter {
-    internal {
-        String greeting;
+    String greeting;
 
-        Greeter(String greeting) {
-            this.greeting = greeting;
-        }
+    Greeter(String greeting) {
+        this.greeting = greeting;
+    }
 
-        // The closure captures 'this' without letting it escape.
-        void greet() {
-            @Escaping () -> void say = () -> print(greeting); // stack: 1
-            say();
-        }
+    // The closure captures 'this' without letting it escape.
+    void greet() {
+        @Escaping () -> void say = () -> print(greeting); // stack: 1
+        say();
+    }
 
-        // The closure is stored in a field of the object it captures: a cycle.
-        void remember(Keeper keeper) {
-            keeper.stored = () -> print(greeting);
-        }
+    // The closure is stored in a field of the object it captures: a cycle.
+    void remember(Keeper keeper) {
+        keeper.stored = () -> print(greeting);
     }
 }
 

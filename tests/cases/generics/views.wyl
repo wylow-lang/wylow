@@ -5,12 +5,10 @@ interface Viewable {
 }
 
 struct Bag implements Viewable {
-    internal {
-        int[2] cells;
+    int[2] cells;
 
-        ReadOnlySpan<int> view() {
-            return cells;
-        }
+    ReadOnlySpan<int> view() {
+        return cells;
     }
 }
 

@@ -1,17 +1,15 @@
 struct Raw {
-    internal {
-        int* data;
+    int* data;
 
-        @CallerLocation                     // error: '@CallerLocation' can only be used on functions, methods, and constructors
-        int count;
+    @CallerLocation                     // error: '@CallerLocation' can only be used on functions, methods, and constructors
+    int count;
 
-        unsafe Raw(int* data) {
-            this.data = data;
-        }
+    unsafe Raw(int* data) {
+        this.data = data;
+    }
 
-        mut int first() {
-            return data[0];                 // error: indexing a pointer is only allowed in 'unsafe' code
-        }
+    mut int first() {
+        return data[0];                 // error: indexing a pointer is only allowed in 'unsafe' code
     }
 }
 
@@ -22,10 +20,8 @@ void fast() {
 extern void native();                   // error: extern functions are only supported in the standard library
 
 class Base {
-    internal {
-        @CallerLocation
-        virtual void check() {              // error: '@CallerLocation' cannot be used on virtual, abstract, or interface methods yet
-        }
+    @CallerLocation
+    virtual void check() {              // error: '@CallerLocation' cannot be used on virtual, abstract, or interface methods yet
     }
 }
 

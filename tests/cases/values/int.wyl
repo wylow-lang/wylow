@@ -2,9 +2,7 @@
 // Arithmetic keeps the operands' type, division truncates toward zero, and casts wrap (§2.3, §2.4).
 
 struct Holder {
-    internal {
-        int value;
-    }
+    int value;
 }
 
 void main() {

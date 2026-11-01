@@ -16,34 +16,28 @@ enum Command {
 }
 
 struct Order {
-    internal {
-        Result<int, String> amount;
+    Result<int, String> amount;
 
-        Order(Result<int, String> amount) {
-            this.amount = amount;
-        }
+    Order(Result<int, String> amount) {
+        this.amount = amount;
     }
 }
 
 class Job {
-    internal {
-        mut Result<int, String> outcome;
+    mut Result<int, String> outcome;
 
-        Job(Result<int, String> outcome) {
-            this.outcome = outcome;
-        }
+    Job(Result<int, String> outcome) {
+        this.outcome = outcome;
+    }
 
-        void retry(Result<int, String> next) {
-            outcome = next;
-        }
+    void retry(Result<int, String> next) {
+        outcome = next;
     }
 }
 
 class FailedJob extends Job {
-    internal {
-        FailedJob() {
-            super(Err("never ran"));
-        }
+    FailedJob() {
+        super(Err("never ran"));
     }
 }
 

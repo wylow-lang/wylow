@@ -1,12 +1,10 @@
 struct Pair {
-    internal {
-        int[2] values;
+    int[2] values;
 
-        @CallerLocation
-        mut int get(int index) {
-            Bounds.check(index, 2);
-            return values[index];
-        }
+    @CallerLocation
+    mut int get(int index) {
+        Bounds.check(index, 2);
+        return values[index];
     }
 }
 

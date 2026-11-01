@@ -2,18 +2,16 @@
 // one that passes itself a new lambda on some cycle would instantiate without end, so it isn't.
 
 class Node {
-    internal {
-        int value;
-        List<Node> children = new List<Node>();
+    int value;
+    List<Node> children = new List<Node>();
 
-        Node(int value) {
-            this.value = value;
-        }
+    Node(int value) {
+        this.value = value;
+    }
 
-        Node add(Node child) {
-            children.add(child);
-            return this;
-        }
+    Node add(Node child) {
+        children.add(child);
+        return this;
     }
 }
 

@@ -24,15 +24,11 @@ int plain() {
 }
 
 struct Holder {
-    internal {
-        Result<int, IoError> result;
-    }
+    Result<int, IoError> result;
 }
 
 class Box {
-    internal {
-        Result<int, IoError> result;        // error: field 'result' of type 'Result<int, IoError>' has no default value
-    }
+    Result<int, IoError> result;        // error: field 'result' of type 'Result<int, IoError>' has no default value
 }
 
 Result<int, IoError> uses() {

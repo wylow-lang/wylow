@@ -1,10 +1,8 @@
 class Player {
-    internal {
-        int health;
+    int health;
 
-        bool isDead { get -> health <= 0; }     // error: Wylow has no properties; declare a field, or a method 'isDead()'
-        int score { get { return 1; } set { } } // error: Wylow has no properties; declare a field, or a method 'score()'
-    }
+    bool isDead { get -> health <= 0; }     // error: Wylow has no properties; declare a field, or a method 'isDead()'
+    int score { get { return 1; } set { } } // error: Wylow has no properties; declare a field, or a method 'score()'
 }
 
 void main() {

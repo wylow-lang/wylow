@@ -1,14 +1,10 @@
 // A definition comes after every type it holds by value, including a fixed array's element.
 struct Holder {
-    internal {
-        Enemy[2] enemies;
-    }
+    Enemy[2] enemies;
 }
 
 struct Enemy {
-    internal {
-        int id = 5;
-    }
+    int id = 5;
 }
 
 void main() {

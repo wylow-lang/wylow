@@ -3,22 +3,18 @@ struct Pair<T, T> { }                   // error: duplicate type parameter 'T'
 void twoNames(int a, int a) { }         // error: duplicate parameter 'a'
 
 struct Pair2 {
-    internal {
-        int x;
-        int x;                          // error: field 'x' is already defined
-        int y;
-        void y() { }                    // error: 'y' is already defined as a field
-        Pair2(int x) { this.x = x; y = 0; }
-        Pair2(int z) { x = z; y = 0; }  // error: constructor 'Pair2(int)' is already defined
-    }
+    int x;
+    int x;                          // error: field 'x' is already defined
+    int y;
+    void y() { }                    // error: 'y' is already defined as a field
+    Pair2(int x) { this.x = x; y = 0; }
+    Pair2(int z) { x = z; y = 0; }  // error: constructor 'Pair2(int)' is already defined
 }
 
 enum Shape {
     Circle, Square;
 
-    internal {
-        void Circle() { }               // error: 'Circle' is already defined as a variant
-    }
+    void Circle() { }               // error: 'Circle' is already defined as a variant
 }
 
 void Shape() { }                        // error: 'Shape' is already defined as an enum

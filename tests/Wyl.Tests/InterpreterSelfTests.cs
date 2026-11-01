@@ -142,17 +142,13 @@ static class InterpreterSelfTests
 
         Case(results, "structs", """
             struct Vec3 {
-                internal {
-                    float x;
-                    float y;
-                    float z;
-                }
+                float x;
+                float y;
+                float z;
             }
 
             struct Tagged {
-                internal {
-                    int id = 4;
-                }
+                int id = 4;
             }
 
             void main() {
@@ -225,14 +221,12 @@ static class InterpreterSelfTests
 
         Case(results, "bounds_check", """
             struct Pair {
-                internal {
-                    int[2] values;
+                int[2] values;
 
-                    @CallerLocation
-                    mut int get(int index) {
-                        Bounds.check(index, 2);
-                        return values[index];
-                    }
+                @CallerLocation
+                mut int get(int index) {
+                    Bounds.check(index, 2);
+                    return values[index];
                 }
             }
 
@@ -241,7 +235,7 @@ static class InterpreterSelfTests
                 print(p.get(1));
                 print(p.get(2));
             }
-            """, panic: "index 2 is out of bounds for length 2", panicAtLine: 16, output: ["0"]);
+            """, panic: "index 2 is out of bounds for length 2", panicAtLine: 14, output: ["0"]);
 
         Case(results, "interpolation_specifiers", """
             void main() {
@@ -294,11 +288,9 @@ static class InterpreterSelfTests
 
         Case(results, "references", """
             struct Cell {
-                internal {
-                    int value;
+                int value;
 
-                    mut ref int at() { return ref value; }
-                }
+                mut ref int at() { return ref value; }
             }
 
             void bump(ref int x) { x += 1; }
@@ -355,25 +347,21 @@ static class InterpreterSelfTests
 
         Case(results, "objects", """
             class Counter {
-                internal {
-                    mut int count = 10;
+                mut int count = 10;
 
-                    Counter(int step) {
-                        this.step = step;
-                    }
-
-                    void tick() {
-                        count += step;
-                    }
-
-                    int get() {
-                        return count;
-                    }
+                Counter(int step) {
+                    this.step = step;
                 }
 
-                private {
-                    int step;
+                void tick() {
+                    count += step;
                 }
+
+                int get() {
+                    return count;
+                }
+
+                private int step;
             }
 
             void main() {
@@ -394,40 +382,34 @@ static class InterpreterSelfTests
             }
 
             abstract class Shape implements Named {
-                internal {
-                    int sides = 4;
+                int sides = 4;
 
-                    int perimeter() {
-                        return sides * side();
-                    }
-
-                    abstract int side();
+                int perimeter() {
+                    return sides * side();
                 }
+
+                abstract int side();
             }
 
             class Square extends Shape {
-                internal {
-                    int size = 3;
+                int size = 3;
 
-                    override int side() {
-                        return size;
-                    }
+                override int side() {
+                    return size;
+                }
 
-                    String name() {
-                        return "square";
-                    }
+                String name() {
+                    return "square";
                 }
             }
 
             class Unit extends Shape {
-                internal {
-                    override int side() {
-                        return 1;
-                    }
+                override int side() {
+                    return 1;
+                }
 
-                    String name() {
-                        return "unit";
-                    }
+                String name() {
+                    return "unit";
                 }
             }
 
@@ -452,12 +434,10 @@ static class InterpreterSelfTests
 
         Case(results, "destruction_order", """
             class Part {
-                internal {
-                    String name;
+                String name;
 
-                    Part(String name) {
-                        this.name = name;
-                    }
+                Part(String name) {
+                    this.name = name;
                 }
 
                 ~Part() {
@@ -466,13 +446,11 @@ static class InterpreterSelfTests
             }
 
             class Whole {
-                internal {
-                    Part first = new Part("first");
-                    Part second = new Part("second");
+                Part first = new Part("first");
+                Part second = new Part("second");
 
-                    Whole() {
-                        print("whole body");
-                    }
+                Whole() {
+                    print("whole body");
                 }
 
                 ~Whole() {
@@ -489,14 +467,12 @@ static class InterpreterSelfTests
 
         Case(results, "assignment_sees_new_value", """
             class Item {
-                internal {
-                    String name;
-                    mut Holder? holder;
+                String name;
+                mut Holder? holder;
 
-                    Item(String name, Holder? holder) {
-                        this.name = name;
-                        this.holder = holder;
-                    }
+                Item(String name, Holder? holder) {
+                    this.name = name;
+                    this.holder = holder;
                 }
 
                 ~Item() {
@@ -507,9 +483,7 @@ static class InterpreterSelfTests
             }
 
             class Holder {
-                internal {
-                    mut Item? item;
-                }
+                mut Item? item;
             }
 
             void main() {
@@ -526,17 +500,15 @@ static class InterpreterSelfTests
             }
 
             class Base {
-                internal {
-                    int field = mark("base field", 1);
+                int field = mark("base field", 1);
 
-                    Base() {
-                        print("base body");
-                        whoami();
-                    }
+                Base() {
+                    print("base body");
+                    whoami();
+                }
 
-                    virtual void whoami() {
-                        print("as base");
-                    }
+                virtual void whoami() {
+                    print("as base");
                 }
 
                 ~Base() {
@@ -546,17 +518,15 @@ static class InterpreterSelfTests
             }
 
             class Derived extends Base {
-                internal {
-                    int other = mark("derived field", 2);
+                int other = mark("derived field", 2);
 
-                    Derived() {
-                        print("derived body");
-                        whoami();
-                    }
+                Derived() {
+                    print("derived body");
+                    whoami();
+                }
 
-                    override void whoami() {
-                        print("as derived");
-                    }
+                override void whoami() {
+                    print("as derived");
                 }
 
                 ~Derived() {
@@ -574,42 +544,34 @@ static class InterpreterSelfTests
 
         Case(results, "abstract_in_constructor", """
             abstract class Shape {
-                internal {
-                    Shape() {
-                        print(area());
-                    }
-
-                    abstract int area();
+                Shape() {
+                    print(area());
                 }
+
+                abstract int area();
             }
 
             class Square extends Shape {
-                internal {
-                    override int area() {
-                        return 4;
-                    }
+                override int area() {
+                    return 4;
                 }
             }
 
             void main() {
                 var s = new Square();
             }
-            """, panic: "abstract method 'Shape.area' called during construction or destruction", panicAtLine: 7);
+            """, panic: "abstract method 'Shape.area' called during construction or destruction", panicAtLine: 6);
 
         Case(results, "destructor_kept_reference", """
             class Keeper {
-                internal {
-                    mut Ghost? kept;
-                }
+                mut Ghost? kept;
             }
 
             class Ghost {
-                internal {
-                    Keeper keeper;
+                Keeper keeper;
 
-                    Ghost(Keeper keeper) {
-                        this.keeper = keeper;
-                    }
+                Ghost(Keeper keeper) {
+                    this.keeper = keeper;
                 }
 
                 ~Ghost() {
@@ -626,20 +588,18 @@ static class InterpreterSelfTests
 
         Case(results, "borrow_hooks", """
             class Box implements Borrowable {
-                internal {
-                    mut int[2] items;
+                mut int[2] items;
 
-                    void beginBorrow() {
-                        print("begin");
-                    }
+                void beginBorrow() {
+                    print("begin");
+                }
 
-                    void endBorrow() {
-                        print("end");
-                    }
+                void endBorrow() {
+                    print("end");
+                }
 
-                    ref int operator [](int index) {
-                        return ref items[index];
-                    }
+                ref int operator [](int index) {
+                    return ref items[index];
                 }
             }
 
@@ -664,22 +624,18 @@ static class InterpreterSelfTests
 
         Case(results, "references_into_objects", """
             struct Pair {
-                internal {
-                    int[2] items;
+                int[2] items;
 
-                    mut ref int at(int i) {
-                        return ref items[i];
-                    }
+                mut ref int at(int i) {
+                    return ref items[i];
                 }
             }
 
             class Bag {
-                internal {
-                    mut int value;
+                mut int value;
 
-                    ref int slot() {
-                        return ref value;
-                    }
+                ref int slot() {
+                    return ref value;
                 }
             }
 
@@ -703,21 +659,17 @@ static class InterpreterSelfTests
 
         Case(results, "struct_field_of_object", """
             struct Vec3 {
-                internal {
-                    float x;
-                    float y;
-                    float z;
-                }
+                float x;
+                float y;
+                float z;
             }
 
             class Particle {
-                internal {
-                    Vec3 position;
-                    mut Vec3 velocity;
+                Vec3 position;
+                mut Vec3 velocity;
 
-                    Particle(Vec3 position) {
-                        this.position = position;
-                    }
+                Particle(Vec3 position) {
+                    this.position = position;
                 }
             }
 
@@ -759,22 +711,20 @@ static class InterpreterSelfTests
 
         Case(results, "closures", """
             class Counter {
-                internal {
-                    mut int count;
+                mut int count;
 
-                    Counter(int count) {
-                        this.count = count;
-                    }
+                Counter(int count) {
+                    this.count = count;
+                }
 
-                    () -> int reader() {
-                        return () -> count;
-                    }
+                () -> int reader() {
+                    return () -> count;
+                }
 
-                    () -> void adder(int by) {
-                        return () -> {
-                            count += by;
-                        };
-                    }
+                () -> void adder(int by) {
+                    return () -> {
+                        count += by;
+                    };
                 }
 
                 ~Counter() {
@@ -804,22 +754,20 @@ static class InterpreterSelfTests
 
         Case(results, "generic_type_maps", """
             struct Pair<A, B> {
-                internal {
-                    A first;
-                    B second;
+                A first;
+                B second;
 
-                    Pair(A first, B second) {
-                        this.first = first;
-                        this.second = second;
-                    }
+                Pair(A first, B second) {
+                    this.first = first;
+                    this.second = second;
+                }
 
-                    Pair<B, A> swapped() {
-                        return Pair<B, A>(second, first);
-                    }
+                Pair<B, A> swapped() {
+                    return Pair<B, A>(second, first);
+                }
 
-                    String text<C extends Printable>(C extra) {
-                        return extra.toString();
-                    }
+                String text<C extends Printable>(C extra) {
+                    return extra.toString();
                 }
             }
 
@@ -843,26 +791,24 @@ static class InterpreterSelfTests
 
         Case(results, "function_fields", """
             class Button {
-                internal {
-                    mut (int) -> int scale = x -> x;
-                    mut ((int) -> int)? transform = null;
-                    String name;
+                mut (int) -> int scale = x -> x;
+                mut ((int) -> int)? transform = null;
+                String name;
 
-                    Button(String name) {
-                        this.name = name;
-                    }
+                Button(String name) {
+                    this.name = name;
+                }
 
-                    void set(@Escaping (int) -> int f) {
-                        scale = f;
-                    }
+                void set(@Escaping (int) -> int f) {
+                    scale = f;
+                }
 
-                    int apply(int value) {
-                        var f = transform;
-                        if (f != null) {
-                            return scale(f(value));
-                        }
-                        return scale(value);
+                int apply(int value) {
+                    var f = transform;
+                    if (f != null) {
+                        return scale(f(value));
                     }
+                    return scale(value);
                 }
             }
 
@@ -901,24 +847,22 @@ static class InterpreterSelfTests
 
         Case(results, "function_references", """
             class Mob {
-                internal {
-                    int depth;
+                int depth;
 
-                    Mob(int depth) {
-                        this.depth = depth;
-                    }
+                Mob(int depth) {
+                    this.depth = depth;
+                }
 
-                    static int byDepth(Mob a, Mob b) {
-                        return a.depth - b.depth;
-                    }
+                static int byDepth(Mob a, Mob b) {
+                    return a.depth - b.depth;
+                }
 
-                    static int scaled(int x) {
-                        return x * 5;
-                    }
+                static int scaled(int x) {
+                    return x * 5;
+                }
 
-                    int scaledTwice() {
-                        return apply(scaled, apply(scaled, depth));
-                    }
+                int scaledTwice() {
+                    return apply(scaled, apply(scaled, depth));
                 }
             }
 
@@ -952,10 +896,8 @@ static class InterpreterSelfTests
             }
 
             class Twice implements Runner {
-                internal {
-                    int run(() -> int task) {
-                        return task() + task();
-                    }
+                int run(() -> int task) {
+                    return task() + task();
                 }
             }
 
@@ -1031,16 +973,14 @@ static class InterpreterSelfTests
 
         Case(results, "generic_closures", """
             struct Cell<T extends Printable> {
-                internal {
-                    T value;
+                T value;
 
-                    Cell(T value) {
-                        this.value = value;
-                    }
+                Cell(T value) {
+                    this.value = value;
+                }
 
-                    String show() {
-                        return value.toString();
-                    }
+                String show() {
+                    return value.toString();
                 }
             }
 
@@ -1049,16 +989,14 @@ static class InterpreterSelfTests
             }
 
             class Box<T extends Printable> {
-                internal {
-                    T value;
+                T value;
 
-                    Box(T value) {
-                        this.value = value;
-                    }
+                Box(T value) {
+                    this.value = value;
+                }
 
-                    () -> T reader() {
-                        return () -> value;
-                    }
+                () -> T reader() {
+                    return () -> value;
                 }
             }
 
@@ -1108,12 +1046,10 @@ static class InterpreterSelfTests
             }
 
             struct Numbers {
-                internal {
-                    int[3] items;
+                int[3] items;
 
-                    ReadOnlySpan<int> view() {
-                        return items;
-                    }
+                ReadOnlySpan<int> view() {
+                    return items;
                 }
             }
 
@@ -1159,12 +1095,10 @@ static class InterpreterSelfTests
 
         Case(results, "containers", """
             class Item {
-                internal {
-                    int id;
+                int id;
 
-                    Item(int id) {
-                        this.id = id;
-                    }
+                Item(int id) {
+                    this.id = id;
                 }
 
                 ~Item() {
@@ -1231,12 +1165,10 @@ static class InterpreterSelfTests
 
         Case(results, "weak_reference", """
             class Target {
-                internal {
-                    int id;
+                int id;
 
-                    Target(int id) {
-                        this.id = id;
-                    }
+                Target(int id) {
+                    this.id = id;
                 }
 
                 ~Target() {
@@ -1257,9 +1189,7 @@ static class InterpreterSelfTests
 
         Case(results, "weak_while_dying", """
             class Watcher {
-                internal {
-                    mut Weak<Watcher> self;
-                }
+                mut Weak<Watcher> self;
 
                 ~Watcher() {
                     self = this;
@@ -1274,20 +1204,16 @@ static class InterpreterSelfTests
 
         Case(results, "weak_in_struct", """
             class Target {
-                internal {
-                    int id;
+                int id;
 
-                    Target(int id) {
-                        this.id = id;
-                    }
+                Target(int id) {
+                    this.id = id;
                 }
             }
 
             struct Holder {
-                internal {
-                    Weak<Target> target;
-                    int priority = 1;
-                }
+                Weak<Target> target;
+                int priority = 1;
             }
 
             void main() {
@@ -1304,13 +1230,11 @@ static class InterpreterSelfTests
 
         Case(results, "cycle_collected", """
             class Node {
-                internal {
-                    int id;
-                    mut Node? next;
+                int id;
+                mut Node? next;
 
-                    Node(int id) {
-                        this.id = id;
-                    }
+                Node(int id) {
+                    this.id = id;
                 }
 
                 ~Node() {
@@ -1330,9 +1254,7 @@ static class InterpreterSelfTests
 
         Case(results, "cycle_budget", """
             class Node {
-                internal {
-                    mut Node? next;
-                }
+                mut Node? next;
             }
 
             void main() {
@@ -1352,9 +1274,7 @@ static class InterpreterSelfTests
 
         Case(results, "weak_after_collection", """
             class Node {
-                internal {
-                    mut Node? next;
-                }
+                mut Node? next;
             }
 
             void main() {
@@ -1385,19 +1305,15 @@ static class InterpreterSelfTests
 
         Case(results, "cycle_resurrection", """
             class Keeper {
-                internal {
-                    mut Node? kept;
-                }
+                mut Node? kept;
             }
 
             class Node {
-                internal {
-                    mut Node? next;
-                    Keeper keeper;
+                mut Node? next;
+                Keeper keeper;
 
-                    Node(Keeper keeper) {
-                        this.keeper = keeper;
-                    }
+                Node(Keeper keeper) {
+                    this.keeper = keeper;
                 }
 
                 ~Node() {
@@ -1417,9 +1333,7 @@ static class InterpreterSelfTests
 
         Case(results, "uncollected_warning", """
             class Node {
-                internal {
-                    mut Node? next;
-                }
+                mut Node? next;
             }
 
             void main() {
@@ -1430,9 +1344,7 @@ static class InterpreterSelfTests
 
         Case(results, "stack_slot", """
             class Node {
-                internal {
-                    mut Node? next;
-                }
+                mut Node? next;
 
                 ~Node() {
                     print("destroyed");

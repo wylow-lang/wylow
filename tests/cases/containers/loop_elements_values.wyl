@@ -4,17 +4,13 @@
 // count.
 
 struct Vec {
-    internal {
-        int x;
-    }
+    int x;
 }
 
 class Tally {
-    internal {
-        mut int sum;
+    mut int sum;
 
-        Tally() { }
-    }
+    Tally() { }
 }
 
 void bump(ref int n) {

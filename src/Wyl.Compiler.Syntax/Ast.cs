@@ -11,7 +11,6 @@ public enum Modifiers
     Private = 2,
     Protected = 4,
     Static = 8,
-    Internal = 16,
     Virtual = 32,
     Override = 64,
     Abstract = 128,

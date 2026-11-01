@@ -3,18 +3,16 @@
 // nothing else is wrong with the program (see nullable_values.wyl for the rest).
 
 struct Vec {
-    internal {
-        int x;
-        int[2] pair;
+    int x;
+    int[2] pair;
 
-        mut void move(int dx) {
-            x += dx;
-        }
+    mut void move(int dx) {
+        x += dx;
+    }
 
-        mut void moveWith(ref Vec? other) {
-            other = null;
-            x += 1;
-        }
+    mut void moveWith(ref Vec? other) {
+        other = null;
+        x += 1;
     }
 }
 

@@ -1,17 +1,15 @@
 // A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
 
 class Enemy {
-    internal {
-        int id;
-        mut () -> void onHit = () -> print(0);
+    int id;
+    mut () -> void onHit = () -> print(0);
 
-        Enemy(int id) {
-            this.id = id;
-        }
+    Enemy(int id) {
+        this.id = id;
+    }
 
-        void arm() {
-            onHit = () -> react(this);
-        }
+    void arm() {
+        onHit = () -> react(this);
     }
 
     ~Enemy() {
@@ -24,9 +22,7 @@ void react(Enemy enemy) {
 }
 
 class Bus {
-    internal {
-        List<() -> void> handlers = new List<() -> void>();
-    }
+    List<() -> void> handlers = new List<() -> void>();
 
     ~Bus() {
         print(-1);
@@ -34,17 +30,15 @@ class Bus {
 }
 
 class Listener {
-    internal {
-        int id;
-        Bus bus;
+    int id;
+    Bus bus;
 
-        Listener(int id, Bus bus) {
-            this.id = id;
-            this.bus = bus;
-            // Through a captured local rather than `this`: bus -> closure -> listener -> bus.
-            var self = this;
-            bus.handlers.add(() -> print(self.id));
-        }
+    Listener(int id, Bus bus) {
+        this.id = id;
+        this.bus = bus;
+        // Through a captured local rather than `this`: bus -> closure -> listener -> bus.
+        var self = this;
+        bus.handlers.add(() -> print(self.id));
     }
 
     ~Listener() {
@@ -53,9 +47,7 @@ class Listener {
 }
 
 class Box {
-    internal {
-        mut ((int) -> int)? f = null;
-    }
+    mut ((int) -> int)? f = null;
 
     ~Box() {
         print(-2);

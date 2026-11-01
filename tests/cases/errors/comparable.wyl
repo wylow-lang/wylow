@@ -1,7 +1,5 @@
 struct Plain {
-    internal {
-        int x;
-    }
+    int x;
 }
 
 T maxOf<T extends Comparable<T>>(T a, T b) {

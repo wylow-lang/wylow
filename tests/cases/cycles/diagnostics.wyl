@@ -2,21 +2,15 @@
 // objects of one class, and at exit about cycles never freed.
 
 class Node {
-    internal {
-        mut Node? next;
-    }
+    mut Node? next;
 }
 
 class Spark {
-    internal {
-        mut Spark? next;
-    }
+    mut Spark? next;
 }
 
 class Item {
-    internal {
-        List<Item> others = new List<Item>();
-    }
+    List<Item> others = new List<Item>();
 }
 
 void pair() {

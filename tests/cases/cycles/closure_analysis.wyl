@@ -3,43 +3,35 @@
 // below makes one release that leaves the count above zero.
 
 class Leaf {
-    internal {
-        int value;
-    }
+    int value;
 }
 
 // Every `() -> int` lambda captures only values or a Leaf.
 class Button {
-    internal {
-        () -> int onClick;
-        List<() -> int> extra = new List<() -> int>();
+    () -> int onClick;
+    List<() -> int> extra = new List<() -> int>();
 
-        Button(@Escaping () -> int onClick) {
-            this.onClick = onClick;
-        }
+    Button(@Escaping () -> int onClick) {
+        this.onClick = onClick;
     }
 }
 
 // A `() -> bool` lambda captures a Widget, so Widgets and those closures are cyclic.
 class Widget {
-    internal {
-        bool ready;
-        mut (() -> bool)? check = null;
+    bool ready;
+    mut (() -> bool)? check = null;
 
-        void arm() {
-            check = () -> ready;
-        }
+    void arm() {
+        check = () -> ready;
     }
 }
 
 // A lambda in generic code may capture anything, and be of any `(int) -> T` type.
 class Cell {
-    internal {
-        (int) -> long get;
+    (int) -> long get;
 
-        Cell(@Escaping (int) -> long get) {
-            this.get = get;
-        }
+    Cell(@Escaping (int) -> long get) {
+        this.get = get;
     }
 }
 

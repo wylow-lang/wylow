@@ -6,10 +6,8 @@ int? maybe() {
 }
 
 struct Box {
-    internal {
-        int width = 4;
-        int height = maybe() is int width ? width : 2;
-    }
+    int width = 4;
+    int height = maybe() is int width ? width : 2;
 }
 
 void main() {

@@ -2,15 +2,13 @@
 // next argument, and the arguments are evaluated left to right on every compiler.
 
 class Probe {
-    internal {
-        String name;
-        int value;
+    String name;
+    int value;
 
-        Probe(String name, int value) {
-            this.name = name;
-            this.value = value;
-            print($"make {name}");
-        }
+    Probe(String name, int value) {
+        this.name = name;
+        this.value = value;
+        print($"make {name}");
     }
 
     ~Probe() {
@@ -24,49 +22,41 @@ int trace(String s, int value) {
 }
 
 class Pair {
-    internal {
-        int first = trace("pair field", 0);
+    int first = trace("pair field", 0);
 
-        Pair(int a, int b) {
-            print($"pair body {a} {b}");
-        }
+    Pair(int a, int b) {
+        print($"pair body {a} {b}");
     }
 }
 
 // Each argument of super(...) is a statement of its own: its temporaries are released before the
 // next argument and before the base constructor runs.
 class Probed extends Pair {
-    internal {
-        Probed() {
-            super(new Probe("first", 1).value, new Probe("second", 2).value);
-            print("probed body");
-        }
+    Probed() {
+        super(new Probe("first", 1).value, new Probe("second", 2).value);
+        print("probed body");
+    }
 
-        Probed(int n) {
-            super(trace("left", n), new Probe("right", n).value);
-        }
+    Probed(int n) {
+        super(trace("left", n), new Probe("right", n).value);
     }
 }
 
 class Keeper {
-    internal {
-        int after = trace("keeper field", 0);
+    int after = trace("keeper field", 0);
 
-        Keeper(Probe a, Probe b) {
-            print($"keeper body {a.value} {b.value}");
-        }
+    Keeper(Probe a, Probe b) {
+        print($"keeper body {a.value} {b.value}");
     }
 }
 
 // What is passed is released once the base constructor returns, the last first, before the
 // field initializers.
 class Kept extends Keeper {
-    internal {
-        int own = trace("kept field", 0);
+    int own = trace("kept field", 0);
 
-        Kept(int n) {
-            super(new Probe("a", n), new Probe("b", n + 1));
-        }
+    Kept(int n) {
+        super(new Probe("a", n), new Probe("b", n + 1));
     }
 }
 

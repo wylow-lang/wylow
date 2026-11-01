@@ -1,9 +1,7 @@
 // The `bool` kind: its operators, its two values, and its default.
 
 struct Flag {
-    internal {
-        bool value;
-    }
+    bool value;
 }
 
 void main() {

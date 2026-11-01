@@ -2,12 +2,10 @@ class Enemy {
 }
 
 struct Counter implements Borrowable {     // error: only classes can be 'Borrowable'
-    internal {
-        mut void beginBorrow() {
-        }
+    mut void beginBorrow() {
+    }
 
-        mut void endBorrow() {
-        }
+    mut void endBorrow() {
     }
 }
 

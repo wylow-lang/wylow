@@ -1,18 +1,14 @@
 // A class calls a method it inherits, without naming the base it comes from.
 
 class Base {
-    internal {
-        int value() {
-            return 7;
-        }
+    int value() {
+        return 7;
     }
 }
 
 class Derived extends Base {
-    internal {
-        int twice() {
-            return value() * 2;
-        }
+    int twice() {
+        return value() * 2;
     }
 }
 

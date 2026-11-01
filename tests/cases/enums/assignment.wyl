@@ -1,11 +1,9 @@
 // Copy assignment copies the value; the source stays usable.
 class Item {
-    internal {
-        int id;
+    int id;
 
-        Item(int id) {
-            this.id = id;
-        }
+    Item(int id) {
+        this.id = id;
     }
 
     ~Item() {

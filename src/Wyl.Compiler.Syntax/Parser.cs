@@ -91,8 +91,7 @@ public sealed partial class Parser
                     TypeKind.Struct => Modifiers.Public | Modifiers.Private | Modifiers.Ref | Modifiers.Extern,
                     _ => Modifiers.Public | Modifiers.Private | Modifiers.Ref,
                 };
-                DisallowInternal(modifiers);
-                Disallow(modifiers, ~(allowed | Modifiers.Internal), token => $"'{token.Text}' is not valid on {SyntaxFacts.KindNameWithArticle(kind)}");
+                Disallow(modifiers, ~allowed, token => $"'{token.Text}' is not valid on {SyntaxFacts.KindNameWithArticle(kind)}");
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
                     Error(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span, "a class cannot be both 'abstract' and 'final'");
                 declarations.Add(ParseTypeDecl(start, modifiers.Flags, kind) with { Annotations = annotations });
@@ -100,8 +99,7 @@ public sealed partial class Parser
             }
             if (SyntaxFacts.IsTypeStart(Current.Kind))
             {
-                DisallowInternal(modifiers);
-                Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private | Modifiers.Internal | Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
+                Disallow(modifiers, ~(Modifiers.Public | Modifiers.Private | Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
                 if (name.Text != "" && (At(TokenKind.Assign) || At(TokenKind.Semicolon)))
@@ -208,7 +206,7 @@ public sealed partial class Parser
 
     sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens);
 
-    const Modifiers AccessModifiers = Modifiers.Public | Modifiers.Protected | Modifiers.Internal | Modifiers.Private;
+    const Modifiers AccessModifiers = Modifiers.Public | Modifiers.Protected | Modifiers.Private;
 
     ModifierList ParseModifiers()
     {
@@ -221,7 +219,6 @@ public sealed partial class Parser
                 TokenKind.PublicKeyword => Modifiers.Public,
                 TokenKind.PrivateKeyword => Modifiers.Private,
                 TokenKind.ProtectedKeyword => Modifiers.Protected,
-                TokenKind.InternalKeyword => Modifiers.Internal,
                 TokenKind.StaticKeyword => Modifiers.Static,
                 TokenKind.MutKeyword => Modifiers.Mut,
                 TokenKind.VirtualKeyword => Modifiers.Virtual,
@@ -244,10 +241,6 @@ public sealed partial class Parser
             tokens.Add((flag, token));
         }
     }
-
-    // A top-level declaration without 'public' or 'private' is already internal.
-    void DisallowInternal(ModifierList modifiers) =>
-        Disallow(modifiers, Modifiers.Internal, _ => "a top-level declaration is internal unless declared 'public' or 'private', so it takes no 'internal'");
 
     void Disallow(ModifierList modifiers, Modifiers disallowed, Func<Token, string> message)
     {

@@ -9,7 +9,7 @@ out 0
 out 0
 out 0
 err panic: division by zero
-err     at arithmetic.wyl:25:9
+err     at arithmetic.wyl:23:9
 exit 3
 
 === zero/comparison
@@ -121,7 +121,7 @@ exit 0
 
 === minus-one/indexing
 err panic: index -1 is out of bounds for length 3
-err     at indexing.wyl:20:7
+err     at indexing.wyl:18:7
 exit 3
 
 === minus-one/conversion
@@ -152,7 +152,7 @@ out 1073741823
 out 1
 out 1073741823
 err panic: integer overflow
-err     at arithmetic.wyl:23:13
+err     at arithmetic.wyl:21:13
 exit 3
 
 === max/comparison
@@ -168,7 +168,7 @@ exit 0
 
 === max/indexing
 err panic: index 2147483647 is out of bounds for length 3
-err     at indexing.wyl:20:7
+err     at indexing.wyl:18:7
 exit 3
 
 === max/conversion
@@ -199,7 +199,7 @@ out -1073741824
 out -2
 out -1073741824
 err panic: integer overflow
-err     at arithmetic.wyl:23:7
+err     at arithmetic.wyl:21:7
 exit 3
 
 === min/comparison
@@ -215,7 +215,7 @@ exit 0
 
 === min/indexing
 err panic: index -2147483648 is out of bounds for length 3
-err     at indexing.wyl:20:7
+err     at indexing.wyl:18:7
 exit 3
 
 === min/conversion
@@ -250,7 +250,7 @@ out 4294967296
 out 1073741824
 out -2147483648
 err panic: integer overflow
-err     at arithmetic.wyl:27:21
+err     at arithmetic.wyl:25:21
 exit 3
 
 === long-past-int/comparison
@@ -351,7 +351,7 @@ exit 0
 === empty-array/indexing
 out 0
 err panic: index 0 is out of bounds for length 0
-err     at indexing.wyl:20:7
+err     at indexing.wyl:18:7
 exit 3
 
 === empty-array/iteration
@@ -372,7 +372,7 @@ exit 0
 out 4
 out 4
 err panic: index 1 is out of bounds for length 1
-err     at indexing.wyl:22:7
+err     at indexing.wyl:20:7
 exit 3
 
 === one-list/iteration
