@@ -81,10 +81,17 @@ public sealed record BoundBreak(Location Location) : BoundStatement(Location);
 
 public sealed record BoundContinue(Location Location) : BoundStatement(Location);
 
-/// <summary>A case of a switch; <see cref="Patterns"/> is empty for <c>default</c>. Each pattern is tried in turn.</summary>
-public sealed record BoundSwitchCase<T>(Location Location, IReadOnlyList<BoundPattern> Patterns, T Body);
+/// <summary>
+/// A case of a switch. Each pattern is tried in turn, and then <c>default</c> if the case includes
+/// it, which matches every value but null.
+/// </summary>
+public sealed record BoundSwitchCase<T>(Location Location, IReadOnlyList<BoundPattern> Patterns, bool IsDefault, T Body);
 
-/// <summary>A switch statement. Its cases cover every value, which the binder has checked.</summary>
+/// <summary>
+/// A switch statement. Its cases cover every value, which the binder has checked. Its value is
+/// nullable only if a case has a <c>null</c> pattern, and then every other pattern of its cases
+/// matches the value's non-null type.
+/// </summary>
 public sealed record BoundSwitch(Location Location, BoundExpression Value, IReadOnlyList<BoundSwitchCase<BoundStatement>> Cases)
     : BoundStatement(Location);
 
@@ -375,6 +382,9 @@ public sealed record BoundStructPattern(Location Location, WylType Type, IReadOn
 {
     public IReadOnlyList<FieldSymbol> Symbols => Type.NonNull.Symbol!.Fields;
 }
+
+/// <summary><c>null</c>, which matches a nullable value that is null.</summary>
+public sealed record BoundNullPattern(Location Location, WylType Type) : BoundPattern(Location, Type);
 
 /// <summary>Compares with a literal of the matched type.</summary>
 public sealed record BoundConstantPattern(Location Location, BoundLiteral Value) : BoundPattern(Location, Value.Type);

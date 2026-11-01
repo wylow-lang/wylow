@@ -436,7 +436,7 @@ static class MatrixValues
             ["switch"] = """
                 print(switch (value) {
                     case Cell cell -> "cell";
-                    default -> "null";
+                    case null -> "null";
                 });
                 """,
         });

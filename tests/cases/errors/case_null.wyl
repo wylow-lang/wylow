@@ -1,0 +1,73 @@
+// What 'case null' can't do, and what a switch over a nullable value must still cover.
+import std::print;
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+enum State { Idle, Chasing(int speed), Moved(Vec3? to) }
+
+struct Ship {
+    State? state;
+}
+
+int? number() {
+    return null;
+}
+
+void use(int n, State s, Ship ship, ref? int r, State? maybe) {
+    switch (n) {
+        case null -> print(1);                  // error: a 'int' is never null, so 'null' can never match it
+        default -> print(2);
+    }
+    switch (ship.state) {                       // error: cannot switch on a nullable 'State?' without a 'case null'
+        case Idle -> print(1);
+        default -> print(2);
+    }
+    switch (r) {                                // error: 'r' might refer to nothing
+        case null -> print(1);
+        default -> print(2);
+    }
+    print(maybe is null);                       // error: 'null' is a pattern only in a 'case'
+    switch (n) {
+        case 1, default -> print(1);            // error: only 'null' can be listed with 'default'
+    }
+    switch (number()) {
+        case null, var v -> print(1);           // error: a case with several patterns cannot bind names
+        default -> print(2);
+    }
+    switch (number()) {
+        case null -> print(1);
+        case null -> print(2);                  // error: this case can never be reached
+        default -> print(3);
+    }
+    switch (number()) {
+        case null -> print(1);
+        case var v -> print(v);
+        default -> print(3);                    // error: 'default' can never be reached
+    }
+
+    // What no case handles may be null, or a value.
+    switch (number()) {                         // error: the switch does not handle every 'int?'; add a 'default' case
+        case null -> print(1);
+        case 1 -> print(2);
+    }
+    switch (maybe) {                            // error: the switch does not handle every 'State?': 'Chasing(_)' is not covered
+        case null, Idle -> print(1);
+        case Moved(_) -> print(2);
+    }
+    switch (s) {                                // error: the switch does not handle every 'State': 'Moved(null)' is not covered
+        case Idle, Chasing -> print(1);
+        case Moved(Vec3(var x, _, _)) -> print(x);
+    }
+    switch (s) {
+        case Idle, Chasing -> print(1);
+        case Moved(Vec3(var x, _, _)) -> print(x);
+        case Moved(null) -> print(2);
+        case Moved(_) -> print(3);              // error: this case can never be reached
+    }
+}
+
+void main() { }

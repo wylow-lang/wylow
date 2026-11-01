@@ -11,11 +11,14 @@ public sealed partial class Binder
     /// <summary>
     /// <paramref name="expected"/> is the type the value will be converted to, if known. It only lets
     /// enum variants be written without their enum or type arguments; the caller still converts,
-    /// so a nullable value expects the value inside it.
+    /// so a nullable value expects the value inside it. A switch expression's type is the expected
+    /// type itself, so that a case may produce null; each case's value expects the value inside it.
     /// </summary>
     BoundExpression BindExpression(Expr expression, WylType? expected = null)
     {
-        if (expression is ConditionalExpr or SwitchExpr)
+        if (expression is SwitchExpr)
+            return BindExpressionExpecting(expression, ChoiceTarget(expected));
+        if (expression is ConditionalExpr)
             expected = ChoiceTarget(expected);
         return BindExpressionExpecting(expression, expected is { IsNullableValue: true } or { IsNullableReference: true } ? expected.Narrowed : expected);
     }

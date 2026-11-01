@@ -68,7 +68,7 @@ void main() {
     print(maybe() + 1);                 // error: operator '+' cannot be applied to 'int?' and 'int'; check it for null first
     print(-maybe());                    // error: operator '-' cannot be applied to 'int?'; check it for null first
     if (x is long n) { }                // error: a 'int?' can never be a 'long'
-    switch (heading()) {                // error: cannot switch on a nullable 'Direction?'
+    switch (heading()) {                // error: cannot switch on a nullable 'Direction?' without a 'case null'
         case North -> print(0);
         case East -> print(1);
     }

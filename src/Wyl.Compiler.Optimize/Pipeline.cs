@@ -49,13 +49,13 @@ public static class Pipeline
     }
 
     /// <summary>
-    /// The program as the emitter gets it. A narrowed check runs nothing: it is what the source
-    /// relies on, which every verification has proved, so it is erased once none is left to run.
+    /// The program as the emitter gets it. A narrowed or may-be-null check runs nothing: it is what
+    /// the source relies on, which every verification has checked, so it is erased once none is left to run.
     /// </summary>
     static Optimized Emitted(IrProgram ir, IReadOnlyList<Location> inPlace, IReadOnlyList<Location> onStack)
     {
         foreach (var block in ir.Functions.SelectMany(f => IrWalk.Descendants(f.Body, intoLambdas: false)).OfType<IrBlock>().ToList())
-            block.Statements.RemoveAll(s => s is IrCheck { Kind: IrCheckKind.Narrowed });
+            block.Statements.RemoveAll(s => s is IrCheck { NeverRuns: true });
         ir.Changed();
         var callees = new Callees(ir);
         return new Optimized(inPlace, onStack, callees, LambdaWrites.Find(callees));

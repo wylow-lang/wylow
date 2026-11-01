@@ -124,7 +124,7 @@ public sealed partial class CppEmitter
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
                 break;
-            case IrCheck { Kind: IrCheckKind.Narrowed }:
+            case IrCheck { NeverRuns: true }:
                 break;
             case IrCheck check:
                 Line(CheckText(check) + ";");

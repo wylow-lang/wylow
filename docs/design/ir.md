@@ -70,7 +70,9 @@ Some notes on the choices:
 - **Narrowing is a check that never runs.** Where the source uses a nullable local as not null, as
   narrowing allows, `check.narrowed x` (with no location) precedes the use: the flow analysis proves
   `x` isn't null there, reporting the user's error if it may be, and the pipeline erases it once the
-  last verification has.
+  last verification has. `check.may_be_null x` is its opposite, before a `case null`'s test of a
+  source local: the flow analysis reports the case as one that can never match if `x` is known
+  not to be null.
 - **Checks are separate from places.** `arr[i]` lowers to `check.index i, 4 @loc` followed by the
   unchecked place `arr[i]`, as MIR does with `Assert`. Evaluating a place then never panics and
   runs no code, which makes places safe to use anywhere. The emitter fuses the check back into

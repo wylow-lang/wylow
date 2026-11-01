@@ -74,6 +74,8 @@ static partial class IrSelfTests
             runs: false, panics: true, "a not-null check");
         Fact(IrEffects.Of(new IrCheck(IrCheckKind.Narrowed, [IrRead.Copy(new IrPlace(objectArgument))], null) { Origin = null }),
             runs: false, panics: false, "a narrowed check");
+        Fact(IrEffects.Of(new IrCheck(IrCheckKind.MayBeNull, [IrRead.Copy(new IrPlace(objectArgument))], null) { Origin = null }),
+            runs: false, panics: false, "a may-be-null check");
         Expect(IrEffects.Of(new IrUnreachable(b.Loc) { Origin = null }).MayPanic, "reaching unreachable may panic");
         Expect(IrEffects.Of(new IrEnd(hold) { Origin = null }).RunsCode, "ending a hold runs its end");
         Expect(IrEffects.Of(new IrDo(b.Call("f")) { Origin = null }).RunsCode, "doing a call runs it");

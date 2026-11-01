@@ -1,0 +1,152 @@
+// A switch with a 'case null' takes a nullable value as it is. 'null' matches only null, 'default'
+// every value but null, and the other patterns the non-null value, wherever 'case null' is written.
+
+import std::print;
+
+class Enemy {
+    int hp;
+
+    Enemy(int hp) {
+        this.hp = hp;
+    }
+}
+
+class Boss extends Enemy {
+    Boss() {
+        super(9);
+    }
+}
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+enum State { Idle, Chasing(Enemy target), Moved(Vec3? to) }
+
+struct Ship {
+    Vec3? pos;
+    State? state;
+}
+
+Enemy? find(int i) {
+    if (i == 0) {
+        return null;
+    }
+    return i == 1 ? new Enemy(3) : new Boss();
+}
+
+int? number(int i) {
+    return i == 0 ? null : i;
+}
+
+Vec3? spot(int i) {
+    return i == 0 ? null : Vec3(i, i * 10, i * 100);
+}
+
+String describe<T>(T? value) {
+    return switch (value) {
+        case null -> "nothing";
+        default -> "something";
+    };
+}
+
+void main() {
+    for (int i : 0..3) {
+        // On an object, after the cases that test it.
+        switch (find(i)) {
+            case Boss b -> print($"boss {b.hp}");
+            case null -> print("no enemy");
+            case var e -> print($"enemy {e.hp}");
+        }
+        // On a value, first, with a constant and 'default'.
+        switch (number(i)) {
+            case null -> print("no number");
+            case 1 -> print("one");
+            default -> print("more");
+        }
+        // 'case null, default' covers both.
+        switch (number(i)) {
+            case 2 -> print("two");
+            case null, default -> print("not two");
+        }
+        // A struct pattern matches the non-null struct.
+        switch (spot(i)) {
+            case Vec3(1, var y, _) -> print($"y {y}");
+            case Vec3(_, _, var z) -> print($"z {z}");
+            case null -> print("nowhere");
+        }
+    }
+    // output: no enemy
+    // output: no number
+    // output: not two
+    // output: nowhere
+    // output: enemy 3
+    // output: one
+    // output: not two
+    // output: y 10
+    // output: boss 9
+    // output: more
+    // output: two
+    // output: z 200
+
+    // 'var v' binds the non-null value.
+    int? n = number(4);
+    switch (n) {
+        case null -> print("none");
+        case var v -> print(v + 1);                     // output: 5
+    }
+
+    // A case's test narrows the local, as in an 'if'.
+    Enemy? target = find(1);
+    switch (target) {
+        case Enemy e -> print(target.hp);               // output: 3
+        case null -> print("none");
+    }
+
+    // A field may be switched on with 'case null', which narrowing couldn't do.
+    Ship ship = Ship(pos: Vec3(1, 2, 3), state: null);
+    switch (ship.pos) {
+        case null -> print("docked");
+        case Vec3(var x, _, _) -> print($"at {x}");     // output: at 1
+    }
+    switch (ship.state) {
+        case Idle, null -> print("idle or none");       // output: idle or none
+        case Chasing(var t) -> print(t.hp);
+        case Moved(_) -> print("moved");
+    }
+
+    // 'null' nested in a pattern matches a nullable field.
+    State[3] states = [State.Moved(null), State.Moved(Vec3(7, 8, 9)), State.Chasing(new Enemy(1))];
+    for (State s : states) {
+        switch (s) {
+            case Moved(null) -> print("moved nowhere");
+            case Moved(Vec3(var x, _, _)) -> print($"moved to {x}");
+            default -> print("other");
+        }
+    }
+    // output: moved nowhere
+    // output: moved to 7
+    // output: other
+    print(states[0] is Moved(null));                    // output: true
+    print(states[1] is Moved(null));                    // output: false
+
+    // A switch expression with a case that produces null has a nullable type, with or without an
+    // expected one.
+    var doubled = switch (number(0)) {
+        case null -> null;
+        case var v -> v * 2;
+    };
+    print(doubled ?? -1);                               // output: -1
+    String? named = switch (number(1)) {
+        case null -> null;
+        case 1 -> "one";
+        default -> "many";
+    };
+    print(named ?? "unnamed");                          // output: one
+
+    // A generic value's null.
+    print(describe<int>(null));                         // output: nothing
+    print(describe<Enemy>(new Enemy(2)));               // output: something
+}

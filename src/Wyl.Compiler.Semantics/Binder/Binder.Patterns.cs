@@ -19,6 +19,8 @@ public sealed partial class Binder
 
         if (e.Pattern is ReferencePatternSyntax reference)
             return BindReferencePattern(e, operand, reference);
+        if (IsNullPattern(e.Pattern))
+            return ErrorExpression(e.Pattern.Location, "'null' is a pattern only in a 'case'; compare with '== null'");
         // Other patterns match the value a reference refers to, once it is known to refer to one.
         operand = NarrowReference(operand);
         if (operand.Type.IsNullableReference)
@@ -146,13 +148,14 @@ public sealed partial class Binder
 
     BoundPattern BindConstantPattern(ConstantPatternSyntax c, WylType type)
     {
+        if (c.Value is NullLiteralExpr)
+            return type.IsNullable ? new BoundNullPattern(c.Location, type) : ErrorPattern(c, type, $"a '{type}' is never null, so 'null' can never match it");
         var value = c.Value switch
         {
             IntLiteralExpr literal => BindIntegerLiteral(literal, c.Location, negated: false),
             UnaryExpr { Operand: IntLiteralExpr literal } => BindIntegerLiteral(literal, c.Location, negated: true),
             BoolLiteralExpr literal => new BoundLiteral(c.Location, WylType.Bool, literal.Value),
             CharLiteralExpr literal => new BoundLiteral(c.Location, WylType.Char, literal.Value),
-            NullLiteralExpr => ErrorExpression(c.Location, "'null' cannot be a pattern; compare with '== null', or use 'default'"),
             _ => ErrorExpression(c.Location, "only integer, character, and 'bool' literals can be patterns"),
         };
         if (value is not BoundLiteral literalValue)
@@ -264,30 +267,47 @@ public sealed partial class Binder
         return new BoundStructPattern(location, type, fields);
     }
 
-    /// <summary>Sets <paramref name="broken"/> if a pattern has an error, which would make coverage errors misleading.</summary>
+    static bool IsNullPattern(PatternSyntax pattern) => pattern is ConstantPatternSyntax { Value: NullLiteralExpr };
+
+    /// <summary>
+    /// A case's patterns: over a nullable value, <c>null</c> matches the value and the others its
+    /// non-null type. Sets <paramref name="broken"/> if a pattern has an error, which would make
+    /// coverage errors misleading.
+    /// </summary>
     List<BoundPattern> BindCasePatterns(SwitchCase c, WylType type, ref bool broken)
     {
         int errors = diagnostics.Count;
-        List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, type, canBind: c.Patterns.Count == 1))];
+        List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, IsNullPattern(p) ? type : type.NonNull, canBind: c.Patterns.Count == 1))];
+        if (c.Default is { } listed && !c.Patterns.All(IsNullPattern))
+            Error(listed, "only 'null' can be listed with 'default', as in 'case null, default'");
         broken |= diagnostics.Count > errors;
         return patterns;
     }
 
-    BoundExpression BindSwitchValue(Expr syntax)
+    /// <summary>
+    /// The value a switch matches. With a <c>case null</c> it is taken as it is, nullable or not;
+    /// without one, patterns match values, not null, so a nullable local is narrowed, as for a member access.
+    /// </summary>
+    BoundExpression BindSwitchValue(Expr syntax, IReadOnlyList<SwitchCase> cases)
     {
         var value = BindExpression(syntax);
         if (value.Type == WylType.Void)
             return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
         if (value.Type == WylType.Null)
             return ErrorExpression(syntax.Location, "cannot switch on 'null', which has no type; give it a type first");
-        // Patterns match values, not null: a nullable local is narrowed, as for a member access.
-        if (value.Type.IsNullableValue || value.Type.IsNullableReference)
+        if (cases.Any(c => c.Patterns.Any(IsNullPattern)))
+        {
+            if (value.Type.IsNullableReference)
+                return ErrorExpression(syntax.Location, MayReferToNothingMessage(value));
+            return CheckMatchable(value);
+        }
+        if (value.Type.MayBeNull)
         {
             value = AssumeNonNull(value);
-            if (value.Type.IsNullableValue)
-                return ErrorExpression(syntax.Location, $"cannot switch on a nullable '{value.Type}'; check it for null first, or use '!' or '??'");
             if (value.Type.IsNullableReference)
                 return ErrorExpression(syntax.Location, $"cannot switch on '{value.Type}'; check it for null first, or use '!'");
+            if (value.Type.IsNullable)
+                return ErrorExpression(syntax.Location, $"cannot switch on a nullable '{value.Type}' without a 'case null'; check it for null first, or use '!' or '??'");
         }
         return CheckMatchable(value);
     }
@@ -298,14 +318,14 @@ public sealed partial class Binder
 
     BoundStatement BindSwitch(SwitchStmt s)
     {
-        var value = BindSwitchValue(s.Value);
+        var value = BindSwitchValue(s.Value, s.Cases);
         var cases = new List<BoundSwitchCase<BoundStatement>>();
         bool broken = value.Type == WylType.Error;
         foreach (var c in s.Cases)
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, BindStatement(c.Body!)));
+            cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, c.IsDefault, BindStatement(c.Body!)));
             scope = scope.Parent;
         }
         CheckCases(s.Location, value.Type, s.Cases, [.. cases.Select(c => c.Patterns)], broken);
@@ -320,14 +340,14 @@ public sealed partial class Binder
     /// </summary>
     BoundExpression BindSwitchExpression(SwitchExpr e, WylType? expected, bool mayWait = false)
     {
-        var value = BindSwitchValue(e.Value);
-        var options = new List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value, Scope Scope)>();
+        var value = BindSwitchValue(e.Value, e.Cases);
+        var options = new List<(SwitchCase Syntax, List<BoundPattern> Patterns, BoundExpression Value, Scope Scope)>();
         bool broken = value.Type == WylType.Error;
         foreach (var c in e.Cases)
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            options.Add((c.Location, patterns, BindOption(c.Value!, expected), scope));
+            options.Add((c, patterns, BindOption(c.Value!, expected), scope));
             scope = scope.Parent!;
         }
         CheckCases(e.Location, value.Type, e.Cases, [.. options.Select(o => o.Patterns)], broken);
@@ -338,7 +358,7 @@ public sealed partial class Binder
             var bound = options.Select(o =>
             {
                 scope = o.Scope;
-                return (o.Location, o.Patterns, Value: FinishOption(o.Value, type));
+                return new BoundSwitchCase<BoundExpression>(o.Syntax.Location, o.Patterns, o.Syntax.IsDefault, FinishOption(o.Value, type));
             }).ToList();
             scope = enclosing;
             return MakeSwitchExpression(e.Location, value, bound, expected ?? type);
@@ -348,11 +368,11 @@ public sealed partial class Binder
     BoundExpression MakeSwitchExpression(
         Location location,
         BoundExpression value,
-        List<(Location Location, List<BoundPattern> Patterns, BoundExpression Value)> bound,
+        List<BoundSwitchCase<BoundExpression>> bound,
         WylType? expected)
     {
         // A case that cannot complete, such as `default -> panic(...)`, needs no value.
-        var producing = bound.Select(b => b.Value).Where(v => !IsNoReturn(v)).ToList();
+        var producing = bound.Select(b => b.Body).Where(v => !IsNoReturn(v)).ToList();
         foreach (var caseValue in producing.Where(v => v.Type == WylType.Void))
             Error(caseValue.Location, "a switch expression's case must produce a value");
         if (value.Type == WylType.Error || producing.Any(v => v.Type == WylType.Error || v.Type == WylType.Void))
@@ -373,7 +393,7 @@ public sealed partial class Binder
         // A nullable non-escaping choice would refer to a function made only for the choice.
         if (type.IsNullableNonEscapingFunction)
             type = EscapingForm(type);
-        var cases = bound.Select(b => new BoundSwitchCase<BoundExpression>(b.Location, b.Patterns, IsNoReturn(b.Value) ? b.Value : Convert(b.Value, type))).ToList();
+        var cases = bound.Select(b => IsNoReturn(b.Body) ? b : b with { Body = Convert(b.Body, type) }).ToList();
         if (type.IsNonEscapingFunction)
             cases.ForEach(CheckCaseCaptures);
         return new BoundSwitchExpression(location, value, cases, type);
@@ -427,17 +447,13 @@ public sealed partial class Binder
         var space = new MatchSpace(type);
         for (int i = 0; i < syntax.Count; i++)
         {
-            if (syntax[i].IsDefault)
-            {
-                if (!space.Add(null))
-                    Error(syntax[i].Location, "'default' can never be reached: the cases above match every value");
-                continue;
-            }
             foreach (var pattern in patterns[i])
             {
                 if (!space.Add(pattern))
                     Error(pattern.Location, "this case can never be reached: the cases above match every value it matches");
             }
+            if (syntax[i].Default is { } written && !space.Add(null))
+                Error(written, "'default' can never be reached: the cases above match every value");
         }
         if (space.Missing() is { } missing)
         {

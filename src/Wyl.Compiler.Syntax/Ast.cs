@@ -226,12 +226,15 @@ public sealed record DiscardStmt(Location Location, Expr Value) : Stmt(Location)
 public sealed record SwitchStmt(Location Location, Expr Value, IReadOnlyList<SwitchCase> Cases) : Stmt(Location);
 
 /// <summary>
-/// A <c>case</c> or, with no <see cref="Patterns"/>, a <c>default</c>. In a switch statement the
-/// body is <see cref="Body"/>; in a switch expression it is <see cref="Value"/>.
+/// A <c>case</c>, a <c>default</c> (no <see cref="Patterns"/>), or <c>case null, default</c>. In a
+/// switch statement the body is <see cref="Body"/>; in a switch expression it is <see cref="Value"/>.
 /// </summary>
 public sealed record SwitchCase(Location Location, IReadOnlyList<PatternSyntax> Patterns, Stmt? Body, Expr? Value) : Node(Location)
 {
-    public bool IsDefault => Patterns.Count == 0;
+    /// <summary>Where <c>default</c> is written, if the case includes it.</summary>
+    public Location? Default { get; init; }
+
+    public bool IsDefault => Default is not null;
 }
 
 public abstract record Expr(Location Location) : Node(Location);

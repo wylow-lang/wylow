@@ -17,7 +17,10 @@ public sealed partial class Parser
         {
             int start = position;
             var patterns = new List<PatternSyntax>();
-            if (!Accept(TokenKind.DefaultKeyword))
+            Location? defaultLocation = null;
+            if (At(TokenKind.DefaultKeyword))
+                defaultLocation = Loc(Advance().Span);
+            else
             {
                 if (!Accept(TokenKind.CaseKeyword))
                 {
@@ -26,7 +29,15 @@ public sealed partial class Parser
                     continue;
                 }
                 do
+                {
+                    // `case null, default`: the binder checks that only `null` comes before it.
+                    if (patterns.Count > 0 && At(TokenKind.DefaultKeyword))
+                    {
+                        defaultLocation = Loc(Advance().Span);
+                        break;
+                    }
                     patterns.Add(ParsePattern());
+                }
                 while (Accept(TokenKind.Comma));
             }
 
@@ -42,19 +53,19 @@ public sealed partial class Parser
                 {
                     Error(Current.Span, "the cases of a switch expression must be expressions; use a switch statement for blocks");
                     ParseBlock();
-                    cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))));
+                    cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))) { Default = defaultLocation });
                     continue;
                 }
                 int errors = diagnostics.Count;
                 var caseValue = ParseExpression();
                 FinishStatement(errors);
-                cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue));
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue) { Default = defaultLocation });
             }
             else
             {
                 if (IsDeclarationStart())
                     Error(Current.Span, "a variable cannot be declared here; use a block, as in 'case X -> { ... }'");
-                cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null));
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null) { Default = defaultLocation });
             }
         }
         Expect(TokenKind.CloseBrace, "'}'");

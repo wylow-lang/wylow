@@ -174,6 +174,7 @@ public sealed class IrPrinter
         IrCheckKind.HasValue => "has_value",
         IrCheckKind.NoMatch => "no_match",
         IrCheckKind.Narrowed => "narrowed",
+        IrCheckKind.MayBeNull => "may_be_null",
         _ => throw new InvalidOperationException($"unexpected check {kind}"),
     };
 

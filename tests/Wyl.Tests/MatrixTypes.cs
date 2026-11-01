@@ -2,7 +2,8 @@
 // struct, class, enum with data, nullable value or reference, fixed array, escaping or non-escaping
 // function, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
-// capture, `==`, default value, an overload, or a field a struct pattern binds. Each cell makes a value and shows something about
+// capture, `==`, default value, an overload, a field a struct pattern binds, or a switch with
+// `case null`. Each cell makes a value and shows something about
 // it, so the snapshot records what the type does in that place; a cell the spec refuses records the
 // error instead. Equality compares an equal pair and an unequal one, and a nullable row shows both
 // its null and its non-null side.
@@ -11,7 +12,7 @@ static class MatrixTypes
     static readonly string[] Contexts =
     [
         "local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
-        "struct-pattern",
+        "struct-pattern", "case-null",
     ];
 
     public static Matrix Build()
@@ -317,6 +318,39 @@ static class MatrixTypes
 
                     {{Wrap(main)}}
                     """;
+
+            case "case-null":
+            {
+                // A nullable row is matched as it is; another is made nullable.
+                var nullable = row.Nullable ? row.Type : row.Type.StartsWith("fn") ? $"({row.Type})?" : $"{row.Type}?";
+                foreach (var some in new[] { "true", "false" })
+                {
+                    main.Add($"switch (maybe({some})) {{");
+                    main.Add("case null -> print(\"null\");");
+                    main.Add("case var v -> {");
+                    if (row.Nullable)
+                    {
+                        main.Add($"{row.ParameterType} shown = v;");
+                        main.Add(row.Show("shown"));
+                    }
+                    else
+                    {
+                        main.Add(row.Show("v"));
+                    }
+                    main.Add("}");
+                    main.Add("}");
+                }
+                return $$"""
+                    {{nullable}} maybe(bool some) {
+                        if (some) {
+                            return {{row.Value(row.First)}};
+                        }
+                        return null;
+                    }
+
+                    {{Wrap(main)}}
+                    """;
+            }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(context), context, "no such context");

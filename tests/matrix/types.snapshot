@@ -50,6 +50,11 @@ out 3
 out 3
 exit 0
 
+=== struct/case-null
+out 3
+out null
+exit 0
+
 === class/local
 out 3
 exit 0
@@ -98,6 +103,11 @@ out 3
 out 3
 exit 0
 
+=== class/case-null
+out 3
+out null
+exit 0
+
 === enum/local
 out 3
 exit 0
@@ -144,6 +154,11 @@ exit 0
 === enum/struct-pattern
 out 3
 out 3
+exit 0
+
+=== enum/case-null
+out 3
+out null
 exit 0
 
 === nullable-value/local
@@ -207,6 +222,11 @@ out 3
 out -1
 exit 0
 
+=== nullable-value/case-null
+out 3
+out null
+exit 0
+
 === nullable-reference/local
 out 3
 out -1
@@ -268,6 +288,11 @@ out 3
 out -1
 exit 0
 
+=== nullable-reference/case-null
+out 3
+out null
+exit 0
+
 === fixed-array/local
 out 3
 exit 0
@@ -317,6 +342,11 @@ out 3
 out 3
 exit 0
 
+=== fixed-array/case-null
+out 3
+out null
+exit 0
+
 === function-escaping/local
 out 3
 exit 0
@@ -362,6 +392,11 @@ out 3
 out 3
 exit 0
 
+=== function-escaping/case-null
+out 3
+out null
+exit 0
+
 === function-nonescaping/local
 out 3
 exit 0
@@ -400,6 +435,11 @@ exit 0
 
 === function-nonescaping/struct-pattern
 error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+
+=== function-nonescaping/case-null
+out 3
+out null
+exit 0
 
 === generic/local
 out 3
@@ -448,6 +488,11 @@ exit 0
 === generic/struct-pattern
 out 3
 out 3
+exit 0
+
+=== generic/case-null
+out 3
+out null
 exit 0
 
 === nint/local
@@ -499,6 +544,11 @@ out 3
 out 3
 exit 0
 
+=== nint/case-null
+out 3
+out null
+exit 0
+
 === nested/local
 out 3
 exit 0
@@ -546,6 +596,11 @@ exit 0
 === nested/struct-pattern
 out 3
 out 3
+exit 0
+
+=== nested/case-null
+out 3
+out null
 exit 0
 
 === string-empty/local
@@ -633,6 +688,14 @@ out 0
 out true
 exit 0
 
+=== string-empty/case-null
+out
+out 0
+out 0
+out true
+out null
+exit 0
+
 === string-one/local
 out é
 out 2
@@ -716,6 +779,14 @@ out é
 out 2
 out 1
 out false
+exit 0
+
+=== string-one/case-null
+out é
+out 2
+out 1
+out false
+out null
 exit 0
 
 === string-multibyte/local
@@ -803,6 +874,14 @@ out 5
 out false
 exit 0
 
+=== string-multibyte/case-null
+out héllo
+out 6
+out 5
+out false
+out null
+exit 0
+
 === string-concat/local
 out ab1cd
 out 5
@@ -888,6 +967,14 @@ out 5
 out false
 exit 0
 
+=== string-concat/case-null
+out ab1cd
+out 5
+out 5
+out false
+out null
+exit 0
+
 === double/local
 out -0.0
 out -0.0
@@ -949,6 +1036,12 @@ out -0.0
 out -0.0
 exit 0
 
+=== double/case-null
+out -0.0
+out -0.0
+out null
+exit 0
+
 === double-inexact/local
 out 0.30000000000000004
 exit 0
@@ -998,6 +1091,11 @@ out 0.30000000000000004
 out 0.30000000000000004
 exit 0
 
+=== double-inexact/case-null
+out 0.30000000000000004
+out null
+exit 0
+
 === long/local
 out 2147483648
 exit 0
@@ -1045,4 +1143,9 @@ exit 0
 === long/struct-pattern
 out 2147483648
 out 2147483648
+exit 0
+
+=== long/case-null
+out 2147483648
+out null
 exit 0

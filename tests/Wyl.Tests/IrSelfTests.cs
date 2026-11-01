@@ -595,6 +595,9 @@ static partial class IrSelfTests
         yield return new("narrowed_after_test", () => Narrowed(b, "narrowed_after_test", tested: true));
         yield return new("narrowed_untested", () => Narrowed(b, "narrowed_untested", tested: false),
             Error: "might be null here");
+        yield return new("may_be_null_untested", () => Narrowed(b, "may_be_null_untested", tested: false, IrCheckKind.MayBeNull));
+        yield return new("may_be_null_after_test", () => Narrowed(b, "may_be_null_after_test", tested: true, IrCheckKind.MayBeNull),
+            Error: "'case null' can never match: 'local' is not null here");
 
         IrFunction StructConstructor(string name, bool returnsSelf)
         {
@@ -661,14 +664,17 @@ static partial class IrSelfTests
             Error: "a struct constructor returns its value");
     }
 
-    /// <summary>A nullable source local used as not null, where a null test does or doesn't narrow it.</summary>
-    static IrFunction Narrowed(Builder b, string name, bool tested)
+    /// <summary>
+    /// A nullable source local used as not null, or tested by a <c>case null</c>, where a null test
+    /// does or doesn't narrow it.
+    /// </summary>
+    static IrFunction Narrowed(Builder b, string name, bool tested, IrCheckKind kind = IrCheckKind.Narrowed)
     {
         var type = b.Type("Obj").Nullable;
         var maybe = b.Parameter("maybe", type);
         var local = b.SourceLocal("local", type);
         var test = b.Temp(WylType.Bool);
-        IrStatement[] use = [new IrCheck(IrCheckKind.Narrowed, [IrRead.Borrow(new IrPlace(local))], null) { Origin = null }];
+        IrStatement[] use = [new IrCheck(kind, [IrRead.Borrow(new IrPlace(local))], null) { Origin = null }];
         return b.Function(name, [maybe],
             new IrLet(local, Use(IrRead.Copy(new IrPlace(maybe)))) { Origin = null },
             new IrLet(test, new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(local)))) { Origin = null },

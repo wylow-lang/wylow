@@ -459,16 +459,18 @@ public sealed partial class IrVerifier
             IrCheckKind.NotNull => check.Operands is [{ Type: var t }] && (t.IsNullableObject || t.IsPointer),
             IrCheckKind.HasValue => check.Operands is [{ Type.IsNullableValue: true }],
             IrCheckKind.NoMatch => check.Operands.Count == 0,
-            IrCheckKind.Narrowed => check.Operands is [IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Symbol: not null }, Type.MayBeNull: true }],
+            IrCheckKind.Narrowed or IrCheckKind.MayBeNull => check.Operands is [IrRead { Place: { IsDeref: false, Projections.Count: 0, Local.Symbol: not null }, Type.MayBeNull: true }],
             _ => false,
         };
         if (!fits)
             Error($"the operands don't fit a '{check.Kind}' check");
-        if ((check.Kind == IrCheckKind.Narrowed) != (check.Loc is null))
+        if (check.NeverRuns != (check.Loc is null))
             Error("a check that may fail, and only one, carries a location");
         if (check is { Kind: IrCheckKind.Narrowed, Operands: [IrRead { Place.Local: var narrowed }] }
             && state.Assigned.Contains(narrowed) && !state.NonNull.Contains(narrowed))
             NotNarrowed(narrowed, state);
+        if (check is { Kind: IrCheckKind.MayBeNull, Operands: [IrRead { Place.Local: var tested }] } && state.NonNull.Contains(tested))
+            Violation($"'case null' can never match: '{tested.Symbol!.Name}' is not null here");
         Apply(state, IrEffects.Of(check), "the check");
         CommitMoves(state);
     }

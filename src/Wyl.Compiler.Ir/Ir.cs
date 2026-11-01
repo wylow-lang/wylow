@@ -391,6 +391,11 @@ public enum IrCheckKind
     /// proves it can't be null, reporting the user's error if it can. It never runs, so it has no location.
     /// </summary>
     Narrowed,
+    /// <summary>
+    /// A source local a <c>case null</c> tests: the flow analysis reports the user's error if it knows
+    /// the local isn't null, since the case could never match. It never runs, so it has no location.
+    /// </summary>
+    MayBeNull,
 }
 
 /// <summary><c>check.kind operands @loc</c>: panics unless the condition holds.</summary>
@@ -401,8 +406,11 @@ public sealed class IrCheck(IrCheckKind kind, IReadOnlyList<IrOperand> operands,
     public IrCheckKind Kind { get; } = kind;
     public List<IrOperand> Operands { get; } = [.. operands];
 
-    /// <summary>Where it panics; null only for a <see cref="IrCheckKind.Narrowed"/> check.</summary>
+    /// <summary>Where it panics; null only for a check that <see cref="NeverRuns"/>.</summary>
     public IrLoc? Loc { get; } = loc;
+
+    /// <summary>A check only the flow analysis reads, which the pipeline erases once it has verified the program.</summary>
+    public bool NeverRuns => Kind is IrCheckKind.Narrowed or IrCheckKind.MayBeNull;
 }
 
 public sealed class IrIf(IrOperand condition, IrBlock then, IrBlock? @else = null) : IrStatement

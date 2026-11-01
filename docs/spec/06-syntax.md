@@ -910,18 +910,36 @@ switch (state) {
   }
   ```
 
-- **`case null`**, as in Java: a switch may take a nullable value without narrowing it first, and
-  must then have a `case null`, which matches only null. `default` doesn't match null; write
-  `case null, default ->` for both. In the other cases the value is the non-null one, so `case
-  Enemy e` and `case Chasing(var t)` match as they would on a narrowed value.
+- **`case null`**, as in Java: a switch with a `case null` takes its value as it is, nullable or
+  not. Without one, a nullable value must be narrowed first (§2.5), or it is an error. `case null`
+  matches only null, and may be written anywhere among the cases. `default` doesn't match null;
+  write `case null, default ->` for both (only `null` may be listed with `default`). The other
+  cases' patterns match the non-null value, so `case Enemy e`, `case var v` (a `v` of the non-null
+  type), and `case Chasing(var t)` match as they would on a narrowed value. A case's test narrows
+  the switched local in that case's body, as an `if`'s would; to name the value, bind it.
+
+  ```java
+  switch (findTarget()) {
+      case Boss b -> flee(b);
+      case null -> wander();
+      case var e -> attack(e);
+  }
+  ```
+
+  A `case null` on a value whose type can't be null is an error, and so is one on a local that
+  narrowing knows isn't null there, such as one assigned a value or tested just before: the case
+  could never match. A `ref?` or `in?` reference is tested with `is ref` instead
+  ([03-memory-model.md](03-memory-model.md#nullable-references-ref-t)), not
+  switched on with `case null`.
 - A **switch statement**'s case is a block or a single statement other than a declaration. A
   **switch expression**'s case is an expression followed by `;`. A case that cannot complete, such
   as `default -> panic("...")`, needs no value; the others must all convert to one type (the
   expected type, if known, else the first case's type that every other converts to, as for `?:`).
 - **Every switch must be exhaustive**: its cases must match every value, or end with `default`.
   Over an enum or `bool`, listing every variant (or both values) is enough; over integers and class
-  types, a `default` or a pattern that always matches is needed. The error names a value that no
-  case handles, such as `Pair(South, _)`.
+  types, a `default` or a pattern that always matches is needed. A nullable value is null or a
+  value of its type, and a nullable field likewise. The error names a value that no case handles,
+  such as `Pair(South, _)` or `Moved(null)`.
 - `default` must be the last case. **A case that can never match is an error**: one whose values the
   cases above all match, including a `default` after cases that already cover everything. A type
   test on a class counts as possibly failing, so it never makes a later case unreachable unless it
@@ -944,7 +962,7 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 | `Variant`, `Enum.Variant` | That variant, whatever its fields |
 | `Variant(p1, p2)` | That variant, if each field matches its pattern; every field must be listed |
 | `Struct(p1, p2)` | A struct value, if each field, in declaration order, matches its pattern; every field must be listed |
-| `null` | Null, in a `case` of a switch over a nullable value (above) |
+| `null` | Null: a switch's nullable value (above), or a nullable field, in a `case` |
 | `Type name`, `Type` | A class or interface value that is non-null and a `Type`. For a value type, only its own type, which just states it |
 | `42`, `-1`, `'a'`, `true` | An integer, `char`, or `bool` equal to the literal |
 
@@ -963,8 +981,9 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
   `is`, like `var x`. Every field must be visible where the pattern is written. As for an enum, the
   type arguments may be left out, since the value determines them: `case Pair(1, var s)` on a
   `Pair<int, String>`.
-- Floating-point and string literals are not patterns, and `null` is one only as a `case` (use
-  `== null` elsewhere).
+- Floating-point and string literals are not patterns. `null` is one only in a `case`, alone or
+  inside another pattern, as in `case Moved(null)`, and on a type that can be null. A whole `is`
+  pattern can't be `null`, since `== null` says that; `s is Moved(null)` is allowed.
 - `x is pattern` is `true` when the pattern matches. Patterns that always match (`_`, `var x`) are
   errors after `is`. Names bound in an `if` or `while` condition follow the rules of §2.5: in scope
   for the whole statement, definitely assigned where the test succeeded.
@@ -978,7 +997,7 @@ while (node is Some(var n)) { node = n.next; }
   values. Every bound value is copied out of the matched value before any of those releases, since a
   destructor they run may change it.
 
-> Not implemented yet: guards (`when`) and `case null`.
+> Not implemented yet: guards (`when`).
 
 ### String interpolation
 

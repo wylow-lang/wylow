@@ -182,7 +182,7 @@ public sealed partial class Binder
         BoundWhile s => new BoundWhile(s.Location, s.Condition, ConvertReturns(s.Body, function)),
         BoundFor s => new BoundFor(s.Location, s.Initializer, s.Condition, s.Update, ConvertReturns(s.Body, function)),
         BoundForRange s => new BoundForRange(s.Location, s.Local, s.Start, s.End, s.IsInclusive, ConvertReturns(s.Body, function)),
-        BoundSwitch s => new BoundSwitch(s.Location, s.Value, [.. s.Cases.Select(c => new BoundSwitchCase<BoundStatement>(c.Location, c.Patterns, ConvertReturns(c.Body, function)))]),
+        BoundSwitch s => new BoundSwitch(s.Location, s.Value, [.. s.Cases.Select(c => c with { Body = ConvertReturns(c.Body, function) })]),
         // A statement kind added later could hold returns that would otherwise be left unconverted.
         _ when BoundTree.InnerStatements(statement).Any() => throw new InvalidOperationException($"returns in a {statement.GetType().Name} are not converted"),
         _ => statement,

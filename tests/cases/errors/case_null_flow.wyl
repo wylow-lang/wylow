@@ -1,0 +1,43 @@
+// A 'case null' on a local the flow analysis knows isn't null could never match.
+import std::print;
+
+class Enemy { }
+
+int? number() {
+    return null;
+}
+
+void use(int? given, ref int? alias) {
+    int? n = 1;
+    switch (n) {
+        case null -> print(0);                  // error: 'case null' can never match: 'n' is not null here
+        default -> print(1);
+    }
+    Enemy? e = number() == null ? new Enemy() : null;
+    if (e != null) {
+        switch (e) {
+            case null, default -> print(0);     // error: 'case null' can never match: 'e' is not null here
+        }
+    }
+    switch (e) {
+        case null -> print(0);
+        default -> print(1);
+    }
+    if (given == null) {
+        return;
+    }
+    switch (given) {
+        case 1 -> print(1);
+        case null -> print(0);                  // error: 'case null' can never match: 'given' is not null here
+        default -> print(2);
+    }
+    // A 'ref' parameter isn't narrowed, since another reference could change it.
+    if (alias != null) {
+        switch (alias) {
+            case null -> print(0);
+            default -> print(1);
+        }
+    }
+}
+
+void main() { }

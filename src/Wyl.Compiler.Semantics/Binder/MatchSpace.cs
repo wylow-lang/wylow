@@ -8,6 +8,8 @@ namespace Wyl.Compiler.Semantics;
 /// <remarks>
 /// A type test on a reference that may fail is opaque: it is treated as matching no value of the
 /// constructors it is checked against, so it never hides a later case or makes a switch exhaustive.
+/// A nullable type has two constructors, null and a value of its non-null type, so a missing value
+/// can be null, as in <c>Moved(null)</c>.
 /// </remarks>
 public sealed class MatchSpace(WylType type)
 {
@@ -18,8 +20,20 @@ public sealed class MatchSpace(WylType type)
         public static readonly Wildcard Instance = new();
     }
 
-    /// <summary><see cref="Key"/> is a <see cref="VariantSymbol"/>, a struct's <see cref="TypeSymbol"/>, a bool, or a long.</summary>
+    /// <summary>
+    /// <see cref="Key"/> is a <see cref="VariantSymbol"/>, a struct's <see cref="TypeSymbol"/>, a bool,
+    /// a long, or a nullable type's <see cref="Null"/> or <see cref="Value"/>.
+    /// </summary>
     sealed record Constructor(object Key, Pattern[] Arguments) : Pattern;
+
+    sealed class NullableKey(string name)
+    {
+        public override string ToString() => name;
+    }
+
+    static readonly NullableKey Null = new("null"), Value = new("value");
+
+    static Constructor ValueOf(Pattern pattern) => new(Value, [pattern]);
 
     sealed record Opaque : Pattern
     {
@@ -28,10 +42,15 @@ public sealed class MatchSpace(WylType type)
 
     readonly List<Pattern[]> rows = [];
 
-    /// <summary>Adds a case, or <c>default</c> for null, and returns whether it matches anything the earlier ones don't.</summary>
+    /// <summary>
+    /// Adds a case's pattern, or <c>default</c> for null, and returns whether it matches anything the
+    /// earlier ones don't. Over a nullable value, every pattern but <c>null</c>, and <c>default</c>,
+    /// matches the non-null value.
+    /// </summary>
     public bool Add(BoundPattern? pattern)
     {
-        Pattern[] row = [pattern is null ? Wildcard.Instance : Simplify(pattern)];
+        var simplified = pattern is null ? Wildcard.Instance : Simplify(pattern);
+        Pattern[] row = [type.IsNullable && pattern is not BoundNullPattern ? ValueOf(simplified) : simplified];
         bool useful = Useful(rows, row, [type]) is not null;
         rows.Add(row);
         return useful;
@@ -43,25 +62,33 @@ public sealed class MatchSpace(WylType type)
     static Pattern Simplify(BoundPattern pattern) => pattern switch
     {
         _ when Patterns.AlwaysMatches(pattern) => Wildcard.Instance,
+        BoundNullPattern => new Constructor(Null, []),
+        // A test of a nullable value's type is first a test that it isn't null.
+        BoundTypePattern { Type.IsNullable: true } test => ValueOf(Conversions.IsSubtype(test.Type.NonNull, test.Target) ? Wildcard.Instance : Opaque.Instance),
         BoundTypePattern => Opaque.Instance,
         BoundVariantPattern variant => new Constructor(variant.Variant, [.. variant.Fields.Select(Simplify)]),
-        BoundStructPattern { Type.IsNullable: true } => Opaque.Instance,
-        BoundStructPattern structPattern => new Constructor(structPattern.Type.Symbol!, [.. structPattern.Fields.Select(Simplify)]),
+        BoundStructPattern { Type.IsNullable: true } structPattern => ValueOf(Struct(structPattern)),
+        BoundStructPattern structPattern => Struct(structPattern),
         BoundConstantPattern { Value.Value: bool b } => new Constructor(b, []),
         BoundConstantPattern { Value.Integer: { } integer } => new Constructor(integer, []),
         BoundConstantPattern constant => new Constructor(constant.Value.Value, []),
         _ => throw new InvalidOperationException($"unexpected pattern {pattern.GetType().Name}"),
     };
 
+    static Constructor Struct(BoundStructPattern pattern) => new(pattern.Type.NonNull.Symbol!, [.. pattern.Fields.Select(Simplify)]);
+
     /// <summary>Every constructor of a type with finitely many, or null.</summary>
     static IReadOnlyList<object>? Constructors(WylType type) =>
-        type.IsEnum ? type.Symbol!.Variants
+        type.IsNullable ? [Null, Value]
+        : type.IsEnum ? type.Symbol!.Variants
         : type.IsStruct ? [type.Symbol!]
         : type == WylType.Bool ? [true, false]
         : null;
 
     static WylType[] ArgumentTypes(WylType type, object key)
     {
+        if (key == Value)
+            return [type.NonNull];
         IReadOnlyList<FieldSymbol> fields = key switch
         {
             VariantSymbol variant => variant.Fields,
@@ -155,6 +182,7 @@ public sealed class MatchSpace(WylType type)
         Constructor { Key: TypeSymbol } c when c.Arguments.All(a => Format(a) == "_") => "_",
         Constructor { Key: TypeSymbol structSymbol } c => $"{structSymbol.Name}({string.Join(", ", c.Arguments.Select(Format))})",
         Constructor { Key: bool b } => b ? "true" : "false",
+        Constructor c when c.Key == Value => Format(c.Arguments[0]),
         Constructor c => c.Key.ToString()!,
         _ => "_",
     };

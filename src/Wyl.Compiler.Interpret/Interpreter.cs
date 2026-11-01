@@ -410,7 +410,7 @@ public sealed partial class Interpreter : IObjectLifetime
     {
         switch (check.Kind)
         {
-            case IrCheckKind.Narrowed:
+            case IrCheckKind.Narrowed or IrCheckKind.MayBeNull:
                 return;
             case IrCheckKind.Index:
             {

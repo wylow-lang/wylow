@@ -113,8 +113,11 @@ public sealed partial class IrLowering
             case BoundBindingPattern binding:
                 bindings.Add(new Binding(binding.Local, () => new IrUse(IrRead.Copy(value))));
                 break;
+            case BoundNullPattern:
+                tests.Add(() => IsNull(value));
+                break;
             case BoundTypePattern { Type.IsNullableValue: true } test:
-                tests.Add(() => Tested(new IrTest(IrTestKind.HasValue, IrRead.Borrow(value))));
+                tests.Add(() => Tested(Present(value)));
                 if (test.Binding is { } valueBinding)
                     bindings.Add(new Binding(valueBinding, () => new IrUse(IrRead.Copy(value.Assumed()))));
                 break;
@@ -125,7 +128,7 @@ public sealed partial class IrLowering
                 if (!upcast)
                     tests.Add(() => Tested(new IrTest(IrTestKind.Class, IrRead.Borrow(value)) { Target = test.Target }));
                 else if (test.Type.IsNullable)
-                    tests.Add(() => Tested(new IrTest(IrTestKind.NotNull, IrRead.Borrow(value))));
+                    tests.Add(() => Tested(Present(value)));
                 if (test.Binding is { } local)
                     bindings.Add(new Binding(local, () => test.Type == test.Target ? new IrUse(IrRead.Copy(value)) : new IrConvert(test.Target, IrRead.Copy(value))));
                 break;
@@ -142,7 +145,7 @@ public sealed partial class IrLowering
                 var fields = value;
                 if (structPattern.Type.IsNullableValue)
                 {
-                    tests.Add(() => Tested(new IrTest(IrTestKind.HasValue, IrRead.Borrow(value))));
+                    tests.Add(() => Tested(Present(value)));
                     fields = value.Assumed();
                 }
                 for (int i = 0; i < structPattern.Fields.Count; i++)
@@ -160,6 +163,17 @@ public sealed partial class IrLowering
     }
 
     IrOperand Tested(IrRvalue test) => IrRead.Move(new IrPlace(Let(test)));
+
+    /// <summary>Whether a nullable value or object isn't null.</summary>
+    static IrTest Present(IrPlace value) => new(value.Type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Borrow(value));
+
+    IrOperand IsNull(IrPlace value) => Tested(new IrUnary(BoundUnaryOperator.LogicalNot, Tested(Present(value))));
+
+    /// <summary>
+    /// A nullable value's value, once it is known not to be null. An object's is the same reference,
+    /// which a binding converts to its non-null type (<see cref="BoundValue"/>).
+    /// </summary>
+    static IrPlace NonNull(IrPlace value) => value.Type.IsNullableValue ? value.Assumed() : value;
 
     /// <summary>
     /// Whether every test passes, each made only if those before it passed, and then
@@ -208,20 +222,34 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// Whether a case matches, or null if it always does, and the names it binds; only a case
-    /// with one pattern binds any.
+    /// with one pattern binds any. Over a nullable value, every pattern but <c>null</c>, and
+    /// <c>default</c>, first tests that the value isn't null; each case tests it itself, as it does
+    /// the rest of the value.
     /// </summary>
-    IrOperand? CaseCondition(IReadOnlyList<BoundPattern> patterns, IrPlace matched, List<Binding> bindings)
+    IrOperand? CaseCondition<T>(BoundSwitchCase<T> c, IrPlace matched, bool nullable, List<Binding> bindings)
     {
-        if (patterns.Count == 0)
-            return null;
         var alternatives = new List<List<Func<IrOperand>>>();
-        foreach (var pattern in patterns)
+        foreach (var pattern in c.Patterns)
         {
             var tests = new List<Func<IrOperand>>();
-            Tests(pattern, matched, tests, bindings);
+            if (pattern is BoundNullPattern)
+                tests.Add(() => CaseNull(matched, pattern.Location));
+            else if (nullable)
+            {
+                tests.Add(() => Tested(Present(matched)));
+                Tests(pattern, NonNull(matched), tests, bindings);
+            }
+            else
+                Tests(pattern, matched, tests, bindings);
             if (tests.Count == 0)
                 return null;
             alternatives.Add(tests);
+        }
+        if (c.IsDefault)
+        {
+            if (!nullable)
+                return null;
+            alternatives.Add([() => Tested(Present(matched))]);
         }
         IrOperand Any(int from) => from == alternatives.Count - 1
             ? Conjunction(alternatives[from], 0, null)
@@ -230,10 +258,21 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
+    /// <c>case null</c>'s test. On a source local it is also what the flow analysis checks the
+    /// local may be, since otherwise the case could never match.
+    /// </summary>
+    IrOperand CaseNull(IrPlace matched, Location location)
+    {
+        if (matched is { IsDeref: false, Projections.Count: 0, Local: { IsTemporary: false, Symbol: not null } })
+            Add(new IrCheck(IrCheckKind.MayBeNull, [IrRead.Borrow(matched)], null) { Origin = location });
+        return IsNull(matched);
+    }
+
+    /// <summary>
     /// Tries the cases in order, as an <c>if</c> chain whose last <c>else</c> panics. A case's names
     /// are fresh locals copied from the matched value before its body runs.
     /// </summary>
-    void Cases<T>(IReadOnlyList<BoundSwitchCase<T>> cases, IrPlace matched, Location location, Action<T> body)
+    void Cases<T>(IReadOnlyList<BoundSwitchCase<T>> cases, IrPlace matched, bool nullable, Location location, Action<T> body)
     {
         bool completes = false;
         void From(int i)
@@ -246,7 +285,7 @@ public sealed partial class IrLowering
                 return;
             }
             var bindings = new List<Binding>();
-            var condition = CaseCondition(cases[i].Patterns, matched, bindings);
+            var condition = CaseCondition(cases[i], matched, nullable, bindings);
             var then = new IrBlock { Origin = at };
             reachable = true;
             Into(then, () =>
@@ -277,7 +316,7 @@ public sealed partial class IrLowering
         {
             DeclarePatternLocals(switchStatement.Value);
             var matched = Matched(switchStatement.Value);
-            Cases(switchStatement.Cases, matched, switchStatement.Location, statement =>
+            Cases(switchStatement.Cases, matched, switchStatement.Value.Type.IsNullable, switchStatement.Location, statement =>
             {
                 foreach (var inner in statement is BoundBlock block ? block.Statements : [statement])
                 {
@@ -306,7 +345,7 @@ public sealed partial class IrLowering
         Into(scope, () =>
         {
             var matched = Matched(switchExpression.Value);
-            Cases(switchExpression.Cases, matched, switchExpression.Location, value =>
+            Cases(switchExpression.Cases, matched, switchExpression.Value.Type.IsNullable, switchExpression.Location, value =>
             {
                 DeclarePatternLocals(value);
                 if (value.Type == WylType.Void)
