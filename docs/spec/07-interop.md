@@ -33,7 +33,8 @@ extern {
 - The compiler generates **no code** for extern declarations. It emits `#include` for each
   `@Include` and refers to the names directly.
 - `@Include("path")` names the header that provides the declarations. Include paths and libraries
-  to link are configured in the project's build file (*open*, see compiler design).
+  to link are given in the package manifest's `native` block
+  ([06-syntax.md](06-syntax.md#the-manifest)).
 
 > Implemented so far: only the standard library may declare extern functions, one at a time:
 > `static extern void check(int index, int length);` in a struct, or a free `extern` function.

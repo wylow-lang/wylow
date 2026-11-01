@@ -14,7 +14,7 @@ A design review on 2026-10-31 dropped pools and operator overloading (indexers s
 round of Java-style access modifiers, settled on Rust-style explicit visibility with Go/Swift-style
 directory modules:
 
-- **Package** = a project: a directory with `wylow.toml` and `src/`. A lone `.wyl` file is a
+- **Package** = a project: a directory with `package.wylcfg` and `src/`. A lone `.wyl` file is a
   one-module package. The whole package compiles together (cycles between its modules are fine;
   between packages, not). The standard library is the package `std`.
 - **Module** = a directory. `src/` is the root; `src/world/gen/` is `world::gen`. Every file in a
@@ -73,8 +73,11 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
   `checkRange` become its `checkIndex` and `checkRange`. `struct Memory`, also only static
   functions, becomes a module the same way (§6.1: a type holding only functions is a module in
   disguise); its spec mentions (`Memory.allocate`, ...) change with it.
-- The driver and CLI accept a package directory (with `wylow.toml`) as well as one file; modules
-  come from the directory tree under `src/`.
+- The driver and CLI accept a package directory (with `package.wylcfg`) as well as one file;
+  modules come from the directory tree under `src/`.
+- The manifest (§6.1, The manifest): a reader in Syntax that uses Wylow's `Lexer` and reports
+  syntax errors like any source, then a fixed schema. Step 2 needs only `name`; `dependencies`
+  and `native` stay unimplemented (an error saying so), but the reader parses their shape.
 - The binder gets one namespace per module (its files' non-file-private names plus submodules),
   per-file import scopes, the `std` prelude (implicit imports a module's own names override, which
   also lifts the "a program can't name a type like a stdlib type" rule in `docs/spec/README.md`),
@@ -83,7 +86,7 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
   named like a dependency.
 - The emitter maps module paths to C++ namespaces (or mangled names) so equal names in different
   modules can't collide in C++.
-- The test runner gains multi-file cases (a directory under `tests/cases/` with `wylow.toml`), and
+- The test runner gains multi-file cases (a directory under `tests/cases/` with `package.wylcfg`), and
   the cross-module visibility errors get tests there. The interpreter, fuzzer, and generator keep
   working on single files.
 - Extensions are found through imports (§6.4).

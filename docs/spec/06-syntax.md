@@ -9,7 +9,7 @@ Code is organized as in Go and Swift, with Rust's explicit `pub`: a **package** 
 
 ```
 mygame/
-    wylow.toml            the manifest: the package's name, and later its dependencies
+    package.wylcfg        the manifest: the package's name, and later its dependencies
     src/
         main.wyl          the root module
         world/
@@ -46,7 +46,7 @@ void main() {
 ```
 
 - **A package** is the unit of compilation and of dependencies, like a Rust crate: a directory with
-  a `wylow.toml` manifest and a `src/` directory. A single `.wyl` file compiled on its own is a
+  a `package.wylcfg` manifest and a `src/` directory. A single `.wyl` file compiled on its own is a
   package with one module and one file. The whole package is compiled together, so declarations
   may refer to each other in any order and across files, and modules of one package may import
   each other in a cycle. Packages may not depend on each other in a cycle.
@@ -113,6 +113,43 @@ members, written to hold functions, is a module in disguise; make it a module.
 ### Entry point
 
 A top-level `void main()` or `int main(String[] args)` in the root module.
+
+### The manifest
+
+`package.wylcfg` says what the package is, in Wylow's own tokens: comments, string literals with
+their escapes, and identifiers are read exactly as in a `.wyl` file, and line breaks don't matter.
+
+```
+// voxel_game/package.wylcfg
+name = "voxel_game";
+
+dependencies {
+    engine { path = "../engine"; }
+}
+
+native {
+    include = ["third_party/sdl/include"];
+    link = ["SDL3"];
+}
+```
+
+- A file is a list of entries. An entry is `key = value;` or `key { entries }`, and a value is a
+  string or a list of strings, `["a", "b"]`.
+- The keys are fixed. An unknown key, a repeated one, or a value of the wrong kind is an error, so
+  a misspelled key fails rather than being ignored.
+- `name` is required: the package's name as other packages write it, `voxel_game::world`. It is
+  a `snake_case` module name (§6.11), not `std`, and need not match the directory's name.
+- `dependencies` names other packages, each found by a `path` relative to the manifest. Packages
+  may not depend on each other in a cycle.
+- `native` gives the include directories and the libraries to link for `extern` code (§7).
+- What the files already say isn't written again: a package with a `main` in its root module
+  (§6.1, Entry point) is a program, and one without is a library; the sources are always `src/`.
+- Build settings (`--release`, `--cc`, `--panic=abort`) are the build's, not the package's, and
+  stay on the command line. A version and a language edition wait until a registry and
+  stability promises give them a meaning.
+
+> Not implemented yet: any of it. The first version reads `name` alone; `dependencies` and
+> `native` come after.
 
 ## 6.2 Visibility
 
