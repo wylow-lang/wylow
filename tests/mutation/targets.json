@@ -252,5 +252,29 @@
       { "kind": "literal", "original": "0", "replacement": "1", "context": "public static Interpretation Unsupported(byte[] output, string what, string before = \"\") => new(output, $\"{before}unsupported: {what}\\n\", 0, InterpretationStatus.Unsupported);", "reason": "An inconclusive status's exit code is normalized away, so nothing compares it." },
       { "kind": "literal", "original": "0", "replacement": "1", "context": "public static Interpretation Undefined(byte[] output, string what, string before = \"\") => new(output, $\"{before}undefined behavior: {what}\\n\", 0, InterpretationStatus.UndefinedBehavior);", "reason": "An inconclusive status's exit code is normalized away, so nothing compares it." }
     ]
+    },
+  {
+    "id": "binder-names",
+    "title": "Binder: top-level names",
+    "path": "src/Wyl.Compiler.Semantics/Binder/Binder.Names.cs",
+    "filters": ["packages", "errors", "basics"],
+    "arguments": ["--interpret"],
+    "note": "Each module's and file's names, the lookup order (own names, named imports, '*' imports, the language's types), clashes between a module's files, and how messages name types. The package tests pin cross-file and cross-module lookups, the error tests each rejection, and the basics every program's own names. Interpreted, since binding is the same in every mode."
+  },
+  {
+    "id": "binder-imports",
+    "title": "Binder: imports and paths",
+    "path": "src/Wyl.Compiler.Semantics/Binder/Binder.Imports.cs",
+    "filters": ["packages", "errors"],
+    "arguments": ["--interpret"],
+    "note": "Registering imports, checking what each names, re-exports, and walking '::' paths in code. packages/modules and packages/module_visibility pin what imports and paths reach, errors/imports.wyl what they may not. Interpreted, since binding is the same in every mode."
+  },
+  {
+    "id": "manifest",
+    "title": "Manifest",
+    "path": "src/Wyl.Compiler.Syntax/Manifest.cs",
+    "filters": ["packages"],
+    "arguments": ["--interpret"],
+    "note": "Reading package.wylcfg: its entries, the fixed keys and their kinds, and the name's rules. The packages/manifest_* tests pin each error, and every package test reads a manifest that must be accepted."
   }
 ]

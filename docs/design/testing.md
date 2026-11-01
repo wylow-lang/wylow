@@ -75,7 +75,8 @@ Status when the hardening phase closed (2026-10-31): 98.2% of lines and 94.0% of
 over all modes; every user-error and verifier site reached; `ir-effects`, `ir-access`, and
 `conversions` at 100%, and `emitter-types`, `emitter-ir`, and `place-path` triaged. The interpreter
 targets haven't been triaged; they are picked up when convenient, since the interpreter's own bugs
-surface as disagreements.
+surface as disagreements. `binder-names`, `binder-imports`, and `manifest` (packages and modules,
+2026-11-01) haven't run yet; their first CI run is triaged like the others.
 
 ## Known risks
 
