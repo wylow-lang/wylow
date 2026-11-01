@@ -17,19 +17,22 @@ directory modules:
 - **Package** = a project: a directory with `wylow.toml` and `src/`. A lone `.wyl` file is a
   one-module package. The whole package compiles together (cycles between its modules are fine;
   between packages, not). The standard library is the package `std`.
-- **Module** = a directory. `src/` is the root; `src/world/gen/` is `world.gen`. Every file in a
+- **Module** = a directory. `src/` is the root; `src/world/gen/` is `world::gen`. Every file in a
   directory belongs to that module and shares its namespace; no `package` line.
 - **Visibility:** nothing = this file; `pub(module)` = exactly the files of this directory (not
   submodules); `pub(package)`; `pub` = everyone. No type-private level, no `protected`.
 - File-private names stay out of the module namespace (two files may each have a private `Node`).
-- Per-file `import` (`import world.Chunk;`, `{A, B}`, `*`, `as`, a module itself, `pub import`
-  re-exports). Paths appear only in imports; a local can't take an imported module's name.
+- Paths use `::`, members `.`: `math::clamp(x)`, `world::Chunk.make()`, `Vec3.zero()`. Modules
+  have their own namespace, so `panic::checkIndex` and `panic("...")` coexist, and a local may be
+  named like a module.
+- Per-file `import` (`import world::Chunk;`, `{A, B}`, `*`, `as`, a module itself, `pub import`
+  re-exports). Paths appear only in imports.
 - Rules: an override (or interface implementation) repeats the overridden visibility exactly; a
   visible signature (parameters, return, field type, base class, interfaces, their type arguments)
   can't name a less visible type; the memberwise constructor is as visible as its least visible
   field; visibility comes first among modifiers, after annotations; destructors, enum variants,
   and interface methods take none.
-- Guideline: free functions for concepts (`math.clamp`), static methods for types (`Vec3.zero()`).
+- Guideline: free functions for concepts (`math::clamp`), static methods for types (`Vec3.zero()`).
 
 Why file privacy rather than Go's directory privacy: safe abstractions over `unsafe` (`List`'s
 `data`/`size`) are only sound while nothing else can write their fields, so the privacy boundary
@@ -90,6 +93,14 @@ now.
 - `module` and `package` are reserved words in the lexer already, which `pub(...)` matches by text.
 
 ## Step 2: multi-file packages and imports
+
+- The lexer gets a `::` token (there is none yet), and the parser reads paths with it in imports
+  and in expressions (`gen::seed()`, `world::Chunk.make()`), which bind through the module
+  namespace, apart from types, functions, and locals.
+- `std::panic` (§6.1): `panic` moves into it, re-exported by the prelude, and `Bounds.check` and
+  `checkRange` become its `checkIndex` and `checkRange`. `struct Memory`, also only static
+  functions, becomes a module the same way (§6.1: a type holding only functions is a module in
+  disguise); its spec mentions (`Memory.allocate`, ...) change with it.
 
 - The driver and CLI accept a package directory (with `wylow.toml`) as well as one file; modules
   come from the directory tree under `src/`.

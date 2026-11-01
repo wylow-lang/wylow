@@ -16,13 +16,13 @@ mygame/
             chunk.wyl     module world
             mesher.wyl    module world
             gen/
-                noise.wyl module world.gen
+                noise.wyl module world::gen
 ```
 
 ```java
 // src/world/chunk.wyl
-import world.gen.Noise;
-import std.Memory;
+import world::gen::Noise;
+import std::Memory;
 
 pub struct Chunk {
     pub int x, z;
@@ -36,12 +36,12 @@ pub(module) int chunkIndex(int x, int y, int z) { ... }   // every file of 'worl
 
 ```java
 // src/main.wyl
-import world.Chunk;
-import world.gen;                       // a module itself
+import world::Chunk;
+import world::gen;                      // a module itself
 
 void main() {
     var c = Chunk(x: 0, z: 0);
-    print(gen.seed());
+    print(gen::seed());
 }
 ```
 
@@ -51,7 +51,7 @@ void main() {
   may refer to each other in any order and across files, and modules of one package may import
   each other in a cycle. Packages may not depend on each other in a cycle.
 - **A module is a directory.** `src/` is the root module, and each directory below it is a module
-  named by its path: `src/world/gen/` is `world.gen`. Every `.wyl` file in the directory belongs to
+  named by its path: `src/world/gen/` is `world::gen`. Every `.wyl` file in the directory belongs to
   the module, and a file doesn't declare which: there is no `package` line. Module names are
   lowercase (§6.11).
 - **A module's names** are the declarations its files make visible beyond themselves
@@ -66,12 +66,12 @@ void main() {
 ### Imports
 
 ```java
-import world.Chunk;                     // one name
-import world.{Chunk, Block};            // several
-import world.*;                         // every name of 'world' visible here
-import physics.Body as PhysicsBody;     // renamed
-import engine.math;                     // the module itself: math.clamp(x)
-pub import world.Chunk;                 // re-exported: also one of this module's names
+import world::Chunk;                    // one name
+import world::{Chunk, Block};           // several
+import world::*;                        // every name of 'world' visible here
+import physics::Body as PhysicsBody;    // renamed
+import engine::math;                    // the module itself: math::clamp(x)
+pub import world::Chunk;                // re-exported: also one of this module's names
 ```
 
 - A path starts with a top-level module of this package, or with the name of a package it depends
@@ -80,20 +80,33 @@ pub import world.Chunk;                 // re-exported: also one of this module'
 - An import is visible in its own file only, as in Java and Rust. A visibility on it (`pub import`,
   `pub(package) import`) also makes the name one of the module's, visible that far, which is how a
   package presents a public surface whose layout differs from its directories.
-- **Paths are written only in imports.** Code names what it imported: `Chunk`, `math.clamp(x)`.
-  A local, parameter, or member may not take the name of an imported module, so `math.clamp`
-  always means the module's function.
+- **`::` walks modules, and `.` reaches into a type or a value**, so each has one meaning:
+  `math::clamp(x)` is a module's function, `Vec3.zero()` a type's static method, `Color.Red` a
+  variant, and `v.length()` a value's method. A type in another module is
+  `world::Chunk.make()`.
+- **Modules have a namespace of their own.** A path is told apart from a value by its `::`, so a
+  module may share its name with a type, function, or local: `panic::checkIndex(i, n)` and
+  `panic("message")` don't conflict, and neither does a local named `math` with `math::clamp`.
+- **Paths are written only in imports.** Code names what it imported: `Chunk`, `math::clamp(x)`.
 - Importing a name that isn't visible to the importing file is an error that says how far it is
   visible.
 - **The prelude**: every file imports the standard library's common names (`String`, `List`,
   `Array`, `Span`, `ReadOnlySpan`, `Result`, `Weak`, `print`, `panic`, ...) without writing it. A
   module's own declaration or an explicit import of the same name takes precedence, so a program may
   declare its own `List`.
+- **`std::panic`** holds what is about panics (§1.3): `panic(message)`, which the prelude brings in,
+  and the checks the built-in arrays make, for a container whose index isn't its storage's (a ring
+  buffer on an `Array`): `checkIndex(index, length)` and `checkRange(start, count, length)`, which
+  report the location of a `@CallerLocation` caller as the built-in checks do. A message is all a
+  panic carries: it is a bug, not a value to recover (§1.3).
+
+> Not implemented yet: modules and imports. Until they are, the checks are the standard
+> library's `Bounds.check` and `Bounds.checkRange`.
 
 ### Functions or static methods
 
 Both exist, for different things. A **free function** belongs to a concept, and lives in the
-module named for it: `math.clamp(x, lo, hi)`, `noise.sample(p)`. A **static method** belongs to a
+module named for it: `math::clamp(x, lo, hi)`, `noise::sample(p)`. A **static method** belongs to a
 thing, a type: its factories and constants, `Vec3.zero()`, `Color.WHITE`. A class with only static
 members, written to hold functions, is a module in disguise; make it a module.
 
@@ -123,7 +136,7 @@ pub abstract class Entity {
 }
 ```
 
-- A module and the modules inside it see each other only as any two modules do: `world.gen` reaches
+- A module and the modules inside it see each other only as any two modules do: `world::gen` reaches
   `world`'s names that are `pub(package)` or wider, never its `pub(module)` ones.
 - The same levels apply to top-level declarations and to members. A member is visible only where
   its type is too: a `pub` method of a `pub(module)` class is visible within the module.
@@ -1027,7 +1040,7 @@ Enforced with compiler **warnings** (not errors):
 | Enum variants | `PascalCase` | `AiState.Chasing` |
 | Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
 | Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
-| Modules | `lowercase` | `world.gen` |
+| Modules | `lowercase` | `world::gen` |
 
 > Not implemented yet: the compiler emits no warnings, so these conventions aren't checked.
 
@@ -1035,7 +1048,7 @@ Enforced with compiler **warnings** (not errors):
 
 ```java
 // src/enemies/system.wyl, in module enemies
-import math.*;
+import math::*;
 
 pub enum AiState {
     Idle,

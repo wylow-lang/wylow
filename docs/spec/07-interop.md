@@ -85,7 +85,7 @@ Game code uses only the wrapper.
 
 ```java
 // module platform
-import sdl.*;
+import sdl::*;
 
 pub class Window {
     pub static Result<Window, String> create(String title, int w, int h) {
