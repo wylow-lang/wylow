@@ -336,6 +336,11 @@ public sealed partial class IrLowering
 
     void Assignment(BoundAssignment assignment)
     {
+        if (assignment.Target is BoundIndexerElement element)
+        {
+            IndexerAssignment(element, assignment.Value);
+            return;
+        }
         // The target, its indices and their checks included, is found before the value, which reads
         // it from there in a compound assignment like `a[f()] += 1` (spec ยง3.3, Evaluation order and the heap).
         var target = Place(assignment.Target, Use.InUse);
@@ -346,5 +351,73 @@ public sealed partial class IrLowering
         var value = OperandOf(Rvalue(assignment.Value, Use.Read));
         located.Remove(assignment.Target);
         Add(new IrStore(target, value) { Origin = at });
+    }
+
+    /// <summary>
+    /// An assignment through <c>operator []=</c>, which is a call: the receiver and indices are
+    /// found once, before the value, and a compound assignment reads the element with the paired
+    /// <c>operator []</c> in between (spec ง3.3, Evaluation order and the heap).
+    /// </summary>
+    void IndexerAssignment(BoundIndexerElement element, BoundExpression value)
+    {
+        var read = element.Read;
+        var write = element.Write;
+        var (readReceiver, writeReceiver) = IndexerReceivers(read, write);
+        var shared = read.Arguments.Select((argument, i) => SharedIndex(read.Method, i, argument)).ToList();
+        if (BoundTree.AllExpressions(value).Any(e => ReferenceEquals(e, element)))
+        {
+            var result = Let(new IrCall(read.Method, readReceiver, [.. shared.Select(index => index())], LocationFor(read.Method, read)));
+            located[element] = read.Method.Symbol.ReturnRefKind != RefKind.None ? IrPlace.Deref(result) : new IrPlace(result);
+        }
+        int last = shared.Count;
+        var assigned = Argument(write.ParameterType(last), write.ParameterRefKind(last), value);
+        located.Remove(element);
+        if (assigned is IrOperand operand && write.ParameterRefKind(last) == RefKind.None && !write.ParameterType(last).IsNullableReference)
+            assigned = Kept(operand);
+        Add(DoOf(new IrCall(write, writeReceiver, [.. shared.Select(index => index()), assigned], LocationFor(write, element))));
+    }
+
+    /// <summary>The receiver both calls take, found once: an object held while they run, or a struct's place.</summary>
+    (IrArgument Read, IrArgument Write) IndexerReceivers(BoundCall read, MethodReference write)
+    {
+        var receiver = read.Receiver!;
+        var type = receiver.Type;
+        bool returnsInto = read.Method.Symbol.ReturnRefKind != RefKind.None;
+        if (type.IsReference)
+        {
+            var shared = IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type))));
+            return (shared, shared);
+        }
+        var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
+        if (type.SharesStorage && returnsInto)
+        {
+            // What the read returns points into the receiver, so it is held as a call returning into it holds it.
+            var holder = Hold(place, program.MayBeBorrowable(type));
+            return (IrRead.Borrow(new IrPlace(holder)),
+                write.Symbol.IsReadOnly ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder)));
+        }
+        return (new IrRefArgument(read.Method.Symbol.IsReadOnly ? RefKind.In : RefKind.Ref, place),
+            new IrRefArgument(write.Symbol.IsReadOnly ? RefKind.In : RefKind.Ref, place));
+    }
+
+    /// <summary>
+    /// An index argument both calls take, evaluated once: a by-value or <c>in</c> index is a
+    /// temporary, so the value can't change it between them, and each call is passed its own kept
+    /// copy, as any call is; a <c>ref</c> one refers to its place.
+    /// </summary>
+    Func<IrArgument> SharedIndex(MethodReference method, int index, BoundExpression argument)
+    {
+        var refKind = method.ParameterRefKind(index);
+        var type = method.ParameterType(index);
+        if (refKind == RefKind.In && !type.IsNullableReference && !type.IsRefStruct)
+        {
+            var temporary = new IrPlace(Let(new IrUse(Value(argument))));
+            return () => new IrRefArgument(RefKind.In, temporary);
+        }
+        var lowered = Argument(type, refKind, argument);
+        if (lowered is not IrRead read || refKind != RefKind.None || type.IsNullableReference)
+            return () => lowered;
+        var evaluated = new IrPlace(Let(new IrUse(read)));
+        return () => Kept(IrRead.Copy(evaluated));
     }
 }

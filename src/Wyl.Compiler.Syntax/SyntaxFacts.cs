@@ -5,6 +5,9 @@ public static class SyntaxFacts
     /// <summary>The name an indexer is declared under, which no method can have.</summary>
     public const string IndexerName = "operator []";
 
+    /// <summary>The name of the method that assigns an element where there is no place to refer to.</summary>
+    public const string IndexerSetterName = "operator []=";
+
     public const int RelationalPrecedence = 7;
 
     public static int BinaryPrecedence(TokenKind kind) => kind switch

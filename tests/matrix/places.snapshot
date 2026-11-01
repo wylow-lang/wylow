@@ -1303,3 +1303,59 @@ exit 0
 out 5
 out 5
 exit 0
+
+=== setter-element/read
+out 1
+out 1
+exit 0
+
+=== setter-element/assign
+out 5
+exit 0
+
+=== setter-element/compound
+out 3
+exit 0
+
+=== setter-element/pass
+out 1
+out 1
+exit 0
+
+=== setter-element/pass-ref-in
+error 30: a 'ref' argument must be a variable or field; 'Cells' has no element storage, and assigns its elements with 'operator []='
+
+=== setter-element/take-ref-in
+error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+
+=== setter-element/take-ref-nullable
+error 30: a 'ref?' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+
+=== setter-element/span
+error 30: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
+
+=== setter-element/loop
+out 1
+out 2
+out 3
+exit 0
+
+=== setter-element/capture
+out 5
+exit 0
+
+=== setter-element/capture-escaping
+error 31: cannot call 'mut' method 'operator []=' on 'c' because an escaping lambda only has a copy of 'c'
+
+=== setter-element/narrow
+error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+
+=== setter-element/return
+out 1
+exit 0
+
+=== setter-element/return-ref
+error 32: a returned 'ref' must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+
+=== setter-element/reassign
+error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='

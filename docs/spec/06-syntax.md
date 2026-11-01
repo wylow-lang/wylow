@@ -497,10 +497,10 @@ An indexer may return `ref`, `in`, or a value, and take any number of parameters
 
 Where there is no element to refer to, such as in a packed array of 4-bit values, `operator []=`
 handles assignment: it takes the indices and then the assigned value, and returns `void`.
-`grid[i] = v` calls it, and `grid[i] += v` reads with `operator []` and writes with `operator []=`.
-A type may not declare both `operator []=` and an `operator []` that returns `ref`, so an
-assignment never has two meanings. Such an element is not a place: `ref grid[i]` and passing
-`grid[i]` by `ref` are errors.
+`grid[i] = v` calls it, and `grid[i] += v` and `grid[i]++` read with `operator []` and write with
+`operator []=`. A type may not declare both `operator []=` and an `operator []` that returns `ref`,
+inherited or not, so an assignment never has two meanings. Such an element is not a place:
+`ref grid[i]`, passing `grid[i]` by `ref`, and returning it with `return ref` are errors.
 
 ```java
 struct Nibbles {
@@ -511,7 +511,26 @@ struct Nibbles {
 }
 ```
 
-> Implemented so far: everything above except `operator []=`.
+As in C#, where one indexer declares both its `get` and its `set`, an `operator []=` is the writing
+half of an indexer:
+
+- Each `operator []=` pairs with the `operator []` whose index parameters have the same types and
+  modes, which returns a value or `in` (not `ref`, nor `in?`), and its value parameter has that
+  indexer's element type. A type with only `operator []=` is an error.
+- An assignment resolves its indices against the `operator []` overloads, with conversions,
+  default values, and named arguments as for any call, then takes the paired `operator []=`. So
+  `operator []=` declares no default values: its indices take the reading indexer's.
+- The value converts to the value parameter as an argument does. It is passed by value or `in`,
+  never `ref`.
+- The receiver, then each index, is evaluated once, before the value; a compound assignment reads
+  the element with `operator []` after the indices and before the value
+  ([03-memory-model.md](03-memory-model.md#evaluation-order-and-the-heap)). A by-value or `in` index
+  is evaluated into a temporary that both calls take, so the value can't change it in between.
+- It is an instance method, which may be `virtual` or declared in an interface, and may be less
+  visible than its `operator []`, as C#'s `private set`. On a struct it needs `mut` to change the
+  struct, and then a mutable place, as any `mut` method call does; one that isn't `mut` suits a
+  struct that writes through a class it refers to. A class receiver needs neither.
+- Indexing a type parameter, to read or to assign, is not supported yet.
 
 ### Equality
 

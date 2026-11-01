@@ -226,6 +226,14 @@ public sealed record BoundFieldAccess(Location Location, BoundExpression Receive
 public sealed record BoundIndex(Location Location, BoundExpression Target, BoundExpression Index)
     : BoundExpression(Location, ((IndexedType)Target.Type).Element);
 
+/// <summary>
+/// The target of an assignment to an element its type assigns with <c>operator []=</c>, which has
+/// no storage to refer to. <see cref="Read"/> is the paired <c>operator []</c> call, holding the
+/// receiver and indices both calls take; a compound assignment's value contains this node to read
+/// the element with it.
+/// </summary>
+public sealed record BoundIndexerElement(Location Location, BoundCall Read, MethodReference Write) : BoundExpression(Location, Read.Type);
+
 /// <summary>The length of a fixed array, after evaluating it.</summary>
 public sealed record BoundArrayLength(Location Location, BoundExpression Operand) : BoundExpression(Location, WylType.Int);
 
@@ -514,6 +522,7 @@ public static class BoundTree
         BoundConditional conditional => [conditional.Condition, conditional.WhenTrue, conditional.WhenFalse],
         BoundFieldAccess field => [field.Receiver],
         BoundIndex index => [index.Target, index.Index],
+        BoundIndexerElement element => [element.Read],
         BoundArrayLength length => [length.Operand],
         BoundArrayData data => [data.Array],
         BoundArrayLiteral literal => literal.Elements,

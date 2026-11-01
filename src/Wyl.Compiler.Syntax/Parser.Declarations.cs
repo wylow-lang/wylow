@@ -230,15 +230,16 @@ public sealed partial class Parser
             if (!Accept(TokenKind.OpenBracket) || !Accept(TokenKind.CloseBracket))
             {
                 Error(TextSpan.FromBounds(tokens[operatorStart].Span.Start, Current.Span.End),
-                    "only the indexer, 'operator []', can be declared; overloading other operators is not supported yet");
+                    "only the indexer, 'operator []' or 'operator []=', can be declared; overloading other operators is not supported yet");
                 SkipDeclaration();
                 return;
             }
+            var operatorName = Accept(TokenKind.Assign) ? SyntaxFacts.IndexerSetterName : SyntaxFacts.IndexerName;
             CheckMethodModifiers(kind, modifiers);
             var indexerName = LocationFrom(operatorStart);
             var indexerParameters = ParseParameterList(allowRefKinds: true);
             var indexerBody = Accept(TokenKind.Semicolon) ? null : ParseBlock();
-            AddMethod(kind, modifiers, members, new FunctionDecl(LocationFrom(start), modifiers.Flags, type, SyntaxFacts.IndexerName,
+            AddMethod(kind, modifiers, members, new FunctionDecl(LocationFrom(start), modifiers.Flags, type, operatorName,
                 indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind, Visibility = modifiers.Visibility });
             return;
         }
@@ -293,7 +294,7 @@ public sealed partial class Parser
 
     void AddMethod(TypeKind kind, ModifierList modifiers, Members members, FunctionDecl method)
     {
-        var what = method.Name == SyntaxFacts.IndexerName ? "indexers" : "methods";
+        var what = method.Name is SyntaxFacts.IndexerName or SyntaxFacts.IndexerSetterName ? "indexers" : "methods";
         if (kind == TypeKind.Interface)
         {
             if (method.Body is not null)

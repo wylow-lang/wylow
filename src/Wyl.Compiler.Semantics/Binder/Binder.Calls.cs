@@ -388,23 +388,27 @@ public sealed partial class Binder
 
     BoundExpression MakeCall(Location location, MethodReference method, BoundExpression? receiver, List<Argument> arguments, bool isSuperCall = false)
     {
-        // Calling a method on an object never modifies the place holding the reference.
-        if (receiver is not null && !receiver.Type.IsReference && !method.Symbol.IsReadOnly)
-        {
-            var (kind, reason) = ClassifyPlace(receiver);
-            if (kind == PlaceKind.ReadOnly)
-            {
-                var what = receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'";
-                return ErrorExpression(location,
-                    $"cannot call 'mut' method '{method.Symbol.Name}' on {what} because {reason}");
-            }
-        }
+        if (receiver is not null && !CheckMutReceiver(location, method, receiver))
+            return new BoundErrorExpression(location);
         if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))
             return new BoundErrorExpression(location);
         if (IsBorrowHook(method.Symbol))
             return ErrorExpression(location, $"'{method.Symbol.Name}' is called by the compiler around every borrow, and cannot be called directly");
         QueueBoundChecks(method.Symbol.TypeParameters, method.TypeArguments, location);
         return new BoundCall(location, method, receiver, ConvertArguments(method, arguments), isSuperCall);
+    }
+
+    bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver)
+    {
+        // Calling a method on an object never modifies the place holding the reference.
+        if (receiver.Type.IsReference || method.Symbol.IsReadOnly)
+            return true;
+        var (kind, reason) = ClassifyPlace(receiver);
+        if (kind != PlaceKind.ReadOnly)
+            return true;
+        var what = receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'";
+        Error(location, $"cannot call 'mut' method '{method.Symbol.Name}' on {what} because {reason}");
+        return false;
     }
 
     /// <summary>A call could unbalance the borrow count, so the borrow methods are left to the compiler.</summary>
@@ -443,7 +447,7 @@ public sealed partial class Binder
             var place = NarrowReference(argument.Expression);
             var (kind, reason) = ClassifyPlace(place);
             if (kind == PlaceKind.Temporary)
-                Error(argument.Location, "a 'ref' argument must be a variable or field");
+                Error(argument.Location, $"a 'ref' argument must be a variable or field{NotAnElementHint(place)}");
             else if (kind == PlaceKind.ReadOnly)
                 Error(argument.Location, $"cannot pass '{TextOf(place.Location)}' by 'ref' because {reason}");
             result.Add(place);

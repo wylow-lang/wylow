@@ -1,0 +1,103 @@
+// An element assigned through 'operator []=' is found before the value, as any element is (spec
+// 03-memory-model.md, Evaluation order and the heap): the receiver, then the indices, each once,
+// then for a compound assignment the read through 'operator []', then the value, then the write.
+
+import std::print;
+
+class Grid {
+    mut int[4] cells;
+
+    int operator [](int row, int col) {
+        print($"read {row},{col}");
+        return cells[row * 2 + col];
+    }
+
+    void operator []=(int row, int col, int value) {
+        print($"write {row},{col} = {value}");
+        cells[row * 2 + col] = value;
+    }
+}
+
+struct Pair {
+    int[2] items;
+
+    int operator [](int i) {
+        print($"read {i}");
+        return items[i];
+    }
+
+    mut void operator []=(int i, int value) {
+        print($"write {i} = {value}");
+        items[i] = value;
+    }
+}
+
+Grid grid(Grid g) {
+    print("receiver");
+    return g;
+}
+
+int at(int i) {
+    print($"index {i}");
+    return i;
+}
+
+int value(int v) {
+    print($"value {v}");
+    return v;
+}
+
+int bump(ref int x) {
+    x += 1;
+    return x;
+}
+
+void main() {
+    var g = new Grid();
+    grid(g)[at(1), at(0)] = value(5);
+    // output: receiver
+    // output: index 1
+    // output: index 0
+    // output: value 5
+    // output: write 1,0 = 5
+    grid(g)[at(1), at(0)] += value(2);
+    // output: receiver
+    // output: index 1
+    // output: index 0
+    // output: read 1,0
+    // output: value 2
+    // output: write 1,0 = 7
+    grid(g)[at(1), at(0)]++;
+    // output: receiver
+    // output: index 1
+    // output: index 0
+    // output: read 1,0
+    // output: write 1,0 = 8
+
+    // A struct receiver is an element too, whose index is found first.
+    mut Pair[2] pairs = [Pair(), Pair()];
+    pairs[at(1)][at(0)] = value(3);
+    // output: index 1
+    // output: index 0
+    // output: value 3
+    // output: write 0 = 3
+    pairs[at(1)][at(0)] -= value(1);
+    // output: index 1
+    // output: index 0
+    // output: read 0
+    // output: value 1
+    // output: write 0 = 2
+    pairs[at(1)][at(0)]--;
+    // output: index 1
+    // output: index 0
+    // output: read 0
+    // output: write 0 = 1
+
+    // The value may change what the indices were read from; they were found before it.
+    mut int i = 0;
+    pairs[0][i] += bump(ref i);
+    // output: read 0
+    // output: write 0 = 1
+    print(i);                           // output: 1
+    print(pairs[0].items[1]);           // output: 0
+}

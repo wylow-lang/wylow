@@ -1,0 +1,265 @@
+// An element with no storage to refer to is assigned through 'operator []=' (spec 06-syntax.md §6.6).
+
+import std::{List, print};
+
+struct Nibbles {
+    byte[4] bytes;
+
+    pub byte operator [](int i) {
+        return (bytes[i >> 1] >> ((i & 1) * 4)) & 0xF;
+    }
+
+    pub mut void operator []=(int i, byte value) {
+        int shift = (i & 1) * 4;
+        bytes[i >> 1] = (byte)((bytes[i >> 1] & ~(0xF << shift)) | ((value & 0xF) << shift));
+    }
+
+    mut void fill(byte value) {
+        for (int i : 0..8) {
+            this[i] = value;
+        }
+    }
+}
+
+class Bits {
+    mut int word;
+
+    bool operator [](int i) {
+        return (word >> i & 1) != 0;
+    }
+
+    void operator []=(int i, bool value) {
+        word = value ? word | (1 << i) : word & ~(1 << i);
+    }
+
+    void setAll() {
+        for (int i : 0..4) {
+            this[i] = true;
+        }
+    }
+}
+
+struct Chunk {
+    Nibbles light;
+}
+
+class World {
+    mut Chunk chunk;
+    Bits flags = new Bits();
+}
+
+// A read-only 'in' indexer pairs with '[]=' too, and the value may be taken 'in'.
+struct Names {
+    String[2] names;
+
+    in String operator [](int i) {
+        return ref names[i];
+    }
+
+    mut void operator []=(int i, in String value) {
+        names[i] = value;
+    }
+}
+
+struct Counts {
+    int[2] counts;
+
+    in int operator [](int i) {
+        return ref counts[i];
+    }
+
+    mut void operator []=(int i, int value) {
+        counts[i] = value;
+    }
+}
+
+// Indexed by a key that counts references, which each call is passed a copy of.
+class Table {
+    List<String> keys = new List<String>();
+    List<int> values = new List<int>();
+
+    int operator [](String key) {
+        for (int i : 0..keys.count()) {
+            if (keys[i] == key) {
+                return values[i];
+            }
+        }
+        return 0;
+    }
+
+    void operator []=(String key, int value) {
+        for (int i : 0..keys.count()) {
+            if (keys[i] == key) {
+                values[i] = value;
+                return;
+            }
+        }
+        keys.add(key);
+        values.add(value);
+    }
+}
+
+interface Store {
+    int operator [](int i);
+    void operator []=(int i, int value);
+}
+
+class Doubling implements Store {
+    mut int[3] items;
+
+    int operator [](int i) {
+        return items[i];
+    }
+
+    void operator []=(int i, int value) {
+        items[i] = value * 2;
+    }
+}
+
+// The pair may be split across a class and its base.
+class Readable {
+    mut int[2] items;
+
+    int operator [](int i) {
+        return items[i];
+    }
+}
+
+class Writable extends Readable {
+    void operator []=(int i, int value) {
+        items[i] = value;
+    }
+}
+
+class Maybe {
+    mut int?[2] items;
+
+    int? operator [](int i) {
+        return items[i];
+    }
+
+    void operator []=(int i, int? value) {
+        items[i] = value;
+    }
+}
+
+// An assignment's indices are resolved against 'operator []', with its defaults and names.
+class Board {
+    mut int[4] cells;
+
+    int operator [](int row, int col = 1) {
+        return cells[row * 2 + col];
+    }
+
+    void operator []=(int row, int col, int value) {
+        cells[row * 2 + col] = value;
+    }
+}
+
+void brighten(ref Nibbles n, int i) {
+    n[i] += 2;
+}
+
+void main() {
+    mut Nibbles n = Nibbles();
+    n[0] = 3;
+    n[1] = 12;
+    print(n[0]);                        // output: 3
+    print(n[1]);                        // output: 12
+    print(n.bytes[0]);                  // output: 195
+    n[1] += 2;
+    print(n[1]);                        // output: 14
+    n[1] -= 4;
+    n[0] |= 8;
+    print(n[1]);                        // output: 10
+    print(n[0]);                        // output: 11
+    n[0]++;
+    n[1]--;
+    print(n[0]);                        // output: 12
+    print(n[1]);                        // output: 9
+    // Only the low four bits are kept.
+    n[2] = 0x1F;
+    print(n[2]);                        // output: 15
+    brighten(ref n, 3);
+    brighten(ref n, 3);
+    print(n[3]);                        // output: 4
+    for (int i : 0..8) {
+        n[i] = (byte)i;
+    }
+    for (int i : 0..8) {
+        n[i] *= 2;
+    }
+    byte last = n[7];
+    print(last);                        // output: 14
+    print(n.bytes[3]);                  // output: 236
+    n.fill(5);
+    print(n.bytes[2]);                  // output: 85
+
+    var bits = new Bits();
+    bits[1] = true;
+    bits[3] = true;
+    print(bits.word);                   // output: 10
+    bits[1] = false;
+    print(bits[1]);                     // output: false
+    print(bits[3]);                     // output: true
+    bits.setAll();
+    print(bits.word);                   // output: 15
+
+    // Through fields: a struct's field in a class's, and a class's field.
+    var world = new World();
+    world.chunk.light[5] = 7;
+    world.chunk.light[5] += 1;
+    print(world.chunk.light[5]);        // output: 8
+    world.flags[4] = true;
+    print(world.flags.word);            // output: 16
+    mut Chunk chunk = Chunk();
+    chunk.light[0] = 9;
+    chunk.light[0]--;
+    print(chunk.light[0]);              // output: 8
+
+    mut Names names = Names();
+    names[0] = "dirt";
+    names[1] = "stone";
+    names[0] = $"{names[0]} block";
+    print(names[0]);                    // output: dirt block
+    print(names[1]);                    // output: stone
+
+    mut Counts counts = Counts();
+    counts[1] = 4;
+    counts[1] += 3;
+    counts[1]++;
+    print(counts[1]);                   // output: 8
+
+    var table = new Table();
+    String key = "torch";
+    table[key] = 4;
+    table[key] += 10;
+    table["lamp"]++;
+    print(table[key]);                  // output: 14
+    print(table["lamp"]);               // output: 1
+    print(table.keys.count());         // output: 2
+
+    Store store = new Doubling();
+    store[1] = 3;
+    store[1] += 1;
+    print(store[1]);                    // output: 14
+
+    var writable = new Writable();
+    writable[1] = 6;
+    writable[1] *= 7;
+    print(writable[1]);                 // output: 42
+
+    var board = new Board();
+    board[1] = 7;
+    board[0, col: 0] = 2;
+    board[row: 1, col: 0] += 3;
+    print(board.cells[3]);              // output: 7
+    print(board.cells[0]);              // output: 2
+    print(board.cells[2]);              // output: 3
+
+    var maybe = new Maybe();
+    maybe[0] = 5;
+    maybe[1] = null;
+    print(maybe[0] ?? -1);              // output: 5
+    print(maybe[1] ?? -1);              // output: -1
+}

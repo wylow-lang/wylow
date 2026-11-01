@@ -1,0 +1,32 @@
+// The flow analysis checks an assignment through 'operator []=' as it checks any call (spec 06-syntax.md §6.6).
+
+struct Pair {
+    int[2] items;
+
+    int operator [](int i) {
+        return items[i];
+    }
+
+    mut void operator []=(int i, int value) {
+        items[i] = value;
+    }
+}
+
+int clear(ref Pair? pair) {
+    pair = null;
+    return 1;
+}
+
+void main() {
+    mut Pair unassigned;
+    unassigned[0] = 1;                  // error: 'unassigned' might not have been assigned
+
+    mut Pair? maybe = Pair();
+    if (maybe != null) {
+        maybe[0] = clear(ref maybe);    // error: 'maybe' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first
+    }
+    mut Pair? other = Pair();
+    if (other != null) {
+        other[1] += clear(ref other);   // error: 'other' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first
+    }
+}

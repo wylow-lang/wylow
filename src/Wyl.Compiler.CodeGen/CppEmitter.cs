@@ -150,7 +150,7 @@ public sealed partial class CppEmitter
     // Prefixes keep Wylow names from colliding with C++ keywords, the runtime, and each other.
     string FunctionName(FunctionSymbol function) =>
         "fn_" + (function.Declaration is { } declaration ? ModulePrefix(declaration) : "") + function.Name + OverloadSuffix(function);
-    string MethodName(FunctionSymbol method) => (method.IsIndexer ? "wyl_index" : "m_" + ShadowingPrefix(method) + method.Name) + OverloadSuffix(method);
+    string MethodName(FunctionSymbol method) => (method.IsIndexer ? "wyl_index" : method.IsIndexerSetter ? "wyl_index_set" : "m_" + ShadowingPrefix(method) + method.Name) + OverloadSuffix(method);
 
     /// <summary>
     /// A method is named for the first of the class methods it overrides, and that one, if it has

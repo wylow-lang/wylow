@@ -13,3 +13,11 @@ pub(package) struct Corner {
     int hidden;
 }
 pub(package) Corner corner() { return Corner(1, 2); }
+
+// An indexer's 'operator []=' may reach less far than its 'operator []', as C#'s 'private set'.
+pub(package) class Cells {
+    mut int[2] items;
+    pub(package) int operator [](int i) { return items[i]; }
+    pub(module) void operator []=(int i, int value) { items[i] = value; }
+}
+pub(package) Cells cells() { return new Cells(); }

@@ -85,6 +85,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public RefKind ReturnRefKind { get; init; }
 
     public bool IsIndexer => Name == SyntaxFacts.IndexerName;
+    public bool IsIndexerSetter => Name == SyntaxFacts.IndexerSetterName;
     public TypeSymbol? ContainingType { get; init; }
     public bool IsStatic { get; init; }
     public bool IsReadOnly { get; init; }

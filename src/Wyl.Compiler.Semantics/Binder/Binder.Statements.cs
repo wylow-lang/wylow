@@ -327,7 +327,7 @@ public sealed partial class Binder
         if (PlacePath.NullableValueRoot(place) is { } root)
             Error(place.Location, $"{what} cannot refer into {DestroyedByNull(root)}");
         else if (kind == PlaceKind.Temporary)
-            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value");
+            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value{NotAnElementHint(place)}");
         else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
             Error(place.Location, $"cannot take a 'ref{suffix}' to {referred} because {reason}; use 'in{suffix}' instead");
         else
@@ -518,8 +518,7 @@ public sealed partial class Binder
 
     BoundStatement BindAssignment(AssignStmt s)
     {
-        // Assigning through a reference assigns the place it refers to.
-        var target = NarrowReference(BindExpression(s.Target));
+        var target = BindAssignmentTarget(s.Target);
         var value = s.Operator == TokenKind.Assign ? BindValue(s.Value, target.Type) : BindExpression(s.Value);
         if (target.Type == WylType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
@@ -529,9 +528,13 @@ public sealed partial class Binder
         return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 
+    /// <summary>Assigning through a reference assigns the place it refers to; an element may be assigned through <c>operator []=</c>.</summary>
+    BoundExpression BindAssignmentTarget(Expr target) =>
+        target is IndexExpr index ? NarrowReference(BindIndex(index, assigned: true)) : NarrowReference(BindExpression(target));
+
     BoundStatement BindIncDec(IncDecStmt s)
     {
-        var target = NarrowReference(BindExpression(s.Target));
+        var target = BindAssignmentTarget(s.Target);
         if (target.Type == WylType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);
         var operand = target.Type.IsNullableValue ? AssumeNonNull(target) : target;
@@ -628,6 +631,8 @@ public sealed partial class Binder
                 return false;
             }
         }
+        if (target is BoundIndexerElement)
+            return true;
         var (kind, reason) = ClassifyPlace(target);
         switch (kind)
         {

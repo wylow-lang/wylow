@@ -1,0 +1,135 @@
+// What 'operator []=' must be, and where an element it assigns is not a place (spec 06-syntax.md §6.6).
+
+struct Grid {
+    int[4] cells;
+
+    int operator [](int i) {
+        return cells[i];
+    }
+
+    int operator [](String key) {
+        return 0;
+    }
+
+    mut void operator []=(int i, int value) {
+        cells[i] = value;
+    }
+
+    ref int wrong(int i) {
+        return ref this[i];             // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value; 'Grid' has no element storage, and assigns its elements with 'operator []='
+    }
+}
+
+struct Both {
+    int[4] cells;
+
+    mut ref int operator [](int i) {
+        return ref cells[i];
+    }
+
+    mut void operator []=(int i, int value) {   // error: 'Both' cannot have both 'operator []=' and an 'operator []' that returns 'ref', since an assignment would have two meanings
+        cells[i] = value;
+    }
+}
+
+class Base {
+    mut int[4] cells;
+
+    ref int operator [](int i) {
+        return ref cells[i];
+    }
+}
+
+class Derived extends Base {
+    void operator []=(int i, int value) {       // error: 'Derived' cannot have both 'operator []=' and an 'operator []' that returns 'ref', since an assignment would have two meanings
+    }
+}
+
+struct Shapes {
+    int[4] cells;
+
+    int operator [](int i) {
+        return cells[i];
+    }
+
+    in? int operator [](short i) {
+        return null;
+    }
+
+    int operator []=(int i, int value) {        // error: 'operator []=' must return 'void'
+        return 0;
+    }
+
+    mut void operator []=(int i) {              // error: 'operator []=' takes the indices, then the assigned value, as in 'void operator []=(int i, T value)'
+    }
+
+    mut void operator []=(long i, int value) {  // error: 'operator []=' needs an 'operator [](long)' returning the element it assigns
+    }
+
+    mut void operator []=(short i, int value) { // error: 'operator []=' needs an 'operator [](short)' returning the element it assigns
+    }
+
+    mut void operator []=(int i, ref long value) {  // error: the value of 'operator []=' cannot be 'ref'; it is passed by value or 'in'
+    }
+
+    mut void operator []=(int i, long value) {  // error: the value of 'operator []=' must have the element type 'int' that 'operator [](int)' returns
+    }
+
+    static void operator []=(byte i, int value) {   // error: 'operator []=' cannot be static
+    }
+}
+
+struct Defaults {
+    int operator [](int i, int j = 0) {
+        return i + j;
+    }
+
+    mut void operator []=(int i, int j = 0, int value) {   // error: 'operator []=' cannot have default values; an assignment takes the defaults of the matching 'operator []'
+    }
+}
+
+// Without an 'operator []', there is nothing to read an element with.
+struct WriteOnly {
+    mut void operator []=(int i, int value) {   // error: 'operator []=' needs an 'operator [](int)' returning the element it assigns
+    }
+}
+
+class Maybe {
+    mut int?[2] items;
+
+    int? operator [](int i) {
+        return items[i];
+    }
+
+    void operator []=(int i, int? value) {
+        items[i] = value;
+    }
+}
+
+class Holder {
+    Grid fixed = Grid();
+}
+
+void bump(ref int x) {
+    x += 1;
+}
+
+void change(in Grid read) {
+    read[0] = 1;                        // error: cannot call 'mut' method 'operator []=' on 'read' because 'read' is an 'in' parameter
+}
+
+void main() {
+    Grid grid = Grid();
+    grid[0] = 1;                        // error: cannot call 'mut' method 'operator []=' on 'grid' because variable 'grid' is not 'mut'
+    mut Grid g = Grid();
+    g["torch"] = 1;                     // error: 'Grid' has no 'operator []=' to assign an element read by 'operator [](String)'
+    g[0] = "one";                       // error: cannot implicitly convert 'String' to 'int'
+    ref int r = g[0];                   // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Grid' has no element storage, and assigns its elements with 'operator []='
+    bump(ref g[0]);                     // error: a 'ref' argument must be a variable or field; 'Grid' has no element storage, and assigns its elements with 'operator []='
+    var holder = new Holder();
+    holder.fixed[0] += 1;               // error: cannot call 'mut' method 'operator []=' on 'holder.fixed' because field 'fixed' is not 'mut'
+    var maybe = new Maybe();
+    maybe[0]++;                         // error: '++' requires a numeric variable; check it for null first, or use '!' or '??'
+    mut WriteOnly w = WriteOnly();
+    w[0] = 1;                           // error: 'WriteOnly' cannot be indexed
+}

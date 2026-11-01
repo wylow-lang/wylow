@@ -19,7 +19,7 @@ static class MatrixPlaces
         places.AddRange(IndexPlaces("list-element", ListElement));
         places.AddRange(IndexPlaces("span-element", SpanElement));
         places.AddRange([RefLocal(), InLocal(), RefNullableLocal(), InNullableLocal(),
-            NullableValue(), CapturedLocal(), ThisField(), ChainedField()]);
+            NullableValue(), CapturedLocal(), ThisField(), ChainedField(), SetterElement()]);
         var cells = new List<MatrixCell>();
         foreach (var place in places)
         {
@@ -163,6 +163,14 @@ static class MatrixPlaces
         U("int[3]", "var node = new Node();", "node.inner.values", mutable: true),
         ChainedFieldReturnRef);
 
+    // An element with no storage, which 'operator []=' assigns: never a place to refer to or view.
+    // Its types follow the program, so that adding them moved no other cell's lines.
+    static Place SetterElement() => new("setter-element",
+        U("int", "mut Cells c = Cells();", "c[0]", mutable: true),
+        U("int[3]", "mut Rows r = Rows();", "r[0]", mutable: true),
+        (use, operation, body) => MainHost(use, operation, body) + "\n" + SetterTypes,
+        _ => SetterElementReturnRef + "\n\n" + SetterTypes);
+
     /// <summary>The statements of one operation, with the place's own expression substituted.</summary>
     static string Body(Use use, string operation)
     {
@@ -296,6 +304,48 @@ static class MatrixPlaces
             mut Fixed fixedValue = Fixed();
             fixedValue.at() = 5;
             print(fixedValue.a[{{index}}]);
+        }
+        """;
+
+    const string SetterElementReturnRef = """
+        struct Owner {
+            Cells cells = Cells();
+
+            mut ref int at() {
+                return ref cells[0];
+            }
+        }
+
+        void main() {
+            mut Owner owner = Owner();
+            owner.at() = 5;
+            print(owner.cells[0]);
+        }
+        """;
+
+    const string SetterTypes = """
+        struct Cells {
+            int[2] items = [1, 2];
+
+            int operator [](int i) {
+                return items[i];
+            }
+
+            mut void operator []=(int i, int value) {
+                items[i] = value;
+            }
+        }
+
+        struct Rows {
+            int[2][3] rows = [[1, 2, 3], [4, 5, 6]];
+
+            int[3] operator [](int i) {
+                return rows[i];
+            }
+
+            mut void operator []=(int i, int[3] value) {
+                rows[i] = value;
+            }
         }
         """;
 

@@ -17,4 +17,7 @@ void main() {
     var s = WorldShared();
     world::Secret t;                // error: 'module_visibility::world' has no name 'Secret'
     bool f = world::corner() is world::Corner(1, _);    // error: field 'Corner.hidden' is visible only in its file (world/w.wyl)
+    var cells = world::cells();
+    int g = cells[0];
+    cells[0] = 1;                   // error: 'operator []=' of 'Cells' is visible only in module 'module_visibility::world'
 }
