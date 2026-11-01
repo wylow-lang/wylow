@@ -18,21 +18,21 @@ class Enemy {
 }
 
 class Hooks {
-    () -> void onTick;
+    fn() -> void onTick;
 
-    Hooks(@Escaping () -> void onTick) {
+    Hooks(@Escaping fn() -> void onTick) {
         this.onTick = onTick;
     }
 }
 
-// A lambda of generic type, `(T) -> void`, may be any `(X) -> void`.
-(T) -> void storer<T>(List<T> list, T value) {
+// A lambda of generic type, `fn(T) -> void`, may be any `fn(X) -> void`.
+fn(T) -> void storer<T>(List<T> list, T value) {
     return x -> {
         list[0] = value;
     };
 }
 
-void tick(() -> void f) {
+void tick(fn() -> void f) {
     f();
 }
 

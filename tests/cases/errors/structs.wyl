@@ -28,7 +28,7 @@ struct Point {
 }
 
 struct Named {
-    (() -> int)? name;
+    (fn() -> int)? name;
 }
 
 struct Loop {                      // error: struct 'Loop' contains itself (Loop -> Inner -> Loop)
@@ -67,7 +67,7 @@ void main() {
     make().x = 4;                  // error: cannot assign to a field of a temporary value
     var n1 = Named();
     var n2 = Named();
-    print(n1 == n2);               // error: its field 'name' of type '(() -> int)?' does not support '=='
+    print(n1 == n2);               // error: its field 'name' of type '(fn() -> int)?' does not support '=='
     print(p == 3);                 // error: operator '==' cannot be applied to 'Point' and 'int'
     print(this);                   // error: 'this' can only be used inside a struct
     Point.reset();                 // error: 'Point.reset' is an instance method

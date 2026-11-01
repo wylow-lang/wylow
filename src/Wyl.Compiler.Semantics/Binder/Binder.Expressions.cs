@@ -55,7 +55,7 @@ public sealed partial class Binder
         NamedArgExpr e => ErrorExpression(e.Location, "a named argument can only be used in a call"),
         LambdaExpr e => expected is FunctionType function ? BindLambda(e, function, null)
             : expected == WylType.Error ? new BoundErrorExpression(e.Location)
-            : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'"),
+            : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in 'fn(int) -> int f = x -> x + 1;'"),
         ErrorExpr e => new BoundErrorExpression(e.Location),
         _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
     };

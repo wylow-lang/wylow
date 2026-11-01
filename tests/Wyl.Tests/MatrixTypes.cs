@@ -78,11 +78,11 @@ static class MatrixTypes
         yield return new("fixed-array", "int[3]", "int[3]", "int[2][3]", "3", "7",
             raw => $"[{raw}, 2, 3]",
             expr => $"print({expr}[0]);");
-        yield return new("function-escaping", "() -> int", "@Escaping () -> int", "(() -> int)[2]", "3", "7",
+        yield return new("function-escaping", "fn() -> int", "@Escaping fn() -> int", "(fn() -> int)[2]", "3", "7",
             raw => $"() -> {raw}",
             expr => $"print({expr}());",
             Comparable: false);
-        yield return new("function-nonescaping", "() -> int", "() -> int", "(() -> int)[2]", "3", "7",
+        yield return new("function-nonescaping", "fn() -> int", "fn() -> int", "(fn() -> int)[2]", "3", "7",
             raw => $"() -> {raw}",
             expr => $"print({expr}());",
             Comparable: false);
@@ -223,14 +223,14 @@ static class MatrixTypes
 
             case "capture":
                 main.Add(row.Declare("value", row.First));
-                main.Add("@Escaping () -> void captured = () -> {");
+                main.Add("@Escaping fn() -> void captured = () -> {");
                 main.Add(row.Show("value"));
                 main.Add("};");
                 main.Add("captured();");
                 if (row.Nullable)
                 {
                     main.Add(row.DeclareNull("none"));
-                    main.Add("@Escaping () -> void nullCaptured = () -> {");
+                    main.Add("@Escaping fn() -> void nullCaptured = () -> {");
                     main.Add(row.Show("none"));
                     main.Add("};");
                     main.Add("nullCaptured();");

@@ -687,18 +687,18 @@ static class InterpreterSelfTests
             """, output: ["2.0", "0.5", "2.0", "7.0"]);
 
         Case(results, "lambdas", """
-            int apply((int) -> int f, int x) {
+            int apply(fn(int) -> int f, int x) {
                 return f(x);
             }
 
-            int run(() -> int f) {
+            int run(fn() -> int f) {
                 return f();
             }
 
             void main() {
                 mut int total = 0;
                 int start = 2;
-                (int) -> int add = x -> x + start;
+                fn(int) -> int add = x -> x + start;
                 print(apply(add, 3));
                 run(() -> {
                     total += 5;
@@ -718,11 +718,11 @@ static class InterpreterSelfTests
                     this.count = count;
                 }
 
-                () -> int reader() {
+                fn() -> int reader() {
                     return () -> count;
                 }
 
-                () -> void adder(int by) {
+                fn() -> void adder(int by) {
                     return () -> {
                         count += by;
                     };
@@ -733,14 +733,14 @@ static class InterpreterSelfTests
                 }
             }
 
-            (int) -> int keep(int base) {
+            fn(int) -> int keep(int base) {
                 return x -> base * 2 + x;
             }
 
             void main() {
                 var f = keep(21);
                 print(f(0));
-                @Escaping mut () -> void add;
+                @Escaping mut fn() -> void add;
                 {
                     var c = new Counter(10);
                     var read = c.reader();
@@ -792,15 +792,15 @@ static class InterpreterSelfTests
 
         Case(results, "function_fields", """
             class Button {
-                mut (int) -> int scale = x -> x;
-                mut ((int) -> int)? transform = null;
+                mut fn(int) -> int scale = x -> x;
+                mut (fn(int) -> int)? transform = null;
                 String name;
 
                 Button(String name) {
                     this.name = name;
                 }
 
-                void set(@Escaping (int) -> int f) {
+                void set(@Escaping fn(int) -> int f) {
                     scale = f;
                 }
 
@@ -827,8 +827,8 @@ static class InterpreterSelfTests
             """, output: ["3", "6", "8", "6", "b"]);
 
         Case(results, "choices", """
-            int pick(bool first, (int) -> int a, (int) -> int b) {
-                (int) -> int chosen = first ? a : b;
+            int pick(bool first, fn(int) -> int a, fn(int) -> int b) {
+                fn(int) -> int chosen = first ? a : b;
                 return chosen(10);
             }
 
@@ -837,11 +837,11 @@ static class InterpreterSelfTests
                 print(pick(false, x -> x + 1, x -> x * 2));
                 mut bool flag = false;
                 int base = 100;
-                (int) -> int f = flag ? x -> x + base : x -> x - base;
+                fn(int) -> int f = flag ? x -> x + base : x -> x - base;
                 print(f(1));
                 flag = true;
                 print(f(1));
-                @Escaping (int) -> int g = flag ? x -> x + 1 : x -> x + 2;
+                @Escaping fn(int) -> int g = flag ? x -> x + 1 : x -> x + 2;
                 print(g(10));
             }
             """, output: ["11", "20", "-99", "-99", "11"]);
@@ -867,7 +867,7 @@ static class InterpreterSelfTests
                 }
             }
 
-            int apply((int) -> int f, int x) {
+            int apply(fn(int) -> int f, int x) {
                 return f(x);
             }
 
@@ -880,29 +880,29 @@ static class InterpreterSelfTests
             }
 
             void main() {
-                (int) -> int f = inc;
+                fn(int) -> int f = inc;
                 print(f(1));
                 print(apply(inc, 41));
                 print(new Mob(2).scaledTwice());
-                (double) -> double h = halve;
+                fn(double) -> double h = halve;
                 print(h(5));
-                (Mob, Mob) -> int byDepth = Mob.byDepth;
+                fn(Mob, Mob) -> int byDepth = Mob.byDepth;
                 print(byDepth(new Mob(1), new Mob(4)));
             }
             """, output: ["2", "42", "50", "2.5", "-3"]);
 
         Case(results, "interface_dispatch", """
             interface Runner {
-                mut int run(() -> int task);
+                mut int run(fn() -> int task);
             }
 
             class Twice implements Runner {
-                int run(() -> int task) {
+                int run(fn() -> int task) {
                     return task() + task();
                 }
             }
 
-            int callTemplate(() -> int f) {
+            int callTemplate(fn() -> int f) {
                 return f();
             }
 
@@ -930,17 +930,17 @@ static class InterpreterSelfTests
             }
 
             void main() {
-                (ref int) -> void twice = v -> {
+                fn(ref int) -> void twice = v -> {
                     v += 1;
                     v *= 2;
                 };
                 mut int a = 3;
                 twice(ref a);
                 print(a);
-                (ref int) -> void f = bump;
+                fn(ref int) -> void f = bump;
                 f(ref a);
                 print(a);
-                (ref int, int) -> int w = write;
+                fn(ref int, int) -> int w = write;
                 print(w(ref a, 4));
                 print(a);
             }
@@ -985,7 +985,7 @@ static class InterpreterSelfTests
                 }
             }
 
-            () -> String maker<T extends Printable>(T value) {
+            fn() -> String maker<T extends Printable>(T value) {
                 return () -> Cell<T>(value).show();
             }
 
@@ -996,7 +996,7 @@ static class InterpreterSelfTests
                     this.value = value;
                 }
 
-                () -> T reader() {
+                fn() -> T reader() {
                     return () -> value;
                 }
             }

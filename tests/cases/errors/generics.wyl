@@ -50,7 +50,7 @@ Pair<T, int> full<T>(T x) {
     return Pair<T, int>(first: x);
 }
 
-T choose<T>((int) -> T f) {
+T choose<T>(fn(int) -> T f) {
     return f(0);
 }
 
@@ -71,7 +71,7 @@ void main() {
         }
         return 0.5;
     });
-    var bad = Pair<(() -> int)?, int>();
-    print(bad == bad);            // error: its field 'first' of type '(() -> int)?' does not support '=='
+    var bad = Pair<(fn() -> int)?, int>();
+    print(bad == bad);            // error: its field 'first' of type '(fn() -> int)?' does not support '=='
     same(print(1), print(2));     // error: cannot infer type argument 'T' of 'same' from a 'void' value; a call that returns nothing cannot be an argument
 }

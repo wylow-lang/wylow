@@ -4,8 +4,8 @@
 import std::print;
 
 class Holder {
-    mut (int) -> int f = x -> x * 10;
-    mut ((int) -> int)? maybe = null;
+    mut fn(int) -> int f = x -> x * 10;
+    mut (fn(int) -> int)? maybe = null;
     mut int calls = 0;
 
     int next() {
@@ -14,30 +14,30 @@ class Holder {
     }
 }
 
-int run(int value, ((int) -> int)? transform) {
+int run(int value, (fn(int) -> int)? transform) {
     if (transform != null) {
         return transform(value);
     }
     return value;
 }
 
-int forward(int value, ((int) -> int)? transform) {
+int forward(int value, (fn(int) -> int)? transform) {
     return run(value, transform) + 1;
 }
 
-int unwrapped(((int) -> int)? f) {
+int unwrapped((fn(int) -> int)? f) {
     return f!(3);
 }
 
-int chosen(int value, ((int) -> int)? f, ((int) -> int)? g, bool first) {
+int chosen(int value, (fn(int) -> int)? f, (fn(int) -> int)? g, bool first) {
     return (first ? f! : g!)(value);
 }
 
-int chosenMixed(int value, ((int) -> int)? f, bool first) {
+int chosenMixed(int value, (fn(int) -> int)? f, bool first) {
     return (first ? f! : x -> x - 1)(value);
 }
 
-int chosenSwitch(((int) -> int)? f, int which) {
+int chosenSwitch((fn(int) -> int)? f, int which) {
     return (switch (which) {
         case 0 -> f!;
         case 1 -> x -> x * 10;
@@ -45,29 +45,29 @@ int chosenSwitch(((int) -> int)? f, int which) {
     })(3);
 }
 
-int twice((int) -> int f) {
+int twice(fn(int) -> int f) {
     return f(f(1));
 }
 
-int narrowed(((int) -> int)? f) {
+int narrowed((fn(int) -> int)? f) {
     if (f == null) {
         return -1;
     }
     return twice(f);
 }
 
-int three(int a, ((int) -> int)? f, int b) {
+int three(int a, (fn(int) -> int)? f, int b) {
     return run(a, f) * 10 + b;
 }
 
-int replacing(Holder holder, ((int) -> int)? f) {
+int replacing(Holder holder, (fn(int) -> int)? f) {
     holder.maybe = null;
     holder.f = x -> 0;
     return run(1, f);
 }
 
 class Visitor {
-    virtual int visit(((int) -> int)? f) {
+    virtual int visit((fn(int) -> int)? f) {
         return run(2, f);
     }
 }
@@ -94,7 +94,7 @@ void main() {
     print(run(4, holder.maybe));                    // output: 4
     holder.maybe = x -> -x;
     print(run(4, holder.maybe));                    // output: -4
-    (int) -> int local = x -> x + 100;
+    fn(int) -> int local = x -> x + 100;
     print(run(1, local));                           // output: 101
 
     // The function passed stays alive when the place it came from is replaced during the call.
@@ -124,7 +124,7 @@ void main() {
     print(chosenSwitch(null, 2));                           // output: 103
 
     // A function type's nullable parameters are non-escaping too.
-    (((int) -> int)?) -> int g = h -> h == null ? 7 : h(1);
+    fn((fn(int) -> int)?) -> int g = h -> h == null ? 7 : h(1);
     print(g(null));                                 // output: 7
     print(g(x -> x + 8));                           // output: 9
 

@@ -22,7 +22,7 @@ class Noisy {
 }
 
 class Keeper {
-    mut (() -> void)? stored = null;
+    mut (fn() -> void)? stored = null;
     mut Noisy? kept = null;
 }
 
@@ -35,7 +35,7 @@ class Greeter {
 
     // The closure captures 'this' without letting it escape.
     void greet() {
-        @Escaping () -> void say = () -> print(greeting); // stack: 1
+        @Escaping fn() -> void say = () -> print(greeting); // stack: 1
         say();
     }
 
@@ -45,23 +45,23 @@ class Greeter {
     }
 }
 
-void later(@Escaping () -> void f) {
+void later(@Escaping fn() -> void f) {
     f();
 }
 
-() -> void same(@Escaping () -> void f) {
+fn() -> void same(@Escaping fn() -> void f) {
     return f;
 }
 
-void keep(Keeper keeper, @Escaping () -> void f) {
+void keep(Keeper keeper, @Escaping fn() -> void f) {
     keeper.stored = f;
 }
 
-() -> void made(Noisy n) {
+fn() -> void made(Noisy n) {
     return () -> print(n.label());
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 
@@ -69,19 +69,19 @@ void run(() -> void f) {
 // back by a function returning its argument.
 void called() {
     var n = new Noisy("captured"); // stack: 1
-    @Escaping () -> String f = () -> n.label(); // stack: 1
+    @Escaping fn() -> String f = () -> n.label(); // stack: 1
     print(f());
     later(() -> print(n.label())); // stack: 1
     later(same(() -> { print("handed back"); print(n.label()); })); // stack: 1
-    @Escaping (() -> void)? maybe = () -> { print("maybe"); print(n.label()); }; // stack: 1
+    @Escaping (fn() -> void)? maybe = () -> { print("maybe"); print(n.label()); }; // stack: 1
     maybe!();
 }
 
 // A closure capturing a closure holds a copy of the function value.
 void nested() {
     var n = new Noisy("nested"); // stack: 1
-    @Escaping () -> void inner = () -> print(n.label()); // stack: 1
-    @Escaping () -> void outer = () -> inner(); // stack: 1
+    @Escaping fn() -> void inner = () -> print(n.label()); // stack: 1
+    @Escaping fn() -> void outer = () -> inner(); // stack: 1
     outer();
 }
 
@@ -89,7 +89,7 @@ void nested() {
 // declared after the local, so the object is destroyed before one declared before the local.
 void ordered() {
     var first = new Noisy("declared first"); // stack: 1
-    @Escaping mut (() -> void)? held = null;
+    @Escaping mut (fn() -> void)? held = null;
     var last = new Noisy("declared last"); // stack: 0
     held = () -> print(last.label()); // stack: 1
     held!();
@@ -100,7 +100,7 @@ void ordered() {
 void reassigned() {
     var a = new Noisy("a"); // stack: 1
     var b = new Noisy("b"); // stack: 1
-    @Escaping mut () -> void h = () -> print(a.label()); // stack: 1
+    @Escaping mut fn() -> void h = () -> print(a.label()); // stack: 1
     h();
     h = () -> print(b.label()); // stack: 1
     h();
@@ -108,7 +108,7 @@ void reassigned() {
 
 // Generic code declares the slot with the type parameter.
 T twiceCalled<T>(T value) {
-    @Escaping () -> T f = () -> value; // stack: 1
+    @Escaping fn() -> T f = () -> value; // stack: 1
     f();
     return f();
 }
@@ -123,7 +123,7 @@ void chosen(bool yes) {
 // Each iteration has its own closure.
 void looped() {
     for (int i : 0..3) {
-        @Escaping () -> int f = () -> i * 10; // stack: 1
+        @Escaping fn() -> int f = () -> i * 10; // stack: 1
         print(f());
     }
 }
@@ -131,7 +131,7 @@ void looped() {
 // The collector never sees a closure on the stack, even one capturing an object of a cyclic class.
 void collected() {
     var node = new Noisy("node"); // stack: 1
-    @Escaping () -> void f = () -> print(node.label()); // stack: 1
+    @Escaping fn() -> void f = () -> print(node.label()); // stack: 1
     f();
     memory::collectCycles();
     print(memory::cycleStats().freed);
@@ -142,9 +142,9 @@ void escapes(Keeper keeper) {
     var n = new Noisy("escapes"); // stack: 0
     // Stored in a field, in a list, or returned.
     keeper.stored = () -> print(n.label()); // stack: 0
-    var list = new List<() -> void>(); // stack: 1
+    var list = new List<fn() -> void>(); // stack: 1
     list.add(() -> print(n.label())); // stack: 0
-    @Escaping () -> void returned = made(n); // stack: 0
+    @Escaping fn() -> void returned = made(n); // stack: 0
 
     // Given to a parameter that stores it.
     var m = new Noisy("given"); // stack: 0
@@ -152,28 +152,28 @@ void escapes(Keeper keeper) {
 
     // Aliased before the local holding it is reassigned.
     var o = new Noisy("aliased"); // stack: 1
-    @Escaping mut () -> void first = () -> print(o.label()); // stack: 0
-    @Escaping () -> void copy = first;
+    @Escaping mut fn() -> void first = () -> print(o.label()); // stack: 0
+    @Escaping fn() -> void copy = first;
     first = () -> { print("replacement"); print(o.label()); }; // stack: 1
     copy();
     first();
 
     // Captured by another escaping lambda that escapes.
     var p = new Noisy("captured twice"); // stack: 0
-    @Escaping () -> void inner = () -> print(p.label()); // stack: 0
+    @Escaping fn() -> void inner = () -> print(p.label()); // stack: 0
     keeper.stored = () -> inner(); // stack: 0
 
     // A closure whose body lets what it captures escape, or returns it, when called.
     var q = new Noisy("kept by the body"); // stack: 0
-    @Escaping () -> void storing = () -> { keeper.kept = q; }; // stack: 1
+    @Escaping fn() -> void storing = () -> { keeper.kept = q; }; // stack: 1
     storing();
     var r = new Noisy("returned by the body"); // stack: 0
-    @Escaping () -> Noisy giving = () -> r; // stack: 1
+    @Escaping fn() -> Noisy giving = () -> r; // stack: 1
     keeper.kept = giving();
 
     // Held by a local that a lambda assigns, which keeps the closure alive while it is called.
     var s = new Noisy("replaced while called"); // stack: 1
-    @Escaping mut () -> void replaceable = () -> print(s.label()); // stack: 0
+    @Escaping mut fn() -> void replaceable = () -> print(s.label()); // stack: 0
     run(() -> replaceable());
     run(() -> { replaceable = () -> print("replacement"); });
     replaceable();

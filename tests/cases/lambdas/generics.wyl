@@ -3,7 +3,7 @@
 import std::{List, print};
 
 interface Visitor<T> {
-    void visit((T) -> void f);
+    void visit(fn(T) -> void f);
 }
 
 class Bag<T> implements Visitor<T> {
@@ -13,7 +13,7 @@ class Bag<T> implements Visitor<T> {
         items.add(item);
     }
 
-    void visit((T) -> void f) {
+    void visit(fn(T) -> void f) {
         for (T item : items) {
             f(item);
         }
@@ -26,7 +26,7 @@ class Bag<T> implements Visitor<T> {
         return bag;
     }
 
-    U fold<U>(U start, (U, T) -> U step) {
+    U fold<U>(U start, fn(U, T) -> U step) {
         mut U acc = start;
         visit(item -> {
             acc = step(acc, item);

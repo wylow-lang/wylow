@@ -10,11 +10,11 @@ class Counter {
         this.name = name;
     }
 
-    () -> int reader() {
+    fn() -> int reader() {
         return () -> count;
     }
 
-    () -> void incrementer(int by) {
+    fn() -> void incrementer(int by) {
         return () -> {
             count += by;
             bump();
@@ -32,25 +32,25 @@ class Counter {
 
 struct Labeled {
     String label;
-    () -> String describe;
+    fn() -> String describe;
 }
 
 enum Action {
-    Run(() -> int task),
+    Run(fn() -> int task),
     Skip,
 }
 
 interface Runner {
-    mut int run(() -> int task);
+    mut int run(fn() -> int task);
 }
 
 class TwiceRunner implements Runner {
-    int run(() -> int task) {
+    int run(fn() -> int task) {
         return task() + task();
     }
 }
 
-int callTemplate(() -> int f) {
+int callTemplate(fn() -> int f) {
     return f();
 }
 
@@ -61,7 +61,7 @@ int perform(Action action) {
     };
 }
 
-() -> () -> int nested(int base) {
+fn() -> fn() -> int nested(int base) {
     int offset = base * 2;
     return () -> {
         int inner = offset + 1;
@@ -71,8 +71,8 @@ int perform(Action action) {
 
 void main() {
     // A captured `this` keeps the object alive after every other reference is gone.
-    @Escaping mut () -> int read;
-    @Escaping mut () -> void increment;
+    @Escaping mut fn() -> int read;
+    @Escaping mut fn() -> void increment;
     if (true) {
         var counter = new Counter("counter freed");
         read = counter.reader();
@@ -85,27 +85,27 @@ void main() {
     increment = () -> print(0);                     // output: counter freed
 
     // Each iteration's variable is its own.
-    var fs = new List<() -> String>();
+    var fs = new List<fn() -> String>();
     for (String s : ["a", "b"]) {
         fs.add(() -> s);
     }
-    for (() -> String f : fs) {
+    for (fn() -> String f : fs) {
         print(f());                                 // output: a
                                                     // output: b
     }
-    var ns = new List<() -> int>();
+    var ns = new List<fn() -> int>();
     for (int i : 0..2) {
         int copy = i * 3;
         ns.add(() -> copy);
     }
-    for (() -> int n : ns) {
+    for (fn() -> int n : ns) {
         print(n());                                 // output: 0
                                                     // output: 3
     }
 
     // A captured reference is a copy of the reference, so the closure sees later changes to its object.
     var log = new List<int>();
-    @Escaping () -> int size = () -> log.count();
+    @Escaping fn() -> int size = () -> log.count();
     log.add(1);
     log.add(2);
     print(size());                                  // output: 2
@@ -120,7 +120,7 @@ void main() {
     print(perform(Skip));                           // output: -1
 
     // Escaping values passed to non-escaping parameters: a template, and a FunctionRef.
-    () -> int seven = () -> 7;
+    fn() -> int seven = () -> 7;
     print(callTemplate(seven));                     // output: 7
     Runner runner = new TwiceRunner();
     print(runner.run(seven));                       // output: 14
@@ -130,14 +130,14 @@ void main() {
     // their storage, and what it captures must stay valid wherever the value is used.
     mut int reached = 1;
     ref int into = reached;
-    () -> void writeThrough = () -> {
+    fn() -> void writeThrough = () -> {
         into = 6;
     };
     writeThrough();
     print(reached);                                 // output: 6
     mut int[3] cells = [1, 2, 3];
     Span<int> view = cells;
-    () -> void writeSpan = () -> {
+    fn() -> void writeSpan = () -> {
         view[1] = 8;
     };
     writeSpan();

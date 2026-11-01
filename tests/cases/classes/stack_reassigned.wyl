@@ -45,7 +45,7 @@ Noisy pass(Noisy n) {
     return n;
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 

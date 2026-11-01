@@ -27,6 +27,7 @@ public enum TokenKind
     FloatKeyword,
     DoubleKeyword,
     VarKeyword,
+    FnKeyword,
     IfKeyword,
     ElseKeyword,
     WhileKeyword,

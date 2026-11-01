@@ -96,6 +96,14 @@ public sealed partial class Parser
                 var name = Expect(TokenKind.Identifier, "a name for the place it refers to");
                 return new ReferencePatternSyntax(LocationFrom(start), refKind, type, name.Text, Loc(name.Span));
             }
+            case TokenKind.FnKeyword:
+            {
+                var type = ParseType(allowNullable: false);
+                Error(type.Location.Span, "a type pattern cannot name a function type; check a nullable function with a null check");
+                if (At(TokenKind.Identifier))
+                    Advance();
+                return new DiscardPatternSyntax(LocationFrom(start));
+            }
             case var kind when SyntaxFacts.IsPrimitiveTypeKeyword(kind):
             {
                 var type = ParseType(allowNullable: false);

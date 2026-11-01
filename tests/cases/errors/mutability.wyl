@@ -45,7 +45,7 @@ class Ball extends Body {
     }
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 
@@ -102,9 +102,9 @@ void deferred() {
     });
 }
 
-void functions(mut () -> void f) {          // error: a non-escaping function cannot be 'mut'
-    mut () -> void g = () -> {};            // error: a non-escaping function cannot be 'mut'
-    (ref Vec) -> void reset = (mut v) -> {  // error: 'v' is passed as 'ref', so it cannot be 'mut'
+void functions(mut fn() -> void f) {          // error: a non-escaping function cannot be 'mut'
+    mut fn() -> void g = () -> {};            // error: a non-escaping function cannot be 'mut'
+    fn(ref Vec) -> void reset = (mut v) -> {  // error: 'v' is passed as 'ref', so it cannot be 'mut'
         v.x = 0;
     };
 }

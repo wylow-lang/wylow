@@ -5,10 +5,10 @@ enum Op {
 
 void main() {
     Op op = Op.Add(1);
-    (int) -> int inc = x -> x + 1;
+    fn(int) -> int inc = x -> x + 1;
 
     // The lambdas a switch expression chooses from are made outside its cases.
-    (int) -> int f = switch (op) {
+    fn(int) -> int f = switch (op) {
         case Add(var a) -> x -> x + a;              // error: a lambda chosen by a switch expression cannot use 'a', which its case declares
         case Stop -> op is Add(var b) ? x -> b : inc; // error: a lambda chosen by a switch expression cannot use 'b', which its case declares
     };

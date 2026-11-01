@@ -21,7 +21,7 @@ struct Accumulator {
         });
     }
 
-    int with((int) -> int f) {
+    int with(fn(int) -> int f) {
         return f(total);
     }
 }
@@ -37,13 +37,13 @@ class Stack<T> {
         items.add(item);
     }
 
-    void forEach((T) -> void action) {
+    void forEach(fn(T) -> void action) {
         for (T item : items) {
             action(item);
         }
     }
 
-    int count((T) -> bool test) {
+    int count(fn(T) -> bool test) {
         mut int found = 0;
         forEach(item -> {
             if (test(item)) {
@@ -54,11 +54,11 @@ class Stack<T> {
     }
 }
 
-void call(() -> void f) {
+void call(fn() -> void f) {
     f();
 }
 
-void each(int[3] values, (int) -> void action) {
+void each(int[3] values, fn(int) -> void action) {
     for (int value : values) {
         action(value);
     }

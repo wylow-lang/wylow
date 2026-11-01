@@ -109,7 +109,8 @@ public sealed partial class Parser
                 declarations.Add(ParseTypeDecl(start, modifiers, kind) with { Annotations = annotations });
                 continue;
             }
-            if (SyntaxFacts.IsTypeStart(Current.Kind))
+            // A '(' is a grouped function type, or the old spelling, which ParseType reports.
+            if (SyntaxFacts.IsTypeStart(Current.Kind) || At(TokenKind.OpenParen))
             {
                 Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
                 var returnType = ParseType();
@@ -258,7 +259,8 @@ public sealed partial class Parser
             Advance();
             var name = Expect(TokenKind.Identifier, "an annotation name");
             var arguments = new List<Node>();
-            if (At(TokenKind.OpenParen) && !StartsParenthesizedType())
+            // `@Escaping (fn(int) -> int)? f`: parentheses starting with `fn` group the annotated type (§6.10).
+            if (At(TokenKind.OpenParen) && !StartsType(position))
             {
                 Advance();
                 if (!At(TokenKind.CloseParen))
@@ -272,27 +274,6 @@ public sealed partial class Parser
             annotations.Add(new AnnotationSyntax(LocationFrom(start), name.Text, arguments));
         }
         return annotations;
-    }
-
-    /// <summary>
-    /// Whether the parenthesis here opens the type an annotation is on, as in
-    /// <c>@Escaping (int) -> int</c> or <c>@Escaping ((int) -> int)?</c>, rather than its arguments.
-    /// Parentheses in a type are always followed by one of these, and an annotation's arguments never are.
-    /// </summary>
-    bool StartsParenthesizedType()
-    {
-        int depth = 0;
-        for (int i = position; i < tokens.Count; i++)
-        {
-            var kind = tokens[i].Kind;
-            if (kind == TokenKind.OpenParen)
-                depth++;
-            else if (kind == TokenKind.CloseParen && --depth == 0)
-                return i + 1 < tokens.Count && tokens[i + 1].Kind is TokenKind.Arrow or TokenKind.Question or TokenKind.OpenBracket or TokenKind.Star;
-            else if (kind is TokenKind.EndOfFile or TokenKind.Semicolon or TokenKind.OpenBrace or TokenKind.CloseBrace)
-                return false;
-        }
-        return false;
     }
 
     // A name is read as a type: annotations take types and literals, and no constant has a name yet.
@@ -365,8 +346,8 @@ public sealed partial class Parser
             });
             return keyword.Text == "public" ? Visibility.Public : Visibility.File;
         }
-        // `pub (int) -> int f;` is a field of function type, not a visibility in parentheses.
-        if (!At(TokenKind.OpenParen) || Peek(2).Kind != TokenKind.CloseParen || Peek(3).Kind == TokenKind.Arrow)
+        // Only a name in parentheses is a visibility; `pub (fn() -> void)? f;` is a field.
+        if (!At(TokenKind.OpenParen) || Peek(1).Kind is not (TokenKind.Identifier or TokenKind.ReservedKeyword) || Peek(2).Kind != TokenKind.CloseParen)
             return Visibility.Public;
         Advance();
         var scope = Advance();

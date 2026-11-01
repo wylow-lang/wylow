@@ -11,7 +11,7 @@ void show(in int a) {
     print(a);
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 

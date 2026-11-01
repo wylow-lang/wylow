@@ -2,7 +2,7 @@
 
 import std::List;
 
-void bump(ref int v, () -> void during) {
+void bump(ref int v, fn() -> void during) {
     during();
     v += 1;
 }

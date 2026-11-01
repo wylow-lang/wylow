@@ -1,34 +1,34 @@
 import std::print;
 
-U apply<T, U>(T value, (T) -> U f) {
+U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);
 }
 
-U run<U>(() -> U f) {
+U run<U>(fn() -> U f) {
     return f();
 }
 
-void make<T, U>((T) -> U f) {
+void make<T, U>(fn(T) -> U f) {
 }
 
-U pick<U>(bool first, () -> U a, () -> U b) {
+U pick<U>(bool first, fn() -> U a, fn() -> U b) {
     return first ? a() : b();
 }
 
-U chain<U>(() -> U a, (U) -> U b) {
+U chain<U>(fn() -> U a, fn(U) -> U b) {
     return b(a());
 }
 
-void each<U>((int) -> U f) {
+void each<U>(fn(int) -> U f) {
 }
 
-void each<U>((bool) -> U f) {
+void each<U>(fn(bool) -> U f) {
 }
 
-void both<U>((int) -> U f) {
+void both<U>(fn(int) -> U f) {
 }
 
-void both((int) -> int f) {
+void both(fn(int) -> int f) {
 }
 
 Result<int, String> parse() {

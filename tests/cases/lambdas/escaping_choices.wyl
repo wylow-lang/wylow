@@ -3,9 +3,9 @@
 import std::print;
 
 class Holder {
-    (int) -> int stored;
+    fn(int) -> int stored;
 
-    Holder(@Escaping (int) -> int stored) {
+    Holder(@Escaping fn(int) -> int stored) {
         this.stored = stored;
     }
 }
@@ -16,12 +16,12 @@ enum Mode {
     Keep,
 }
 
-(int) -> int make(int id) {
+fn(int) -> int make(int id) {
     print(id);
     return x -> x + id;
 }
 
-int apply((int) -> int f, int value) {
+int apply(fn(int) -> int f, int value) {
     return f(value);
 }
 
@@ -31,14 +31,14 @@ bool check(bool value, int id) {
 }
 
 void switches(Mode mode, Holder holder) {
-    @Escaping (int) -> int e = switch (mode) {
+    @Escaping fn(int) -> int e = switch (mode) {
         case Double -> x -> x * 2;
         case Add(var n) -> make(n);
         case Keep -> holder.stored;
     };
     print(e(3));
     // The case's names can be used by the escaping option, which is evaluated in its case.
-    (int) -> int f = switch (mode) {
+    fn(int) -> int f = switch (mode) {
         case Double -> x -> x * 2;
         case Add(var n) -> make(n * 2);
         case Keep -> holder.stored;
@@ -50,17 +50,17 @@ void main() {
     var holder = new Holder(x -> x * 100);
 
     // Escaping: an ordinary choice, so the call that isn't chosen never runs.
-    @Escaping (int) -> int a = check(false, 1) ? make(10) : make(20);   // output: 1
+    @Escaping fn(int) -> int a = check(false, 1) ? make(10) : make(20);   // output: 1
                                                                         // output: 20
     print(a(1));                                    // output: 21
     var b = check(true, 2) ? holder.stored : make(30);                  // output: 2
     print(b(1));                                    // output: 100
 
     // Non-escaping with escaping options: lambdas are made up front, calls only when chosen.
-    (int) -> int c = check(false, 3) ? x -> -x : make(40);              // output: 3
+    fn(int) -> int c = check(false, 3) ? x -> -x : make(40);              // output: 3
                                                                         // output: 40
     print(c(1));                                    // output: 41
-    (int) -> int d = check(true, 4) ? x -> -x : make(50);               // output: 4
+    fn(int) -> int d = check(true, 4) ? x -> -x : make(50);               // output: 4
     print(d(1));                                    // output: -1
     print(apply(check(true, 5) ? make(60) : x -> x, 1));               // output: 5
                                                                         // output: 60
@@ -76,6 +76,6 @@ void main() {
                                                     // output: 100
 
     // Nullable choices.
-    @Escaping ((int) -> int)? maybe = check(false, 6) ? holder.stored : null;   // output: 6
+    @Escaping (fn(int) -> int)? maybe = check(false, 6) ? holder.stored : null;   // output: 6
     print(maybe == null);                           // output: true
 }

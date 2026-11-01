@@ -236,7 +236,7 @@ public sealed partial class Binder
             Error(lambda.Location, expected is not null && expected != WylType.Error ? NotFunctionTypeMessage(lambda, expected)
                 : lambda.Syntax.IsFunctionReference
                 ? $"'{TextOf(lambda.Location)}' is a function, which can only be used as a value where a function type is expected"
-                : "a lambda needs a function type from where it is used, as in '(int) -> int f = x -> x + 1;'");
+                : "a lambda needs a function type from where it is used, as in 'fn(int) -> int f = x -> x + 1;'");
             type = WylType.Error;
         }
         return make(type);

@@ -151,7 +151,7 @@ static class Mutations
     {
         var type = (TypeSyntax)site.Node;
         var text = context.Slice(site.Span);
-        return Single("type-nullable", site, type.Shape == TypeShape.Function ? $"({text})?" : text + "?");
+        return Single("type-nullable", site, type.Shape == TypeShape.Function && !text.StartsWith('(') ? $"({text})?" : text + "?");
     }
 
     static bool IntegerApplies(Site site) =>
@@ -287,7 +287,7 @@ static class Mutations
     static Candidate? StatementLambdaBuild(MutationContext context, Site site)
     {
         var name = context.UniqueName("WylFuzzRun");
-        var helper = "void " + name + "(() -> void f) {\n    f();\n}";
+        var helper = "void " + name + "(fn() -> void f) {\n    f();\n}";
         return new Candidate("statement-lambda",
         [
             new Edit(site.Span.Start, site.Span.End, "{ " + name + "(() -> {\n" + context.Slice(site.Span) + "\n}); }"),
@@ -313,7 +313,7 @@ static class Mutations
     static Candidate? EvalBuild(MutationContext context, Site site)
     {
         var name = context.UniqueName("WylFuzzEval");
-        var helper = "T " + name + "<T>(() -> T f) {\n    return f();\n}";
+        var helper = "T " + name + "<T>(fn() -> T f) {\n    return f();\n}";
         return new Candidate("expression-eval",
         [
             new Edit(site.Span.Start, site.Span.End, name + "(() -> " + context.Slice(site.Span) + ")"),

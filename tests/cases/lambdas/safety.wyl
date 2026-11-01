@@ -36,7 +36,7 @@ class Enemy {
     }
 }
 
-int run(() -> int f) {
+int run(fn() -> int f) {
     return f();
 }
 
@@ -75,7 +75,7 @@ void main() {
     List<Enemy> enemies = new List<Enemy>();
     enemies.add(new Enemy(1));
     enemies.add(new Enemy(2));
-    () -> void replace = () -> {
+    fn() -> void replace = () -> {
         enemies[0] = new Enemy(99);
     };
     for (Enemy e : enemies) {

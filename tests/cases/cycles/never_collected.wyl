@@ -6,7 +6,7 @@ import std::print;
 class Node {
     int id;
     mut Node? next;
-    mut ((int) -> int)? onVisit = null;
+    mut (fn(int) -> int)? onVisit = null;
 
     Node(int id) {
         this.id = id;

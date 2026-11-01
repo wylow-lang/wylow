@@ -3,13 +3,13 @@
 import std::print;
 
 interface Visitor {
-    void visit((int) -> void action);
+    void visit(fn(int) -> void action);
 }
 
 abstract class Shape {
-    abstract int measure((int) -> int scale);
+    abstract int measure(fn(int) -> int scale);
 
-    virtual void describe(() -> String name) {
+    virtual void describe(fn() -> String name) {
         print("shape");
         print(name());
     }
@@ -22,28 +22,28 @@ class Square extends Shape implements Visitor {
         this.side = side;
     }
 
-    override int measure((int) -> int scale) {
+    override int measure(fn(int) -> int scale) {
         return scale(side) * scale(side);
     }
 
-    override void describe(() -> String name) {
+    override void describe(fn() -> String name) {
         print("square");
         print(name());
     }
 
-    void visit((int) -> void action) {
+    void visit(fn(int) -> void action) {
         action(side);
     }
 
     // Shares a name with Visitor.visit without implementing it, so it can be a template.
-    void visit(() -> int size) {
+    void visit(fn() -> int size) {
         print(size() + side);
     }
 }
 
 // Implements Visitor.visit only through Floor, which overrides it in C++ by forwarding here.
 class Tile {
-    void visit((int) -> void action) {
+    void visit(fn(int) -> void action) {
         action(7);
     }
 }
@@ -55,7 +55,7 @@ class Floor extends Tile implements Visitor {
 struct Stack implements Visitor {
     int height;
 
-    void visit((int) -> void action) {
+    void visit(fn(int) -> void action) {
         action(height);
     }
 }
@@ -72,17 +72,17 @@ class Logger {
     int lines;
 
     // A constructor takes FunctionRefs, since its C++ name can't tell overloads apart.
-    Logger((int) -> int first) {
+    Logger(fn(int) -> int first) {
         lines = first(1);
     }
 
-    Logger((String) -> int first) {
+    Logger(fn(String) -> int first) {
         lines = first("one") + 100;
     }
 }
 
 // Recursion: each call could otherwise instantiate a new template for its new lambda.
-int countDown(int n, (int) -> void each) {
+int countDown(int n, fn(int) -> void each) {
     if (n == 0) {
         return 0;
     }
@@ -90,7 +90,7 @@ int countDown(int n, (int) -> void each) {
     return 1 + countDown(n - 1, x -> each(x * 10));
 }
 
-int applyTwice(((int) -> int) -> int run) {
+int applyTwice(fn(fn(int) -> int) -> int run) {
     return run(x -> x + 1) + run(x -> x + 2);
 }
 

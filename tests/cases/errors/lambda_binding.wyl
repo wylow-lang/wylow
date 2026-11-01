@@ -1,73 +1,73 @@
 class Widget {
 }
 
-int twice((int) -> int f, int x) {
+int twice(fn(int) -> int f, int x) {
     return f(f(x));
 }
 
-int pick((int) -> int f) {
+int pick(fn(int) -> int f) {
     return f(1);
 }
 
-int pick((String) -> int f) {
+int pick(fn(String) -> int f) {
     return f("a");
 }
 
-int mix((int) -> int f, int x) {
+int mix(fn(int) -> int f, int x) {
     return f(x);
 }
 
-int mix((long) -> int f, int x) {
+int mix(fn(long) -> int f, int x) {
     return 0;
 }
 
 void run(int value) {
 }
 
-void take(in ((int) -> int)? f) {               // error: 'in' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+void take(in (fn(int) -> int)? f) {               // error: 'in' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
 }
 
-void takeRef(ref ((int) -> int)? f) {           // error: 'ref' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+void takeRef(ref (fn(int) -> int)? f) {           // error: 'ref' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
 }
 
 void check() {
-    (int) -> int inc = x -> x;
+    fn(int) -> int inc = x -> x;
     var a = x -> x;                                 // error: a lambda needs a function type from where it is used
-    (int) -> int b = (x, y) -> x;                   // error: this lambda has 2 parameters, but '(int) -> int' takes 1 argument
-    (int) -> int c = (long x) -> 1;                 // error: 'x' is declared as 'long', but '(int) -> int' passes 'int'
-    (int) -> int d = x -> "text";                   // error: cannot implicitly convert 'String' to 'int'
-    () -> void e = () -> 5;                         // error: only calls can be used as statements
-    () -> void f = () -> {
+    fn(int) -> int b = (x, y) -> x;                   // error: this lambda has 2 parameters, but 'fn(int) -> int' takes 1 argument
+    fn(int) -> int c = (long x) -> 1;                 // error: 'x' is declared as 'long', but 'fn(int) -> int' passes 'int'
+    fn(int) -> int d = x -> "text";                   // error: cannot implicitly convert 'String' to 'int'
+    fn() -> void e = () -> 5;                         // error: only calls can be used as statements
+    fn() -> void f = () -> {
         return 1;                                   // error: this lambda returns 'void' and cannot return a value
     };
-    (int) -> int g = x -> {
+    fn(int) -> int g = x -> {
         return;                                     // error: this lambda must return a value of type 'int'
     };
     int h = pick(x -> 1);                           // error: call is ambiguous
-    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts ((int) -> int, String)
+    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts (fn(int) -> int, String)
     int i2 = mix(x -> x, "no");                     // error: no overload of 'mix' accepts (lambda taking 1 argument, String)
     int i3 = mix((int x) -> x, "no");               // error: no overload of 'mix' accepts (lambda taking (int), String)
     run(() -> 1);                                   // error: a lambda cannot be converted to 'int', which is not a function type
-    (int) -> void calls = x -> run(x);
+    fn(int) -> void calls = x -> run(x);
     calls(y -> y);                                  // error: a lambda cannot be converted to 'int', which is not a function type
     calls(true ? y -> y : y -> 1);                  // error: a choice of lambdas cannot be converted to 'int', which is not a function type
     int chosen = true ? y -> y : 5;                 // error: a lambda cannot be converted to 'int', which is not a function type
-    (ref (int) -> int) -> void byRef = g -> run(1); // error: 'ref' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
-    (in ((int) -> int)?) -> void byIn = f -> run(1); // error: 'in' cannot be used on a parameter of type '(int) -> int'; functions are already passed without copying
+    fn(ref fn(int) -> int) -> void byRef = g -> run(1); // error: 'ref' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
+    fn(in (fn(int) -> int)?) -> void byIn = f -> run(1); // error: 'in' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
     int j = inc(1, 2);                              // error: 'inc' takes 1 argument, but is given 2
     int k = inc("a");                               // error: cannot implicitly convert 'String' to 'int'
     inc(ref k);                                     // error: argument 1 must not be passed with 'ref'
     inc = x -> x;                                   // error: 'inc' cannot be reassigned
-    (int) -> int l;                                 // error: a '(int) -> int' variable must be initialized where it is declared
+    fn(int) -> int l;                                 // error: a 'fn(int) -> int' variable must be initialized where it is declared
     int m = 5;
     m(1);                                           // error: 'm' is a variable of type 'int', not a function
     bool n = inc == inc;                            // error: operator '==' cannot be applied
-    (ref Widget) -> void o = w -> run(1);           // error: 'ref' cannot be used on a parameter of type 'Widget'
-    () -> Span<int> p = () -> p();                  // error: a function cannot return a 'Span<int>'
+    fn(ref Widget) -> void o = w -> run(1);           // error: 'ref' cannot be used on a parameter of type 'Widget'
+    fn() -> Span<int> p = () -> p();                  // error: a function cannot return a 'Span<int>'
     int q = 1;
-    (int) -> int r = q -> q;                        // error: 'q' is already defined
+    fn(int) -> int r = q -> q;                        // error: 'q' is already defined
     for (int s : 0..3) {
-        () -> void t = () -> {
+        fn() -> void t = () -> {
             break;                                  // error: 'break' can only be used inside a loop
         };
     }

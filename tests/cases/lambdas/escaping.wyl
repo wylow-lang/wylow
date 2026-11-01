@@ -4,10 +4,10 @@ import std::{List, print};
 
 class Button {
     String name;
-    mut () -> void onClick;
-    mut ((int) -> int)? transform = null;
+    mut fn() -> void onClick;
+    mut (fn(int) -> int)? transform = null;
 
-    Button(String name, @Escaping () -> void onClick) {
+    Button(String name, @Escaping fn() -> void onClick) {
         this.name = name;
         this.onClick = onClick;
     }
@@ -26,15 +26,15 @@ class Button {
     }
 }
 
-(int) -> int makeAdder(int n) {
+fn(int) -> int makeAdder(int n) {
     return x -> x + n;
 }
 
-(int) -> (int) -> int curry() {
+fn(int) -> fn(int) -> int curry() {
     return x -> y -> x * 10 + y;
 }
 
-int twice((int) -> int f, int value) {
+int twice(fn(int) -> int f, int value) {
     return f(f(value));
 }
 
@@ -42,7 +42,7 @@ T identity<T>(T value) {
     return value;
 }
 
-void register(List<() -> int> into, @Escaping () -> int f) {
+void register(List<fn() -> int> into, @Escaping fn() -> int f) {
     into.add(f);
 }
 
@@ -69,21 +69,21 @@ void main() {
     print(button.apply(4));                         // output: 4
 
     // Containers of functions.
-    var handlers = new List<() -> int>();
+    var handlers = new List<fn() -> int>();
     for (int i : 0..3) {
         handlers.add(() -> i * 100);
     }
     register(handlers, () -> 7);
-    for (() -> int h : handlers) {
+    for (fn() -> int h : handlers) {
         print(h());                                 // output: 0
                                                     // output: 100
                                                     // output: 200
                                                     // output: 7
     }
 
-    ((int) -> int)?[] table = new ((int) -> int)?[3];
+    (fn(int) -> int)?[] table = new (fn(int) -> int)?[3];
     table[1] = makeAdder(10);
-    for (((int) -> int)? entry : table) {
+    for ((fn(int) -> int)? entry : table) {
         mut int value = -1;
         if (entry != null) {
             value = entry(1);
@@ -96,14 +96,14 @@ void main() {
     print(listed[1](0));                            // output: 7
 
     // Escaping locals can be reassigned, and `var` keeps the form of its initializer.
-    @Escaping mut (int) -> int current = add5;
+    @Escaping mut fn(int) -> int current = add5;
     print(current(0));                              // output: 5
     current = add7;
     print(current(0));                              // output: 7
     @Escaping var copied = add5;
     print(identity(copied)(9));                     // output: 14
 
-    @Escaping mut ((int) -> int)? maybe = null;
+    @Escaping mut (fn(int) -> int)? maybe = null;
     print(maybe == null);                           // output: true
     maybe = add5;
     if (maybe != null) {

@@ -51,7 +51,7 @@ String describe(int value) {
     return text;
 }
 
-void call(@Escaping () -> void f) {
+void call(@Escaping fn() -> void f) {
     f();
 }
 
@@ -105,7 +105,7 @@ void main() {
     late = 7;
     call(() -> print(late));                // output: 7
 
-    (int) -> int clamp = (mut x) -> {
+    fn(int) -> int clamp = (mut x) -> {
         if (x > 10) {
             x = 10;
         }

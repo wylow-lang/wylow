@@ -1,0 +1,72 @@
+import std::{List, print};
+
+// Every way §6.7 writes a function type, in each place a type can be.
+
+struct Vec3 {
+    int x;
+}
+
+class Scheduler {
+    pub mut (fn() -> void)? pending;
+    List<fn(int) -> String> formats = new List<fn(int) -> String>();
+
+    void schedule(@Escaping fn() -> void task) {
+        pending = task;
+    }
+}
+
+// '->' groups to the right: this returns a function that returns a function.
+fn(int) -> fn(int) -> int adder() {
+    return a -> b -> a + b;
+}
+
+// The return type takes the suffix: this returns an 'int?'.
+fn(int) -> int? halver() {
+    return x -> x % 2 == 0 ? x / 2 : null;
+}
+
+// Parentheses after an annotation that start with 'fn' group the annotated type.
+int run(@Escaping (fn(int) -> int)? callback, int value) {
+    if (callback == null) {
+        return -1;
+    }
+    return callback(value);
+}
+
+void twice(fn(@Escaping fn() -> void) -> void register, Scheduler scheduler) {
+    register(() -> print("registered"));
+    if (scheduler.pending != null) {
+        scheduler.pending!();
+    }
+}
+
+void main() {
+    fn(int, int) -> int add = (a, b) -> a + b;
+    print(add(2, 3));                                   // output: 5
+
+    fn(ref Vec3) -> void scale = v -> { v.x = v.x * 2; };
+    mut Vec3 v = Vec3(4);
+    scale(ref v);
+    print(v.x);                                         // output: 8
+
+    print(adder()(10)(5));                              // output: 15
+    print(halver()(6) ?? 0);                            // output: 3
+    print(halver()(7) ?? 0);                            // output: 0
+
+    print(run(x -> x * 3, 4));                          // output: 12
+    print(run(null, 4));                                // output: -1
+
+    Scheduler scheduler = new Scheduler();
+    twice(task -> scheduler.schedule(task), scheduler); // output: registered
+
+    @Escaping mut (fn(int) -> int)? maybe = null;
+    print(maybe == null);                               // output: true
+    maybe = x -> x + 1;
+    print(maybe!(1));                                   // output: 2
+
+    (fn(int) -> int)[2] pair = [x -> x, x -> -x];
+    print(pair[1](9));                                  // output: -9
+
+    scheduler.formats.add(n -> $"#{n}");
+    print(scheduler.formats[0](4));                     // output: #4
+}

@@ -70,8 +70,11 @@ public static class SyntaxFacts
 
     public static string KindNameWithArticle(TypeKind kind) => (kind is TypeKind.Enum or TypeKind.Interface ? "an " : "a ") + KindName(kind);
 
-    /// <summary>Includes '(', which starts a function type, <c>(int) -> int</c>.</summary>
-    public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.OpenParen;
+    /// <summary>
+    /// Includes <c>fn</c>, which starts a function type. A '(' starts a type only before <c>fn</c>,
+    /// grouping a function type for a suffix (the parser's <c>StartsType</c>).
+    /// </summary>
+    public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.FnKeyword;
 
     public static string GetText(TokenKind kind) => kind switch
     {

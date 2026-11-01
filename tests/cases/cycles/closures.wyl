@@ -4,7 +4,7 @@ import std::{List, memory, print};
 
 class Enemy {
     int id;
-    mut () -> void onHit = () -> print(0);
+    mut fn() -> void onHit = () -> print(0);
 
     Enemy(int id) {
         this.id = id;
@@ -24,7 +24,7 @@ void react(Enemy enemy) {
 }
 
 class Bus {
-    List<() -> void> handlers = new List<() -> void>();
+    List<fn() -> void> handlers = new List<fn() -> void>();
 
     ~Bus() {
         print(-1);
@@ -49,7 +49,7 @@ class Listener {
 }
 
 class Box {
-    mut ((int) -> int)? f = null;
+    mut (fn(int) -> int)? f = null;
 
     ~Box() {
         print(-2);
@@ -71,7 +71,7 @@ void main() {
         var bus = new Bus();
         _ = new Listener(2, bus);
         _ = new Listener(3, bus);
-        for (() -> void h : bus.handlers) {
+        for (fn() -> void h : bus.handlers) {
             h();                                    // output: 2
                                                     // output: 3
         }

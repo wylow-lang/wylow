@@ -6,7 +6,7 @@ void bump(ref? int x) {
     x++;                                // error: 'x' might refer to nothing here; check it with 'if (x != null)', or use '!'
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 

@@ -42,9 +42,9 @@ static partial class IrSelfTests
         void two(ref Vec? a, in int b) { }
         void reset(ref Nest a, in int b) { }
         void replace(Holder h, Obj o) { h.b = new Obj(); }
-        void call(Holder h, () -> void g) { h.b = new Obj(); g(); }
+        void call(Holder h, fn() -> void g) { h.b = new Obj(); g(); }
         void setFirst(List<int> list) { list[0] = 2; }
-        void keep(@Escaping () -> void g) { }
+        void keep(@Escaping fn() -> void g) { }
         @CallerLocation
         void here() { }
 

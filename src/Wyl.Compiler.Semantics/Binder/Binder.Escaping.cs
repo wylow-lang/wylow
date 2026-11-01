@@ -126,7 +126,7 @@ public sealed partial class Binder
         var local = culprit.Local;
         Error(culprit.Location, $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
             + (local.IsParameter && local.Owner?.IsLambda == true
-                ? "declare the parameter '@Escaping' in the lambda's function type, as in '(@Escaping () -> void) -> void'"
+                ? "declare the parameter '@Escaping' in the lambda's function type, as in 'fn(@Escaping fn() -> void) -> void'"
                 : "declare it '@Escaping'"));
     }
 

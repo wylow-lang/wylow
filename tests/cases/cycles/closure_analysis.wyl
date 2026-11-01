@@ -8,36 +8,36 @@ class Leaf {
     int value;
 }
 
-// Every `() -> int` lambda captures only values or a Leaf.
+// Every `fn() -> int` lambda captures only values or a Leaf.
 class Button {
-    () -> int onClick;
-    List<() -> int> extra = new List<() -> int>();
+    fn() -> int onClick;
+    List<fn() -> int> extra = new List<fn() -> int>();
 
-    Button(@Escaping () -> int onClick) {
+    Button(@Escaping fn() -> int onClick) {
         this.onClick = onClick;
     }
 }
 
-// A `() -> bool` lambda captures a Widget, so Widgets and those closures are cyclic.
+// A `fn() -> bool` lambda captures a Widget, so Widgets and those closures are cyclic.
 class Widget {
     bool ready;
-    mut (() -> bool)? check = null;
+    mut (fn() -> bool)? check = null;
 
     void arm() {
         check = () -> ready;
     }
 }
 
-// A lambda in generic code may capture anything, and be of any `(int) -> T` type.
+// A lambda in generic code may capture anything, and be of any `fn(int) -> T` type.
 class Cell {
-    (int) -> long get;
+    fn(int) -> long get;
 
-    Cell(@Escaping (int) -> long get) {
+    Cell(@Escaping fn(int) -> long get) {
         this.get = get;
     }
 }
 
-(int) -> T constant<T>(T value) {
+fn(int) -> T constant<T>(T value) {
     return x -> value;
 }
 
@@ -61,7 +61,7 @@ void main() {
     var button = onHeap(new Button(() -> base + 1));
     button.extra.add(() -> leaf.value);
     button.extra.add(() -> 7);
-    @Escaping () -> int read = () -> leaf.value;
+    @Escaping fn() -> int read = () -> leaf.value;
     drop(button);
     drop(button.onClick);
     drop(read);

@@ -203,7 +203,7 @@ static class MatrixPlaces
     {
         var body = use.Mutable ? $"{use.Expr} = {use.Value};" : $"print({use.Expr});";
         var prefix = escaping ? "@Escaping " : "";
-        return $"{prefix}() -> void action = () -> {{\n{body}\n}};\naction();";
+        return $"{prefix}fn() -> void action = () -> {{\n{body}\n}};\naction();";
     }
 
     static string MainHost(Use use, string operation, string body) => operation == "return"
@@ -211,8 +211,8 @@ static class MatrixPlaces
         : $"void main() {{\n{use.Setup}\n{body}\n{use.Read(use.Expr)}\n}}\n";
 
     static string CapturedHost(Use use, string operation, string body) => operation == "return"
-        ? $"void main() {{\n{use.Setup}\n() -> {use.Type} runBody = () -> {{\n{body}\n}};\n{use.Type} result = runBody();\n{use.Read("result")}\n}}\n"
-        : $"void main() {{\n{use.Setup}\n() -> void runBody = () -> {{\n{body}\n}};\nrunBody();\n{use.Read(use.Expr)}\n}}\n";
+        ? $"void main() {{\n{use.Setup}\nfn() -> {use.Type} runBody = () -> {{\n{body}\n}};\n{use.Type} result = runBody();\n{use.Read("result")}\n}}\n"
+        : $"void main() {{\n{use.Setup}\nfn() -> void runBody = () -> {{\n{body}\n}};\nrunBody();\n{use.Read(use.Expr)}\n}}\n";
 
     static string MethodHost(Use use, string operation, string body)
     {

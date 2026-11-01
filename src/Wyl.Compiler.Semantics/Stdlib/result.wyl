@@ -12,7 +12,7 @@ pub enum Result<T, E> {
     }
 
     // The value given by f, or the same error.
-    pub Result<U, E> map<U>((T) -> U f) {
+    pub Result<U, E> map<U>(fn(T) -> U f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(f(value));
             case Err(var error) -> Result.Err(error);
@@ -20,7 +20,7 @@ pub enum Result<T, E> {
     }
 
     // The same value, or the error given by f.
-    pub Result<T, F> mapErr<F>((E) -> F f) {
+    pub Result<T, F> mapErr<F>(fn(E) -> F f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(value);
             case Err(var error) -> Result.Err(f(error));

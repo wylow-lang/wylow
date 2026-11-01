@@ -11,7 +11,7 @@ struct Point {
         return x;
     }
 
-    mut () -> int getter() {
+    mut fn() -> int getter() {
         return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
     }
 }
@@ -20,14 +20,14 @@ void bump(ref int value) {
     value++;
 }
 
-void each((int) -> void f) {
+void each(fn(int) -> void f) {
     f(1);
 }
 
-void keep(@Escaping () -> int f) {
+void keep(@Escaping fn() -> int f) {
 }
 
-void parameters(ref int r, in int i, () -> int g, Span<int> view) {
+void parameters(ref int r, in int i, fn() -> int g, Span<int> view) {
     keep(() -> r);                                  // error: an escaping lambda cannot capture 'r', which is a 'ref' parameter; copy its value to a local first
     keep(() -> i);                                  // error: an escaping lambda cannot capture 'i', which is an 'in' parameter; copy its value to a local first
     keep(() -> g());                                // error: an escaping lambda cannot capture 'g', which is a non-escaping parameter; declare it '@Escaping'

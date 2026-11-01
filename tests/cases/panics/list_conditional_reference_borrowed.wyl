@@ -5,7 +5,7 @@ import std::{List, print};
 struct Counter {
     int count;
 
-    mut void run(() -> void f) {
+    mut void run(fn() -> void f) {
         f();
         count++;
     }

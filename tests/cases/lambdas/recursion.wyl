@@ -17,7 +17,7 @@ class Node {
     }
 }
 
-void walk(Node node, (Node) -> void visit) {
+void walk(Node node, fn(Node) -> void visit) {
     visit(node);
     for (Node child : node.children) {
         walk(child, visit);
@@ -25,14 +25,14 @@ void walk(Node node, (Node) -> void visit) {
 }
 
 // Mutual recursion, forwarding.
-int even(int n, (int) -> int f) {
+int even(int n, fn(int) -> int f) {
     if (n == 0) {
         return f(0);
     }
     return odd(n - 1, f) + 1;
 }
 
-int odd(int n, (int) -> int f) {
+int odd(int n, fn(int) -> int f) {
     if (n == 0) {
         return f(1);
     }
@@ -40,7 +40,7 @@ int odd(int n, (int) -> int f) {
 }
 
 // An escaping value has one C++ type, however often it is passed.
-int depth(int n, (int) -> int f, @Escaping (int) -> int g) {
+int depth(int n, fn(int) -> int f, @Escaping fn(int) -> int g) {
     if (n == 0) {
         return f(0);
     }
@@ -48,11 +48,11 @@ int depth(int n, (int) -> int f, @Escaping (int) -> int g) {
 }
 
 // A new lambda passed to a function outside the cycle makes no new instantiation of the cycle.
-int twice((int) -> int f, int x) {
+int twice(fn(int) -> int f, int x) {
     return f(f(x));
 }
 
-int sumDown(int n, (int) -> int f) {
+int sumDown(int n, fn(int) -> int f) {
     if (n == 0) {
         return 0;
     }
@@ -60,14 +60,14 @@ int sumDown(int n, (int) -> int f) {
 }
 
 // A new lambda passed around the cycle: these take a FunctionRef.
-int ping(int n, (int) -> int f) {
+int ping(int n, fn(int) -> int f) {
     if (n == 0) {
         return f(0);
     }
     return pong(n - 1, x -> f(x) + 1);
 }
 
-int pong(int n, (int) -> int f) {
+int pong(int n, fn(int) -> int f) {
     return ping(n, f) * 2;
 }
 
@@ -82,7 +82,7 @@ void main() {
     print(even(4, x -> x + 10));                    // output: 14
     print(even(3, x -> x + 10));                    // output: 14
 
-    @Escaping (int) -> int doubled = x -> x * 2;
+    @Escaping fn(int) -> int doubled = x -> x * 2;
     print(depth(2, x -> x + 100, doubled));         // output: 104
 
     print(sumDown(2, x -> x * 3));                  // output: 35

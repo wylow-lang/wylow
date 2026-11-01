@@ -19,20 +19,20 @@ bool choose(bool value) {
     return value;
 }
 
-(int) -> int make(Token token) {
+fn(int) -> int make(Token token) {
     return x -> x + token.id;
 }
 
 void main() {
     {
         // Made from an escaping value, and called after the statement that made it.
-        (int) -> int f = make(new Token(1));
+        fn(int) -> int f = make(new Token(1));
         print(f(1));                                // output: 2
         // Another non-escaping local made from it shares the closure.
-        (int) -> int g = f;
+        fn(int) -> int g = f;
         print(g(2));                                // output: 3
         // A choice over it, and a choice of choices called where it is made.
-        (int) -> int h = choose(false) ? (x -> x) : f;
+        fn(int) -> int h = choose(false) ? (x -> x) : f;
         print(h(3));                                // output: 4
         print((choose(true) ? h : h)(4));           // output: 5
         print("end of scope");                      // output: end of scope
@@ -40,7 +40,7 @@ void main() {
     // output: free 1
     {
         var token = new Token(2);
-        (int) -> int f = choose(false) ? (x -> x) : make(token);
+        fn(int) -> int f = choose(false) ? (x -> x) : make(token);
         print((true ? f : f)(1));                   // output: 3
     }
     // output: free 2

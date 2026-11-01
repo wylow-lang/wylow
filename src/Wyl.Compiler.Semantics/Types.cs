@@ -139,7 +139,7 @@ public abstract class WylType
     /// <summary>The <c>ref? T</c> or <c>in? T</c> referring to this type.</summary>
     public NullableReferenceType NullableReference(RefKind kind) => NullableReferenceType.To(this, kind);
 
-    /// <summary>The non-escaping function type <c>(parameters) -> this</c>.</summary>
+    /// <summary>The non-escaping function type <c>fn(parameters) -> this</c>.</summary>
     public FunctionType FunctionReturning(IReadOnlyList<FunctionParameterType> parameters) => FunctionType.Of(parameters, this);
 
     /// <summary>

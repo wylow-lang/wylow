@@ -8,18 +8,18 @@ enum Op {
     Stop,
 }
 
-int apply((int) -> int f, int x) {
+int apply(fn(int) -> int f, int x) {
     return f(x);
 }
 
 class Runner {
-    virtual int run((int) -> int f) {
+    virtual int run(fn(int) -> int f) {
         return f(1);
     }
 }
 
-int pick(bool first, (int) -> int a, (int) -> int b) {
-    (int) -> int chosen = first ? a : b;
+int pick(bool first, fn(int) -> int a, fn(int) -> int b) {
+    fn(int) -> int chosen = first ? a : b;
     return chosen(10);
 }
 
@@ -30,32 +30,32 @@ bool note(String what, bool value) {
 
 void main() {
     int base = 100;
-    (int) -> int add = x -> x + base;
+    fn(int) -> int add = x -> x + base;
     mut bool flag = true;
 
     // A choice between function locals copies the one chosen.
-    (int) -> int localChoice = flag ? add : add;
+    fn(int) -> int localChoice = flag ? add : add;
     print(localChoice(1));                                  // output: 101
 
     // An escaping local chosen by ?: is copied, like a non-escaping one.
-    @Escaping (int) -> int first = x -> x + 1;
-    @Escaping (int) -> int second = x -> x + 2;
-    @Escaping (int) -> int picked = flag ? first : second;
+    @Escaping fn(int) -> int first = x -> x + 1;
+    @Escaping fn(int) -> int second = x -> x + 2;
+    @Escaping fn(int) -> int picked = flag ? first : second;
     print(picked(1));                                       // output: 2
 
     // A choice between lambdas that capture a local needs that local while it is used.
     int offset = base * 2;
-    (int) -> int captured = flag ? x -> x + offset : x -> x - offset;
+    fn(int) -> int captured = flag ? x -> x + offset : x -> x - offset;
     print(captured(1));                                     // output: 201
 
     // A captured reference is what the lambdas need, not the local holding it.
     mut int[2] cells = [4, 5];
     ref int cell = cells[0];
-    (int) -> int reads = flag ? x -> x + cell : x -> x - cell;
+    fn(int) -> int reads = flag ? x -> x + cell : x -> x - cell;
     print(reads(1));                                        // output: 5
 
     // The choice is made once, where the local is declared.
-    (int) -> int f = flag ? add : x -> x * 2;
+    fn(int) -> int f = flag ? add : x -> x * 2;
     print(f(1));                                            // output: 101
     flag = false;
     print(f(1));                                            // output: 101
@@ -69,17 +69,17 @@ void main() {
 
     // Only the conditions on the chosen path are evaluated, in order.
     int n = 2;
-    (int) -> int g = note("a", n > 1) ? (note("b", n > 5) ? x -> 1 : x -> 2) : x -> 3;
+    fn(int) -> int g = note("a", n > 1) ? (note("b", n > 5) ? x -> 1 : x -> 2) : x -> 3;
     // output: a
     // output: b
     print(g(0));                                            // output: 2
-    (int) -> int h = note("c", n > 5) ? (note("d", true) ? x -> 1 : x -> 2) : x -> 3;
+    fn(int) -> int h = note("c", n > 5) ? (note("d", true) ? x -> 1 : x -> 2) : x -> 3;
     // output: c
     print(h(0));                                            // output: 3
 
     // The chosen lambda still captures by reference.
     mut int total = 0;
-    (int) -> void sink = flag ? x -> { total += x; } : x -> { total -= x; };
+    fn(int) -> void sink = flag ? x -> { total += x; } : x -> { total -= x; };
     sink(5);
     print(total);                                           // output: -5
 
@@ -89,7 +89,7 @@ void main() {
 
     print((flag ? add : x -> 0)(1));                        // output: 0
 
-    (ref int) -> void bump = n > 1 ? v -> { v += 1; } : v -> { v += 2; };
+    fn(ref int) -> void bump = n > 1 ? v -> { v += 1; } : v -> { v += 2; };
     mut int z = 0;
     bump(ref z);
     bump(ref z);
@@ -98,7 +98,7 @@ void main() {
     // A switch expression runs only the matching case, which may use what it declares outside lambdas.
     Op op = Op.Add(3);
     int amount = 3;
-    (int) -> int step = switch (op) {
+    fn(int) -> int step = switch (op) {
         case Add(var a) -> a > 2 ? x -> x + amount : x -> x + 1;
         case Double -> x -> x * 2;
         case Stop -> add;
@@ -106,12 +106,12 @@ void main() {
     print(step(10));                                        // output: 13
 
     // A function value that is itself a choice can be chosen again, from either side.
-    (int) -> int either = n > 1 ? x -> x + 1 : x -> x + 2;
-    (int) -> int again = n > 1 ? either : x -> 0;
+    fn(int) -> int either = n > 1 ? x -> x + 1 : x -> x + 2;
+    fn(int) -> int again = n > 1 ? either : x -> 0;
     print(again(10));                                       // output: 11
     print((n > 5 ? either : x -> 0)(10));                   // output: 0
 
-    (int) -> int twice = switch (Op.Double) {
+    fn(int) -> int twice = switch (Op.Double) {
         case Add(_) -> add;
         // A lambda may declare names inside itself.
         case Double -> x -> op is Add(var factor) ? x * factor : x * 2;
@@ -131,7 +131,7 @@ void main() {
     }, 1));                                                 // output: 101
 
     // A switch in a ?: is only matched if the ?: chooses it.
-    (int) -> int nested = n > 5 ? switch (note("s", true)) {
+    fn(int) -> int nested = n > 5 ? switch (note("s", true)) {
         case true -> x -> 1;
         case false -> x -> 2;
     } : x -> 3;

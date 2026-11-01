@@ -68,7 +68,7 @@ public sealed partial class Parser
                 depth--;
             else if (kind == TokenKind.GreaterGreater)
                 depth -= 2;
-            else if (kind == TokenKind.OpenParen)
+            else if (kind is TokenKind.OpenParen or TokenKind.FnKeyword)
             {
                 int end = ScanType(i);
                 if (end < 0)
@@ -101,32 +101,39 @@ public sealed partial class Parser
     /// A type with its suffixes. Without <paramref name="allowArrays"/>, brackets are left for the
     /// caller, as in <c>new T[n]</c>.
     /// </summary>
+    /// <summary>Whether a type starts at token <paramref name="index"/>, including <c>(fn(int) -> int)?</c>.</summary>
+    bool StartsType(int index) =>
+        SyntaxFacts.IsTypeStart(KindAt(index)) || KindAt(index) == TokenKind.OpenParen && KindAt(index + 1) == TokenKind.FnKeyword;
+
     TypeSyntax ParseType(bool allowNullable = true, bool allowArrays = true)
     {
-        if (!SyntaxFacts.IsTypeStart(Current.Kind))
+        int start = position;
+        if (Accept(TokenKind.FnKeyword))
+            return ParseFunctionTypeRest(start, allowNullable, allowArrays);
+
+        TypeSyntax type;
+        if (At(TokenKind.OpenParen) && StartsType(position))
+        {
+            // Parentheses only group a function type for a suffix, as in `(fn(int) -> int)?`.
+            Advance();
+            type = ParseType();
+            Expect(TokenKind.CloseParen, "')'");
+            type = type with { Location = LocationFrom(start) };
+            if (!At(TokenKind.Question) && !At(TokenKind.Star) && ScanArraySuffix(position) < 0)
+                Error(type.Location.Span, "parentheses around a function type are only needed before '?', '[', or '*'; remove them");
+        }
+        else if (At(TokenKind.OpenParen))
+        {
+            // Read the old spelling `(int) -> int` as a function type, so its error doesn't cascade.
+            Error(Current.Span, "function types are written 'fn(int) -> int'");
+            type = ParseFunctionTypeRest(start, allowNullable, allowArrays, reported: true);
+            if (type.Shape == TypeShape.Function)
+                return type;
+        }
+        else if (!SyntaxFacts.IsTypeStart(Current.Kind))
         {
             Error(Current.Span, "expected a type");
             return new TypeSyntax(Loc(new TextSpan(Current.Span.Start, 0)), "?", []);
-        }
-
-        int start = position;
-        TypeSyntax type;
-        if (At(TokenKind.OpenParen))
-        {
-            var parameters = ParseFunctionTypeParameters();
-            if (Accept(TokenKind.Arrow))
-            {
-                // The return type takes the suffixes: `(int) -> int?` returns an `int?`.
-                var returnType = ParseType(allowNullable, allowArrays);
-                return new TypeSyntax(LocationFrom(start), "", []) { Shape = TypeShape.Function, Element = returnType, Parameters = parameters };
-            }
-            // Otherwise the parentheses only group a function type for a suffix, as in `((int) -> int)?`.
-            if (parameters is not [{ RefKind: RefKind.None, Type.Shape: TypeShape.Function } parenthesized])
-            {
-                Error(new TextSpan(Previous.Span.End, 0), "expected '->' after a function type's parameters");
-                return new TypeSyntax(LocationFrom(start), "?", []);
-            }
-            type = parenthesized.Type with { Location = LocationFrom(start) };
         }
         else
         {
@@ -172,10 +179,32 @@ public sealed partial class Parser
         return type;
     }
 
+    /// <summary>
+    /// A function type's parameters and return type, after its <c>fn</c>; <paramref name="reported"/>
+    /// when the type already has an error, so a missing '->' isn't another.
+    /// </summary>
+    TypeSyntax ParseFunctionTypeRest(int start, bool allowNullable, bool allowArrays, bool reported = false)
+    {
+        var parameters = ParseFunctionTypeParameters();
+        if (!Accept(TokenKind.Arrow))
+        {
+            if (!reported)
+                Error(new TextSpan(Previous.Span.End, 0), "expected '->' after a function type's parameters");
+            return new TypeSyntax(LocationFrom(start), "?", []);
+        }
+        // The return type takes the suffixes: `fn(int) -> int?` returns an `int?`.
+        var returnType = ParseType(allowNullable, allowArrays);
+        return new TypeSyntax(LocationFrom(start), "", []) { Shape = TypeShape.Function, Element = returnType, Parameters = parameters };
+    }
+
     List<FunctionTypeParameter> ParseFunctionTypeParameters()
     {
-        Advance();
         var parameters = new List<FunctionTypeParameter>();
+        if (!Accept(TokenKind.OpenParen))
+        {
+            Error(Current.Span, "expected '('; a function type's parameters are always parenthesized, as in 'fn() -> void'");
+            return parameters;
+        }
         if (!At(TokenKind.CloseParen))
         {
             do
@@ -205,18 +234,21 @@ public sealed partial class Parser
     /// <summary>The index just past a type starting at <paramref name="index"/>, not counting a final '?', or -1.</summary>
     int ScanType(int index)
     {
-        if (index >= tokens.Count || !SyntaxFacts.IsTypeStart(tokens[index].Kind))
+        if (index >= tokens.Count || !StartsType(index))
             return -1;
+        if (KindAt(index) == TokenKind.FnKeyword)
+        {
+            int end = ScanFunctionTypeParameters(index + 1);
+            return end >= 0 && KindAt(end) == TokenKind.Arrow ? ScanType(end + 1) : -1;
+        }
         if (KindAt(index) == TokenKind.OpenParen)
         {
-            int end = ScanFunctionTypeParameters(index, out bool groupsFunctionType);
-            if (end < 0)
+            int end = ScanType(index + 1);
+            if (end >= 0 && KindAt(end) == TokenKind.Question)
+                end++;
+            if (end < 0 || KindAt(end) != TokenKind.CloseParen)
                 return -1;
-            if (KindAt(end) == TokenKind.Arrow)
-                return ScanType(end + 1);
-            if (!groupsFunctionType)
-                return -1;
-            index = end;
+            index = end + 1;
         }
         else
         {
@@ -241,25 +273,20 @@ public sealed partial class Parser
         }
     }
 
-    /// <summary>
-    /// The index just past a function type's parenthesized parameters at <paramref name="index"/>, or -1.
-    /// <paramref name="groupsFunctionType"/> is whether they could instead be parentheses around one
-    /// function type, as in <c>((int) -> int)?</c>.
-    /// </summary>
-    int ScanFunctionTypeParameters(int index, out bool groupsFunctionType)
+    /// <summary>The index just past a function type's parenthesized parameters at <paramref name="index"/>, or -1.</summary>
+    int ScanFunctionTypeParameters(int index)
     {
-        groupsFunctionType = false;
+        if (KindAt(index) != TokenKind.OpenParen)
+            return -1;
         index++;
         if (KindAt(index) == TokenKind.CloseParen)
             return index + 1;
-        for (int count = 1; ; count++)
+        while (true)
         {
             while (KindAt(index) == TokenKind.At && KindAt(index + 1) == TokenKind.Identifier)
                 index += 2;
-            bool hasRefKind = KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword;
-            if (hasRefKind)
+            if (KindAt(index) is TokenKind.RefKeyword or TokenKind.InKeyword)
                 index += KindAt(index + 1) == TokenKind.Question ? 2 : 1;
-            groupsFunctionType = count == 1 && !hasRefKind && KindAt(index) == TokenKind.OpenParen;
             index = ScanType(index);
             if (index < 0)
                 return -1;
@@ -269,7 +296,6 @@ public sealed partial class Parser
                 return index + 1;
             if (KindAt(index) != TokenKind.Comma)
                 return -1;
-            groupsFunctionType = false;
             index++;
         }
     }

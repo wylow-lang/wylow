@@ -19,11 +19,11 @@ struct Vec {
     int x;
 }
 
-void call(() -> void f) {
+void call(fn() -> void f) {
     f();
 }
 
-int run(() -> int f) {
+int run(fn() -> int f) {
     return f();
 }
 
@@ -31,7 +31,7 @@ int add(int a, int b) {
     return a + b;
 }
 
-int count(List<Mob> mobs, (Mob) -> bool test) {
+int count(List<Mob> mobs, fn(Mob) -> bool test) {
     mut int n = 0;
     for (Mob m : mobs) {
         if (test(m)) {
@@ -41,11 +41,11 @@ int count(List<Mob> mobs, (Mob) -> bool test) {
     return n;
 }
 
-void edit(ref Vec v, (ref Vec) -> void f) {
+void edit(ref Vec v, fn(ref Vec) -> void f) {
     f(ref v);
 }
 
-void bump(ref int v, () -> void during) {
+void bump(ref int v, fn() -> void during) {
     during();
     v += 1;
 }
@@ -89,7 +89,7 @@ void main() {
         }
         return 0;
     }));                                                    // output: 6
-    (int?) -> int orZero = (mut x) -> {
+    fn(int?) -> int orZero = (mut x) -> {
         if (x == null) {
             x = 0;
         }
@@ -110,7 +110,7 @@ void main() {
     })] + i);                                               // output: 5
 
     bool flag = true;
-    (int) -> int f = x -> x + 1;
+    fn(int) -> int f = x -> x + 1;
     mut int y = 1;
     print(add(y, (flag ? f : x -> x)(run(() -> {
         y = 50;

@@ -29,11 +29,11 @@ void bump(ref int a, int b) {
     a += b;
 }
 
-void apply(in int a, () -> void f) {
+void apply(in int a, fn() -> void f) {
     f();
 }
 
-void call(() -> void f) {
+void call(fn() -> void f) {
     f();
 }
 

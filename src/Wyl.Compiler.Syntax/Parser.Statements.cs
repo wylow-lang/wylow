@@ -197,6 +197,7 @@ public sealed partial class Parser
     bool IsDeclarationStart() => Current.Kind switch
     {
         TokenKind.VarKeyword or TokenKind.MutKeyword => true,
+        TokenKind.FnKeyword => true,
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
         TokenKind.Identifier => IsDeclarationAfterTypeName(ScanType(position)),
         TokenKind.OpenParen => ScanType(position) is > 0 and var end && IsDeclarationAfterTypeName(end),

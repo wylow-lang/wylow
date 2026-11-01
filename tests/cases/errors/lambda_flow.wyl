@@ -1,6 +1,6 @@
 import std::print;
 
-void call(() -> void f) {
+void call(fn() -> void f) {
     f();
 }
 
@@ -54,7 +54,7 @@ void check() {
     });
     print(assignedInside);                          // error: 'assignedInside' might not have been assigned
 
-    (int) -> int sign = x -> {
+    fn(int) -> int sign = x -> {
         if (x > 0) {
             return 1;
         }

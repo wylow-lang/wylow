@@ -3,24 +3,24 @@
 import std::print;
 
 abstract class Base {
-    abstract int run((int) -> int f);
+    abstract int run(fn(int) -> int f);
 }
 
 class Impl extends Base {
-    override int run((int) -> int f) {
+    override int run(fn(int) -> int f) {
         return twice(f, 1);
     }
 }
 
-int twice((int) -> int f, int x) {
+int twice(fn(int) -> int f, int x) {
     return f(f(x));
 }
 
-int viaVirtual(Base b, (int) -> int f) {
+int viaVirtual(Base b, fn(int) -> int f) {
     return b.run(f);
 }
 
-int recurse(int n, (int) -> int f) {
+int recurse(int n, fn(int) -> int f) {
     if (n == 0) {
         return f(0);
     }
@@ -28,7 +28,7 @@ int recurse(int n, (int) -> int f) {
 }
 
 // A lambda inside a lambda captures the outer one's parameter.
-int nested((int) -> int outer) {
+int nested(fn(int) -> int outer) {
     return twice(x -> outer(x) + twice(y -> y + x, 0), 1);
 }
 
@@ -40,7 +40,7 @@ int curried(int a) {
 class Scaled {
     int seed;
 
-    Scaled((int) -> int f) {
+    Scaled(fn(int) -> int f) {
         // The base's argument is a lambda the emitter computes in an immediately invoked lambda
         // and passes on; it must own the lambda rather than refer to one that call destroyed.
         int[16] pad = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -60,7 +60,7 @@ void main() {
     print(recurse(2, x -> x + 1));                  // output: 8
     print(nested(x -> x * 10));                     // output: 144
     print(curried(1));                              // output: 17
-    (int) -> int square = x -> x * x;
+    fn(int) -> int square = x -> x * x;
     print(twice(x -> square(x) + 1, 2));            // output: 26
     print(viaVirtual(impl, square));                // output: 1
     print(new Tripled(5).seed);                     // output: 10

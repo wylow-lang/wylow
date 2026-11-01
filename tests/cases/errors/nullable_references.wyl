@@ -69,7 +69,7 @@ T id<T>(T value) {
     return value;
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 

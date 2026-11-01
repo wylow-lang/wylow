@@ -126,11 +126,11 @@ int depth(Noisy n, int count) {
     return 1 + depth(n, count - 1);
 }
 
-void run(() -> void f) {
+void run(fn() -> void f) {
     f();
 }
 
-Noisy give(() -> Noisy f) {
+Noisy give(fn() -> Noisy f) {
     return f();
 }
 

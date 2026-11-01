@@ -60,39 +60,39 @@ int fact(int n) {
     return n <= 1 ? 1 : n * apply(fact, n - 1);
 }
 
-int apply((int) -> int f, int value) {
+int apply(fn(int) -> int f, int value) {
     return f(value);
 }
 
-U map<T, U>(T value, (T) -> U f) {
+U map<T, U>(T value, fn(T) -> U f) {
     return f(value);
 }
 
-int callRef((ref int) -> void f) {
+int callRef(fn(ref int) -> void f) {
     mut int n = 1;
     f(ref n);
     return n;
 }
 
-void keep(List<(int) -> int> into, @Escaping (int) -> int f) {
+void keep(List<fn(int) -> int> into, @Escaping fn(int) -> int f) {
     into.add(f);
 }
 
 interface Transform {
-    mut int run((int) -> int f, int value);
+    mut int run(fn(int) -> int f, int value);
 }
 
 class Direct implements Transform {
-    int run((int) -> int f, int value) {
+    int run(fn(int) -> int f, int value) {
         return f(value);
     }
 }
 
 class Holder {
-    mut (int) -> int f = inc;
+    mut fn(int) -> int f = inc;
 }
 
-(int) -> int pick(bool up) {
+fn(int) -> int pick(bool up) {
     return up ? inc : twice;
 }
 
@@ -100,23 +100,23 @@ void main() {
     // Non-escaping: a template parameter, a FunctionRef, and a local.
     print(apply(inc, 1));                           // output: 2
     print(new Direct().run(inc, 2));                // output: 3
-    (int) -> int local = inc;
+    fn(int) -> int local = inc;
     print(local(3));                                // output: 4
 
     // The function type picks the overload.
-    (int) -> int intTwice = twice;
-    (long) -> long longTwice = twice;
+    fn(int) -> int intTwice = twice;
+    fn(long) -> long longTwice = twice;
     print(intTwice(5));                             // output: 10
     print(longTwice(5L));                           // output: 15
 
     // Static methods, `in` and `ref` parameters, and a generic function.
-    (Mob, Mob) -> int compare = Mob.byDepth;
+    fn(Mob, Mob) -> int compare = Mob.byDepth;
     print(compare(new Mob(5), new Mob(2)));         // output: 3
     print(new Mob(1).scaledTwice());                // output: 25
-    (in Vec) -> int read = Vec.read;
+    fn(in Vec) -> int read = Vec.read;
     print(read(Vec(7)));                            // output: 7
     print(callRef(bump));                           // output: 11
-    (String) -> String echo = same;
+    fn(String) -> String echo = same;
     print(echo("echo"));                            // output: echo
     print(fact(5));                                 // output: 120
 
@@ -131,10 +131,10 @@ void main() {
     print(holder.f(1));                             // output: 2
     print(pick(true)(1));                           // output: 2
     print(pick(false)(4));                          // output: 8
-    var handlers = new List<(int) -> int>();
+    var handlers = new List<fn(int) -> int>();
     handlers.add(inc);
     keep(handlers, twice);
-    for ((int) -> int h : handlers) {
+    for (fn(int) -> int h : handlers) {
         print(h(10));                               // output: 11
                                                     // output: 20
     }
@@ -142,8 +142,8 @@ void main() {
     // Choices, and a builtin with a result discarded.
     bool up = handlers.count() == 2;
     print(apply(up ? inc : twice, 3));              // output: 4
-    (int) -> void show = print;
+    fn(int) -> void show = print;
     show(42);                                       // output: 42
-    (int) -> void discard = inc;
+    fn(int) -> void discard = inc;
     discard(1);
 }

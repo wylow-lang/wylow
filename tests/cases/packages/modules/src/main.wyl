@@ -23,7 +23,7 @@ void main() {
     // The int overload is visible only in 'world', so it never wins here.
     print(world::pick(1));                  // output: long
     print(world::pickHere());               // output: int
-    (int) -> int f = gen::noise;
+    fn(int) -> int f = gen::noise;
     print(f(4));                            // output: 40
     bool isBlock = describeAny(b);
     print(isBlock);                         // output: true

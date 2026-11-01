@@ -8,15 +8,15 @@ enum Op {
     Keep;
 }
 
-int twice((int) -> int f, int x) {
+int twice(fn(int) -> int f, int x) {
     return f(f(x));
 }
 
-String twice((String) -> String f, String x) {
+String twice(fn(String) -> String f, String x) {
     return f(f(x));
 }
 
-U apply<T, U>(T value, (T) -> U f) {
+U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);
 }
 
@@ -33,7 +33,7 @@ void main() {
 
     // A generic parameter: the other argument types the lambdas, and their bodies type the result.
     print(apply(3, up ? x -> x * 2 : x -> x + 1L));                 // output: 6
-    (int) -> int inc = x -> x + 1;
+    fn(int) -> int inc = x -> x + 1;
     print(apply(4, !up ? inc : x -> x * 10));                       // output: 40
     Op op = Op.Add(3);
     print(apply(10, switch (op) {

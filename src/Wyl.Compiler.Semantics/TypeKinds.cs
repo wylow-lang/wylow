@@ -133,7 +133,7 @@ public sealed class FixedArrayType : IndexedType
 }
 
 /// <summary>
-/// A function type <c>(A, ref B) -> R</c>. It has two forms, written the same way: the escaping one
+/// A function type <c>fn(A, ref B) -> R</c>. It has two forms, written the same way: the escaping one
 /// is a heap closure that may be stored, and the other may only be called and passed on during the
 /// call it was given to.
 /// </summary>
@@ -169,7 +169,7 @@ public sealed class FunctionType : WylType
     public override WylType MapParts(Func<WylType, WylType> map) =>
         map(ReturnType).FunctionReturning([.. Parameters.Select(p => p with { Type = map(p.Type) })]).WithEscaping(IsEscaping);
 
-    private protected override string BuildName() => $"({string.Join(", ", Parameters)}) -> {ReturnType}";
+    private protected override string BuildName() => $"fn({string.Join(", ", Parameters)}) -> {ReturnType}";
 }
 
 /// <summary>

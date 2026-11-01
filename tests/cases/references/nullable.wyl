@@ -173,7 +173,7 @@ void main() {
     inferred! = place!;
     print(slots.items[0]);          // output: 20
 
-    (ref? int) -> void clear = (ref? int p) -> {
+    fn(ref? int) -> void clear = (ref? int p) -> {
         if (p != null) {
             p = 0;
         }
@@ -216,7 +216,7 @@ void main() {
     }
 }
 
-void repeat(int times, () -> void f) {
+void repeat(int times, fn() -> void f) {
     for (int i : 0..times) {
         f();
     }

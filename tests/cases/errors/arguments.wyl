@@ -64,6 +64,6 @@ void main() {
     pair(narrow, narrow);                       // error: call is ambiguous between 'pair(int, long)' and 'pair(long, int)'
     Hit(damage: 3);                             // error: 'Hit' needs a value for field 'target', since its type 'Player' has no default value
     Vec3(z: 1, x: 2);                           // error: argument 'x' must come before 'z', in the order of the parameters
-    (int) -> void callback = (int x) -> {};
+    fn(int) -> void callback = (int x) -> {};
     callback(x: 1);                             // error: arguments to 'callback' cannot be named, since a function type's parameters have no names
 }

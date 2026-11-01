@@ -130,7 +130,7 @@ public enum TypeShape { Named, FixedArray, Array, Pointer, Function, NullableRef
 /// <summary>
 /// A type as written. A <see cref="TypeShape.Named"/> type has a <see cref="Name"/> and type
 /// arguments; the other shapes are built from their <see cref="Element"/>: <c>T[N]</c>, <c>T[]</c>,
-/// <c>T*</c>, the return type of <c>(Parameters) -> T</c>, and the <c>T</c> of <c>ref? T</c> or
+/// <c>T*</c>, the return type of <c>fn(Parameters) -> T</c>, and the <c>T</c> of <c>ref? T</c> or
 /// <c>in? T</c>, which is null for <c>ref? var</c>.
 /// </summary>
 public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> TypeArguments, bool IsNullable = false)
@@ -151,7 +151,7 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
     public IReadOnlyList<FunctionTypeParameter> Parameters { get; init; } = [];
 }
 
-/// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>(ref Vec3) -> void</c>.</summary>
+/// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>fn(ref Vec3) -> void</c>.</summary>
 public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];

@@ -316,10 +316,10 @@ out 3
 exit 0
 
 === function-escaping/equality
-error 38: operator '==' cannot be applied to '() -> int' and '() -> int'
+error 38: operator '==' cannot be applied to 'fn() -> int' and 'fn() -> int'
 
 === function-escaping/default
-error 40: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type 'fn() -> int'; pass it by name, as in 'Defaults(value: ...)'
 
 === function-escaping/overloads
 out typed
@@ -352,10 +352,10 @@ error 40: 'other' is a non-escaping variable, so it cannot be stored or returned
 error 38: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it '@Escaping'
 
 === function-nonescaping/equality
-error 38: operator '==' cannot be applied to '() -> int' and '() -> int'
+error 38: operator '==' cannot be applied to 'fn() -> int' and 'fn() -> int'
 
 === function-nonescaping/default
-error 40: 'Defaults' has no default value because field 'value' has type '() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value because field 'value' has type 'fn() -> int'; pass it by name, as in 'Defaults(value: ...)'
 
 === function-nonescaping/overloads
 out typed

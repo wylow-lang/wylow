@@ -210,7 +210,8 @@ public sealed partial class Parser
 
         int typeStart = position;
         var (returnRefKind, mayBeNull) = ParseRefKind();
-        if (!SyntaxFacts.IsTypeStart(Current.Kind))
+        // A '(' is a grouped function type, or the old spelling, which ParseType reports.
+        if (!SyntaxFacts.IsTypeStart(Current.Kind) && !At(TokenKind.OpenParen))
         {
             Error(Current.Span, At(TokenKind.ReservedKeyword)
                 ? $"'{Current.Text}' is not supported yet"

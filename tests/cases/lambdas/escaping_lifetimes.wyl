@@ -5,18 +5,18 @@
 import std::{List, print};
 
 class Holder {
-    mut () -> void action = () -> print(0);
-    mut (int) -> int f = x -> x;
+    mut fn() -> void action = () -> print(0);
+    mut fn(int) -> int f = x -> x;
 }
 
 class Visitor {
-    int visit(Holder holder, (int) -> int f) {
+    int visit(Holder holder, fn(int) -> int f) {
         holder.f = x -> -x;
         return f(1);
     }
 }
 
-int viaTemplate(Holder holder, (int) -> int f) {
+int viaTemplate(Holder holder, fn(int) -> int f) {
     holder.f = x -> -x;
     return f(1);
 }
@@ -43,7 +43,7 @@ void main() {
     holder.action();                                // output: 2
 
     // A list cleared during a call of one of its closures.
-    var handlers = new List<() -> void>();
+    var handlers = new List<fn() -> void>();
     String other = "cleared";
     handlers.add(() -> {
         handlers.clear();
@@ -64,7 +64,7 @@ void main() {
     // A choice holds what it chose, though the field changes.
     holder.f = x -> x + offset * 2;
     bool flag = offset == 3;
-    (int) -> int chosen = flag ? holder.f : x -> 0;
+    fn(int) -> int chosen = flag ? holder.f : x -> 0;
     holder.f = x -> -x;
     print(chosen(1));                               // output: 7
 }

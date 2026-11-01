@@ -1,17 +1,17 @@
 // A nullable function parameter is non-escaping unless declared '@Escaping', and only a parameter
 // can hold a nullable non-escaping function.
 class Holder {
-    mut ((int) -> int)? stored = null;
+    mut (fn(int) -> int)? stored = null;
 }
 
-void keep(@Escaping ((int) -> int)? f) {
+void keep(@Escaping (fn(int) -> int)? f) {
 }
 
-((int) -> int)? give(((int) -> int)? f) {
+(fn(int) -> int)? give((fn(int) -> int)? f) {
     return f;                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
 }
 
-void uses(bool flag, ((int) -> int)? f, (int) -> int g, Holder holder) {
+void uses(bool flag, (fn(int) -> int)? f, fn(int) -> int g, Holder holder) {
     var copy = f;                                   // error: a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function
     @Escaping var escaping = f;                     // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
     holder.stored = f;                              // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'

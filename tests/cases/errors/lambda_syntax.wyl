@@ -1,10 +1,19 @@
 class Button {
-    (int, int) handler;             // error: expected '->' after a function type's parameters
-    (int)? count;                   // error: expected '->' after a function type's parameters
+    fn(int, int) handler;               // error: expected '->' after a function type's parameters
+    fn -> void click;                   // error: expected '('; a function type's parameters are always parenthesized, as in 'fn() -> void'
+    (int) -> int old;                   // error: function types are written 'fn(int) -> int'
+    (int)? count;                       // error: function types are written 'fn(int) -> int'
+    (fn() -> void) grouped;             // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
+    fn() -> (fn() -> int) curried;      // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
 }
+
+void take((int) -> int f) { }           // error: function types are written 'fn(int) -> int'
 
 void main() {
     var mixed = (int a, b) -> a;        // error: a lambda's parameters must either all have types or all leave them out
     var empty = x -> ;                  // error: expected an expression
     var unnamed = (ref int) -> 1;       // error: expected a parameter name
+    var picked = new Array<(int) -> int>(1, x -> x); // error: function types are written 'fn(int) -> int'
+    @Escaping (fn(int) -> int)? maybe = null;
+    if (maybe is fn(int) -> int f) { }  // error: a type pattern cannot name a function type; check a nullable function with a null check
 }

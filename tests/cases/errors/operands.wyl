@@ -5,14 +5,14 @@ struct Vec3 {
 void named(int a) { }
 void named(String b) { }
 
-void apply((() -> void) -> void f) { }
+void apply(fn(fn() -> void) -> void f) { }
 
 void main() {
     mut bool flag = true;
     flag++;                             // error: '++' requires a numeric variable
-    () -> void g = () -> { };
-    ref (() -> void) h = g;             // error: 'ref' cannot be used with type '() -> void'; functions are already passed without copying
-    ref? (() -> void)? i = null;        // error: 'ref?' cannot be used with type '() -> void'; functions are already passed without copying
+    fn() -> void g = () -> { };
+    ref fn() -> void h = g;               // error: 'ref' cannot be used with type 'fn() -> void'; functions are already passed without copying
+    ref? (fn() -> void)? i = null;        // error: 'ref?' cannot be used with type 'fn() -> void'; functions are already passed without copying
     named(c: 1);                        // error: no overload of 'named' takes these named arguments
     apply((mut f) -> { });              // error: a non-escaping function
     var type = Vec3;                    // error: 'Vec3' is a type, not a value

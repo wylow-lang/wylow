@@ -17,7 +17,7 @@ class Noisy {
     }
 }
 
-() -> int keep() {
+fn() -> int keep() {
     var first = new Noisy("first", 1);
     var second = new Noisy("second", 2);
     return () -> first.id + second.id;

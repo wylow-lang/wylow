@@ -33,6 +33,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["float"] = TokenKind.FloatKeyword,
         ["double"] = TokenKind.DoubleKeyword,
         ["var"] = TokenKind.VarKeyword,
+        ["fn"] = TokenKind.FnKeyword,
         ["if"] = TokenKind.IfKeyword,
         ["else"] = TokenKind.ElseKeyword,
         ["while"] = TokenKind.WhileKeyword,

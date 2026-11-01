@@ -537,7 +537,8 @@ button.onClick(() -> { play(sound); });
   `fn(Mob) -> bool`. They take parameter modes, which are part of the type: `fn(ref Vec3) -> void`.
 - The return type is always written, `void` included, and takes any suffix: `fn(int) -> int?`
   returns an `int?`. To make the function itself nullable, or an array of functions, parenthesize
-  it: `(fn(int) -> int)?`, `(fn(int) -> int)?[]`.
+  it: `(fn(int) -> int)?`, `(fn(int) -> int)?[]`. Parentheses in a type are only for that: they
+  hold one function type and are followed by `?`, `[`, or `*`, so `(fn(int) -> int) f` is an error.
 - `->` groups to the right: `fn(int) -> fn(int) -> int` returns a function.
 - A lambda's parameters are either all untyped, taking their types and modes from the target
   (`x -> ...`, `(a, b) -> ...`), or all typed (`(int a, ref Vec3 v) -> ...`). Its body is an
@@ -605,8 +606,7 @@ are told apart by the C++ name. A function chosen by `?:` or a switch expression
 function it could be and the index of the chosen one, so calling it branches to a direct call,
 and each lambda can still be inlined.
 
-> Implemented so far: everything above, except that the compiler still writes function types
-> without `fn`, as `(Params) -> Return`.
+> Implemented so far: everything above.
 
 ### Escaping and non-escaping
 
@@ -1086,8 +1086,8 @@ An argument is a type, as in `@Repr(uint)`, or a literal, as in `@Align(16)`. Se
 change how a declaration is laid out or treated, rather than what it is, are annotations rather
 than new syntax.
 
-Parentheses right after an annotation are its arguments unless they belong to the type it
-annotates, which they do when followed by `?`, `[`, or `*`: `@Escaping (fn(int) -> int)? f`
+Parentheses right after an annotation are its arguments unless they start with `fn`, which makes
+them the parentheses that group the function type it annotates (§6.7): `@Escaping (fn(int) -> int)? f`
 annotates a nullable function type.
 
 User-defined annotations (and reflection) are *open*.

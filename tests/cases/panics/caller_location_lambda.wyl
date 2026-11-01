@@ -3,7 +3,7 @@
 import std::print;
 
 @CallerLocation
-() -> int divider(int x) {
+fn() -> int divider(int x) {
     return () -> 10 / x;        // panic-here: division by zero
 }
 

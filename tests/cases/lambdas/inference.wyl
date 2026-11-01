@@ -2,23 +2,23 @@
 
 import std::{List, print};
 
-U apply<T, U>(T value, (T) -> U f) {
+U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);
 }
 
-U pick<U>(bool first, () -> U a, () -> U b) {
+U pick<U>(bool first, fn() -> U a, fn() -> U b) {
     return first ? a() : b();
 }
 
-C compose<A, B, C>(A a, (A) -> B f, (B) -> C g) {
+C compose<A, B, C>(A a, fn(A) -> B f, fn(B) -> C g) {
     return g(f(a));
 }
 
-U run<U>(() -> U f) {
+U run<U>(fn() -> U f) {
     return f();
 }
 
-U? whenPositive<U>(int x, (int) -> U? f) {
+U? whenPositive<U>(int x, fn(int) -> U? f) {
     return x > 0 ? f(x) : null;
 }
 
@@ -34,7 +34,7 @@ class Bag<T> {
         items.add(item);
     }
 
-    List<U> map<U>((T) -> U f) {
+    List<U> map<U>(fn(T) -> U f) {
         List<U> result = new List<U>();
         for (T item : items) {
             result.add(f(item));
@@ -60,7 +60,7 @@ void main() {
     print(apply(orc, m -> m.name));                     // output: orc
     print(apply(3, x -> x * 2L));                       // output: 6
     print(apply(3, (int x) -> x > 2));                  // output: true
-    (int) -> String describe = x -> "number";
+    fn(int) -> String describe = x -> "number";
     print(apply(3, describe));                          // output: number
 
     // Lambdas that disagree take a type both convert to.

@@ -23,51 +23,51 @@ class Counter {
     }
 }
 
-void call(() -> void f) {
+void call(fn() -> void f) {
     f();
 }
 
-int twice((int) -> int f, int x) {
+int twice(fn(int) -> int f, int x) {
     return f(f(x));
 }
 
-void each(int[3] items, (int) -> void action) {
+void each(int[3] items, fn(int) -> void action) {
     for (int item : items) {
         action(item);
     }
 }
 
-void scale(ref Vec3 v, (ref Vec3) -> void change) {
+void scale(ref Vec3 v, fn(ref Vec3) -> void change) {
     change(ref v);
 }
 
 // Overloads that differ only in a function type: a lambda that declares its parameter types picks one.
-int pick((int) -> int f) {
+int pick(fn(int) -> int f) {
     return f(1);
 }
 
-int pick((String) -> int f) {
+int pick(fn(String) -> int f) {
     return f("a");
 }
 
 // Type arguments are inferred from the other arguments, then give the lambda its types.
-void eachOf<T>(T[3] items, (T) -> void action) {
+void eachOf<T>(T[3] items, fn(T) -> void action) {
     for (T item : items) {
         action(item);
     }
 }
 
-T apply<T>((T) -> T f, T value) {
+T apply<T>(fn(T) -> T f, T value) {
     return f(value);
 }
 
 // Passing a function value on doesn't copy what its lambda captured.
-int forward((int) -> int f) {
+int forward(fn(int) -> int f) {
     return twice(f, 10);
 }
 
 void main() {
-    (int) -> int inc = x -> x + 1;
+    fn(int) -> int inc = x -> x + 1;
     print(twice(inc, 1));                       // output: 3
     print(twice(x -> x * 2, 1));                // output: 4
     print(twice((int x) -> {
@@ -89,7 +89,7 @@ void main() {
     print(pick((String s) -> 7));               // output: 7
     print(pick((int i) -> i + 7));              // output: 8
 
-    () -> void hello = () -> print("hello");
+    fn() -> void hello = () -> print("hello");
     hello();                                    // output: hello
 
     var same = inc;

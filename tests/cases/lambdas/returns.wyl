@@ -3,15 +3,15 @@
 
 import std::print;
 
-double apply((int) -> double f, int x) {
+double apply(fn(int) -> double f, int x) {
     return f(x);
 }
 
-T run<T>((int) -> T f, int x) {
+T run<T>(fn(int) -> T f, int x) {
     return f(x);
 }
 
-String twice((String) -> String f, String x) {
+String twice(fn(String) -> String f, String x) {
     return f(f(x));
 }
 

@@ -5,10 +5,10 @@ import std::print;
 
 pub(module) class Counter {
     mut int count;                          // file-private, yet the rest of this file sees it
-    pub (int) -> int step;                  // a public field of function type, not 'pub(...)'
-    pub(package) (int) -> int scale;
+    pub fn(int) -> int step;                  // a public field of function type, not 'pub(...)'
+    pub(package) fn(int) -> int scale;
 
-    pub Counter(@Escaping (int) -> int step, @Escaping (int) -> int scale) {
+    pub Counter(@Escaping fn(int) -> int step, @Escaping fn(int) -> int scale) {
         this.step = step;
         this.scale = scale;
     }
