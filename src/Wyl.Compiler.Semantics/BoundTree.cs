@@ -83,9 +83,10 @@ public sealed record BoundContinue(Location Location) : BoundStatement(Location)
 
 /// <summary>
 /// A case of a switch. Each pattern is tried in turn, and then <c>default</c> if the case includes
-/// it, which matches every value but null.
+/// it, which matches every value but null; a case with a <see cref="Guard"/> matches only if it is
+/// then true.
 /// </summary>
-public sealed record BoundSwitchCase<T>(Location Location, IReadOnlyList<BoundPattern> Patterns, bool IsDefault, T Body);
+public sealed record BoundSwitchCase<T>(Location Location, IReadOnlyList<BoundPattern> Patterns, bool IsDefault, BoundExpression? Guard, T Body);
 
 /// <summary>
 /// A switch statement. Its cases cover every value, which the binder has checked. Its value is
@@ -453,7 +454,7 @@ public static class BoundTree
         BoundFor { Condition: { } condition } => [condition],
         BoundForRange range => [range.Start, range.End],
         BoundReturn { Value: { } value } => [value],
-        BoundSwitch switchStatement => [switchStatement.Value],
+        BoundSwitch switchStatement => [switchStatement.Value, .. switchStatement.Cases.Select(c => c.Guard).OfType<BoundExpression>()],
         _ => [],
     };
 
@@ -520,7 +521,7 @@ public static class BoundTree
         BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],
         BoundConditionalAccess access => [access.Receiver, access.WhenNotNull],
         BoundIs pattern => [pattern.Operand],
-        BoundSwitchExpression switchExpression => [switchExpression.Value, .. switchExpression.Cases.Select(c => c.Body)],
+        BoundSwitchExpression switchExpression => [switchExpression.Value, .. switchExpression.Cases.SelectMany(c => c.Guard is { } guard ? [guard, c.Body] : new[] { c.Body })],
         BoundVariant variant => variant.Arguments,
         BoundTry attempt => [attempt.Operand],
         _ => [],

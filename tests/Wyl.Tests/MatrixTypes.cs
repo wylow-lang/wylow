@@ -2,8 +2,8 @@
 // struct, class, enum with data, nullable value or reference, fixed array, escaping or non-escaping
 // function, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
-// capture, `==`, default value, an overload, a field a struct pattern binds, or a switch with
-// `case null`. Each cell makes a value and shows something about
+// capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
+// `case null`, or a field a guarded case binds. Each cell makes a value and shows something about
 // it, so the snapshot records what the type does in that place; a cell the spec refuses records the
 // error instead. Equality compares an equal pair and an unequal one, and a nullable row shows both
 // its null and its non-null side.
@@ -12,7 +12,7 @@ static class MatrixTypes
     static readonly string[] Contexts =
     [
         "local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
-        "struct-pattern", "case-null",
+        "struct-pattern", "case-null", "guarded",
     ];
 
     public static Matrix Build()
@@ -310,6 +310,26 @@ static class MatrixTypes
                     main.Add(row.Show("none"));
                     main.Add("}");
                 }
+                return $$"""
+                    struct Holds {
+                        {{row.Type}} value;
+                        int tag;
+                    }
+
+                    {{Wrap(main)}}
+                    """;
+
+            case "guarded":
+                // A case whose guard fails binds its own copy; the next one's guard passes.
+                main.Add(row.Declare("value", row.First));
+                main.Add("Holds held = Holds(value, 1);");
+                main.Add("switch (held) {");
+                main.Add("case Holds(var skipped, var tag) when tag == 2 -> print(\"wrong\");");
+                main.Add("case Holds(var bound, var tag) when tag == 1 -> {");
+                main.Add(row.Show("bound"));
+                main.Add("}");
+                main.Add("default -> print(\"other\");");
+                main.Add("}");
                 return $$"""
                     struct Holds {
                         {{row.Type}} value;

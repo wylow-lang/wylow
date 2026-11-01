@@ -55,6 +55,10 @@ out 3
 out null
 exit 0
 
+=== struct/guarded
+out 3
+exit 0
+
 === class/local
 out 3
 exit 0
@@ -108,6 +112,10 @@ out 3
 out null
 exit 0
 
+=== class/guarded
+out 3
+exit 0
+
 === enum/local
 out 3
 exit 0
@@ -159,6 +167,10 @@ exit 0
 === enum/case-null
 out 3
 out null
+exit 0
+
+=== enum/guarded
+out 3
 exit 0
 
 === nullable-value/local
@@ -227,6 +239,10 @@ out 3
 out null
 exit 0
 
+=== nullable-value/guarded
+out 3
+exit 0
+
 === nullable-reference/local
 out 3
 out -1
@@ -293,6 +309,10 @@ out 3
 out null
 exit 0
 
+=== nullable-reference/guarded
+out 3
+exit 0
+
 === fixed-array/local
 out 3
 exit 0
@@ -347,6 +367,10 @@ out 3
 out null
 exit 0
 
+=== fixed-array/guarded
+out 3
+exit 0
+
 === function-escaping/local
 out 3
 exit 0
@@ -397,6 +421,10 @@ out 3
 out null
 exit 0
 
+=== function-escaping/guarded
+out 3
+exit 0
+
 === function-nonescaping/local
 out 3
 exit 0
@@ -440,6 +468,9 @@ error 42: 'value' is a non-escaping variable, so it cannot be stored or returned
 out 3
 out null
 exit 0
+
+=== function-nonescaping/guarded
+error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === generic/local
 out 3
@@ -493,6 +524,10 @@ exit 0
 === generic/case-null
 out 3
 out null
+exit 0
+
+=== generic/guarded
+out 3
 exit 0
 
 === nint/local
@@ -549,6 +584,10 @@ out 3
 out null
 exit 0
 
+=== nint/guarded
+out 3
+exit 0
+
 === nested/local
 out 3
 exit 0
@@ -601,6 +640,10 @@ exit 0
 === nested/case-null
 out 3
 out null
+exit 0
+
+=== nested/guarded
+out 3
 exit 0
 
 === string-empty/local
@@ -696,6 +739,13 @@ out true
 out null
 exit 0
 
+=== string-empty/guarded
+out
+out 0
+out 0
+out true
+exit 0
+
 === string-one/local
 out é
 out 2
@@ -787,6 +837,13 @@ out 2
 out 1
 out false
 out null
+exit 0
+
+=== string-one/guarded
+out é
+out 2
+out 1
+out false
 exit 0
 
 === string-multibyte/local
@@ -882,6 +939,13 @@ out false
 out null
 exit 0
 
+=== string-multibyte/guarded
+out héllo
+out 6
+out 5
+out false
+exit 0
+
 === string-concat/local
 out ab1cd
 out 5
@@ -975,6 +1039,13 @@ out false
 out null
 exit 0
 
+=== string-concat/guarded
+out ab1cd
+out 5
+out 5
+out false
+exit 0
+
 === double/local
 out -0.0
 out -0.0
@@ -1042,6 +1113,11 @@ out -0.0
 out null
 exit 0
 
+=== double/guarded
+out -0.0
+out -0.0
+exit 0
+
 === double-inexact/local
 out 0.30000000000000004
 exit 0
@@ -1096,6 +1172,10 @@ out 0.30000000000000004
 out null
 exit 0
 
+=== double-inexact/guarded
+out 0.30000000000000004
+exit 0
+
 === long/local
 out 2147483648
 exit 0
@@ -1148,4 +1228,8 @@ exit 0
 === long/case-null
 out 2147483648
 out null
+exit 0
+
+=== long/guarded
+out 2147483648
 exit 0

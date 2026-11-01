@@ -234,6 +234,9 @@ public sealed record SwitchCase(Location Location, IReadOnlyList<PatternSyntax> 
     /// <summary>Where <c>default</c> is written, if the case includes it.</summary>
     public Location? Default { get; init; }
 
+    /// <summary><c>when condition</c>, which the case matches only if it is also true.</summary>
+    public Expr? Guard { get; init; }
+
     public bool IsDefault => Default is not null;
 }
 

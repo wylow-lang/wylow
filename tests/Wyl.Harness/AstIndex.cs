@@ -23,6 +23,8 @@ public enum SiteKind
     ArrayLiteral,
     /// <summary>A pattern for one field of a variant or struct pattern.</summary>
     FieldPattern,
+    /// <summary>The last pattern of a case with no guard and no <c>default</c>, which a guard would follow.</summary>
+    CasePatterns,
 }
 
 /// <summary>
@@ -237,6 +239,10 @@ public sealed class AstIndex
                 Deletable.Add(@case.Location.Span);
                 foreach (var pattern in @case.Patterns)
                     Pattern(pattern);
+                if (@case is { Patterns.Count: > 0, Guard: null, IsDefault: false })
+                    Sites.Add(new Site(SiteKind.CasePatterns, @case.Patterns[^1].Location.Span, @case));
+                if (@case.Guard is { } guard)
+                    Expression(guard);
                 if (@case.Body is { } body)
                     Statement(body, inList: true);
                 if (@case.Value is { } caseValue)

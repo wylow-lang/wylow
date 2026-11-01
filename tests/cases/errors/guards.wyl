@@ -1,0 +1,49 @@
+// What a guard can't be on, and how guarded cases count toward a switch's coverage.
+import std::print;
+
+enum Shape { Circle(int r), Rect(int w, int h) }
+
+int? number() {
+    return null;
+}
+
+void use(Shape s, bool flag) {
+    switch (s) {
+        case Circle(_) -> print(1);
+        default when flag -> print(2);              // error: a case with 'default' cannot have a guard
+    }
+    switch (number()) {
+        case null when flag -> print(1);            // error: a case with 'null' cannot have a guard
+        default -> print(2);
+    }
+    switch (number()) {
+        case null, default when flag -> print(1);   // error: a case with 'default' cannot have a guard
+    }
+    switch (s) {
+        case Circle(var r) when r -> print(1);      // error: cannot implicitly convert 'int' to 'bool'
+        default -> print(2);
+    }
+
+    // A guarded case covers nothing, but is itself unreachable if the cases above cover it.
+    switch (s) {                                    // error: the switch does not handle every 'Shape': 'Circle(_)' is not covered
+        case Circle(var r) when r > 1 -> print(1);
+        case Rect(_, _) -> print(2);
+    }
+    switch (s) {
+        case Circle(_), Rect(_, _) -> print(1);
+        case Circle(var r) when r > 1 -> print(2);  // error: this case can never be reached
+    }
+    switch (s) {
+        case Circle(var r) when r > 1 -> print(1);
+        case Circle(var r) -> print(2);
+        case Rect(_, _) -> print(3);
+    }
+
+    // A name an 'is' in the guard binds is the case's.
+    fn() -> int chosen = switch (s) {
+        case Circle(var r) when number() is int n -> () -> n;   // error: a lambda chosen by a switch expression cannot use 'n'
+        default -> () -> 0;
+    };
+}
+
+void main() { }

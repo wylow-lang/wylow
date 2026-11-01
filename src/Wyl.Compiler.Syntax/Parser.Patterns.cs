@@ -40,6 +40,8 @@ public sealed partial class Parser
                 }
                 while (Accept(TokenKind.Comma));
             }
+            // A guard is a condition, never a lambda, so `when ok -> ...` ends at its arrow.
+            var guard = Accept(TokenKind.WhenKeyword) ? ParseConditional() : null;
 
             if (At(TokenKind.Colon))
                 Error(Current.Span, "cases are written with '->', as in 'case X -> ...'; there is no fallthrough");
@@ -53,19 +55,19 @@ public sealed partial class Parser
                 {
                     Error(Current.Span, "the cases of a switch expression must be expressions; use a switch statement for blocks");
                     ParseBlock();
-                    cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))) { Default = defaultLocation });
+                    cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))) { Default = defaultLocation, Guard = guard });
                     continue;
                 }
                 int errors = diagnostics.Count;
                 var caseValue = ParseExpression();
                 FinishStatement(errors);
-                cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue) { Default = defaultLocation });
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue) { Default = defaultLocation, Guard = guard });
             }
             else
             {
                 if (IsDeclarationStart())
                     Error(Current.Span, "a variable cannot be declared here; use a block, as in 'case X -> { ... }'");
-                cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null) { Default = defaultLocation });
+                cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null) { Default = defaultLocation, Guard = guard });
             }
         }
         Expect(TokenKind.CloseBrace, "'}'");

@@ -69,6 +69,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["switch"] = TokenKind.SwitchKeyword,
         ["case"] = TokenKind.CaseKeyword,
         ["default"] = TokenKind.DefaultKeyword,
+        ["when"] = TokenKind.WhenKeyword,
         ["try"] = TokenKind.TryKeyword,
         ["unsafe"] = TokenKind.UnsafeKeyword,
         ["extern"] = TokenKind.ExternKeyword,

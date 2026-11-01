@@ -1,0 +1,24 @@
+// A guard narrows and assigns into its case only where it is known to be true, as an 'if'
+// condition does.
+import std::print;
+
+class Enemy {
+    int hp;
+
+    Enemy(int hp) {
+        this.hp = hp;
+    }
+}
+
+enum State { Idle, Chasing(Enemy? target) }
+
+void use(State st, bool flag) {
+    switch (st) {
+        case Chasing(var t) when t != null || flag -> print(t.hp);      // error: 't' might be null here
+        case Chasing(var t) when t is Enemy e || flag -> print(e.hp);   // error: 'e' might not have been assigned
+        case Chasing(var t) when t is Enemy e && flag -> print(e.hp);
+        default -> print(0);
+    }
+}
+
+void main() { }

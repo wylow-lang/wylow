@@ -140,7 +140,7 @@ public static class FuzzSelfTests
     static string? PatternMutantsParse(IReadOnlyList<BaseFile> files)
     {
         var random = new Random(5);
-        string[] names = ["pattern-field-discard"];
+        string[] names = ["pattern-field-discard", "case-guard-true"];
         int made = 0;
         foreach (var file in files)
         {

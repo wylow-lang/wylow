@@ -898,9 +898,15 @@ switch (state) {
 - Arrow form only (`case X -> ...`). **No fallthrough.** `case A, B -> ...` matches either pattern;
   such a case cannot bind names.
 - **Guards**, as in Java: `case Pattern when condition -> ...` matches only if the pattern matches
-  and then the condition, a `bool`, is true. The names the pattern binds are in scope in the
-  condition, and names an `is` in the condition binds are in scope in the case, as in an `if`. A guarded case never counts toward exhaustiveness, and never makes a later case
-  unreachable, since its condition may be false.
+  and then the condition, a `bool`, is true. `when` is a keyword. The guard runs after the case's
+  names are copied (below), so the guard and the case see the same copies. The names the pattern
+  binds are in scope in the condition, and the case is as an `if`'s body is to its condition: names
+  an `is` in the condition binds are in scope in it, and what the condition narrows stays narrowed.
+  Likewise the names of a case whose guard is false live until the switch ends, as an `if`
+  condition's names live through its `else`. In `case A, B when c`, the guard applies to the whole
+  case. A case with `default` or `null` can't have a guard. A guarded case never counts toward
+  exhaustiveness, and never makes a later case unreachable, since its condition may be false; it
+  is still an error if the cases above already match everything it matches.
 
   ```java
   switch (shape) {
@@ -909,6 +915,23 @@ switch (state) {
       case Rect(var w, var h) -> area(w, h);
   }
   ```
+
+  **Watch out:** a switch matches its value where it is, without a copy of its own, so a guard
+  that changes the value, or calls code that does, changes what the later cases test. Each case
+  tests the value as it is when that case is tried (including whether it is null, so this is never
+  unsafe). To match the value as it was, copy it first:
+
+  ```java
+  var snapshot = ai.state;
+  switch (snapshot) {
+      case Chasing(var t) when ai.calm() -> chase(t);   // calm() may set ai.state
+      case Idle -> rest();
+      case Chasing(var t) -> follow(t);
+  }
+  ```
+
+  A hidden copy would cost a large struct's copy on every switch, unless the optimizer removed it,
+  so the copy is written where it is wanted.
 
 - **`case null`**, as in Java: a switch with a `case null` takes its value as it is, nullable or
   not. Without one, a nullable value must be narrowed first (§2.5), or it is an error. `case null`
@@ -948,7 +971,7 @@ switch (state) {
   loop and needs no `break`.
 - The value is evaluated once, before any case is tried. It must have a type of its own: `null`
   alone and a `void` call have none, and both are errors. Names a case binds are copies made before
-  the case runs, so a case may freely change the value it matched. If the value is a temporary, it
+  its guard and the case run, so a case may freely change the value it matched. If the value is a temporary, it
   lives until the switch ends (for a switch expression, until the switch's value is produced).
 
 ### Patterns
@@ -996,8 +1019,6 @@ while (node is Some(var n)) { node = n.next; }
 - Binding names in an `is` stores to existing locals, left to right, which releases their old
   values. Every bound value is copied out of the matched value before any of those releases, since a
   destructor they run may change it.
-
-> Not implemented yet: guards (`when`).
 
 ### String interpolation
 

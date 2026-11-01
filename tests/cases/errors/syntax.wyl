@@ -13,4 +13,5 @@ void main() {
     int y = (x = 1);          // error: assignment is a statement
     int z = 1                 // error: expected ';'
     print(z);
+    int when = 2;             // error: expected a variable name
 }

@@ -63,6 +63,7 @@ public enum TokenKind
     SwitchKeyword,
     CaseKeyword,
     DefaultKeyword,
+    WhenKeyword,
     TryKeyword,
     UnsafeKeyword,
     ExternKeyword,

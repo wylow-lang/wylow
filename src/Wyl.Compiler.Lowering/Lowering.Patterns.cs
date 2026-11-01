@@ -221,12 +221,12 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// Whether a case matches, or null if it always does, and the names it binds; only a case
-    /// with one pattern binds any. Over a nullable value, every pattern but <c>null</c>, and
-    /// <c>default</c>, first tests that the value isn't null; each case tests it itself, as it does
-    /// the rest of the value.
+    /// Whether a case's patterns match, to be tested where it is called, or null if they always do,
+    /// and the names they bind; only a case with one pattern binds any. Over a nullable value, every
+    /// pattern but <c>null</c>, and <c>default</c>, first tests that the value isn't null; each case
+    /// tests it itself, as it does the rest of the value, since a guard may have changed it.
     /// </summary>
-    IrOperand? CaseCondition<T>(BoundSwitchCase<T> c, IrPlace matched, bool nullable, List<Binding> bindings)
+    Func<IrOperand>? CaseCondition<T>(BoundSwitchCase<T> c, IrPlace matched, bool nullable, List<Binding> bindings)
     {
         var alternatives = new List<List<Func<IrOperand>>>();
         foreach (var pattern in c.Patterns)
@@ -254,7 +254,7 @@ public sealed partial class IrLowering
         IrOperand Any(int from) => from == alternatives.Count - 1
             ? Conjunction(alternatives[from], 0, null)
             : OperandOf(Chosen(WylType.Bool, () => Conjunction(alternatives[from], 0, null), () => IrConstant.Bool(true), () => Any(from + 1)));
-        return Any(0);
+        return () => Any(0);
     }
 
     /// <summary>
@@ -270,7 +270,8 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// Tries the cases in order, as an <c>if</c> chain whose last <c>else</c> panics. A case's names
-    /// are fresh locals copied from the matched value before its body runs.
+    /// are fresh locals copied from the matched value before its body runs, and before its guard.
+    /// The value is matched where it is, so a later case sees what a guard changed (spec 06-syntax.md §6.9, switch).
     /// </summary>
     void Cases<T>(IReadOnlyList<BoundSwitchCase<T>> cases, IrPlace matched, bool nullable, Location location, Action<T> body)
     {
@@ -285,24 +286,66 @@ public sealed partial class IrLowering
                 return;
             }
             var bindings = new List<Binding>();
-            var condition = CaseCondition(cases[i], matched, nullable, bindings);
-            var then = new IrBlock { Origin = at };
-            reachable = true;
-            Into(then, () =>
+            var matches = CaseCondition(cases[i], matched, nullable, bindings);
+            if (cases[i].Guard is { } guard)
+            {
+                Guarded(i, guard, matches, bindings);
+                return;
+            }
+            var condition = matches?.Invoke();
+            var then = Then(i, () =>
             {
                 foreach (var binding in bindings)
                     Add(LetOf(Declare(binding.Local), BoundValue(binding)));
-                body(cases[i].Body);
             });
-            completes |= reachable;
             if (condition is null)
             {
                 Add(then);
                 return;
             }
+            Add(new IrIf(condition, then, Otherwise(i)) { Origin = at });
+        }
+
+        IrBlock Then(int i, Action bind)
+        {
+            var then = new IrBlock { Origin = at };
+            reachable = true;
+            Into(then, () =>
+            {
+                bind();
+                body(cases[i].Body);
+            });
+            completes |= reachable;
+            return then;
+        }
+
+        IrBlock Otherwise(int i)
+        {
             var otherwise = new IrBlock { Origin = at };
             Into(otherwise, () => From(i + 1));
-            Add(new IrIf(condition, then, otherwise) { Origin = at });
+            return otherwise;
+        }
+
+        // As `if (value is Pattern && guard)`: the names are declared around the case's `if`, and
+        // assigned where the patterns matched, before the guard runs.
+        void Guarded(int i, BoundExpression guard, Func<IrOperand>? matches, List<Binding> bindings)
+        {
+            var scope = new IrBlock { Origin = at };
+            Into(scope, () =>
+            {
+                foreach (var binding in bindings)
+                    Add(new IrDeclare(Declare(binding.Local)) { Origin = at });
+                DeclarePatternLocals(guard);
+                IrOperand Bound()
+                {
+                    foreach (var binding in bindings)
+                        Add(new IrStore(new IrPlace(locals[binding.Local]), OperandOf(BoundValue(binding))) { Origin = at });
+                    return Condition(guard);
+                }
+                var condition = matches is null ? Bound() : OperandOf(Chosen(WylType.Bool, matches, Bound, () => IrConstant.Bool(false)));
+                Add(new IrIf(condition, Then(i, () => { }), Otherwise(i)) { Origin = at });
+            });
+            Add(scope);
         }
         From(0);
         reachable = completes;

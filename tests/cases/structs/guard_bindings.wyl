@@ -1,0 +1,62 @@
+// A guarded case's names are copied out of the matched value before its guard runs, so a guard that
+// changes the value, releasing what it held, leaves the guard and the body their copies. The names
+// of a case whose guard fails live, as an 'if' condition's do, until the switch ends.
+
+import std::print;
+
+class Item {
+    int id;
+
+    Item(int id) {
+        this.id = id;
+    }
+
+    ~Item() {
+        print($"free {id}");
+    }
+}
+
+struct Two {
+    Item a;
+    Item b;
+}
+
+class Holder {
+    mut Two? pair = null;
+
+    bool clear() {
+        pair = null;
+        print("cleared");
+        return true;
+    }
+}
+
+void main() {
+    var h = new Holder();
+    h.pair = Two(new Item(1), new Item(2));
+    switch (h.pair) {
+        case Two(var a, var b) when h.clear() && a.id == 1 -> print($"{a.id} {b.id}");
+        case null -> print("none");
+        default -> print("other");
+    }
+    // output: cleared
+    // output: 1 2
+    // output: free 2
+    // output: free 1
+    print("after");                                 // output: after
+
+    h.pair = Two(new Item(3), new Item(4));
+    switch (h.pair) {
+        case Two(var a, _) when a.id > 5 -> print("big");
+        case Two(_, var b) -> {
+            h.pair = null;
+            print($"b {b.id}");
+        }
+        case null -> print("none");
+    }
+    // The first case's 'a' still holds item 3 when the second case clears the pair.
+    // output: b 4
+    // output: free 4
+    // output: free 3
+    print("done");                                  // output: done
+}

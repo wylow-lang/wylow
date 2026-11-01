@@ -325,12 +325,34 @@ public sealed partial class Binder
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, c.IsDefault, BindStatement(c.Body!)));
+            var guard = BindGuard(c);
+            cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, c.IsDefault, guard, BindStatement(c.Body!)));
             scope = scope.Parent;
         }
         CheckCases(s.Location, value.Type, s.Cases, [.. cases.Select(c => c.Patterns)], broken);
         return new BoundSwitch(s.Location, value, cases);
     }
+
+    /// <summary>
+    /// A case's guard, bound in the case's scope after its patterns, so that it sees the names they
+    /// bind and the case sees the names an <c>is</c> in it binds.
+    /// </summary>
+    BoundExpression? BindGuard(SwitchCase c)
+    {
+        if (c.Guard is not { } syntax)
+            return null;
+        if (c.IsDefault)
+            Error(syntax.Location, "a case with 'default' cannot have a guard, since 'default' matches whatever the cases above don't");
+        else if (c.Patterns.Any(IsNullPattern))
+            Error(syntax.Location, "a case with 'null' cannot have a guard; test the condition inside the case");
+        return BindCondition(syntax);
+    }
+
+    /// <summary>
+    /// Whether a case counts toward exhaustiveness and hides later cases: one with a guard doesn't,
+    /// since its condition may be false. One whose guard is an error counts, so as to add no more errors.
+    /// </summary>
+    static bool CountsAsMatching(SwitchCase c) => c.Guard is null || c.IsDefault || c.Patterns.Any(IsNullPattern);
 
     static bool IsNoReturn(BoundExpression expression) => expression is BoundCall { Method.Symbol.IsNoReturn: true };
 
@@ -341,13 +363,14 @@ public sealed partial class Binder
     BoundExpression BindSwitchExpression(SwitchExpr e, WylType? expected, bool mayWait = false)
     {
         var value = BindSwitchValue(e.Value, e.Cases);
-        var options = new List<(SwitchCase Syntax, List<BoundPattern> Patterns, BoundExpression Value, Scope Scope)>();
+        var options = new List<(SwitchCase Syntax, List<BoundPattern> Patterns, BoundExpression? Guard, BoundExpression Value, Scope Scope)>();
         bool broken = value.Type == WylType.Error;
         foreach (var c in e.Cases)
         {
             scope = new Scope(scope);
             var patterns = BindCasePatterns(c, value.Type, ref broken);
-            options.Add((c, patterns, BindOption(c.Value!, expected), scope));
+            var guard = BindGuard(c);
+            options.Add((c, patterns, guard, BindOption(c.Value!, expected), scope));
             scope = scope.Parent!;
         }
         CheckCases(e.Location, value.Type, e.Cases, [.. options.Select(o => o.Patterns)], broken);
@@ -358,7 +381,7 @@ public sealed partial class Binder
             var bound = options.Select(o =>
             {
                 scope = o.Scope;
-                return new BoundSwitchCase<BoundExpression>(o.Syntax.Location, o.Patterns, o.Syntax.IsDefault, FinishOption(o.Value, type));
+                return new BoundSwitchCase<BoundExpression>(o.Syntax.Location, o.Patterns, o.Syntax.IsDefault, o.Guard, FinishOption(o.Value, type));
             }).ToList();
             scope = enclosing;
             return MakeSwitchExpression(e.Location, value, bound, expected ?? type);
@@ -405,7 +428,7 @@ public sealed partial class Binder
     /// </summary>
     void CheckCaseCaptures(BoundSwitchCase<BoundExpression> c)
     {
-        var declared = c.Patterns.SelectMany(Patterns.Bindings).Concat(IsBindings(c.Body)).ToHashSet();
+        var declared = c.Patterns.SelectMany(Patterns.Bindings).Concat(c.Guard is { } guard ? IsBindings(guard) : []).Concat(IsBindings(c.Body)).ToHashSet();
         var use = BoundTree.FunctionOptions(c.Body).OfType<BoundLambda>()
             .SelectMany(BoundTree.AllExpressions).OfType<BoundLocalAccess>()
             .FirstOrDefault(a => declared.Contains(a.Local));
@@ -449,7 +472,7 @@ public sealed partial class Binder
         {
             foreach (var pattern in patterns[i])
             {
-                if (!space.Add(pattern))
+                if (!space.Add(pattern, counts: CountsAsMatching(syntax[i])))
                     Error(pattern.Location, "this case can never be reached: the cases above match every value it matches");
             }
             if (syntax[i].Default is { } written && !space.Add(null))

@@ -45,14 +45,16 @@ public sealed class MatchSpace(WylType type)
     /// <summary>
     /// Adds a case's pattern, or <c>default</c> for null, and returns whether it matches anything the
     /// earlier ones don't. Over a nullable value, every pattern but <c>null</c>, and <c>default</c>,
-    /// matches the non-null value.
+    /// matches the non-null value. A pattern that doesn't <paramref name="counts"/>, a guarded case's,
+    /// is only checked: it covers nothing.
     /// </summary>
-    public bool Add(BoundPattern? pattern)
+    public bool Add(BoundPattern? pattern, bool counts = true)
     {
         var simplified = pattern is null ? Wildcard.Instance : Simplify(pattern);
         Pattern[] row = [type.IsNullable && pattern is not BoundNullPattern ? ValueOf(simplified) : simplified];
         bool useful = Useful(rows, row, [type]) is not null;
-        rows.Add(row);
+        if (counts)
+            rows.Add(row);
         return useful;
     }
 

@@ -1,0 +1,129 @@
+// A guard, 'case Pattern when condition', matches only if the pattern matches and then the
+// condition is true. A switch matches its value in place, with no copy of its own, so a later case
+// sees what a guard changed; 'var snapshot = value;' is how to match what it was.
+
+import std::print;
+
+class Enemy {
+    int hp;
+
+    Enemy(int hp) {
+        this.hp = hp;
+    }
+}
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+enum Shape { Circle(int r), Rect(int w, int h), Moved(Vec3 to) }
+
+enum State { Idle, Chasing(Enemy? target) }
+
+class Ai {
+    mut State state = State.Idle;
+    mut Vec3? pos = null;
+
+    bool calm() {
+        state = State.Idle;
+        return false;
+    }
+
+    bool land() {
+        pos = null;
+        return false;
+    }
+}
+
+bool noisy(String what, bool result) {
+    print($"guard {what}");
+    return result;
+}
+
+String size(Shape s) {
+    return switch (s) {
+        case Circle(var r) when r > 10 -> "big circle";
+        case Circle(var r) -> $"circle {r}";
+        case Rect(var w, var h) when w == h -> $"square {w}";
+        case Moved(Vec3(var x, _, _)) when x < 0 -> "moved back";
+        case Rect, Moved when noisy("rect or moved", true) -> "other";
+        // Guarded cases cover nothing, so the switch still needs this.
+        default -> "unreachable";
+    };
+}
+
+void main() {
+    print(size(Shape.Circle(20)));                  // output: big circle
+    print(size(Shape.Circle(5)));                   // output: circle 5
+    print(size(Shape.Rect(3, 3)));                  // output: square 3
+    print(size(Shape.Moved(Vec3(-1, 0, 0))));       // output: moved back
+    // output: guard rect or moved
+    print(size(Shape.Rect(2, 3)));                  // output: other
+
+    // A guard runs only where its pattern matched, in case order.
+    switch (Shape.Rect(1, 2)) {
+        case Circle(_) when noisy("circle", true) -> print("circle");
+        case Rect(var w, _) when noisy("rect", w > 5) -> print("wide");
+        case Rect(_, var h) when noisy("tall", h > 1) -> print("tall");
+        default -> print("other");
+    }
+    // output: guard rect
+    // output: guard tall
+    // output: tall
+
+    // The names the pattern binds are in scope in the guard; what the guard narrows, or an 'is' in
+    // it binds, is in the case.
+    State[3] states = [State.Chasing(new Enemy(4)), State.Chasing(null), State.Idle];
+    for (State st : states) {
+        switch (st) {
+            case Chasing(var t) when t is Enemy e && e.hp > 3 -> print($"chasing {e.hp}");
+            case Chasing(var t) when t != null -> print($"weak {t.hp}");
+            case Chasing(_) -> print("chasing nothing");
+            case Idle -> print("idle");
+        }
+    }
+    // output: chasing 4
+    // output: chasing nothing
+    // output: idle
+
+    // 'when true' is still a guard: the switch needs a case after it.
+    switch (Shape.Circle(1)) {
+        case Circle(_) when true -> print("guarded");
+        case Circle(_), Rect(_, _), Moved(_) -> print("unguarded");
+    }
+    // output: guarded
+
+    // A guard that changes the value changes what later cases test.
+    var ai = new Ai();
+    ai.state = State.Chasing(new Enemy(1));
+    switch (ai.state) {
+        case Chasing(_) when ai.calm() -> print("chasing");
+        case Idle -> print("calmed down");          // output: calmed down
+        case Chasing(_) -> print("still chasing");
+    }
+    // A copy is how to match the value as it was.
+    ai.state = State.Chasing(new Enemy(1));
+    var snapshot = ai.state;
+    switch (snapshot) {
+        case Chasing(_) when ai.calm() -> print("chasing");
+        case Idle -> print("calmed down");
+        case Chasing(_) -> print("still chasing");  // output: still chasing
+    }
+    // Each case tests a nullable value for null itself, so one after a guard that nulls it doesn't
+    // read a value that is gone.
+    ai.pos = Vec3(1, 2, 3);
+    switch (ai.pos) {
+        case Vec3(var x, _, _) when ai.land() -> print($"flying {x}");
+        case Vec3(_, var y, _) -> print($"at {y}");
+        case null -> print("landed");               // output: landed
+    }
+
+    // Nested struct patterns with a guard.
+    switch (Shape.Moved(Vec3(4, 5, 6))) {
+        case Moved(Vec3(var x, var y, _)) when x + y > 100 -> print("far");
+        case Moved(Vec3(var x, var y, _)) when x + y > 5 -> print($"near {x + y}");  // output: near 9
+        default -> print("other");
+    }
+}

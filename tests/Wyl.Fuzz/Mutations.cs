@@ -138,6 +138,11 @@ static class Mutations
         // exhaustive, or a struct pattern always match.
         new("pattern-field-discard", SiteKind.FieldPattern, site => site.Node is not DiscardPatternSyntax,
             (_, site) => Single("pattern-field-discard", site, "_")),
+        // A guarded case covers nothing, which may make a switch not exhaustive or a later case
+        // reachable; a guard on 'case null' is an error.
+        new("case-guard-true", SiteKind.CasePatterns,
+            site => site.Node is SwitchCase c && !c.Patterns.Any(p => p is ConstantPatternSyntax { Value: NullLiteralExpr }),
+            (_, site) => Insert("case-guard-true", site, site.Span.End, " when true")),
     ];
 
     static bool Wrappable(Site site) => !site.Place && !site.InPattern;
