@@ -18,7 +18,7 @@ public sealed class MatchSpace(WylType type)
         public static readonly Wildcard Instance = new();
     }
 
-    /// <summary><see cref="Key"/> is a <see cref="VariantSymbol"/>, a bool, or a long.</summary>
+    /// <summary><see cref="Key"/> is a <see cref="VariantSymbol"/>, a struct's <see cref="TypeSymbol"/>, a bool, or a long.</summary>
     sealed record Constructor(object Key, Pattern[] Arguments) : Pattern;
 
     sealed record Opaque : Pattern
@@ -42,9 +42,11 @@ public sealed class MatchSpace(WylType type)
 
     static Pattern Simplify(BoundPattern pattern) => pattern switch
     {
-        BoundDiscardPattern or BoundBindingPattern => Wildcard.Instance,
-        BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target) ? Wildcard.Instance : Opaque.Instance,
+        _ when Patterns.AlwaysMatches(pattern) => Wildcard.Instance,
+        BoundTypePattern => Opaque.Instance,
         BoundVariantPattern variant => new Constructor(variant.Variant, [.. variant.Fields.Select(Simplify)]),
+        BoundStructPattern { Type.IsNullable: true } => Opaque.Instance,
+        BoundStructPattern structPattern => new Constructor(structPattern.Type.Symbol!, [.. structPattern.Fields.Select(Simplify)]),
         BoundConstantPattern { Value.Value: bool b } => new Constructor(b, []),
         BoundConstantPattern { Value.Integer: { } integer } => new Constructor(integer, []),
         BoundConstantPattern constant => new Constructor(constant.Value.Value, []),
@@ -54,15 +56,20 @@ public sealed class MatchSpace(WylType type)
     /// <summary>Every constructor of a type with finitely many, or null.</summary>
     static IReadOnlyList<object>? Constructors(WylType type) =>
         type.IsEnum ? type.Symbol!.Variants
+        : type.IsStruct ? [type.Symbol!]
         : type == WylType.Bool ? [true, false]
         : null;
 
     static WylType[] ArgumentTypes(WylType type, object key)
     {
-        if (key is not VariantSymbol variant)
-            return [];
+        IReadOnlyList<FieldSymbol> fields = key switch
+        {
+            VariantSymbol variant => variant.Fields,
+            TypeSymbol structSymbol => structSymbol.Fields,
+            _ => [],
+        };
         var map = TypeMap.For(type);
-        return [.. variant.Fields.Select(f => map.Apply(f.Type))];
+        return [.. fields.Select(f => map.Apply(f.Type))];
     }
 
     static Pattern[] Wildcards(int count) => [.. Enumerable.Repeat<Pattern>(Wildcard.Instance, count)];
@@ -144,6 +151,9 @@ public sealed class MatchSpace(WylType type)
         Constructor { Key: VariantSymbol variant } c when c.Arguments.Length > 0 =>
             $"{variant.Name}({string.Join(", ", c.Arguments.Select(Format))})",
         Constructor { Key: VariantSymbol variant } => variant.Name,
+        // A struct none of whose fields is constrained stands for any value of it.
+        Constructor { Key: TypeSymbol } c when c.Arguments.All(a => Format(a) == "_") => "_",
+        Constructor { Key: TypeSymbol structSymbol } c => $"{structSymbol.Name}({string.Join(", ", c.Arguments.Select(Format))})",
         Constructor { Key: bool b } => b ? "true" : "false",
         Constructor c => c.Key.ToString()!,
         _ => "_",

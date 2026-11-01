@@ -21,6 +21,8 @@ public enum SiteKind
     IndexArgument,
     ArrayLength,
     ArrayLiteral,
+    /// <summary>A pattern for one field of a variant or struct pattern.</summary>
+    FieldPattern,
 }
 
 /// <summary>
@@ -242,6 +244,12 @@ public sealed class AstIndex
             }
         }
 
+        void FieldPattern(PatternSyntax field)
+        {
+            Sites.Add(new Site(SiteKind.FieldPattern, field.Location.Span, field));
+            Pattern(field);
+        }
+
         void Pattern(PatternSyntax pattern)
         {
             switch (pattern)
@@ -253,7 +261,12 @@ public sealed class AstIndex
                     if (variant.Enum is { } @enum)
                         Type(@enum);
                     foreach (var field in variant.Fields ?? [])
-                        Pattern(field);
+                        FieldPattern(field);
+                    break;
+                case StructPatternSyntax structPattern:
+                    Type(structPattern.Type);
+                    foreach (var field in structPattern.Fields)
+                        FieldPattern(field);
                     break;
                 case ConstantPatternSyntax constant:
                     Expression(constant.Value, inPattern: true);

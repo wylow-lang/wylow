@@ -1,0 +1,59 @@
+// Struct patterns that are wrong, that always match after 'is', and switches over structs that
+// miss a value or have a case that can never match.
+import std::print;
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+struct Flags {
+    bool a;
+    bool b;
+}
+
+struct Segment {
+    Vec3 from;
+    Vec3 to;
+}
+
+struct Pair<A, B> {
+    A first;
+    B second;
+}
+
+void main() {
+    Vec3 p = Vec3(1, 2, 3);
+    Vec3? maybe = p;
+    print(p is Vec3(1, 2));                         // error: 'Vec3' has 3 fields, but the pattern lists 2
+    print(p is Flags(true, _));                     // error: a 'Vec3' can never be a 'Flags'
+    print(p is Vec3(var x, _, _));                  // error: this pattern always matches, so 'is' would always be true
+    print(maybe is Vec3(var mx, _, _));
+    Segment s = Segment(p, p);
+    print(s is Segment(Vec3(_, _, _), var to));     // error: this pattern always matches, so 'is' would always be true
+    print(s is Segment(Vec3(0, _, _), _));
+    int n = 4;
+    print(n is Vec3(_, _, _));                      // error: a 'int' can never be 'Vec3', since 'int' is neither an enum nor a struct
+    Pair<int, String> pair = Pair<int, String>(1, "one");
+    print(pair is Pair<int, int>(1, _));            // error: a 'Pair<int, String>' can never be a 'Pair<int, int>'
+
+    Flags f = Flags(true, false);
+    switch (f) {                                    // error: the switch does not handle every 'Flags': 'Flags(false, true)' is not covered
+        case Flags(true, _) -> print(1);
+    }
+    switch (f) {
+        case Flags(_, _) -> print(1);
+        case Flags(true, true) -> print(2);         // error: this case can never be reached: the cases above match every value it matches
+    }
+    switch (p) {                                    // error: the switch does not handle every 'Vec3'; add a 'default' case
+        case Vec3(0, _, _) -> print(1);
+    }
+    switch (s) {
+        case Segment(Vec3(var ax, _, _), _) -> print(ax);
+        default -> print(0);                        // error: 'default' can never be reached: the cases above match every value
+    }
+    switch (f) {
+        case Flags(var a, true), Flags(var b, false) -> print(1);    // error: a case with several patterns cannot bind names // error: a case with several patterns cannot bind names
+    }
+}

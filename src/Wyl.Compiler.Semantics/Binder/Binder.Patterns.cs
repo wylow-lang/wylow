@@ -32,14 +32,16 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         }
         bool isTypeTest = e.Pattern is TypePatternSyntax || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } && !operand.Type.IsEnum);
-        if (e.Pattern is DiscardPatternSyntax or VarPatternSyntax)
-            Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
-        else if (isTypeTest && !operand.Type.IsReference && !operand.Type.IsNullableValue)
+        if (isTypeTest && !operand.Type.IsReference && !operand.Type.IsNullableValue)
         {
             DeclareErrorBindings(e.Pattern);
             return ErrorExpression(e.Operand.Location, $"'is' can only test the type of class or interface values, not '{operand.Type}'");
         }
+        int errors = diagnostics.Count;
         var pattern = BindPattern(e.Pattern, operand.Type, canBind: true);
+        // A type test that always passes is allowed: it states the type, as an upcast would.
+        if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern))
+            Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
         return new BoundIs(e.Location, operand, pattern);
     }
 
@@ -88,6 +90,10 @@ public sealed partial class Binder
             // Only a variant if the value is an enum: otherwise a lone name is a type test, as in `animal is Dog`.
             case VariantPatternSyntax { Enum: null, Fields: null } v when !type.IsEnum:
                 return BindTypePattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), null, v.NameLocation, type, canBind);
+            case VariantPatternSyntax { Enum: null, Fields: { } fields } v when type.NonNull.IsStruct:
+                return BindStructPattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), fields, type, canBind);
+            case StructPatternSyntax s:
+                return BindStructPattern(s.Location, s.Type, s.Fields, type, canBind);
             case VariantPatternSyntax v:
                 return BindVariantPattern(v, type, canBind);
             case ReferencePatternSyntax r:
@@ -122,6 +128,10 @@ public sealed partial class Binder
                 break;
             case VariantPatternSyntax { Fields: { } fields }:
                 foreach (var field in fields)
+                    DeclareErrorBindings(field);
+                break;
+            case StructPatternSyntax s:
+                foreach (var field in s.Fields)
                     DeclareErrorBindings(field);
                 break;
         }
@@ -197,16 +207,13 @@ public sealed partial class Binder
     {
         var written = v.Enum is null ? v.Name : $"{TextOf(v.Enum.Location)}.{v.Name}";
         if (!type.IsEnum)
-            return ErrorPattern(v, type, $"a '{type}' can never be '{written}', since '{type}' is not an enum");
+            return ErrorPattern(v, type, $"a '{type}' can never be '{written}', since '{type}' is neither an enum nor a struct");
 
         var s = type.Symbol!;
         if (v.Enum is { } enumSyntax)
         {
             // `Result.Ok(...)` may leave out the type arguments, which the value determines.
-            bool sameEnum = enumSyntax is { TypeArguments.Count: 0, Modules.Count: 0 } && LookupTypeParameter(enumSyntax.Name) is null
-                ? LookupType(enumSyntax.Name, enumSyntax.Location) == s
-                : BindType(enumSyntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
-            if (!sameEnum)
+            if (!Names(enumSyntax, type))
                 return ErrorPattern(v, type, $"a '{type}' can never be '{written}'");
         }
         if (s.FindVariant(v.Name) is not { } variant)
@@ -224,6 +231,37 @@ public sealed partial class Binder
         }
         var fields = v.Fields.Zip(variant.Fields, (field, symbol) => BindPattern(field, map.Apply(symbol.Type), canBind)).ToList();
         return new BoundVariantPattern(v.Location, type, variant, fields);
+    }
+
+    /// <summary>
+    /// Whether a pattern's type names the matched value's type. Type arguments may be left out,
+    /// since the value determines them, as in <c>Result.Ok(var v)</c>.
+    /// </summary>
+    bool Names(TypeSyntax syntax, WylType type) =>
+        syntax is { TypeArguments.Count: 0, Modules.Count: 0 } && LookupTypeParameter(syntax.Name) is null
+            ? LookupType(syntax.Name, syntax.Location) == type.Symbol
+            : BindType(syntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
+
+    /// <summary>A struct's fields, each matching its pattern; on a nullable struct, also a test that it isn't null.</summary>
+    BoundPattern BindStructPattern(Location location, TypeSyntax typeSyntax, IReadOnlyList<PatternSyntax> fieldSyntax, WylType type, bool canBind)
+    {
+        var value = type.NonNull;
+        var syntax = new StructPatternSyntax(location, typeSyntax, fieldSyntax);
+        if (!value.IsStruct || !Names(typeSyntax, value))
+            return ErrorPattern(syntax, type, $"a '{type}' can never be a '{TextOf(typeSyntax.Location)}'");
+        var s = value.Symbol!;
+        if (fieldSyntax.Count != s.Fields.Count)
+        {
+            int count = s.Fields.Count;
+            return ErrorPattern(syntax, type, $"'{s.Name}' has {count} field{(count == 1 ? "" : "s")}, but the pattern lists {fieldSyntax.Count}");
+        }
+        var map = TypeMap.For(value);
+        var fields = fieldSyntax.Zip(s.Fields, (field, symbol) =>
+        {
+            CheckVisible(field.Location, symbol.Reach, $"field '{s.Name}.{symbol.Name}'");
+            return BindPattern(field, map.Apply(symbol.Type), canBind);
+        }).ToList();
+        return new BoundStructPattern(location, type, fields);
     }
 
     /// <summary>Sets <paramref name="broken"/> if a pattern has an error, which would make coverage errors misleading.</summary>

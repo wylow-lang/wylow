@@ -74,7 +74,7 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
     }
     switch (n) {
         case North -> print(1);                 // error: unknown type 'North'
-        case Circle(_) -> print(1);             // error: a 'int' can never be 'Circle', since 'int' is not an enum
+        case Circle(_) -> print(1);             // error: a 'int' can never be 'Circle', since 'int' is neither an enum nor a struct
         case null -> print(1);                  // error: 'null' cannot be a pattern
         case true -> print(1);                  // error: a 'int' can never be 'true'
         default -> print(2);

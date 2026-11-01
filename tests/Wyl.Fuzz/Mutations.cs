@@ -134,6 +134,10 @@ static class Mutations
         new("index-zero", SiteKind.IndexArgument, _ => true, (_, site) => Single("index-zero", site, "(0)")),
         new("array-length", SiteKind.ArrayLength, _ => true, ArrayLengthBuild),
         new("array-elements", SiteKind.ArrayLiteral, _ => true, ArrayElementsBuild),
+        // Widens what a case or 'is' matches, which may make a later case unreachable, a switch
+        // exhaustive, or a struct pattern always match.
+        new("pattern-field-discard", SiteKind.FieldPattern, site => site.Node is not DiscardPatternSyntax,
+            (_, site) => Single("pattern-field-discard", site, "_")),
     ];
 
     static bool Wrappable(Site site) => !site.Place && !site.InPattern;

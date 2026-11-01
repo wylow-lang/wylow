@@ -16,4 +16,5 @@ void main() {
     int e = gen::deep();            // error: 'gen' is not a module here
     var s = WorldShared();
     world::Secret t;                // error: 'module_visibility::world' has no name 'Secret'
+    bool f = world::corner() is world::Corner(1, _);    // error: field 'Corner.hidden' is visible only in its file (world/w.wyl)
 }

@@ -958,9 +958,11 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 - A struct pattern deconstructs, as Java's record patterns do. A struct value is always its own
   type, so the pattern matches whenever its field patterns do; it is useful nested, as in
   `case Moved(Vec3(var x, _, _))`, or on a nullable value, where `pos is Vec3(var x, _, var z)`
-  tests that a `Vec3?` isn't null and binds two fields. On a `Vec3` with only `_` and `var` field
-  patterns it always matches, so it is an error after `is`, like `var x`. Every field must be
-  visible where the pattern is written.
+  tests that a `Vec3?` isn't null and binds two fields. On a `Vec3` with field patterns that all
+  always match (`_`, `var`, or such a struct pattern) it always matches, so it is an error after
+  `is`, like `var x`. Every field must be visible where the pattern is written. As for an enum, the
+  type arguments may be left out, since the value determines them: `case Pair(1, var s)` on a
+  `Pair<int, String>`.
 - Floating-point and string literals are not patterns, and `null` is one only as a `case` (use
   `== null` elsewhere).
 - `x is pattern` is `true` when the pattern matches. Patterns that always match (`_`, `var x`) are
@@ -976,7 +978,7 @@ while (node is Some(var n)) { node = n.next; }
   values. Every bound value is copied out of the matched value before any of those releases, since a
   destructor they run may change it.
 
-> Not implemented yet: guards (`when`), struct patterns, and `case null`.
+> Not implemented yet: guards (`when`) and `case null`.
 
 ### String interpolation
 

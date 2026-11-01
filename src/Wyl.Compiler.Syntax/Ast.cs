@@ -350,6 +350,12 @@ public sealed record TypePatternSyntax(Location Location, TypeSyntax Type, strin
 public sealed record VariantPatternSyntax(Location Location, TypeSyntax? Enum, string Name, Location NameLocation, IReadOnlyList<PatternSyntax>? Fields)
     : PatternSyntax(Location);
 
+/// <summary>
+/// <c>Struct(p1, p2)</c> written with a module path or type arguments, which only a struct can be.
+/// <c>Name(p1, p2)</c> is a <see cref="VariantPatternSyntax"/>, a struct pattern if the value is a struct.
+/// </summary>
+public sealed record StructPatternSyntax(Location Location, TypeSyntax Type, IReadOnlyList<PatternSyntax> Fields) : PatternSyntax(Location);
+
 /// <summary>A literal to compare with.</summary>
 public sealed record ConstantPatternSyntax(Location Location, Expr Value) : PatternSyntax(Location);
 

@@ -133,11 +133,19 @@ public sealed partial class Parser
             var qualifiedFields = At(TokenKind.OpenParen) ? ParsePatternList() : null;
             return new VariantPatternSyntax(LocationFrom(start), type, variant.Text, Loc(variant.Span), qualifiedFields);
         }
-        // A variant is reached through its enum, so a name in a module is a type.
+        if (At(TokenKind.OpenParen) && typeArguments.Count == 0 && modules.Count == 0)
+        {
+            var fields = ParsePatternList();
+            return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), fields);
+        }
+        // A variant is reached through its enum, so a name in a module, or with type arguments, is a type.
+        if (At(TokenKind.OpenParen))
+        {
+            var fields = ParsePatternList();
+            return new StructPatternSyntax(LocationFrom(start), type, fields);
+        }
         if (modules.Count > 0)
             return FinishTypePattern(start, type);
-        if (At(TokenKind.OpenParen) && typeArguments.Count == 0)
-            return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), ParsePatternList());
         if (typeArguments.Count > 0 || At(TokenKind.Identifier))
             return FinishTypePattern(start, type);
         return new VariantPatternSyntax(LocationFrom(start), null, first.Text, Loc(first.Span), null);

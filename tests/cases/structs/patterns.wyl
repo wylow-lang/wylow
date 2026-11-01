@@ -1,0 +1,96 @@
+// Struct patterns: deconstructing a struct in a switch, after 'is', nested in variants and in each other.
+import std::print;
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+struct Flags {
+    bool a;
+    bool b;
+}
+
+struct Segment {
+    Vec3 from;
+    Vec3 to;
+}
+
+struct Pair<A, B> {
+    A first;
+    B second;
+}
+
+enum Event {
+    Moved(Vec3 to),
+    Stopped,
+}
+
+String describe(Flags f) {
+    // Every combination is listed, so no default is needed.
+    return switch (f) {
+        case Flags(true, true) -> "both";
+        case Flags(true, false) -> "a";
+        case Flags(false, true) -> "b";
+        case Flags(false, false) -> "neither";
+    };
+}
+
+String event(Event e) {
+    return switch (e) {
+        case Moved(Vec3(0, 0, 0)) -> "home";
+        case Moved(Vec3(var x, _, 0)) -> $"flat at {x}";
+        case Moved(Vec3(_, _, var z)) -> $"up {z}";
+        case Stopped -> "stopped";
+    };
+}
+
+int length(Segment s) {
+    return switch (s) {
+        case Segment(Vec3(var ax, _, _), Vec3(var bx, _, _)) -> bx - ax;
+    };
+}
+
+void main() {
+    print(describe(Flags(true, false)));        // output: a
+    print(describe(Flags(false, false)));       // output: neither
+    print(event(Event.Moved(Vec3(0, 0, 0))));   // output: home
+    print(event(Event.Moved(Vec3(4, 1, 0))));   // output: flat at 4
+    print(event(Event.Moved(Vec3(4, 1, 7))));   // output: up 7
+    print(event(Event.Stopped));                // output: stopped
+    print(length(Segment(Vec3(2, 0, 0), Vec3(9, 0, 0))));  // output: 7
+
+    Vec3 p = Vec3(1, 2, 3);
+    if (p is Vec3(1, var y, var z)) {
+        print($"{y} {z}");                      // output: 2 3
+    }
+    print(p is Vec3(_, 5, _));                  // output: false
+
+    // On a nullable struct, the pattern also tests that it isn't null.
+    Vec3? none = null;
+    Vec3? some = Vec3(5, 6, 7);
+    print(none is Vec3(var a, _, _));           // output: false
+    if (some is Vec3(var sx, _, var sz)) {
+        print(sx + sz);                         // output: 12
+    }
+    mut Vec3? changing = Vec3(1, 1, 1);
+    while (changing is Vec3(var cx, _, _)) {
+        print(cx);                              // output: 1
+                                                // output: 2
+        changing = cx < 2 ? Vec3(cx + 1, 0, 0) : null;
+    }
+
+    // Type arguments may be left out, since the value determines them; or written.
+    Pair<int, String> pair = Pair<int, String>(3, "three");
+    if (pair is Pair(3, var name)) {
+        print(name);                            // output: three
+    }
+    if (pair is Pair<int, String>(3, var t)) {
+        print(t);                               // output: three
+    }
+    print(switch (pair) {                       // output: other
+        case Pair(1, _) -> "one";
+        case Pair(_, var s) -> "other";
+    });
+}

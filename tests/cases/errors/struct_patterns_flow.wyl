@@ -1,0 +1,21 @@
+// A struct pattern's names are assigned only where it matched, as for any pattern after 'is'.
+import std::print;
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+}
+
+void main() {
+    Vec3 p = Vec3(1, 2, 3);
+    if (p is Vec3(1, var y, _) || p.z > 0) {
+        print(y);                   // error: 'y' might not have been assigned
+    }
+    Vec3? maybe = null;
+    if (!(maybe is Vec3(var x, _, _))) {
+        print(x);                   // error: 'x' might not have been assigned
+    } else {
+        print(x);
+    }
+}

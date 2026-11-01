@@ -366,6 +366,16 @@ public sealed record BoundTypePattern(Location Location, WylType Type, WylType T
 public sealed record BoundVariantPattern(Location Location, WylType Type, VariantSymbol Variant, IReadOnlyList<BoundPattern> Fields)
     : BoundPattern(Location, Type);
 
+/// <summary>
+/// <see cref="Fields"/> has one pattern per field of the struct, in declaration order. On a nullable
+/// struct, it also tests that the value is not null.
+/// </summary>
+public sealed record BoundStructPattern(Location Location, WylType Type, IReadOnlyList<BoundPattern> Fields)
+    : BoundPattern(Location, Type)
+{
+    public IReadOnlyList<FieldSymbol> Symbols => Type.NonNull.Symbol!.Fields;
+}
+
 /// <summary>Compares with a literal of the matched type.</summary>
 public sealed record BoundConstantPattern(Location Location, BoundLiteral Value) : BoundPattern(Location, Value.Type);
 
@@ -380,7 +390,17 @@ public static class Patterns
         BoundReferencePattern reference => [reference.Binding],
         BoundTypePattern { Binding: { } binding } => [binding],
         BoundVariantPattern variant => variant.Fields.SelectMany(Bindings),
+        BoundStructPattern structPattern => structPattern.Fields.SelectMany(Bindings),
         _ => [],
+    };
+
+    /// <summary>Whether a pattern matches every value of its type, so it tests nothing.</summary>
+    public static bool AlwaysMatches(BoundPattern pattern) => pattern switch
+    {
+        BoundDiscardPattern or BoundBindingPattern => true,
+        BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target),
+        BoundStructPattern structPattern => !structPattern.Type.IsNullable && structPattern.Fields.All(AlwaysMatches),
+        _ => false,
     };
 }
 

@@ -1,0 +1,57 @@
+// A struct pattern after 'is' stores its names left to right, after copying every one out of the
+// matched value, so a destructor run by releasing a name's old value can't change what the later
+// names get.
+
+import std::{Weak, print};
+
+class Item {
+    int id;
+    mut Weak<Holder> clears;
+
+    Item(int id) {
+        this.id = id;
+    }
+
+    ~Item() {
+        print($"free {id}");
+        if (clears.get() is Holder h) {
+            print(h.pair is Two ? "sees a pair" : "sees null");
+            h.pair = null;
+        }
+    }
+}
+
+struct Two {
+    Item a;
+    Item b;
+}
+
+class Holder {
+    mut Two? pair = null;
+}
+
+void main() {
+    var h = new Holder();
+    mut var a1 = new Item(11);
+    a1.clears = h;
+    h.pair = Two(a1, new Item(12));
+    a1 = new Item(0);
+    mut int round = 0;
+    while (h.pair is Two(var a, var b)) {
+        print($"round {round}: {a.id} {b.id}");
+        if (round == 0) {
+            h.pair = Two(new Item(21), new Item(22));
+        } else {
+            h.pair = null;
+        }
+        round++;
+    }
+    // output: round 0: 11 12
+    // output: free 11
+    // output: sees a pair
+    // output: free 12
+    // output: round 1: 21 22
+    // output: free 22
+    // output: free 21
+    print("done");                                  // output: done
+}                                                   // output: free 0

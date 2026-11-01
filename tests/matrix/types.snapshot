@@ -45,6 +45,11 @@ exit 0
 out typed
 exit 0
 
+=== struct/struct-pattern
+out 3
+out 3
+exit 0
+
 === class/local
 out 3
 exit 0
@@ -88,6 +93,11 @@ error 40: 'Defaults' has no default value because field 'value' has type 'Cell';
 out typed
 exit 0
 
+=== class/struct-pattern
+out 3
+out 3
+exit 0
+
 === enum/local
 out 3
 exit 0
@@ -129,6 +139,11 @@ error 40: 'Defaults' has no default value because field 'value' has type 'Shape'
 
 === enum/overloads
 out typed
+exit 0
+
+=== enum/struct-pattern
+out 3
+out 3
 exit 0
 
 === nullable-value/local
@@ -186,6 +201,12 @@ out typed
 out typed
 exit 0
 
+=== nullable-value/struct-pattern
+out 3
+out 3
+out -1
+exit 0
+
 === nullable-reference/local
 out 3
 out -1
@@ -241,6 +262,12 @@ out typed
 out typed
 exit 0
 
+=== nullable-reference/struct-pattern
+out 3
+out 3
+out -1
+exit 0
+
 === fixed-array/local
 out 3
 exit 0
@@ -285,6 +312,11 @@ exit 0
 out typed
 exit 0
 
+=== fixed-array/struct-pattern
+out 3
+out 3
+exit 0
+
 === function-escaping/local
 out 3
 exit 0
@@ -325,6 +357,11 @@ error 40: 'Defaults' has no default value because field 'value' has type 'fn() -
 out typed
 exit 0
 
+=== function-escaping/struct-pattern
+out 3
+out 3
+exit 0
+
 === function-nonescaping/local
 out 3
 exit 0
@@ -360,6 +397,9 @@ error 40: 'Defaults' has no default value because field 'value' has type 'fn() -
 === function-nonescaping/overloads
 out typed
 exit 0
+
+=== function-nonescaping/struct-pattern
+error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
 
 === generic/local
 out 3
@@ -403,6 +443,11 @@ exit 0
 
 === generic/overloads
 out typed
+exit 0
+
+=== generic/struct-pattern
+out 3
+out 3
 exit 0
 
 === nint/local
@@ -449,6 +494,11 @@ exit 0
 out typed
 exit 0
 
+=== nint/struct-pattern
+out 3
+out 3
+exit 0
+
 === nested/local
 out 3
 exit 0
@@ -491,6 +541,11 @@ exit 0
 
 === nested/overloads
 out typed
+exit 0
+
+=== nested/struct-pattern
+out 3
+out 3
 exit 0
 
 === string-empty/local
@@ -567,6 +622,17 @@ exit 0
 out typed
 exit 0
 
+=== string-empty/struct-pattern
+out
+out 0
+out 0
+out true
+out
+out 0
+out 0
+out true
+exit 0
+
 === string-one/local
 out é
 out 2
@@ -639,6 +705,17 @@ exit 0
 
 === string-one/overloads
 out typed
+exit 0
+
+=== string-one/struct-pattern
+out é
+out 2
+out 1
+out false
+out é
+out 2
+out 1
+out false
 exit 0
 
 === string-multibyte/local
@@ -715,6 +792,17 @@ exit 0
 out typed
 exit 0
 
+=== string-multibyte/struct-pattern
+out héllo
+out 6
+out 5
+out false
+out héllo
+out 6
+out 5
+out false
+exit 0
+
 === string-concat/local
 out ab1cd
 out 5
@@ -789,6 +877,17 @@ exit 0
 out typed
 exit 0
 
+=== string-concat/struct-pattern
+out ab1cd
+out 5
+out 5
+out false
+out ab1cd
+out 5
+out 5
+out false
+exit 0
+
 === double/local
 out -0.0
 out -0.0
@@ -843,6 +942,13 @@ exit 0
 out typed
 exit 0
 
+=== double/struct-pattern
+out -0.0
+out -0.0
+out -0.0
+out -0.0
+exit 0
+
 === double-inexact/local
 out 0.30000000000000004
 exit 0
@@ -887,6 +993,11 @@ exit 0
 out typed
 exit 0
 
+=== double-inexact/struct-pattern
+out 0.30000000000000004
+out 0.30000000000000004
+exit 0
+
 === long/local
 out 2147483648
 exit 0
@@ -929,4 +1040,9 @@ exit 0
 
 === long/overloads
 out typed
+exit 0
+
+=== long/struct-pattern
+out 2147483648
+out 2147483648
 exit 0

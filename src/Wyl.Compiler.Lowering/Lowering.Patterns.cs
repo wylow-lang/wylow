@@ -137,6 +137,18 @@ public sealed partial class IrLowering
                 tests.Add(() => Tested(new IrBinary(BoundBinaryOperator.Equal, IrRead.Copy(value),
                     new IrConstant(constant.Value.Type, constant.Value.Value), WylType.Bool)));
                 break;
+            case BoundStructPattern structPattern:
+            {
+                var fields = value;
+                if (structPattern.Type.IsNullableValue)
+                {
+                    tests.Add(() => Tested(new IrTest(IrTestKind.HasValue, IrRead.Borrow(value))));
+                    fields = value.Assumed();
+                }
+                for (int i = 0; i < structPattern.Fields.Count; i++)
+                    Tests(structPattern.Fields[i], fields.Field(structPattern.Symbols[i]), tests, bindings);
+                break;
+            }
             case BoundVariantPattern variant:
                 tests.Add(() => Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value)) { Variant = variant.Variant }));
                 for (int i = 0; i < variant.Fields.Count; i++)

@@ -6,3 +6,10 @@ pub(module) int local() { return 1; }
 pub(package) int count() { return 2; }
 pub(package) struct Shared { }
 struct Hidden { }
+
+// A struct pattern lists every field, so it can be written only where they are all visible.
+pub(package) struct Corner {
+    pub(package) int x;
+    int hidden;
+}
+pub(package) Corner corner() { return Corner(1, 2); }

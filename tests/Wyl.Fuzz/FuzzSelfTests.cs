@@ -19,7 +19,8 @@ public static class FuzzSelfTests
             var files = Mutator.Load(casesDirectory, filter: null, includeErrors: false);
             if (files.Count == 0)
                 return [("catalog", "the corpus is empty")];
-            return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites()), ("comparison", Comparison())];
+            return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites()), ("comparison", Comparison()),
+                ("pattern-mutants-parse", PatternMutantsParse(files))];
         }
         catch (Exception exception)
         {
@@ -132,6 +133,35 @@ public static class FuzzSelfTests
     /// A mutation in `unsafe` code must be marked, since a mutant that has one is compiled but not
     /// run; one in safe code, including a safe block next to an unsafe one, must not be.
     /// </summary>
+    /// <summary>
+    /// The pattern mutations rewrite syntax rather than values, so each mutant they make of the
+    /// corpus must still parse: otherwise they would only ever reach the parser's recovery.
+    /// </summary>
+    static string? PatternMutantsParse(IReadOnlyList<BaseFile> files)
+    {
+        var random = new Random(5);
+        string[] names = ["pattern-field-discard"];
+        int made = 0;
+        foreach (var file in files)
+        {
+            var index = AstIndex.Of(new Parser(new SourceText("<fuzz>", file.Text), new DiagnosticBag()).ParseCompilationUnit());
+            foreach (var mutation in Mutations.All.Where(m => names.Contains(m.Name)))
+            {
+                foreach (var site in index.Of(mutation.Kind).Where(mutation.Applies))
+                {
+                    if (mutation.Build(new MutationContext(file.Text, random), site) is not { } candidate)
+                        continue;
+                    var diagnostics = new DiagnosticBag();
+                    new Parser(new SourceText("<fuzz>", Mutations.Apply(file.Text, candidate.Edits)), diagnostics).ParseCompilationUnit();
+                    if (diagnostics.Count > 0)
+                        return $"'{mutation.Name}' made a mutant of {file.Name} that doesn't parse: {diagnostics.First()}";
+                    made++;
+                }
+            }
+        }
+        return made == 0 ? "the pattern mutations made no mutant" : null;
+    }
+
     static string? UnsafeSites()
     {
         const string text = """
