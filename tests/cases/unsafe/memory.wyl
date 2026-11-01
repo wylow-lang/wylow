@@ -33,9 +33,7 @@ class Stack<T> {
 
     @CallerLocation
     ref T operator [](int index) {
-        if (index < 0 || index >= size) {
-            panic($"index {index} is out of bounds for length {size}");
-        }
+        Bounds.check(index, size);
         unsafe {
             return ref data[index];
         }

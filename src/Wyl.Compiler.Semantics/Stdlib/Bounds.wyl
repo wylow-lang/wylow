@@ -1,6 +1,6 @@
 // Bounds checks, which report the caller's location like the checks on built-in arrays.
 
-pub(package) struct Bounds {
+pub struct Bounds {
     // Panics unless 0 <= index < length.
     @CallerLocation
     pub static extern void check(int index, int length);

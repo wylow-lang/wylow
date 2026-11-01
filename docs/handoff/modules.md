@@ -82,9 +82,11 @@ now.
   the emitter or reject it; untestable until a class can be extended from another file.
 - Overload filtering by visibility (`VisibleFrom` in `Resolve`) has no test: no stdlib type has
   overloads of mixed visibility. Add one with the cross-module tests.
-- `Bounds` is `pub(package)`, so user containers on raw memory (`unsafe/memory.wyl`,
-  `panics/caller_location.wyl`) write their own `@CallerLocation` panic. Revisit if the floor
-  should offer it to user containers.
+- Nothing in `std` is `pub(package)`, so no test reaches a package-level declaration from outside
+  its package and fails. Add one with the cross-module tests.
+- `Bounds` is `pub`: a container whose logical index isn't its storage index (a ring buffer on
+  `Array`) needs its own check with the caller's location. It becomes the module function
+  `std::panic::checkIndex` in step 2.
 - `module` and `package` are reserved words in the lexer already, which `pub(...)` matches by text.
 
 ## Step 2: multi-file packages and imports
