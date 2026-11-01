@@ -348,6 +348,10 @@ Areas: `lexer`, `parser`, `binder`, `types`, `verifier`, `lowering`, `analysis`,
 
 ## Pitfalls already hit
 
+- MSVC 14.50 and 14.51 `/O2` miscompile `-static_cast<double>(static_cast<int16_t>(~f()))` when `f`
+  returns a signed narrow type, negating the complement in the narrow type so the sign wraps. The
+  emitter emits `wyl::bnot`, whose call boundary keeps the conversion out of that fold; don't inline
+  the `~` back into the expression.
 - C# `?:` unifies branch types before boxing: `cond ? 1 : 1.0` is a `double`. Cast each branch to
   `object` when building literal values. `BoundLiteral` rejects mismatched values to catch this.
 - Visual Studio updates temporarily remove the .NET SDK and MSVC. If `dotnet` reports no SDKs, check

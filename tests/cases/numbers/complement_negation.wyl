@@ -1,0 +1,16 @@
+// A narrow call's complement is converted to double and then negated: /O2 must not fold the
+// negation into the narrow type, which would wrap at the type's minimum.
+
+import std::print;
+
+short top() {
+    return 32767;
+}
+
+void main() {
+    // mode: release
+    print(-((double)~top()));                                 // output: 32768.0
+    print(-((float)~top()));                                  // output: 32768.0
+    print(-((double)(short)(~top())));                        // output: 32768.0
+    print(-((double)~((int)top())));                          // output: 32768.0
+}

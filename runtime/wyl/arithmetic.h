@@ -64,6 +64,15 @@ inline T neg(T a, const char* location) {
     return static_cast<T>(Wide<T>(0) - static_cast<Wide<T>>(a));
 }
 
+// A complement of a narrow type is promoted to int, so `~` beside a conversion can be folded with
+// the conversion's sign. MSVC /O2 then miscompiles `-static_cast<double>(static_cast<int16_t>(~f()))`
+// when f returns a signed narrow type, negating the complement in the narrow type; the call keeps
+// the two apart.
+template <class T>
+inline T bnot(T a) {
+    return static_cast<T>(~static_cast<Wide<T>>(a));
+}
+
 // MIN / -1 has no wrapped result that is useful, so it panics in every build.
 template <class T>
 inline T div(T a, T b, const char* location) {

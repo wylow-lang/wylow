@@ -9,12 +9,12 @@ public sealed partial class CppEmitter
 {
     // An operation the IR says may panic is given the location it panics at, and does the checked thing.
 
-    static string UnaryText(BoundUnaryOperator op, WylType type, string operand, string? location) => op switch
+    static string UnaryText(BoundUnaryOperator op, string operand, string? location) => op switch
     {
         BoundUnaryOperator.Negate when location is not null => $"wyl::neg({operand}, {location})",
         BoundUnaryOperator.Negate => $"(-{operand})",
         BoundUnaryOperator.LogicalNot => $"(!{operand})",
-        BoundUnaryOperator.BitwiseNot => $"static_cast<{CppType(type)}>(~{operand})",
+        BoundUnaryOperator.BitwiseNot => $"wyl::bnot({operand})",
         _ => throw new InvalidOperationException($"unexpected unary operator {op}"),
     };
 
