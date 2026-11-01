@@ -142,8 +142,7 @@ public sealed partial class Binder
 
         if (ClashingFile(decl, decl.Name) is { } other)
         {
-            var hint = DeclaresFunction(other, decl.Name) ? "; a function's overloads are declared in one file" : "";
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module{hint}");
+            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
             return function;
         }
         if (LookupType(decl.Name, decl.Location.Source) is { } type)
@@ -152,13 +151,19 @@ public sealed partial class Binder
             return function;
         }
 
-        var existing = FindSameSignature(LookupFunctions(decl.Name, decl.Location.Source), function);
+        // Within what any one file sees, each signature is declared once: the overloads this file
+        // sees, and if this one is visible beyond its file, the private ones of the module's others.
+        var existing = FindSameSignature(LookupFunctions(decl.Name, decl.Location.Source), function)
+            ?? (decl.Visibility == Visibility.File ? null : FindSameSignature(PrivateElsewhere(decl.Name, decl.Location.Source), function));
         if (existing is null)
             AddFunction(function, decl);
         else if (existing.IsBuiltin)
             Error(decl.NameLocation, $"'{function.Signature}' conflicts with a built-in function");
         else
-            Error(decl.NameLocation, $"function '{function.Signature}' is already defined{OverloadEscapingHint(function, existing)}");
+        {
+            var where = existing.Declaration?.Location.Source is { } file && file != decl.Location.Source ? $" in {file.Name}" : "";
+            Error(decl.NameLocation, $"function '{function.Signature}' is already defined{where}{OverloadEscapingHint(function, existing)}");
+        }
         return function;
     }
 

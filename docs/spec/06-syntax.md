@@ -61,8 +61,10 @@ void main() {
 - **A module's names** are the declarations its files make visible beyond themselves
   (`pub(module)` or wider, §6.2), and its submodules. Two files of a module may not declare the same
   such name, nor may one declare a name another keeps private, since that file would see two meanings
-  of it; so a function's overloads are all declared in one file. A file-private declaration is not
-  one of the module's names, so two files may each have a private helper of the same name.
+  of it. A function's overloads are one meaning, so they may be declared in any of the module's
+  files (`lerp(Vec3)` beside `Vec3`, `lerp(Color)` beside `Color`), but no file may see one
+  signature twice. A file-private declaration is not one of the module's names, so two files may
+  each have a private helper of the same name.
 - **Within a module**, a file sees the module's names without importing them, as Java's classes
   see their package. Everything else is reached through an import.
 - **Any number of declarations per file**, of any visibility. Types, functions, and constants may

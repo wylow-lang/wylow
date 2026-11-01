@@ -33,6 +33,10 @@ pub(module) String otherHelper() {
     return helper();
 }
 
+pub(module) String describeFromGreeting() {
+    return describe(Shape.Triangle);
+}
+
 pub(module) int otherNode() {
     return Node(value: 7).value;
 }

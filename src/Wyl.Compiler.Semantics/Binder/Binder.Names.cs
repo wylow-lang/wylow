@@ -94,27 +94,31 @@ public sealed partial class Binder
     /// <summary>
     /// Another file of the module that a new top-level declaration's name would clash in: one that
     /// declares the name beyond itself, or, if the new one is visible beyond its own file, one that
-    /// declares it at all, since that file would then see two meanings of it (§6.1). Only one file's
-    /// declarations of a name may be its overloads.
+    /// declares it at all, since that file would then see two meanings of it (§6.1). Functions of
+    /// one name are one overload set across the module's files, so only a type clashes with a
+    /// function; a repeated signature is the overload check's.
     /// </summary>
     SourceText? ClashingFile(Declaration declaration, string name)
     {
         var source = declaration.Location.Source;
+        bool function = declaration is FunctionDecl;
         foreach (var file in source.Module.Files)
         {
-            if (file != source && fileNames.TryGetValue(file, out var other) && other.Declares(name) && declaration.Visibility != Visibility.File)
+            if (file == source || declaration.Visibility == Visibility.File || !fileNames.TryGetValue(file, out var other))
+                continue;
+            if (other.Types.ContainsKey(name) || (!function && other.Functions.ContainsKey(name)))
                 return file;
         }
         var module = ModuleNames(source.Module);
         if (module.Types.TryGetValue(name, out var type) && type.Declaration.Location.Source != source)
             return type.Declaration.Location.Source;
-        return module.Functions.GetValueOrDefault(name)?.Select(f => f.Declaration?.Location.Source).FirstOrDefault(s => s != source);
+        return function ? null : module.Functions.GetValueOrDefault(name)?.Select(f => f.Declaration?.Location.Source).FirstOrDefault(s => s != source);
     }
 
-    /// <summary>Whether the file declares a function of the name, at any visibility.</summary>
-    bool DeclaresFunction(SourceText file, string name) =>
-        FileNames(file).Functions.ContainsKey(name)
-        || (ModuleNames(file.Module).Functions.GetValueOrDefault(name)?.Any(f => f.Declaration?.Location.Source == file) ?? false);
+    /// <summary>The file-private functions of the name in the module's other files.</summary>
+    IEnumerable<FunctionSymbol> PrivateElsewhere(string name, SourceText from) =>
+        from.Module.Files.Where(f => f != from && fileNames.ContainsKey(f))
+            .SelectMany(f => fileNames[f].Functions.GetValueOrDefault(name) ?? []);
 
     /// <summary>The program's entry point: the one <c>main</c> of the package's root module (§6.1, Entry point).</summary>
     FunctionSymbol? FindMain(Package package)

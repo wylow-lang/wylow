@@ -9,6 +9,15 @@ String helper() {
     return "main's helper";
 }
 
+// Overloads of greeting.wyl's 'describe': one the module sees, and one only this file does.
+pub(module) String describe(Shape shape) {
+    return $"a shape with {sides(shape)} sides";
+}
+
+String describe(int count) {
+    return $"{count} things";
+}
+
 void main() {
     print(greeting());                      // output: hello from greeting.wyl
     print(describe(Point(x: 1, y: 2)));     // output: (1, 2)
@@ -19,4 +28,7 @@ void main() {
     print(otherNode());                     // output: 7
     var shape = Shape.Square;
     print(sides(shape));                    // output: 4
+    print(describe(shape));                 // output: a shape with 4 sides
+    print(describe(3));                     // output: 3 things
+    print(describeFromGreeting());          // output: a shape with 3 sides
 }

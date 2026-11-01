@@ -110,7 +110,8 @@ The user wants the no-prelude choice revisited as std changes.
   C++ name comes from the root method it overrides.
 - Multi-file test: a directory with `package.wylcfg`; `// error:` in any file (the manifest too);
   `// output:`, `// panic:`, `// mode:` only in the file with `main`. The fuzzer skips them (done).
-- A function's overloads are declared in one file of a module (decided in step 3, in §6.1).
+- A function's overloads may be in any files of a module; no file may see one signature twice
+  (decided with the user, in §6.1).
 - The cycle collector names a class outside the root module by its path (`world::Chunk`).
 
 ### Commits planned

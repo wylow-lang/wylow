@@ -1,9 +1,13 @@
 // Two files of a module may not both give a name beyond themselves, or give one that the other
-// keeps private, since a file would then see two meanings of it (spec 06-syntax.md §6.1).
+// keeps private, since a file would then see two meanings of it (spec 06-syntax.md §6.1). A
+// function's overloads may be in any of its files, but no file may see one signature twice.
 
 pub(module) struct Shared { }
 struct Mine { }
 pub(module) void overloaded(int x) { }
+pub(module) void repeated(int x) { }
+void quiet(int x) { }
+void alone(int x) { }
 
 pub(module) enum Shape { Dot }
 pub(package) int corners(Shape shape) { return 0; }   // error: function 'corners' is visible only in package 'clashes', but its parameter type 'Shape' is visible only in the root module of 'clashes'

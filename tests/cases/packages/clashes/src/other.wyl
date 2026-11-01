@@ -1,6 +1,9 @@
 pub(module) struct Shared { }                   // error: 'Shared' is already defined in main.wyl, of the same module
 pub(module) int Mine() { return 0; }            // error: 'Mine' is already defined in main.wyl, of the same module
-pub(module) void overloaded(String s) { }       // error: 'overloaded' is already defined in main.wyl, of the same module; a function's overloads are declared in one file
+pub(module) void overloaded(String s) { }
+pub(module) void repeated(int y) { }            // error: function 'repeated(int)' is already defined in main.wyl
+pub(module) void quiet(int y) { }               // error: function 'quiet(int)' is already defined in main.wyl
+void alone(int y) { }
 
 void secret() { }
 int secretValue() { return 1; }
