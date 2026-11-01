@@ -29,8 +29,11 @@ executor, not a trusted reference: a disagreement means one of the two is wrong.
 The modes may differ in one documented case: with `--no-opt`, a budgeted `memory::collectCycles`
 may reach other cycles, so a program calling it is compared on everything but stdout. Stdout that
 differs only in a printed zero's sign is equal where a native build is compared
-(`RunComparison.WithoutZeroSign`). Any further exception must be decided in the spec and named in
-the comparison rule, never added quietly.
+(`RunComparison.WithoutZeroSign`). A run that ended because a thread ran off its stack is compared
+with nothing, like a timeout: the spec gives a stack overflow to the OS guard page (spec
+01-safety.md §1.2), so the code it aborts with is the platform's, and a sanitizer build reports the
+same overflow as an access violation or not at all. Any further exception must be decided in the spec
+and named in the comparison rule, never added quietly.
 
 ## What each harness is for
 
@@ -52,7 +55,8 @@ the comparison rule, never added quietly.
 
 A fuzzer finding, a generator finding, or a mutation survivor is a bug until it is one of:
 
-- a test in `tests/cases/` (or `IrSelfTests`, `TypeSelfTests`, `InterpreterSelfTests`) that pins it;
+- a test in `tests/cases/` (or `IrSelfTests`, `TypeSelfTests`, `InterpreterSelfTests`,
+  `FuzzSelfTests`) that pins it;
 - a deleted line, if nothing depends on it (a line no behavior depends on is a rule enforced by
   nothing);
 - for a survivor, a recorded equivalent in `tests/mutation/targets.json`, with its reason.

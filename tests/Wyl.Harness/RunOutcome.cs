@@ -10,7 +10,17 @@ namespace Wyl.Harness;
 public sealed record RunOutcome(
     string Output, int ExitCode, string Panic, IReadOnlyList<string> Warnings, bool Panicked, bool Conclusive)
 {
-    /// <summary>A run nobody can compare: a budget, an unsupported feature, or undefined behavior.</summary>
+    /// <summary>
+    /// Windows' STATUS_STACK_OVERFLOW, the exit code of a thread that ran off its stack. The spec
+    /// gives a stack overflow to the OS guard page (spec 01-safety.md §1.2), so the code that ends
+    /// the process is the platform's, not the program's.
+    /// </summary>
+    public const int StackOverflowExitCode = unchecked((int)0xC00000FD);
+
+    /// <summary>
+    /// A run nobody can compare: a budget, an unsupported feature, undefined behavior, or a program
+    /// that recursed until its stack ran out.
+    /// </summary>
     public static readonly RunOutcome Inconclusive = new("", 0, "", [], false, false);
 
     public static RunOutcome From(Interpretation interpretation)
@@ -28,6 +38,12 @@ public sealed record RunOutcome(
 
     public static RunOutcome FromNative(string standardOutput, int exitCode, string standardError)
     {
+        // A thread that ran off its stack is a program that recursed too far, the runaway-recursion
+        // counterpart of a timeout: no other mode's result is the one it should have produced. The
+        // code it dies with is the platform's, and a sanitizer build reports the same overflow as an
+        // access violation (or as a report the harness skips), so nothing here is comparable.
+        if (OperatingSystem.IsWindows() && exitCode == StackOverflowExitCode)
+            return Inconclusive;
         var panic = PanicText(standardError);
         return new(Text(standardOutput), exitCode, panic, WarningLines(standardError), panic.Length > 0, true);
     }

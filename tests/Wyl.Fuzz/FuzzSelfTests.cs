@@ -102,6 +102,15 @@ public static class FuzzSelfTests
         Expect("warnings otherwise ignored",
             RunComparison.Compare(Run(error: "performance warning: a"), Run(error: "performance warning: b"), ""), null);
         Expect("an inconclusive run", RunComparison.Compare(RunOutcome.Inconclusive, Run(), ""), null);
+        if (OperatingSystem.IsWindows())
+        {
+            // Stack exhaustion is the runaway-recursion counterpart of a timeout, not a result: its
+            // exit code is the OS's, and a sanitizer build reports the same overflow as an access
+            // violation, which no mode's code can be compared with or against.
+            Expect("a stack overflow", RunComparison.Compare(Run(exit: RunOutcome.StackOverflowExitCode), Run(), ""), null);
+            Expect("a stack overflow against a bare access violation",
+                RunComparison.Compare(Run(exit: RunOutcome.StackOverflowExitCode), Run(exit: unchecked((int)0xC0000005)), ""), null);
+        }
         Expect("a zero's sign where a native build is compared",
             RunComparison.Compare(Run("-0.0\nv -0.00 -0e+00\n"), Run("0.0\nv 0.00 0e+00\n"), "", ignoreZeroSign: true), null);
         Expect("a zero's sign otherwise",
