@@ -11,7 +11,8 @@ Panics are covered in [01-safety.md](01-safety.md#13-panics). This chapter cover
 
 ## 4.1 `Result<T, E>`
 
-`Result<T, E>` is an enum declared in the **prelude**, Wylow source compiled with every program:
+`Result<T, E>` is an enum declared in the standard library, which every file sees without
+importing it (§6.1, Imports):
 
 ```java
 enum Result<T, E> {

@@ -69,7 +69,7 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
 - The lexer gets a `::` token (there is none yet), and the parser reads paths with it in imports
   and in expressions (`gen::seed()`, `world::Chunk.make()`), which bind through the module
   namespace, apart from types, functions, and locals.
-- `std::panic` (§6.1): `panic` moves into it, re-exported by the prelude, and `Bounds.check` and
+- `std::panic` (§6.1): `panic` moves into it, re-exported by `std`, and `Bounds.check` and
   `checkRange` become its `checkIndex` and `checkRange`. `struct Memory`, also only static
   functions, becomes a module the same way (§6.1: a type holding only functions is a module in
   disguise); its spec mentions (`Memory.allocate`, ...) change with it.
@@ -79,9 +79,9 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
   syntax errors like any source, then a fixed schema. Step 2 needs only `name`; `dependencies`
   and `native` stay unimplemented (an error saying so), but the reader parses their shape.
 - The binder gets one namespace per module (its files' non-file-private names plus submodules),
-  per-file import scopes, the `std` prelude (implicit imports a module's own names override, which
-  also lifts the "a program can't name a type like a stdlib type" rule in `docs/spec/README.md`),
-  `pub import`, and the module-name rules.
+  per-file import scopes, the language's own std types seen without an import (no prelude, §6.1;
+  which also replaces the "a program can't name a type like a stdlib type" rule in
+  `docs/spec/README.md`), `pub import`, and the module-name rules.
 - Name collisions: two files of a module declaring the same non-private name; a top-level module
   named like a dependency.
 - The emitter maps module paths to C++ namespaces (or mangled names) so equal names in different
@@ -90,6 +90,39 @@ visibility are in `Binder.Inheritance.cs`. Tests: `errors/visibility.wyl`,
   the cross-module visibility errors get tests there. The interpreter, fuzzer, and generator keep
   working on single files.
 - Extensions are found through imports (§6.4).
+
+### Decided with the user (2026-10-31), now in §6.1
+
+No prelude beyond the types the language is built on (`StdlibSymbols`' hooks); an import that
+clashes with the module's own name or another import is an error, `*` gives way and is ambiguous
+only at a use; a name hides overloads from elsewhere (no merging); a path in code starts with an
+imported module or one of the file's own submodules (Rust without its "dependencies anywhere").
+The user wants the no-prelude choice revisited as std changes.
+
+### Working assumptions (proposed, not objected to; put each in the spec when implemented)
+
+- `std` stays embedded, with no manifest; its resources mirror its modules (root, `panic/`, `memory/`).
+- A lone file's package is unnamed ("only in this package"), and its C++ names are unprefixed.
+- C++ names: the built package's root module unprefixed (`c_Chunk`); any other module prefixed with
+  its length-prefixed package and path (`c_3std_List`, `c_5world3gen_Noise`).
+- Locations print the path under `src/` (`world/chunk.wyl:3:5`).
+- A directory holding `.wyl` files whose name isn't an identifier, or is a keyword, is an error; no
+  `src/` is an error; `.wyl` outside `src/` is ignored; `main` outside the root module is a function.
+- A subclass method with the signature of a base method it can't see is a new method: a method's
+  C++ name comes from the root method it overrides.
+- Multi-file test: a directory with `package.wylcfg`; `// error:` in any file (the manifest too);
+  `// output:`, `// panic:`, `// mode:` only in the file with `main`. The fuzzer skips them.
+- The cycle collector names a class outside the root module by its path (`world::Chunk`).
+
+### Commits planned
+
+1. `lexer, parser`: `::`, import declarations, paths in expressions and types.
+2. `emitter`: C++ names qualified by package and module.
+3. `cli, binder`: package directories, the manifest, `SourceText.Module`, real `Reach`, per-module
+   namespaces with file-private scopes, multi-file test cases.
+4. `binder`: imports, paths in code, std's built-in names, collisions, cross-module visibility tests.
+5. `stdlib`: `std::panic` and `std::memory`.
+6. `emitter`: a method doesn't override a base method it can't see; delete this file.
 
 ## After this
 

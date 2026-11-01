@@ -22,7 +22,7 @@ mygame/
 ```java
 // src/world/chunk.wyl
 import world::gen::Noise;
-import std::Memory;
+import std::memory;
 
 pub struct Chunk {
     pub int x, z;
@@ -36,6 +36,7 @@ pub(module) int chunkIndex(int x, int y, int z) { ... }   // every file of 'worl
 
 ```java
 // src/main.wyl
+import std::print;
 import world::Chunk;
 import world::gen;                      // a module itself
 
@@ -87,21 +88,41 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **Modules have a namespace of their own.** A path is told apart from a value by its `::`, so a
   module may share its name with a type, function, or local: `panic::checkIndex(i, n)` and
   `panic("message")` don't conflict, and neither does a local named `math` with `math::clamp`.
-- **Paths are written only in imports.** Code names what it imported: `Chunk`, `math::clamp(x)`.
+- **A path in code starts with a module the file already sees**: one it imported, or a submodule
+  of its own module, which is one of the module's names. In `src/main.wyl`, `world::Chunk.make()`
+  needs no import, but in `src/world/gen/noise.wyl` it needs `import world;` (or
+  `import world::Chunk;` and then `Chunk.make()`), and `std::memory::free(p)` is never written in
+  code: the file imports `std::memory` and writes `memory::free(p)`. So a file's imports list every
+  module outside its own that it uses. Imports themselves always start at the top (a top-level
+  module or a package), never relative to the file.
+- An import brings in what its last name names in each namespace: `import std::panic;` is the
+  module `std::panic` (`panic::checkIndex(i, n)`) and the function `panic` that `std` re-exports
+  (`panic("message")`).
 - Importing a name that isn't visible to the importing file is an error that says how far it is
   visible.
-- **The prelude**: every file imports the standard library's common names (`String`, `List`,
-  `Array`, `Span`, `ReadOnlySpan`, `Result`, `Weak`, `print`, `panic`, ...) without writing it. A
-  module's own declaration or an explicit import of the same name takes precedence, so a program may
-  declare its own `List`.
-- **`std::panic`** holds what is about panics (§1.3): `panic(message)`, which the prelude brings in,
-  and the checks the built-in arrays make, for a container whose index isn't its storage's (a ring
+- **One name, one meaning in a file.** An import of a name the module already has (its own
+  declaration in any of its files, or a submodule) is an error at the import, and so is importing
+  one name twice; `as` renames one of them. Names brought in by `*` give way to the module's own and
+  to named imports, and two `*` imports that both bring in a name are an error only where the name
+  is used. A name hides every declaration of the same name from elsewhere, so a module's own
+  `print(Vec3)` is the only `print` it sees: overloads never merge across where they came from.
+- **There is no prelude**: a file names what it uses. The exception is what the language itself is
+  built on, which every file sees without importing: the types the compiler knows by name because
+  the syntax needs them (`String` for literals, `Array` for `T[]`, `Span` and `ReadOnlySpan`,
+  `Result` for `try`, and the interfaces `Spannable`, `ReadOnlySpannable`, `Borrowable`,
+  `Printable`, and `Comparable`). Everything else is imported, `print` and `List` included. A
+  module's own declaration of one of these names is an error, as redeclaring a builtin type is.
+- **`std::panic`** holds what is about panics (§1.3): `panic(message)`, which `std` re-exports, and
+  the checks the built-in arrays make, for a container whose index isn't its storage's (a ring
   buffer on an `Array`): `checkIndex(index, length)` and `checkRange(start, count, length)`, which
   report the location of a `@CallerLocation` caller as the built-in checks do. A message is all a
   panic carries: it is a bug, not a value to recover (§1.3).
+- **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
+  the cycle collector (`collectCycles`, `cycleStats`, §3).
 
 > Not implemented yet: modules and imports. Until they are, the checks are the standard
-> library's `Bounds.check` and `Bounds.checkRange`.
+> library's `Bounds.check` and `Bounds.checkRange`, raw memory and the collector are `Memory`'s
+> static methods, and every file sees the whole standard library.
 
 ### Functions or static methods
 
@@ -1086,6 +1107,7 @@ Enforced with compiler **warnings** (not errors):
 
 ```java
 // src/enemies/system.wyl, in module enemies
+import std::List;
 import math::*;
 
 pub enum AiState {

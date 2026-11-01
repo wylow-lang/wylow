@@ -90,9 +90,10 @@ what it does can be read like any other Wylow code. The compiler knows its types
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
 loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which
 built-in types satisfy without implementing them), and `String`, whose `extern struct`
-declares the methods of the built-in type. It is the package `std`, whose common names every file
-imports (the prelude, [06-syntax.md](06-syntax.md#imports)). Until programs have more than one file, a
-program cannot declare a type with the name of a standard library type.
+declares the methods of the built-in type. It is the package `std`. A file imports what it uses
+from it, except the types the language is built on, which every file sees
+([06-syntax.md](06-syntax.md#imports)). Until programs have more than one file, a program cannot
+declare a type with the name of a standard library type.
 
 Its `extern` functions are implemented by the C++ runtime. Those marked `@Pure` can't panic or
 change anything, so the compiler orders calls of them like operators rather than like calls.
