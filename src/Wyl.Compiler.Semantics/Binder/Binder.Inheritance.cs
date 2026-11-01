@@ -105,8 +105,13 @@ public sealed partial class Binder
 
         if (!method.IsOverride)
         {
-            if (inherited is null || !inherited.Symbol.Reach.Includes(location.Source))
+            if (inherited is null)
                 return;
+            if (!inherited.Symbol.Reach.Includes(location.Source))
+            {
+                method.Shadows = inherited.Symbol;
+                return;
+            }
             var name = $"'{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}({ParameterList(inherited)})'";
             Error(location, inherited.Symbol.IsOverridable && !method.IsStatic
                 ? $"'{method.Signature}' must be marked 'override' to override {name}"

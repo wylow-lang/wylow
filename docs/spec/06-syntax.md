@@ -235,9 +235,6 @@ pub abstract class Entity {
 - The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
   interface's methods take none either: they are as visible as the enum or interface.
 
-> Implemented. A subclass in another file can't override a method it can't see, but nothing yet
-> keeps its own method of that signature from overriding it in C++.
-
 ## 6.3 Construction
 
 > **`new` appears only where memory is heap-allocated.** Structs are constructed without `new`.

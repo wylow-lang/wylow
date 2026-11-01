@@ -148,6 +148,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The methods it overrides, and the interface methods it implements for some class or struct; set by the binder.</summary>
     public List<FunctionSymbol> Overridden { get; } = [];
 
+    /// <summary>
+    /// For a method that overrides nothing: the base class's method of its signature that it can't
+    /// see, so doesn't override (spec 06-syntax.md §6.2), though C++ would; set by the binder.
+    /// </summary>
+    public FunctionSymbol? Shadows { get; set; }
+
     /// <summary>Whether a subclass may override it.</summary>
     public bool IsOverridable => (IsVirtual || IsAbstract || IsOverride) && !IsFinal;
 

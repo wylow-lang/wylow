@@ -1,0 +1,18 @@
+pub class Shape {
+    pub(module) virtual String describe() {
+        return "a shape";
+    }
+
+    // Private to this file, so circle.wyl can't override it either.
+    virtual String secret() {
+        return "a shape's secret";
+    }
+}
+
+pub String show(Shape s) {
+    return s.describe();
+}
+
+pub String reveal(Shape s) {
+    return s.secret();
+}

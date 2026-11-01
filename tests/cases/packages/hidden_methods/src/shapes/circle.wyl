@@ -1,0 +1,14 @@
+pub class Circle extends Shape {
+    // Visible here, so this overrides it.
+    pub(module) override String describe() {
+        return "a circle";
+    }
+
+    String secret() {
+        return "a circle's secret";
+    }
+
+    pub String secretOf() {
+        return secret();
+    }
+}
