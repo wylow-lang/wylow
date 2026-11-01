@@ -410,10 +410,13 @@ with the question of what it means inside a lambda in such a function.
 ### 5.11 Constructors
 
 A class constructor's IR is the base constructor call (explicit, even when implicit), then the field
-initializers, then the body. A struct constructor builds a value local `self` (the `this` of a
+initializers, then the body. One that chains (`this(...)`) has the call of its class's other
+constructor in the same place (`IrFunction.ConstructorCall`), which C++ prints as a delegating
+constructor, and no field initializers. A struct constructor that chains makes `self` from the
+constructor it calls instead of the default value. A struct constructor builds a value local `self` (the `this` of a
 struct constructor is that local's place) from the struct's default value, which runs the field
 initializers, and returns it. The base constructor call is the C++ mem-initializer, where nothing
-but expressions can run, so each argument of `super(...)` is a statement of its own
+but expressions can run, so each argument of `super(...)` or `this(...)` is a statement of its own
 (03-memory-model.md, When references are released): one that needs statements is declared, then
 computed by a block of its own, which the emitter prints inside the mem-initializer, nested or as an
 immediately invoked lambda. MSVC doesn't always evaluate a braced mem-initializer left to right (it

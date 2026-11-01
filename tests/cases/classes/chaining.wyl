@@ -1,0 +1,161 @@
+// A constructor that starts with this(...) runs the constructor it calls, which calls the base
+// constructor and runs the field initializers once, then its own body.
+
+import std::print;
+
+int trace(String s, int value) {
+    print(s);
+    return value;
+}
+
+class Base {
+    int base = trace("base field", 1);
+
+    Base(int x) {
+        print($"base body {x}");
+    }
+
+    virtual String name() { return "base"; }
+}
+
+class Item {
+    String label;
+
+    Item(String label) { this.label = label; }
+
+    ~Item() { print($"release {label}"); }
+}
+
+class Derived extends Base {
+    int own = trace("derived field", 2);
+    Item item;
+
+    Derived(int x, String label = "default", int scale = 1) {
+        super(x * scale);
+        item = new Item(label);
+        print($"derived body {x} {label} {scale}");
+    }
+
+    // Two levels, with a default and a named argument.
+    Derived(String label) {
+        this(10, label: label, scale: 3);
+        print($"named body {item.label}");
+    }
+
+    Derived() {
+        this("chained");
+        // Every field is assigned once this(...) returns, so 'this' is usable straight away.
+        print($"outer body {describe()} {own} {base}");
+    }
+
+    override String name() { return "derived"; }
+
+    String describe() { return $"{name()}:{item.label}"; }
+}
+
+// Arguments are evaluated left to right, each a statement of its own, before the constructor runs.
+class Pair {
+    int first;
+    int second;
+
+    Pair(int a, int b) {
+        first = a;
+        second = b;
+        print($"pair {a} {b}");
+    }
+
+    Pair(int n) {
+        this(trace("left", n), new Item("right").label == "right" ? trace("right", n + 1) : 0);
+        print("pair chained");
+    }
+}
+
+class Box<T> {
+    T value;
+    int count = trace("box field", 0);
+
+    Box(T value, int count) {
+        this.value = value;
+        this.count = count;
+    }
+
+    Box(T value) {
+        this(value, 1);
+    }
+
+    T get() { return value; }
+}
+
+// A struct constructor chains to another, or to T(), the default value.
+struct Point {
+    pub int x;
+    pub int y = 7;
+
+    pub Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    pub Point(int v) {
+        this(v, v * 2);
+        x += 1;
+    }
+
+    pub Point(bool flag) {
+        this();
+        x = flag ? 1 : 0;
+    }
+}
+
+struct Tagged {
+    Item item;
+    int n;
+
+    Tagged(Item item, int n) {
+        this.item = item;
+        this.n = n;
+    }
+
+    Tagged(String label) {
+        this(new Item(label), 5);
+        print($"tagged {item.label} {n}");
+    }
+}
+
+void main() {
+    var a = new Derived();
+    // output: base field
+    // output: base body 30
+    // output: derived field
+    // output: derived body 10 chained 3
+    // output: named body chained
+    // output: outer body derived:chained 2 1
+    var b = new Derived(4);
+    // output: base field
+    // output: base body 4
+    // output: derived field
+    // output: derived body 4 default 1
+    var pair = new Pair(5);
+    // output: left
+    // output: right
+    // output: release right
+    // output: pair 5 6
+    // output: pair chained
+    var box = new Box<String>("boxed");
+    // output: box field
+    print($"{box.get()} {box.count}");
+    // output: boxed 1
+    var p = Point(3);
+    print($"{p.x} {p.y}");
+    // output: 4 6
+    var q = Point(true);
+    print($"{q.x} {q.y}");
+    // output: 1 7
+    var t = Tagged("tag");
+    // output: tagged tag 5
+    print($"{a.name()} {b.item.label} {pair.first} {pair.second}");
+    // output: derived default 5 6
+}
+// output: release tag
+// output: release default
+// output: release chained

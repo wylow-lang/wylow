@@ -73,6 +73,7 @@ public sealed partial class Binder
     {
         NoThisContext.FieldInitializer => "field initializers cannot use 'this', fields, or instance methods",
         NoThisContext.SuperArguments => "arguments to 'super(...)' cannot use 'this', fields, or instance methods",
+        NoThisContext.ChainArguments => "arguments to 'this(...)' cannot use 'this', fields, or instance methods",
         NoThisContext.DefaultValue => "default values cannot use 'this', fields, or instance methods",
         _ => "static methods cannot use 'this', fields, or instance methods",
     };

@@ -10,22 +10,33 @@ public sealed partial class IrLowering
     /// Lowers what a constructor runs before its body (docs/design/ir.md, §5.11), and returns the
     /// body's statements left to lower. A class constructor calls its base's, then runs the field
     /// initializers; a struct constructor starts from the struct's default value, which runs them.
+    /// A constructor that chains starts from the constructor it calls, which runs them instead.
     /// </summary>
     IReadOnlyList<BoundStatement> ConstructorStart(IReadOnlyList<BoundStatement> statements)
     {
         var owner = symbol.ContainingType!;
+        var call = statements.FirstOrDefault() as BoundConstructorCall;
+        if (call is not null)
+            statements = [.. statements.Skip(1)];
         if (owner.Kind == TypeKind.Struct)
         {
             function.This = null;
             self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value, IrLocalRole.Variable);
-            Add(LetOf(self, new IrDefault(owner.Type)));
+            if (call is null)
+                Add(LetOf(self, new IrDefault(owner.Type)));
+            else
+            {
+                var enclosing = at;
+                at = call.Location;
+                Define(self, new BoundConstruction(call.Location, owner.Type, call.Constructor, call.Arguments));
+                at = enclosing;
+            }
             return statements;
         }
-        if (statements.FirstOrDefault() is BoundSuperCall super)
-        {
-            BaseCall(super);
-            statements = [.. statements.Skip(1)];
-        }
+        if (call is not null)
+            LowerConstructorCall(call);
+        if (call is { Chains: true })
+            return statements;
         foreach (var field in owner.Fields)
         {
             // A new object's fields start zeroed; a field of a type parameter is assigned by the constructor.
@@ -92,34 +103,34 @@ public sealed partial class IrLowering
     static string FormKey(IReadOnlyList<bool> form) => string.Concat(form.Select(given => given ? '1' : '0'));
 
     /// <summary>
-    /// The base constructor call. Each argument is a statement of its own (03-memory-model.md, When
+    /// A class constructor's call of its base's or, chaining, another of its class's. Each argument is a statement of its own (03-memory-model.md, When
     /// references are released), so that the emitter can compute one needing statements in an
     /// immediately invoked lambda inside the C++ mem-initializer.
     /// </summary>
-    void BaseCall(BoundSuperCall super)
+    void LowerConstructorCall(BoundConstructorCall call)
     {
-        var method = super.Constructor;
-        var call = new IrBlock { Origin = at };
-        Into(call, () =>
+        var method = call.Constructor;
+        var lowered = new IrBlock { Origin = at };
+        Into(lowered, () =>
         {
             var arguments = new List<IrArgument>();
-            for (int i = 0; i < super.Arguments.Count; i++)
+            for (int i = 0; i < call.Arguments.Count; i++)
             {
                 var parameter = method.ParameterType(i);
                 var computed = new IrBlock { Origin = at };
                 if (method.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference)
                 {
-                    Into(computed, () => arguments.Add(CallerHeld(parameter, method.ParameterRefKind(i), super.Arguments[i])));
+                    Into(computed, () => arguments.Add(CallerHeld(parameter, method.ParameterRefKind(i), call.Arguments[i])));
                     // CallerHeld adds no statements, and a C++ mem-initializer has nowhere to put one.
                     if (computed.Statements.Count > 0)
-                        throw new InvalidOperationException("a reference argument to super(...) needs statements");
+                        throw new InvalidOperationException("a reference argument to a constructor call needs statements");
                     continue;
                 }
                 IrLocal? value = null;
                 IrOperand? direct = null;
                 Into(computed, () =>
                 {
-                    var operand = (IrOperand)Argument(parameter, RefKind.None, super.Arguments[i]);
+                    var operand = (IrOperand)Argument(parameter, RefKind.None, call.Arguments[i]);
                     if (operand is IrConstant)
                         direct = operand;
                     else
@@ -138,15 +149,15 @@ public sealed partial class IrLowering
                 Add(computed);
                 arguments.Add(Kept(IrRead.Move(new IrPlace(value!))));
             }
-            var loc = method.Symbol.PassesLocation ? Loc(super.Location) : null;
+            var loc = method.Symbol.PassesLocation ? Loc(call.Location) : null;
             Add(DoOf(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));
         });
-        function.BaseCall = call;
-        Add(call);
+        function.ConstructorCall = lowered;
+        Add(lowered);
     }
 
     /// <summary>
-    /// A reference argument to <c>super(...)</c>, which the binder allows only to be a parameter's
+    /// A reference argument to <c>super(...)</c> or <c>this(...)</c>, which the binder allows only to be a parameter's
     /// place or null. It needs no statements: it is read at the call, since a <c>ref?</c> parameter
     /// can't be <c>mut</c>, so nothing before the call can make it refer elsewhere.
     /// </summary>

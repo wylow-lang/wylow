@@ -41,6 +41,47 @@ struct Holder {
     mut void describe() { }
 }
 
+// A constructor that chains has every field once 'this(...)' returns, since the constructor it
+// calls had to assign them; that one is still checked.
+class Chain {
+    Item item;
+
+    Chain(Item item, bool flag) {
+        if (flag) {
+            this.item = item;
+        }
+    }                                   // error: field 'item' must be assigned before the constructor returns
+
+    Chain(Item item) {
+        this(item, true);
+        useChain(this);
+        print(this.item == null);
+    }
+}
+
+struct ChainHolder {
+    Item item;
+
+    ChainHolder(Item item) {
+        this.item = item;
+    }
+
+    ChainHolder(int x) {
+        this(new Item());
+        describe();
+    }
+
+    ChainHolder(bool flag) {
+        describe();                     // error: 'this' cannot be used until every field is assigned
+        this = ChainHolder(new Item());
+        describe();
+    }
+
+    mut void describe() { }
+}
+
 void use(Partial p) { }
+
+void useChain(Chain c) { }
 
 void main() { }

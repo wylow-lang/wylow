@@ -46,11 +46,11 @@ public sealed partial class CppEmitter
         if (function.Struct is { } made)
             irNames[made] = "self";
         PlanNesting(function, nest);
-        if (function.BaseCall is { } baseCall)
-            Line($"    : {(DelegatesBaseCall(function) ? DelegatingText(function, baseCall) : BaseCallText(baseCall))}");
+        if (function.ConstructorCall is { } constructorCall)
+            Line($"    : {(NeedsArgumentsConstructor(function) ? ArgumentsConstructorText(function, constructorCall) : ConstructorCallText(constructorCall))}");
         Line("{");
         indent++;
-        if (function.Symbol.IsConstructor && function.This is { } self)
+        if (function.Symbol.IsConstructor && function.This is { } self && !function.Chains)
             Line($"this->wyl_set_cyclic({CyclicFlag(self.Type.Symbol!)});");
         IrStatements(function.Body);
         indent--;

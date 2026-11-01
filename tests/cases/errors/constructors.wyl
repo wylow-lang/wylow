@@ -32,10 +32,68 @@ class NoBase {
     }
 }
 
-class Chained {
-    Chained(int x) { }
-    Chained() {
-        this(1);                        // error: 'this(...)' constructor chaining is not supported yet
+class Chained extends Base {
+    int field = 1;
+    Chained(int x) { super(x); }
+    Chained(String s) {                 // error: 'Base' has no parameterless constructor
+        print(s);
+        this(1);                        // error: 'this(...)' must be the first statement of a constructor
+    }
+    Chained(bool b) {
+        this(1);
+        super(1);                       // error: 'super(...)' must be the first statement of a constructor
+    }
+    Chained(char c) {
+        this(field);                    // error: arguments to 'this(...)' cannot use 'this'
+    }
+    Chained(int x, int y) {
+        this("no", "match");            // error: no constructor of 'Chained' accepts (String, String)
+    }
+    Chained(in int x, Span<int> view) { super(x); }
+    Chained(Span<int> view, int i) {
+        this(view[i], view);            // error: an argument to 'this(...)' for a reference or view parameter
+    }
+}
+
+class Cycles {
+    Cycles() {
+        this();                         // error: recursive constructor invocation
+    }
+    Cycles(int x) {
+        this(x, x);                     // error: recursive constructor invocation
+    }
+    Cycles(int x, int y) {
+        this(x, y, x);                  // error: recursive constructor invocation
+    }
+    Cycles(int x, int y, int z) {
+        this(x);                        // error: recursive constructor invocation
+    }
+    // Leads into the cycle without being on it.
+    Cycles(String s) {
+        this(1);
+    }
+}
+
+void notConstructor() {
+    this(1);                            // error: 'this(...)' can only be used in a constructor
+}
+
+struct ChainedStruct {
+    int x;
+    ChainedStruct(int x) { this.x = x; }
+    ChainedStruct(bool b) {
+        this(x);                        // error: arguments to 'this(...)' cannot use 'this'
+    }
+    ChainedStruct(String s) {
+        super();                        // error: 'super(...)' can only be used in a class constructor
+    }
+}
+
+struct NoDefault {
+    Item item;
+    NoDefault(Item item) { this.item = item; }
+    NoDefault(int x) {
+        this();                         // error: 'NoDefault' has no default value because field 'item' has type 'Item'
     }
 }
 

@@ -4,23 +4,23 @@ using Wyl.Compiler.Semantics;
 
 namespace Wyl.Compiler.CodeGen;
 
-/// <summary>A lowered class constructor's base constructor call, which C++ makes the mem-initializer (docs/design/ir.md, §5.11).</summary>
+/// <summary>A lowered class constructor's call of its base's or, chaining, another of its class's constructor, which C++ makes the mem-initializer (docs/design/ir.md, §5.11).</summary>
 public sealed partial class CppEmitter
 {
-    static IrCall BaseCallOf(IrBlock baseCall) => (IrCall)((IrDo)baseCall.Statements[^1]).Value;
+    static IrCall ConstructorCallOf(IrBlock constructorCall) => (IrCall)((IrDo)constructorCall.Statements[^1]).Value;
 
     /// <summary>
-    /// Whether a class constructor's base call has more than one argument computed by statements.
+    /// Whether a class constructor's constructor call has more than one argument computed by statements.
     /// MSVC may evaluate the arguments of a braced mem-initializer in any order, so the constructor
     /// then delegates to one taking them as <c>wyl::Arguments</c>, which a lambda computes in order.
     /// They are released when the base constructor returns, the last first, as a statement's are.
     /// </summary>
-    static bool DelegatesBaseCall(IrFunction function) => function.BaseCall is { } baseCall && baseCall.Statements.Count(s => s is IrDeclare) > 1;
+    static bool NeedsArgumentsConstructor(IrFunction function) => function.ConstructorCall is { } constructorCall && constructorCall.Statements.Count(s => s is IrDeclare) > 1;
 
-    /// <summary>The constructor a class's constructor delegates to, declared in the class, which calls the base constructor with the arguments it is given.</summary>
-    void EmitBaseArgumentsConstructor(TypeSymbol s, int index, IrFunction function)
+    /// <summary>The constructor a class's constructor delegates to, declared in the class, which calls the base or chained constructor with the arguments it is given.</summary>
+    void EmitArgumentsConstructor(TypeSymbol s, int index, IrFunction function)
     {
-        var call = BaseCallOf(function.BaseCall!);
+        var call = ConstructorCallOf(function.ConstructorCall!);
         var arguments = call.Arguments.Select((_, i) => FunctionArgument(call.Method, i, $"wyl::argument<{i}>(arguments)")).ToList();
         if (call.Loc is { } loc)
             arguments.Add(LocText(loc));
@@ -28,16 +28,16 @@ public sealed partial class CppEmitter
         Line($"{OwnName(s)}(wyl::BaseArguments<{index}>, A&& arguments) : {ObjectType(call.Method.Owner!)}{{{string.Join(", ", arguments)}}} {{}}");
     }
 
-    /// <summary>The delegation to <see cref="EmitBaseArgumentsConstructor"/>'s constructor, with a lambda computing the arguments.</summary>
-    string DelegatingText(IrFunction function, IrBlock baseCall)
+    /// <summary>The delegation to <see cref="EmitArgumentsConstructor"/>'s constructor, with a lambda computing the arguments.</summary>
+    string ArgumentsConstructorText(IrFunction function, IrBlock constructorCall)
     {
-        var call = BaseCallOf(baseCall);
+        var call = ConstructorCallOf(constructorCall);
         var s = function.Symbol.ContainingType!;
-        var computed = baseCall.Statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
+        var computed = constructorCall.Statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
         var (enclosingOutput, enclosingIndent) = (output, indent);
         output = new StringBuilder();
         indent = 2;
-        IrStatements(baseCall);
+        IrStatements(constructorCall);
         var values = call.Arguments.Select(a => a is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } && computed.Contains(local)
             ? $"std::move({Name(local)})"
             : OperandText((IrOperand)a));
@@ -48,12 +48,12 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// The base constructor call, as the mem-initializer's, whose arguments need no order but for at
+    /// The constructor call, as the mem-initializer's, whose arguments need no order but for at
     /// most one computed by statements, which runs them in an immediately invoked lambda.
     /// </summary>
-    string BaseCallText(IrBlock baseCall)
+    string ConstructorCallText(IrBlock constructorCall)
     {
-        var call = BaseCallOf(baseCall);
+        var call = ConstructorCallOf(constructorCall);
         var enclosingIndent = indent;
         indent = 1;
         var arguments = ArgumentsText(call.Method, call.Arguments, call.Loc);
@@ -62,21 +62,21 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// The base constructor call prints as a mem-initializer. Unless the constructor delegates, at
+    /// The constructor call prints as a mem-initializer. Unless the constructor delegates, at
     /// most one argument is computed by a block, which is printed inside it: as its value when
     /// everything nests into that and the block makes nothing whose release could be observed,
     /// which would then wait for the base constructor, and otherwise in an immediately invoked lambda.
     /// </summary>
-    void PlanBaseCall(IrFunction function, bool nest)
+    void PlanConstructorCall(IrFunction function, bool nest)
     {
-        var baseCall = function.BaseCall!;
-        var statements = baseCall.Statements;
-        plan.Consumed.Add(baseCall);
-        if (DelegatesBaseCall(function))
+        var constructorCall = function.ConstructorCall!;
+        var statements = constructorCall.Statements;
+        plan.Consumed.Add(constructorCall);
+        if (NeedsArgumentsConstructor(function))
         {
             // The statements run in order in the delegating constructor's lambda, which returns the arguments.
             plan.Consumed.Add(statements[^1]);
-            PlanBlock(baseCall, nest);
+            PlanBlock(constructorCall, nest);
             return;
         }
         for (int i = 0; i + 1 < statements.Count; i += 2)

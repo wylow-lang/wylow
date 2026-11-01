@@ -85,7 +85,9 @@ public sealed partial class Binder
             PathExpr path => BindPathCall(e, path, arguments),
             MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
             ConditionalAccessExpr access => BindConditionalCall(e, access, arguments),
-            ThisExpr => ErrorExpression(e.Callee.Location, "'this(...)' constructor chaining is not supported yet"),
+            ThisExpr => ErrorExpression(e.Callee.Location, currentFunction is { IsConstructor: true }
+                ? "'this(...)' must be the first statement of a constructor"
+                : "'this(...)' can only be used in a constructor"),
             _ => BindCalleeValue(e, BindExpression(e.Callee), arguments),
         };
         arguments.Bind(null);
@@ -505,11 +507,8 @@ public sealed partial class Binder
         if (!CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
 
-        if (constructor.Symbol.IsImplicit && type.FindNonDefaultableField() is { } missing)
-        {
-            return ErrorExpression(location,
-                $"'{type}' has no default value because field '{missing.Name}' has type '{TypeMap.For(type).Apply(missing.Type)}'; pass it by name, as in '{type}({missing.Name}: ...)'");
-        }
+        if (!CheckDefaultValue(location, type, constructor))
+            return new BoundErrorExpression(location);
 
         return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments));
     }

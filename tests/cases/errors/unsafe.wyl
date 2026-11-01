@@ -27,6 +27,28 @@ class Base {
     }
 }
 
+class RawBase {
+    unsafe RawBase() { }
+    unsafe RawBase(int x) { }
+}
+
+class SafeDerived extends RawBase {
+    SafeDerived() { }                   // error: constructor 'RawBase()' is unsafe
+    SafeDerived(int x) {
+        super(x);                       // error: constructor 'RawBase(int)' is unsafe
+    }
+    unsafe SafeDerived(bool b) {
+        super(1);
+    }
+}
+
+class RawChain {
+    unsafe RawChain(int x) { }
+    RawChain() {
+        this(1);                        // error: constructor 'RawChain(int)' is unsafe
+    }
+}
+
 void main() {
     int* p = memory::allocate<int>(4);   // error: 'allocate' is unsafe and can only be called from 'unsafe' code
     int* q = p + 1;                     // error: pointer arithmetic is only allowed in 'unsafe' code

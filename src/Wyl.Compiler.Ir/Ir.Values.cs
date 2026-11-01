@@ -244,7 +244,7 @@ public sealed class IrCall(MethodReference method, IrArgument? receiver, IReadOn
     public List<IrArgument> Arguments { get; } = [.. arguments];
     public IrLoc? Loc { get; } = loc;
 
-    /// <summary>Calls the base class's implementation without dispatch.</summary>
+    /// <summary>Calls the base class's implementation without dispatch, or a constructor on the object being made.</summary>
     public bool IsSuperCall { get; init; }
 
     public override WylType Type => Method.ReturnType;

@@ -405,7 +405,9 @@ public sealed partial class IrVerifier
         if (!target.IsDeref && target.Projections.Count == 0)
             state.Invalid.Remove(target.Local);
         var initialized = Initialized(target);
-        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0, initializes: initialized is not null);
+        // A struct constructor's whole value, as a chained constructor makes it, has every field.
+        bool initializesAll = target.Local == constructed && !target.IsDeref && target.Projections.Count == 0;
+        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0, initializes: initialized is not null || initializesAll);
         if (target.Type != store.Value.Type)
             Error($"stores a '{store.Value.Type}' in a '{target.Type}'");
 
@@ -433,6 +435,8 @@ public sealed partial class IrVerifier
         CommitMoves(state);
         if (initialized is not null)
             state.AssignedFields.Add(initialized);
+        if (initializesAll)
+            state.AssignedFields.UnionWith(requiredFields);
         if (whole)
         {
             Learn(local, new IrUse(store.Value), state);

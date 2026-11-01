@@ -97,10 +97,12 @@ public sealed record BoundSwitch(Location Location, BoundExpression Value, IRead
     : BoundStatement(Location);
 
 /// <summary>
-/// A class constructor's call to its base class constructor, always its first statement. Implicit
-/// when the source has no <c>super(...)</c>.
+/// A constructor's first statement: a class constructor's call of its base class constructor
+/// (implicit when the source has no <c>super(...)</c>), or, when it <see cref="Chains"/>, a class or
+/// struct constructor's <c>this(...)</c>, a call of another constructor of its own type, which
+/// runs the field initializers in its place.
 /// </summary>
-public sealed record BoundSuperCall(Location Location, MethodReference Constructor, IReadOnlyList<BoundExpression> Arguments)
+public sealed record BoundConstructorCall(Location Location, MethodReference Constructor, IReadOnlyList<BoundExpression> Arguments, bool Chains)
     : BoundStatement(Location);
 
 public abstract record BoundExpression(Location Location, WylType Type) : BoundNode(Location);
@@ -456,7 +458,7 @@ public static class BoundTree
         BoundVariableDeclaration { Initializer: { } initializer } => [initializer],
         BoundAssignment assignment => [assignment.Target, assignment.Value],
         BoundExpressionStatement expressionStatement => [expressionStatement.Expression],
-        BoundSuperCall super => super.Arguments,
+        BoundConstructorCall super => super.Arguments,
         BoundIf ifStatement => [ifStatement.Condition],
         BoundWhile whileStatement => [whileStatement.Condition],
         BoundFor { Condition: { } condition } => [condition],

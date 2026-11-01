@@ -19,8 +19,8 @@ public sealed partial class Binder
             scope.Add(parameter);
         }
 
-        var body = function.IsConstructor && currentType!.Kind == TypeKind.Class
-            ? BindClassConstructorBody(function)
+        var body = function.IsConstructor
+            ? BindConstructorBody(function)
             : BindBlock(function.Body!);
         CheckEscapingCaptures(body);
 
@@ -30,109 +30,6 @@ public sealed partial class Binder
         hasThis = false;
         scope = null;
         return body;
-    }
-
-    /// <summary>Binds a class constructor, whose first statement is always the call to the base class constructor.</summary>
-    BoundBlock BindClassConstructorBody(FunctionSymbol constructor)
-    {
-        var block = constructor.Body!;
-        var statements = new List<BoundStatement>();
-        var rest = block.Statements;
-        if (block.Statements.FirstOrDefault() is ExprStmt { Expression: CallExpr { Callee: SuperExpr } call })
-        {
-            if (BindSuperCall(call) is { } super)
-                statements.Add(super);
-            rest = [.. block.Statements.Skip(1)];
-        }
-        else if (ImplicitSuperCall(currentType!, constructor.Declaration!.NameLocation) is { } super)
-        {
-            statements.Add(super);
-        }
-
-        scope = new Scope(scope);
-        statements.AddRange(rest.Select(BindStatement));
-        scope = scope.Parent;
-        return new BoundBlock(block.Location, statements);
-    }
-
-    BoundSuperCall? BindSuperCall(CallExpr call)
-    {
-        hasThis = false;
-        noThisContext = NoThisContext.SuperArguments;
-        var arguments = BindArguments(call.Arguments, currentType!.Type.BaseType is { } bindingBase ? ConstructorsOf(bindingBase) : null);
-        hasThis = true;
-        noThisContext = NoThisContext.Static;
-
-        if (currentType!.Type.BaseType is not { } baseType)
-        {
-            Error(call.Callee.Location, $"'{currentType.Name}' has no base class, so it cannot call 'super(...)'");
-            return null;
-        }
-        if (arguments.Any(a => a.Expression.Type == WylType.Error))
-            return null;
-        var constructor = Resolve(call.Location, $"constructor of '{baseType}'", ConstructorsOf(baseType), null, arguments);
-        if (constructor is null)
-            return null;
-        CheckVisible(call.Location, constructor.Symbol.Reach, $"constructor '{constructor}'");
-        var converted = ConvertArguments(constructor, arguments);
-        for (int i = 0; i < converted.Count; i++)
-        {
-            var parameter = constructor.ParameterType(i);
-            if ((constructor.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct) && !IsHeldByCaller(converted[i]))
-                Error(converted[i].Location, "an argument to 'super(...)' for a reference or view parameter must be a parameter, a field of one, or null, for now");
-        }
-        return new BoundSuperCall(call.Location, constructor, converted);
-    }
-
-    /// <summary>
-    /// Whether a reference or view argument points into storage the constructor's caller keeps
-    /// alive, so that passing it needs nothing held and nothing computed before the base constructor.
-    /// </summary>
-    static bool IsHeldByCaller(BoundExpression argument)
-    {
-        if (argument is BoundConversion { Operand.Type: var from } && from == WylType.Null)
-            return true;
-        var path = PlacePath.Of(argument);
-        return path is { Base: PlaceBase.Local, Root: BoundLocalAccess { Local.IsParameter: true, AssumesNonNull: false } }
-            && path.Steps.All(s => s is BoundFieldAccess or BoundConversion);
-    }
-
-    /// <summary>The base constructor call of a constructor without <c>super(...)</c>: the base's parameterless constructor.</summary>
-    BoundSuperCall? ImplicitSuperCall(TypeSymbol s, Location location)
-    {
-        if (s.Type.BaseType is not { } baseType)
-            return null;
-        var constructor = ConstructorsOf(baseType).FirstOrDefault(c => c.Symbol.Parameters.Count == 0);
-        if (constructor is null)
-        {
-            Error(location, $"'{baseType}' has no parameterless constructor, so this constructor must start with 'super(...)'");
-            return null;
-        }
-        var reference = new MethodReference(constructor.Symbol, baseType, []);
-        CheckVisible(location, reference.Symbol.Reach, $"constructor '{reference}'");
-        return new BoundSuperCall(location, reference, []);
-    }
-
-    static List<Candidate> ConstructorsOf(WylType type)
-    {
-        var s = type.Symbol!;
-        if (s.Kind == TypeKind.Struct)
-            return [.. s.Constructors.Append(s.DefaultConstructor).Select(c => new Candidate(c, type))];
-        return [.. (s.Constructors.Count > 0 ? s.Constructors : [s.DefaultConstructor]).Select(c => new Candidate(c, type))];
-    }
-
-    BoundFunction BindImplicitConstructor(TypeSymbol s)
-    {
-        var location = s.Declaration.NameLocation;
-        foreach (var field in s.Fields.Where(f => f.RequiresAssignment))
-        {
-            Error(field.Declaration.NameLocation,
-                $"field '{field.Name}' of type '{field.Type}' has no default value; give it an initializer or assign it in a constructor");
-        }
-        currentType = s;
-        var super = ImplicitSuperCall(s, location);
-        currentType = null;
-        return new BoundFunction(s.DefaultConstructor, new BoundBlock(location, super is null ? [] : [super]));
     }
 
     void Declare(LocalSymbol local, Location location)

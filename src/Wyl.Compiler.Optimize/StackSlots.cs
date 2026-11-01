@@ -46,10 +46,10 @@ sealed class StackSlots
         var result = new StackSlots(program, escapes, lambdas);
         foreach (var function in program.Functions)
         {
-            // C++ computes a base constructor's arguments before the constructor's frame exists, in
+            // C++ computes a base or chained constructor's arguments before the constructor's frame exists, in
             // code of their own, so a slot there would end before the base constructor runs.
-            var baseCall = function.BaseCall is { } call ? IrWalk.Descendants(call).ToHashSet() : [];
-            foreach (var block in IrWalk.Descendants(function.Body, intoLambdas: false).OfType<IrBlock>().Where(b => !baseCall.Contains(b)).ToList())
+            var constructorCall = function.ConstructorCall is { } call ? IrWalk.Descendants(call).ToHashSet() : [];
+            foreach (var block in IrWalk.Descendants(function.Body, intoLambdas: false).OfType<IrBlock>().Where(b => !constructorCall.Contains(b)).ToList())
                 result.FindIn(function, block);
         }
         result.Rewrite();

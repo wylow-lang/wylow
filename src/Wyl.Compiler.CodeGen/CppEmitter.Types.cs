@@ -319,8 +319,8 @@ public sealed partial class CppEmitter
         foreach (var (constructor, index) in s.Constructors.Select((c, i) => (c, i)))
         {
             var built = functions.Single(constructor)!;
-            if (DelegatesBaseCall(built))
-                EmitBaseArgumentsConstructor(s, index, built);
+            if (NeedsArgumentsConstructor(built))
+                EmitArgumentsConstructor(s, index, built);
         }
         foreach (var implementation in s.InheritedImplementations)
             Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");

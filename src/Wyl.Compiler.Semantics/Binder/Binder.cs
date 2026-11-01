@@ -49,7 +49,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
 
     enum PlaceKind { Temporary, Mutable, ReadOnly }
 
-    enum NoThisContext { Static, FieldInitializer, SuperArguments, DefaultValue }
+    enum NoThisContext { Static, FieldInitializer, SuperArguments, ChainArguments, DefaultValue }
 
     /// <summary>
     /// Binds a package with the standard library, whose units are among <paramref name="units"/>:
@@ -113,6 +113,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         }
         foreach (var function in functionList.Where(f => f.Body is not null))
             bodies.Add(new BoundFunction(function, BindBody(function)));
+        CheckConstructorCycles(bodies);
 
         CheckBounds();
         return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, functionList, FindMain(package), stdlib);

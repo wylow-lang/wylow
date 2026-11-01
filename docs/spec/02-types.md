@@ -523,13 +523,21 @@ final class Shotgun extends Weapon {
 
 Construction follows Java's order, and C++'s rule for what the object is while it is built:
 
+0. A constructor whose first statement is `this(...)` calls another constructor of its class,
+   which runs steps 1 to 3 (or chains again), and then runs its own body. It runs neither a base
+   constructor nor the field initializers itself, so each runs once, as in Java and C#. Only one of
+   `this(...)` and `super(...)` can be written, as the first statement. The arguments of
+   `this(...)` cannot use `this`, and follow the same rule for references and views as
+   `super(...)`'s, for the same reason. A constructor whose chain of `this(...)` calls comes back
+   to it is an error ("recursive constructor invocation", as in Java), however long the chain.
 1. The base class constructor runs first. `super(...)` must be the first statement of the
    constructor; without it, the base's parameterless constructor is called. Its arguments cannot use
    `this`.
 
-   > Implemented so far: an argument for a `ref`, `in`, `ref?`, or `in?` parameter or a `ref
-   > struct` one must be `null`, a parameter of the constructor, or a field of one (`super(p.pos,
-   > view)`), which need nothing held or computed before the base constructor runs.
+   > Implemented so far: an argument of `super(...)` or a class's `this(...)` for a `ref`, `in`,
+   > `ref?`, or `in?` parameter or a `ref struct` one must be `null`, a parameter of the
+   > constructor, or a field of one (`super(p.pos, view)`), which need nothing held or computed
+   > before the constructor it calls runs.
 2. Field initializers run in declaration order. They cannot use `this`.
 3. The constructor body runs.
 
@@ -538,7 +546,8 @@ a type parameter, or a struct containing one). In the body, **until every such f
 is assigned, `this` can only be used to assign fields and to read fields already assigned**: no
 method calls on it, no passing it anywhere. Every such field must be assigned before the
 constructor returns, on every path. Flow analysis checks both. The same rule applies to struct
-constructors.
+constructors. After `this(...)` every field is assigned, since the constructor it called had to
+assign them, and so is every field of a struct constructor after it assigns `this` as a whole.
 
 **While a base class's constructor or destructor runs, the object is an instance of that base
 class**, as in C++: virtual calls dispatch to the base class's implementations, so they can never

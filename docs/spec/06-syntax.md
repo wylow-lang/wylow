@@ -297,7 +297,10 @@ default values, positional construction, and setting fields by name are all the 
 - **`T()` is the default value.** It exists for a struct whose fields all have defaults, including
   one that declares constructors, since arrays rely on it, and it cannot be declared.
 - Declaring any constructor removes the memberwise one, apart from `T()`. A declared constructor
-  starts from the default value, then runs its body. `this` refers to the value being built, and
+  starts from the default value, then runs its body, unless it starts with `this(...)`: it then
+  starts from the value the constructor it calls makes (which may be `T()`). The arguments of
+  `this(...)` cannot use `this`, and a constructor whose `this(...)` chain comes back to it is an
+  error, as for classes. `this` refers to the value being built, and
   `return;` ends construction early. To set fields its parameters don't cover, assign them after the
   call: `mut var e = Enemy(pos); e.health = 50;`.
 - Constructors are declared Java-style:
@@ -322,9 +325,9 @@ class Shotgun extends Weapon {
 }
 ```
 
-Classes are always created with `new`, and structs never are. The order of construction and what a
-constructor may do before its fields are assigned are in
-[02-types.md](02-types.md#construction). `this(...)` chaining is not implemented yet.
+Classes are always created with `new`, and structs never are. The order of construction, what
+`this(...)` runs, and what a constructor may do before its fields are assigned are in
+[02-types.md](02-types.md#construction).
 
 ## 6.4 Methods and parameters
 

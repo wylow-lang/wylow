@@ -721,6 +721,8 @@ public sealed partial class IrVerifier
         else if (method.Symbol.ReturnRefKind != RefKind.None)
             Error("only a method returns a reference, into its receiver");
         Arguments(method, call.Arguments, state);
+        if (function.ChainsWith(call))
+            state.AssignedFields.UnionWith(requiredFields);
         CheckLoc(call.Loc);
         if (method.Symbol.PassesLocation != call.Loc is not null)
             Error(call.Loc is null ? $"'{method.Symbol.Name}' is given its caller's location, which the call doesn't pass" : $"passes a location to '{method.Symbol.Name}', which takes none");

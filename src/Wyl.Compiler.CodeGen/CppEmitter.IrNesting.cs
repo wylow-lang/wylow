@@ -75,8 +75,8 @@ public sealed partial class CppEmitter
                     plan.Uses[local] = plan.Uses.GetValueOrDefault(local) + 1;
             }
         }
-        if (function.BaseCall is not null)
-            PlanBaseCall(function, nest);
+        if (function.ConstructorCall is not null)
+            PlanConstructorCall(function, nest);
         PlanBlock(function.Body, nest);
     }
 
@@ -93,7 +93,7 @@ public sealed partial class CppEmitter
         var statements = block.Statements;
         foreach (var statement in statements)
         {
-            // The base constructor call is planned already.
+            // The constructor call is planned already.
             if (plan.Consumed.Contains(statement))
                 continue;
             foreach (var inner in InnerBlocks(statement))

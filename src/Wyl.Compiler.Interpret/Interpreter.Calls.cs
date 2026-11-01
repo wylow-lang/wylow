@@ -22,7 +22,7 @@ public sealed partial class Interpreter
         var method = call.Method;
         if (method.Symbol.IsBuiltin)
             return CallIntrinsic(call, caller);
-        // A base constructor call has no receiver in the IR: it runs on the object being made.
+        // A base or chained constructor call has no receiver in the IR: it runs on the object being made.
         if (call.IsSuperCall && method.Symbol.IsConstructor)
             return BaseConstruct(call, caller);
 
@@ -97,7 +97,7 @@ public sealed partial class Interpreter
     Value? BaseConstruct(IrCall call, Frame caller)
     {
         var method = call.Method;
-        var obj = caller.Constructing ?? throw new InterpreterException("a base constructor call outside a constructor");
+        var obj = caller.Constructing ?? throw new InterpreterException("a constructor call outside a constructor");
         var function = program.Functions.Single(method.Symbol)
             ?? throw new UnsupportedFeature($"no lowered function for '{method.Symbol.Signature}'");
         var frame = CalleeFrame(caller, method.Map);
@@ -183,17 +183,21 @@ public sealed partial class Interpreter
             try
             {
                 int start = 0;
-                if (function.BaseCall is { } baseCall)
+                if (function.ConstructorCall is { } constructorCall)
                 {
-                    if (function.Body.Statements.Count == 0 || !ReferenceEquals(function.Body.Statements[0], baseCall))
-                        throw new InterpreterException($"'{function.Name}' does not run its base constructor first");
-                    ExecBlock(baseCall, frame);
+                    if (function.Body.Statements.Count == 0 || !ReferenceEquals(function.Body.Statements[0], constructorCall))
+                        throw new InterpreterException($"'{function.Name}' does not run its constructor call first");
+                    ExecBlock(constructorCall, frame);
                     start = 1;
                 }
                 // The emitter's prologue: the constructor of this class marks its object's class
-                // before its body, so a release during construction already knows whether to buffer it.
-                obj.Cyclic = IsCyclicClass(type);
-                obj.Active = type;
+                // before its body, so a release during construction already knows whether to buffer
+                // it. A constructor that chains has had it done by the one it called.
+                if (!function.Chains)
+                {
+                    obj.Cyclic = IsCyclicClass(type);
+                    obj.Active = type;
+                }
                 ExecBlock(function.Body, frame, start);
             }
             catch (ReturnSignal returned)

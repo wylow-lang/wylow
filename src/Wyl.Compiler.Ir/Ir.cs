@@ -112,11 +112,22 @@ public sealed class IrFunction(FunctionSymbol symbol, string name)
     public IReadOnlyList<bool>? Builds { get; set; }
 
     /// <summary>
-    /// A class constructor's call of its base class's, the first statement of its body. C++ runs
-    /// nothing before a base constructor, so each argument that needs statements is declared, then
-    /// computed by a block of its own, and the call is the block's last statement.
+    /// A class constructor's call of its base class's, or of another of its own class's when it
+    /// chains (<see cref="ChainsWith"/>), the first statement of its body. C++ runs nothing before
+    /// either, so each argument that needs statements is declared, then computed by a block of its
+    /// own, and the call is the block's last statement.
     /// </summary>
-    public IrBlock? BaseCall { get; set; }
+    public IrBlock? ConstructorCall { get; set; }
+
+    /// <summary>
+    /// Whether a call runs another constructor of this constructor's own type on the object being
+    /// made (<c>this(...)</c>), which leaves every field assigned.
+    /// </summary>
+    public bool ChainsWith(IrCall call) =>
+        call is { IsSuperCall: true, Receiver: null, Method.Symbol.IsConstructor: true } && Symbol.IsConstructor && call.Method.Symbol.ContainingType == Symbol.ContainingType;
+
+    /// <summary>Whether a class constructor's <see cref="ConstructorCall"/> chains, so the constructor it calls has already set up the object.</summary>
+    public bool Chains => ConstructorCall is { Statements: [.., IrDo { Value: IrCall call }] } && ChainsWith(call);
 
     /// <summary>An <c>@CallerLocation</c> function's hidden parameter, which <see cref="IrLoc.Caller"/> names.</summary>
     public bool HasLocationParameter { get; set; }
