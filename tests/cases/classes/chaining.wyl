@@ -107,6 +107,26 @@ struct Point {
     }
 }
 
+// A chained call passes an 'in' parameter on beside a temporary, which the arguments constructor
+// holds in the order they are computed.
+struct Tag { }
+
+class Named {
+    String name;
+    int id;
+
+    Named(int id, in String name) {
+        this(Tag(), id, name);
+        print($"chained {id} {this.name}");
+    }
+
+    Named(Tag tag, int id, in String name) {
+        this.id = id;
+        this.name = name;
+        print($"direct {id} {name}");
+    }
+}
+
 struct Tagged {
     Item item;
     int n;
@@ -151,6 +171,9 @@ void main() {
     // output: release right
     // output: pair 5 6
     // output: pair chained
+    var named = new Named(3, "three");
+    // output: direct 3 three
+    // output: chained 3 three
     var box = new Box<String>("boxed");
     // output: box field
     print($"{box.get()} {box.count}");

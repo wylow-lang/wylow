@@ -423,7 +423,9 @@ immediately invoked lambda. MSVC doesn't always evaluate a braced mem-initialize
 reversed arguments that leave a destructor to run, in a temporary or a parameter), so when more than
 one argument needs statements, the constructor delegates to one of its class that takes them as a
 `wyl::Arguments`, which a lambda computes in order. That keeps the arguments until the base
-constructor returns and destroys them the last first.
+constructor returns and destroys them the last first. The `wyl::Arguments` holds a copy of every
+argument, including one passed by `in` or `ref`: a value, or the address of the place, both of
+which the delegating constructor receives as it would have directly.
 
 ## 6. The analyses on the IR
 

@@ -40,7 +40,7 @@ public sealed partial class CppEmitter
         IrStatements(constructorCall);
         var values = call.Arguments.Select(a => a is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } && computed.Contains(local)
             ? $"std::move({Name(local)})"
-            : OperandText((IrOperand)a));
+            : ArgumentText(a));
         Line($"return wyl::Arguments{{{string.Join(", ", values)}}};");
         var body = output.ToString();
         (output, indent) = (enclosingOutput, enclosingIndent);
