@@ -20,7 +20,7 @@ static class GeneratorSelfTests
 {
     /// <summary>Text that changes what the oracles compare, which a generated program must never contain.</summary>
     static readonly string[] Forbidden =
-        ["unsafe", "@Unchecked", "// mode: optimized", "collectCycles", "cycleStats", "panic("];
+        ["unsafe", "// mode: optimized", "collectCycles", "cycleStats", "panic("];
 
     public static IReadOnlyList<(string Name, string? Failure)> Run(GenerateOptions options)
     {

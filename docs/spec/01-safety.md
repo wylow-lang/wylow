@@ -68,24 +68,12 @@ non-panicking version of every operation whose failure the caller may not contro
 
 ## 1.4 Opting out
 
-### `@Unchecked`
-
-Removes **runtime checks** from a function while keeping the language's type rules. Inside an
-`@Unchecked` function:
-
-- Array/span indexing is not bounds-checked.
-- Integer overflow is not checked in debug builds (it still wraps).
-- Division is not checked for zero.
-- Borrow counters and class pins are not maintained.
-
-```java
-@Unchecked
-void skinMesh(ref Mesh m, Span<Mat4> bones) { ... }
-```
-
 ### `unsafe`
 
-An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plus:
+An `unsafe` block (or `unsafe` method) *permits* operations that safe code can't use. It never
+changes what code that would also compile outside it means: `a[i]` is bounds-checked, overflow
+panics in debug builds, and borrows are counted, inside `unsafe` as anywhere else (as in Rust and
+C#). Unsafe code may use:
 
 - Raw pointers `T*`, pointer arithmetic, address-of.
 - Pointer casts. Reading or writing storage through a pointer of another type than the storage's is
@@ -94,6 +82,9 @@ An `unsafe` block (or `unsafe` method) enables everything `@Unchecked` does, plu
   only storage that holds a `T`, directly or inside a struct, enum, or fixed array. So does the C++
   compiler that builds the output.
 - Sharing data across threads without `Sendable` checks.
+- Unchecked operations, which are named methods: `getUnchecked(i)` on arrays, spans, and `List`
+  returns the element without the bounds check. Arithmetic that may overflow uses the `wrapping`
+  operations ([02-types.md](02-types.md)), which are safe.
 
 ```java
 unsafe {
@@ -104,7 +95,7 @@ unsafe {
 }
 ```
 
-Inside `unsafe` and `@Unchecked` code, violating the rules is undefined behavior and is the
+Inside `unsafe` code, violating the rules is undefined behavior and is the
 programmer's responsibility, as in C#.
 
 An `unsafe` method or constructor may only be called from unsafe code. Since a call through a method
@@ -114,8 +105,7 @@ anywhere (a struct may have a `T*` field); only using a pointer needs unsafe cod
 
 > Implemented so far: `unsafe` blocks, methods, and constructors; pointer types `T*`, which default
 > to `null` and compare with `==`; `p[i]`, an unchecked place; and `p + n` and `p - n`. There is no
-> address-of and no pointer casts yet, and unsafe code still has its runtime checks (`@Unchecked` is
-> not implemented). Memory comes from the standard library's `std::memory`: `allocate<T>(count)`
+> address-of, no pointer casts, and no `getUnchecked` yet. Memory comes from the standard library's `std::memory`: `allocate<T>(count)`
 > (uninitialized), `free`, `initialize(place, value)`, `initializeDefault(data, count)`,
 > `drop(place)`, and `moveTo(from, to, count)`, which `Array` and `List` are written with.
 

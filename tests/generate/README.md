@@ -30,5 +30,5 @@ every operation's range contains its true result, its table of the spec's implic
 agrees with the compiler's, every constructor of every type can make that type, the random corpus
 reaches every type, the bound corpus contains each mixed-type construct as the compiler reads it
 (widenings, adopted constants, casts), the budgets hold, and no program contains the text the
-oracles scan for (`unsafe`, `@Unchecked`, `// mode: optimized`, `Memory.collectCycles`,
+oracles scan for (`unsafe`, `// mode: optimized`, `Memory.collectCycles`,
 `cycleStats`, `panic(`).

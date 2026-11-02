@@ -348,7 +348,7 @@ enum AiState {
 - An enum value is **immutable**: there is no way to change the fields of a variant in place, only
   to assign a whole new value. Its methods therefore can't be `mut`, and can be called
   on `in` parameters.
-- Enums may be generic (`enum Option<T> { None, Some(T value) }`), and may implement interfaces for
+- Enums may be generic (`enum Reply<T> { Pending, Ready(T value), Failed(String reason) }`), and may implement interfaces for
   use as generic bounds, as structs can (§2.12).
 - A variant's fields can only be read with a pattern ([06-syntax.md](06-syntax.md#patterns)).
   `state.target` is an error.
@@ -359,9 +359,9 @@ enum AiState {
 var d = Direction.North;
 var s = AiState.Fleeing(pos, 2.5);
 Direction next = East;                 // the enum may be left out where its type is known
-var o = Option.Some(5);                // type arguments are inferred: Option<int>
-Option<Item> none = None;              // ...or taken from the expected type
-var n = Option<int>.None;              // ...or written
+var r = Reply.Ready(5);                // type arguments are inferred: Reply<int>
+Reply<Item> waiting = Pending;         // ...or taken from the expected type
+var n = Reply<int>.Pending;            // ...or written
 ```
 
 - `Enum.Variant` for a variant without data, `Enum.Variant(fields...)` for one with data; the
@@ -451,7 +451,6 @@ passed directly to graphics APIs.
 | Annotation | Effect |
 |---|---|
 | `@Align(n)` | Align the struct (or field) to `n` bytes |
-| `@Pad(n)` | Insert `n` bytes of padding |
 | `@Packed` | Remove all padding |
 
 ```java
@@ -460,7 +459,7 @@ struct CameraUniforms {
     pub Mat4 view;
     pub Mat4 proj;
     pub Vec3 eye;
-    @Pad(4)
+    byte[4] _pad;              // explicit padding is a field
 }
 ```
 
@@ -644,7 +643,7 @@ float[] heights = new float[width * height];   // heap, length fixed, default va
 List<Enemy> spawned = new List<Enemy>();       // heap, growable
 ```
 
-- All indexing is bounds-checked (unless `@Unchecked` / `unsafe`); a failed check panics with the
+- All indexing is bounds-checked, in `unsafe` code too (`getUnchecked(i)` skips it, [01-safety.md](01-safety.md#14-opting-out)); a failed check panics with the
   index and the length.
 - `T[]` is an object holding its length and a pointer to its elements, which are allocated
   separately (two allocations; the elements are stored inline, not as references to boxes as in
@@ -751,7 +750,8 @@ type, as an adapter holds its source, and a generic `ref struct` may take a `ref
 argument, as `Select<Where<...>>` does. Both stay second-class, so neither can outlive what it
 views.
 
-> Not implemented yet. Terminal operations come first, since they need only non-escaping lambdas
+> Not implemented yet. The adapters' design is settled with the standard library's iteration
+> interfaces, so that queries and `for` loops share one iterator model. Terminal operations come first, since they need only non-escaping lambdas
 > and extension methods; adapters need lambdas held by `ref struct`s and the two rule changes.
 
 ### `Box<T>`

@@ -92,7 +92,7 @@ integer truncates and saturates, one value when the float's is known and the tar
 otherwise. An integer is cast to `char` only when its whole range is scalar values, since that cast
 panics otherwise. NaN is never made, so the saturating cast's NaN case is the values tests' to cover.
 
-Never generated: `unsafe`, `@Unchecked`, pointers, `panic`, integer-to-enum casts, `Memory.*`, or
+Never generated: `unsafe`, pointers, `panic`, integer-to-enum casts, `Memory.*`, or
 `cycleStats`. `GeneratorSelfTests` checks that no program contains the text the oracles scan for.
 
 ## Self-check

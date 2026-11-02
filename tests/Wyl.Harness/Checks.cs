@@ -189,7 +189,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
             InterpretationStatus.Unsupported => "unsupported",
             // Undefined behavior is the program's in `unsafe` code, which is skipped above; in safe
             // code it is the interpreter's or a pass's.
-            _ => text.Contains("unsafe", StringComparison.Ordinal) || text.Contains("@Unchecked", StringComparison.Ordinal) ? null : "undefined-behavior",
+            _ => text.Contains("unsafe", StringComparison.Ordinal) ? null : "undefined-behavior",
         };
     }
 
@@ -309,9 +309,9 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
                     results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                     continue;
                 }
-                // `unsafe` and `@Unchecked` exist to do what these checks call UB, so a report there is
+                // `unsafe` exists to do what these checks call UB, so a report there is
                 // the program's, not the compiler's; the run is also unusable for comparison.
-                if (text.Contains("unsafe", StringComparison.Ordinal) || text.Contains("@Unchecked", StringComparison.Ordinal))
+                if (text.Contains("unsafe", StringComparison.Ordinal))
                 {
                     results.Add(new ModeResult(mode, RunOutcome.Inconclusive));
                     continue;

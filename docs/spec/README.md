@@ -7,7 +7,7 @@
   collected only where you call the collector), zero-cost generics.
 - **Compiles to C++:** the Wylow compiler emits C++ which is then built by clang/MSVC/gcc.
 - **No undefined behavior by default:** everything the compiler generates is UB-free unless you
-  explicitly opt out with `unsafe` or `@Unchecked`, similar to C#.
+  explicitly opt out with `unsafe`, similar to C#.
 
 Wylow is built for games and similar applications, but is not limited to them. Game-specific
 functionality (vectors, matrices, rendering, etc.) lives in a small standard library rather than
@@ -31,7 +31,7 @@ built-ins (value types, indexers, layout control).
 
 | File | Contents |
 |---|---|
-| [01-safety.md](01-safety.md) | Undefined behavior policy, panics, `unsafe`, `@Unchecked` |
+| [01-safety.md](01-safety.md) | Undefined behavior policy, panics, `unsafe` |
 | [02-types.md](02-types.md) | Primitives, conversions, nullability, enums, structs, classes, arrays, generics |
 | [03-memory-model.md](03-memory-model.md) | Values, refcounted objects, references, spans |
 | [04-errors.md](04-errors.md) | `Result<T, E>`, `try`, handling errors |

@@ -50,7 +50,7 @@ failure is reduced by deleting statements and declarations and written to `tests
 with the seed and mutant that reproduce it; a finding is a bug until it becomes a test in
 `tests/cases/` (with `// output:`, `// error:`, or `// panic:`) or a removed line. Tier 1 is
 in-process and runs thousands of mutants a minute; tier 2 builds and runs every mode per mutant,
-the interpreter first, so it belongs in the background. A finding in `unsafe` or `@Unchecked` code
+the interpreter first, so it belongs in the background. A finding in `unsafe` code
 is the program's undefined behavior, not a compiler bug; a mutant whose mutation edits `unsafe` code
 is still compiled, but tier 2 doesn't run it.
 

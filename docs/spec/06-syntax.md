@@ -548,7 +548,7 @@ half of an indexer:
 | Kind | `==` means |
 |---|---|
 | Struct | Memberwise equality, **generated automatically** if every field supports `==`; it cannot be redefined |
-| Class, interface | **Reference identity** (same object), as in Java. Value equality is `equals()`. Allowed only when one side could be the other (or is `null`) |
+| Class, interface | **Reference identity** (same object), as in Java. Value equality is `equals()`, from an `Equatable<T>` interface beside `Comparable<T>`, designed with the standard library. Allowed only when one side could be the other (or is `null`) |
 | Enum | Same variant and equal data |
 | `String` | **Same contents** (the same bytes), as in C#, unlike Java's identity: a literal equals a string built at run time with the same text |
 
@@ -1146,9 +1146,8 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 | Annotation | Meaning | Chapter |
 |---|---|---|
 | `@CallerLocation` | A panic inside the function reports where it was called from | below |
-| `@Unchecked` | Remove runtime checks | [01-safety.md](01-safety.md) |
 | `@AllowLargeStack` | Suppress the large-stack warning | [01-safety.md](01-safety.md) |
-| `@Align(n)`, `@Pad(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
+| `@Align(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
 | `@Repr(T)` | An enum's integer representation | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
 | `@Flags` | An enum whose values combine as bits | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
 | `@Escaping` | Function-typed parameter or local may be stored | §6.7 |
