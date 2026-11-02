@@ -1,6 +1,6 @@
 # Wylow
 
-A personal programming language for 3D games: Java-style syntax, C++-level control, no undefined
+A personal, general-purpose programming language: Java-style syntax, C++-level control, no undefined
 behavior by default. Wylow compiles to C++.
 
 The language is described in [docs/spec](docs/spec/README.md).

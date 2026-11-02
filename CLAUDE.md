@@ -1,6 +1,6 @@
 # Wylow
 
-A personal language for 3D games: Java-style syntax, C++-level control, no undefined behavior by
+A personal, general-purpose language: Java-style syntax, C++-level control, no undefined behavior by
 default. The compiler is written in C# (.NET 10) and compiles Wylow to C++20.
 
 ## Read first
@@ -306,6 +306,11 @@ is in, `Packages.cs`), `Diagnostics`, and the manifest reader (`Manifest.cs`).
   `tests/Wyl.Fuzz/Mutations.cs` when one can cross it, and every fuzzer or generator finding is
   triaged: the reduced program moves into `tests/cases/` with its expected output or errors, and
   the finding file is deleted.
+- **Examples are generic.** In the spec, decision records, docs, and comments, illustrate a rule
+  with the most ordinary domain that shows it (`Point`, `Node`, `Order`, `Parser`, `Buffer`), not
+  game development (chunks, voxels, vertices, enemies, weapons, frames, audio). Wylow is a
+  general-purpose language; no design is justified by what a game needs. Old examples are replaced
+  as their text is rewritten.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.
