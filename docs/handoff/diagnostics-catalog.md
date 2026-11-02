@@ -79,20 +79,20 @@ Done on the branch (`6d8c001`), with the whole suite passing under `--interpret`
   pairing diagnostics by position on their line. It reports lines whose diagnostic count changed;
   fix those by hand.
 
-## Wording calls for the user
+## Wording decided by the user
 
-The style guide doesn't decide these. Each is implemented as recommended; ask before the merge:
+- Lexical errors are statements (`string literal is not closed`); one code for every "expected X"
+  syntax error (one more for the manifest's); a code per declaration kind for "'x' cannot be used
+  on ..." modifier errors.
+- **No diagnostic reports status**: never "not implemented yet", "not supported yet", "for now"
+  (style guide, "The primary message"). A restriction planned to be lifted is stated as the rule it
+  is (`variables cannot be declared at the top level`, `'const' is a reserved word and cannot be
+  used`); check that issue #6 lists the plan. Many binder and verifier messages say "yet" or "for
+  now" today (`grep -rn "yet\|for now\|not supported" src/Wyl.Compiler.Semantics
+  src/Wyl.Compiler.Analysis`); rewrite each as its rule.
 
-1. **Statements for lexical errors**: `string literal is not closed` rather than clang's
-   `unterminated string literal`, following the guide's "one statement" rule. Recommended: keep.
-2. **One code for every "expected X"** syntax error (and one for the manifest's), rather than a
-   code per production. Recommended: keep; a per-production code would number in the dozens and
-   say nothing the message doesn't.
-3. **A code per declaration kind for "'x' cannot be used on ..."** modifier errors (import, type,
-   function, field, constructor, destructor, struct member, enum member, interface method, static
-   method), because each kind's rules are in a different spec section. Recommended: keep.
-4. **Reserved keywords**: `'goto' is reserved and not implemented yet`. Recommended: keep, or say
-   only `'goto' is reserved` if no reserved word is planned.
+Collect any other wording the style guide doesn't decide as a short list for the user, each with a
+recommendation, rather than deciding it.
 
 ## When finished
 
