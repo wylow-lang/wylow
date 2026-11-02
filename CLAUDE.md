@@ -311,6 +311,18 @@ is in, `Packages.cs`), `Diagnostics`, and the manifest reader (`Manifest.cs`).
   game development (chunks, voxels, vertices, enemies, weapons, frames, audio). Wylow is a
   general-purpose language; no design is justified by what a game needs. Old examples are replaced
   as their text is rewritten.
+- **Docs state checked facts, never borrowed hand-waving** (enforced only by review):
+  - The spec never compares Wylow with another language ("as in Java", "like C#", "unlike Rust").
+  - A decision record or guide page that names another language's behavior names the exact
+    feature and links its primary source: the language's spec section, official docs page, or
+    proposal (`[C++ [class.cdtor]](https://eel.is/c++draft/class.cdtor)`, Swift's SE-0414). "As in
+    C++", "Rust's model", or "Swift and Go have the same rule" with no source is not allowed;
+    cite it or cut it.
+  - Old text is source material, not content. Rewrite it in the current conventions and check each
+    claim against the code and tests; never copy a passage over verbatim, along with its stale
+    claims, game examples, comparisons, or links to sections that are going away.
+  - A rule adopted partway through a session applies to everything written earlier in it: when one
+    is added, recheck what is already written.
 - **Comments are concise and explain why, never what.** Don't restate the code, narrate steps, or
   write comments likely to go stale. Prefer clear names.
 - Match the existing code style. C# collection expressions, records, and pattern matching are used throughout.

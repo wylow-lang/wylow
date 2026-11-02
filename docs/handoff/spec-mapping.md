@@ -11,8 +11,12 @@ home is written.
 - **Rules only**, in chapter 1's phrasing: "It is a compile-time error if ...", "... panics",
   "the program aborts". No "must" or "cannot" in rules about programs.
 - **No comparisons with other languages** ("as in Java", "like C#", "unlike Rust"). If it is a
-  reason, it goes in a decision record's *Alternatives* or *Why* (a new record if none covers it);
-  otherwise it is deleted. The same for "so that", "since", "because" clauses that only justify.
+  reason, it goes in a decision record's *Alternatives* or *Why* (a new record if none covers it),
+  naming the exact feature and linking its primary source (CLAUDE.md, "Docs state checked
+  facts"); otherwise it is deleted. The same for "so that", "since", "because" clauses that only
+  justify.
+- **Rewrite, don't copy.** An old passage is source material: restate it in chapter 1's phrasing
+  and check it against the tests. A sentence carried over verbatim brings its stale claims with it.
 - **No costs**, anywhere (decision 0026): "costs nothing", "one allocation", "O(1)", "a count
   change". Delete them. How something is implemented goes to `docs/design/runtime.md` if it isn't
   there already.
