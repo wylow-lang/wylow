@@ -100,6 +100,13 @@ public abstract class WylType
     /// <summary>A nullable non-escaping function, which only a parameter passing it on may be.</summary>
     public bool IsNullableNonEscapingFunction => IsNullable && NonNull.IsNonEscapingFunction;
 
+    /// <summary>
+    /// A second-class value (03-memory-model.md, Second-class values): a <c>ref struct</c> or a
+    /// non-escaping function, nullable or not, which may point into storage it doesn't own, so it
+    /// lives only in locals and parameters and keeps what it was first given.
+    /// </summary>
+    public bool IsSecondClass => IsRefStruct || NonNull.IsNonEscapingFunction;
+
     /// <summary>The type a value of this type has where a null check proved it not null.</summary>
     public WylType Narrowed => this is NullableReferenceType r ? r.Referenced : NonNull;
 

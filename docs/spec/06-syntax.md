@@ -669,7 +669,8 @@ error.
 The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
 non-escaping local stays non-escaping, and storing it is an error that suggests `escaping`.
 Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
-reassigned or declared `mut`, so it can't outlive what its lambda captures. An escaping local can
+reassigned or declared `mut`, so it can't outlive what its lambda captures: non-escaping functions
+are second-class values ([03-memory-model.md](03-memory-model.md#second-class-values)). An escaping local can
 be reassigned if it is `mut`.
 
 - **Escaping is part of the function type.** Each function type has a non-escaping and an

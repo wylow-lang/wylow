@@ -129,7 +129,7 @@ public sealed partial class Binder
             (type, initializer) = InferVariableType(s, initializer);
         }
 
-        if ((type.IsRefStruct || type.IsNonEscapingFunction) && initializer is null)
+        if (type.IsSecondClass && initializer is null)
             Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
         else if (s.IsMutable && type.NonNull.IsNonEscapingFunction)
             Error(s.NameLocation, NonEscapingMutMessage);

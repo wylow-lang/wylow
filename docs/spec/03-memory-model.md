@@ -533,6 +533,25 @@ is gone after the statement. A temporary object is fine: the span holds it.
 > and an extension method may return a `ref struct` that views its `this` parameter and holds its
 > function-typed parameters.
 
+### Second-class values
+
+References, `ref struct`s (spans among them), and non-escaping functions
+([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) are **second-class values**: each may
+point into storage it doesn't own (a place, the elements it views, or the locals a lambda uses), so
+it must not outlive that storage. Without a borrow checker, the rule that ensures this is where
+they may be:
+
+- only in locals and parameters: never in a field, an array or container element, or a type
+  argument, and not captured by an escaping lambda;
+- bound once, where they are declared, and never reassigned;
+- returned only as the method rules above allow (a non-escaping function, never).
+
+A non-escaping function is a view of its creator's frame, so it follows the rules of a `ref
+struct` with three differences: it can't be `mut`, since it has no methods to call; `?:` and switch
+expressions may choose between functions (06-syntax.md §6.7, Choices); and a parameter may be a
+nullable one. A `ref struct` holding a non-escaping function, as planned above, is then one second-class value holding
+another.
+
 ## 3.4 What the checks cost
 
 | Operation | Cost |
