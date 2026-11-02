@@ -8,15 +8,15 @@ interface Named {
     String name();
 }
 
-class Square implements Shape {         // error: 'Square' does not implement 'Shape.area()'
+class Square implements Shape {         // error[WYL0185]: 'Square' does not implement 'Shape.area()'
 }
 
 class Circle implements Shape {
-    pub float area() { return 1; }      // error: 'Circle.area' implements 'Shape.area()', so it must have no visibility, as interface 'Shape' has
+    pub float area() { return 1; }      // error[WYL0187]: 'Circle.area' must have no visibility
 }
 
 class Wrong implements Shape {
-    int area() { return 1; }            // error: must have the same parameter and return types as 'Shape.area()'
+    int area() { return 1; }            // error[WYL0188]: 'Wrong.area' does not match the parameter and return types of 'Shape.area()'
 }
 
 struct Point implements Named {
@@ -24,7 +24,7 @@ struct Point implements Named {
 }
 
 struct Changing implements Named {
-    mut String name() { return "c"; }      // error: 'Changing.name' cannot be 'mut', since 'Named.name()' isn't
+    mut String name() { return "c"; }      // error[WYL0190]: 'Changing.name' cannot be 'mut'
 }
 
 // A class method never changes the reference it is called through.
@@ -32,18 +32,18 @@ class Label implements Named {
     String name() { return "l"; }
 }
 
-class Twice implements Shape, Shape {   // error: 'Shape' is listed more than once
+class Twice implements Shape, Shape {   // error[WYL0184]: interface 'Shape' is listed more than once
     float area() { return 1; }
 }
 
-class NotInterface implements Point { } // error: 'Point' is not an interface
+class NotInterface implements Point { } // error[WYL0183]: cannot implement 'Point', which is not an interface
 
 interface Sub extends Named {
-    mut String name();                      // error: is already declared in interface 'Named'
+    mut String name();                      // error[WYL0182]: 'name()' is already declared in interface 'Named'
 }
 
 interface Generic {
-    mut void m<T>(T x);                     // error: interface methods cannot have type parameters
+    mut void m<T>(T x);                     // error[WYL0181]: interface methods cannot have type parameters
 }
 
 void describe<T extends Named>(T value) {
@@ -51,21 +51,21 @@ void describe<T extends Named>(T value) {
 }
 
 void area<T extends Shape>(T value) {
-    print(value.name());                // error: 'T' has no method 'name'
+    print(value.name());                // error[WYL0300]: cannot find method 'name' in 'T'
 }
 
 void unbounded<T>(T value) {
-    print(value.name());                // error: 'T' has no method 'name'
+    print(value.name());                // error[WYL0300]: cannot find method 'name' in 'T'
 }
 
-void badBound<T extends Point>(T value) { }   // error: 'Point' cannot be a bound
+void badBound<T extends Point>(T value) { }   // error[WYL0207]: 'Point' cannot be a bound
 
 void main() {
-    Named n = Point();                  // error: cannot implicitly convert 'Point' to 'Named'
+    Named n = Point();                  // error[WYL0079]: expected 'Named', found 'Point'
     describe(Point());
-    describe(1);                        // error: 'int' does not implement 'Named', which type parameter 'T' requires
-    describe(new Circle());             // error: 'Circle' does not implement 'Named'
+    describe(1);                        // error[WYL0208]: 'int' does not implement 'Named'
+    describe(new Circle());             // error[WYL0208]: 'Circle' does not implement 'Named'
     Shape s = new Circle();
-    Circle c = s;                       // error: cannot implicitly convert 'Shape' to 'Circle'
-    var x = new Shape();                // error: cannot create an instance of interface 'Shape'
+    Circle c = s;                       // error[WYL0079]: expected 'Circle', found 'Shape'
+    var x = new Shape();                // error[WYL0180]: cannot create an instance of interface 'Shape'
 }

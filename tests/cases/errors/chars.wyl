@@ -1,12 +1,12 @@
 void main() {
-    char empty = '';                // error: a character literal must hold a character
-    char two = 'ab';                // error: a character literal holds exactly one character; use a string for more
-    char escape = '\q';             // error: unknown escape sequence '\q'
-    char noBraces = '\u41';       // error: '\u' must be followed by 1 to 6 hex digits in braces, as in '\u{1F600}'
-    char tooLong = '\u{1234567}';   // error: '\u' must be followed by 1 to 6 hex digits in braces, as in '\u{1F600}'
-    char noDigits = '\u{}';         // error: '\u' must be followed by 1 to 6 hex digits in braces, as in '\u{1F600}'
-    char surrogate = '\u{D800}';    // error: '\u{D800}' is not a Unicode scalar value
-    char tooHigh = '\u{110000}';    // error: '\u{110000}' is not a Unicode scalar value
-    String s = "bad \u{DFFF}";      // error: '\u{DFFF}' is not a Unicode scalar value
-    char open = 'a;                 // error: unterminated character literal
+    char empty = '';                // error[WYL0010]: character literal is empty
+    char two = 'ab';                // error[WYL0012]: character literal holds more than one character
+    char escape = '\q';             // error[WYL0014]: '\q' is not an escape sequence
+    char noBraces = '\u41';       // error[WYL0015]: '\u' is not followed by 1 to 6 hex digits in braces
+    char tooLong = '\u{1234567}';   // error[WYL0015]: '\u' is not followed by 1 to 6 hex digits in braces
+    char noDigits = '\u{}';         // error[WYL0015]: '\u' is not followed by 1 to 6 hex digits in braces
+    char surrogate = '\u{D800}';    // error[WYL0016]: '\u{D800}' is not a Unicode scalar value
+    char tooHigh = '\u{110000}';    // error[WYL0016]: '\u{110000}' is not a Unicode scalar value
+    String s = "bad \u{DFFF}";      // error[WYL0016]: '\u{DFFF}' is not a Unicode scalar value
+    char open = 'a;                 // error[WYL0011]: character literal is not closed
 }

@@ -106,6 +106,6 @@ sealed partial class Mutator
         return files;
     }
 
-    [GeneratedRegex(@"//\s*error:")]
+    [GeneratedRegex(@"//\s*error(?:\[WYL\d{4}\])?:")]
     private static partial Regex ErrorDirective();
 }

@@ -3,51 +3,51 @@ import std::print;
 enum Fields {
     A, B;
 
-    int count;                          // error: enums cannot have fields; data belongs to variants
-    Fields(int x) { }                   // error: enums cannot have constructors
-    mut void look() { }                 // error: enum methods cannot be 'mut', since an enum value cannot be modified
-    virtual void spin() { }             // error: 'virtual' is not valid on enum members
+    int count;                          // error[WYL0153]: enums cannot have fields
+    Fields(int x) { }                   // error[WYL0152]: enums cannot have constructors
+    mut void look() { }                 // error[WYL0163]: enum methods cannot be 'mut'
+    virtual void spin() { }             // error[WYL0162]: 'virtual' cannot be used on an enum member
 }
 
-enum Child extends Fields { C }         // error: enums cannot inherit
+enum Child extends Fields { C }         // error[WYL0150]: enums cannot extend a type
 
 enum Late {
     A;
 
     void f() { }
-    B,                                  // error: enum variants must come before the enum's methods
+    B,                                  // error[WYL0151]: enum variants must come before the enum's methods
 }
 
 enum Missing {
-    A, B                                // error: expected ',' or '}' after an enum variant, or ';' before the enum's methods
+    A, B                                // error[WYL0001]: expected ',' or '}' after an enum variant, or ';' before the enum's methods
 
     void f() { }
 }
 
-enum Refs { A(ref int x) }              // error: 'ref' is only valid on parameters
+enum Refs { A(ref int x) }              // error[WYL0220]: 'ref' can only be used on parameters
 
-enum Defaults { A(int x = 1) }          // error: a variant's fields cannot have default values
+enum Defaults { A(int x = 1) }          // error[WYL0156]: variant fields cannot have default values
 
-enum Empty { }                          // error: expected an enum variant
+enum Empty { }                          // error[WYL0001]: expected an enum variant
 
-enum Colon : uint { A }                 // error: an enum's integer type is given with an annotation, as in '@Repr(uint) enum Colon'
+enum Colon : uint { A }                 // error[WYL0164]: ':' cannot give an enum's integer type
 
 void main() {
     int n = 1;
     switch (n) {
-        case 1: print(1);               // error: cases are written with '->'
+        case 1: print(1);               // error[WYL0366]: expected '->', found ':'
         default -> print(2);
     }
     var x = switch (n) {
-        case 1 -> { print(1); }         // error: the cases of a switch expression must be expressions
+        case 1 -> { print(1); }         // error[WYL0322]: cases of a switch expression cannot be blocks
         default -> 2;
     };
     switch (n) {
-        case 1 -> int y = 2;            // error: a variable cannot be declared here
+        case 1 -> int y = 2;            // error[WYL0365]: variable cannot be declared directly in a case
         default -> print(2);
     }
     switch (n) {
-        print(1);                       // error: expected 'case' or 'default'
+        print(1);                       // error[WYL0001]: expected 'case' or 'default'
     }
-    _ print(1);                         // error: expected '=' after '_'
+    _ print(1);                         // error[WYL0001]: expected '=' after '_'
 }

@@ -4,50 +4,50 @@ enum Direction { North, East, South, West }
 
 enum Repeated {
     A,
-    A,                                  // error: variant 'A' is already defined
-    B(int x, int x),                    // error: duplicate field 'x'
+    A,                                  // error[WYL0161]: variant 'A' is already defined
+    B(int x, int x),                    // error[WYL0099]: field 'x' is already defined
     ;
 
-    void B() { }                        // error: 'B' is already defined as a variant
+    void B() { }                        // error[WYL0097]: 'B' is already defined as a variant
 }
 
 @Repr(int)
 enum Typed {
     Zero,
     Two = 2,
-    AlsoTwo = 2,                        // error: 'AlsoTwo' has the same value as 'Two'
+    AlsoTwo = 2,                        // error[WYL0170]: 'AlsoTwo' has the same value as 'Two'
     Three,
-    Big = 3000000000,                   // error: the value does not fit in the enum's integer type 'int'
-    Computed = 1 + 1,                   // error: a variant's value must be an integer literal
+    Big = 3000000000,                   // error[WYL0173]: value does not fit in the enum's integer type 'int'
+    Computed = 1 + 1,                   // error[WYL0172]: variant's value must be an integer literal
 }
 
-@Repr(float)                            // error: '@Repr' takes an integer type, not 'float'
+@Repr(float)                            // error[WYL0168]: '@Repr' type: expected an integer type, found 'float'
 enum Floating { A }
 
-@Repr(long)                             // error: an enum whose variants carry data cannot have '@Repr'
+@Repr(long)                             // error[WYL0167]: enum whose variants carry data cannot have '@Repr'
 enum DataWithType {
     A(int x),
 }
 
-@Repr                                   // error: '@Repr' takes one integer type, as in '@Repr(uint)'
+@Repr                                   // error[WYL0165]: '@Repr' takes one integer type
 enum NoType { A }
 
 @Repr(int)
-@Repr(long)                             // error: '@Repr' can only be given once
+@Repr(long)                             // error[WYL0166]: '@Repr' can only be given once
 enum Twice { A }
 
-@Repr(int)                              // error: '@Repr' can only be used on enums
+@Repr(int)                              // error[WYL0432]: '@Repr' can only be used on enums
 struct NotEnum { }
 
-@Acyclic(1)                             // error: '@Acyclic' takes no arguments
+@Acyclic(1)                             // error[WYL0431]: '@Acyclic' takes no arguments
 class Annotated { }
 
 enum DataWithValue {
     A(int x),
-    B = 1,                              // error: only enums whose variants carry no data can give variants values
+    B = 1,                              // error[WYL0169]: only enums whose variants carry no data can give variants values
 }
 
-enum Chain { End, Link(Chain next) }    // error: enum 'Chain' contains itself (Chain -> Chain)
+enum Chain { End, Link(Chain next) }    // error[WYL0106]: enum 'Chain' contains itself
 
 enum Named { Label(String text) }
 
@@ -58,29 +58,29 @@ class Thing { }
 enum Watched { On(Weak<Thing> target) }
 
 void main() {
-    var d = Direction();                // error: enums are created from their variants, as in 'Direction.North'
-    var n = new Direction();            // error: enums are created from their variants without 'new'
-    var u = Up;                         // error: 'Up' is not defined
-    var e = East;                       // error: 'East' is not defined; to create the 'Direction' variant, write 'Direction.East'
-    var none = None;                    // error: 'None' is not defined; to create the 'Option' variant, write 'Option<...>.None'
-    var some = Option.None;             // error: cannot infer type argument 'T' of 'Option' from 'None'
-    Direction p = Direction.Up;         // error: 'Direction' has no static member 'Up'
-    var l = Named.Label;                // error: 'Named.Label' carries data; create it with 'Named.Label(...)'
-    var x = Direction.North();          // error: 'Direction.North' carries no data; write it without parentheses
-    var two = Named.Label("a", "b");    // error: 'Named.Label' has 1 field, but 2 values were given
-    var wrong = Named.Label(1);         // error: no variant 'Named.Label' accepts (int)
-    var explicit = Option<int>.Some("s"); // error: no variant 'Option.Some' accepts (String)
-    var typed = Option.Some<int>(1);    // error: type arguments belong to the enum, as in 'Option<...>.Some(...)'
+    var d = Direction();                // error[WYL0288]: enum 'Direction' cannot be constructed
+    var n = new Direction();            // error[WYL0290]: enum 'Direction' cannot be created with 'new'
+    var u = Up;                         // error[WYL0281]: cannot find 'Up' in this scope
+    var e = East;                       // error[WYL0281]: cannot find 'East' in this scope
+    var none = None;                    // error[WYL0281]: cannot find 'None' in this scope
+    var some = Option.None;             // error[WYL0160]: cannot infer type argument 'T' of 'Option' from 'None'
+    Direction p = Direction.Up;         // error[WYL0293]: cannot find static member 'Up' in 'Direction'
+    var l = Named.Label;                // error[WYL0157]: variant 'Named.Label' carries data
+    var x = Direction.North();          // error[WYL0158]: variant 'Direction.North' carries no data
+    var two = Named.Label("a", "b");    // error[WYL0159]: values of 'Named.Label': expected 1, found 2
+    var wrong = Named.Label(1);         // error[WYL0236]: no variant 'Named.Label' accepts (int)
+    var explicit = Option<int>.Some("s"); // error[WYL0236]: no variant 'Option.Some' accepts (String)
+    var typed = Option.Some<int>(1);    // error[WYL0197]: type arguments belong to the enum, not its variant
     var label = Named.Label("a");
-    print(label.text);                  // error: a variant's fields can only be read with a pattern
+    print(label.text);                  // error[WYL0295]: fields of a variant can only be read with a pattern
     var watched = Watched.On(null);
-    print(watched == watched);          // error: operator '==' cannot be applied to 'Watched' because its field 'target' of type 'Weak<Thing>' does not support '=='
-    print(Direction.East == 1);         // error: operator '==' cannot be applied to 'Direction' and 'int'
-    print(Direction.North < Direction.East); // error: operator '<' cannot be applied to 'Direction' and 'Direction'
-    print((int)label);                  // error: cannot convert 'Named' to 'int'
-    print((Direction)1.5);              // error: cannot convert 'float' to 'Direction'
+    print(watched == watched);          // error[WYL0310]: operator '==' cannot be applied to 'Watched'
+    print(Direction.East == 1);         // error[WYL0308]: operator '==' cannot be applied to 'Direction' and 'int'
+    print(Direction.North < Direction.East); // error[WYL0308]: operator '<' cannot be applied to 'Direction' and 'Direction'
+    print((int)label);                  // error[WYL0083]: cannot cast 'Named' to 'int'
+    print((Direction)1.5);              // error[WYL0083]: cannot cast 'float' to 'Direction'
     Option<int> o = Some(1);
-    Option<Thing> t = Some(1);          // error: no variant 'Option.Some' accepts (int)
+    Option<Thing> t = Some(1);          // error[WYL0236]: no variant 'Option.Some' accepts (int)
     mut Direction q = Direction.North;
-    q = Wesst;                          // error: 'Wesst' is not defined
+    q = Wesst;                          // error[WYL0281]: cannot find 'Wesst' in this scope
 }

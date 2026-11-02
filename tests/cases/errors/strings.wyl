@@ -1,8 +1,8 @@
 import std::print;
 
-extern struct String { }            // error: 'String' is already defined
+extern struct String { }            // error[WYL0034]: 'String' is already defined in this module
 
-@Pure                               // error: '@Pure' can only be used on extern functions of the standard library
+@Pure                               // error[WYL0432]: '@Pure' can only be used on extern functions of the standard library
 int twice(int x) {
     return x * 2;
 }
@@ -13,12 +13,12 @@ String? maybe() {
 
 void main() {
     String s = "abc";
-    s.missing();                    // error: 'String' has no method 'missing'
-    print(s.size);                  // error: 'String' has no member 'size'
-    print(s.charCount);             // error: 'String.charCount' is a method; call it with 'charCount(...)'
-    print(s.slice(1));              // error: no overload of 'String.slice' takes 1 argument
-    print(s.indexOf(5));            // error: no overload of 'String.indexOf' accepts (int)
-    int at = s.indexOf("b");        // error: cannot implicitly convert 'int?' to 'int'
-    print(String.byteLength);       // error: 'String' is not defined
-    print(maybe().byteLength);      // error: might be null
+    s.missing();                    // error[WYL0300]: cannot find method 'missing' in 'String'
+    print(s.size);                  // error[WYL0296]: cannot find member 'size' in 'String'
+    print(s.charCount);             // error[WYL0298]: method 'String.charCount' is used as a field
+    print(s.slice(1));              // error[WYL0233]: no overload of 'String.slice' takes 1 argument
+    print(s.indexOf(5));            // error[WYL0236]: no overload of 'String.indexOf' accepts (int)
+    int at = s.indexOf("b");        // error[WYL0079]: expected 'int', found 'int?'
+    print(String.byteLength);       // error[WYL0281]: cannot find 'String' in this scope
+    print(maybe().byteLength);      // error[WYL0065]: 'maybe()' might be null
 }

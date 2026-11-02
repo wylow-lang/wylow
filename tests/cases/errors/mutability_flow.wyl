@@ -5,17 +5,17 @@ import std::print;
 void deferred(bool c) {
     int once;
     once = 1;
-    once = 2;                               // error: 'once' might already have been assigned; declare it 'mut' to assign it more than once
+    once = 2;                               // error[WYL0395]: 'once' might already have been assigned
 
     int branches;
     if (c) {
         branches = 1;
     }
-    branches = 2;                           // error: 'branches' might already have been assigned
+    branches = 2;                           // error[WYL0395]: 'branches' might already have been assigned
 
     int looped;
     while (c) {
-        looped = 1;                         // error: 'looped' might already have been assigned
+        looped = 1;                         // error[WYL0395]: 'looped' might already have been assigned
     }
 
     // Each iteration declares a new one.

@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 
 namespace Wyl.Compiler.Semantics;
@@ -30,11 +31,9 @@ public sealed partial class Binder
     static IReadOnlyList<FunctionSymbol>? Functions(List<Candidate> methods) =>
         methods.Count == 0 ? null : [.. methods.Select(m => m.Symbol)];
 
-    /// <summary>For a function used as a value where no function type is expected, how it could be used as one.</summary>
-    string ReferenceHint(Expr expression) =>
-        ReferencedFunctions(expression) is { } referenced && !referenced.Any(f => f.IsInstanceMethod)
-            ? ", or use it where a function type is expected"
-            : "";
+    /// <summary>Whether a function used as a value where no function type is expected could be used as one where one is.</summary>
+    bool CanReference(Expr expression) =>
+        ReferencedFunctions(expression) is { } referenced && !referenced.Any(f => f.IsInstanceMethod);
 
     /// <summary>
     /// A function reference converted to the function type <paramref name="type"/>, or, without one,
@@ -45,8 +44,7 @@ public sealed partial class Binder
         var name = TextOf(reference.Location);
         if (overloads.Any(f => f.IsInstanceMethod))
         {
-            return ErrorExpression(reference.Location,
-                $"'{name}' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it");
+            return ErrorExpression(Catalog.InstanceMethodReference(reference.Location, name));
         }
         if (type is not null)
             return BindLambda(ReferenceLambda(reference, type.Parameters), type, null);
@@ -55,8 +53,7 @@ public sealed partial class Binder
         var counts = overloads.Select(f => f.Parameters.Count).Distinct().ToList();
         if (counts.Count > 1)
         {
-            return ErrorExpression(reference.Location,
-                $"'{name}' has overloads taking different numbers of arguments, so it can only be used where a function type is expected; use a lambda that calls it");
+            return ErrorExpression(Catalog.OverloadedReference(reference.Location, name));
         }
         var parameters = Enumerable.Repeat(new FunctionParameterType(RefKind.None, WylType.Error), counts[0]).ToList();
         return new BoundPendingLambda(reference.Location, ReferenceLambda(reference, parameters), null)

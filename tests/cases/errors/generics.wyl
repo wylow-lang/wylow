@@ -9,7 +9,7 @@ struct Pair<A, B> {
     B second;
 }
 
-struct Node<T> {                  // error: struct 'Node' contains itself (Node<T> -> Node<T>)
+struct Node<T> {                  // error[WYL0106]: struct 'Node' contains itself
     Node<T> next;
 }
 
@@ -17,33 +17,33 @@ struct Wrap<T> {
     T value;
 }
 
-struct Rec {                      // error: struct 'Rec' contains itself (Rec -> Wrap<Rec> -> Rec)
+struct Rec {                      // error[WYL0106]: struct 'Rec' contains itself
     Wrap<Rec> inner;
 }
 
-struct Grow<T> {                  // error: struct 'Grow' has field types that nest without end
+struct Grow<T> {                  // error[WYL0107]: struct 'Grow' has field types that nest without end
     Grow<Pair<T, T>> next;
 }
 
 struct Shadow<T> {
-    mut void method<T>() {            // error: type parameter 'T' hides the type parameter of the same name
+    mut void method<T>() {            // error[WYL0193]: type parameter 'T' hides the type parameter 'T' of its type
     }
 }
 
 T make<T>() {
-    return T();                   // error: 'T' is a type parameter and cannot be constructed
+    return T();                   // error[WYL0191]: cannot construct type parameter 'T'
 }
 
 bool same<T>(T a, T b) {
-    return a == b;                // error: operator '==' cannot be applied to 'T' and 'T'
+    return a == b;                // error[WYL0308]: operator '==' cannot be applied to 'T' and 'T'
 }
 
 void show<T>(T value) {
-    print(value);                 // error: no overload of 'print' accepts (T)
+    print(value);                 // error[WYL0236]: no overload of 'print' accepts (T)
 }
 
 Pair<T, int> half<T>(T x) {
-    return Pair<T, int>();        // error: 'Pair<T, int>' has no default value because field 'first' has type 'T'
+    return Pair<T, int>();        // error[WYL0102]: 'Pair<T, int>' has no default value
 }
 
 Pair<T, int> full<T>(T x) {
@@ -55,16 +55,16 @@ T choose<T>(fn(int) -> T f) {
 }
 
 void main() {
-    Pair p;                       // error: 'Pair' requires 2 type arguments
-    Pair<int> q;                  // error: 'Pair' requires 2 type arguments
-    int<bool> r;                  // error: 'int' is not generic
-    Plain<int> plain;             // error: 'Plain' is not generic
-    print(make());                // error: cannot infer type argument 'T' of 'make'
+    Pair p;                       // error[WYL0200]: type arguments of 'Pair': expected 2, found 0
+    Pair<int> q;                  // error[WYL0200]: type arguments of 'Pair': expected 2, found 1
+    int<bool> r;                  // error[WYL0199]: type 'int' takes no type arguments
+    Plain<int> plain;             // error[WYL0199]: type 'Plain' takes no type arguments
+    print(make());                // error[WYL0201]: cannot infer type argument 'T' of 'make'
     var w = Wrap<int>();
-    print(w.value.first);         // error: 'int' has no member 'first'
-    var pp = Pair<int, int>(1, 2, 3); // error: no constructor of 'Pair<int, int>' takes 3 arguments
-    var conflict = full<int, int>(1); // error: no overload of 'full' takes 2 type arguments
-    var mixed = choose(x -> {     // error: cannot infer type argument 'T' of 'choose': it could be 'int' or 'float'
+    print(w.value.first);         // error[WYL0296]: cannot find member 'first' in 'int'
+    var pp = Pair<int, int>(1, 2, 3); // error[WYL0233]: no constructor of 'Pair<int, int>' takes 3 arguments
+    var conflict = full<int, int>(1); // error[WYL0234]: no overload of 'full' takes 2 type arguments
+    var mixed = choose(x -> {     // error[WYL0204]: cannot infer type argument 'T' of 'choose'
         mut int n = 1;
         if (x > 0) {
             return n;
@@ -72,6 +72,6 @@ void main() {
         return 0.5;
     });
     var bad = Pair<(fn() -> int)?, int>();
-    print(bad == bad);            // error: its field 'first' of type '(fn() -> int)?' does not support '=='
-    same(print(1), print(2));     // error: cannot infer type argument 'T' of 'same' from a 'void' value; a call that returns nothing cannot be an argument
+    print(bad == bad);            // error[WYL0310]: operator '==' cannot be applied to 'Pair<(fn() -> int)?, int>'
+    same(print(1), print(2));     // error[WYL0202]: cannot infer type argument 'T' of 'same' from a 'void' value
 }

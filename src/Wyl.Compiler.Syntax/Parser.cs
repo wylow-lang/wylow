@@ -50,19 +50,19 @@ public sealed partial class Parser
         if (At(kind))
             return Advance();
         if (SyntaxFacts.IsAssignmentOperator(Current.Kind))
-            Error(Current.Span, "assignment is a statement in Wylow and cannot be used inside an expression");
+            Report(Catalog.AssignmentInExpression(Loc(Current.Span)));
         else
-            Error(new TextSpan(Previous.Span.End, 0), $"expected {description}");
+            Report(Catalog.Expected(Loc(new TextSpan(Previous.Span.End, 0)), description));
         return new Token(kind, new TextSpan(Current.Span.Start, 0), "", null);
     }
 
-    void Error(TextSpan span, string message)
+    void Report(Diagnostic diagnostic)
     {
         // One error per position; later errors at the same spot are almost always cascades.
-        if (span.Start == lastErrorPosition)
+        if (diagnostic.Location.Span.Start == lastErrorPosition)
             return;
-        lastErrorPosition = span.Start;
-        diagnostics.Error(new Location(source, span), message);
+        lastErrorPosition = diagnostic.Location.Span.Start;
+        diagnostics.Add(diagnostic);
     }
 
     Location Loc(TextSpan span) => new(source, span);
@@ -82,11 +82,11 @@ public sealed partial class Parser
             if (At(TokenKind.ImportKeyword))
             {
                 if (annotations.Count > 0)
-                    Error(annotations[0].Location.Span, "an import takes no annotations");
-                Disallow(modifiers, ~Modifiers.None, token => $"'{token.Text}' is not valid on an import");
+                    Report(Catalog.ImportWithAnnotations(annotations[0].Location));
+                Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnImport(Loc(token.Span), token.Text));
                 // As in Java, so a file's first lines say what it uses.
                 if (declarations.Count > 0)
-                    Error(Current.Span, "imports come before the file's declarations");
+                    Report(Catalog.ImportAfterDeclaration(Loc(Current.Span)));
                 imports.Add(ParseImport(start, modifiers.Visibility));
                 continue;
             }
@@ -103,16 +103,16 @@ public sealed partial class Parser
                     TypeKind.Struct => Modifiers.Ref | Modifiers.Extern,
                     _ => Modifiers.Ref,
                 };
-                Disallow(modifiers, ~allowed, token => $"'{token.Text}' is not valid on {SyntaxFacts.KindNameWithArticle(kind)}");
+                Disallow(modifiers, ~allowed, token => Catalog.ModifierOnType(Loc(token.Span), token.Text, SyntaxFacts.KindNameWithArticle(kind)));
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
-                    Error(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span, "a class cannot be both 'abstract' and 'final'");
+                    Report(Catalog.AbstractFinalClass(Loc(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span)));
                 declarations.Add(ParseTypeDecl(start, modifiers, kind) with { Annotations = annotations });
                 continue;
             }
             // A '(' is a grouped function type, or the old spelling, which ParseType reports.
             if (SyntaxFacts.IsTypeStart(Current.Kind) || At(TokenKind.OpenParen))
             {
-                Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => $"'{token.Text}' is not valid on a function");
+                Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => Catalog.ModifierOnFunction(Loc(token.Span), token.Text));
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
                 if (name.Text != "" && (At(TokenKind.Assign) || At(TokenKind.Semicolon)))
@@ -131,9 +131,7 @@ public sealed partial class Parser
                 SkipTopLevelVariable(Advance());
                 continue;
             }
-            Error(Current.Span, At(TokenKind.ReservedKeyword)
-                ? $"'{Current.Text}' is not supported yet"
-                : "expected a function or type declaration");
+            Report(At(TokenKind.ReservedKeyword) ? Catalog.ReservedKeyword(Loc(Current.Span), Current.Text) : Catalog.Expected(Loc(Current.Span), "a function or type declaration"));
             SkipDeclaration();
             if (position == start)
                 Advance();
@@ -168,7 +166,7 @@ public sealed partial class Parser
                 }
                 else
                 {
-                    Error(Current.Span, "expected a name to import");
+                    Report(Catalog.Expected(Loc(Current.Span), "a name to import"));
                 }
                 Expect(TokenKind.CloseBrace, "'}'");
                 break;
@@ -184,7 +182,7 @@ public sealed partial class Parser
         var location = LocationFrom(start);
         if (!Accept(TokenKind.Semicolon))
         {
-            Error(new TextSpan(Previous.Span.End, 0), "expected ';'");
+            Report(Catalog.Expected(Loc(new TextSpan(Previous.Span.End, 0)), "';'"));
             if (!At(TokenKind.ImportKeyword))
                 SkipDeclaration();
         }
@@ -237,7 +235,7 @@ public sealed partial class Parser
     // Reported once at the name, rather than as a malformed function that confuses what follows.
     void SkipTopLevelVariable(Token name)
     {
-        Error(name.Span, $"top-level variables and constants are not supported yet; declare '{name.Text}' inside a function or type");
+        Report(Catalog.TopLevelVariable(Loc(name.Span), name.Text));
         SkipDeclaration();
     }
 
@@ -245,9 +243,9 @@ public sealed partial class Parser
     {
         bool isExtern = (function.Modifiers & Modifiers.Extern) != 0;
         if (function.Body is null && !isExtern)
-            Error(function.NameLocation.Span, $"'{function.Name}' must have a body");
+            Report(Catalog.MissingBody(function.NameLocation, function.Name));
         else if (function.Body is not null && isExtern)
-            Error(function.NameLocation.Span, $"extern function '{function.Name}' cannot have a body; it is implemented in C++");
+            Report(Catalog.ExternBody(function.NameLocation, function.Name));
     }
 
     List<AnnotationSyntax> ParseAnnotations()
@@ -298,20 +296,20 @@ public sealed partial class Parser
                 var span = TextSpan.FromBounds(start, Previous.Span.End);
                 if (visibilitySpan is not null)
                 {
-                    Error(span, "only one visibility is allowed");
+                    Report(Catalog.DuplicateVisibility(Loc(span)));
                     continue;
                 }
                 if (tokens.Count > 0)
                 {
                     var written = level == Visibility.File ? "pub" : SyntaxFacts.VisibilityText(level);
-                    Error(span, $"the visibility comes first among modifiers, as in '{written} {tokens[0].Item2.Text}'");
+                    Report(Catalog.VisibilityNotFirst(Loc(span), written, tokens[0].Item2.Text));
                 }
                 (visibility, visibilitySpan) = (level, span);
                 continue;
             }
             if (At(TokenKind.EscapingKeyword))
             {
-                Error(Current.Span, EscapingElsewhereMessage);
+                Report(Catalog.EscapingElsewhere(Loc(Current.Span)));
                 Advance();
                 continue;
             }
@@ -332,7 +330,7 @@ public sealed partial class Parser
 
             var token = Advance();
             if ((flags & flag) != 0)
-                Error(token.Span, $"duplicate '{token.Text}' modifier");
+                Report(Catalog.DuplicateModifier(Loc(token.Span), token.Text));
             flags |= flag;
             tokens.Add((flag, token));
         }
@@ -344,12 +342,7 @@ public sealed partial class Parser
         var keyword = Advance();
         if (keyword.Kind == TokenKind.JavaAccessKeyword)
         {
-            Error(keyword.Span, keyword.Text switch
-            {
-                "public" => "Wylow writes 'pub', not 'public'",
-                "private" => "declarations are private to their file unless marked 'pub'; remove 'private'",
-                _ => "Wylow has no 'protected'; a subclass sees what its file and module see, so write the 'pub' level that subclasses elsewhere need",
-            });
+            Report(Catalog.NotAVisibility(Loc(keyword.Span), keyword.Text));
             return keyword.Text == "public" ? Visibility.Public : Visibility.File;
         }
         // Only a name in parentheses is a visibility; `pub (fn() -> void)? f;` is a field.
@@ -365,17 +358,17 @@ public sealed partial class Parser
             case "package":
                 return Visibility.Package;
             default:
-                Error(scope.Span, $"expected 'pub(module)' or 'pub(package)', not 'pub({scope.Text})'");
+                Report(Catalog.UnknownVisibilityScope(Loc(scope.Span), scope.Text));
                 return Visibility.Public;
         }
     }
 
-    void Disallow(ModifierList modifiers, Modifiers disallowed, Func<Token, string> message)
+    void Disallow(ModifierList modifiers, Modifiers disallowed, Func<Token, Diagnostic> message)
     {
         foreach (var (flag, token) in modifiers.Tokens)
         {
             if ((flag & disallowed) != 0)
-                Error(token.Span, message(token));
+                Report(message(token));
         }
     }
 

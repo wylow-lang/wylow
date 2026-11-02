@@ -34,8 +34,8 @@ Other modes, the fuzzer, the generator, mutation testing, coverage, and the dash
 
 ## Writing tests
 
-`tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error:` (on the erroring
-line; list every error exactly), `// panic:` or `// panic-here:` (also checks the line), and
+`tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error[WYLnnnn]: <message>` (on the
+erroring line; list every error, with its code and exact message), `// panic:` or `// panic-here:` (also checks the line), and
 `// mode: release` comments. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the `std` names it uses (`import std::{List, print};`). A directory with a
@@ -99,7 +99,8 @@ command rather than waiting on one.
 - Subject: `area: what changed`, enforced by `.githooks/commit-msg` (`git config core.hooksPath
   .githooks`). Areas: `lexer`, `parser`, `binder`, `types`, `verifier`, `lowering`, `analysis`,
   `opt`, `emitter`, `interp`, `runtime`, `stdlib`, `cli`, `spec`, `docs`, `tests`, `fuzz`,
-  `generate`, `mutation`, `dashboard`, `build`; two are written `lowering, emitter: ...`.
+  `generate`, `mutation`, `dashboard`, `build`, `diagnostics` (a change to the catalog across layers);
+  two are written `lowering, emitter: ...`.
 - Name the feature or component, never a plan step or handoff. A fix names the symptom and its
   trigger. The body says why, then what, and names the test that pins it.
 

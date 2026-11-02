@@ -7,10 +7,10 @@ out 1
 exit 0
 
 === local/assign
-error 30: cannot assign to 'x' because variable 'x' is not 'mut'
+error 30: cannot assign to 'x'
 
 === local/compound
-error 30: cannot assign to 'x' because variable 'x' is not 'mut'
+error 30: cannot assign to 'x'
 
 === local/pass
 out 1
@@ -59,18 +59,18 @@ out 1
 exit 0
 
 === local/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === local/return
 out 1
 exit 0
 
 === local/return-ref
-error 31: cannot take a 'ref' to 'x' because variable 'x' is not 'mut'; use 'in' instead
+error 31: cannot bind 'ref' to read-only 'x'
 
 === local/reassign
-error 30: cannot take a 'ref' to 'x' because variable 'x' is not 'mut'; use 'in' instead
-error 31: cannot assign to 'x' because variable 'x' is not 'mut'
+error 30: cannot bind 'ref' to read-only 'x'
+error 31: cannot assign to 'x'
 
 === mut-local/read
 out 1
@@ -119,17 +119,17 @@ out 5
 exit 0
 
 === mut-local/capture-escaping
-error 31: cannot assign to 'x' because an escaping lambda only has a copy of 'x'
+error 31: cannot assign to 'x'
 
 === mut-local/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === mut-local/return
 out 1
 exit 0
 
 === mut-local/return-ref
-error 31: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 31: returned 'ref' must point into the method's receiver
 
 === mut-local/reassign
 out 5
@@ -183,10 +183,10 @@ out 5
 exit 0
 
 === field/capture-escaping
-error 31: cannot assign to 'p.value' because an escaping lambda only has a copy of 'p'
+error 31: cannot assign to 'p.value'
 
 === field/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === field/return
 out 1
@@ -248,10 +248,10 @@ out 5
 exit 0
 
 === fixed-element-first/capture-escaping
-error 31: cannot assign to 'a[0]' because an escaping lambda only has a copy of 'a'
+error 31: cannot assign to 'a[0]'
 
 === fixed-element-first/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-first/return
 out 1
@@ -313,10 +313,10 @@ out 5
 exit 0
 
 === fixed-element-last/capture-escaping
-error 31: cannot assign to 'a[2]' because an escaping lambda only has a copy of 'a'
+error 31: cannot assign to 'a[2]'
 
 === fixed-element-last/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-last/return
 out 3
@@ -378,10 +378,10 @@ out 5
 exit 0
 
 === fixed-element-single/capture-escaping
-error 31: cannot assign to 'a[0]' because an escaping lambda only has a copy of 'a'
+error 31: cannot assign to 'a[0]'
 
 === fixed-element-single/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-single/return
 out 1
@@ -447,14 +447,14 @@ out 5
 exit 0
 
 === list-element-first/narrow
-error 33: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 33: '!' is used on a value of non-nullable type 'int'
 
 === list-element-first/return
 out 1
 exit 0
 
 === list-element-first/return-ref
-error 38: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 38: returned 'ref' must point into the method's receiver
 
 === list-element-first/reassign
 out 5
@@ -512,14 +512,14 @@ out 5
 exit 0
 
 === list-element-last/narrow
-error 33: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 33: '!' is used on a value of non-nullable type 'int'
 
 === list-element-last/return
 out 3
 exit 0
 
 === list-element-last/return-ref
-error 38: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 38: returned 'ref' must point into the method's receiver
 
 === list-element-last/reassign
 out 5
@@ -577,14 +577,14 @@ out 5
 exit 0
 
 === list-element-single/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === list-element-single/return
 out 1
 exit 0
 
 === list-element-single/return-ref
-error 36: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 36: returned 'ref' must point into the method's receiver
 
 === list-element-single/reassign
 out 5
@@ -638,17 +638,17 @@ out 5
 exit 0
 
 === span-element-first/capture-escaping
-error 32: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+error 32: escaping lambda cannot capture 's'
 
 === span-element-first/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === span-element-first/return
 out 1
 exit 0
 
 === span-element-first/return-ref
-error 33: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 33: returned 'ref' must point into the method's receiver
 
 === span-element-first/reassign
 out 5
@@ -702,17 +702,17 @@ out 5
 exit 0
 
 === span-element-last/capture-escaping
-error 32: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+error 32: escaping lambda cannot capture 's'
 
 === span-element-last/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === span-element-last/return
 out 3
 exit 0
 
 === span-element-last/return-ref
-error 33: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 33: returned 'ref' must point into the method's receiver
 
 === span-element-last/reassign
 out 5
@@ -766,17 +766,17 @@ out 5
 exit 0
 
 === span-element-single/capture-escaping
-error 32: an escaping lambda cannot capture 's', a 'Span<int>' that may not outlive what it views
+error 32: escaping lambda cannot capture 's'
 
 === span-element-single/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === span-element-single/return
 out 1
 exit 0
 
 === span-element-single/return-ref
-error 33: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 33: returned 'ref' must point into the method's receiver
 
 === span-element-single/reassign
 out 5
@@ -830,17 +830,17 @@ out 5
 exit 0
 
 === ref-local/capture-escaping
-error 32: cannot assign to 'r' because an escaping lambda only has a copy of 'r'
+error 32: cannot assign to 'r'
 
 === ref-local/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === ref-local/return
 out 1
 exit 0
 
 === ref-local/return-ref
-error 32: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 32: returned 'ref' must point into the method's receiver
 
 === ref-local/reassign
 out 5
@@ -853,10 +853,10 @@ out 1
 exit 0
 
 === in-local/assign
-error 31: cannot assign to 'r' because 'r' is an 'in' variable
+error 31: cannot assign to 'r'
 
 === in-local/compound
-error 31: cannot assign to 'r' because 'r' is an 'in' variable
+error 31: cannot assign to 'r'
 
 === in-local/pass
 out 1
@@ -900,21 +900,21 @@ out 1
 exit 0
 
 === in-local/capture-escaping
-error 32: an escaping lambda cannot capture 'r', which is an 'in' variable; copy its value to a local first
+error 32: escaping lambda cannot capture 'r'
 
 === in-local/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === in-local/return
 out 1
 exit 0
 
 === in-local/return-ref
-error 32: cannot take a 'ref' to 'r' because 'r' is an 'in' variable; use 'in' instead
+error 32: cannot bind 'ref' to read-only 'r'
 
 === in-local/reassign
-error 31: cannot take a 'ref' to 'r' because 'r' is an 'in' variable; use 'in' instead
-error 32: cannot assign to 'r' because 'r' is an 'in' variable
+error 31: cannot bind 'ref' to read-only 'r'
+error 32: cannot assign to 'r'
 
 === ref-nullable-local/read
 out 1
@@ -963,7 +963,7 @@ out 5
 exit 0
 
 === ref-nullable-local/capture-escaping
-error 32: cannot assign to 'q!' because an escaping lambda only has a copy of 'q'
+error 32: cannot assign to 'q!'
 
 === ref-nullable-local/narrow
 out 1
@@ -975,7 +975,7 @@ out 1
 exit 0
 
 === ref-nullable-local/return-ref
-error 32: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 32: returned 'ref' must point into the method's receiver
 
 === ref-nullable-local/reassign
 out 5
@@ -988,10 +988,10 @@ out 1
 exit 0
 
 === in-nullable-local/assign
-error 31: cannot assign to 'q!' because 'q' is an 'in' variable
+error 31: cannot assign to 'q!'
 
 === in-nullable-local/compound
-error 31: cannot assign to 'q!' because 'q' is an 'in' variable
+error 31: cannot assign to 'q!'
 
 === in-nullable-local/pass
 out 1
@@ -1035,7 +1035,7 @@ out 1
 exit 0
 
 === in-nullable-local/capture-escaping
-error 32: an escaping lambda cannot capture 'q', which is an 'in' variable; copy its value to a local first
+error 32: escaping lambda cannot capture 'q'
 
 === in-nullable-local/narrow
 out 1
@@ -1047,11 +1047,11 @@ out 1
 exit 0
 
 === in-nullable-local/return-ref
-error 32: cannot take a 'ref' to 'q!' because 'q' is an 'in' variable; use 'in' instead
+error 32: cannot bind 'ref' to read-only 'q!'
 
 === in-nullable-local/reassign
-error 31: cannot take a 'ref' to 'q!' because 'q' is an 'in' variable; use 'in' instead
-error 32: cannot assign to 'q!' because 'q' is an 'in' variable
+error 31: cannot bind 'ref' to read-only 'q!'
+error 32: cannot assign to 'q!'
 
 === nullable-value/read
 out 1
@@ -1072,26 +1072,26 @@ out 1
 exit 0
 
 === nullable-value/pass-ref-in
-error 31: a 'ref' argument must have exactly type 'int', not 'int?'
+error 31: 'ref' argument: expected 'int', found 'int?'
 
 === nullable-value/take-ref-in
-error 31: a 'ref' variable cannot refer to the nullable variable 'v'; pass it by 'ref' to a function instead
+error 31: 'ref' variable cannot refer to nullable variable 'v'
 
 === nullable-value/take-ref-nullable
-error 31: a 'ref?' variable cannot refer to the nullable variable 'v'; pass it by 'ref' to a function instead
+error 31: 'ref?' variable cannot refer to nullable variable 'v'
 
 === nullable-value/span
-error 31: cannot implicitly convert 'int[3]?' to 'Span<int>'; a span cannot view inside the nullable 'v', which assigning it null would destroy; copy the value to a variable first
+error 31: expected 'Span<int>', found 'int[3]?'
 
 === nullable-value/loop
-error 31: cannot loop over elements inside the nullable 'v', which assigning it null would destroy; copy the value to a variable first
+error 31: cannot loop over elements inside nullable 'v'
 
 === nullable-value/capture
 out 5
 exit 0
 
 === nullable-value/capture-escaping
-error 32: cannot assign to 'v' because an escaping lambda only has a copy of 'v'
+error 32: cannot assign to 'v'
 
 === nullable-value/narrow
 out 1
@@ -1103,10 +1103,10 @@ out 1
 exit 0
 
 === nullable-value/return-ref
-error 31: a returned 'ref' cannot refer to the nullable variable 'v'; pass it by 'ref' to a function instead
+error 31: returned 'ref' cannot refer to nullable variable 'v'
 
 === nullable-value/reassign
-error 31: a 'ref' variable cannot refer to the nullable variable 'v'; pass it by 'ref' to a function instead
+error 31: 'ref' variable cannot refer to nullable variable 'v'
 
 === captured-local/read
 out 1
@@ -1155,17 +1155,17 @@ out 5
 exit 0
 
 === captured-local/capture-escaping
-error 32: cannot assign to 'x' because an escaping lambda only has a copy of 'x'
+error 32: cannot assign to 'x'
 
 === captured-local/narrow
-error 31: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 31: '!' is used on a value of non-nullable type 'int'
 
 === captured-local/return
 out 1
 exit 0
 
 === captured-local/return-ref
-error 31: a returned 'ref' must point into the method's receiver: a field or element of 'this'
+error 31: returned 'ref' must point into the method's receiver
 
 === captured-local/reassign
 out 5
@@ -1223,7 +1223,7 @@ out 5
 exit 0
 
 === this-field/narrow
-error 33: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 33: '!' is used on a value of non-nullable type 'int'
 
 === this-field/return
 out 1
@@ -1289,7 +1289,7 @@ out 5
 exit 0
 
 === chained-field/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === chained-field/return
 out 1
@@ -1323,39 +1323,39 @@ out 1
 exit 0
 
 === setter-element/pass-ref-in
-error 30: a 'ref' argument must be a variable or field; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref' argument must be a variable, field, or element
 
 === setter-element/take-ref-in
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref' variable must refer to a variable, field, or element
 
 === setter-element/take-ref-nullable
-error 30: a 'ref?' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref?' variable must refer to a variable, field, or element
 
 === setter-element/span
-error 30: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
+error 30: expected 'Span<int>', found 'int[3]'
 
 === setter-element/loop
-error 30: cannot loop over a temporary array by 'ref', whose changes would be lost; store it in a 'mut' variable first
+error 30: cannot loop over a temporary array by 'ref'
 
 === setter-element/capture
 out 5
 exit 0
 
 === setter-element/capture-escaping
-error 31: cannot call 'mut' method 'operator []=' on 'c' because an escaping lambda only has a copy of 'c'
+error 31: cannot call 'mut' method 'operator []=' on 'c'
 
 === setter-element/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === setter-element/return
 out 1
 exit 0
 
 === setter-element/return-ref
-error 32: a returned 'ref' must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 32: returned 'ref' must refer to a variable, field, or element
 
 === setter-element/reassign
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref' variable must refer to a variable, field, or element
 
 === temporary-field/read
 out 1
@@ -1363,10 +1363,10 @@ out 1
 exit 0
 
 === temporary-field/assign
-error 30: cannot assign to a field of a temporary value; store it in a 'mut' variable first
+error 30: cannot assign to a field of a temporary value
 
 === temporary-field/compound
-error 30: cannot assign to a field of a temporary value; store it in a 'mut' variable first
+error 30: cannot assign to a field of a temporary value
 
 === temporary-field/pass
 out 1
@@ -1374,39 +1374,39 @@ out 1
 exit 0
 
 === temporary-field/pass-ref-in
-error 30: a 'ref' argument must be a variable or field
+error 30: 'ref' argument must be a variable, field, or element
 
 === temporary-field/take-ref-in
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value
+error 30: 'ref' variable must refer to a variable, field, or element
 
 === temporary-field/take-ref-nullable
-error 30: a 'ref?' variable must refer to a variable, field, or element, not a temporary value
+error 30: 'ref?' variable must refer to a variable, field, or element
 
 === temporary-field/span
-error 30: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
+error 30: expected 'Span<int>', found 'int[3]'
 
 === temporary-field/loop
-error 30: cannot loop over a temporary array by 'ref', whose changes would be lost; store it in a 'mut' variable first
+error 30: cannot loop over a temporary array by 'ref'
 
 === temporary-field/capture
-error 31: cannot assign to a field of a temporary value; store it in a 'mut' variable first
+error 31: cannot assign to a field of a temporary value
 
 === temporary-field/capture-escaping
-error 31: cannot assign to a field of a temporary value; store it in a 'mut' variable first
+error 31: cannot assign to a field of a temporary value
 
 === temporary-field/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === temporary-field/return
 out 1
 exit 0
 
 === temporary-field/return-ref
-error 31: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+error 31: returned 'ref' must refer to a variable, field, or element
 
 === temporary-field/reassign
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value
-error 31: cannot assign to a field of a temporary value; store it in a 'mut' variable first
+error 30: 'ref' variable must refer to a variable, field, or element
+error 31: cannot assign to a field of a temporary value
 
 === temporary-setter-element/read
 out 1
@@ -1414,10 +1414,10 @@ out 1
 exit 0
 
 === temporary-setter-element/assign
-error 30: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+error 30: cannot assign to an element of a temporary value
 
 === temporary-setter-element/compound
-error 30: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+error 30: cannot assign to an element of a temporary value
 
 === temporary-setter-element/pass
 out 1
@@ -1425,36 +1425,36 @@ out 1
 exit 0
 
 === temporary-setter-element/pass-ref-in
-error 30: a 'ref' argument must be a variable or field; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref' argument must be a variable, field, or element
 
 === temporary-setter-element/take-ref-in
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref' variable must refer to a variable, field, or element
 
 === temporary-setter-element/take-ref-nullable
-error 30: a 'ref?' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 30: 'ref?' variable must refer to a variable, field, or element
 
 === temporary-setter-element/span
-error 30: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
+error 30: expected 'Span<int>', found 'int[3]'
 
 === temporary-setter-element/loop
-error 30: cannot loop over a temporary array by 'ref', whose changes would be lost; store it in a 'mut' variable first
+error 30: cannot loop over a temporary array by 'ref'
 
 === temporary-setter-element/capture
-error 31: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+error 31: cannot assign to an element of a temporary value
 
 === temporary-setter-element/capture-escaping
-error 31: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+error 31: cannot assign to an element of a temporary value
 
 === temporary-setter-element/narrow
-error 30: '!' can only be applied to a nullable value, and 'int' is not nullable
+error 30: '!' is used on a value of non-nullable type 'int'
 
 === temporary-setter-element/return
 out 1
 exit 0
 
 === temporary-setter-element/return-ref
-error 31: a returned 'ref' must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
+error 31: returned 'ref' must refer to a variable, field, or element
 
 === temporary-setter-element/reassign
-error 30: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Cells' has no element storage, and assigns its elements with 'operator []='
-error 31: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+error 30: 'ref' variable must refer to a variable, field, or element
+error 31: cannot assign to an element of a temporary value

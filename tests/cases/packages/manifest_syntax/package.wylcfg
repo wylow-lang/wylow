@@ -2,9 +2,9 @@
 name
     = "manifest_syntax"
 ;
-native { include = ["a", "b"] link = ["c"]; }   // error: expected ';' // error: 'native' is not supported yet
-native "x";                             // error: expected '=' or '{' after 'native'
-= "x";                                  // error: expected a key
-dependencies = 3;                       // error: expected a string
-dependencies = $"x{name}";              // error: a manifest's strings can't be interpolated // error: 'dependencies' is a block of entries
-}                                       // error: expected a key
+native { include = ["a", "b"] link = ["c"]; }   // error[WYL0021]: expected ';' // error[WYL0031]: manifest key 'native' cannot be used
+native "x";                             // error[WYL0021]: expected '=' or '{' after 'native'
+= "x";                                  // error[WYL0021]: expected a key
+dependencies = 3;                       // error[WYL0021]: expected a string
+dependencies = $"x{name}";              // error[WYL0022]: manifest strings cannot be interpolated // error[WYL0025]: 'dependencies' takes a block of entries
+}                                       // error[WYL0021]: expected a key

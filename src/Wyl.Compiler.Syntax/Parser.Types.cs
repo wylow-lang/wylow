@@ -105,14 +105,12 @@ public sealed partial class Parser
     bool StartsType(int index) =>
         SyntaxFacts.IsTypeStart(KindAt(index)) || KindAt(index) == TokenKind.OpenParen && KindAt(index + 1) == TokenKind.FnKeyword;
 
-    const string EscapingElsewhereMessage = "'escaping' can only be declared on parameters and local variables; other functions are always escaping";
-
     TypeSyntax ParseType(bool allowNullable = true, bool allowArrays = true)
     {
         // Parameters and locals read `escaping` before their type; anywhere else a function is escaping already.
         if (At(TokenKind.EscapingKeyword))
         {
-            Error(Current.Span, EscapingElsewhereMessage);
+            Report(Catalog.EscapingElsewhere(Loc(Current.Span)));
             Advance();
         }
         int start = position;
@@ -128,19 +126,19 @@ public sealed partial class Parser
             Expect(TokenKind.CloseParen, "')'");
             type = type with { Location = LocationFrom(start) };
             if (!At(TokenKind.Question) && !At(TokenKind.Star) && ScanArraySuffix(position) < 0)
-                Error(type.Location.Span, "parentheses around a function type are only needed before '?', '[', or '*'; remove them");
+                Report(Catalog.RedundantFunctionTypeParentheses(type.Location));
         }
         else if (At(TokenKind.OpenParen))
         {
             // Read the old spelling `(int) -> int` as a function type, so its error doesn't cascade.
-            Error(Current.Span, "function types are written 'fn(int) -> int'");
+            Report(Catalog.FunctionTypeWithoutFn(Loc(Current.Span)));
             type = ParseFunctionTypeRest(start, allowNullable, allowArrays, reported: true);
             if (type.Shape == TypeShape.Function)
                 return type;
         }
         else if (!SyntaxFacts.IsTypeStart(Current.Kind))
         {
-            Error(Current.Span, "expected a type");
+            Report(Catalog.Expected(Loc(Current.Span), "a type"));
             return new TypeSyntax(Loc(new TextSpan(Current.Span.Start, 0)), "?", []);
         }
         else
@@ -197,7 +195,7 @@ public sealed partial class Parser
         if (!Accept(TokenKind.Arrow))
         {
             if (!reported)
-                Error(new TextSpan(Previous.Span.End, 0), "expected '->' after a function type's parameters");
+                Report(Catalog.Expected(Loc(new TextSpan(Previous.Span.End, 0)), "'->' after a function type's parameters"));
             return new TypeSyntax(LocationFrom(start), "?", []);
         }
         // The return type takes the suffixes: `fn(int) -> int?` returns an `int?`.
@@ -210,7 +208,7 @@ public sealed partial class Parser
         var parameters = new List<FunctionTypeParameter>();
         if (!Accept(TokenKind.OpenParen))
         {
-            Error(Current.Span, "expected '('; a function type's parameters are always parenthesized, as in 'fn() -> void'");
+            Report(Catalog.FunctionTypeWithoutParentheses(Loc(Current.Span)));
             return parameters;
         }
         if (!At(TokenKind.CloseParen))

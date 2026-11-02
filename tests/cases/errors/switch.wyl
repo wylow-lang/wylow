@@ -14,17 +14,17 @@ class Animal { }
 class Dog extends Animal { }
 
 void use(Shape s, Direction d, int n, bool b, Animal a) {
-    switch (d) {                                // error: the switch does not handle every 'Direction': 'West' is not covered
+    switch (d) {                                // error[WYL0393]: switch does not handle every value of type 'Direction'
         case North, East -> print(1);
         case South -> print(2);
     }
-    switch (s) {                                // error: the switch does not handle every 'Shape': 'Pair(South, East)' is not covered
+    switch (s) {                                // error[WYL0393]: switch does not handle every value of type 'Shape'
         case Point, Circle -> print(1);
         case Pair(North, _), Pair(East, _) -> print(2);
         case Pair(_, North) -> print(3);
         case Pair(West, _) -> print(4);
     }
-    switch (n) {                                // error: the switch does not handle every 'int'; add a 'default' case
+    switch (n) {                                // error[WYL0393]: switch does not handle every value of type 'int'
         case 1 -> print(1);
         case 2 -> print(2);
     }
@@ -32,81 +32,81 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
         case true -> 1;
         case false -> 0;
     };
-    var half = switch (b) {                     // error: the switch does not handle every 'bool': 'false' is not covered
+    var half = switch (b) {                     // error[WYL0393]: switch does not handle every value of type 'bool'
         case true -> 1;
     };
-    switch (a) {                                // error: the switch does not handle every 'Animal'; add a 'default' case
+    switch (a) {                                // error[WYL0393]: switch does not handle every value of type 'Animal'
         case Dog dog -> print(1);
     }
     switch (a) {
         case Dog dog -> print(1);
         case Animal other -> print(2);
-        case Dog again -> print(3);             // error: this case can never be reached
+        case Dog again -> print(3);             // error[WYL0391]: case can never be reached
     }
     switch (d) {
         case North -> print(1);
-        case North -> print(2);                 // error: this case can never be reached
+        case North -> print(2);                 // error[WYL0391]: case can never be reached
         default -> print(3);
     }
     switch (d) {
         case North, East, South, West -> print(1);
-        default -> print(2);                    // error: 'default' can never be reached
+        default -> print(2);                    // error[WYL0392]: 'default' can never be reached
     }
     switch (n) {
-        default -> print(1);                    // error: 'default' must be the last case
-        case 1 -> print(2);                     // error: this case can never be reached
+        default -> print(1);                    // error[WYL0370]: 'default' must be the last case
+        case 1 -> print(2);                     // error[WYL0391]: case can never be reached
     }
     switch (s) {
-        case Circle(var r), Point -> print(1);  // error: a case with several patterns cannot bind names
+        case Circle(var r), Point -> print(1);  // error[WYL0382]: case with several patterns cannot bind names
         default -> print(2);
     }
 
     // Patterns must fit the value's type.
     switch (s) {
-        case Red -> print(1);                   // error: 'Shape' has no variant 'Red'
-        case Color.Red -> print(1);             // error: a 'Shape' can never be 'Color.Red'
-        case Circle(1, 2) -> print(1);          // error: 'Circle' has 1 field, but the pattern lists 2
-        case Point() -> print(1);               // error: 'Point' carries no data; match it without parentheses
-        case Circle(1.5) -> print(1);           // error: only integer, character, and 'bool' literals can be patterns
-        case Circle(int r) -> print(1);         // error: a 'float' can never be a 'int'
-        case Pair(1, _) -> print(1);            // error: a 'Direction' can never be '1'
+        case Red -> print(1);                   // error[WYL0377]: cannot find variant 'Red' in enum 'Shape'
+        case Color.Red -> print(1);             // error[WYL0380]: pattern 'Color.Red' can never match a value of type 'Shape'
+        case Circle(1, 2) -> print(1);          // error[WYL0379]: fields of 'Circle': expected 1, found 2
+        case Point() -> print(1);               // error[WYL0378]: variant 'Point' carries no data
+        case Circle(1.5) -> print(1);           // error[WYL0376]: only integer, character, and 'bool' literals can be patterns
+        case Circle(int r) -> print(1);         // error[WYL0380]: pattern 'int' can never match a value of type 'float'
+        case Pair(1, _) -> print(1);            // error[WYL0380]: pattern '1' can never match a value of type 'Direction'
         default -> print(2);
     }
     switch (n) {
-        case North -> print(1);                 // error: unknown type 'North'
-        case Circle(_) -> print(1);             // error: a 'int' can never be 'Circle', since 'int' is neither an enum nor a struct
-        case null -> print(1);                  // error: a 'int' is never null, so 'null' can never match it
-        case true -> print(1);                  // error: a 'int' can never be 'true'
+        case North -> print(1);                 // error[WYL0063]: cannot find type 'North'
+        case Circle(_) -> print(1);             // error[WYL0380]: pattern 'Circle' can never match a value of type 'int'
+        case null -> print(1);                  // error[WYL0388]: pattern 'null' can never match a value of non-nullable type 'int'
+        case true -> print(1);                  // error[WYL0380]: pattern 'true' can never match a value of type 'int'
         default -> print(2);
     }
     switch (a) {
-        case Shape sh -> print(1);              // error: a 'Animal' can never be a 'Shape'
+        case Shape sh -> print(1);              // error[WYL0380]: pattern 'Shape' can never match a value of type 'Animal'
         default -> print(2);
     }
-    switch (use(s, d, n, b, a)) {               // error: cannot switch on a 'void' value
+    switch (use(s, d, n, b, a)) {               // error[WYL0367]: cannot switch on a 'void' value
         default -> print(1);
     }
-    switch (null) {                             // error: cannot switch on 'null', which has no type; give it a type first
+    switch (null) {                             // error[WYL0368]: cannot switch on 'null'
         default -> print(1);
     }
 
-    var mixed = switch (d) {                    // error: the cases of the switch have incompatible types 'int', 'String'
+    var mixed = switch (d) {                    // error[WYL0325]: cases of the switch expression have incompatible types 'int', 'String'
         case North -> 1;
         default -> "other";
     };
     var nothing = switch (d) {
-        case North -> print(1);                 // error: a switch expression's case must produce a value
+        case North -> print(1);                 // error[WYL0323]: case of a switch expression must produce a value
         default -> 2;
     };
-    var never = switch (d) {                    // error: a switch expression needs a case that produces a value
+    var never = switch (d) {                    // error[WYL0324]: switch expression has no case that produces a value
         default -> panic("no");
     };
 
     // `is` needs a pattern that can fail.
-    print(d is var all);                        // error: this pattern always matches
-    print(d is _);                              // error: this pattern always matches
-    print(n is Dog);                            // error: 'is' can only test the type of class or interface values, not 'int'
-    print(d is Direction);                      // error: 'Direction' has no variant 'Direction'
+    print(d is var all);                        // error[WYL0331]: pattern always matches
+    print(d is _);                              // error[WYL0331]: pattern always matches
+    print(n is Dog);                            // error[WYL0330]: 'is' cannot test the type of a value of type 'int'
+    print(d is Direction);                      // error[WYL0377]: cannot find variant 'Direction' in enum 'Direction'
     print(s is Circle(var r) && r > 1);
 }
 

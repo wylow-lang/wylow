@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -56,24 +57,24 @@ public sealed partial class Binder
         var target = type.NonNull;
         if (format.Length is < 1 or > 3 || !char.IsAsciiLetter(format[0]) || !format[1..].All(char.IsAsciiDigit))
         {
-            Error(location, $"'{format}' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'");
+            Error(Catalog.FormatSpecifierSyntax(location, format));
             return null;
         }
         var kind = format[0];
         var applies = char.ToUpperInvariant(kind) switch
         {
-            'D' or 'X' or 'B' => (Holds: target.IsInteger, Types: "integers"),
-            'F' or 'E' => (Holds: target.IsFloatingPoint, Types: "'float' and 'double'"),
-            _ => (Holds: false, Types: null),
+            'D' or 'X' or 'B' => (Holds: target.IsInteger, Known: true, Integers: true),
+            'F' or 'E' => (Holds: target.IsFloatingPoint, Known: true, Integers: false),
+            _ => (Holds: false, Known: false, Integers: false),
         };
-        if (applies.Types is null)
+        if (!applies.Known)
         {
-            Error(location, $"unknown format specifier '{kind}'; the specifiers are D, X, and B for integers and F and E for floating point");
+            Error(Catalog.UnknownFormatSpecifier(location, kind));
             return null;
         }
         if (!applies.Holds)
         {
-            Error(location, $"format specifier '{format}' applies to {applies.Types}, not '{type}'");
+            Error(Catalog.FormatSpecifierType(location, format, applies.Integers, type.ToString()));
             return null;
         }
         return (kind, format.Length > 1 ? int.Parse(format[1..]) : -1);
@@ -88,10 +89,8 @@ public sealed partial class Binder
         var type = value.Type.NonNull;
         if (!stdlib.IsPrintable(type))
         {
-            var hint = type.Symbol is { } s && MethodCandidates(type, "toString").Any(c => c.Symbol.Parameters.Count == 0)
-                ? $"; its 'toString()' is used once '{s.Name}' declares 'implements Printable'"
-                : "";
-            return ErrorExpression(location, $"cannot interpolate a value of type '{value.Type}', which does not implement 'Printable'{hint}");
+            var hasToString = type.Symbol is { } s && MethodCandidates(type, "toString").Any(c => c.Symbol.Parameters.Count == 0) ? s.Name : null;
+            return ErrorExpression(Catalog.NotPrintable(location, value.Type.ToString(), hasToString));
         }
         if (!value.Type.IsNullable)
             return BindMethodCall(location, value, "toString", location, null, []);

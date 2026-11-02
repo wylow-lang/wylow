@@ -1,23 +1,23 @@
 // What each visibility reaches across modules (spec 06-syntax.md §6.2).
 
-import world::local;                // error: 'local' is visible only in module 'module_visibility::world'
-import world::Hidden;               // error: 'Hidden' is visible only in its file (world/w.wyl)
+import world::local;                // error[WYL0054]: 'local' is not visible here
+import world::Hidden;               // error[WYL0054]: type 'Hidden' is not visible here
 import world::count;
-import world::Shared;               // error: 'Shared' is already a name of this module; import it under another name with 'as'
+import world::Shared;               // error[WYL0044]: 'Shared' is already a name of this module
 import world::Shared as WorldShared;
 
 pub(module) struct Shared { }
 
 void main() {
     int a = count();
-    int b = world::local();         // error: function 'local' is visible only in module 'module_visibility::world'
+    int b = world::local();         // error[WYL0054]: function 'local' is not visible here
     int c = world::gen::deep();
-    int d = world::gen::nested();   // error: function 'nested' is visible only in module 'module_visibility::world::gen'
-    int e = gen::deep();            // error: 'gen' is not a module here
+    int d = world::gen::nested();   // error[WYL0054]: function 'nested' is not visible here
+    int e = gen::deep();            // error[WYL0047]: cannot find module 'gen' in this scope
     var s = WorldShared();
-    world::Secret t;                // error: 'module_visibility::world' has no name 'Secret'
-    bool f = world::corner() is world::Corner(1, _);    // error: field 'Corner.hidden' is visible only in its file (world/w.wyl)
+    world::Secret t;                // error[WYL0043]: cannot find 'Secret' in module 'module_visibility::world'
+    bool f = world::corner() is world::Corner(1, _);    // error[WYL0054]: field 'Corner.hidden' is not visible here
     var cells = world::cells();
     int g = cells[0];
-    cells[0] = 1;                   // error: 'operator []=' of 'Cells' is visible only in module 'module_visibility::world'
+    cells[0] = 1;                   // error[WYL0054]: 'operator []=' of 'Cells' is not visible here
 }

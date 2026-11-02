@@ -7,11 +7,11 @@ interface B {
 }
 
 class AB implements A, B {
-    void f(int x) { }                      // error: 'AB.f' takes different default values for parameter 'x'
+    void f(int x) { }                      // error[WYL0214]: 'AB.f' inherits different default values for parameter 'x'
 }
 
 class Static implements A {
-    static void f(int x) { }               // error: 'Static.f' is static and cannot implement
+    static void f(int x) { }               // error[WYL0186]: static method 'Static.f' cannot implement 'A.f(int)'
 }
 
 class Base {
@@ -21,15 +21,15 @@ class Base {
 
 class Derived extends Base {
     Derived() { super(); }
-    override void g() { }           // error: cannot override 'Base.g' because it is not 'virtual'
+    override void g() { }           // error[WYL0124]: cannot override 'Base.g'
 }
 
 struct Loop {
     int v;
-    Loop(int a, Loop seed = Loop(1)) { v = a; }  // error: the default value of 'seed' depends on itself
+    Loop(int a, Loop seed = Loop(1)) { v = a; }  // error[WYL0215]: default value of 'seed' depends on itself
 }
 
 void main() {
     int[3] cells = [1, 2, 3];
-    for (ref int i, int v : cells) { }  // error: the index cannot be borrowed; it is a copy of the position
+    for (ref int i, int v : cells) { }  // error[WYL0363]: loop index cannot be borrowed
 }

@@ -12,18 +12,18 @@ void reset(ref int? value) {
 
 void narrowParameter(ref int? value) {
     if (value != null) {
-        print(value + 1);               // error: a 'ref' parameter is not narrowed by null checks
+        print(value + 1);               // error[WYL0397]: 'value' might be null
     }
 }
 
 void main() {
     int? x = maybe();
-    print(x + 1);                       // error: 'x' might be null here
+    print(x + 1);                       // error[WYL0397]: 'x' might be null
 
     // Narrowing ends where the local may be assigned through a 'ref'.
     mut int? y = 1;
     reset(ref y);
-    print(y + 1);                       // error: 'y' might be null here
+    print(y + 1);                       // error[WYL0397]: 'y' might be null
     mut int? z = 1;
     while (z != null) {
         print(z + 1);
@@ -31,7 +31,7 @@ void main() {
     }
     mut int? w = 1;
     for (int i : 0..3) {
-        print(w + 1);                   // error: 'w' might be null here
+        print(w + 1);                   // error[WYL0397]: 'w' might be null
         reset(ref w);
     }
     mut int? c = 1;
@@ -40,12 +40,12 @@ void main() {
             reset(ref c);
             continue;
         }
-        print(c + 1);                   // error: 'c' might be null here
+        print(c + 1);                   // error[WYL0397]: 'c' might be null
     }
     mut int? d = 1;
     for (int i : 0..3) {
         for (int j : 0..3) {
-            print(d + 1);               // error: 'd' might be null here
+            print(d + 1);               // error[WYL0397]: 'd' might be null
         }
         reset(ref d);
     }

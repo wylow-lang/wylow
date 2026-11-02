@@ -230,7 +230,7 @@ void Write(GeneratedProgram program, string key, string signature, string detail
     ];
     foreach (var line in detail.Split('\n').Take(20))
         header.Add("// " + (line.Length > 300 ? line[..300] : line).TrimEnd());
-    header.Add("// Turn this into a test in tests/cases/ with // output:, // error:, or // panic: comments, then delete it.");
+    header.Add("// Turn this into a test in tests/cases/ with // output:, // error[WYLnnnn]:, or // panic: comments, then delete it.");
     var path = Findings.Write(findingsDirectory, key, signature, text, header);
     lock (printLock)
         Console.WriteLine($"        written to {path}");

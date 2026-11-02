@@ -10,11 +10,11 @@ struct Unmarked {
 }
 
 struct Counted implements Printable {
-    pub int toString() { return 1; }  // error: 'Counted.toString' must have the same parameter and return types as 'Printable.toString()' to implement it
+    pub int toString() { return 1; }  // error[WYL0188]: 'Counted.toString' does not match the parameter and return types of 'Printable.toString()'
 }
 
 struct Changing implements Printable {
-    pub mut String toString() { return "changing"; }  // error: 'Changing.toString' cannot be 'mut', since 'Printable.toString()' isn't
+    pub mut String toString() { return "changing"; }  // error[WYL0190]: 'Changing.toString' cannot be 'mut'
 }
 
 class Animal implements Printable {
@@ -28,23 +28,23 @@ void nothing() {
 
 void main() {
     var plain = Plain(1);
-    print($"{plain}");                  // error: cannot interpolate a value of type 'Plain', which does not implement 'Printable'
-    print($"{Unmarked()}");             // error: cannot interpolate a value of type 'Unmarked', which does not implement 'Printable'; its 'toString()' is used once 'Unmarked' declares 'implements Printable'
-    print($"{null}");                   // error: cannot interpolate a value of type 'null', which does not implement 'Printable'
-    print($"{nothing()}");              // error: cannot interpolate a value of type 'void', which does not implement 'Printable'
-    print(describe(plain));             // error: 'Plain' does not implement 'Printable', which type parameter 'T' requires
+    print($"{plain}");                  // error[WYL0336]: cannot interpolate a value of type 'Plain'
+    print($"{Unmarked()}");             // error[WYL0336]: cannot interpolate a value of type 'Unmarked'
+    print($"{null}");                   // error[WYL0336]: cannot interpolate a value of type 'null'
+    print($"{nothing()}");              // error[WYL0336]: cannot interpolate a value of type 'void'
+    print(describe(plain));             // error[WYL0208]: 'Plain' does not implement 'Printable'
     Animal? maybe = null;
-    print(describe(maybe));             // error: 'Animal?' does not implement 'Printable', which type parameter 'T' requires
-    print(5.toString(1));               // error: no overload of 'int.toString' takes 1 argument
-    print(true.toString<int>());        // error: 'bool.toString' takes no type arguments
+    print(describe(maybe));             // error[WYL0208]: 'Animal?' does not implement 'Printable'
+    print(5.toString(1));               // error[WYL0233]: no overload of 'int.toString' takes 1 argument
+    print(true.toString<int>());        // error[WYL0198]: 'bool.toString' takes no type arguments
     int x = 1;
-    print($"{x:F2}");                   // error: format specifier 'F2' applies to 'float' and 'double', not 'int'
-    print($"{1.5:D}");                  // error: format specifier 'D' applies to integers, not 'float'
-    print($"{"text":X}");               // error: format specifier 'X' applies to integers, not 'String'
-    print($"{new Animal():F2}");            // error: format specifier 'F2' applies to 'float' and 'double', not 'Animal'
-    print($"{x:Q}");                    // error: unknown format specifier 'Q'; the specifiers are D, X, and B for integers and F and E for floating point
-    print($"{x:F123}");                 // error: 'F123' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
-    print($"{x:}");                     // error: '' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
-    print($"{x:D 2}");                  // error: 'D 2' is not a format specifier; write a letter and an optional precision of up to two digits, as in 'F2'
-    print($"{undefined}");              // error: 'undefined' is not defined
+    print($"{x:F2}");                   // error[WYL0340]: format specifier 'F2' cannot format a value of type 'int'
+    print($"{1.5:D}");                  // error[WYL0340]: format specifier 'D' cannot format a value of type 'float'
+    print($"{"text":X}");               // error[WYL0340]: format specifier 'X' cannot format a value of type 'String'
+    print($"{new Animal():F2}");            // error[WYL0340]: format specifier 'F2' cannot format a value of type 'Animal'
+    print($"{x:Q}");                    // error[WYL0339]: cannot find format specifier 'Q'
+    print($"{x:F123}");                 // error[WYL0338]: 'F123' is not a format specifier
+    print($"{x:}");                     // error[WYL0338]: '' is not a format specifier
+    print($"{x:D 2}");                  // error[WYL0338]: 'D 2' is not a format specifier
+    print($"{undefined}");              // error[WYL0281]: cannot find 'undefined' in this scope
 }

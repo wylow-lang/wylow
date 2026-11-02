@@ -5,24 +5,24 @@ class Tree {
     Tree? next;
 }
 
-@Acyclic                            // error: '@Acyclic' can only be used on classes
+@Acyclic                            // error[WYL0432]: '@Acyclic' can only be used on classes
 struct Point {
     int x;
 }
 
-@Acyclic                            // error: '@Acyclic' can only be used on classes
+@Acyclic                            // error[WYL0432]: '@Acyclic' can only be used on classes
 interface Shape {
 }
 
 class Holder {
-    @Acyclic                        // error: '@Acyclic' can only be used on classes
+    @Acyclic                        // error[WYL0432]: '@Acyclic' can only be used on classes
     Tree? tree;
 
-    @Acyclic                        // error: '@Acyclic' can only be used on classes
+    @Acyclic                        // error[WYL0432]: '@Acyclic' can only be used on classes
     void run() {
     }
 }
 
 void main() {
-    memory::collectCycles(1L);       // error: no overload of 'collectCycles' accepts (long)
+    memory::collectCycles(1L);       // error[WYL0236]: no overload of 'collectCycles' accepts (long)
 }

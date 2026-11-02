@@ -112,28 +112,35 @@ public sealed partial class IrVerifier
     /// A violation of a rule the source must keep: on the lowered program, the user's error at the
     /// source it comes from; after a pass, a compiler bug.
     /// </summary>
-    void Violation(string message, Location? at = null)
+    void Violation(Func<Location, Diagnostic> make, Location? at = null)
     {
         if (diagnostics is null)
         {
-            Error(message);
+            // After a pass the program has no source to point at: only the message is reported.
+            Error(make(Unlocated).Message);
             return;
         }
         var location = at ?? captureOrigin ?? current?.Origin ?? function.Body.Origin;
-        if (location is { } found && reportedViolations.Add((found, message)))
-            diagnostics.Error(found, message);
+        if (location is not { } found)
+            return;
+        var diagnostic = make(found);
+        if (reportedViolations.Add((found, diagnostic.Message)))
+            diagnostics.Add(diagnostic);
     }
+
+    /// <summary>A location for a diagnostic that is only reported as a compiler bug, which has no source.</summary>
+    static readonly Location Unlocated = new(new SourceText("<ir>", ""), default);
 
     static Location EndOf(Location body) =>
         new(body.Source, new TextSpan(Math.Max(body.Span.End - 1, body.Span.Start), body.Span.Length > 0 ? 1 : 0));
 
     void MissingReturn(IrFunction where)
     {
-        var message = where.IsLambda ? "this lambda must return a value on every path" : $"'{where.Symbol.Name}' must return a value on every path";
+        var name = where.IsLambda ? null : where.Symbol.Name;
         if (where.Body.Origin is { } body)
-            Violation(message, EndOf(body));
+            Violation(l => Catalog.MissingReturn(l, name), EndOf(body));
         else
-            Report(where, null, message);
+            Report(where, null, Catalog.MissingReturn(Unlocated, name).Message);
     }
 
     IReadOnlyDictionary<IrLocal, string>? names;
@@ -177,7 +184,7 @@ public sealed partial class IrVerifier
     void CheckFieldsAssigned(State state, Location at)
     {
         if (requiredFields.FirstOrDefault(f => !state.AssignedFields.Contains(f)) is { } field)
-            Violation($"field '{field.Name}' must be assigned before the constructor returns", at);
+            Violation(l => Catalog.FieldUnassignedAtReturn(l, field.Name), at);
     }
 
     /// <summary>
@@ -190,10 +197,10 @@ public sealed partial class IrVerifier
         if (first is not null && place.IsDeref == place.Local.Type.IsReference)
         {
             if (requiredFields.Contains(first.Field) && !state.AssignedFields.Contains(first.Field))
-                Violation($"field '{first.Field.Name}' might not have been assigned");
+                Violation(l => Catalog.FieldMayBeUnassigned(l, first.Field.Name));
         }
         else if (requiredFields.FirstOrDefault(f => !state.AssignedFields.Contains(f)) is { } unassigned)
-            Violation($"'this' cannot be used until every field is assigned, and '{unassigned.Name}' might not be");
+            Violation(l => Catalog.ThisBeforeFieldsAssigned(l, unassigned.Name));
     }
 
     /// <summary>A struct constructor's value given as a whole, as a chained constructor makes it, has every field.</summary>
@@ -437,7 +444,7 @@ public sealed partial class IrVerifier
         }
         // A variable declared without a value that isn't 'mut' is assigned once.
         if (whole && local.Symbol is { IsDeferred: true, IsMutable: false, RefKind: RefKind.None } symbol && state.MaybeAssigned.Contains(local))
-            Violation($"'{symbol.Name}' might already have been assigned; declare it 'mut' to assign it more than once");
+            Violation(l => Catalog.MayBeAssignedTwice(l, symbol.Name));
 
         Apply(state, IrEffects.Of(store), "the store");
         CommitMoves(state);
@@ -482,7 +489,7 @@ public sealed partial class IrVerifier
             && state.Assigned.Contains(narrowed) && !state.NonNull.Contains(narrowed))
             NotNarrowed(narrowed, state);
         if (check is { Kind: IrCheckKind.MayBeNull, Operands: [IrRead { Place.Local: var tested }] } && state.NonNull.Contains(tested))
-            Violation($"'case null' can never match: '{tested.Symbol!.Name}' is not null here");
+            Violation(l => Catalog.CaseNullNeverMatches(l, tested.Symbol!.Name));
         Apply(state, IrEffects.Of(check), "the check");
         CommitMoves(state);
     }
@@ -498,18 +505,20 @@ public sealed partial class IrVerifier
         if (symbol.IsReferenceBinding)
         {
             if (reportedUnassigned.Add(symbol))
-                Violation($"'{name}' might not have been assigned");
+                Violation(l => Catalog.MayBeUnassigned(l, name));
             return;
         }
-        Violation(symbol.Type.IsNullableReference
-            ? $"'{name}' might refer to nothing here; check it with 'if ({name} != null)', or use '!'"
-            : symbol.RefKind != RefKind.None
-            ? $"'{name}' might be null here: a '{FunctionSymbol.RefPrefix(symbol.RefKind).Trim()}' {(symbol.IsParameter ? "parameter" : "variable")} is not narrowed by null checks, since another reference to its variable could change it; copy it to a local first, or use '!'"
-            : LambdaAssigns(local, state)
-            ? $"'{name}' might be null here: a lambda assigns it, so null checks don't narrow it; copy it to a local first, or use '!'"
-            : narrowedOutside.Contains(symbol)
-            ? $"'{name}' might be null here: null checks outside a lambda don't narrow inside it; check it inside, or copy it to a local first"
-            : $"'{name}' might be null here; check it with 'if ({name} != null)', or use '?.' or '!'");
+        if (symbol.Type.IsNullableReference)
+        {
+            Violation(l => Catalog.MayReferToNothing(l, name, $"if ({name} != null)"));
+            return;
+        }
+        var lost = symbol.RefKind != RefKind.None ? NarrowingLost.RefVariable
+            : LambdaAssigns(local, state) ? NarrowingLost.AssignedByLambda
+            : narrowedOutside.Contains(symbol) ? NarrowingLost.CheckedOutsideLambda
+            : NarrowingLost.None;
+        var what = $"'{FunctionSymbol.RefPrefix(symbol.RefKind).Trim()}' {(symbol.IsParameter ? "parameter" : "variable")}";
+        Violation(l => Catalog.MayBeNull(l, name, lost, what));
     }
 
     State If(IrIf conditional, State state)

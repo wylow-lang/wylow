@@ -34,20 +34,20 @@ public sealed partial class Binder
         var element = s.Element;
         var declared = LoopVariableType(element) is { } typeSyntax ? BindType(typeSyntax, allowVoid: false) : null;
         if (s.Index is not null)
-            Error(s.Index.Location, "a range has no index; loop over its values alone");
+            Error(Catalog.RangeIndex(s.Index.Location));
         if (element.RefKind != RefKind.None)
-            Error(element.Location, $"the values of a range cannot be borrowed with '{FunctionSymbol.RefPrefix(element.RefKind).Trim()}'");
+            Error(Catalog.RangeBorrowed(element.Location, FunctionSymbol.RefPrefix(element.RefKind).Trim()));
 
         var type = declared;
         if (start.Type != WylType.Error && end.Type != WylType.Error && type is null)
         {
             type = start.Type.IsInteger && end.Type.IsInteger ? CommonNumericType(start, end) : null;
             if (type is null)
-                Error(s.Iterable.Location, $"a range must be of integers, not '{start.Type}' and '{end.Type}'");
+                Error(Catalog.RangeBounds(s.Iterable.Location, start.Type.ToString(), end.Type.ToString()));
         }
         else if (type is not null && type != WylType.Error && !type.IsInteger)
         {
-            Error(element.Type!.Location, $"a range's values are integers, not '{type}'");
+            Error(Catalog.RangeVariableType(element.Type!.Location, type.ToString()));
             type = WylType.Error;
         }
         type ??= WylType.Error;
@@ -75,7 +75,7 @@ public sealed partial class Binder
         {
             DeclareLoopVariables(s, WylType.Error);
             BindLoopBody(s.Body);
-            Error(s.Iterable.Location, $"cannot loop over elements inside {DestroyedByNull(root)}");
+            Error(Catalog.LoopInsideNullable(s.Iterable.Location, root.Name));
             return ErrorStatement(s.Location);
         }
         if (iterable.Type.IsFixedArray)
@@ -87,7 +87,7 @@ public sealed partial class Binder
 
         DeclareLoopVariables(s, WylType.Error);
         BindLoopBody(s.Body);
-        Error(s.Iterable.Location, $"cannot loop over '{iterable.Type}'");
+        Error(Catalog.NotIterable(s.Iterable.Location, iterable.Type.ToString()));
         return ErrorStatement(s.Location);
     }
 
@@ -97,7 +97,7 @@ public sealed partial class Binder
         if (variable.Type is not { Shape: TypeShape.NullableReference } syntax)
             return variable.Type;
         var keyword = FunctionSymbol.RefPrefix(syntax.ReferenceKind).Trim();
-        Error(syntax.Location, $"a loop's elements always exist, so its variable is '{keyword}', not '{keyword}?'");
+        Error(Catalog.NullableLoopVariable(syntax.Location, keyword));
         return syntax.Element;
     }
 
@@ -128,9 +128,9 @@ public sealed partial class Binder
         var element = new BoundIndex(location, new BoundLocalAccess(location, array), new BoundLocalAccess(location, counter));
         bool readOnly = kind == PlaceKind.ReadOnly && s.Element.RefKind == RefKind.Ref;
         if (readOnly)
-            Error(location, $"cannot loop over '{TextOf(location)}' by 'ref' because {ClassifyPlace(iterable).Reason}; use 'in'");
+            Error(Catalog.LoopRefOverReadOnly(location, TextOf(location), ClassifyPlace(iterable).Reason));
         else if (kind == PlaceKind.Temporary && s.Element.RefKind == RefKind.Ref)
-            Error(location, $"cannot loop over a temporary array by 'ref', whose changes would be lost; {StoreTemporaryHint}");
+            Error(Catalog.LoopRefOverTemporary(location));
 
         var loop = BindCountingLoop(s, counter, new BoundLiteral(location, WylType.Int, ((FixedArrayType)iterable.Type).Length), readOnly ? null : element);
         return new BoundBlock(s.Location, [new BoundVariableDeclaration(location, array, iterable), loop]);
@@ -147,7 +147,7 @@ public sealed partial class Binder
         var location = s.Iterable.Location;
         bool borrowed = s.Element.RefKind != RefKind.None;
         if (borrowed)
-            Error(s.Element.Location, $"the characters of a string are decoded from its bytes, so they cannot be borrowed with '{FunctionSymbol.RefPrefix(s.Element.RefKind).Trim()}'");
+            Error(Catalog.StringCharactersBorrowed(s.Element.Location, FunctionSymbol.RefPrefix(s.Element.RefKind).Trim()));
 
         var statements = new List<BoundStatement>();
         Func<BoundExpression> text;
@@ -191,9 +191,9 @@ public sealed partial class Binder
         if (s.Index is { } indexSyntax)
         {
             if (indexSyntax.RefKind != RefKind.None)
-                Error(indexSyntax.Location, "the index cannot be borrowed; it is a copy of the position");
+                Error(Catalog.IndexBorrowed(indexSyntax.Location));
             if (LoopVariableType(indexSyntax) is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != WylType.Int && bound != WylType.Error)
-                Error(indexType.Location, $"the index of a loop is an 'int', not '{bound}'");
+                Error(Catalog.IndexType(indexType.Location, bound.ToString()));
             var index = new LocalSymbol(indexSyntax.Name, WylType.Int, isParameter: false) { IsMutable = indexSyntax.IsMutable };
             Declare(index, indexSyntax.NameLocation);
             declarations.Add(new BoundVariableDeclaration(indexSyntax.Location, index, Counter()));
@@ -207,7 +207,7 @@ public sealed partial class Binder
             value = null;
         else if (elementSyntax.RefKind == RefKind.None)
             value = Convert(element, type);
-        else if (!CheckReference(element, elementSyntax.RefKind, type, $"{WithArticle(FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim())} variable"))
+        else if (!CheckReference(element, elementSyntax.RefKind, type, $"'{FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim()}' variable"))
             value = null;
         var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind)
         {

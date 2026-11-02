@@ -11,18 +11,18 @@ class Partial {
 
     Partial(bool flag) {
         print(count);
-        use(this);                      // error: 'this' cannot be used until every field is assigned, and 'item' might not be
-        print(item == null);            // error: field 'item' might not have been assigned
+        use(this);                      // error[WYL0400]: 'this' cannot be used until every field is assigned
+        print(item == null);            // error[WYL0399]: field 'item' might not have been assigned
         item = new Item();
         if (flag) {
             other = item;
             return;
         }
-    }                                   // error: field 'other' must be assigned before the constructor returns
+    }                                   // error[WYL0398]: field 'other' must be assigned before the constructor returns
 
     Partial(int early) {
         if (early > 0) {
-            return;                     // error: field 'item' must be assigned
+            return;                     // error[WYL0398]: field 'item' must be assigned before the constructor returns
         }
         item = new Item();
         other = item;
@@ -34,7 +34,7 @@ struct Holder {
     Item item;
 
     Holder(int x) {
-        describe();                     // error: 'this' cannot be used until every field is assigned
+        describe();                     // error[WYL0400]: 'this' cannot be used until every field is assigned
         item = new Item();
     }
 
@@ -50,7 +50,7 @@ class Chain {
         if (flag) {
             this.item = item;
         }
-    }                                   // error: field 'item' must be assigned before the constructor returns
+    }                                   // error[WYL0398]: field 'item' must be assigned before the constructor returns
 
     Chain(Item item) {
         this(item, true);
@@ -72,7 +72,7 @@ struct ChainHolder {
     }
 
     ChainHolder(bool flag) {
-        describe();                     // error: 'this' cannot be used until every field is assigned
+        describe();                     // error[WYL0400]: 'this' cannot be used until every field is assigned
         this = ChainHolder(new Item());
         describe();
     }

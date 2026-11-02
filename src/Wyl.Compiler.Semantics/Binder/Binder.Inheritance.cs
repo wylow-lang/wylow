@@ -19,7 +19,7 @@ public sealed partial class Binder
                 var key = MethodKey(method, TypeMap.Empty);
                 var inherited = Conversions.Supertypes(self).Select(t => FindMethod(t, key)).FirstOrDefault(m => m is not null);
                 if (inherited is not null)
-                    Error(method.Declaration!.NameLocation, $"'{method.Signature}' is already declared in interface '{inherited.Owner}'");
+                    Error(Catalog.RedeclaredInterfaceMethod(method.Declaration!.NameLocation, method.Signature, inherited.Owner!.ToString()));
             }
             return;
         }
@@ -29,7 +29,7 @@ public sealed partial class Binder
             foreach (var field in s.Fields)
             {
                 if (self.BaseType is { } baseType && LookupField(baseType, field.Name) is { } inherited)
-                    Error(field.Declaration.NameLocation, $"field '{field.Name}' is already defined in base class '{inherited.Field.Owner.Name}'");
+                    Error(Catalog.FieldInBase(field.Declaration.NameLocation, field.Name, inherited.Field.Owner.Name));
             }
 
             foreach (var method in methods)
@@ -44,7 +44,7 @@ public sealed partial class Binder
                     {
                         // An abstract method of the class itself is already reported as needing an abstract class.
                         if (seen.Add(MethodKey(method, TypeMap.For(t))) && method.IsAbstract && t.Symbol != s)
-                            Error(s.Declaration.NameLocation, $"'{s.Name}' must implement abstract method '{t.Symbol.Name}.{method.Name}({ParameterList(new MethodReference(method, t, []))})'");
+                            Error(Catalog.MissingAbstractImplementation(s.Declaration.NameLocation, s.Name, $"{t.Symbol.Name}.{method.Name}({ParameterList(new MethodReference(method, t, []))})"));
                     }
                 }
             }
@@ -56,26 +56,27 @@ public sealed partial class Binder
             foreach (var method in iface.Symbol!.Methods.Values.SelectMany(m => m))
             {
                 var required = new MethodReference(method, iface, []);
-                var description = $"'{iface}.{method.Name}({ParameterList(required)})'";
+                var description = $"{iface}.{method.Name}({ParameterList(required)})";
                 var implementation = FindImplementation(self, MethodKey(method, TypeMap.For(iface)));
                 if (implementation is null)
                 {
                     if (!s.IsAbstract)
-                        Error(s.Declaration.NameLocation, $"'{s.Name}' does not implement {description}");
+                        Error(Catalog.MissingInterfaceImplementation(s.Declaration.NameLocation, s.Name, description));
                     continue;
                 }
                 var location = implementation.Owner!.Symbol == s ? implementation.Symbol.Declaration!.NameLocation : s.Declaration.NameLocation;
+                var implementing = $"{implementation.Owner!.Symbol!.Name}.{method.Name}";
                 if (implementation.Symbol.IsStatic)
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' is static and cannot implement {description}");
+                    Error(Catalog.StaticImplementation(location, implementing, description));
                 else if (implementation.Symbol.Declaration!.Visibility != iface.Symbol.Declaration.Visibility)
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' implements {description}, so it must have {Written(iface.Symbol.Declaration.Visibility)}, as interface '{iface.Symbol.Name}' has");
+                    Error(Catalog.ImplementationVisibility(location, implementing, description, iface.Symbol.Declaration.Visibility, iface.Symbol.Name));
                 else if (!HasSameTypes(implementation, required))
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' must have the same parameter and return types as {description} to implement it{EscapingDifference(implementation, required, description)}");
+                    Error(Catalog.ImplementationSignature(location, implementing, description, FindEscapingDifference(implementation, required)));
                 // A class method can't change the reference it is called through, so only a struct's must promise not to change 'this'.
                 else if (method.IsReadOnly && s.Kind == TypeKind.Struct && !implementation.Symbol.IsReadOnly)
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' cannot be 'mut', since {description} isn't");
+                    Error(Catalog.MutImplementation(location, implementing, description));
                 else if (LosesUnsafe(implementation.Symbol, method))
-                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' cannot be 'unsafe', since {description} isn't{UnsafeReason}");
+                    Error(Catalog.UnsafeImplementation(location, implementing, description));
                 else
                 {
                     if (!implementation.Symbol.Overridden.Contains(method))
@@ -114,31 +115,31 @@ public sealed partial class Binder
                 method.Shadows = inherited.Symbol;
                 return;
             }
-            var name = $"'{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}({ParameterList(inherited)})'";
-            Error(location, inherited.Symbol.IsOverridable && !method.IsStatic
-                ? $"'{method.Signature}' must be marked 'override' to override {name}"
-                : $"'{method.Signature}' hides inherited method {name}; only 'virtual' methods can be overridden");
+            var name = $"{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}({ParameterList(inherited)})";
+            Error(inherited.Symbol.IsOverridable && !method.IsStatic
+                ? Catalog.MissingOverride(location, method.Signature, name)
+                : Catalog.HidesInherited(location, method.Signature, name));
             return;
         }
 
         if (inherited is null || !inherited.Symbol.Reach.Includes(location.Source))
         {
-            Error(location, $"'{method.Signature}' does not override anything; no base class has a method with these parameters");
+            Error(Catalog.OverridesNothing(location, method.Signature));
             return;
         }
         method.Overridden.Add(inherited.Symbol);
-        var overridden = $"'{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}'";
+        var overridden = $"{inherited.Owner!.Symbol!.Name}.{inherited.Symbol.Name}";
         if (inherited.Symbol.IsFinal)
-            Error(location, $"cannot override {overridden} because it is final");
+            Error(Catalog.OverrideFinal(location, overridden));
         else if (!inherited.Symbol.IsOverridable || inherited.Symbol.IsStatic)
-            Error(location, $"cannot override {overridden} because it is not 'virtual'");
+            Error(Catalog.OverrideNonVirtual(location, overridden));
         else if (!HasSameTypes(new MethodReference(method, s.Type, []), inherited))
-            Error(location, $"'{method.Name}' must have the same parameter and return types as {overridden} to override it{EscapingDifference(new MethodReference(method, s.Type, []), inherited, overridden)}");
+            Error(Catalog.OverrideSignature(location, method.Name, overridden, FindEscapingDifference(new MethodReference(method, s.Type, []), inherited)));
         // So that a method reaches as far in every subclass as in its base (§6.2).
         else if (method.Declaration.Visibility != inherited.Symbol.Declaration!.Visibility)
-            Error(location, $"'{method.Name}' overrides {overridden}, so it must have {Written(inherited.Symbol.Declaration.Visibility)}, as that method has");
+            Error(Catalog.OverrideVisibility(location, method.Name, overridden, inherited.Symbol.Declaration.Visibility));
         else if (LosesUnsafe(method, inherited.Symbol))
-            Error(location, $"'{method.Name}' cannot be 'unsafe', since {overridden} isn't{UnsafeReason}");
+            Error(Catalog.UnsafeOverride(location, method.Name, overridden));
     }
 
     /// <summary>
@@ -146,8 +147,6 @@ public sealed partial class Binder
     /// may dispatch to can be <c>unsafe</c> (spec unsafe.blocks). The reverse is allowed.
     /// </summary>
     static bool LosesUnsafe(FunctionSymbol implementation, FunctionSymbol declared) => implementation.IsUnsafe && !declared.IsUnsafe;
-
-    const string UnsafeReason = ": a call through it needs no 'unsafe' code";
 
     /// <summary>A method of <paramref name="type"/> itself (not inherited) with the given <see cref="MethodKey"/>.</summary>
     static MethodReference? FindMethod(WylType type, string key)

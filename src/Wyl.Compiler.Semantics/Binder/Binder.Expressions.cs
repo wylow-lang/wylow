@@ -37,7 +37,7 @@ public sealed partial class Binder
         NameExpr e => BindName(e, expected),
         PathExpr e => BindPath(e, expected),
         ThisExpr e => BindThis(e),
-        SuperExpr e => ErrorExpression(e.Location, "'super' can only be used to call a base class constructor or method"),
+        SuperExpr e => ErrorExpression(Catalog.SuperNotCall(e.Location)),
         MemberAccessExpr e => BindMemberAccess(e, expected),
         ConditionalAccessExpr e => BindConditionalFieldAccess(e),
         UnaryExpr e => BindUnary(e),
@@ -54,29 +54,20 @@ public sealed partial class Binder
         ConditionalExpr e => BindConditional(e, expected),
         SwitchExpr e => BindSwitchExpression(e, expected),
         TryExpr e => BindTry(e),
-        RefArgExpr e => ErrorExpression(e.Location, "'ref' can only be used on a call argument"),
-        NamedArgExpr e => ErrorExpression(e.Location, "a named argument can only be used in a call"),
+        // The parser makes these only in an argument list, which a call or an index unwraps.
+        RefArgExpr or NamedArgExpr => throw new InvalidOperationException("an argument marker is bound outside an argument list"),
         LambdaExpr e => expected is FunctionType function ? BindLambda(e, function, null)
             : expected == WylType.Error ? new BoundErrorExpression(e.Location)
-            : ErrorExpression(e.Location, "a lambda needs a function type from where it is used, as in 'fn(int) -> int f = x -> x + 1;'"),
+            : ErrorExpression(Catalog.UntypedLambda(e.Location)),
         ErrorExpr e => new BoundErrorExpression(e.Location),
         _ => throw new InvalidOperationException($"unexpected expression {expression.GetType().Name}"),
     };
 
-    BoundErrorExpression ErrorExpression(Location location, string message)
+    BoundErrorExpression ErrorExpression(Diagnostic diagnostic)
     {
-        Error(location, message);
-        return new BoundErrorExpression(location);
+        Error(diagnostic);
+        return new BoundErrorExpression(diagnostic.Location);
     }
-
-    string NoInstanceReason => noThisContext switch
-    {
-        NoThisContext.FieldInitializer => "field initializers cannot use 'this', fields, or instance methods",
-        NoThisContext.SuperArguments => "arguments to 'super(...)' cannot use 'this', fields, or instance methods",
-        NoThisContext.ChainArguments => "arguments to 'this(...)' cannot use 'this', fields, or instance methods",
-        NoThisContext.DefaultValue => "default values cannot use 'this', fields, or instance methods",
-        _ => "static methods cannot use 'this', fields, or instance methods",
-    };
 
     BoundExpression BindIntegerLiteral(IntLiteralExpr e, Location location, bool negated)
     {
@@ -88,17 +79,13 @@ public sealed partial class Binder
             _ => WylType.Int,
         };
         if (negated && !type.IsSigned)
-            return ErrorExpression(location, $"operator '-' cannot be applied to '{type}'");
+            return ErrorExpression(Catalog.UnaryOperatorNotApplicable(location, "-", type.ToString()));
 
         // Negation is folded into the literal so that int.MinValue and long.MinValue can be written.
         Int128 value = negated ? -(Int128)e.Value : e.Value;
         if (!type.Range!.Value.Contains(value))
         {
-            var hint = type == WylType.Int && value > 0 && value <= uint.MaxValue ? "; add a 'u' suffix to make it a 'uint', or an 'L' suffix to make it a 'long'"
-                : type == WylType.Int ? "; add an 'L' suffix to make it a 'long'"
-                : type == WylType.UInt ? "; add a 'uL' suffix to make it a 'ulong'"
-                : "";
-            return ErrorExpression(location, $"integer literal is too large for '{type}'{hint}");
+            return ErrorExpression(Catalog.IntegerLiteralOutOfRange(location, type.ToString(), value > 0 && value <= uint.MaxValue));
         }
         return BoundLiteral.Number(location, type, value);
     }
@@ -139,10 +126,10 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         var written = TextOf(e.Location);
         if (entry.Type is not null)
-            return ErrorExpression(e.Location, $"'{written}' is a type, not a value");
+            return ErrorExpression(Catalog.TypeNotValue(e.Location, written));
         if (expected?.NonNull is FunctionType function)
             return BindFunctionReference(e, entry.Functions!, function);
-        return ErrorExpression(e.Location, $"'{written}' is a function; call it with '{written}(...)'{ReferenceHint(e)}");
+        return ErrorExpression(Catalog.FunctionNotValue(e.Location, "function", written, written, CanReference(e)));
     }
 
     BoundExpression BindName(NameExpr e, WylType? expected)
@@ -150,7 +137,7 @@ public sealed partial class Binder
         if (expected?.NonNull is FunctionType function && ReferencedFunctions(e) is { } referenced)
             return BindFunctionReference(e, referenced, function);
         if (e.TypeArguments.Count > 0)
-            return ErrorExpression(e.Location, "type arguments can only be used in a call or construction");
+            return ErrorExpression(Catalog.TypeArgumentsOnName(e.Location));
 
         if (scope!.Lookup(e.Name) is { } local)
             return new BoundLocalAccess(e.Location, local, AssumesNonNull: local.IsReferenceBinding);
@@ -158,29 +145,27 @@ public sealed partial class Binder
         if (currentType is not null && LookupField(currentType.Type, e.Name) is var (field, owner))
         {
             if (!hasThis)
-                return ErrorExpression(e.Location, $"'{e.Name}' is an instance field; {NoInstanceReason}");
+                return ErrorExpression(Catalog.InstanceMemberUnavailable(e.Location, "field", e.Name, noThisContext));
             CheckVisible(e.Location, field.Reach, $"field '{field.Owner.Name}.{e.Name}'");
             return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field, TypeMap.For(owner).Apply(field.Type));
         }
 
         if (LookupType(e.Name, e.Location) is not null || LookupTypeParameter(e.Name) is not null)
-            return ErrorExpression(e.Location, $"'{e.Name}' is a type, not a value");
+            return ErrorExpression(Catalog.TypeNotValue(e.Location, e.Name));
         if (LookupFunctions(e.Name, e.Location) is not null || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
-            return ErrorExpression(e.Location, $"'{e.Name}' is a function; call it with '{e.Name}(...)'{ReferenceHint(e)}");
+            return ErrorExpression(Catalog.FunctionNotValue(e.Location, "function", e.Name, e.Name, CanReference(e)));
         if (ExpectedVariant(e.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, null);
-        if (HiddenElsewhere(e.Name, e.Location.Source) is { } hidden)
-            return ErrorExpression(e.Location, hidden);
-        return ErrorExpression(e.Location, $"'{e.Name}' is not defined{VariantHint(e.Name, e.Location.Source)}");
+        if (HiddenElsewhere(e.Name, e.Location) is { } hidden)
+            return ErrorExpression(hidden);
+        return ErrorExpression(UndefinedName(e.Location, e.Name));
     }
 
     BoundExpression BindThis(ThisExpr e)
     {
         if (!hasThis)
         {
-            return ErrorExpression(e.Location, currentType is null
-                ? "'this' can only be used inside a struct or class"
-                : $"'this' cannot be used here; {NoInstanceReason}");
+            return ErrorExpression(currentType is null ? Catalog.ThisOutsideType(e.Location) : Catalog.ThisUnavailable(e.Location, noThisContext));
         }
         return new BoundThis(e.Location, currentType!.Type);
     }
@@ -195,15 +180,13 @@ public sealed partial class Binder
             return receiver;
         if (receiver is BoundLocalAccess)
             return AssumeNonNull(receiver);
-        return ErrorExpression(receiver.Location, receiver.Type.IsNullableReference
-            ? MayReferToNothingMessage(receiver)
-            : $"'{TextOf(receiver.Location)}' might be null; use '?.' or '!' to access its members");
+        return ErrorExpression(receiver.Type.IsNullableReference ? MayReferToNothing(receiver.Location, receiver) : Catalog.NullableReceiver(receiver.Location, TextOf(receiver.Location)));
     }
 
-    string MayReferToNothingMessage(BoundExpression reference)
+    Diagnostic MayReferToNothing(Location at, BoundExpression reference)
     {
         var type = (NullableReferenceType)reference.Type;
-        return $"'{TextOf(reference.Location)}' might refer to nothing; check it with 'is {FunctionSymbol.RefPrefix(type.Kind)}{type.Referenced} name', or use '!'";
+        return Catalog.MayReferToNothing(at, TextOf(reference.Location), $"is {FunctionSymbol.RefPrefix(type.Kind)}{type.Referenced} name");
     }
 
     /// <summary>
@@ -219,17 +202,17 @@ public sealed partial class Binder
     static BoundExpression NarrowReference(BoundExpression expression) =>
         expression.Type.IsNullableReference ? AssumeNonNull(expression) : expression;
 
-    static string NullableOperandHint(params BoundExpression[] operands) =>
-        operands.Any(o => o.Type.IsNullableValue) ? "; check it for null first, or use '!' or '??'"
-        : operands.Any(o => o.Type.IsNullableReference) ? "; check it for null first, or use '!'"
-        : "";
+    static NullableOperand NullableOperands(params BoundExpression[] operands) =>
+        operands.Any(o => o.Type.IsNullableValue) ? NullableOperand.Value
+        : operands.Any(o => o.Type.IsNullableReference) ? NullableOperand.Reference
+        : NullableOperand.None;
 
     BoundExpression BindMemberAccess(MemberAccessExpr e, WylType? expected)
     {
         if (e.TypeArguments.Count > 0)
-            return ErrorExpression(e.NameLocation, "type arguments can only be used in a call");
+            return ErrorExpression(Catalog.TypeArgumentsOnMember(e.NameLocation));
         if (e.Target is SuperExpr)
-            return ErrorExpression(e.NameLocation, $"'super' can only be used to call methods; use 'this.{e.Name}' for fields");
+            return ErrorExpression(Catalog.SuperField(e.NameLocation, e.Name));
         if (AsEnumName(e.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(e.Name) is { } variant)
             return BindVariant(e.Location, enumSymbol, enumType, variant, null);
         if (expected?.NonNull is FunctionType function && ReferencedFunctions(e) is { } referenced)
@@ -239,9 +222,7 @@ public sealed partial class Binder
         {
             if (typeName == WylType.Error)
                 return new BoundErrorExpression(e.Location);
-            return ErrorExpression(e.NameLocation, LookupMethods(typeName, e.Name).Count > 0
-                ? $"'{typeName.Symbol!.Name}.{e.Name}' is a method; call it with '{e.Name}(...)'{ReferenceHint(e)}"
-                : $"'{typeName.Symbol!.Name}' has no static member '{e.Name}'");
+            return ErrorExpression(LookupMethods(typeName, e.Name).Count > 0 ? Catalog.FunctionNotValue(e.NameLocation, "method", $"{typeName.Symbol!.Name}.{e.Name}", e.Name, CanReference(e)) : Catalog.NoStaticMember(e.NameLocation, typeName.Symbol!.Name, e.Name));
         }
 
         return BindFieldAccess(e.Location, BindExpression(e.Target), e.Name, e.NameLocation);
@@ -259,21 +240,15 @@ public sealed partial class Binder
         {
             return name == "length"
                 ? new BoundArrayLength(location, target)
-                : ErrorExpression(nameLocation, $"'{target.Type}' has no member '{name}'; fixed arrays only have 'length'");
+                : ErrorExpression(Catalog.NoFixedArrayMember(nameLocation, target.Type.ToString(), name));
         }
         if (!target.Type.IsStruct && !target.Type.IsClass)
         {
-            return ErrorExpression(nameLocation, LookupMethods(target.Type, name).Count > 0
-                ? $"'{DisplayName(target.Type)}.{name}' is a method; call it with '{name}(...)'"
-                : target.Type.IsEnum && target.Type.Symbol!.ValueFields.Any(f => f.Name == name)
-                ? $"a variant's fields can only be read with a pattern, as in 'if (x is Variant(var {name}))'"
-                : $"'{target.Type}' has no member '{name}'");
+            return ErrorExpression(LookupMethods(target.Type, name).Count > 0 ? Catalog.MethodNotField(nameLocation, $"{DisplayName(target.Type)}.{name}", name) : target.Type.IsEnum && target.Type.Symbol!.ValueFields.Any(f => f.Name == name) ? Catalog.VariantFieldAccess(nameLocation, name) : Catalog.NoMember(nameLocation, target.Type.ToString(), name));
         }
         if (LookupField(target.Type, name) is not var (field, owner))
         {
-            return ErrorExpression(nameLocation, LookupMethods(target.Type, name).Count > 0
-                ? $"'{DisplayName(target.Type)}.{name}' is a method; call it with '{name}(...)'"
-                : $"'{DisplayName(target.Type)}' has no field '{name}'");
+            return ErrorExpression(LookupMethods(target.Type, name).Count > 0 ? Catalog.MethodNotField(nameLocation, $"{DisplayName(target.Type)}.{name}", name) : Catalog.NoField(nameLocation, DisplayName(target.Type), name));
         }
         CheckVisible(nameLocation, field.Reach, $"field '{field.Owner.Name}.{name}'");
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
@@ -300,7 +275,7 @@ public sealed partial class Binder
             _ => throw new InvalidOperationException($"unexpected unary operator {e.Operator}"),
         };
         if (!valid)
-            return ErrorExpression(e.Location, $"operator '{SyntaxFacts.GetText(e.Operator)}' cannot be applied to '{operand.Type}'{NullableOperandHint(operand)}");
+            return ErrorExpression(Catalog.UnaryOperatorNotApplicable(e.Location, SyntaxFacts.GetText(e.Operator), operand.Type.ToString(), NullableOperands(operand)));
         return new BoundUnary(e.Location, op, operand);
     }
 
@@ -310,7 +285,7 @@ public sealed partial class Binder
         if (operand.Type == WylType.Error)
             return new BoundErrorExpression(e.Location);
         if (!operand.Type.MayBeNull)
-            return ErrorExpression(e.Location, $"'!' can only be applied to a nullable value, and '{operand.Type}' is not nullable");
+            return ErrorExpression(Catalog.NonNullOnNonNullable(e.Location, operand.Type.ToString()));
         return new BoundNonNull(e.Location, operand);
     }
 
@@ -321,19 +296,19 @@ public sealed partial class Binder
         if (left.Type == WylType.Error || right.Type == WylType.Error)
             return new BoundErrorExpression(e.Location);
         if (left.Type.IsNullableReference)
-            return ErrorExpression(e.OperatorLocation, $"'??' cannot be applied to '{left.Type}'; check it for null with 'if' instead");
+            return ErrorExpression(Catalog.CoalesceOnReference(e.OperatorLocation, left.Type.ToString()));
         if (!left.Type.IsNullable)
-            return ErrorExpression(e.Left.Location, $"the left side of '??' must be nullable, and '{left.Type}' is not");
+            return ErrorExpression(Catalog.CoalesceOnNonNullable(e.Left.Location, left.Type.ToString()));
         // Its result would refer to a function that may be made only for this operation.
         if (left.Type.IsNullableNonEscapingFunction)
-            return ErrorExpression(e.OperatorLocation, "'??' cannot be applied to a nullable non-escaping function; check it for null with 'if' instead");
+            return ErrorExpression(Catalog.CoalesceNonEscaping(e.OperatorLocation));
 
         // Prefer a non-null result: `a ?? b` is non-null when `b` is.
         WylType[] candidates = [left.Type.NonNull, right.Type, left.Type];
         var type = candidates.FirstOrDefault(t =>
             t != WylType.Null && Conversions.IsImplicit(left.Type.NonNull, t) && (Conversions.IsImplicit(right.Type, t) || IsConvertibleConstant(right, t)));
         if (type is null)
-            return ErrorExpression(e.OperatorLocation, $"operator '??' cannot be applied to '{left.Type}' and '{right.Type}'");
+            return ErrorExpression(Catalog.BinaryOperatorNotApplicable(e.OperatorLocation, "??", left.Type.ToString(), right.Type.ToString()));
         return new BoundCoalesce(e.Location, left, Convert(right, type), type);
     }
 
@@ -349,17 +324,16 @@ public sealed partial class Binder
         if (operand.Type == WylType.Error)
             return new BoundErrorExpression(e.Location);
         if (!IsResult(operand.Type))
-            return ErrorExpression(e.Operand.Location, $"'try' needs a 'Result', not '{operand.Type}'");
+            return ErrorExpression(Catalog.TryOnNonResult(e.Operand.Location, operand.Type.ToString()));
         if (inferring is { } lambda && lambda.Function == currentFunction)
-            return ErrorExpression(e.Location, "'try' cannot be used in a lambda whose return type is inferred from what it returns; specify the call's type arguments");
+            return ErrorExpression(Catalog.TryInInferredLambda(e.Location));
         var function = currentFunction;
         if (function is null || function.IsConstructor || function.IsDestructor || !IsResult(function.ReturnType))
-            return ErrorExpression(e.Location, "'try' can only be used in a function that returns a 'Result'");
+            return ErrorExpression(Catalog.TryOutsideResult(e.Location));
         var (error, expectedError) = (operand.Type.TypeArguments[1], function.ReturnType.TypeArguments[1]);
         if (error != expectedError)
         {
-            return ErrorExpression(e.Location,
-                $"'try' would return an error of type '{error}' from {Describe(function)}, whose error type is '{expectedError}'; convert the error first");
+            return ErrorExpression(Catalog.TryErrorType(e.Location, Describe(function), expectedError.ToString(), error.ToString()));
         }
         return new BoundTry(e.Location, operand, operand.Type.TypeArguments[0]);
     }
@@ -405,7 +379,8 @@ public sealed partial class Binder
         var op = BinaryOperatorFor(syntaxOperator);
         var symbol = SyntaxFacts.GetText(syntaxOperator);
         var (leftType, rightType) = (left.Type, right.Type);
-        string Mismatch() => $"operator '{symbol}' cannot be applied to '{leftType}' and '{rightType}'";
+        Diagnostic Mismatch(NullableOperand nullable = NullableOperand.None, bool numeric = false) =>
+            Catalog.BinaryOperatorNotApplicable(location, symbol, leftType.ToString(), rightType.ToString(), nullable, numeric);
 
         // A reference that may refer to nothing is compared with null, or narrowed to what it refers to.
         if (left.Type.IsNullableReference || right.Type.IsNullableReference)
@@ -414,7 +389,7 @@ public sealed partial class Binder
                 return new BoundBinary(location, left, op, right, WylType.Bool);
             var (narrowedLeft, narrowedRight) = (AssumeNonNull(left), AssumeNonNull(right));
             if (narrowedLeft.Type.IsNullableReference || narrowedRight.Type.IsNullableReference)
-                return ErrorExpression(location, Mismatch() + NullableOperandHint(left, right));
+                return ErrorExpression(Mismatch(NullableOperands(left, right)));
             return BindBinaryOperation(location, narrowedLeft, syntaxOperator, narrowedRight);
         }
 
@@ -424,41 +399,39 @@ public sealed partial class Binder
         if (left.Type.IsNullableValue || right.Type.IsNullableValue)
         {
             if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
-                return BindNullableEquality(location, left, op, right, Mismatch());
+                return BindNullableEquality(location, left, op, right, symbol, Mismatch());
             var (narrowedLeft, narrowedRight) = (AssumeNonNull(left), AssumeNonNull(right));
             if (narrowedLeft.Type.IsNullableValue || narrowedRight.Type.IsNullableValue)
-                return ErrorExpression(location, Mismatch() + NullableOperandHint(left, right));
+                return ErrorExpression(Mismatch(NullableOperands(left, right)));
             return BindBinaryOperation(location, narrowedLeft, syntaxOperator, narrowedRight);
         }
 
         if (IsReferenceOrNull(left.Type) || IsReferenceOrNull(right.Type))
         {
             if (op is not (BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual) || !IsReferenceOrNull(left.Type) || !IsReferenceOrNull(right.Type))
-                return ErrorExpression(location, Mismatch());
+                return ErrorExpression(Mismatch());
             // References compare by identity, and only when one could be the other.
             var (a, b) = (left.Type.NonNull, right.Type.NonNull);
             bool related = a == WylType.Null || b == WylType.Null || a.IsInterface || b.IsInterface
                 || Conversions.IsSubtype(a, b) || Conversions.IsSubtype(b, a);
             if (!related)
-                return ErrorExpression(location, Mismatch());
+                return ErrorExpression(Mismatch());
             return new BoundBinary(location, left, op, right, WylType.Bool);
         }
 
         if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual && (left.Type.IsAggregate || right.Type.IsAggregate))
         {
             if (left.Type != right.Type)
-                return ErrorExpression(location, Mismatch());
+                return ErrorExpression(Mismatch());
             var valueType = left.Type;
             while (valueType is FixedArrayType array)
                 valueType = array.Element;
             if (valueType.IsStructOrEnum && valueType.FindNonEquatableField() is { } field)
             {
-                var owner = valueType == left.Type ? "its" : $"'{valueType}'s";
-                return ErrorExpression(location,
-                    $"operator '{symbol}' cannot be applied to '{left.Type}' because {owner} field '{field.Name}' of type '{TypeMap.For(valueType).Apply(field.Type)}' does not support '=='");
+                return ErrorExpression(Catalog.FieldNotEquatable(location, symbol, left.Type.ToString(), valueType.ToString(), field.Name, TypeMap.For(valueType).Apply(field.Type).ToString()));
             }
             if (!left.Type.SupportsEquality)
-                return ErrorExpression(location, $"operator '{symbol}' cannot be applied to '{left.Type}', since '{valueType}' does not support '=='");
+                return ErrorExpression(Catalog.TypeNotEquatable(location, symbol, left.Type.ToString(), right.Type.ToString(), valueType.ToString()));
             return new BoundBinary(location, left, op, right, WylType.Bool);
         }
 
@@ -489,8 +462,7 @@ public sealed partial class Binder
                 if (right is BoundLiteral { Integer: { } count } && (count < 0 || count >= left.Type.ShiftWidth))
                 {
                     var widen = left.Type.ShiftWidth < 32 ? $"; widen it first, as in '(int)x {symbol} {count}'" : "";
-                    return ErrorExpression(right.Location,
-                        $"a shift count of {count} is out of range for '{left.Type}', which can shift by 0 to {left.Type.ShiftWidth - 1}{widen}");
+                    return ErrorExpression(Catalog.ShiftCountOutOfRange(right.Location, symbol, (long)count, left.Type.ToString(), left.Type.ShiftWidth));
                 }
                 return new BoundBinary(location, left, op, right, left.Type);
             case BoundBinaryOperator.LogicalAnd or BoundBinaryOperator.LogicalOr:
@@ -515,8 +487,7 @@ public sealed partial class Binder
 
         if (operandType is null)
         {
-            var hint = bothNumeric ? "; use an explicit cast to convert one side" : "";
-            return ErrorExpression(location, Mismatch() + hint);
+            return ErrorExpression(Mismatch(numeric: bothNumeric));
         }
         var resultType = producesBool ? WylType.Bool : operandType;
         return new BoundBinary(location, Convert(left, operandType), op, Convert(right, operandType), resultType);
@@ -526,33 +497,33 @@ public sealed partial class Binder
     /// A nullable value is equal to null only when it is null. Otherwise both sides become nullables
     /// of the type their values compare as, and null equals only null.
     /// </summary>
-    BoundExpression BindNullableEquality(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string mismatch)
+    BoundExpression BindNullableEquality(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string symbol, Diagnostic mismatch)
     {
         if (left.Type == WylType.Null || right.Type == WylType.Null)
             return new BoundBinary(location, left, op, right, WylType.Bool);
         WylType[] candidates = [left.Type.NonNull, right.Type.NonNull];
         var type = candidates.FirstOrDefault(t => !t.IsReference && t.CanBeNullable && CanConvert(left, t.Nullable) && CanConvert(right, t.Nullable));
         if (type is null)
-            return ErrorExpression(location, mismatch);
+            return ErrorExpression(mismatch);
         if (!type.SupportsEquality)
-            return ErrorExpression(location, $"{mismatch}, since '{type}' does not support '=='");
+            return ErrorExpression(Catalog.TypeNotEquatable(location, symbol, left.Type.ToString(), right.Type.ToString(), type.ToString()));
         return new BoundBinary(location, Convert(left, type.Nullable), op, Convert(right, type.Nullable), WylType.Bool);
     }
 
     /// <summary>Pointers compare by address, and in unsafe code move by a number of elements.</summary>
-    BoundExpression BindPointerOperation(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, string mismatch)
+    BoundExpression BindPointerOperation(Location location, BoundExpression left, BoundBinaryOperator op, BoundExpression right, Diagnostic mismatch)
     {
         if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
         {
             var type = left.Type.IsPointer ? left.Type : right.Type;
             if (!CanConvert(left, type) || !CanConvert(right, type))
-                return ErrorExpression(location, mismatch);
+                return ErrorExpression(mismatch);
             return new BoundBinary(location, Convert(left, type), op, Convert(right, type), WylType.Bool);
         }
         if (op is not (BoundBinaryOperator.Add or BoundBinaryOperator.Subtract) || !left.Type.IsPointer || !CanConvert(right, WylType.Int))
-            return ErrorExpression(location, mismatch);
+            return ErrorExpression(mismatch);
         if (!InUnsafe)
-            return ErrorExpression(location, "pointer arithmetic is only allowed in 'unsafe' code");
+            return ErrorExpression(Catalog.PointerArithmetic(location));
         return new BoundBinary(location, left, op, Convert(right, WylType.Int), left.Type);
     }
 
@@ -623,7 +594,7 @@ public sealed partial class Binder
         if (expression is BoundPendingLambda lambda)
         {
             if (to.NonNull is not FunctionType function)
-                return ErrorExpression(expression.Location, NotFunctionTypeMessage(lambda, to));
+                return ErrorExpression(Catalog.FunctionToNonFunction(expression.Location, lambda.Syntax.IsFunctionReference, to.ToString()));
             var bound = lambda.Inferred is { } inferred
                 ? RetargetLambda(lambda, inferred, function)
                 : BindLambda(lambda.SyntaxFor(function.Parameters), function, lambda.DeclaredParameters);
@@ -633,7 +604,7 @@ public sealed partial class Binder
         {
             return to.NonNull.IsFunction
                 ? Convert(choice.Finish(ChoiceTarget(to)!.NonNull), to)
-                : ErrorExpression(expression.Location, $"a choice of lambdas cannot be converted to '{to}', which is not a function type");
+                : ErrorExpression(Catalog.ChoiceToNonFunction(expression.Location, to.ToString()));
         }
 
         if (IsConvertibleConstant(expression, to))
@@ -660,10 +631,10 @@ public sealed partial class Binder
             ReportNotEscaping(expression);
             return new BoundErrorExpression(expression.Location);
         }
-        var hint = Conversions.IsExplicit(expression.Type, to) ? "; use an explicit cast"
-            : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to) ? "; check it for null first, or use '!'"
-            : SpanConversionHint(expression, to);
-        return ErrorExpression(expression.Location, $"cannot implicitly convert '{expression.Type}' to '{to}'{hint}");
+        var (help, nullable) = Conversions.IsExplicit(expression.Type, to) ? (ConversionHelp.Cast, null)
+            : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to) ? (ConversionHelp.NullCheck, null)
+            : SpanConversionHelp(expression, to);
+        return ErrorExpression(Catalog.ImplicitConversion(expression.Location, to.ToString(), expression.Type.ToString(), help, nullable));
     }
 
     BoundExpression BindCast(CastExpr e)
@@ -675,7 +646,7 @@ public sealed partial class Binder
         if (operand.Type == type)
             return operand;
         if (!Conversions.IsExplicit(operand.Type, type))
-            return ErrorExpression(e.Location, $"cannot convert '{operand.Type}' to '{type}'");
+            return ErrorExpression(Catalog.InvalidCast(e.Location, operand.Type.ToString(), type.ToString()));
         return new BoundConversion(e.Location, type, operand);
     }
 
@@ -705,11 +676,11 @@ public sealed partial class Binder
             : f == WylType.Null && t.CanBeNullable ? t.Nullable
             : null;
         if (type is null || type == WylType.Void || type == WylType.Null)
-            return ErrorExpression(location, $"the branches of '?:' have incompatible types '{t}' and '{f}'");
+            return ErrorExpression(Catalog.ConditionalTypes(location, t.ToString(), f.ToString()));
         if (type.IsRefStruct)
-            return ErrorExpression(location, $"'?:' cannot choose between two '{type}'s, since the result would view either; use 'if' with a variable for each");
+            return ErrorExpression(Catalog.ConditionalView(location, type.ToString()));
         if (type.IsNullableReference)
-            return ErrorExpression(location, "'?:' cannot choose between references; use 'if' with a variable for each");
+            return ErrorExpression(Catalog.ConditionalReference(location));
         // A nullable non-escaping choice would refer to a function made only for the choice.
         if (type.IsNullableNonEscapingFunction)
             type = EscapingForm(type);

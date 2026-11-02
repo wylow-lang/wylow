@@ -10,7 +10,7 @@ struct Holder<T> {
 struct Tag {
     int id;
 
-    Tag(int value = 1) { id = value; }   // error: a struct constructor cannot have a default value for every parameter, since 'Tag()' is always the default value
+    Tag(int value = 1) { id = value; }   // error[WYL0212]: struct constructor cannot give every parameter a default value
 }
 
 class Player {
@@ -27,11 +27,11 @@ int compute() { return 1; }
 
 String spawn(Vec3 pos, int count = 1, float spread = 0.5) { return "spawned"; }
 
-void notConstant(int x = compute()) {}                 // error: a default value must be a constant or a struct constructor
-void otherParameter(int x, int y = x) {}               // error: a default value must be a constant or a struct constructor
-void byRef(ref int x = 1) {}                           // error: a 'ref' parameter cannot have a default value, since it must refer to a variable
-void wrongType(int x = "text") {}                      // error: cannot implicitly convert 'String' to 'int'
-void generic<T>(Holder<T> holder = Holder<T>()) {}     // error: the default value of 'holder' can only be 'null', since its type 'Holder<T>' involves a type parameter
+void notConstant(int x = compute()) {}                 // error[WYL0216]: default value must be a constant or a struct constructor call
+void otherParameter(int x, int y = x) {}               // error[WYL0216]: default value must be a constant or a struct constructor call
+void byRef(ref int x = 1) {}                           // error[WYL0219]: 'ref' parameter 'x' cannot have a default value
+void wrongType(int x = "text") {}                      // error[WYL0079]: expected 'int', found 'String'
+void generic<T>(Holder<T> holder = Holder<T>()) {}     // error[WYL0217]: default value of 'holder' must be 'null'
 
 String amb(int a, int b = 0) { return "int"; }
 String amb(int a, String s = "") { return "String"; }
@@ -43,27 +43,27 @@ class Animal {
     int size;
 
     virtual String speak(int times = 1) { return "..."; }
-    String measure(int by = this.size) { return "measured"; }   // error: 'this' cannot be used here; default values cannot use 'this', fields, or instance methods
+    String measure(int by = this.size) { return "measured"; }   // error[WYL0284]: 'this' cannot be used here
 }
 
 class Dog extends Animal {
-    override String speak(int times = 2) { return "woof"; }   // error: 'Dog.speak' cannot declare default values, since it overrides or implements a method whose defaults it takes
+    override String speak(int times = 2) { return "woof"; }   // error[WYL0213]: 'Dog.speak' cannot declare default values
 }
 
 void main() {
     var pos = Vec3(0, 1, 0);
-    spawn(pos, sprd: 2.0);                      // error: 'spawn' has no parameter named 'sprd'
-    spawn(pos, spread: 2.0, count: 3);          // error: argument 'count' must come before 'spread', in the order of the parameters
-    spawn(pos, 2, count: 3);                    // error: parameter 'count' is given more than one argument
-    spawn(count: 3, pos);                       // error: a positional argument cannot follow a named one
-    spawn();                                    // error: missing an argument for parameter 'pos' of 'spawn'
-    spawn(pos, 1, 0.5, 4);                      // error: 'spawn' takes 3 arguments, but is given 4
-    spawn(pos, count: "many");                  // error: no overload of 'spawn' accepts (Vec3, count: String)
-    amb(1);                                     // error: call is ambiguous between 'amb(int, int)' and 'amb(int, String)'
+    spawn(pos, sprd: 2.0);                      // error[WYL0227]: cannot find parameter 'sprd' in 'spawn'
+    spawn(pos, spread: 2.0, count: 3);          // error[WYL0230]: argument 'count' must come before 'spread'
+    spawn(pos, 2, count: 3);                    // error[WYL0229]: parameter 'count' is given more than one argument
+    spawn(count: 3, pos);                       // error[WYL0226]: positional argument cannot follow a named argument
+    spawn();                                    // error[WYL0231]: call to 'spawn' has no argument for parameter 'pos'
+    spawn(pos, 1, 0.5, 4);                      // error[WYL0228]: argument count of 'spawn': expected 3, found 4
+    spawn(pos, count: "many");                  // error[WYL0236]: no overload of 'spawn' accepts (Vec3, count: String)
+    amb(1);                                     // error[WYL0237]: call to 'amb' is ambiguous
     short narrow = 1;
-    pair(narrow, narrow);                       // error: call is ambiguous between 'pair(int, long)' and 'pair(long, int)'
-    Hit(damage: 3);                             // error: 'Hit' needs a value for field 'target', since its type 'Player' has no default value
-    Vec3(z: 1, x: 2);                           // error: argument 'x' must come before 'z', in the order of the parameters
+    pair(narrow, narrow);                       // error[WYL0237]: call to 'pair' is ambiguous
+    Hit(damage: 3);                             // error[WYL0100]: 'Hit' needs a value for field 'target'
+    Vec3(z: 1, x: 2);                           // error[WYL0230]: argument 'x' must come before 'z'
     fn(int) -> void callback = (int x) -> {};
-    callback(x: 1);                             // error: arguments to 'callback' cannot be named, since a function type's parameters have no names
+    callback(x: 1);                             // error[WYL0259]: arguments to 'callback' cannot be named
 }

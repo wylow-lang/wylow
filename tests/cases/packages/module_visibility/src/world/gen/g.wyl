@@ -1,5 +1,5 @@
 // 'world::gen' sees 'world' only as any other module does: never its pub(module) names.
-import world::local;                // error: 'local' is visible only in module 'module_visibility::world'
+import world::local;                // error[WYL0054]: 'local' is not visible here
 import world::count;
 
 pub(package) int deep() { return count(); }

@@ -15,14 +15,14 @@ String? maybeString() {
 
 void throughRef(ref int? count) {
     if (count != null) {
-        print(count + 1);               // error: 'count' might be null here: a 'ref' parameter is not narrowed by null checks
+        print(count + 1);               // error[WYL0397]: 'count' might be null
     }
 }
 
 void main() {
     Node? maybe = null;
-    print(maybe.value);                 // error: 'maybe' might be null here
-    take(maybe);                        // error: 'maybe' might be null here
+    print(maybe.value);                 // error[WYL0397]: 'maybe' might be null
+    take(maybe);                        // error[WYL0397]: 'maybe' might be null
     var n = new Node();
 
     // Narrowing ends when the local may be reassigned to null.
@@ -33,27 +33,27 @@ void main() {
     mut Node? loop = n;
     if (loop != null) {
         while (true) {
-            print(loop.value);          // error: 'loop' might be null here
-            loop = loop.next;           // error: 'loop' might be null here
+            print(loop.value);          // error[WYL0397]: 'loop' might be null
+            loop = loop.next;           // error[WYL0397]: 'loop' might be null
         }
     }
-    if (maybe != null || maybe.value == 1) { }  // error: 'maybe' might be null here
+    if (maybe != null || maybe.value == 1) { }  // error[WYL0397]: 'maybe' might be null
     bool some = n.value > 0;
     if (some ? maybe != null : true) {
-        print(maybe.value);             // error: 'maybe' might be null here
+        print(maybe.value);             // error[WYL0397]: 'maybe' might be null
     }
     // Only a condition narrows, not a variable holding what one found.
     bool found = maybe != null;
     if (found) {
-        print(maybe.value);             // error: 'maybe' might be null here
+        print(maybe.value);             // error[WYL0397]: 'maybe' might be null
     }
 
     int? maybeInt = null;
-    print(maybeInt.toString());         // error: 'maybeInt' might be null here; check it with 'if (maybeInt != null)', or use '?.' or '!'
+    print(maybeInt.toString());         // error[WYL0397]: 'maybeInt' might be null
     String? unchecked = maybeString();
-    for (char c : unchecked) {          // error: 'unchecked' might be null here
+    for (char c : unchecked) {          // error[WYL0397]: 'unchecked' might be null
     }
     List<int>? list = null;
-    for (int item : list) {             // error: 'list' might be null here
+    for (int item : list) {             // error[WYL0397]: 'list' might be null
     }
 }

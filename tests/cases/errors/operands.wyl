@@ -9,11 +9,11 @@ void apply(fn(fn() -> void) -> void f) { }
 
 void main() {
     mut bool flag = true;
-    flag++;                             // error: '++' requires a numeric variable
+    flag++;                             // error[WYL0347]: '++' can only be applied to a numeric variable
     fn() -> void g = () -> { };
-    ref fn() -> void h = g;               // error: 'ref' cannot be used with type 'fn() -> void'; functions are already passed without copying
-    ref? (fn() -> void)? i = null;        // error: 'ref?' cannot be used with type 'fn() -> void'; functions are already passed without copying
-    named(c: 1);                        // error: no overload of 'named' takes these named arguments
-    apply((mut f) -> { });              // error: a non-escaping function
-    var type = Vec3;                    // error: 'Vec3' is a type, not a value
+    ref fn() -> void h = g;               // error[WYL0409]: 'ref' cannot be used with type 'fn() -> void'
+    ref? (fn() -> void)? i = null;        // error[WYL0409]: 'ref?' cannot be used with type 'fn() -> void'
+    named(c: 1);                        // error[WYL0235]: no overload of 'named' takes these named arguments
+    apply((mut f) -> { });              // error[WYL0267]: non-escaping function cannot be 'mut'
+    var type = Vec3;                    // error[WYL0279]: 'Vec3' is a type, not a value
 }

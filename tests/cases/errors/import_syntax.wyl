@@ -1,14 +1,14 @@
-import world::Chunk           // error: expected ';'
-import world::{};               // error: expected a name to import
-import ;                        // error: expected a module or package name
-@Inline import world::Chunk;    // error: an import takes no annotations
-static import world::Chunk;     // error: 'static' is not valid on an import
-import world::Chunk as;         // error: expected the name to import it as
+import world::Chunk           // error[WYL0001]: expected ';'
+import world::{};               // error[WYL0001]: expected a name to import
+import ;                        // error[WYL0001]: expected a module or package name
+@Inline import world::Chunk;    // error[WYL0035]: imports cannot have annotations
+static import world::Chunk;     // error[WYL0037]: 'static' cannot be used on an import
+import world::Chunk as;         // error[WYL0001]: expected the name to import it as
 
 struct Point { int x; }
 
-import world::Block;            // error: imports come before the file's declarations
+import world::Block;            // error[WYL0036]: imports must come before the file's declarations
 
 void main() {
-    var a = world::;            // error: expected a name
+    var a = world::;            // error[WYL0001]: expected a name
 }

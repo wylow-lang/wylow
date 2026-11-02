@@ -1,13 +1,13 @@
 // Errors the binder finds in statements, before flow analysis, which runs only on a program that binds.
 
 void returnsValue() {
-    return 1;                 // error: returns 'void' and cannot return a value
+    return 1;                 // error[WYL0374]: cannot return a value from 'void' function 'returnsValue'
 }
 
 int missingValue() {
-    return;                   // error: must return a value of type 'int'
+    return;                   // error[WYL0372]: 'missingValue' must return a value of type 'int'
 }
 
 void main() {
-    break;                    // error: 'break' can only be used inside a loop
+    break;                    // error[WYL0371]: 'break' can only be used inside a loop
 }

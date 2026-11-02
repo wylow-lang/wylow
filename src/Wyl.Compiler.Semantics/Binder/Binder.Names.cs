@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -114,7 +115,7 @@ public sealed partial class Binder
                 found.Add((entry, all.From));
         }
         if (found.Count > 1 && reportedAmbiguities.Add((use, name)))
-            Error(use, $"'{name}' is ambiguous here: '*' imports it from both {DescribeModule(found[0].From)} and {DescribeModule(found[1].From)}; import the one meant by name");
+            Error(Catalog.AmbiguousStarImport(use, name, found[0].From, found[1].From));
         return found.Count > 0 ? found[0].Entry : null;
     }
 
@@ -149,15 +150,6 @@ public sealed partial class Binder
         return new Entry(type, functions, submodule);
     }
 
-    /// <summary>How a message names a module: <c>'world::gen'</c>, <c>'std'</c>, or the root module.</summary>
-    static string DescribeModule(Module module)
-    {
-        var package = module.Package.Name;
-        if (module.IsRoot)
-            return package is null ? "the root module" : $"'{package}'";
-        return package is null ? $"'{module}'" : $"'{package}::{module}'";
-    }
-
     TypeSymbol? LookupType(string name, Location use) => ResolveName(name, use).Type;
 
     /// <summary>The overloads a name means where it is used; null if it means no function there.</summary>
@@ -167,16 +159,16 @@ public sealed partial class Binder
     /// How far a declaration of the name reaches that the file can't see but another file of its
     /// module has, so a miss says it is private there rather than that it doesn't exist.
     /// </summary>
-    string? HiddenElsewhere(string name, SourceText from)
+    Diagnostic? HiddenElsewhere(string name, Location at)
     {
-        foreach (var file in from.Module.Files)
+        foreach (var file in at.Source.Module.Files)
         {
-            if (file == from || !fileNames.TryGetValue(file, out var table))
+            if (file == at.Source || !fileNames.TryGetValue(file, out var table))
                 continue;
             if (table.Types.TryGetValue(name, out var type))
-                return $"'{name}' is visible {type.Reach.Describe()}";
+                return Catalog.NotVisible(at, $"type '{name}'", type.Reach.Level, type.Reach.Source);
             if (table.Functions.TryGetValue(name, out var functions))
-                return $"function '{name}' is visible {functions[0].Reach.Describe()}";
+                return Catalog.NotVisible(at, $"function '{name}'", functions[0].Reach.Level, functions[0].Reach.Source);
         }
         return null;
     }
@@ -189,7 +181,7 @@ public sealed partial class Binder
     {
         if (declaration.Location.Source.Module.Package.IsStd || stdlib.LanguageType(name) is null)
             return false;
-        Error(at, $"'{name}' is one of the types the language is built on, which every file sees, so no module may declare it");
+        Error(Catalog.LanguageTypeName(at, name));
         return true;
     }
 
@@ -272,9 +264,7 @@ public sealed partial class Binder
         if (candidates.Count == 0)
         {
             if (root.Files.FirstOrDefault() is { } first)
-                Error(new Location(first, new TextSpan(0, 0)), package.Name is { } name
-                    ? $"package '{name}' has no 'main' function in its root module"
-                    : "program has no 'main' function");
+                Error(Catalog.NoMain(new Location(first, new TextSpan(0, 0)), package.Name));
             return null;
         }
 
@@ -282,11 +272,11 @@ public sealed partial class Binder
         foreach (var candidate in candidates)
         {
             if (candidate.Parameters.Count != 0 || candidate.IsGeneric)
-                Error(candidate.Declaration!.NameLocation, "'main' must not take parameters or type parameters");
+                Error(Catalog.MainParameters(candidate.Declaration!.NameLocation));
             else if (candidate.ReturnType != WylType.Void && candidate.ReturnType != WylType.Int)
-                Error(candidate.Declaration!.NameLocation, "'main' must return 'void' or 'int'");
+                Error(Catalog.MainReturnType(candidate.Declaration!.NameLocation));
             else if (main is not null)
-                Error(candidate.Declaration!.NameLocation, $"the program already has a 'main', in {main.Declaration!.Location.Source.Name}");
+                Error(Catalog.DuplicateMain(candidate.Declaration!.NameLocation, main.Declaration!.NameLocation));
             else
                 main = candidate;
         }

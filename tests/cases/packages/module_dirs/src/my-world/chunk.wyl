@@ -1,2 +1,2 @@
-// error: directory 'my-world' holds Wylow files, but 'my-world' is not a module name
+// error[WYL0032]: directory 'my-world' contains source files, but 'my-world' is not an identifier
 pub struct Chunk { }

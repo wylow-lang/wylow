@@ -12,20 +12,20 @@ class Dog extends Animal { }
 class Car { }
 
 void take(Node n) { }
-void takeRef(ref Node n) { }            // error: 'ref' cannot be used on a parameter of type 'Node'
+void takeRef(ref Node n) { }            // error[WYL0409]: 'ref' cannot be used with type 'Node'
 
 void main() {
     var n = new Node();
-    print(n.next.value);                // error: 'n.next' might be null; use '?.' or '!'
-    Node definite = n.next;             // error: cannot implicitly convert 'Node?' to 'Node'; check it for null first, or use '!'
-    print(n!.value);                    // error: '!' can only be applied to a nullable value
-    print(n?.value);                    // error: '?.' is only needed on nullable values
-    var x = null;                       // error: cannot infer a type from 'null'
-    Node m = null;                      // error: cannot implicitly convert 'null' to 'Node'
-    var k = n ?? n;                     // error: the left side of '??' must be nullable
-    print(1 == null);                   // error: operator '==' cannot be applied to 'int' and 'null'
+    print(n.next.value);                // error[WYL0065]: 'n.next' might be null
+    Node definite = n.next;             // error[WYL0079]: expected 'Node', found 'Node?'
+    print(n!.value);                    // error[WYL0312]: '!' is used on a value of non-nullable type 'Node'
+    print(n?.value);                    // error[WYL0316]: '?.' is used on a value of non-nullable type 'Node'
+    var x = null;                       // error[WYL0087]: cannot infer a type from 'null'
+    Node m = null;                      // error[WYL0079]: expected 'Node', found 'null'
+    var k = n ?? n;                     // error[WYL0314]: '??' is used on a value of non-nullable type 'Node'
+    print(1 == null);                   // error[WYL0308]: operator '==' cannot be applied to 'int' and 'null'
     Animal a = new Dog();
-    if (a is Car c) { }                 // error: a 'Animal' can never be a 'Car'
-    if (1 is Node q) { }                // error: 'is' can only test the type of class or interface values
-    Dog d = a;                          // error: cannot implicitly convert 'Animal' to 'Dog'
+    if (a is Car c) { }                 // error[WYL0380]: pattern 'Car' can never match a value of type 'Animal'
+    if (1 is Node q) { }                // error[WYL0330]: 'is' cannot test the type of a value of type 'int'
+    Dog d = a;                          // error[WYL0079]: expected 'Dog', found 'Animal'
 }

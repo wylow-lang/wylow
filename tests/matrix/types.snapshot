@@ -104,7 +104,7 @@ out true
 exit 0
 
 === class/default
-error 40: 'Defaults' has no default value because field 'value' has type 'Cell'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value
 
 === class/overloads
 out typed
@@ -169,7 +169,7 @@ out true
 exit 0
 
 === enum/default
-error 40: 'Defaults' has no default value because field 'value' has type 'Shape'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value
 
 === enum/overloads
 out typed
@@ -453,7 +453,7 @@ exit 0
 error 38: operator '==' cannot be applied to 'fn() -> int' and 'fn() -> int'
 
 === function-escaping/default
-error 40: 'Defaults' has no default value because field 'value' has type 'fn() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value
 
 === function-escaping/overloads
 out typed
@@ -486,39 +486,39 @@ out 3
 exit 0
 
 === function-nonescaping/field
-error 39: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
-error 48: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 39: non-escaping parameter 'value' cannot be stored or returned
+error 48: non-escaping variable 'other' cannot be stored or returned
 
 === function-nonescaping/parameter
 out 3
 exit 0
 
 === function-nonescaping/return
-error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 37: non-escaping variable 'value' cannot be stored or returned
 
 === function-nonescaping/type-argument
-error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 37: non-escaping variable 'value' cannot be stored or returned
 
 === function-nonescaping/element
-error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-error 40: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 38: non-escaping variable 'value' cannot be stored or returned
+error 38: non-escaping variable 'value' cannot be stored or returned
+error 40: non-escaping variable 'other' cannot be stored or returned
 
 === function-nonescaping/capture
-error 38: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it 'escaping'
+error 38: escaping lambda cannot capture 'value'
 
 === function-nonescaping/equality
 error 38: operator '==' cannot be applied to 'fn() -> int' and 'fn() -> int'
 
 === function-nonescaping/default
-error 40: 'Defaults' has no default value because field 'value' has type 'fn() -> int'; pass it by name, as in 'Defaults(value: ...)'
+error 40: 'Defaults' has no default value
 
 === function-nonescaping/overloads
 out typed
 exit 0
 
 === function-nonescaping/struct-pattern
-error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 42: non-escaping variable 'value' cannot be stored or returned
 
 === function-nonescaping/case-null
 out 3
@@ -526,12 +526,12 @@ out null
 exit 0
 
 === function-nonescaping/guarded
-error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 42: non-escaping variable 'value' cannot be stored or returned
 
 === function-nonescaping/constructor-call
-error 40: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
-error 67: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
-error 80: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 40: non-escaping parameter 'value' cannot be stored or returned
+error 67: non-escaping parameter 'value' cannot be stored or returned
+error 80: non-escaping variable 'value' cannot be stored or returned
 
 === generic/local
 out 3

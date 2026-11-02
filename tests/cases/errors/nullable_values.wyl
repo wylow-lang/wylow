@@ -32,12 +32,12 @@ struct Buf implements Spannable<int> {
 
 enum Direction { North, East }
 
-struct Link {                           // error: struct 'Link' contains itself (Link -> Link)
+struct Link {                           // error[WYL0106]: struct 'Link' contains itself
     Link? next;
 }
 
 struct Span2 {
-    Span<int>? view;                    // error: 'Span<int>' cannot be nullable, since it is a 'ref struct'
+    Span<int>? view;                    // error[WYL0067]: 'Span<int>' cannot be nullable
 }
 
 int? maybe() {
@@ -60,23 +60,23 @@ int clear(ref Vec? v) {
 }
 
 bool same<T>(T? a, T? b) {
-    return a == b;                      // error: since 'T' does not support '=='
+    return a == b;                      // error[WYL0311]: operator '==' cannot be applied to 'T?' and 'T?'
 }
 
 void main() {
     int? x = maybe();
-    print(maybe() + 1);                 // error: operator '+' cannot be applied to 'int?' and 'int'; check it for null first
-    print(-maybe());                    // error: operator '-' cannot be applied to 'int?'; check it for null first
-    if (x is long n) { }                // error: a 'int?' can never be a 'long'
-    switch (heading()) {                // error: cannot switch on a nullable 'Direction?' without a 'case null'
+    print(maybe() + 1);                 // error[WYL0308]: operator '+' cannot be applied to 'int?' and 'int'
+    print(-maybe());                    // error[WYL0307]: operator '-' cannot be applied to 'int?'
+    if (x is long n) { }                // error[WYL0380]: pattern 'long' can never match a value of type 'int?'
+    switch (heading()) {                // error[WYL0390]: cannot switch on a value of nullable type 'Direction?' without a 'case null'
         case North -> print(0);
         case East -> print(1);
     }
     escaping (fn() -> int)? f = null;
-    print(f == f);                      // error: since 'fn() -> int' does not support '=='
-    var none = 1 == 2 ? null : null;    // error: the branches of '?:' have incompatible types 'null' and 'null'
+    print(f == f);                      // error[WYL0311]: operator '==' cannot be applied to '(fn() -> int)?' and '(fn() -> int)?'
+    var none = 1 == 2 ? null : null;    // error[WYL0319]: branches of '?:' have incompatible types 'null' and 'null'
 
-    ref int? alias = x;                 // error: a 'ref' variable cannot refer to the nullable variable 'x'
+    ref int? alias = x;                 // error[WYL0410]: 'ref' variable cannot refer to nullable variable 'x'
 
     // Nothing may keep referring into a nullable value that could be destroyed meanwhile.
     mut Vec? v = Vec(x: 1);
@@ -84,21 +84,21 @@ void main() {
         v.move(1);
     }
     if (v != null) {
-        ref int r = v.x;                // error: a 'ref' variable cannot refer into the nullable 'v'
-        in int[2] p = v.pair;           // error: an 'in' variable cannot refer into the nullable 'v'
-        Span<int> span = v.pair;        // error: a span cannot view inside the nullable 'v'
-        for (int e : v.pair) { }        // error: cannot loop over elements inside the nullable 'v'
+        ref int r = v.x;                // error[WYL0406]: 'ref' variable cannot refer into nullable 'v'
+        in int[2] p = v.pair;           // error[WYL0406]: 'in' variable cannot refer into nullable 'v'
+        Span<int> span = v.pair;        // error[WYL0079]: expected 'Span<int>', found 'int[2]'
+        for (int e : v.pair) { }        // error[WYL0352]: cannot loop over elements inside nullable 'v'
     }
     mut Buf? b = Buf(data: [1, 2]);
     if (b != null) {
-        ref int r = b.asSpan()[0];      // error: a 'ref' variable cannot refer into the nullable 'b'
-        for (int e : b.asSpan()) { }    // error: cannot loop over elements inside the nullable 'b'
-        Span<int> s = b.asSpan();       // error: this 'Span<int>' would view inside the nullable 'b'
-        if (b.first() is ref int g) { } // error: a 'ref' binding cannot refer into the nullable 'b'
-        ref? int q = b.first();         // error: a 'ref?' variable cannot refer into the nullable 'b'
-        ref? long w = b.first();        // error: a 'ref?' variable must have exactly the type of what it refers to, 'int', not 'long'
+        ref int r = b.asSpan()[0];      // error[WYL0406]: 'ref' variable cannot refer into nullable 'b'
+        for (int e : b.asSpan()) { }    // error[WYL0352]: cannot loop over elements inside nullable 'b'
+        Span<int> s = b.asSpan();       // error[WYL0416]: 'Span<int>' cannot view inside nullable 'b'
+        if (b.first() is ref int g) { } // error[WYL0406]: 'ref' binding cannot refer into nullable 'b'
+        ref? int q = b.first();         // error[WYL0406]: 'ref?' variable cannot refer into nullable 'b'
+        ref? long w = b.first();        // error[WYL0405]: 'ref?' variable of type 'long' cannot refer to a 'int'
     }
-    v?.move(1);                         // error: '?.' would call 'move' on a copy of 'v'
+    v?.move(1);                         // error[WYL0317]: '?.' would call 'mut' method 'move' on a copy of 'v'
     print(v!.x);
-    v!.x = 2;                           // error: cannot assign to a field of a temporary value
+    v!.x = 2;                           // error[WYL0348]: cannot assign to a field of a temporary value
 }

@@ -65,7 +65,7 @@ public sealed partial class Parser
             }
             Expect(TokenKind.CloseParen, "')'");
             if (parameters.FirstOrDefault(p => (p.Type is null) != (parameters[0].Type is null)) is { } mixed)
-                Error(mixed.Location.Span, "a lambda's parameters must either all have types or all leave them out");
+                Report(Catalog.MixedLambdaParameters(mixed.Location));
         }
         Expect(TokenKind.Arrow, "'->'");
         if (At(TokenKind.OpenBrace))
@@ -281,7 +281,7 @@ public sealed partial class Parser
     Expr SkipInitializer(int start, Expr target)
     {
         var name = target is CallExpr { Callee: NameExpr callee } ? callee.Name : ((NameExpr)target).Name;
-        Error(Current.Span, $"fields are set by naming them in the constructor call, as in '{name}(field: value)'");
+        Report(Catalog.InitializerBraces(Loc(Current.Span), name));
         int depth = 0;
         do
         {
@@ -303,7 +303,7 @@ public sealed partial class Parser
         // The alignment is parsed rather than lexed, since a ',' may also separate type arguments.
         int? alignment = parser.Accept(TokenKind.Comma) ? parser.ParseAlignment() : null;
         if (!parser.At(TokenKind.EndOfFile))
-            parser.Error(parser.Current.Span, "expected '}' to end the interpolated value");
+            parser.Report(Catalog.Expected(parser.Loc(parser.Current.Span), "'}' to end the interpolated value"));
         return new InterpolatedValue(value.Location, value, alignment, hole.Format, Loc(hole.FormatSpan));
     }
 
@@ -313,13 +313,13 @@ public sealed partial class Parser
         bool negative = Accept(TokenKind.Minus);
         if (!At(TokenKind.IntLiteral) || Current.Value is not IntegerLiteralValue { Suffix: IntegerSuffix.None } literal)
         {
-            Error(Current.Span, "expected an integer alignment, as in '{value,8}'");
+            Report(Catalog.Expected(Loc(Current.Span), "an integer alignment, as in '{value,8}'"));
             return null;
         }
         Advance();
         if (literal.Value > int.MaxValue)
         {
-            Error(LocationFrom(start).Span, "alignment is too large");
+            Report(Catalog.AlignmentTooLarge(LocationFrom(start)));
             return null;
         }
         return negative ? -(int)literal.Value : (int)literal.Value;
@@ -383,7 +383,7 @@ public sealed partial class Parser
                     var length = ParseExpression();
                     Expect(TokenKind.CloseBracket, "']'");
                     if (At(TokenKind.OpenBracket))
-                        Error(Current.Span, "arrays of arrays cannot be created with one 'new' yet; create the outer array, then each inner one");
+                        Report(Catalog.NestedArrayCreation(Loc(Current.Span)));
                     return new NewArrayExpr(LocationFrom(start), type, length);
                 }
                 var arguments = ParseArgumentList();
@@ -409,11 +409,11 @@ public sealed partial class Parser
                 return new SwitchExpr(LocationFrom(start), value, cases);
             }
             case TokenKind.ReservedKeyword:
-                Error(token.Span, $"'{token.Text}' is not supported yet");
+                Report(Catalog.ReservedKeyword(Loc(token.Span), token.Text));
                 Advance();
                 return new ErrorExpr(location);
             default:
-                Error(token.Span, "expected an expression");
+                Report(Catalog.Expected(Loc(token.Span), "an expression"));
                 return new ErrorExpr(location);
         }
     }

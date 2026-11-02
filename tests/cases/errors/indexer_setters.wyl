@@ -16,7 +16,7 @@ struct Grid {
     }
 
     ref int wrong(int i) {
-        return ref this[i];             // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value; 'Grid' has no element storage, and assigns its elements with 'operator []='
+        return ref this[i];             // error[WYL0407]: returned 'ref' must refer to a variable, field, or element
     }
 }
 
@@ -27,7 +27,7 @@ struct Both {
         return ref cells[i];
     }
 
-    mut void operator []=(int i, int value) {   // error: 'Both' cannot have both 'operator []=' and an 'operator []' that returns 'ref', since an assignment would have two meanings
+    mut void operator []=(int i, int value) {   // error[WYL0250]: 'Both' cannot have both 'operator []=' and an 'operator []' that returns 'ref'
         cells[i] = value;
     }
 }
@@ -41,7 +41,7 @@ class Base {
 }
 
 class Derived extends Base {
-    void operator []=(int i, int value) {       // error: 'Derived' cannot have both 'operator []=' and an 'operator []' that returns 'ref', since an assignment would have two meanings
+    void operator []=(int i, int value) {       // error[WYL0250]: 'Derived' cannot have both 'operator []=' and an 'operator []' that returns 'ref'
     }
 }
 
@@ -56,26 +56,26 @@ struct Shapes {
         return null;
     }
 
-    int operator []=(int i, int value) {        // error: 'operator []=' must return 'void'
+    int operator []=(int i, int value) {        // error[WYL0251]: 'operator []=' must return 'void'
         return 0;
     }
 
-    mut void operator []=(int i) {              // error: 'operator []=' takes the indices, then the assigned value, as in 'void operator []=(int i, T value)'
+    mut void operator []=(int i) {              // error[WYL0253]: 'operator []=' must take the indices, then the assigned value
     }
 
-    mut void operator []=(long i, int value) {  // error: 'operator []=' needs an 'operator [](long)' returning the element it assigns
+    mut void operator []=(long i, int value) {  // error[WYL0256]: 'operator []=' has no matching 'operator [](long)'
     }
 
-    mut void operator []=(short i, int value) { // error: 'operator []=' needs an 'operator [](short)' returning the element it assigns
+    mut void operator []=(short i, int value) { // error[WYL0256]: 'operator []=' has no matching 'operator [](short)'
     }
 
-    mut void operator []=(int i, ref long value) {  // error: the value of 'operator []=' cannot be 'ref'; it is passed by value or 'in'
+    mut void operator []=(int i, ref long value) {  // error[WYL0255]: value of 'operator []=' cannot be 'ref'
     }
 
-    mut void operator []=(int i, long value) {  // error: the value of 'operator []=' must have the element type 'int' that 'operator [](int)' returns
+    mut void operator []=(int i, long value) {  // error[WYL0257]: value of 'operator []=': expected 'int', found 'long'
     }
 
-    static void operator []=(byte i, int value) {   // error: 'operator []=' cannot be static
+    static void operator []=(byte i, int value) {   // error[WYL0252]: 'operator []=' cannot be static
     }
 }
 
@@ -84,13 +84,13 @@ struct Defaults {
         return i + j;
     }
 
-    mut void operator []=(int i, int j = 0, int value) {   // error: 'operator []=' cannot have default values; an assignment takes the defaults of the matching 'operator []'
+    mut void operator []=(int i, int j = 0, int value) {   // error[WYL0254]: 'operator []=' cannot have default values
     }
 }
 
 // Without an 'operator []', there is nothing to read an element with.
 struct WriteOnly {
-    mut void operator []=(int i, int value) {   // error: 'operator []=' needs an 'operator [](int)' returning the element it assigns
+    mut void operator []=(int i, int value) {   // error[WYL0256]: 'operator []=' has no matching 'operator [](int)'
     }
 }
 
@@ -115,21 +115,21 @@ void bump(ref int x) {
 }
 
 void change(in Grid read) {
-    read[0] = 1;                        // error: cannot call 'mut' method 'operator []=' on 'read' because 'read' is an 'in' parameter
+    read[0] = 1;                        // error[WYL0105]: cannot call 'mut' method 'operator []=' on 'read'
 }
 
 void main() {
     Grid grid = Grid();
-    grid[0] = 1;                        // error: cannot call 'mut' method 'operator []=' on 'grid' because variable 'grid' is not 'mut'
+    grid[0] = 1;                        // error[WYL0105]: cannot call 'mut' method 'operator []=' on 'grid'
     mut Grid g = Grid();
-    g["torch"] = 1;                     // error: 'Grid' has no 'operator []=' to assign an element read by 'operator [](String)'
-    g[0] = "one";                       // error: cannot implicitly convert 'String' to 'int'
-    ref int r = g[0];                   // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value; 'Grid' has no element storage, and assigns its elements with 'operator []='
-    bump(ref g[0]);                     // error: a 'ref' argument must be a variable or field; 'Grid' has no element storage, and assigns its elements with 'operator []='
+    g["torch"] = 1;                     // error[WYL0249]: cannot assign an element of 'Grid'
+    g[0] = "one";                       // error[WYL0079]: expected 'int', found 'String'
+    ref int r = g[0];                   // error[WYL0407]: 'ref' variable must refer to a variable, field, or element
+    bump(ref g[0]);                     // error[WYL0222]: 'ref' argument must be a variable, field, or element
     var holder = new Holder();
-    holder.fixed[0] += 1;               // error: cannot call 'mut' method 'operator []=' on 'holder.fixed' because field 'fixed' is not 'mut'
+    holder.fixed[0] += 1;               // error[WYL0105]: cannot call 'mut' method 'operator []=' on 'holder.fixed'
     var maybe = new Maybe();
-    maybe[0]++;                         // error: '++' requires a numeric variable; check it for null first, or use '!' or '??'
+    maybe[0]++;                         // error[WYL0347]: '++' can only be applied to a numeric variable
     mut WriteOnly w = WriteOnly();
-    w[0] = 1;                           // error: 'WriteOnly' cannot be indexed
+    w[0] = 1;                           // error[WYL0306]: 'WriteOnly' cannot be indexed
 }

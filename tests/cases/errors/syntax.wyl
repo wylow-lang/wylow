@@ -1,17 +1,17 @@
 import std::print;
 
-import Player {               // error: expected ';'
+import Player {               // error[WYL0001]: expected ';'
 }
 
-int counter = 0;                // error: top-level variables and constants are not supported yet; declare 'counter' inside a function or type
-int[3] cells;                   // error: top-level variables and constants are not supported yet; declare 'cells' inside a function or type
-var total = 1;                  // error: top-level variables and constants are not supported yet; declare 'total' inside a function or type
+int counter = 0;                // error[WYL0093]: variables cannot be declared at the top level
+int[3] cells;                   // error[WYL0093]: variables cannot be declared at the top level
+var total = 1;                  // error[WYL0093]: variables cannot be declared at the top level
 
 void main() {
     int x = 0;
-    if (x == 0) print(x);     // error: the body of 'if' must be enclosed in braces
-    int y = (x = 1);          // error: assignment is a statement
-    int z = 1                 // error: expected ';'
+    if (x == 0) print(x);     // error[WYL0341]: body of 'if' is not enclosed in braces
+    int y = (x = 1);          // error[WYL0345]: assignment cannot be used as an expression
+    int z = 1                 // error[WYL0001]: expected ';'
     print(z);
-    int when = 2;             // error: expected a variable name
+    int when = 2;             // error[WYL0001]: expected a variable name
 }

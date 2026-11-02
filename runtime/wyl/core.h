@@ -201,8 +201,9 @@ struct RawTag {};
 template <int N>
 struct BaseArguments {};
 
-// The arguments a delegating constructor passes on, as copies of these, which keep (see keep) and
-// unlike std::tuple's elements are destroyed in a fixed order, the last first.
+// The arguments a delegating constructor passes on, by value or, for one passed by 'in' or 'ref',
+// as the address of its place; unlike std::tuple's elements they are destroyed in a fixed order,
+// the last first.
 template <class... T>
 struct Arguments {};
 

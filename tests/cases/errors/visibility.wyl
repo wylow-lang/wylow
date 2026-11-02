@@ -7,9 +7,9 @@ pub class Base {
 }
 
 pub class Derived extends Base {
-    override void shown() { }                   // error: 'shown' overrides 'Base.shown', so it must have 'pub', as that method has
-    pub override void engine() { }              // error: 'engine' overrides 'Base.engine', so it must have 'pub(package)', as that method has
-    pub(module) override void local() { }       // error: 'local' overrides 'Base.local', so it must have no visibility, as that method has
+    override void shown() { }                   // error[WYL0126]: 'shown' must have 'pub'
+    pub override void engine() { }              // error[WYL0126]: 'engine' must have 'pub(package)'
+    pub(module) override void local() { }       // error[WYL0126]: 'local' must have no visibility
 }
 
 pub interface Named {
@@ -17,7 +17,7 @@ pub interface Named {
 }
 
 pub struct Tag implements Named {
-    pub(package) String name() { return "tag"; }    // error: 'Tag.name' implements 'Named.name()', so it must have 'pub', as interface 'Named' has
+    pub(package) String name() { return "tag"; }    // error[WYL0187]: 'Tag.name' must have 'pub'
 }
 
 struct Secret {
@@ -28,31 +28,31 @@ interface Hidden { }
 
 class Inner { }
 
-pub Secret leak() { return Secret(1); }         // error: function 'leak' is visible everywhere, but its return type 'Secret' is visible only in its file (visibility.wyl)
-pub void take(List<Secret> s) { }               // error: function 'take' is visible everywhere, but its parameter type 'List<Secret>', which names 'Secret', is visible only in its file (visibility.wyl)
-pub void sorted<T extends Hidden>(T x) { }      // error: function 'sorted' is visible everywhere, but its type parameter's bound 'Hidden' is visible only in its file (visibility.wyl)
+pub Secret leak() { return Secret(1); }         // error[WYL0056]: return type 'Secret' is less visible than function 'leak'
+pub void take(List<Secret> s) { }               // error[WYL0056]: parameter type 'List<Secret>' is less visible than function 'take'
+pub void sorted<T extends Hidden>(T x) { }      // error[WYL0056]: type parameter's bound 'Hidden' is less visible than function 'sorted'
 
 pub struct Holder {
-    pub Secret inside;                          // error: field 'Holder.inside' is visible everywhere, but its type 'Secret' is visible only in its file (visibility.wyl)
-    pub(module) Secret? maybe;                  // error: field 'Holder.maybe' is visible only in the root module, but its type 'Secret?', which names 'Secret', is visible only in its file (visibility.wyl)
+    pub Secret inside;                          // error[WYL0056]: type 'Secret' is less visible than field 'Holder.inside'
+    pub(module) Secret? maybe;                  // error[WYL0056]: type 'Secret?' is less visible than field 'Holder.maybe'
     Secret kept;
 }
 
-pub class Outer extends Inner { }               // error: class 'Outer' is visible everywhere, but its base class 'Inner' is visible only in its file (visibility.wyl)
-pub(package) class Shown implements Hidden { }  // error: class 'Shown' is visible only in this package, but its interface 'Hidden' is visible only in its file (visibility.wyl)
+pub class Outer extends Inner { }               // error[WYL0056]: base class 'Inner' is less visible than class 'Outer'
+pub(package) class Shown implements Hidden { }  // error[WYL0056]: interface 'Hidden' is less visible than class 'Shown'
 
 pub enum Choice {
-    Some(Secret value),                         // error: variant 'Choice.Some' is visible everywhere, but its field type 'Secret' is visible only in its file (visibility.wyl)
+    Some(Secret value),                         // error[WYL0056]: field type 'Secret' is less visible than variant 'Choice.Some'
     Nothing,
 }
 
 pub class Maker {
-    pub Maker(Secret s) { }                     // error: constructor 'Maker(Secret)' is visible everywhere, but its parameter type 'Secret' is visible only in its file (visibility.wyl)
+    pub Maker(Secret s) { }                     // error[WYL0056]: parameter type 'Secret' is less visible than constructor 'Maker(Secret)'
 }
 
 void main() {
     mut int a = 0;
-    memory::takeCycleStats(ref a, ref a, ref a); // error: function 'takeCycleStats' is visible only in its file (memory/memory.wyl)
+    memory::takeCycleStats(ref a, ref a, ref a); // error[WYL0054]: function 'takeCycleStats' is not visible here
     var list = new List<int>();
-    list.grow(4);                               // error: method 'List.grow' is visible only in its file (list.wyl)
+    list.grow(4);                               // error[WYL0054]: method 'List.grow' is not visible here
 }

@@ -24,51 +24,51 @@ int mix(fn(long) -> int f, int x) {
 void run(int value) {
 }
 
-void take(in (fn(int) -> int)? f) {               // error: 'in' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
+void take(in (fn(int) -> int)? f) {               // error[WYL0409]: 'in' cannot be used with type 'fn(int) -> int'
 }
 
-void takeRef(ref (fn(int) -> int)? f) {           // error: 'ref' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
+void takeRef(ref (fn(int) -> int)? f) {           // error[WYL0409]: 'ref' cannot be used with type 'fn(int) -> int'
 }
 
 void check() {
     fn(int) -> int inc = x -> x;
-    var a = x -> x;                                 // error: a lambda needs a function type from where it is used
-    fn(int) -> int b = (x, y) -> x;                   // error: this lambda has 2 parameters, but 'fn(int) -> int' takes 1 argument
-    fn(int) -> int c = (long x) -> 1;                 // error: 'x' is declared as 'long', but 'fn(int) -> int' passes 'int'
-    fn(int) -> int d = x -> "text";                   // error: cannot implicitly convert 'String' to 'int'
-    fn() -> void e = () -> 5;                         // error: only calls can be used as statements
+    var a = x -> x;                                 // error[WYL0260]: lambda has no function type to take
+    fn(int) -> int b = (x, y) -> x;                   // error[WYL0261]: parameters of lambda for 'fn(int) -> int': expected 1, found 2
+    fn(int) -> int c = (long x) -> 1;                 // error[WYL0263]: type of parameter 'x': expected 'int', found 'long'
+    fn(int) -> int d = x -> "text";                   // error[WYL0079]: expected 'int', found 'String'
+    fn() -> void e = () -> 5;                         // error[WYL0343]: only calls can be used as statements
     fn() -> void f = () -> {
-        return 1;                                   // error: this lambda returns 'void' and cannot return a value
+        return 1;                                   // error[WYL0374]: cannot return a value from a 'void' lambda
     };
     fn(int) -> int g = x -> {
-        return;                                     // error: this lambda must return a value of type 'int'
+        return;                                     // error[WYL0372]: lambda must return a value of type 'int'
     };
-    int h = pick(x -> 1);                           // error: call is ambiguous
-    int i = twice(x -> x, "no");                    // error: no overload of 'twice' accepts (fn(int) -> int, String)
-    int i2 = mix(x -> x, "no");                     // error: no overload of 'mix' accepts (lambda taking 1 argument, String)
-    int i3 = mix((int x) -> x, "no");               // error: no overload of 'mix' accepts (lambda taking (int), String)
-    run(() -> 1);                                   // error: a lambda cannot be converted to 'int', which is not a function type
+    int h = pick(x -> 1);                           // error[WYL0237]: call to 'pick' is ambiguous
+    int i = twice(x -> x, "no");                    // error[WYL0236]: no overload of 'twice' accepts (fn(int) -> int, String)
+    int i2 = mix(x -> x, "no");                     // error[WYL0236]: no overload of 'mix' accepts (lambda taking 1 argument, String)
+    int i3 = mix((int x) -> x, "no");               // error[WYL0236]: no overload of 'mix' accepts (lambda taking (int), String)
+    run(() -> 1);                                   // error[WYL0081]: expected 'int', found a lambda
     fn(int) -> void calls = x -> run(x);
-    calls(y -> y);                                  // error: a lambda cannot be converted to 'int', which is not a function type
-    calls(true ? y -> y : y -> 1);                  // error: a choice of lambdas cannot be converted to 'int', which is not a function type
-    int chosen = true ? y -> y : 5;                 // error: a lambda cannot be converted to 'int', which is not a function type
-    fn(ref fn(int) -> int) -> void byRef = g -> run(1); // error: 'ref' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
-    fn(in (fn(int) -> int)?) -> void byIn = f -> run(1); // error: 'in' cannot be used on a parameter of type 'fn(int) -> int'; functions are already passed without copying
-    int j = inc(1, 2);                              // error: 'inc' takes 1 argument, but is given 2
-    int k = inc("a");                               // error: cannot implicitly convert 'String' to 'int'
-    inc(ref k);                                     // error: argument 1 must not be passed with 'ref'
-    inc = x -> x;                                   // error: 'inc' cannot be reassigned
-    fn(int) -> int l;                                 // error: a 'fn(int) -> int' variable must be initialized where it is declared
+    calls(y -> y);                                  // error[WYL0081]: expected 'int', found a lambda
+    calls(true ? y -> y : y -> 1);                  // error[WYL0082]: expected 'int', found a choice of lambdas
+    int chosen = true ? y -> y : 5;                 // error[WYL0081]: expected 'int', found a lambda
+    fn(ref fn(int) -> int) -> void byRef = g -> run(1); // error[WYL0409]: 'ref' cannot be used with type 'fn(int) -> int'
+    fn(in (fn(int) -> int)?) -> void byIn = f -> run(1); // error[WYL0409]: 'in' cannot be used with type 'fn(int) -> int'
+    int j = inc(1, 2);                              // error[WYL0228]: argument count of 'inc': expected 1, found 2
+    int k = inc("a");                               // error[WYL0079]: expected 'int', found 'String'
+    inc(ref k);                                     // error[WYL0221]: argument 1 of 'inc' cannot be passed with 'ref'
+    inc = x -> x;                                   // error[WYL0268]: cannot reassign non-escaping variable 'inc'
+    fn(int) -> int l;                                 // error[WYL0414]: variable of type 'fn(int) -> int' must be initialized where it is declared
     int m = 5;
-    m(1);                                           // error: 'm' is a variable of type 'int', not a function
-    bool n = inc == inc;                            // error: operator '==' cannot be applied
-    fn(ref Widget) -> void o = w -> run(1);           // error: 'ref' cannot be used on a parameter of type 'Widget'
-    fn() -> Span<int> p = () -> p();                  // error: a function cannot return a 'Span<int>'
+    m(1);                                           // error[WYL0299]: cannot call 'm' of non-function type 'int'
+    bool n = inc == inc;                            // error[WYL0308]: operator '==' cannot be applied to 'fn(int) -> int' and 'fn(int) -> int'
+    fn(ref Widget) -> void o = w -> run(1);           // error[WYL0409]: 'ref' cannot be used with type 'Widget'
+    fn() -> Span<int> p = () -> p();                  // error[WYL0077]: function type cannot return 'Span<int>'
     int q = 1;
-    fn(int) -> int r = q -> q;                        // error: 'q' is already defined
+    fn(int) -> int r = q -> q;                        // error[WYL0084]: 'q' is already defined in this scope
     for (int s : 0..3) {
         fn() -> void t = () -> {
-            break;                                  // error: 'break' can only be used inside a loop
+            break;                                  // error[WYL0371]: 'break' can only be used inside a loop
         };
     }
 }

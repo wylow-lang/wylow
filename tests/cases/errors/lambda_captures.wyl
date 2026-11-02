@@ -12,7 +12,7 @@ struct Point {
     }
 
     mut fn() -> int getter() {
-        return () -> x;                             // error: an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first
+        return () -> x;                             // error[WYL0274]: escaping lambda cannot capture 'this' in a struct's method or constructor
     }
 }
 
@@ -28,24 +28,24 @@ void keep(escaping fn() -> int f) {
 }
 
 void parameters(ref int r, in int i, fn() -> int g, Span<int> view) {
-    keep(() -> r);                                  // error: an escaping lambda cannot capture 'r', which is a 'ref' parameter; copy its value to a local first
-    keep(() -> i);                                  // error: an escaping lambda cannot capture 'i', which is an 'in' parameter; copy its value to a local first
-    keep(() -> g());                                // error: an escaping lambda cannot capture 'g', which is a non-escaping parameter; declare it 'escaping'
-    keep(() -> view[0]);                            // error: an escaping lambda cannot capture 'view', a 'Span<int>' that may not outlive what it views
+    keep(() -> r);                                  // error[WYL0273]: escaping lambda cannot capture 'r'
+    keep(() -> i);                                  // error[WYL0273]: escaping lambda cannot capture 'i'
+    keep(() -> g());                                // error[WYL0273]: escaping lambda cannot capture 'g'
+    keep(() -> view[0]);                            // error[WYL0273]: escaping lambda cannot capture 'view'
 }
 
 void changes() {
     mut int assigned = 1;
-    keep(() -> assigned);                           // error: an escaping lambda cannot capture 'assigned', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
+    keep(() -> assigned);                           // error[WYL0273]: escaping lambda cannot capture 'assigned'
     assigned = 2;
 
     // Only 'mut' decides, not whether the local actually changes.
     mut int unchanged = 1;
-    keep(() -> unchanged);                          // error: an escaping lambda cannot capture 'unchanged', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
+    keep(() -> unchanged);                          // error[WYL0273]: escaping lambda cannot capture 'unchanged'
 
     mut var moved = Point(1);
     moved.move();
-    keep(() -> moved.get());                        // error: an escaping lambda cannot capture 'moved', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
+    keep(() -> moved.get());                        // error[WYL0273]: escaping lambda cannot capture 'moved'
 
     var read = Point(1);
     keep(() -> read.get() + read.x);
@@ -56,13 +56,13 @@ void changes() {
     keep(() -> late);
 
     for (mut int i = 0; i < 2; i++) {
-        keep(() -> i);                              // error: an escaping lambda cannot capture 'i', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
+        keep(() -> i);                              // error[WYL0273]: escaping lambda cannot capture 'i'
     }
 
     // An escaping lambda inside a non-escaping one.
     mut int outer = 0;
     each(x -> {
-        keep(() -> outer + x);                      // error: an escaping lambda cannot capture 'outer', which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'
+        keep(() -> outer + x);                      // error[WYL0273]: escaping lambda cannot capture 'outer'
         outer = x;
     });
 }
@@ -71,10 +71,10 @@ void copies() {
     int value = 1;
     var point = Point(1);
     keep(() -> {
-        value = 2;                                  // error: cannot assign to 'value' because an escaping lambda only has a copy of 'value'
-        point.x = 3;                                // error: cannot assign to 'point.x' because an escaping lambda only has a copy of 'point'
-        point.move();                               // error: cannot call 'mut' method 'move' on 'point' because an escaping lambda only has a copy of 'point'
-        bump(ref value);                            // error: cannot pass 'value' by 'ref' because an escaping lambda only has a copy of 'value'
+        value = 2;                                  // error[WYL0351]: cannot assign to 'value'
+        point.x = 3;                                // error[WYL0351]: cannot assign to 'point.x'
+        point.move();                               // error[WYL0105]: cannot call 'mut' method 'move' on 'point'
+        bump(ref value);                            // error[WYL0223]: cannot pass 'value' by 'ref'
         return value + point.get();
     });
     // A local the lambda declares is its own.

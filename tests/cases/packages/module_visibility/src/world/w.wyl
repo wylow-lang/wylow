@@ -1,6 +1,6 @@
 // A re-export reaches no farther than what it names, and a module's submodule is one of its names.
-pub import world::gen::deep as deepAlias;   // error: 'deep' is visible only in package 'module_visibility', so it can't be re-exported to reach farther
-import world::gen;                          // error: 'gen' is already a name of this module; import it under another name with 'as'
+pub import world::gen::deep as deepAlias;   // error[WYL0055]: 'deep' cannot be re-exported to reach farther than it is visible
+import world::gen;                          // error[WYL0044]: 'gen' is already a name of this module
 
 pub(module) int local() { return 1; }
 pub(package) int count() { return 2; }

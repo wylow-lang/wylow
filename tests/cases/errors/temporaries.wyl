@@ -48,22 +48,22 @@ int[3] numbers() {
 }
 
 void main() {
-    counter().add();                    // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
-    int taken = counter().take();       // error: cannot call 'mut' method 'take' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
-    Counter().add();                    // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
-    holder().counter.add();             // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    counter().add();                    // error[WYL0104]: cannot call 'mut' method 'add' on a temporary value
+    int taken = counter().take();       // error[WYL0104]: cannot call 'mut' method 'take' on a temporary value
+    Counter().add();                    // error[WYL0104]: cannot call 'mut' method 'add' on a temporary value
+    holder().counter.add();             // error[WYL0104]: cannot call 'mut' method 'add' on a temporary value
     mut Counter a = Counter();
     mut Counter b = Counter();
-    (true ? a : b).add();               // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    (true ? a : b).add();               // error[WYL0104]: cannot call 'mut' method 'add' on a temporary value
     mut Counter? maybe = Counter();
-    maybe!.add();                       // error: cannot call 'mut' method 'add' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    maybe!.add();                       // error[WYL0104]: cannot call 'mut' method 'add' on a temporary value
 
-    cells()[0] = 1;                     // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
-    cells()[0] += 1;                    // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
-    cells()[1]++;                       // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
-    Cells()[0] = 1;                     // error: cannot assign to an element of a temporary value; store it in a 'mut' variable first
+    cells()[0] = 1;                     // error[WYL0346]: cannot assign to an element of a temporary value
+    cells()[0] += 1;                    // error[WYL0346]: cannot assign to an element of a temporary value
+    cells()[1]++;                       // error[WYL0346]: cannot assign to an element of a temporary value
+    Cells()[0] = 1;                     // error[WYL0346]: cannot assign to an element of a temporary value
 
-    for (ref int n : numbers()) {       // error: cannot loop over a temporary array by 'ref', whose changes would be lost; store it in a 'mut' variable first
+    for (ref int n : numbers()) {       // error[WYL0356]: cannot loop over a temporary array by 'ref'
         n += 1;
     }
 }

@@ -27,18 +27,18 @@ struct Mat2 {
     }
 
     mut ref? float bad(int i) {
-        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref', or 'return null'
+        return m[i];                    // error[WYL0240]: 'bad' returns a reference, so 'return' must be 'return ref' or 'return null'
     }
 
     mut ref? float other(ref Mat2 o) {
-        return ref o.m[0];              // error: a returned 'ref?' must point into the method's receiver
+        return ref o.m[0];              // error[WYL0241]: returned 'ref?' must point into the method's receiver
     }
 
     mut ref float sure() {
-        return ref at(0);               // error: 'at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
+        return ref at(0);               // error[WYL0412]: 'at(0)' might refer to nothing
     }
 
-    mut ref? Node node() {                  // error: 'ref?' cannot be used with type 'Node'; class objects are already references
+    mut ref? Node node() {                  // error[WYL0409]: 'ref?' cannot be used with type 'Node'
         return null;
     }
 }
@@ -46,19 +46,19 @@ struct Mat2 {
 void bump(ref? int x) {
 }
 
-void bump(ref int x) {                  // error: function 'bump(ref int)' is already defined
+void bump(ref int x) {                  // error[WYL0232]: function 'bump(ref int)' is already defined
 }
 
 void freeze(in? int x) {
     if (x != null) {
-        x = 1;                          // error: cannot assign to 'x' because 'x' is an 'in' parameter
+        x = 1;                          // error[WYL0351]: cannot assign to 'x'
     }
 }
 
-void link(ref? Node n) {                // error: 'ref' cannot be used on a parameter of type 'Node'; class objects are already passed by reference
+void link(ref? Node n) {                // error[WYL0409]: 'ref' cannot be used with type 'Node'
 }
 
-void defaulted(ref? int x = 5) {        // error: cannot implicitly convert 'int' to 'ref? int'
+void defaulted(ref? int x = 5) {        // error[WYL0079]: expected 'ref? int', found 'int'
 }
 
 void setF(ref float target) {
@@ -77,49 +77,49 @@ void main() {
     mut Mat2 m = Mat2();
     mut int x = 1;
     ref? int r = x;
-    float v = m.at(0);                  // error: cannot implicitly convert 'ref? float' to 'float'; check it for null first, or use '!'
-    m.at(0) = 1;                        // error: 'm.at(0)' might refer to nothing; check it with 'is ref float name', or use '!'
-    var copy = m.at(0);                 // error: 'm.at(0)' is a reference that may refer to nothing; refer to it with 'ref? var', or copy what it refers to with '!'
-    ref float sure = m.at(0);           // error: 'm.at(0)' might refer to nothing
-    ref? float writable = m.peek(0);    // error: cannot take a 'ref?' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in?' instead
-    ref? int temporary = 5;             // error: a 'ref?' variable must refer to a variable, field, or element, not a temporary value
-    ref? Node node = null;              // error: 'ref?' cannot be used with type 'Node'; class objects are already references
-    ref? var unknown = null;            // error: cannot infer a type from 'null'
-    print(m.at(0) ?? 1);                // error: '??' cannot be applied to 'ref? float'; check it for null with 'if' instead
-    print(id(m.at(0)));                 // error: 'ref? float' cannot be a type argument; it can only be held by a 'ref?' variable or parameter
-    setF(ref m.at(0));                  // error: 'm.at(0)' might refer to nothing
-    bump(x);                            // error: argument 1 must be passed with 'ref'
+    float v = m.at(0);                  // error[WYL0079]: expected 'float', found 'ref? float'
+    m.at(0) = 1;                        // error[WYL0412]: 'm.at(0)' might refer to nothing
+    var copy = m.at(0);                 // error[WYL0088]: 'var' cannot hold 'm.at(0)', which might refer to nothing
+    ref float sure = m.at(0);           // error[WYL0412]: 'm.at(0)' might refer to nothing
+    ref? float writable = m.peek(0);    // error[WYL0408]: cannot bind 'ref?' to what 'm.peek(0)' refers to, which is read-only
+    ref? int temporary = 5;             // error[WYL0407]: 'ref?' variable must refer to a variable, field, or element
+    ref? Node node = null;              // error[WYL0409]: 'ref?' cannot be used with type 'Node'
+    ref? var unknown = null;            // error[WYL0092]: cannot infer a type from 'null'
+    print(m.at(0) ?? 1);                // error[WYL0313]: '??' cannot be applied to 'ref? float'
+    print(id(m.at(0)));                 // error[WYL0413]: 'ref? float' cannot be a type argument
+    setF(ref m.at(0));                  // error[WYL0412]: 'm.at(0)' might refer to nothing
+    bump(x);                            // error[WYL0224]: argument 1 of 'bump' must be passed with 'ref'
     in? int view = x;
-    ref? int widened = view;            // error: cannot take a 'ref?' to what 'view' refers to, because 'view' is an 'in' variable; use 'in?' instead
+    ref? int widened = view;            // error[WYL0408]: cannot bind 'ref?' to what 'view' refers to, which is read-only
     mut int? nullable = 1;
-    ref? int? inside = nullable;        // error: a 'ref?' variable cannot refer to the nullable variable 'nullable'
-    switch (m.at(0)) {                  // error: cannot switch on 'ref? float'; check it for null first, or use '!'
+    ref? int? inside = nullable;        // error[WYL0410]: 'ref?' variable cannot refer to nullable variable 'nullable'
+    switch (m.at(0)) {                  // error[WYL0369]: cannot switch on a value of type 'ref? float'
         default -> print(0);
     }
     mut Vec[1] vecs = [Vec()];
     ref? Vec first = vecs[0];
     in? Vec frozen = first;
-    frozen?.grow();                     // error: cannot call 'mut' method 'grow' on 'frozen' because 'frozen' is an 'in' variable
-    for (ref? Vec each : vecs) {        // error: a loop's elements always exist, so its variable is 'ref', not 'ref?'
+    frozen?.grow();                     // error[WYL0105]: cannot call 'mut' method 'grow' on 'frozen'
+    for (ref? Vec each : vecs) {        // error[WYL0354]: loop variable cannot be 'ref?'
     }
-    if (x is ref int place) {           // error: 'is ref' tests a reference that may refer to nothing, and 'x' has type 'int'
+    if (x is ref int place) {           // error[WYL0383]: 'is ref' cannot test 'x' of type 'int'
     }
-    if (m.at(0) is ref int wrong) {     // error: 'm.at(0)' refers to a value of type 'float', not 'int'
+    if (m.at(0) is ref int wrong) {     // error[WYL0384]: pattern type: expected 'float', found 'int'
     }
-    if (makeMat().at(0) is ref float gone) { // error: cannot call 'mut' method 'at' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
+    if (makeMat().at(0) is ref float gone) { // error[WYL0104]: cannot call 'mut' method 'at' on a temporary value
     }
-    if (m.peek(0) is ref float fixedRef) { // error: cannot take a 'ref' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in' instead
+    if (m.peek(0) is ref float fixedRef) { // error[WYL0408]: cannot bind 'ref' to what 'm.peek(0)' refers to, which is read-only
     }
     switch (x) {
-        case ref int e -> print(e);     // error: a 'ref' pattern can only test a reference with 'is', as in 'if (x is ref T name)'
+        case ref int e -> print(e);     // error[WYL0385]: 'ref' pattern can only be used with 'is'
         default -> print(0);
     }
     if (r is in int readOnly) {
-        readOnly = 1;                   // error: cannot assign to 'readOnly' because 'readOnly' is an 'in' variable
-        print(readOnly != null);        // error: operator '!=' cannot be applied to 'int' and 'null'
+        readOnly = 1;                   // error[WYL0351]: cannot assign to 'readOnly'
+        print(readOnly != null);        // error[WYL0308]: operator '!=' cannot be applied to 'int' and 'null'
     }
     bool pick = x > 0;
-    print(sumOf(pick ? m.at(0) : null)); // error: '?:' cannot choose between references; use 'if' with a variable for each
+    print(sumOf(pick ? m.at(0) : null)); // error[WYL0321]: '?:' cannot choose between references
 }
 
 Mat2 makeMat() {
@@ -127,5 +127,5 @@ Mat2 makeMat() {
 }
 
 float sumOf(in? float value) {
-    return value ?? 0;                  // error: '??' cannot be applied to 'in? float'
+    return value ?? 0;                  // error[WYL0313]: '??' cannot be applied to 'in? float'
 }

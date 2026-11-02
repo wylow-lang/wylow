@@ -1,0 +1,43 @@
+// A by-value argument converted to a nullable value is a copy the statement keeps too: what it
+// owns is released when the statement completes, not when the call that takes it returns
+// (spec 03-memory-model.md, When references are released).
+
+import std::print;
+
+class C {
+    String name;
+
+    C(String name) {
+        this.name = name;
+    }
+
+    ~C() {
+        print($"destroyed {name}");
+    }
+}
+
+struct S {
+    C c;
+}
+
+int f(S? a, ref S b) {
+    b = S(new C("second"));
+    print("f returns");
+    return 1;
+}
+
+int g() {
+    print("g runs");
+    return 1;
+}
+
+void main() {
+    mut S x = S(new C("first"));
+    int n = f(x, ref x) + g();
+    // output: f returns
+    // output: g runs
+    // output: destroyed first
+    print(n + 1);
+    // output: 3
+    // output: destroyed second
+}

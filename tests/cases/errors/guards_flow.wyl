@@ -14,8 +14,8 @@ enum State { Idle, Chasing(Enemy? target) }
 
 void use(State st, bool flag) {
     switch (st) {
-        case Chasing(var t) when t != null || flag -> print(t.hp);      // error: 't' might be null here
-        case Chasing(var t) when t is Enemy e || flag -> print(e.hp);   // error: 'e' might not have been assigned
+        case Chasing(var t) when t != null || flag -> print(t.hp);      // error[WYL0397]: 't' might be null
+        case Chasing(var t) when t is Enemy e || flag -> print(e.hp);   // error[WYL0394]: 'e' might not have been assigned
         case Chasing(var t) when t is Enemy e && flag -> print(e.hp);
         default -> print(0);
     }

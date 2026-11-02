@@ -24,24 +24,24 @@ class Body {
         this.id = id + 1;                   // a constructor may assign its fields any number of times
         position.x = 1;
         Body other = this;
-        other.id = 2;                       // error: cannot assign to 'other.id' because field 'id' is not 'mut'
+        other.id = 2;                       // error[WYL0351]: cannot assign to 'other.id'
         run(() -> {
-            this.id = 3;                    // error: cannot assign to 'this.id' because field 'id' is not 'mut'
+            this.id = 3;                    // error[WYL0351]: cannot assign to 'this.id'
         });
     }
 
     void move() {
         velocity.x = 1;
-        position.x = 1;                     // error: cannot assign to 'position.x' because field 'position' is not 'mut'
-        position.grow();                    // error: cannot call 'mut' method 'grow' on 'position' because field 'position' is not 'mut'
-        id = 4;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+        position.x = 1;                     // error[WYL0351]: cannot assign to 'position.x'
+        position.grow();                    // error[WYL0105]: cannot call 'mut' method 'grow' on 'position'
+        id = 4;                             // error[WYL0351]: cannot assign to 'id'
     }
 }
 
 class Ball extends Body {
     Ball() {
         super(1);
-        id = 5;                             // error: cannot assign to 'id' because field 'id' is not 'mut'
+        id = 5;                             // error[WYL0351]: cannot assign to 'id'
     }
 }
 
@@ -57,54 +57,54 @@ void sum(Span<float> values) {
 }
 
 void parameters(int count, Vec v, mut Vec w) {
-    count = 1;                              // error: cannot assign to 'count' because parameter 'count' is not 'mut'
-    v.x = 1;                                // error: cannot assign to 'v.x' because parameter 'v' is not 'mut'
+    count = 1;                              // error[WYL0351]: cannot assign to 'count'
+    v.x = 1;                                // error[WYL0351]: cannot assign to 'v.x'
     w.x = 1;
 }
 
 void locals() {
     int n = 0;
-    n = 1;                                  // error: cannot assign to 'n' because variable 'n' is not 'mut'
-    n++;                                    // error: cannot assign to 'n' because variable 'n' is not 'mut'
-    n += 2;                                 // error: cannot assign to 'n' because variable 'n' is not 'mut'
+    n = 1;                                  // error[WYL0351]: cannot assign to 'n'
+    n++;                                    // error[WYL0351]: cannot assign to 'n'
+    n += 2;                                 // error[WYL0351]: cannot assign to 'n'
 
     Vec v = Vec();
-    v.x = 1;                                // error: cannot assign to 'v.x' because variable 'v' is not 'mut'
-    v.grow();                               // error: cannot call 'mut' method 'grow' on 'v' because variable 'v' is not 'mut'
+    v.x = 1;                                // error[WYL0351]: cannot assign to 'v.x'
+    v.grow();                               // error[WYL0105]: cannot call 'mut' method 'grow' on 'v'
     print(v.get());
-    bump(ref v.x);                          // error: cannot pass 'v.x' by 'ref' because variable 'v' is not 'mut'
-    ref Vec r = v;                          // error: cannot take a 'ref' to 'v' because variable 'v' is not 'mut'; use 'in' instead
+    bump(ref v.x);                          // error[WYL0223]: cannot pass 'v.x' by 'ref'
+    ref Vec r = v;                          // error[WYL0408]: cannot bind 'ref' to read-only 'v'
     in Vec i = v;
 
     float[2] values = [1, 2];
-    values[0] = 3;                          // error: cannot assign to 'values[0]' because variable 'values' is not 'mut'
-    sum(values);                            // error: no overload of 'sum' accepts (float[2])
-    for (ref float e : values) {            // error: cannot loop over 'values' by 'ref' because variable 'values' is not 'mut'; use 'in'
+    values[0] = 3;                          // error[WYL0351]: cannot assign to 'values[0]'
+    sum(values);                            // error[WYL0236]: no overload of 'sum' accepts (float[2])
+    for (ref float e : values) {            // error[WYL0355]: cannot loop over 'values' by 'ref'
     }
     for (float e : values) {
-        e = 0;                              // error: cannot assign to 'e' because variable 'e' is not 'mut'
+        e = 0;                              // error[WYL0351]: cannot assign to 'e'
     }
     for (int k : 0..2) {
-        k = 0;                              // error: cannot assign to 'k' because variable 'k' is not 'mut'
+        k = 0;                              // error[WYL0351]: cannot assign to 'k'
     }
 
     // An object's own fields are not part of the variable.
     List<int> list = new List<int>();
     list.add(1);
-    list = new List<int>();                 // error: cannot assign to 'list' because variable 'list' is not 'mut'
+    list = new List<int>();                 // error[WYL0351]: cannot assign to 'list'
 }
 
 // A variable declared without a value can be assigned once, so not in a lambda, which may run more than once.
 void deferred() {
     int inLambda;
     run(() -> {
-        inLambda = 1;                       // error: cannot assign to 'inLambda' in a lambda, which may run more than once, because variable 'inLambda' is not 'mut'
+        inLambda = 1;                       // error[WYL0272]: cannot assign to 'inLambda' in a lambda
     });
 }
 
-void functions(mut fn() -> void f) {          // error: a non-escaping function cannot be 'mut'
-    mut fn() -> void g = () -> {};            // error: a non-escaping function cannot be 'mut'
-    fn(ref Vec) -> void reset = (mut v) -> {  // error: 'v' is passed as 'ref', so it cannot be 'mut'
+void functions(mut fn() -> void f) {          // error[WYL0267]: non-escaping function cannot be 'mut'
+    mut fn() -> void g = () -> {};            // error[WYL0267]: non-escaping function cannot be 'mut'
+    fn(ref Vec) -> void reset = (mut v) -> {  // error[WYL0264]: parameter 'v' cannot be 'mut'
         v.x = 0;
     };
 }

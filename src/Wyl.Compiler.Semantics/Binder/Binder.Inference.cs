@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -108,7 +109,7 @@ public sealed partial class Binder
         /// The candidate with its type arguments. While some are left to lambda bodies, those stand for
         /// themselves, and <see cref="Unresolved"/> lists them. Null, with an error, if inference fails.
         /// </summary>
-        public MethodReference? Instantiate(IReadOnlyList<Argument?> arguments, out string? error)
+        public MethodReference? Instantiate(IReadOnlyList<Argument?> arguments, out Func<Location, Diagnostic>? error)
         {
             var result = new List<WylType>();
             foreach (var parameter in function.TypeParameters)
@@ -118,7 +119,7 @@ public sealed partial class Binder
                 {
                     if (!LambdaCouldGive(parameter, arguments))
                     {
-                        error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}'; specify it explicitly, as in '{function.Name}<...>(...)'";
+                        error = at => Catalog.CannotInferTypeArgument(at, parameter.Name, function.Name);
                         return null;
                     }
                     result.Add(parameter.Type);
@@ -129,7 +130,7 @@ public sealed partial class Binder
                 // A call that returns nothing is a statement, not a value, so it can never be a type argument.
                 if (found.Any(b => b.Type == WylType.Void))
                 {
-                    error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}' from a 'void' value; a call that returns nothing cannot be an argument";
+                    error = at => Catalog.InferFromVoid(at, parameter.Name, function.Name);
                     return null;
                 }
                 var chosen = found.OrderBy(b => b.Expression is BoundLiteral { Integer: not null } literal && literal.Type == WylType.Int)
@@ -137,12 +138,13 @@ public sealed partial class Binder
                     candidate != WylType.Null && found.All(b => b.Expression is not null ? binder.CanConvert(b.Expression, candidate) || IsEscapingMismatch(b.Expression.Type, candidate) : b.Type == candidate));
                 if (found.All(b => b.Type == WylType.Null))
                 {
-                    error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}' from 'null'; specify it explicitly, as in '{function.Name}<...>(...)'";
+                    error = at => Catalog.InferFromNull(at, parameter.Name, function.Name);
                     return null;
                 }
                 if (chosen is null || (fixedTypes.TryGetValue(parameter, out var fixedType) && chosen != fixedType))
                 {
-                    error = $"cannot infer type argument '{parameter.Name}' of '{function.Name}': it could be {string.Join(" or ", found.Select(b => $"'{b.Type}'").Distinct())}";
+                    var types = found.Select(b => b.Type.ToString()).Distinct().ToList();
+                    error = at => Catalog.ConflictingInference(at, parameter.Name, function.Name, types);
                     return null;
                 }
                 result.Add(chosen);
@@ -196,7 +198,7 @@ public sealed partial class Binder
                 var current = Instantiate(arguments, out var error);
                 if (current is null)
                 {
-                    binder.Error(location, error!);
+                    binder.Error(error!(location));
                     return null;
                 }
                 var unresolved = Unresolved;
@@ -220,8 +222,7 @@ public sealed partial class Binder
                             return null;
                         if (inferred.Values.Count == 0)
                         {
-                            binder.Error(lambda.Location, $"this lambda returns no value, so it cannot give '{function.Name}' its type argument "
-                                + $"'{target.ReturnType.ContainedTypeParameters.First(inferable.Contains).Name}'");
+                            binder.Error(Catalog.InferFromVoidLambda(lambda.Location, target.ReturnType.ContainedTypeParameters.First(inferable.Contains).Name, function.Name));
                             return null;
                         }
                         foreach (var value in inferred.Values)
@@ -235,10 +236,10 @@ public sealed partial class Binder
             if (finished is not null && Unresolved is [var first, ..])
             {
                 finished = null;
-                finalError = $"cannot infer type argument '{first.Name}' of '{function.Name}'; specify it explicitly, as in '{function.Name}<...>(...)'";
+                finalError = at => Catalog.CannotInferTypeArgument(at, first.Name, function.Name);
             }
             if (finished is null)
-                binder.Error(location, finalError!);
+                binder.Error(finalError!(location));
             return finished;
         }
     }

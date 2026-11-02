@@ -23,7 +23,7 @@ public sealed partial class Binder
         var returnType = BindType(syntax.Element!, allowVoid: true);
         if (returnType.IsRefStruct)
         {
-            Error(syntax.Element!.Location, $"a function cannot return a '{returnType}', since there is nothing it could view");
+            Error(Catalog.ViewReturningFunctionType(syntax.Element!.Location, returnType.ToString()));
             return WylType.Error;
         }
         if (failed || returnType == WylType.Error)
@@ -36,9 +36,7 @@ public sealed partial class Binder
         if (refKind == RefKind.None || !type.PassedWithoutCopying)
             return true;
         var target = type.Referred.NonNull;
-        Error(location, target.IsFunction
-            ? $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{target}'; functions are already passed without copying"
-            : $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' cannot be used on a parameter of type '{target}'; class objects are already passed by reference");
+        Error(Catalog.ReferenceToPassedWithoutCopying(location, FunctionSymbol.RefPrefix(refKind).Trim(), target.ToString(), target.IsFunction));
         return false;
     }
 
@@ -65,8 +63,7 @@ public sealed partial class Binder
         var expected = type.Parameters;
         if (e.Parameters.Count != expected.Count)
         {
-            return ErrorExpression(e.Location,
-                $"this lambda has {Count(e.Parameters.Count, "parameter")}, but '{type}' takes {Count(expected.Count, "argument")}");
+            return ErrorExpression(Catalog.LambdaParameterCount(e.Location, type.ToString(), expected.Count, e.Parameters.Count));
         }
 
         var function = LambdaFunction(e, type, declared ?? BindDeclaredParameters(e), type.ReturnType);
@@ -88,17 +85,16 @@ public sealed partial class Binder
                 foreach (var annotation in syntax.Annotations)
                     ReportMisplacedAnnotation(annotation);
                 if (syntax.Escaping is { } escaping)
-                    Error(escaping, "an untyped lambda parameter takes its form from the lambda's type, so it can't be declared 'escaping'; give it a type");
+                    Error(Catalog.UntypedEscapingParameter(escaping));
             }
             if (declared is not null && declared[i] != expected[i] && declared[i].Type != WylType.Error)
             {
-                Error(syntax.Location, $"'{syntax.Name}' is declared as '{declared[i]}', "
-                    + $"but '{type}' passes '{expected[i]}'");
+                Error(Catalog.LambdaParameterType(syntax.Location, syntax.Name, expected[i].ToString(), declared[i].ToString(), type.ToString()));
             }
             if (syntax.IsMutable && expected[i].RefKind != RefKind.None)
-                Error(syntax.Location, $"'{syntax.Name}' is passed as '{FunctionSymbol.RefPrefix(expected[i].RefKind).Trim()}', so it cannot be 'mut'");
+                Error(Catalog.MutReferenceParameter(syntax.Location, syntax.Name, FunctionSymbol.RefPrefix(expected[i].RefKind).Trim()));
             else if (syntax.IsMutable && expected[i].Type.NonNull.IsNonEscapingFunction)
-                Error(syntax.Location, NonEscapingMutMessage);
+                Error(Catalog.NonEscapingMut(syntax.Location));
             parameters.Add(new LocalSymbol(syntax.Name, expected[i].Type, isParameter: true, expected[i].RefKind)
             {
                 IsTemporary = e.IsFunctionReference,
@@ -180,7 +176,7 @@ public sealed partial class Binder
 
     BoundStatement ConvertReturns(BoundStatement statement, FunctionSymbol function) => statement switch
     {
-        BoundReturn { Value: null } r when function.ReturnType != WylType.Void => ReportedReturn(r, $"this lambda must return a value of type '{function.ReturnType}'"),
+        BoundReturn { Value: null } r when function.ReturnType != WylType.Void => ReportedReturn(r, Catalog.MissingReturnValue(r.Location, null, function.ReturnType.ToString())),
         BoundReturn { Value: { } value } r => new BoundReturn(r.Location, Convert(value, function.ReturnType)),
         BoundBlock block => new BoundBlock(block.Location, [.. block.Statements.Select(s => ConvertReturns(s, function))]),
         BoundIf s => new BoundIf(s.Location, s.Condition, ConvertReturns(s.Then, function), s.Else is null ? null : ConvertReturns(s.Else, function)),
@@ -193,9 +189,9 @@ public sealed partial class Binder
         _ => statement,
     };
 
-    BoundReturn ReportedReturn(BoundReturn r, string message)
+    BoundReturn ReportedReturn(BoundReturn r, Diagnostic diagnostic)
     {
-        Error(r.Location, message);
+        Error(diagnostic);
         return new BoundReturn(r.Location, null);
     }
 
@@ -238,17 +234,13 @@ public sealed partial class Binder
         if (type is null)
         {
             var lambda = leaves.OfType<BoundPendingLambda>().First();
-            Error(lambda.Location, expected is not null && expected != WylType.Error ? NotFunctionTypeMessage(lambda, expected)
-                : lambda.Syntax.IsFunctionReference
-                ? $"'{TextOf(lambda.Location)}' is a function, which can only be used as a value where a function type is expected"
-                : "a lambda needs a function type from where it is used, as in 'fn(int) -> int f = x -> x + 1;'");
+            Error(expected is not null && expected != WylType.Error ? Catalog.FunctionToNonFunction(lambda.Location, lambda.Syntax.IsFunctionReference, expected.ToString())
+                : lambda.Syntax.IsFunctionReference ? Catalog.FunctionReferenceWithoutType(lambda.Location, TextOf(lambda.Location))
+                : Catalog.UntypedLambda(lambda.Location));
             type = WylType.Error;
         }
         return make(type);
     }
-
-    static string NotFunctionTypeMessage(BoundPendingLambda lambda, WylType to) =>
-        $"{(lambda.Syntax.IsFunctionReference ? "a function" : "a lambda")} cannot be converted to '{to}', which is not a function type";
 
     static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
 
@@ -281,18 +273,17 @@ public sealed partial class Binder
         if (e.Arguments.OfType<NamedArgExpr>().FirstOrDefault() is { } named)
         {
             pending.Bind(null);
-            return ErrorExpression(named.NameLocation, $"arguments to '{TextOf(callee.Location)}' cannot be named, since a function type's parameters have no names");
+            return ErrorExpression(Catalog.NamedFunctionValueArgument(named.NameLocation, TextOf(callee.Location)));
         }
         var arguments = pending.Bind([new Candidate(signature.Symbol, null)]);
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
         if (arguments.Count != type.Parameters.Count)
         {
-            return ErrorExpression(e.Location,
-                $"'{TextOf(callee.Location)}' takes {Count(type.Parameters.Count, "argument")}, but is given {arguments.Count}");
+            return ErrorExpression(Catalog.ArgumentCount(e.Location, TextOf(callee.Location), type.Parameters.Count, arguments.Count));
         }
         if (ExplainRefMismatch(signature, arguments) is { } mismatch)
-            return ErrorExpression(mismatch.Location, mismatch.Message);
+            return ErrorExpression(mismatch);
         return new BoundInvocation(e.Location, callee, signature, ConvertArguments(signature, arguments));
     }
 }

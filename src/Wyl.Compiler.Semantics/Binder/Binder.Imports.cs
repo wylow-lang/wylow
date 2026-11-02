@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -85,9 +86,7 @@ public sealed partial class Binder
             var next = from is null ? TopLevel(name.Name, package) : from.FindChild(name.Name);
             if (next is null)
             {
-                Error(name.Location, from is null
-                    ? $"'{name.Name}' is not a top-level module or a package"
-                    : $"{DescribeModule(from)} has no module '{name.Name}'");
+                Error(from is null ? Catalog.NoTopLevelModule(name.Location, name.Name) : Catalog.NoSubmodule(name.Location, from, name.Name));
                 return;
             }
             from = next;
@@ -107,11 +106,11 @@ public sealed partial class Binder
             var imported = new Imported(from, name.Name.Name, package, reach, name);
             if (!imports.Named.TryAdd(local.Name, imported))
             {
-                Error(local.Location, $"'{local.Name}' is already imported; import one of them under another name with 'as'");
+                Error(Catalog.DuplicateImport(local.Location, local.Name));
                 continue;
             }
             if (import.Visibility != Visibility.File && !TableIn(reExports, source.Module).Named.TryAdd(local.Name, imported))
-                Error(local.Location, $"'{local.Name}' is already re-exported by this module");
+                Error(Catalog.DuplicateReExport(local.Location, local.Name));
         }
     }
 
@@ -130,26 +129,24 @@ public sealed partial class Binder
                 if (entry.IsEmpty)
                 {
                     var module = imported.From ?? imported.Package.Root;
-                    Error(name.Location, PrivateIn(module, name.Name)
-                        ?? (imported.From is null
-                            ? $"'{name.Name}' is not a top-level module, a package, or a name of the root module"
-                            : $"{DescribeModule(module)} has no name '{name.Name}'"));
+                    Error(PrivateIn(name.Location, module, name.Name)
+                        ?? (imported.From is null ? Catalog.NoRootName(name.Location, name.Name) : Catalog.NoNameInModule(name.Location, module, name.Name)));
                     continue;
                 }
                 var reach = entry.Type?.Reach ?? entry.Functions?.MaxBy(f => f.Reach.Level)?.Reach;
                 if (reach is { } named && !named.Includes(source))
                 {
-                    Error(name.Location, $"'{name.Name}' is visible {named.Describe()}");
+                    Error(Catalog.NotVisible(name.Location, $"'{name.Name}'", named.Level, named.Source));
                     continue;
                 }
                 if ((entry.HasValue && (OwnType(local, source) is not null || OwnFunctions(local, source).Count > 0))
                     || (entry.Module is not null && source.Module.FindChild(local) is not null))
                 {
-                    Error(imported.Syntax.Local.Location, $"'{local}' is already a name of this module; import it under another name with 'as'");
+                    Error(Catalog.ImportTakesModuleName(imported.Syntax.Local.Location, local));
                     continue;
                 }
                 if (imported.Reach.Level > Visibility.File && reach is { } item && item.Level < imported.Reach.Level)
-                    Error(name.Location, $"'{name.Name}' is visible {item.Describe()}, so it can't be re-exported to reach farther");
+                    Error(Catalog.ReExportReachesFarther(name.Location, name.Name, item.Level, item.Source));
             }
         }
     }
@@ -165,9 +162,9 @@ public sealed partial class Binder
         {
             if (!report)
                 return null;
-            Error(first.Location, TopLevel(first.Name, first.Location.Source.Module.Package) is not null
-                ? $"module '{first.Name}' is not imported here; a path starts with a module the file imports or one of its own submodules, as in 'import {first.Name};'"
-                : $"'{first.Name}' is not a module here");
+            Error(TopLevel(first.Name, first.Location.Source.Module.Package) is not null
+                ? Catalog.ModuleNotImported(first.Location, first.Name)
+                : Catalog.NotAModule(first.Location, first.Name));
             return null;
         }
         foreach (var name in modules.Skip(1))
@@ -176,7 +173,7 @@ public sealed partial class Binder
             {
                 if (!report)
                     return null;
-                Error(name.Location, $"{DescribeModule(module)} has no module '{name.Name}'");
+                Error(Catalog.NoSubmodule(name.Location, module, name.Name));
                 return null;
             }
             module = next;
@@ -195,7 +192,7 @@ public sealed partial class Binder
         var entry = NamesOf(module, name, nameLocation.Source);
         if (entry.HasValue)
             return entry;
-        Error(nameLocation, PrivateIn(module, name) ?? $"{DescribeModule(module)} has no name '{name}'");
+        Error(PrivateIn(nameLocation, module, name) ?? Catalog.NoNameInModule(nameLocation, module, name));
         return null;
     }
 
@@ -203,16 +200,16 @@ public sealed partial class Binder
     /// How far a file-private declaration of the name in one of the module's files reaches, which
     /// isn't one of the module's names, so that a miss says it is private (§6.1, Imports).
     /// </summary>
-    string? PrivateIn(Module module, string name)
+    Diagnostic? PrivateIn(Location at, Module module, string name)
     {
         foreach (var file in module.Files)
         {
             if (!fileNames.TryGetValue(file, out var table))
                 continue;
             if (table.Types.TryGetValue(name, out var type))
-                return $"'{name}' is visible {type.Reach.Describe()}";
+                return Catalog.NotVisible(at, $"type '{name}'", type.Reach.Level, type.Reach.Source);
             if (table.Functions.TryGetValue(name, out var functions))
-                return $"function '{name}' is visible {functions[0].Reach.Describe()}";
+                return Catalog.NotVisible(at, $"function '{name}'", functions[0].Reach.Level, functions[0].Reach.Source);
         }
         return null;
     }
@@ -228,7 +225,7 @@ public sealed partial class Binder
             return WylType.Error;
         if (entry.Type is not { } symbol)
         {
-            Error(syntax.Location, $"'{TextOf(syntax.Location)}' is a function, not a type");
+            Error(Catalog.FunctionNotType(syntax.Location, TextOf(syntax.Location)));
             return WylType.Error;
         }
         var arguments = syntax.TypeArguments.Select(a => BindType(a, allowVoid: false)).ToList();

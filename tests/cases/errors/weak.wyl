@@ -2,25 +2,25 @@ import std::{Weak, print};
 
 class Node {
     Weak<Node> parent;
-    Weak<Node?> maybe;                  // error: write 'Weak<Node>': a weak reference can always be null
-    Weak<int> number;                   // error: 'Weak' needs a class or interface type, not 'int'
+    Weak<Node?> maybe;                  // error[WYL0402]: 'Weak' cannot take a nullable type
+    Weak<int> number;                   // error[WYL0403]: 'Weak' type argument: expected a class or interface type, found 'int'
 }
 
 struct Vec { int x; }
 
 class Box<T> {
-    Weak<T> item;                       // error: 'Weak' needs a class or interface type, not 'T'
+    Weak<T> item;                       // error[WYL0403]: 'Weak' type argument: expected a class or interface type, found 'T'
 }
 
-extern struct Native { }                // error: extern structs are only supported in the standard library
+extern struct Native { }                // error[WYL0427]: extern structs can only be declared in the standard library
 
 void main() {
     var n = new Node();
     mut Weak<Node> w = n;
-    Node strong = w;                    // error: cannot implicitly convert 'Weak<Node>' to 'Node'
-    Node? read = n.parent;              // error: cannot implicitly convert 'Weak<Node>' to 'Node?'
-    Weak<Vec> v;                        // error: 'Weak' needs a class or interface type, not 'Vec'
-    print(w == n.parent);               // error: operator '==' cannot be applied to 'Weak<Node>', since 'Weak<Node>' does not support '=='
-    w = 5;                              // error: cannot implicitly convert 'int' to 'Weak<Node>'
-    print(w.get().parent);              // error: 'w.get()' might be null; use '?.' or '!'
+    Node strong = w;                    // error[WYL0079]: expected 'Node', found 'Weak<Node>'
+    Node? read = n.parent;              // error[WYL0079]: expected 'Node?', found 'Weak<Node>'
+    Weak<Vec> v;                        // error[WYL0403]: 'Weak' type argument: expected a class or interface type, found 'Vec'
+    print(w == n.parent);               // error[WYL0311]: operator '==' cannot be applied to 'Weak<Node>' and 'Weak<Node>'
+    w = 5;                              // error[WYL0079]: expected 'Weak<Node>', found 'int'
+    print(w.get().parent);              // error[WYL0065]: 'w.get()' might be null
 }

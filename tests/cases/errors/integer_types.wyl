@@ -2,64 +2,64 @@ import std::print;
 
 @Repr(byte)
 enum TooBig {
-    A = 256,                      // error: the value does not fit in the enum's integer type 'byte'
+    A = 256,                      // error[WYL0173]: value does not fit in the enum's integer type 'byte'
 }
 
 @Repr(byte)
 enum Overflows {
     A = 255,
-    B,                            // error: the value of 'B' does not fit in the enum's integer type 'byte'
+    B,                            // error[WYL0171]: value of 'B' does not fit in the enum's integer type 'byte'
 }
 
-@Repr(char)                       // error: '@Repr' takes an integer type, not 'char'
+@Repr(char)                       // error[WYL0168]: '@Repr' type: expected an integer type, found 'char'
 enum NotInteger {
     A,
 }
 
 void main() {
-    byte b = 300;                 // error: cannot implicitly convert 'int' to 'byte'; use an explicit cast
-    int i = 1L;                   // error: cannot implicitly convert 'long' to 'int'; use an explicit cast
-    uint u = -1;                  // error: cannot implicitly convert 'int' to 'uint'; use an explicit cast
-    int big = 3000000000;         // error: integer literal is too large for 'int'; add a 'u' suffix to make it a 'uint', or an 'L' suffix to make it a 'long'
-    int huge = 5000000000;        // error: integer literal is too large for 'int'; add an 'L' suffix to make it a 'long'
-    uint ubig = 5000000000u;      // error: integer literal is too large for 'uint'; add a 'uL' suffix to make it a 'ulong'
-    var negated = -5u;            // error: operator '-' cannot be applied to 'uint'
+    byte b = 300;                 // error[WYL0079]: expected 'byte', found 'int'
+    int i = 1L;                   // error[WYL0079]: expected 'int', found 'long'
+    uint u = -1;                  // error[WYL0079]: expected 'uint', found 'int'
+    int big = 3000000000;         // error[WYL0080]: integer literal is too large for 'int'
+    int huge = 5000000000;        // error[WYL0080]: integer literal is too large for 'int'
+    uint ubig = 5000000000u;      // error[WYL0080]: integer literal is too large for 'uint'
+    var negated = -5u;            // error[WYL0307]: operator '-' cannot be applied to 'uint'
     uint x = 5u;
-    var y = -x;                   // error: operator '-' cannot be applied to 'uint'
+    var y = -x;                   // error[WYL0307]: operator '-' cannot be applied to 'uint'
 
     mut byte hi = 1;
-    var packed = hi << 8;         // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
-    hi <<= 8;                     // error: a shift count of 8 is out of range for 'byte', which can shift by 0 to 7; widen it first, as in '(int)x << 8'
+    var packed = hi << 8;         // error[WYL0309]: shift count 8 is out of range for 'byte'
+    hi <<= 8;                     // error[WYL0309]: shift count 8 is out of range for 'byte'
     int n = 1;
-    var tooFar = n << 32;         // error: a shift count of 32 is out of range for 'int', which can shift by 0 to 31
-    var negative = n >> -1;       // error: a shift count of -1 is out of range for 'int', which can shift by 0 to 31
+    var tooFar = n << 32;         // error[WYL0309]: shift count 32 is out of range for 'int'
+    var negative = n >> -1;       // error[WYL0309]: shift count -1 is out of range for 'int'
 
     long l = 1;
     ulong ul = 1uL;
-    var mixed = l + ul;           // error: operator '+' cannot be applied to 'long' and 'ulong'; use an explicit cast to convert one side
+    var mixed = l + ul;           // error[WYL0308]: operator '+' cannot be applied to 'long' and 'ulong'
     mut byte small = 1;
-    small += n;                   // error: cannot implicitly convert 'int' to 'byte'; use an explicit cast
+    small += n;                   // error[WYL0079]: expected 'byte', found 'int'
 
     uint uv = 1u;
-    nint fromUint = uv;           // error: cannot implicitly convert 'uint' to 'nint'; use an explicit cast
+    nint fromUint = uv;           // error[WYL0079]: expected 'nint', found 'uint'
     nint ni = 1;
-    int fromNint = ni;            // error: cannot implicitly convert 'nint' to 'int'; use an explicit cast
+    int fromNint = ni;            // error[WYL0079]: expected 'int', found 'nint'
     nuint nu = 1u;
-    long fromNuint = nu;          // error: cannot implicitly convert 'nuint' to 'long'; use an explicit cast
-    double fromLong = l;          // error: cannot implicitly convert 'long' to 'double'; use an explicit cast
+    long fromNuint = nu;          // error[WYL0079]: expected 'long', found 'nuint'
+    double fromLong = l;          // error[WYL0079]: expected 'double', found 'long'
     float fromShortOk = (short)1;
-    float fromInt = n;            // error: cannot implicitly convert 'int' to 'float'; use an explicit cast
+    float fromInt = n;            // error[WYL0079]: expected 'float', found 'int'
 
-    char c = 65;                  // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
+    char c = 65;                  // error[WYL0079]: expected 'char', found 'int'
     mut char d = (char)65;
-    char next = d + 1;            // error: cannot implicitly convert 'int' to 'char'; use an explicit cast
-    d++;                          // error: '++' requires a numeric variable
-    var negatedChar = -d;           // error: operator '-' cannot be applied to 'char'
-    print(d == 65);               // error: operator '==' cannot be applied to 'char' and 'int'
+    char next = d + 1;            // error[WYL0079]: expected 'char', found 'int'
+    d++;                          // error[WYL0347]: '++' can only be applied to a numeric variable
+    var negatedChar = -d;           // error[WYL0307]: operator '-' cannot be applied to 'char'
+    print(d == 65);               // error[WYL0308]: operator '==' cannot be applied to 'char' and 'int'
     switch (d) {
-        case 1 -> print(1);       // error: a 'char' can never be '1'
+        case 1 -> print(1);       // error[WYL0380]: pattern '1' can never match a value of type 'char'
         default -> print(2);
     }
-    float f = (float)d;           // error: cannot convert 'char' to 'float'
-    bool flag = (bool)d;          // error: cannot convert 'char' to 'bool'
+    float f = (float)d;           // error[WYL0083]: cannot cast 'char' to 'float'
+    bool flag = (bool)d;          // error[WYL0083]: cannot cast 'char' to 'bool'
 }

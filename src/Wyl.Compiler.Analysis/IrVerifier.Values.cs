@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Ir;
 using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Syntax;
@@ -456,7 +457,7 @@ public sealed partial class IrVerifier
             if (SourceOf(local) is { } symbol)
             {
                 if (reportedUnassigned.Add(symbol))
-                    Violation($"'{symbol.Name}' might not have been assigned");
+                    Violation(l => Catalog.MayBeUnassigned(l, symbol.Name));
             }
             else
                 Error($"'{N(local)}' may be read before it is stored");
@@ -807,9 +808,9 @@ public sealed partial class IrVerifier
         if (!reason.StartsWith(ReplacedNullable) || !IsNarrowedSource(place))
             return false;
         if (effects.Writes.Any(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && w.Place.Local == place.Local))
-            ReportNullable(place.Local, current, $"'{place.Local.Symbol!.Name}' is passed by 'ref' while its value is in use here");
+            ReportNullable(place.Local, current, byLambda: false);
         else if (effects.RunsCode && IsChangedByLambda(place.Local, state))
-            ReportNullable(place.Local, current, $"a lambda that may assign '{place.Local.Symbol!.Name}' can run while its value is in use here");
+            ReportNullable(place.Local, current, byLambda: true);
         else
             return false;
         return true;
@@ -819,12 +820,12 @@ public sealed partial class IrVerifier
     bool IsNarrowedSource(IrPlace place) =>
         diagnostics is not null && place.Local.Symbol is not null && !place.IsDeref && place.Local.Type.IsNullableValue && place.Projections.FirstOrDefault() is IrAssumed;
 
-    void ReportNullable(IrLocal local, IrStatement? statement, string cause)
+    void ReportNullable(IrLocal local, IrStatement? statement, bool byLambda)
     {
         var at = statement?.Origin ?? function.Symbol.Declaration?.Location;
         if (at is not { } location || !reportedNullables.Add((statement, local)))
             return;
-        diagnostics!.Error(location, $"{cause}, so it could become null and destroy that value; copy the value to a variable first");
+        diagnostics!.Add(Catalog.NullableValueInUse(location, local.Symbol!.Name, byLambda));
     }
 
     /// <summary>
@@ -838,7 +839,7 @@ public sealed partial class IrVerifier
         foreach (var (local, at, by) in nullableWrites)
         {
             if (local == place.Local && by == function && at.Source == within.Source && at.Span != within.Span && at.Span.Start >= within.Span.Start && at.Span.End <= within.Span.End)
-                ReportNullable(local, current, $"'{local.Symbol!.Name}' is passed by 'ref' while its value is in use here");
+                ReportNullable(local, current, byLambda: false);
         }
     }
 

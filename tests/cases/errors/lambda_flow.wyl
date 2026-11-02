@@ -7,13 +7,13 @@ void call(fn() -> void f) {
 void check() {
     int unassigned;
     call(() -> {
-        print(unassigned);                          // error: 'unassigned' might not have been assigned
+        print(unassigned);                          // error[WYL0394]: 'unassigned' might not have been assigned
     });
 
     int? outside = 5;
     if (outside != null) {
         call(() -> {
-            int value = outside;                    // error: null checks outside a lambda don't narrow inside it
+            int value = outside;                    // error[WYL0397]: 'outside' might be null
         });
     }
 
@@ -22,7 +22,7 @@ void check() {
         cleared = null;
     });
     if (cleared != null) {
-        int value = cleared;                        // error: a lambda assigns it, so null checks don't narrow it
+        int value = cleared;                        // error[WYL0397]: 'cleared' might be null
     }
 
     // Narrowing ends where the lambda is made, not before it.
@@ -34,14 +34,14 @@ void check() {
         later = null;
     });
     if (later != null) {
-        int after = later;                          // error: a lambda assigns it, so null checks don't narrow it
+        int after = later;                          // error[WYL0397]: 'later' might be null
     }
 
     // A lambda made late in a loop may run in the next iteration.
     mut int? looped = 5;
     for (int i : 0..2) {
         if (looped != null) {
-            int early = looped;                     // error: a lambda assigns it, so null checks don't narrow it
+            int early = looped;                     // error[WYL0397]: 'looped' might be null
         }
         call(() -> {
             looped = null;
@@ -52,13 +52,13 @@ void check() {
     call(() -> {
         assignedInside = 1;
     });
-    print(assignedInside);                          // error: 'assignedInside' might not have been assigned
+    print(assignedInside);                          // error[WYL0394]: 'assignedInside' might not have been assigned
 
     fn(int) -> int sign = x -> {
         if (x > 0) {
             return 1;
         }
-    };                                              // error: this lambda must return a value on every path
+    };                                              // error[WYL0401]: lambda must return a value on every path
 }
 
 void main() {

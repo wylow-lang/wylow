@@ -1,0 +1,16 @@
+// Forms that need what they are written for: 'super' to call, a method to be a method, and type
+// arguments to be on a call.
+
+class Base { int x; }
+
+class Derived extends Base {
+    void f() {
+        var a = super;                  // error[WYL0285]: 'super' can only be used to call a base class constructor or method
+        var b = super.x;                // error[WYL0292]: 'super' can only be used to call methods
+        this.x();                       // error[WYL0301]: 'Derived.x' is a field, not a method
+        var c = x<int>.y;               // error[WYL0195]: type arguments can only be used in a call or construction
+        var d = this.x<int>.y;          // error[WYL0196]: type arguments can only be used in a call
+    }
+}
+
+void main() { }

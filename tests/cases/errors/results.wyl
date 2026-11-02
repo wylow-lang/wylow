@@ -8,20 +8,20 @@ Result<int, IoError> read() {
 }
 
 Result<int, ParseError> parse() {
-    int a = try read();                 // error: 'try' would return an error of type 'IoError' from 'parse', whose error type is 'ParseError'
+    int a = try read();                 // error[WYL0335]: error type of 'try': expected 'ParseError', found 'IoError'
     return Ok(a);
 }
 
 Result<int, ParseError> parseLater() {
     fn() -> Result<int, ParseError> later = () -> {
-        int a = try read();             // error: 'try' would return an error of type 'IoError' from this lambda, whose error type is 'ParseError'
+        int a = try read();             // error[WYL0335]: error type of 'try': expected 'ParseError', found 'IoError'
         return Ok(a);
     };
     return later();
 }
 
 int plain() {
-    int a = try read();                 // error: 'try' can only be used in a function that returns a 'Result'
+    int a = try read();                 // error[WYL0334]: 'try' can only be used in a function that returns a 'Result'
     return a;
 }
 
@@ -30,20 +30,20 @@ struct Holder {
 }
 
 class Box {
-    Result<int, IoError> result;        // error: field 'result' of type 'Result<int, IoError>' has no default value
+    Result<int, IoError> result;        // error[WYL0143]: field 'result' of type 'Result<int, IoError>' has no default value
 }
 
 Result<int, IoError> uses() {
-    read();                             // error: the 'Result' returned by 'read' is not used; handle it, or discard it with '_ = ...'
+    read();                             // error[WYL0421]: 'Result' returned by 'read' is not used
     _ = read();
     _ = 1 + 2;
-    _ = print(1);                       // error: there is no value to discard
+    _ = print(1);                       // error[WYL0344]: '_ =' has no value to discard
     try read();
-    int b = try 5;                      // error: 'try' needs a 'Result', not 'int'
-    int c = 1 + try 5;                  // error: 'try' needs a 'Result', not 'int'
-    var h = Holder();                   // error: 'Holder' has no default value because field 'result' has type 'Result<int, IoError>'
+    int b = try 5;                      // error[WYL0332]: operand of 'try': expected a 'Result', found 'int'
+    int c = 1 + try 5;                  // error[WYL0332]: operand of 'try': expected a 'Result', found 'int'
+    var h = Holder();                   // error[WYL0102]: 'Holder' has no default value
     Result<int, IoError> r = read();
-    var e = Ok(1);                      // error: function 'Ok' is not defined; to create the 'Result' variant, write 'Result<...>.Ok', or use it where a 'Result' is expected
+    var e = Ok(1);                      // error[WYL0281]: cannot find function 'Ok' in this scope
     return r;
 }
 
@@ -53,9 +53,9 @@ void store(Result<long, IoError> r) { }
 T unwrap<T>(Result<T, IoError> r) { return r.orPanic("none"); }
 
 void arguments() {
-    store(Ok(1));                       // error: function 'Ok' is not defined
-    store(Result.Ok(1));                // error: cannot infer type argument 'E' of 'Result' from 'Ok'
-    print(unwrap(Result.Ok(1)));        // error: cannot infer type argument 'E' of 'Result' from 'Ok'
+    store(Ok(1));                       // error[WYL0281]: cannot find function 'Ok' in this scope
+    store(Result.Ok(1));                // error[WYL0160]: cannot infer type argument 'E' of 'Result' from 'Ok'
+    print(unwrap(Result.Ok(1)));        // error[WYL0160]: cannot infer type argument 'E' of 'Result' from 'Ok'
     store(Result<int, IoError>.Ok(1));
     print(unwrap(Result<int, IoError>.Ok(2)));
 }

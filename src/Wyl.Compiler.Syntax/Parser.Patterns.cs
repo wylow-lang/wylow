@@ -24,7 +24,7 @@ public sealed partial class Parser
             {
                 if (!Accept(TokenKind.CaseKeyword))
                 {
-                    Error(Current.Span, "expected 'case' or 'default'");
+                    Report(Catalog.Expected(Loc(Current.Span), "'case' or 'default'"));
                     SkipStatement();
                     continue;
                 }
@@ -44,7 +44,7 @@ public sealed partial class Parser
             var guard = Accept(TokenKind.WhenKeyword) ? ParseConditional() : null;
 
             if (At(TokenKind.Colon))
-                Error(Current.Span, "cases are written with '->', as in 'case X -> ...'; there is no fallthrough");
+                Report(Catalog.ColonCase(Loc(Current.Span)));
             else
                 Expect(TokenKind.Arrow, "'->'");
             Accept(TokenKind.Colon);
@@ -53,7 +53,7 @@ public sealed partial class Parser
             {
                 if (At(TokenKind.OpenBrace))
                 {
-                    Error(Current.Span, "the cases of a switch expression must be expressions; use a switch statement for blocks");
+                    Report(Catalog.BlockInSwitchExpression(Loc(Current.Span)));
                     ParseBlock();
                     cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))) { Default = defaultLocation, Guard = guard });
                     continue;
@@ -66,7 +66,7 @@ public sealed partial class Parser
             else
             {
                 if (IsDeclarationStart())
-                    Error(Current.Span, "a variable cannot be declared here; use a block, as in 'case X -> { ... }'");
+                    Report(Catalog.DeclarationInCase(Loc(Current.Span)));
                 cases.Add(new SwitchCase(LocationFrom(start), patterns, ParseStatement(), null) { Default = defaultLocation, Guard = guard });
             }
         }
@@ -112,7 +112,7 @@ public sealed partial class Parser
             case TokenKind.FnKeyword:
             {
                 var type = ParseType(allowNullable: false);
-                Error(type.Location.Span, "a type pattern cannot name a function type; check a nullable function with a null check");
+                Report(Catalog.FunctionTypePattern(type.Location));
                 if (At(TokenKind.Identifier))
                     Advance();
                 return new DiscardPatternSyntax(LocationFrom(start));
@@ -123,7 +123,7 @@ public sealed partial class Parser
                 return FinishTypePattern(start, type);
             }
             default:
-                Error(Current.Span, "expected a pattern");
+                Report(Catalog.Expected(Loc(Current.Span), "a pattern"));
                 return new DiscardPatternSyntax(Loc(new TextSpan(Current.Span.Start, 0)));
         }
     }

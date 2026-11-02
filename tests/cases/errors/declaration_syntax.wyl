@@ -1,45 +1,45 @@
 import std::print;
 
-pub pub void twoAccess() { }            // error: only one visibility is allowed
-unsafe unsafe void twice() { }          // error: duplicate 'unsafe' modifier
-extern void withBody() { }              // error: extern function 'withBody' cannot have a body; it is implemented in C++
-);                                      // error: expected a function or type declaration
-class Untyped extends { }               // error: expected a type
+pub pub void twoAccess() { }            // error[WYL0048]: declaration already has a visibility
+unsafe unsafe void twice() { }          // error[WYL0050]: modifier 'unsafe' is repeated
+extern void withBody() { }              // error[WYL0424]: extern function 'withBody' cannot have a body
+);                                      // error[WYL0001]: expected a function or type declaration
+class Untyped extends { }               // error[WYL0001]: expected a type
 
 interface J { }
-interface K implements J {              // error: interfaces extend other interfaces with 'extends'
-    K();                                // error: interfaces cannot have constructors
-    ~K() { }                            // error: interfaces cannot have destructors
+interface K implements J {              // error[WYL0174]: interfaces cannot use 'implements'
+    K();                                // error[WYL0177]: interfaces cannot have constructors
+    ~K() { }                            // error[WYL0146]: interfaces cannot have destructors
 }
 
 struct S {
-    ~S() { }                            // error: structs cannot have destructors
+    ~S() { }                            // error[WYL0146]: structs cannot have destructors
 }
 
 enum E {
     A;
 
-    ~E() { }                            // error: enums cannot have destructors
+    ~E() { }                            // error[WYL0146]: enums cannot have destructors
 }
 
 class C {
-    int operator +(int a) { return a; }  // error: only the indexer, 'operator []' or 'operator []=', can be declared
-    int this[int i] { return i; }   // error: an indexer is declared as 'operator []'
-    +;                              // error: expected a field, method, or constructor
-    const int limit;                // error: 'const' is not supported yet
+    int operator +(int a) { return a; }  // error[WYL0247]: only 'operator []' and 'operator []=' can be declared
+    int this[int i] { return i; }   // error[WYL0248]: indexer is not declared with 'operator []'
+    +;                              // error[WYL0001]: expected a field, method, or constructor
+    const int limit;                // error[WYL0004]: 'const' is a reserved word and cannot be used
 
-    ~D() { }                            // error: a destructor must be named after its class, as in '~C()'
+    ~D() { }                            // error[WYL0147]: destructor is not named after its class
 }
 
 class Twice {
     ~Twice() { }
-    ~Twice() { }                        // error: a class can have only one destructor
+    ~Twice() { }                        // error[WYL0148]: class already has a destructor
 }
 
 void main() {
-    var a = new int[2][3];              // error: arrays of arrays cannot be created with one 'new' yet
-    int b = do;                         // error: 'do' is not supported yet
-    defer print(1);                     // error: 'defer' is not supported yet
-    if (b is ) { }                      // error: expected a pattern
-    for (int i = 0; i < 3; int j = 1) { }  // error: a variable cannot be declared here
+    var a = new int[2][3];              // error[WYL0073]: 'new' cannot create an array of arrays
+    int b = do;                         // error[WYL0004]: 'do' is a reserved word and cannot be used
+    defer print(1);                     // error[WYL0004]: 'defer' is a reserved word and cannot be used
+    if (b is ) { }                      // error[WYL0001]: expected a pattern
+    for (int i = 0; i < 3; int j = 1) { }  // error[WYL0342]: variable cannot be declared here
 }

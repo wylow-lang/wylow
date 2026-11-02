@@ -1,13 +1,13 @@
 // The rules for the standard library's extern structs, which a user's program reports alongside
 // their being only for the standard library.
-extern struct Handle {                  // error: extern structs are only supported in the standard library
-    int x;                          // error: an extern struct cannot declare fields; its C++ class holds its data
-    Handle() { }                    // error: an extern struct cannot declare constructors
-    void m() { }                    // error: the methods of an extern struct must be extern
+extern struct Handle {                  // error[WYL0427]: extern structs can only be declared in the standard library
+    int x;                          // error[WYL0428]: extern struct cannot declare fields
+    Handle() { }                    // error[WYL0429]: extern struct cannot declare constructors
+    void m() { }                    // error[WYL0430]: methods of an extern struct must be extern
 }
 
 class Host {
-    extern void m();                // error: extern functions are only supported in the standard library // error: extern methods must be static, except in an extern struct
+    extern void m();                // error[WYL0426]: extern functions can only be declared in the standard library // error[WYL0425]: extern methods must be static outside an extern struct
 }
 
 void main() { }

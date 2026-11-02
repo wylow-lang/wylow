@@ -10,13 +10,13 @@ int? number() {
 void use(int? given, ref int? alias) {
     int? n = 1;
     switch (n) {
-        case null -> print(0);                  // error: 'case null' can never match: 'n' is not null here
+        case null -> print(0);                  // error[WYL0396]: 'case null' can never match
         default -> print(1);
     }
     Enemy? e = number() == null ? new Enemy() : null;
     if (e != null) {
         switch (e) {
-            case null, default -> print(0);     // error: 'case null' can never match: 'e' is not null here
+            case null, default -> print(0);     // error[WYL0396]: 'case null' can never match
         }
     }
     switch (e) {
@@ -28,7 +28,7 @@ void use(int? given, ref int? alias) {
     }
     switch (given) {
         case 1 -> print(1);
-        case null -> print(0);                  // error: 'case null' can never match: 'given' is not null here
+        case null -> print(0);                  // error[WYL0396]: 'case null' can never match
         default -> print(2);
     }
     // A 'ref' parameter isn't narrowed, since another reference could change it.

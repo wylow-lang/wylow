@@ -30,8 +30,7 @@ public sealed partial class Parser
             Advance();
             ParseType(allowNullable: false);
             var type = source.Text[tokens[colon + 1].Span.Start..Previous.Span.End];
-            Error(TextSpan.FromBounds(tokens[colon].Span.Start, Previous.Span.End),
-                $"an enum's integer type is given with an annotation, as in '@Repr({type}) enum {name.Text}'");
+            Report(Catalog.EnumIntegerTypeSyntax(Loc(TextSpan.FromBounds(tokens[colon].Span.Start, Previous.Span.End)), type, name.Text));
         }
 
         TypeSyntax? baseType = null;
@@ -48,7 +47,7 @@ public sealed partial class Parser
             else
             {
                 if (kind is TypeKind.Struct or TypeKind.Enum)
-                    Error(extends.Span, $"{(kind == TypeKind.Struct ? "structs" : "enums")} cannot inherit; they may only implement interfaces");
+                    Report(kind == TypeKind.Struct ? Catalog.StructExtends(Loc(extends.Span)) : Catalog.EnumExtends(Loc(extends.Span)));
                 baseType = ParseType();
             }
         }
@@ -56,7 +55,7 @@ public sealed partial class Parser
         {
             var implements = Advance();
             if (kind == TypeKind.Interface)
-                Error(implements.Span, "interfaces extend other interfaces with 'extends'");
+                Report(Catalog.InterfaceImplements(Loc(implements.Span)));
             do
                 interfaces.Add(ParseType());
             while (Accept(TokenKind.Comma));
@@ -84,7 +83,7 @@ public sealed partial class Parser
             {
                 int keyword = Current.Span.Start;
                 ParseVisibility();
-                Error(TextSpan.FromBounds(keyword, Previous.Span.End), "an enum's variants take no visibility; they are as visible as the enum");
+                Report(Catalog.VariantVisibility(Loc(TextSpan.FromBounds(keyword, Previous.Span.End))));
                 continue;
             }
             int start = position;
@@ -96,9 +95,9 @@ public sealed partial class Parser
                 break;
         }
         if (variants.Count == 0)
-            Error(Current.Span, "expected an enum variant");
+            Report(Catalog.Expected(Loc(Current.Span), "an enum variant"));
         if (!Accept(TokenKind.Semicolon) && !At(TokenKind.CloseBrace))
-            Error(new TextSpan(Previous.Span.End, 0), "expected ',' or '}' after an enum variant, or ';' before the enum's methods");
+            Report(Catalog.Expected(Loc(new TextSpan(Previous.Span.End, 0)), "',' or '}' after an enum variant, or ';' before the enum's methods"));
         return variants;
     }
 
@@ -126,7 +125,7 @@ public sealed partial class Parser
         {
             var keyword = Advance();
             Advance();
-            Error(keyword.Span, $"visibility is written on each member, as in 'pub int x;', not as a '{keyword.Text} {{ ... }}' block");
+            Report(Catalog.VisibilityBlock(Loc(keyword.Span)));
             while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
             {
                 int before = position;
@@ -164,25 +163,23 @@ public sealed partial class Parser
         switch (kind)
         {
             case TypeKind.Struct:
-                Disallow(modifiers, InheritanceModifiers,
-                    token => $"'{token.Text}' is not valid on struct members; structs cannot be inherited");
+                Disallow(modifiers, InheritanceModifiers, token => Catalog.ModifierOnStructMember(Loc(token.Span), token.Text));
                 break;
             case TypeKind.Interface:
                 if (modifiers.VisibilitySpan is { } visibility)
-                    Error(visibility, "an interface's methods take no visibility; they are as visible as the interface");
-                Disallow(modifiers, ~Modifiers.Mut, _ => "interface members cannot have modifiers other than 'mut'");
+                    Report(Catalog.InterfaceMemberVisibility(Loc(visibility)));
+                Disallow(modifiers, ~Modifiers.Mut, token => Catalog.ModifierOnInterfaceMember(Loc(token.Span), token.Text));
                 modifiers = modifiers with { Visibility = Visibility.File };
                 break;
             case TypeKind.Enum:
-                Disallow(modifiers, InheritanceModifiers,
-                    token => $"'{token.Text}' is not valid on enum members; enums cannot be inherited");
-                Disallow(modifiers, Modifiers.Mut, _ => "enum methods cannot be 'mut', since an enum value cannot be modified");
+                Disallow(modifiers, InheritanceModifiers, token => Catalog.ModifierOnEnumMember(Loc(token.Span), token.Text));
+                Disallow(modifiers, Modifiers.Mut, token => Catalog.MutEnumMethod(Loc(token.Span)));
                 break;
         }
 
         if (IsLateVariant(kind))
         {
-            Error(Current.Span, "enum variants must come before the enum's methods");
+            Report(Catalog.LateVariant(Loc(Current.Span)));
             SkipDeclaration();
             return;
         }
@@ -195,13 +192,12 @@ public sealed partial class Parser
 
         if (At(TokenKind.Identifier) && Current.Text == typeName && Peek(1).Kind == TokenKind.OpenParen)
         {
-            Disallow(modifiers, Modifiers.Static | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers,
-                token => $"'{token.Text}' is not valid on a constructor");
+            Disallow(modifiers, Modifiers.Static | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers, token => Catalog.ModifierOnConstructor(Loc(token.Span), token.Text));
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
-                Error(constructorName.Span, "interfaces cannot have constructors");
+                Report(Catalog.InterfaceConstructor(Loc(constructorName.Span)));
             else if (kind == TypeKind.Enum)
-                Error(constructorName.Span, "enums cannot have constructors; their values are created from variants");
+                Report(Catalog.EnumConstructor(Loc(constructorName.Span)));
             var constructor = ParseFunctionRest(start, modifiers, null, constructorName);
             RequireBody(constructor);
             members.Methods.Add(constructor);
@@ -213,9 +209,7 @@ public sealed partial class Parser
         // A '(' is a grouped function type, or the old spelling, which ParseType reports.
         if (!SyntaxFacts.IsTypeStart(Current.Kind) && !At(TokenKind.OpenParen))
         {
-            Error(Current.Span, At(TokenKind.ReservedKeyword)
-                ? $"'{Current.Text}' is not supported yet"
-                : "expected a field, method, or constructor");
+            Report(At(TokenKind.ReservedKeyword) ? Catalog.ReservedKeyword(Loc(Current.Span), Current.Text) : Catalog.Expected(Loc(Current.Span), "a field, method, or constructor"));
             SkipDeclaration();
             return;
         }
@@ -229,8 +223,7 @@ public sealed partial class Parser
             Advance();
             if (!Accept(TokenKind.OpenBracket) || !Accept(TokenKind.CloseBracket))
             {
-                Error(TextSpan.FromBounds(tokens[operatorStart].Span.Start, Current.Span.End),
-                    "only the indexer, 'operator []' or 'operator []=', can be declared; overloading other operators is not supported yet");
+                Report(Catalog.OperatorOverloading(Loc(TextSpan.FromBounds(tokens[operatorStart].Span.Start, Current.Span.End))));
                 SkipDeclaration();
                 return;
             }
@@ -245,7 +238,7 @@ public sealed partial class Parser
         }
         if (At(TokenKind.ThisKeyword) && Peek(1).Kind == TokenKind.OpenBracket)
         {
-            Error(Current.Span, "an indexer is declared as 'operator []', as in 'ref T operator [](int index)'");
+            Report(Catalog.ThisIndexer(Loc(Current.Span)));
             SkipDeclaration();
             return;
         }
@@ -259,7 +252,7 @@ public sealed partial class Parser
         }
         if (At(TokenKind.OpenBrace))
         {
-            Error(name.Span, $"Wylow has no properties; declare a field, or a method '{name.Text}()'");
+            Report(Catalog.PropertyBody(Loc(name.Span), name.Text));
             Advance();
             for (int depth = 1; depth > 0 && !At(TokenKind.EndOfFile); Advance())
                 depth += At(TokenKind.OpenBrace) ? 1 : At(TokenKind.CloseBrace) ? -1 : 0;
@@ -267,19 +260,19 @@ public sealed partial class Parser
         }
         if (returnRefKind != RefKind.None)
         {
-            Error(name.Span, "fields cannot be references; only methods can return 'ref' or 'in'");
+            Report(Catalog.ReferenceField(Loc(name.Span)));
             if (mayBeNull)
                 type = type.Element!;
         }
 
         if (kind == TypeKind.Interface)
-            Error(name.Span, "interfaces cannot have fields");
+            Report(Catalog.InterfaceField(Loc(name.Span)));
         else if (kind == TypeKind.Enum)
-            Error(name.Span, "enums cannot have fields; data belongs to variants, as in 'Name(int field)'");
-        Disallow(modifiers, Modifiers.Static, _ => "static fields are not supported yet");
+            Report(Catalog.EnumField(Loc(name.Span)));
+        Disallow(modifiers, Modifiers.Static, token => Catalog.StaticField(Loc(token.Span)));
         if (kind == TypeKind.Struct)
-            Disallow(modifiers, Modifiers.Mut, _ => "struct fields cannot be 'mut'; they can be changed wherever the struct itself can be");
-        Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => $"'{token.Text}' is not valid on a field");
+            Disallow(modifiers, Modifiers.Mut, token => Catalog.MutStructField(Loc(token.Span)));
+        Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => Catalog.ModifierOnField(Loc(token.Span), token.Text));
         int errors = diagnostics.Count;
         while (true)
         {
@@ -298,12 +291,12 @@ public sealed partial class Parser
         if (kind == TypeKind.Interface)
         {
             if (method.Body is not null)
-                Error(method.NameLocation.Span, $"interface {what} cannot have a body");
+                Report(Catalog.InterfaceMethodBody(method.NameLocation, what));
         }
         else if ((modifiers.Flags & Modifiers.Abstract) != 0)
         {
             if (method.Body is not null)
-                Error(method.NameLocation.Span, $"abstract {what} cannot have a body");
+                Report(Catalog.AbstractMethodBody(method.NameLocation, what));
         }
         else
         {
@@ -316,10 +309,10 @@ public sealed partial class Parser
     {
         var flags = modifiers.Flags;
         if (kind == TypeKind.Class)
-            Disallow(modifiers, Modifiers.Mut, _ => "'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields");
+            Disallow(modifiers, Modifiers.Mut, token => Catalog.MutClassMethod(Loc(token.Span)));
         if ((flags & Modifiers.Static) != 0)
         {
-            Disallow(modifiers, Modifiers.Mut | InheritanceModifiers, token => $"a static method cannot be '{token.Text}'");
+            Disallow(modifiers, Modifiers.Mut | InheritanceModifiers, token => Catalog.ModifierOnStaticMethod(Loc(token.Span), token.Text));
             return;
         }
         bool seenDispatch = false;
@@ -328,35 +321,30 @@ public sealed partial class Parser
             if (flag is not (Modifiers.Virtual or Modifiers.Override or Modifiers.Abstract))
                 continue;
             if (seenDispatch)
-                Error(token.Span, "only one of 'virtual', 'override', and 'abstract' is allowed");
+                Report(Catalog.ConflictingInheritanceModifiers(Loc(token.Span)));
             seenDispatch = true;
         }
         if ((flags & Modifiers.Final) != 0 && (flags & Modifiers.Override) == 0)
-            Disallow(modifiers, Modifiers.Final, _ => "'final' can only be used on an 'override' method");
+            Disallow(modifiers, Modifiers.Final, token => Catalog.FinalWithoutOverride(Loc(token.Span)));
     }
 
     void ParseDestructor(int start, TypeKind kind, string typeName, ModifierList modifiers, Members members)
     {
         if (modifiers.VisibilitySpan is { } visibility)
-            Error(visibility, "a destructor takes no visibility, since only the runtime calls it");
-        Disallow(modifiers, ~Modifiers.None, token => $"'{token.Text}' is not valid on a destructor");
+            Report(Catalog.DestructorVisibility(Loc(visibility)));
+        Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnDestructor(Loc(token.Span), token.Text));
         Advance();
         var name = Advance();
         if (kind != TypeKind.Class)
-            Error(name.Span, kind switch
-            {
-                TypeKind.Struct => "structs cannot have destructors",
-                TypeKind.Enum => "enums cannot have destructors",
-                _ => "interfaces cannot have destructors",
-            });
+            Report(Catalog.DestructorOutsideClass(Loc(name.Span), kind switch { TypeKind.Struct => "structs", TypeKind.Enum => "enums", _ => "interfaces" }));
         else if (name.Text != typeName)
-            Error(name.Span, $"a destructor must be named after its class, as in '~{typeName}()'");
+            Report(Catalog.DestructorName(Loc(name.Span), typeName));
         else if (members.Destructor is not null)
-            Error(name.Span, "a class can have only one destructor");
+            Report(Catalog.SecondDestructor(Loc(name.Span)));
         Advance();
         if (!At(TokenKind.CloseParen))
         {
-            Error(Current.Span, "destructors cannot have parameters");
+            Report(Catalog.DestructorParameters(Loc(Current.Span)));
             while (!At(TokenKind.CloseParen) && !At(TokenKind.OpenBrace) && !At(TokenKind.EndOfFile))
                 Advance();
         }
@@ -390,9 +378,9 @@ public sealed partial class Parser
                 int parameterStart = position;
                 var annotations = ParseAnnotations();
                 if (!allowRefKinds && At(TokenKind.MutKeyword))
-                    Error(Current.Span, "a variant's fields cannot be 'mut'; an enum value is only ever replaced as a whole");
+                    Report(Catalog.MutVariantField(Loc(Current.Span)));
                 else if (!allowRefKinds && (At(TokenKind.RefKeyword) || At(TokenKind.InKeyword)))
-                    Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
+                    Report(Catalog.ParameterOnlyModifier(Loc(Current.Span), Current.Text));
                 int modeStart = position;
                 var (isMutable, refKind, mayBeNull) = ParseBindingMode("parameter");
                 // A variant's field is escaping already: its type reports `escaping`.
@@ -406,7 +394,7 @@ public sealed partial class Parser
                 if (At(TokenKind.Assign))
                 {
                     if (!allowRefKinds)
-                        Error(Current.Span, "a variant's fields cannot have default values");
+                        Report(Catalog.VariantFieldDefault(Loc(Current.Span)));
                     Advance();
                     defaultValue = ParseExpression();
                 }

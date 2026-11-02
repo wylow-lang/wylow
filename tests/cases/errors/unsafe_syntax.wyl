@@ -1,17 +1,17 @@
 // 'unsafe' marks functions, methods, constructors, and blocks; nothing else.
 
-unsafe class K { }                      // error: 'unsafe' is not valid on a class
-unsafe struct S { }                     // error: 'unsafe' is not valid on a struct
-unsafe interface J { }                  // error: 'unsafe' is not valid on an interface
-unsafe enum E { A }                     // error: 'unsafe' is not valid on an enum
+unsafe class K { }                      // error[WYL0210]: 'unsafe' cannot be used on a class
+unsafe struct S { }                     // error[WYL0210]: 'unsafe' cannot be used on a struct
+unsafe interface J { }                  // error[WYL0210]: 'unsafe' cannot be used on an interface
+unsafe enum E { A }                     // error[WYL0210]: 'unsafe' cannot be used on an enum
 
 class F {
-    unsafe int field;                   // error: 'unsafe' is not valid on a field
-    unsafe ~F() { }                     // error: 'unsafe' is not valid on a destructor
+    unsafe int field;                   // error[WYL0109]: 'unsafe' cannot be used on a field
+    unsafe ~F() { }                     // error[WYL0144]: 'unsafe' cannot be used on a destructor
 }
 
 interface I {
-    unsafe int m();                     // error: interface members cannot have modifiers other than 'mut'
+    unsafe int m();                     // error[WYL0176]: 'unsafe' cannot be used on an interface method
 }
 
 void main() { }

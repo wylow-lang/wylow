@@ -1,29 +1,29 @@
-mut class Box {                    // error: 'mut' is not valid on a class
+mut class Box {                    // error[WYL0210]: 'mut' cannot be used on a class
     mut int value;
 
-    mut Box() {                    // error: 'mut' is not valid on a constructor
+    mut Box() {                    // error[WYL0134]: 'mut' cannot be used on a constructor
     }
 
-    mut int get() {                // error: 'mut' is only valid on struct and interface methods; a class method may change its object's 'mut' fields
+    mut int get() {                // error[WYL0103]: 'mut' cannot be used on a class method
         return value;
     }
 }
 
 struct Vec {
-    mut float x;                   // error: struct fields cannot be 'mut'; they can be changed wherever the struct itself can be
+    mut float x;                   // error[WYL0098]: struct fields cannot be 'mut'
 }
 
 enum Shape {
-    Circle(mut float r),           // error: a variant's fields cannot be 'mut'; an enum value is only ever replaced as a whole
+    Circle(mut float r),           // error[WYL0155]: variant fields cannot be 'mut'
 }
 
-void take(mut ref Vec v) {         // error: a 'ref' parameter cannot be 'mut', since it refers to the same place for its whole scope
+void take(mut ref Vec v) {         // error[WYL0089]: 'ref' parameter cannot be 'mut'
 }
 
-void read(mut in Vec v) {          // error: an 'in' parameter cannot be 'mut'
+void read(mut in Vec v) {          // error[WYL0089]: 'in' parameter cannot be 'mut'
 }
 
 void main() {
     Vec v = Vec();
-    mut ref Vec r = v;             // error: a 'ref' variable cannot be 'mut'
+    mut ref Vec r = v;             // error[WYL0089]: 'ref' variable cannot be 'mut'
 }

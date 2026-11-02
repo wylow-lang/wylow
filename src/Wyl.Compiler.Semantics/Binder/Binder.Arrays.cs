@@ -21,17 +21,17 @@ public sealed partial class Binder
         if (type is IndexedType)
         {
             if (arguments.Count != 1 || arguments[0].IsRef)
-                return ErrorExpression(e.Location, $"an element of '{type}' is selected by a single index, as in 'a[i]'");
+                return ErrorExpression(Catalog.IndexCount(e.Location, type.ToString()));
             if (type.IsPointer && !InUnsafe)
-                return ErrorExpression(e.Location, "indexing a pointer is only allowed in 'unsafe' code");
+                return ErrorExpression(Catalog.PointerIndexing(e.Location));
             var index = Convert(arguments[0].Expression, WylType.Int);
             if (type is FixedArrayType array && index is BoundLiteral { Value: int constant } && (constant < 0 || constant >= array.Length))
-                return ErrorExpression(index.Location, $"index {constant} is out of bounds for '{type}'");
+                return ErrorExpression(Catalog.IndexOutOfBounds(index.Location, constant, type.ToString()));
             return new BoundIndex(e.Location, target, index);
         }
 
         if (!(type.IsStructOrEnum || type.IsReference) || LookupMethods(type, SyntaxFacts.IndexerName).Count == 0)
-            return ErrorExpression(e.Target.Location, $"'{type}' cannot be indexed");
+            return ErrorExpression(Catalog.NotIndexable(e.Target.Location, type.ToString()));
         var read = BindMethodCall(e.Location, target, SyntaxFacts.IndexerName, e.Target.Location, null, arguments);
         if (!assigned || read is not BoundCall call || call.Method.Symbol.ReturnRefKind == RefKind.Ref
             || LookupMethods(type, SyntaxFacts.IndexerSetterName) is not { Count: > 0 } setters)
@@ -49,20 +49,20 @@ public sealed partial class Binder
             .FirstOrDefault(m => m.Symbol.Parameters.Count == indices + 1
                 && Enumerable.Range(0, indices).All(i => m.ParameterRefKind(i) == read.Method.ParameterRefKind(i) && m.ParameterType(i) == read.Method.ParameterType(i)));
         if (write is null)
-            return ErrorExpression(e.Location, $"'{DisplayName(type)}' has no 'operator []=' to assign an element read by '{read.Method.Symbol.Signature}'");
+            return ErrorExpression(Catalog.NoIndexerSetter(e.Location, DisplayName(type), read.Method.Symbol.Signature));
         CheckVisible(e.Target.Location, write.Symbol.Reach, $"'operator []=' of '{DisplayName(type)}'");
         if (!CheckUnsafeCall(e.Location, write)
-            || !CheckMutReceiver(e.Location, write, read.Receiver, $"cannot assign to an element of a temporary value; {StoreTemporaryHint}"))
+            || !CheckMutReceiver(e.Location, write, read.Receiver, Catalog.ElementOfTemporary(e.Location)))
             return new BoundErrorExpression(e.Location);
         return new BoundIndexerElement(e.Location, read, write);
     }
 
-    /// <summary>A hint for a value an indexer returns where a place is needed, if its type assigns elements with <c>operator []=</c> instead.</summary>
-    string NotAnElementHint(BoundExpression expression) =>
+    /// <summary>For a value an indexer returns where a place is needed, the type, if it assigns elements with <c>operator []=</c> instead.</summary>
+    string? Elementless(BoundExpression expression) =>
         expression is BoundCall { Method.Symbol.IsIndexer: true, Receiver: { } receiver }
         && LookupMethods(receiver.Type, SyntaxFacts.IndexerSetterName).Count > 0
-            ? $"; '{DisplayName(receiver.Type)}' has no element storage, and assigns its elements with 'operator []='"
-            : "";
+            ? DisplayName(receiver.Type)
+            : null;
 
     /// <summary>
     /// <c>operator []=</c> is the writing half of an indexer (§6.6): each pairs with the
@@ -80,7 +80,7 @@ public sealed partial class Binder
             var own = s.Methods.GetValueOrDefault(SyntaxFacts.IndexerSetterName)?.FirstOrDefault()
                 ?? (referenceGetter.Symbol.ContainingType == s ? referenceGetter.Symbol : null);
             if (own is not null)
-                Error(own.Declaration!.NameLocation, $"'{s.Name}' cannot have both 'operator []=' and an 'operator []' that returns 'ref', since an assignment would have two meanings");
+                Error(Catalog.SetterWithRefIndexer(own.Declaration!.NameLocation, s.Name));
             return;
         }
         if (!s.Methods.TryGetValue(SyntaxFacts.IndexerSetterName, out var declared))
@@ -90,23 +90,23 @@ public sealed partial class Binder
             var location = setter.Declaration!.NameLocation;
             var parameters = setter.Parameters;
             if (setter.ReturnType != WylType.Void || setter.ReturnRefKind != RefKind.None)
-                Error(location, "'operator []=' must return 'void'");
+                Error(Catalog.SetterReturn(location));
             if (setter.IsStatic)
             {
-                Error(location, "'operator []=' cannot be static");
+                Error(Catalog.StaticSetter(location));
                 continue;
             }
             if (parameters.Count < 2)
             {
-                Error(location, "'operator []=' takes the indices, then the assigned value, as in 'void operator []=(int i, T value)'");
+                Error(Catalog.SetterParameters(location));
                 continue;
             }
             if (parameters.FirstOrDefault(p => p.DefaultSyntax is not null) is { } defaulted)
-                Error(defaulted.DefaultSyntax!.Location, "'operator []=' cannot have default values; an assignment takes the defaults of the matching 'operator []'");
+                Error(Catalog.SetterDefaults(defaulted.DefaultSyntax!.Location));
             var value = parameters[^1];
             if (value.RefKind == RefKind.Ref)
             {
-                Error(location, "the value of 'operator []=' cannot be 'ref'; it is passed by value or 'in'");
+                Error(Catalog.SetterRefValue(location));
                 continue;
             }
             var indices = parameters.Take(parameters.Count - 1).ToList();
@@ -116,12 +116,12 @@ public sealed partial class Binder
             var indexList = string.Join(", ", indices.Select(p => FunctionSymbol.RefPrefix(p.RefKind) + p.Type));
             if (getter is null || getter.Symbol.ReturnType.IsNullableReference)
             {
-                Error(location, $"'operator []=' needs an 'operator []({indexList})' returning the element it assigns");
+                Error(Catalog.SetterWithoutGetter(location, indexList));
                 continue;
             }
             var element = TypeMap.For(getter.Owner!).Apply(getter.Symbol.ReturnType);
             if (value.Type != element)
-                Error(location, $"the value of 'operator []=' must have the element type '{element}' that 'operator []({indexList})' returns");
+                Error(Catalog.SetterValueType(location, element.ToString(), value.Type.ToString(), indexList));
         }
     }
 
@@ -132,8 +132,7 @@ public sealed partial class Binder
         var length = new Argument(BindExpression(e.Length), false, e.Length.Location);
         if (element == WylType.Error || length.Expression.Type == WylType.Error)
             return new BoundErrorExpression(e.Location);
-        if (stdlib.Array is not { } array)
-            return ErrorExpression(e.Location, "'T[]' arrays are not supported yet");
+        var array = stdlib.Array ?? throw new InvalidOperationException("the standard library declares 'Array'");
         var type = Construct(array, [element], e.ElementType.Location);
         return BindNewObject(e.Location, e.ElementType.Location, type, [length]);
     }
@@ -149,7 +148,7 @@ public sealed partial class Binder
         var element = type.TypeArguments[0];
         if (element.IsDefaultable)
             return true;
-        Error(location, $"'{element}' has no default value to fill a new array with; use 'new Array<{element}>(length, value)'");
+        Error(Catalog.NoDefaultElement(location, element.ToString()));
         return false;
     }
 
@@ -160,7 +159,7 @@ public sealed partial class Binder
         if (elements.Any(element => element.Type == WylType.Error))
             return new BoundErrorExpression(e.Location);
         if (elements.FirstOrDefault(element => element.Type == WylType.Void) is { } empty)
-            return ErrorExpression(empty.Location, "an array element must have a value");
+            return ErrorExpression(Catalog.VoidArrayElement(empty.Location));
 
         var elementType = elementExpected ?? (elements.Count == 0 ? null : CommonType(elements));
         // An element is stored, so a function is escaping; converting a non-escaping one reports why it can't be.
@@ -168,9 +167,7 @@ public sealed partial class Binder
             elementType = EscapingForm(elementType);
         if (elementType is null)
         {
-            return ErrorExpression(e.Location, elements.Count == 0
-                ? "cannot infer the type of an empty array; use it where a fixed array type is expected"
-                : $"the elements of the array have incompatible types {string.Join(", ", elements.Select(v => $"'{v.Type}'").Distinct())}");
+            return ErrorExpression(elements.Count == 0 ? Catalog.EmptyArrayType(e.Location) : Catalog.ArrayElementTypes(e.Location, elements.Select(v => v.Type.ToString()).Distinct()));
         }
         if (!CheckStorable(elementType, e.Location, "an array's element"))
             return new BoundErrorExpression(e.Location);

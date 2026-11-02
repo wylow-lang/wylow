@@ -4,15 +4,15 @@ class Base {
     Base() { }
 }
 
-class FromInterface extends Shape { }   // error: a class cannot extend interface 'Shape'; use 'implements'
+class FromInterface extends Shape { }   // error[WYL0113]: class cannot extend interface 'Shape'
 
-class FromNullable extends Base? { }    // error: a base class cannot be nullable
+class FromNullable extends Base? { }    // error[WYL0115]: base class cannot be nullable
 
 class Owner {
     Owner() { }
 
     ~Owner() {
-        return 1;                       // error: destructors cannot return a value
+        return 1;                       // error[WYL0373]: cannot return a value from a destructor
     }
 }
 

@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -6,7 +7,7 @@ namespace Wyl.Compiler.Semantics;
 public sealed partial class Binder
 {
     /// <summary>Why a candidate can't take a call's arguments, and the argument at fault, if one is.</summary>
-    sealed record ArrangeFailure(string Message, int? Argument);
+    sealed record ArrangeFailure(Func<Location, Diagnostic> Report, int? Argument);
 
     /// <summary>
     /// Which argument each of the candidate's parameters takes, or -1 for one left out to its
@@ -27,7 +28,7 @@ public sealed partial class Binder
                 p = next;
                 if (p >= parameters.Count)
                 {
-                    failure = new($"'{candidate.Symbol.Name}' takes {Count(parameters.Count, "argument")}, but is given {names.Count}", null);
+                    failure = new(at => Catalog.ArgumentCount(at, candidate.Symbol.Name, parameters.Count, names.Count), null);
                     return null;
                 }
             }
@@ -36,17 +37,18 @@ public sealed partial class Binder
                 p = Enumerable.Range(0, parameters.Count).FirstOrDefault(i => parameters[i].Name == name, -1);
                 if (p < 0)
                 {
-                    failure = new($"'{candidate.Symbol.Name}' has no parameter named '{name}'", a);
+                    failure = new(at => Catalog.NoParameterNamed(at, candidate.Symbol.Name, name), a);
                     return null;
                 }
                 if (arrangement[p] >= 0)
                 {
-                    failure = new($"parameter '{name}' is given more than one argument", a);
+                    failure = new(at => Catalog.ArgumentGivenTwice(at, name), a);
                     return null;
                 }
                 if (p < next)
                 {
-                    failure = new($"argument '{name}' must come before '{parameters[next - 1].Name}', in the order of the parameters", a);
+                    var previous = parameters[next - 1].Name;
+                    failure = new(at => Catalog.NamedArgumentOrder(at, name, previous), a);
                     return null;
                 }
             }
@@ -57,9 +59,10 @@ public sealed partial class Binder
         {
             if (arrangement[p] < 0 && !HasDefault(candidate, p))
             {
-                failure = new(parameters[p].Field is { } field
-                    ? $"'{DisplayName(candidate.Owner!)}' needs a value for field '{field.Name}', since its type '{ParameterType(candidate, p)}' has no default value"
-                    : $"missing an argument for parameter '{parameters[p].Name}' of '{candidate.Symbol.Name}'", null);
+                var (type, parameter, fieldType) = (candidate.Owner is null ? null : DisplayName(candidate.Owner), parameters[p], ParameterType(candidate, p).ToString());
+                failure = new(at => parameter.Field is { } field
+                    ? Catalog.MissingFieldValue(at, type!, field.Name, fieldType)
+                    : Catalog.MissingArgument(at, candidate.Symbol.Name, parameter.Name), null);
                 return null;
             }
         }
@@ -111,13 +114,11 @@ public sealed partial class Binder
             if (function is { IsConstructor: true, ContainingType.Kind: TypeKind.Struct, Declaration: { } declaration, Parameters.Count: > 0 }
                 && function.Parameters.All(p => p.DefaultSyntax is not null))
             {
-                Error(declaration.NameLocation,
-                    $"a struct constructor cannot have a default value for every parameter, since '{function.Name}()' is always the default value");
+                Error(Catalog.EveryParameterDefaulted(declaration.NameLocation, function.ContainingType!.Name));
             }
             if (function.Overridden.Count > 0 && function.Parameters.FirstOrDefault(p => p.DefaultSyntax is not null) is { } declared)
             {
-                Error(declared.DefaultSyntax!.Location,
-                    $"'{function.ContainingType!.Name}.{function.Name}' cannot declare default values, since it overrides or implements a method whose defaults it takes");
+                Error(Catalog.DefaultOnOverride(declared.DefaultSyntax!.Location, $"{function.ContainingType!.Name}.{function.Name}"));
             }
             foreach (var parameter in function.Parameters.Where(p => p.DefaultSyntax is not null))
                 DefaultOf(parameter);
@@ -141,9 +142,7 @@ public sealed partial class Binder
                 .ToList();
             if (inherited.Count > 1)
             {
-                Error(function.Declaration!.NameLocation,
-                    $"'{function.ContainingType!.Name}.{function.Name}' takes different default values for parameter '{function.Parameters[i].Name}' "
-                    + $"from {string.Join(" and ", inherited.Select(p => $"'{p.Owner!.ContainingType!.Name}.{p.Owner.Name}'"))}");
+                Error(Catalog.ConflictingInheritedDefaults(function.Declaration!.NameLocation, $"{function.ContainingType!.Name}.{function.Name}", function.Parameters[i].Name, inherited.Select(p => (p.DefaultSyntax!.Location, $"{p.Owner!.ContainingType!.Name}.{p.Owner.Name}"))));
             }
             function.Parameters[i].DefaultDeclaration = inherited.FirstOrDefault();
         }
@@ -162,7 +161,7 @@ public sealed partial class Binder
         var syntax = parameter.DefaultSyntax!;
         if (!bindingDefaults.Add(parameter))
         {
-            Error(syntax.Location, $"the default value of '{parameter.Name}' depends on itself");
+            Error(Catalog.DefaultDependsOnItself(syntax.Location, parameter.Name));
             return parameter.Default = new BoundErrorExpression(syntax.Location);
         }
 
@@ -181,12 +180,12 @@ public sealed partial class Binder
 
         if (value.Type != WylType.Error && !IsConstantDefault(value))
         {
-            Error(syntax.Location, "a default value must be a constant or a struct constructor");
+            Error(Catalog.NonConstantDefault(syntax.Location));
             value = new BoundErrorExpression(syntax.Location);
         }
         else if (value.Type != WylType.Error && parameter.Type.ContainsTypeParameters && !IsNull(value))
         {
-            Error(syntax.Location, $"the default value of '{parameter.Name}' can only be 'null', since its type '{parameter.Type}' involves a type parameter");
+            Error(Catalog.GenericDefault(syntax.Location, parameter.Name, parameter.Type.ToString()));
             value = new BoundErrorExpression(syntax.Location);
         }
         bindingDefaults.Remove(parameter);
@@ -217,7 +216,7 @@ public sealed partial class Binder
             if (argument is NamedArgExpr)
                 named = true;
             else if (named)
-                Error(argument.Location, "a positional argument cannot follow a named one");
+                Error(Catalog.PositionalAfterNamed(argument.Location));
         }
         return [.. arguments.Select(a => a is NamedArgExpr n ? n.Name : null)];
     }

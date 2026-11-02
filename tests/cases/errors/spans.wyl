@@ -1,11 +1,11 @@
 import std::print;
 
 struct Holder {
-    Span<int> held;                         // error: 'Span<int>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
+    Span<int> held;                         // error[WYL0418]: 'Span<int>' cannot be the type of a field
 }
 
 enum Choice {
-    Some(Span<int> view),                   // error: 'Span<int>' cannot be the type of a variant's field
+    Some(Span<int> view),                   // error[WYL0418]: 'Span<int>' cannot be the type of a variant's field
     None;
 }
 
@@ -21,10 +21,10 @@ struct Samples {
     }
 
     mut Span<int> other(Span<int> given) {
-        return given;                       // error: a returned 'Span<int>' must view the method's receiver
+        return given;                       // error[WYL0242]: returned 'Span<int>' must view the method's receiver
     }
 
-    static Span<int> make() {               // error: only instance methods can return 'Span<int>', which views the method's receiver
+    static Span<int> make() {               // error[WYL0243]: only instance methods can return 'Span<int>'
         return Span<int>();
     }
 }
@@ -38,11 +38,11 @@ ref struct Window {
     }
 
     Window other(Window from) {
-        return Window(from);                // error: a returned 'Window' must view the method's receiver
+        return Window(from);                // error[WYL0242]: returned 'Window' must view the method's receiver
     }
 }
 
-Span<int> free() {                          // error: only instance methods can return 'Span<int>'
+Span<int> free() {                          // error[WYL0243]: only instance methods can return 'Span<int>'
     return Span<int>();
 }
 
@@ -55,7 +55,7 @@ Samples makeSamples() {
 }
 
 void readOnly(in int[2] values) {
-    Span<int> s = values;                   // error: cannot implicitly convert 'int[2]' to 'Span<int>'; the array is read-only, so view it with a 'ReadOnlySpan'
+    Span<int> s = values;                   // error[WYL0079]: expected 'Span<int>', found 'int[2]'
     ReadOnlySpan<int> r = values;
 }
 
@@ -63,20 +63,20 @@ void main() {
     mut int[2] a = [1, 2];
     int[2] b = [3, 4];
     Span<int> s = a;
-    s = b;                                  // error: 's' cannot be reassigned: a 'Span<int>' views what it was initialized with
-    Span<int> later;                        // error: a 'Span<int>' variable must be initialized where it is declared
-    Span<int> t = makeArray();              // error: cannot implicitly convert 'int[3]' to 'Span<int>'; a span can only view an array stored in a variable or field
-    Span<int> e = makeSamples().edit();     // error: cannot call 'mut' method 'edit' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
-    ReadOnlySpan<int> u = makeSamples().view(); // error: this 'ReadOnlySpan<int>' would view a temporary value
-    for (int x : makeSamples().view()) {    // error: cannot loop over a temporary value's elements
+    s = b;                                  // error[WYL0417]: cannot reassign 's'
+    Span<int> later;                        // error[WYL0414]: variable of type 'Span<int>' must be initialized where it is declared
+    Span<int> t = makeArray();              // error[WYL0079]: expected 'Span<int>', found 'int[3]'
+    Span<int> e = makeSamples().edit();     // error[WYL0104]: cannot call 'mut' method 'edit' on a temporary value
+    ReadOnlySpan<int> u = makeSamples().view(); // error[WYL0415]: 'ReadOnlySpan<int>' cannot view a temporary value
+    for (int x : makeSamples().view()) {    // error[WYL0358]: cannot loop over the elements of a temporary value
     }
     bool flag = true;
-    var either = flag ? s : s;              // error: '?:' cannot choose between two 'Span<int>'s
-    Span<int>[2] spans;                     // error: 'Span<int>' cannot be an array's element
-    var viewed = [s, s];                    // error: 'Span<int>' cannot be an array's element
-    Result<Span<int>, int> r;               // error: 'Span<int>' cannot be a type argument
-    Span<long> wide = a;                    // error: cannot implicitly convert 'int[2]' to 'Span<long>'
-    switch (s) {                            // error: a 'Span<int>' cannot be matched against patterns
+    var either = flag ? s : s;              // error[WYL0320]: '?:' cannot choose between two values of type 'Span<int>'
+    Span<int>[2] spans;                     // error[WYL0418]: 'Span<int>' cannot be an array's element
+    var viewed = [s, s];                    // error[WYL0418]: 'Span<int>' cannot be an array's element
+    Result<Span<int>, int> r;               // error[WYL0418]: 'Span<int>' cannot be a type argument
+    Span<long> wide = a;                    // error[WYL0079]: expected 'Span<long>', found 'int[2]'
+    switch (s) {                            // error[WYL0381]: cannot match a value of type 'Span<int>' against patterns
         default -> print(1);
     }
 }

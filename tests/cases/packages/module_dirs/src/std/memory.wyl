@@ -1,2 +1,2 @@
-// error: a top-level module can't be named 'std', which names the standard library
+// error[WYL0033]: top-level module cannot be named 'std'
 pub struct Arena { }

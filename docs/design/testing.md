@@ -20,6 +20,7 @@ exist, what each can't see, and what to add next.
 | ASan and UBSan stay quiet | use after free, overflow in generated code and the runtime | `--cc asan` |
 | The interpreter agrees | emitter and pass bugs against the meaning; a pass bug without a C++ build | `--interpret` |
 | Expected output, reviewed snapshots | a wrong answer every mode agrees on | `tests/cases`, `tests/matrix`, `tests/cases/values` |
+| Every diagnostic is cataloged, tested, and explained | an error with no code, spec section, test, or page | `CatalogSelfTests`; a test's `// error[WYLnnnn]: <message>` marker matches the code and the message exactly |
 | Mutation testing | a test that wouldn't notice a wrong answer | `tests/Wyl.Mutation` |
 
 **What no oracle sees:** every mode and the interpreter share lowering, so a wrong meaning

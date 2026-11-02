@@ -1,12 +1,12 @@
-pub(module) struct Shared { }                   // error: 'Shared' is already defined in main.wyl, of the same module
-pub(module) int Mine() { return 0; }            // error: 'Mine' is already defined in main.wyl, of the same module
+pub(module) struct Shared { }                   // error[WYL0034]: 'Shared' is already defined in this module
+pub(module) int Mine() { return 0; }            // error[WYL0034]: 'Mine' is already defined in this module
 pub(module) void overloaded(String s) { }
-pub(module) void repeated(int y) { }            // error: function 'repeated(int)' is already defined in main.wyl
-pub(module) void quiet(int y) { }               // error: function 'quiet(int)' is already defined in main.wyl
+pub(module) void repeated(int y) { }            // error[WYL0232]: function 'repeated(int)' is already defined
+pub(module) void quiet(int y) { }               // error[WYL0232]: function 'quiet(int)' is already defined
 void alone(int y) { }
 
 void secret() { }
 int secretValue() { return 1; }
 struct Hidden { }
 
-void main() { }                                 // error: the program already has a 'main', in main.wyl
+void main() { }                                 // error[WYL0061]: program already has a 'main' function

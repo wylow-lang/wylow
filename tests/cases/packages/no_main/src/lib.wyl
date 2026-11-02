@@ -1,2 +1,2 @@
-// error: package 'no_main' has no 'main' function in its root module
+// error[WYL0058]: package 'no_main' has no 'main' function in its root module
 pub int answer() { return 42; }

@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -51,7 +52,7 @@ public sealed partial class Binder
 
         if (called is null)
         {
-            Error(call.Callee.Location, $"'{currentType.Name}' has no base class, so it cannot call 'super(...)'");
+            Error(Catalog.SuperCallWithoutBase(call.Callee.Location, currentType.Name));
             return null;
         }
         if (AnyError(arguments))
@@ -68,7 +69,7 @@ public sealed partial class Binder
         {
             var parameter = constructor.ParameterType(i);
             if ((constructor.ParameterRefKind(i) != RefKind.None || parameter.IsNullableReference || parameter.IsRefStruct) && !IsHeldByCaller(converted[i]))
-                Error(converted[i].Location, $"an argument to '{(chains ? "this" : "super")}(...)' for a reference or view parameter must be a parameter, a field of one, or null, for now");
+                Error(Catalog.ConstructorCallArgumentNotHeld(converted[i].Location, chains ? "this" : "super"));
         }
         return new BoundConstructorCall(call.Location, constructor, converted, chains);
     }
@@ -94,7 +95,7 @@ public sealed partial class Binder
         var constructor = ConstructorsOf(baseType).FirstOrDefault(c => c.Symbol.Parameters.Count == 0);
         if (constructor is null)
         {
-            Error(location, $"'{baseType}' has no parameterless constructor, so this constructor must start with 'super(...)'");
+            Error(Catalog.NoParameterlessBaseConstructor(location, baseType.ToString()));
             return null;
         }
         var reference = new MethodReference(constructor.Symbol, baseType, []);
@@ -105,8 +106,8 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// Java's "recursive constructor invocation": a constructor whose <c>this(...)</c> chain comes
-    /// back to it would never finish. Each constructor on the cycle is reported.
+    /// A constructor whose <c>this(...)</c> chain comes back to it would never finish. Each
+    /// constructor on the cycle is reported, with the steps that lead back to it.
     /// </summary>
     void CheckConstructorCycles(IEnumerable<BoundFunction> bodies)
     {
@@ -117,12 +118,22 @@ public sealed partial class Binder
             .ToDictionary(b => b.Symbol, b => b.Call!);
         foreach (var (constructor, call) in chains)
         {
-            var next = call.Constructor.Symbol;
+            var steps = new List<(string From, string To, Location At)>();
             var seen = new HashSet<FunctionSymbol>();
-            while (next != constructor && seen.Add(next) && chains.TryGetValue(next, out var further))
-                next = further.Constructor.Symbol;
-            if (next == constructor)
-                Error(call.Location, "recursive constructor invocation: this 'this(...)' chain calls the constructor it starts from");
+            var (current, step) = (constructor, call);
+            while (true)
+            {
+                var next = step.Constructor.Symbol;
+                steps.Add((current.Signature, next.Signature, step.Location));
+                if (next == constructor)
+                {
+                    Error(Catalog.ConstructorCycle(call.Location, constructor.Signature, steps));
+                    break;
+                }
+                if (!seen.Add(next) || !chains.TryGetValue(next, out var further))
+                    break;
+                (current, step) = (next, further);
+            }
         }
     }
 
@@ -139,8 +150,7 @@ public sealed partial class Binder
     {
         if (!type.IsStruct || !constructor.Symbol.IsImplicit || type.FindNonDefaultableField() is not { } missing)
             return true;
-        Error(location,
-            $"'{type}' has no default value because field '{missing.Name}' has type '{TypeMap.For(type).Apply(missing.Type)}'; pass it by name, as in '{type}({missing.Name}: ...)'");
+        Error(Catalog.NoDefaultValue(location, type.ToString(), missing.Name, TypeMap.For(type).Apply(missing.Type).ToString()));
         return false;
     }
 
@@ -149,8 +159,7 @@ public sealed partial class Binder
         var location = s.Declaration.NameLocation;
         foreach (var field in s.Fields.Where(f => f.RequiresAssignment))
         {
-            Error(field.Declaration.NameLocation,
-                $"field '{field.Name}' of type '{field.Type}' has no default value; give it an initializer or assign it in a constructor");
+            Error(Catalog.FieldWithoutDefault(field.Declaration.NameLocation, field.Name, field.Type.ToString()));
         }
         currentType = s;
         var super = ImplicitSuperCall(s, location);

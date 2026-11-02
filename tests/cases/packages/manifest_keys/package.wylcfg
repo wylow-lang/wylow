@@ -1,17 +1,17 @@
 // The keys are fixed, so a misspelled or repeated one fails instead of being ignored.
 name = "manifest_keys";
-name = "again";                         // error: 'name' is given more than once
-version = "1.0";                        // error: 'version' is not a key here; the keys are 'name', 'dependencies', 'native'
+name = "again";                         // error[WYL0024]: 'name' is already given
+version = "1.0";                        // error[WYL0023]: 'version' is not a key here
 
-dependencies {                          // error: 'dependencies' is not supported yet
+dependencies {                          // error[WYL0031]: manifest key 'dependencies' cannot be used
     engine { path = "../engine"; }
-    tools = "../tools";                 // error: a dependency is a block, as in 'tools { path = "../tools"; }'
-    empty { }                           // error: dependency 'empty' needs a 'path'
-    other { path = ["../other"]; }      // error: 'path' is a string
+    tools = "../tools";                 // error[WYL0029]: dependency 'tools' is not a block
+    empty { }                           // error[WYL0030]: dependency 'empty' has no 'path'
+    other { path = ["../other"]; }      // error[WYL0025]: 'path' takes a string
 }
 
-native {                                // error: 'native' is not supported yet
-    include = "third_party/sdl";        // error: 'include' is a list of strings
+native {                                // error[WYL0031]: manifest key 'native' cannot be used
+    include = "third_party/sdl";        // error[WYL0025]: 'include' takes a list of strings
     link = ["SDL3", "opengl32"];
-    flags = [];                         // error: 'flags' is not a key here; the keys are 'include', 'link'
+    flags = [];                         // error[WYL0023]: 'flags' is not a key here
 }

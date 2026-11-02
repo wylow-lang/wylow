@@ -32,13 +32,13 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         var src = Path.Combine(directory, "src");
         if (!Directory.Exists(src))
         {
-            diagnostics.Error(manifest.NameLocation, "the package's sources go in 'src/', which is missing");
+            diagnostics.Add(Catalog.MissingSourceDirectory(manifest.NameLocation));
             return new PackageSources(package, [], diagnostics.Sorted());
         }
         var files = new List<SourceText>();
         AddModule(src, package.Root, files, diagnostics);
         if (files.Count == 0)
-            diagnostics.Error(manifest.NameLocation, "'src/' has no .wyl files");
+            diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
         return new PackageSources(package, files, diagnostics.Sorted());
 
         void AddModule(string path, Module module, List<SourceText> into, DiagnosticBag bag)
@@ -58,10 +58,10 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                 // Reported in the module's first file, since a directory has no text to point at.
                 var at = new Location(into[first], new TextSpan(0, 0));
                 if (!Lexer.IsIdentifier(name))
-                    bag.Error(at, $"directory '{name}' holds Wylow files, but '{name}' is not a module name");
+                    bag.Add(Catalog.DirectoryNotModuleName(at, name));
                 // So that a path's first name has one meaning (§6.1, Imports).
                 else if (module.IsRoot && name == Package.Std.Name)
-                    bag.Error(at, $"a top-level module can't be named '{name}', which names the standard library");
+                    bag.Add(Catalog.StdModuleName(at));
             }
         }
     }

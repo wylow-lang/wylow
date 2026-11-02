@@ -596,10 +596,10 @@ static partial class IrSelfTests
 
         yield return new("narrowed_after_test", () => Narrowed(b, "narrowed_after_test", tested: true));
         yield return new("narrowed_untested", () => Narrowed(b, "narrowed_untested", tested: false),
-            Error: "might be null here");
+            Error: "might be null");
         yield return new("may_be_null_untested", () => Narrowed(b, "may_be_null_untested", tested: false, IrCheckKind.MayBeNull));
         yield return new("may_be_null_after_test", () => Narrowed(b, "may_be_null_after_test", tested: true, IrCheckKind.MayBeNull),
-            Error: "'case null' can never match: 'local' is not null here");
+            Error: "'case null' can never match");
 
         IrFunction StructConstructor(string name, bool returnsSelf)
         {

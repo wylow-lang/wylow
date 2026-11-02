@@ -1,14 +1,14 @@
 void main() {
-    int a = 12abc;            // error: invalid suffix 'abc'
-    int b = 5lu;              // error: invalid suffix 'lu'
-    int c = 1 # + 2;          // error: unexpected character '#'
-    String s = "\q";          // error: unknown escape sequence
-    int d = 1_000_;           // error: misplaced '_' in number literal
-    int e = 0x;               // error: number literal has no digits
-    double f = 1e400d;        // error: double literal is out of range
-    float g = 1e39;           // error: float literal is out of range
-    ulong h = 99999999999999999999uL; // error: integer literal is too large
-    String t = "open          // error: unterminated string literal
+    int a = 12abc;            // error[WYL0006]: 'abc' is not a number literal suffix
+    int b = 5lu;              // error[WYL0006]: 'lu' is not a number literal suffix
+    int c = 1 # + 2;          // error[WYL0002]: character '#' does not start a token
+    String s = "\q";          // error[WYL0014]: '\q' is not an escape sequence
+    int d = 1_000_;           // error[WYL0005]: '_' in a number literal must be between digits
+    int e = 0x;               // error[WYL0007]: number literal has no digits
+    double f = 1e400d;        // error[WYL0009]: literal is too large for 'double'
+    float g = 1e39;           // error[WYL0009]: literal is too large for 'float'
+    ulong h = 99999999999999999999uL; // error[WYL0008]: integer literal does not fit in 64 bits
+    String t = "open          // error[WYL0013]: string literal is not closed
     ;
 }
-/* never closed               // error: unterminated block comment
+/* never closed               // error[WYL0003]: block comment is not closed

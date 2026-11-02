@@ -1,30 +1,30 @@
 class Button {
-    fn(int, int) handler;               // error: expected '->' after a function type's parameters
-    fn -> void click;                   // error: expected '('; a function type's parameters are always parenthesized, as in 'fn() -> void'
-    (int) -> int old;                   // error: function types are written 'fn(int) -> int'
-    (int)? count;                       // error: function types are written 'fn(int) -> int'
-    (fn() -> void) grouped;             // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
-    fn() -> (fn() -> int) curried;      // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
-    escaping fn() -> void other;        // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+    fn(int, int) handler;               // error[WYL0001]: expected '->' after a function type's parameters
+    fn -> void click;                   // error[WYL0076]: expected '(' after 'fn'
+    (int) -> int old;                   // error[WYL0075]: function type is missing 'fn'
+    (int)? count;                       // error[WYL0075]: function type is missing 'fn'
+    (fn() -> void) grouped;             // error[WYL0074]: parentheses around this function type are not needed
+    fn() -> (fn() -> int) curried;      // error[WYL0074]: parentheses around this function type are not needed
+    escaping fn() -> void other;        // error[WYL0265]: 'escaping' can only be used on parameters and local variables
 }
 
 enum Event {
-    Click(escaping fn() -> void handler), // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+    Click(escaping fn() -> void handler), // error[WYL0265]: 'escaping' can only be used on parameters and local variables
 }
 
-escaping void annotated() { }           // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
-escaping fn() -> void maker() { return () -> { }; } // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
-fn() -> escaping fn() -> void curry() { return () -> () -> { }; } // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+escaping void annotated() { }           // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+escaping fn() -> void maker() { return () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+fn() -> escaping fn() -> void curry() { return () -> () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters and local variables
 
-void take((int) -> int f) { }           // error: function types are written 'fn(int) -> int'
+void take((int) -> int f) { }           // error[WYL0075]: function type is missing 'fn'
 
 void main() {
-    var mixed = (int a, b) -> a;        // error: a lambda's parameters must either all have types or all leave them out
-    var empty = x -> ;                  // error: expected an expression
-    var unnamed = (ref int) -> 1;       // error: expected a parameter name
-    var picked = new Array<(int) -> int>(1, x -> x); // error: function types are written 'fn(int) -> int'
+    var mixed = (int a, b) -> a;        // error[WYL0258]: lambda parameters must all have types or all leave them out
+    var empty = x -> ;                  // error[WYL0001]: expected an expression
+    var unnamed = (ref int) -> 1;       // error[WYL0001]: expected a parameter name
+    var picked = new Array<(int) -> int>(1, x -> x); // error[WYL0075]: function type is missing 'fn'
     escaping (fn(int) -> int)? maybe = null;
-    escaping mut fn() -> void late = () -> { }; // error: 'mut' goes before 'escaping', as in 'mut escaping fn() -> void f'
-    var handlers = new Array<escaping fn() -> void>(1, () -> { }); // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
-    if (maybe is fn(int) -> int f) { }  // error: a type pattern cannot name a function type; check a nullable function with a null check
+    escaping mut fn() -> void late = () -> { }; // error[WYL0266]: 'mut' must come before 'escaping'
+    var handlers = new Array<escaping fn() -> void>(1, () -> { }); // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+    if (maybe is fn(int) -> int f) { }  // error[WYL0375]: type pattern cannot name a function type
 }

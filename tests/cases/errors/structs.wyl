@@ -4,18 +4,18 @@ struct Point {
     int x;
     int y;
 
-    Point() {                      // error: cannot declare a parameterless constructor
+    Point() {                      // error[WYL0101]: struct cannot declare a parameterless constructor
     }
 
     Point(int x, int y) {
         this.x = x;
         this.y = y;
-        return 5;                  // error: constructors cannot return a value
+        return 5;                  // error[WYL0373]: cannot return a value from a constructor
     }
 
     void move() {
-        x = 1;                     // error: cannot assign to 'x' because 'this' is read-only in a method that isn't 'mut'
-        reset();                   // error: cannot call 'mut' method 'reset' on 'this' because 'this' is read-only
+        x = 1;                     // error[WYL0351]: cannot assign to 'x'
+        reset();                   // error[WYL0105]: cannot call 'mut' method 'reset' on 'this'
     }
 
     mut void reset() {
@@ -23,7 +23,7 @@ struct Point {
     }
 
     static int origin() {
-        return x;                  // error: 'x' is an instance field; static methods cannot use
+        return x;                  // error[WYL0282]: instance field 'x' cannot be used here
     }
 }
 
@@ -31,7 +31,7 @@ struct Named {
     (fn() -> int)? name;
 }
 
-struct Loop {                      // error: struct 'Loop' contains itself (Loop -> Inner -> Loop)
+struct Loop {                      // error[WYL0106]: struct 'Loop' contains itself
     Inner inner;
 }
 
@@ -41,7 +41,7 @@ struct Inner {
 
 struct Defaults {
     int a = 1;
-    int b = a;                     // error: field initializers cannot use
+    int b = a;                     // error[WYL0282]: instance field 'a' cannot be used here
 }
 
 void setX(ref int value) {
@@ -49,9 +49,9 @@ void setX(ref int value) {
 }
 
 void readOnly(in Point p) {
-    p.x = 3;                       // error: cannot assign to 'p.x' because 'p' is an 'in' parameter
-    p.reset();                     // error: cannot call 'mut' method 'reset' on 'p' because 'p' is an 'in' parameter
-    setX(ref p.x);                 // error: cannot pass 'p.x' by 'ref' because 'p' is an 'in' parameter
+    p.x = 3;                       // error[WYL0351]: cannot assign to 'p.x'
+    p.reset();                     // error[WYL0105]: cannot call 'mut' method 'reset' on 'p'
+    setX(ref p.x);                 // error[WYL0223]: cannot pass 'p.x' by 'ref'
 }
 
 Point make() {
@@ -60,19 +60,19 @@ Point make() {
 
 void main() {
     var p = Point(1, 2);
-    print(p.z);                    // error: 'Point' has no field 'z'
-    p.missing();                   // error: 'Point' has no method 'missing'
-    setX(p.x);                     // error: argument 1 must be passed with 'ref'
-    setX(ref 5);                   // error: a 'ref' argument must be a variable or field
-    make().x = 4;                  // error: cannot assign to a field of a temporary value
+    print(p.z);                    // error[WYL0297]: cannot find field 'z' in 'Point'
+    p.missing();                   // error[WYL0300]: cannot find method 'missing' in 'Point'
+    setX(p.x);                     // error[WYL0224]: argument 1 of 'setX' must be passed with 'ref'
+    setX(ref 5);                   // error[WYL0222]: 'ref' argument must be a variable, field, or element
+    make().x = 4;                  // error[WYL0348]: cannot assign to a field of a temporary value
     var n1 = Named();
     var n2 = Named();
-    print(n1 == n2);               // error: its field 'name' of type '(fn() -> int)?' does not support '=='
-    print(p == 3);                 // error: operator '==' cannot be applied to 'Point' and 'int'
-    print(this);                   // error: 'this' can only be used inside a struct
-    Point.reset();                 // error: 'Point.reset' is an instance method
-    p.origin();                    // error: static method 'origin' must be called through the type
-    print(Point(1));               // error: no constructor of 'Point' takes 1 argument
+    print(n1 == n2);               // error[WYL0310]: operator '==' cannot be applied to 'Named'
+    print(p == 3);                 // error[WYL0308]: operator '==' cannot be applied to 'Point' and 'int'
+    print(this);                   // error[WYL0283]: 'this' can only be used inside a struct or class
+    Point.reset();                 // error[WYL0302]: instance method 'Point.reset' cannot be called through its type
+    p.origin();                    // error[WYL0303]: static method 'origin' cannot be called through a value
+    print(Point(1));               // error[WYL0233]: no constructor of 'Point' takes 1 argument
     float f = 1;
-    setX(ref f);                   // error: a 'ref' argument must have exactly type 'int', not 'float'
+    setX(ref f);                   // error[WYL0225]: 'ref' argument: expected 'int', found 'float'
 }

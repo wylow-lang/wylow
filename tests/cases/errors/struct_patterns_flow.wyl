@@ -10,11 +10,11 @@ struct Vec3 {
 void main() {
     Vec3 p = Vec3(1, 2, 3);
     if (p is Vec3(1, var y, _) || p.z > 0) {
-        print(y);                   // error: 'y' might not have been assigned
+        print(y);                   // error[WYL0394]: 'y' might not have been assigned
     }
     Vec3? maybe = null;
     if (!(maybe is Vec3(var x, _, _))) {
-        print(x);                   // error: 'x' might not have been assigned
+        print(x);                   // error[WYL0394]: 'x' might not have been assigned
     } else {
         print(x);
     }

@@ -21,7 +21,9 @@ public sealed partial class CppEmitter
     void EmitArgumentsConstructor(TypeSymbol s, int index, IrFunction function)
     {
         var call = ConstructorCallOf(function.ConstructorCall!);
-        var arguments = call.Arguments.Select((_, i) => FunctionArgument(call.Method, i, $"wyl::argument<{i}>(arguments)")).ToList();
+        // A reference argument is stored as the address of its place, which the constructor reads back.
+        var arguments = call.Arguments.Select((argument, i) => FunctionArgument(call.Method, i,
+            argument is IrRefArgument ? $"(*wyl::argument<{i}>(arguments))" : $"wyl::argument<{i}>(arguments)")).ToList();
         if (call.Loc is { } loc)
             arguments.Add(LocText(loc));
         Line("template <class A>");
@@ -38,9 +40,14 @@ public sealed partial class CppEmitter
         output = new StringBuilder();
         indent = 2;
         IrStatements(constructorCall);
-        var values = call.Arguments.Select(a => a is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } && computed.Contains(local)
-            ? $"std::move({Name(local)})"
-            : ArgumentText(a));
+        var values = call.Arguments.Select(a => a switch
+        {
+            // The constructor receives the address and reads the place back, so its 'in' or 'ref'
+            // parameter still names what the caller gave rather than a copy of it.
+            IrRefArgument reference => $"wyl::address_of({PlaceText(reference.Place)})",
+            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when computed.Contains(local) => $"std::move({Name(local)})",
+            _ => ArgumentText(a),
+        });
         Line($"return wyl::Arguments{{{string.Join(", ", values)}}};");
         var body = output.ToString();
         (output, indent) = (enclosingOutput, enclosingIndent);

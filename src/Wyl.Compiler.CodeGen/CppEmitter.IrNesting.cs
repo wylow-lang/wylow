@@ -173,7 +173,8 @@ public sealed partial class CppEmitter
     /// <summary>Something an instruction evaluates that may be nested into it: a temporary it names, or an element whose check precedes it.</summary>
     abstract record Nestable;
     /// <param name="TakesPlace">Whether the instruction needs the very object the temporary names rather than a value made from it.</param>
-    sealed record TemporaryUse(IrLocal Local, bool TakesPlace) : Nestable;
+    /// <param name="CopiesOwner">Whether the instruction copies the temporary as an argument of a type whose release may run code, which prints as a <c>wyl::keep</c> temporary of its own.</param>
+    sealed record TemporaryUse(IrLocal Local, bool TakesPlace, bool CopiesOwner) : Nestable;
     sealed record CheckedElement(IrElement Element, IrLocal Index) : Nestable;
 
     static IEnumerable<Nestable> Nestables(IrStatement statement)
@@ -189,7 +190,7 @@ public sealed partial class CppEmitter
             foreach (var place in IrWalk.Places(argument))
             {
                 if (place.Local.IsTemporary)
-                    yield return new TemporaryUse(place.Local, takesPlace);
+                    yield return new TemporaryUse(place.Local, takesPlace, argument is IrRead read && KeptCopy(read, place));
                 foreach (var element in place.Projections.OfType<IrElement>())
                 {
                     if (element.Index is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var index } })
@@ -295,7 +296,10 @@ public sealed partial class CppEmitter
             // place it copied (so the use would reach the original), a move prints an xvalue no
             // place takes, and a construction prints a value with no storage.
             bool placeUse = nestable is TemporaryUse { TakesPlace: true };
-            if (tree.ConflictsWith(siblings, lambdas) || (tree.CreatesOwner && !last) || placeUse)
+            // A copied argument is a value whose release may be observable even when what it copies
+            // only moved: nesting prints it as the keep temporary, released with the C++ statement.
+            bool createsOwner = tree.CreatesOwner || nestable is TemporaryUse { CopiesOwner: true };
+            if (tree.ConflictsWith(siblings, lambdas) || (createsOwner && !last) || placeUse)
             {
                 plan.Undo(mark);
                 break;

@@ -12,9 +12,9 @@ public sealed partial class Binder
         foreach (var parameter in syntax)
         {
             if (result.Any(p => p.Name == parameter.Name))
-                Error(parameter.Location, $"duplicate type parameter '{parameter.Name}'");
+                Error(Catalog.DuplicateTypeParameter(parameter.Location, parameter.Name));
             else if (outer.Any(p => p.Name == parameter.Name))
-                Error(parameter.Location, $"type parameter '{parameter.Name}' hides the type parameter of the same name of its type");
+                Error(Catalog.HidingTypeParameter(parameter.Location, parameter.Name));
             result.Add(new TypeParameterSymbol(parameter.Name));
         }
         return result;
@@ -31,7 +31,7 @@ public sealed partial class Binder
                 if (bound == WylType.Error)
                     continue;
                 if (!bound.IsInterface || bound.IsNullable)
-                    Error(boundSyntax.Location, $"'{bound}' cannot be a bound; type parameters can only be bounded by interfaces");
+                    Error(Catalog.NonInterfaceBound(boundSyntax.Location, bound.ToString()));
                 else
                     symbols[i].Bounds.Add(bound);
             }
@@ -45,18 +45,18 @@ public sealed partial class Binder
             return new TypeSymbol(decl, []);
         if (ClashingFile(decl, decl.Name) is { } other)
         {
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
+            Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, null, other.Name, null));
             return null;
         }
         if (OwnType(decl.Name, decl.Location.Source) is not null || BuiltinType(decl.Name) is not null)
         {
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined");
+            Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, OwnType(decl.Name, decl.Location.Source)?.Declaration.NameLocation, null, null));
             return null;
         }
         if (IsLanguageName(decl, decl.Name, decl.NameLocation))
             return null;
         if ((decl.Modifiers & Modifiers.Extern) != 0 && !decl.Location.Source.Module.Package.IsStd)
-            Error(decl.NameLocation, "extern structs are only supported in the standard library");
+            Error(Catalog.ExternStructOutsideStd(decl.NameLocation));
         HasCallerLocation(decl);
         var symbol = new TypeSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
         TableOf(decl).Types[decl.Name] = symbol;
@@ -69,13 +69,11 @@ public sealed partial class Binder
         if (decl.BaseType is { } baseSyntax && BindType(baseSyntax, allowVoid: false) is var baseType && baseType != WylType.Error)
         {
             if (!baseType.IsClass)
-                Error(baseSyntax.Location, baseType.IsInterface
-                    ? $"a class cannot extend interface '{baseType}'; use 'implements'"
-                    : $"'{baseType}' is not a class and cannot be extended");
+                Error(baseType.IsInterface ? Catalog.ExtendInterface(baseSyntax.Location, baseType.ToString()) : Catalog.ExtendNonClass(baseSyntax.Location, baseType.ToString()));
             else if (baseType.IsNullable)
-                Error(baseSyntax.Location, "a base class cannot be nullable");
+                Error(Catalog.NullableBase(baseSyntax.Location));
             else if (baseType.Symbol!.IsFinal)
-                Error(baseSyntax.Location, $"cannot extend final class '{baseType}'");
+                Error(Catalog.ExtendFinal(baseSyntax.Location, baseType.ToString()));
             else
                 s.BaseType = baseType;
         }
@@ -86,11 +84,11 @@ public sealed partial class Binder
             if (type == WylType.Error)
                 continue;
             if (!type.IsInterface || type.IsNullable)
-                Error(interfaceSyntax.Location, $"'{type}' is not an interface");
+                Error(Catalog.NotAnInterface(interfaceSyntax.Location, type.ToString()));
             else if (s.Interfaces.Any(i => i.Symbol == type.Symbol))
-                Error(interfaceSyntax.Location, $"'{type.Symbol!.Name}' is listed more than once");
+                Error(Catalog.InterfaceListedTwice(interfaceSyntax.Location, type.Symbol!.Name));
             else if (type.Symbol == stdlib.Borrowable && s.Kind != TypeKind.Class && s.Kind != TypeKind.Interface)
-                Error(interfaceSyntax.Location, "only classes can be 'Borrowable'; a value is borrowed through whatever holds it");
+                Error(Catalog.BorrowableNonClass(interfaceSyntax.Location));
             else
                 s.Interfaces.Add(type);
         }
@@ -109,7 +107,7 @@ public sealed partial class Binder
             {
                 if (next == s)
                 {
-                    Error(s.Declaration.NameLocation, $"'{s.Name}' inherits from itself");
+                    Error(Catalog.InheritanceCycle(s.Declaration.NameLocation, s.Name));
                     s.BaseType = null;
                     s.Interfaces.Clear();
                     break;
@@ -144,14 +142,14 @@ public sealed partial class Binder
 
         if (ClashingFile(decl, decl.Name) is { } other)
         {
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined in {other.Name}, of the same module");
+            Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, null, other.Name, null));
             return function;
         }
         if (IsLanguageName(decl, decl.Name, decl.NameLocation))
             return function;
         if (OwnType(decl.Name, decl.Location.Source) is { } type)
         {
-            Error(decl.NameLocation, $"'{decl.Name}' is already defined as {SyntaxFacts.KindNameWithArticle(type.Kind)}");
+            Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, type.Declaration.NameLocation, null, SyntaxFacts.KindNameWithArticle(type.Kind)));
             return function;
         }
 
@@ -161,12 +159,9 @@ public sealed partial class Binder
             ?? (decl.Visibility == Visibility.File ? null : FindSameSignature(PrivateElsewhere(decl.Name, decl.Location.Source), function));
         if (existing is null)
             AddFunction(function, decl);
-        else if (existing.IsBuiltin)
-            Error(decl.NameLocation, $"'{function.Signature}' conflicts with a built-in function");
         else
         {
-            var where = existing.Declaration?.Location.Source is { } file && file != decl.Location.Source ? $" in {file.Name}" : "";
-            Error(decl.NameLocation, $"function '{function.Signature}' is already defined{where}{OverloadEscapingHint(function, existing)}");
+            Error(Catalog.DuplicateFunction(decl.NameLocation, "function", function.Signature, existing.Declaration?.NameLocation, DiffersOnlyInEscaping(function, existing) ? existing.Signature : null));
         }
         return function;
     }
@@ -203,15 +198,15 @@ public sealed partial class Binder
         foreach (var parameter in parameters)
         {
             if (result.Any(p => p.Name == parameter.Name))
-                Error(parameter.Location, $"duplicate parameter '{parameter.Name}'");
+                Error(Catalog.DuplicateParameter(parameter.Location, parameter.Name));
             var type = BindVariableType(parameter.Type, parameter.Escaping, parameter.Annotations, isParameter: true);
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             if (parameter.IsMutable && type.NonNull.IsNonEscapingFunction)
-                Error(parameter.Location, NonEscapingMutMessage);
+                Error(Catalog.NonEscapingMut(parameter.Location));
             // A 'ref?' parameter can default to null.
             bool mustRefer = parameter.RefKind == RefKind.Ref && !type.IsNullableReference;
             if (parameter.Default is not null && mustRefer)
-                Error(parameter.Default.Location, "a 'ref' parameter cannot have a default value, since it must refer to a variable");
+                Error(Catalog.RefParameterDefault(parameter.Default.Location, parameter.Name));
             var local = new LocalSymbol(parameter.Name, type, isParameter: true, parameter.RefKind)
             {
                 IsMutable = parameter.IsMutable,
@@ -236,9 +231,9 @@ public sealed partial class Binder
             CheckStorable(type, decl.Type.Location, "the type of a field");
             var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)
-                Error(decl.NameLocation, "an extern struct cannot declare fields; its C++ class holds its data");
+                Error(Catalog.ExternStructField(decl.NameLocation));
             if (s.FindField(decl.Name) is not null)
-                Error(decl.NameLocation, $"field '{decl.Name}' is already defined");
+                Error(Catalog.DuplicateField(decl.NameLocation, decl.Name, s.FindField(decl.Name)!.Declaration.NameLocation));
             else
                 s.Fields.Add(field);
         }
@@ -257,12 +252,12 @@ public sealed partial class Binder
             {
                 if (s.IsExtern)
                 {
-                    Error(decl.NameLocation, "an extern struct cannot declare constructors");
+                    Error(Catalog.ExternStructConstructor(decl.NameLocation));
                     continue;
                 }
                 if (parameters.Count == 0 && s.Kind == TypeKind.Struct)
                 {
-                    Error(decl.NameLocation, "structs cannot declare a parameterless constructor; use field initializers instead");
+                    Error(Catalog.ParameterlessStructConstructor(decl.NameLocation));
                     continue;
                 }
                 var constructor = new FunctionSymbol(s.Name, parameters, WylType.Void)
@@ -277,7 +272,7 @@ public sealed partial class Binder
                 };
                 if (FindSameSignature(s.Constructors, constructor) is { } existingConstructor)
                 {
-                    Error(decl.NameLocation, $"constructor '{constructor.Signature}' is already defined{OverloadEscapingHint(constructor, existingConstructor)}");
+                    Error(Catalog.DuplicateFunction(decl.NameLocation, "constructor", constructor.Signature, existingConstructor.Declaration?.NameLocation, DiffersOnlyInEscaping(constructor, existingConstructor) ? existingConstructor.Signature : null));
                     continue;
                 }
                 s.Constructors.Add(constructor);
@@ -309,28 +304,28 @@ public sealed partial class Binder
                 CheckReturnsReference(method);
             CheckReturnsView(method);
             if (method.PassesLocation && method.IsDispatched)
-                Error(decl.NameLocation, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods yet");
+                Error(Catalog.CallerLocationOnDispatched(decl.NameLocation));
             if (method.IsBuiltin && !method.IsStatic && !s.IsExtern)
-                Error(decl.NameLocation, "extern methods must be static, except in an extern struct");
+                Error(Catalog.InstanceExternMethod(decl.NameLocation));
             else if (s.IsExtern && !method.IsBuiltin)
-                Error(decl.NameLocation, "the methods of an extern struct must be extern");
+                Error(Catalog.NonExternMethodInExternStruct(decl.NameLocation));
             // C++ templates cannot be virtual.
             if (method.IsGeneric && isInterface)
-                Error(decl.NameLocation, "interface methods cannot have type parameters");
+                Error(Catalog.GenericInterfaceMethod(decl.NameLocation));
             else if (method.IsGeneric && (method.IsVirtual || method.IsOverride || method.IsAbstract))
-                Error(decl.NameLocation, "generic methods cannot be 'virtual', 'override', or 'abstract'");
+                Error(Catalog.GenericVirtualMethod(decl.NameLocation));
             if ((modifiers & Modifiers.Abstract) != 0 && !s.IsAbstract)
-                Error(decl.NameLocation, $"'{s.Name}' must be declared 'abstract' because it has abstract method '{decl.Name}'");
+                Error(Catalog.AbstractMethodInConcreteClass(decl.NameLocation, s.Name, decl.Name));
             if (s.FindField(decl.Name) is not null || s.FindVariant(decl.Name) is not null)
             {
-                Error(decl.NameLocation, $"'{decl.Name}' is already defined as a {(s.Kind == TypeKind.Enum ? "variant" : "field")}");
+                Error(Catalog.MemberNameTaken(decl.NameLocation, decl.Name, s.Kind == TypeKind.Enum ? "variant" : "field", s.FindField(decl.Name)?.Declaration.NameLocation ?? s.FindVariant(decl.Name)!.Declaration.NameLocation));
                 continue;
             }
             if (!s.Methods.TryGetValue(decl.Name, out var overloads))
                 s.Methods[decl.Name] = overloads = [];
             if (FindSameSignature(overloads, method) is { } existingMethod)
             {
-                Error(decl.NameLocation, $"method '{method.Signature}' is already defined{OverloadEscapingHint(method, existingMethod)}");
+                Error(Catalog.DuplicateFunction(decl.NameLocation, "method", method.Signature, existingMethod.Declaration?.NameLocation, DiffersOnlyInEscaping(method, existingMethod) ? existingMethod.Signature : null));
                 continue;
             }
             overloads.Add(method);
@@ -414,7 +409,7 @@ public sealed partial class Binder
         if ((decl.Modifiers & Modifiers.Extern) == 0)
             return null;
         if (!decl.Location.Source.Module.Package.IsStd)
-            Error(decl.NameLocation, "extern functions are only supported in the standard library for now");
+            Error(Catalog.ExternFunctionOutsideStd(decl.NameLocation));
         if (owner is { IsExtern: true } && (decl.Modifiers & Modifiers.Static) == 0)
             return decl.Name;
         if (owner is not null)
@@ -427,7 +422,7 @@ public sealed partial class Binder
     void CheckReturnsView(FunctionSymbol function)
     {
         if (function.ReturnType.IsRefStruct && !function.IsInstanceMethod)
-            Error(function.Declaration!.NameLocation, $"only instance methods can return '{function.ReturnType}', which views the method's receiver");
+            Error(Catalog.ViewReturnFromNonInstance(function.Declaration!.NameLocation, function.ReturnType.ToString()));
     }
 
     /// <summary>A returned reference borrows the receiver, so only instance methods that the caller calls directly may return one.</summary>
@@ -437,15 +432,13 @@ public sealed partial class Binder
         var keyword = FunctionSymbol.RefPrefix(method.ReturnRefKind).Trim() + (method.ReturnType.IsNullableReference ? "?" : "");
         var referenced = method.ReturnType.Referred;
         if (method.IsStatic)
-            Error(location, $"a static method cannot return '{keyword}'; a returned reference must point into the method's receiver");
+            Error(Catalog.StaticReferenceReturn(location, keyword));
         else if (method.IsDispatched)
-            Error(location, $"methods returning '{keyword}' cannot be virtual or abstract yet");
+            Error(Catalog.DispatchedReferenceReturn(location, keyword));
         else if (referenced == WylType.Void)
-            Error(location, $"'void' cannot be returned by '{keyword}'");
+            Error(Catalog.VoidReferenceReturn(location, keyword));
         else if (referenced.PassedWithoutCopying)
-            Error(location, referenced.NonNull.IsFunction
-                ? $"'{keyword}' cannot be used with type '{referenced.NonNull}'; functions are already passed without copying"
-                : $"'{keyword}' cannot be used with type '{referenced}'; class objects are already references");
+            Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, (referenced.NonNull.IsFunction ? referenced.NonNull : referenced).ToString(), referenced.NonNull.IsFunction));
     }
 
     void DeclareVariants(TypeSymbol s)
@@ -456,7 +449,7 @@ public sealed partial class Binder
             foreach (var parameter in decl.Fields ?? [])
             {
                 if (fields.Any(f => f.Name == parameter.Name))
-                    Error(parameter.Location, $"duplicate field '{parameter.Name}'");
+                    Error(Catalog.DuplicateField(parameter.Location, parameter.Name, fields.First(f => f.Name == parameter.Name).Declaration.NameLocation));
                 // A variant's fields are as visible as the enum.
                 var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null)
                 {
@@ -469,7 +462,7 @@ public sealed partial class Binder
                 fields.Add(new FieldSymbol(parameter.Name, fieldType, s, fieldDecl));
             }
             if (s.FindVariant(decl.Name) is not null)
-                Error(decl.NameLocation, $"variant '{decl.Name}' is already defined");
+                Error(Catalog.DuplicateVariant(decl.NameLocation, decl.Name));
             else
                 s.Variants.Add(new VariantSymbol(decl.Name, s, s.Variants.Count, decl, fields));
         }
@@ -478,16 +471,16 @@ public sealed partial class Binder
         {
             if (repr.Arguments is not [TypeSyntax underlyingSyntax])
             {
-                Error(repr.Location, "'@Repr' takes one integer type, as in '@Repr(uint)'");
+                Error(Catalog.ReprArguments(repr.Location));
                 continue;
             }
             var underlying = BindType(underlyingSyntax, allowVoid: false);
             if (s.UnderlyingType is not null)
-                Error(repr.Location, "'@Repr' can only be given once");
+                Error(Catalog.ReprTwice(repr.Location));
             else if (s.HasData)
-                Error(repr.Location, "an enum whose variants carry data cannot have '@Repr'");
+                Error(Catalog.ReprWithData(repr.Location));
             else if (underlying != WylType.Error && !underlying.IsInteger)
-                Error(underlyingSyntax.Location, $"'@Repr' takes an integer type, not '{underlying}'");
+                Error(Catalog.ReprNonInteger(underlyingSyntax.Location, underlying.ToString()));
             else
                 s.UnderlyingType = underlying;
         }
@@ -500,7 +493,7 @@ public sealed partial class Binder
             {
                 if (s.HasData)
                 {
-                    Error(valueSyntax.Location, "only enums whose variants carry no data can give variants values");
+                    Error(Catalog.VariantValueWithData(valueSyntax.Location));
                     continue;
                 }
                 s.UnderlyingType ??= WylType.Int;
@@ -510,12 +503,12 @@ public sealed partial class Binder
             }
             variant.Value = next;
             if (used.TryGetValue(next, out var other))
-                Error(variant.Declaration.NameLocation, $"'{variant.Name}' has the same value as '{other.Name}'");
+                Error(Catalog.DuplicateVariantValue(variant.Declaration.NameLocation, variant.Name, other.Name, other.Declaration.NameLocation));
             used.TryAdd(next, variant);
             next++;
         }
         if (s.UnderlyingType is { } type && s.Variants.FirstOrDefault(v => !type.HeldRange!.Value.Contains(v.Value)) is { } tooLarge)
-            Error(tooLarge.Declaration.NameLocation, $"the value of '{tooLarge.Name}' does not fit in the enum's integer type '{type}'");
+            Error(Catalog.VariantValueTooLarge(tooLarge.Declaration.NameLocation, tooLarge.Name, type.ToString()));
     }
 
     Int128? VariantValue(Expr syntax, WylType underlying)
@@ -528,13 +521,13 @@ public sealed partial class Binder
         };
         if (literal is null)
         {
-            Error(syntax.Location, "a variant's value must be an integer literal");
+            Error(Catalog.VariantValueNotLiteral(syntax.Location));
             return null;
         }
         Int128 value = negated ? -(Int128)literal.Value : literal.Value;
         if (!underlying.HeldRange!.Value.Contains(value))
         {
-            Error(syntax.Location, $"the value does not fit in the enum's integer type '{underlying}'");
+            Error(Catalog.VariantLiteralTooLarge(syntax.Location, underlying.ToString()));
             return null;
         }
         return value;
@@ -551,7 +544,7 @@ public sealed partial class Binder
         var reported = new HashSet<TypeSymbol>();
         var acyclic = new HashSet<WylType>();
 
-        string? FindCycle(WylType type, List<WylType> path)
+        (List<WylType> Types, bool Nests)? FindCycle(WylType type, List<WylType> path)
         {
             if (acyclic.Contains(type))
                 return null;
@@ -561,13 +554,13 @@ public sealed partial class Binder
                 var cycle = path.Skip(index).Append(type).ToList();
                 foreach (var member in cycle)
                     reported.Add(member.Symbol!);
-                return $"contains itself ({string.Join(" -> ", cycle)}); a struct or enum cannot hold itself by value";
+                return (cycle, false);
             }
             if (path.Count >= maxDepth)
             {
                 foreach (var member in path)
                     reported.Add(member.Symbol!);
-                return "has field types that nest without end";
+                return (path, true);
             }
 
             path.Add(type);
@@ -589,7 +582,7 @@ public sealed partial class Binder
         foreach (var s in all)
         {
             if (!reported.Contains(s) && FindCycle(s.Type, []) is { } problem)
-                Error(s.Declaration.NameLocation, $"{SyntaxFacts.KindName(s.Kind)} '{s.Name}' {problem}");
+                Error(problem.Nests ? Catalog.UnboundedNesting(s.Declaration.NameLocation, SyntaxFacts.KindName(s.Kind), s.Name) : Catalog.StructCycle(s.Declaration.NameLocation, SyntaxFacts.KindName(s.Kind), s.Name, problem.Types.Select(t => t.ToString())));
         }
         return reported;
     }

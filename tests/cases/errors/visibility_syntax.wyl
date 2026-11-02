@@ -1,40 +1,40 @@
 class Java {
-    public int a;                       // error: Wylow writes 'pub', not 'public'
-    private int b;                      // error: declarations are private to their file unless marked 'pub'; remove 'private'
-    protected int c;                    // error: Wylow has no 'protected'; a subclass sees what its file and module see, so write the 'pub' level that subclasses elsewhere need
-    public {                            // error: visibility is written on each member, as in 'pub int x;', not as a 'public { ... }' block
+    public int a;                       // error[WYL0051]: 'public' is not a visibility
+    private int b;                      // error[WYL0051]: 'private' is not a visibility
+    protected int c;                    // error[WYL0051]: 'protected' is not a visibility
+    public {                            // error[WYL0053]: visibility cannot be given to a block of members
         int d;
     }
 }
 
 class Blocked {
-    pub {                               // error: visibility is written on each member, as in 'pub int x;', not as a 'pub { ... }' block
+    pub {                               // error[WYL0053]: visibility cannot be given to a block of members
         int a;
     }
     int b;
 }
 
 class Twice {
-    pub pub(module) int a;              // error: only one visibility is allowed
-    static pub void f() { }             // error: the visibility comes first among modifiers, as in 'pub static'
-    mut pub(package) int b;             // error: the visibility comes first among modifiers, as in 'pub(package) mut'
-    pub(crate) int c;                   // error: expected 'pub(module)' or 'pub(package)', not 'pub(crate)'
+    pub pub(module) int a;              // error[WYL0048]: declaration already has a visibility
+    static pub void f() { }             // error[WYL0049]: visibility must come before other modifiers
+    mut pub(package) int b;             // error[WYL0049]: visibility must come before other modifiers
+    pub(crate) int c;                   // error[WYL0052]: 'pub(crate)' is not a visibility
 }
 
 class Destroyed {
-    pub ~Destroyed() { }                // error: a destructor takes no visibility, since only the runtime calls it
+    pub ~Destroyed() { }                // error[WYL0145]: destructor cannot have a visibility
 }
 
 enum Shape {
-    pub Circle,                         // error: an enum's variants take no visibility; they are as visible as the enum
+    pub Circle,                         // error[WYL0154]: enum variants cannot have a visibility
     Square;
 }
 
 interface Named {
-    pub String name();                  // error: an interface's methods take no visibility; they are as visible as the interface
+    pub String name();                  // error[WYL0175]: interface methods cannot have a visibility
 }
 
-final pub class Late { }                // error: the visibility comes first among modifiers, as in 'pub final'
+final pub class Late { }                // error[WYL0049]: visibility must come before other modifiers
 
 void main() {
 }

@@ -1,3 +1,3 @@
-// error: program has no 'main' function
+// error[WYL0058]: program has no 'main' function
 void notMain() {
 }

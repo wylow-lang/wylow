@@ -16,27 +16,27 @@ struct Mat2 {
     }
 
     mut ref float bad(int i) {
-        return m[i];                    // error: 'bad' returns a reference; return a place with 'return ref'
+        return m[i];                    // error[WYL0240]: 'bad' returns a reference, so 'return' must be 'return ref'
     }
 
     mut ref float other(ref Mat2 o) {
-        return ref o.m[0];              // error: a returned 'ref' must point into the method's receiver
+        return ref o.m[0];              // error[WYL0241]: returned 'ref' must point into the method's receiver
     }
 
     mut ref float temporary() {
-        return ref 1.5;                 // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+        return ref 1.5;                 // error[WYL0407]: returned 'ref' must refer to a variable, field, or element
     }
 
     ref float leak() {
-        return ref m[0];                // error: cannot take a 'ref' to 'm[0]' because 'this' is read-only in a method that isn't 'mut'; use 'in' instead
+        return ref m[0];                // error[WYL0408]: cannot bind 'ref' to read-only 'm[0]'
     }
 
     mut float plain() {
-        return ref m[0];                // error: 'return ref' can only be used in a method that returns 'ref' or 'in'
+        return ref m[0];                // error[WYL0239]: 'return ref' can only be used in a method that returns 'ref' or 'in'
     }
 
-    static ref float global() {         // error: a static method cannot return 'ref'
-        return ref Mat2().m[0];         // error: a returned 'ref' must refer to a variable, field, or element, not a temporary value
+    static ref float global() {         // error[WYL0244]: static method cannot return 'ref'
+        return ref Mat2().m[0];         // error[WYL0407]: returned 'ref' must refer to a variable, field, or element
     }
 }
 
@@ -45,15 +45,15 @@ class Holder {
     mut int size;
     mut (fn() -> void)? callback;
 
-    ref? (fn() -> void)? cb() {           // error: 'ref?' cannot be used with type 'fn() -> void'; functions are already passed without copying
+    ref? (fn() -> void)? cb() {           // error[WYL0409]: 'ref?' cannot be used with type 'fn() -> void'
         return ref callback;
     }
 
-    ref Node first() {                  // error: 'ref' cannot be used with type 'Node'; class objects are already references
+    ref Node first() {                  // error[WYL0409]: 'ref' cannot be used with type 'Node'
         return ref node;
     }
 
-    virtual ref int sizeRef() {         // error: methods returning 'ref' cannot be virtual or abstract yet
+    virtual ref int sizeRef() {         // error[WYL0245]: methods returning 'ref' cannot be virtual or abstract
         return ref size;
     }
 
@@ -62,7 +62,7 @@ class Holder {
     }
 
     static void report() {
-        print(count());                 // error: 'count' is an instance method; static methods cannot use 'this', fields, or instance methods
+        print(count());                 // error[WYL0282]: instance method 'count' cannot be used here
     }
 }
 
@@ -72,12 +72,12 @@ Mat2 makeMat() {
 
 void main() {
     Mat2 m = Mat2();
-    m.at(0) = 3;                        // error: cannot assign to 'm.at(0)' because 'at(int)' returns 'in'
-    ref float r = m.at(0);              // error: cannot take a 'ref' to 'm.at(0)' because 'at(int)' returns 'in'; use 'in' instead
-    ref float t = makeMat()[0, 0];      // error: cannot call 'mut' method 'operator []' on a temporary value, whose changes would be lost; store it in a 'mut' variable first
-    in float v = makeMat().at(0);       // error: an 'in' variable must refer to a variable, field, or element, not a temporary value
-    print(m[0]);                        // error: no indexer of 'Mat2' takes 1 argument
+    m.at(0) = 3;                        // error[WYL0351]: cannot assign to 'm.at(0)'
+    ref float r = m.at(0);              // error[WYL0408]: cannot bind 'ref' to read-only 'm.at(0)'
+    ref float t = makeMat()[0, 0];      // error[WYL0104]: cannot call 'mut' method 'operator []' on a temporary value
+    in float v = makeMat().at(0);       // error[WYL0407]: 'in' variable must refer to a variable, field, or element
+    print(m[0]);                        // error[WYL0233]: no indexer of 'Mat2' takes 1 argument
     var h = new Holder();
-    h.count() = 3;                      // error: cannot assign to this expression
-    print(h[0]);                        // error: 'Holder' cannot be indexed
+    h.count() = 3;                      // error[WYL0350]: cannot assign to this expression
+    print(h[0]);                        // error[WYL0306]: 'Holder' cannot be indexed
 }

@@ -37,7 +37,7 @@ public sealed partial class Binder
         // Like Java, a local may not shadow another local or parameter (it may shadow a field).
         local.Owner ??= currentFunction;
         if (scope!.Lookup(local.Name) is not null)
-            Error(location, $"'{local.Name}' is already defined");
+            Error(Catalog.DuplicateLocal(location, local.Name));
         else
             scope.Add(local);
     }
@@ -105,23 +105,23 @@ public sealed partial class Binder
         }
         else if (initializer is null)
         {
-            Error(s.Location, "'var' declarations require an initializer");
+            Error(Catalog.VarWithoutInitializer(s.Location));
             type = WylType.Error;
         }
         else if (initializer.Type == WylType.Void)
         {
-            Error(initializer.Location, "cannot assign a 'void' value to a variable");
+            Error(Catalog.VoidInitializer(initializer.Location));
             type = WylType.Error;
         }
         else if (initializer.Type == WylType.Null)
         {
-            Error(initializer.Location, "cannot infer a type from 'null'; declare the variable with a nullable type instead of 'var'");
+            Error(Catalog.VarFromNull(initializer.Location));
             type = WylType.Error;
         }
         else if (initializer.Type is NullableReferenceType reference)
         {
             var keyword = FunctionSymbol.RefPrefix(reference.Kind).Trim();
-            Error(initializer.Location, $"'{TextOf(initializer.Location)}' is a reference that may refer to nothing; refer to it with '{keyword}? var', or copy what it refers to with '!'");
+            Error(Catalog.VarFromNullableReference(initializer.Location, TextOf(initializer.Location), keyword));
             type = WylType.Error;
         }
         else
@@ -130,13 +130,13 @@ public sealed partial class Binder
         }
 
         if (type.IsSecondClass && initializer is null)
-            Error(s.Location, $"a '{type}' variable must be initialized where it is declared, since it cannot be reassigned");
+            Error(Catalog.SecondClassUninitialized(s.Location, type.ToString()));
         else if (s.IsMutable && type.NonNull.IsNonEscapingFunction)
-            Error(s.NameLocation, NonEscapingMutMessage);
+            Error(Catalog.NonEscapingMut(s.NameLocation));
         else if (type.IsRefStruct && initializer is not null && ViewsTemporary(initializer))
-            Error(initializer.Location, $"this '{type}' would view a temporary value, which is gone after this statement; store the value in a variable first");
+            Error(Catalog.ViewOfTemporary(initializer.Location, type.ToString()));
         else if (type.IsRefStruct && initializer is not null && PlacePath.ViewedNullableValue(initializer) is { } root)
-            Error(initializer.Location, $"this '{type}' would view inside {DestroyedByNull(root)}");
+            Error(Catalog.ViewInsideNullable(initializer.Location, type.ToString(), root.Name));
         var local = new LocalSymbol(s.Name, type, isParameter: false) { IsMutable = s.IsMutable, IsDeferred = s.Initializer is null };
         Declare(local, s.NameLocation);
         return new BoundVariableDeclaration(s.Location, local, initializer);
@@ -153,7 +153,7 @@ public sealed partial class Binder
         foreach (var annotation in s.Annotations)
             ReportMisplacedAnnotation(annotation);
         if (s.Escaping is { } escaping)
-            Error(escaping, $"a '{keyword}' variable can't be declared 'escaping', since it refers to a place rather than holding a function");
+            Error(Catalog.ReferenceEscaping(escaping, keyword));
         var typeSyntax = mayBeNull ? s.Type!.Element : s.Type;
         var declared = typeSyntax is null ? null : BindType(typeSyntax, allowVoid: false);
         if (mayBeNull && declared is not null && declared != WylType.Error && !CheckReferencedType(declared, keyword, typeSyntax!.Location))
@@ -167,12 +167,12 @@ public sealed partial class Binder
             place = new BoundLocalAccess(narrowed.Location, narrowed.Local, AssumesNonNull: true);
         var type = declared ?? place?.Type.Referred ?? WylType.Error;
         BoundExpression? initializer = null;
-        var what = $"{WithArticle(keyword)} variable";
+        var what = $"'{keyword}' variable";
         if (place is null)
-            Error(s.Location, $"{what} must be initialized with the variable, field, or element it refers to");
+            Error(Catalog.ReferenceUninitialized(s.Location, what));
         else if (place.Type == WylType.Null && declared is null)
         {
-            Error(place.Location, $"cannot infer a type from 'null'; declare the type {what} refers to instead of 'var'");
+            Error(Catalog.ReferenceTypeFromNull(place.Location, what));
             type = WylType.Error;
         }
         else if (type != WylType.Error && place.Type != WylType.Error)
@@ -203,7 +203,7 @@ public sealed partial class Binder
             return CheckReference(value, type.Kind, type.Referenced, what) ? new BoundConversion(value.Location, type, value) : null;
 
         if (reference.Referenced != type.Referenced)
-            Error(value.Location, $"{what} must have exactly the type of what it refers to, '{reference.Referenced}', not '{type.Referenced}'");
+            Error(Catalog.ReferenceTypeMismatch(value.Location, what, type.Referenced.ToString(), reference.Referenced.ToString()));
         else if (CheckReferredPlace(value, type.Kind, what, mayBeNull: true, throughReference: true))
             return value.Type == type ? value : new BoundConversion(value.Location, type, value);
         return null;
@@ -217,21 +217,16 @@ public sealed partial class Binder
     {
         var (kind, reason) = ClassifyPlace(place);
         var suffix = mayBeNull ? "?" : "";
-        var referred = throughReference ? $"what '{TextOf(place.Location)}' refers to," : $"'{TextOf(place.Location)}'";
         if (PlacePath.NullableValueRoot(place) is { } root)
-            Error(place.Location, $"{what} cannot refer into {DestroyedByNull(root)}");
+            Error(Catalog.ReferenceIntoNullable(place.Location, what, root.Name));
         else if (kind == PlaceKind.Temporary)
-            Error(place.Location, $"{what} must refer to a variable, field, or element, not a temporary value{NotAnElementHint(place)}");
+            Error(Catalog.ReferenceToTemporary(place.Location, what, Elementless(place)));
         else if (kind == PlaceKind.ReadOnly && refKind == RefKind.Ref)
-            Error(place.Location, $"cannot take a 'ref{suffix}' to {referred} because {reason}; use 'in{suffix}' instead");
+            Error(Catalog.RefToReadOnly(place.Location, $"ref{suffix}", TextOf(place.Location), throughReference, reason, suffix));
         else
             return true;
         return false;
     }
-
-    /// <summary>Why nothing may keep referring into a nullable value, which assigning its variable null destroys.</summary>
-    static string DestroyedByNull(LocalSymbol root) =>
-        $"the nullable '{root.Name}', which assigning it null would destroy; copy the value to a variable first";
 
     /// <summary>A reference can't refer to a class object or a function, which are never copied anyway.</summary>
     bool CheckReferencedType(WylType type, string keyword, Location location)
@@ -239,9 +234,7 @@ public sealed partial class Binder
         var target = type.Referred.NonNull;
         if (!type.PassedWithoutCopying)
             return true;
-        Error(location, target.IsFunction
-            ? $"'{keyword}' cannot be used with type '{target}'; functions are already passed without copying"
-            : $"'{keyword}' cannot be used with type '{target}'; class objects are already references");
+        Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, target.ToString(), target.IsFunction));
         return false;
     }
 
@@ -255,18 +248,18 @@ public sealed partial class Binder
             return false;
         if (place.Type is NullableReferenceType reference && reference.Referenced == type)
         {
-            Error(place.Location, MayReferToNothingMessage(place));
+            Error(MayReferToNothing(place.Location, place));
             return false;
         }
         if (place.Type != type)
         {
-            Error(place.Location, $"{what} must have exactly the type of what it refers to, '{place.Type}', not '{type}'");
+            Error(Catalog.ReferenceTypeMismatch(place.Location, what, type.ToString(), place.Type.ToString()));
             return false;
         }
         // Through such a reference the variable could become null after a null check narrowed it.
         if (refKind == RefKind.Ref && type.IsNullableValue && place is BoundLocalAccess { Local.RefKind: RefKind.None } local)
         {
-            Error(place.Location, $"{what} cannot refer to the nullable variable '{local.Local.Name}'; pass it by 'ref' to a function instead");
+            Error(Catalog.ReferenceToNullableVariable(place.Location, what, local.Local.Name));
             return false;
         }
         return CheckReferredPlace(place, refKind, what, mayBeNull: false, throughReference: false);
@@ -302,7 +295,7 @@ public sealed partial class Binder
         if (s.Value is null)
         {
             if (function.ReturnType != WylType.Void && function.ReturnType != WylType.Error)
-                Error(s.Location, $"{Describe(function)} must return a value of type '{function.ReturnType}'");
+                Error(Catalog.MissingReturnValue(s.Location, function.IsLambda ? null : function.Name, function.ReturnType.ToString()));
             return new BoundReturn(s.Location, null);
         }
 
@@ -317,21 +310,21 @@ public sealed partial class Binder
         var value = BindValue(s.Value, function.IsConstructor || function.IsDestructor ? null : function.ReturnType);
         if (function.IsConstructor || function.IsDestructor)
         {
-            Error(s.Value.Location, function.IsConstructor ? "constructors cannot return a value" : "destructors cannot return a value");
+            Error(Catalog.ReturnFromConstructor(s.Value.Location, function.IsConstructor));
             return new BoundReturn(s.Location, null);
         }
         if (function.ReturnType == WylType.Void)
         {
-            Error(s.Value.Location, $"{Describe(function)} returns 'void' and cannot return a value");
+            Error(Catalog.ReturnFromVoid(s.Value.Location, function.IsLambda ? null : function.Name));
             return new BoundReturn(s.Location, null);
         }
         var converted = Convert(value, function.ReturnType);
         if (function.ReturnType.IsRefStruct && converted.Type != WylType.Error && !IsThisDerived(converted))
         {
-            var hint = converted is BoundCall { Receiver: { } holder } && holder.Type.SharesStorage && IsThisRooted(holder)
-                ? $"; '{TextOf(holder.Location)}' holds its contents itself, and could be replaced while the caller uses them"
-                : "";
-            Error(s.Value.Location, $"a returned '{function.ReturnType}' must view the method's receiver: fields or elements of 'this', or a span returned by its methods{hint}");
+            var holderText = converted is BoundCall { Receiver: { } holder } && holder.Type.SharesStorage && IsThisRooted(holder)
+                ? TextOf(holder.Location)
+                : null;
+            Error(Catalog.ReturnedViewNotOfReceiver(s.Value.Location, function.ReturnType.ToString(), holderText));
         }
         return new BoundReturn(s.Location, converted);
     }
@@ -350,24 +343,24 @@ public sealed partial class Binder
         if (!returnType.IsNullableReference)
             place = NarrowReference(place);
         if (function.ReturnRefKind == RefKind.None)
-            Error(s.Location, "'return ref' can only be used in a method that returns 'ref' or 'in'");
+            Error(Catalog.ReturnRefWithoutReference(s.Location));
         else if (!s.IsRef && returnType.IsNullableReference && place.Type == WylType.Null)
             return new BoundReturn(s.Location, new BoundConversion(place.Location, returnType, place));
         else if (!s.IsRef)
-            Error(s.Location, $"'{function.Name}' returns a reference; return a place with 'return ref'{(returnType.IsNullableReference ? ", or 'return null'" : "")}");
+            Error(Catalog.ReturnReferenceWithoutRef(s.Location, function.Name, returnType.IsNullableReference));
         // A return type that cannot be a reference was reported with the method.
         else if (referenced.PassedWithoutCopying || referenced == WylType.Void)
             return new BoundReturn(s.Location, null);
         else if (place.Type != WylType.Error)
         {
-            var what = $"a returned '{keyword}'";
+            var what = $"returned '{keyword}'";
             var reference = returnType is NullableReferenceType nullableReturn ? ConvertToNullableReference(place, nullableReturn, what)
                 : CheckReference(place, function.ReturnRefKind, returnType, what) ? place
                 : null;
             if (reference is not null && IsThisRooted(place))
                 return new BoundReturn(s.Location, reference);
             if (reference is not null)
-                Error(s.Value!.Location, $"{what} must point into the method's receiver: a field or element of 'this'");
+                Error(Catalog.ReturnedReferenceNotOfReceiver(s.Value!.Location, what));
         }
         return new BoundReturn(s.Location, null);
     }
@@ -385,7 +378,7 @@ public sealed partial class Binder
     BoundStatement BindJump(Location location, string keyword, BoundStatement jump)
     {
         if (loopDepth == 0)
-            Error(location, $"'{keyword}' can only be used inside a loop");
+            Error(Catalog.JumpOutsideLoop(location, keyword));
         return jump;
     }
 
@@ -393,11 +386,11 @@ public sealed partial class Binder
     {
         var expression = BindValue(s.Expression, null);
         if (expression is not (BoundCall or BoundInvocation or BoundNew or BoundTry or BoundConditionalAccess { WhenNotNull: BoundCall }) && expression.Type != WylType.Error)
-            Error(s.Location, "only calls can be used as statements");
+            Error(Catalog.NotAStatement(s.Location));
         else if (expression is BoundCall or BoundInvocation && IsResult(expression.Type))
         {
             var name = expression is BoundCall call ? call.Method.Symbol.Name : TextOf(((BoundInvocation)expression).Callee.Location);
-            Error(s.Location, $"the 'Result' returned by '{name}' is not used; handle it, or discard it with '_ = ...'");
+            Error(Catalog.UnusedResult(s.Location, name));
         }
         return new BoundExpressionStatement(s.Location, expression);
     }
@@ -406,7 +399,7 @@ public sealed partial class Binder
     {
         var value = BindValue(s.Value, null);
         if (value.Type == WylType.Void)
-            Error(s.Value.Location, "there is no value to discard; call it without '_ ='");
+            Error(Catalog.DiscardVoid(s.Value.Location));
         return new BoundExpressionStatement(s.Location, value, IsDiscard: true);
     }
 
@@ -434,7 +427,7 @@ public sealed partial class Binder
         var operand = target.Type.IsNullableValue ? AssumeNonNull(target) : target;
         if (!operand.Type.IsNumeric)
         {
-            Error(s.Location, $"'{(s.IsIncrement ? "++" : "--")}' requires a numeric variable{NullableOperandHint(operand)}");
+            Error(Catalog.IncDecNonNumeric(s.Location, s.IsIncrement ? "++" : "--", NullableOperands(operand)));
             return ErrorStatement(s.Location);
         }
 
@@ -443,51 +436,42 @@ public sealed partial class Binder
         return new BoundAssignment(s.Location, target, Convert(value, target.Type));
     }
 
-    /// <summary>
-    /// A temporary struct or array is a value, not a variable, so nothing writes to it: what a write
-    /// changed would be gone after the statement (06-syntax.md §6.4).
-    /// </summary>
-    const string StoreTemporaryHint = "store it in a 'mut' variable first";
+    (PlaceKind Kind, ReadOnlyReason Reason) ClassifyPlace(BoundExpression expression) => ClassifyPlace(PlacePath.Of(expression));
 
-    /// <summary>A reference keyword with its article, as in "an 'in?'" or "a 'ref'".</summary>
-    static string WithArticle(string keyword) => $"{(keyword.StartsWith("in") ? "an" : "a")} '{keyword}'";
-
-    (PlaceKind Kind, string Reason) ClassifyPlace(BoundExpression expression) => ClassifyPlace(PlacePath.Of(expression));
-
-    (PlaceKind Kind, string Reason) ClassifyPlace(PlacePath path)
+    (PlaceKind Kind, ReadOnlyReason Reason) ClassifyPlace(PlacePath path)
     {
-        (PlaceKind Kind, string Reason) place = path switch
+        (PlaceKind Kind, ReadOnlyReason Reason) place = path switch
         {
             { Base: PlaceBase.Local, Root: BoundLocalAccess { Local: var local } } => ClassifyLocal(local),
-            { Root: BoundThis { Type.IsReference: true } } => (PlaceKind.Temporary, ""),
-            { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, "'this' is read-only in a method that isn't 'mut'"),
-            { Base: PlaceBase.This } => (PlaceKind.Mutable, ""),
+            { Root: BoundThis { Type.IsReference: true } } => (PlaceKind.Temporary, default),
+            { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, new(ReadOnlyKind.ReadOnlyThis)),
+            { Base: PlaceBase.This } => (PlaceKind.Mutable, default),
             { Base: PlaceBase.Returned, Root: BoundCall call } => ClassifyReturnedReference(call, PlaceKind.Temporary),
-            _ => (PlaceKind.Temporary, ""),
+            _ => (PlaceKind.Temporary, default),
         };
         foreach (var step in path.Steps)
         {
             place = step switch
             {
                 // Fields of an object live on the heap, however the reference to it was obtained.
-                BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, ""),
-                BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, $"field '{field.Field.Name}' is not 'mut'"),
-                BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, ""),
+                BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, default),
+                BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, new(ReadOnlyKind.ImmutableField, field.Field.Name)),
+                BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, default),
                 BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call, place.Kind),
                 // A view is a value, whatever it views.
-                BoundCall => (PlaceKind.Temporary, ""),
+                BoundCall => (PlaceKind.Temporary, default),
                 _ => place,
             };
         }
         return place;
     }
 
-    (PlaceKind Kind, string Reason) ClassifyLocal(LocalSymbol local) => local switch
+    (PlaceKind Kind, ReadOnlyReason Reason) ClassifyLocal(LocalSymbol local) => local switch
     {
-        _ when IsCopiedByEscapingLambda(local) => (PlaceKind.ReadOnly, $"an escaping lambda only has a copy of '{local.Name}'"),
-        { RefKind: RefKind.In } => (PlaceKind.ReadOnly, $"'{local.Name}' is an 'in' {(local.IsParameter ? "parameter" : "variable")}"),
-        { IsWritable: false } => (PlaceKind.ReadOnly, $"{(local.IsParameter ? "parameter" : "variable")} '{local.Name}' is not 'mut'"),
-        _ => (PlaceKind.Mutable, ""),
+        _ when IsCopiedByEscapingLambda(local) => (PlaceKind.ReadOnly, new(ReadOnlyKind.LambdaCopy, local.Name)),
+        { RefKind: RefKind.In } => (PlaceKind.ReadOnly, new(local.IsParameter ? ReadOnlyKind.InParameter : ReadOnlyKind.InVariable, local.Name)),
+        { IsWritable: false } => (PlaceKind.ReadOnly, new(local.IsParameter ? ReadOnlyKind.ImmutableParameter : ReadOnlyKind.ImmutableVariable, local.Name)),
+        _ => (PlaceKind.Mutable, default),
     };
 
     /// <summary>A class field that isn't <c>mut</c> can only be changed by its own class's constructors, through <c>this</c>.</summary>
@@ -496,31 +480,31 @@ public sealed partial class Binder
         || (field.Receiver is BoundThis && currentFunction is { IsConstructor: true } constructor && constructor.ContainingType == field.Field.Owner);
 
     /// <summary>A returned reference points into the receiver, so a temporary struct receiver makes it temporary too.</summary>
-    static (PlaceKind Kind, string Reason) ClassifyReturnedReference(BoundCall call, PlaceKind receiver)
+    static (PlaceKind Kind, ReadOnlyReason Reason) ClassifyReturnedReference(BoundCall call, PlaceKind receiver)
     {
         if (call.Receiver is { Type.IsAggregate: true, Type.IsRefStruct: false } && receiver == PlaceKind.Temporary)
-            return (PlaceKind.Temporary, "");
+            return (PlaceKind.Temporary, default);
         if (call.Method.Symbol.ReturnRefKind == RefKind.In)
-            return (PlaceKind.ReadOnly, $"'{call.Method.Symbol.Signature}' returns 'in'");
-        return (PlaceKind.Mutable, "");
+            return (PlaceKind.ReadOnly, new(ReadOnlyKind.ReturnsIn, call.Method.Symbol.Signature));
+        return (PlaceKind.Mutable, default);
     }
 
     bool CheckAssignable(BoundExpression target)
     {
         if (target.Type.IsNullableReference)
         {
-            Error(target.Location, MayReferToNothingMessage(target));
+            Error(MayReferToNothing(target.Location, target));
             return false;
         }
         if (target.Type.IsRefStruct)
         {
-            Error(target.Location, $"'{TextOf(target.Location)}' cannot be reassigned: a '{target.Type}' views what it was initialized with for its whole scope; declare a new variable instead");
+            Error(Catalog.ReassignView(target.Location, TextOf(target.Location), target.Type.ToString()));
             return false;
         }
         // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
         if (target is BoundLocalAccess function && function.Local.Type.NonNull.IsNonEscapingFunction)
         {
-            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one 'escaping'");
+            Error(Catalog.ReassignNonEscaping(target.Location, function.Local.Name, function.Local.IsParameter));
             return false;
         }
         // Its first assignment initializes it; the flow analysis checks that it is the only one.
@@ -530,7 +514,7 @@ public sealed partial class Binder
                 return true;
             if (!IsCopiedByEscapingLambda(deferred))
             {
-                Error(target.Location, $"cannot assign to '{deferred.Name}' in a lambda, which may run more than once, because variable '{deferred.Name}' is not 'mut'");
+                Error(Catalog.AssignDeferredInLambda(target.Location, deferred.Name));
                 return false;
             }
         }
@@ -540,15 +524,10 @@ public sealed partial class Binder
         switch (kind)
         {
             case PlaceKind.Temporary:
-                Error(target.Location, target switch
-                {
-                    BoundFieldAccess => $"cannot assign to a field of a temporary value; {StoreTemporaryHint}",
-                    BoundIndex => $"cannot assign to an element of a temporary array; {StoreTemporaryHint}",
-                    _ => "cannot assign to this expression",
-                });
+                Error(target switch { BoundFieldAccess => Catalog.FieldOfTemporary(target.Location), BoundIndex => Catalog.ElementOfTemporaryArray(target.Location), _ => Catalog.NotAssignable(target.Location) });
                 return false;
             case PlaceKind.ReadOnly:
-                Error(target.Location, $"cannot assign to '{TextOf(target.Location)}' because {reason}");
+                Error(Catalog.AssignReadOnly(target.Location, TextOf(target.Location), reason));
                 return false;
             default:
                 return true;

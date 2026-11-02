@@ -25,7 +25,7 @@ public sealed partial class Parser
     {
         if (At(TokenKind.OpenBrace))
             return ParseBlock();
-        Error(Current.Span, $"the body of '{keyword}' must be enclosed in braces");
+        Report(Catalog.BodyWithoutBraces(Loc(Current.Span), keyword));
         int start = position;
         var statement = ParseStatement();
         return new BlockStmt(LocationFrom(start), [statement]);
@@ -92,7 +92,7 @@ public sealed partial class Parser
                 return declaration;
             }
             case TokenKind.ReservedKeyword:
-                Error(Current.Span, $"'{Current.Text}' is not supported yet");
+                Report(Catalog.ReservedKeyword(Loc(Current.Span), Current.Text));
                 SkipStatement();
                 return new BlockStmt(LocationFrom(start), []);
             default:
@@ -160,7 +160,7 @@ public sealed partial class Parser
         if (IsDeclarationStart())
         {
             if (!allowDeclaration)
-                Error(Current.Span, "a variable cannot be declared here");
+                Report(Catalog.DeclarationNotAllowed(Loc(Current.Span)));
             return ParseVariableDeclaration();
         }
 
@@ -254,7 +254,7 @@ public sealed partial class Parser
         Token? mut = At(TokenKind.MutKeyword) ? Advance() : null;
         var (refKind, mayBeNull) = ParseRefKind();
         if (mut is { } token && refKind != RefKind.None)
-            Error(token.Span, $"{(refKind == RefKind.Ref ? "a 'ref'" : "an 'in'")} {what} cannot be 'mut', since it refers to the same place for its whole scope");
+            Report(Catalog.MutReference(Loc(token.Span), refKind == RefKind.Ref ? "ref" : "in", what));
         return (mut is not null && refKind == RefKind.None, refKind, mayBeNull);
     }
 
@@ -269,7 +269,7 @@ public sealed partial class Parser
         var location = Loc(Advance().Span);
         if (At(TokenKind.MutKeyword))
         {
-            Error(Current.Span, "'mut' goes before 'escaping', as in 'mut escaping fn() -> void f'");
+            Report(Catalog.MutAfterEscaping(Loc(Current.Span)));
             Advance();
         }
         return location;

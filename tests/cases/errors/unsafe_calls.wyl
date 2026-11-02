@@ -15,7 +15,7 @@ class Base {
 class Derived extends Base {
     // Safe in place of unsafe is allowed: a call through Base still needs unsafe code.
     override int risky() { return 2; }
-    unsafe override int plain() { return 2; }   // error: 'plain' cannot be 'unsafe', since 'Base.plain' isn't
+    unsafe override int plain() { return 2; }   // error[WYL0127]: 'plain' cannot be 'unsafe'
 }
 
 pub interface Shape {
@@ -23,17 +23,17 @@ pub interface Shape {
 }
 
 class Square implements Shape {
-    pub unsafe int sides() { return 4; }    // error: 'Square.sides' cannot be 'unsafe', since 'Shape.sides()' isn't
+    pub unsafe int sides() { return 4; }    // error[WYL0189]: 'Square.sides' cannot be 'unsafe'
 }
 
 struct Shown implements Printable {
     int v;
-    pub unsafe String toString() { return "shown"; }   // error: 'Shown.toString' cannot be 'unsafe', since 'Printable.toString()' isn't
+    pub unsafe String toString() { return "shown"; }   // error[WYL0189]: 'Shown.toString' cannot be 'unsafe'
 }
 
 struct Ordered implements Comparable<Ordered> {
     int v;
-    pub unsafe int compareTo(Ordered other) { return 0; }   // error: 'Ordered.compareTo' cannot be 'unsafe', since 'Comparable<Ordered>.compareTo(Ordered)' isn't
+    pub unsafe int compareTo(Ordered other) { return 0; }   // error[WYL0189]: 'Ordered.compareTo' cannot be 'unsafe'
 }
 
 struct Grid {
@@ -50,18 +50,18 @@ unsafe int alreadyUnsafe() {
 }
 
 void main() {
-    print(danger(1));                   // error: 'danger' is unsafe and can only be called from 'unsafe' code
-    print(Base.raw());                  // error: 'raw' is unsafe and can only be called from 'unsafe' code
+    print(danger(1));                   // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
+    print(Base.raw());                  // error[WYL0304]: 'raw' is unsafe and can only be called in 'unsafe' code
     Base b = new Derived();
-    print(b.risky());                   // error: 'risky' is unsafe and can only be called from 'unsafe' code
+    print(b.risky());                   // error[WYL0304]: 'risky' is unsafe and can only be called in 'unsafe' code
     Derived d = new Derived();
     print(d.risky());
-    fn() -> int f = () -> danger(2);    // error: 'danger' is unsafe and can only be called from 'unsafe' code
-    fn(int) -> int g = danger;          // error: 'danger' is unsafe and can only be called from 'unsafe' code
+    fn() -> int f = () -> danger(2);    // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
+    fn(int) -> int g = danger;          // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
     mut var grid = Grid();
-    print(grid[0]);                     // error: 'operator []' is unsafe and can only be called from 'unsafe' code
+    print(grid[0]);                     // error[WYL0304]: 'operator []' is unsafe and can only be called in 'unsafe' code
     print(grid["a"]);
-    grid["a"] = 1;                      // error: 'operator []=' is unsafe and can only be called from 'unsafe' code
+    grid["a"] = 1;                      // error[WYL0304]: 'operator []=' is unsafe and can only be called in 'unsafe' code
     unsafe {
         print(danger(3) + Base.raw() + b.risky() + grid[0]);
         grid["a"] = 2;

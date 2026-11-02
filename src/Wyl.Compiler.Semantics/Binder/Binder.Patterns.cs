@@ -13,20 +13,20 @@ public sealed partial class Binder
         {
             DeclareErrorBindings(e.Pattern);
             return operand.Type == WylType.Void
-                ? ErrorExpression(e.Operand.Location, "'is' cannot test a 'void' value")
+                ? ErrorExpression(Catalog.IsOnVoid(e.Operand.Location))
                 : new BoundErrorExpression(e.Location);
         }
 
         if (e.Pattern is ReferencePatternSyntax reference)
             return BindReferencePattern(e, operand, reference);
         if (IsNullPattern(e.Pattern))
-            return ErrorExpression(e.Pattern.Location, "'null' is a pattern only in a 'case'; compare with '== null'");
+            return ErrorExpression(Catalog.NullPatternInIs(e.Pattern.Location));
         // Other patterns match the value a reference refers to, once it is known to refer to one.
         operand = NarrowReference(operand);
         if (operand.Type.IsNullableReference)
         {
             DeclareErrorBindings(e.Pattern);
-            return ErrorExpression(e.Operand.Location, MayReferToNothingMessage(operand));
+            return ErrorExpression(MayReferToNothing(e.Operand.Location, operand));
         }
         if (CheckMatchable(operand).Type == WylType.Error)
         {
@@ -37,13 +37,13 @@ public sealed partial class Binder
         if (isTypeTest && !operand.Type.IsReference && !operand.Type.IsNullableValue)
         {
             DeclareErrorBindings(e.Pattern);
-            return ErrorExpression(e.Operand.Location, $"'is' can only test the type of class or interface values, not '{operand.Type}'");
+            return ErrorExpression(Catalog.TypeTestOnValue(e.Operand.Location, operand.Type.ToString()));
         }
         int errors = diagnostics.Count;
         var pattern = BindPattern(e.Pattern, operand.Type, canBind: true);
         // A type test that always passes is allowed: it states the type, as an upcast would.
         if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern))
-            Error(e.Pattern.Location, "this pattern always matches, so 'is' would always be true");
+            Error(Catalog.PatternAlwaysMatches(e.Pattern.Location));
         return new BoundIs(e.Location, operand, pattern);
     }
 
@@ -58,10 +58,10 @@ public sealed partial class Binder
         var referenced = (operand.Type as NullableReferenceType)?.Referenced;
         var text = TextOf(operand.Location);
         if (referenced is null)
-            Error(operand.Location, $"'is {keyword}' tests a reference that may refer to nothing, and '{text}' has type '{operand.Type}'");
+            Error(Catalog.ReferencePatternOnValue(operand.Location, keyword, text, operand.Type.ToString()));
         else if (target is not null && target != WylType.Error && target != referenced)
-            Error(syntax.Type!.Location, $"'{text}' refers to a value of type '{referenced}', not '{target}'");
-        else if (CheckReferredPlace(operand, syntax.RefKind, $"{WithArticle(keyword)} binding", mayBeNull: false, throughReference: true) && target != WylType.Error)
+            Error(Catalog.ReferencePatternType(syntax.Type!.Location, text, referenced.ToString(), target.ToString()));
+        else if (CheckReferredPlace(operand, syntax.RefKind, $"'{keyword}' binding", mayBeNull: false, throughReference: true) && target != WylType.Error)
         {
             var binding = new LocalSymbol(syntax.Name, referenced.NullableReference(syntax.RefKind), isParameter: false, syntax.RefKind) { IsReferenceBinding = true };
             Declare(binding, syntax.NameLocation);
@@ -99,7 +99,7 @@ public sealed partial class Binder
             case VariantPatternSyntax v:
                 return BindVariantPattern(v, type, canBind);
             case ReferencePatternSyntax r:
-                return ErrorPattern(r, type, $"a '{FunctionSymbol.RefPrefix(r.RefKind).Trim()}' pattern can only test a reference with 'is', as in 'if (x is {FunctionSymbol.RefPrefix(r.RefKind)}T name)'");
+                return ErrorPattern(r, type, Catalog.ReferencePatternInCase(r.Location, FunctionSymbol.RefPrefix(r.RefKind).Trim()));
             default:
                 throw new InvalidOperationException($"unexpected pattern {syntax.GetType().Name}");
         }
@@ -108,7 +108,7 @@ public sealed partial class Binder
     LocalSymbol DeclareBinding(string name, WylType type, Location location, bool canBind)
     {
         if (!canBind)
-            Error(location, "a case with several patterns cannot bind names");
+            Error(Catalog.BindingInSeveralPatterns(location));
         var local = new LocalSymbol(name, type, isParameter: false);
         Declare(local, location);
         return local;
@@ -139,9 +139,9 @@ public sealed partial class Binder
         }
     }
 
-    BoundPattern ErrorPattern(PatternSyntax syntax, WylType type, string message)
+    BoundPattern ErrorPattern(PatternSyntax syntax, WylType type, Diagnostic diagnostic)
     {
-        Error(syntax.Location, message);
+        Error(diagnostic);
         DeclareErrorBindings(syntax);
         return new BoundDiscardPattern(syntax.Location, type);
     }
@@ -149,14 +149,14 @@ public sealed partial class Binder
     BoundPattern BindConstantPattern(ConstantPatternSyntax c, WylType type)
     {
         if (c.Value is NullLiteralExpr)
-            return type.IsNullable ? new BoundNullPattern(c.Location, type) : ErrorPattern(c, type, $"a '{type}' is never null, so 'null' can never match it");
+            return type.IsNullable ? new BoundNullPattern(c.Location, type) : ErrorPattern(c, type, Catalog.NullNeverMatches(c.Location, type.ToString()));
         var value = c.Value switch
         {
             IntLiteralExpr literal => BindIntegerLiteral(literal, c.Location, negated: false),
             UnaryExpr { Operand: IntLiteralExpr literal } => BindIntegerLiteral(literal, c.Location, negated: true),
             BoolLiteralExpr literal => new BoundLiteral(c.Location, WylType.Bool, literal.Value),
             CharLiteralExpr literal => new BoundLiteral(c.Location, WylType.Char, literal.Value),
-            _ => ErrorExpression(c.Location, "only integer, character, and 'bool' literals can be patterns"),
+            _ => ErrorExpression(Catalog.LiteralPatternKind(c.Location)),
         };
         if (value is not BoundLiteral literalValue)
             return new BoundDiscardPattern(c.Location, type);
@@ -164,7 +164,7 @@ public sealed partial class Binder
             return new BoundConstantPattern(c.Location, literalValue);
         if (type.IsInteger && IsConvertibleConstant(literalValue, type))
             return new BoundConstantPattern(c.Location, BoundLiteral.Number(c.Location, type, literalValue.Integer!.Value));
-        return ErrorPattern(c, type, $"a '{type}' can never be '{TextOf(c.Location)}'");
+        return ErrorPattern(c, type, Catalog.PatternNeverMatches(c.Location, TextOf(c.Location), type.ToString()));
     }
 
     /// <summary>
@@ -188,7 +188,7 @@ public sealed partial class Binder
             if (!target.IsReference || (from.IsClass && target.IsClass && !Conversions.IsSubtype(from, target) && !Conversions.IsSubtype(target, from)))
             {
                 Binding(WylType.Error);
-                Error(typeSyntax.Location, $"a '{from}' can never be a '{target}'");
+                Error(Catalog.PatternNeverMatches(typeSyntax.Location, target.ToString(), from.ToString()));
                 return new BoundDiscardPattern(location, type);
             }
             return new BoundTypePattern(location, type, target, Binding(target));
@@ -200,7 +200,7 @@ public sealed partial class Binder
         if (target != type)
         {
             Binding(WylType.Error);
-            Error(typeSyntax.Location, $"a '{type}' can never be a '{target}'");
+            Error(Catalog.PatternNeverMatches(typeSyntax.Location, target.ToString(), type.ToString()));
             return new BoundDiscardPattern(location, type);
         }
         return Binding(target) is { } local ? new BoundBindingPattern(location, type, local) : new BoundDiscardPattern(location, type);
@@ -210,27 +210,27 @@ public sealed partial class Binder
     {
         var written = v.Enum is null ? v.Name : $"{TextOf(v.Enum.Location)}.{v.Name}";
         if (!type.IsEnum)
-            return ErrorPattern(v, type, $"a '{type}' can never be '{written}', since '{type}' is neither an enum nor a struct");
+            return ErrorPattern(v, type, Catalog.PatternNeverMatches(v.Location, written, type.ToString()));
 
         var s = type.Symbol!;
         if (v.Enum is { } enumSyntax)
         {
             // `Result.Ok(...)` may leave out the type arguments, which the value determines.
             if (!Names(enumSyntax, type))
-                return ErrorPattern(v, type, $"a '{type}' can never be '{written}'");
+                return ErrorPattern(v, type, Catalog.PatternNeverMatches(v.Location, written, type.ToString()));
         }
         if (s.FindVariant(v.Name) is not { } variant)
-            return ErrorPattern(v, type, $"'{s.Name}' has no variant '{v.Name}'");
+            return ErrorPattern(v, type, Catalog.NoSuchVariantInPattern(v.Location, s.Name, v.Name));
 
         var map = TypeMap.For(type);
         if (v.Fields is null)
             return new BoundVariantPattern(v.Location, type, variant, [.. variant.Fields.Select(f => new BoundDiscardPattern(v.Location, map.Apply(f.Type)))]);
         if (variant.Fields.Count == 0)
-            return ErrorPattern(v, type, $"'{variant.Name}' carries no data; match it without parentheses");
+            return ErrorPattern(v, type, Catalog.VariantPatternWithoutData(v.Location, variant.Name));
         if (v.Fields.Count != variant.Fields.Count)
         {
             int count = variant.Fields.Count;
-            return ErrorPattern(v, type, $"'{variant.Name}' has {count} field{(count == 1 ? "" : "s")}, but the pattern lists {v.Fields.Count}");
+            return ErrorPattern(v, type, Catalog.PatternFieldCount(v.Location, variant.Name, count, v.Fields.Count));
         }
         var fields = v.Fields.Zip(variant.Fields, (field, symbol) => BindPattern(field, map.Apply(symbol.Type), canBind)).ToList();
         return new BoundVariantPattern(v.Location, type, variant, fields);
@@ -251,12 +251,12 @@ public sealed partial class Binder
         var value = type.NonNull;
         var syntax = new StructPatternSyntax(location, typeSyntax, fieldSyntax);
         if (!value.IsStruct || !Names(typeSyntax, value))
-            return ErrorPattern(syntax, type, $"a '{type}' can never be a '{TextOf(typeSyntax.Location)}'");
+            return ErrorPattern(syntax, type, Catalog.PatternNeverMatches(syntax.Location, TextOf(typeSyntax.Location), type.ToString()));
         var s = value.Symbol!;
         if (fieldSyntax.Count != s.Fields.Count)
         {
             int count = s.Fields.Count;
-            return ErrorPattern(syntax, type, $"'{s.Name}' has {count} field{(count == 1 ? "" : "s")}, but the pattern lists {fieldSyntax.Count}");
+            return ErrorPattern(syntax, type, Catalog.PatternFieldCount(syntax.Location, s.Name, count, fieldSyntax.Count));
         }
         var map = TypeMap.For(value);
         var fields = fieldSyntax.Zip(s.Fields, (field, symbol) =>
@@ -279,7 +279,7 @@ public sealed partial class Binder
         int errors = diagnostics.Count;
         List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, IsNullPattern(p) ? type : type.NonNull, canBind: c.Patterns.Count == 1))];
         if (c.Default is { } listed && !c.Patterns.All(IsNullPattern))
-            Error(listed, "only 'null' can be listed with 'default', as in 'case null, default'");
+            Error(Catalog.DefaultListedWithPattern(listed));
         broken |= diagnostics.Count > errors;
         return patterns;
     }
@@ -292,29 +292,29 @@ public sealed partial class Binder
     {
         var value = BindExpression(syntax);
         if (value.Type == WylType.Void)
-            return ErrorExpression(syntax.Location, "cannot switch on a 'void' value");
+            return ErrorExpression(Catalog.SwitchOnVoid(syntax.Location));
         if (value.Type == WylType.Null)
-            return ErrorExpression(syntax.Location, "cannot switch on 'null', which has no type; give it a type first");
+            return ErrorExpression(Catalog.SwitchOnNull(syntax.Location));
         if (cases.Any(c => c.Patterns.Any(IsNullPattern)))
         {
             if (value.Type.IsNullableReference)
-                return ErrorExpression(syntax.Location, MayReferToNothingMessage(value));
+                return ErrorExpression(MayReferToNothing(syntax.Location, value));
             return CheckMatchable(value);
         }
         if (value.Type.MayBeNull)
         {
             value = AssumeNonNull(value);
             if (value.Type.IsNullableReference)
-                return ErrorExpression(syntax.Location, $"cannot switch on '{value.Type}'; check it for null first, or use '!'");
+                return ErrorExpression(Catalog.SwitchOnNullableReference(syntax.Location, value.Type.ToString()));
             if (value.Type.IsNullable)
-                return ErrorExpression(syntax.Location, $"cannot switch on a nullable '{value.Type}' without a 'case null'; check it for null first, or use '!' or '??'");
+                return ErrorExpression(Catalog.SwitchOnNullable(syntax.Location, value.Type.ToString()));
         }
         return CheckMatchable(value);
     }
 
     /// <summary>A matched value is read while patterns bind its parts, which a span's view could not be held through.</summary>
     BoundExpression CheckMatchable(BoundExpression value) =>
-        value.Type.IsRefStruct ? ErrorExpression(value.Location, $"a '{value.Type}' cannot be matched against patterns") : value;
+        value.Type.IsRefStruct ? ErrorExpression(Catalog.MatchViewType(value.Location, value.Type.ToString())) : value;
 
     BoundStatement BindSwitch(SwitchStmt s)
     {
@@ -342,9 +342,9 @@ public sealed partial class Binder
         if (c.Guard is not { } syntax)
             return null;
         if (c.IsDefault)
-            Error(syntax.Location, "a case with 'default' cannot have a guard, since 'default' matches whatever the cases above don't");
+            Error(Catalog.GuardOnDefault(syntax.Location));
         else if (c.Patterns.Any(IsNullPattern))
-            Error(syntax.Location, "a case with 'null' cannot have a guard; test the condition inside the case");
+            Error(Catalog.GuardOnNull(syntax.Location));
         return BindCondition(syntax);
     }
 
@@ -397,22 +397,21 @@ public sealed partial class Binder
         // A case that cannot complete, such as `default -> panic(...)`, needs no value.
         var producing = bound.Select(b => b.Body).Where(v => !IsNoReturn(v)).ToList();
         foreach (var caseValue in producing.Where(v => v.Type == WylType.Void))
-            Error(caseValue.Location, "a switch expression's case must produce a value");
+            Error(Catalog.VoidSwitchCase(caseValue.Location));
         if (value.Type == WylType.Error || producing.Any(v => v.Type == WylType.Error || v.Type == WylType.Void))
             return new BoundErrorExpression(location);
         if (producing.Count == 0)
-            return ErrorExpression(location, "a switch expression needs a case that produces a value");
+            return ErrorExpression(Catalog.NoProducingCase(location));
 
         var type = expected ?? CommonType(producing);
         if (type is null)
         {
-            var found = string.Join(", ", producing.Select(v => $"'{v.Type}'").Distinct());
-            return ErrorExpression(location, $"the cases of the switch have incompatible types {found}");
+            return ErrorExpression(Catalog.IncompatibleCases(location, producing.Select(v => v.Type.ToString()).Distinct()));
         }
         if (type.IsRefStruct)
-            return ErrorExpression(location, $"a switch expression cannot produce a '{type}', since the result would view any of its cases; use a switch statement");
+            return ErrorExpression(Catalog.SwitchExpressionView(location, type.ToString()));
         if (type.IsNullableReference)
-            return ErrorExpression(location, "a switch expression cannot produce a reference; use a switch statement with a variable for each case");
+            return ErrorExpression(Catalog.SwitchExpressionReference(location));
         // A nullable non-escaping choice would refer to a function made only for the choice.
         if (type.IsNullableNonEscapingFunction)
             type = EscapingForm(type);
@@ -433,7 +432,7 @@ public sealed partial class Binder
             .SelectMany(BoundTree.AllExpressions).OfType<BoundLocalAccess>()
             .FirstOrDefault(a => declared.Contains(a.Local));
         if (use is not null)
-            Error(use.Location, $"a lambda chosen by a switch expression cannot use '{use.Local.Name}', which its case declares; use a switch statement");
+            Error(Catalog.CaseNameInChosenLambda(use.Location, use.Local.Name));
     }
 
     /// <summary>The names declared by <c>is</c> patterns in an expression, but not inside its lambdas.</summary>
@@ -462,7 +461,7 @@ public sealed partial class Binder
         for (int i = 0; i < syntax.Count - 1; i++)
         {
             if (syntax[i].IsDefault)
-                Error(syntax[i].Location, "'default' must be the last case");
+                Error(Catalog.DefaultNotLast(syntax[i].Location));
         }
         if (broken)
             return;
@@ -473,16 +472,14 @@ public sealed partial class Binder
             foreach (var pattern in patterns[i])
             {
                 if (!space.Add(pattern, counts: CountsAsMatching(syntax[i])))
-                    Error(pattern.Location, "this case can never be reached: the cases above match every value it matches");
+                    Error(Catalog.UnreachableCase(pattern.Location));
             }
             if (syntax[i].Default is { } written && !space.Add(null))
-                Error(written, "'default' can never be reached: the cases above match every value");
+                Error(Catalog.UnreachableDefault(written));
         }
         if (space.Missing() is { } missing)
         {
-            Error(location, missing == "_"
-                ? $"the switch does not handle every '{type}'; add a 'default' case"
-                : $"the switch does not handle every '{type}': '{missing}' is not covered");
+            Error(Catalog.NotExhaustive(location, type.ToString(), missing == "_" ? null : missing));
         }
     }
 
@@ -510,15 +507,12 @@ public sealed partial class Binder
     static VariantSymbol? ExpectedVariant(string name, WylType? expected) =>
         expected is { IsEnum: true } ? expected.Symbol!.FindVariant(name) : null;
 
-    /// <summary>A hint for an undefined name that is the name of a variant.</summary>
-    string VariantHint(string name, SourceText from)
+    /// <summary>An undefined name or function, with how to create the variant it names, if it is one's name.</summary>
+    Diagnostic UndefinedName(Location at, string name, string? kind = null)
     {
-        IEnumerable<TypeSymbol> types = [.. FileNames(from).Types.Values, .. ModuleNames(from.Module).Types.Values, .. stdlib.LanguageTypes];
-        if (types.FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null) is not { } owner)
-            return "";
-        return owner.IsGeneric
-            ? $"; to create the '{owner.Name}' variant, write '{owner.Name}<...>.{name}', or use it where a '{owner.Name}' is expected"
-            : $"; to create the '{owner.Name}' variant, write '{owner.Name}.{name}'";
+        IEnumerable<TypeSymbol> types = [.. FileNames(at.Source).Types.Values, .. ModuleNames(at.Source.Module).Types.Values, .. stdlib.LanguageTypes];
+        var owner = types.FirstOrDefault(t => t.Kind == TypeKind.Enum && t.FindVariant(name) is not null);
+        return Catalog.UndefinedName(at, kind, name, owner?.Name, owner?.IsGeneric == true);
     }
 
     /// <summary>
@@ -534,14 +528,14 @@ public sealed partial class Binder
             return new BoundErrorExpression(location);
         var name = $"{s.Name}.{variant.Name}";
         if (arguments is null && variant.Fields.Count > 0)
-            return ErrorExpression(location, $"'{name}' carries data; create it with '{name}(...)'");
+            return ErrorExpression(Catalog.VariantNeedsData(location, name));
         if (arguments is not null && variant.Fields.Count == 0)
-            return ErrorExpression(location, $"'{name}' carries no data; write it without parentheses");
+            return ErrorExpression(Catalog.VariantWithoutData(location, name));
         arguments ??= [];
         if (arguments.Count != variant.Fields.Count)
         {
             int count = variant.Fields.Count;
-            return ErrorExpression(location, $"'{name}' has {count} field{(count == 1 ? "" : "s")}, but {arguments.Count} value{(arguments.Count == 1 ? " was" : "s were")} given");
+            return ErrorExpression(Catalog.VariantValueCount(location, name, count, arguments.Count));
         }
 
         MethodReference? constructor;
@@ -554,8 +548,7 @@ public sealed partial class Binder
             var inferable = variant.Fields.SelectMany(f => f.Type.ContainedTypeParameters).ToHashSet();
             if (s.TypeParameters.FirstOrDefault(p => !inferable.Contains(p)) is { } missing)
             {
-                return ErrorExpression(location,
-                    $"cannot infer type argument '{missing.Name}' of '{s.Name}' from '{variant.Name}'; use it where a '{s.Name}' is expected, or write '{s.Name}<...>.{variant.Name}'");
+                return ErrorExpression(Catalog.VariantTypeArgument(location, missing.Name, s.Name, variant.Name));
             }
             constructor = Resolve(location, $"variant '{name}'", [new Candidate(variant.InferringConstructor, null)], null, arguments);
             if (constructor is not null && !CheckTypeArguments(constructor.TypeArguments, location))

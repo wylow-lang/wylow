@@ -1,6 +1,6 @@
 import std::{Weak, print};
 
-struct Loop {                       // error: struct 'Loop' contains itself (Loop -> Loop)
+struct Loop {                       // error[WYL0106]: struct 'Loop' contains itself
     Loop[2] inner;
 }
 
@@ -15,53 +15,53 @@ int[3] makeArray() {
 }
 
 void readOnly(in int[2] values) {
-    for (ref int v : values) {      // error: cannot loop over 'values' by 'ref' because 'values' is an 'in' parameter; use 'in'
+    for (ref int v : values) {      // error[WYL0355]: cannot loop over 'values' by 'ref'
     }
-    ref int first = values[0];      // error: cannot take a 'ref' to 'values[0]' because 'values' is an 'in' parameter; use 'in' instead
+    ref int first = values[0];      // error[WYL0408]: cannot bind 'ref' to read-only 'values[0]'
     in int second = values[1];
-    second = 3;                     // error: cannot assign to 'second' because 'second' is an 'in' variable
+    second = 3;                     // error[WYL0351]: cannot assign to 'second'
 }
 
 void main() {
     mut int[4] a = [1, 2, 3, 4];
-    print(a[4]);                    // error: index 4 is out of bounds for 'int[4]'
-    print(a[-1]);                   // error: index -1 is out of bounds for 'int[4]'
-    print(a[0, 1]);                 // error: an element of 'int[4]' is selected by a single index
-    print(a[1L]);                   // error: cannot implicitly convert 'long' to 'int'
-    print(a.size);                  // error: 'int[4]' has no member 'size'; fixed arrays only have 'length'
+    print(a[4]);                    // error[WYL0068]: index 4 is out of bounds for 'int[4]'
+    print(a[-1]);                   // error[WYL0068]: index -1 is out of bounds for 'int[4]'
+    print(a[0, 1]);                 // error[WYL0305]: indexing 'int[4]' takes a single index
+    print(a[1L]);                   // error[WYL0079]: expected 'int', found 'long'
+    print(a.size);                  // error[WYL0294]: cannot find member 'size' in 'int[4]'
     int n = 3;
-    print(n[0]);                    // error: 'int' cannot be indexed
-    int[3000000000] huge;           // error: a fixed array's length must fit in an 'int'
-    var empty = [];                 // error: cannot infer the type of an empty array
-    var blank = [nothing()];        // error: an array element must have a value
-    var mixed = [1, true];          // error: the elements of the array have incompatible types 'int', 'bool'
-    int[3] few = [1, 2];          // error: cannot implicitly convert 'int[2]' to 'int[3]'
-    makeArray()[0] = 5;             // error: cannot assign to an element of a temporary array
+    print(n[0]);                    // error[WYL0306]: 'int' cannot be indexed
+    int[3000000000] huge;           // error[WYL0072]: fixed array's length must fit in an 'int'
+    var empty = [];                 // error[WYL0070]: cannot infer the type of an empty array
+    var blank = [nothing()];        // error[WYL0069]: array element cannot be a 'void' value
+    var mixed = [1, true];          // error[WYL0071]: elements of the array have incompatible types 'int', 'bool'
+    int[3] few = [1, 2];          // error[WYL0079]: expected 'int[3]', found 'int[2]'
+    makeArray()[0] = 5;             // error[WYL0349]: cannot assign to an element of a temporary array
     Weak<Box>[2] watched;
-    print(watched == watched);      // error: operator '==' cannot be applied to 'Weak<Box>[2]', since 'Weak<Box>' does not support '=='
+    print(watched == watched);      // error[WYL0311]: operator '==' cannot be applied to 'Weak<Box>[2]' and 'Weak<Box>[2]'
 
-    ref int r;                      // error: a 'ref' variable must be initialized
-    ref int five = 5;               // error: a 'ref' variable must refer to a variable, field, or element, not a temporary value
-    ref long wide = n;              // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
+    ref int r;                      // error[WYL0091]: 'ref' variable must be initialized with the variable, field, or element it refers to
+    ref int five = 5;               // error[WYL0407]: 'ref' variable must refer to a variable, field, or element
+    ref long wide = n;              // error[WYL0405]: 'ref' variable of type 'long' cannot refer to a 'int'
     var box = new Box();
-    ref Box b = box;                // error: 'ref' cannot be used with type 'Box'; class objects are already references
+    ref Box b = box;                // error[WYL0409]: 'ref' cannot be used with type 'Box'
     print(r + five + b.value);      // no cascade: the variables above count as assigned
 
-    for (int x : n) {               // error: cannot loop over 'int'
+    for (int x : n) {               // error[WYL0353]: cannot loop over 'int'
     }
-    for (int i, int x : nope) {     // error: 'nope' is not defined
+    for (int i, int x : nope) {     // error[WYL0281]: cannot find 'nope' in this scope
     }
-    for (var i : 0.5..2) {          // error: a range must be of integers, not 'float' and 'int'
+    for (var i : 0.5..2) {          // error[WYL0361]: range bounds must be integers, found 'float' and 'int'
     }
-    for (float f : 0..2) {          // error: a range's values are integers, not 'float'
+    for (float f : 0..2) {          // error[WYL0362]: range variable type: expected an integer type, found 'float'
     }
-    for (int i, int v : 0..2) {     // error: a range has no index
+    for (int i, int v : 0..2) {     // error[WYL0359]: range has no index
     }
-    for (ref int v : 0..2) {        // error: the values of a range cannot be borrowed with 'ref'
+    for (ref int v : 0..2) {        // error[WYL0360]: values of a range cannot be borrowed with 'ref'
     }
-    for (long i, int v : a) {       // error: the index of a loop is an 'int', not 'long'
+    for (long i, int v : a) {       // error[WYL0364]: loop index type: expected 'int', found 'long'
     }
-    for (ref long v : a) {          // error: a 'ref' variable must have exactly the type of what it refers to, 'int', not 'long'
+    for (ref long v : a) {          // error[WYL0405]: 'ref' variable of type 'long' cannot refer to a 'int'
         print(v);
     }
 }

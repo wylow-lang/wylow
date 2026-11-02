@@ -1,8 +1,7 @@
 # Diagnostics
 
-How the compiler's errors and warnings are written, and the index of their codes. Why it is this
-way: [decision 0003](../design/decisions/0003-diagnostics.md). Messages written before these rules
-are being rewritten to them, with codes, in step 3 of the restructure (issue #6).
+How the compiler's errors and warnings are written, and where their codes are listed. Why it is
+this way: [decision 0003](../design/decisions/0003-diagnostics.md).
 
 ## Form
 
@@ -19,12 +18,23 @@ src/parser.wyl:10:15: note: 'buffer' was moved here
   `WYLnnnn.md` in this directory: what it means, a short erroneous example, how to fix it, and the
   spec section that makes it an error.
 
+## Codes and pages
+
+The catalog (`src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`, by spec chapter) is the list of
+codes: each factory method gives its code, its spec section, and its message. A code's page is
+`WYLnnnn.md` here: what it means, a short example, how to fix it, and the spec section. The page's
+first `wyl` block is a whole program that produces that code and no other error; the catalog test
+compiles it. Codes whose page is not written are in `without-pages.txt`, which only shrinks.
+
 ## The primary message
 
 - **One statement of what is wrong**, about the code, in the present tense: `'x' is used after
   being moved`, `cannot return a value from 'void' function 'f'`. Not why the rule exists, not how
   to fix it: those are notes and help. The fixed templates below keep their own forms.
 - **Lowercase first letter, no final period.** One sentence, no semicolons.
+- **The rule as it stands, never its status**: no "not implemented yet", "not supported", "for
+  now". A restriction that is planned to be lifted is stated as a restriction; the plan is in the
+  roadmap (issue #6).
 - **Formal**: no contractions (`cannot`, `does not`, `is not`), no "you", no "illegal" or
   "invalid", no "Wylow" (the reader knows which language they're writing). Not "a name", "a
   thing": name the kind of entity (`function`, `field`, `parameter`, `type`, `module`) when it
@@ -51,7 +61,6 @@ One wording per family, so similar errors read alike:
 | Duplicate | `'Node' is already defined in this module`, with `note: previous definition here` |
 | Forbidden operation | `cannot <verb> ...`: `cannot call 'mut' method 'push' on an immutable value` |
 | Possibly unassigned | `'x' might not have been assigned` |
-| Not implemented | `<feature> is not implemented yet`. These codes are removed when the feature lands |
 
 ## Notes and help
 
@@ -77,6 +86,6 @@ One wording per family, so similar errors read alike:
 | `the visibility comes first among modifiers, as in 'pub static'` | `visibility must come before other modifiers`<br>`help: write 'pub static'` |
 | `cannot take a 'ref' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in' instead` | `cannot bind 'ref' to read-only result of 'm.peek(0)'`<br>`note: 'peek(int)' returns 'in'`<br>`help: bind with 'in'` |
 | `recursive constructor invocation: this 'this(...)' chain calls the constructor it starts from` | `constructor 'Order(int)' calls itself through 'this(...)'`<br>`note: 'Order(int)' calls 'Order(int, int)' here` (at each step) |
-| `top-level variables and constants are not supported yet; declare 'x' inside a function or type` | `top-level variables are not implemented yet`<br>`help: declare 'x' inside a function or type` |
+| `top-level variables and constants are not supported yet; declare 'x' inside a function or type` | `variables cannot be declared at the top level`<br>`help: declare 'x' inside a function or type` |
 | `'std' is the standard library's name` | `package name 'std' is reserved for the standard library` |
-| `extern functions are only supported in the standard library for now` | `extern functions outside the standard library are not implemented yet` |
+| `extern functions are only supported in the standard library for now` | `extern functions can only be declared in the standard library` |

@@ -3,7 +3,7 @@ import std::{memory, print};
 struct Raw {
     int* data;
 
-    @CallerLocation                     // error: '@CallerLocation' can only be used on functions, methods, and constructors
+    @CallerLocation                     // error[WYL0432]: '@CallerLocation' can only be used on functions, methods, and constructors
     int count;
 
     unsafe Raw(int* data) {
@@ -11,19 +11,19 @@ struct Raw {
     }
 
     mut int first() {
-        return data[0];                 // error: indexing a pointer is only allowed in 'unsafe' code
+        return data[0];                 // error[WYL0423]: pointer indexing can only be used in 'unsafe' code
     }
 }
 
-@Fast                                   // error: unknown annotation '@Fast'
+@Fast                                   // error[WYL0433]: cannot find annotation '@Fast'
 void fast() {
 }
 
-extern void native();                   // error: extern functions are only supported in the standard library
+extern void native();                   // error[WYL0426]: extern functions can only be declared in the standard library
 
 class Base {
     @CallerLocation
-    virtual void check() {              // error: '@CallerLocation' cannot be used on virtual, abstract, or interface methods yet
+    virtual void check() {              // error[WYL0434]: '@CallerLocation' cannot be used on virtual, abstract, or interface methods
     }
 }
 
@@ -33,9 +33,9 @@ class RawBase {
 }
 
 class SafeDerived extends RawBase {
-    SafeDerived() { }                   // error: constructor 'RawBase()' is unsafe
+    SafeDerived() { }                   // error[WYL0304]: constructor 'RawBase()' is unsafe and can only be called in 'unsafe' code
     SafeDerived(int x) {
-        super(x);                       // error: constructor 'RawBase(int)' is unsafe
+        super(x);                       // error[WYL0304]: constructor 'RawBase(int)' is unsafe and can only be called in 'unsafe' code
     }
     unsafe SafeDerived(bool b) {
         super(1);
@@ -45,18 +45,18 @@ class SafeDerived extends RawBase {
 class RawChain {
     unsafe RawChain(int x) { }
     RawChain() {
-        this(1);                        // error: constructor 'RawChain(int)' is unsafe
+        this(1);                        // error[WYL0304]: constructor 'RawChain(int)' is unsafe and can only be called in 'unsafe' code
     }
 }
 
 void main() {
-    int* p = memory::allocate<int>(4);   // error: 'allocate' is unsafe and can only be called from 'unsafe' code
-    int* q = p + 1;                     // error: pointer arithmetic is only allowed in 'unsafe' code
-    Raw r = Raw(p);                     // error: constructor 'Raw(int*)' is unsafe
+    int* p = memory::allocate<int>(4);   // error[WYL0304]: 'allocate' is unsafe and can only be called in 'unsafe' code
+    int* q = p + 1;                     // error[WYL0422]: pointer arithmetic can only be used in 'unsafe' code
+    Raw r = Raw(p);                     // error[WYL0304]: constructor 'Raw(int*)' is unsafe and can only be called in 'unsafe' code
     unsafe {
         Raw ok = Raw(p);
         print(ok.data[0] + q[0]);
-        long* wrong = p;                // error: cannot implicitly convert 'int*' to 'long*'
-        print(p * 2);                   // error: operator '*' cannot be applied to 'int*' and 'int'
+        long* wrong = p;                // error[WYL0079]: expected 'long*', found 'int*'
+        print(p * 2);                   // error[WYL0308]: operator '*' cannot be applied to 'int*' and 'int'
     }
 }

@@ -19,14 +19,14 @@ int clear(ref Pair? pair) {
 
 void main() {
     mut Pair unassigned;
-    unassigned[0] = 1;                  // error: 'unassigned' might not have been assigned
+    unassigned[0] = 1;                  // error[WYL0394]: 'unassigned' might not have been assigned
 
     mut Pair? maybe = Pair();
     if (maybe != null) {
-        maybe[0] = clear(ref maybe);    // error: 'maybe' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first
+        maybe[0] = clear(ref maybe);    // error[WYL0411]: 'maybe' might be set to null while its value is in use
     }
     mut Pair? other = Pair();
     if (other != null) {
-        other[1] += clear(ref other);   // error: 'other' is passed by 'ref' while its value is in use here, so it could become null and destroy that value; copy the value to a variable first
+        other[1] += clear(ref other);   // error[WYL0411]: 'other' might be set to null while its value is in use
     }
 }

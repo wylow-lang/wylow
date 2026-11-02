@@ -41,16 +41,14 @@ public sealed partial class Binder
         };
         if (type == WylType.Void && !allowVoid)
         {
-            Error(syntax.Location, "'void' cannot be used here");
+            Error(Catalog.VoidNotAllowed(syntax.Location));
             return WylType.Error;
         }
         if (!syntax.IsNullable || type == WylType.Error)
             return type;
         if (type.CanBeNullable)
             return type.Nullable;
-        Error(syntax.Location, type.IsPointer
-            ? $"'{type}?' is not needed: a pointer can already be null"
-            : $"'{type}' cannot be nullable, since it is a 'ref struct'");
+        Error(type.IsPointer ? Catalog.NullablePointer(syntax.Location, type.ToString()) : Catalog.NullableView(syntax.Location, type.ToString()));
         return WylType.Error;
     }
 
@@ -77,7 +75,7 @@ public sealed partial class Binder
             case TypeShape.Pointer:
                 return element.PointerTo;
             case TypeShape.FixedArray when syntax.Length > int.MaxValue:
-                Error(syntax.Location, "a fixed array's length must fit in an 'int'");
+                Error(Catalog.FixedArrayLength(syntax.Location));
                 return WylType.Error;
             case TypeShape.FixedArray:
                 return element.FixedArrayOf((int)syntax.Length);
@@ -99,13 +97,13 @@ public sealed partial class Binder
         if (LookupType(name, location) is { } s)
             return Construct(s, arguments, location);
 
-        Error(location, HiddenElsewhere(name, location.Source) ?? $"unknown type '{name}'");
+        Error(HiddenElsewhere(name, location) ?? Catalog.UnknownType(location, name));
         return WylType.Error;
     }
 
     WylType NotGeneric(string name, Location location)
     {
-        Error(location, $"'{name}' is not generic");
+        Error(Catalog.NotGeneric(location, name));
         return WylType.Error;
     }
 
@@ -127,8 +125,7 @@ public sealed partial class Binder
         }
         if (!s.IsGeneric)
             return NotGeneric(s.Name, location);
-        int count = s.TypeParameters.Count;
-        Error(location, $"'{s.Name}' requires {count} type argument{(count == 1 ? "" : "s")}");
+        Error(Catalog.TypeArgumentCount(location, s.Name, s.TypeParameters.Count, arguments.Count));
         return WylType.Error;
     }
 
@@ -140,9 +137,7 @@ public sealed partial class Binder
     {
         if (target.IsReference && !target.IsNullable)
             return true;
-        Error(location, target.IsReference
-            ? $"write 'Weak<{target.NonNull}>': a weak reference can always be null"
-            : $"'Weak' needs a class or interface type, not '{target}'");
+        Error(target.IsReference ? Catalog.WeakOfNullable(location, target.NonNull.ToString()) : Catalog.WeakOfValue(location, target.ToString()));
         return false;
     }
 
@@ -167,7 +162,7 @@ public sealed partial class Binder
             foreach (var bound in parameter.Bounds.Select(map.Apply))
             {
                 if (argument != WylType.Error && !stdlib.SatisfiesBound(argument, bound))
-                    Error(location, $"'{argument}' does not implement '{bound}', which type parameter '{parameter.Name}' requires");
+                    Error(Catalog.BoundNotSatisfied(location, argument.ToString(), bound.ToString(), parameter.Name));
             }
         }
     }

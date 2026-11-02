@@ -2,16 +2,16 @@ class Named {
     mut String name = "a";
 
     ReadOnlySpan<byte> view() {
-        return name.bytes();            // error: a returned 'ReadOnlySpan<byte>' must view the method's receiver: fields or elements of 'this', or a span returned by its methods; 'name' holds its contents itself, and could be replaced while the caller uses them
+        return name.bytes();            // error[WYL0242]: returned 'ReadOnlySpan<byte>' must view the method's receiver
     }
 }
 
 struct Holder {
-    ReadOnlySpan<byte> bytes;           // error: 'ReadOnlySpan<byte>' cannot be the type of a field; like a 'ref', it can only be a local variable or parameter
+    ReadOnlySpan<byte> bytes;           // error[WYL0418]: 'ReadOnlySpan<byte>' cannot be the type of a field
 }
 
 void main() {
     String s = "abc";
-    s.bytes()[0] = 1;                   // error: cannot assign to 's.bytes()[0]' because 'operator [](int)' returns 'in'
-    Span<byte> writable = s.bytes();    // error: cannot implicitly convert 'ReadOnlySpan<byte>' to 'Span<byte>'
+    s.bytes()[0] = 1;                   // error[WYL0351]: cannot assign to 's.bytes()[0]'
+    Span<byte> writable = s.bytes();    // error[WYL0079]: expected 'Span<byte>', found 'ReadOnlySpan<byte>'
 }

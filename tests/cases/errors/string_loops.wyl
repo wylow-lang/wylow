@@ -6,16 +6,16 @@ String? maybe() {
 
 void main() {
     String s = "abc";
-    for (ref char c : s) {              // error: the characters of a string are decoded from its bytes, so they cannot be borrowed with 'ref'
+    for (ref char c : s) {              // error[WYL0357]: characters of a string cannot be borrowed with 'ref'
         print(c);
     }
-    for (in char c : s) {               // error: the characters of a string are decoded from its bytes, so they cannot be borrowed with 'in'
+    for (in char c : s) {               // error[WYL0357]: characters of a string cannot be borrowed with 'in'
     }
-    for (byte b : s) {                  // error: cannot implicitly convert 'char' to 'byte'
+    for (byte b : s) {                  // error[WYL0079]: expected 'byte', found 'char'
     }
-    for (long i, char c : s) {          // error: the index of a loop is an 'int', not 'long'
+    for (long i, char c : s) {          // error[WYL0364]: loop index type: expected 'int', found 'long'
     }
-    for (char c : maybe()) {            // error: cannot loop over 'String?'
+    for (char c : maybe()) {            // error[WYL0353]: cannot loop over 'String?'
     }
-    s.charAt(0);                        // error: method 'String.charAt' is visible only in its file (string.wyl)
+    s.charAt(0);                        // error[WYL0054]: method 'String.charAt' is not visible here
 }

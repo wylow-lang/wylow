@@ -36,21 +36,21 @@ Result<int, String> parse() {
 }
 
 void main() {
-    print(apply(3, x -> x.name));                   // error: 'int' has no member 'name'
-    make(x -> 1);                                   // error: cannot infer type argument 'T' of 'make'
-    print(pick(true, () -> 1, () -> "a"));          // error: cannot infer type argument 'U' of 'pick': it could be 'int' or 'String'
-    print(chain(() -> 1, x -> 2L));                 // error: cannot infer type argument 'U' of 'chain': it could be 'int' or 'long'
-    run(() -> print(1));                            // error: this lambda returns no value, so it cannot give 'run' its type argument 'U'
-    each(x -> 1);                                   // error: cannot infer type argument 'U' of 'each' from a lambda, since other overloads also take these arguments
-    both(x -> 1);                                   // error: cannot infer type argument 'U' of 'both' from a lambda, since other overloads also take these arguments
-    print(run(() -> x -> x));                       // error: a lambda needs a function type from where it is used
-    print(run(() -> try parse()));                  // error: 'try' cannot be used in a lambda whose return type is inferred
-    print(run(() -> null));                         // error: cannot infer type argument 'U' of 'run' from 'null'
+    print(apply(3, x -> x.name));                   // error[WYL0296]: cannot find member 'name' in 'int'
+    make(x -> 1);                                   // error[WYL0201]: cannot infer type argument 'T' of 'make'
+    print(pick(true, () -> 1, () -> "a"));          // error[WYL0204]: cannot infer type argument 'U' of 'pick'
+    print(chain(() -> 1, x -> 2L));                 // error[WYL0204]: cannot infer type argument 'U' of 'chain'
+    run(() -> print(1));                            // error[WYL0205]: cannot infer type argument 'U' of 'run' from a lambda that returns no value
+    each(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'each' from a lambda
+    both(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'both' from a lambda
+    print(run(() -> x -> x));                       // error[WYL0260]: lambda has no function type to take
+    print(run(() -> try parse()));                  // error[WYL0333]: 'try' cannot be used in a lambda whose return type is inferred
+    print(run(() -> null));                         // error[WYL0203]: cannot infer type argument 'U' of 'run' from 'null'
     print(run(() -> {
         if (true) {
-            return;                                 // error: this lambda must return a value of type 'int'
+            return;                                 // error[WYL0372]: lambda must return a value of type 'int'
         }
         return 1;
     }));
-    print(run<long>(() -> "a"));                    // error: cannot implicitly convert 'String' to 'long'
+    print(run<long>(() -> "a"));                    // error[WYL0079]: expected 'long', found 'String'
 }

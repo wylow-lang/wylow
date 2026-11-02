@@ -9,8 +9,8 @@ class Mob {
     }
 
     void test() {
-        fn(int) -> int f = score;                     // error: 'score' is an instance method, and only functions and static methods can be used as values; use a lambda that calls it
-        var g = score;                              // error: 'score' is a function; call it with 'score(...)'
+        fn(int) -> int f = score;                     // error[WYL0275]: instance method 'score' cannot be used as a value
+        var g = score;                              // error[WYL0280]: function 'score' is used as a value
     }
 
     static int rank(int x) {
@@ -55,13 +55,13 @@ int pair(long a, fn(int) -> int f) {
 }
 
 void main() {
-    var f = inc;                                    // error: 'inc' is a function; call it with 'inc(...)', or use it where a function type is expected
-    var r = Mob.rank;                               // error: 'Mob.rank' is a method; call it with 'rank(...)', or use it where a function type is expected
-    int n = inc;                                    // error: 'inc' is a function; call it with 'inc(...)', or use it where a function type is expected
-    print(applyInt(name, 1));                       // error: no overload of 'name' accepts (int)
-    fn(int, int) -> int two = inc;                    // error: no overload of 'inc' takes 2 arguments
-    fn(int) -> String text = inc;                     // error: cannot implicitly convert 'int' to 'String'
-    print(apply(inc, 1));                           // error: call is ambiguous between 'apply(fn(int) -> int, int)' and 'apply(fn(long) -> long, long)'
-    print(pair(1, add));                            // error: 'add' has overloads taking different numbers of arguments, so it can only be used where a function type is expected; use a lambda that calls it
-    var chosen = n > 0 ? inc : inc;                 // error: 'inc' is a function, which can only be used as a value where a function type is expected
+    var f = inc;                                    // error[WYL0280]: function 'inc' is used as a value
+    var r = Mob.rank;                               // error[WYL0280]: method 'Mob.rank' is used as a value
+    int n = inc;                                    // error[WYL0280]: function 'inc' is used as a value
+    print(applyInt(name, 1));                       // error[WYL0236]: no overload of 'name' accepts (int)
+    fn(int, int) -> int two = inc;                    // error[WYL0233]: no overload of 'inc' takes 2 arguments
+    fn(int) -> String text = inc;                     // error[WYL0079]: expected 'String', found 'int'
+    print(apply(inc, 1));                           // error[WYL0237]: call to 'apply' is ambiguous
+    print(pair(1, add));                            // error[WYL0276]: 'add' can only be used as a value where a function type is expected
+    var chosen = n > 0 ? inc : inc;                 // error[WYL0277]: function 'inc' can only be used as a value where a function type is expected
 }

@@ -24,12 +24,12 @@ void main() {
 
     // A choice waits for its type, but the rules for choices still hold.
     print(apply(1, switch (op) {
-        case Add(var n) -> x -> x + n;              // error: a lambda chosen by a switch expression cannot use 'n', which its case declares
+        case Add(var n) -> x -> x + n;              // error[WYL0278]: lambda chosen by a switch expression cannot use 'n'
         case Stop -> inc;
     }));
-    print(run(up ? x -> 1 : y -> 2));               // error: call is ambiguous between 'run(fn(int) -> int)' and 'run(fn(String) -> int)'
-    print(apply(1, up ? x -> 1 : x -> "a"));        // error: cannot infer type argument 'U' of 'apply': it could be 'int' or 'String'
-    print(apply(1, up ? inc : x -> "a"));           // error: cannot implicitly convert 'String' to 'int'
-    print(up ? x -> x : y -> y);                    // error: no overload of 'print' accepts (choice of lambdas)
-    print(apply(1, up ? x -> x.name : inc));        // error: 'int' has no member 'name'
+    print(run(up ? x -> 1 : y -> 2));               // error[WYL0237]: call to 'run' is ambiguous
+    print(apply(1, up ? x -> 1 : x -> "a"));        // error[WYL0204]: cannot infer type argument 'U' of 'apply'
+    print(apply(1, up ? inc : x -> "a"));           // error[WYL0079]: expected 'int', found 'String'
+    print(up ? x -> x : y -> y);                    // error[WYL0236]: no overload of 'print' accepts (choice of lambdas)
+    print(apply(1, up ? x -> x.name : inc));        // error[WYL0296]: cannot find member 'name' in 'int'
 }

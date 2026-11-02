@@ -3,14 +3,14 @@ import std::print;
 void main() {
     int x = 1;
     bool c = true;
-    print($"a } b");          // error: a '}' in an interpolated string is written '}}'
-    print($"{c ? 1 : 2}");    // error: a conditional expression in an interpolated string must be parenthesized, since ':' starts a format specifier
-    print($"{}");             // error: expected an expression
-    print($"{x x}");          // error: expected '}' to end the interpolated value
-    print($"{x,}");           // error: expected an integer alignment, as in '{value,8}'
-    print($"{x,1.5}");        // error: expected an integer alignment, as in '{value,8}'
-    print($"{x,-}");          // error: expected an integer alignment, as in '{value,8}'
-    print($"{x,9999999999}"); // error: alignment is too large
-    print($"{x,2 3}");        // error: expected '}' to end the interpolated value
-    print("\{x}");            // error: unknown escape sequence '\{'
+    print($"a } b");          // error[WYL0017]: '}' in an interpolated string is not doubled
+    print($"{c ? 1 : 2}");    // error[WYL0018]: conditional expression in an interpolated string is not parenthesized
+    print($"{}");             // error[WYL0001]: expected an expression
+    print($"{x x}");          // error[WYL0001]: expected '}' to end the interpolated value
+    print($"{x,}");           // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    print($"{x,1.5}");        // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    print($"{x,-}");          // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    print($"{x,9999999999}"); // error[WYL0337]: alignment is too large
+    print($"{x,2 3}");        // error[WYL0001]: expected '}' to end the interpolated value
+    print("\{x}");            // error[WYL0014]: '\{' is not an escape sequence
 }

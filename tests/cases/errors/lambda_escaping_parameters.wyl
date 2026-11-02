@@ -9,13 +9,13 @@ class Bus {
 
 void main() {
     var bus = new Bus();
-    fn(fn() -> void) -> void plain = h -> bus.handlers.add(h);              // error: 'h' is a non-escaping parameter, so it cannot be stored or returned; declare the parameter 'escaping' in the lambda's function type, as in 'fn(escaping fn() -> void) -> void'
+    fn(fn() -> void) -> void plain = h -> bus.handlers.add(h);              // error[WYL0271]: non-escaping parameter 'h' cannot be stored or returned
     fn(escaping fn() -> void) -> void keeper = h -> h();
     fn() -> void local = () -> print(1);
-    keeper(local);                                                      // error: 'local' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-    fn(escaping fn() -> void) -> void typed = (fn() -> void f) -> f();       // error: 'f' is declared as 'fn() -> void', but 'fn(escaping fn() -> void) -> void' passes 'escaping fn() -> void'
-    fn(escaping fn() -> void) -> void untyped = (escaping f) -> f();      // error: an untyped lambda parameter takes its form from the lambda's type, so it can't be declared 'escaping'; give it a type
-    fn(escaping int) -> void number = x -> print(x);                     // error: 'escaping' can only be declared on a parameter of function type, not 'int'
-    fn(@Fast int) -> void fast = x -> print(x);                           // error: unknown annotation '@Fast'
-    fn(fn() -> void) -> void converted = keeper;                            // error: cannot implicitly convert 'fn(escaping fn() -> void) -> void' to 'fn(fn() -> void) -> void'
+    keeper(local);                                                      // error[WYL0271]: non-escaping variable 'local' cannot be stored or returned
+    fn(escaping fn() -> void) -> void typed = (fn() -> void f) -> f();       // error[WYL0263]: type of parameter 'f': expected 'escaping fn() -> void', found 'fn() -> void'
+    fn(escaping fn() -> void) -> void untyped = (escaping f) -> f();      // error[WYL0262]: untyped lambda parameter cannot be declared 'escaping'
+    fn(escaping int) -> void number = x -> print(x);                     // error[WYL0270]: 'escaping' cannot be declared on a parameter of non-function type 'int'
+    fn(@Fast int) -> void fast = x -> print(x);                           // error[WYL0433]: cannot find annotation '@Fast'
+    fn(fn() -> void) -> void converted = keeper;                            // error[WYL0079]: expected 'fn(fn() -> void) -> void', found 'fn(escaping fn() -> void) -> void'
 }

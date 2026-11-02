@@ -73,9 +73,7 @@ public sealed partial class Binder
         if (e.Callee is SuperExpr)
         {
             BindArguments(e.Arguments);
-            return ErrorExpression(e.Callee.Location, currentFunction is { IsConstructor: true, ContainingType.Kind: TypeKind.Class }
-                ? "'super(...)' must be the first statement of a constructor"
-                : "'super(...)' can only be used in a class constructor");
+            return ErrorExpression(currentFunction is { IsConstructor: true, ContainingType.Kind: TypeKind.Class } ? Catalog.SuperCallNotFirst(e.Callee.Location) : Catalog.SuperCallOutsideConstructor(e.Callee.Location));
         }
 
         var arguments = new PendingArguments(this, e.Arguments);
@@ -85,9 +83,7 @@ public sealed partial class Binder
             PathExpr path => BindPathCall(e, path, arguments),
             MemberAccessExpr member => BindMemberCall(e, member, arguments, expected),
             ConditionalAccessExpr access => BindConditionalCall(e, access, arguments),
-            ThisExpr => ErrorExpression(e.Callee.Location, currentFunction is { IsConstructor: true }
-                ? "'this(...)' must be the first statement of a constructor"
-                : "'this(...)' can only be used in a constructor"),
+            ThisExpr => ErrorExpression(currentFunction is { IsConstructor: true } ? Catalog.ThisCallNotFirst(e.Callee.Location) : Catalog.ThisCallOutsideConstructor(e.Callee.Location)),
             _ => BindCalleeValue(e, BindExpression(e.Callee), arguments),
         };
         arguments.Bind(null);
@@ -98,16 +94,14 @@ public sealed partial class Binder
     BoundExpression BindCalleeValue(CallExpr e, BoundExpression callee, PendingArguments pending) =>
         callee.Type.NonNull.IsFunction || callee.Type == WylType.Error
             ? BindInvocation(e, callee, pending)
-            : ErrorExpression(e.Callee.Location, callee is BoundLocalAccess or BoundFieldAccess
-                ? $"'{TextOf(e.Callee.Location)}' is a variable of type '{callee.Type}', not a function"
-                : $"a value of type '{callee.Type}' cannot be called");
+            : ErrorExpression(Catalog.NotCallable(e.Callee.Location, TextOf(e.Callee.Location), callee.Type.ToString()));
 
     BoundExpression BindNameCall(CallExpr e, NameExpr name, PendingArguments pending, WylType? expected)
     {
         if (IsValueName(name.Name))
             return BindCalleeValue(e, BindName(name, null), pending);
         if (LookupTypeParameter(name.Name) is not null)
-            return ErrorExpression(name.Location, $"'{name.Name}' is a type parameter and cannot be constructed");
+            return ErrorExpression(Catalog.ConstructTypeParameter(name.Location, name.Name));
 
         var typeArguments = BindTypeArguments(name.TypeArguments);
         if (typeArguments?.Contains(WylType.Error) == true)
@@ -125,7 +119,7 @@ public sealed partial class Binder
             if (method.Symbol.IsStatic)
                 return MakeCall(e.Location, method, null, arguments);
             if (!hasThis)
-                return ErrorExpression(name.Location, $"'{name.Name}' is an instance method; {NoInstanceReason}");
+                return ErrorExpression(Catalog.InstanceMemberUnavailable(name.Location, "method", name.Name, noThisContext));
             return MakeCall(e.Location, method, new BoundThis(name.Location, s.Type), arguments);
         }
 
@@ -133,9 +127,9 @@ public sealed partial class Binder
             return BindTopLevelCall(e, name, entry, typeArguments, pending);
         if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, pending);
-        if (HiddenElsewhere(name.Name, name.Location.Source) is { } hidden)
-            return ErrorExpression(name.Location, hidden);
-        return ErrorExpression(name.Location, $"function '{name.Name}' is not defined{VariantHint(name.Name, name.Location.Source)}");
+        if (HiddenElsewhere(name.Name, name.Location) is { } hidden)
+            return ErrorExpression(hidden);
+        return ErrorExpression(UndefinedName(name.Location, name.Name, "function"));
     }
 
     /// <summary><c>gen::seed()</c> or <c>world::Chunk(...)</c>: a call of a name in a module (§6.1, Imports).</summary>
@@ -154,12 +148,7 @@ public sealed partial class Binder
         {
             if (type.Kind != TypeKind.Struct)
             {
-                return ErrorExpression(name.Location, type.Kind switch
-                {
-                    TypeKind.Class => $"classes are created with 'new', as in 'new {name.Name}(...)'",
-                    TypeKind.Enum => $"enums are created from their variants, as in '{name.Name}.{type.Variants.FirstOrDefault()?.Name}'",
-                    _ => $"cannot create an instance of interface '{name.Name}'",
-                });
+                return ErrorExpression(type.Kind switch { TypeKind.Class => Catalog.ClassWithoutNew(name.Location, name.Name), TypeKind.Enum => Catalog.EnumConstructed(name.Location, name.Name, type.Variants.FirstOrDefault()?.Name), _ => Catalog.InterfaceInstance(name.Location, name.Name) });
             }
             var constructed = Construct(type, typeArguments ?? [], name.Location);
             return constructed == WylType.Error
@@ -190,7 +179,7 @@ public sealed partial class Binder
         if (AsEnumName(member.Target, expected) is var (enumSymbol, enumType) && enumSymbol.FindVariant(member.Name) is { } variant)
         {
             if (typeArguments is not null)
-                return ErrorExpression(member.NameLocation, $"type arguments belong to the enum, as in '{enumSymbol.Name}<...>.{member.Name}(...)'");
+                return ErrorExpression(Catalog.VariantTypeArguments(member.NameLocation, enumSymbol.Name, member.Name));
             return BindVariant(e.Location, enumSymbol, enumType, variant, pending);
         }
 
@@ -201,7 +190,7 @@ public sealed partial class Binder
             var s = type.Symbol!;
             var staticCandidates = LookupMethods(type, member.Name);
             if (staticCandidates.Count == 0)
-                return ErrorExpression(member.NameLocation, $"'{s.Name}' has no method '{member.Name}'");
+                return ErrorExpression(Catalog.NoMethod(member.NameLocation, s.Name, member.Name));
             var arguments = pending.Bind(staticCandidates);
             if (AnyError(arguments))
                 return new BoundErrorExpression(e.Location);
@@ -210,8 +199,7 @@ public sealed partial class Binder
                 return new BoundErrorExpression(e.Location);
             if (!staticMethod.Symbol.IsStatic)
             {
-                return ErrorExpression(member.NameLocation,
-                    $"'{s.Name}.{member.Name}' is an instance method; call it on a value of type '{type}'");
+                return ErrorExpression(Catalog.InstanceMethodThroughType(member.NameLocation, $"{s.Name}.{member.Name}", type.ToString()));
             }
             var declaring = staticMethod.Symbol.ContainingType!;
             CheckVisible(member.NameLocation, staticMethod.Symbol.Reach, $"method '{declaring.Name}.{member.Name}'");
@@ -255,9 +243,7 @@ public sealed partial class Binder
         var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
         {
-            return ErrorExpression(nameLocation, LookupField(receiverType, name) is not null
-                ? $"'{DisplayName(receiverType)}.{name}' is a field, not a method"
-                : $"'{DisplayName(receiverType)}' has no method '{name}'");
+            return ErrorExpression(LookupField(receiverType, name) is not null ? Catalog.FieldNotMethod(nameLocation, $"{DisplayName(receiverType)}.{name}") : Catalog.NoMethod(nameLocation, DisplayName(receiverType), name));
         }
 
         var description = name == SyntaxFacts.IndexerName ? $"indexer of '{receiverType}'" : $"overload of '{DisplayName(receiverType)}.{name}'";
@@ -267,8 +253,7 @@ public sealed partial class Binder
         var declaring = method.Symbol.ContainingType!;
         if (method.Symbol.IsStatic)
         {
-            return ErrorExpression(nameLocation,
-                $"static method '{name}' must be called through the type: '{declaring.Name}.{name}(...)'");
+            return ErrorExpression(Catalog.StaticMethodThroughValue(nameLocation, name, declaring.Name));
         }
         CheckVisible(nameLocation, method.Symbol.Reach, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
@@ -278,9 +263,9 @@ public sealed partial class Binder
     BoundExpression BindFormattedToString(Location location, BoundExpression receiver, IReadOnlyList<WylType>? typeArguments, List<Argument> arguments)
     {
         if (typeArguments is not null)
-            return ErrorExpression(location, $"'{receiver.Type}.toString' takes no type arguments");
+            return ErrorExpression(Catalog.NoTypeArguments(location, $"{receiver.Type}.toString"));
         if (arguments.Count != 0)
-            return ErrorExpression(location, $"no overload of '{receiver.Type}.toString' takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
+            return ErrorExpression(Catalog.NoOverloadForCount(location, $"overload of '{receiver.Type}.toString'", arguments.Count));
         return new BoundCall(location, new MethodReference(Builtins.ToString(receiver.Type), null, []), null, [receiver]);
     }
 
@@ -292,14 +277,14 @@ public sealed partial class Binder
     {
         var type = receiver.Type;
         if (typeArguments is not null)
-            return ErrorExpression(location, $"'{type}.compareTo' takes no type arguments");
+            return ErrorExpression(Catalog.NoTypeArguments(location, $"{type}.compareTo"));
         if (arguments.Count != 1)
-            return ErrorExpression(location, $"no overload of '{type}.compareTo' takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
+            return ErrorExpression(Catalog.NoOverloadForCount(location, $"overload of '{type}.compareTo'", arguments.Count));
         var other = arguments[0];
         if (other.Name is { } argumentName && argumentName != "other")
-            return ErrorExpression(other.NameLocation, $"'compareTo' has no parameter named '{argumentName}'");
+            return ErrorExpression(Catalog.NoParameterNamed(other.NameLocation, $"{type}.compareTo", argumentName));
         if (other.IsRef)
-            return ErrorExpression(other.Location, "argument 1 must not be passed with 'ref'");
+            return ErrorExpression(Catalog.ArgumentNotRef(other.Location, "argument 1", $"{type}.compareTo"));
         return new BoundCall(location, new MethodReference(Builtins.CompareTo(type), null, []), null, [receiver, Convert(other.Expression, type)]);
     }
 
@@ -307,13 +292,11 @@ public sealed partial class Binder
     {
         if (!hasThis || currentType?.Type.BaseType is not { } baseType)
         {
-            return ErrorExpression(super.Location, hasThis
-                ? $"'{currentType!.Name}' has no base class"
-                : "'super' can only be used in instance methods and constructors of a class");
+            return ErrorExpression(hasThis ? Catalog.SuperWithoutBase(super.Location, currentType!.Name) : Catalog.SuperOutsideInstance(super.Location));
         }
         var candidates = LookupMethods(baseType, member.Name);
         if (candidates.Count == 0)
-            return ErrorExpression(member.NameLocation, $"'{baseType.Symbol!.Name}' has no method '{member.Name}'");
+            return ErrorExpression(Catalog.NoMethod(member.NameLocation, baseType.Symbol!.Name, member.Name));
         var arguments = pending.Bind(candidates);
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
@@ -322,9 +305,9 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         var declaring = method.Symbol.ContainingType!;
         if (method.Symbol.IsStatic)
-            return ErrorExpression(member.NameLocation, $"static method '{member.Name}' must be called through the type: '{declaring.Name}.{member.Name}(...)'");
+            return ErrorExpression(Catalog.StaticMethodThroughValue(member.NameLocation, member.Name, declaring.Name));
         if (method.Symbol.IsAbstract)
-            return ErrorExpression(member.NameLocation, $"cannot call abstract method '{declaring.Name}.{member.Name}' through 'super'");
+            return ErrorExpression(Catalog.AbstractSuperCall(member.NameLocation, $"{declaring.Name}.{member.Name}"));
         CheckVisible(member.NameLocation, method.Symbol.Reach, $"method '{declaring.Name}.{member.Name}'");
         return MakeCall(e.Location, method, new BoundThis(super.Location, currentType.Type), arguments, isSuperCall: true);
     }
@@ -346,7 +329,7 @@ public sealed partial class Binder
         }
         if (!receiver.Type.IsNullable)
         {
-            Error(e.Target.Location, $"'?.' is only needed on nullable values, and '{receiver.Type}' is not nullable; use '.'");
+            Error(Catalog.ConditionalOnNonNullable(e.Target.Location, receiver.Type.ToString()));
             return null;
         }
         return (receiver, new LocalSymbol("value", receiver.Type.NonNull, isParameter: false) { IsTemporary = true });
@@ -378,14 +361,13 @@ public sealed partial class Binder
         // The member of a nullable value is reached through a copy, which a method would change in vain.
         if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: BoundLocalAccess { Local: var local }, Method.Symbol: { IsReadOnly: false } method } && local == value)
         {
-            return ErrorExpression(location,
-                $"'?.' would call '{method.Name}' on a copy of '{TextOf(receiver.Location)}', so its changes would be lost; check it for null and call '{method.Name}' on a variable");
+            return ErrorExpression(Catalog.ConditionalMutCall(location, method.Name, TextOf(receiver.Location)));
         }
         if (access.Type == WylType.Void)
             return new BoundConditionalAccess(location, receiver, value, access, access.Type);
         if (access.Type.CanBeNullable)
             return new BoundConditionalAccess(location, receiver, value, access, access.Type.Nullable);
-        return ErrorExpression(location, $"'?.' cannot produce a nullable '{access.Type}'");
+        return ErrorExpression(Catalog.ConditionalNotNullable(location, access.Type.ToString()));
     }
 
     BoundExpression MakeCall(Location location, MethodReference method, BoundExpression? receiver, List<Argument> arguments, bool isSuperCall = false)
@@ -395,7 +377,7 @@ public sealed partial class Binder
         if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))
             return new BoundErrorExpression(location);
         if (IsBorrowHook(method.Symbol))
-            return ErrorExpression(location, $"'{method.Symbol.Name}' is called by the compiler around every borrow, and cannot be called directly");
+            return ErrorExpression(Catalog.BorrowHookCall(location, method.Symbol.Name));
         QueueBoundChecks(method.Symbol.TypeParameters, method.TypeArguments, location);
         return new BoundCall(location, method, receiver, ConvertArguments(method, arguments), isSuperCall);
     }
@@ -405,7 +387,7 @@ public sealed partial class Binder
     /// is a value, not a variable, so its changes would be lost (06-syntax.md §6.4).
     /// <paramref name="onTemporary"/> says so in the words of what the call does, if it isn't a call in the source.
     /// </summary>
-    bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver, string? onTemporary = null)
+    bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver, Diagnostic? onTemporary = null)
     {
         // Calling a method on an object never modifies the place holding the reference.
         if (receiver.Type.IsReference || method.Symbol.IsReadOnly)
@@ -414,9 +396,9 @@ public sealed partial class Binder
         if (kind == PlaceKind.Mutable)
             return true;
         if (kind == PlaceKind.Temporary)
-            Error(location, onTemporary ?? $"cannot call 'mut' method '{method.Symbol.Name}' on a temporary value, whose changes would be lost; {StoreTemporaryHint}");
+            Error(onTemporary ?? Catalog.MutOnTemporary(location, method.Symbol.Name));
         else
-            Error(location, $"cannot call 'mut' method '{method.Symbol.Name}' on {(receiver is BoundThis ? "'this'" : $"'{TextOf(receiver.Location)}'")} because {reason}");
+            Error(Catalog.MutOnReadOnly(location, method.Symbol.Name, receiver is BoundThis ? "this" : TextOf(receiver.Location), reason));
         return false;
     }
 
@@ -431,7 +413,7 @@ public sealed partial class Binder
         if (!method.Symbol.IsUnsafe || InUnsafe)
             return true;
         var what = method.Symbol.IsConstructor ? $"constructor '{method}'" : $"'{method.Symbol.Name}'";
-        Error(location, $"{what} is unsafe and can only be called from 'unsafe' code");
+        Error(Catalog.UnsafeCall(location, what));
         return false;
     }
 
@@ -449,16 +431,16 @@ public sealed partial class Binder
             }
             if (parameterType is NullableReferenceType reference)
             {
-                result.Add(ConvertToNullableReference(argument.Expression, reference, "a 'ref?' argument") ?? new BoundErrorExpression(argument.Location));
+                result.Add(ConvertToNullableReference(argument.Expression, reference, "'ref?' argument") ?? new BoundErrorExpression(argument.Location));
                 continue;
             }
 
             var place = NarrowReference(argument.Expression);
             var (kind, reason) = ClassifyPlace(place);
             if (kind == PlaceKind.Temporary)
-                Error(argument.Location, $"a 'ref' argument must be a variable or field{NotAnElementHint(place)}");
+                Error(Catalog.RefArgumentNotPlace(argument.Location, Elementless(place)));
             else if (kind == PlaceKind.ReadOnly)
-                Error(argument.Location, $"cannot pass '{TextOf(place.Location)}' by 'ref' because {reason}");
+                Error(Catalog.RefArgumentReadOnly(argument.Location, TextOf(place.Location), reason));
             result.Add(place);
         }
         return result;
@@ -471,15 +453,15 @@ public sealed partial class Binder
         if (type == WylType.Error || AnyError(arguments))
             return new BoundErrorExpression(e.Location);
         if (type.IsStruct)
-            return ErrorExpression(e.Type.Location, $"structs are created without 'new', as in '{e.Type.Name}(...)'");
+            return ErrorExpression(Catalog.StructWithNew(e.Type.Location, e.Type.Name));
         if (type.IsEnum)
-            return ErrorExpression(e.Type.Location, $"enums are created from their variants without 'new', as in '{e.Type.Name}.{type.Symbol!.Variants.FirstOrDefault()?.Name}'");
+            return ErrorExpression(Catalog.EnumWithNew(e.Type.Location, e.Type.Name, type.Symbol!.Variants.FirstOrDefault()?.Name));
         if (type.IsInterface)
-            return ErrorExpression(e.Type.Location, $"cannot create an instance of interface '{type}'");
+            return ErrorExpression(Catalog.InterfaceInstance(e.Type.Location, type.ToString()));
         if (!type.IsClass)
-            return ErrorExpression(e.Type.Location, $"'{type}' cannot be created with 'new'");
+            return ErrorExpression(Catalog.NotNewable(e.Type.Location, type.ToString()));
         if (type.Symbol!.IsAbstract)
-            return ErrorExpression(e.Type.Location, $"cannot create an instance of abstract class '{type}'");
+            return ErrorExpression(Catalog.AbstractInstance(e.Type.Location, type.ToString()));
         return BindNewObject(e.Location, e.Type.Location, type, arguments);
     }
 

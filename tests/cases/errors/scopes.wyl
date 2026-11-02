@@ -1,8 +1,8 @@
 void f(int n) {
-    int n = 2;                // error: 'n' is already defined
+    int n = 2;                // error[WYL0084]: 'n' is already defined in this scope
 }
 
-void f(int m) {               // error: function 'f(int)' is already defined
+void f(int m) {               // error[WYL0232]: function 'f(int)' is already defined
 }
 
 void print(int x) {           // std's print is seen only through an import, so a module may declare its own
@@ -20,9 +20,9 @@ void main() {
     }
     int a = 2;
     print(a);
-    var v;                    // error: 'var' declarations require an initializer
-    var w = f(1);             // error: cannot assign a 'void' value
-    x = 3;                    // error: 'x' is not defined
-    pick(1);                  // error: call is ambiguous between 'pick(long)' and 'pick(float)'
-    int g = f;                // error: 'f' is a function
+    var v;                    // error[WYL0085]: 'var' declaration must have an initializer
+    var w = f(1);             // error[WYL0086]: cannot assign a 'void' value to a variable
+    x = 3;                    // error[WYL0281]: cannot find 'x' in this scope
+    pick(1);                  // error[WYL0237]: call to 'pick' is ambiguous
+    int g = f;                // error[WYL0280]: function 'f' is used as a value
 }

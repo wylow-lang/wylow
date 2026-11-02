@@ -26,21 +26,4 @@ public readonly record struct Reach(Visibility Level, SourceText? Source)
         Visibility.Module => use.Module == Source!.Module,
         _ => use == Source,
     };
-
-    /// <summary>How far it reaches, for messages: "everywhere", "only in its file (list.wyl)", ...</summary>
-    public string Describe() => Level switch
-    {
-        Visibility.Public => "everywhere",
-        Visibility.Package => Source!.Module.Package.Name is { } package ? $"only in package '{package}'" : "only in this package",
-        Visibility.Module => $"only in {DescribeModule(Source!.Module)}",
-        _ => $"only in its file ({Source!.Name})",
-    };
-
-    static string DescribeModule(Module module) => (module.IsRoot, module.Package.Name) switch
-    {
-        (true, null) => "the root module",
-        (true, { } package) => $"the root module of '{package}'",
-        (false, null) => $"module '{module}'",
-        (false, { } package) => $"module '{package}::{module}'",
-    };
 }

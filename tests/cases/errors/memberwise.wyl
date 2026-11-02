@@ -12,7 +12,7 @@ struct Scaled {
 }
 
 void main() {
-    var a = Vec2(1, 2, 3);              // error: no constructor of 'Vec2' takes 3 arguments
-    var b = Vec2(1, "two");             // error: no constructor of 'Vec2' accepts (int, String)
-    var c = Scaled(1, 2);               // error: no constructor of 'Scaled' takes 2 arguments
+    var a = Vec2(1, 2, 3);              // error[WYL0233]: no constructor of 'Vec2' takes 3 arguments
+    var b = Vec2(1, "two");             // error[WYL0236]: no constructor of 'Vec2' accepts (int, String)
+    var c = Scaled(1, 2);               // error[WYL0233]: no constructor of 'Scaled' takes 2 arguments
 }

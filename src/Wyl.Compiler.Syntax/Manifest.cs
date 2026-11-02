@@ -36,28 +36,28 @@ public sealed record Manifest(string Name, Location NameLocation)
             foreach (var dependency in dependencies.Entries)
             {
                 if (dependency is not BlockEntry block)
-                    diagnostics.Error(dependency.KeyLocation, $"a dependency is a block, as in '{dependency.Key} {{ path = \"../{dependency.Key}\"; }}'");
+                    diagnostics.Add(Catalog.DependencyNotBlock(dependency.KeyLocation, dependency.Key));
                 else if (Check(block.Entries, [("path", Kind.String)], diagnostics).Count == 0 && !block.Entries.Any(e => e.Key == "path"))
-                    diagnostics.Error(block.KeyLocation, $"dependency '{block.Key}' needs a 'path'");
+                    diagnostics.Add(Catalog.DependencyWithoutPath(block.KeyLocation, block.Key));
             }
-            diagnostics.Error(dependencies.KeyLocation, "'dependencies' is not supported yet");
+            diagnostics.Add(Catalog.UnusableManifestKey(dependencies.KeyLocation, "dependencies"));
         }
         if (keys.GetValueOrDefault("native") is BlockEntry native)
         {
             Check(native.Entries, [("include", Kind.List), ("link", Kind.List)], diagnostics);
-            diagnostics.Error(native.KeyLocation, "'native' is not supported yet");
+            diagnostics.Add(Catalog.UnusableManifestKey(native.KeyLocation, "native"));
         }
 
         if (keys.GetValueOrDefault("name") is not ValueEntry { Text: { } name } entry)
         {
             if (!keys.ContainsKey("name"))
-                diagnostics.Error(new Location(source, new TextSpan(0, 0)), "the manifest must give the package's 'name', as in 'name = \"my_game\";'");
+                diagnostics.Add(Catalog.ManifestWithoutName(new Location(source, new TextSpan(0, 0))));
             return null;
         }
         if (name == Package.Std.Name)
-            diagnostics.Error(entry.KeyLocation, "'std' is the standard library's name");
+            diagnostics.Add(Catalog.ReservedPackageName(entry.KeyLocation));
         else if (!Lexer.IsIdentifier(name))
-            diagnostics.Error(entry.KeyLocation, $"'{name}' is not a package name, which is written like a module's, as in 'voxel_game'");
+            diagnostics.Add(Catalog.PackageNameNotIdentifier(entry.KeyLocation, name));
         bool failed = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error) > errors;
         return failed ? null : new Manifest(name, entry.KeyLocation);
     }
@@ -72,12 +72,12 @@ public sealed record Manifest(string Name, Location NameLocation)
             if (kind is null)
             {
                 var keys = string.Join(", ", schema.Select(s => $"'{s.Key}'"));
-                diagnostics.Error(entry.KeyLocation, $"'{entry.Key}' is not a key here; the keys are {keys}");
+                diagnostics.Add(Catalog.UnknownManifestKey(entry.KeyLocation, entry.Key, keys));
                 continue;
             }
             if (given.ContainsKey(entry.Key))
             {
-                diagnostics.Error(entry.KeyLocation, $"'{entry.Key}' is given more than once");
+                diagnostics.Add(Catalog.DuplicateManifestKey(entry.KeyLocation, entry.Key, given[entry.Key].KeyLocation));
                 continue;
             }
             var actual = entry switch
@@ -88,12 +88,7 @@ public sealed record Manifest(string Name, Location NameLocation)
             };
             if (actual != kind)
             {
-                diagnostics.Error(entry.KeyLocation, kind switch
-                {
-                    Kind.String => $"'{entry.Key}' is a string, as in '{entry.Key} = \"...\";'",
-                    Kind.List => $"'{entry.Key}' is a list of strings, as in '{entry.Key} = [\"...\"];'",
-                    _ => $"'{entry.Key}' is a block of entries, as in '{entry.Key} {{ ... }}'",
-                });
+                diagnostics.Add(kind switch { Kind.String => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a string", $"{entry.Key} = \"...\";"), Kind.List => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a list of strings", $"{entry.Key} = [\"...\"];"), _ => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a block of entries", $"{entry.Key} {{ ... }}"), });
                 continue;
             }
             given[entry.Key] = entry;
@@ -119,7 +114,7 @@ public sealed record Manifest(string Name, Location NameLocation)
 
         Location Loc(TextSpan span) => new(source, span);
 
-        void Error(TextSpan span, string message) => diagnostics.Error(Loc(span), message);
+        void Expected(TextSpan span, string what) => diagnostics.Add(Catalog.ManifestExpected(Loc(span), what));
 
         public List<Entry> ReadEntries(bool nested)
         {
@@ -136,7 +131,7 @@ public sealed record Manifest(string Name, Location NameLocation)
         {
             if (!At(TokenKind.Identifier))
             {
-                Error(Current.Span, "expected a key, as in 'name = \"my_game\";'");
+                Expected(Current.Span, "a key");
                 // Only a '}' with no block open gets here as one; it would stop Skip where it is.
                 if (At(TokenKind.CloseBrace))
                     Advance();
@@ -150,13 +145,13 @@ public sealed record Manifest(string Name, Location NameLocation)
                 Advance();
                 var entries = ReadEntries(nested: true);
                 if (!At(TokenKind.CloseBrace))
-                    Error(new TextSpan(Previous.Span.End, 0), "expected '}'");
+                    Expected(new TextSpan(Previous.Span.End, 0), "'}'");
                 Advance();
                 return new BlockEntry(key.Text, Loc(key.Span), entries);
             }
             if (!At(TokenKind.Assign))
             {
-                Error(new TextSpan(key.Span.End, 0), $"expected '=' or '{{' after '{key.Text}'");
+                Expected(new TextSpan(key.Span.End, 0), $"'=' or '{{' after '{key.Text}'");
                 Skip();
                 return null;
             }
@@ -180,7 +175,7 @@ public sealed record Manifest(string Name, Location NameLocation)
                 }
                 else
                 {
-                    Error(Current.Span, "expected ',' or ']'");
+                    Expected(Current.Span, "',' or ']'");
                 }
             }
             else if (ReadString() is { } text)
@@ -193,7 +188,7 @@ public sealed record Manifest(string Name, Location NameLocation)
                 return null;
             }
             if (!At(TokenKind.Semicolon))
-                Error(new TextSpan(Previous.Span.End, 0), "expected ';'");
+                Expected(new TextSpan(Previous.Span.End, 0), "';'");
             else
                 Advance();
             return entry;
@@ -203,13 +198,13 @@ public sealed record Manifest(string Name, Location NameLocation)
         {
             if (!At(TokenKind.StringLiteral))
             {
-                Error(Current.Span, "expected a string, as in \"text\"");
+                Expected(Current.Span, "a string");
                 return null;
             }
             var token = Advance();
             if (token.Value is string text)
                 return text;
-            Error(token.Span, "a manifest's strings can't be interpolated");
+            diagnostics.Add(Catalog.InterpolatedManifestString(Loc(token.Span)));
             return "";
         }
 

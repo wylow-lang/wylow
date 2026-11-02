@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -13,7 +14,7 @@ public sealed partial class Binder
     void CheckVisible(Location use, Reach reach, string description)
     {
         if (!reach.Includes(use.Source))
-            Error(use, $"{description} is visible {reach.Describe()}");
+            Error(Catalog.NotVisible(use, description, reach.Level, reach.Source));
     }
 
     /// <summary>
@@ -26,10 +27,6 @@ public sealed partial class Binder
         var visible = candidates.Where(c => c.Symbol.Reach.Includes(use)).ToList();
         return visible.Count > 0 ? visible : candidates;
     }
-
-    /// <summary>How an error names a visibility that must be written.</summary>
-    static string Written(Visibility visibility) =>
-        visibility == Visibility.File ? "no visibility" : $"'{SyntaxFacts.VisibilityText(visibility)}'";
 
     /// <summary>
     /// A visible signature names only types visible as far (§6.2): a caller must be able to name
@@ -84,8 +81,8 @@ public sealed partial class Binder
     {
         if (NarrowestNamed(type) is { } named && named.Reach.Level < reach.Level && named.Reach.Includes(location.Source))
         {
-            var naming = named == type.Symbol && type.TypeArguments.Count == 0 ? $"'{type}'" : $"'{type}', which names '{named.Name}',";
-            Error(location, $"{what} is visible {reach.Describe()}, but its {role} {naming} is visible {named.Reach.Describe()}");
+            Error(Catalog.SignatureLessVisible(location, what, reach.Level, reach.Source, role, type.ToString(),
+                named == type.Symbol && type.TypeArguments.Count == 0 ? null : named.Name, named.Reach.Level, named.Reach.Source));
         }
     }
 

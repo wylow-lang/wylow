@@ -6,40 +6,40 @@ abstract class Weapon {
     int weight() { return 1; }
 }
 
-class Gun extends Weapon {               // error: 'Gun' must implement abstract method 'Weapon.fire()'
-    int ammo() { return 1; }            // error: must be marked 'override' to override 'Weapon.ammo()'
-    int weight() { return 2; }          // error: hides inherited method 'Weapon.weight()'
-    override int missing() { return 0; }    // error: does not override anything
+class Gun extends Weapon {               // error[WYL0133]: 'Gun' does not implement abstract method 'Weapon.fire()'
+    int ammo() { return 1; }            // error[WYL0120]: 'ammo()' must be marked 'override'
+    int weight() { return 2; }          // error[WYL0121]: 'weight()' hides inherited method 'Weapon.weight()'
+    override int missing() { return 0; }    // error[WYL0122]: 'missing()' overrides nothing
 }
 
 class Rifle extends Weapon {
     override void fire() { }
-    override long ammo() { return 1L; }     // error: must have the same parameter and return types as 'Weapon.ammo'
+    override long ammo() { return 1L; }     // error[WYL0125]: 'ammo' does not match the parameter and return types of 'Weapon.ammo'
 }
 
 final class Sealed {
     virtual void m() { }
 }
 
-class Breaks extends Sealed { }         // error: cannot extend final class 'Sealed'
+class Breaks extends Sealed { }         // error[WYL0116]: cannot extend final class 'Sealed'
 
 class Pistol extends Weapon {
     final override void fire() { }
 }
 
 class Derringer extends Pistol {
-    override void fire() { }            // error: cannot override 'Pistol.fire' because it is final
+    override void fire() { }            // error[WYL0123]: cannot override final method 'Pistol.fire'
 }
 
 class NotAbstract {
-    abstract void m();                  // error: 'NotAbstract' must be declared 'abstract'
+    abstract void m();                  // error[WYL0132]: 'NotAbstract' must be declared 'abstract'
 }
 
 struct Point { int x; }
 
-class FromStruct extends Point { }      // error: 'Point' is not a class and cannot be extended
+class FromStruct extends Point { }      // error[WYL0114]: cannot extend 'Point', which is not a class
 
-class A extends B { }                   // error: 'A' inherits from itself
+class A extends B { }                   // error[WYL0117]: 'A' inherits from itself
 class B extends A { }
 
 class Field {
@@ -47,7 +47,7 @@ class Field {
 }
 
 class FieldChild extends Field {
-    int x;                              // error: field 'x' is already defined in base class 'Field'
+    int x;                              // error[WYL0110]: field 'x' is already defined in base class 'Field'
 }
 
 class Secretive {
@@ -55,16 +55,16 @@ class Secretive {
 }
 
 class Generic {
-    virtual void m<T>(T x) { }          // error: generic methods cannot be 'virtual'
+    virtual void m<T>(T x) { }          // error[WYL0194]: generic methods cannot be 'virtual', 'override', or 'abstract'
 }
 
 void main() {
-    var w = new Weapon();               // error: cannot create an instance of abstract class 'Weapon'
-    var p = Point(1, 2);                // error: no constructor of 'Point' takes 2 arguments
-    var q = new Point();                // error: structs are created without 'new'
-    var g = Gun();                      // error: classes are created with 'new'
+    var w = new Weapon();               // error[WYL0130]: cannot create an instance of abstract class 'Weapon'
+    var p = Point(1, 2);                // error[WYL0233]: no constructor of 'Point' takes 2 arguments
+    var q = new Point();                // error[WYL0289]: struct 'Point' cannot be created with 'new'
+    var g = Gun();                      // error[WYL0287]: class 'Gun' cannot be created without 'new'
     var s = new Secretive();
     Point pt = Point(x: 1);
-    print(s == pt);                     // error: operator '==' cannot be applied to 'Secretive' and 'Point'
-    print(s == new Field());            // error: operator '==' cannot be applied to 'Secretive' and 'Field'
+    print(s == pt);                     // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Point'
+    print(s == new Field());            // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Field'
 }

@@ -12,16 +12,16 @@ void nothing() { }
 
 void main() {
     mut Bag bag = Bag();
-    nothing() is var value;                 // error: 'is' cannot test a 'void' value
-    if (bag.at(0) is int found) { }         // error: 'bag.at(0)' might refer to nothing; check it with 'is ref int name', or use '!'
+    nothing() is var value;                 // error[WYL0328]: 'is' cannot test a 'void' value
+    if (bag.at(0) is int found) { }         // error[WYL0412]: 'bag.at(0)' might refer to nothing
     ReadOnlySpan<byte> bytes = "a".bytes();
-    if (bytes is var copy) { }              // error: a 'ReadOnlySpan<byte>' cannot be matched against patterns
+    if (bytes is var copy) { }              // error[WYL0381]: cannot match a value of type 'ReadOnlySpan<byte>' against patterns
     mut int[2] a = [1, 2];
-    Span<int> view = switch (1) {           // error: a switch expression cannot produce a 'Span<int>', since the result would view any of its cases; use a switch statement
+    Span<int> view = switch (1) {           // error[WYL0326]: switch expression cannot produce a value of type 'Span<int>'
         case 1 -> a;
         default -> a;
     };
-    var reference = switch (1) {            // error: a switch expression cannot produce a reference; use a switch statement with a variable for each case
+    var reference = switch (1) {            // error[WYL0327]: switch expression cannot produce a reference
         case 1 -> bag.at(0);
         default -> bag.at(1);
     };

@@ -4,11 +4,11 @@
 import std::List;
 
 class Button {
-    fn(int) -> void onClick;                          // error: field 'onClick' of type 'fn(int) -> void' has no default value; give it an initializer or assign it in a constructor
+    fn(int) -> void onClick;                          // error[WYL0143]: field 'onClick' of type 'fn(int) -> void' has no default value
     mut fn() -> void stored = () -> {};
 
     void set(fn() -> void f) {
-        stored = f;                                 // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+        stored = f;                                 // error[WYL0271]: non-escaping parameter 'f' cannot be stored or returned
     }
 }
 
@@ -17,16 +17,16 @@ enum Event {
     None,
 }
 
-void wrongType(escaping int x) {                   // error: 'escaping' can only be declared on a parameter of function type, not 'int'
+void wrongType(escaping int x) {                   // error[WYL0270]: 'escaping' cannot be declared on a parameter of non-function type 'int'
 }
 
-void unknown(@Fast fn() -> void f) {                  // error: unknown annotation '@Fast'
+void unknown(@Fast fn() -> void f) {                  // error[WYL0433]: cannot find annotation '@Fast'
 }
 
 void keep(escaping fn() -> void f) {
 }
 
-void keep(fn() -> void f) {                          // error: function 'keep(fn() -> void)' is already defined as 'keep(escaping fn() -> void)'; overloads cannot differ only in which parameters are 'escaping'
+void keep(fn() -> void f) {                          // error[WYL0232]: function 'keep(fn() -> void)' is already defined
 }
 
 T identity<T>(T value) {
@@ -34,35 +34,35 @@ T identity<T>(T value) {
 }
 
 fn(int) -> int give(fn(int) -> int f) {
-    return f;                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    return f;                                       // error[WYL0271]: non-escaping parameter 'f' cannot be stored or returned
 }
 
 void check(bool flag, fn() -> void g) {
     fn(int) -> int inc = x -> x + 1;
     mut escaping fn(int) -> int dec = x -> x - 1;
-    mut escaping int number = 1;                       // error: 'escaping' can only be declared on a variable of function type, not 'int'
-    escaping var text = "a";                       // error: 'escaping' can only be declared on a variable of function type, not 'String'
-    ref escaping int alias = number;               // error: a 'ref' variable can't be declared 'escaping', since it refers to a place rather than holding a function
-    @CallerLocation ref int located = number;       // error: '@CallerLocation' can only be used on functions, methods, and constructors
-    (fn(int) -> int)? maybe = dec;                    // error: a variable of nullable function type must be declared 'escaping'; only a parameter can hold a nullable non-escaping function
-    escaping (fn(int) -> int)? nullable = inc;       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-    fn(int) -> int later;                             // error: a 'fn(int) -> int' variable must be initialized where it is declared, since it cannot be reassigned
+    mut escaping int number = 1;                       // error[WYL0270]: 'escaping' cannot be declared on a variable of non-function type 'int'
+    escaping var text = "a";                       // error[WYL0270]: 'escaping' cannot be declared on a variable of non-function type 'String'
+    ref escaping int alias = number;               // error[WYL0090]: 'ref' variable cannot be declared 'escaping'
+    @CallerLocation ref int located = number;       // error[WYL0432]: '@CallerLocation' can only be used on functions, methods, and constructors
+    (fn(int) -> int)? maybe = dec;                    // error[WYL0269]: variable of nullable function type must be declared 'escaping'
+    escaping (fn(int) -> int)? nullable = inc;       // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
+    fn(int) -> int later;                             // error[WYL0414]: variable of type 'fn(int) -> int' must be initialized where it is declared
 
-    inc = dec;                                      // error: 'inc' cannot be reassigned: a non-escaping variable keeps the function it was given; declare a new variable instead, or declare this one 'escaping'
-    g = () -> {};                                   // error: 'g' cannot be reassigned: a non-escaping parameter keeps the function it was given; declare a new variable instead, or declare this one 'escaping'
-    dec = inc;                                      // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+    inc = dec;                                      // error[WYL0268]: cannot reassign non-escaping variable 'inc'
+    g = () -> {};                                   // error[WYL0268]: cannot reassign non-escaping parameter 'g'
+    dec = inc;                                      // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
 
-    keep(g);                                        // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
-    var same = identity(inc);                       // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+    keep(g);                                        // error[WYL0271]: non-escaping parameter 'g' cannot be stored or returned
+    var same = identity(inc);                       // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
     var handlers = new List<fn() -> void>();
-    handlers.add(g);                                // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
-    var listed = [dec, inc];                        // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+    handlers.add(g);                                // error[WYL0271]: non-escaping parameter 'g' cannot be stored or returned
+    var listed = [dec, inc];                        // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
     (fn(int) -> int)?[] table = new (fn(int) -> int)?[2];
-    table[0] = inc;                                 // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-    var functions = new (fn(int) -> int)[2];          // error: 'fn(int) -> int' has no default value to fill a new array with; use 'new Array<fn(int) -> int>(length, value)'
-    escaping fn(int) -> int chosen = flag ? dec : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-    var maybeInc = flag ? inc : null;               // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
-    escaping fn(int) -> int lambda = flag ? x -> x : inc; // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+    table[0] = inc;                                 // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
+    var functions = new (fn(int) -> int)[2];          // error[WYL0078]: cannot fill a new array with default values of 'fn(int) -> int'
+    escaping fn(int) -> int chosen = flag ? dec : inc; // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
+    var maybeInc = flag ? inc : null;               // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
+    escaping fn(int) -> int lambda = flag ? x -> x : inc; // error[WYL0271]: non-escaping variable 'inc' cannot be stored or returned
 }
 
 class Base {
@@ -74,10 +74,10 @@ class Base {
 }
 
 class Derived extends Base {
-    override void on(fn() -> void f) {                // error: 'on' must have the same parameter and return types as 'Base.on' to override it; parameter 'f' is 'escaping' in 'Base.on' but not here
+    override void on(fn() -> void f) {                // error[WYL0125]: 'on' does not match the parameter and return types of 'Base.on'
     }
 
-    override void off(escaping fn() -> void f) {     // error: 'off' must have the same parameter and return types as 'Base.off' to override it; parameter 'f' is 'escaping' here but not in 'Base.off'
+    override void off(escaping fn() -> void f) {     // error[WYL0125]: 'off' does not match the parameter and return types of 'Base.off'
     }
 }
 
@@ -86,7 +86,7 @@ interface Listener {
 }
 
 class Quiet implements Listener {
-    void listen(fn() -> void f) {                     // error: 'Quiet.listen' must have the same parameter and return types as 'Listener.listen(escaping fn() -> void)' to implement it; parameter 'f' is 'escaping' in 'Listener.listen(escaping fn() -> void)' but not here
+    void listen(fn() -> void f) {                     // error[WYL0188]: 'Quiet.listen' does not match the parameter and return types of 'Listener.listen(escaping fn() -> void)'
     }
 }
 
@@ -94,7 +94,7 @@ class Events {
     void on(fn() -> void f) {
     }
 
-    void on(escaping fn() -> void f) {               // error: method 'on(escaping fn() -> void)' is already defined as 'on(fn() -> void)'; overloads cannot differ only in which parameters are 'escaping'
+    void on(escaping fn() -> void f) {               // error[WYL0232]: method 'on(escaping fn() -> void)' is already defined
     }
 }
 

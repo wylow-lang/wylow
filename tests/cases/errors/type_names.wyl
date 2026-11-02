@@ -6,15 +6,15 @@ T id<T>(T value) {
 
 struct Cell {
     int value;
-    mut ref void none() { }         // error: 'void' cannot be returned by 'ref'
+    mut ref void none() { }         // error[WYL0246]: 'void' cannot be returned by 'ref'
 }
 
 void main() {
-    List<void> numbers;                 // error: 'void' cannot be used here
+    List<void> numbers;                 // error[WYL0062]: 'void' cannot be used here
     unsafe {
-        int*? p = null;                 // error: 'int*?' is not needed: a pointer can already be null
+        int*? p = null;                 // error[WYL0066]: pointer type 'int*' cannot be nullable
     }
-    Result r;                           // error: 'Result' requires 2 type arguments
-    List l;                             // error: 'List' requires 1 type argument
-    print(id<int, int>(1));             // error: no overload of 'id' takes 2 type arguments
+    Result r;                           // error[WYL0200]: type arguments of 'Result': expected 2, found 0
+    List l;                             // error[WYL0200]: type arguments of 'List': expected 1, found 0
+    print(id<int, int>(1));             // error[WYL0234]: no overload of 'id' takes 2 type arguments
 }

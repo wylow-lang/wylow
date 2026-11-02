@@ -7,66 +7,66 @@ class Base {
 }
 
 class NoSuper extends Base {
-    NoSuper() { }                       // error: 'Base' has no parameterless constructor
+    NoSuper() { }                       // error[WYL0140]: constructor must start with 'super(...)'
 }
 
-class Implicit extends Base { }         // error: 'Base' has no parameterless constructor
+class Implicit extends Base { }         // error[WYL0140]: constructor must start with 'super(...)'
 
 class LateSuper extends Base {
-    LateSuper() {                       // error: 'Base' has no parameterless constructor
+    LateSuper() {                       // error[WYL0140]: constructor must start with 'super(...)'
         print(1);
-        super(1);                       // error: 'super(...)' must be the first statement of a constructor
+        super(1);                       // error[WYL0135]: 'super(...)' must be the first statement of a constructor
     }
 }
 
 class ThisInSuper extends Base {
     int field = 1;
     ThisInSuper() {
-        super(field);                   // error: arguments to 'super(...)' cannot use 'this'
+        super(field);                   // error[WYL0282]: instance field 'field' cannot be used here
     }
 }
 
 class NoBase {
     NoBase() {
-        super();                        // error: 'NoBase' has no base class
+        super();                        // error[WYL0139]: cannot call 'super(...)' in 'NoBase'
     }
 }
 
 class Chained extends Base {
     int field = 1;
     Chained(int x) { super(x); }
-    Chained(String s) {                 // error: 'Base' has no parameterless constructor
+    Chained(String s) {                 // error[WYL0140]: constructor must start with 'super(...)'
         print(s);
-        this(1);                        // error: 'this(...)' must be the first statement of a constructor
+        this(1);                        // error[WYL0137]: 'this(...)' must be the first statement of a constructor
     }
     Chained(bool b) {
         this(1);
-        super(1);                       // error: 'super(...)' must be the first statement of a constructor
+        super(1);                       // error[WYL0135]: 'super(...)' must be the first statement of a constructor
     }
     Chained(char c) {
-        this(field);                    // error: arguments to 'this(...)' cannot use 'this'
+        this(field);                    // error[WYL0282]: instance field 'field' cannot be used here
     }
     Chained(int x, int y) {
-        this("no", "match");            // error: no constructor of 'Chained' accepts (String, String)
+        this("no", "match");            // error[WYL0236]: no constructor of 'Chained' accepts (String, String)
     }
     Chained(in int x, Span<int> view) { super(x); }
     Chained(Span<int> view, int i) {
-        this(view[i], view);            // error: an argument to 'this(...)' for a reference or view parameter
+        this(view[i], view);            // error[WYL0142]: argument to 'this(...)' for a reference or view parameter must be a parameter, a field of one, or 'null'
     }
 }
 
 class Cycles {
     Cycles() {
-        this();                         // error: recursive constructor invocation
+        this();                         // error[WYL0141]: constructor 'Cycles()' calls itself through 'this(...)'
     }
     Cycles(int x) {
-        this(x, x);                     // error: recursive constructor invocation
+        this(x, x);                     // error[WYL0141]: constructor 'Cycles(int)' calls itself through 'this(...)'
     }
     Cycles(int x, int y) {
-        this(x, y, x);                  // error: recursive constructor invocation
+        this(x, y, x);                  // error[WYL0141]: constructor 'Cycles(int, int)' calls itself through 'this(...)'
     }
     Cycles(int x, int y, int z) {
-        this(x);                        // error: recursive constructor invocation
+        this(x);                        // error[WYL0141]: constructor 'Cycles(int, int, int)' calls itself through 'this(...)'
     }
     // Leads into the cycle without being on it.
     Cycles(String s) {
@@ -75,17 +75,17 @@ class Cycles {
 }
 
 void notConstructor() {
-    this(1);                            // error: 'this(...)' can only be used in a constructor
+    this(1);                            // error[WYL0138]: 'this(...)' can only be used in a constructor
 }
 
 struct ChainedStruct {
     int x;
     ChainedStruct(int x) { this.x = x; }
     ChainedStruct(bool b) {
-        this(x);                        // error: arguments to 'this(...)' cannot use 'this'
+        this(x);                        // error[WYL0282]: instance field 'x' cannot be used here
     }
     ChainedStruct(String s) {
-        super();                        // error: 'super(...)' can only be used in a class constructor
+        super();                        // error[WYL0136]: 'super(...)' can only be used in a class constructor
     }
 }
 
@@ -93,7 +93,7 @@ struct NoDefault {
     Item item;
     NoDefault(Item item) { this.item = item; }
     NoDefault(int x) {
-        this();                         // error: 'NoDefault' has no default value because field 'item' has type 'Item'
+        this();                         // error[WYL0102]: 'NoDefault' has no default value
     }
 }
 
@@ -106,18 +106,18 @@ class ViewDerived extends ViewBase {
         super(x, view);
     }
     ViewDerived(int x, Span<int> view) {
-        super(x + 1, view);             // error: an argument to 'super(...)' for a reference or view parameter
+        super(x + 1, view);             // error[WYL0142]: argument to 'super(...)' for a reference or view parameter must be a parameter, a field of one, or 'null'
     }
     ViewDerived(int x, int[] items) {
-        super(x, items);                // error: an argument to 'super(...)' for a reference or view parameter
+        super(x, items);                // error[WYL0142]: argument to 'super(...)' for a reference or view parameter must be a parameter, a field of one, or 'null'
     }
     ViewDerived(Span<int> view, int i) {
-        super(view[i], view);           // error: an argument to 'super(...)' for a reference or view parameter
+        super(view[i], view);           // error[WYL0142]: argument to 'super(...)' for a reference or view parameter must be a parameter, a field of one, or 'null'
     }
 }
 
 class Unassigned {
-    Item item;                          // error: field 'item' of type 'Item' has no default value
+    Item item;                          // error[WYL0143]: field 'item' of type 'Item' has no default value
 }
 
 struct Holder {
@@ -129,5 +129,5 @@ struct Holder {
 }
 
 void main() {
-    var h = Holder();                   // error: 'Holder' has no default value because field 'item' has type 'Item'
+    var h = Holder();                   // error[WYL0102]: 'Holder' has no default value
 }

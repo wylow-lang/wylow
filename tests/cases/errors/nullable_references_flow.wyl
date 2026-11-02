@@ -3,7 +3,7 @@
 import std::print;
 
 void bump(ref? int x) {
-    x++;                                // error: 'x' might refer to nothing here; check it with 'if (x != null)', or use '!'
+    x++;                                // error[WYL0412]: 'x' might refer to nothing
 }
 
 void run(fn() -> void f) {
@@ -14,12 +14,12 @@ void main() {
     mut int x = 1;
     ref? int r = x;
     ref? int maybe = null;
-    print(maybe + 1);                   // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
-    maybe = 5;                          // error: 'maybe' might refer to nothing here
+    print(maybe + 1);                   // error[WYL0412]: 'maybe' might refer to nothing
+    maybe = 5;                          // error[WYL0412]: 'maybe' might refer to nothing
     run(() -> {
-        maybe = 2;                      // error: 'maybe' might refer to nothing here; check it with 'if (maybe != null)', or use '!'
+        maybe = 2;                      // error[WYL0412]: 'maybe' might refer to nothing
     });
     if (!(r is ref int unbound)) {
-        print(unbound);                 // error: 'unbound' might not have been assigned
+        print(unbound);                 // error[WYL0394]: 'unbound' might not have been assigned
     }
 }

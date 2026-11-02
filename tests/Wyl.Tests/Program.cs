@@ -13,9 +13,9 @@ using Wyl.Harness;
 
 // Runs every tests/cases/**/*.wyl file, and every package directory there (one with a package.wylcfg,
 // spec 06-syntax.md §6.1) as one program. Expectations are comments in the file; in a package,
-// `// error:` may be in any of its files, the manifest too, and the others only in the file with main:
+// `// error[WYLnnnn]:` may be in any of its files, the manifest too, and the others only in the file with main:
 //   // output: <line>     expected stdout line (in order of appearance)
-//   // error: <text>      an error on this line whose message contains <text>
+//   // error[WYL0001]: <text>  an error on this line with this code and exactly this message
 //   // panic: <text>      the program panics with a message starting with <text>
 //   // panic-here: <text> the same, reported at this line
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
@@ -104,6 +104,7 @@ var results = files
     .Select(file => interpret ? TestCase.RunInterpreted(file, casesDirectory) : TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
 results.AddRange(IrSelfTests.Run().Concat(AnalysisSelfTests.Run()).Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Concat(InterpreterSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(CatalogSelfTests.Run(root).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(FuzzSelfTests.Run(casesDirectory)
     .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
     .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
@@ -230,13 +231,13 @@ static string FindRepositoryRoot()
 sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
-    List<string> Output, List<(string File, int Line, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
+    List<string> Output, List<(string File, int Line, string Code, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
     Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false);
 
 static partial class TestCase
 {
     // A line may hold several, as two errors reported at one location need.
-    [GeneratedRegex(@"//\s*(output|error|warning|panic|panic-here|mode|stack|in-place):(.*?)(?=//\s*(?:output|error|warning|panic|panic-here|mode|stack|in-place):|$)")]
+    [GeneratedRegex(@"//\s*(output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place):(.*?)(?=//\s*(?:output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place):|$)")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain, CompileOptions options)
@@ -267,10 +268,16 @@ static partial class TestCase
         {
             var value = match.Groups[2].Value;
             value = (value.StartsWith(' ') ? value[1..] : value).TrimEnd();
-            switch (match.Groups[1].Value)
+            var directive = match.Groups[1].Value;
+            if (directive.StartsWith("error[", StringComparison.Ordinal))
+            {
+                expectations.Errors.Add((Path.GetFullPath(file), i + 1, directive["error[".Length..^1], value));
+                return;
+            }
+            switch (directive)
             {
                 case "output": expectations.Output.Add(value); break;
-                case "error": expectations.Errors.Add((Path.GetFullPath(file), i + 1, value)); break;
+                case "error": throw new InvalidOperationException($"{file}:{i + 1}: an error marker carries its code: '// error[WYLnnnn]: <message>'");
                 case "warning": expectations.Warnings.Add(value); break;
                 case "panic": expectations = expectations with { Panic = value }; break;
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
@@ -405,22 +412,23 @@ static partial class TestCase
             .Select(line => $"line {line}: expected {expected.GetValueOrDefault(line)} {what}, got {counts.GetValueOrDefault(line)}");
     }
 
-    static string? CompareErrors(List<(string File, int Line, string Text)> expected, List<Diagnostic> actual)
+    static string? CompareErrors(List<(string File, int Line, string Code, string Text)> expected, List<Diagnostic> actual)
     {
-        var unmatched = new List<(string File, int Line, string Text)>(expected);
+        var unmatched = new List<(string File, int Line, string Code, string Text)>(expected);
         var problems = new List<string>();
         foreach (var diagnostic in actual)
         {
             var file = Path.GetFullPath(diagnostic.Location.Source.Path);
-            int index = unmatched.FindIndex(e => e.File == file && e.Line == diagnostic.Line && diagnostic.Message.Contains(e.Text, StringComparison.Ordinal));
+            int index = unmatched.FindIndex(e => e.File == file && e.Line == diagnostic.Line
+                && e.Code == diagnostic.Code && e.Text == diagnostic.Message);
             if (index >= 0)
                 unmatched.RemoveAt(index);
             else
-                problems.Add($"unexpected error: {diagnostic}");
+                problems.Add($"unexpected error: {diagnostic.Primary}");
         }
         bool files = expected.Select(e => e.File).Distinct().Count() > 1;
-        foreach (var (file, line, text) in unmatched)
-            problems.Add($"missing error on line {line}{(files ? $" of {Path.GetFileName(file)}" : "")}: {text}");
+        foreach (var (file, line, code, text) in unmatched)
+            problems.Add($"missing error on line {line}{(files ? $" of {Path.GetFileName(file)}" : "")}: [{code}] {text}");
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }
 }

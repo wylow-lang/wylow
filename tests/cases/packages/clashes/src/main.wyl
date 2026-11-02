@@ -10,11 +10,11 @@ void quiet(int x) { }
 void alone(int x) { }
 
 pub(module) enum Shape { Dot }
-pub(package) int corners(Shape shape) { return 0; }   // error: function 'corners' is visible only in package 'clashes', but its parameter type 'Shape' is visible only in the root module of 'clashes'
+pub(package) int corners(Shape shape) { return 0; }   // error[WYL0056]: parameter type 'Shape' is less visible than function 'corners'
 
 void main() {
-    secret();                       // error: function 'secret' is visible only in its file (other.wyl)
-    Hidden h;                       // error: 'Hidden' is visible only in its file (other.wyl)
-    var n = Hidden();               // error: 'Hidden' is visible only in its file (other.wyl)
-    var f = secretValue;            // error: function 'secretValue' is visible only in its file (other.wyl)
+    secret();                       // error[WYL0054]: function 'secret' is not visible here
+    Hidden h;                       // error[WYL0054]: type 'Hidden' is not visible here
+    var n = Hidden();               // error[WYL0054]: type 'Hidden' is not visible here
+    var f = secretValue;            // error[WYL0054]: function 'secretValue' is not visible here
 }

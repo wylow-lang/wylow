@@ -1,3 +1,4 @@
+using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
@@ -39,13 +40,13 @@ public sealed partial class Binder
             if (meant.Count != 1 || (names.All(n => n is null) && !Enumerable.Range(0, meant[0].Candidate.Symbol.Parameters.Count).Any(i => HasDefault(meant[0].Candidate, i))))
                 meant = [];
             if (typeArguments is not null && candidates.Any(c => Arrange(c, names, out _) is not null))
-                Error(location, $"no {description} takes {typeArguments.Count} type argument{(typeArguments.Count == 1 ? "" : "s")}");
+                Error(Catalog.NoOverloadForTypeArguments(location, description, typeArguments.Count));
             else if (meant is [var (_, failure)])
-                Error(failure.Argument is { } a ? arguments[a].NameLocation : location, failure.Message);
+                Error(failure.Report(failure.Argument is { } a ? arguments[a].NameLocation : location));
             else if (names.Any(n => n is not null))
-                Error(location, $"no {description} takes these named arguments");
+                Error(Catalog.NoOverloadForNames(location, description));
             else
-                Error(location, $"no {description} takes {arguments.Count} argument{(arguments.Count == 1 ? "" : "s")}");
+                Error(Catalog.NoOverloadForCount(location, description, arguments.Count));
             return null;
         }
 
@@ -54,7 +55,7 @@ public sealed partial class Binder
 
         var instantiated = new List<MethodReference>();
         var waiting = new List<(Inference Inference, MethodReference Partial)>();
-        string? inferenceError = null;
+        Func<Location, Diagnostic>? inferenceError = null;
         foreach (var candidate in arrangeable)
         {
             if (!candidate.Symbol.IsGeneric || typeArguments is not null)
@@ -73,14 +74,14 @@ public sealed partial class Binder
         }
         if (instantiated.Count == 0 && waiting.Count == 0)
         {
-            Error(location, inferenceError!);
+            Error(inferenceError!(location));
             return null;
         }
 
         var first = instantiated.FirstOrDefault() ?? waiting[0].Partial;
         if (arrangeable.Count == 1 && ExplainRefMismatch(first, ArgumentsOf(first)) is { } mismatch)
         {
-            Error(mismatch.Location, mismatch.Message);
+            Error(mismatch);
             return null;
         }
 
@@ -93,8 +94,7 @@ public sealed partial class Binder
             {
                 var (inference, partial) = waiting[0];
                 var name = partial.Symbol.Name;
-                Error(location, $"cannot infer type argument '{inference.Unresolved[0].Name}' of '{name}' from a lambda, since other overloads also take these arguments; "
-                    + $"specify it explicitly, as in '{name}<...>(...)'");
+                Error(Catalog.AmbiguousLambdaInference(location, inference.Unresolved[0].Name, name));
                 return null;
             }
             var (lastInference, lastPartial) = waiting[0];
@@ -119,7 +119,7 @@ public sealed partial class Binder
                 return null;
             }
             var types = string.Join(", ", arguments.Select(a => (a.Name is null ? "" : a.Name + ": ") + (a.IsRef ? "ref " : "") + DescribeArgument(a.Expression)));
-            Error(location, $"no {description} accepts ({types})");
+            Error(Catalog.NoOverloadAccepts(location, description, types));
             return null;
         }
 
@@ -130,7 +130,7 @@ public sealed partial class Binder
             // Overloads differ in their parameters, so only defaults can leave two non-generic ones equally good.
             if (best.Count(m => !m.Symbol.IsGeneric) > 1)
             {
-                Error(location, $"call is ambiguous between {string.Join(" and ", best.Where(m => !m.Symbol.IsGeneric).Select(m => $"'{m}'"))}");
+                Error(Ambiguous(location, best.Where(m => !m.Symbol.IsGeneric)));
                 return null;
             }
             var method = best.FirstOrDefault(m => !m.Symbol.IsGeneric) ?? best[0];
@@ -146,7 +146,7 @@ public sealed partial class Binder
         if (exact.Count > 0)
             return Choose(exact);
 
-        // Java's rule: pick the overload whose parameters all convert to every other candidate's parameters.
+        // The overload whose parameters all convert to every other candidate's parameters.
         bool IsMoreSpecific(MethodReference m, MethodReference n) =>
             Enumerable.Range(0, arguments.Count).All(a =>
                 Conversions.IsImplicit(m.ParameterType(Array.IndexOf(arranged[m.Symbol].ArgumentOf, a)), n.ParameterType(Array.IndexOf(arranged[n.Symbol].ArgumentOf, a))));
@@ -161,8 +161,14 @@ public sealed partial class Binder
         if (mostSpecific.Count == 1)
             return Choose(mostSpecific);
 
-        Error(location, $"call is ambiguous between {string.Join(" and ", applicable.Select(m => $"'{m}'"))}");
+        Error(Ambiguous(location, applicable));
         return null;
+    }
+
+    static Diagnostic Ambiguous(Location location, IEnumerable<MethodReference> candidates)
+    {
+        var list = candidates.ToList();
+        return Catalog.AmbiguousCall(location, list[0].Symbol.Name, list.Select(m => (m.Symbol.Declaration?.NameLocation, m.ToString())));
     }
 
     /// <summary>Whether every argument converts to its parameter. A parameter left out to its default takes none.</summary>
@@ -189,7 +195,7 @@ public sealed partial class Binder
     static bool IsNullForReference(Argument argument, WylType parameter) =>
         !argument.IsRef && argument.Expression.Type == WylType.Null && parameter.IsNullableReference;
 
-    (Location Location, string Message)? ExplainRefMismatch(MethodReference method, IReadOnlyList<Argument?> arguments)
+    Diagnostic? ExplainRefMismatch(MethodReference method, IReadOnlyList<Argument?> arguments)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -199,14 +205,14 @@ public sealed partial class Binder
             var parameter = method.ParameterType(i);
             bool isRefParameter = method.ParameterRefKind(i) == RefKind.Ref;
             if (isRefParameter && !argument.IsRef && !IsNullForReference(argument, parameter))
-                return (argument.Location, $"{what} must be passed with 'ref'");
+                return Catalog.RefMissing(argument.Location, what, method.Symbol.Name);
             if (!isRefParameter && argument.IsRef)
-                return (argument.Location, $"{what} must not be passed with 'ref'");
+                return Catalog.ArgumentNotRef(argument.Location, what, method.Symbol.Name);
             if (isRefParameter && argument.IsRef && !RefArgumentFits(argument.Expression, parameter))
             {
-                return (argument.Location, argument.Expression.Type is NullableReferenceType { Referenced: var referenced } && referenced == parameter
-                    ? MayReferToNothingMessage(argument.Expression)
-                    : $"a 'ref' argument must have exactly type '{parameter.Referred}', not '{argument.Expression.Type.Referred}'");
+                return argument.Expression.Type is NullableReferenceType { Referenced: var referenced } && referenced == parameter
+                    ? MayReferToNothing(argument.Location, argument.Expression)
+                    : Catalog.RefArgumentType(argument.Location, parameter.Referred.ToString(), argument.Expression.Type.Referred.ToString());
             }
         }
         return null;

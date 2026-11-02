@@ -230,7 +230,7 @@ static void WriteFinding(string directory, Finding finding, Mutant mutant, strin
     ];
     foreach (var line in finding.Detail.Split('\n').Take(20))
         header.Add("// " + (line.Length > 300 ? line[..300] : line).TrimEnd());
-    header.Add("// Turn this into a test in tests/cases/ with // output:, // error:, or // panic: comments, then delete it.");
+    header.Add("// Turn this into a test in tests/cases/ with // output:, // error[WYLnnnn]:, or // panic: comments, then delete it.");
     var path = Findings.Write(directory, finding.Key, finding.Signature, reduced, header);
     Console.WriteLine($"        written to {path}");
 }

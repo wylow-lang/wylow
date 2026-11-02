@@ -1,0 +1,51 @@
+// A constructor that chains gives the constructor it calls the place a 'ref' parameter names, not
+// a copy, even when the chain's arguments are computed by an arguments constructor.
+
+import std::print;
+
+struct Tag { }
+
+class Box {
+    int value;
+    int length;
+    int maybe;
+
+    Box(in int value, ref int counter, ref? int maybe, Span<int> items) {
+        this(Tag(), value, ref counter, ref maybe, items);
+    }
+
+    Box(Tag tag, in int value, ref int counter, ref? int maybe, Span<int> items) {
+        this.value = value;
+        this.length = items.length();
+        counter += 1;
+        if (maybe is ref int seen) {
+            seen += 2;
+            this.maybe = seen;
+        }
+    }
+}
+
+class Window extends Box {
+    int fixed;
+
+    Window(ref int counter, Span<int> items) {
+        this(Tag(), ref counter, items);
+    }
+
+    Window(Tag tag, ref int counter, Span<int> items) {
+        super(counter, ref counter, null, items);
+        fixed = 1;
+    }
+}
+
+void main() {
+    mut int[3] items = [1, 2, 3];
+    mut int counter = 4;
+    mut int maybe = 10;
+    var box = new Box(5, ref counter, ref maybe, items);
+    print($"{box.value} {box.length} {counter} {maybe} {box.maybe}");
+    // output: 5 3 5 12 12
+    var window = new Window(ref counter, items);
+    print($"{window.value} {window.length} {window.fixed} {counter} {window.maybe}");
+    // output: 5 3 1 6 0
+}

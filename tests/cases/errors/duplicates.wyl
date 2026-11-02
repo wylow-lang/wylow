@@ -1,22 +1,22 @@
-struct Pair<T, T> { }                   // error: duplicate type parameter 'T'
+struct Pair<T, T> { }                   // error[WYL0192]: type parameter 'T' is already defined
 
-void twoNames(int a, int a) { }         // error: duplicate parameter 'a'
+void twoNames(int a, int a) { }         // error[WYL0218]: parameter 'a' is already defined
 
 struct Pair2 {
     int x;
-    int x;                          // error: field 'x' is already defined
+    int x;                          // error[WYL0099]: field 'x' is already defined
     int y;
-    void y() { }                    // error: 'y' is already defined as a field
+    void y() { }                    // error[WYL0097]: 'y' is already defined as a field
     Pair2(int x) { this.x = x; y = 0; }
-    Pair2(int z) { x = z; y = 0; }  // error: constructor 'Pair2(int)' is already defined
+    Pair2(int z) { x = z; y = 0; }  // error[WYL0232]: constructor 'Pair2(int)' is already defined
 }
 
 enum Shape {
     Circle, Square;
 
-    void Circle() { }               // error: 'Circle' is already defined as a variant
+    void Circle() { }               // error[WYL0097]: 'Circle' is already defined as a variant
 }
 
-void Shape() { }                        // error: 'Shape' is already defined as an enum
+void Shape() { }                        // error[WYL0034]: 'Shape' is already defined in this module
 
-void main(int argc) { }                 // error: 'main' must not take parameters or type parameters
+void main(int argc) { }                 // error[WYL0059]: 'main' cannot take parameters or type parameters

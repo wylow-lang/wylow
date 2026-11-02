@@ -17,12 +17,12 @@ public sealed partial class Binder
     {
         if (type is NullableReferenceType reference)
         {
-            Error(location, $"'{type}' cannot be {what}; it can only be held by a '{FunctionSymbol.RefPrefix(reference.Kind).Trim()}?' variable or parameter");
+            Error(Catalog.NullableReferenceNotStorable(location, type.ToString(), what, FunctionSymbol.RefPrefix(reference.Kind).Trim()));
             return false;
         }
         if (!type.IsRefStruct)
             return true;
-        Error(location, $"'{type}' cannot be {what}; like a 'ref', it can only be a local variable or parameter");
+        Error(Catalog.ViewNotStorable(location, type.ToString(), what));
         return false;
     }
 
@@ -80,23 +80,24 @@ public sealed partial class Binder
         return new BoundCall(location, new MethodReference(method.Symbol, method.Owner, []), expression, []);
     }
 
-    string SpanConversionHint(BoundExpression expression, WylType to)
+    /// <summary>Why a value that a span could view does not convert to one, and the nullable variable it is inside, if that is why.</summary>
+    (ConversionHelp Help, string? Nullable) SpanConversionHelp(BoundExpression expression, WylType to)
     {
         if (!stdlib.IsSpan(to) || ViewedElement(expression.Type.Narrowed, to.Symbol == stdlib.ReadOnlySpan) != to.TypeArguments[0])
-            return "";
+            return (ConversionHelp.None, null);
         // A nullable value's local that can be assigned again would destroy what the span views.
         if (PlacePath.NullableValueRoot(expression) is { } root)
-            return $"; a span cannot view inside {DestroyedByNull(root)}";
+            return (ConversionHelp.SpanInsideNullable, root.Name);
         if (expression is BoundLocalAccess { Type.IsNullableValue: true, Local: var local } && !PlacePath.MayReferInto(local))
-            return $"; a span cannot view inside {DestroyedByNull(local)}";
+            return (ConversionHelp.SpanInsideNullable, local.Name);
         if (expression.Type.Narrowed is not FixedArrayType array || array.Element != to.TypeArguments[0])
-            return "";
-        return ClassifyPlace(expression).Kind switch
+            return (ConversionHelp.None, null);
+        return (ClassifyPlace(expression).Kind switch
         {
-            PlaceKind.Temporary => "; a span can only view an array stored in a variable or field",
-            PlaceKind.ReadOnly => "; the array is read-only, so view it with a 'ReadOnlySpan'",
-            _ => "",
-        };
+            PlaceKind.Temporary => ConversionHelp.SpanOfTemporaryArray,
+            PlaceKind.ReadOnly => ConversionHelp.SpanOfReadOnlyArray,
+            _ => ConversionHelp.None,
+        }, null);
     }
 
     /// <summary>
@@ -132,7 +133,7 @@ public sealed partial class Binder
         var location = s.Iterable.Location;
         if (ViewsTemporary(span))
         {
-            Error(location, "cannot loop over a temporary value's elements; store the value in a variable first");
+            Error(Catalog.LoopOverTemporaryView(location));
             span = new BoundErrorExpression(location);
         }
 

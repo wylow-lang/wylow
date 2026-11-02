@@ -19,46 +19,46 @@ int? number() {
 
 void use(int n, State s, Ship ship, ref? int r, State? maybe) {
     switch (n) {
-        case null -> print(1);                  // error: a 'int' is never null, so 'null' can never match it
+        case null -> print(1);                  // error[WYL0388]: pattern 'null' can never match a value of non-nullable type 'int'
         default -> print(2);
     }
-    switch (ship.state) {                       // error: cannot switch on a nullable 'State?' without a 'case null'
+    switch (ship.state) {                       // error[WYL0390]: cannot switch on a value of nullable type 'State?' without a 'case null'
         case Idle -> print(1);
         default -> print(2);
     }
-    switch (r) {                                // error: 'r' might refer to nothing
+    switch (r) {                                // error[WYL0412]: 'r' might refer to nothing
         case null -> print(1);
         default -> print(2);
     }
-    print(maybe is null);                       // error: 'null' is a pattern only in a 'case'
+    print(maybe is null);                       // error[WYL0329]: 'null' cannot be a pattern of 'is'
     switch (n) {
-        case 1, default -> print(1);            // error: only 'null' can be listed with 'default'
+        case 1, default -> print(1);            // error[WYL0389]: only 'null' can be listed with 'default'
     }
     switch (number()) {
-        case null, var v -> print(1);           // error: a case with several patterns cannot bind names
+        case null, var v -> print(1);           // error[WYL0382]: case with several patterns cannot bind names
         default -> print(2);
     }
     switch (number()) {
         case null -> print(1);
-        case null -> print(2);                  // error: this case can never be reached
+        case null -> print(2);                  // error[WYL0391]: case can never be reached
         default -> print(3);
     }
     switch (number()) {
         case null -> print(1);
         case var v -> print(v);
-        default -> print(3);                    // error: 'default' can never be reached
+        default -> print(3);                    // error[WYL0392]: 'default' can never be reached
     }
 
     // What no case handles may be null, or a value.
-    switch (number()) {                         // error: the switch does not handle every 'int?'; add a 'default' case
+    switch (number()) {                         // error[WYL0393]: switch does not handle every value of type 'int?'
         case null -> print(1);
         case 1 -> print(2);
     }
-    switch (maybe) {                            // error: the switch does not handle every 'State?': 'Chasing(_)' is not covered
+    switch (maybe) {                            // error[WYL0393]: switch does not handle every value of type 'State?'
         case null, Idle -> print(1);
         case Moved(_) -> print(2);
     }
-    switch (s) {                                // error: the switch does not handle every 'State': 'Moved(null)' is not covered
+    switch (s) {                                // error[WYL0393]: switch does not handle every value of type 'State'
         case Idle, Chasing -> print(1);
         case Moved(Vec3(var x, _, _)) -> print(x);
     }
@@ -66,7 +66,7 @@ void use(int n, State s, Ship ship, ref? int r, State? maybe) {
         case Idle, Chasing -> print(1);
         case Moved(Vec3(var x, _, _)) -> print(x);
         case Moved(null) -> print(2);
-        case Moved(_) -> print(3);              // error: this case can never be reached
+        case Moved(_) -> print(3);              // error[WYL0391]: case can never be reached
     }
 }
 

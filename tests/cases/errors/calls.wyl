@@ -14,15 +14,15 @@ abstract class Base {
 class Made extends Base {
     override void take() { }
     void call() {
-        super.stat();               // error: static method 'stat' must be called through the type: 'Base.stat(...)'
-        super.take();               // error: cannot call abstract method 'Base.take' through 'super'
-        super.nope();               // error: 'Base' has no method 'nope'
+        super.stat();               // error[WYL0303]: static method 'stat' cannot be called through a value
+        super.take();               // error[WYL0131]: cannot call abstract method 'Base.take' through 'super'
+        super.nope();               // error[WYL0300]: cannot find method 'nope' in 'Base'
     }
 }
 
 class Plain {
     void call() {
-        super.nope();               // error: 'Plain' has no base class
+        super.nope();               // error[WYL0111]: 'super' cannot be used in 'Plain'
     }
 }
 
@@ -33,20 +33,20 @@ struct Pair {
 }
 
 void globalCall() {
-    super.nope();                       // error: 'super' can only be used in instance methods and constructors of a class
+    super.nope();                       // error[WYL0112]: 'super' can only be used in instance methods and constructors of a class
 }
 
 void main() {
-    var shape = Shape();                // error: cannot create an instance of interface 'Shape'
-    var made = Made();                  // error: classes are created with 'new', as in 'new Made(...)'
-    var color = Color();                // error: enums are created from their variants, as in 'Color.Red'
-    print(Base.nope());                 // error: 'Base' has no method 'nope'
+    var shape = Shape();                // error[WYL0180]: cannot create an instance of interface 'Shape'
+    var made = Made();                  // error[WYL0287]: class 'Made' cannot be created without 'new'
+    var color = Color();                // error[WYL0288]: enum 'Color' cannot be constructed
+    print(Base.nope());                 // error[WYL0300]: cannot find method 'nope' in 'Base'
     mut int n = 1;
-    print(n.compareTo<int>(1));         // error: 'int.compareTo' takes no type arguments
-    print(n.compareTo(ref n));          // error: argument 1 must not be passed with 'ref'
+    print(n.compareTo<int>(1));         // error[WYL0198]: 'int.compareTo' takes no type arguments
+    print(n.compareTo(ref n));          // error[WYL0221]: argument 1 of 'int.compareTo' cannot be passed with 'ref'
     String? text = "abc";
-    print(text?.bytes().length());      // error: '?.' cannot produce a nullable 'ReadOnlySpan<byte>'
-    var bad = new int();                // error: 'int' cannot be created with 'new'
-    var pair = new Pair();              // error: structs are created without 'new', as in 'Pair(...)'
-    var shaded = new Color();           // error: enums are created from their variants without 'new', as in 'Color.Red'
+    print(text?.bytes().length());      // error[WYL0318]: '?.' cannot produce a nullable 'ReadOnlySpan<byte>'
+    var bad = new int();                // error[WYL0291]: 'int' cannot be created with 'new'
+    var pair = new Pair();              // error[WYL0289]: struct 'Pair' cannot be created with 'new'
+    var shaded = new Color();           // error[WYL0290]: enum 'Color' cannot be created with 'new'
 }

@@ -520,6 +520,13 @@ public sealed partial class CppEmitter
     string? PanicText(IrLoc? loc) => loc is null ? null : LocText(loc);
 
     /// <summary>
+    /// Whether a read of a whole place is a copied argument whose value the statement keeps: nesting
+    /// it prints <c>wyl::keep</c>, whose temporary lives to the end of the C++ statement.
+    /// </summary>
+    static bool KeptCopy(IrRead read, IrPlace place) =>
+        read.Ownership == IrOwnership.Copy && place is { IsDeref: false, Projections.Count: 0 } && place.Local.Type.MayOwnObjects;
+
+    /// <summary>
     /// A by-value argument. A copy of a temporary the statement keeps is passed through <c>wyl::keep</c>,
     /// which makes the temporary the caller's, released when the statement completes.
     /// </summary>
@@ -527,10 +534,10 @@ public sealed partial class CppEmitter
     {
         IrRefArgument reference => PlaceText(reference.Place),
         IrAddrArgument address => $"wyl::address_of({PlaceText(address.Place)})",
-        IrRead { Ownership: IrOwnership.Copy, Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when plan.Nested.ContainsKey(local) && local.Type.MayOwnObjects =>
-            plan.Nested[local] is IrLet { Value: IrUse { Operand: IrRead place } }
-                ? $"wyl::keep({CppType(local.Type)}({PlaceText(place.Place)}))"
-                : $"wyl::keep({NestedText(local)})",
+        IrRead read when KeptCopy(read, read.Place) && plan.Nested.ContainsKey(read.Place.Local) =>
+            plan.Nested[read.Place.Local] is IrLet { Value: IrUse { Operand: IrRead place } }
+                ? $"wyl::keep({CppType(read.Type)}({PlaceText(place.Place)}))"
+                : $"wyl::keep({NestedText(read.Place.Local)})",
         IrOperand operand => OperandText(operand),
         _ => throw new InvalidOperationException($"unexpected argument {argument.GetType().Name}"),
     };

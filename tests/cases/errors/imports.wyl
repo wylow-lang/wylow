@@ -2,31 +2,34 @@
 // Imports), and a name has one meaning in a file.
 
 import std::{List, print};
-import std::print;                  // error: 'print' is already imported; import one of them under another name with 'as'
-import std::Nothing;                // error: 'std' has no name 'Nothing'
-import nowhere::Thing;              // error: 'nowhere' is not a top-level module or a package
-import std::nowhere::Thing;         // error: 'std' has no module 'nowhere'
+import std::print;                  // error[WYL0040]: 'print' is already imported
+import std::Nothing;                // error[WYL0043]: cannot find 'Nothing' in the root module of 'std'
+import nowhere::Thing;              // error[WYL0038]: cannot find top-level module or package 'nowhere'
+import std::nowhere::Thing;         // error[WYL0039]: cannot find module 'nowhere' in the root module of 'std'
 import std::Weak as Shared;
-import std::memory::CycleStats as Box;          // error: 'Box' is already a name of this module; import it under another name with 'as'
+import std::memory::CycleStats as Box;          // error[WYL0044]: 'Box' is already a name of this module
 import std::memory;
-import std::memory::initializeDefault;          // error: 'initializeDefault' is visible only in package 'std'
+import std::memory::initializeDefault;          // error[WYL0054]: 'initializeDefault' is not visible here
+import Missing;                    // error[WYL0042]: cannot find 'Missing' as a top-level module, a package, or a name of the root module
 
 struct Box { }
-struct Result { }                   // error: 'Result' is one of the types the language is built on, which every file sees, so no module may declare it
-void Comparable() { }               // error: 'Comparable' is one of the types the language is built on
+struct Result { }                   // error[WYL0057]: 'Result' cannot be declared
+void Comparable() { }               // error[WYL0057]: 'Comparable' cannot be declared
 
 class Animal { }
+
+void collect(memory::collectCycles cycles) { }   // error[WYL0064]: 'memory::collectCycles' is a function, not a type
 
 void main() {
     List<int> numbers = new List<int>();
     Animal animal = new Animal();
     Shared<Animal> weak = animal;
     Result<int, String> fine = Result<int, String>.Ok(1);
-    Weak<Animal> unnamed = weak;    // error: unknown type 'Weak'
-    std::memory::collectCycles();    // error: module 'std' is not imported here; a path starts with a module the file imports or one of its own submodules, as in 'import std;'
-    int n = nowhere::count();       // error: 'nowhere' is not a module here
-    var stats = cycleStats();       // error: function 'cycleStats' is not defined
+    Weak<Animal> unnamed = weak;    // error[WYL0063]: cannot find type 'Weak'
+    std::memory::collectCycles();    // error[WYL0046]: module 'std' is not imported here
+    int n = nowhere::count();       // error[WYL0047]: cannot find module 'nowhere' in this scope
+    var stats = cycleStats();       // error[WYL0281]: cannot find function 'cycleStats' in this scope
     unsafe {
-        memory::initializeDefault<int>(memory::allocate<int>(1), 1);   // error: function 'initializeDefault' is visible only in package 'std'
+        memory::initializeDefault<int>(memory::allocate<int>(1), 1);   // error[WYL0054]: function 'initializeDefault' is not visible here
     }
 }

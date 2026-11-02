@@ -20,9 +20,6 @@ public sealed partial class Binder
         type.NonNull is FunctionType function ? (type.IsNullable ? function.Escaping.Nullable : function.Escaping) : type;
 
 
-    const string NonEscapingMutMessage =
-        "a non-escaping function cannot be 'mut', since it keeps the function it was given; declare it 'escaping' to reassign it";
-
     /// <summary>
     /// Only a parameter can hold a nullable non-escaping function: a variable would have to own the
     /// lambda it may hold, as a non-escaping variable does, while one that is null holds none.
@@ -33,9 +30,6 @@ public sealed partial class Binder
     /// function type is escaping, since a non-escaping one would refer to a function made only for it.
     /// </summary>
     static WylType? ChoiceTarget(WylType? type) => type is not null && type.IsNullableNonEscapingFunction ? EscapingForm(type) : type;
-
-    const string NullableVariableMessage =
-        "a variable of nullable function type must be declared 'escaping'; only a parameter can hold a nullable non-escaping function";
 
     /// <summary>
     /// The type of a parameter or local: a function type, nullable or not, is non-escaping unless
@@ -50,7 +44,7 @@ public sealed partial class Binder
             return type;
         if (!isParameter && type.IsNullable && type.NonNull.IsFunction)
         {
-            Error(syntax.Location, NullableVariableMessage);
+            Error(Catalog.NullableNonEscapingVariable(syntax.Location));
             return WylType.Error;
         }
         return NonEscaping(type);
@@ -69,7 +63,7 @@ public sealed partial class Binder
             type = EscapingForm(type);
         else if (type.IsNullableNonEscapingFunction)
         {
-            Error(s.Location, NullableVariableMessage);
+            Error(Catalog.NullableNonEscapingVariable(s.Location));
             return (WylType.Error, initializer);
         }
         return (type, Convert(initializer, type));
@@ -82,24 +76,19 @@ public sealed partial class Binder
             return false;
         if (type.NonNull.IsFunction || type == WylType.Error)
             return true;
-        Error(at, $"'escaping' can only be declared on a {what} of function type, not '{type}'");
+        Error(Catalog.EscapingOnNonFunction(at, what, type.ToString()));
         return false;
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
-    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Location, annotation.Name switch
-    {
-        "CallerLocation" => "'@CallerLocation' can only be used on functions, methods, and constructors",
-        "Acyclic" => "'@Acyclic' can only be used on classes",
-        "Repr" => "'@Repr' can only be used on enums",
-        "Pure" => "'@Pure' can only be used on extern functions of the standard library",
-        _ => $"unknown annotation '@{annotation.Name}'",
-    });
+    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure"
+        ? Catalog.MisplacedAnnotation(annotation.Location, annotation.Name)
+        : Catalog.UnknownAnnotation(annotation.Location, annotation.Name));
 
     void CheckNoArguments(AnnotationSyntax annotation)
     {
         if (annotation.Arguments.Count > 0)
-            Error(annotation.Location, $"'@{annotation.Name}' takes no arguments");
+            Error(Catalog.AnnotationArguments(annotation.Location, annotation.Name));
     }
 
     /// <summary>
@@ -117,28 +106,24 @@ public sealed partial class Binder
             .FirstOrDefault(o => o.Type.NonNull.IsNonEscapingFunction)
             ?? throw new InvalidOperationException("a non-escaping function that no variable makes so");
         var local = culprit.Local;
-        Error(culprit.Location, $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
-            + (local.IsParameter && local.Owner?.IsLambda == true
-                ? "declare the parameter 'escaping' in the lambda's function type, as in 'fn(escaping fn() -> void) -> void'"
-                : "declare it 'escaping'"));
+        Error(Catalog.NonEscapingStored(culprit.Location, local.Name, local.IsParameter, local.IsParameter && local.Owner?.IsLambda == true));
     }
 
     /// <summary>
-    /// For a duplicate overload, a hint when it differs from <paramref name="existing"/> only in
-    /// which parameters are 'escaping', since the two forms of a function type print alike.
+    /// For a duplicate overload, whether it differs from <paramref name="existing"/> only in which
+    /// parameters are 'escaping', which a message says, since the two forms of a function type print alike.
     /// </summary>
-    static string OverloadEscapingHint(FunctionSymbol function, FunctionSymbol existing) =>
+    static bool DiffersOnlyInEscaping(FunctionSymbol function, FunctionSymbol existing) =>
         function.Parameters.Zip(existing.Parameters).Any(p => p.First.Type != p.Second.Type
             && p.First.Type.NonNull is FunctionType first && p.Second.Type.NonNull is FunctionType second
-            && first.NonEscaping == second.NonEscaping)
-            ? $" as '{existing.Signature}'; overloads cannot differ only in which parameters are 'escaping'"
-            : "";
+            && first.NonEscaping == second.NonEscaping);
 
     /// <summary>
-    /// For signatures that must match, a hint naming a parameter that is 'escaping' in only one of
-    /// them, since the two forms of a function type print alike.
+    /// For signatures that must match, a parameter that is 'escaping' in only one of them, and
+    /// whether in <paramref name="method"/>, which a message names, since the two forms of a function
+    /// type print alike.
     /// </summary>
-    static string EscapingDifference(MethodReference method, MethodReference other, string otherName)
+    static EscapingDifference? FindEscapingDifference(MethodReference method, MethodReference other)
     {
         for (int i = 0; i < method.Symbol.Parameters.Count; i++)
         {
@@ -146,13 +131,10 @@ public sealed partial class Binder
             if (mine != theirs && mine.NonNull is FunctionType myFunction && theirs.NonNull is FunctionType theirFunction
                 && mine.IsNullable == theirs.IsNullable && myFunction.NonEscaping == theirFunction.NonEscaping)
             {
-                var name = method.Symbol.Parameters[i].Name;
-                return mine.NonNull.IsEscaping
-                    ? $"; parameter '{name}' is 'escaping' here but not in {otherName}"
-                    : $"; parameter '{name}' is 'escaping' in {otherName} but not here";
+                return new EscapingDifference(method.Symbol.Parameters[i].Name, mine.NonNull.IsEscaping);
             }
         }
-        return "";
+        return null;
     }
 
     /// <summary>Whether a value of type <paramref name="from"/> fails to convert only because it is non-escaping.</summary>
@@ -202,28 +184,28 @@ public sealed partial class Binder
             var (locals, self) = BoundTree.Captures(lambda);
             foreach (var use in locals)
             {
-                if (CaptureProblem(use.Local) is { } problem && reported.Add(use.Local))
-                    Error(use.Location, $"an escaping lambda cannot capture '{use.Local.Name}', {problem}");
+                if (FindCaptureProblem(use.Local) is var (problem, detail) && reported.Add(use.Local))
+                    Error(Catalog.EscapingCapture(use.Location, use.Local.Name, problem, use.Local.IsParameter, detail));
             }
             if (self is { Type.IsReference: false } && !reportedThis)
             {
                 reportedThis = true;
-                Error(self.Location, "an escaping lambda cannot capture 'this' in a struct's method or constructor, since it is a reference to the struct; copy what the lambda needs to a local first");
+                Error(Catalog.EscapingCaptureOfStructThis(self.Location));
             }
         }
     }
 
-    static string? CaptureProblem(LocalSymbol local)
+    /// <summary>Why an escaping lambda cannot capture a local, with the keyword or type that makes it so.</summary>
+    static (CaptureProblem Problem, string Detail)? FindCaptureProblem(LocalSymbol local)
     {
-        var what = local.IsParameter ? "parameter" : "variable";
         if (local.RefKind != RefKind.None)
-            return $"which is {WithArticle(FunctionSymbol.RefPrefix(local.RefKind).Trim())} {what}; copy its value to a local first";
+            return (CaptureProblem.Reference, FunctionSymbol.RefPrefix(local.RefKind).Trim());
         if (local.Type.IsRefStruct)
-            return $"a '{local.Type}' that may not outlive what it views";
+            return (CaptureProblem.View, local.Type.ToString());
         if (local.Type.NonNull.IsNonEscapingFunction)
-            return $"which is a non-escaping {what}; declare it 'escaping'";
+            return (CaptureProblem.NonEscaping, "");
         if (local.IsMutable)
-            return "which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'";
+            return (CaptureProblem.Mutable, "");
         return null;
     }
 }

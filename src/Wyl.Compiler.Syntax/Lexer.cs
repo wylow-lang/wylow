@@ -126,7 +126,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     char Current => Peek(0);
     char Peek(int offset) => position + offset < text.Length ? text[position + offset] : '\0';
 
-    void Error(TextSpan span, string message) => diagnostics.Error(new Location(source, span), message);
+    Location At(TextSpan span) => new(source, span);
 
     Token Make(TokenKind kind, int start, object? value = null) =>
         new(kind, TextSpan.FromBounds(start, position), text[start..position], value);
@@ -149,7 +149,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                 int end = text.IndexOf("*/", position + 2, StringComparison.Ordinal);
                 if (end < 0)
                 {
-                    Error(new TextSpan(position, 2), "unterminated block comment");
+                    diagnostics.Add(Catalog.UnclosedBlockComment(At(new TextSpan(position, 2))));
                     position = text.Length;
                 }
                 else
@@ -195,7 +195,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         }
 
         position++;
-        Error(new TextSpan(start, 1), $"unexpected character '{c}'");
+        diagnostics.Add(Catalog.UnexpectedCharacter(At(new TextSpan(start, 1)), c.ToString()));
         return null;
     }
 
@@ -259,7 +259,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         var span = TextSpan.FromBounds(start, position);
 
         if (raw.StartsWith('_') || raw.EndsWith('_') || raw.Contains("_.") || raw.Contains("._"))
-            Error(span, "misplaced '_' in number literal");
+            diagnostics.Add(Catalog.MisplacedDigitSeparator(At(span)));
 
         var integerSuffix = IntegerSuffix.None;
         bool isDouble = false;
@@ -284,13 +284,13 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                 isDouble = true;
                 break;
             default:
-                Error(span, $"invalid suffix '{suffix}' on number literal");
+                diagnostics.Add(Catalog.UnknownNumberSuffix(At(span), suffix));
                 break;
         }
 
         if (digits.Length == 0)
         {
-            Error(span, "number literal has no digits");
+            diagnostics.Add(Catalog.NumberWithoutDigits(At(span)));
             return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(0, integerSuffix));
         }
 
@@ -301,20 +301,20 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             {
                 value = double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
                 if (double.IsInfinity(value))
-                    Error(span, "double literal is out of range");
+                    diagnostics.Add(Catalog.FloatLiteralTooLarge(At(span), isDouble: true));
             }
             else
             {
                 float f = float.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
                 if (float.IsInfinity(f))
-                    Error(span, "float literal is out of range; add a 'd' suffix to make it a 'double'");
+                    diagnostics.Add(Catalog.FloatLiteralTooLarge(At(span), isDouble: false));
                 value = f;
             }
             return Make(TokenKind.FloatLiteral, start, new FloatLiteralValue(value, isDouble));
         }
 
         if (!TryParseInteger(digits, radix, out ulong integer))
-            Error(span, "integer literal is too large");
+            diagnostics.Add(Catalog.IntegerLiteralTooLarge(At(span)));
         return Make(TokenKind.IntLiteral, start, new IntegerLiteralValue(integer, integerSuffix));
     }
 
@@ -354,7 +354,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         {
             if (AtLineEnd)
             {
-                Error(TextSpan.FromBounds(start, position), "unterminated string literal");
+                diagnostics.Add(Catalog.UnclosedStringLiteral(At(TextSpan.FromBounds(start, position))));
                 break;
             }
             if (Current == '"')
@@ -375,7 +375,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             }
             else if (interpolated && Current == '}')
             {
-                Error(new TextSpan(position, 1), "a '}' in an interpolated string is written '}}'");
+                diagnostics.Add(Catalog.UnescapedCloseBrace(At(new TextSpan(position, 1))));
                 position++;
             }
             else if (LexCharacter() is { } character)
@@ -432,7 +432,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                     position++;
                 if (conditional)
                 {
-                    Error(token.Span, "a conditional expression in an interpolated string must be parenthesized, since ':' starts a format specifier");
+                    diagnostics.Add(Catalog.UnparenthesizedConditional(At(token.Span)));
                     if (Current == '}')
                         position++;
                     return null;
@@ -459,7 +459,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         bool reported = false;
         if (Current == '\'')
         {
-            Error(TextSpan.FromBounds(start, position + 1), "a character literal must hold a character");
+            diagnostics.Add(Catalog.EmptyCharacterLiteral(At(TextSpan.FromBounds(start, position + 1))));
             reported = true;
         }
         else if (!AtLineEnd)
@@ -481,14 +481,14 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             {
                 // Without a closing quote, the rest of the line is more likely code than characters.
                 position = afterCharacter;
-                Error(TextSpan.FromBounds(start, position), "unterminated character literal");
+                diagnostics.Add(Catalog.UnclosedCharacterLiteral(At(TextSpan.FromBounds(start, position))));
             }
             else
             {
                 position++;
                 // The rest of a malformed escape isn't another character.
                 if (!reported)
-                    Error(TextSpan.FromBounds(start, position), "a character literal holds exactly one character; use a string for more");
+                    diagnostics.Add(Catalog.CharacterLiteralTooLong(At(TextSpan.FromBounds(start, position))));
             }
         }
         return Make(TokenKind.CharLiteral, start, value ?? new Rune(0));
@@ -523,7 +523,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         };
         position += 2;
         if (escaped is null)
-            Error(new TextSpan(start, 2), $"unknown escape sequence '\\{text[start + 1]}'");
+            diagnostics.Add(Catalog.UnknownEscape(At(new TextSpan(start, 2)), text.Substring(start, 2)));
         return escaped is { } c ? new Rune(c) : null;
     }
 
@@ -543,14 +543,14 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         int digits = position - digitsStart;
         if (!braced || Current != '}' || digits is < 1 or > 6)
         {
-            Error(TextSpan.FromBounds(start, position), "'\\u' must be followed by 1 to 6 hex digits in braces, as in '\\u{1F600}'");
+            diagnostics.Add(Catalog.MalformedUnicodeEscape(At(TextSpan.FromBounds(start, position))));
             return null;
         }
         position++;
         int value = int.Parse(text.AsSpan(digitsStart, digits), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         if (!Rune.IsValid(value))
         {
-            Error(TextSpan.FromBounds(start, position), $"'\\u{{{text[digitsStart..(digitsStart + digits)]}}}' is not a Unicode scalar value");
+            diagnostics.Add(Catalog.NotUnicodeScalar(At(TextSpan.FromBounds(start, position)), text[start..position]));
             return null;
         }
         return new Rune(value);

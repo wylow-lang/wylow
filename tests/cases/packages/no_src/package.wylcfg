@@ -1,1 +1,1 @@
-name = "no_src";                        // error: the package's sources go in 'src/', which is missing
+name = "no_src";                        // error[WYL0019]: package has no 'src/' directory
