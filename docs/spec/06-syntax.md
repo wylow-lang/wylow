@@ -335,7 +335,7 @@ Classes are always created with `new`, and structs never are. The order of const
 
 | Mode | Meaning | Call site |
 |---|---|---|
-| `T x` | By value (structs are copied) | `f(x)` |
+| `T x` | By value (structs are copied, unique ones moved) | `f(x)` |
 | `ref T x` | Mutable reference | `f(ref x)`; the `ref` keyword is **required** |
 | `in T x` | Read-only reference (no copy, no mutation) | `f(x)` |
 
@@ -347,7 +347,10 @@ applyDamage(ref enemy, info);
 
 `ref` and `in` parameters follow the reference rules in
 [03-memory-model.md](03-memory-model.md#33-references). `in` is intended for large read-only structs
-such as matrices. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
+such as matrices. For a unique struct ([02-types.md](02-types.md#unique-structs)) the three modes
+are Swift's `consuming`, `borrowing`, and `inout`: a by-value parameter takes the value over, and
+the caller can't use what it passed ([03-memory-model.md](03-memory-model.md#moves)), while `in` and
+`ref` leave it with the caller. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error. So is a function-typed parameter, nullable or not, since a
 function is already passed without copying.
 
@@ -700,6 +703,9 @@ be reassigned if it is `mut`.
   Inside the lambda, the copies are read-only. A for-each or range loop's variable is a new
   variable in each iteration, so it can be captured, but the `mut` counter of a
   `for (mut int i = 0; ...; i++)` loop can't; copy it to a local in the body.
+- An escaping lambda **moves** a unique local or by-value parameter it uses
+  ([03-memory-model.md](03-memory-model.md#moves)), which can't be used after the lambda is made;
+  inside the lambda it is read-only, like any capture. A non-escaping lambda refers to it in place.
 - An escaping lambda can't capture a `ref` or `in` local or parameter, a span or other
   `ref struct`, a non-escaping function, or `this` in a struct's method or constructor (copy what it
   needs to a local first). A captured class reference, including `this`, keeps its object alive.
@@ -1055,6 +1061,36 @@ while (node is Some(var n)) { node = n.next; }
 - Binding names in an `is` stores to existing locals, left to right, which releases their old
   values. Every bound value is copied out of the matched value before any of those releases, since a
   destructor they run may change it.
+
+#### Reference bindings
+
+A field pattern may bind a reference to the field instead of a copy: `in var name` (read-only) or
+`ref var name` (mutable), or with a type, `in Vec3 name`. A field of a unique type
+([02-types.md](02-types.md#unique-structs)) can only be bound this way, since a binding by value
+would copy it:
+
+```java
+switch (job) {
+    case Mix(in var buffer, var gain) -> mixer.play(buffer, gain);   // 'buffer' refers into 'job'
+    case Stop -> mixer.stop();
+}
+```
+
+- A reference binding refers into the matched value, so the matched value must be a place that
+  stays put while the binding is in scope: a local or parameter, or a field or element path rooted
+  at one, that nothing in the binding's scope assigns, including a lambda that may run there. A
+  value in an object, which any call might replace, is moved or copied into a local first. Assigning
+  an enum a new variant while a binding refers into its old one would leave the binding pointing
+  at another variant's fields, so this rule is what makes it safe; it is the rule for references
+  into nullable values ([02-types.md](02-types.md#nullable-value-types)).
+- `ref` needs a mutable place, as passing by `ref` does; a variant's fields can't be changed in
+  place (§2.8), so a variant field is bound with `in` only, and `ref` binds a struct pattern's field.
+- They are bound in `case` and after `is`, like other names, and are second-class references
+  ([03-memory-model.md](03-memory-model.md#second-class-values)).
+- Moving a unique field out of the matched value with a pattern is not supported; use
+  `std::replace` on a struct field, or match a local and move it whole.
+
+> Not implemented yet.
 
 ### String interpolation
 

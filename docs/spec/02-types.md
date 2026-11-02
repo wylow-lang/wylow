@@ -314,7 +314,8 @@ mut var target = enemies.first();
     the place can be changed, since it had to be mutable to be referred to;
   - non-escaping function parameters and variables, which can't be reassigned (§6.7);
   - struct fields and variant fields, which follow their value;
-  - pattern bindings, which are copies; copy one to a `mut` variable to change it.
+  - pattern bindings, which are copies (or `in` and `ref` references, which refer to their place);
+    copy one to a `mut` variable to change it.
 
   A `ref struct` variable may be `mut`, which allows calling its `mut` methods, but it
   still can't be reassigned ([03-memory-model.md](03-memory-model.md#spans)).
@@ -350,6 +351,9 @@ enum AiState {
   on `in` parameters.
 - Enums may be generic (`enum Reply<T> { Pending, Ready(T value), Failed(String reason) }`), and may implement interfaces for
   use as generic bounds, as structs can (§2.12).
+- An enum with a variant field of a unique type is declared `unique enum`, and is moved rather
+  than copied (§2.9, Unique structs). A generic enum whose fields' types involve a type parameter
+  is unique when a type argument makes one of them unique, as for structs.
 - A variant's fields can only be read with a pattern ([06-syntax.md](06-syntax.md#patterns)).
   `state.target` is an error.
 
@@ -434,14 +438,78 @@ struct Transform {
 ```
 
 - Stored inline: on the stack, inside other structs, inside arrays, inside classes.
-- **Always copied** on assignment and when passed by value. A copy is a field-by-field copy.
-- **No destructors, no copy constructors, no move semantics.** Resource ownership belongs to classes.
+- **Copied** on assignment and when passed by value. A copy is a field-by-field copy. A
+  `unique struct` (below) is moved instead, and can't be copied.
+- **No destructors, no copy constructors.** Resource ownership belongs to classes.
 - No inheritance. Structs may implement interfaces, but only for use as generic bounds (§2.12).
 
 > ⚠️ **Struct copies are shallow.** If a struct contains a class reference (a `List`, any class),
 > the copy refers to the *same* object. Mutating the list through one copy is visible through the
 > other. A `String` copy shares its counted bytes, which is unobservable because a string never
 > changes. Use `.clone()` when a deep copy is wanted.
+
+### Unique structs
+
+A `unique struct` can't be copied, only moved, so each value has exactly one owner:
+
+```java
+unique struct SampleBuffer {
+    pub Vec<float> samples;            // a unique growable array (planned, see below)
+    pub int rate;
+}
+
+SampleBuffer take = record(mic);
+SampleBuffer kept = take;              // moves: 'take' can't be used after this
+mixer.queue(kept);                     // a by-value parameter moves too
+print(kept.rate);                      // error: 'kept' is used after it is moved
+```
+
+- Every place a struct would be copied moves a unique one instead: initializing or assigning a
+  variable, passing a by-value argument, returning, storing into a field or element, and an
+  escaping lambda's capture ([03-memory-model.md](03-memory-model.md#moves)). Using a value after it
+  is moved is a compile error. `in` and `ref` parameters, `in` and `ref` variables, and method calls
+  refer to it in place, as for any struct, and never move it.
+- **Uniqueness is the point:** since no copy can exist, the language knows that nothing else
+  refers to what the value holds. That is what lets a value move to another thread
+  ([05-concurrency.md](05-concurrency.md#52-sendable-types)), and it makes a big struct's cost visible
+  in the source: a copy is an error, not something the optimizer may or may not remove.
+- A struct with a field of a unique type must itself be declared `unique`, and so must an enum with
+  a variant field of one (`unique enum`), so whether a type copies is read where it is declared.
+  A fixed array `T[N]` and a nullable `T?` of a unique `T` are unique, and so is a generic struct
+  or enum given a type argument that makes one of its fields unique: `Pair<SampleBuffer, int>`.
+  Classes are never unique: an object is shared by reference counting.
+- A unique type doesn't satisfy `Copyable` (§2.13), so generic code copies a `T` only where its
+  bound says it may.
+- Like any struct, a unique struct has no destructor: releasing it releases its fields. To own a
+  resource or heap memory, it holds a class object in a field that it never hands out.
+- To copy one on purpose, give it a method that makes the copy, conventionally `clone()`.
+
+> *Considered, not decided:* destructors on unique structs, for resources such as file or device
+> handles without a heap object. They need a runtime mark on a value in use, so that overwriting or
+> destroying it while a method runs on it panics (a value has no reference count to keep it alive),
+> exact rules for when a moved-from or partly moved value is destroyed, and a way to end a value
+> without its destructor (Swift's `discard`). Adding them later changes no existing program.
+
+> The standard library's growable array that is a unique value (`Vec<T>` above) is designed with
+> the standard library, as is whether it replaces `List<T>`.
+
+> Not implemented yet: unique structs and enums, `Copyable`, and moves.
+
+### Where copies happen
+
+Struct copies are cheap for small structs and the optimizer removes many, but nothing promises
+that. A copy happens wherever a value is:
+
+- assigned or used to initialize a variable: `var t = body.transform;`;
+- passed to a by-value parameter, or returned;
+- read by value out of a container: `Particle p = particles[i];`, `list.first()`;
+- the variable of a for-each loop without `ref` or `in`: `for (Particle p : particles)`;
+- captured by an escaping lambda.
+
+To avoid one, refer to the value instead: an `in` parameter for a large argument
+(`float det(in Mat4 m)`), `in` or `ref` locals (`ref Transform t = body.transform;`), and
+`for (in Particle p : particles)` or `for (ref Particle p : particles)`. Calling a method on a
+place never copies it. To make every copy of a type an error, declare it `unique`.
 
 ### Layout
 
@@ -852,9 +920,11 @@ type parameters, as in `T extends Comparable<T>`.
 - A nullable type such as `Player?` does not satisfy a bound, since its methods could not be called
   on null.
 - A bound does not make `T` convert to the interface (`T` might be a struct).
-- Two standard library interfaces are satisfied by built-in types without implementing them:
+- Three standard library interfaces are satisfied by built-in types without implementing them:
   primitives and `String` are `Printable` ([06-syntax.md](06-syntax.md#string-interpolation)),
   and the numbers, `char`, and `String` are `Comparable` of themselves.
+- `Copyable` has no methods, and nothing implements it by declaring so: every type satisfies it
+  except unique types (§2.9) and type parameters that aren't bounded by it.
 
 ```java
 interface Comparable<T> {
@@ -875,9 +945,21 @@ and NaN is unordered and unequal even to itself.
 
 ### Unbounded type parameters
 
-Without bounds, a type parameter `T` supports only what every type supports: declaring, copying,
+Without bounds, a type parameter `T` supports only what every type supports: declaring, moving,
 passing (including by `ref`/`in`), and returning values. In particular:
 
+- **`T` may be a unique type (§2.9), so it can't be copied** unless it is bounded by `Copyable`.
+  A generic body is checked against that when it is declared, so a container written once works
+  for unique elements without remembering to allow them. Moves need no bound: `add(T value)`
+  stores its argument, `removeAt` returns the element it takes out, and the indexer returns
+  `ref T`. A method that copies, such as returning a copy of the first element, takes a
+  `Copyable` element type:
+
+  ```java
+  T? firstCopy<T extends Copyable>(this ReadOnlySpan<T> items) {
+      return items.length() == 0 ? null : items[0];
+  }
+  ```
 - `==` is not available on `T`, and no function overload accepts a `T` unless it is generic itself.
 - `T()` is an error: `T` has no default value (it could be a non-null class reference).
 - A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an

@@ -33,9 +33,9 @@ built-ins (value types, indexers, layout control).
 |---|---|
 | [01-safety.md](01-safety.md) | Undefined behavior policy, panics, `unsafe` |
 | [02-types.md](02-types.md) | Primitives, conversions, nullability, enums, structs, classes, arrays, generics |
-| [03-memory-model.md](03-memory-model.md) | Values, refcounted objects, references, spans |
+| [03-memory-model.md](03-memory-model.md) | Values and moves, refcounted objects, references, spans |
 | [04-errors.md](04-errors.md) | `Result<T, E>`, `try`, handling errors |
-| [05-concurrency.md](05-concurrency.md) | Thread confinement, sendable types, `shared class`, `shared fn`, statics, threads, channels, locks |
+| [05-concurrency.md](05-concurrency.md) | Thread confinement, sendable types, `shared class`, `shared fn`, statics, threads, channels, locks, isolated object graphs |
 | [06-syntax.md](06-syntax.md) | Packages, construction, parameters, indexers, lambdas, `defer`, control flow |
 | [07-interop.md](07-interop.md) | `extern`, `@Safe`, blittable types, C enums and flags, strings/buffers/callbacks, native shims |
 
@@ -82,14 +82,18 @@ Each is explained in detail in its chapter.
 14. **Unmarked means private to the file, not to the type.** Other types in the same file see a
    type's unmarked members; `pub(module)`, `pub(package)`, and `pub` widen it. There is no
    `protected`. See [06-syntax.md](06-syntax.md#62-visibility).
+15. **Generic code can't copy a `T` unless `T extends Copyable`**, since `T` may be a
+   `unique struct`, which is moved and never copied. Moving, passing by `ref` or `in`, and returning
+   need no bound. See [02-types.md](02-types.md#unbounded-type-parameters).
 
 ## Standard library
 
 The standard library is Wylow source in `src/Wyl.Compiler.Semantics/Stdlib/`, compiled with every program, so
 what it does can be read like any other Wylow code. The compiler knows its types only through narrow
 hooks: `Result` (for `try`), `Array` (for `T[]`), `Span` and `ReadOnlySpan` (for conversions and
-loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable` and `Comparable` (which
-built-in types satisfy without implementing them), and `String`, whose `extern struct`
+loops), `Spannable`, `ReadOnlySpannable`, `Borrowable`, `Printable`, `Comparable`, and `Copyable`
+(which built-in types satisfy without implementing them), `Isolated` (whose constructor and `open`
+switch the cycle collector's buffer), and `String`, whose `extern struct`
 declares the methods of the built-in type. It is the package `std`. A file imports what it uses
 from it, except the types the language is built on, which every file sees
 ([06-syntax.md](06-syntax.md#imports)), so a program may declare its own `List`, but not its own

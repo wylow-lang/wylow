@@ -13,8 +13,41 @@ by a collector that runs only when the program calls it.
 ## 3.1 Values
 
 Structs, primitives, and fixed arrays are stored inline and copied on assignment
-(see [02-types.md](02-types.md#29-structs)). They have no destructors. Destroying a struct means
-releasing any class references it contains.
+(see [02-types.md](02-types.md#29-structs)), except unique ones, which are moved. They have no
+destructors. Destroying a struct means releasing any class references it contains.
+
+### Moves
+
+A value of a unique type ([02-types.md](02-types.md#unique-structs)) is **moved** wherever another
+value would be copied: initializing or assigning a variable, a by-value argument, a `return`,
+storing into a field or element, and an escaping lambda's capture. Moving gives the destination the
+value's contents without copying anything; the source no longer holds a value.
+
+- **Only a whole local or by-value parameter can be moved.** A field, an element, or what a
+  reference refers to can't be moved out of, since that would leave a hole in its object or struct;
+  `std::replace(ref place, value)` stores a new value and returns the old one, and `std::swap`
+  exchanges two places.
+- **A moved variable can't be used** until it is assigned again, which the flow analysis checks:
+  on every path where it may have been moved, reading it, referring to it, calling a method on it,
+  or calling a non-escaping lambda that uses it is an error. A loop that moves a variable declared
+  outside it must assign it again before the next iteration.
+- **A moved variable is not released.** A unique local or parameter is released at the end of its
+  scope only if it holds a value then; where it was moved on some paths and not others, a hidden
+  flag decides. Assigning to a moved variable stores without releasing anything.
+- **A unique operand is used in place, never copied at its turn.** Where a copyable operand is copied
+  when it is evaluated ([Evaluation order](#evaluation-order-and-the-heap)), a unique one passed to
+  an `in` parameter, or used as a receiver, is referred to as a `ref` argument is: in
+  `mix(voice.buffer, nextBlock())`, `mix` sees what `nextBlock` left in `voice.buffer`. A unique
+  operand moved into a by-value parameter is moved at its turn.
+
+Moving costs a copy of the value's bytes and nothing else: no reference count changes, since
+the references it holds change owner rather than number.
+
+The compiler moves copyable values too where no program can tell (the last use of a local), but
+that is an optimization; for a unique value, the move is what the program means.
+
+> Not implemented yet: unique types, `std::replace`, and `std::swap`. The flow analysis already
+> checks moves of the temporaries lowering makes.
 
 ## 3.2 Objects (classes)
 
@@ -104,13 +137,19 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
   and unmap a chunk each time. A chunk with any live object stays mapped: objects never move, so a
   few long-lived objects scattered over many chunks keep all of those chunks. Choosing the fullest
   chunk only reduces this.
-- **Pools are per thread, with no synchronization.** An object is freed on the thread that made
-  it, since it never leaves that thread ([05-concurrency.md](05-concurrency.md#51-thread-confinement)).
-  `shared class` objects, which may be freed on any thread, cannot use these pools.
+- **Pools are per thread, with no synchronization on the usual path.** Most objects are freed on
+  the thread that made them. An object can move to another thread inside a unique value
+  ([05-concurrency.md](05-concurrency.md#51-thread-confinement)) and be freed there: freeing a slot
+  of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list, which
+  the owner takes back when its own free list runs out (mimalloc's design). Every free compares
+  the chunk's owner with the current thread. A thread that ends leaves its chunks with live
+  objects to be adopted by the threads that free them.
+  `shared class` objects, which may be freed on any thread at any time, use the global heap.
 - Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
   after free.
 
-> Implemented: everything above, except that the pools are global, since threads don't exist yet.
+> Implemented: everything above, except that the pools are global and have no remote free lists,
+> since threads don't exist yet.
 
 ### Stack allocation
 
@@ -209,7 +248,10 @@ calls it simply never frees its cycles, as in the past.
 | `memory::cycleStats()` | Counts since the last call: objects buffered, visited, and freed, as a `CycleStats` struct |
 
 The work done is the same on every run of the same build, on every machine: each thread collects
-only its own objects, and a budget counts objects, not time. `memory::cycleStats()` reports how long
+only its own objects, and a budget counts objects, not time. An isolated object graph
+([05-concurrency.md](05-concurrency.md#isolated-object-graphs)) has a buffer of its own, which
+is the thread's buffer while code runs inside the graph, so a call there collects only that graph,
+and the buffer moves with the graph to another thread. `memory::cycleStats()` reports how long
 visits take, to choose a budget. A call without a budget frees exactly the cycles that are
 unreachable, in any build. Which of them a budgeted call gets to may differ between builds (another
 compiler version, debug or release), since references the compiler keeps for itself, such as pins,
@@ -564,6 +606,8 @@ another.
 |---|---|
 | Array/span index | 1 compare; none with `getUnchecked(i)` in `unsafe` code |
 | Copy a class reference | refcount inc/dec (pass by `ref` to avoid) |
+| Move a unique value | a copy of its bytes; no refcount changes |
+| Free a pooled object | one compare of its chunk's owning thread; an atomic push if another thread owns it |
 | For-each over class elements | refcount inc/dec per element only if the loop may store over one |
 | Release a reference to a cyclic class, count stays above 0 | 1 branch; a buffer append the first time |
 | Copy a `Weak<T>` | weak block count inc/dec |

@@ -9,40 +9,61 @@ behave. Thread pools, parallel loops, and task systems are libraries built on th
 
 ## 5.1 Thread confinement
 
-**A normal class object belongs to the thread that created it**, and no other thread can ever
-reach it. This is what lets reference counts and borrow counters be non-atomic, and the pools
+**A normal class object belongs to one thread at a time**, and no other thread can reach it
+meanwhile. This is what lets reference counts and borrow counters be non-atomic, and the pools
 ([03-memory-model.md](03-memory-model.md#allocation)) and the cycle collector's buffer belong to
-one thread with no synchronization.
+one thread with no synchronization. An object changes threads only inside a unique value that
+moves: a whole isolated object graph (§5.6, Isolated object graphs), or what a unique value such
+as a growable array owns.
 
-A value reaches another thread only in three ways: captured by a function that thread runs
-(§5.4), sent over a channel (§5.6), or read from a static (§5.5). Each accepts only sendable values
-(§5.2). Code itself is harmless: a function running on another thread may call any function,
-create and release objects, and use any type, because the objects it makes stay on its thread and
-nothing it can reach is another thread's.
+A value reaches another thread only in a few ways: captured by a function that thread runs
+(§5.4), read from a static (§5.5), or moved through the standard library's threading types: sent
+over a channel, stored in a mutex, given to a new thread or returned from it (§5.6). Each accepts
+only sendable values (§5.2). Code itself is harmless: a function running on another thread may
+call any function, create and release objects, and use any type, because the objects it makes stay
+on its thread and nothing it can reach is another thread's.
 
 ## 5.2 Sendable types
 
-A type is **sendable** if a value of it can safely be used from several threads at once. The
-compiler infers this; it is never written.
+A type is **sendable** if no part of a value of it belongs to one thread, so the value may be used
+on another. The compiler infers this; it is never written.
 
 | Type | Sendable |
 |---|---|
 | Primitives | ✅ |
-| Structs, enums, and `T[N]` whose fields or elements are all sendable | ✅ |
+| Structs, enums, and `T[N]` whose fields or elements are all sendable, unique ones included | ✅ |
 | `String` (an immutable value whose copies share one block, counted atomically) | ✅ |
 | References to a `shared class` (§5.3), including the standard library's `Frozen<T>`, `Mutex<T>`, `Atomic<T>`, and channel ends | ✅ |
 | Escaping `shared` functions (§5.4) | ✅ |
 | `Weak<T>` where `T` is a shared class | ✅ |
+| `Isolated<T>`, for any `T` (§5.6), and the standard library's owning unique structs, such as its growable array, when their elements are sendable | ✅ |
 | References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>` of a normal class, and functions that aren't `shared` | ❌ |
 | Structs, enums, and fixed arrays with any field or element that isn't sendable | ❌ |
 
 Wherever a sendable type is required, using another is a compile error naming the field that
 isn't sendable.
 
-Nothing reachable through a sendable value can change except through a synchronization type: a
-copy of a struct is a separate value, a `String` never changes, and a shared object's fields
-aren't `mut`. So one fact covers both sending a value to a thread and sharing it between threads
-(Rust needs `Send` and `Sync` for the two).
+**Moving and sharing.** A sendable value reaches another thread in one of two ways, and which one
+follows from whether it can be copied ([02-types.md](02-types.md#unique-structs)):
+
+- A copyable sendable value is **shared**: its copies may be used by several threads at once.
+  Nothing reachable through it can change except through a synchronization type: a copy of a
+  struct is a separate value, a `String` never changes, and a shared object's fields aren't
+  `mut`. Statics, `shared class` fields, and what a `shared fn` captures are read by several
+  threads, so they must be sendable **and copyable**.
+- A unique sendable value is **moved**: it has one owner, so after it moves, only the receiving
+  thread has it. A unique value may change when it is only read, as a growable array's borrow
+  counter does, which is safe because only one thread holds it. Channels, mutexes, and a thread's
+  argument and result move values, so they take unique values too.
+
+Rust needs two inferred facts for these, `Send` and `Sync`; Wylow has one, and the difference is
+whether the type can be copied.
+
+The standard library's owning unique structs hold class objects, which no rule above makes
+sendable; the library's `unsafe` floor declares them sendable when their elements are, as Rust's
+`unsafe impl Send` does, since only their own code could let those objects out.
+
+> *Open:* how that declaration is written.
 
 ## 5.3 `shared class`
 
@@ -58,7 +79,7 @@ shared class Weapon {
 
 - Its reference count is **atomic**, and its objects use the global heap rather than a thread's
   pools, since the last reference may be released on any thread, which runs the destructor.
-- No field may be `mut`, and every field must be sendable. State that changes is held in a
+- No field may be `mut`, and every field must be sendable and copyable (§5.2). State that changes is held in a
   synchronization type (`Mutex<T>`, `Atomic<T>`, a channel end), which is itself a shared class.
 - Its base class, if any, and every class extending it are shared too.
 - Its objects are never cycle-collected ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)),
@@ -90,7 +111,7 @@ function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
 | | Escaping `shared fn` | Non-escaping `shared fn` |
 |---|---|---|
 | Runs | On another thread, possibly after the call that made it returns | On other threads while the function given it waits for them |
-| Captures | Copies, which must be sendable | Read-only: sendable locals and parameters, and `in` references and `ReadOnlySpan`s of sendable data |
+| Captures | Copies, which must be sendable and copyable | Read-only: sendable, copyable locals and parameters, and `in` references and `ReadOnlySpan`s of such data |
 | Is itself | A shared object with an atomic count, so the function value is sendable | A second-class value, like any non-escaping function |
 | Typical use | A thread's body, a task in a queue | A body that a parallel loop splits across threads |
 
@@ -105,10 +126,15 @@ function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
   hand one to a thread, and it takes on that duty, as in Rust's scoped threads.
 - A `shared fn` converts to the function type without `shared`, as an escaping one converts to the
   non-escaping form; nothing converts the other way.
+- **What a shared function returns is isolated when its arguments are sendable.** It can reach no
+  normal object that existed before the call: what it captures is sendable, so are its arguments,
+  and there are no `mut` statics. So every normal object reachable from its result was made during
+  the call, and once the call returns, nothing but the result refers to them. `Isolated<T>` and
+  `Thread.spawn` rely on this (§5.6).
 
 ## 5.5 Statics
 
-**Every static is read-only, and its type must be sendable.** There is no `static mut`: one copy
+**Every static is read-only, and its type must be sendable and copyable** (§5.2). There is no `static mut`: one copy
 shared by every thread would race, and a copy per thread silently gives each thread its own
 version. This differs from Java.
 
@@ -147,8 +173,13 @@ Thread<Image> loading = Thread.spawn(() -> decodePng(readFile(path)));   // esca
 Image image = loading.join();
 ```
 
-- `Thread.spawn` takes an `escaping shared fn() -> R`, where `R` is sendable, and runs it on a new
-  thread. `join()` waits for it and returns its result; `isFinished` tells whether it has finished.
+- `Thread.spawn` takes an `escaping shared fn() -> R` and runs it on a new thread. `join()` waits
+  for it and returns its result, which moves to the joining thread; `isFinished` tells whether it
+  has finished. `R` may be any type, a graph of normal objects included, since a shared function's
+  result is isolated (§5.4): a loader thread can return a whole level.
+- A unique value the thread should own, such as a buffer to fill, is moved to it as an argument:
+  `Thread.spawn(buffer, (SampleBuffer b) -> ...)`. A shared lambda can't capture it, since captures
+  are copies (§5.4).
 - A `Thread<R>` is a normal object that belongs to the thread that spawned it. Releasing one that
   hasn't been joined joins it (like C++'s `std::jthread`), so a thread never outlives the object
   that started it unnoticed.
@@ -159,7 +190,8 @@ Image image = loading.join();
 
 A channel carries values from one or more threads to others. It has two ends, a `Sender<T>` and a
 `Receiver<T>`, both shared objects that can be copied to any number of threads; `T` must be
-sendable. `Channel<T>()` makes a struct holding the two, `sender` and `receiver`.
+sendable, and may be unique, in which case `send` moves the value. `Channel<T>()` makes a struct
+holding the two, `sender` and `receiver`.
 
 ```java
 var requests = Channel<Path>();
@@ -197,19 +229,21 @@ while (loaded.receiver.tryReceive() is Mesh mesh) {   // each frame; never waits
 ### Locks and atomics
 
 `Mutex<T>` gives one thread at a time access to a `T`, through a `ref` that can't escape the lock
-([03-memory-model.md](03-memory-model.md#33-references)). `T` must be sendable:
+([03-memory-model.md](03-memory-model.md#33-references)). `T` may be any type: a mutex holds an
+isolated value (below), and `lock` opens it while holding the lock. So the lock's lambda is a
+non-escaping `shared fn(ref T) -> R`, and `R` must be sendable:
 
 ```java
 STATS.lock((ref Stats s) -> { s.framesMixed++; });
+pending.lock(q -> q.add(Request(path, priority)));          // a Mutex<List<Request>>
+int waiting = pending.lock(q -> q.count());
 ```
 
-> *Open:* a mutex holding data that isn't sendable, such as a `List` or a map that threads add to.
-> Code holding the lock could copy a reference to one of its objects out to its own thread, or
-> store an object from its own thread in it, and the cycle collector of one thread could visit
-> objects inside it while another holds the lock. Allowing it needs a rule for what the lock's
-> lambda may capture and return, an allocator that accepts frees from other threads, and keeping
-> the collector away from those objects. Until then, a growable shared collection is a library type
-> built on `unsafe`, or a `Frozen<T>` that a thread replaces under a lock.
+The lambda's captures are sendable and copyable, so it can't store one of its thread's objects in
+the protected data, and its result is sendable, so it can't hand one of the protected objects out.
+To put a value of the thread's in, copy what is needed into sendable locals and capture those, or
+move in a unique value through the mutex's methods. A mutex is made from a value that is already
+isolated: a sendable value, or an `Isolated<T>`.
 
 **A thread holds at most one lock, and waits for nothing while holding it.** Taking a second lock,
 or calling `receive`, `join`, or anything else that waits, inside a lock's lambda panics, naming
@@ -226,10 +260,62 @@ in any language. Like an infinite loop, that is a bug the language doesn't catch
 
 > *Open:* taking two locks at once in a fixed order (`Mutex.lockBoth`), if a real program needs it.
 
+### Isolated object graphs
+
+`Isolated<T>` holds a `T` and everything reachable from it (an **isolated graph**) such that nothing
+outside refers to any normal object in it. It is a unique struct
+([02-types.md](02-types.md#unique-structs)), so it can't be copied, and it is sendable for any `T`:
+moving it moves the whole graph to whoever receives it, and leaves nothing behind that could reach
+those objects.
+
+```java
+// on a loading thread: built from sendable inputs only ('levelBytes' is a Frozen<byte>)
+Isolated<NavGraph> built = Isolated<NavGraph>(() -> NavGraph.build(levelBytes));
+toAi.send(built);                                     // moves the box and the graph
+
+// on the AI thread
+mut Isolated<NavGraph> nav = fromLoader.receive()!;
+nav.open(g -> g.addEdge(from, to, cost));            // changes it in place, still isolated
+int nodes = nav.open(g -> g.nodeCount());
+NavGraph graph = nav.take();                          // ends the box; the graph is this thread's now
+```
+
+- **Making one** runs a non-escaping `shared fn() -> T` at once, on the current thread. Its result
+  is isolated (§5.4). A sendable value is isolated already, and converts to `Isolated<T>` by
+  being moved in.
+- **`open`** runs a non-escaping `shared fn(ref T) -> R` on the value, where `R` is sendable, and
+  returns its result. The lambda's captures are sendable and copyable, so nothing of the
+  thread's can get in, and its result is sendable, so nothing inside can get out; the graph is
+  still isolated afterwards. `open` needs a mutable place, since it changes what the box holds.
+- **`take`** moves the value out and ends the box: the graph joins the current thread's objects.
+- A `Mutex<T>` holds one, and `lock` is `open` while holding the lock.
+
+This is Pony's `recover` block, which needs nothing new in Wylow: without `mut` statics, and with
+shared functions limited to sendable captures, a function can only reach what it was given.
+
+**The cycle collector.** An isolated graph has its own cycle buffer. While the lambda of
+`Isolated`'s constructor or `open` (or a mutex's `lock`) runs, the thread's buffer is the graph's;
+that code can reach nothing of the thread's, so everything it buffers belongs to the graph or was
+made during the call. `memory::collectCycles()` inside it collects the graph only, and the buffer
+moves with the graph. `take` adds the graph's buffer to the thread's. Opening a graph costs two
+pointer writes for the switch; a graph of acyclic objects, such as a `List<int>`, never buffers
+anything.
+
+What it can't do: code inside `open` can't read the thread's own objects. For data built from the
+thread's objects, such as the draw calls of a frame, a unique value owning sendable elements (the
+standard library's growable array) is filled with ordinary code and then moved.
+
+> *Considered, not decided:* Swift's region analysis, which proves that an ordinary local's graph
+> is disconnected from everything else by flow analysis, so a `List` filled with ordinary code
+> could be sent without `Isolated`. It needs a new analysis with an exactly specified rule for
+> when regions merge, and code that mixes the thread's objects with the graph's makes the cycle
+> buffer impossible to split cheaply. It could be added later as a conversion from such a local
+> to `Isolated<T>`.
+
 ### Frozen arrays
 
 `Frozen<T>` is an immutable array that every thread may read: a shared object whose elements, of
-a sendable type `T`, never change. It reads like a `ReadOnlySpan<T>` (`length`, an indexer, and
+a sendable, copyable type `T` (§5.2), never change. It reads like a `ReadOnlySpan<T>` (`length`, an indexer, and
 `view()`, which returns one).
 
 - `list.freeze()` moves a `List<T>`'s elements into a new `Frozen<T>`, without copying them, and
@@ -273,6 +359,8 @@ types are built this way, at its lowest layer, and present only the safe behavio
 
 - Each thread has its own pools and its own cycle collector buffer; a thread a foreign library
   created gets them the first time it runs Wylow code ([07-interop.md](07-interop.md#callbacks)).
+  An object freed on another thread than the one whose pool it came from goes back through that
+  chunk's remote free list ([03-memory-model.md](03-memory-model.md#allocation)).
 - `String`'s count is always atomic. A program that never starts a thread could use non-atomic
   counts instead, which no program can observe; that is an optimization for later.
 - The threads themselves are the operating system's.
