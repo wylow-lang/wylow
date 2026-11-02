@@ -109,6 +109,9 @@ static class Mutations
         new("type-fixed-array-length", SiteKind.Type, FixedArrayApplies, FixedArrayBuild),
         new("type-fixed-array", SiteKind.Type, ArrayApplies, TypeArrayBuild),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
+        // Constructs through a this(...) chain, which changes nothing a program does: a class's
+        // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
+        new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
         new("parameter-in", SiteKind.Parameter, ParameterInApplies, ParameterInBuild),
         new("local-mut", SiteKind.Local, LocalMutApplies, LocalMutBuild),
         new("local-ref-nullable", SiteKind.Local, LocalRefNullableApplies, LocalRefNullableBuild),
@@ -207,6 +210,39 @@ static class Mutations
         return index < 0
             ? null
             : Single("type-kind", site, text[..index] + replacement + text[(index + keyword.Length)..]);
+    }
+
+    static bool ChainApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration
+        && (declaration.Modifiers & Modifiers.Extern) == 0
+        && declaration.Methods.Any(m => m is { IsConstructor: true, Body: not null });
+
+    /// <summary>
+    /// Renames one constructor's work to a constructor taking a tag of a new type first, so no
+    /// overload can clash, and declares in its place one with the original parameters that
+    /// passes them on with <c>this(...)</c>. The forwarder keeps the original's modifiers,
+    /// annotations, and defaults, so every call still resolves to it.
+    /// </summary>
+    static Candidate? ChainBuild(MutationContext context, Site site)
+    {
+        var declaration = (TypeDecl)site.Node;
+        var constructors = declaration.Methods.Where(m => m is { IsConstructor: true, Body: not null }).ToList();
+        var constructor = constructors[context.Random.Next(constructors.Count)];
+        var body = constructor.Body!.Location.Span.Start;
+        int open = context.Text.IndexOf('(', constructor.NameLocation.Span.End);
+        if (open < 0 || open > body)
+            return null;
+        var tag = context.UniqueName("WylFuzzChain");
+        var parameter = context.UniqueName("wylFuzzTag");
+        var header = context.Text[constructor.Location.Span.Start..body];
+        var arguments = constructor.Parameters.Select(p => (p.RefKind == RefKind.Ref ? "ref " : "") + p.Name);
+        var forwarder = header + "{\n        this(" + string.Join(", ", [tag + "()", .. arguments]) + ");\n    }\n\n    ";
+        return new Candidate("constructor-chain",
+        [
+            new Edit(constructor.Location.Span.Start, constructor.Location.Span.Start, forwarder),
+            new Edit(open + 1, open + 1, tag + " " + parameter + (constructor.Parameters.Count > 0 ? ", " : "")),
+            MutationContext.Append("pub struct " + tag + " { }", context.Text),
+        ]);
     }
 
     static bool ParameterInApplies(Site site) =>

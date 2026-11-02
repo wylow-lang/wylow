@@ -43,7 +43,9 @@ and named in the comparison rule, never added quietly.
 - **Value-printing tests** (`tests/cases/values/`) catch a wrong answer every mode agrees on, dozens
   per file.
 - **The fuzzer** mutates existing tests at feature boundaries and value edges: what crashes and
-  what disagrees.
+  what disagrees. A mutation that changes nothing a program does, such as `constructor-chain`,
+  can be held to more: `FuzzSelfTests` interprets each of its mutants of the corpus on every
+  suite run and requires the original's output, which is how it found its first bugs.
 - **The generator** builds well-typed, trap-free programs from types, reaching combinations no test
   is near.
 - **Mutation testing** changes the compiler and asks whether the tests notice: what is quietly

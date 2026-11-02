@@ -20,7 +20,7 @@ public static class FuzzSelfTests
             if (files.Count == 0)
                 return [("catalog", "the corpus is empty")];
             return [("catalog", Catalog(files)), ("determinism", Determinism(files)), ("unsafe-sites", UnsafeSites()), ("comparison", Comparison()),
-                ("pattern-mutants-parse", PatternMutantsParse(files))];
+                ("pattern-mutants-parse", PatternMutantsParse(files)), ("chain-mutants-agree", ChainMutantsAgree(files))];
         }
         catch (Exception exception)
         {
@@ -160,6 +160,68 @@ public static class FuzzSelfTests
             }
         }
         return made == 0 ? "the pattern mutations made no mutant" : null;
+    }
+
+    /// <summary>
+    /// <c>constructor-chain</c> changes nothing a program does, so each of its mutants of a test
+    /// that compiles must compile and print what the test does, interpreted. Otherwise the mutation
+    /// would only make programs the binder rejects, or chaining has a bug the fuzzer would find.
+    /// A test that prints source locations is skipped, since the forwarder moves the lines after it.
+    /// </summary>
+    static string? ChainMutantsAgree(IReadOnlyList<BaseFile> files)
+    {
+        var mutation = Mutations.All.Single(m => m.Name == "constructor-chain");
+        var options = new Wyl.Compiler.Interpret.InterpreterOptions(StepBudget: 20_000_000, TimeLimit: TimeSpan.FromSeconds(2));
+        // Optimized, since the passes are where a chain met what they assume. The suite runs this
+        // in every mode, so the files run in parallel, each with a random of its own.
+        var outcomes = files
+            .Where(f => !f.Text.Contains("CallerLocation", StringComparison.Ordinal))
+            .Select((file, i) => (file, i))
+            .AsParallel()
+            .AsOrdered()
+            .Select(pair => ChainMutantAgrees(pair.file, mutation, options, new Random(11 + pair.i)))
+            .ToList();
+        if (outcomes.FirstOrDefault(o => o.Failure is not null).Failure is { } failure)
+            return failure;
+        return outcomes.Sum(o => o.Made) == 0 ? "'constructor-chain' made no mutant" : null;
+    }
+
+    static (string? Failure, int Made) ChainMutantAgrees(BaseFile file, Mutation mutation, Wyl.Compiler.Interpret.InterpreterOptions options, Random random)
+    {
+        var index = AstIndex.Of(new Parser(new SourceText("<fuzz>", file.Text), new DiagnosticBag()).ParseCompilationUnit());
+        var sites = index.Of(mutation.Kind).Where(mutation.Applies).ToList();
+        if (sites.Count == 0)
+            return (null, 0);
+        var original = Wyl.Compiler.Compilation.Interpret(new SourceText(file.Name, file.Text), null, options);
+        if (original.Interpretation is not { Status: Wyl.Compiler.Interpret.InterpretationStatus.Completed } expected)
+            return (null, 0);
+        int made = 0;
+        foreach (var site in sites)
+        {
+            if (mutation.Build(new MutationContext(file.Text, random), site) is not { } candidate)
+                continue;
+            var mutant = Wyl.Compiler.Compilation.Interpret(new SourceText(file.Name, Mutations.Apply(file.Text, candidate.Edits)), null, options);
+            if (mutant.Diagnostics.FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is { } error)
+                return ($"'constructor-chain' made a mutant of {file.Name} that doesn't compile: {error}", made);
+            if (mutant.Interpretation is not { } run || run.OutputText != expected.OutputText || run.ExitCode != expected.ExitCode)
+                return ($"'constructor-chain' changed what {file.Name} prints or returns ({candidate.Edits[1].Start}): {FirstDifference(expected, mutant.Interpretation)}", made);
+            made++;
+        }
+        return (null, made);
+    }
+
+    static string FirstDifference(Wyl.Compiler.Interpret.Interpretation expected, Wyl.Compiler.Interpret.Interpretation? actual)
+    {
+        if (actual is null)
+            return "it didn't run";
+        var a = expected.OutputText.Split('\n');
+        var b = actual.OutputText.Split('\n');
+        for (int i = 0; i < Math.Max(a.Length, b.Length); i++)
+        {
+            if (i >= a.Length || i >= b.Length || a[i] != b[i])
+                return $"line {i + 1} was '{(i < a.Length ? a[i] : "")}', now '{(i < b.Length ? b[i] : "")}' ({actual.Status}, exit {actual.ExitCode}: {actual.Error.Trim()})";
+        }
+        return $"exit {expected.ExitCode}, now {actual.ExitCode}";
     }
 
     static string? UnsafeSites()
