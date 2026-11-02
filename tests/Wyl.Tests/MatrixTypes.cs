@@ -3,7 +3,7 @@
 // function, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
 // capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
-// `case null`, or a field a guarded case binds. Each cell makes a value and shows something about
+// `case null`, a field a guarded case binds, or an argument of `super(...)` and `this(...)`. Each cell makes a value and shows something about
 // it, so the snapshot records what the type does in that place; a cell the spec refuses records the
 // error instead. Equality compares an equal pair and an unequal one, and a nullable row shows both
 // its null and its non-null side.
@@ -12,7 +12,7 @@ static class MatrixTypes
     static readonly string[] Contexts =
     [
         "local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
-        "struct-pattern", "case-null", "guarded",
+        "struct-pattern", "case-null", "guarded", "constructor-call",
     ];
 
     public static Matrix Build()
@@ -256,6 +256,72 @@ static class MatrixTypes
                     main.Add("print(a != c);");
                 }
                 return Wrap(main);
+
+            case "constructor-call":
+                // Passed to super(...) as a parameter, which needs no statements; to this(...) as
+                // a call's value, computed in the mem-initializer; and beside a second computed
+                // argument, which takes the arguments constructor. A struct chains too.
+                main.Add(row.Declare("value", row.First));
+                main.Add("var passed = new Made(value);");
+                main.Add(row.Show("passed.value"));
+                main.Add("var computed = new Made(Pick());");
+                main.Add(row.Show("computed.value"));
+                main.Add("var both = new Made(Pick(), 2);");
+                main.Add(row.Show("both.value"));
+                main.Add("print(both.extra);");
+                main.Add("var kept = Kept(Pick());");
+                main.Add(row.Show("kept.value"));
+                return $$"""
+                    class Base {
+                        {{row.Type}} value;
+                        int extra;
+
+                        Base({{row.ParameterType}} value, int extra) {
+                            this.value = value;
+                            this.extra = extra;
+                        }
+                    }
+
+                    class Made extends Base {
+                        Made({{row.ParameterType}} value) {
+                            super(value, 0);
+                        }
+
+                        Made(Pick pick) {
+                            this(made());
+                        }
+
+                        Made(Pick pick, int m) {
+                            this(made(), m + 1);
+                        }
+
+                        Made({{row.ParameterType}} value, int extra) {
+                            super(value, extra);
+                        }
+                    }
+
+                    struct Kept {
+                        {{row.Type}} value;
+
+                        Kept({{row.ParameterType}} value) {
+                            this.value = value;
+                        }
+
+                        Kept(Pick pick) {
+                            this(made());
+                        }
+                    }
+
+                    // Selects the constructors that chain, with a type no row is.
+                    struct Pick { }
+
+                    {{row.Type}} made() {
+                        {{row.Declare("value", row.Second)}}
+                        return value;
+                    }
+
+                    {{Wrap(main)}}
+                    """;
 
             case "default":
                 main.Add($"{(row.Nullable ? "mut " : "")}Defaults defaults = Defaults();");
