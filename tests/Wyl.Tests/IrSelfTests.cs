@@ -30,6 +30,8 @@ static partial class IrSelfTests
         struct Vec { int x; }
         struct Boxed { Obj? item; }
         struct Counter { int n = 1; }
+        // Obj has no default, so Tagged's constructors must assign `a`.
+        struct Tagged { Obj a; Tagged(Obj a) { this.a = a; } Tagged(Obj a, int b) { this(a); } }
         struct Tally { Counter c; }
         struct Built { int n = f(); }
         struct Nest { Vec? inner; }
@@ -60,7 +62,7 @@ static partial class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b), AccessFacts(b), PlacePathFacts()];
+        return [.. Cases(b).Concat(PassOutputs(b)).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b), AccessFacts(b), PlacePathFacts()];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
