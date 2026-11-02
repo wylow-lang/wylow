@@ -1,4 +1,4 @@
-// A function type's own parameters are non-escaping unless declared '@Escaping', which is part of
+// A function type's own parameters are non-escaping unless declared 'escaping', which is part of
 // the type: a lambda of the type may store such a parameter, and must be passed an escaping value.
 
 import std::{List, print};
@@ -9,13 +9,13 @@ class Bus {
 
 void main() {
     var bus = new Bus();
-    fn(fn() -> void) -> void plain = h -> bus.handlers.add(h);              // error: 'h' is a non-escaping parameter, so it cannot be stored or returned; declare the parameter '@Escaping' in the lambda's function type, as in 'fn(@Escaping fn() -> void) -> void'
-    fn(@Escaping fn() -> void) -> void escaping = h -> h();
+    fn(fn() -> void) -> void plain = h -> bus.handlers.add(h);              // error: 'h' is a non-escaping parameter, so it cannot be stored or returned; declare the parameter 'escaping' in the lambda's function type, as in 'fn(escaping fn() -> void) -> void'
+    fn(escaping fn() -> void) -> void keeper = h -> h();
     fn() -> void local = () -> print(1);
-    escaping(local);                                                    // error: 'local' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-    fn(@Escaping fn() -> void) -> void typed = (fn() -> void f) -> f();       // error: 'f' is declared as 'fn() -> void', but 'fn(@Escaping fn() -> void) -> void' passes '@Escaping fn() -> void'
-    fn(@Escaping fn() -> void) -> void untyped = (@Escaping f) -> f();      // error: an untyped lambda parameter takes its form from the lambda's type, so it can't be annotated; give it a type
-    fn(@Escaping int) -> void number = x -> print(x);                     // error: '@Escaping' can only be used on a parameter of function type, not 'int'
+    keeper(local);                                                      // error: 'local' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+    fn(escaping fn() -> void) -> void typed = (fn() -> void f) -> f();       // error: 'f' is declared as 'fn() -> void', but 'fn(escaping fn() -> void) -> void' passes 'escaping fn() -> void'
+    fn(escaping fn() -> void) -> void untyped = (escaping f) -> f();      // error: an untyped lambda parameter takes its form from the lambda's type, so it can't be declared 'escaping'; give it a type
+    fn(escaping int) -> void number = x -> print(x);                     // error: 'escaping' can only be declared on a parameter of function type, not 'int'
     fn(@Fast int) -> void fast = x -> print(x);                           // error: unknown annotation '@Fast'
-    fn(fn() -> void) -> void converted = escaping;                          // error: cannot implicitly convert 'fn(@Escaping fn() -> void) -> void' to 'fn(fn() -> void) -> void'
+    fn(fn() -> void) -> void converted = keeper;                            // error: cannot implicitly convert 'fn(escaping fn() -> void) -> void' to 'fn(fn() -> void) -> void'
 }

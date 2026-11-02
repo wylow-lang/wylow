@@ -79,6 +79,7 @@ public sealed partial class Parser
         int start = position;
         var annotations = ParseAnnotations();
         var (isMutable, refKind, mayBeNull) = ParseBindingMode("parameter");
+        var escaping = ParseEscaping();
         if (refKind == RefKind.None && At(TokenKind.Identifier) && Peek(1).Kind is TokenKind.Comma or TokenKind.CloseParen)
         {
             var untyped = Advance();
@@ -86,6 +87,7 @@ public sealed partial class Parser
             {
                 Annotations = annotations,
                 IsMutable = isMutable,
+                Escaping = escaping,
             };
         }
         var type = ParseType();
@@ -96,6 +98,7 @@ public sealed partial class Parser
         {
             Annotations = annotations,
             IsMutable = isMutable,
+            Escaping = escaping,
         };
     }
 

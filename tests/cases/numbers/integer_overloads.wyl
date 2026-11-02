@@ -47,9 +47,9 @@ void main() {
     pick(1);       // output: 4
     short s = 1;
     pick(s);       // output: 4
-    @Escaping (fn(nint) -> void)? a = null;
+    escaping (fn(nint) -> void)? a = null;
     run(a);        // output: 5
-    @Escaping (fn(long) -> void)? c = null;
+    escaping (fn(long) -> void)? c = null;
     run(c);        // output: 6
     Holder<fn(nint) -> void>? h = null;
     hold(h);       // output: 7

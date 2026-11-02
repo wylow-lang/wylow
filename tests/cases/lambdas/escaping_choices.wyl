@@ -5,7 +5,7 @@ import std::print;
 class Holder {
     fn(int) -> int stored;
 
-    Holder(@Escaping fn(int) -> int stored) {
+    Holder(escaping fn(int) -> int stored) {
         this.stored = stored;
     }
 }
@@ -31,7 +31,7 @@ bool check(bool value, int id) {
 }
 
 void switches(Mode mode, Holder holder) {
-    @Escaping fn(int) -> int e = switch (mode) {
+    escaping fn(int) -> int e = switch (mode) {
         case Double -> x -> x * 2;
         case Add(var n) -> make(n);
         case Keep -> holder.stored;
@@ -50,7 +50,7 @@ void main() {
     var holder = new Holder(x -> x * 100);
 
     // Escaping: an ordinary choice, so the call that isn't chosen never runs.
-    @Escaping fn(int) -> int a = check(false, 1) ? make(10) : make(20);   // output: 1
+    escaping fn(int) -> int a = check(false, 1) ? make(10) : make(20);   // output: 1
                                                                         // output: 20
     print(a(1));                                    // output: 21
     var b = check(true, 2) ? holder.stored : make(30);                  // output: 2
@@ -76,6 +76,6 @@ void main() {
                                                     // output: 100
 
     // Nullable choices.
-    @Escaping (fn(int) -> int)? maybe = check(false, 6) ? holder.stored : null;   // output: 6
+    escaping (fn(int) -> int)? maybe = check(false, 6) ? holder.stored : null;   // output: 6
     print(maybe == null);                           // output: true
 }

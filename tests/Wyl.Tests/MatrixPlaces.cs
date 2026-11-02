@@ -225,7 +225,7 @@ static class MatrixPlaces
     static string Capture(Use use, bool escaping)
     {
         var body = use.Mutable ? $"{use.Expr} = {use.Value};" : $"print({use.Expr});";
-        var prefix = escaping ? "@Escaping " : "";
+        var prefix = escaping ? "escaping " : "";
         return $"{prefix}fn() -> void action = () -> {{\n{body}\n}};\naction();";
     }
 

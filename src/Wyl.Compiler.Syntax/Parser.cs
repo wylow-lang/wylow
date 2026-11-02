@@ -259,7 +259,7 @@ public sealed partial class Parser
             Advance();
             var name = Expect(TokenKind.Identifier, "an annotation name");
             var arguments = new List<Node>();
-            // `@Escaping (fn(int) -> int)? f`: parentheses starting with `fn` group the annotated type (§6.10).
+            // `@Name (fn(int) -> int)? f`: parentheses starting with `fn` group the annotated declaration's type (§6.10).
             if (At(TokenKind.OpenParen) && !StartsType(position))
             {
                 Advance();
@@ -307,6 +307,12 @@ public sealed partial class Parser
                     Error(span, $"the visibility comes first among modifiers, as in '{written} {tokens[0].Item2.Text}'");
                 }
                 (visibility, visibilitySpan) = (level, span);
+                continue;
+            }
+            if (At(TokenKind.EscapingKeyword))
+            {
+                Error(Current.Span, EscapingElsewhereMessage);
+                Advance();
                 continue;
             }
             var flag = Current.Kind switch

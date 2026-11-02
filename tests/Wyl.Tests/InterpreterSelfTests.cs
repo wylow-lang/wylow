@@ -740,7 +740,7 @@ static class InterpreterSelfTests
             void main() {
                 var f = keep(21);
                 print(f(0));
-                @Escaping mut fn() -> void add;
+                mut escaping fn() -> void add;
                 {
                     var c = new Counter(10);
                     var read = c.reader();
@@ -800,7 +800,7 @@ static class InterpreterSelfTests
                     this.name = name;
                 }
 
-                void set(@Escaping fn(int) -> int f) {
+                void set(escaping fn(int) -> int f) {
                     scale = f;
                 }
 
@@ -841,7 +841,7 @@ static class InterpreterSelfTests
                 print(f(1));
                 flag = true;
                 print(f(1));
-                @Escaping fn(int) -> int g = flag ? x -> x + 1 : x -> x + 2;
+                escaping fn(int) -> int g = flag ? x -> x + 1 : x -> x + 2;
                 print(g(10));
             }
             """, output: ["11", "20", "-99", "-99", "11"]);

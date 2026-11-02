@@ -46,7 +46,7 @@ static partial class IrSelfTests
         void replace(Holder h, Obj o) { h.b = new Obj(); }
         void call(Holder h, fn() -> void g) { h.b = new Obj(); g(); }
         void setFirst(List<int> list) { list[0] = 2; }
-        void keep(@Escaping fn() -> void g) { }
+        void keep(escaping fn() -> void g) { }
         @CallerLocation
         void here() { }
 

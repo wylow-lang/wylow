@@ -72,7 +72,7 @@ void main() {
         case North -> print(0);
         case East -> print(1);
     }
-    @Escaping (fn() -> int)? f = null;
+    escaping (fn() -> int)? f = null;
     print(f == f);                      // error: since 'fn() -> int' does not support '=='
     var none = 1 == 2 ? null : null;    // error: the branches of '?:' have incompatible types 'null' and 'null'
 

@@ -71,8 +71,8 @@ fn() -> fn() -> int nested(int base) {
 
 void main() {
     // A captured `this` keeps the object alive after every other reference is gone.
-    @Escaping mut fn() -> int read;
-    @Escaping mut fn() -> void increment;
+    mut escaping fn() -> int read;
+    mut escaping fn() -> void increment;
     if (true) {
         var counter = new Counter("counter freed");
         read = counter.reader();
@@ -105,7 +105,7 @@ void main() {
 
     // A captured reference is a copy of the reference, so the closure sees later changes to its object.
     var log = new List<int>();
-    @Escaping fn() -> int size = () -> log.count();
+    escaping fn() -> int size = () -> log.count();
     log.add(1);
     log.add(2);
     print(size());                                  // output: 2

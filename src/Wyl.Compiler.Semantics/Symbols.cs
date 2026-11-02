@@ -163,7 +163,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
         get
         {
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
-            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "@Escaping " : "") + ParameterText(p.RefKind, p.Type)));
+            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "escaping " : "") + ParameterText(p.RefKind, p.Type)));
             return $"{Name}{typeParameters}({parameters})";
         }
     }

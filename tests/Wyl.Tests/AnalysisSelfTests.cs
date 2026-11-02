@@ -88,7 +88,7 @@ static class AnalysisSelfTests
         void bump(Keeper k) { k.n = 1; }
         void bumpViaCall(Keeper k) { bump(k); }
         void bumpViaSink(Sink s, Keeper k) { s.put(k); }
-        void keep(@Escaping fn() -> void g) { }
+        void keep(escaping fn() -> void g) { }
         void run(fn() -> void g) { g(); }
         void counts() {
             mut int count = 0;

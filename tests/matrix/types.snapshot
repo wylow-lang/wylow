@@ -486,26 +486,26 @@ out 3
 exit 0
 
 === function-nonescaping/field
-error 39: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-error 48: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 39: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+error 48: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/parameter
 out 3
 exit 0
 
 === function-nonescaping/return
-error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/type-argument
-error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 37: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/element
-error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
-error 40: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 38: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
+error 40: 'other' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/capture
-error 38: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it '@Escaping'
+error 38: an escaping lambda cannot capture 'value', which is a non-escaping variable; declare it 'escaping'
 
 === function-nonescaping/equality
 error 38: operator '==' cannot be applied to 'fn() -> int' and 'fn() -> int'
@@ -518,7 +518,7 @@ out typed
 exit 0
 
 === function-nonescaping/struct-pattern
-error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/case-null
 out 3
@@ -526,12 +526,12 @@ out null
 exit 0
 
 === function-nonescaping/guarded
-error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 42: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === function-nonescaping/constructor-call
-error 40: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-error 67: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-error 80: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+error 40: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+error 67: 'value' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+error 80: 'value' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
 
 === generic/local
 out 3

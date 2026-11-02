@@ -1,28 +1,28 @@
-// A nullable function parameter is non-escaping unless declared '@Escaping', and only a parameter
+// A nullable function parameter is non-escaping unless declared 'escaping', and only a parameter
 // can hold a nullable non-escaping function.
 class Holder {
     mut (fn(int) -> int)? stored = null;
 }
 
-void keep(@Escaping (fn(int) -> int)? f) {
+void keep(escaping (fn(int) -> int)? f) {
 }
 
 (fn(int) -> int)? give((fn(int) -> int)? f) {
-    return f;                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    return f;                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
 }
 
 void uses(bool flag, (fn(int) -> int)? f, fn(int) -> int g, Holder holder) {
-    var copy = f;                                   // error: a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function
-    @Escaping var escaping = f;                     // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-    holder.stored = f;                              // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-    keep(f);                                        // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-    keep(f!);                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-    f = null;                                       // error: 'f' cannot be reassigned: a non-escaping parameter keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'
+    var copy = f;                                   // error: a variable of nullable function type must be declared 'escaping'; only a parameter can hold a nullable non-escaping function
+    escaping var kept = f;                         // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    holder.stored = f;                              // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    keep(f);                                        // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    keep(f!);                                       // error: 'f' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    f = null;                                       // error: 'f' cannot be reassigned: a non-escaping parameter keeps the function it was given; declare a new variable instead, or declare this one 'escaping'
     var fallback = f ?? g;                          // error: '??' cannot be applied to a nullable non-escaping function; check it for null with 'if' instead
-    keep(x -> f!(x));                               // error: an escaping lambda cannot capture 'f', which is a non-escaping parameter; declare it '@Escaping'
+    keep(x -> f!(x));                               // error: an escaping lambda cannot capture 'f', which is a non-escaping parameter; declare it 'escaping'
     // A choice of nullable function type is escaping, so it can't choose a non-escaping value.
-    keep(flag ? g : null);                          // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
-    var chosen = flag ? g : null;                   // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it '@Escaping'
+    keep(flag ? g : null);                          // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
+    var chosen = flag ? g : null;                   // error: 'g' is a non-escaping parameter, so it cannot be stored or returned; declare it 'escaping'
 }
 
 void main() {

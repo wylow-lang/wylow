@@ -251,10 +251,10 @@ public sealed class TypeMap
         type is TypeParameterType p ? map.GetValueOrDefault(p.Parameter, type) : type.MapParts(Apply);
 }
 
-/// <summary>A parameter of a function type, which has a mode but no name, and prints @Escaping since its two forms print alike.</summary>
+/// <summary>A parameter of a function type, which has a mode but no name, and prints escaping since its two forms print alike.</summary>
 public readonly record struct FunctionParameterType(RefKind RefKind, WylType Type)
 {
-    public override string ToString() => (Type.NonNull.IsEscaping ? "@Escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
+    public override string ToString() => (Type.NonNull.IsEscaping ? "escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
 }
 
 sealed class FunctionParameterListComparer : IEqualityComparer<IReadOnlyList<FunctionParameterType>>

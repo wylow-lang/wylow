@@ -61,8 +61,8 @@ inherited, may let its `this` escape, since they run around every borrow.
 ## Closures
 
 An escaping lambda that captures something makes a closure, which is on the stack in the same way
-when it provably doesn't escape: an `@Escaping` local that is only called, or a closure passed to an
-`@Escaping` parameter that the callee never stores. A closure holds what it captures as an object
+when it provably doesn't escape: an `escaping` local that is only called, or a closure passed to an
+`escaping` parameter that the callee never stores. A closure holds what it captures as an object
 holds its fields, so a captured object escapes only if the closure does, or if the lambda's body,
 whenever it is called, may let it escape or return it, which each lambda's summary records.
 

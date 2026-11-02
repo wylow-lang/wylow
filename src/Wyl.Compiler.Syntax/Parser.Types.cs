@@ -105,8 +105,16 @@ public sealed partial class Parser
     bool StartsType(int index) =>
         SyntaxFacts.IsTypeStart(KindAt(index)) || KindAt(index) == TokenKind.OpenParen && KindAt(index + 1) == TokenKind.FnKeyword;
 
+    const string EscapingElsewhereMessage = "'escaping' can only be declared on parameters and local variables; other functions are always escaping";
+
     TypeSyntax ParseType(bool allowNullable = true, bool allowArrays = true)
     {
+        // Parameters and locals read `escaping` before their type; anywhere else a function is escaping already.
+        if (At(TokenKind.EscapingKeyword))
+        {
+            Error(Current.Span, EscapingElsewhereMessage);
+            Advance();
+        }
         int start = position;
         if (Accept(TokenKind.FnKeyword))
             return ParseFunctionTypeRest(start, allowNullable, allowArrays);
@@ -212,8 +220,9 @@ public sealed partial class Parser
                 var annotations = ParseAnnotations();
                 int start = position;
                 var (refKind, mayBeNull) = ParseRefKind();
+                var escaping = ParseEscaping();
                 var type = ParseType();
-                parameters.Add(new FunctionTypeParameter(refKind, mayBeNull ? NullableReferenceType(start, refKind, type) : type) { Annotations = annotations });
+                parameters.Add(new FunctionTypeParameter(refKind, mayBeNull ? NullableReferenceType(start, refKind, type) : type) { Annotations = annotations, Escaping = escaping });
             } while (Accept(TokenKind.Comma));
         }
         Expect(TokenKind.CloseParen, "')'");

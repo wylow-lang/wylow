@@ -22,7 +22,7 @@ void main() {
 
     // A choice of nullable function type is escaping.
     var h = switch (op) {
-        case Add(_) -> inc;                         // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it '@Escaping'
+        case Add(_) -> inc;                         // error: 'inc' is a non-escaping variable, so it cannot be stored or returned; declare it 'escaping'
         case Stop -> null;
     };
 }

@@ -104,7 +104,7 @@ void main() {
     // output: 5
 
     // A closure's own objects can be on the stack of its call.
-    @Escaping fn() -> int counter = () -> {
+    escaping fn() -> int counter = () -> {
         var inside = new Noisy("in closure"); // stack: 1
         return one(inside);
     };

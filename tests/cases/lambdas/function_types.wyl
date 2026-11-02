@@ -10,7 +10,7 @@ class Scheduler {
     pub mut (fn() -> void)? pending;
     List<fn(int) -> String> formats = new List<fn(int) -> String>();
 
-    void schedule(@Escaping fn() -> void task) {
+    void schedule(escaping fn() -> void task) {
         pending = task;
     }
 }
@@ -26,14 +26,14 @@ fn(int) -> int? halver() {
 }
 
 // Parentheses after an annotation that start with 'fn' group the annotated type.
-int run(@Escaping (fn(int) -> int)? callback, int value) {
+int run(escaping (fn(int) -> int)? callback, int value) {
     if (callback == null) {
         return -1;
     }
     return callback(value);
 }
 
-void twice(fn(@Escaping fn() -> void) -> void register, Scheduler scheduler) {
+void twice(fn(escaping fn() -> void) -> void register, Scheduler scheduler) {
     register(() -> print("registered"));
     if (scheduler.pending != null) {
         scheduler.pending!();
@@ -59,7 +59,7 @@ void main() {
     Scheduler scheduler = new Scheduler();
     twice(task -> scheduler.schedule(task), scheduler); // output: registered
 
-    @Escaping mut (fn(int) -> int)? maybe = null;
+    mut escaping (fn(int) -> int)? maybe = null;
     print(maybe == null);                               // output: true
     maybe = x -> x + 1;
     print(maybe!(1));                                   // output: 2

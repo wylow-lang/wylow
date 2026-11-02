@@ -51,7 +51,7 @@ String describe(int value) {
     return text;
 }
 
-void call(@Escaping fn() -> void f) {
+void call(escaping fn() -> void f) {
     f();
 }
 

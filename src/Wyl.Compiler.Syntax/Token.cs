@@ -44,6 +44,7 @@ public enum TokenKind
     JavaAccessKeyword,
     StaticKeyword,
     MutKeyword,
+    EscapingKeyword,
     ThisKeyword,
     RefKeyword,
     InKeyword,

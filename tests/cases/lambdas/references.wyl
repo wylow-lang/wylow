@@ -74,7 +74,7 @@ int callRef(fn(ref int) -> void f) {
     return n;
 }
 
-void keep(List<fn(int) -> int> into, @Escaping fn(int) -> int f) {
+void keep(List<fn(int) -> int> into, escaping fn(int) -> int f) {
     into.add(f);
 }
 

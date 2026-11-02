@@ -308,7 +308,7 @@ mut var target = enemies.first();
   }
   ```
 - **`mut` goes first**, after any annotations and modifiers: `mut int count;`, `static mut int frames;`,
-  `void aim(mut Vec3 dir)`, `for (mut int i = 0; i < n; i++)`, `for (mut Vec3 p : points)`,
+  `mut escaping fn() -> void onDone`, `void aim(mut Vec3 dir)`, `for (mut int i = 0; i < n; i++)`, `for (mut Vec3 p : points)`,
   `(mut x) -> ...`. It is not allowed on:
   - `ref` and `in` parameters and variables, which always refer to the same place. Through a `ref`,
     the place can be changed, since it had to be mutable to be referred to;

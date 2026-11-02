@@ -395,6 +395,8 @@ public sealed partial class Parser
                     Error(Current.Span, $"'{Current.Text}' is only valid on parameters");
                 int modeStart = position;
                 var (isMutable, refKind, mayBeNull) = ParseBindingMode("parameter");
+                // A variant's field is escaping already: its type reports `escaping`.
+                var escaping = allowRefKinds ? ParseEscaping() : null;
                 var type = ParseType();
                 if (mayBeNull && allowRefKinds)
                     type = NullableReferenceType(modeStart, refKind, type);
@@ -412,6 +414,7 @@ public sealed partial class Parser
                 {
                     Annotations = annotations,
                     IsMutable = allowRefKinds && isMutable,
+                    Escaping = escaping,
                     Default = allowRefKinds ? defaultValue : null,
                 });
             } while (Accept(TokenKind.Comma));

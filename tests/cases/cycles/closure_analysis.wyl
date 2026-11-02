@@ -13,7 +13,7 @@ class Button {
     fn() -> int onClick;
     List<fn() -> int> extra = new List<fn() -> int>();
 
-    Button(@Escaping fn() -> int onClick) {
+    Button(escaping fn() -> int onClick) {
         this.onClick = onClick;
     }
 }
@@ -32,7 +32,7 @@ class Widget {
 class Cell {
     fn(int) -> long get;
 
-    Cell(@Escaping fn(int) -> long get) {
+    Cell(escaping fn(int) -> long get) {
         this.get = get;
     }
 }
@@ -61,7 +61,7 @@ void main() {
     var button = onHeap(new Button(() -> base + 1));
     button.extra.add(() -> leaf.value);
     button.extra.add(() -> 7);
-    @Escaping fn() -> int read = () -> leaf.value;
+    escaping fn() -> int read = () -> leaf.value;
     drop(button);
     drop(button.onClick);
     drop(read);

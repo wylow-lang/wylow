@@ -8,7 +8,7 @@ pub(module) class Counter {
     pub fn(int) -> int step;                  // a public field of function type, not 'pub(...)'
     pub(package) fn(int) -> int scale;
 
-    pub Counter(@Escaping fn(int) -> int step, @Escaping fn(int) -> int scale) {
+    pub Counter(escaping fn(int) -> int step, escaping fn(int) -> int scale) {
         this.step = step;
         this.scale = scale;
     }

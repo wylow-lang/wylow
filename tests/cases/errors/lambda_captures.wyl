@@ -24,13 +24,13 @@ void each(fn(int) -> void f) {
     f(1);
 }
 
-void keep(@Escaping fn() -> int f) {
+void keep(escaping fn() -> int f) {
 }
 
 void parameters(ref int r, in int i, fn() -> int g, Span<int> view) {
     keep(() -> r);                                  // error: an escaping lambda cannot capture 'r', which is a 'ref' parameter; copy its value to a local first
     keep(() -> i);                                  // error: an escaping lambda cannot capture 'i', which is an 'in' parameter; copy its value to a local first
-    keep(() -> g());                                // error: an escaping lambda cannot capture 'g', which is a non-escaping parameter; declare it '@Escaping'
+    keep(() -> g());                                // error: an escaping lambda cannot capture 'g', which is a non-escaping parameter; declare it 'escaping'
     keep(() -> view[0]);                            // error: an escaping lambda cannot capture 'view', a 'Span<int>' that may not outlive what it views
 }
 

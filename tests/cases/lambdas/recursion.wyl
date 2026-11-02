@@ -40,7 +40,7 @@ int odd(int n, fn(int) -> int f) {
 }
 
 // An escaping value has one C++ type, however often it is passed.
-int depth(int n, fn(int) -> int f, @Escaping fn(int) -> int g) {
+int depth(int n, fn(int) -> int f, escaping fn(int) -> int g) {
     if (n == 0) {
         return f(0);
     }
@@ -82,7 +82,7 @@ void main() {
     print(even(4, x -> x + 10));                    // output: 14
     print(even(3, x -> x + 10));                    // output: 14
 
-    @Escaping fn(int) -> int doubled = x -> x * 2;
+    escaping fn(int) -> int doubled = x -> x * 2;
     print(depth(2, x -> x + 100, doubled));         // output: 104
 
     print(sumDown(2, x -> x * 3));                  // output: 35

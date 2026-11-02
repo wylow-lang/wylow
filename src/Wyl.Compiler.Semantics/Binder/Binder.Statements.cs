@@ -94,7 +94,7 @@ public sealed partial class Binder
     {
         if (s.RefKind != RefKind.None)
             return BindRefLocal(s);
-        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Annotations, isParameter: false);
+        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Escaping, s.Annotations, isParameter: false);
         var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         WylType type;
         if (declared is not null)
@@ -151,12 +151,9 @@ public sealed partial class Binder
         bool mayBeNull = s.Type is { Shape: TypeShape.NullableReference };
         var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim() + (mayBeNull ? "?" : "");
         foreach (var annotation in s.Annotations)
-        {
-            if (annotation.Name == "Escaping")
-                Error(annotation.Location, $"'@Escaping' cannot be used on a '{keyword}' variable, which refers to a place rather than holding a function");
-            else
-                ReportMisplacedAnnotation(annotation);
-        }
+            ReportMisplacedAnnotation(annotation);
+        if (s.Escaping is { } escaping)
+            Error(escaping, $"a '{keyword}' variable can't be declared 'escaping', since it refers to a place rather than holding a function");
         var typeSyntax = mayBeNull ? s.Type!.Element : s.Type;
         var declared = typeSyntax is null ? null : BindType(typeSyntax, allowVoid: false);
         if (mayBeNull && declared is not null && declared != WylType.Error && !CheckReferencedType(declared, keyword, typeSyntax!.Location))
@@ -523,7 +520,7 @@ public sealed partial class Binder
         // A lambda in it may use the function's locals by reference, so it must not outlive any of them.
         if (target is BoundLocalAccess function && function.Local.Type.NonNull.IsNonEscapingFunction)
         {
-            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one '@Escaping'");
+            Error(target.Location, $"'{function.Local.Name}' cannot be reassigned: a non-escaping {(function.Local.IsParameter ? "parameter" : "variable")} keeps the function it was given; declare a new variable instead, or declare this one 'escaping'");
             return false;
         }
         // Its first assignment initializes it; the flow analysis checks that it is the only one.

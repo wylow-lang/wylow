@@ -642,11 +642,11 @@ and each lambda can still be inlined.
 
 A function-typed **parameter or local** is **non-escaping** by default: the function may call it
 and pass it to other non-escaping parameters, but may not store it, return it, or pass it to an
-escaping parameter. `@Escaping` on the parameter or local opts in.
+escaping parameter. Declaring the parameter or local `escaping` opts in.
 
 | | Non-escaping | Escaping |
 |---|---|---|
-| Where | Parameters and locals | Fields, return values, `@Escaping` parameters and locals, containers |
+| Where | Parameters and locals | Fields, return values, `escaping` parameters and locals, containers |
 | Allocation | **None** (compiled to an inline template or function reference) | Heap-allocated, refcounted closure |
 | Captures | By reference: may capture `ref`s and `Span`s, and may **mutate** captured locals | By copy: captured locals can't be `mut` |
 
@@ -654,23 +654,28 @@ escaping parameter. `@Escaping` on the parameter or local opts in.
 mut int count = 0;
 enemies.forEach(e -> { if (e.isDead) count++; });   // non-escaping: mutates local, no allocation
 
-void onEvent(@Escaping fn() -> void handler) { handlers.add(handler); }
+void onEvent(escaping fn() -> void handler) { handlers.add(handler); }
 
 fn(Mob) -> bool isDead = m -> m.health <= threshold; // non-escaping: no allocation
-@Escaping fn() -> void onDone = () -> play(sound);    // escaping: a heap closure, can be stored
+escaping fn() -> void onDone = () -> play(sound);    // escaping: a heap closure, can be stored
 handlers.add(onDone);
 ```
 
+`escaping` is a keyword written before the type, after any `mut`: `mut escaping fn() -> void f`.
+It is written only where a function could be either form: on a parameter, a local, or a function
+type's own parameter. Anywhere else a function is always escaping, and writing `escaping` is an
+error.
+
 The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
-non-escaping local stays non-escaping, and storing it is an error that suggests `@Escaping`.
+non-escaping local stays non-escaping, and storing it is an error that suggests `escaping`.
 Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
 reassigned or declared `mut`, so it can't outlive what its lambda captures. An escaping local can
 be reassigned if it is `mut`.
 
 - **Escaping is part of the function type.** Each function type has a non-escaping and an
   escaping form, written the same way. Written as the type of a parameter, a local, or a function
-  type's own parameter, it is non-escaping unless that is declared `@Escaping`, as in
-  `fn(@Escaping fn() -> void) -> void`; anywhere else (a field, a return type, a type argument, an
+  type's own parameter, it is non-escaping unless that is declared `escaping`, as in
+  `fn(escaping fn() -> void) -> void`; anywhere else (a field, a return type, a type argument, an
   array element, or a function type's return type) it is escaping. A nullable function follows the
   same rule, except where noted below. `var` takes the form of its initializer. An escaping value
   converts to the non-escaping form, so it can be passed to a non-escaping parameter or bind a
@@ -679,11 +684,11 @@ be reassigned if it is `mut`.
   is converted to, or the type of the `?:` or switch expression it is an option of. A lambda
   passed as an argument takes the form of the parameter that overload resolution picks.
 - **Type arguments are always escaping**, so a type argument inferred from a function is its
-  escaping form: `identity(f)` needs `f` to be `@Escaping`.
+  escaping form: `identity(f)` needs `f` to be `escaping`.
 - **Nullable functions.** A parameter of type `(fn(int) -> int)?` is non-escaping unless declared
-  `@Escaping`, so an optional callback is passed without allocating. Like any non-escaping
+  `escaping`, so an optional callback is passed without allocating. Like any non-escaping
   parameter it is bound once, and it is narrowed by null checks. Only a parameter can hold one: a
-  local of nullable function type must be `@Escaping`, since a non-escaping local owns the lambda
+  local of nullable function type must be `escaping`, since a non-escaping local owns the lambda
   it holds and a null one holds none. For the same reason a `?:` or switch expression of nullable
   function type is escaping, so its lambdas are closures, and `??` can't be applied to a nullable
   non-escaping function; check it with `if`.
@@ -705,9 +710,9 @@ be reassigned if it is `mut`.
   chosen, so an option that isn't chosen may still be null, and an escaping option (a field, a
   call, an escaping local) is evaluated only when it is chosen.
 - **Signatures.** An override or interface implementation must declare the same parameters
-  `@Escaping` as the method it overrides or implements. Overloads can't differ only in which
-  parameters are `@Escaping`. A function type's `@Escaping` parameters are part of the type, and
-  print as written: `fn(@Escaping fn() -> void) -> void` and `fn(fn() -> void) -> void` are different
+  `escaping` as the method it overrides or implements. Overloads can't differ only in which
+  parameters are `escaping`. A function type's `escaping` parameters are part of the type, and
+  print as written: `fn(escaping fn() -> void) -> void` and `fn(fn() -> void) -> void` are different
   types, and neither converts to the other. A lambda of the first may store its argument.
 - A type pattern can't name a function type (`f is fn(int) -> int g`); narrow a nullable function
   with a null check.
@@ -717,7 +722,7 @@ for (Mob m : mobs) {
     handlers.add(() -> m.hit());            // fine: each iteration has its own 'm'
 }
 mut int total = 0;
-@Escaping fn() -> int f = () -> total;      // error: 'total' is 'mut'
+escaping fn() -> int f = () -> total;      // error: 'total' is 'mut'
 total++;
 ```
 
@@ -1150,20 +1155,20 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 | `@Align(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
 | `@Repr(T)` | An enum's integer representation | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
 | `@Flags` | An enum whose values combine as bits | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
-| `@Escaping` | Function-typed parameter or local may be stored | §6.7 |
 | `@Acyclic` | A class's objects never form cycles | [03-memory-model.md](03-memory-model.md) |
 
 An argument is a type, as in `@Repr(uint)`, or a literal, as in `@Align(16)`. Settings that
 change how a declaration is laid out or treated, rather than what it is, are annotations rather
-than new syntax.
+than new syntax. **An annotation never changes a type**: what can be assigned, converted, or
+captured. Whatever is part of a type is a keyword, such as a parameter's mode (`ref`, `in`) or
+whether a function is `escaping` (§6.7).
 
 Parentheses right after an annotation are its arguments unless they start with `fn`, which makes
-them the parentheses that group the function type it annotates (§6.7): `@Escaping (fn(int) -> int)? f`
-annotates a nullable function type.
+them the parentheses that group the annotated declaration's function type: `@Name (fn(int) -> int)? f`.
 
 User-defined annotations (and reflection) are *open*.
 
-> Implemented so far: `@CallerLocation`, `@Escaping`, `@Acyclic`, and `@Repr`. Any other
+> Implemented so far: `@CallerLocation`, `@Acyclic`, and `@Repr`. Any other
 > annotation is an error.
 
 ### `@CallerLocation`

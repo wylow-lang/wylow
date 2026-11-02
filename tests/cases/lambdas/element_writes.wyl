@@ -20,7 +20,7 @@ class Enemy {
 class Hooks {
     fn() -> void onTick;
 
-    Hooks(@Escaping fn() -> void onTick) {
+    Hooks(escaping fn() -> void onTick) {
         this.onTick = onTick;
     }
 }

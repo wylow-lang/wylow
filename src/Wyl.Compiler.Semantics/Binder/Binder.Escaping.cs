@@ -21,7 +21,7 @@ public sealed partial class Binder
 
 
     const string NonEscapingMutMessage =
-        "a non-escaping function cannot be 'mut', since it keeps the function it was given; declare it '@Escaping' to reassign it";
+        "a non-escaping function cannot be 'mut', since it keeps the function it was given; declare it 'escaping' to reassign it";
 
     /// <summary>
     /// Only a parameter can hold a nullable non-escaping function: a variable would have to own the
@@ -35,16 +35,18 @@ public sealed partial class Binder
     static WylType? ChoiceTarget(WylType? type) => type is not null && type.IsNullableNonEscapingFunction ? EscapingForm(type) : type;
 
     const string NullableVariableMessage =
-        "a variable of nullable function type must be declared '@Escaping'; only a parameter can hold a nullable non-escaping function";
+        "a variable of nullable function type must be declared 'escaping'; only a parameter can hold a nullable non-escaping function";
 
     /// <summary>
     /// The type of a parameter or local: a function type, nullable or not, is non-escaping unless
-    /// the declaration is <c>@Escaping</c>; a nullable local must be.
+    /// the declaration is <c>escaping</c>; a nullable local must be. No annotation applies to one.
     /// </summary>
-    WylType BindVariableType(TypeSyntax syntax, IReadOnlyList<AnnotationSyntax> annotations, bool isParameter)
+    WylType BindVariableType(TypeSyntax syntax, Location? escaping, IReadOnlyList<AnnotationSyntax> annotations, bool isParameter)
     {
+        foreach (var annotation in annotations)
+            ReportMisplacedAnnotation(annotation);
         var type = BindType(syntax, allowVoid: false);
-        if (IsDeclaredEscaping(annotations, type, isParameter ? "parameter" : "variable"))
+        if (IsDeclaredEscaping(escaping, type, isParameter ? "parameter" : "variable"))
             return type;
         if (!isParameter && type.IsNullable && type.NonNull.IsFunction)
         {
@@ -56,12 +58,14 @@ public sealed partial class Binder
 
     /// <summary>
     /// The type of a <c>var</c> local: its initializer's, in the escaping form if it is declared
-    /// <c>@Escaping</c>. A nullable function must be.
+    /// <c>escaping</c>. A nullable function must be.
     /// </summary>
     (WylType Type, BoundExpression Initializer) InferVariableType(VarDeclStmt s, BoundExpression initializer)
     {
+        foreach (var annotation in s.Annotations)
+            ReportMisplacedAnnotation(annotation);
         var type = initializer.Type;
-        if (IsDeclaredEscaping(s.Annotations, type, "variable"))
+        if (IsDeclaredEscaping(s.Escaping, type, "variable"))
             type = EscapingForm(type);
         else if (type.IsNullableNonEscapingFunction)
         {
@@ -71,31 +75,20 @@ public sealed partial class Binder
         return (type, Convert(initializer, type));
     }
 
-    /// <summary>Whether a parameter or local of the type is declared <c>@Escaping</c>; reports annotations that don't apply.</summary>
-    bool IsDeclaredEscaping(IReadOnlyList<AnnotationSyntax> annotations, WylType type, string what)
+    /// <summary>Whether a parameter or local of the type is declared <c>escaping</c>, which only one of function type can be.</summary>
+    bool IsDeclaredEscaping(Location? escaping, WylType type, string what)
     {
-        bool escaping = false;
-        foreach (var annotation in annotations)
-        {
-            if (annotation.Name != "Escaping")
-            {
-                ReportMisplacedAnnotation(annotation);
-            }
-            else if (type.NonNull.IsFunction || type == WylType.Error)
-            {
-                escaping = true;
-                CheckNoArguments(annotation);
-            }
-            else
-                Error(annotation.Location, $"'@Escaping' can only be used on a {what} of function type, not '{type}'");
-        }
-        return escaping;
+        if (escaping is not { } at)
+            return false;
+        if (type.NonNull.IsFunction || type == WylType.Error)
+            return true;
+        Error(at, $"'escaping' can only be declared on a {what} of function type, not '{type}'");
+        return false;
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
     void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Location, annotation.Name switch
     {
-        "Escaping" => "'@Escaping' can only be used on parameters and local variables of function type; other functions are always escaping",
         "CallerLocation" => "'@CallerLocation' can only be used on functions, methods, and constructors",
         "Acyclic" => "'@Acyclic' can only be used on classes",
         "Repr" => "'@Repr' can only be used on enums",
@@ -126,23 +119,23 @@ public sealed partial class Binder
         var local = culprit.Local;
         Error(culprit.Location, $"'{local.Name}' is a non-escaping {(local.IsParameter ? "parameter" : "variable")}, so it cannot be stored or returned; "
             + (local.IsParameter && local.Owner?.IsLambda == true
-                ? "declare the parameter '@Escaping' in the lambda's function type, as in 'fn(@Escaping fn() -> void) -> void'"
-                : "declare it '@Escaping'"));
+                ? "declare the parameter 'escaping' in the lambda's function type, as in 'fn(escaping fn() -> void) -> void'"
+                : "declare it 'escaping'"));
     }
 
     /// <summary>
     /// For a duplicate overload, a hint when it differs from <paramref name="existing"/> only in
-    /// which parameters are '@Escaping', since the two forms of a function type print alike.
+    /// which parameters are 'escaping', since the two forms of a function type print alike.
     /// </summary>
     static string OverloadEscapingHint(FunctionSymbol function, FunctionSymbol existing) =>
         function.Parameters.Zip(existing.Parameters).Any(p => p.First.Type != p.Second.Type
             && p.First.Type.NonNull is FunctionType first && p.Second.Type.NonNull is FunctionType second
             && first.NonEscaping == second.NonEscaping)
-            ? $" as '{existing.Signature}'; overloads cannot differ only in which parameters are '@Escaping'"
+            ? $" as '{existing.Signature}'; overloads cannot differ only in which parameters are 'escaping'"
             : "";
 
     /// <summary>
-    /// For signatures that must match, a hint naming a parameter that is '@Escaping' in only one of
+    /// For signatures that must match, a hint naming a parameter that is 'escaping' in only one of
     /// them, since the two forms of a function type print alike.
     /// </summary>
     static string EscapingDifference(MethodReference method, MethodReference other, string otherName)
@@ -155,8 +148,8 @@ public sealed partial class Binder
             {
                 var name = method.Symbol.Parameters[i].Name;
                 return mine.NonNull.IsEscaping
-                    ? $"; parameter '{name}' is '@Escaping' here but not in {otherName}"
-                    : $"; parameter '{name}' is '@Escaping' in {otherName} but not here";
+                    ? $"; parameter '{name}' is 'escaping' here but not in {otherName}"
+                    : $"; parameter '{name}' is 'escaping' in {otherName} but not here";
             }
         }
         return "";
@@ -228,7 +221,7 @@ public sealed partial class Binder
         if (local.Type.IsRefStruct)
             return $"a '{local.Type}' that may not outlive what it views";
         if (local.Type.NonNull.IsNonEscapingFunction)
-            return $"which is a non-escaping {what}; declare it '@Escaping'";
+            return $"which is a non-escaping {what}; declare it 'escaping'";
         if (local.IsMutable)
             return "which is 'mut', and the lambda would have only a copy; copy it to a variable that isn't 'mut'";
         return null;

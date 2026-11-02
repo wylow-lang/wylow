@@ -38,9 +38,9 @@ void main() {
     print(localChoice(1));                                  // output: 101
 
     // An escaping local chosen by ?: is copied, like a non-escaping one.
-    @Escaping fn(int) -> int first = x -> x + 1;
-    @Escaping fn(int) -> int second = x -> x + 2;
-    @Escaping fn(int) -> int picked = flag ? first : second;
+    escaping fn(int) -> int first = x -> x + 1;
+    escaping fn(int) -> int second = x -> x + 2;
+    escaping fn(int) -> int picked = flag ? first : second;
     print(picked(1));                                       // output: 2
 
     // A choice between lambdas that capture a local needs that local while it is used.

@@ -76,7 +76,7 @@ public sealed partial class Parser
                 Advance();
                 Expect(TokenKind.Semicolon, "';'");
                 return new ContinueStmt(LocationFrom(start));
-            case TokenKind.RefKeyword or TokenKind.InKeyword or TokenKind.MutKeyword:
+            case TokenKind.RefKeyword or TokenKind.InKeyword or TokenKind.MutKeyword or TokenKind.EscapingKeyword:
             {
                 int errors = diagnostics.Count;
                 var declaration = ParseVariableDeclaration();
@@ -221,12 +221,13 @@ public sealed partial class Parser
     {
         int start = annotated ?? position;
         var (isMutable, refKind, mayBeNull) = ParseBindingMode("variable");
+        var escaping = ParseEscaping();
         TypeSyntax? type = Accept(TokenKind.VarKeyword) ? null : ParseType();
         if (mayBeNull)
             type = NullableReferenceType(start, refKind, type);
         var name = Expect(TokenKind.Identifier, "a variable name");
         var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;
-        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind) { IsMutable = isMutable };
+        return new VarDeclStmt(LocationFrom(start), type, name.Text, Loc(name.Span), initializer, refKind) { IsMutable = isMutable, Escaping = escaping };
     }
 
     /// <summary>
@@ -255,6 +256,23 @@ public sealed partial class Parser
         if (mut is { } token && refKind != RefKind.None)
             Error(token.Span, $"{(refKind == RefKind.Ref ? "a 'ref'" : "an 'in'")} {what} cannot be 'mut', since it refers to the same place for its whole scope");
         return (mut is not null && refKind == RefKind.None, refKind, mayBeNull);
+    }
+
+    /// <summary>
+    /// An optional <c>escaping</c>, which comes after any <c>mut</c>, <c>ref</c>, or <c>in</c>: it is
+    /// part of the function type that follows. Whether the type is one is the binder's question.
+    /// </summary>
+    Location? ParseEscaping()
+    {
+        if (!At(TokenKind.EscapingKeyword))
+            return null;
+        var location = Loc(Advance().Span);
+        if (At(TokenKind.MutKeyword))
+        {
+            Error(Current.Span, "'mut' goes before 'escaping', as in 'mut escaping fn() -> void f'");
+            Advance();
+        }
+        return location;
     }
 
     /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>

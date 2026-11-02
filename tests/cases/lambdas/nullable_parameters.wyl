@@ -1,4 +1,4 @@
-// A nullable function parameter is non-escaping unless declared '@Escaping': it is passed a lambda,
+// A nullable function parameter is non-escaping unless declared 'escaping': it is passed a lambda,
 // a function value, or null without allocating, and is narrowed by null checks like other values.
 
 import std::print;

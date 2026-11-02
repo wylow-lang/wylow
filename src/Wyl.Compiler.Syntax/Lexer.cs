@@ -50,6 +50,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["protected"] = TokenKind.JavaAccessKeyword,
         ["static"] = TokenKind.StaticKeyword,
         ["mut"] = TokenKind.MutKeyword,
+        ["escaping"] = TokenKind.EscapingKeyword,
         ["this"] = TokenKind.ThisKeyword,
         ["ref"] = TokenKind.RefKeyword,
         ["in"] = TokenKind.InKeyword,

@@ -5,7 +5,16 @@ class Button {
     (int)? count;                       // error: function types are written 'fn(int) -> int'
     (fn() -> void) grouped;             // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
     fn() -> (fn() -> int) curried;      // error: parentheses around a function type are only needed before '?', '[', or '*'; remove them
+    escaping fn() -> void other;        // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
 }
+
+enum Event {
+    Click(escaping fn() -> void handler), // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+}
+
+escaping void annotated() { }           // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+escaping fn() -> void maker() { return () -> { }; } // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
+fn() -> escaping fn() -> void curry() { return () -> () -> { }; } // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
 
 void take((int) -> int f) { }           // error: function types are written 'fn(int) -> int'
 
@@ -14,6 +23,8 @@ void main() {
     var empty = x -> ;                  // error: expected an expression
     var unnamed = (ref int) -> 1;       // error: expected a parameter name
     var picked = new Array<(int) -> int>(1, x -> x); // error: function types are written 'fn(int) -> int'
-    @Escaping (fn(int) -> int)? maybe = null;
+    escaping (fn(int) -> int)? maybe = null;
+    escaping mut fn() -> void late = () -> { }; // error: 'mut' goes before 'escaping', as in 'mut escaping fn() -> void f'
+    var handlers = new Array<escaping fn() -> void>(1, () -> { }); // error: 'escaping' can only be declared on parameters and local variables; other functions are always escaping
     if (maybe is fn(int) -> int f) { }  // error: a type pattern cannot name a function type; check a nullable function with a null check
 }

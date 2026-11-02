@@ -241,7 +241,7 @@ static class TypeSelfTests
         int firstLine = text.ToString().Count(c => c == '\n') + 1;
         for (int i = 0; i < types.Count; i++)
         {
-            var annotation = types[i].NonNull.IsEscaping ? "@Escaping " : "";
+            var annotation = types[i].NonNull.IsEscaping ? "escaping " : "";
             text.AppendLine($"    void p{i}({annotation}{types[i].Name} x) {{ }}");
         }
         text.AppendLine("}\nvoid main() { }");

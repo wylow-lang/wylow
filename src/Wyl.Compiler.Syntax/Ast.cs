@@ -155,12 +155,18 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 public sealed record FunctionTypeParameter(RefKind RefKind, TypeSyntax Type)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+
+    /// <summary>Where <c>escaping</c> is written, if it is.</summary>
+    public Location? Escaping { get; init; }
 }
 
 public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyntax Type, string Name) : Node(Location)
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
     public bool IsMutable { get; init; }
+
+    /// <summary>Where <c>escaping</c> is written, if it is.</summary>
+    public Location? Escaping { get; init; }
 
     /// <summary>The value the parameter takes when a call leaves it out, as in <c>int count = 1</c>.</summary>
     public Expr? Default { get; init; }
@@ -178,6 +184,9 @@ public sealed record VarDeclStmt(Location Location, TypeSyntax? Type, string Nam
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
     public bool IsMutable { get; init; }
+
+    /// <summary>Where <c>escaping</c> is written, if it is.</summary>
+    public Location? Escaping { get; init; }
 }
 
 public sealed record IfStmt(Location Location, Expr Condition, BlockStmt Then, Stmt? Else) : Stmt(Location);
@@ -326,6 +335,9 @@ public sealed record LambdaParameterSyntax(Location Location, RefKind RefKind, T
 {
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
     public bool IsMutable { get; init; }
+
+    /// <summary>Where <c>escaping</c> is written, if it is.</summary>
+    public Location? Escaping { get; init; }
 }
 
 /// <summary><c>x -> value</c> or <c>(a, b) -> { ... }</c>. Exactly one of <see cref="Value"/> and <see cref="Body"/> is set.</summary>
