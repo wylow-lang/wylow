@@ -7,7 +7,7 @@
 
 ### Outline
 
-Chapters follow the language's structure, as the JLS's do, one file each:
+Chapters follow the language's structure, as the [JLS's](https://docs.oracle.com/javase/specs/jls/se27/html/index.html) do, one file each:
 
 1. Introduction: scope, notation, conventions, terms
 2. Lexical structure
@@ -43,8 +43,9 @@ breaks nothing. An anchor, once published, is kept when its section moves.
 
 ### Grammar
 
-Productions are inline, in the section that gives their meaning (as in Go and the Rust Reference),
-with no separate appendix copy. The notation is Go's EBNF:
+Productions are inline, in the section that gives their meaning, as in the
+[Go spec](https://go.dev/ref/spec), with no separate appendix copy. The notation is
+[Go's EBNF](https://go.dev/ref/spec#Notation), without its `…` ranges in productions:
 
 ```
 Production  = name "=" [ Expression ] "." .
@@ -85,24 +86,32 @@ Chapter 1 defines these, and every rule uses them:
 
 - **Topic chapters** (the spec until now). Finding a rule needs knowing which topic someone filed
   it under; structure-based chapters have one obvious place per construct.
-- **Grammar in an appendix** (the JLS collects all productions in chapter 19, beside the inline
-  ones; C# has an ANTLR appendix). Two copies of every production; with only one, the test above
-  gives what the appendix would.
-- **Other notations**: the JLS's (alternatives on separate lines, hard to write in Markdown), ISO
-  EBNF (commas between terms, noisier), ANTLR (a tool's syntax, not a reader's). Go's is the
-  smallest that reads well.
+- **Grammar in an appendix**: the JLS repeats its syntactic grammar in
+  [chapter 19](https://docs.oracle.com/javase/specs/jls/se27/html/jls-19.html), the C# standard collects its productions in a
+  [grammar annex](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/grammar),
+  and the Rust Reference has a [grammar summary](https://doc.rust-lang.org/reference/grammar.html).
+  Two copies of every production; with only one, the test above gives what the appendix would.
+- **Other notations**: the [JLS's](https://docs.oracle.com/javase/specs/jls/se27/html/jls-2.html#jls-2.4) (alternatives on separate lines, hard
+  to write in Markdown), ANTLR, which the C# standard uses (a tool's syntax, not a reader's). Go's
+  is the smallest that reads well.
 - **Section numbers as link targets.** Every renumbering breaks every link.
-- **Per-rule identifiers** (the Rust Reference's `r[items.fn.generics]`), so a test can cite the
+- **Per-rule identifiers**, like the Rust Reference's
+  [`items.fn.generics`](https://doc.rust-lang.org/reference/items/functions.html#r-items.fn.generics),
+  so a test can cite the
   exact rule it checks. Finer than needed now; can be added on top of the section anchors later.
-- **"Unspecified" behavior** (C and C++: argument order; Java: almost none). Observable behavior
-  must not depend on what the compiler chose, and the price of defining it is small.
-- **Costs as normative guarantees** (the C++ standard's complexity requirements). They describe the
-  current implementation and its optimizations, which are invisible by design.
+- **"Unspecified" behavior**, such as the order C++ initializes a call's parameters in
+  ([\[expr.call\]/8](https://eel.is/c++draft/expr.call#8): "indeterminately sequenced"), where Java
+  fixes it ([JLS 15.7.4](https://docs.oracle.com/javase/specs/jls/se27/html/jls-15.html#jls-15.7.4)). Observable behavior must not depend on what
+  the compiler chose, and the price of defining it is small.
+- **Costs as normative guarantees**, like the *Complexity* element of the C++ standard library's
+  specifications
+  ([\[structure.specifications\]/3](https://eel.is/c++draft/structure.specifications#3)). They
+  describe the current implementation and its optimizations, which are invisible by design.
 
 ## Why
 
-The JLS and Go spec are the most widely read definitions of languages close to Wylow in syntax and
-in size; their structure is what a reader expects. Fixed phrasing makes each kind of rule
-recognizable at a glance and greppable: every compile-time error rule matches one phrase, which
-step 3 of the restructure maps to diagnostic codes. Anchors keep links stable through the rewrite
-and beyond it.
+The JLS and the Go spec both order their chapters by construct, so a reader of either finds the
+structure they expect, and the JLS defines the language whose syntax Wylow follows where it can.
+Fixed phrasing makes each kind of rule recognizable at a glance and greppable: every compile-time
+error rule matches one phrase, which step 3 of the restructure maps to diagnostic codes. Anchors
+keep links stable through the rewrite and beyond it.

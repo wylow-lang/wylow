@@ -47,16 +47,22 @@ pub final class List<T> implements Borrowable, Spannable<T> {
 
 ## Alternatives
 
-- **Javadoc's `/** ... */` with `@param`, `@return`, `@throws` tags.** The classic Java form;
-  the tags repeat what the signature and summary already say, and HTML markup is noisier than
-  Markdown. Java itself added `///` Markdown comments in JDK 23 (JEP 467).
-- **C#'s XML doc comments** (`/// <summary>`). Precise for tools, tiresome to write and read.
+- **Javadoc's `/** ... */` with `@param`, `@return`, `@throws` tags**
+  ([doc comment specification](https://docs.oracle.com/en/java/javase/25/docs/specs/javadoc/doc-comment-spec.html)).
+  The tags repeat what the signature and summary already say, and HTML markup is noisier than
+  Markdown. Java also accepts `///` Markdown comments since JDK 23
+  ([JEP 467](https://openjdk.org/jeps/467)).
+- **C#'s [XML doc comments](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/)**
+  (`/// <summary>`). Precise for tools, tiresome to write and read.
 - **Plain `//` comments** (the standard library until now). Nothing distinguishes documentation
   from a remark, so no tool or test can find it.
 
 ## Why
 
-`///` Markdown is now the form in both Java and Rust, so it is the familiar choice either way.
-Javadoc's summary-sentence style reads well in an index. Rust's fixed sections make the facts a
-caller most needs, when it panics, how it fails, what `unsafe` requires, always in the same place,
-and checkable.
+`///` Markdown is what [rustdoc](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html)
+reads and what Java accepts since JEP 467, so it is familiar from either. Javadoc's
+[summary sentence](https://docs.oracle.com/en/java/javase/25/docs/specs/javadoc/doc-comment-spec.html#main-description)
+reads well in an index. The sections Rust's API guidelines ask for
+([C-FAILURE](https://rust-lang.github.io/api-guidelines/documentation.html#function-docs-include-error-panic-and-safety-considerations-c-failure):
+errors, panics, safety) put the facts a caller most needs, when it panics, how it fails, what
+`unsafe` requires, always in the same place, where a test can check them.

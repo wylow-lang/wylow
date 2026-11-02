@@ -25,10 +25,12 @@ implemented, or what it costs.
 - **Topic chapters mixing rules, rationale, implementation, and status** (the spec until now).
   Easy to write, but stale status and implementation detail hide the rules, and a rule appears in
   several places that drift apart.
-- **Rationale as informative notes in the spec** (the C# spec's "Note" blocks, Go's FAQ inlined).
+- **Rationale as informative notes in the spec**, like the *Note* blocks of the
+  [C# standard](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure).
   Keeps reasons close to rules, but the spec grows with history, and a reversed decision leaves
   its old reasons behind.
-- **RFC-style documents written before deciding** (Rust RFCs, Swift Evolution). Suited to a
+- **RFC-style documents written before deciding** ([Rust RFCs](https://github.com/rust-lang/rfcs),
+  [Swift Evolution](https://github.com/swiftlang/swift-evolution)). Suited to a
   community process; with one designer, proposals are discussed in sessions and issues, and only the
   outcome needs keeping.
 
@@ -37,8 +39,12 @@ implemented, or what it costs.
 The rules are what every reader needs and what tests check against; the reasons are what the next
 design session needs; the implementation is what the compiler's maintainers need. Separating them
 lets each be complete and correct without the others getting in the way, and lets the spec be
-checked rule by rule against the tests. The model is Rust's Reference, RFCs, and error index, and
-Swift's book, Evolution proposals, and diagnostic docs, scaled down to one person.
+checked rule by rule against the tests. The model is Rust's
+[Reference](https://doc.rust-lang.org/reference/), RFCs, and
+[error index](https://doc.rust-lang.org/error_codes/), and Swift's
+[book](https://github.com/swiftlang/swift-book), Evolution proposals, and
+[diagnostic docs](https://github.com/swiftlang/swift/tree/main/userdocs/diagnostics), scaled down to
+one person.
 
 Costs leave the spec because optimizations are invisible by design: what an operation costs
 depends on the compiler, not the language, so it is implementation documentation.

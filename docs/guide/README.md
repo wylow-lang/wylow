@@ -1,5 +1,11 @@
 # Wylow guide
 
+> **Unrevised source material.** This list was copied from the old spec's README and hasn't been
+> checked: it compares Wylow with other languages without sources, uses non-generic examples,
+> links to old spec chapters that are being replaced, and has stale claims (item 2: a static's type
+> must be copyable as well as sendable). It is rewritten once the spec's chapters are, against
+> them.
+
 Learning material for Wylow: what to expect, and what differs from the languages it borrows from.
 The rules themselves are in [the specification](../spec/README.md).
 

@@ -10,12 +10,15 @@ without copying what they find (`list.get(i)`). One can be used as a place only 
 
 ## Alternatives
 
-- **A plain reference that may be null** (C#'s `CollectionsMarshal.GetValueRefOrNullRef`), which the
-  caller must remember to test with `Unsafe.IsNullRef`.
+- **A plain reference that may be null**, like what C#'s
+  [`CollectionsMarshal.GetValueRefOrNullRef`](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.collectionsmarshal.getvaluerefornullref)
+  returns, which the caller must remember to test with `Unsafe.IsNullRef`.
 - **Returning a copy as `T?`**: a failed lookup costs nothing extra, but a found element can't be
   changed in place.
 
 ## Why
 
-Rust's `Option<&mut T>` is the model: the type says the reference may be missing, and the compiler
-makes the caller check before using it.
+Rust's `Option<&mut T>`, which
+[`slice::get_mut`](https://doc.rust-lang.org/std/primitive.slice.html#method.get_mut) returns, is
+the model: the type says the reference may be missing, and the compiler makes the caller check
+before using it.

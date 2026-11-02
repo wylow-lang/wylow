@@ -10,8 +10,11 @@
 
 Messages follow `docs/diagnostics/README.md`: lowercase, no final period, code in single quotes,
 one statement of what is wrong, explanations in `note:` lines and fixes in `help:` lines, each
-with its own location where one helps. It is modeled on the Swift and clang conventions, which the
-compiler's messages mostly followed already, and on Rust's diagnostic guidelines for notes and help.
+with its own location where one helps. It is modeled on
+[clang's](https://clang.llvm.org/docs/InternalsManual.html#diagnostic-wording) and
+[Swift's](https://github.com/swiftlang/swift/blob/main/docs/Diagnostics.md) wording rules, which the
+compiler's messages mostly followed already, and on
+[rustc's guidelines](https://rustc-dev-guide.rust-lang.org/diagnostics.html) for notes and help.
 
 ### Codes
 
@@ -43,10 +46,14 @@ compiler's messages mostly followed already, and on Rust's diagnostic guidelines
 
 ## Alternatives
 
-- **No codes** (Java, Go, Zig, Swift until recently). Simple, but nothing stable to search for,
-  document, or match in tests when wording improves.
-- **Rust's `E0382`**: the same scheme without a prefix, which makes web searches find Rust.
-- **Ranges by phase or category** (TypeScript: `TS1xxx` syntax, `TS2xxx` semantics). A range per
+- **No codes.** Simple, but nothing stable to search for, document, or match in tests when wording
+  improves.
+- **Rust's scheme**, [`E0382`](https://doc.rust-lang.org/error_codes/E0382.html): the same without a
+  prefix, so a search for the code alone isn't specific to one language.
+- **Ranges by phase or category**: TypeScript's
+  [codes](https://github.com/microsoft/TypeScript/blob/main/tsc/internal/diagnostics/diagnosticMessages.json)
+  in the 1000s are mostly syntax errors (`TS1005`, `'{0}' expected.`), those in the 2000s mostly
+  type errors (`TS2322`). A range per
   compiler phase exposes the binder/flow split, and a range per topic forces a choice when a
   diagnostic fits several and fills up unevenly. Each page names its spec section, which groups
   codes better than their numbers can.

@@ -11,7 +11,8 @@ with `take`. It has its own cycle buffer.
 
 ## Alternatives
 
-- **Swift's region analysis**, which proves by flow analysis that an ordinary local's graph is
+- **Swift's region-based isolation**
+  ([SE-0414](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0414-region-based-isolation.md)), which proves by flow analysis that an ordinary local's graph is
   disconnected from everything else, so a list filled with ordinary code could be sent without
   `Isolated`. It needs a new analysis with an exactly specified rule for when regions merge, and
   code that mixes the thread's objects with the graph's makes the cycle buffer impossible to split
@@ -19,5 +20,8 @@ with `take`. It has its own cycle buffer.
 
 ## Why
 
-This is Pony's `recover` block, which needs nothing new in Wylow: without `mut` statics, and with
-shared functions limited to sendable captures, a function can only reach what it was given.
+It follows the reasoning of Pony's
+[`recover`](https://tutorial.ponylang.io/reference-capabilities/recovering-capabilities.html)
+expression, which "only has access to sendable values from the enclosing lexical scope", so what it
+makes can't be referred to from outside. In Wylow that needs nothing new: without `mut` statics, and
+with shared functions limited to sendable captures, a function can only reach what it was given.

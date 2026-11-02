@@ -23,7 +23,9 @@ To revisit once real programs show whether they get in the way:
 
 - **Inferring whether a function escapes from how it is used**: the cost of a lambda would depend on
   code far from where it is written.
-- **Every function value escaping** (Java, C#): every lambda allocates.
+- **Every function value escaping**, as Java's lambdas are
+  ([JLS 15.27.4](https://docs.oracle.com/javase/specs/jls/se27/html/jls-15.html#jls-15.27.4)): a lambda that captures anything needs an
+  object to hold its captures.
 
 ## Why
 

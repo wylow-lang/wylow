@@ -16,11 +16,13 @@ Copyable`. Unique structs have no destructors.
   object. They need a runtime mark on a value in use, so that overwriting or destroying it while a
   method runs on it panics (a value has no reference count to keep it alive), exact rules for when a
   moved-from or partly moved value is destroyed, and a way to end a value without its destructor
-  (Swift's `discard`). Adding them later changes no existing program.
+  (Swift's `discard self`, [SE-0390](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0390-noncopyable-structs-and-enums.md)). Adding
+  them later changes no existing program.
 - **Moves of copyable values only as an optimization**, with no unique types: nothing could rely on
   a value having one owner.
-- The parameter modes compare to Swift's: by value is `consuming`, `in` is `borrowing`, `ref` is
-  `inout`.
+- The parameter modes compare to Swift's
+  ([SE-0377](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0377-parameter-ownership-modifiers.md)): by value is `consuming`, `in` is
+  `borrowing`, `ref` is `inout`.
 
 ## Why
 

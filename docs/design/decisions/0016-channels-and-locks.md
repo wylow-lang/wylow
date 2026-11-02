@@ -11,8 +11,9 @@ time. `freeze()` doesn't depend on reference counts.
 
 ## Alternatives
 
-- **Go's channels**: closed by hand (sending on a closed channel or closing one twice panics), and
-  unbuffered by default, which makes every send wait for a receiver and deadlocks easily.
+- **Go's channels**: closed by hand, and "sending to or closing a closed channel causes a run-time
+  panic" ([Close](https://go.dev/ref/spec#Close)); unbuffered unless given a capacity
+  ([Channel types](https://go.dev/ref/spec#Channel_types)), so a send waits for a receiver.
 - **Bounded channels and `select`**: left open; `select`'s random choice among ready channels would
   make runs differ.
 - **Taking several locks in a fixed order** (`Mutex.lockBoth`): left open until a program needs it.

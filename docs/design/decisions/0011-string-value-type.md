@@ -14,8 +14,10 @@ Strings are joined by interpolation; there is no `+` on strings.
 - **A class**: a non-null class reference has no default, and a `String`'s default is the empty
   string.
 - **A user struct**: structs own no resource, and a `String` owns its block.
-- **Offsets in characters or UTF-16 units** (Java, C#): finding and slicing would not be O(1) per
-  step.
+- **Offsets in characters or UTF-16 code units** (Java's
+  [`String`](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/String.html) and
+  C#'s [`String`](https://learn.microsoft.com/en-us/dotnet/api/system.string) index UTF-16 code
+  units): over UTF-8 bytes, finding and slicing would not be O(1) per step.
 - **`+` for concatenation**: a second way to do what interpolation does.
 
 ## Why

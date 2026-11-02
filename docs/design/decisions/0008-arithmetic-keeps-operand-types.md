@@ -10,7 +10,9 @@ An arithmetic operator on two values of the same type produces that type: `byte 
 
 ## Alternatives
 
-- **Promotion to `int`** (C, Java, C#): `byte + byte` is an `int`.
+- **Promotion to `int`**, as in Java ([JLS 5.6](https://docs.oracle.com/javase/specs/jls/se27/html/jls-5.html#jls-5.6)) and C#
+  ([§12.4.7.3](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/expressions#12473-binary-numeric-promotions)): `byte + byte` is an
+  `int`.
 
 ## Why
 

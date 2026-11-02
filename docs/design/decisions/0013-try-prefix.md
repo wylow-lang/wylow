@@ -9,7 +9,8 @@
 
 ## Alternatives
 
-- **A postfix `?`** (Rust).
+- **A postfix `?`**, Rust's
+  [try propagation expression](https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-try-propagation-expression).
 
 ## Why
 

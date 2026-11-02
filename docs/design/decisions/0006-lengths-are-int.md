@@ -9,8 +9,9 @@ Every length, count, and index in the language and the standard library is an `i
 
 ## Alternatives
 
-- **An unsigned size type** (C++'s `size_t`, Rust's `usize`): can't be negative, and covers all of
-  memory on 64-bit targets.
+- **An unsigned size type** (C++'s [`size_t`](https://eel.is/c++draft/support.types.layout#3),
+  Rust's [`usize`](https://doc.rust-lang.org/std/primitive.usize.html)): can't be negative, and
+  covers all of memory on 64-bit targets.
 - **`long`**: covers more than 2^31 elements.
 
 ## Why

@@ -15,5 +15,7 @@ function, such as `getUnchecked(i)`.
 
 ## Why
 
-Rust and C# work this way: reading code never requires knowing whether it is inside `unsafe` to know
-what it does, and every unchecked operation is visible at its call.
+Rust works this way: "`unsafe` doesn't turn off the borrow checker or disable any of Rust's other
+safety checks" ([the Rust book](https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html)). Reading
+code never requires knowing whether it is inside `unsafe` to know what it does, and every unchecked
+operation is visible at its call.

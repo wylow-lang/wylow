@@ -10,8 +10,12 @@ by calling a constructor; the memberwise constructor with named arguments sets f
 
 ## Alternatives
 
-- **`new` for every construction** (Java, C#).
-- **Initializer syntax** (C#'s `T { field = value }`), beside constructors.
+- **`new` for every construction**, as in Java ([JLS 15.9](https://docs.oracle.com/javase/specs/jls/se27/html/jls-15.html#jls-15.9)) and
+  C# ([`new` operator](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/new-operator)),
+  which uses it for structs too.
+- **Initializer syntax** beside constructors, like C#'s
+  [object initializers](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/object-and-collection-initializers)
+  (`new Point { X = 1, Y = 2 }`).
 
 ## Why
 

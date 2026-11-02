@@ -97,9 +97,11 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
   the thread that made them. An object can move to another thread inside a unique value
   ([05-concurrency.md](../spec/05-concurrency.md#51-thread-confinement)) and be freed there: freeing a slot
   of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list, which
-  the owner takes back when its own free list runs out (mimalloc's design). Every free compares
-  the chunk's owner with the current thread. A thread that ends leaves its chunks with live
-  objects to be adopted by the threads that free them.
+  the owner takes back when its own free list runs out. This is the separate list for concurrent
+  frees that [mimalloc](https://github.com/microsoft/mimalloc) keeps per page ("free list
+  multi-sharding"; [technical report](https://www.microsoft.com/en-us/research/publication/mimalloc-free-list-sharding-in-action/)).
+  Every free compares the chunk's owner with the current thread. A thread that ends leaves its
+  chunks with live objects to be adopted by the threads that free them.
   `shared class` objects, which may be freed on any thread at any time, use the global heap.
 - Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
   after free.

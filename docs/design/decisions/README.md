@@ -32,7 +32,7 @@ history and a reason can be found without searching the spec.
 | [0002](0002-spec-structure-and-conventions.md) | The spec's outline, anchors, grammar notation, and fixed phrasing |
 | [0003](0003-diagnostics.md) | Diagnostics: style, codes, and the catalog that enforces them |
 | [0004](0004-doc-comments.md) | Doc comments: `///` Markdown, Javadoc style, fixed sections |
-| [0005](0005-design-principles.md) | Design principles |
+| [0005](0005-design-principles.md) | Design principles (superseded by 0027) |
 | [0006](0006-lengths-are-int.md) | Lengths and indices are `int` |
 | [0007](0007-float-literals.md) | An unsuffixed floating-point literal is a `float` |
 | [0008](0008-arithmetic-keeps-operand-types.md) | Arithmetic keeps its operands' type |
@@ -54,3 +54,4 @@ history and a reason can be found without searching the spec.
 | [0024](0024-printing.md) | Printing: opt-in `toString`, no cultures |
 | [0025](0025-unsafe-permits.md) | `unsafe` permits operations and never removes checks |
 | [0026](0026-no-cost-documentation.md) | Costs are not documented |
+| [0027](0027-design-principles.md) | Design principles |

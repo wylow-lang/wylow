@@ -1,6 +1,6 @@
 # 0005. Design principles
 
-- Status: accepted (2026-10-19)
+- Status: superseded by [0027](0027-design-principles.md) (2026-11-01)
 - Spec: all
 
 ## Decision

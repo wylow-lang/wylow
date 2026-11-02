@@ -5,13 +5,15 @@
 
 ## Decision
 
-A type is printable only if it implements `Printable`. Format specifiers are C#'s, without the ones
-that depend on a culture (`N`, `C`).
+A type is printable only if it implements `Printable`. Format specifiers are .NET's
+[standard numeric format strings](https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings),
+without the ones whose result depends on the current culture (`N`, `C`).
 
 ## Alternatives
 
-- **A default `toString()`** for every type (Java's `Object.toString`).
-- **Culture-dependent formatting** (C#'s `N`, `C`).
+- **A default `toString()`** for every type, like Java's
+  [`Object.toString`](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Object.html#toString()).
+- **Culture-dependent formatting** (.NET's `N`, `C`).
 
 ## Why
 

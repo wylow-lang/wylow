@@ -9,7 +9,9 @@
 
 ## Alternatives
 
-- **Assignment as an expression** (C, Java, C#): `a = b = c`, `f(x = 1)`, `arr[i++]`.
+- **Assignment as an expression**, as in Java ([JLS 15.26](https://docs.oracle.com/javase/specs/jls/se27/html/jls-15.html#jls-15.26))
+  and C# ([§12.24](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/expressions#1224-assignment-operators)): `a = b = c`,
+  `f(x = 1)`, `arr[i++]`.
 
 ## Why
 

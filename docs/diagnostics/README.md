@@ -7,8 +7,8 @@ are being rewritten to them, with codes, in step 3 of the restructure (issue #6)
 ## Form
 
 ```
-src/world.wyl:12:9: error[WYL0382]: 'chunk' is used after being moved
-src/world.wyl:10:15: note: 'chunk' was moved here
+src/parser.wyl:12:9: error[WYL0382]: 'buffer' is used after being moved
+src/parser.wyl:10:15: note: 'buffer' was moved here
 ```
 
 - A diagnostic is a severity (`error` or `warning`), a code, a location, and a **primary message**,
@@ -23,7 +23,7 @@ src/world.wyl:10:15: note: 'chunk' was moved here
 
 - **One statement of what is wrong**, about the code, in the present tense: `'x' is used after
   being moved`, `cannot return a value from 'void' function 'f'`. Not why the rule exists, not how
-  to fix it: those are notes and help.
+  to fix it: those are notes and help. The fixed templates below keep their own forms.
 - **Lowercase first letter, no final period.** One sentence, no semicolons.
 - **Formal**: no contractions (`cannot`, `does not`, `is not`), no "you", no "illegal" or
   "invalid", no "Wylow" (the reader knows which language they're writing). Not "a name", "a
@@ -31,14 +31,13 @@ src/world.wyl:10:15: note: 'chunk' was moved here
   isn't obvious from the code quoted.
 - **Quote code in single quotes**: names, keywords, operators, types, and expressions as written
   (`'?.'`, `'m.peek(0)'`, `'List<Node>'`). Quote nothing else.
-- **Name types by their name alone**, as code that imported them would: `Chunk`, `List<Node>`.
+- **Name types by their name alone**, as code that imported them would: `Node`, `List<Node>`.
   Only when another type of the program has the same name is each named by its package and module
-  path (`voxel_game::world::Chunk`, `std::List`), as rustc trims paths; a lone file's package has
-  no name, so it gives the module path alone. File-private types of one name in one module add
-  their file: `voxel_game::Node (enemy.wyl)`. This applies to runtime diagnostics and panic
-  messages too.
+  path (`app::model::Node`, `std::List`); a lone file's package has no name, so it gives the module
+  path alone. File-private types of one name in one module add their file:
+  `app::model::Node (tree.wyl)`. This applies to runtime diagnostics and panic messages too.
 - **Name functions** by name, or by signature where overloads make the name ambiguous:
-  `'spawn'`, `'spawn(Vec3, int)'`.
+  `'insert'`, `'insert(int, Node)'`.
 
 ## Fixed templates
 
@@ -46,10 +45,10 @@ One wording per family, so similar errors read alike:
 
 | Family | Template |
 |---|---|
-| Type mismatch | `expected 'int', found 'String'`, prefixed by what was checked where useful: `argument 2 of 'spawn': expected 'int', found 'String'` |
+| Type mismatch | `expected 'int', found 'String'`, prefixed by what was checked where useful: `argument 1 of 'insert': expected 'int', found 'String'` |
 | Missing token | `expected ';' after import`, `expected a type, found '='` |
-| Unknown name | `cannot find 'x' in this scope`, `cannot find type 'Chunk'` |
-| Duplicate | `'Chunk' is already defined in this module`, with `note: previous definition here` |
+| Unknown name | `cannot find 'x' in this scope`, `cannot find type 'Node'` |
+| Duplicate | `'Node' is already defined in this module`, with `note: previous definition here` |
 | Forbidden operation | `cannot <verb> ...`: `cannot call 'mut' method 'push' on an immutable value` |
 | Possibly unassigned | `'x' might not have been assigned` |
 | Not implemented | `<feature> is not implemented yet`. These codes are removed when the feature lands |
@@ -69,15 +68,15 @@ One wording per family, so similar errors read alike:
 | Before | After |
 |---|---|
 | `a 'ref' parameter cannot have a default value, since it must refer to a variable` | `'ref' parameter 'x' cannot have a default value`<br>`note: a 'ref' argument must be a variable` |
-| `'?.' is only needed on nullable values, and 'Vec3' is not nullable; use '.'` | `'?.' on a value of non-nullable type 'Vec3'`<br>`help: use '.'` |
+| `'?.' is only needed on nullable values, and 'Point' is not nullable; use '.'` | `'?.' is used on a value of non-nullable type 'Point'`<br>`help: use '.'` |
 | `'x' is used after it is moved` | `'x' is used after being moved`<br>`note: 'x' was moved here` (at the move) |
 | `call is ambiguous between ...` | `call to 'f' is ambiguous`<br>`note: candidate 'f(int)'` (at each declaration) |
 | `returns a value from a function returning nothing` | `cannot return a value from 'void' function 'f'` |
-| `argument 2 doesn't fit parameter 'int count'` | `argument 2 of 'spawn': expected 'int', found 'String'`<br>`note: parameter 'count' declared here` |
+| `argument 1 doesn't fit parameter 'int index'` | `argument 1 of 'insert': expected 'int', found 'String'`<br>`note: parameter 'index' declared here` |
 | `assignment is a statement in Wylow and cannot be used inside an expression` | `assignment cannot be used as an expression` |
 | `the visibility comes first among modifiers, as in 'pub static'` | `visibility must come before other modifiers`<br>`help: write 'pub static'` |
 | `cannot take a 'ref' to what 'm.peek(0)' refers to, because 'peek(int)' returns 'in'; use 'in' instead` | `cannot bind 'ref' to read-only result of 'm.peek(0)'`<br>`note: 'peek(int)' returns 'in'`<br>`help: bind with 'in'` |
-| `recursive constructor invocation: this 'this(...)' chain calls the constructor it starts from` | `constructor 'Foo(int)' calls itself through 'this(...)'`<br>`note: 'Foo(int)' calls 'Foo(int, int)' here` (at each step) |
+| `recursive constructor invocation: this 'this(...)' chain calls the constructor it starts from` | `constructor 'Order(int)' calls itself through 'this(...)'`<br>`note: 'Order(int)' calls 'Order(int, int)' here` (at each step) |
 | `top-level variables and constants are not supported yet; declare 'x' inside a function or type` | `top-level variables are not implemented yet`<br>`help: declare 'x' inside a function or type` |
 | `'std' is the standard library's name` | `package name 'std' is reserved for the standard library` |
 | `extern functions are only supported in the standard library for now` | `extern functions outside the standard library are not implemented yet` |

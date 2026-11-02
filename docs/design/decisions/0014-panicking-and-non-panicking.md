@@ -34,12 +34,15 @@ copy is wanted.
 
 ## Alternatives
 
-- **Exceptions** for expected failures (Java, C#): every call may then fail invisibly.
+- **Unchecked exceptions** for expected failures, such as Java's run-time exceptions
+  ([JLS 11.1.1](https://docs.oracle.com/javase/specs/jls/se27/html/jls-11.html#jls-11.1.1)): every call may then fail invisibly.
 - **Only non-panicking operations**: every index would need handling at every use.
 
 ## Why
 
 An operation should panic only when its failure means the caller made a mistake. When a caller may
 reasonably not know whether an operation will succeed, because the input came from outside its
-control, it needs a version that reports failure as a value. This is C#'s `int.Parse` and
-`int.TryParse`, with `T?` or `Result` in place of an `out` parameter.
+control, it needs a version that reports failure as a value. This is .NET's
+[`Int32.Parse`](https://learn.microsoft.com/en-us/dotnet/api/system.int32.parse) and
+[`Int32.TryParse`](https://learn.microsoft.com/en-us/dotnet/api/system.int32.tryparse), with `T?`
+or `Result` in place of an `out` parameter.
