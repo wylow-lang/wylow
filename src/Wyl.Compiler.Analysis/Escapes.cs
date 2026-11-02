@@ -247,6 +247,9 @@ public sealed class EscapeFlow
             // A 'ref?' is a reference to its operand, as a 'ref' is to the place itself.
             case IrConvert conversion when conversion.Type.KeepsIdentity || conversion.Type.IsNullableReference:
                 return Operand(conversion.Operand);
+            // A base or chained constructor call runs on the object being made, which it is given as 'this'.
+            case IrCall { Receiver: null, IsSuperCall: true, Method.Symbol.IsConstructor: true } construct when Function.This is { } made:
+                return Call(new IrRunMethod(construct.Method, true), [made], construct.Arguments);
             case IrCall call:
                 return Call(new IrRunMethod(call.Method, call.IsSuperCall), call.Receiver is null ? null : Argument(call.Receiver), call.Arguments);
             case IrInvoke invoke:
