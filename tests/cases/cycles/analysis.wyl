@@ -62,12 +62,16 @@ class Group implements Shape {
     Shape? first;
 }
 
-// Decided per instantiation: Wrapper<Owner> is cyclic, Wrapper<int> is not.
+// Decided per instantiation: Wrapper<Owner> is cyclic, Wrapper<int> is not, however it is made.
 class Wrapper<T> {
     T value;
 
     Wrapper(T value) {
         this.value = value;
+    }
+
+    Wrapper(T value, String note) {
+        this(value);
     }
 }
 
@@ -132,11 +136,13 @@ void main() {
 
     var owned = onHeap(new Wrapper<Owner>(new Owner()));
     var number = onHeap(new Wrapper<int>(1));
+    var chained = onHeap(new Wrapper<int>(2, "chained"));
     // Collecting empties the buffer, which onHeap added to, so that only the drops count.
     memory::collectCycles();
     _ = memory::cycleStats();
     drop(owned);
     drop(number);
+    drop(chained);
     report("generic");                  // output: generic
     // output: 1
 

@@ -104,10 +104,12 @@ public sealed partial class Interpreter
         frame.Constructing = obj;
         if (function.HasLocationParameter)
             frame.CallerLocation = Location(call.Loc, caller);
+        // The class it constructs as is the caller's instantiation of it, as for 'new'.
+        var type = method.Owner is { } owner ? caller.Type(owner) : obj.Type;
         if (function.This is { } self)
-            frame.Locals[self] = new OwnedStorage(new Cell(method.Owner ?? obj.Type, obj));
+            frame.Locals[self] = new OwnedStorage(new Cell(type, obj));
         BindArguments(call.Arguments, function.Parameters, frame, caller);
-        return RunConstructor(function, frame, obj, method.Owner ?? obj.Type);
+        return RunConstructor(function, frame, obj, type);
     }
 
     /// <summary>Binds a call's arguments in order, skipping the fields a memberwise form defaults.</summary>
