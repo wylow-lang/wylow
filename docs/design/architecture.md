@@ -47,6 +47,58 @@ There are two kinds of pass:
   turning one off changes a program's output, it was really a language rule, and it belongs in a
   mandatory pass.
 
+### Where the code is
+
+Each layer is a project, `src/Wyl.Compiler.<Layer>`; `src/Wyl.Compiler` runs them in order
+(`Compilation.cs`) on a package's files (`PackageSources.cs`: one file, or a directory with
+`package.wylcfg` and `src/`). `Parser`, `Binder`, and `CppEmitter` are partial classes split by
+topic (`Binder.Calls.cs`, `CppEmitter.Types.cs`); new code goes in its topic's file, and a file
+past ~600 lines is split.
+
+- **Syntax**: tokens, AST records, the parser with error recovery; also `Text` (sources,
+  locations, and each source's package and module, `Packages.cs`), `Diagnostics`, and the manifest
+  reader (`Manifest.cs`).
+- **Semantics**: the bound program and the checks on it. `Types.cs` (`WylType` and `TypeMap`
+  substitution), `TypeKinds.cs` (a sealed, interning subclass per kind of type), `Conversions.cs`,
+  type facts by topic as extension members (`TypeStorage.cs`, `TypeDefaults.cs`,
+  `TypeEquality.cs`, `TypeFormatting.cs`), `Symbols.cs`, `BoundTree.cs`, `PlacePath.cs` (a place or
+  view as a base and the steps that stay in its storage; every check of places decomposes them
+  with `PlacePath.Of`), `Binder/` and `MatchSpace.cs` (exhaustiveness and unreachable cases).
+- **Standard library**: `Semantics/Stdlib/*.wyl`, Wylow source compiled with every program and
+  declared before the user's code. The compiler knows its types only through `StdlibSymbols`
+  (found by name) and narrow hooks; prefer library code in Wylow over compiler special cases.
+  `extern` functions (stdlib only) are implemented in `runtime/wyl/intrinsics.h`.
+- **Ir**: the model ([ir.md](ir.md)): `Ir.cs`, `Ir.Values.cs`, `IrPrinter.cs`, `IrEffects.cs` (what
+  each instruction may write, run, or panic on), `IrAccess.cs` (which storage an instruction
+  touches, with its type: the one storage model, and the walkers), and `IrExtent.cs` (what may
+  happen while a hold or anything pointing into it is in use).
+- **Lowering**: `Lowering*.cs`, and the mandatory passes (`IrLowering.Passes`, each a
+  `MandatoryPass`): `Borrows.cs` drops a borrow where no code runs while anything refers into it.
+  Lowering reaches a source local only through `IrLowering.Accessed`, and holds the object a place
+  goes through through `IrLowering.ObjectLocal`.
+- **Analysis**: the verifier (`IrVerifier*.cs`, the flow analysis; `tests/Wyl.Tests/IrSelfTests.cs`
+  builds IR it must accept or reject) and the whole-program facts, each found from the IR for one
+  `Generation`: `Callees.cs` (what each instruction runs), `Summaries.cs` (per-unit summaries over
+  callees, with a worklist), `Writes.cs`, `LambdaWrites.cs`, `Escapes.cs`, `CyclicClasses.cs`
+  (which classes and closures may form cycles, and `Destroyable`), `Overrides.cs`,
+  `FunctionValues.cs`.
+- **Optimize**: `Pipeline.cs` runs everything; the passes are `ReadsInPlace.cs`, `HoldElision.cs`,
+  `InPlaceElements.cs` (tests mark loops `// in-place: <n>`), `BorrowedLocals.cs` (with
+  `Aliasing.cs`, shared with `HoldElision`), `LastUseMoves.cs`, and `StackSlots.cs`
+  ([stack-objects.md](stack-objects.md); tests mark lines `// stack: <n>`). A test observing an
+  optimization through diagnostics is `// mode: optimized`.
+- **CodeGen**: `CppEmitter*.cs`: declarations from the bound program, bodies from the IR
+  (`CppEmitter.Ir.cs`), and nesting (`CppEmitter.IrNesting.cs`).
+- **Interpret**: `Interpreter*.cs`, a second executor of the IR ([ir.md](ir.md) §9.11): one visitor
+  rule per statement and rvalue kind, one `Values` definition of copy, release, default, and
+  equality, `RuntimeText`/`RuntimeArithmetic` reproducing `runtime/wyl/*.h`, intrinsics keyed on
+  `BuiltinCppName`, and the cycle collector (`Interpreter.Cycles.cs` mirrors `runtime/wyl/cycles.h`).
+- **Runtime**: `runtime/wyl.h` includes one header per topic from `runtime/wyl/` (`arithmetic.h`,
+  `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...), each compiling on its own
+  ([runtime.md](runtime.md)).
+- **Test harnesses**: `tests/Wyl.Harness` (shared oracle), `Wyl.Tests`, `Wyl.Fuzz`,
+  `Wyl.Generate`, `Wyl.Mutation` ([testing.md](testing.md)).
+
 ### The verifier is the flow analysis, checking
 
 User errors and IR invariants are one check run at different times. On freshly lowered IR, a

@@ -5,8 +5,9 @@ argument), and nobody writes tests for combinations they haven't thought of. So 
 goals: **a number per feature and layer** that says how well it is tested, and **tests the
 computer writes**, aimed at boundaries and checked by oracles that need no expected output.
 
-CLAUDE.md has the commands and when each runs; `architecture.md`'s enforcement table says how each
-harness's rule is enforced. This file is why they exist, what each can't see, and what to add next.
+CLAUDE.md has the everyday commands and when each kind of run happens; `architecture.md`'s
+enforcement table says how each harness's rule is enforced. This file is how to run them, why they
+exist, what each can't see, and what to add next.
 
 ## Oracles
 
@@ -35,13 +36,81 @@ with nothing, like a timeout: a stack overflow aborts (spec `introduction.aborts
 same overflow as an access violation or not at all. Any further exception must be decided in the spec
 and named in the comparison rule, never added quietly.
 
+## Running the tools
+
+Commands (`CLAUDE.md` has the everyday ones):
+
+```
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc     # all tests, g++
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan    # clang-cl with ASan and UBSan
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # CI's seven modes, one process each
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --seconds 120  # fuzz, tier 1 (in-process)
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
+dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --replay 42    # rebuild one mutant of the same seed
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --seconds 60  # generate, tier 1
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --tier 2 --seconds 600
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --replay 12
+dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test  # the generator's own checks
+dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --list-targets
+dotnet tests/Wyl.Mutation/bin/Debug/net10.0/Wyl.Mutation.dll --target ir-effects [--filter <text>] [--max N] [--seconds S]
+bash tools/coverage.sh [runner args]   # coverage merged over all modes, in tests/.coverage/
+dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, generation, mutation, findings, code size
+```
+
+- **Modes.** `--no-nest` and `--no-opt` must pass too: declining to nest a temporary or to run an
+  optimization is always correct. `--no-opt` skips the `// stack:` and `// in-place:` markers,
+  which count optimizations. Generated C++ lands in `tests/.out/` (`--all-modes`: one directory
+  per mode); a program isn't rebuilt when its C++ and everything the build reads match the `.key`
+  beside its executable. To check C++ by hand: `g++ -std=c++20 -Wall -Wextra -Wshadow
+  -Wno-sign-compare -Wno-overflow -fsyntax-only -Iruntime <file>` (unused parameters in test
+  programs are fine; integer conversion warnings are left out, since g++ draws them after constant
+  folding on explicit casts, and a narrowing that changes a value disagrees with the interpreter).
+- **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
+  checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
+  free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is
+  found in stderr, not the exit code. Every sanitized program prints a harmless
+  `interception_win: unhandled instruction` line (Clang 19's ASan and this MSVC runtime).
+  Reproduce with `wyl run <file> --cc asan`.
+- **Refactoring without behavior change**: build the commit before it in a git worktree, run the
+  tests in both, and `diff -r` the two `tests/.out` (C++ and `.ir`).
+- **The fuzzer** (`tests/Wyl.Fuzz`) mutates `tests/cases/**/*.wyl` and checks every mutant with the
+  oracles above. Tier 1 is in-process and also interprets the optimized IR against the meaning;
+  tier 2 builds and runs every mode, the interpreter first. A failure is reduced and written to
+  `tests/fuzz/findings/` with its seed. Package tests are skipped (`Wyl.Harness/TestCases.cs`). A
+  finding in `unsafe` code is the program's undefined behavior; a mutant that edits `unsafe` code
+  is compiled but not run in tier 2.
+- **The generator** (`tests/Wyl.Generate`) builds well-typed programs from a seed with the same
+  oracles, plus a `--release` build in tier 2 (a generated program never overflows). Stage 1 covers
+  integers, `bool`, `char`, `float`, `double`, and `String`; stages 2–4 are the backlog. A generated
+  program that doesn't bind, panics, or doesn't finish is a **generator bug** (exit code 2), not a
+  compiler finding; a compiler that throws on one is a compiler finding. Findings go to
+  `tests/generate/findings/`. `--self-test`, which runs before every generation and in CI on every
+  push, checks determinism, the range and conversion facts, constructor coverage, that the corpus
+  contains each mixed-type construct as the compiler reads it, and budgets.
+- **Mutation testing** (`tests/Wyl.Mutation`) changes one operator, constant, pattern, condition,
+  or statement in the compiler, rebuilds that project in a private copy, and reruns the tests
+  `tests/mutation/targets.json` names for it; neither the working tree nor the build output is
+  touched. Results land in `tests/mutation/results/` and on the dashboard.
+- **CI** uploads findings and mutation results as artifacts: a finding moves into `tests/cases/`
+  like a local one, and a results JSON copied into `tests/mutation/results/` shows on the
+  dashboard. Read a failed run with `gh run view --log-failed`.
+
 ## What each harness is for
 
-- **Matrices** cross a shape with a shape (place × operation, type × context, value edge ×
-  operation). Their snapshots were reviewed against the spec cell by cell; a cell the spec doesn't
-  decide is a finding as much as a wrong one.
-- **Value-printing tests** (`tests/cases/values/`) catch a wrong answer every mode agrees on, dozens
-  per file.
+- **Matrices** (`tests/matrix/*.snapshot`, generated by `MatrixPlaces.cs`, `MatrixTypes.cs`, and
+  `MatrixValues.cs`) cross a shape with a shape (place × operation, type × context, value edge ×
+  operation), one small program per cell, run through every oracle, the interpreter included.
+  Their snapshots were reviewed against the spec cell by cell; after that, a changed cell fails
+  until `--update-snapshots` records it, and the diff is reviewed in that change. A cell the spec
+  refuses is in the snapshot too, with its error or panic. A cell the spec doesn't decide is a
+  finding as much as a wrong one.
+- **Value-printing tests** (`tests/cases/values/`, one file per builtin kind, thirty or more results
+  at the edges) catch a wrong answer every mode agrees on, so every operator, conversion, and
+  format specifier of a kind belongs in its file.
+- **Type properties** (`tests/Wyl.Tests/TypeSelfTests.cs`): interning, substitution,
+  `CppIdentity`, conversions, names that bind back, facts that agree, on random types from a fixed
+  seed, reported as `types/<property>`. A new kind of type or type fact gets a generator case or a
+  property.
 - **The fuzzer** mutates existing tests at feature boundaries and value edges: what crashes and
   what disagrees. A mutation that changes nothing a program does, such as `constructor-chain`,
   can be held to more: `FuzzSelfTests` interprets each of its mutants of the corpus on every
