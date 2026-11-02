@@ -111,7 +111,6 @@ Chapter 1 defines these, and every rule uses them:
 ## Why
 
 The JLS and the Go spec both order their chapters by construct, so a reader of either finds the
-structure they expect, and the JLS defines the language whose syntax Wylow follows where it can.
-Fixed phrasing makes each kind of rule recognizable at a glance and greppable: every compile-time
+structure they expect. Fixed phrasing makes each kind of rule recognizable at a glance and greppable: every compile-time
 error rule matches one phrase, which step 3 of the restructure maps to diagnostic codes. Anchors
 keep links stable through the rewrite and beyond it.

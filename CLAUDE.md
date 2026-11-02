@@ -1,7 +1,7 @@
 # Wylow
 
-A personal, general-purpose language: Java-style syntax, C++-level control, no undefined behavior
-by default. The compiler is C# (.NET 10) and compiles Wylow to C++20.
+A personal, general-purpose language: C++-level control and no undefined behavior by default. The
+compiler is C# (.NET 10) and compiles Wylow to C++20.
 
 ## Read first
 

@@ -1,7 +1,7 @@
 # Wylow
 
-A personal, general-purpose programming language: Java-style syntax, C++-level control, no undefined
-behavior by default. Wylow compiles to C++.
+A personal, general-purpose programming language: C++-level control and no undefined behavior by
+default. Wylow compiles to C++.
 
 The language is described in [docs/spec](docs/spec/README.md).
 

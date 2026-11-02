@@ -23,8 +23,8 @@ The language is designed by these principles:
 5. **Plain data first.** Structs, arrays, and spans are the fast path and the parallel path.
 6. **Explicit over clever.** Boilerplate is acceptable if it makes behavior obvious.
 
-Wylow is general-purpose. Its syntax follows Java's where it can; it has value types, inline
-arrays, control over layout, and no tracing garbage collector. Specialized functionality lives in
+Wylow is general-purpose. It has value types, inline arrays, control over layout, and no tracing
+garbage collector. Specialized functionality lives in
 libraries, and the language provides what a library needs to be as fast as a built-in would be:
 value types, indexers, and layout control.
 

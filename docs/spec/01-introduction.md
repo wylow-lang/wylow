@@ -16,10 +16,10 @@ It does not define:
 - the standard library, except the types and functions the language itself names
   ([Appendix A](a-library.md#library)). The rest of the library is documented in its source.
 
-> **Note:** Wylow is a general-purpose language. Its syntax is Java's where it can be; it has
-> value types, inline arrays, and control over layout; objects are freed by reference
-> counting, with cycles collected only where the program asks; and outside `unsafe` code no program
-> has undefined behavior. The current implementation compiles Wylow to C++.
+> **Note:** Wylow is a general-purpose language. It has value types, inline arrays, and control over
+> layout; objects are freed by reference counting, with cycles collected only where the program
+> asks; and outside `unsafe` code no program has undefined behavior. The current implementation
+> compiles Wylow to C++.
 
 <a id="introduction.organization"></a>
 ## 1.2 Organization
