@@ -120,6 +120,16 @@ struct Tagged {
         this(new Item(label), 5);
         print($"tagged {item.label} {n}");
     }
+
+    // Arguments that are only parameters make the struct in one step once optimized, which
+    // still gives every field a value.
+    Tagged(Item item, bool flag) {
+        this(item, flag ? 1 : 0);
+    }
+
+    Tagged(Item item, String note) {
+        this(item, 9);
+    }
 }
 
 void main() {
@@ -153,9 +163,13 @@ void main() {
     // output: 1 7
     var t = Tagged("tag");
     // output: tagged tag 5
+    var direct = Tagged(new Item("direct"), "note");
+    print($"{direct.item.label} {direct.n}");
+    // output: direct 9
     print($"{a.name()} {b.item.label} {pair.first} {pair.second}");
     // output: derived default 5 6
 }
+// output: release direct
 // output: release tag
 // output: release default
 // output: release chained

@@ -196,6 +196,13 @@ public sealed partial class IrVerifier
             Violation($"'this' cannot be used until every field is assigned, and '{unassigned.Name}' might not be");
     }
 
+    /// <summary>A struct constructor's value given as a whole, as a chained constructor makes it, has every field.</summary>
+    void AssignedWhole(IrLocal local, State state)
+    {
+        if (local == constructed)
+            state.AssignedFields.UnionWith(requiredFields);
+    }
+
     /// <summary>The field a constructor must assign that a store assigns as a whole, if it is one.</summary>
     FieldSymbol? Initialized(IrPlace target) =>
         target.Local == constructed && target.IsDeref == constructed.Type.IsReference && target.Projections is [IrField { Field: var field }] && requiredFields.Contains(field)
@@ -307,6 +314,9 @@ public sealed partial class IrVerifier
                     Declare(let.Local, state, let);
                 CheckLet(let);
                 Define(let.Local, let.Value, state);
+                // A constructor starts from the default value, which isn't one with every field.
+                if (let.Value is not (IrDefault or IrZeroed))
+                    AssignedWhole(let.Local, state);
                 return state;
             case IrDeclare declare:
                 if (declare.Local.Kind == IrLocalKind.Borrowed || declare.Local.Kind == IrLocalKind.Hold && !declare.Local.IsTemporary)
@@ -405,14 +415,12 @@ public sealed partial class IrVerifier
         if (!target.IsDeref && target.Projections.Count == 0)
             state.Invalid.Remove(target.Local);
         var initialized = Initialized(target);
-        // A struct constructor's whole value, as a chained constructor makes it, has every field.
-        bool initializesAll = target.Local == constructed && !target.IsDeref && target.Projections.Count == 0;
-        Place(target, state, reads: target.IsDeref || target.Projections.Count > 0, initializes: initialized is not null || initializesAll);
+        bool whole = !target.IsDeref && target.Projections.Count == 0;
+        Place(target, state, reads: !whole, initializes: initialized is not null || (whole && target.Local == constructed));
         if (target.Type != store.Value.Type)
             Error($"stores a '{store.Value.Type}' in a '{target.Type}'");
 
         var local = target.Local;
-        bool whole = !target.IsDeref && target.Projections.Count == 0;
         bool deferred = declarations.TryGetValue(local, out var declaration) && declaration.Statement is IrDeclare;
         if (!target.IsDeref && local.IsTemporary && !deferred)
             Error($"'{N(local)}' is a temporary, defined once");
@@ -435,8 +443,8 @@ public sealed partial class IrVerifier
         CommitMoves(state);
         if (initialized is not null)
             state.AssignedFields.Add(initialized);
-        if (initializesAll)
-            state.AssignedFields.UnionWith(requiredFields);
+        if (whole)
+            AssignedWhole(local, state);
         if (whole)
         {
             Learn(local, new IrUse(store.Value), state);
