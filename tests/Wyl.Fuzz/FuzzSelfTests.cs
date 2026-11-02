@@ -171,7 +171,11 @@ public static class FuzzSelfTests
     static string? ChainMutantsAgree(IReadOnlyList<BaseFile> files)
     {
         var mutation = Mutations.All.Single(m => m.Name == "constructor-chain");
-        var options = new Wyl.Compiler.Interpret.InterpreterOptions(StepBudget: 20_000_000, TimeLimit: TimeSpan.FromSeconds(2));
+        // The step budget alone bounds a mutant, never a time limit: the original must finish inside
+        // the same budget, and chaining adds no work a program can observe, so a wall clock could
+        // only make a suite run pass or fail with the machine's load, as it once did on a busy CI
+        // runner.
+        var options = new Wyl.Compiler.Interpret.InterpreterOptions(StepBudget: 20_000_000);
         // Optimized, since the passes are where a chain met what they assume. The suite runs this
         // in every mode, so the files run in parallel, each with a random of its own.
         var outcomes = files
