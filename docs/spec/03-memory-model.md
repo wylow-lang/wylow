@@ -13,8 +13,9 @@ by a collector that runs only when the program calls it.
 ## 3.1 Values
 
 Structs, primitives, and fixed arrays are stored inline and copied on assignment
-(see [02-types.md](02-types.md#29-structs)), except unique ones, which are moved. They have no
-destructors. Destroying a struct means releasing any class references it contains.
+(see [02-types.md](02-types.md#29-structs)), except unique ones, which are moved. Only a unique
+struct may have a destructor ([02-types.md](02-types.md#destructors-of-unique-structs)). Destroying a
+struct runs its destructor, if it has one, then releases its fields, including any class references.
 
 ### Moves
 
@@ -339,6 +340,26 @@ A `ref` or `in` variable, and a span variable, holds the object for its whole sc
 local holds it: the function itself may reassign that local while the reference lives. An object
 held by `this`, or by a field that isn't `mut` of `this` (outside its class's constructors), needs
 no hold.
+
+### Values in use
+
+A value of a unique struct type that has a destructor is **in use** while anything refers to the
+place holding it: from the start of a call of one of its methods, or a call given a `ref` or `in`
+argument that refers to it, until that call returns, and for the scope of a `ref` or `in` variable
+or pattern binding that refers to it, and for the body of its destructor. A call made on `this`, or on a `ref` or `in` parameter, while the
+value is already in use is part of the same use.
+
+It panics to release a value that is in use: by assigning to the place that holds it, by removing
+it from a container, or by any other release of it. Moving a value out with `std::replace` or
+`std::swap` releases nothing, so it does not panic.
+
+```java
+class Session {
+    pub mut File log;
+    pub void reopen() { log = File.open("log.txt"); }    // panics if 'log' is in use
+}
+// session.log.write(session);   'write' calls 'session.reopen()' while 'log' is in use
+```
 
 ### Evaluation order and the heap
 

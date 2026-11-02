@@ -115,14 +115,16 @@ home is written.
 | `switch` | Exhaustive over enums | `patterns.exhaustiveness` (delete the duplicate) |
 | Representation | `@Repr` and `@Flags` pointer | `enums.repr`, `enums.flags` |
 | 2.9 Structs | Value type, stored inline, copied | `structs.declarations`, `structs.copies` |
-| | No destructors or copy constructors | `structs.declarations` (rule); "resource ownership belongs to classes" to the guide |
+| | No copy constructors; only unique structs have destructors | `structs.declarations` (rule); "resource ownership belongs to classes" to the guide |
 | | Interfaces only as bounds | `interfaces.structs` |
 | | Copies are shallow | `structs.copies` (rule); already in the guide's list |
 | Unique structs | Moves where copies would be | `memory.moves` |
 | | Use after move is an error | `flow.moves` |
 | | Containing types must be `unique`; `T[N]`, `T?`, generic instances | `structs.unique` |
 | | Not `Copyable` | `types.copyable` |
-| | No destructor; `clone()` convention | `structs.unique` (rule), the guide (`clone`) |
+| | Destructor, `discard`, read-only `this` ("Destructors of unique structs") | `structs.unique`; decision 0028 |
+| | `clone()` convention | the guide |
+| Values in use | The panic on releasing a value in use | `memory.holds`; decision 0028 |
 | Where copies happen | The list of where | `structs.copies` |
 | | How to avoid a copy | the guide |
 | Layout | Declaration order, C alignment, `@Align`, `@Packed` | `structs.layout` (alignment is implementation-defined) |

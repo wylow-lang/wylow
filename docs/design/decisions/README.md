@@ -55,3 +55,4 @@ history and a reason can be found without searching the spec.
 | [0025](0025-unsafe-permits.md) | `unsafe` permits operations and never removes checks |
 | [0026](0026-no-cost-documentation.md) | Costs are not documented |
 | [0027](0027-design-principles.md) | Design principles |
+| [0028](0028-destructors-on-unique-structs.md) | Destructors on unique structs |

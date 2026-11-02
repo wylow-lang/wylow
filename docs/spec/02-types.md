@@ -417,7 +417,8 @@ struct Transform {
 - Stored inline: on the stack, inside other structs, inside arrays, inside classes.
 - **Copied** on assignment and when passed by value. A copy is a field-by-field copy. A
   `unique struct` (below) is moved instead, and can't be copied.
-- **No destructors, no copy constructors.** Resource ownership belongs to classes.
+- **No copy constructors.** Only a unique struct (below) may have a destructor; any other struct
+  that declares one is a compile-time error.
 - No inheritance. Structs may implement interfaces, but only for use as generic bounds (§2.12).
 
 > ⚠️ **Struct copies are shallow.** If a struct contains a class reference (a `List`, any class),
@@ -453,9 +454,57 @@ print(kept.rate);                      // error: 'kept' is used after it is move
   Classes are never unique: an object is shared by reference counting.
 - A unique type doesn't satisfy `Copyable` (§2.13), so generic code copies a `T` only where its
   bound says it may.
-- Like any struct, a unique struct has no destructor: releasing it releases its fields. To own a
-  resource or heap memory, it holds a class object in a field that it never hands out.
+- A unique struct may declare a destructor, `~Name() { ... }`, with no parameters and no modifiers.
+  It is a compile-time error to declare one on a struct that isn't `unique`. A unique enum has no
+  destructor, but releasing it releases its variant's fields, which runs the destructors of the
+  fields that have one.
 - To copy one on purpose, give it a method that makes the copy, conventionally `clone()`.
+
+#### Destructors of unique structs
+
+A unique struct's destructor runs when a value of the type is released
+([03-memory-model.md](03-memory-model.md#when-references-are-released)): when its owner goes out of
+scope while it holds the value, when it is overwritten, when an element holding it is removed or its
+container is destroyed, and when the value containing it is released. It does not run for a value
+that has been moved.
+
+- The destructor's body runs first. The struct's fields are then released in reverse declaration
+  order, as a class's are. A field whose type has a destructor runs it.
+- In the body, `this` is a `ref`, as in a `mut` method, so the body may assign to fields and call
+  `mut` methods. The value is in use for the whole body
+  ([03-memory-model.md](03-memory-model.md#values-in-use)), so replacing or releasing the whole
+  value there panics. It is a compile-time error to move out of `this`.
+- A panic in a destructor ends the program like any other panic.
+- A static can't have a unique type (§5.5), so a destructor never runs at the end of the program
+  for a static's value.
+
+**`discard`.** `discard name;` ends the lifetime of a by-value parameter without running its
+destructor's body; its fields are still released.
+
+- It is a compile-time error if `name` is not a by-value parameter of a unique struct type that has
+  a destructor, or if the function is not declared in the same file as the type. A function
+  declared there can be a free function, a static method, or an extension method whose receiver is
+  `this T` for that type.
+- After `discard name;` the parameter is moved: using it is a compile-time error
+  ([03-memory-model.md](03-memory-model.md#moves)). Paths that don't discard it release it when
+  the function ends, running the destructor, so a function that closes a resource by itself can
+  return an error before discarding.
+
+```java
+unique struct File {
+    int descriptor;
+    ~File() { sys::close(descriptor); }
+}
+
+Result<void, IoError> close(File f) {
+    if (sys::flush(f.descriptor) != 0) {
+        return Result.err(IoError.Flush);       // 'f' is released here: the destructor closes it
+    }
+    var status = sys::close(f.descriptor);
+    discard f;                                  // already closed: don't run the destructor
+    return status == 0 ? Result.ok() : Result.err(IoError.Close);
+}
+```
 
 ### Where copies happen
 
