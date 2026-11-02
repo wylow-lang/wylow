@@ -58,7 +58,7 @@ public static class TypeStorage
         /// <summary>
         /// Whether storage of type <paramref name="part"/> may lie inside a value of this type, as a
         /// part of it: an element of a fixed array in it if <paramref name="element"/>, or else a
-        /// field. Storage of one type is never another's (spec 01-safety.md §1.2, Strict aliasing), so
+        /// field. Storage of one type is never another's (spec unsafe.aliasing), so
         /// nothing else can be; a type parameter may be anything. Nullability is left out: a nullable
         /// value lies where its value does.
         /// </summary>

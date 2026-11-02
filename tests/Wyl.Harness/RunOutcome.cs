@@ -12,7 +12,7 @@ public sealed record RunOutcome(
 {
     /// <summary>
     /// Windows' STATUS_STACK_OVERFLOW, the exit code of a thread that ran off its stack. The spec
-    /// gives a stack overflow to the OS guard page (spec 01-safety.md §1.2), so the code that ends
+    /// gives a stack overflow to the OS guard page (docs/design/runtime.md), so the code that ends
     /// the process is the platform's, not the program's.
     /// </summary>
     public const int StackOverflowExitCode = unchecked((int)0xC00000FD);

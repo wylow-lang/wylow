@@ -30,8 +30,8 @@ The modes may differ in one documented case: with `--no-opt`, a budgeted `memory
 may reach other cycles, so a program calling it is compared on everything but stdout. Stdout that
 differs only in a printed zero's sign is equal where a native build is compared
 (`RunComparison.WithoutZeroSign`). A run that ended because a thread ran off its stack is compared
-with nothing, like a timeout: the spec gives a stack overflow to the OS guard page (spec
-01-safety.md §1.2), so the code it aborts with is the platform's, and a sanitizer build reports the
+with nothing, like a timeout: a stack overflow aborts (spec `introduction.aborts`), through the OS guard page
+(runtime.md), so the code it aborts with is the platform's, and a sanitizer build reports the
 same overflow as an access violation or not at all. Any further exception must be decided in the spec
 and named in the comparison rule, never added quietly.
 

@@ -1,6 +1,6 @@
 // A loop element of any type whose copy costs something refers to the element in place, unless
 // something the loop runs may write an element of its type or a part of one. Storage of one type
-// is never another's (spec 01-safety.md, Strict aliasing), so a write of an unrelated type doesn't
+// is never another's (spec unsafe.aliasing), so a write of an unrelated type doesn't
 // count.
 
 import std::{List, print};

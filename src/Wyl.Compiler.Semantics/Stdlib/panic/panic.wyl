@@ -1,4 +1,4 @@
-// What is about panics (spec 06-syntax.md §6.1, 01-safety.md §1.3): `panic(message)`, which the
+// What is about panics (spec 06-syntax.md §6.1, errors.panics): `panic(message)`, which the
 // compiler declares here and `std` re-exports, and the checks built-in arrays make, for a container
 // whose index isn't its storage's, such as a ring buffer on an `Array`. Each reports its caller's
 // location, as the built-in checks do.

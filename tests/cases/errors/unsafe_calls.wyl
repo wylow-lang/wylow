@@ -1,6 +1,6 @@
 // An unsafe function, method, constructor, or indexer is called only from unsafe code, and no
 // call that needs no unsafe code can reach one: an override or interface implementation can't
-// be 'unsafe' unless what it overrides is (01-safety.md, unsafe).
+// be 'unsafe' unless what it overrides is (spec unsafe.blocks).
 
 import std::print;
 

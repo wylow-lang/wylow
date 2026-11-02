@@ -438,8 +438,8 @@ One function gives each instruction's effects:
 
 - the places it reads and writes, each an `IrAccess`: local `x`; field `f` of objects of class
   `C`; or what a reference or pointer leads to, of type `T`; then the path inside it. An access
-  carries the type of its storage, and storage of one type is never another's (spec 01-safety.md
-  §1.2, Strict aliasing), so a store through a reference of type `T` may only touch storage whose
+  carries the type of its storage, and storage of one type is never another's (spec
+  `unsafe.aliasing`), so a store through a reference of type `T` may only touch storage whose
   type may contain a `T` inline, or lie inside one; a type parameter may be anything. "An
   element of type `T`", which a loop borrows in place, is an access too (`IrAccess.Element`), and
   is changed by a write to such an element or to a part of one;

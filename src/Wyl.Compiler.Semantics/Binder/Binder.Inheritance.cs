@@ -143,7 +143,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// A call through a method that isn't <c>unsafe</c> needs no unsafe code, so nothing that call
-    /// may dispatch to can be <c>unsafe</c> (01-safety.md, unsafe). The reverse is allowed.
+    /// may dispatch to can be <c>unsafe</c> (spec unsafe.blocks). The reverse is allowed.
     /// </summary>
     static bool LosesUnsafe(FunctionSymbol implementation, FunctionSymbol declared) => implementation.IsUnsafe && !declared.IsUnsafe;
 

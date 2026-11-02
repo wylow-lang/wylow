@@ -106,8 +106,8 @@ public sealed record IrAccess(IrStorage Storage, IrLocal? Local, FieldSymbol? Fi
 
     /// <summary>
     /// Whether they may be the same storage: one path leads into the other, where elements may be
-    /// the same whatever their indices. Storage of one type is never another's (spec 01-safety.md
-    /// §1.2, Strict aliasing), so storage the function can't see may only be storage whose type
+    /// the same whatever their indices. Storage of one type is never another's (spec
+    /// unsafe.aliasing), so storage the function can't see may only be storage whose type
     /// may contain its type, or be contained in it.
     /// </summary>
     public bool Overlaps(IrAccess other) => (Storage, other.Storage) switch

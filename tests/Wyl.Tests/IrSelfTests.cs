@@ -481,7 +481,7 @@ static partial class IrSelfTests
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))) { Origin = null });
         }, Error: "the place it borrows may be written");
 
-        // Storage of one type is never another's (spec 01-safety.md §1.2), so a store through a
+        // Storage of one type is never another's (spec unsafe.aliasing), so a store through a
         // reference to a float leaves a borrowed int alone; a type parameter may be anything.
         IrFunction WrittenThrough(string name, WylType referenced)
         {
