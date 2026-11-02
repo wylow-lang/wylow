@@ -276,5 +276,93 @@
     "filters": ["packages"],
     "arguments": ["--interpret"],
     "note": "Reading package.wylcfg: its entries, the fixed keys and their kinds, and the name's rules. The packages/manifest_* tests pin each error, and every package test reads a manifest that must be accepted."
+  },
+  {
+    "id": "analysis-escapes",
+    "title": "Escape analysis",
+    "path": "src/Wyl.Compiler.Analysis/Escapes.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "Which parameters, this, and captures a function may let escape or return, for StackSlots. AnalysisSelfTests asks it per route (calls, dispatch, constructor chains, closures); the stack markers in the class and lambda tests see the optimization."
+  },
+  {
+    "id": "analysis-writes",
+    "title": "Write sets",
+    "path": "src/Wyl.Compiler.Analysis/Writes.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "The storage a function or release may write. AnalysisSelfTests asks per route; the passes that rely on it (in-place elements, borrowed locals) and the verifier see it in the container and reference tests."
+  },
+  {
+    "id": "analysis-callees",
+    "title": "Callees",
+    "path": "src/Wyl.Compiler.Analysis/Callees.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "What each run may run, dispatched calls and releases included. Every other analysis asks it."
+  },
+  {
+    "id": "analysis-lambda-writes",
+    "title": "Lambda writes",
+    "path": "src/Wyl.Compiler.Analysis/LambdaWrites.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "What each lambda may change around it."
+  },
+  {
+    "id": "analysis-cycles",
+    "title": "Cyclic classes",
+    "path": "src/Wyl.Compiler.Analysis/CyclicClasses.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "Which classes and closures may form cycles, and what releasing a value may destroy."
+  },
+  {
+    "id": "analysis-summaries",
+    "title": "Summaries",
+    "path": "src/Wyl.Compiler.Analysis/Summaries.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "The worklist the interprocedural facts are solved with."
+  },
+  {
+    "id": "analysis-overrides",
+    "title": "Overrides",
+    "path": "src/Wyl.Compiler.Analysis/Overrides.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "The methods a dispatched call may run."
+  },
+  {
+    "id": "analysis-function-values",
+    "title": "Function values",
+    "path": "src/Wyl.Compiler.Analysis/FunctionValues.cs",
+    "filters": ["analysis/", "ir/", "classes", "lambdas", "cycles", "references", "containers", "structs"],
+    "arguments": ["--interpret"],
+    "note": "Which lambdas a function value may be."
+  },
+  {
+    "id": "verifier",
+    "title": "IR verifier",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "The flow analysis. IrSelfTests builds the IR it must reject, and the error tests are the user's view of the same checks."
+  },
+  {
+    "id": "verifier-values",
+    "title": "IR verifier: values",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.Values.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "Places, references, and values in the flow analysis."
+  },
+  {
+    "id": "borrows",
+    "title": "Borrows",
+    "path": "src/Wyl.Compiler.Lowering/Borrows.cs",
+    "filters": ["ir/", "containers", "references", "spans", "classes"],
+    "arguments": ["--interpret"],
+    "note": "The mandatory pass that drops a borrow where nothing runs while anything refers into it."
   }
 ]

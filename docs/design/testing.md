@@ -79,6 +79,8 @@ over all modes; every user-error and verifier site reached; `ir-effects`, `ir-ac
 targets haven't been triaged; they are picked up when convenient, since the interpreter's own bugs
 surface as disagreements. `binder-names`, `binder-imports`, and `manifest` (packages and modules,
 2026-11-01) haven't run yet; their first CI run is triaged like the others.
+The analyses (`analysis-*`), `verifier`, `verifier-values`, and `borrows` were added with the
+analysis self-tests and are measured on their first CI run.
 
 ## Known risks
 
