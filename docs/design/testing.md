@@ -151,6 +151,14 @@ surface as disagreements. `binder-names`, `binder-imports`, and `manifest` (pack
 The analyses (`analysis-*`), `verifier`, `verifier-values`, and `borrows` were added with the
 analysis self-tests and are measured on their first CI run.
 
+Mutation status on 2026-11-01: every target measured, 85.2% overall, 335 survivors untriaged.
+Proposed triage order: the interpreter's `arithmetic` and `cycles` (143 survivors, mostly
+`RuntimeArithmetic.cs`'s total order, NaN, and conversion guards), then `binder-imports`,
+`manifest`, and `binder-names` (46), then `text`, `calls`, `core`, `memory`, and `intrinsics`
+(121), then the rest (25). Per-target results are in the latest `mutation.yml` run's artifacts.
+The harness also reported 253 sites whose mutant doesn't compile and 24 timeouts; compiling a
+mutant before counting it, and a larger budget, would remove that noise.
+
 ## Known risks
 
 - **Two definitions of an instruction's meaning.** `IrEffects` says what an instruction may write,
