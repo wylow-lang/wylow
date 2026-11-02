@@ -248,8 +248,11 @@ public sealed partial class CppEmitter
     (int Frontier, IrFootprint Tree) ProcessOperands(List<IrStatement> statements, int k, bool last, bool outlives)
     {
         var statement = statements[k];
-        // A condition is a statement of its own, so its temporaries are released where it ends.
-        last |= statement is IrIf;
+        // A condition's temporaries are destroyed when it ends, before the body runs, but the IR
+        // keeps them until its block does. A source condition's own temporaries are a block of their
+        // own, so only a lowered `?:` condition reaches here, and nothing observable may move into it.
+        if (statement is IrIf)
+            last = false;
         var own = OwnFootprint(statement);
         var placeReads = IrWalk.PlaceReads(statement).Select(r => (Locals: IrWalk.PlaceLocals(r.Place).ToHashSet(), Accesses: r.Accesses.ToList())).ToList();
         var nested = new IrFootprint();

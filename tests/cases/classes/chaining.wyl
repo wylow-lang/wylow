@@ -68,6 +68,17 @@ class Pair {
         this(trace("left", n), new Item("right").label == "right" ? trace("right", n + 1) : 0);
         print("pair chained");
     }
+
+    // A call that takes a function value leaves the ternary condition's temporary to the end of the
+    // argument it is computed in.
+    Pair(int n, String label) {
+        this(trace("left", n), new Item(label).label == label ? trace(apply(() -> "right"), n + 1) : 0);
+        print("pair chained");
+    }
+}
+
+String apply(fn() -> String f) {
+    return f();
 }
 
 class Box<T> {
@@ -174,6 +185,12 @@ void main() {
     var named = new Named(3, "three");
     // output: direct 3 three
     // output: chained 3 three
+    var lazy = new Pair(6, "lazy");
+    // output: left
+    // output: right
+    // output: release lazy
+    // output: pair 6 7
+    // output: pair chained
     var box = new Box<String>("boxed");
     // output: box field
     print($"{box.get()} {box.count}");

@@ -168,7 +168,10 @@ Four structural rules go with it:
 - A value whose release may be observable is nested only into its statement's last C++
   statement. In an earlier one, C++ would destroy it at that statement's end, before the Wylow
   statement completes. `wyl::keep` around it is still nesting: its temporary lives to the end of
-  the full-expression.
+  the full-expression. A condition is not such an end: C++ destroys a condition's temporaries
+  before the body runs, while the IR keeps them until its block's, so none nests there. A source
+  condition's own temporaries are a block of their own, which leaves only a lowered `?:`
+  condition, whose temporaries belong to the enclosing statement.
 - A temporary that creates a value is a fresh value in the IR, but C++ may print a copy as the
   place it copied, and `?:` of two places is an lvalue. So a copy, or a choice between copies, is
   not nested into a use that takes a place (a `ref` or `in` argument, an address, or a store's
