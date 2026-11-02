@@ -32,7 +32,8 @@ compiler infers this; it is never written.
 | `String` (an immutable value whose copies share one block, counted atomically) | ✅ |
 | References to a `shared class` (§5.3), including the standard library's `Frozen<T>`, `Mutex<T>`, `Atomic<T>`, and channel ends | ✅ |
 | Escaping `shared` functions (§5.4) | ✅ |
-| References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>`, and functions that aren't `shared` | ❌ |
+| `Weak<T>` where `T` is a shared class | ✅ |
+| References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>` of a normal class, and functions that aren't `shared` | ❌ |
 | Structs, enums, and fixed arrays with any field or element that isn't sendable | ❌ |
 
 Wherever a sendable type is required, using another is a compile error naming the field that
@@ -62,8 +63,15 @@ shared class Weapon {
 - Its base class, if any, and every class extending it are shared too.
 - Its objects are never cycle-collected ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)),
   since other threads may refer to them. Their fields can't change, so a cycle among them can only
-  pass through a synchronization type, such as a `Mutex` holding a reference back, and it leaks
-  unless the program clears that reference.
+  pass through a synchronization type, such as a `Mutex` holding a reference back. Break it with a
+  `Weak<T>`, which is sendable when `T` is a shared class, or it leaks:
+
+  ```java
+  shared class Room {
+      pub Mutex<Weak<Room>> previous = new Mutex<Weak<Room>>(null);   // doesn't keep it alive
+      pub Mutex<Room?> next = new Mutex<Room?>(null);
+  }
+  ```
 
 A shared class is for objects that many threads read and that need a class's identity or virtual
 methods: definitions of weapons, materials, or sounds. A struct whose fields are references to

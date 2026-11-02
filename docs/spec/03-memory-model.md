@@ -162,8 +162,9 @@ child.parent = null;                       // refers to nothing
 - A weak reference reads as null from the moment its target's count reaches zero, before the
   target's destructor runs, whether the target was released or collected as part of a cycle. A
   weak reference to the object taken by its own destructor reads null too.
-- `Weak<T>` is not sendable ([05-concurrency.md](05-concurrency.md)), since its target belongs to
-  one thread.
+- `Weak<T>` is sendable ([05-concurrency.md](05-concurrency.md#52-sendable-types)) only when `T` is
+  a `shared class`; a normal object's target belongs to one thread. A weak reference to a shared
+  object is how a cycle among shared objects is broken, since the collector never visits them.
 - There is no `weak` modifier: `Weak<T>` is the only kind of weak reference.
 
 Use a weak reference when a reference should not keep its target alive: a parent pointer, an
@@ -175,7 +176,10 @@ destroyed as soon as nothing else holds it.
 block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` is a pointer to the block and
 one to the target (C++ can't cast the block's `wyl::Object*` back down to `T`), and copying one adds
 to the block's count. `Weak<T>` is an `extern struct` ([07-interop.md](07-interop.md)) implemented
-by `wyl::Weak` in the runtime. When the target's count reaches zero, the block's target is
+by `wyl::Weak` in the runtime. A shared object's weak block is made with an atomic exchange, so two
+threads referring to it weakly at once agree on one, and its count is atomic; its `get()` takes a
+strong reference only while the target's count is above zero, so it never revives an object
+another thread has just released. When the target's count reaches zero, the block's target is
 set to null; the block itself is freed when the target and the last `Weak` to it are gone. An
 object that is never referred to weakly costs nothing extra; one that is costs one small
 allocation, once.
@@ -248,7 +252,7 @@ visited, so the references they hold count as references from outside.
 - `shared class` objects ([05-concurrency.md](05-concurrency.md#53-shared-class)) are not
   collected, since other threads may refer to them. Their fields can't be `mut`, so a cycle among
   them can only pass through a synchronization type, such as a `Mutex` holding a reference back;
-  it leaks unless the program clears that reference.
+  break it with a `Weak<T>` there, or it leaks.
 
 #### Destroying a cycle
 
