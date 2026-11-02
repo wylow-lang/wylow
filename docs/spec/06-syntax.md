@@ -139,6 +139,14 @@ members, written to hold functions, is a module in disguise; make it a module.
 
 A top-level `void main()` or `int main(String[] args)` in the root module.
 
+**The end of the program.** The program ends when `main` returns, after `main`'s locals and
+temporaries have been released as at the end of any function. Then:
+
+- No static is destroyed, and no object that only a static refers to is released.
+- The cycle collector doesn't run ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)).
+- A thread still running stops where it is, running no destructor and no deferred statement. A
+  `Thread` that `main` still holds is joined when it is released, before `main` returns.
+
 ### The manifest
 
 `package.wylcfg` says what the package is, in Wylow's own tokens: comments, string literals with

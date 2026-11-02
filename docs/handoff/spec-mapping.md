@@ -283,6 +283,7 @@ home is written.
 | | `std::memory` | `library.memory` |
 | Functions or static methods | All | the guide |
 | Entry point | All | `programs.entry` |
+| | The end of the program: statics not destroyed, threads stopped | `programs.execution`; decision 0029 |
 | The manifest | All | `programs.manifest` |
 | 6.2 Visibility | Levels table, modules don't nest | `programs.visibility` |
 | | No type-private level, no `protected` | `programs.visibility` (rules; the "goes in a file of its own" advice to the guide) |

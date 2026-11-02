@@ -150,6 +150,8 @@ class Audio {
 - A static is initialized the first time it is read, as in Java, exactly once even if threads read
   it at the same time. One whose initializer reads it again, directly or through the functions it
   calls, panics.
+- A static is never destroyed, whether the program ends by `main` returning or by a panic
+  ([06-syntax.md](06-syntax.md#entry-point)).
 
 ## 5.6 The standard library
 

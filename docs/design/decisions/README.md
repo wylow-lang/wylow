@@ -56,3 +56,4 @@ history and a reason can be found without searching the spec.
 | [0026](0026-no-cost-documentation.md) | Costs are not documented |
 | [0027](0027-design-principles.md) | Design principles |
 | [0028](0028-destructors-on-unique-structs.md) | Destructors on unique structs |
+| [0029](0029-statics-are-not-destroyed.md) | Statics are not destroyed at the end of the program |
