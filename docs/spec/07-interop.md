@@ -36,12 +36,6 @@ extern {
   to link are given in the package manifest's `native` block
   ([06-syntax.md](06-syntax.md#the-manifest)).
 
-> Implemented so far: only the standard library may declare extern functions, one at a time:
-> `static extern void check(int index, int length);` in a struct, or a free `extern` function.
-> The C++ runtime (`runtime/wyl/intrinsics.h`) implements them, as `wyl::name`, or `wyl::type::name` for a
-> method of a type (the type's name in lower camel case). Extern blocks and `@Include` are not
-> implemented.
->
 > The standard library may also declare an `extern struct`, a value type implemented by the C++
 > class `wyl::Name` (`Weak<T>` is `wyl::Weak`, `String` is `wyl::String`). This is currently both
 > the C++ interop value type and the representation of the language's built-in resource values
@@ -130,17 +124,8 @@ signatures and extern struct fields. This is checked at compile time.
 
 ### Layout verification
 
-For each extern struct declared with fields, the compiler emits size and offset checks into the
-generated C++:
-
-```cpp
-static_assert(sizeof(SDL_Rect) == 16);
-static_assert(offsetof(SDL_Rect, x) == 0);
-static_assert(offsetof(SDL_Rect, w) == 8);
-// ...
-```
-
-If the Wylow declaration does not match the real header, **the build fails**.
+For each extern struct declared with fields, the build checks its size and field offsets against
+the C header. If the Wylow declaration does not match it, **the build fails**.
 
 ## 7.5 Enums with integer representations
 
@@ -172,9 +157,6 @@ var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
   variants may not have the same value. Values must be integer literals that fit the enum's
   integer type, which is `int` when values are given without `@Repr`.
 - Only enums whose variants carry no data can have `@Repr` or values.
-
-> Implemented so far: `@Repr`, values, and casts both ways. `@Flags`, `tryFrom`, and `bitcast` are
-> not implemented.
 
 Enum variant names keep their C spelling when bound from C (`R8G8B8A8_UNORM`); the naming-convention
 warning does not apply inside `extern` blocks or to enums with `@Repr`.
@@ -225,8 +207,7 @@ unsafe { SDL_SetAudioCallback(device, onAudio, null); }
 
 ## 7.7 C++ exceptions
 
-Wylow has no exceptions. Extern calls are emitted through `noexcept` wrappers, so a C++ exception that
-would propagate into Wylow code calls `std::terminate`, aborting the process. Libraries that use
+Wylow has no exceptions. A C++ exception that would propagate into Wylow code aborts the process. Libraries that use
 exceptions for ordinary errors need a native shim (§7.8) that catches them and returns error codes.
 
 ## 7.8 Native C++ files
@@ -259,14 +240,3 @@ call it. Its signature must be blittable.
 @Export
 int wyl_plugin_version() { return 3; }
 ```
-
-## 7.10 Binding generation (tooling)
-
-Hand-writing large bindings is impractical. Planned tooling:
-
-- **`wyl bindgen <header>`** parses a C header with libclang and emits a Wylow file of `extern`
-  declarations.
-- **Vulkan** bindings are generated from the official `vk.xml` registry.
-
-Every C construct maps directly onto an `extern` construct, so generated bindings need no special
-language support.

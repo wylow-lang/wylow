@@ -7,7 +7,7 @@ Wylow has **no exceptions**. There are two kinds of failure:
 | A bug | **Panic** (aborts the process) | Index out of bounds, `x!` on null |
 | An expected failure | **`Result<T, E>`** returned as a value | File not found, malformed asset |
 
-Panics are covered in [01-safety.md](01-safety.md#13-panics). This chapter covers `Result`.
+Panics are covered in [Panics](18-errors.md#errors.panics). This chapter covers `Result`.
 
 ## 4.1 `Result<T, E>`
 
@@ -24,9 +24,6 @@ enum Result<T, E> {
 `Ok(x)` and `Err(e)` can be used directly to construct results wherever the `Result` type is known,
 such as in a `return` (see [02-types.md](02-types.md#creating-values)). Elsewhere, write the type:
 `Result<Mesh, LoadError>.Ok(mesh)`.
-
-> *Open*: `Result<void, E>` for operations that produce no value. `void` cannot be a type
-> argument yet; use another type, such as `bool`, or an enum.
 
 Error types are usually enums carrying data:
 
@@ -77,9 +74,6 @@ type, convert it explicitly:
 var bytes = try File.readAll(path).mapErr(e -> LoadError.NotFound(path));
 ```
 
-`try` is a prefix keyword (rather than Rust's postfix `?`) because `?` already means "nullable"
-in Wylow.
-
 ## 4.4 Handling results
 
 With an exhaustive `switch`:
@@ -108,41 +102,3 @@ With helper methods:
 | `r.map(f)` | Converts the success value |
 
 There are no `isOk()` and `isErr()`: `r is Ok` and `r is Err` test which variant a result is.
-
-> Implemented so far: all of these. `orPanic` reports the caller's location (through
-> `@CallerLocation`), but not yet the error, which needs string formatting.
-
-## 4.5 Panicking and non-panicking versions
-
-A panic means a bug ([01-safety.md](01-safety.md#13-panics)), so an operation should panic only
-when its failure means the caller made a mistake. When a caller may reasonably not know whether an
-operation will succeed, because the index, handle, or text came from outside its control, it needs
-a version that reports failure as a value. This is C#'s `int.Parse` and `int.TryParse`, with `T?`
-or `Result` in place of an `out` parameter.
-
-**Rule:** every standard library operation that panics on a value its caller may not control has a
-non-panicking version. It returns `T?` when there is one way to fail, and `Result<T, E>` when the
-caller needs to know which way it failed. The panicking version stays the short, obvious one, for
-code where failure would be a bug.
-
-| Panics | Doesn't |
-|---|---|
-| `list[i]`, `array[i]`, `span[i]` | `list.get(i)`, `array.get(i)`, `span.get(i)`: a `ref? T` (`in? T` for a `ReadOnlySpan`), null if `i` is out of bounds |
-| `list.removeAt(i)` | `list.tryRemoveAt(i)`: a `T?` |
-| `list.insert(i, v)` | none: an insertion index is the caller's own arithmetic, so a bad one is a bug |
-| `(Direction)i` | `Direction.tryFrom(i)`: a `Direction?` |
-| `x!` | `x ?? fallback`, or `if (x is T v)` |
-| `r.orPanic("message")` | `r.orElse(fallback)`, `switch`, or `try` |
-
-Non-panicking versions are named `tryX` after the panicking `x`, except where a shorter name is
-established (`get` for indexers, `??` and patterns for nullable values).
-
-Panics on state the caller controls itself, such as changing a borrowed list, have no
-non-panicking version: they are always bugs.
-
-`get` returns a nullable reference rather than a copy, so that a lookup that fails is as cheap as
-the indexer and what it finds can be changed in place; `list.get(i)!` copies the element where a
-copy is wanted.
-
-> Implemented so far: `list.tryRemoveAt`, and `get` on lists, arrays, and spans. `tryFrom` needs a static
-> method the compiler generates for each enum.

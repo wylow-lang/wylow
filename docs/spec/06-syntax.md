@@ -120,22 +120,13 @@ pub import world::Chunk;                // re-exported: also one of this module'
   `Result` for `try`, and the interfaces `Spannable`, `ReadOnlySpannable`, `Borrowable`,
   `Printable`, and `Comparable`). Everything else is imported, `print` and `List` included. A
   module's own declaration of one of these names is an error, as redeclaring a builtin type is.
-- **`std::panic`** holds what is about panics (§1.3): `panic(message)`, which `std` re-exports, and
+- **`std::panic`** holds what is about panics ([Panics](18-errors.md#errors.panics)): `panic(message)`, which `std` re-exports, and
   the checks the built-in arrays make, for a container whose index isn't its storage's (a ring
   buffer on an `Array`): `checkIndex(index, length)` and `checkRange(start, count, length)`, which
   report the location of a `@CallerLocation` caller as the built-in checks do. A message is all a
-  panic carries: it is a bug, not a value to recover (§1.3).
+  panic carries: it is a bug, not a value to recover ([Panics](18-errors.md#errors.panics)).
 - **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
   the cycle collector (`collectCycles`, `cycleStats`, §3).
-
-> Implemented, but for extensions found through imports (extensions aren't implemented). Only
-> the standard library's sources are in modules other than a root so far: `std::memory`,
-> `std::panic`, and `std` itself.
-
-### How messages name types
-
-Messages name types as [the diagnostics style guide](../diagnostics/README.md#the-primary-message)
-says.
 
 ### Functions or static methods
 
@@ -182,9 +173,6 @@ native {
 - Build settings (`--release`, `--cc`) are the build's, not the package's, and
   stay on the command line. A version and a language edition wait until a registry and
   stability promises give them a meaning.
-
-> Implemented: `name`. `dependencies` and `native` are read and checked against their keys, then
-> reported as not supported yet. A package needs its `main` until libraries can be depended on.
 
 ## 6.2 Visibility
 
@@ -251,8 +239,6 @@ var list = new List<Enemy>();                  // class: heap allocation
 var arr = new float[1024];                     // heap array
 ```
 
-This makes every allocation visible: scanning for `new` finds them all.
-
 A local must be assigned before it is read, even when its type has a default value, so that a
 branch that forgets to assign it is an error rather than a silent zero. Declaring it makes no value,
 so a struct's field initializers don't run for it (a fixed-array local is the exception; see
@@ -262,9 +248,7 @@ so a struct's field initializers don't run for it (a fixed-array local is the ex
 
 ### Struct constructors
 
-A struct is built one way: by calling a constructor. There is no separate initializer syntax such
-as C#'s `T { field = value }`; the memberwise constructor with named arguments does that job, so
-default values, positional construction, and setting fields by name are all the same call.
+A struct is built one way: by calling a constructor.
 
 - A struct that declares no constructor gets a **memberwise constructor**, which takes every field
   in declaration order: `Vec2(1, 2)` for `struct Vec2 { pub float x, y; }`. Each parameter defaults to
@@ -342,8 +326,7 @@ applyDamage(ref enemy, info);
 
 `ref` and `in` parameters follow the reference rules in
 [03-memory-model.md](03-memory-model.md#33-references). `in` is intended for large read-only structs
-such as matrices. For a unique struct ([02-types.md](02-types.md#unique-structs)) the three modes
-are Swift's `consuming`, `borrowing`, and `inout`: a by-value parameter takes the value over, and
+such as matrices. For a unique struct ([02-types.md](02-types.md#unique-structs)), a by-value parameter takes the value over, and
 the caller can't use what it passed ([03-memory-model.md](03-memory-model.md#moves)), while `in` and
 `ref` leave it with the caller. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error. So is a function-typed parameter, nullable or not, since a
@@ -369,8 +352,7 @@ A temporary struct or fixed array (one a call or constructor returned, a `?:` of
 is a value, not a variable, so nothing writes to it: what the write changed would be gone after
 the statement. Its `mut` methods can't be called, its fields and elements can't be assigned (through
 `operator []=` either), it can't be passed by `ref` or referred to, and a `ref` loop can't iterate it;
-store it in a `mut` variable first. This is Swift's and Go's rule; C#, C++, and Rust allow some of these
-writes, which then change a copy no one sees. A write that reaches an object through a temporary
+store it in a `mut` variable first. A write that reaches an object through a temporary
 is kept, as in `makeList().add(1)` or a struct's `operator []=` that isn't `mut`.
 
 ```java
@@ -457,12 +439,6 @@ position.scale(2);
 - An extension is an ordinary function: it sees the receiver's members that its own file can see, is statically
   dispatched (never virtual), and can also be called as `any(mobs, test)`.
 - An extension is found where it is visible and its name is imported, or within its own module.
-  Until programs have more than one file, every extension in the program and the standard library
-  is visible.
-
-> Not implemented yet. The standard library will use extensions to move `String`'s higher-level
-> methods into Wylow over its native primitives, `bytes()` among them, so the C++ runtime no longer
-> refers to the standard library's `ReadOnlySpan`.
 
 ## 6.5 No properties
 
@@ -621,21 +597,6 @@ button.onClick(() -> { play(sound); });
   change the local; and a local that any lambda assigns is never narrowed, since the lambda may
   run during any call.
 
-A function-typed parameter compiles to a C++ template parameter, so each lambda passed to it is
-inlined into the function. Where C++ can't use a template, it is instead a non-owning reference
-to the lambda, called indirectly: in an overridden virtual method (one that nothing overrides is
-an ordinary method), an abstract or interface method, a class's implementation of an interface
-method, a recursive function that passes itself a new lambda (or a choice) on some cycle of calls,
-which would otherwise instantiate itself without end, a constructor that shares its parameter
-count with another of its type, or a function type's own parameters. A recursive function that
-only passes its function parameters on, or escaping values, is still a template:
-`walk(child, visit)` instantiates the same one again. Overloads that differ only in function types
-are told apart by the C++ name. A function chosen by `?:` or a switch expression holds every
-function it could be and the index of the chosen one, so calling it branches to a direct call,
-and each lambda can still be inlined.
-
-> Implemented so far: everything above.
-
 ### Escaping and non-escaping
 
 A function-typed **parameter or local** is **non-escaping** by default: the function may call it
@@ -645,7 +606,6 @@ escaping parameter. Declaring the parameter or local `escaping` opts in.
 | | Non-escaping | Escaping |
 |---|---|---|
 | Where | Parameters and locals | Fields, return values, `escaping` parameters and locals, containers |
-| Allocation | **None** (compiled to an inline template or function reference) | Heap-allocated, refcounted closure |
 | Captures | By reference: may capture `ref`s and `Span`s, and may **mutate** captured locals | By copy: captured locals can't be `mut` |
 
 ```java
@@ -664,8 +624,7 @@ It is written only where a function could be either form: on a parameter, a loca
 type's own parameter. Anywhere else a function is always escaping, and writing `escaping` is an
 error.
 
-The cost of a lambda is visible where it's declared, never inferred from how it's used later: a
-non-escaping local stays non-escaping, and storing it is an error that suggests `escaping`.
+A non-escaping local stays non-escaping: storing it is an error.
 Like a `ref` local, a non-escaping local is bound once, at its declaration, and can't be
 reassigned or declared `mut`, so it can't outlive what its lambda captures: non-escaping functions
 are second-class values ([03-memory-model.md](03-memory-model.md#second-class-values)). An escaping local can
@@ -728,26 +687,8 @@ escaping fn() -> int f = () -> total;      // error: 'total' is 'mut'
 total++;
 ```
 
-An escaping function is a `wyl::Function`, two words: a pointer to the code that runs the lambda's
-body, and a reference to a closure object, with the same header and reference count as a class
-object, that holds copies of what its lambda captured. A lambda that captures nothing has no
-closure, so making one allocates nothing, and copying it only tests for null; a function reference
-captures nothing. Calling a function value is one indirect call. Copying it copies the reference. A
-nullable function needs no flag: its null is a null code pointer. The cycle collector
-visits the class references a closure holds. A call of a function value stored where the call
-could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
-closure until the call returns. A closure that provably can't outlive the scope making it may be
-on the stack, as a class object can be ([03-memory-model.md](03-memory-model.md#stack-allocation)).
-
-A nullable non-escaping parameter is a `wyl::Optional` of a `wyl::FunctionRef`, made where the call
-is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
-returns. A `wyl::FunctionRef` made from a stored function refers to its closure and calls its code,
-so the call is no more indirect than the stored function's.
-
-Non-escaping lambdas are what make `Mutex.lock` and parallel loops safe
-([05-concurrency.md](05-concurrency.md#54-shared-functions)).
-
-> Implemented so far: everything above.
+A call of a function value stored where the call could replace it (a field, a list element, a
+local that a lambda assigns) holds a reference to the closure until the call returns.
 
 ### Lambdas held by `ref struct`s
 
@@ -757,71 +698,6 @@ captures either. A function may return such a struct holding its own function-ty
 where it may return a `ref struct` at all. This is what lets a lazy query such as
 `mobs.where(m -> m.health < 5)` store its lambda without allocating
 ([02-types.md](02-types.md#queries)).
-
-Each such field is compiled as a C++ template parameter of the struct, so the optimizer can inline
-the lambda into the loop that calls it: `Where<T>` in Wylow is `Where<T, F>` in C++, one type per
-lambda. A `ref struct` can't be reassigned or chosen by `?:`, so a variable never needs to hold two
-of them; a function taking one as a parameter is compiled once per lambda, as a generic function
-is once per type argument.
-
-> Not implemented yet.
-
-### Costs to remove later
-
-What the implementation above pays that it needn't. None of these changes behavior, so each can
-be done when profiling shows it matters.
-
-- **Indirect calls where templates can't be used.** A `wyl::FunctionRef` costs an indirect call
-  and keeps the lambda from being inlined. It could be avoided by devirtualizing calls whose
-  receiver type is known, and for constructors sharing a parameter count, by telling them apart
-  with a tag argument.
-- **Code size.** Each distinct lambda passed to a template instantiates the callee again, as
-  generics do per type. A performance warning could point out large instantiation counts.
-- **Pins for locals a lambda assigns.** Such a local is held while in use as a receiver or
-  argument (a reference count increment and decrement) even when no lambda that assigns it can
-  run during that call. Only calls passed such a lambda, directly or by forwarding, can change it.
-- **Evaluation order.** Any call given a function value, and any call of one, is treated as
-  writing every local that a non-escaping lambda captures and that is changed anywhere, so operands
-  reading one are hoisted into an ordering lambda, though the lambda the call can run may not change
-  it. Tracking which locals each lambda changes, and which lambdas each call can run, would avoid
-  that. Each hoisting nests a C++ block, so about 25 levels of nested lambdas exceed MSVC's limit on
-  block nesting. Real code doesn't nest that deep, so this is a known limit, not a planned fix.
-- **Element aliasing and cycles.** A call of a function value counts as writing what every lambda
-  of its type writes, so one `fn(Mob) -> void` lambda storing into elements of type `X` anywhere
-  makes every loop over `X` that calls a `fn(Mob) -> void` count references per element
-  ([03-memory-model.md](03-memory-model.md#loop-elements)); likewise, a function field may hold
-  any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
-  that call or field.
-- **Narrowing.** A null check outside a lambda doesn't carry into it (except a `ref?` variable's,
-  which nothing can make refer elsewhere), and a local declared outside any lambda that assigns it
-  is never narrowed, which can force a `!` (and its check).
-
-### Decisions to revisit
-
-*Open*: reasonable on paper; real programs will show whether they get in the way.
-
-- **Bind-once function locals.** A non-escaping local can't be reassigned; `?:` and switch
-  expressions cover choosing one.
-- **Narrowing.** Carrying a null check on a local that isn't `mut` into a lambda would be sound.
-- **`F?` is a nullable value**, not reference-like. Only parameters can be non-escaping `F?`:
-  locals, choices, and `??` would need an optional that owns a lambda, which non-escaping locals
-  and choices avoid by being bound once or holding every option.
-- **Untyped lambdas are ambiguous between overloads** that differ only in function parameter
-  types, rather than each overload being tried.
-- **Parameter modes are part of a function type**, and an untyped lambda takes them from its
-  target; function-typed parameters can't be `ref` or `in`.
-- **Expression-bodied `void` lambdas** must have a call as their body, as statements must.
-- **Which functions take a `wyl::FunctionRef`**: the rules are simple and conservative, and could
-  be wrong in the slow direction often enough to matter.
-- **Inferring from a lambda's body needs one overload left.** Two generic overloads whose lambdas
-  take the same number of parameters, or a generic and a non-generic one, make
-  `x.map(m -> m.name)` an error asking for type arguments. Binding the body once per distinct
-  parameter-type list, and sharing it, would lift that.
-
-### Standard library
-
-> Not implemented yet: `List.removeWhere`, and a `sort` on spans that takes a comparison, both
-> written in Wylow.
 
 ## 6.8 `defer`
 
@@ -847,7 +723,7 @@ All of Java's control flow (`if`, `while`, `do`/`while`, C-style `for`, for-each
 
 `=`, compound assignments (`+=` etc.), `++`, and `--` are statements, not expressions. They
 cannot appear inside other expressions, so `a = b = c`, `f(x = 1)`, and `arr[i++]` are compile
-errors. This removes a class of evaluation-order bugs. `++` and `--` may be written prefix or
+errors. `++` and `--` may be written prefix or
 postfix with the same meaning.
 
 ### Evaluation order
@@ -910,9 +786,6 @@ A for-each loops over a range, a fixed array, a span, a value that converts to a
   `ref`, so read-only loops work on read-only sources.
 - A nullable local can be looped over where it is known not to be null, as for using its members.
 
-> Implemented so far: ranges, fixed arrays, spans, `Spannable` types (`Array`, `List`), and strings.
-> Maps don't exist yet.
-
 ### `switch`
 
 ```java
@@ -966,9 +839,6 @@ switch (state) {
       case Chasing(var t) -> follow(t);
   }
   ```
-
-  A hidden copy would cost a large struct's copy on every switch, unless the optimizer removed it,
-  so the copy is written where it is wanted.
 
 - **`case null`**, as in Java: a switch with a `case null` takes its value as it is, nullable or
   not. Without one, a nullable value must be narrowed first (§2.5), or it is an error. `case null`
@@ -1085,8 +955,6 @@ switch (job) {
 - Moving a unique field out of the matched value with a pattern is not supported; use
   `std::replace` on a struct field, or match a local and move it whole.
 
-> Not implemented yet.
-
 ### String interpolation
 
 ```java
@@ -1109,8 +977,7 @@ in ordinary strings mean nothing special.
   number written without an exponent; `inf`, `-inf`, and `nan` name the rest.
 - Any other type is printable when it implements the standard library's `Printable` interface,
   and is written by its `toString()`. A nullable value of such a type is written as `null` when
-  it is null. There is no default `toString()`: a type opts in, so printing never silently shows
-  something like Java's `Player@1b6d3586`.
+  it is null. There is no default `toString()`.
 
 ```java
 interface Printable {
@@ -1164,17 +1031,8 @@ As in C#, a hole is `{value,alignment:format}`, and both parts may be left out.
 - `F` and `E` round to the nearest digit. Infinities and NaN are written as `print` writes them
   (`inf`, `-inf`, `nan`). Every NaN is written `nan`, whatever its sign.
 - The other C# specifiers (`N`, `P`, `G`, `C`, `R`) and custom formats such as `0.00` are not
-  supported. `N` and `C` depend on a culture, which Wylow doesn't have. A `Printable` type has no
+  supported. A `Printable` type has no
   specifiers of its own; it may only be aligned.
-
-> Implemented so far: everything above. Not yet implemented:
-> - `Printable` stdlib types (`List`, `Array`, `Span`, `Result`, ...). A collection should be
->   printable when its element type is, which needs conditional implementations, or a `toString()`
->   with its own `T extends Printable` bound;
-> - a generated field dump for debugging, like Rust's `#[derive(Debug)]`, so small types needn't
->   write `toString()` by hand;
-> - `StringBuilder` (§2.10), for strings built up piece by piece, as in a loop. Interpolation builds
->   strings with the runtime's `wyl::StringBuffer`, which a `StringBuilder` could wrap.
 
 ## 6.10 Annotations
 
@@ -1183,7 +1041,7 @@ Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
 | Annotation | Meaning | Chapter |
 |---|---|---|
 | `@CallerLocation` | A panic inside the function reports where it was called from | below |
-| `@AllowLargeStack` | Suppress the large-stack warning | [01-safety.md](01-safety.md) |
+| `@AllowLargeStack` | Suppress the large-stack warning | [`@AllowLargeStack`](22-annotations.md#annotations.allow-large-stack) |
 | `@Align(n)`, `@Packed` | Struct layout | [02-types.md](02-types.md) |
 | `@Repr(T)` | An enum's integer representation | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
 | `@Flags` | An enum whose values combine as bits | [07-interop.md](07-interop.md#75-enums-with-integer-representations) |
@@ -1197,11 +1055,6 @@ whether a function is `escaping` (§6.7).
 
 Parentheses right after an annotation are its arguments unless they start with `fn`, which makes
 them the parentheses that group the annotated declaration's function type: `@Name (fn(int) -> int)? f`.
-
-User-defined annotations (and reflection) are *open*.
-
-> Implemented so far: `@CallerLocation`, `@Acyclic`, and `@Repr`. Any other
-> annotation is an error.
 
 ### `@CallerLocation`
 
@@ -1224,8 +1077,6 @@ Enforced with compiler **warnings** (not errors):
 | Constants (`const` and `static` fields) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
 | Modules, and the directories that are them | `snake_case` | `world_gen::noise` |
 | Files | `snake_case`, named for what they hold | `chunk_mesher.wyl` |
-
-> Not implemented yet: the compiler emits no warnings, so these conventions aren't checked.
 
 ## 6.12 Complete example
 

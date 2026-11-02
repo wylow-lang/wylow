@@ -10,9 +10,7 @@ behave. Thread pools, parallel loops, and task systems are libraries built on th
 ## 5.1 Thread confinement
 
 **A normal class object belongs to one thread at a time**, and no other thread can reach it
-meanwhile. This is what lets reference counts and borrow counters be non-atomic, and the pools
-([03-memory-model.md](03-memory-model.md#allocation)) and the cycle collector's buffer belong to
-one thread with no synchronization. An object changes threads only inside a unique value that
+meanwhile. An object changes threads only inside a unique value that
 moves: a whole isolated object graph (§5.6, Isolated object graphs), or what a unique value of
 the standard library owns (§5.2).
 
@@ -63,18 +61,10 @@ follows from whether it can be copied ([02-types.md](02-types.md#unique-structs)
   answer in every build, as `freeze()`'s does. Moving within a thread needs no check: what the
   loop refers into stays alive, and the new owner can't change its length while it is borrowed.
 
-Rust needs two inferred facts for these, `Send` and `Sync`; Wylow has one, and the difference is
-whether the type can be copied.
-
 A unique struct of the standard library that owns class objects, such as storage for its
 elements, is not sendable by the rules above; the library's `unsafe` floor may declare it sendable
 when its elements are, as Rust's `unsafe impl Send` does, since only its own code could let those
 objects out.
-
-> *Open:* how that declaration is written.
-
-> *Proposed, not decided:* such a struct is a growable array that is a unique value (`Vec<T>`,
-> [02-types.md](02-types.md#unique-structs)), decided with the standard library.
 
 ## 5.3 `shared class`
 
@@ -88,8 +78,8 @@ shared class Weapon {
 }
 ```
 
-- Its reference count is **atomic**, and its objects use the global heap rather than a thread's
-  pools, since the last reference may be released on any thread, which runs the destructor.
+- The last reference to one of its objects may be released on any thread, which then runs the
+  destructor.
 - No field may be `mut`, and every field must be sendable and copyable (§5.2). State that changes is held in a
   synchronization type (`Mutex<T>`, `Atomic<T>`, a channel end), which is itself a shared class.
 - Its base class, if any, and every class extending it are shared too.
@@ -108,9 +98,6 @@ shared class Weapon {
 A shared class is for objects that many threads read and that need a class's identity or virtual
 methods: definitions of weapons, materials, or sounds. A struct whose fields are references to
 synchronization types is already sendable, and needs no class.
-
-> *Open:* whether an interface can require its implementations to be shared classes, so that a
-> reference to it is sendable.
 
 ## 5.4 Shared functions
 
@@ -145,9 +132,7 @@ function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
 
 ## 5.5 Statics
 
-**Every static is read-only, and its type must be sendable and copyable** (§5.2). There is no `static mut`: one copy
-shared by every thread would race, and a copy per thread silently gives each thread its own
-version. This differs from Java.
+**Every static is read-only, and its type must be sendable and copyable** (§5.2). There is no `static mut`.
 
 ```java
 class Audio {
@@ -164,8 +149,7 @@ class Audio {
   object the program passes to what uses it.
 - A static is initialized the first time it is read, as in Java, exactly once even if threads read
   it at the same time. One whose initializer reads it again, directly or through the functions it
-  calls, panics. A static initialized with a constant expression is constant data, and reading it
-  costs nothing.
+  calls, panics.
 
 ## 5.6 The standard library
 
@@ -229,14 +213,6 @@ while (loaded.receiver.tryReceive() is Mesh mesh) {   // each frame; never waits
   receiver receives until the channel is closed and empty.
 - Channels have no size limit, so `send` never waits. It returns `false`, dropping the value, once
   every `Receiver` is gone.
-- This is Go's model with two of its complaints removed: closing by hand (in Go, sending on a
-  closed channel or closing one twice panics) and channels that make every send wait for a receiver
-  by default, which deadlock easily.
-
-> *Open:* channels with a limited capacity, for a producer that must wait for a slow consumer, and
-> Go's `select` (waiting on several channels at once). Neither is needed yet, and `select`'s random
-> choice among ready channels would make runs differ.
-
 ### Locks and atomics
 
 `Mutex<T>` gives one thread at a time access to a `T`, through a `ref` that can't escape the lock
@@ -258,18 +234,13 @@ isolated: a sendable value, or an `Isolated<T>`.
 
 **A thread holds at most one lock, and waits for nothing while holding it.** Taking a second lock,
 or calling `receive`, `join`, or anything else that waits, inside a lock's lambda panics, naming
-both places. Every deadlock between locks needs a thread holding one lock while waiting for
-another, or waiting for another thread while holding one; this rule makes those impossible, and
-the check runs every time, so the mistake fails in the first test instead of freezing the program
-once in a while. Data that must change together belongs behind one mutex.
+both places. Data that must change together belongs behind one mutex.
 
 `Atomic<T>` holds a primitive and changes it with atomic operations (`load`, `store`, `add`,
 `compareExchange`, ...), all sequentially consistent.
 
 What the rules don't prevent: two threads each waiting to receive from the other wait forever, as
 in any language. Like an infinite loop, that is a bug the language doesn't catch.
-
-> *Open:* taking two locks at once in a fixed order (`Mutex.lockBoth`), if a real program needs it.
 
 ### Isolated object graphs
 
@@ -301,27 +272,15 @@ NavGraph graph = nav.take();                          // ends the box; the graph
 - **`take`** moves the value out and ends the box: the graph joins the current thread's objects.
 - A `Mutex<T>` holds one, and `lock` is `open` while holding the lock.
 
-This is Pony's `recover` block, which needs nothing new in Wylow: without `mut` statics, and with
-shared functions limited to sendable captures, a function can only reach what it was given.
-
 **The cycle collector.** An isolated graph has its own cycle buffer. While the lambda of
 `Isolated`'s constructor or `open` (or a mutex's `lock`) runs, the thread's buffer is the graph's;
 that code can reach nothing of the thread's, so everything it buffers belongs to the graph or was
 made during the call. `memory::collectCycles()` inside it collects the graph only, and the buffer
-moves with the graph. `take` adds the graph's buffer to the thread's. Opening a graph costs two
-pointer writes for the switch; a graph of acyclic objects, such as a `List<int>`, never buffers
-anything.
+moves with the graph. `take` adds the graph's buffer to the thread's.
 
 What it can't do: code inside `open` can't read the thread's own objects. For data built from the
 thread's objects, such as the draw calls of a frame, the proposed unique growable array (§5.2) would
 be filled with ordinary code and then moved.
-
-> *Considered, not decided:* Swift's region analysis, which proves that an ordinary local's graph
-> is disconnected from everything else by flow analysis, so a `List` filled with ordinary code
-> could be sent without `Isolated`. It needs a new analysis with an exactly specified rule for
-> when regions merge, and code that mixes the thread's objects with the graph's makes the cycle
-> buffer impossible to split cheaply. It could be added later as a conversion from such a local
-> to `Isolated<T>`.
 
 ### Frozen arrays
 
@@ -334,9 +293,6 @@ a sendable, copyable type `T` (§5.2), never change. It reads like a `ReadOnlySp
 - `Frozen.copyOf(span)` copies the elements a span views, such as an array's, which can't be
   emptied.
 - To change one, copy it into a new list.
-
-Freezing doesn't depend on how many references the list has, so it does the same thing whether or
-not the optimizer has removed some count changes.
 
 ### Parallel work
 
@@ -357,7 +313,7 @@ to it, not to the language.
 ## 5.7 Panics
 
 A panic on any thread **aborts the process**, after printing its message and stack trace
-([01-safety.md](01-safety.md#13-panics)). No thread continues after another panics, so nothing can
+([Panics](18-errors.md#errors.panics)). No thread continues after another panics, so nothing can
 observe state that a panicking thread left half-changed, and locks need no poisoning.
 
 ## 5.8 Unsafe
@@ -365,15 +321,3 @@ observe state that a panicking thread left half-changed, and locks need no poiso
 Inside `unsafe`, raw pointers may be shared between threads without checks. Races in unsafe code
 are undefined behavior and the programmer's responsibility. The standard library's threading
 types are built this way, at its lowest layer, and present only the safe behavior above.
-
-## 5.9 Runtime
-
-- Each thread has its own pools and its own cycle collector buffer; a thread a foreign library
-  created gets them the first time it runs Wylow code ([07-interop.md](07-interop.md#callbacks)).
-  An object freed on another thread than the one whose pool it came from goes back through that
-  chunk's remote free list ([03-memory-model.md](03-memory-model.md#allocation)).
-- `String`'s count is always atomic. A program that never starts a thread could use non-atomic
-  counts instead, which no program can observe; that is an optimization for later.
-- The threads themselves are the operating system's.
-
-> Not implemented yet: everything in this chapter. Statics, too, are not implemented.

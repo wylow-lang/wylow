@@ -15,8 +15,7 @@ All sizes are fixed on every platform.
 | `char` | 32 bits | A Unicode code point |
 | `nint` / `nuint` | pointer size | Intended for `unsafe` code and interop |
 
-**Lengths and indices are `int`.** Signed lengths avoid the classic unsigned-underflow bug
-(`i < length - 1` when `length == 0`).
+**Lengths and indices are `int`.**
 
 `char` is not a number: it has no arithmetic of its own, and in arithmetic it is its code point,
 an `int` (§2.4).
@@ -32,9 +31,6 @@ an `int` (§2.4).
 | `0xFF`, `0b1010`, `1_000_000` | hex, binary, digit separators |
 | `'a'` | `char` |
 | `"text"` | `String` |
-
-Unlike Java, an unsuffixed floating-point literal is a `float`, since almost all game math is
-single precision.
 
 An integer literal too large for its type is an error, also in hex: `0xFFFFFFFF` needs a `u` suffix.
 A literal still converts to narrower types where it fits (§2.3), so there is no suffix for `byte` or
@@ -113,9 +109,6 @@ that can only start an operand. `(Format)-1` is therefore a subtraction; write `
 
 **Checked conversions** return a nullable: `int.tryFrom(someLong)` → `int?`.
 
-> Not implemented yet: `tryFrom`, and the `wrapping` and `checked` operations below, since
-> primitive types have no methods yet.
-
 ## 2.4 Arithmetic
 
 ### Operand and result types
@@ -137,15 +130,7 @@ promoted to `int` as in C, Java, and C#.
   `b += i` with an `int i` is an error, since `b + i` is an `int`.
 - Unary `-` is an error on unsigned types. `~` works on every integer type.
 
-Promotion would make `byte c = a + b;` an error, and the cast everyone would write to fix it,
-`(byte)(a + b)`, wraps silently, which would hide the overflow that debug builds otherwise catch.
-Keeping the type keeps every integer operation checked, and generic code, compound assignment, and
-`++` need no special cases.
-
-The cost is that an intermediate result can overflow even where the final one would fit:
-`(a + b) / 2` with two `byte`s overflows when `a + b` exceeds 255, also when the result is stored in
-an `int`. Widen one operand first: `((int)a + b) / 2`. The type never depends on where the result is
-stored. Debug builds panic in this case rather than producing a wrong value.
+The type of an operation never depends on where its result is stored.
 
 ### Shifts
 
@@ -227,7 +212,7 @@ int? cachedIndex = null;         // value + presence flag
 ### Nullable value types
 
 `int?`, `Vec3?`, `Direction?`, and `int[4]?` are values like the type they make nullable, stored
-inline with a presence flag (a C++ `wyl::Optional<T>`; `int?` costs an `int` and a `bool`). Any type
+inline with a presence flag. Any type
 can be made nullable except a pointer, which can already be null, and a `ref struct`, which can't be
 stored. Nullable values follow the rules above, and also:
 
@@ -325,8 +310,6 @@ mut var target = enemies.first();
   regardless of the method it overrides.
 - `const` declares a compile-time constant: `const float PI = 3.14159;`.
 
-> Not implemented yet: a warning for a `mut` variable that is never changed.
-
 ## 2.8 Enums
 
 Enums can be plain (like Java) or carry data per variant (tagged unions).
@@ -416,12 +399,6 @@ See [06-syntax.md](06-syntax.md#switch) for `switch` and patterns.
 
 ### Representation
 
-Enums compile to a C++ struct containing a tag and a union (not `std::variant`). The tag is the
-smallest unsigned integer that numbers the variants, or the `@Repr` type when one is given. When
-no variant can hold an object reference, the enum is trivially copyable; otherwise copying and
-destroying it copy and destroy only the active variant's fields, and assigning it stores the new
-value before releasing the old one, as for structs (§3.2).
-
 Enums without data may declare an explicit integer type with `@Repr(uint)` and give variants values,
 and may be marked `@Flags`; see [07-interop.md](07-interop.md#75-enums-with-integer-representations).
 
@@ -469,10 +446,6 @@ print(kept.rate);                      // error: 'kept' is used after it is move
   escaping lambda's capture ([03-memory-model.md](03-memory-model.md#moves)). Using a value after it
   is moved is a compile error. `in` and `ref` parameters, `in` and `ref` variables, and method calls
   refer to it in place, as for any struct, and never move it.
-- **Uniqueness is the point:** since no copy can exist, the language knows that nothing else
-  refers to what the value holds. That is what lets a value move to another thread
-  ([05-concurrency.md](05-concurrency.md#52-sendable-types)), and it makes a big struct's cost visible
-  in the source: a copy is an error, not something the optimizer may or may not remove.
 - A struct with a field of a unique type must itself be declared `unique`, and so must an enum with
   a variant field of one (`unique enum`), so whether a type copies is read where it is declared.
   A fixed array `T[N]` and a nullable `T?` of a unique `T` are unique, and so is a generic struct
@@ -483,19 +456,6 @@ print(kept.rate);                      // error: 'kept' is used after it is move
 - Like any struct, a unique struct has no destructor: releasing it releases its fields. To own a
   resource or heap memory, it holds a class object in a field that it never hands out.
 - To copy one on purpose, give it a method that makes the copy, conventionally `clone()`.
-
-> *Considered, not decided:* destructors on unique structs, for resources such as file or device
-> handles without a heap object. They need a runtime mark on a value in use, so that overwriting or
-> destroying it while a method runs on it panics (a value has no reference count to keep it alive),
-> exact rules for when a moved-from or partly moved value is destroyed, and a way to end a value
-> without its destructor (Swift's `discard`). Adding them later changes no existing program.
-
-> *Proposed, not decided:* a growable array in the standard library that is a unique value
-> (`Vec<T>` above): a unique struct holding a `Borrowable` storage object, sendable when its
-> elements are, so data built with ordinary code can be moved to another thread (05-concurrency.md
-> §5.2). It is decided with the standard library, as is whether it replaces `List<T>`.
-
-> Not implemented yet: unique structs and enums, `Copyable`, and moves.
 
 ### Where copies happen
 
@@ -582,7 +542,7 @@ final class Shotgun extends Weapon {
 - A non-abstract class must implement every inherited abstract method and every method of every
   interface it implements, directly or through a base class. An `abstract` class may leave them to
   its subclasses.
-- Generic methods cannot be `virtual`, `override`, or `abstract` (they compile to C++ templates).
+- Generic methods cannot be `virtual`, `override`, or `abstract`.
 - A class that declares no constructor gets a parameterless one, as visible as the class. That is an error if a field
   needs a value (see construction below) or the base class has no parameterless constructor.
 - Visibility is §6.2's: a subclass sees what its file and module see, and a method it can't see
@@ -603,10 +563,6 @@ Construction follows Java's order, and C++'s rule for what the object is while i
    constructor; without it, the base's parameterless constructor is called. Its arguments cannot use
    `this`.
 
-   > Implemented so far: an argument of `super(...)` or a class's `this(...)` for a `ref`, `in`,
-   > `ref?`, or `in?` parameter or a `ref struct` one must be `null`, a parameter of the
-   > constructor, or a field of one (`super(p.pos, view)`), which need nothing held or computed
-   > before the constructor it calls runs.
 2. Field initializers run in declaration order. They cannot use `this`.
 3. The constructor body runs.
 
@@ -623,23 +579,16 @@ class**, as in C++: virtual calls dispatch to the base class's implementations, 
 see the derived class's fields before they are assigned or after they are destroyed. Calling an
 abstract method at that point panics.
 
-This is the simplest sound rule: each class can only observe its own fields (fully assigned before
-`this` escapes) and its base's (completely constructed). Java and Kotlin dispatch to the derived
-class during construction and can observe unassigned fields; Swift avoids that with a two-phase rule
-that requires a derived class to assign its fields *before* calling `super`.
-
 ### Strings
 
 `String` is an immutable, UTF-8, reference-counted **built-in value type**: its bytes live in one
 counted block that its copies share (it may cross threads; see
-[05-concurrency.md](05-concurrency.md)). It is not a class, since a non-null class reference has no
-default and a `String`'s default is the empty string (§2.13), and it is not a user struct, since
-structs own no resource and a `String` owns its block. The standard library declares it as an
+[05-concurrency.md](05-concurrency.md)). The standard library declares it as an
 `extern struct`, which the runtime implements; `String` and `Weak<T>` are the only such built-in
 values.
 
 Strings are joined by [interpolation](06-syntax.md#string-interpolation), `$"{a}{b}"`, which
-builds the result in one allocation. There is no `+` on strings, so there is one way to do it.
+builds the result in one allocation. There is no `+` on strings.
 `StringBuilder` builds a string up piece by piece, as in a loop.
 
 A literal refers to static text and never allocates; a string built at run time, as by
@@ -648,8 +597,7 @@ A literal refers to static text and never allocates; a string built at run time,
 `==` and `!=` compare contents ([equality](06-syntax.md#equality)).
 
 A string is stored as UTF-8 bytes, and **offsets and lengths count bytes**, never characters: a
-`char` (a code point) takes 1 to 4 bytes. Byte offsets are what make finding and slicing O(1) per
-step, and the names say which unit they mean, so no `length` can be mistaken for a character count:
+`char` (a code point) takes 1 to 4 bytes.:
 
 ```java
 String word = "héllo";
@@ -688,16 +636,6 @@ for (int at, char c : path) {
 }
 ```
 
-The standard library declares these methods in `string.wyl`, implemented by the runtime.
-
-The block and its count stay native. When extension methods land (§6.4), the higher-level methods
-move into Wylow as extensions over the primitive `bytes()`, `byteLength()`, and the slicing
-primitive, so only the counted storage remains runtime code; user-defined `==` (§6.6) can later
-replace the compiler's content-equality rule.
-
-> Implemented so far: literals, interpolation, `print`, `==`, and the methods above. The count is
-> not atomic yet ([05-concurrency.md](05-concurrency.md#59-runtime)), since there are no threads. `StringBuilder` is not implemented.
-
 ## 2.11 Arrays and spans
 
 | Type | Lives | Size | Kind |
@@ -708,16 +646,15 @@ replace the compiler's content-equality rule.
 | `Span<T>` / `ReadOnlySpan<T>` | — (a view) | Whatever it views | Second-class reference |
 
 ```java
-float[16] matrix;                              // inline, compiles to std::array
+float[16] matrix;                              // inline
 float[] heights = new float[width * height];   // heap, length fixed, default values
 List<Enemy> spawned = new List<Enemy>();       // heap, growable
 ```
 
-- All indexing is bounds-checked, in `unsafe` code too (`getUnchecked(i)` skips it, [01-safety.md](01-safety.md#14-opting-out)); a failed check panics with the
+- All indexing is bounds-checked, in `unsafe` code too (`getUnchecked(i)` skips it, [Unchecked operations](20-unsafe.md#unsafe.unchecked)); a failed check panics with the
   index and the length.
-- `T[]` is an object holding its length and a pointer to its elements, which are allocated
-  separately (two allocations; the elements are stored inline, not as references to boxes as in
-  Java). It **never reallocates**, so references into it only need to keep the array alive.
+- A `T[]` **never reallocates**: its length never changes and its elements never move, so
+  references into it only need to keep the array alive.
 - `T[N]`, `T[]`, and `List<T>` convert **implicitly** to `Span<T>` and `ReadOnlySpan<T>`.
 - `Span<T>` follows the same rules as `ref` (cannot be a field, cannot be captured by an escaping
   closure, and can be returned only by a method viewing its receiver). Taking a span of a `List`
@@ -755,8 +692,6 @@ sum(spawned);   // List (borrowed for the duration of the call)
 - `T?[]` is an array of nullable elements; `T[]?` is a nullable reference to an array.
 - `a.length` is a field, which can't be assigned. `new T[n]` panics if `n` is negative.
 - Like any object, copying a `T[]` shares it.
-
-> Implemented so far: one dimension per `new`; `new T[2][3]` is not supported yet.
 
 ### Lists `List<T>`
 
@@ -820,10 +755,6 @@ type, as an adapter holds its source, and a generic `ref struct` may take a `ref
 argument, as `Select<Where<...>>` does. Both stay second-class, so neither can outlive what it
 views.
 
-> Not implemented yet. The adapters' design is settled with the standard library's iteration
-> interfaces, so that queries and `for` loops share one iterator model. Terminal operations come first, since they need only non-escaping lambdas
-> and extension methods; adapters need lambdas held by `ref struct`s and the two rule changes.
-
 ### `Box<T>`
 
 `Box<T>` is a standard library class holding a single value of type `T` on the heap. Use it to
@@ -866,8 +797,7 @@ struct Counter implements Named { ... }
 
 ## 2.13 Generics
 
-Java syntax, C++ template semantics: generics are **monomorphized** (one copy per instantiation,
-zero overhead).
+Generics use Java's syntax.
 
 ```java
 interface Comparable<T> {

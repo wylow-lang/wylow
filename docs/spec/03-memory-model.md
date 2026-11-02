@@ -40,23 +40,11 @@ value's contents without copying anything; the source no longer holds a value.
   `mix(voice.buffer, nextBlock())`, `mix` sees what `nextBlock` left in `voice.buffer`. A unique
   operand moved into a by-value parameter is moved at its turn.
 
-Moving costs a copy of the value's bytes and nothing else: no reference count changes, since
-the references it holds change owner rather than number.
-
-The compiler moves copyable values too where no program can tell (the last use of a local), but
-that is an optimization; for a unique value, the move is what the program means.
-
-> Not implemented yet: unique types, `std::replace`, and `std::swap`. The flow analysis already
-> checks moves of the temporaries lowering makes.
-
 ## 3.2 Objects (classes)
 
-- Allocated with `new`, on the heap (an object that can't outlive its scope may be on the stack
-  instead, which no program can observe; see [Stack allocation](#stack-allocation)).
-- **Reference counted** with an intrusive (in-object) count. Normal classes use a non-atomic count;
-  `shared class` uses an atomic one ([05-concurrency.md](05-concurrency.md)).
-- The destructor runs immediately when the last reference is released. This makes classes the
-  right place for owning resources (GPU buffers, files, sockets).
+- Allocated with `new`.
+- **Reference counted.**
+- The destructor runs immediately when the last reference is released.
 
 ### When references are released
 
@@ -101,81 +89,6 @@ that is an optimization; for a unique value, the move is what the program means.
   to it still exists when the destructor finishes, the program panics.
 - Objects in a cycle are released only by `memory::collectCycles` ([below](#cycles-memorycollectcycles)).
 
-> ⚠️ **Long chains are destroyed recursively.** Releasing the head of a long linked list destroys
-> each node from inside the previous node's destruction, which can overflow the stack (an abort, see
-> [01-safety.md](01-safety.md#12-how-each-source-of-c-ub-is-handled)). Break up very long chains
-> manually for now.
-
-### Implementation
-
-Every class object starts with a 24-byte header (on 64-bit targets): the vtable pointer, a word
-holding the non-atomic reference count with the cycle collector's flags in its low bits, and a word
-holding the object's weak block (below) once it is referred to weakly, or else its place in the
-collector's buffer while it is buffered (an object with both keeps that place in the weak block).
-In C++, interfaces derive virtually from one `wyl::Object`, and so does the root of any class
-hierarchy in which some class implements an interface, so an object has one count however many
-interfaces it implements. Other classes derive from it directly, which saves each object a pointer
-and each count change a lookup of the base's offset. References are
-`wyl::Ref<T>`, an intrusive smart pointer; non-null is enforced by Wylow, not by `Ref`. The count
-starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
-`this` cannot destroy the object early.
-
-### Allocation
-
-Objects, closures, and weak blocks up to 512 bytes come from the runtime's **pools** rather than the
-C++ global heap; larger ones, and over-aligned ones, use the global heap. A pool is a size class:
-slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned to their size.
-
-- **Allocating** takes a slot from the size class's current chunk: its free list, or else its
-  uncarved end. When the current chunk is full, the fullest chunk of the class that has room
-  becomes current, so that new objects fill few chunks while the others drain. Partial chunks are
-  kept in 8 bins by how full they are, which makes the choice constant-time.
-- **Freeing** pushes the slot onto its own chunk's free list, found by masking its address, so a
-  slot needs no header. The size comes from C++'s sized delete through the virtual destructor.
-- **Memory goes back to the OS** when a chunk is left with no live slots, except that one empty
-  chunk per size class is kept, so that a count of objects hovering at a chunk's edge doesn't map
-  and unmap a chunk each time. A chunk with any live object stays mapped: objects never move, so a
-  few long-lived objects scattered over many chunks keep all of those chunks. Choosing the fullest
-  chunk only reduces this.
-- **Pools are per thread, with no synchronization on the usual path.** Most objects are freed on
-  the thread that made them. An object can move to another thread inside a unique value
-  ([05-concurrency.md](05-concurrency.md#51-thread-confinement)) and be freed there: freeing a slot
-  of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list, which
-  the owner takes back when its own free list runs out (mimalloc's design). Every free compares
-  the chunk's owner with the current thread. A thread that ends leaves its chunks with live
-  objects to be adopted by the threads that free them.
-  `shared class` objects, which may be freed on any thread at any time, use the global heap.
-- Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
-  after free.
-
-> Implemented: everything above, except that the pools are global and have no remote free lists,
-> since threads don't exist yet.
-
-### Stack allocation
-
-The compiler may put an object made by `new` (or the closure an escaping lambda makes) in the
-stack frame of the scope making it instead of on the heap, saving the allocation and the free,
-when no reference to it can outlive that scope:
-
-```java
-var hit = new RayHit(origin, dir);      // only used here: may be on the stack
-if (raycast(world, hit)) { print(hit.distance); }
-print(new Path(a, b).length());         // a temporary: may be on the stack
-```
-
-No program can tell the difference, which is what allows it. An object is destroyed when its last
-reference is released (see [When references are released](#when-references-are-released)), and the
-compiler does this only where the stack object is destroyed at exactly that point, in the same order
-relative to everything else. Panics abort without unwinding, so there is no other way out of the
-scope. The only exception is diagnostics: `memory::cycleStats()` counts what the cycle collector
-buffered, and it never buffers an object on the stack.
-
-Which objects qualify is the compiler's business and may change between versions; an object
-qualifies only if it doesn't **escape**: stored in a field, an element, or a static, returned,
-captured by a closure that escapes, referred to by a `Weak`, or given to a function that may do
-any of these. How the current compiler decides is in
-[docs/design/stack-objects.md](../design/stack-objects.md).
-
 ### Weak references: `Weak<T>`
 
 `Weak<T>` refers to an object without keeping it alive. It is an ordinary value type from the
@@ -210,18 +123,6 @@ Use a weak reference when a reference should not keep its target alive: a parent
 observer list, a cache, an enemy's current target. Cycles of strong references are also freed by the
 cycle collector (below), but only when the program asks; a weak reference lets the object be
 destroyed as soon as nothing else holds it.
-
-**Implementation.** The first time an object is referred to weakly, it allocates a small weak
-block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` is a pointer to the block and
-one to the target (C++ can't cast the block's `wyl::Object*` back down to `T`), and copying one adds
-to the block's count. `Weak<T>` is an `extern struct` ([07-interop.md](07-interop.md)) implemented
-by `wyl::Weak` in the runtime. A shared object's weak block is made with an atomic exchange, so two
-threads referring to it weakly at once agree on one, and its count is atomic; its `get()` takes a
-strong reference only while the target's count is above zero, so it never revives an object
-another thread has just released. When the target's count reaches zero, the block's target is
-set to null; the block itself is freed when the target and the last `Weak` to it are gone. An
-object that is never referred to weakly costs nothing extra; one that is costs one small
-allocation, once.
 
 ### Cycles: `memory::collectCycles`
 
@@ -279,11 +180,10 @@ a pointer; a class of the program is looked at only through its fields, even if 
 A field's references are looked at whatever their class, but objects of acyclic classes are never
 visited, so the references they hold count as references from outside.
 
-- **Objects of acyclic classes cost nothing**, and are never buffered or visited. Most objects in a
-  game are values or acyclic.
+- Objects of acyclic classes are never buffered or visited.
 - When a reference to a **cyclic** object is released and its count stays above zero, the object may
   have just become part of an unreachable cycle, so it is added to its thread's buffer (once, until
-  the next collection). That is one branch per such release, and an append the first time.
+  the next collection).
 - A collection runs trial deletion from the buffered objects: it subtracts the references the
   objects reachable from them hold to each other, and objects left with no references from outside
   that group are garbage. The work is proportional to what is reachable from the buffered objects,
@@ -329,13 +229,6 @@ Generic classes are named with their type arguments (`List<Node>`) where the com
 instantiation, and classes as messages name types (docs/diagnostics/README.md).
 Classes are listed by name, since the order the collector finds objects in may change with
 optimization.
-
-> Implemented so far: everything above except per-class counts and visit timing in
-> `memory::cycleStats()`, and `shared class` (threads don't exist yet, so the buffer is global).
-> Instantiations of generic classes that only C++ sees, through a generic function's type arguments,
-> are treated as cyclic, and a field whose type could refer to one as reaching every class; neither
-> affects correctness, only how much is buffered. `visited` counts the objects of the groups that
-> fit in the budget.
 
 ## 3.3 References
 
@@ -407,7 +300,6 @@ if (found != null) {
   is always sound here, since a reference can't be made to refer elsewhere: assigning to it
   assigns to the place. `x!` gives the place or panics.
 - It converts implicitly from `ref T` to `ref? T`, and from `ref` to `in`, never the other way.
-- It compiles to a C++ pointer that is null when there is no place, so it costs nothing over `ref`.
 - It is initialized or passed like a `ref`, or with `null`: `ref? T x = place;`, `ref? T x = null;`,
   and `ref? var x = list.get(i);`, which takes the type of what it is initialized with. A `ref?`
   parameter takes `ref place`, `ref other` for another `ref?`, or `null`, which needs no `ref`, and
@@ -429,10 +321,6 @@ if (found != null) {
   variable; when the test fails, that is let go at once, so an `else` branch can still add to the
   list that `list.get(i)` looked in.
 
-C# has no such type: `CollectionsMarshal.GetValueRefOrNullRef` returns a plain `ref` that may be
-null, which the caller must remember to test with `Unsafe.IsNullRef`. Rust's `Option<&mut T>` is
-the model.
-
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms
 prevent that.
@@ -447,54 +335,10 @@ reassigned).
 The same applies to the receiver of a method call: in `player.weapon.fire()`, the call holds the
 weapon, so `fire` may replace `player.weapon` without destroying the object it is running on.
 
-The current rule: the compiler pins (holds a strong reference until the statement completes, as it
-would a temporary) the receiver of a method call, and the object owning the place passed as a
-`ref`/`in` argument or used as a struct method's receiver, unless that object is `this` or a local
-or parameter, or is held by a field that isn't `mut` of such an object. Locals are safe without a pin because nothing but the
-function itself can assign them, and a class-typed local cannot even be passed by `ref`. `this` is
-safe because whoever called the method has pinned it. A field that isn't `mut` (§2.7) is never
-reassigned once its object is constructed, so it holds its object as long as the object holding it
-lives; inside its own class's constructors, which may still assign it, it is pinned like a `mut`
-field. Nor does it pin an object held by a `mut` field of such an object when nothing that runs
-while the pin would last may assign that field: the compiler knows which fields each function may
-assign, including through the functions, overrides, lambdas, and destructors it may run, and
-through references, pointers, and struct methods' `this` into a value of the type the field
-contains. A pin costs one count increment and decrement.
-
 A `ref` or `in` variable, and a span variable, holds the object for its whole scope, even when a
 local holds it: the function itself may reassign that local while the reference lives. An object
 held by `this`, or by a field that isn't `mut` of `this` (outside its class's constructors), needs
 no hold.
-
-### Loop elements
-
-In `for (Enemy e : list)`, `e` holds its own reference to each element's object, like any local,
-unless nothing the loop can run may store over an element of that type: assign to an element
-(`list[i] = x`, `array[i] = x`, or through a `ref` in generic code), or to a value containing a fixed
-array of them. Then `e` refers to the element in place, saving a count increment and decrement per
-element. What the loop iterates is held and borrowed until it ends, so storing over the element is
-the only way its object could be destroyed. The same goes for an element of any type whose copy
-costs something, such as a string or a struct, which saves the copy; for a struct, assigning a
-field of an element (`list[i].x = 1`) counts as well, as does a write through a `ref` to a type
-the struct contains. Storage of one type is never another's (01-safety.md §1.2), so a write of an
-unrelated type never counts.
-
-The compiler checks everything the loop's body may run: the functions it calls and the functions
-they call, every override of a virtual or interface method it calls, every lambda of the type of
-a function value it calls (a lambda in generic code counts for every type it could be), and the
-destructors of every object it may release. Assigning fields of objects, including fields of
-the element's class, never counts, so getters, setters, and most methods don't prevent it. Reassigning `e` itself
-does. The program behaves the same either way; only the cost differs.
-
-Releasing a value may destroy the objects it refers to, and through their fields (including
-structs, fixed arrays, container elements, and what closures capture), the objects those refer to,
-so the destructors that count are those of every class an object reachable that way may have. A
-value whose type involves a type parameter, or a class only generic code instantiates, may
-destroy anything. So a destructor that stores over an element of a type (`~Squad() { members[0] =
-new Enemy(...); }`) keeps a loop over elements of that type, such as `for (Enemy e : enemies) {
-e.hp -= 1; }`, holding its own reference to each element only if the loop may release a `Squad`,
-or something that may hold one; `memory::collectCycles()` may release anything. Destructors that
-only assign fields, or store elements of other types, never affect it.
 
 ### Evaluation order and the heap
 
@@ -576,11 +420,6 @@ A `ref struct` may be a local variable or a parameter, but not:
 A span variable cannot view a temporary struct, such as `makeSamples().view()`, since the struct
 is gone after the statement. A temporary object is fine: the span holds it.
 
-> Planned, for lazy queries ([02-types.md](02-types.md#queries)): a `ref struct` may have fields
-> of `ref struct` and function types, a generic `ref struct` may take a `ref struct` type argument,
-> and an extension method may return a `ref struct` that views its `this` parameter and holds its
-> function-typed parameters.
-
 ### Second-class values
 
 References, `ref struct`s (spans among them), and non-escaping functions
@@ -599,26 +438,3 @@ struct` with three differences: it can't be `mut`, since it has no methods to ca
 expressions may choose between functions (06-syntax.md §6.7, Choices); and a parameter may be a
 nullable one. A `ref struct` holding a non-escaping function, as planned above, is then one second-class value holding
 another.
-
-## 3.4 What the checks cost
-
-| Operation | Cost |
-|---|---|
-| Array/span index | 1 compare; none with `getUnchecked(i)` in `unsafe` code |
-| Copy a class reference | refcount inc/dec (pass by `ref` to avoid) |
-| Move a unique value | a copy of its bytes; no refcount changes |
-| Free a pooled object | one compare of its chunk's owning thread; an atomic push if another thread owns it |
-| For-each over class elements | refcount inc/dec per element only if the loop may store over one |
-| Release a reference to a cyclic class, count stays above 0 | 1 branch; a buffer append the first time |
-| Copy a `Weak<T>` | weak block count inc/dec |
-| Cycle collection | only where `memory::collectCycles` is called, proportional to objects visited |
-| Borrow from class field | refcount inc/dec, often elided |
-| Borrow from container | counter inc/dec |
-| Pass a lambda to a function parameter | nothing: inlined, like a hand-written loop |
-| Pass a lambda to an overridden or interface method, a recursive function passing itself new lambdas, or an overloaded constructor | an indirect call per call of it |
-| Choose a function with `?:` | a branch on the choice per call; every lambda it could be is still inlined |
-| Use a local that a lambda assigns, as a receiver or argument | refcount inc/dec while in use, if it holds objects |
-| Make an escaping lambda | a heap allocation holding copies of what it captures; nothing if it captures nothing |
-| Call an escaping function | an indirect call; refcount inc/dec on the closure if it is stored where the call could replace it (a field, a container element, a local a lambda assigns) |
-| Copy an escaping function | refcount inc/dec, as a class reference |
-| Pass an escaping function to a non-escaping parameter | refcount inc/dec for the call, unless it comes from a local that can't change meanwhile |
