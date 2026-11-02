@@ -1,0 +1,73 @@
+// An unsafe function, method, constructor, or indexer is called only from unsafe code, and no
+// call that needs no unsafe code can reach one: an override or interface implementation can't
+// be 'unsafe' unless what it overrides is (01-safety.md, unsafe).
+
+import std::print;
+
+unsafe int danger(int x) { return x; }
+
+class Base {
+    unsafe static int raw() { return 1; }
+    unsafe virtual int risky() { return 1; }
+    virtual int plain() { return 1; }
+}
+
+class Derived extends Base {
+    // Safe in place of unsafe is allowed: a call through Base still needs unsafe code.
+    override int risky() { return 2; }
+    unsafe override int plain() { return 2; }   // error: 'plain' cannot be 'unsafe', since 'Base.plain' isn't
+}
+
+pub interface Shape {
+    int sides();
+}
+
+class Square implements Shape {
+    pub unsafe int sides() { return 4; }    // error: 'Square.sides' cannot be 'unsafe', since 'Shape.sides()' isn't
+}
+
+struct Shown implements Printable {
+    int v;
+    pub unsafe String toString() { return "shown"; }   // error: 'Shown.toString' cannot be 'unsafe', since 'Printable.toString()' isn't
+}
+
+struct Ordered implements Comparable<Ordered> {
+    int v;
+    pub unsafe int compareTo(Ordered other) { return 0; }   // error: 'Ordered.compareTo' cannot be 'unsafe', since 'Comparable<Ordered>.compareTo(Ordered)' isn't
+}
+
+struct Grid {
+    int v;
+    pub unsafe int operator [](int i) { return v; }
+    pub int operator [](String s) { return v; }
+    pub unsafe mut void operator []=(String s, int x) { v = x; }
+}
+
+unsafe int alreadyUnsafe() {
+    // An unsafe function's body is unsafe code, and so is a lambda written in it.
+    fn() -> int f = () -> danger(1);
+    return danger(f());
+}
+
+void main() {
+    print(danger(1));                   // error: 'danger' is unsafe and can only be called from 'unsafe' code
+    print(Base.raw());                  // error: 'raw' is unsafe and can only be called from 'unsafe' code
+    Base b = new Derived();
+    print(b.risky());                   // error: 'risky' is unsafe and can only be called from 'unsafe' code
+    Derived d = new Derived();
+    print(d.risky());
+    fn() -> int f = () -> danger(2);    // error: 'danger' is unsafe and can only be called from 'unsafe' code
+    fn(int) -> int g = danger;          // error: 'danger' is unsafe and can only be called from 'unsafe' code
+    mut var grid = Grid();
+    print(grid[0]);                     // error: 'operator []' is unsafe and can only be called from 'unsafe' code
+    print(grid["a"]);
+    grid["a"] = 1;                      // error: 'operator []=' is unsafe and can only be called from 'unsafe' code
+    unsafe {
+        print(danger(3) + Base.raw() + b.risky() + grid[0]);
+        grid["a"] = 2;
+        unsafe {
+            fn() -> int h = () -> danger(4);
+            print(h());
+        }
+    }
+}

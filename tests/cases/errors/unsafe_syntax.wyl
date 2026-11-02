@@ -1,0 +1,17 @@
+// 'unsafe' marks functions, methods, constructors, and blocks; nothing else.
+
+unsafe class K { }                      // error: 'unsafe' is not valid on a class
+unsafe struct S { }                     // error: 'unsafe' is not valid on a struct
+unsafe interface J { }                  // error: 'unsafe' is not valid on an interface
+unsafe enum E { A }                     // error: 'unsafe' is not valid on an enum
+
+class F {
+    unsafe int field;                   // error: 'unsafe' is not valid on a field
+    unsafe ~F() { }                     // error: 'unsafe' is not valid on a destructor
+}
+
+interface I {
+    unsafe int m();                     // error: interface members cannot have modifiers other than 'mut'
+}
+
+void main() { }

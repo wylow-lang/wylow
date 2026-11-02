@@ -107,7 +107,9 @@ unsafe {
 Inside `unsafe` and `@Unchecked` code, violating the rules is undefined behavior and is the
 programmer's responsibility, as in C#.
 
-An `unsafe` method or constructor may only be called from unsafe code. Pointer types may be written
+An `unsafe` method or constructor may only be called from unsafe code. Since a call through a method
+that isn't `unsafe` needs no unsafe code, an override or interface implementation can be `unsafe`
+only if what it overrides is (as in Rust); a safe override of an `unsafe` method is allowed. Pointer types may be written
 anywhere (a struct may have a `T*` field); only using a pointer needs unsafe code.
 
 > Implemented so far: `unsafe` blocks, methods, and constructors; pointer types `T*`, which default

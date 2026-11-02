@@ -74,6 +74,8 @@ public sealed partial class Binder
                 // A class method can't change the reference it is called through, so only a struct's must promise not to change 'this'.
                 else if (method.IsReadOnly && s.Kind == TypeKind.Struct && !implementation.Symbol.IsReadOnly)
                     Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' cannot be 'mut', since {description} isn't");
+                else if (LosesUnsafe(implementation.Symbol, method))
+                    Error(location, $"'{implementation.Owner!.Symbol!.Name}.{method.Name}' cannot be 'unsafe', since {description} isn't{UnsafeReason}");
                 else
                 {
                     if (!implementation.Symbol.Overridden.Contains(method))
@@ -135,7 +137,17 @@ public sealed partial class Binder
         // So that a method reaches as far in every subclass as in its base (§6.2).
         else if (method.Declaration.Visibility != inherited.Symbol.Declaration!.Visibility)
             Error(location, $"'{method.Name}' overrides {overridden}, so it must have {Written(inherited.Symbol.Declaration.Visibility)}, as that method has");
+        else if (LosesUnsafe(method, inherited.Symbol))
+            Error(location, $"'{method.Name}' cannot be 'unsafe', since {overridden} isn't{UnsafeReason}");
     }
+
+    /// <summary>
+    /// A call through a method that isn't <c>unsafe</c> needs no unsafe code, so nothing that call
+    /// may dispatch to can be <c>unsafe</c> (01-safety.md, unsafe). The reverse is allowed.
+    /// </summary>
+    static bool LosesUnsafe(FunctionSymbol implementation, FunctionSymbol declared) => implementation.IsUnsafe && !declared.IsUnsafe;
+
+    const string UnsafeReason = ": a call through it needs no 'unsafe' code";
 
     /// <summary>A method of <paramref name="type"/> itself (not inherited) with the given <see cref="MethodKey"/>.</summary>
     static MethodReference? FindMethod(WylType type, string key)
