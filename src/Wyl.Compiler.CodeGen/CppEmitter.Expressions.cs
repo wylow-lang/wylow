@@ -88,6 +88,9 @@ public sealed partial class CppEmitter
         return $"static_cast<{declaring}*>(this)->";
     }
 
+    /// <summary>Whether the conversion is printed as its operand, with nothing around it.</summary>
+    static bool IsPassThrough(WylType from, WylType to) => to.IsReference && CppType(from) == CppType(to);
+
     /// <summary>A conversion of a value.</summary>
     string ConversionText(WylType from, WylType to, string operand, string? location)
     {
@@ -96,7 +99,7 @@ public sealed partial class CppEmitter
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)
-            return CppType(from) == CppType(to) ? operand : $"{CppType(to)}({operand})";
+            return IsPassThrough(from, to) ? operand : $"{CppType(to)}({operand})";
         if (stdlib.IsWeak(to))
             return $"{CppType(to)}({operand})";
         if (from.IsEnum)

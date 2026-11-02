@@ -165,14 +165,16 @@ public sealed partial class CppEmitter
         {
             if (!plan.Nested.TryGetValue(local, out var definition))
             {
-                if (local.Kind == IrLocalKind.Value)
+                if (ValueVariable(local))
                     return Name(local);
                 break;
             }
-            // The temporary prints as what defines it, so the move it holds is a move of that.
+            // The temporary prints as what defines it, so the move it holds is a move of that. A
+            // conversion that prints as its operand forwards one too.
             if (definition switch
                 {
                     IrLet { Value: IrUse use } => use.Operand,
+                    IrLet { Value: IrConvert conversion } when IsPassThrough(conversion.Operand.Type, conversion.Type) => conversion.Operand,
                     IrBlock block when !plan.Evaluated.ContainsKey(local) => StoredValue(block, local),
                     _ => null,
                 } is not { } inner)
@@ -349,6 +351,20 @@ public sealed partial class CppEmitter
         };
         return irNames[local] = name;
     }
+
+    /// <summary>
+    /// Whether the local is a C++ variable holding its value, not a reference to it. C++ moves such a
+    /// returned local itself, so a move that a return forwards from one is printed as the local.
+    /// </summary>
+    static bool ValueVariable(IrLocal local) => local.Kind switch
+    {
+        // A nullable reference is held by value; other references are C++ references.
+        IrLocalKind.Reference => local.Type.IsNullableReference,
+        // A hold of a type parameter is an `auto&&`, which binds like a reference.
+        IrLocalKind.Hold => !local.Type.IsTypeParameter,
+        IrLocalKind.Value => true,
+        _ => false,
+    };
 
     string Declaration(IrLocal local, string value, IrRvalue? rvalue = null)
     {
