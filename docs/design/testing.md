@@ -85,6 +85,12 @@ surface as disagreements. `binder-names`, `binder-imports`, and `manifest` (pack
 - **Two definitions of an instruction's meaning.** `IrEffects` says what an instruction may write,
   run, and panic on; the interpreter says what it does. `IrSelfTests.Effects` and the differential
   runs keep them honest; a new instruction adds both and a self-test for each.
+  `IrSelfTests.EffectKinds` fails until every instruction kind has an effect case.
+- **A fact that under-reports is invisible.** An analysis (`Escapes`, `Writes`, `Callees`,
+  `LambdaWrites`, `CyclicClasses`) that misses a route costs nothing until a pass relies on it, so
+  `AnalysisSelfTests` asks each fact of a lowered fixture for every way code reaches something.
+  A `sound/` case must hold forever; a `precise/` case pins an answer a pass depends on (its
+  comment says which) and may change when an analysis gets sharper.
 - **Unstated orders.** Aggregate assignment's release order is not in the spec; decide it when a
   test can see it.
 - **`memory::allocate`'s "too large" check** needs C++ `sizeof(T)`, which the interpreter only

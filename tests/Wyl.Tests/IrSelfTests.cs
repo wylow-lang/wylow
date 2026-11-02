@@ -62,7 +62,7 @@ static partial class IrSelfTests
         if (compilation.Program is not { } program)
             return [new("ir/fixture", string.Join('\n', compilation.Diagnostics))];
         var b = new Builder(program, source);
-        return [.. Cases(b).Concat(PassOutputs(b)).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b), AccessFacts(b), PlacePathFacts()];
+        return [.. Cases(b).Concat(PassOutputs(b)).Concat(Rejections(b)).Select(c => Check(program, compilation.Ir!, c)), StaleFacts(program, compilation.Ir!), LetRule(b), PanicLocations(), EffectFacts(b), AccessFacts(b), PlacePathFacts(), .. EffectKinds(b)];
     }
 
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
