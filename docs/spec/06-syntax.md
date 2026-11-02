@@ -184,7 +184,7 @@ native {
 - `native` gives the include directories and the libraries to link for `extern` code (§7).
 - What the files already say isn't written again: a package with a `main` in its root module
   (§6.1, Entry point) is a program, and one without is a library; the sources are always `src/`.
-- Build settings (`--release`, `--cc`, `--panic=abort`) are the build's, not the package's, and
+- Build settings (`--release`, `--cc`) are the build's, not the package's, and
   stay on the command line. A version and a language edition wait until a registry and
   stability promises give them a meaning.
 
@@ -743,8 +743,8 @@ is, so that what it refers to (a lambda, or a copy of a stored function) lives u
 returns. A `wyl::FunctionRef` made from a stored function refers to its closure and calls its code,
 so the call is no more indirect than the stored function's.
 
-Non-escaping lambdas are what make `Jobs.parallelFor` and `Mutex.lock` safe
-([05-concurrency.md](05-concurrency.md)).
+Non-escaping lambdas are what make `Mutex.lock` and parallel loops safe
+([05-concurrency.md](05-concurrency.md#54-shared-functions)).
 
 > Implemented so far: everything above.
 
@@ -1190,7 +1190,7 @@ Enforced with compiler **warnings** (not errors):
 | Types (classes, structs, enums, interfaces) | `PascalCase` | `EnemySystem` |
 | Enum variants | `PascalCase` | `AiState.Chasing` |
 | Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
-| Constants (`const`, and `static` fields that aren't `mut`) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
+| Constants (`const` and `static` fields) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
 | Modules, and the directories that are them | `snake_case` | `world_gen::noise` |
 | Files | `snake_case`, named for what they hold | `chunk_mesher.wyl` |
 

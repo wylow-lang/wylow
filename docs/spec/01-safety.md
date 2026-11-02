@@ -32,34 +32,24 @@ int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
 | Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`). Storage of one type is never read or written as another, which the compiler relies on (§1.4, `unsafe`) |
 | Data races | Prevented by the concurrency model ([05-concurrency.md](05-concurrency.md)) |
-| Stack overflow | OS guard page; process aborts, even inside an isolate |
+| Stack overflow | OS guard page; process aborts |
 
 ## 1.3 Panics
 
 A **panic** is a failed safety check or an explicit `panic("message")` call.
 
 A panic means the code has a bug, so the state it was changing can't be trusted. It therefore
-**stops the whole isolate it happens in**, and everything that isolate owns is thrown away
-([05-concurrency.md](05-concurrency.md#56-isolates-and-panics)):
+**aborts the process**, on any thread ([05-concurrency.md](05-concurrency.md#57-panics)):
 
-- A panic on the main thread, outside any `Isolate.call`, **aborts the process**. A program that
-  uses no isolates or threads behaves exactly as if panics always aborted.
-- A panic inside `Isolate.call` stops that isolate: the stack unwinds to the call, which returns
-  `Err(Panic)`, and the isolate's objects are released. The caller continues.
-- A panic on a thread other than the main thread ends that thread, and joining it returns
-  `Err(Panic)`.
-- The runtime prints the message and a stack trace where the panic happens, before unwinding, and a
-  debugger stops there.
-- There is no way to catch a panic anywhere else, by type or otherwise, and no way to keep using
-  the state of an isolate that panicked.
+- The runtime prints the message and a stack trace where the panic happens, and a debugger stops
+  there.
+- Nothing unwinds: no destructor runs and no thread continues, so no code can see the state the
+  panicking code left half-changed. There is no way to catch a panic, by type or otherwise.
+- Stack overflow and running out of memory abort the process the same way.
 
-Some failures always abort the process, inside an isolate or not: a panic while unwinding from
-another (in a destructor), stack overflow, and running out of memory.
-
-The `--panic=abort` build option makes every panic abort the process, as if no code ran in an
-isolate, which leaves out the C++ unwinding tables.
-
-> Not implemented yet: today every panic aborts the process.
+> *Open:* recovering from a panic in code that is kept apart from the rest (a mod, a script, an
+> editor's play mode) could later be an opt-in that changes no program that doesn't use it. Until
+> then, such code can run in a separate process.
 
 Panics are not exceptions. Expected failures (a missing file, bad input, a lookup that may find
 nothing) are values: `T?` or `Result<T, E>`
@@ -81,7 +71,8 @@ C#). Unsafe code may use:
   job. The compiler relies on this rule: a write through a reference or pointer of type `T` changes
   only storage that holds a `T`, directly or inside a struct, enum, or fixed array. So does the C++
   compiler that builds the output.
-- Sharing data across threads without `Sendable` checks.
+- Sharing data across threads through raw pointers, without the checks that make other values
+  sendable ([05-concurrency.md](05-concurrency.md#58-unsafe)).
 - Unchecked operations, which are named methods: `getUnchecked(i)` on arrays, spans, and `List`
   returns the element without the bounds check. Arithmetic that may overflow uses the `wrapping`
   operations ([02-types.md](02-types.md)), which are safe.

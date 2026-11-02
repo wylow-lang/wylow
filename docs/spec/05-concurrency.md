@@ -1,265 +1,272 @@
 # 5. Concurrency
 
-Data races are undefined behavior in C++, so safe Wylow must make them impossible. The model has
-three parts:
-
-1. **Thread confinement:** normal objects belong to one thread.
-2. **Jobs:** structured, short-lived parallelism over plain data (similar to Unity's Job System).
-3. **Threads:** long-lived workers that communicate only by sending values.
+Data races are undefined behavior in C++, so safe Wylow must make them impossible. Deadlocks
+between locks are ruled out too, by a cheap runtime check. The language itself adds only a few
+rules: which values may reach another thread (§5.1–5.4), what statics may hold (§5.5), and that a
+panic on any thread stops the program (§5.7). Threads, channels, locks, atomics, and frozen arrays
+are the standard library's, built on `unsafe` code at its lowest layer; §5.6 describes how they
+behave. Thread pools, parallel loops, and task systems are libraries built on the same rules.
 
 ## 5.1 Thread confinement
 
-**A normal class object belongs to the thread that created it.** It can never be accessed from
-another thread. This is what allows normal refcounts and borrow counters to be non-atomic.
+**A normal class object belongs to the thread that created it**, and no other thread can ever
+reach it. This is what lets reference counts and borrow counters be non-atomic, and the pools
+([03-memory-model.md](03-memory-model.md#allocation)) and the cycle collector's buffer belong to
+one thread with no synchronization.
 
-### `Sendable`
+A value reaches another thread only in three ways: captured by a function that thread runs
+(§5.4), sent over a channel (§5.6), or read from a static (§5.5). Each accepts only sendable values
+(§5.2). Code itself is harmless: a function running on another thread may call any function,
+create and release objects, and use any type, because the objects it makes stay on its thread and
+nothing it can reach is another thread's.
 
-A type is **sendable** if values of it can safely cross threads. The compiler infers this; it is
-never written on structs.
+## 5.2 Sendable types
+
+A type is **sendable** if a value of it can safely be used from several threads at once. The
+compiler infers this; it is never written.
 
 | Type | Sendable |
 |---|---|
 | Primitives | ✅ |
-| Enums whose variants hold only sendable data | ✅ |
-| Structs whose fields are all sendable ("plain data") | ✅ |
-| `T[N]` where `T` is sendable | ✅ |
-| `String` (an immutable built-in value whose copies share one counted block) | ✅ |
-| References to a `shared class` (including `Frozen<T>`) | ✅ |
-| References to normal classes (`List<T>`, `T[]`, `Map`, user classes), and `Weak<T>` | ❌ |
-| Structs/enums containing any non-sendable field | ❌ |
+| Structs, enums, and `T[N]` whose fields or elements are all sendable | ✅ |
+| `String` (an immutable value whose copies share one block, counted atomically) | ✅ |
+| References to a `shared class` (§5.3), including the standard library's `Frozen<T>`, `Mutex<T>`, `Atomic<T>`, and channel ends | ✅ |
+| Escaping `shared` functions (§5.4) | ✅ |
+| References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>`, and functions that aren't `shared` | ❌ |
+| Structs, enums, and fixed arrays with any field or element that isn't sendable | ❌ |
 
-Wherever a sendable type is required, using a non-sendable one is a compile error naming the
-offending field.
+Wherever a sendable type is required, using another is a compile error naming the field that
+isn't sendable.
 
-### `shared class`
+Nothing reachable through a sendable value can change except through a synchronization type: a
+copy of a struct is a separate value, a `String` never changes, and a shared object's fields
+aren't `mut`. So one fact covers both sending a value to a thread and sharing it between threads
+(Rust needs `Send` and `Sync` for the two).
 
-A `shared class` may be referenced from multiple threads.
+## 5.3 `shared class`
+
+A `shared class` may be referenced from several threads:
 
 ```java
-shared class TextureCache {
-    pub String rootPath;
-    pub Mutex<Map<String, TextureId>> entries;
-    pub Atomic<int> hits;
+shared class Weapon {
+    pub String name;
+    pub float damage;
+    pub virtual float damageAt(float distance) { return damage; }
 }
 ```
 
-- Uses an **atomic** reference count.
-- No field may be `mut` ([02-types.md](02-types.md#27-mutability-and-constants)), and every field
-  must be sendable or a synchronization type (`Mutex<T>`, `RwLock<T>`, `Atomic<T>`,
-  `Channel<T>`, ...), through which the shared state changes. The compiler enforces this.
-- `String` is an immutable built-in value: its bytes are shared and never change, so it may cross
-  threads. Its block's count becomes atomic when threads exist.
+- Its reference count is **atomic**, and its objects use the global heap rather than a thread's
+  pools, since the last reference may be released on any thread, which runs the destructor.
+- No field may be `mut`, and every field must be sendable. State that changes is held in a
+  synchronization type (`Mutex<T>`, `Atomic<T>`, a channel end), which is itself a shared class.
+- Its base class, if any, and every class extending it are shared too.
+- Its objects are never cycle-collected ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)),
+  since other threads may refer to them. Their fields can't change, so a cycle among them can only
+  pass through a synchronization type, such as a `Mutex` holding a reference back, and it leaks
+  unless the program clears that reference.
 
-## 5.2 Jobs
+A shared class is for objects that many threads read and that need a class's identity or virtual
+methods: definitions of weapons, materials, or sounds. A struct whose fields are references to
+synchronization types is already sendable, and needs no class.
 
-Jobs are for short, parallel work within a frame: physics, animation, culling, skinning.
+> *Open:* whether an interface can require its implementations to be shared classes, so that a
+> reference to it is sendable.
 
-Jobs are **structured**: the call that launches them does not return until every job has finished,
-and the calling thread helps execute them. Because the caller outlives the jobs, jobs may safely use
-`ref`s and `Span`s borrowed by the caller.
+## 5.4 Shared functions
 
-```java
-// Parallel for: the span is split into disjoint chunks
-Jobs.parallelFor(particles, 1024, (Span<Particle> chunk) -> {
-    for (ref Particle p : chunk) p.integrate(dt);
-});
+`shared` on a function type means its lambda may run on another thread. It is part of the type,
+like `escaping` ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)), and is written wherever a
+function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
+`Channel<shared fn() -> void>`.
 
-// Several independent tasks
-Jobs.run(
-    () -> integrate(bodies, dt),
-    () -> animate(skeletons, poses, dt),
-);
-```
+| | Escaping `shared fn` | Non-escaping `shared fn` |
+|---|---|---|
+| Runs | On another thread, possibly after the call that made it returns | On other threads while the function given it waits for them |
+| Captures | Copies, which must be sendable | Read-only: sendable locals and parameters, and `in` references and `ReadOnlySpan`s of sendable data |
+| Is itself | A shared object with an atomic count, so the function value is sendable | A second-class value, like any non-escaping function |
+| Typical use | A thread's body, a task in a queue | A body that a parallel loop splits across threads |
 
-### Rules
-
-1. **Captures:** a job may capture only sendable values, `Span<T>`, `ReadOnlySpan<T>`, and `ref T`,
-   where `T` is itself sendable.
-2. **No overlapping mutable access:** within one launch, no `Span<T>` or `ref T` may overlap any other
-   span or ref given to another job. `parallelFor` guarantees this by construction. For `Jobs.run`,
-   the runtime compares the memory ranges at launch and panics on overlap. `ReadOnlySpan`s may
-   overlap each other freely.
-3. The launching thread holds all borrows (pins and borrow counters) for the duration of the
-   launch. Jobs never touch containers or refcounts, only raw views.
-
-### Design consequence
-
-A struct containing a class reference (for example `struct Enemy { pub Behavior ai; }`) is not
-sendable, so it cannot be processed by jobs. Data that needs parallel processing should be
-**plain data**, with class-heavy logic kept on the owning thread. This is intentional: it pushes
-hot data toward a data-oriented layout.
-
-## 5.3 Threads
-
-Threads are for long-running background work: asset streaming, audio, networking.
-
-```java
-var requests = new Channel<String>();
-var results  = new Channel<LoadedMesh>();
-
-Thread.spawn(() -> {
-    for (String path : requests) {
-        results.send(loadMeshData(path));
-    }
-});
-
-// main thread, each frame
-while (results.tryReceive() is LoadedMesh m) {
-    uploadToGpu(m);
-}
-```
-
-- A thread's closure may capture **only sendable values**. (No refs or spans, since a thread can
-  outlive its creator.)
-- Threads communicate through sendable values, typically over a `Channel<T>`.
-- A thread is an isolate (§5.6): a panic ends the thread, and joining it returns `Err(Panic)`.
-
-### Freezing
-
-Data built on one thread (for example vertex arrays) is usually in normal, non-sendable containers.
-`freeze()` converts it to an immutable, shared form without copying:
-
-```java
-float[] verts = new float[n];
-// ... fill ...
-Frozen<float[]> data = verts.freeze();
-```
-
-- `freeze()` panics unless the caller holds the **only** reference (refcount is 1). After freezing,
-  nobody can mutate the data, so it is safe to share.
-- Only available when the element type is sendable.
-- Available on `T[]` and `List<T>`. `Frozen<T>` is a `shared class` offering read-only access
-  (including `ReadOnlySpan<T>`).
-- What isn't copied is the elements: `freeze()` makes a new `Frozen<T>` object that takes over the
-  container's element storage, and the emptied container stays on its thread. The container itself
-  came from its thread's pools ([03-memory-model.md](03-memory-model.md#allocation)), which only that
-  thread may free into, while the element storage is on the global heap, which any thread may free.
-
-## 5.4 Synchronization types
-
-All are `shared class`es in the standard library. Their type parameters must be sendable.
-
-| Type | Purpose |
-|---|---|
-| `Mutex<T>` | Exclusive access to a `T` |
-| `RwLock<T>` | Many readers or one writer |
-| `Atomic<T>` | Atomic operations on a primitive |
-| `Channel<T>` | Multi-producer, multi-consumer message queue |
-| `ConcurrentQueue<T>` | Lock-free queue |
-
-Locks give access through a scoped `ref`:
-
-```java
-stats.lock((ref Stats s) -> { s.frames++; });
-```
-
-Because `ref` cannot escape (see [03-memory-model.md](03-memory-model.md#33-references)), protected
-data cannot be accessed after the lock is released.
-A lock held while a panic unwinds is poisoned (§5.6).
+- A `shared` lambda can't assign what it captures, call a `mut` method on it, or pass it by `ref`,
+  even when it is non-escaping: other threads may be reading it. It may capture `this` only in a
+  shared class's method.
+- **Data a non-escaping shared function may change is passed to it as arguments**: the function
+  that calls it hands each thread its own part, typically a `Span<T>` of sendable elements. That
+  function, not the language, keeps the parts apart (§5.6, Parallel work).
+- A non-escaping `shared fn` handed to another thread must have finished before the function it
+  was given to returns, since what it captures lives in the caller's frame. Only `unsafe` code can
+  hand one to a thread, and it takes on that duty, as in Rust's scoped threads.
+- A `shared fn` converts to the function type without `shared`, as an escaping one converts to the
+  non-escaping form; nothing converts the other way.
 
 ## 5.5 Statics
 
-> ⚠️ **Mutable statics are thread-local.** This differs from Java. More precisely, each isolate has
-> its own copy, and each thread is an isolate (§5.6).
-
-| Declaration | Meaning |
-|---|---|
-| `static mut int frameCount;` | **One copy per thread.** No races possible |
-| `static int MAX = 64;` / `const` | Shared constant |
-| `static shared Atomic<int> totalFrames;` | One process-wide copy. Type must be sendable, mutation only through sync types |
-
-A job that calls a function which updates a mutable static updates the *worker thread's* copy.
-
-## 5.6 Isolates and panics
-
-A panic stops the **isolate** it happens in ([01-safety.md](01-safety.md#13-panics)). An isolate is
-a set of objects and statics that nothing outside it can refer to. Each thread is one, and an
-`Isolate` is one that runs inside a call on the current thread: a way to run code that may panic,
-such as a mod, a script, or a game session in an editor, without stopping the program.
+**Every static is read-only, and its type must be sendable.** There is no `static mut`: one copy
+shared by every thread would race, and a copy per thread silently gives each thread its own
+version. This differs from Java.
 
 ```java
-class ModHost {
-    pub void tick(FrameInput input) {                                   // FrameInput: plain data
-        switch (mod.call(state -> state.update(input))) {           // Result<ModOutput, Panic>
-            case Ok(ModOutput out) -> apply(out);
-            case Err(Panic p) -> {
-                log(p.message);
-                mod = Isolate.start(() -> new ModState(config));    // start over
-            }
-        }
-    }
-    mut Isolate<ModState> mod = Isolate.start(() -> new ModState(config));   // config: sendable
+class Audio {
+    static int SAMPLE_RATE = 48_000;
+    static Atomic<int> VOICES_PLAYING = new Atomic<int>(0);   // changes through atomic operations
+    static Mutex<Stats> STATS = new Mutex<Stats>(Stats());     // changes under its lock
+    static Frozen<float> SINE_TABLE = makeSineTable();        // computed once, read by every thread
 }
 ```
 
-### How it works
+- A static of a type that isn't sendable, such as `static List<int> X`, is a compile error that
+  suggests `Frozen<T>` or a `Mutex<T>`.
+- State that one thread changes, such as the game's world or the editor's selection, belongs in an
+  object the program passes to what uses it.
+- A static is initialized the first time it is read, as in Java, exactly once even if threads read
+  it at the same time. One whose initializer reads it again, directly or through the functions it
+  calls, panics. A static initialized with a constant expression is constant data, and reading it
+  costs nothing.
 
-`Isolate.call` is an ordinary call on the current thread; nothing is scheduled or switched. What
-makes it an isolate are the rules for what crosses its boundary, the same as for a thread:
+## 5.6 The standard library
 
-- **In:** `start`'s and `call`'s lambdas may capture only sendable values, and `ReadOnlySpan<T>`s
-  of sendable `T`, which the isolate can read but not change. Nothing the isolate does can change
-  the caller's objects.
-- **Out:** `call` returns a sendable value, so no object created inside escapes.
-- **State:** `start` creates the state, an object of class `S`, inside the isolate. Only `call`'s
-  lambda receives it, and only for the call.
+The rules above are all that safety needs; this section describes how the standard library's
+threading types behave, not their full API, which belongs to the library.
 
-So when code inside panics, the compiler has already ruled out two things: anything outside being
-half-changed, since the isolate couldn't change it, and anything outside referring to the
-isolate's half-changed objects, since none could leave it. The runtime needs no record of which
-objects belong to which isolate.
+A program with threads may produce output in a different order from run to run, as threads are
+scheduled. That is the only way threads make a program's behavior vary: everything a thread does
+by itself is as deterministic as single-threaded code.
 
-### Using an isolate
+### Threads
 
-| Member | Does |
-|---|---|
-| `Isolate.start(fn() -> S)` | Creates an isolate whose state is the lambda's result, made inside it |
-| `call(fn(S) -> R)` | Runs the lambda on the state: `Ok(result)`, or `Err(Panic)` if it panicked |
-| `isAlive` | Whether the isolate has not panicked |
+```java
+Thread<Image> loading = Thread.spawn(() -> decodePng(readFile(path)));   // escaping shared fn() -> Image
+// ... keep running ...
+Image image = loading.join();
+```
 
-- After a panic, the isolate is **dead**: its stack has unwound (running destructors and ending
-  borrows), and its state is released. Every later `call` returns `Err` with the same `Panic`
-  without running anything. To recover, start a new isolate. If `start`'s lambda panics, the
-  isolate starts out dead.
-- `Panic` is a sendable struct: the message, the source location, and the stack trace.
-- An `Isolate` is a normal object that belongs to the thread that created it.
-- Isolates nest. A panic stops the innermost isolate it is in.
-- Cycles among a dead isolate's objects are freed by the next `memory::collectCycles` on the thread,
-  like any others ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)).
+- `Thread.spawn` takes an `escaping shared fn() -> R`, where `R` is sendable, and runs it on a new
+  thread. `join()` waits for it and returns its result; `isFinished` tells whether it has finished.
+- A `Thread<R>` is a normal object that belongs to the thread that spawned it. Releasing one that
+  hasn't been joined joins it (like C++'s `std::jthread`), so a thread never outlives the object
+  that started it unnoticed.
+- When a thread ends, the cycle collector frees every cycle left in its buffer, so its objects'
+  destructors run before `join` returns.
 
-### Statics
+### Channels
 
-Each isolate has its own copy of the mutable statics (§5.5), initialized when it starts, so a panic
-can't leave the caller's statics half-changed either. Code reaches the current isolate's copy
-through one pointer, which entering and leaving `call` switches.
+A channel carries values from one or more threads to others. It has two ends, a `Sender<T>` and a
+`Receiver<T>`, both shared objects that can be copied to any number of threads; `T` must be
+sendable. `Channel<T>()` makes a struct holding the two, `sender` and `receiver`.
 
-### Threads, jobs, and locks
+```java
+var requests = Channel<Path>();
+var loaded = Channel<Mesh>();
+Receiver<Path> pending = requests.receiver;
+Sender<Mesh> done = loaded.sender;
 
-- A thread is an isolate running on its own OS thread. A panic ends the thread, and joining it
-  returns `Err(Panic)`. The main thread is the outermost isolate: a panic there, outside any
-  `Isolate.call`, aborts the process.
-- A job is part of the isolate that launched it, since it changes the launcher's data through spans
-  and `ref`s. A panic in a job is raised in the launching code once every job of the launch has
-  finished, and stops the launcher's isolate.
-- A lock (`Mutex<T>`, `RwLock<T>`) held while a panic unwinds is **poisoned**: whatever it
-  protects may be half-changed. Locking a poisoned lock panics; `isPoisoned` tests for it.
-  `Atomic<T>` and `Channel<T>` are never left half-changed, so they are not poisoned.
+var loader = Thread.spawn(() -> {
+    for (Path path : pending) {                  // ends once every Sender<Path> is gone and the channel is drained
+        done.send(loadMesh(path));
+    }
+});
 
-### Implementation
+requests.sender.send(Path("models/tree.obj"));
+while (loaded.receiver.tryReceive() is Mesh mesh) {   // each frame; never waits
+    upload(mesh);
+}
+```
 
-A panic inside an isolate is a C++ `throw` of a runtime type that only the boundary of `Isolate.call`
-or of a thread catches, after the runtime prints the message and the stack trace. Outside any
-isolate, a panic aborts directly. Code that doesn't panic pays nothing at run time, since C++
-unwinding is table-based; the tables make the program larger, and `--panic=abort` leaves them out.
+- **A channel closes when its last `Sender` is released.** There is nothing to close by hand, and
+  nothing can be sent to a closed channel.
+- `receive()` waits for a value and returns `T?`: null once the channel is closed and empty.
+  `tryReceive()` never waits, returning null if nothing is there yet. A for-each loop over a
+  receiver receives until the channel is closed and empty.
+- Channels have no size limit, so `send` never waits. It returns `false`, dropping the value, once
+  every `Receiver` is gone.
+- This is Go's model with two of its complaints removed: closing by hand (in Go, sending on a
+  closed channel or closing one twice panics) and channels that make every send wait for a receiver
+  by default, which deadlock easily.
 
-> Not implemented yet. Isolates need sendable types and lambdas, and come with threads.
+> *Open:* channels with a limited capacity, for a producer that must wait for a slow consumer, and
+> Go's `select` (waiting on several channels at once). Neither is needed yet, and `select`'s random
+> choice among ready channels would make runs differ.
 
-## 5.7 Unsafe
+### Locks and atomics
 
-Inside `unsafe`, raw pointers may be shared between threads without checks. Races in unsafe code are
-undefined behavior and the programmer's responsibility.
+`Mutex<T>` gives one thread at a time access to a `T`, through a `ref` that can't escape the lock
+([03-memory-model.md](03-memory-model.md#33-references)). `T` must be sendable:
 
-## 5.8 Runtime
+```java
+STATS.lock((ref Stats s) -> { s.framesMixed++; });
+```
 
-The runtime provides a work-stealing thread pool for jobs (implementation *open*: custom or a
-library such as enkiTS).
+> *Open:* a mutex holding data that isn't sendable, such as a `List` or a map that threads add to.
+> Code holding the lock could copy a reference to one of its objects out to its own thread, or
+> store an object from its own thread in it, and the cycle collector of one thread could visit
+> objects inside it while another holds the lock. Allowing it needs a rule for what the lock's
+> lambda may capture and return, an allocator that accepts frees from other threads, and keeping
+> the collector away from those objects. Until then, a growable shared collection is a library type
+> built on `unsafe`, or a `Frozen<T>` that a thread replaces under a lock.
+
+**A thread holds at most one lock, and waits for nothing while holding it.** Taking a second lock,
+or calling `receive`, `join`, or anything else that waits, inside a lock's lambda panics, naming
+both places. Every deadlock between locks needs a thread holding one lock while waiting for
+another, or waiting for another thread while holding one; this rule makes those impossible, and
+the check runs every time, so the mistake fails in the first test instead of freezing the program
+once in a while. Data that must change together belongs behind one mutex.
+
+`Atomic<T>` holds a primitive and changes it with atomic operations (`load`, `store`, `add`,
+`compareExchange`, ...), all sequentially consistent.
+
+What the rules don't prevent: two threads each waiting to receive from the other wait forever, as
+in any language. Like an infinite loop, that is a bug the language doesn't catch.
+
+> *Open:* taking two locks at once in a fixed order (`Mutex.lockBoth`), if a real program needs it.
+
+### Frozen arrays
+
+`Frozen<T>` is an immutable array that every thread may read: a shared object whose elements, of
+a sendable type `T`, never change. It reads like a `ReadOnlySpan<T>` (`length`, an indexer, and
+`view()`, which returns one).
+
+- `list.freeze()` moves a `List<T>`'s elements into a new `Frozen<T>`, without copying them, and
+  leaves the list empty. Like `clear()`, it panics if the list is borrowed.
+- `Frozen.copyOf(span)` copies the elements a span views, such as an array's, which can't be
+  emptied.
+- To change one, copy it into a new list.
+
+Freezing doesn't depend on how many references the list has, so it does the same thing whether or
+not the optimizer has removed some count changes.
+
+### Parallel work
+
+Running a loop's iterations or a set of tasks on several threads is a library's job, built on
+non-escaping `shared fn`. A parallel function hands each thread the data it may change as an
+argument, checks that no part it may change overlaps any other part or anything the lambdas
+capture (and panics if one does), and waits until every thread has finished:
+
+```java
+parallel::forEach(particles.asSpan(), 1024, (Span<Particle> part) -> {
+    for (ref Particle p : part) p.integrate(dt);           // 'dt' is captured, read-only
+});
+```
+
+The standard library provides such a function; how many there are and what they look like belongs
+to it, not to the language.
+
+## 5.7 Panics
+
+A panic on any thread **aborts the process**, after printing its message and stack trace
+([01-safety.md](01-safety.md#13-panics)). No thread continues after another panics, so nothing can
+observe state that a panicking thread left half-changed, and locks need no poisoning.
+
+## 5.8 Unsafe
+
+Inside `unsafe`, raw pointers may be shared between threads without checks. Races in unsafe code
+are undefined behavior and the programmer's responsibility. The standard library's threading
+types are built this way, at its lowest layer, and present only the safe behavior above.
+
+## 5.9 Runtime
+
+- Each thread has its own pools and its own cycle collector buffer; a thread a foreign library
+  created gets them the first time it runs Wylow code ([07-interop.md](07-interop.md#callbacks)).
+- `String`'s count is always atomic. A program that never starts a thread could use non-atomic
+  counts instead, which no program can observe; that is an optimization for later.
+- The threads themselves are the operating system's.
+
+> Not implemented yet: everything in this chapter. Statics, too, are not implemented.

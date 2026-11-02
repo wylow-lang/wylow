@@ -218,8 +218,9 @@ unsafe { SDL_SetAudioCallback(device, onAudio, null); }
   Wylow type is `unsafe`.
 - A **panic** inside a callback aborts the process. (Wylow never unwinds, so there is no unwinding
   through C frames.)
-- A callback may run on a thread created by the foreign library. Safe code inside it can only reach
-  that thread's statics; reaching other data requires the `unsafe` userdata cast, and the
+- A callback may run on a thread created by the foreign library. Safe code inside it can reach
+  only statics, which are read-only and sendable ([05-concurrency.md](05-concurrency.md#55-statics)),
+  and the objects it creates; reaching other data requires the `unsafe` userdata cast, and the
   programmer is responsible for avoiding races.
 
 ## 7.7 C++ exceptions

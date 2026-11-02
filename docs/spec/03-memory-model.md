@@ -193,7 +193,8 @@ void endFrame() {
 ```
 
 **It never runs on its own.** No allocation, release, or timer triggers it, and the program does not
-collect at exit. A game calls it at a point it chooses, typically once per frame or on a level
+collect at exit. (A thread other than the main one frees the cycles left in its buffer when it
+ends, since nothing else could; [05-concurrency.md](05-concurrency.md#threads).) A game calls it at a point it chooses, typically once per frame or on a level
 transition, so collection shows up in a profiler exactly where it was called. A program that never
 calls it simply never frees its cycles, as in the past.
 
@@ -244,9 +245,10 @@ visited, so the references they hold count as references from outside.
   of the budget is put back for a later call rather than half-visited.
 - `@Acyclic` on a class declares that its objects never form cycles, so they are never buffered.
   If that is wrong, the cycle leaks; it is never undefined behavior.
-- `shared class` objects ([05-concurrency.md](05-concurrency.md)) are not collected, since other
-  threads may refer to them. Their fields can't be `mut`, and only synchronization types let
-  them change, so cycles among them are rare; break any with `Weak<T>`.
+- `shared class` objects ([05-concurrency.md](05-concurrency.md#53-shared-class)) are not
+  collected, since other threads may refer to them. Their fields can't be `mut`, so a cycle among
+  them can only pass through a synchronization type, such as a `Mutex` holding a reference back;
+  it leaks unless the program clears that reference.
 
 #### Destroying a cycle
 

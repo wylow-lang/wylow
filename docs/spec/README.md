@@ -19,8 +19,8 @@ built-ins (value types, indexers, layout control).
 ## Design principles
 
 1. **Safe by default, fast by opt-in.** Every check can be turned off, but only explicitly.
-2. **Failures are loud.** A failed safety check *panics*. A panic stops the isolate it happens in and
-   discards its state: the whole process, unless the code runs in an `Isolate` or on another thread.
+2. **Failures are loud.** A failed safety check *panics*, which aborts the process with a message
+   and a stack trace.
 3. **Errors are values.** No exceptions. Recoverable failures are `Result<T, E>`.
 4. **Simple ownership.** No borrow checker and no lifetime annotations. Safety comes from a small
    set of structural rules (second-class references, refcounting, borrow counters).
@@ -35,7 +35,7 @@ built-ins (value types, indexers, layout control).
 | [02-types.md](02-types.md) | Primitives, conversions, nullability, enums, structs, classes, arrays, generics |
 | [03-memory-model.md](03-memory-model.md) | Values, refcounted objects, references, spans |
 | [04-errors.md](04-errors.md) | `Result<T, E>`, `try`, handling errors |
-| [05-concurrency.md](05-concurrency.md) | Thread confinement, `Sendable`, `shared class`, jobs, threads, statics, isolates and panics |
+| [05-concurrency.md](05-concurrency.md) | Thread confinement, sendable types, `shared class`, `shared fn`, statics, threads, channels, locks |
 | [06-syntax.md](06-syntax.md) | Packages, construction, parameters, indexers, lambdas, `defer`, control flow |
 | [07-interop.md](07-interop.md) | `extern`, `@Safe`, blittable types, C enums and flags, strings/buffers/callbacks, native shims |
 
@@ -47,9 +47,9 @@ Each is explained in detail in its chapter.
 1. **Copying a struct shares what's inside it.** Struct copies are shallow: class references in the
    copy point at the same objects (same `List`, same `String`). Use `.clone()` for a deep copy.
    See [02-types.md](02-types.md#29-structs).
-2. **Mutable statics are per-thread.** Unlike Java, each thread has its own copy of a
-   `static mut` field. Use `static shared` for a true process-wide global.
-   See [05-concurrency.md](05-concurrency.md#55-statics).
+2. **Statics are read-only.** Unlike Java, there is no `static mut`: a static's type must be
+   sendable, and shared state changes through `Atomic<T>` or `Mutex<T>`. State one thread changes
+   lives in an object passed to what uses it. See [05-concurrency.md](05-concurrency.md#55-statics).
 3. **`1.5` is a `float`.** Use `1.5d` for `double`. See [02-types.md](02-types.md#22-literals).
 4. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
    **Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, not an `int`, so it can

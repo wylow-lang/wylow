@@ -307,7 +307,7 @@ mut var target = enemies.first();
       label = "dead";
   }
   ```
-- **`mut` goes first**, after any annotations and modifiers: `mut int count;`, `static mut int frames;`,
+- **`mut` goes first**, after any annotations and modifiers: `mut int count;`, `pub mut int frames;`,
   `mut escaping fn() -> void onDone`, `void aim(mut Vec3 dir)`, `for (mut int i = 0; i < n; i++)`, `for (mut Vec3 p : points)`,
   `(mut x) -> ...`. It is not allowed on:
   - `ref` and `in` parameters and variables, which always refer to the same place. Through a `ref`,
@@ -626,7 +626,7 @@ primitive, so only the counted storage remains runtime code; user-defined `==` (
 replace the compiler's content-equality rule.
 
 > Implemented so far: literals, interpolation, `print`, `==`, and the methods above. The count is
-> not atomic yet, since there are no threads. `StringBuilder` is not implemented.
+> not atomic yet ([05-concurrency.md](05-concurrency.md#59-runtime)), since there are no threads. `StringBuilder` is not implemented.
 
 ## 2.11 Arrays and spans
 

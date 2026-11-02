@@ -4,7 +4,7 @@ Wylow has **no exceptions**. There are two kinds of failure:
 
 | Kind | Mechanism | Example |
 |---|---|---|
-| A bug | **Panic** (stops the isolate; by default, the process) | Index out of bounds, `x!` on null |
+| A bug | **Panic** (aborts the process) | Index out of bounds, `x!` on null |
 | An expected failure | **`Result<T, E>`** returned as a value | File not found, malformed asset |
 
 Panics are covered in [01-safety.md](01-safety.md#13-panics). This chapter covers `Result`.
