@@ -2,9 +2,8 @@
 
 How the current implementation runs a Wylow program: what the C++ it generates looks like, and what
 the runtime (`runtime/wyl/`) does. None of this is part of the language ([spec](../spec/README.md));
-changing it changes no program's observable behavior. What operations cost is in
-[costs.md](costs.md), and how the compiler decides which objects go on the stack in
-[stack-objects.md](stack-objects.md).
+changing it changes no program's observable behavior. How the compiler decides which objects go
+on the stack is in [stack-objects.md](stack-objects.md).
 
 ## Undefined behavior in C++
 

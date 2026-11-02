@@ -53,3 +53,4 @@ history and a reason can be found without searching the spec.
 | [0023](0023-assignment-is-a-statement.md) | Assignment is a statement |
 | [0024](0024-printing.md) | Printing: opt-in `toString`, no cultures |
 | [0025](0025-unsafe-permits.md) | `unsafe` permits operations and never removes checks |
+| [0026](0026-no-cost-documentation.md) | Costs are not documented |

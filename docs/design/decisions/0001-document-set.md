@@ -1,6 +1,6 @@
 # 0001. The document set
 
-- Status: accepted (2026-11-01)
+- Status: accepted (2026-11-01); costs are not documented, by [0026](0026-no-cost-documentation.md)
 - Spec: all
 
 ## Decision

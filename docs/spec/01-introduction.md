@@ -12,7 +12,7 @@ It does not define:
 - how an implementation is run, or how it builds a program;
 - the text and codes of diagnostics, or which warnings exist
   ([docs/diagnostics](../diagnostics/README.md));
-- what operations cost ([docs/design/costs.md](../design/costs.md));
+- what operations cost;
 - the standard library, except the types and functions the language itself names
   ([Appendix A](a-library.md#library)). The rest of the library is documented in its source.
 
