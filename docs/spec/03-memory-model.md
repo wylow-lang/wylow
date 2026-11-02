@@ -326,7 +326,7 @@ Debug builds report, as performance warnings:
 They go to stderr as `performance warning: ...`. The buffer warning fires after it grows on 5
 consecutive calls, the class warning once a class has been freed by 10 calls, each once per program.
 Generic classes are named with their type arguments (`List<Node>`) where the compiler knows the
-instantiation, and classes as messages name types (06-syntax.md §6.1, How messages name types).
+instantiation, and classes as messages name types (docs/diagnostics/README.md).
 Classes are listed by name, since the order the collector finds objects in may change with
 optimization.
 

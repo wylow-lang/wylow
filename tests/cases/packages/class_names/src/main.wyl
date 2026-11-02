@@ -1,5 +1,5 @@
 // The cycle collector names a class as messages do: by its package and module path when another
-// class of the program has its name (spec 06-syntax.md §6.1, How messages name types).
+// class of the program has its name (docs/diagnostics/README.md).
 
 import std::print;
 

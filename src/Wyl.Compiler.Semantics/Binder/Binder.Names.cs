@@ -243,7 +243,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// Gives each type that shares its name with another type of the program a name messages can
-    /// tell apart (§6.1, How messages name types): its package and module path, as rustc trims
+    /// tell apart (docs/diagnostics/README.md): its package and module path, as rustc trims
     /// paths, and the file too for file-private types of one module. Before any type is named, so
     /// every name built from it says the same.
     /// </summary>

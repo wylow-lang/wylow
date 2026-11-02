@@ -134,13 +134,8 @@ pub import world::Chunk;                // re-exported: also one of this module'
 
 ### How messages name types
 
-An error, a warning, or a runtime diagnostic names a type by its name alone, as code that imported
-it would: `Chunk`, `List<Node>`. Only when another type of the program has the same name is each
-of them named by its package and module path (`voxel_game::world::Chunk`,
-`voxel_game::world::gen::Chunk`, `std::List`), as rustc trims paths; a lone file's package has no
-name, so it gives the module path alone. File-private types of one name in one module add their
-file: `voxel_game::Node (enemy.wyl)`. So a message is short where a name has one meaning, and
-unambiguous where it doesn't.
+Messages name types as [the diagnostics style guide](../diagnostics/README.md#the-primary-message)
+says.
 
 ### Functions or static methods
 

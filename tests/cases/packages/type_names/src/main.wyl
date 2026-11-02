@@ -1,5 +1,5 @@
 // A message names a type by its name, unless another type of the program has it; then by its
-// package and module path (spec 06-syntax.md §6.1, How messages name types).
+// package and module path (docs/diagnostics/README.md).
 
 import std::List as StdList;
 

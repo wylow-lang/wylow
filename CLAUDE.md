@@ -6,7 +6,10 @@ default. The compiler is written in C# (.NET 10) and compiles Wylow to C++20.
 ## Read first
 
 - `docs/spec/` is the language definition and the source of truth. Read `docs/spec/README.md`
-  before designing anything. If you make a design decision the spec doesn't cover, add it to the spec.
+  before designing anything. If you make a design decision the spec doesn't cover, add its rules to
+  the spec and its reasons to a decision record (`docs/design/decisions/`, see its README). The
+  spec states rules only: no rationale, implementation, costs, or status (decision 0001).
+- `docs/diagnostics/README.md` is how error messages are written; follow it in every new message.
 - `docs/design/architecture.md` is the compiler's layer contract: which layer answers which
   question, and how each rule is enforced. Check every change against it; a question that seems
   to need a second answer in another layer means the work is in the wrong layer.
