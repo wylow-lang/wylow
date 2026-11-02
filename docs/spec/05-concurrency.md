@@ -13,8 +13,8 @@ behave. Thread pools, parallel loops, and task systems are libraries built on th
 meanwhile. This is what lets reference counts and borrow counters be non-atomic, and the pools
 ([03-memory-model.md](03-memory-model.md#allocation)) and the cycle collector's buffer belong to
 one thread with no synchronization. An object changes threads only inside a unique value that
-moves: a whole isolated object graph (§5.6, Isolated object graphs), or what a unique value such
-as a growable array owns.
+moves: a whole isolated object graph (§5.6, Isolated object graphs), or what a unique value of
+the standard library owns (§5.2).
 
 A value reaches another thread only in a few ways: captured by a function that thread runs
 (§5.4), read from a static (§5.5), or moved through the standard library's threading types: sent
@@ -36,7 +36,7 @@ on another. The compiler infers this; it is never written.
 | References to a `shared class` (§5.3), including the standard library's `Frozen<T>`, `Mutex<T>`, `Atomic<T>`, and channel ends | ✅ |
 | Escaping `shared` functions (§5.4) | ✅ |
 | `Weak<T>` where `T` is a shared class | ✅ |
-| `Isolated<T>`, for any `T` (§5.6), and the standard library's owning unique structs, such as its growable array, when their elements are sendable | ✅ |
+| `Isolated<T>`, for any `T` (§5.6), and the standard library's owning unique structs (below) when their elements are sendable | ✅ |
 | References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>` of a normal class, and functions that aren't `shared` | ❌ |
 | Structs, enums, and fixed arrays with any field or element that isn't sendable | ❌ |
 
@@ -52,18 +52,29 @@ follows from whether it can be copied ([02-types.md](02-types.md#unique-structs)
   `mut`. Statics, `shared class` fields, and what a `shared fn` captures are read by several
   threads, so they must be sendable **and copyable**.
 - A unique sendable value is **moved**: it has one owner, so after it moves, only the receiving
-  thread has it. A unique value may change when it is only read, as a growable array's borrow
-  counter does, which is safe because only one thread holds it. Channels, mutexes, and a thread's
+  thread has it. A unique value may change when it is only read, as a borrow counter in what it
+  owns does, which is safe because only one thread holds it. Channels, mutexes, and a thread's
   argument and result move values, so they take unique values too.
+- **Moving a value to another thread panics if anything it owns is borrowed**
+  ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)): sending it over a
+  channel, storing it in a mutex, or giving it to a new thread. A loop or reference on this thread
+  could still be using that storage, as when a loop's body replaces the field it is looping over
+  and sends the old value. Borrows are never removed by optimization, so the check gives the same
+  answer in every build, as `freeze()`'s does. Moving within a thread needs no check: what the
+  loop refers into stays alive, and the new owner can't change its length while it is borrowed.
 
 Rust needs two inferred facts for these, `Send` and `Sync`; Wylow has one, and the difference is
 whether the type can be copied.
 
-The standard library's owning unique structs hold class objects, which no rule above makes
-sendable; the library's `unsafe` floor declares them sendable when their elements are, as Rust's
-`unsafe impl Send` does, since only their own code could let those objects out.
+A unique struct of the standard library that owns class objects, such as storage for its
+elements, is not sendable by the rules above; the library's `unsafe` floor may declare it sendable
+when its elements are, as Rust's `unsafe impl Send` does, since only its own code could let those
+objects out.
 
 > *Open:* how that declaration is written.
+
+> *Proposed, not decided:* such a struct is a growable array that is a unique value (`Vec<T>`,
+> [02-types.md](02-types.md#unique-structs)), decided with the standard library.
 
 ## 5.3 `shared class`
 
@@ -302,8 +313,8 @@ pointer writes for the switch; a graph of acyclic objects, such as a `List<int>`
 anything.
 
 What it can't do: code inside `open` can't read the thread's own objects. For data built from the
-thread's objects, such as the draw calls of a frame, a unique value owning sendable elements (the
-standard library's growable array) is filled with ordinary code and then moved.
+thread's objects, such as the draw calls of a frame, the proposed unique growable array (§5.2) would
+be filled with ordinary code and then moved.
 
 > *Considered, not decided:* Swift's region analysis, which proves that an ordinary local's graph
 > is disconnected from everything else by flow analysis, so a `List` filled with ordinary code

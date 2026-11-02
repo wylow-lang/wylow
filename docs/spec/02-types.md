@@ -454,7 +454,7 @@ A `unique struct` can't be copied, only moved, so each value has exactly one own
 
 ```java
 unique struct SampleBuffer {
-    pub Vec<float> samples;            // a unique growable array (planned, see below)
+    pub Vec<float> samples;            // a unique growable array (proposed, see below)
     pub int rate;
 }
 
@@ -490,8 +490,10 @@ print(kept.rate);                      // error: 'kept' is used after it is move
 > exact rules for when a moved-from or partly moved value is destroyed, and a way to end a value
 > without its destructor (Swift's `discard`). Adding them later changes no existing program.
 
-> The standard library's growable array that is a unique value (`Vec<T>` above) is designed with
-> the standard library, as is whether it replaces `List<T>`.
+> *Proposed, not decided:* a growable array in the standard library that is a unique value
+> (`Vec<T>` above): a unique struct holding a `Borrowable` storage object, sendable when its
+> elements are, so data built with ordinary code can be moved to another thread (05-concurrency.md
+> §5.2). It is decided with the standard library, as is whether it replaces `List<T>`.
 
 > Not implemented yet: unique structs and enums, `Copyable`, and moves.
 
