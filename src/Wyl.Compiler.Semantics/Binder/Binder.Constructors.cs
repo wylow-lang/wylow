@@ -145,7 +145,7 @@ public sealed partial class Binder
         return [.. (s.Constructors.Count > 0 ? s.Constructors : [s.DefaultConstructor]).Select(c => new Candidate(c, type))];
     }
 
-    /// <summary>A struct's <c>T()</c> exists only if every field has a default (06-syntax.md, Struct constructors).</summary>
+    /// <summary>A struct's <c>T()</c> exists only if every field has a default (spec structs.constructors).</summary>
     bool CheckDefaultValue(Location location, WylType type, MethodReference constructor)
     {
         if (!type.IsStruct || !constructor.Symbol.IsImplicit || type.FindNonDefaultableField() is not { } missing)

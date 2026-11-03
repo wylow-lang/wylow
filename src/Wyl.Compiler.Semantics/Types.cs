@@ -101,7 +101,7 @@ public abstract class WylType
     public bool IsNullableNonEscapingFunction => IsNullable && NonNull.IsNonEscapingFunction;
 
     /// <summary>
-    /// A second-class value (03-memory-model.md, Second-class values): a <c>ref struct</c> or a
+    /// A second-class value (spec memory.second-class): a <c>ref struct</c> or a
     /// non-escaping function, nullable or not, which may point into storage it doesn't own, so it
     /// lives only in locals and parameters and keeps what it was first given.
     /// </summary>

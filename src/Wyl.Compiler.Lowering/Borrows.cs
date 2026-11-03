@@ -18,8 +18,7 @@ public sealed class MandatoryPass
 }
 
 /// <summary>
-/// The spec's rule for how long a borrow lasts (03-memory-model.md, Borrow counters on
-/// containers). Lowering borrows every object that may be <c>Borrowable</c> where a place goes
+/// The spec's rule for how long a borrow lasts (spec memory.borrows). Lowering borrows every object that may be <c>Borrowable</c> where a place goes
 /// through what it hands out; this drops the borrow where no code runs from the first reference
 /// into it to its last use, since nothing can then change the object's length, unless a source
 /// variable or loop refers into it, whose borrow lasts for its scope.

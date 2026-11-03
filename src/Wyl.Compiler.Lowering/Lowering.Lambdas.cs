@@ -89,8 +89,7 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// A choice of non-escaping functions by <c>?:</c> or a switch expression (spec 06-syntax.md,
-    /// Escaping and non-escaping): the conditions and cases are evaluated in order to the index of
+    /// A choice of non-escaping functions by <c>?:</c> or a switch expression (spec functions.lambdas.escaping): the conditions and cases are evaluated in order to the index of
     /// the chosen one, and its lambdas are made and its non-escaping locals referred to whichever it
     /// is, which no one can observe. An escaping option is evaluated only where it is chosen, into the
     /// one local all of them share.

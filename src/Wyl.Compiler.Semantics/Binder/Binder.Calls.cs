@@ -351,7 +351,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// A <c>mut</c> method changes its receiver, which must be a variable it may change: a temporary
-    /// is a value, not a variable, so its changes would be lost (06-syntax.md §6.4).
+    /// is a value, not a variable, so its changes would be lost (spec structs.methods.mut).
     /// <paramref name="onTemporary"/> says so in the words of what the call does, if it isn't a call in the source.
     /// </summary>
     bool CheckMutReceiver(Location location, MethodReference method, BoundExpression receiver, Diagnostic? onTemporary = null)

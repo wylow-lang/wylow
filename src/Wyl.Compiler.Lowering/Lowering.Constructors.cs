@@ -103,8 +103,7 @@ public sealed partial class IrLowering
     static string FormKey(IReadOnlyList<bool> form) => string.Concat(form.Select(given => given ? '1' : '0'));
 
     /// <summary>
-    /// A class constructor's call of its base's or, chaining, another of its class's. Each argument is a statement of its own (03-memory-model.md, When
-    /// references are released), so that the emitter can compute one needing statements in an
+    /// A class constructor's call of its base's or, chaining, another of its class's. Each argument is a statement of its own (spec memory.release.temporaries), so that the emitter can compute one needing statements in an
     /// immediately invoked lambda inside the C++ mem-initializer.
     /// </summary>
     void LowerConstructorCall(BoundConstructorCall call)

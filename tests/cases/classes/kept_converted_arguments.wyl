@@ -1,6 +1,6 @@
 // A by-value argument converted to a nullable value is a copy the statement keeps too: what it
 // owns is released when the statement completes, not when the call that takes it returns
-// (spec 03-memory-model.md, When references are released).
+// (spec memory.release).
 
 import std::print;
 

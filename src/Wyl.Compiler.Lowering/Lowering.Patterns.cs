@@ -31,7 +31,7 @@ public sealed partial class IrLowering
     /// <summary>
     /// <c>r is ref T name</c>: stores the reference in the name and tests it. The hold of the object
     /// it points into is declared with the name, so that the object stays held while the name is in
-    /// scope, and ends where the test fails (03-memory-model.md, Nullable references).
+    /// scope, and ends where the test fails (spec memory.nullable-references).
     /// </summary>
     IrRvalue ReferenceTest(BoundExpression operand, LocalSymbol binding)
     {
@@ -271,7 +271,7 @@ public sealed partial class IrLowering
     /// <summary>
     /// Tries the cases in order, as an <c>if</c> chain whose last <c>else</c> panics. A case's names
     /// are fresh locals copied from the matched value before its body runs, and before its guard.
-    /// The value is matched where it is, so a later case sees what a guard changed (spec 06-syntax.md §6.9, switch).
+    /// The value is matched where it is, so a later case sees what a guard changed (spec patterns.matching).
     /// </summary>
     void Cases<T>(IReadOnlyList<BoundSwitchCase<T>> cases, IrPlace matched, bool nullable, Location location, Action<T> body)
     {

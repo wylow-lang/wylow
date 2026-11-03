@@ -391,7 +391,7 @@ public sealed partial class Interpreter : IObjectLifetime
     /// <summary>
     /// Stores a declared local's new value. A hold lets go of the old one first, as
     /// <c>wyl::hold</c> does; any other local stores the new value before releasing the old one
-    /// (spec 03-memory-model.md §3.2).
+    /// (spec memory.release).
     /// </summary>
     void AssignStorage(Storage storage, Value value, bool borrows)
     {

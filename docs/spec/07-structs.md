@@ -277,8 +277,9 @@ modifiers. It is a compile-time error to declare one in a struct that is not `un
 A value's destructor runs when the value is released
 ([Destruction](17-memory.md#memory.release.destruction)): when its owner leaves scope holding it, when
 it is overwritten, when its container is destroyed or removes it, and when the value that contains it
-is released. It does not run for a value that was moved. After the body, the fields are released in
-reverse order of declaration, and a field whose type has a destructor runs it.
+is released. It does not run for a value that was moved. After the body, the fields are released
+([Order of destruction](17-memory.md#memory.release.destruction)), and a field whose type has a
+destructor runs it.
 
 - In the destructor, `this` is a `ref`: the body may assign fields and call `mut` methods. It is a
   compile-time error to move out of `this`.

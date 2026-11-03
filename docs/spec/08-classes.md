@@ -258,10 +258,10 @@ when its last reference is released, before its fields are released
 - It is a compile-time error if a class declares more than one destructor.
 - It is a compile-time error if an enum or an interface declares one. A struct declares one only if it is
   unique ([Destructors](07-structs.md#structs.unique.destructors)).
-- Destruction starts at the object's own class. Each class in turn runs its destructor, releases the fields
-  it declares in reverse order of declaration, and then the destructor of its base class runs. In a
-  destructor, the object is an instance of the class whose destructor runs
-  ([Order of construction](#classes.construction)).
+- Destruction starts at the object's own class: each class in turn runs its destructor, releases the
+  fields it declares, and then the base class's destructor runs
+  ([Order of destruction](17-memory.md#memory.release.destruction)). In a destructor, the object is
+  an instance of the class whose destructor runs ([Order of construction](#classes.construction)).
 - The destructor may use `this`. It panics if a reference to the object still exists when the destructor
   returns: it may not store the object anywhere.
 - A panic in a destructor ends the program as any panic does.

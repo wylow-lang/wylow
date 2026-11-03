@@ -230,7 +230,7 @@ public sealed partial class Interpreter
         _ => cell,
     };
 
-    /// <summary>Stores a new value, then releases the old one (spec 03-memory-model.md §3.2).</summary>
+    /// <summary>Stores a new value, then releases the old one (spec memory.release).</summary>
     void Assign(IrPlace place, Value value, Frame frame)
     {
         // Assigning a ref? or in? local gives the local a new reference, not the place a new value.

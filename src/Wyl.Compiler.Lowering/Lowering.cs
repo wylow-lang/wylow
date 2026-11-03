@@ -222,7 +222,7 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// The escaping function value a non-escaping local is made with, or null. The local owns what it
-    /// holds (spec 06-syntax.md, Escaping and non-escaping), so it is stored as the escaping form and
+    /// holds (spec functions.lambdas.escaping), so it is stored as the escaping form and
     /// releases the closure when its scope ends; the non-escaping form refers to a closure it doesn't own.
     /// </summary>
     BoundExpression? OwnedFunction(LocalSymbol symbol, BoundExpression initializer)

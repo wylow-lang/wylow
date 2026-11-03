@@ -221,7 +221,7 @@ internal static class RuntimeArithmetic
     }
 
     /// <summary>
-    /// Rounds to nearest, ties to even, once (docs/spec/02-types.md §2.3), as C++ converts a 64-bit
+    /// Rounds to nearest, ties to even, once (spec conversions.casts), as C++ converts a 64-bit
     /// integer. <see cref="Int128"/>'s own conversion to <c>float</c> rounds to a double first, which
     /// can make a tie the integer wasn't: 2^63 + 2^39 + 1 would land on 2^63 instead of 2^63 + 2^40.
     /// </summary>

@@ -1,5 +1,4 @@
-// Each row of the spec's table of how long a borrow lasts (03-memory-model.md, Borrow counters on
-// containers), observed through a Borrowable of the test's own, so that every mode agrees.
+// Each row of the spec's table of how long a borrow lasts (spec memory.borrows), observed through a Borrowable of the test's own, so that every mode agrees.
 
 import std::print;
 

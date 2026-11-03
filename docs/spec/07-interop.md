@@ -101,7 +101,7 @@ pub class Window {
 ```
 
 A class destructor (`~ClassName()`) runs when the last reference is released (see
-[03-memory-model.md](03-memory-model.md#32-objects-classes)).
+[Objects](17-memory.md#memory.objects)).
 
 ## 7.4 Blittable types
 
@@ -167,7 +167,7 @@ unsafe { SDL_SetAudioCallback(device, onAudio, null); }
 - A **panic** inside a callback aborts the process. (Wylow never unwinds, so there is no unwinding
   through C frames.)
 - A callback may run on a thread created by the foreign library. Safe code inside it can reach
-  only statics, which are read-only and sendable ([05-concurrency.md](05-concurrency.md#55-statics)),
+  only statics, which are read-only and sendable ([Statics](06-variables.md#variables.statics)),
   and the objects it creates; reaching other data requires the `unsafe` userdata cast, and the
   programmer is responsible for avoiding races.
 

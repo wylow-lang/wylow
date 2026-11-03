@@ -1,7 +1,8 @@
 # Objects on the stack
 
 How the compiler puts objects made by `new`, and closures, in a stack frame instead of on the heap.
-The language only allows it (spec 03-memory-model.md, Stack allocation): no program can tell. This
+The language only allows it because no program can tell
+([Observable behavior](../spec/01-introduction.md#introduction.observable)). This
 is an optimization pass over the lowered IR (`src/Wyl.Compiler.Optimize/StackSlots.cs`), off under
 `--no-opt`, using the escape summaries in `src/Wyl.Compiler.Analysis/Escapes.cs` (ir.md §6.5,
 §9.11).

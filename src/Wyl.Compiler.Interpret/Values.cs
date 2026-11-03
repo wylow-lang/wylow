@@ -89,7 +89,7 @@ public static class Values
     /// <summary>
     /// A closure's captures and a choice's callables are released in the order they are held, as the
     /// runtime's tuples destroy them, not in the reverse order a struct's fields take
-    /// (docs/spec/03-memory-model.md, When references are released).
+    /// (spec memory.release.destruction).
     /// </summary>
     internal static void ReleaseHeld(Cell[] cells, IObjectLifetime lifetime)
     {

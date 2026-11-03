@@ -386,8 +386,9 @@ Each lambda is an `IrFunction`.
   why its option is a `borrow` of the nullable itself: the emitter passes it as
   `wyl::narrowed`, which unwraps the option the choice selected when it is called. A choice owns
   the lambdas made into it and the copies it takes, and refers to its `borrow` options.
-- A **non-escaping local** owns what it is made with (spec 06-syntax.md): a lambda or a choice is
-  its value, which the emitter declares `auto` in every mode. Made from an escaping value, the
+- A **non-escaping local** owns what it is made with
+  ([Escaping and non-escaping](../spec/12-functions.md#functions.lambdas.escaping)): a lambda or a
+  choice is its value, which the emitter declares `auto` in every mode. Made from an escaping value, the
   local's type is the escaping form, unconverted, so it holds and releases the closure; a value of
   the non-escaping form never owns a closure.
 
@@ -422,7 +423,7 @@ constructor it calls instead of the default value. A struct constructor builds a
 struct constructor is that local's place) from the struct's default value, which runs the field
 initializers, and returns it. The base constructor call is the C++ mem-initializer, where nothing
 but expressions can run, so each argument of `super(...)` or `this(...)` is a statement of its own
-(03-memory-model.md, When references are released): one that needs statements is declared, then
+([Temporaries](../spec/17-memory.md#memory.release.temporaries)): one that needs statements is declared, then
 computed by a block of its own, which the emitter prints inside the mem-initializer, nested or as an
 immediately invoked lambda. MSVC doesn't always evaluate a braced mem-initializer left to right (it
 reversed arguments that leave a destructor to run, in a temporary or a parameter), so when more than

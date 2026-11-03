@@ -177,7 +177,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>
     /// The panic an abstract method's stub raises: a call reaching it while an object is still its
-    /// base class, during the base's constructor or destructor (spec 02-types.md, Construction).
+    /// base class, during the base's constructor or destructor (spec classes.construction).
     /// </summary>
     public string AbstractCallMessage =>
         $"abstract method '{ContainingType!.Name}.{Name}' called during construction or destruction";
@@ -392,7 +392,7 @@ public sealed class TypeSymbol
     /// Whether its destructor body is a method of its own, which the collector runs before releasing
     /// any field of a cycle's objects. The standard library's containers release their elements with
     /// their fields, so their destructor bodies run after every destructor of the cycle
-    /// (spec 03-memory-model.md, Destroying a cycle).
+    /// (spec memory.cycles.destroying).
     /// </summary>
     public bool HasSeparateDestructor =>
         Kind == TypeKind.Class && Destructor is not null && !Declaration.Location.Source.Module.Package.IsStd;

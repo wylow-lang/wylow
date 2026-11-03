@@ -25,7 +25,7 @@ on its thread and nothing it can reach is another thread's.
 
 A type is **sendable** if no part of a value of it belongs to one thread, so the value may be used
 on another. It follows from the type, and no declaration states it; a bound asks for it with
-`sendable` ([02-types.md](02-types.md#type-properties)), as `Mutex<T extends sendable>` does.
+`sendable` ([Sendable types](19-concurrency.md#concurrency.sendable)), as `Mutex<T extends sendable>` does.
 
 | Type | Sendable |
 |---|---|
@@ -45,7 +45,7 @@ Wherever a sendable type is required, using another is a compile error naming th
 isn't sendable.
 
 **Moving and sharing.** A sendable value reaches another thread in one of two ways, and which one
-follows from whether it can be copied ([02-types.md](07-structs.md#structs.unique)):
+follows from whether it can be copied ([Unique structs](07-structs.md#structs.unique)):
 
 - A copyable sendable value is **shared**: its copies may be used by several threads at once.
   Nothing reachable through it can change except through a synchronization type: a copy of a
@@ -58,7 +58,7 @@ follows from whether it can be copied ([02-types.md](07-structs.md#structs.uniqu
   because only one thread holds it. Channels, mutexes, and a thread's
   argument and result move values, so they take unique values too.
 - **Moving a value to another thread panics if anything it owns is borrowed**
-  ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)): sending it over a
+  ([Borrows](17-memory.md#memory.borrows)): sending it over a
   channel, storing it in a mutex, or giving it to a new thread. A loop or reference on this thread
   could still be using that storage, as when a loop's body replaces the field it is looping over
   and sends the old value. Borrows are never removed by optimization, so the check gives the same
@@ -87,7 +87,7 @@ shared class Weapon {
 - No field may be `mut`, and every field must be sendable and copyable (§5.2). State that changes is held in a
   synchronization type (`Mutex<T>`, `Atomic<T>`, a channel end), which is itself a shared class.
 - Its base class, if any, and every class extending it are shared too.
-- Its objects are never cycle-collected ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)),
+- Its objects are never cycle-collected ([Cycles](17-memory.md#memory.cycles)),
   since other threads may refer to them. Their fields can't change, so a cycle among them can only
   pass through a synchronization type, such as a `Mutex` holding a reference back. Break it with a
   `Weak<T>`, which is sendable when `T` is a shared class, or it leaks:
@@ -106,7 +106,7 @@ synchronization types is already sendable, and needs no class.
 ## 5.4 Shared functions
 
 `shared` on a function type means its lambda may run on another thread. It is part of the type,
-like `escaping` ([06-syntax.md](12-functions.md#functions.lambdas.escaping)), and is written wherever a
+like `escaping` ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)), and is written wherever a
 function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
 `Channel<shared fn() -> void>`.
 
@@ -233,7 +233,7 @@ while (loaded.receiver.tryReceive() is Mesh mesh) {   // each frame; never waits
 ### Locks and atomics
 
 `Mutex<T>` gives one thread at a time access to a `T`, through a `ref` that can't escape the lock
-([03-memory-model.md](03-memory-model.md#33-references)). `T` may be any type: a mutex holds an
+([References](17-memory.md#memory.references)). `T` may be any type: a mutex holds an
 isolated value (below), and `lock` opens it while holding the lock. So the lock's lambda is a
 non-escaping `shared fn(ref T) -> R`, and `R` must be sendable:
 
@@ -266,7 +266,7 @@ catch.
 
 `Isolated<T>` holds a `T` and everything reachable from it (an **isolated graph**) such that nothing
 outside refers to any normal object in it. It is a unique struct
-([02-types.md](07-structs.md#structs.unique)), so it can't be copied, and it is sendable for any `T`:
+([Unique structs](07-structs.md#structs.unique)), so it can't be copied, and it is sendable for any `T`:
 moving it moves the whole graph to whoever receives it, and leaves nothing behind that could reach
 those objects.
 

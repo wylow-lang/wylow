@@ -1,5 +1,5 @@
 // An element assigned through 'operator []=' is found before the value, as any element is (spec
-// 03-memory-model.md, Evaluation order and the heap): the receiver, then the indices, each once,
+// expressions.order): the receiver, then the indices, each once,
 // then for a compound assignment the read through 'operator []', then the value, then the write.
 
 import std::print;

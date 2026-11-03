@@ -239,7 +239,7 @@ public sealed partial class IrLowering
     /// <summary>
     /// A by-value argument is passed as a copy of a value the statement keeps, so that what it owns
     /// is released when the statement completes, whenever the callee's copy is destroyed (spec
-    /// 03-memory-model.md, When references are released).
+    /// memory.release).
     /// </summary>
     IrOperand Kept(IrOperand operand) => operand switch
     {

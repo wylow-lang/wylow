@@ -1,4 +1,4 @@
-// An element with no storage to refer to is assigned through 'operator []=' (spec 06-syntax.md §6.6).
+// An element with no storage to refer to is assigned through 'operator []=' (spec functions.indexers.setters).
 
 import std::{List, print};
 

@@ -1,6 +1,6 @@
 // The `char` kind: a Unicode code point, not a number. It has no arithmetic of its own, so an
 // arithmetic operator converts it to its code point as an `int`, and a cast back checks that the
-// value is a Unicode scalar value (spec lexical.literals.escapes, 02-types.md §2.4).
+// value is a Unicode scalar value (spec lexical.literals.escapes, types.primitives.char).
 
 import std::print;
 

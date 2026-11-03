@@ -29,8 +29,8 @@ int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
 | Shift by ≥ bit width | Shift amount is masked (`x << (n & 31)` for 32-bit) |
 | Null dereference | Types are non-null by default; nullable types must be checked. `x!` panics on null |
 | Uninitialized variables | Compile error to read before assignment; fields are default-initialized |
-| Use-after-free / dangling pointer | Prevented by the memory model ([03-memory-model.md](../spec/03-memory-model.md)) |
-| Iterator / reference invalidation | Prevented by borrow counters ([03-memory-model.md](../spec/03-memory-model.md#33-references)) |
+| Use-after-free / dangling pointer | Prevented by the memory model ([Memory](../spec/17-memory.md#memory)) |
+| Iterator / reference invalidation | Prevented by borrow counters ([Borrows](../spec/17-memory.md#memory.borrows)) |
 | Float → int out of range | Saturates; NaN → 0 |
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
 | Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`). Storage of one type is never read or written as another, which the compiler relies on ([spec](../spec/20-unsafe.md#unsafe.aliasing)) |
@@ -95,7 +95,7 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
   chunk only reduces this.
 - **Pools are per thread, with no synchronization on the usual path.** Most objects are freed on
   the thread that made them. An object can move to another thread inside a unique value
-  ([05-concurrency.md](../spec/05-concurrency.md#51-thread-confinement)) and be freed there: freeing a slot
+  ([Thread confinement](../spec/19-concurrency.md#concurrency.confinement)) and be freed there: freeing a slot
   of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list, which
   the owner takes back when its own free list runs out. This is the separate list for concurrent
   frees that [mimalloc](https://github.com/microsoft/mimalloc) keeps per page ("free list
@@ -121,7 +121,7 @@ print(new Path(a, b).length());         // a temporary: may be on the stack
 ```
 
 No program can tell the difference, which is what allows it. An object is destroyed when its last
-reference is released (see [When references are released](../spec/03-memory-model.md#when-references-are-released)), and the
+reference is released (see [When values are released](../spec/17-memory.md#memory.release)), and the
 compiler does this only where the stack object is destroyed at exactly that point, in the same order
 relative to everything else. Panics abort without unwinding, so there is no other way out of the
 scope. The only exception is diagnostics: `memory::cycleStats()` counts what the cycle collector
@@ -228,7 +228,7 @@ nullable function needs no flag: its null is a null code pointer. The cycle coll
 visits the class references a closure holds. A call of a function value stored where the call
 could replace it (a field, a list element, a local that a lambda assigns) holds a reference to the
 closure until the call returns. A closure that provably can't outlive the scope making it may be
-on the stack, as a class object can be ([03-memory-model.md](#stack-allocation)).
+on the stack, as a class object can be ([Stack allocation](#stack-allocation)).
 
 A nullable non-escaping parameter is a `wyl::Optional` of a `wyl::FunctionRef`, made where the call
 is, so that what it refers to (a lambda, or a copy of a stored function) lives until the call
@@ -250,9 +250,9 @@ A `shared class` has an atomic count, and its objects use the global heap rather
 thread's pools.
 
 - Each thread has its own pools and its own cycle collector buffer; a thread a foreign library
-  created gets them the first time it runs Wylow code ([07-interop.md](../spec/07-interop.md#callbacks)).
+  created gets them the first time it runs Wylow code ([Callbacks](../spec/21-interop.md#interop.callbacks)).
   An object freed on another thread than the one whose pool it came from goes back through that
-  chunk's remote free list ([03-memory-model.md](#allocation)).
+  chunk's remote free list ([Allocation](#allocation)).
 - `String`'s count is always atomic. A program that never starts a thread could use non-atomic
   counts instead, which no program can observe; that is an optimization for later.
 - The threads themselves are the operating system's.
@@ -314,7 +314,7 @@ be done when profiling shows it matters.
 - **Element aliasing and cycles.** A call of a function value counts as writing what every lambda
   of its type writes, so one `fn(Mob) -> void` lambda storing into elements of type `X` anywhere
   makes every loop over `X` that calls a `fn(Mob) -> void` count references per element
-  ([03-memory-model.md](#in-place-loop-elements)); likewise, a function field may hold
+  ([In-place loop elements](#in-place-loop-elements)); likewise, a function field may hold
   any lambda of its type for the cycle analysis. Both could count only the lambdas that can reach
   that call or field.
 - **Narrowing.** A null check outside a lambda doesn't carry into it (except a `ref?` variable's,

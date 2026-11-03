@@ -8,7 +8,7 @@ namespace Wyl.Compiler.Optimize;
 
 /// <summary>
 /// Puts on the stack the objects made by <c>new</c>, and the closures made by escaping lambdas,
-/// that no reference can outlive the scope making them (03-memory-model.md, Stack allocation):
+/// that no reference can outlive the scope making them (spec introduction.observable):
 /// those held by a local, until the local is given another value or its block ends, and a
 /// statement's temporaries, until it completes. Each gets a slot, declared where its last
 /// reference would have been released, so no program can tell: before the local's declaration,

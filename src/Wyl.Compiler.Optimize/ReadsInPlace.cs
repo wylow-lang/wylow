@@ -7,7 +7,7 @@ namespace Wyl.Compiler.Optimize;
 /// Reads a place where lowering copied it into a temporary, instead of the temporary, which saves
 /// a copy and, for a counted value, a reference count increment and decrement (docs/design/ir.md
 /// §5.1). Lowering copies every operand at its turn, and passes every by-value argument as a copy
-/// its statement keeps (spec 03-memory-model.md, When references are released). The place must be
+/// its statement keeps (spec memory.release). The place must be
 /// unchanged for as long as the copy matters: until it is moved, or for a kept copy whose release
 /// may be observed, until its block releases it, so that the place keeps the same objects alive
 /// as long. A kept copy of a temporary whose release runs no code is no copy at all: the argument
