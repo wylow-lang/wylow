@@ -34,9 +34,10 @@ The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15
 - **Open bug found while writing chapter 11:** the compiler never finishes on a generic function or
   method that instantiates itself with growing type arguments (#22). `generics.recursion` states the
   error; it needs a catalog code, a page, and a test. Not part of the spec sessions.
-- **Compiler restrictions found while writing chapters 12 to 15** (specified, not implemented; #6):
-  `this` receivers for extension methods, `defer`, and `do`; unique structs and their destructors;
-  `discard`; `@Flags`; and enum `tryFrom`.
+- **Compiler restrictions that chapters 12 to 15 state** (specified, not implemented; #6): `this`
+  receivers for extension methods, `defer`, `do`, indexing a type parameter, and moving a unique
+  field out of a matched value with a pattern. Already known from earlier chapters: unique structs
+  and their destructors, `discard`, `@Flags`, and enum `tryFrom`.
 
 ## Where it stands
 
@@ -92,8 +93,9 @@ each. When rewriting the chapter a row points at, write these too:
 - **0037, interfaces the language calls**: written in `library.names`; a struct or enum is not
   `Borrowable` through an extending interface either (`03-memory-model.md`, `Borrowable`), pinned by
   `errors/containers.wyl`. To `memory.borrows.borrowable`.
-- **0038, the built-in types' interfaces are declared** (`02-types.md`, Bounds; `06-syntax.md`,
-  String interpolation): to `library.printable`, `library.comparable`, and `types.primitives.methods`
+- **0038, the built-in types' interfaces are declared** (`02-types.md`, Bounds; the interpolation
+  rules are written in `expressions.interpolation`, and the declaration belongs to appendix A): to
+  `library.printable`, `library.comparable`, and `types.primitives.methods`
   (each primitive's `extern struct` in `Stdlib/primitives.wyl`). Pinned by
   `basics/interpolation.wyl`, `errors/interpolation.wyl`, `errors/comparable.wyl`.
 - **`is ref` holds** (`03-memory-model.md`, Nullable references): a hold lasts until the statement
