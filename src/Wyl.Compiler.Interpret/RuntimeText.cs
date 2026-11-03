@@ -139,7 +139,7 @@ internal static class RuntimeText
             if (a[i] != b[i])
                 return a[i] < b[i] ? -1 : 1;
         }
-        return a.Length.CompareTo(b.Length);
+        return Math.Sign(a.Length.CompareTo(b.Length));
     }
 }
 

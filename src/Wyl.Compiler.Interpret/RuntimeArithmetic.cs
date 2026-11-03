@@ -118,9 +118,9 @@ internal static class RuntimeArithmetic
         switch (left, right)
         {
             case (IntValue a, IntValue b): return a.Bits < b.Bits ? -1 : a.Bits > b.Bits ? 1 : 0;
-            case (CharValue a, CharValue b): return a.CodePoint.CompareTo(b.CodePoint);
+            case (CharValue a, CharValue b): return Math.Sign(a.CodePoint.CompareTo(b.CodePoint));
             case (StringValue a, StringValue b): return RuntimeText.CompareBytes(a.Bytes, b.Bytes);
-            case (BoolValue a, BoolValue b): return a.Flag.CompareTo(b.Flag);
+            case (BoolValue a, BoolValue b): return Math.Sign(a.Flag.CompareTo(b.Flag));
             case (FloatValue a, FloatValue b): return CompareFloats(a.Number, b.Number);
             default: throw new InterpreterException($"compareTo on {type}");
         }
