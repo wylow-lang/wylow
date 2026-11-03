@@ -72,7 +72,7 @@ inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) 
 
 }  // namespace memory
 
-// std::panic (spec 06-syntax.md §6.1): panic itself and the checks built-in arrays make.
+// std::panic (spec library.panic): panic itself and the checks built-in arrays make.
 namespace panic {
 
 [[noreturn]] inline void panic(const String& message, const char* location) { raise_panic(message, location); }

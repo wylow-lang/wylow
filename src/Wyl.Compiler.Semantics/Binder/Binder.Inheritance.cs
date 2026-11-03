@@ -135,7 +135,7 @@ public sealed partial class Binder
             Error(Catalog.OverrideNonVirtual(location, overridden));
         else if (!HasSameTypes(new MethodReference(method, s.Type, []), inherited))
             Error(Catalog.OverrideSignature(location, method.Name, overridden, FindEscapingDifference(new MethodReference(method, s.Type, []), inherited)));
-        // So that a method reaches as far in every subclass as in its base (§6.2).
+        // So that a method reaches as far in every subclass as in its base (spec classes.overriding).
         else if (method.Declaration.Visibility != inherited.Symbol.Declaration!.Visibility)
             Error(Catalog.OverrideVisibility(location, method.Name, overridden, inherited.Symbol.Declaration.Visibility));
         else if (LosesUnsafe(method, inherited.Symbol))

@@ -4,7 +4,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Syntax;
 
 /// <summary>
-/// What a package's <c>package.wylcfg</c> says (spec 06-syntax.md §6.1, The manifest), read with
+/// What a package's <c>package.wylcfg</c> says (spec programs.manifest), read with
 /// Wylow's own lexer: a list of entries, each <c>key = value;</c> or <c>key { entries }</c>, whose
 /// value is a string or a list of strings. The keys are fixed, so a misspelled one is an error.
 /// Only <c>name</c> means anything yet; <c>dependencies</c> and <c>native</c> are read to their shape

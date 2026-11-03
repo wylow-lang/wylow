@@ -1,5 +1,5 @@
 // `import std::panic;` brings in the module std::panic and the function panic that std re-exports
-// (spec 06-syntax.md §6.1, Imports).
+// (spec programs.imports).
 
 import std::{panic, print};
 

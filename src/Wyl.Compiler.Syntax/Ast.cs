@@ -23,7 +23,7 @@ public enum Modifiers
 }
 
 /// <summary>
-/// How far a declaration is visible (spec 06-syntax.md §6.2), narrowest first, so that the lesser
+/// How far a declaration is visible (spec programs.visibility), narrowest first, so that the lesser
 /// of two is the narrower.
 /// </summary>
 public enum Visibility
@@ -47,8 +47,8 @@ public sealed record CompilationUnit(SourceText Source, IReadOnlyList<ImportDecl
 public sealed record PathName(string Name, Location Location);
 
 /// <summary>
-/// <c>import a::b::C;</c>, <c>import a::{B, C as D};</c>, or <c>import a::*;</c> (spec 06-syntax.md
-/// §6.1): <see cref="Module"/> is the path before the last <c>::</c>, empty for <c>import std;</c>,
+/// <c>import a::b::C;</c>, <c>import a::{B, C as D};</c>, or <c>import a::*;</c> (spec
+/// programs.imports): <see cref="Module"/> is the path before the last <c>::</c>, empty for <c>import std;</c>,
 /// and <see cref="Names"/> what is imported from it, empty for <c>*</c>.
 /// </summary>
 public sealed record ImportDecl(Location Location, Visibility Visibility, IReadOnlyList<PathName> Module, IReadOnlyList<ImportedName> Names, bool IsAll)

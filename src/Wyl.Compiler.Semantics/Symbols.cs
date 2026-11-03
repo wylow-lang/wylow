@@ -151,7 +151,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>
     /// For a method that overrides nothing: the base class's method of its signature that it can't
-    /// see, so doesn't override (spec 06-syntax.md §6.2), though C++ would; set by the binder.
+    /// see, so doesn't override (spec programs.visibility), though C++ would; set by the binder.
     /// </summary>
     public FunctionSymbol? Shadows { get; set; }
 
@@ -313,8 +313,7 @@ public sealed class TypeSymbol
 
     /// <summary>
     /// How messages and runtime diagnostics name it: <see cref="Name"/>, unless another type of the
-    /// program has that name, and then its package and module path (spec 06-syntax.md §6.1, How
-    /// messages name types); set by the binder once every type is declared.
+    /// program has that name, and then its package and module path (docs/diagnostics/README.md); set by the binder once every type is declared.
     /// </summary>
     public string DisplayName { get; internal set; }
 

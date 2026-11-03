@@ -52,7 +52,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
 
     /// <summary>
     /// Binds a package with the standard library, whose units are among <paramref name="units"/>:
-    /// every file's top-level declarations first, so any may name any other (spec 06-syntax.md §6.1),
+    /// every file's top-level declarations first, so any may name any other (spec programs.packages),
     /// then their signatures and bodies.
     /// </summary>
     public BoundProgram BindProgram(Package package, IReadOnlyList<CompilationUnit> units)

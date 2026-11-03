@@ -5,7 +5,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Visibility (spec 06-syntax.md §6.2): whether a use may name a declaration, which every lookup
+/// Visibility (spec programs.visibility): whether a use may name a declaration, which every lookup
 /// asks <see cref="Reach.Includes"/>, and the rules that keep a visible declaration usable where it
 /// is visible.
 /// </summary>
@@ -29,7 +29,7 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// A visible signature names only types visible as far (§6.2): a caller must be able to name
+    /// A visible signature names only types visible as far (spec programs.visibility.signatures): a caller must be able to name
     /// what it passes and gets. Only a type visible from the declaration is compared, since one that
     /// isn't is already an error where it is named, and within a package the levels are ordered.
     /// </summary>

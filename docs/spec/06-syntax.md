@@ -4,122 +4,9 @@ Wylow syntax is Java's unless stated otherwise. This chapter covers the differen
 
 ## 6.1 Packages, modules, imports
 
-Code is organized as in Go and Swift, with Rust's explicit `pub`: a **package** is a project, a
-**module** is a directory of it, and **visibility** starts at the file.
+Packages, modules, imports, visibility, and the entry point are in
+[chapter 3](03-programs.md#programs). These library modules stay here until appendix A is written:
 
-```
-mygame/
-    package.wylcfg        the manifest: the package's name, and later its dependencies
-    src/
-        main.wyl          the root module
-        world/
-            chunk.wyl     module world
-            mesher.wyl    module world
-            gen/
-                noise.wyl module world::gen
-```
-
-```java
-// src/world/chunk.wyl
-import world::gen::Noise;
-import std::memory;
-
-pub struct Chunk {
-    pub int x, z;
-    byte[4096] blocks;                  // file-private: only chunk.wyl sees it
-
-    pub byte get(int i) { return blocks[i]; }
-}
-
-pub(module) int chunkIndex(int x, int y, int z) { ... }   // every file of 'world' sees it
-```
-
-```java
-// src/main.wyl
-import std::print;
-import world::Chunk;
-import world::gen;                      // a module itself
-
-void main() {
-    var c = Chunk(x: 0, z: 0);
-    print(gen::seed());
-}
-```
-
-- **A package** is the unit of compilation and of dependencies, like a Rust crate: a directory with
-  a `package.wylcfg` manifest and a `src/` directory. A single `.wyl` file compiled on its own is a
-  package with one module and one file, and no name, so no other package can depend on it. Messages
-  and panics name a file by its path under `src/`: `world/chunk.wyl:3:5`. The whole package is
-  compiled together, so declarations
-  may refer to each other in any order and across files, and modules of one package may import
-  each other in a cycle. Packages may not depend on each other in a cycle.
-- **A module is a directory.** `src/` is the root module, and each directory below it is a module
-  named by its path: `src/world/gen/` is `world::gen`. Every `.wyl` file in the directory belongs to
-  the module, and a file doesn't declare which: there is no `package` line. Module names are
-  `snake_case` (§6.11). A directory holding `.wyl` files must be named like a module (an identifier,
-  not a keyword); one holding none, and one whose name starts with `.`, is no module.
-- **A module's names** are the declarations its files make visible beyond themselves
-  (`pub(module)` or wider, §6.2), and its submodules. Two files of a module may not declare the same
-  such name, nor may one declare a name another keeps private, since that file would see two meanings
-  of it. A function's overloads are one meaning, so they may be declared in any of the module's
-  files (`lerp(Vec3)` beside `Vec3`, `lerp(Color)` beside `Color`), but no file may see one
-  signature twice. A file-private declaration is not one of the module's names, so two files may
-  each have a private helper of the same name.
-- **Within a module**, a file sees the module's names without importing them, as Java's classes
-  see their package. Everything else is reached through an import.
-- **Any number of declarations per file**, of any visibility. Types, functions, and constants may
-  all be top-level.
-
-### Imports
-
-```java
-import world::Chunk;                    // one name
-import world::{Chunk, Block};           // several
-import world::*;                        // every name of 'world' visible here
-import physics::Body as PhysicsBody;    // renamed
-import engine::math;                    // the module itself: math::clamp(x)
-pub import world::Chunk;                // re-exported: also one of this module's names
-```
-
-- An import's path starts with a top-level module of this package, or with the name of a package
-  it depends on; `std` is always one. A top-level module named like a dependency is an error, so a
-  path's first name has one meaning. A name of the root module is imported by itself:
-  `import Config;`. An import's path walks directories; a name another module re-exports is
-  imported from the module that re-exports it.
-- An import is visible in its own file only, as in Java and Rust. A visibility on it (`pub import`,
-  `pub(package) import`) also makes the name one of the module's, visible that far, which is how a
-  package presents a public surface whose layout differs from its directories.
-- **`::` walks modules, and `.` reaches into a type or a value**, so each has one meaning:
-  `math::clamp(x)` is a module's function, `Vec3.zero()` a type's static method, `Color.Red` a
-  variant, and `v.length()` a value's method. A type in another module is
-  `world::Chunk.make()`.
-- **Modules have a namespace of their own.** A path is told apart from a value by its `::`, so a
-  module may share its name with a type, function, or local: `panic::checkIndex(i, n)` and
-  `panic("message")` don't conflict, and neither does a local named `math` with `math::clamp`.
-- **A path in code starts with a module the file already sees**: one it imported, or a submodule
-  of its own module, which is one of the module's names. In `src/main.wyl`, `world::Chunk.make()`
-  needs no import, but in `src/world/gen/noise.wyl` it needs `import world;` (or
-  `import world::Chunk;` and then `Chunk.make()`), and `std::memory::free(p)` needs `import std;`:
-  the usual way is to import `std::memory` and write `memory::free(p)`. So a file's imports list
-  every module outside its own that it uses. Imports themselves always start at the top, never
-  relative to the file.
-- An import brings in what its last name names in each namespace: `import std::panic;` is the
-  module `std::panic` (`panic::checkIndex(i, n)`) and the function `panic` that `std` re-exports
-  (`panic("message")`).
-- Importing a name that isn't visible to the importing file is an error that says how far it is
-  visible.
-- **One name, one meaning in a file.** An import of a name the module already has (its own
-  declaration in any of its files, or a submodule) is an error at the import, and so is importing
-  one name twice; `as` renames one of them. Names brought in by `*` give way to the module's own and
-  to named imports, and two `*` imports that both bring in a name are an error only where the name
-  is used. A name hides every declaration of the same name from elsewhere, so a module's own
-  `print(Vec3)` is the only `print` it sees: overloads never merge across where they came from.
-- **There is no prelude**: a file names what it uses. The exception is what the language itself is
-  built on, which every file sees without importing: the types the compiler knows by name because
-  the syntax needs them (`String` for literals, `Array` for `T[]`, `Span` and `ReadOnlySpan`,
-  `Result` for `try`, and the interfaces `Spannable`, `ReadOnlySpannable`, `Borrowable`,
-  `Printable`, and `Comparable`). Everything else is imported, `print` and `List` included. A
-  module's own declaration of one of these names is an error, as redeclaring a builtin type is.
 - **`std::panic`** holds what is about panics ([Panics](18-errors.md#errors.panics)): `panic(message)`, which `std` re-exports, and
   the checks the built-in arrays make, for a container whose index isn't its storage's (a ring
   buffer on an `Array`): `checkIndex(index, length)` and `checkRange(start, count, length)`, which
@@ -128,114 +15,20 @@ pub import world::Chunk;                // re-exported: also one of this module'
 - **`std::memory`** holds raw memory (`allocate`, `free`, `initialize`, ..., all `unsafe`, §7) and
   the cycle collector (`collectCycles`, `cycleStats`, §3).
 
-### Functions or static methods
-
-Both exist, for different things. A **free function** belongs to a concept, and lives in the
-module named for it: `math::clamp(x, lo, hi)`, `noise::sample(p)`. A **static method** belongs to a
-thing, a type: its factories and constants, `Vec3.zero()`, `Color.WHITE`. A class with only static
-members, written to hold functions, is a module in disguise; make it a module.
-
-### Entry point
-
-A top-level `void main()` or `int main(String[] args)` in the root module. Before it runs, every
-static of the program is initialized ([05-concurrency.md](05-concurrency.md#55-statics)).
-
-**The end of the program.** The program ends when `main` returns, after `main`'s locals and
-temporaries have been released as at the end of any function. Then:
-
-- No static is destroyed, and no object that only a static refers to is released.
-- The cycle collector doesn't run ([03-memory-model.md](03-memory-model.md#cycles-memorycollectcycles)).
-- A thread still running stops where it is, running no destructor and no deferred statement. A
-  `Thread` that `main` still holds is joined when it is released, before `main` returns.
-
-### The manifest
-
-`package.wylcfg` says what the package is, in Wylow's own tokens: comments, string literals with
-their escapes, and identifiers are read exactly as in a `.wyl` file, and line breaks don't matter.
-
-```
-// voxel_game/package.wylcfg
-name = "voxel_game";
-
-dependencies {
-    engine { path = "../engine"; }
-}
-
-native {
-    include = ["third_party/sdl/include"];
-    link = ["SDL3"];
-}
-```
-
-- A file is a list of entries. An entry is `key = value;` or `key { entries }`, and a value is a
-  string or a list of strings, `["a", "b"]`.
-- The keys are fixed. An unknown key, a repeated one, or a value of the wrong kind is an error, so
-  a misspelled key fails rather than being ignored.
-- `name` is required: the package's name as other packages write it, `voxel_game::world`. It is
-  written like a module's name (an identifier, `snake_case` by §6.11), is not `std`, and need not
-  match the directory's name.
-- `dependencies` names other packages, each found by a `path` relative to the manifest. Packages
-  may not depend on each other in a cycle.
-- `native` gives the include directories and the libraries to link for `extern` code (§7).
-- What the files already say isn't written again: a package with a `main` in its root module
-  (§6.1, Entry point) is a program, and one without is a library; the sources are always `src/`.
-- Build settings (`--release`, `--cc`) are the build's, not the package's, and
-  stay on the command line. A version and a language edition wait until a registry and
-  stability promises give them a meaning.
-
 ## 6.2 Visibility
 
-Everything is private to its file unless it says otherwise:
+Visibility is in [chapter 3](03-programs.md#programs.visibility). These rules about it stay here
+until their chapters are written:
 
-| Written | Visible to |
-|---|---|
-| nothing | The file it's declared in |
-| `pub(module)` | Every file of its module: its directory, not the directories inside it |
-| `pub(package)` | The whole package |
-| `pub` | Everyone, including other packages |
-
-```java
-pub abstract class Entity {
-    pub Vec3 position;
-    int ticksAlive;                                 // this file only
-
-    pub abstract void onUpdate(float dt);           // game code overrides it
-    pub(package) virtual void onPhysics(float dt) { }   // only the engine's package overrides it
-    pub(package) void tick(float dt) { ticksAlive++; onPhysics(dt); onUpdate(dt); }
-}
-```
-
-- A module and the modules inside it see each other only as any two modules do: `world::gen` reaches
-  `world`'s names that are `pub(package)` or wider, never its `pub(module)` ones.
-- The same levels apply to top-level declarations and to members. A member is visible only where
-  its type is too: a `pub` method of a `pub(module)` class is visible within the module.
-- **There is no type-private level.** A type's unmarked members are visible to the rest of its
-  file, including other types there. A type whose internals must be sealed from its neighbours
-  goes in a file of its own.
-- **There is no `protected`.** A subclass sees what its file and module see, like any other code.
-  A method that subclasses elsewhere override is as visible as those subclasses need, often `pub`.
-  A method that isn't visible can't be overridden.
 - **An override is written with exactly the visibility of the method it overrides**, and an
   interface method's implementation with the interface's visibility, so a method's reach is the
   same in the base class and every subclass.
-- **A visible signature names only types visible as far:** a function's parameter and return types,
-  a field's type, a variant's field types, a class's base class and interfaces, type parameters'
-  bounds, and their type arguments. A `pub` function returning a file-private type is an error,
-  since a caller couldn't name what it got. "As far" is how far the declaration really reaches,
-  within its type's: a `pub` method of a file-private struct may take a file-private type.
 - A type's memberwise constructor is as visible as its least visible field. A `pub` struct with a
   private field can be named everywhere but built only where the field is visible, or through a
   constructor or factory that is `pub`. A class's implicit parameterless constructor is as visible
   as the class.
 - **A call chooses only among the overloads visible where it is**, as in Java: one it can't see
   never wins over one it can. If none is visible, the error says how far the one that fits reaches.
-- The entry point needs no visibility: the compiler, not other code, calls `main`.
-- Members may be declared in any order. A struct's fields are laid out in declaration order (§2.9),
-  which is also the order of the memberwise constructor's parameters (§6.3).
-- The visibility comes first among a declaration's modifiers, after its annotations:
-  `@CallerLocation pub static void check(...)`.
-- The destructor takes no visibility, since only the runtime calls it. An enum's variants and an
-  interface's methods take none either: they are as visible as the enum or interface.
 
 ## 6.3 Construction
 
@@ -910,7 +703,7 @@ Patterns appear in `case` and after `is`. A pattern either always matches or tes
 - An integer pattern is a constant of the matched value's integer type: an unsuffixed literal
   converts to it where it fits, so matching a `byte` writes `case 200`, and matching a `long` with a
   value past `INT_MAX` writes `case 2147483648L`, since a literal too large for `int` needs a suffix
-  (§2.2).
+  ([Integer literals](02-lexical.md#lexical.literals.integer)).
 - A lone name is a variant when matching an enum, and otherwise a type: `x is Dog` tests a class.
 - A struct pattern deconstructs, as Java's record patterns do. A struct value is always its own
   type, so the pattern matches whenever its field patterns do; it is useful nested, as in
@@ -974,7 +767,7 @@ A string literal prefixed with `$` is interpolated, as in C#: each `{expression}
 by the expression's value, and the result is a new `String`. Only `$` strings interpolate, so braces
 in ordinary strings mean nothing special.
 
-- In a `$` string, `{{` and `}}` stand for `{` and `}`. A lone `}` is an error. Escapes (§2.2)
+- In a `$` string, `{{` and `}}` stand for `{` and `}`. A lone `}` is an error. Escapes ([Escapes](02-lexical.md#lexical.literals.escapes))
   work as in any string.
 - The parts are evaluated left to right, each exactly once.
 - A hole holds any expression on one line, including other strings, but a conditional
@@ -1073,19 +866,6 @@ standard library uses it so that a failed `list[i]` points at the user's line ra
 `List`. A lambda written in such a function reports its own locations, since it may run after the
 call has returned. It applies to functions, methods, constructors, and indexers, but
 not yet to virtual, abstract, or interface methods.
-
-## 6.11 Naming conventions
-
-Enforced with compiler **warnings** (not errors):
-
-| Kind | Convention | Example |
-|---|---|---|
-| Types (classes, structs, enums, interfaces) | `PascalCase` | `EnemySystem` |
-| Enum variants | `PascalCase` | `AiState.Chasing` |
-| Methods, fields, locals, parameters | `camelCase` | `applyDamage`, `isDead` |
-| Constants (`const` and `static` fields) | `UPPER_SNAKE_CASE` | `MAX_SPEED` |
-| Modules, and the directories that are them | `snake_case` | `world_gen::noise` |
-| Files | `snake_case`, named for what they hold | `chunk_mesher.wyl` |
 
 ## 6.12 Complete example
 

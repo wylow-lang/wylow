@@ -4,25 +4,19 @@ Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. `spec-m
 directory) says where each passage of the old spec files (`02-types.md` to `07-interop.md`) goes and
 the rules for every rewrite; decision 0002 is the structure, chapter 1 the phrasing.
 
-## Next session: chapters 2 and 3
+## Next session: chapters 4 to 6
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). None has started; every new chapter file but 1 and parts of 20 is anchors
-only.
+(18–22 + appendix A). Chapters 1, 2, and 3 are written, and parts of 20; the rest are anchors only.
 
-- **Chapter 2, `02-lexical.md`**: from `02-types.md` §2.2 (literals, escapes, `$` strings: the
-  form only, the meaning goes to `expressions.interpolation`) and `06-syntax.md` §6.11 (naming
-  conventions, informative). Tokens, comments, identifiers, keywords, and operators have no old
-  text to map from: write them from the lexer (`src/Wyl.Compiler.Syntax/`), checked against
-  `tests/cases`, and say in the report which rule has no test.
-- **Chapter 3, `03-programs.md`**: from `06-syntax.md` §6.1 (packages, modules, imports, paths,
-  names every file sees, the entry point, the manifest) and §6.2 (visibility).
-  `programs.execution` gets the end of the program (decision 0029) and says that every static is
-  initialized before `main`, linking `variables.statics` for the rules (decision 0030), which stay
-  in chapter 6.
-- **Diagnostics pages**: 60 catalog entries are anchored in these two chapters
-  (`grep -E '"(lexical|programs)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`); write
-  each page and take its code off `without-pages.txt`.
+- **Chapters 4 to 6** (`04-types.md`, `05-conversions.md`, `06-variables.md`): from the rows of
+  `spec-mapping.md` that point at `types.*`, `conversions.*`, and `variables.*`, mostly in
+  `02-types.md` (§2.1, §2.3, §2.5 to §2.7, §2.11, §2.13) and `05-concurrency.md` §5.5 (statics,
+  with decisions 0030 and 0032).
+- **Diagnostics pages**: 33 catalog entries are anchored in these chapters
+  (`grep -E '"(types|conversions|variables)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
+  Chapters 2 and 3's pages show the form; a code only a package produces gets a package example
+  (`docs/diagnostics/README.md`).
 - Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
   under "Already written".
 
@@ -65,8 +59,8 @@ each. When rewriting the chapter a row points at, write these too:
   allow unique structs. New codes are needed for `discard` of anything but a by-value parameter of a
   unique type with a destructor, `discard` outside the type's file, and moving out of `this` in a
   destructor. None of this is implemented (#6).
-- **0029, the end of the program** (`06-syntax.md`, Entry point; `05-concurrency.md` §5.5): to
-  `programs.execution`, `variables.statics`.
+- **0029, the end of the program** (`05-concurrency.md` §5.5): to `variables.statics`;
+  `programs.execution` is written.
 - **0030, statics initialized before `main`** (`05-concurrency.md` §5.5): to `variables.statics`.
   Static fields aren't implemented (#6), so it has no tests yet.
 - **0031, elements released last to first** (`03-memory-model.md`, When references are released):
@@ -86,6 +80,7 @@ removes both.
 - `Binder.Visibility.cs` ("as in Java"), `Binder.Statements.cs` `Declare` ("Like Java"), and
   `Binder.Strings.cs` ("as in C#") still compare with another language without a source (CLAUDE.md,
   "Docs state checked facts"): cite or cut.
-- Issue #6 does not yet list the restrictions that diagnostics now state as rules (`variables cannot
-  be declared at the top level`, `'const' is a reserved word and cannot be used`, the `'@CallerLocation'`,
-  `'ref'`-returning virtual, `this(...)`/`super(...)` argument, and `extern` rules); check each.
+- Issue #6 lists each restriction that diagnostics state as rules (top-level variables, `const`,
+  `@CallerLocation` and `ref` returns on virtual methods, `this(...)`/`super(...)` arguments,
+  `extern`), checked 2026-11-02. It does not list `int main(String[] args)`, which the old text
+  allowed and `programs.entry` no longer does (`WYL0059`).

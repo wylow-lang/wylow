@@ -44,6 +44,8 @@ home is written.
 | `unsafe.blocks`, `unsafe.aliasing`, `unsafe.unchecked`, `unsafe.threads`, `unsafe.undefined` | old `01-safety.md` §1.4, `05-concurrency.md` §5.8 | Rewritten; `unsafe.pointers` still empty (pointer defaults, `==`, `p[i]`, `p + n`, address-of, casts, `bitcast`) |
 | `annotations.allow-large-stack` | old `01-safety.md` §1.5 | Rewritten; the threshold and flag belong to the warning's diagnostics page |
 | `library.names` | old README, "Standard library" | Complete; `@Pure` externs are an implementation detail (`runtime.md`) |
+| Chapter 2 | old `02-types.md` §2.2, `06-syntax.md` §6.11, `07-interop.md` §7.5 (naming exemption); tokens, comments, identifiers, keywords, and operators from the lexer | Complete, with the pages of its codes |
+| Chapter 3 | old `06-syntax.md` §6.1, §6.2 | Complete, with the pages of its codes. Left in `06-syntax.md` for their chapters: `std::panic`, `std::memory` (`library.panic`, `library.memory`), and three §6.2 rules (`classes.overriding`, `structs.constructors.memberwise`, `functions.overloading.resolution`). "Functions or static methods" and "a file of its own" are in the guide |
 
 ## 02-types.md
 

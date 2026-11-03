@@ -20,7 +20,7 @@ public static class Stdlib
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            // Each directory of Stdlib/ is a module, as under a package's src/ (spec 06-syntax.md §6.1).
+            // Each directory of Stdlib/ is a module, as under a package's src/ (spec programs.modules).
             var path = resource[prefix.Length..].Replace('\\', '/');
             var module = path.Split('/')[..^1].Aggregate(Package.Std.Root, (parent, name) => parent.Child(name));
             result.Add(new SourceText(path, reader.ReadToEnd(), module, path));

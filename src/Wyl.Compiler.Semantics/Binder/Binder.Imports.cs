@@ -5,7 +5,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Imports and paths (spec 06-syntax.md §6.1, Imports). An import records which name of which
+/// Imports and paths (spec programs.imports, programs.paths). An import records which name of which
 /// module it stands for, and the name is looked up where it is used, so an import may name any
 /// declaration of the program in any order. Imports are registered before anything is declared,
 /// and checked to name something visible once everything is.
@@ -116,7 +116,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// That each named import names something its file may see, doesn't take a name its module
-    /// already has, and, re-exported, reaches no farther than what it names (§6.1, Imports).
+    /// already has, and, re-exported, reaches no farther than what it names (spec programs.imports).
     /// </summary>
     void CheckImports()
     {
@@ -152,7 +152,7 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// The module a path in code walks to (§6.1: it starts with a module the file sees, one it
+    /// The module a path in code walks to (spec programs.paths: it starts with a module the file sees, one it
     /// imported or a submodule of its own), or null after reporting why not.
     /// </summary>
     Module? WalkModules(IReadOnlyList<PathName> modules, bool report = true)
@@ -198,7 +198,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// How far a file-private declaration of the name in one of the module's files reaches, which
-    /// isn't one of the module's names, so that a miss says it is private (§6.1, Imports).
+    /// isn't one of the module's names, so that a miss says it is private (spec programs.imports).
     /// </summary>
     Diagnostic? PrivateIn(Location at, Module module, string name)
     {

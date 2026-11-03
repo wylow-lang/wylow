@@ -86,7 +86,7 @@ public enum TokenKind
     DotDotEqual,
     Colon,
 
-    /// <summary><c>::</c>, which walks modules (spec 06-syntax.md §6.1).</summary>
+    /// <summary><c>::</c>, which walks modules (spec programs.paths).</summary>
     ColonColon,
     Question,
     QuestionQuestion,

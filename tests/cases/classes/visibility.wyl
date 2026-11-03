@@ -1,5 +1,5 @@
 // Within one file everything is visible, whatever its visibility, and a member is visible only as
-// far as its type (spec 06-syntax.md §6.2).
+// far as its type (spec programs.visibility).
 
 import std::print;
 

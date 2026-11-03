@@ -12,7 +12,7 @@ using Wyl.Fuzz;
 using Wyl.Harness;
 
 // Runs every tests/cases/**/*.wyl file, and every package directory there (one with a package.wylcfg,
-// spec 06-syntax.md §6.1) as one program. Expectations are comments in the file; in a package,
+// spec programs.packages) as one program. Expectations are comments in the file; in a package,
 // `// error[WYLnnnn]:` may be in any of its files, the manifest too, and the others only in the file with main:
 //   // output: <line>     expected stdout line (in order of appearance)
 //   // error[WYL0001]: <text>  an error on this line with this code and exactly this message

@@ -1,2 +1,2 @@
-// A 'main' outside the root module is an ordinary function (spec 06-syntax.md §6.1, Entry point).
+// A 'main' outside the root module is an ordinary function (spec programs.entry).
 void main() { }

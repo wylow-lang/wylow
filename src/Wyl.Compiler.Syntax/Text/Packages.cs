@@ -1,7 +1,7 @@
 namespace Wyl.Compiler.Text;
 
 /// <summary>
-/// A package (spec 06-syntax.md §6.1): the unit of compilation, whose modules are its directories.
+/// A package (spec programs.packages): the unit of compilation, whose modules are its directories.
 /// A file compiled on its own is an unnamed package of one module.
 /// </summary>
 public sealed class Package
@@ -18,7 +18,7 @@ public sealed class Package
     /// <summary>A lone file's package, which no other package can name.</summary>
     public static Package Unnamed() => new(null);
 
-    /// <summary>A package with a manifest; its name was checked against the manifest's rules (§6.1, The manifest).</summary>
+    /// <summary>A package with a manifest; its name was checked against the manifest's rules (spec programs.manifest).</summary>
     public static Package Named(string name) =>
         name == Std.Name ? throw new ArgumentException("only the standard library is 'std'", nameof(name)) : new(name);
 
@@ -31,7 +31,7 @@ public sealed class Package
     public Module Root { get; }
 }
 
-/// <summary>A module: a directory of a package, whose files share its names (§6.1).</summary>
+/// <summary>A module: a directory of a package, whose files share its names (spec programs.modules).</summary>
 public sealed class Module
 {
     readonly Dictionary<string, Module> children = new(StringComparer.Ordinal);

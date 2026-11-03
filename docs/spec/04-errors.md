@@ -12,7 +12,7 @@ Panics are covered in [Panics](18-errors.md#errors.panics). This chapter covers 
 ## 4.1 `Result<T, E>`
 
 `Result<T, E>` is an enum declared in the standard library, which every file sees without
-importing it (§6.1, Imports):
+importing it ([Names every file sees](03-programs.md#programs.builtin-names)):
 
 ```java
 enum Result<T, E> {

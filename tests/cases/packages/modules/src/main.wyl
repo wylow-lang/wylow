@@ -1,4 +1,4 @@
-// Imports and paths across modules (spec 06-syntax.md §6.1, Imports).
+// Imports and paths across modules (spec programs.imports, programs.paths).
 
 import std::print;
 import world::Chunk;                        // one name

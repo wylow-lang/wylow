@@ -1,5 +1,5 @@
-// A file imports what it uses, except the types the language is built on (spec 06-syntax.md §6.1,
-// Imports), and a name has one meaning in a file.
+// A file imports what it uses, except the types the language is built on (spec programs.imports,
+// programs.builtin-names), and a name has one meaning in a file.
 
 import std::{List, print};
 import std::print;                  // error[WYL0040]: 'print' is already imported

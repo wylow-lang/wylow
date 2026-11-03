@@ -1,4 +1,4 @@
-// A method that isn't visible can't be overridden (spec 06-syntax.md §6.2): a subclass's method
+// A method that isn't visible can't be overridden (spec programs.visibility): a subclass's method
 // with its signature is a method of the subclass's own, which calls through the base never reach.
 
 import std::print;

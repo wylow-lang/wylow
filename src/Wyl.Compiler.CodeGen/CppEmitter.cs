@@ -155,8 +155,8 @@ public sealed partial class CppEmitter
     /// <summary>
     /// A method is named for the first of the class methods it overrides, and that one, if it has
     /// the signature of a base method it can't see (<see cref="FunctionSymbol.Shadows"/>), also for
-    /// its class, after its length, so C++ doesn't make it that method's override (spec 06-syntax.md
-    /// §6.2). No plain method's name starts with a digit.
+    /// its class, after its length, so C++ doesn't make it that method's override (spec
+    /// programs.visibility). No plain method's name starts with a digit.
     /// </summary>
     static string ShadowingPrefix(FunctionSymbol method)
     {

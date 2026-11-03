@@ -20,38 +20,6 @@ All sizes are fixed on every platform.
 `char` is not a number: it has no arithmetic of its own, and in arithmetic it is its code point,
 an `int` (§2.4).
 
-## 2.2 Literals
-
-| Literal | Type |
-|---|---|
-| `42` | `int` |
-| `42u`, `42L`, `42uL` | `uint`, `long`, `ulong` |
-| `1.5` | **`float`** |
-| `1.5d` | `double` |
-| `0xFF`, `0b1010`, `1_000_000` | hex, binary, digit separators |
-| `'a'` | `char` |
-| `"text"` | `String` |
-
-An integer literal too large for its type is an error, also in hex: `0xFFFFFFFF` needs a `u` suffix.
-A literal still converts to narrower types where it fits (§2.3), so there is no suffix for `byte` or
-`short`. A character literal holds exactly one code point.
-
-String and character literals accept these escapes:
-
-| Escape | Character |
-|---|---|
-| `\n`, `\t`, `\r` | Newline, tab, carriage return |
-| `\0` | The code point 0 |
-| `\\`, `\"`, `\'` | Backslash, double quote, single quote |
-| `\u{1F600}` | The code point with that hex value, written with 1 to 6 digits |
-
-A string prefixed with `$` interpolates values: `$"hp: {health}"` ([string interpolation](06-syntax.md#string-interpolation)).
-
-Any other escape is an error, as is a `\u{...}` that is not a Unicode scalar value (above
-`0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`), the same values a cast to `char` rejects. Unlike
-Java and C#'s `é`, the braces reach every code point directly, so no character needs a
-surrogate pair. There is no `\x` escape for raw bytes, since a `String` is always valid UTF-8.
-
 ## 2.3 Conversions
 
 **Implicit conversions are allowed only when lossless**, which means every value of the source type
@@ -594,7 +562,7 @@ final class Shotgun extends Weapon {
 - Generic methods cannot be `virtual`, `override`, or `abstract`.
 - A class that declares no constructor gets a parameterless one, as visible as the class. That is an error if a field
   needs a value (see construction below) or the base class has no parameterless constructor.
-- Visibility is §6.2's: a subclass sees what its file and module see, and a method it can't see
+- Visibility is [chapter 3's](03-programs.md#programs.visibility): a subclass sees what its file and module see, and a method it can't see
   isn't inherited for overriding.
 
 ### Construction
@@ -832,7 +800,7 @@ struct Counter implements Named { ... }
 
 - Interfaces contain only method signatures: no fields, constructors, bodies, static methods, or
   type parameters on methods. An interface may `extend` other interfaces.
-- A class or struct implements an interface method with a method of the same name, written with the interface's visibility (§6.2), and
+- A class or struct implements an interface method with a method of the same name, written with the interface's visibility ([Visibility](03-programs.md#programs.visibility)), and
   exactly the same parameter and return types, declared in it or inherited from a base class. No
   `override` is needed (as in C#). Implementing an interface method does not make the method
   overridable: mark it `virtual` for that.

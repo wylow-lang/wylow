@@ -4,7 +4,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Where a declaration can be named from (spec 06-syntax.md §6.2): its visibility, counted from the
+/// Where a declaration can be named from (spec programs.visibility): its visibility, counted from the
 /// file that declares it. Every check of whether a use may name a declaration asks
 /// <see cref="Includes"/>, so there is one definition of what each level reaches.
 /// </summary>

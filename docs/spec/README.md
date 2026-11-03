@@ -37,7 +37,7 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 2 to 22 are being written from these files, which are deleted as their text moves:
+Chapters 4 to 22 are being written from these files, which are deleted as their text moves:
 
 - [02-types.md](02-types.md): primitives, conversions, nullability, enums, structs, classes,
   arrays and spans, interfaces, generics
@@ -45,6 +45,7 @@ Chapters 2 to 22 are being written from these files, which are deleted as their 
   references, borrows, spans
 - [04-errors.md](04-errors.md): `Result`, `try`
 - [05-concurrency.md](05-concurrency.md): threads and the standard library's threading types
-- [06-syntax.md](06-syntax.md): packages, construction, parameters, indexers, lambdas, control
-  flow, patterns, interpolation, annotations
+- [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, visibility of overrides,
+  constructors, and overloads, construction, parameters, indexers, lambdas, control flow, patterns,
+  interpolation, annotations
 - [07-interop.md](07-interop.md): `extern`, blittable types, C enums, callbacks

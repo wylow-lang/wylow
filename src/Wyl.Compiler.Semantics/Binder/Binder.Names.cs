@@ -5,7 +5,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Top-level names (spec 06-syntax.md §6.1): each module's, which its files make visible beyond
+/// Top-level names (spec programs.names): each module's, which its files make visible beyond
 /// themselves, and each file's file-private ones, which are kept out of the module's so that two
 /// files may each have a private helper of one name. Every lookup of a top-level name where it is
 /// used goes through <see cref="ResolveName"/>, and of a module through <see cref="ResolveModule"/>.
@@ -60,7 +60,7 @@ public sealed partial class Binder
         [.. FileNames(file).Functions.GetValueOrDefault(name) ?? [], .. ModuleNames(file.Module).Functions.GetValueOrDefault(name) ?? []];
 
     /// <summary>
-    /// The nearest meaning of a top-level name where it is used (§6.1, Imports): the names the file
+    /// The nearest meaning of a top-level name where it is used (spec programs.imports): the names the file
     /// and its module declare or re-export, then the file's named imports, then its <c>*</c> imports,
     /// which give way to both and are ambiguous only where used, then the types the language is
     /// built on. The first that has the name hides the rest, so overloads never merge across them.
@@ -130,7 +130,7 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// The names a module has, as another module reaches them (§6.1): its files' declarations
+    /// The names a module has, as another module reaches them (spec programs.names): its files' declarations
     /// visible beyond them, its submodules, and what it re-exports to <paramref name="from"/>. Their
     /// own visibility is the caller's to check, so a miss can say how far a name reaches.
     /// </summary>
@@ -175,7 +175,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// Whether a declaration outside the standard library takes the name of a type the language is
-    /// built on, which every file sees (§6.1, Imports), reporting it if so.
+    /// built on, which every file sees (spec programs.builtin-names), reporting it if so.
     /// </summary>
     bool IsLanguageName(Declaration declaration, string name, Location at)
     {
@@ -207,7 +207,7 @@ public sealed partial class Binder
     /// <summary>
     /// Another file of the module that a new top-level declaration's name would clash in: one that
     /// declares the name beyond itself, or, if the new one is visible beyond its own file, one that
-    /// declares it at all, since that file would then see two meanings of it (§6.1). Functions of
+    /// declares it at all, since that file would then see two meanings of it (spec programs.names). Functions of
     /// one name are one overload set across the module's files, so only a type clashes with a
     /// function; a repeated signature is the overload check's.
     /// </summary>
@@ -254,7 +254,7 @@ public sealed partial class Binder
         }
     }
 
-    /// <summary>The program's entry point: the one <c>main</c> of the package's root module (§6.1, Entry point).</summary>
+    /// <summary>The program's entry point: the one <c>main</c> of the package's root module (spec programs.entry).</summary>
     FunctionSymbol? FindMain(Package package)
     {
         var root = package.Root;

@@ -1,3 +1,3 @@
 // Names of `std` that live in its modules, so `import std::panic;` brings in the function with the
-// module (spec 06-syntax.md §6.1, Imports).
+// module (spec programs.imports).
 pub import panic::panic;

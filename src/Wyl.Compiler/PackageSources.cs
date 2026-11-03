@@ -5,7 +5,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler;
 
 /// <summary>
-/// The files of one package, each in its module (spec 06-syntax.md §6.1), and the errors found
+/// The files of one package, each in its module (spec programs.modules), and the errors found
 /// reading them: a package directory with its manifest and <c>src/</c>, or one file on its own.
 /// </summary>
 public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> Files, IReadOnlyList<Diagnostic> Diagnostics)
@@ -59,7 +59,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                 var at = new Location(into[first], new TextSpan(0, 0));
                 if (!Lexer.IsIdentifier(name))
                     bag.Add(Catalog.DirectoryNotModuleName(at, name));
-                // So that a path's first name has one meaning (§6.1, Imports).
+                // So that a path's first name has one meaning (spec programs.paths).
                 else if (module.IsRoot && name == Package.Std.Name)
                     bag.Add(Catalog.StdModuleName(at));
             }

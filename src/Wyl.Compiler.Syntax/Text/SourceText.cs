@@ -7,7 +7,7 @@ public sealed class SourceText
     /// <summary>
     /// A file of <paramref name="module"/>, named <paramref name="name"/> in messages and panics;
     /// without a module, a file compiled on its own, which is the one file of an unnamed package's
-    /// one module (spec 06-syntax.md §6.1), named without its directory.
+    /// one module (spec programs.packages), named without its directory.
     /// </summary>
     public SourceText(string path, string text, Module? module = null, string? name = null)
     {

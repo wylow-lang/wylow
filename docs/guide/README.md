@@ -20,7 +20,7 @@ Each is explained in detail in its chapter.
 2. **Statics are read-only.** Unlike Java, there is no `static mut`: a static's type must be
    sendable, and shared state changes through `Atomic<T>` or `Mutex<T>`. State one thread changes
    lives in an object passed to what uses it. See [05-concurrency.md](../spec/05-concurrency.md#55-statics).
-3. **`1.5` is a `float`.** Use `1.5d` for `double`. See [02-types.md](../spec/02-types.md#22-literals).
+3. **`1.5` is a `float`.** Use `1.5d` for `double`. See [Floating-point literals](../spec/02-lexical.md#lexical.literals.float).
 4. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
    **Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, not an `int`, so it can
    overflow. Widen first where it might: `((int)a + b) / 2`. See [02-types.md](../spec/02-types.md#24-arithmetic).
@@ -51,7 +51,19 @@ Each is explained in detail in its chapter.
    change. See [02-types.md](../spec/02-types.md#27-mutability-and-constants).
 14. **Unmarked means private to the file, not to the type.** Other types in the same file see a
    type's unmarked members; `pub(module)`, `pub(package)`, and `pub` widen it. There is no
-   `protected`. See [06-syntax.md](../spec/06-syntax.md#62-visibility).
+   `protected`. See [Visibility](../spec/03-programs.md#programs.visibility).
 15. **Generic code can't copy a `T` unless `T extends Copyable`**, since `T` may be a
    `unique struct`, which is moved and never copied. Moving, passing by `ref` or `in`, and returning
    need no bound. See [02-types.md](../spec/02-types.md#unbounded-type-parameters).
+
+## Organizing code
+
+Written against [chapter 3](../spec/03-programs.md#programs).
+
+- **A free function or a static method.** A free function belongs to a concept, and lives in the
+  module named for it: `geometry::distance(a, b)`, `text::parse(s)`. A static method belongs to a
+  type: its factories and constants, `Point.origin()`, `Color.WHITE`. A class with only static
+  members, written to hold functions, is better written as a module.
+- **Sealing a type's internals.** A type's members without a visibility are visible to its whole
+  file, other types included. A type whose internals the rest of its module shouldn't touch goes in
+  a file of its own.

@@ -1,5 +1,5 @@
 // Two files of a module may not both give a name beyond themselves, or give one that the other
-// keeps private, since a file would then see two meanings of it (spec 06-syntax.md §6.1). A
+// keeps private, since a file would then see two meanings of it (spec programs.names). A
 // function's overloads may be in any of its files, but no file may see one signature twice.
 
 pub(module) struct Shared { }

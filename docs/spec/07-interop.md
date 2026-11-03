@@ -34,7 +34,7 @@ extern {
   `@Include` and refers to the names directly.
 - `@Include("path")` names the header that provides the declarations. Include paths and libraries
   to link are given in the package manifest's `native` block
-  ([06-syntax.md](06-syntax.md#the-manifest)).
+  ([The manifest](03-programs.md#programs.manifest)).
 
 > The standard library may also declare an `extern struct`, a value type implemented by the C++
 > class `wyl::Name` (`Weak<T>` is `wyl::Weak`, `String` is `wyl::String`). This is currently both
@@ -157,9 +157,6 @@ var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
   variants may not have the same value. Values must be integer literals that fit the enum's
   integer type, which is `int` when values are given without `@Repr`.
 - Only enums whose variants carry no data can have `@Repr` or values.
-
-Enum variant names keep their C spelling when bound from C (`R8G8B8A8_UNORM`); the naming-convention
-warning does not apply inside `extern` blocks or to enums with `@Repr`.
 
 ## 7.6 Passing data across the boundary
 

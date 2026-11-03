@@ -160,7 +160,7 @@ class Audio {
   - Starting a thread before `main` begins panics.
   - A panic in an initializer ends the program before `main` begins (§5.7).
 - A static is never destroyed, whether the program ends by `main` returning or by a panic
-  ([06-syntax.md](06-syntax.md#entry-point)).
+  ([Running a program](03-programs.md#programs.execution)).
 
 ## 5.6 The standard library
 

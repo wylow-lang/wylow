@@ -132,7 +132,7 @@ public sealed partial class Binder
         return ErrorExpression(UndefinedName(name.Location, name.Name, "function"));
     }
 
-    /// <summary><c>gen::seed()</c> or <c>world::Chunk(...)</c>: a call of a name in a module (§6.1, Imports).</summary>
+    /// <summary><c>gen::seed()</c> or <c>world::Chunk(...)</c>: a call of a name in a module (spec programs.paths).</summary>
     BoundExpression BindPathCall(CallExpr e, PathExpr path, PendingArguments pending)
     {
         var typeArguments = BindTypeArguments(path.Name.TypeArguments);

@@ -246,7 +246,7 @@ public sealed partial class Binder
             var parameters = BindParameters(decl.Parameters);
             var modifiers = decl.Modifiers;
             bool isInterface = s.Kind == TypeKind.Interface;
-            // An interface method is as visible as its interface (§6.2).
+            // An interface method is as visible as its interface (spec programs.visibility).
             var reach = isInterface ? s.Reach : Reach.Of(decl).Within(s.Reach);
             if (decl.IsConstructor)
             {
@@ -361,7 +361,7 @@ public sealed partial class Binder
             Body = body,
             ContainingType = s,
             IsConstructor = true,
-            // It sets every field, so it reaches only where all of them do (§6.2).
+            // It sets every field, so it reaches only where all of them do (spec structs.constructors.memberwise).
             Reach = s.Fields.Select(f => f.Reach).Aggregate(s.Reach, (least, field) => field.Within(least)),
         };
         s.Constructors.Add(constructor);
