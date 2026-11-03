@@ -1,9 +1,11 @@
-// The standard library's result type, for operations that can fail. See docs/spec/04-errors.md.
-
+/// The result of an operation that can fail: a value, or an error (spec `errors.result`).
 pub enum Result<T, E> {
+    /// The operation's value.
     Ok(T value),
+    /// Why the operation failed.
     Err(E error);
 
+    /// Returns the value, or `fallback` if this is an error.
     pub T orElse(T fallback) {
         return switch (this) {
             case Ok(var value) -> value;
@@ -11,7 +13,7 @@ pub enum Result<T, E> {
         };
     }
 
-    // The value given by f, or the same error.
+    /// Returns the value that `f` makes of this value, or the same error.
     pub Result<U, E> map<U>(fn(T) -> U f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(f(value));
@@ -19,7 +21,7 @@ pub enum Result<T, E> {
         };
     }
 
-    // The same value, or the error given by f.
+    /// Returns the same value, or the error that `f` makes of this error.
     pub Result<T, F> mapErr<F>(fn(E) -> F f) {
         return switch (this) {
             case Ok(var value) -> Result.Ok(value);
@@ -27,7 +29,11 @@ pub enum Result<T, E> {
         };
     }
 
-    // The value, or a panic with the message, reported where this was called.
+    /// Returns the value.
+    ///
+    /// # Panics
+    ///
+    /// With `message`, if this is an error.
     @CallerLocation
     pub T orPanic(String message) {
         return switch (this) {

@@ -1,6 +1,6 @@
-// Types whose values can be written as text: string interpolation writes such a value by calling
-// `toString`.
-
+/// A type whose values can be written as text. String interpolation writes such a value by calling
+/// `toString`.
 pub interface Printable {
+    /// Returns the value as text.
     String toString();
 }

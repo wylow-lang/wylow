@@ -1,18 +1,31 @@
-// Views of elements stored elsewhere: in a fixed array, an `Array`, or a `List`. Spans are
-// `ref struct`s, so like `ref` they can only be locals and parameters, and whatever a span views is
-// held and borrowed for as long as the span exists. See docs/spec/03-memory-model.md.
-
+/// A view of elements stored elsewhere.
+///
+/// A span is a `ref struct`: it can only be a local or a parameter, and what it views is held and
+/// borrowed for as long as it is used (spec `types.spans`).
 pub ref struct Span<T> implements ReadOnlySpannable<T> {
-    // The caller must keep the storage alive and unmoved while the span exists.
+    T* data;
+    int count;
+
+    /// Makes a span of the `length` elements at `data`.
+    ///
+    /// # Safety
+    ///
+    /// The `length` elements at `data` must stay alive and unmoved while the span is used.
     pub unsafe Span(T* data, int length) {
         this.data = data;
         count = length;
     }
 
+    /// Returns the number of elements.
     pub int length() {
         return count;
     }
 
+    /// Returns a reference to the element at `index`.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
     @CallerLocation
     pub ref T operator [](int index) {
         panic::checkIndex(index, count);
@@ -21,7 +34,7 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
         }
     }
 
-    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    /// Returns a reference to the element at `index`, or null if `index` is out of bounds.
     pub ref? T get(int index) {
         if (index < 0 || index >= count) {
             return null;
@@ -31,7 +44,11 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
         }
     }
 
-    // The `length` elements starting at `start`.
+    /// Returns a span of the `length` elements from `start`.
+    ///
+    /// # Panics
+    ///
+    /// If `start` or `length` is negative, or `start + length` is greater than this span's length.
     @CallerLocation
     pub Span<T> slice(int start, int length) {
         panic::checkRange(start, length, count);
@@ -40,27 +57,39 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
         }
     }
 
+    /// Returns a read-only span of the same elements.
     pub ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
             return ReadOnlySpan<T>(data, count);
         }
     }
-
-    T* data;
-    int count;
 }
 
+/// A read-only view of elements stored elsewhere. It is a `ref struct`, as `Span` is.
 pub ref struct ReadOnlySpan<T> {
-    // The caller must keep the storage alive and unmoved while the span exists.
+    T* data;
+    int count;
+
+    /// Makes a read-only span of the `length` elements at `data`.
+    ///
+    /// # Safety
+    ///
+    /// The `length` elements at `data` must stay alive and unmoved while the span is used.
     pub unsafe ReadOnlySpan(T* data, int length) {
         this.data = data;
         count = length;
     }
 
+    /// Returns the number of elements.
     pub int length() {
         return count;
     }
 
+    /// Returns a read-only reference to the element at `index`.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
     @CallerLocation
     pub in T operator [](int index) {
         panic::checkIndex(index, count);
@@ -69,7 +98,7 @@ pub ref struct ReadOnlySpan<T> {
         }
     }
 
-    // Like the indexer, but null instead of a panic when `index` is out of bounds.
+    /// Returns a read-only reference to the element at `index`, or null if `index` is out of bounds.
     pub in? T get(int index) {
         if (index < 0 || index >= count) {
             return null;
@@ -79,7 +108,11 @@ pub ref struct ReadOnlySpan<T> {
         }
     }
 
-    // The `length` elements starting at `start`.
+    /// Returns a read-only span of the `length` elements from `start`.
+    ///
+    /// # Panics
+    ///
+    /// If `start` or `length` is negative, or `start + length` is greater than this span's length.
     @CallerLocation
     pub ReadOnlySpan<T> slice(int start, int length) {
         panic::checkRange(start, length, count);
@@ -87,7 +120,4 @@ pub ref struct ReadOnlySpan<T> {
             return ReadOnlySpan<T>(data + start, length);
         }
     }
-
-    T* data;
-    int count;
 }

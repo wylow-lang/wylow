@@ -1,12 +1,18 @@
-// What is about panics (spec library.panic, errors.panics): `panic(message)`, which the
-// compiler declares here and `std` re-exports, and the checks built-in arrays make, for a container
-// whose index isn't its storage's, such as a ring buffer on an `Array`. Each reports its caller's
-// location, as the built-in checks do.
+// Panics (spec `library.panic`): the bounds checks that indexing a built-in array makes, and
+// `panic(message)`, which the compiler declares in this module.
 
-// Panics unless 0 <= index < length.
+/// Checks that `index` is within a sequence of `length` elements.
+///
+/// # Panics
+///
+/// Unless 0 <= `index` < `length`.
 @CallerLocation
 pub extern void checkIndex(int index, int length);
 
-// Panics unless the `count` elements from `start` are within a sequence of `length`.
+/// Checks that the `count` elements from `start` are within a sequence of `length` elements.
+///
+/// # Panics
+///
+/// If `start` or `count` is negative, or `start + count` is greater than `length`.
 @CallerLocation
 pub extern void checkRange(int start, int count, int length);

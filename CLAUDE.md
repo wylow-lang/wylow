@@ -77,8 +77,18 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
 - **Every feature gets tests** for its behavior and each error it can produce, its row or column in
   the matrices, and a fuzzer mutation where one can cross it (enforced only by review). Every
   fuzzer, generator, or mutation finding is triaged into a test or a deleted line.
-- **Comments are concise and explain why, never what.** Match the existing style (collection
-  expressions, records, pattern matching).
+- **Comments are concise and explain why, never what.** A comment that would go stale when other
+  code changes (a list of callers or users, what something is for, a count, which file does
+  something else) is cut: say what a thing is, not who uses it ("Raw memory and the cycle
+  collector", not "Raw memory, for building containers"). Match the
+  existing style (collection expressions, records, pattern matching).
+- **In Wylow source** (`std`, tests): a type's fields come first, more visible ones above less
+  visible (`pub`, `pub(package)`, `pub(module)`, then file-private), whatever else they are.
+  Methods go in the order that reads best: a private helper may sit next to the method that uses it.
+- **Doc comments** (`///`, decision 0004): every sentence ends with a period, including the short
+  lines of a `# Panics` section. A function that returns a value starts with what it returns
+  ("Returns the element at `index`, ...", "Removes and returns ..."); one that returns nothing
+  starts with what it does ("Adds `value` after the last element.").
 
 ## When tests run
 

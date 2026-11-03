@@ -1,40 +1,84 @@
-// Raw memory, for building containers, and the cycle collector. The raw memory functions are
-// unsafe: the compiler cannot check how they are used, and misusing them is undefined behavior, as
-// in C++.
+// Raw memory and the cycle collector (spec `library.memory`). The compiler can't check how raw
+// memory is used, so its functions are `unsafe`.
 
-// Uninitialized storage for `count` values. Panics if `count` is negative or too large.
+/// Allocates uninitialized storage for `count` values of `T`.
+///
+/// # Panics
+///
+/// If `count` is negative, or `count` values of `T` are too large to address.
+///
+/// # Safety
+///
+/// The storage must be freed with `free`, once, after its values are dropped.
 @CallerLocation
 pub unsafe extern T* allocate<T>(int count);
 
-// Frees storage from `allocate`. Its values must already have been dropped.
+/// Frees storage that `allocate` returned.
+///
+/// # Safety
+///
+/// `data` must come from `allocate`, not be freed already, and hold no value that isn't dropped.
 pub unsafe extern void free<T>(T* data);
 
-// Stores a value in uninitialized storage.
+/// Stores `value` in uninitialized storage.
+///
+/// # Safety
+///
+/// `place` must be allocated storage that holds no value.
 pub unsafe extern void initialize<T>(T* place, T value);
 
-// Stores the default value in each of `count` places. The caller must know that `T` has one, which
-// only the standard library's containers can, so it is the package's own.
+/// Stores `T`'s default value in each of the `count` places at `data`.
+///
+/// # Safety
+///
+/// `T` must have a default value, and the places must hold no value. The compiler can't check
+/// that a generic `T` has one, so the function is the package's own.
 pub(package) unsafe extern void initializeDefault<T>(T* data, int count);
 
-// Destroys a value, leaving its storage uninitialized.
+/// Destroys the value at `place`, leaving its storage uninitialized.
+///
+/// # Safety
+///
+/// `place` must hold a value.
 pub unsafe extern void drop<T>(T* place);
 
-// Moves `count` values into uninitialized storage, leaving the source uninitialized. The two
-// ranges may overlap.
+/// Moves the `count` values at `from` into the uninitialized storage at `to`, leaving the source
+/// uninitialized. The two ranges may overlap.
+///
+/// # Safety
+///
+/// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
 pub unsafe extern void moveTo<T>(T* from, T* to, int count);
 
-// Frees every cycle of objects that nothing outside the cycle refers to. Reference counting
-// alone never frees them, and this never runs on its own. Panics in a destructor. See
-// docs/spec/03-memory-model.md.
+/// Frees every cycle of objects that nothing outside the cycle refers to, which reference counting
+/// alone never frees. It runs only when called (spec `memory.cycles`).
+///
+/// # Panics
+///
+/// If it is called from a destructor.
 @CallerLocation
 pub extern void collectCycles();
 
-// Like `collectCycles()`, but stops after visiting about `maxVisits` objects; the rest wait
-// for the next call.
+/// Frees cycles as `collectCycles()` does, but stops after visiting about `maxVisits` objects; the
+/// rest wait for the next call.
+///
+/// # Panics
+///
+/// If it is called from a destructor.
 @CallerLocation
 pub extern void collectCycles(int maxVisits);
 
-// What the cycle collector did since the last call.
+/// What the cycle collector did since the last call of `cycleStats`.
+pub struct CycleStats {
+    /// The objects that may have been left in a cycle, which the next collection looks at.
+    pub int buffered;
+    /// The objects the collector looked at.
+    pub int visited;
+    /// The objects in cycles that the collector freed.
+    pub int freed;
+}
+
+/// Returns what the cycle collector did since the last call.
 pub CycleStats cycleStats() {
     mut var stats = CycleStats();
     takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
@@ -42,12 +86,3 @@ pub CycleStats cycleStats() {
 }
 
 extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);
-
-pub struct CycleStats {
-    // Objects that may have been left in a cycle, to be looked at by the next collection.
-    pub int buffered;
-    // Objects the collector looked at.
-    pub int visited;
-    // Objects in cycles the collector freed.
-    pub int freed;
-}

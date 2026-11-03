@@ -1,115 +1,157 @@
-// The members and interfaces of the primitive types. Each declaration only gives its type members:
-// `int` still names the built-in type, and the runtime implements the methods.
+// The members and interfaces of the primitive types (spec `types.primitives.methods`). Each
+// declaration only gives its type members: `int` still names the built-in type, and the runtime
+// implements the methods.
 
+/// The members of `bool`.
 pub extern struct bool implements Printable {
+    /// Returns `"true"` or `"false"`.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `char`.
 pub extern struct char implements Comparable<char>, Printable {
-    // By code point.
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, by code
+    /// point.
     @Pure
     pub extern int compareTo(char other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `sbyte`.
 pub extern struct sbyte implements Comparable<sbyte>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(sbyte other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `byte`.
 pub extern struct byte implements Comparable<byte>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(byte other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `short`.
 pub extern struct short implements Comparable<short>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(short other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `ushort`.
 pub extern struct ushort implements Comparable<ushort>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(ushort other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `int`.
 pub extern struct int implements Comparable<int>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(int other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `uint`.
 pub extern struct uint implements Comparable<uint>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(uint other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `long`.
 pub extern struct long implements Comparable<long>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(long other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `ulong`.
 pub extern struct ulong implements Comparable<ulong>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(ulong other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `nint`.
 pub extern struct nint implements Comparable<nint>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(nint other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
+/// The members of `nuint`.
 pub extern struct nuint implements Comparable<nuint>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(nuint other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
-// A total order, unlike the comparison operators: -0 sorts before 0, and NaN after every other
-// value, infinity included, and the same as any other NaN.
+/// The members of `float`.
 pub extern struct float implements Comparable<float>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in a
+    /// total order: -0 sorts before 0, and NaN after every other value, infinity included, and the
+    /// same as any other NaN.
     @Pure
     pub extern int compareTo(float other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }
 
-// The same total order as float's.
+/// The members of `double`.
 pub extern struct double implements Comparable<double>, Printable {
+    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in the
+    /// same total order as `float`'s.
     @Pure
     pub extern int compareTo(double other);
 
+    /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
 }

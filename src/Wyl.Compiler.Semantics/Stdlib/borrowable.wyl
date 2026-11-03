@@ -1,8 +1,11 @@
-// A class that may move or free its elements implements this, so that references and spans into
-// it stay valid: the compiler calls `beginBorrow` when a reference, span, or loop into the object
-// starts and `endBorrow` when it ends. Only the compiler may call them.
-
+/// A class that is told when references, spans, and loops into it start and end (spec
+/// `memory.borrows.borrowable`).
+///
+/// Only classes can implement it, and only the compiler calls its methods.
 pub interface Borrowable {
+    /// Called when a reference, span, or loop into the object starts.
     void beginBorrow();
+
+    /// Called when a reference, span, or loop into the object ends.
     void endBorrow();
 }

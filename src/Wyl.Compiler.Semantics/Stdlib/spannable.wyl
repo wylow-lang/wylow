@@ -1,10 +1,15 @@
-// Types whose elements can be viewed as a span. A value of such a type converts implicitly to the
-// span, by a call of the method below, and a for-each loop iterates over it through that span.
-
+/// A type whose elements can be viewed as a read-only span.
+///
+/// A value of the type converts implicitly to `ReadOnlySpan<T>` by a call of `asReadOnlySpan`, and
+/// a for-each loop iterates over it through that span.
 pub interface ReadOnlySpannable<T> {
+    /// Returns a read-only span of the elements.
     ReadOnlySpan<T> asReadOnlySpan();
 }
 
+/// A type whose elements can be viewed as a span, which converts implicitly to `Span<T>` by a call
+/// of `asSpan`.
 pub interface Spannable<T> extends ReadOnlySpannable<T> {
+    /// Returns a span of the elements.
     mut Span<T> asSpan();
 }

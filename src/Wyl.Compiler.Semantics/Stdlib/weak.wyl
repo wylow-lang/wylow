@@ -1,7 +1,7 @@
-// A reference that does not keep its target alive. A `T` or `T?` converts to it implicitly; its
-// default refers to nothing. See docs/spec/03-memory-model.md.
-
+/// A reference that doesn't keep its target alive (spec `memory.weak`).
+///
+/// A `T` or `T?` converts to it implicitly, and its default value refers to nothing.
 pub extern struct Weak<T> {
-    // The target, or null once it has been destroyed.
+    /// Returns the target, or null once it has been destroyed.
     pub extern T? get();
 }

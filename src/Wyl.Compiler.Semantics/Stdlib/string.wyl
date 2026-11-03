@@ -1,51 +1,59 @@
-// The members and interfaces of `String`, the built-in immutable UTF-8 text. `String` itself is not
-// a struct: this declaration only gives it methods, which the runtime's `wyl::String` implements.
-// Offsets and lengths count bytes of UTF-8, which is what a string stores; a character (`char`)
-// takes 1 to 4.
-
+/// Immutable UTF-8 text, the built-in type of string literals.
+///
+/// This declaration gives `String` its members and interfaces; `String` itself is a built-in type,
+/// not a struct (spec `types.string`). Offsets and lengths count bytes of UTF-8, which is what a
+/// string stores; a character (`char`) takes 1 to 4 of them.
 pub extern struct String implements Comparable<String>, Printable {
-    // The length in bytes, not in characters.
+    /// Returns the length in bytes, not in characters.
     @Pure
     pub extern int byteLength();
 
+    /// Returns whether the string has no bytes.
     @Pure
     pub extern bool isEmpty();
 
-    // The UTF-8 bytes, without a copy. The string is held while the span is used, and never changes.
+    /// Returns the UTF-8 bytes, without a copy. The string is held while the span is used.
     @Pure
     pub extern ReadOnlySpan<byte> bytes();
 
-    // The number of characters (code points). It reads the whole string.
+    /// Returns the number of characters (code points).
     @Pure
     pub extern int charCount();
 
+    /// Returns whether the string starts with the bytes of `prefix`.
     @Pure
     pub extern bool startsWith(String prefix);
 
+    /// Returns whether the string ends with the bytes of `suffix`.
     @Pure
     pub extern bool endsWith(String suffix);
 
+    /// Returns whether the bytes of `text` occur in the string.
     @Pure
     pub extern bool contains(String text);
 
-    // The byte offset where `text` first occurs, or null if it doesn't.
+    /// Returns the byte offset where `text` first occurs, or null if it doesn't.
     @Pure
     pub extern int? indexOf(String text);
 
-    // The `length` bytes from `start`. Panics if they are out of bounds or would split a character.
+    /// Returns the `length` bytes from `start`, as a string.
+    ///
+    /// # Panics
+    ///
+    /// If any of those bytes is out of bounds, or the range would split a character.
     @CallerLocation
     pub extern String slice(int start, int length);
 
-    // Negative, zero, or positive as this string sorts before, the same as, or after `other`: by
-    // byte, which for UTF-8 is the order of the code points.
+    /// Returns -1, 0, or 1 as this string sorts before, the same as, or after `other`: by byte,
+    /// which for UTF-8 is the order of the code points.
     @Pure
     pub extern int compareTo(String other);
 
-    // The string itself.
+    /// Returns the string itself.
     @Pure
     pub extern String toString();
 
-    // For the compiler's loops over a string's characters. `offset` must be where one starts.
+    // The character that starts at `offset`, which must be where one starts.
     @Pure
     extern char charAt(int offset);
 
