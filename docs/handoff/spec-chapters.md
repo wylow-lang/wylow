@@ -4,6 +4,28 @@ Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. `spec-m
 directory) says where each passage of the old spec files (`02-types.md` to `07-interop.md`) goes and
 the rules for every rewrite; decision 0002 is the structure, chapter 1 the phrasing.
 
+## Next session: chapters 2 and 3
+
+The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
+(18–22 + appendix A). None has started; every new chapter file but 1 and parts of 20 is anchors
+only.
+
+- **Chapter 2, `02-lexical.md`**: from `02-types.md` §2.2 (literals, escapes, `$` strings: the
+  form only, the meaning goes to `expressions.interpolation`) and `06-syntax.md` §6.11 (naming
+  conventions, informative). Tokens, comments, identifiers, keywords, and operators have no old
+  text to map from: write them from the lexer (`src/Wyl.Compiler.Syntax/`), checked against
+  `tests/cases`, and say in the report which rule has no test.
+- **Chapter 3, `03-programs.md`**: from `06-syntax.md` §6.1 (packages, modules, imports, paths,
+  names every file sees, the entry point, the manifest) and §6.2 (visibility).
+  `programs.execution` gets the end of the program (decision 0029) and says that every static is
+  initialized before `main`, linking `variables.statics` for the rules (decision 0030), which stay
+  in chapter 6.
+- **Diagnostics pages**: 60 catalog entries are anchored in these two chapters
+  (`grep -E '"(lexical|programs)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`); write
+  each page and take its code off `without-pages.txt`.
+- Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
+  under "Already written".
+
 ## Where it stands
 
 The diagnostics catalog is merged (decision 0003): every diagnostic is a factory method in
@@ -33,7 +55,7 @@ The last chapter's session deletes `spec-mapping.md`, the old files, and this ha
 
 ## Rules added to the old files since the mapping was written
 
-Decisions 0028 to 0031 put their rules into the old files, and `spec-mapping.md` has a row for
+Decisions 0028 to 0032 put their rules into the old files, and `spec-mapping.md` has a row for
 each. When rewriting the chapter a row points at, write these too:
 
 - **0028, destructors on unique structs** (`02-types.md`, "Destructors of unique structs";
@@ -49,6 +71,8 @@ each. When rewriting the chapter a row points at, write these too:
   Static fields aren't implemented (#6), so it has no tests yet.
 - **0031, elements released last to first** (`03-memory-model.md`, When references are released):
   to `memory.release.destruction`; implemented, pinned by `containers/release_order.wyl`.
+- **0032, generic types have no static fields** (`05-concurrency.md` §5.5): to
+  `variables.statics`; its error and catalog code come when static fields are implemented.
 - **`is ref` holds** (`03-memory-model.md`, Nullable references): a hold lasts until the statement
   ends, even where the rest of the condition is false, pinned by
   `panics/list_reference_pattern_held_in_else.wyl` and `..._guard_held.wyl`. To `memory.holds`.

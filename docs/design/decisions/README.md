@@ -59,3 +59,4 @@ history and a reason can be found without searching the spec.
 | [0029](0029-statics-are-not-destroyed.md) | Statics are not destroyed at the end of the program |
 | [0030](0030-statics-are-initialized-before-main.md) | Statics are initialized before `main`, on one thread |
 | [0031](0031-elements-are-released-last-to-first.md) | Elements are released last to first |
+| [0032](0032-no-statics-in-generic-types.md) | Generic types have no static fields |

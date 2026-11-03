@@ -146,6 +146,7 @@ class Audio {
 
 - A static of a type that isn't sendable, such as `static List<int> X`, is a compile error that
   suggests `Frozen<T>` or a `Mutex<T>`.
+- A generic type can't declare a static field; its static methods are allowed.
 - State that one thread changes, such as the game's world or the editor's selection, belongs in an
   object the program passes to what uses it.
 - **Every static is initialized before `main` runs**, on the main thread, exactly once: those of
