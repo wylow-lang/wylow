@@ -147,12 +147,14 @@ Status when the hardening phase closed (2026-10-31): 98.2% of lines and 94.0% of
 over all modes; every user-error and verifier site reached; `ir-effects`, `ir-access`, and
 `conversions` at 100%, and `emitter-types`, `emitter-ir`, and `place-path` triaged. The interpreter
 targets haven't been triaged; they are picked up when convenient, since the interpreter's own bugs
-surface as disagreements. `binder-names`, `binder-imports`, and `manifest` (packages and modules,
-2026-11-01) haven't run yet; their first CI run is triaged like the others.
-The analyses (`analysis-*`), `verifier`, `verifier-values`, and `borrows` were added with the
-analysis self-tests and are measured on their first CI run.
+surface as disagreements.
 
-Mutation status on 2026-11-01: every target measured, 85.2% overall, 335 survivors untriaged.
+Mutation status on 2026-11-01: all 21 targets then in `tests/mutation/targets.json` measured,
+85.2% overall, 335 survivors untriaged. This includes `binder-names`, `binder-imports`, and
+`manifest` (packages and modules, added the same day). The analyses (`analysis-*`), `verifier`,
+`verifier-values`, and `borrows` were added with the analysis self-tests and haven't run yet; their
+first CI run is triaged like the others.
+
 Proposed triage order: the interpreter's `arithmetic` and `cycles` (143 survivors, mostly
 `RuntimeArithmetic.cs`'s total order, NaN, and conversion guards), then `binder-imports`,
 `manifest`, and `binder-names` (46), then `text`, `calls`, `core`, `memory`, and `intrinsics`
