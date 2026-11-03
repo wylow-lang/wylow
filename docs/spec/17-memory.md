@@ -322,8 +322,9 @@ copying what it finds.
 - It is allowed where a `ref` is (parameters, locals, pattern bindings, and returns into the
   receiver), and follows the same rules: it is second-class, and what it refers into is held or
   borrowed while it is used.
-- It converts implicitly from a `ref T` to a `ref? T`, and from a `ref` to an `in`. Nothing
-  converts in the other direction ([Reference conversions](05-conversions.md#conversions.references)).
+- It converts implicitly as [Reference conversions](05-conversions.md#conversions.references)
+  gives: `ref` to `in`, `ref` and `in` to their nullable forms, and `null` to `ref?` or `in?`.
+  Nothing converts in the other direction.
 - A `ref?` is initialized or passed like a `ref`, or with `null`: `ref? T x = place`,
   `ref? T x = null`, and `ref? var x = list.get(i)`. A `ref?` parameter takes `ref place`, another
   `ref?`, or `null`, which needs no `ref`, and may default to `null`. An `in?` parameter takes what

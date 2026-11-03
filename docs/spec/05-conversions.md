@@ -196,7 +196,8 @@ void f(in int[2] v) { Span<int> t = v; }   // error[WYL0079]
 <a id="conversions.references"></a>
 ## 5.7 Reference conversions
 
-`null` converts to `ref? T` and `in? T`. A `ref? T` converts to `in? T` of the same `T`. No other
+`null` converts to `ref? T` and `in? T`. A `ref T` converts to a `ref? T`, to an `in T`, and to
+an `in? T`; an `in T` converts to an `in? T`; and a `ref? T` converts to an `in? T`. No other
 conversion applies to a reference type, and none changes the type `T` that it refers to
 ([Nullable references](17-memory.md#memory.nullable-references)). How a place is passed to a
 `ref`, `in`, `ref?`, or `in?` parameter is a rule of
