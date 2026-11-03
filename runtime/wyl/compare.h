@@ -33,7 +33,7 @@ template <class T>
 struct Builtin {
     const T& value;
 
-    explicit Builtin(const T& value) : value(value) {}
+    explicit Builtin(const T& initial) : value(initial) {}
 
     int32_t compareTo(const T& other) const {
         if constexpr (std::is_same_v<T, String>) {
