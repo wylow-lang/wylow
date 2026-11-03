@@ -24,7 +24,12 @@ The catalog (`src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`, by spec chapter)
 codes: each factory method gives its code, its spec section, and its message. A code's page is
 `WYLnnnn.md` here: what it means, a short example, how to fix it, and the spec section. The page's
 first `wyl` block is a whole program that produces that code and no other error; the catalog test
-compiles it. Codes whose page is not written are in `without-pages.txt`, which only shrinks.
+compiles it. A code only a package can produce, such as a manifest's, has a package as its example
+instead: each of its blocks names its file after the language, as in ```` ```wylcfg package.wylcfg ````
+and ```` ```wyl src/main.wyl ````, and the test writes them out and compiles the package. Codes whose
+page is not written are in `without-pages.txt`, which only shrinks. A code stays there when no
+program produces it alone: `WYL0022` (the interpolated string leaves a value another rule rejects),
+and `WYL0029` and `WYL0030` (a `dependencies` entry is itself `WYL0031`).
 
 ## The primary message
 

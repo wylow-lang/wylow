@@ -22,6 +22,10 @@ static partial class CatalogSelfTests
     [GeneratedRegex(@"```wyl\r?\n(.*?)```", RegexOptions.Singleline)]
     private static partial Regex ExamplePattern();
 
+    /// <summary>A block whose info string names its file, as in <c>```wyl src/main.wyl</c>: one file of a package example.</summary>
+    [GeneratedRegex(@"```\w+ ([^\s`]+)\r?\n(.*?)```", RegexOptions.Singleline)]
+    private static partial Regex PackageFilePattern();
+
     public static IEnumerable<TestResult> Run(string root)
     {
         yield return Result("catalog/codes", Codes());
@@ -97,15 +101,46 @@ static partial class CatalogSelfTests
             }
             if (unwritten.Contains(descriptor.Code))
                 yield return $"{descriptor.Code} has a page, so it must leave {Unwritten}";
-            if (ExamplePattern().Match(File.ReadAllText(page)) is not { Success: true } example)
+            var text = File.ReadAllText(page);
+            var files = PackageFilePattern().Matches(text);
+            PackageSources sources;
+            if (files.Count > 0)
+            {
+                sources = WritePackage(descriptor.Code, files);
+            }
+            else if (ExamplePattern().Match(text) is { Success: true } example)
+            {
+                sources = PackageSources.Of(new SourceText(page, example.Groups[1].Value));
+            }
+            else
             {
                 yield return $"{descriptor.Code}: the page has no ```wyl example";
                 continue;
             }
-            var result = Compilation.Lower(new SourceText(page, example.Groups[1].Value));
+            var result = Compilation.Lower(sources);
             var codes = result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
             if (!codes.SequenceEqual([descriptor.Code]))
                 yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no error" : string.Join(", ", codes))}";
         }
+    }
+
+    /// <summary>
+    /// A page's package example, for the codes only a package can produce: each block naming its
+    /// file is written there, under a directory of the code's own, and the package read from it.
+    /// </summary>
+    static PackageSources WritePackage(string code, MatchCollection files)
+    {
+        var directory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "wyl-diagnostic-pages", code));
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, recursive: true);
+        foreach (Match file in files)
+        {
+            var path = Path.GetFullPath(Path.Combine(directory, file.Groups[1].Value));
+            if (!path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                throw new InvalidOperationException($"{code}: example file '{file.Groups[1].Value}' is outside its package");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, file.Groups[2].Value);
+        }
+        return PackageSources.Load(directory);
     }
 }
