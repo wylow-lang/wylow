@@ -13,13 +13,13 @@ by a collector that runs only when the program calls it.
 ## 3.1 Values
 
 Structs, primitives, and fixed arrays are stored inline and copied on assignment
-(see [02-types.md](02-types.md#29-structs)), except unique ones, which are moved. Only a unique
-struct may have a destructor ([02-types.md](02-types.md#destructors-of-unique-structs)). Destroying a
+(see [02-types.md](07-structs.md#structs.declarations)), except unique ones, which are moved. Only a unique
+struct may have a destructor ([02-types.md](07-structs.md#structs.unique.destructors)). Destroying a
 struct runs its destructor, if it has one, then releases its fields, including any class references.
 
 ### Moves
 
-A value of a unique type ([02-types.md](02-types.md#unique-structs)) is **moved** wherever another
+A value of a unique type ([02-types.md](07-structs.md#structs.unique)) is **moved** wherever another
 value would be copied: initializing or assigning a variable, a by-value argument, a `return`,
 storing into a field or element, and an escaping lambda's capture. Moving gives the destination the
 value's contents without copying anything; the source no longer holds a value.
@@ -270,7 +270,7 @@ struct Mat4 {
 - A `ref` return must point into mutable storage, so a struct method that isn't `mut` returns `in` (or a
   pointer's target). Calling a method that returns `in` gives a read-only place.
 - The result is a place for as long as the receiver is. A temporary struct can't be the receiver of
-  a `mut` method ([06-syntax.md](06-syntax.md#mut-struct-methods)), and on one, such as
+  a `mut` method ([06-syntax.md](07-structs.md#structs.methods.mut)), and on one, such as
   `makeMatrix().at(0)`, an `in` result can be read but not referred to.
 - Free functions and static methods cannot return references yet.
 

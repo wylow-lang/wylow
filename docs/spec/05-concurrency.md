@@ -45,7 +45,7 @@ Wherever a sendable type is required, using another is a compile error naming th
 isn't sendable.
 
 **Moving and sharing.** A sendable value reaches another thread in one of two ways, and which one
-follows from whether it can be copied ([02-types.md](02-types.md#unique-structs)):
+follows from whether it can be copied ([02-types.md](07-structs.md#structs.unique)):
 
 - A copyable sendable value is **shared**: its copies may be used by several threads at once.
   Nothing reachable through it can change except through a synchronization type: a copy of a
@@ -266,7 +266,7 @@ catch.
 
 `Isolated<T>` holds a `T` and everything reachable from it (an **isolated graph**) such that nothing
 outside refers to any normal object in it. It is a unique struct
-([02-types.md](02-types.md#unique-structs)), so it can't be copied, and it is sendable for any `T`:
+([02-types.md](07-structs.md#structs.unique)), so it can't be copied, and it is sendable for any `T`:
 moving it moves the whole graph to whoever receives it, and leaves nothing behind that could reach
 those objects.
 

@@ -16,7 +16,7 @@ Each is explained in detail in its chapter.
 
 1. **Copying a struct shares what's inside it.** Struct copies are shallow: class references in the
    copy point at the same objects (same `List`, same `String`). Use `.clone()` for a deep copy.
-   See [02-types.md](../spec/02-types.md#29-structs).
+   See [02-types.md](../spec/07-structs.md#structs.declarations).
 2. **Statics are read-only.** Unlike Java, there is no `static mut`: a static's type must be
    sendable, and shared state changes through `Atomic<T>` or `Mutex<T>`. State one thread changes
    lives in an object passed to what uses it. See [05-concurrency.md](../spec/05-concurrency.md#55-statics).

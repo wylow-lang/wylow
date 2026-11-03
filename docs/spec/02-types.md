@@ -135,7 +135,7 @@ stored. Nullable values follow the rules above, and also:
   local itself either, since the local could then change after a null check. A narrowed local that
   isn't `mut` is never assigned again, so `in` variables, spans, and loops can refer into its value.
 - `v!` and `v?.m()` work on a copy: `v!.x = 1` and `v!.m()` are errors, as for any temporary
-  ([06-syntax.md](06-syntax.md#mut-struct-methods)), and so is `v?.m()`, when `m` is a `mut` struct
+  ([06-syntax.md](07-structs.md#structs.methods.mut)), and so is `v?.m()`, when `m` is a `mut` struct
   method, since its changes would be lost.
 - A struct cannot contain itself through a nullable (`struct Link { pub Link? next; }`), since the
   value would be stored inline; use a class.
@@ -197,7 +197,7 @@ mut var target = enemies.first();
   A `ref struct` variable may be `mut`, which allows calling its `mut` methods, but it
   still can't be reassigned ([03-memory-model.md](03-memory-model.md#spans)).
 - **A struct method can't change `this` unless it is `mut`**: `mut void normalize()`. Only `mut`
-  methods need a mutable place to be called on ([06-syntax.md](06-syntax.md#mut-struct-methods)).
+  methods need a mutable place to be called on ([06-syntax.md](07-structs.md#structs.methods.mut)).
 - `mut` is not part of a function's signature: an override may declare its parameters `mut` or not
   regardless of the method it overrides.
 - `const` declares a compile-time constant: `const float PI = 3.14159;`.
@@ -395,42 +395,6 @@ Result<void, IoError> close(File f) {
     var status = sys::close(f.descriptor);
     discard f;                                  // already closed: don't run the destructor
     return status == 0 ? Result.ok() : Result.err(IoError.Close);
-}
-```
-
-### Where copies happen
-
-Struct copies are cheap for small structs and the optimizer removes many, but nothing promises
-that. A copy happens wherever a value is:
-
-- assigned or used to initialize a variable: `var t = body.transform;`;
-- passed to a by-value parameter, or returned;
-- read by value out of a container: `Particle p = particles[i];`, `list.first()`;
-- the variable of a for-each loop without `ref` or `in`: `for (Particle p : particles)`;
-- captured by an escaping lambda.
-
-To avoid one, refer to the value instead: an `in` parameter for a large argument
-(`float det(in Mat4 m)`), `in` or `ref` locals (`ref Transform t = body.transform;`), and
-`for (in Particle p : particles)` or `for (ref Particle p : particles)`. Calling a method on a
-place never copies it. To make every copy of a type an error, declare it `unique`.
-
-### Layout
-
-Struct fields are laid out in declaration order with C-compatible alignment, so structs can be
-passed directly to graphics APIs.
-
-| Annotation | Effect |
-|---|---|
-| `@Align(n)` | Align the struct (or field) to `n` bytes |
-| `@Packed` | Remove all padding |
-
-```java
-@Align(16)
-struct CameraUniforms {
-    pub Mat4 view;
-    pub Mat4 proj;
-    pub Vec3 eye;
-    byte[4] _pad;              // explicit padding is a field
 }
 ```
 

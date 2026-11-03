@@ -23,10 +23,7 @@ until their chapters are written:
 - **An override is written with exactly the visibility of the method it overrides**, and an
   interface method's implementation with the interface's visibility, so a method's reach is the
   same in the base class and every subclass.
-- A type's memberwise constructor is as visible as its least visible field. A `pub` struct with a
-  private field can be named everywhere but built only where the field is visible, or through a
-  constructor or factory that is `pub`. A class's implicit parameterless constructor is as visible
-  as the class.
+- A class's implicit parameterless constructor is as visible as the class.
 - **A call chooses only among the overloads visible where it is**, as in Java: one it can't see
   never wins over one it can. If none is visible, the error says how far the one that fits reaches.
 
@@ -47,53 +44,6 @@ so a struct's field initializers don't run for it (a fixed-array local is the ex
 [02-types.md](02-types.md)). `var` keeps this short where the type is visible, as in
 `var v = Vec3();`; write the type out where the value doesn't show it, as in
 `Vec3 target = path.last();`.
-
-### Struct constructors
-
-A struct is built one way: by calling a constructor.
-
-- A struct that declares no constructor gets a **memberwise constructor**, which takes every field
-  in declaration order: `Vec2(1, 2)` for `struct Vec2 { pub float x, y; }`. Each parameter defaults to
-  its field's initializer, or else to the field type's default value, so arguments may be left out
-  or passed by name (§6.4):
-
-  ```java
-  struct Enemy {
-      pub Vec3 position;
-      pub int health = 100;
-      pub Player? target;
-  }
-
-  Enemy()                    // every field defaulted
-  Enemy(pos)                 // health 100, no target
-  Enemy(health: 50)          // position defaulted
-  ```
-
-  A field with no initializer whose type has no default (a non-null reference, a type parameter, or
-  a struct containing one) is a required argument. The memberwise constructor is as visible as its
-  least visible field.
-- Arguments are evaluated in the order written, as in any call. Then each field is set, in
-  declaration order, to its argument or, for one left out, to its initializer. Initializers may call
-  functions but cannot use `this` or other fields.
-- **`T()` is the default value.** It exists for a struct whose fields all have defaults, including
-  one that declares constructors, since arrays rely on it, and it cannot be declared.
-- Declaring any constructor removes the memberwise one, apart from `T()`. A declared constructor
-  starts from the default value, then runs its body, unless it starts with `this(...)`: it then
-  starts from the value the constructor it calls makes (which may be `T()`). The arguments of
-  `this(...)` cannot use `this`, and a constructor whose `this(...)` chain comes back to it is an
-  error, as for classes. `this` refers to the value being built, and
-  `return;` ends construction early. To set fields its parameters don't cover, assign them after the
-  call: `mut var e = Enemy(pos); e.health = 50;`.
-- Constructors are declared Java-style:
-
-```java
-struct Enemy {
-    pub Vec3 position;
-    pub int health = 100;
-
-    pub Enemy(Vec3 pos) { position = pos; }
-}
-```
 
 ### Class constructors
 
@@ -128,7 +78,7 @@ applyDamage(ref enemy, info);
 
 `ref` and `in` parameters follow the reference rules in
 [03-memory-model.md](03-memory-model.md#33-references). `in` is intended for large read-only structs
-such as matrices. For a unique struct ([02-types.md](02-types.md#unique-structs)), a by-value parameter takes the value over, and
+such as matrices. For a unique struct ([02-types.md](07-structs.md#structs.unique)), a by-value parameter takes the value over, and
 the caller can't use what it passed ([03-memory-model.md](03-memory-model.md#moves)), while `in` and
 `ref` leave it with the caller. On class-typed parameters, `ref`/`in` are not meaningful (a class is already passed
 by reference) and are a compile error. So is a function-typed parameter, nullable or not, since a
@@ -142,33 +92,6 @@ function is already passed without copying.
   struct method that isn't `mut`, or a call that returns `in`.
 - Arguments are evaluated left to right, and a `ref` argument is a reference to the place, not a
   snapshot of its value: in `x + increment(ref x)`, the left `x` is read before the call.
-
-### `mut` struct methods
-
-A struct method can't change `this` unless it is declared `mut`, as nothing else can change
-without `mut` (§2.7); in a `mut` method, `this` is a `ref`. Interface methods may be `mut` too
-([02-types.md](02-types.md#212-interfaces)). A `mut` method can't be called on a read-only place:
-through an `in` parameter or a `ReadOnlySpan<T>`, or on a variable that isn't `mut`.
-
-A temporary struct or fixed array (one a call or constructor returned, a `?:` of two values, `v!`)
-is a value, not a variable, so nothing writes to it: what the write changed would be gone after
-the statement. Its `mut` methods can't be called, its fields and elements can't be assigned (through
-`operator []=` either), it can't be passed by `ref` or referred to, and a `ref` loop can't iterate it;
-store it in a `mut` variable first. A write that reaches an object through a temporary
-is kept, as in `makeList().add(1)` or a struct's `operator []=` that isn't `mut`.
-
-```java
-struct Vec3 {
-    pub float x, y, z;
-
-    pub float length() { return sqrt(x*x + y*y + z*z); }
-    pub mut void normalize() { var l = length(); x /= l; y /= l; z /= l; }
-}
-```
-
-Class methods take no `mut`: calling one never changes the reference it is called through, and
-what it may change in the object is decided by which fields are `mut`. Enum methods take none
-either, since an enum value can't be changed in place. Static methods have no `this`.
 
 ### Overloading, defaults, named arguments
 
@@ -733,7 +656,7 @@ while (node is Some(var n)) { node = n.next; }
 
 A field pattern may bind a reference to the field instead of a copy: `in var name` (read-only) or
 `ref var name` (mutable), or with a type, `in Vec3 name`. A field of a unique type
-([02-types.md](02-types.md#unique-structs)) can only be bound this way, since a binding by value
+([02-types.md](07-structs.md#structs.unique)) can only be bound this way, since a binding by value
 would copy it:
 
 ```java
