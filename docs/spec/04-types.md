@@ -175,9 +175,9 @@ and the reference types `ref? T` and `ref T?` in
 **Example:**
 
 ```java
-Node? next = null;
-print(next.value);              // error[WYL0065]
-print(next?.value);             // the value, or null
+Node root = new Node();
+print(root.next.value);         // error[WYL0065]
+print(root.next?.value);        // the value, or null
 int*? p;                        // error[WYL0066]
 Span<int>? view;                // error[WYL0067]
 ```

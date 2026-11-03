@@ -88,13 +88,13 @@ Informative text adds no rule. Where it seems to disagree with normative text, t
 applies.
 
 A line of an example that is a compile-time error ends with a comment giving the code of the
-diagnostic it produces, as in `// error[WYL0382]`. An example produces exactly the errors it marks.
+diagnostic it produces, as in `// error[WYL0397]`. An example produces exactly the errors it marks.
 
 **Example:**
 
 ```java
-Buffer kept = data;             // 'Buffer' is a unique struct, so 'data' is moved
-print(data.length);             // error[WYL0382]
+Node? next = null;
+print(next.value);              // error[WYL0397]
 ```
 
 <a id="introduction.terms"></a>

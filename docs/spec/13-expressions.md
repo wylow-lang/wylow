@@ -382,10 +382,10 @@ class Node { pub int value; }
 
 void main() {
     Node? node = null;
-    print(node.value);              // error[WYL0065], reached with '?.' or '!'
+    print(node.value);              // error[WYL0397], reached with '?.' or '!'
     print(node?.value ?? 0);
     print(node!.value);             // panics
-    print(node ?? new Node());      // valid
+    print((node ?? new Node()).value);  // valid
     int n = 1;
     print(n!);                      // error[WYL0312]
 }
