@@ -174,12 +174,12 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// Whether a declaration outside the standard library takes the name of a type the language is
-    /// built on, which every file sees (spec programs.builtin-names), reporting it if so.
+    /// Whether a declaration outside the standard library, of any kind, takes a name every file
+    /// sees (spec programs.builtin-names), reporting it if so. Every place that declares a name asks.
     /// </summary>
-    bool IsLanguageName(Declaration declaration, string name, Location at)
+    bool TakesLanguageName(string name, Location at)
     {
-        if (declaration.Location.Source.Module.Package.IsStd || stdlib.LanguageType(name) is null)
+        if (at.Source.Module.Package.IsStd || !stdlib.IsLanguageName(name))
             return false;
         Error(Catalog.LanguageTypeName(at, name));
         return true;

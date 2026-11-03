@@ -61,3 +61,4 @@ history and a reason can be found without searching the spec.
 | [0031](0031-elements-are-released-last-to-first.md) | Elements are released last to first |
 | [0032](0032-no-statics-in-generic-types.md) | Generic types have no static fields |
 | [0033](0033-source-text-and-columns.md) | Source files are strict UTF-8, and columns count characters |
+| [0034](0034-language-names-are-reserved.md) | The names every file sees mean only their declarations |

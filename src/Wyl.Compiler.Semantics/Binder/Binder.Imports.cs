@@ -139,6 +139,13 @@ public sealed partial class Binder
                     Error(Catalog.NotVisible(name.Location, $"'{name.Name}'", named.Level, named.Source));
                     continue;
                 }
+                // Only the language's own declaration may be imported under its name, so the name means it everywhere.
+                if (entry.HasValue && !source.Module.Package.IsStd && stdlib.IsLanguageName(local)
+                    && (entry.Functions is not null || entry.Type is null || entry.Type != stdlib.LanguageType(local)))
+                {
+                    Error(Catalog.LanguageNameImported(imported.Syntax.Local.Location, local));
+                    continue;
+                }
                 if ((entry.HasValue && (OwnType(local, source) is not null || OwnFunctions(local, source).Count > 0))
                     || (entry.Module is not null && source.Module.FindChild(local) is not null))
                 {

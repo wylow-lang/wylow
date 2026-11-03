@@ -1,0 +1,24 @@
+// No declaration or import outside std takes a name every file sees, so each always means the
+// language's own declaration (spec programs.builtin-names).
+
+import std::List as Result;                 // error[WYL0437]: cannot import a declaration as 'Result'
+
+struct String { }                           // error[WYL0057]: 'String' cannot be declared
+class Holder<Span> { }                      // error[WYL0057]: 'Span' cannot be declared
+
+class Box {
+    int Array;                              // error[WYL0057]: 'Array' cannot be declared
+    void Printable() { }                    // error[WYL0057]: 'Printable' cannot be declared
+}
+
+enum Shape {
+    Borrowable,                             // error[WYL0057]: 'Borrowable' cannot be declared
+    Dot,
+}
+
+void take(int Comparable) { }               // error[WYL0057]: 'Comparable' cannot be declared
+
+void main() {
+    int ReadOnlySpan = 1;                   // error[WYL0057]: 'ReadOnlySpan' cannot be declared
+    fn(int) -> int same = (Spannable) -> 1; // error[WYL0057]: 'Spannable' cannot be declared
+}

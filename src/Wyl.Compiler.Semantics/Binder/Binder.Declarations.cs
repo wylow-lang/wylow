@@ -15,6 +15,8 @@ public sealed partial class Binder
                 Error(Catalog.DuplicateTypeParameter(parameter.Location, parameter.Name));
             else if (outer.Any(p => p.Name == parameter.Name))
                 Error(Catalog.HidingTypeParameter(parameter.Location, parameter.Name));
+            else
+                TakesLanguageName(parameter.Name, parameter.Location);
             result.Add(new TypeParameterSymbol(parameter.Name));
         }
         return result;
@@ -43,6 +45,8 @@ public sealed partial class Binder
         // Only declares the built-in String's members, so its name keeps naming the built-in type.
         if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
             return new TypeSymbol(decl, []);
+        if (TakesLanguageName(decl.Name, decl.NameLocation))
+            return null;
         if (ClashingFile(decl, decl.Name) is { } other)
         {
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, null, other.Name, null));
@@ -53,8 +57,6 @@ public sealed partial class Binder
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, OwnType(decl.Name, decl.Location.Source)?.Declaration.NameLocation, null, null));
             return null;
         }
-        if (IsLanguageName(decl, decl.Name, decl.NameLocation))
-            return null;
         if ((decl.Modifiers & Modifiers.Extern) != 0 && !decl.Location.Source.Module.Package.IsStd)
             Error(Catalog.ExternStructOutsideStd(decl.NameLocation));
         HasCallerLocation(decl);
@@ -140,13 +142,13 @@ public sealed partial class Binder
         typeParameters = [];
         CheckReturnsView(function);
 
+        if (TakesLanguageName(decl.Name, decl.NameLocation))
+            return function;
         if (ClashingFile(decl, decl.Name) is { } other)
         {
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, null, other.Name, null));
             return function;
         }
-        if (IsLanguageName(decl, decl.Name, decl.NameLocation))
-            return function;
         if (OwnType(decl.Name, decl.Location.Source) is { } type)
         {
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, type.Declaration.NameLocation, null, SyntaxFacts.KindNameWithArticle(type.Kind)));
@@ -199,6 +201,8 @@ public sealed partial class Binder
         {
             if (result.Any(p => p.Name == parameter.Name))
                 Error(Catalog.DuplicateParameter(parameter.Location, parameter.Name));
+            else
+                TakesLanguageName(parameter.Name, parameter.Location);
             var type = BindVariableType(parameter.Type, parameter.Escaping, parameter.Annotations, isParameter: true);
             CheckParameterMode(parameter.RefKind, type, parameter.Location);
             if (parameter.IsMutable && type.NonNull.IsNonEscapingFunction)
@@ -235,11 +239,17 @@ public sealed partial class Binder
             if (s.FindField(decl.Name) is not null)
                 Error(Catalog.DuplicateField(decl.NameLocation, decl.Name, s.FindField(decl.Name)!.Declaration.NameLocation));
             else
+            {
+                TakesLanguageName(decl.Name, decl.NameLocation);
                 s.Fields.Add(field);
+            }
         }
 
         foreach (var decl in s.Declaration.Methods)
         {
+            // A constructor has its type's name, which the type's declaration checked.
+            if (!decl.IsConstructor)
+                TakesLanguageName(decl.Name, decl.NameLocation);
             var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, s.TypeParameters);
             typeParameters = [.. s.TypeParameters, .. ownTypeParameters];
             BindBounds(decl.TypeParameters, ownTypeParameters);
@@ -450,6 +460,8 @@ public sealed partial class Binder
             {
                 if (fields.Any(f => f.Name == parameter.Name))
                     Error(Catalog.DuplicateField(parameter.Location, parameter.Name, fields.First(f => f.Name == parameter.Name).Declaration.NameLocation));
+                else
+                    TakesLanguageName(parameter.Name, parameter.Location);
                 // A variant's fields are as visible as the enum.
                 var fieldDecl = new FieldDecl(parameter.Location, Modifiers.None, parameter.Type, parameter.Name, parameter.Location, null)
                 {
@@ -462,9 +474,12 @@ public sealed partial class Binder
                 fields.Add(new FieldSymbol(parameter.Name, fieldType, s, fieldDecl));
             }
             if (s.FindVariant(decl.Name) is not null)
+            {
                 Error(Catalog.DuplicateVariant(decl.NameLocation, decl.Name));
-            else
-                s.Variants.Add(new VariantSymbol(decl.Name, s, s.Variants.Count, decl, fields));
+                continue;
+            }
+            TakesLanguageName(decl.Name, decl.NameLocation);
+            s.Variants.Add(new VariantSymbol(decl.Name, s, s.Variants.Count, decl, fields));
         }
 
         foreach (var repr in s.Declaration.Annotations.Where(a => a.Name == "Repr"))

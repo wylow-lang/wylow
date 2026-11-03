@@ -37,9 +37,12 @@ public sealed partial class Binder
         // Like Java, a local may not shadow another local or parameter (it may shadow a field).
         local.Owner ??= currentFunction;
         if (scope!.Lookup(local.Name) is not null)
+        {
             Error(Catalog.DuplicateLocal(location, local.Name));
-        else
-            scope.Add(local);
+            return;
+        }
+        TakesLanguageName(local.Name, location);
+        scope.Add(local);
     }
 
     BoundStatement BindStatement(Stmt statement) => statement switch

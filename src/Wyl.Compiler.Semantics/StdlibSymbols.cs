@@ -57,6 +57,12 @@ public sealed class StdlibSymbols
 
     public TypeSymbol? LanguageType(string name) => LanguageTypes.FirstOrDefault(t => t.Name == name);
 
+    /// <summary>
+    /// Whether the name is one every file sees (spec programs.builtin-names), which nothing outside
+    /// <c>std</c> may declare or import, so that it always means the language's own declaration.
+    /// </summary>
+    public bool IsLanguageName(string name) => name == "String" || LanguageType(name) is not null;
+
     public void Register(TypeSymbol symbol)
     {
         switch (symbol.Name)

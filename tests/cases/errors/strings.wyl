@@ -1,6 +1,6 @@
 import std::print;
 
-extern struct String { }            // error[WYL0034]: 'String' is already defined in this module
+extern struct String { }            // error[WYL0057]: 'String' cannot be declared
 
 @Pure                               // error[WYL0432]: '@Pure' can only be used on extern functions of the standard library
 int twice(int x) {

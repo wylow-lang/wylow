@@ -330,8 +330,14 @@ Every file sees these declarations of `std` without importing them:
 
 Every other declaration is reached through an import or a path, `print` and `List` among them.
 
-It is a compile-time error if a package other than `std` declares a top-level type or function with
-one of these names.
+These names always mean these declarations:
+
+- It is a compile-time error if a declaration outside `std` has one of these names: a type, a
+  function, a method, a field, an enum variant or its field, a type parameter, a parameter, a local
+  variable, or a pattern's binding.
+- It is a compile-time error if an import outside `std` brings in anything under one of these names
+  but the declaration of that name: `import std::Result;` is valid, and `import std::List as Result;`
+  is not.
 
 <a id="programs.entry"></a>
 ## 3.9 The entry point

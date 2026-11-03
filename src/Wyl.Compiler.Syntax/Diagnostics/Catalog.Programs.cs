@@ -174,6 +174,10 @@ public static partial class Catalog
     public static Diagnostic LanguageTypeName(Location at, string name) =>
         Make(at, $"'{name}' cannot be declared").Note($"'{name}' is one of the types the language is built on, which every file sees");
 
+    [Error(437, "programs.builtin-names")]
+    public static Diagnostic LanguageNameImported(Location at, string name) =>
+        Make(at, $"cannot import a declaration as '{name}'").Note($"'{name}' is one of the types the language is built on, which every file sees");
+
     [Error(58, "programs.entry")]
     public static Diagnostic NoMain(Location at, string? package) =>
         Make(at, package is null ? "program has no 'main' function" : $"package '{package}' has no 'main' function in its root module");
