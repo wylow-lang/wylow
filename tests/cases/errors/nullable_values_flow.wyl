@@ -1,4 +1,4 @@
-// A nullable value is used as its value only where a null check narrows it (spec 02-types.md).
+// A nullable value is used as its value only where a null check narrows it (spec flow.narrowing, memory.references).
 
 import std::print;
 

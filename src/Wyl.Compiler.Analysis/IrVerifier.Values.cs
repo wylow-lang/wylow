@@ -30,7 +30,7 @@ public sealed partial class IrVerifier
         public bool Reachable { get; private init; } = true;
         public HashSet<IrLocal> Assigned { get; private init; } = [];
 
-        /// <summary>The locals of nullable types known not to be null, as narrowing finds them (spec 02-types.md).</summary>
+        /// <summary>The locals of nullable types known not to be null, as narrowing finds them (spec flow.narrowing).</summary>
         public HashSet<IrLocal> NonNull { get; private init; } = [];
 
         /// <summary>In a constructor, the fields it must assign that it has.</summary>
@@ -345,7 +345,7 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// What a <c>bool</c> temporary's value says, from the constant, condition, or null test it is
-    /// made from. A source variable's says nothing, so that only a condition narrows (spec 02-types.md).
+    /// made from. A source variable's says nothing, so that only a condition narrows (spec flow.narrowing).
     /// </summary>
     void Learn(IrLocal local, IrRvalue value, State state)
     {
@@ -798,7 +798,7 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// Reports a place in a narrowed nullable value of a source variable that the operation using it
-    /// may set to null, which would destroy the place, as the user's error (spec 02-types.md): by
+    /// may set to null, which would destroy the place, as the user's error (spec memory.nullable-references): by
     /// passing the variable by 'ref', or by running a lambda that assigns it. Flow analysis keeps
     /// no narrowing past where such a lambda is made, so the lambda is made during the operation,
     /// after the place was found, as an argument is.
@@ -830,7 +830,7 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// A place in a narrowed value is evaluated after the operands written before it in the same
-    /// expression, which must not have set the variable to null (spec 02-types.md).
+    /// expression, which must not have set the variable to null (spec memory.nullable-references).
     /// </summary>
     void CheckNullableOrder(IrPlace place)
     {

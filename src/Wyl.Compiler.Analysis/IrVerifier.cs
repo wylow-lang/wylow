@@ -495,7 +495,7 @@ public sealed partial class IrVerifier
     }
 
     /// <summary>
-    /// A source local used as not null where narrowing doesn't show it isn't (spec 02-types.md). An
+    /// A source local used as not null where narrowing doesn't show it isn't (spec flow.narrowing). An
     /// <c>is ref</c> name is stored as it is tested, but is only assigned where the test matched.
     /// </summary>
     void NotNarrowed(IrLocal local, State state)
