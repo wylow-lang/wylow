@@ -4,10 +4,21 @@ class Enemy {
 }
 
 struct Counter implements Borrowable {     // error[WYL0420]: only classes can be 'Borrowable'
-    mut void beginBorrow() {
+    pub void beginBorrow() {
     }
 
-    mut void endBorrow() {
+    pub void endBorrow() {
+    }
+}
+
+interface Tracked extends Borrowable {
+}
+
+struct Gauge implements Tracked {         // error[WYL0420]: only classes can be 'Borrowable'
+    pub void beginBorrow() {
+    }
+
+    pub void endBorrow() {
     }
 }
 

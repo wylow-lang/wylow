@@ -89,10 +89,30 @@ public sealed partial class Binder
                 Error(Catalog.NotAnInterface(interfaceSyntax.Location, type.ToString()));
             else if (s.Interfaces.Any(i => i.Symbol == type.Symbol))
                 Error(Catalog.InterfaceListedTwice(interfaceSyntax.Location, type.Symbol!.Name));
-            else if (type.Symbol == stdlib.Borrowable && s.Kind != TypeKind.Class && s.Kind != TypeKind.Interface)
-                Error(Catalog.BorrowableNonClass(interfaceSyntax.Location));
             else
+            {
                 s.Interfaces.Add(type);
+                if (s.Kind is not (TypeKind.Class or TypeKind.Interface))
+                    valueTypeInterfaces.Add((type, interfaceSyntax.Location));
+            }
+        }
+    }
+
+    /// <summary>The interfaces structs and enums list, checked once every interface's own list is bound.</summary>
+    readonly List<(WylType Interface, Location At)> valueTypeInterfaces = [];
+
+    /// <summary>
+    /// A value is borrowed through whatever holds it, so a struct or enum can't be <c>Borrowable</c>,
+    /// whether it lists the interface or one that extends it.
+    /// </summary>
+    void CheckBorrowableValueTypes()
+    {
+        if (stdlib.Borrowable is not { } borrowable)
+            return;
+        foreach (var (type, at) in valueTypeInterfaces)
+        {
+            if (Conversions.IsSubtype(type, borrowable.Type))
+                Error(Catalog.BorrowableNonClass(at));
         }
     }
 

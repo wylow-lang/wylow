@@ -80,6 +80,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             typeParameters = [];
         }
         CheckInheritanceCycles(typeList);
+        CheckBorrowableValueTypes();
 
         var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
         foreach (var function in functionList.Where(f => f.Declaration!.Location.Source.Module.Package.IsStd))

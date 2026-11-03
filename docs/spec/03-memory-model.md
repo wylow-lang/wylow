@@ -423,7 +423,8 @@ The counting is ordinary standard library code. A class that implements the stan
 `Borrowable` interface has `beginBorrow()` called when a borrow of it starts and `endBorrow()`
 when it ends; `List` counts borrows in a field and checks it in each method that changes its
 length. The compiler makes these calls, including when the object is only known through an
-interface; code cannot call them directly. Only classes can be `Borrowable`.
+interface; code cannot call them directly. Only classes can be `Borrowable`: it is a compile-time
+error if a struct or enum implements `Borrowable` or an interface that extends it.
 
 ### Spans
 
