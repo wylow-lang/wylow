@@ -42,7 +42,7 @@ Each is explained in detail in its chapter.
    keep their target alive. See [03-memory-model.md](../spec/03-memory-model.md#cycles-memorycollectcycles).
 11. **`T?` is `T` when `T` is already nullable.** A generic `T? find()` on a `List<int?>` returns
    an `int?` that is null both when nothing was found and when a null was. See
-   [02-types.md](../spec/02-types.md#nullable-type-parameters).
+   [Nullable type parameters](../spec/11-generics.md#generics.nullable).
 12. **A null check doesn't narrow a `mut` local that a lambda assigns**, from where the lambda is
    made on, since the lambda may run during any call. Copy it to another local and check that. See
    [06-syntax.md](../spec/06-syntax.md#67-lambdas-and-function-types).
@@ -54,7 +54,7 @@ Each is explained in detail in its chapter.
    `protected`. See [Visibility](../spec/03-programs.md#programs.visibility).
 15. **Generic code can't copy a `T` unless `T extends copyable`**, since `T` may be a
    `unique struct`, which is moved and never copied. Moving, passing by `ref` or `in`, and returning
-   need no bound. See [02-types.md](../spec/02-types.md#unbounded-type-parameters).
+   need no bound. See [Unbounded type parameters](../spec/11-generics.md#generics.unbounded).
 
 ## Organizing code
 
@@ -67,3 +67,15 @@ Written against [chapter 3](../spec/03-programs.md#programs).
 - **Sealing a type's internals.** A type's members without a visibility are visible to its whole
   file, other types included. A type whose internals the rest of its module shouldn't touch goes in
   a file of its own.
+
+## Structs and classes
+
+Written against [chapter 7](../spec/07-structs.md#structs) and [chapter 8](../spec/08-classes.md#classes).
+
+- **Avoiding a struct copy.** A copy is made wherever [the list of copies](../spec/07-structs.md#structs.copies)
+  says. To refer to the value instead, take a large argument by `in`, bind `in` or `ref` locals, and loop
+  with `for (in Order o : orders)` or `for (ref Order o : orders)`. Calling a method on a place never
+  copies it. Declaring a struct `unique` makes every copy of it an error.
+- **Copying a unique struct on purpose.** Give it a method that makes the copy, conventionally `clone()`.
+- **Owning a resource.** A resource that has to be released is held by a class, whose destructor runs when
+  the last reference goes, or by a `unique` struct with a destructor, whose single owner decides when.

@@ -140,15 +140,6 @@ stored. Nullable values follow the rules above, and also:
 - A struct cannot contain itself through a nullable (`struct Link { pub Link? next; }`), since the
   value would be stored inline; use a class.
 
-### Nullable type parameters
-
-`T?` is allowed for any type parameter. It is a nullable value or a nullable reference, whichever
-`T` stands for, so `T? first<T>(List<T> items)` returns an `int?` from a `List<int>` and a `Node?`
-from a `List<Node>`. When `T` is itself nullable, `T?` is the same type as `T` (as in Kotlin):
-`first` on a `List<int?>` returns an `int?`, which is null both for an empty list and for a null
-first element. A call infers `T` from a `T?` parameter through the value type of its argument, so
-`orElse(x, 0)` with an `int? x` infers `int`.
-
 ## 2.7 Mutability and constants
 
 Variables, parameters, class fields, and struct methods are **immutable unless declared `mut`**,
@@ -202,65 +193,6 @@ mut var target = enemies.first();
   regardless of the method it overrides.
 - `const` declares a compile-time constant: `const float PI = 3.14159;`.
 
-## 2.8 Enums
-
-Enums can be plain (like Java) or carry data per variant (tagged unions).
-
-```java
-enum Direction { North, East, South, West }
-
-enum AiState {
-    Idle,
-    Chasing(int target),
-    Fleeing(Vec3 from, float timeLeft),
-}
-```
-
-- Variants are separated by commas, with an optional trailing comma. An enum may have methods
-  after its variants, separated from them by `;` as in Java. It has no fields, constructors, or
-  destructor: data belongs to variants.
-- An enum is a **value type**, like a struct: stored inline and copied on assignment. Copies are
-  shallow, as for structs. It cannot contain itself by value, directly or through other value types.
-- An enum value is **immutable**: there is no way to change the fields of a variant in place, only
-  to assign a whole new value. Its methods therefore can't be `mut`, and can be called
-  on `in` parameters.
-- Enums may be generic (`enum Reply<T> { Pending, Ready(T value), Failed(String reason) }`), and may implement interfaces for
-  use as generic bounds, as structs can (§2.12).
-- An enum with a variant field of a unique type is declared `unique enum`, and is moved rather
-  than copied (§2.9, Unique structs). A generic enum whose fields' types involve a type parameter
-  is unique when a type argument makes one of them unique, as for structs.
-- A variant's fields can only be read with a pattern ([06-syntax.md](06-syntax.md#patterns)).
-  `state.target` is an error.
-
-### Creating values
-
-```java
-var d = Direction.North;
-var s = AiState.Fleeing(pos, 2.5);
-Direction next = East;                 // the enum may be left out where its type is known
-var r = Reply.Ready(5);                // type arguments are inferred: Reply<int>
-Reply<Item> waiting = Pending;         // ...or taken from the expected type
-var n = Reply<int>.Pending;            // ...or written
-```
-
-- `Enum.Variant` for a variant without data, `Enum.Variant(fields...)` for one with data; the
-  parentheses are required exactly when the variant carries data.
-- **Where a value's type is known**, the enum (and its type arguments) may be left out: in the
-  initializer of a declaration with a written type, the value of an assignment, a `return` value, a
-  field initializer, the right side of `==`/`!=` with an enum on the left, and a call argument
-  (below). The expected type also reaches into `?:` branches and switch expression cases.
-  Elsewhere, write the enum: `Direction.East`. A local, field, function, or type of the same name
-  takes precedence over the variant.
-- **A call argument's expected type is its parameter's type** when every overload taking that many
-  arguments has the same type there, after substituting the receiver's type arguments. This covers
-  functions, methods, constructors, `super(...)`, and a variant's fields, so `f(East)`,
-  `list.add(Ok(3))`, and `Ok(Ok(x))` returned as a `Result<Result<int, E>, E>` need no type
-  arguments. Where the overloads differ, or the parameter's type involves the called function's own
-  type parameters (which are inferred from the arguments), there is no expected type, so
-  `unwrap<T>(Result<T, E> r)` is called as `unwrap(Result<int, String>.Ok(1))`.
-- A generic enum written without type arguments takes them from the expected type if that is the
-  same enum, and otherwise infers them from the fields' values, as for generic functions (§2.13).
-  `Option.None` alone is an error, since nothing determines `T`.
 
 ## 2.9 Structs
 
@@ -585,22 +517,6 @@ var grid = new Box<Tile[65536]>();
 
 ## 2.13 Generics
 
-Generics use Java's syntax.
-
-```java
-interface Comparable<T> {
-    int compareTo(T other);
-}
-
-T max<T extends Comparable<T>>(T a, T b) {
-    return a.compareTo(b) > 0 ? a : b;
-}
-```
-
-Unlike C++ templates, a generic body is **type-checked against its bounds** when it is declared,
-not when it is instantiated. Calling a method not provided by a bound is a compile error in the
-generic itself.
-
 ### Declaring and using generics
 
 ```java
@@ -694,32 +610,3 @@ Pair<T, T> twinOf<T>(T value) {
     return Pair<T, T>(first: value, second: value);     // error: 'value' is used after it is moved
 }
 ```
-
-### Unbounded type parameters
-
-Without bounds, a type parameter `T` supports only what every type supports: declaring, moving,
-passing (including by `ref`/`in`), and returning values. In particular:
-
-- **`T` may be a unique type (§2.9), so it can't be copied** unless it is bounded by `copyable`.
-  A generic body is checked against that when it is declared, so a container written once works
-  for unique elements without remembering to allow them. Moves need no bound: `add(T value)`
-  stores its argument, `removeAt` returns the element it takes out, and the indexer returns
-  `ref T`. A method that copies, such as returning a copy of the first element, takes a
-  `copyable` element type:
-
-  ```java
-  T? firstCopy<T extends copyable>(this ReadOnlySpan<T> items) {
-      return items.length() == 0 ? null : items[0];
-  }
-  ```
-- `==` is not available on `T`, and no function overload accepts a `T` unless it is generic itself.
-- `T()` is an error: `T` has no default value (it could be a non-null class reference).
-- A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an
-  error, while `Pair<T, int>(first: x)` is fine, since it passes every field that lacks a default.
-  From non-generic code, `Pair<int, int>()` works because `int` has a default.
-
-### Recursive structs
-
-A struct cannot contain itself by value, including through type arguments
-(`struct Rec { pub Wrap<Rec> w; }`), and its field types cannot grow without end
-(`struct Grow<T> { pub Grow<Pair<T, T>> next; }`).
