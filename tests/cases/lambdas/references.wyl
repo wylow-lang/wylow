@@ -144,6 +144,6 @@ void main() {
     print(apply(up ? inc : twice, 3));              // output: 4
     fn(int) -> void show = print;
     show(42);                                       // output: 42
-    fn(int) -> void discard = inc;
-    discard(1);
+    fn(int) -> void ignore = inc;
+    ignore(1);
 }

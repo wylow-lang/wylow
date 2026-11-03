@@ -14,6 +14,8 @@ void main() {
     print(5 ^ 3);            // output: 6
     print(~0);               // output: -1
     print(1_000_000 * 3);    // output: 3000000
+    print(0xFF__FF + 0b1_0); // output: 65537
+    print(2.5e0_1d);         // output: 25.0
     print(0xFF + 0b101);     // output: 260
     print(10L * 1000000000); // output: 10000000000
     print(2.5d * 2);         // output: 5.0

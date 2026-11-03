@@ -82,7 +82,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "const", "defer", "do", "package", "shared",
+        "const", "defer", "discard", "do", "package", "shared", "unique",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
@@ -178,8 +178,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             return LexString(interpolated: true);
         if (c == '\'')
             return LexChar();
-        // Like C#, `c ?.5 : x` stays a conditional.
-        if (c == '?' && Peek(1) == '.' && !char.IsAsciiDigit(Peek(2)))
+        if (c == '?' && Peek(1) == '.')
         {
             position += 2;
             return Make(TokenKind.QuestionDot, start);
@@ -244,7 +243,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             {
                 isFloat = true;
                 position += 2;
-                while (char.IsAsciiDigit(Current))
+                while (char.IsAsciiDigit(Current) || Current == '_')
                     position++;
             }
         }
@@ -258,7 +257,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         string suffix = text[suffixStart..position];
         var span = TextSpan.FromBounds(start, position);
 
-        if (raw.StartsWith('_') || raw.EndsWith('_') || raw.Contains("_.") || raw.Contains("._"))
+        if (!SeparatorsBetweenDigits(raw, radix))
             diagnostics.Add(Catalog.MisplacedDigitSeparator(At(span)));
 
         var integerSuffix = IntegerSuffix.None;
@@ -325,6 +324,23 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         >= 'A' and <= 'F' => c - 'A' + 10,
         _ => int.MaxValue,
     };
+
+    /// <summary>Whether each run of '_' in a literal's digits has a digit on both sides, never a '.', an exponent's 'e', or its sign.</summary>
+    static bool SeparatorsBetweenDigits(string raw, int radix)
+    {
+        for (int i = 0; i < raw.Length; i++)
+        {
+            if (raw[i] != '_')
+                continue;
+            int end = i;
+            while (end < raw.Length && raw[end] == '_')
+                end++;
+            if (i == 0 || end == raw.Length || DigitValue(raw[i - 1]) >= radix || DigitValue(raw[end]) >= radix)
+                return false;
+            i = end;
+        }
+        return true;
+    }
 
     static bool TryParseInteger(string digits, int radix, out ulong value)
     {
@@ -396,6 +412,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     /// </summary>
     HoleText? LexHole()
     {
+        int open = position;
         position++;
         var tokens = new List<Token>();
         int depth = 0;
@@ -437,7 +454,9 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                         position++;
                     return null;
                 }
-                // The string reports being unterminated.
+                // At a line's end the string reports being unterminated; at its '"' it ends, so the hole is what's open.
+                if (Current == '"')
+                    diagnostics.Add(Catalog.UnclosedHole(At(new TextSpan(open, 1))));
                 if (Current != '}')
                     return null;
                 formatSpan = TextSpan.FromBounds(formatStart, position);

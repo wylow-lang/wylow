@@ -40,6 +40,8 @@ void main() {
     var a = new int[2][3];              // error[WYL0073]: 'new' cannot create an array of arrays
     int b = do;                         // error[WYL0004]: 'do' is a reserved word and cannot be used
     defer print(1);                     // error[WYL0004]: 'defer' is a reserved word and cannot be used
+    int c = unique;                     // error[WYL0004]: 'unique' is a reserved word and cannot be used
+    discard c;                          // error[WYL0004]: 'discard' is a reserved word and cannot be used
     if (b is ) { }                      // error[WYL0001]: expected a pattern
     for (int i = 0; i < 3; int j = 1) { }  // error[WYL0342]: variable cannot be declared here
 }

@@ -5,6 +5,7 @@ void main() {
     bool c = true;
     print($"a } b");          // error[WYL0017]: '}' in an interpolated string is not doubled
     print($"{c ? 1 : 2}");    // error[WYL0018]: conditional expression in an interpolated string is not parenthesized
+    print($"{x:5");           // error[WYL0435]: '{' in an interpolated string is not closed
     print($"{}");             // error[WYL0001]: expected an expression
     print($"{x x}");          // error[WYL0001]: expected '}' to end the interpolated value
     print($"{x,}");           // error[WYL0001]: expected an integer alignment, as in '{value,8}'

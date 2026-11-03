@@ -4,6 +4,7 @@ void main() {
     int c = 1 # + 2;          // error[WYL0002]: character '#' does not start a token
     String s = "\q";          // error[WYL0014]: '\q' is not an escape sequence
     int d = 1_000_;           // error[WYL0005]: '_' in a number literal must be between digits
+    float i = 1_e5;           // error[WYL0005]: '_' in a number literal must be between digits
     int e = 0x;               // error[WYL0007]: number literal has no digits
     double f = 1e400d;        // error[WYL0009]: literal is too large for 'double'
     float g = 1e39;           // error[WYL0009]: literal is too large for 'float'

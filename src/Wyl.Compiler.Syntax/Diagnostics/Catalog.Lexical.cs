@@ -67,6 +67,10 @@ public static partial class Catalog
     public static Diagnostic UnescapedCloseBrace(Location at) =>
         Make(at, "'}' in an interpolated string is not doubled").Help("write '}}'");
 
+    [Error(435, "lexical.literals.interpolated")]
+    public static Diagnostic UnclosedHole(Location at) =>
+        Make(at, "'{' in an interpolated string is not closed").Help("write '}' after the format specifier");
+
     [Error(18, "lexical.literals.interpolated")]
     public static Diagnostic UnparenthesizedConditional(Location at) =>
         Make(at, "conditional expression in an interpolated string is not parenthesized")
