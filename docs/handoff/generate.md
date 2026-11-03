@@ -54,7 +54,7 @@ alone, and the same pair gives byte-identical text in every process and on every
 
 - **Stage 1 (this one):** integers (`sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`,
   `ulong`), `bool`, `char`, `float`, `double`, and `String`; locals, assignment, `if`/`else`,
-  bounded range loops, and zero to three helpers. Types mix as §2.3–2.4 of the spec allow: an
+  bounded range loops, and zero to three helpers. Types mix as the spec's conversions chapter and §2.4 allow: an
   operator on two types the spec converts to one (a widening, two integers meeting in a third, a
   `char`'s code point, an integer or a `float` beside a `double`), an unsuffixed constant taking
   its partner's type, slots (initializers, assignments, arguments, returns) given a type that
@@ -80,7 +80,7 @@ and a multiply into an FMA and change a bit. Because no generated program overfl
 release build is a free oracle: any difference from the interpreter is the optimizer's or the
 emitter's.
 
-Mixing types keeps both properties. `ConversionFacts` holds the spec's §2.3 table and §2.4 operand
+Mixing types keeps both properties. `ConversionFacts` holds the spec's `conversions.numeric` table and §2.4 operand
 rule, written from the spec rather than asked of the compiler; a mixed operation's range is computed
 in the type it works in, with a `char` operand's range its code points. A `GenExpr` marks text the
 binder may read as an unsuffixed constant (an `int` literal, or one negated), and a mixed operator

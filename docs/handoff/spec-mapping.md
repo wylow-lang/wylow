@@ -46,6 +46,7 @@ home is written.
 | `library.names` | old README, "Standard library" | Complete; `@Pure` externs are an implementation detail (`runtime.md`) |
 | Chapter 2 | old `02-types.md` §2.2, `06-syntax.md` §6.11, `07-interop.md` §7.5 (naming exemption); tokens, comments, identifiers, keywords, and operators from the lexer | Complete, with the pages of its codes |
 | Chapter 3 | old `06-syntax.md` §6.1, §6.2 | Complete, with the pages of its codes. Left in `06-syntax.md` for their chapters: `std::panic`, `std::memory` (`library.panic`, `library.memory`), and three §6.2 rules (`classes.overriding`, `structs.constructors.memberwise`, `functions.overloading.resolution`). "Functions or static methods" and "a file of its own" are in the guide |
+| Chapters 4 to 6 | old `02-types.md` §2.1, §2.3 (except how `(Name)` is recognized), §2.6, "Default values"; the rows of the tables below that name `types.*`, `conversions.*`, `variables.*` | Complete, with the pages of their codes (`WYL0062`–`WYL0094`). The old text is deleted only where every row of the passage points at these chapters; the others (nullability, mutability, strings, arrays and spans, statics in `05-concurrency.md`, references in `03-memory-model.md`) stay until their other homes are written, and their `types.*`/`conversions.*`/`variables.*` parts are already in the new chapters |
 
 ## 02-types.md
 
@@ -76,7 +77,7 @@ home is written.
 | 2.5 Nullability | Intro, `T?` on every type | `types.nullable` |
 | | Table rows: `?.`, `??`, `!` | `expressions.null` |
 | | Table rows: `!= null`, `is` | `flow.narrowing`, `expressions.is` |
-| | Members only through `?.`, `!`, narrowing | `expressions.members` |
+| | Members only through `?.`, `!`, narrowing | `types.nullable` (`WYL0065` is anchored there) |
 | | Narrowing rules | `flow.narrowing` |
 | | `x is T name` binding and scope | `patterns.bindings` (scope), `flow.narrowing` (narrows `x`) |
 | | `?.` chaining, `??` typing, `!` on non-nullable | `expressions.null` |
@@ -220,7 +221,7 @@ home is written.
 | | Collection is always safe | `memory.cycles` |
 | Diagnostics | Debug-build performance warnings | `memory.cycles.diagnostics` (that they exist and when; text informative) |
 | 3.3 References | `ref T`, `in T`, second-class table | `memory.references` |
-| | Initialized with a place, not a class object | `variables.references` |
+| | Initialized with a place, not a class object | `variables.references` (initialization); `memory.references` (a `ref` variable refers to a place, not a class object: `WYL0407`, `WYL0409` are anchored there) |
 | Returning references | All | `functions.ref-returns` |
 | Nullable references | All | `memory.nullable-references` |
 | | Conversions from `ref` | `conversions.references` |

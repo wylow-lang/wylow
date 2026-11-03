@@ -1,81 +1,9 @@
 # 2. Types
 
-## 2.1 Primitives
-
-All sizes are fixed on every platform.
-
-| Type | Size | Notes |
-|---|---|---|
-| `bool` | 1 byte | No implicit conversion to or from integers |
-| `sbyte` / `byte` | 8 bits | **`byte` is unsigned** (like C#) |
-| `short` / `ushort` | 16 bits | |
-| `int` / `uint` | 32 bits | |
-| `long` / `ulong` | 64 bits | |
-| `float` / `double` | 32 / 64 bits | IEEE 754 |
-| `char` | 32 bits | A Unicode code point |
-| `nint` / `nuint` | pointer size | Intended for `unsafe` code and interop |
-
-**Lengths and indices are `int`.**
-
-`char` is not a number: it has no arithmetic of its own, and in arithmetic it is its code point,
-an `int` (§2.4).
-
-## 2.3 Conversions
-
-**Implicit conversions are allowed only when lossless**, which means every value of the source type
-is exactly a value of the target type:
-
-| From | Implicitly to |
-|---|---|
-| `sbyte` | `short`, `int`, `long`, `nint` |
-| `byte` | `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
-| `short` | `int`, `long`, `nint` |
-| `ushort` | `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
-| `int` | `long`, `nint` |
-| `uint` | `long`, `ulong`, `nuint` |
-| `nint` | `long` |
-| `nuint` | `ulong` |
-| `char` | `int`, `uint`, `long`, `ulong`, `nint`, `nuint` |
-| 8- and 16-bit integers | `float`, `double` |
-| `int`, `uint` | `double` |
-| `float` | `double` |
-
-- `int → float` is *not* implicit: a `float` holds integers exactly only up to 2^24. Neither are
-  `long` and `ulong` to `double`.
-- `nint` and `nuint` convert only where the conversion is lossless on both 32- and 64-bit targets,
-  so code that compiles on one compiles on the other.
-- `char` converts to its code point, which fits in every integer type of 32 bits or more. Nothing
-  converts implicitly to `char`. Since a `char` is not a number, it doesn't convert to `double`,
-  although `int` does: this is the one place where two implicit conversions in a row reach a type
-  that one can't.
-
-**Integer constants** (an integer literal, optionally negated) without a suffix convert implicitly to
-any integer type that holds their value, so `byte b = 200;` works and `byte b = 300;` is an error. A
-suffix chooses the type, so `int i = 1L;` is an error. For `nint` and `nuint`, the value must fit in
-`int` or `uint`, so the conversion holds on every target. Any integer constant also converts to
-`float` or `double` when the value is exactly representable, so `float x = 0;` and `velocity * 2`
-work. `float f = 16777217;` is an error (2^24 + 1 has no exact `float`).
-
-**All other conversions require a cast** `(T)x`, and every cast has defined behavior:
-
-| Conversion | Behavior |
-|---|---|
-| Integer narrowing | Wraps (`(byte)300 == 44`) |
-| Signed ↔ unsigned (same size) | Reinterprets bits |
-| Float → integer | Rounds toward zero, then saturates to the target range; NaN → 0 (`(int)-2.5 == -2`) |
-| Integer → float or double | Rounds to nearest, ties to even, in one step (`(float)16777219L == 16777220`) |
-| Double → float | Rounds to nearest |
-| `char` → integer below 32 bits | The code point, then as integer narrowing |
-| Integer → `char` | Panics if the value is not a Unicode scalar value (above `0x10FFFF`, or a surrogate `0xD800`–`0xDFFF`) |
-| Enum without data → integer | The variant's value, then as integer narrowing |
-| Integer → enum without data | Panics if no variant has the value |
-
-Only integers cast to `char`; there is no cast between `char` and `bool` or floating-point types.
+## 2.3 Casts
 
 A cast to a named type, such as `(Format)i`, is recognized as in Java: `(Name)` followed by something
 that can only start an operand. `(Format)-1` is therefore a subtraction; write `(Format)(-1)`.
-
-**Checked conversions** return a nullable: `int.tryFrom(someLong)` → `int?`.
 
 ## 2.4 Arithmetic
 
@@ -86,7 +14,7 @@ promoted to `int` as in C, Java, and C#.
 
 - A binary operator on two numbers first converts both operands to one type:
   - the operands' type, if they have the same type;
-  - otherwise, if one operand is a constant that converts to the other operand's type (§2.3), the
+  - otherwise, if one operand is a constant that converts to the other operand's type ([Integer constants](05-conversions.md#conversions.constants)), the
     other operand's type: `light - 1` with a `byte light` is a `byte`, and `1 + 2u` is a `uint`;
   - otherwise, the type one operand converts to implicitly. Between two integer types that don't
     convert to each other, it is the smallest integer type both convert to: `int + uint` is a `long`.
@@ -220,10 +148,6 @@ from a `List<Node>`. When `T` is itself nullable, `T?` is the same type as `T` (
 `first` on a `List<int?>` returns an `int?`, which is null both for an empty list and for a null
 first element. A call infers `T` from a `T?` parameter through the value type of its argument, so
 `orElse(x, 0)` with an `int? x` infers `int`.
-
-## 2.6 Type inference
-
-`var` declares a local with an inferred type: `var enemies = new List<Enemy>();`
 
 ## 2.7 Mutability and constants
 
@@ -946,15 +870,6 @@ passing (including by `ref`/`in`), and returning values. In particular:
 - A struct with a field of type `T` has no default value inside generic code: `Pair<T, int>()` is an
   error, while `Pair<T, int>(first: x)` is fine, since it passes every field that lacks a default.
   From non-generic code, `Pair<int, int>()` works because `int` has a default.
-
-### Default values
-
-A type is *defaultable* if it has a default value: primitives, `String`, nullable types (`null`), structs whose fields each either have an initializer or a defaultable type, and enums
-whose first variant carries no data (that variant is the default). A primitive's default is zero
-(`false` for `bool`, the code point 0 for `char`), and a `String`'s default is the empty string. Type
-parameters and non-null class and interface references are not defaultable, so a struct with a
-`Player` field and no initializer for it has no default value. A struct's memberwise constructor
-requires an argument for each such field, and `T()` exists only when there are none (§6.3).
 
 ### Recursive structs
 

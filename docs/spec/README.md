@@ -37,9 +37,9 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 4 to 22 are being written from these files, which are deleted as their text moves:
+Chapters 7 to 22 are being written from these files, which are deleted as their text moves:
 
-- [02-types.md](02-types.md): primitives, conversions, nullability, enums, structs, classes,
+- [02-types.md](02-types.md): casts, arithmetic, nullability, mutability, enums, structs, classes,
   arrays and spans, interfaces, generics
 - [03-memory-model.md](03-memory-model.md): values and moves, objects, weak references, cycles,
   references, borrows, spans
