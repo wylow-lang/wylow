@@ -400,38 +400,6 @@ Result<void, IoError> close(File f) {
 
 ## 2.10 Classes
 
-A `class` is a **heap-allocated, reference-counted object** (see
-[03-memory-model.md](03-memory-model.md#32-objects-classes)).
-
-- Single inheritance with `extends`; any number of interfaces with `implements`.
-- **C#-style virtual dispatch:** methods are non-virtual unless marked.
-
-| Keyword | Meaning |
-|---|---|
-| `virtual` | Method may be overridden |
-| `override` | Overrides a `virtual` or `abstract` method (required) |
-| `abstract` | No body; subclass must override. Class cannot be instantiated |
-| `final` (class) | Cannot be subclassed |
-| `final` (method) | `override` that cannot be overridden further |
-
-```java
-abstract class Weapon {
-    pub abstract void fire(World w);
-    pub virtual float cooldown() { return 0.5; }
-}
-
-final class Shotgun extends Weapon {
-    pub override void fire(World w) { ... }
-    pub override float cooldown() { return 1.0; }
-}
-```
-
-- Class references are non-null unless typed `T?`.
-- Classes may have a destructor, declared `~ClassName() { ... }`, which runs deterministically when
-  the last reference is released.
-- Standard library collections are classes: `List<T>`, `Map<K, V>`, `T[]`. `String` is a built-in
-  value type (§2.10, "Strings").
-
 ### Inheritance rules
 
 - **Upcasts are implicit**: a class converts to its base classes and to the interfaces it

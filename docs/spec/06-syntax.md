@@ -45,21 +45,6 @@ so a struct's field initializers don't run for it (a fixed-array local is the ex
 `var v = Vec3();`; write the type out where the value doesn't show it, as in
 `Vec3 target = path.last();`.
 
-### Class constructors
-
-Java-style, including `super(...)` and `this(...)` chaining:
-
-```java
-class Shotgun extends Weapon {
-    pub Shotgun(int pellets) { super(1.0); this.pellets = pellets; }
-    int pellets;
-}
-```
-
-Classes are always created with `new`, and structs never are. The order of construction, what
-`this(...)` runs, and what a constructor may do before its fields are assigned are in
-[02-types.md](02-types.md#construction).
-
 ## 6.4 Methods and parameters
 
 ### Parameter modes
