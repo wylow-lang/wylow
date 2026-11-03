@@ -19,6 +19,20 @@ The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15
   (`docs/diagnostics/README.md`).
 - Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
   under "Already written".
+- **Old passages kept for chapters 12 to 15.** Chapters 7 to 11 are written, but these passages stay
+  until every row of them points at a written chapter. After each chapter, check them and delete
+  those that are now complete:
+  - `02-types.md` "Inheritance rules": downcasts through `is` go to `patterns.kinds` (chapter 15).
+  - `02-types.md` "Declaring and using generics": `functions.overloading.resolution` (chapter 12) and
+    `expressions.primary` (chapter 13).
+  - `06-syntax.md` §6.3 "Construction": `expressions.construction` (chapter 13).
+  - Waiting on chapters 16 to 19 and appendix A: "Unique structs" and "Destructors of unique structs"
+    (`memory.moves`, `flow.moves`, `memory.holds`), "Construction" in `02-types.md`
+    (`flow.constructors`), "Bounds" (`library.printable`, `library.comparable`), and "Type
+    properties" (`concurrency.sendable`).
+- **Open bug found while writing chapter 11:** the compiler never finishes on a generic function or
+  method that instantiates itself with growing type arguments (#22). `generics.recursion` states the
+  error; it needs a catalog code, a page, and a test. Not part of the spec sessions.
 
 ## Where it stands
 
