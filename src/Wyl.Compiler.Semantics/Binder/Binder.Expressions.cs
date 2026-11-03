@@ -254,7 +254,7 @@ public sealed partial class Binder
         return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
     }
 
-    static bool HasMembers(WylType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || type == WylType.String;
+    bool HasMembers(WylType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || stdlib.MemberHost(type) != type;
 
     BoundExpression BindUnary(UnaryExpr e)
     {

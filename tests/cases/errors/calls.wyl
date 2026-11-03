@@ -42,8 +42,8 @@ void main() {
     var color = Color();                // error[WYL0288]: enum 'Color' cannot be constructed
     print(Base.nope());                 // error[WYL0300]: cannot find method 'nope' in 'Base'
     mut int n = 1;
-    print(n.compareTo<int>(1));         // error[WYL0198]: 'int.compareTo' takes no type arguments
-    print(n.compareTo(ref n));          // error[WYL0221]: argument 1 of 'int.compareTo' cannot be passed with 'ref'
+    print(n.compareTo<int>(1));         // error[WYL0234]: no overload of 'int.compareTo' takes 1 type argument
+    print(n.compareTo(ref n));          // error[WYL0221]: argument 1 of 'compareTo' cannot be passed with 'ref'
     String? text = "abc";
     print(text?.bytes().length());      // error[WYL0318]: '?.' cannot produce a nullable 'ReadOnlySpan<byte>'
     var bad = new int();                // error[WYL0291]: 'int' cannot be created with 'new'

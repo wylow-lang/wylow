@@ -42,8 +42,8 @@ public sealed partial class Binder
 
     TypeSymbol? DeclareType(TypeDecl decl)
     {
-        // Only declares the built-in String's members, so its name keeps naming the built-in type.
-        if (decl is { Name: "String", Kind: TypeKind.Struct } && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
+        // Only declares a built-in type's members and interfaces, so its name keeps naming the built-in type.
+        if (decl is { Kind: TypeKind.Struct } && StdlibSymbols.IsHostedTypeName(decl.Name) && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
             return new TypeSymbol(decl, []);
         if (TakesLanguageName(decl.Name, decl.NameLocation))
             return null;

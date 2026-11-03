@@ -15,7 +15,11 @@ public sealed partial class Parser
     TypeDecl ParseTypeDecl(int start, ModifierList modifiers, TypeKind kind)
     {
         Advance();
-        var name = Expect(TokenKind.Identifier, kind switch
+        // The standard library declares a primitive type's members in an extern struct of its name;
+        // the binder rejects one outside it.
+        var name = kind == TypeKind.Struct && (modifiers.Flags & Modifiers.Extern) != 0 && SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) && !At(TokenKind.VoidKeyword)
+            ? Advance()
+            : Expect(TokenKind.Identifier, kind switch
         {
             TypeKind.Struct => "a struct name",
             TypeKind.Class => "a class name",

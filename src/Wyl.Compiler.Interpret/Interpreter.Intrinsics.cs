@@ -15,7 +15,7 @@ public sealed partial class Interpreter
         ["collectCycles", "takeCycleStats", "allocate", "free", "initialize", "initializeDefault", "drop", "moveTo"];
 
     static readonly string[] StringNames =
-        ["byteLength", "isEmpty", "bytes", "charCount", "startsWith", "endsWith", "contains", "indexOf", "slice", "compareTo", "charAt", "nextChar"];
+        ["byteLength", "isEmpty", "bytes", "charCount", "startsWith", "endsWith", "contains", "indexOf", "slice", "compareTo", "toString", "charAt", "nextChar"];
 
     /// <summary>
     /// Every intrinsic the interpreter runs, keyed by <see cref="RuntimeKey"/>. The table is both the
@@ -31,8 +31,6 @@ public sealed partial class Interpreter
             ["wyl::panic::panic"] = (i, call, location, caller) => Panic(i.ArgumentsOf(call, caller), location),
             ["wyl::interpolate"] = (i, call, location, caller) => i.Interpolate(call.Method, i.ArgumentsOf(call, caller), location),
             ["wyl::formatted"] = (i, call, location, caller) => Formatted(call.Method, i.ArgumentsOf(call, caller)),
-            ["wyl::format_string"] = (i, call, location, caller) => FormatString(call.Method, i.ArgumentsOf(call, caller)),
-            ["wyl::compare"] = (i, call, location, caller) => Compare(call.Method, i.ArgumentsOf(call, caller)),
             ["wyl::panic::checkIndex"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
             ["wyl::panic::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
@@ -43,6 +41,15 @@ public sealed partial class Interpreter
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
         foreach (var name in StringNames)
             table["String::" + name] = (i, call, location, caller) => i.StringMethod(name, i.ReceiverOf(call, caller), i.ArgumentsOf(call, caller), location, caller);
+        foreach (var type in StdlibSymbols.HostedPrimitives)
+        {
+            table[$"{type.Name}::toString"] = (i, call, location, caller) => new StringValue(RuntimeText.Format(type, i.ReceiverOf(call, caller)!));
+            if (type != WylType.Bool)
+            {
+                table[$"{type.Name}::compareTo"] = (i, call, location, caller) =>
+                    new IntValue(RuntimeArithmetic.CompareTotal(type, i.ReceiverOf(call, caller)!, i.ArgumentsOf(call, caller)[0]));
+            }
+        }
         return table;
     }
 
@@ -71,9 +78,10 @@ public sealed partial class Interpreter
     /// <summary>Whether the interpreter has a handler for a runtime name, which the registry self-test asks.</summary>
     public static bool Handles(string key) => Intrinsics.ContainsKey(key);
 
-    Value? CallIntrinsic(IrCall call, Frame caller)
+    /// <summary>Runs the intrinsic a call names, or <paramref name="resolved"/>, the one a dispatched call reached.</summary>
+    Value? CallIntrinsic(IrCall call, Frame caller, FunctionSymbol? resolved = null)
     {
-        var key = RuntimeKey(call.Method.Symbol);
+        var key = RuntimeKey(resolved ?? call.Method.Symbol);
         if (!Intrinsics.TryGetValue(key, out var handler))
             throw new UnsupportedFeature($"the intrinsic '{key}'");
         var location = call.Loc is { } loc ? Location(loc, caller) : null;
@@ -140,17 +148,6 @@ public sealed partial class Interpreter
     static Value Formatted(MethodReference method, IReadOnlyList<Value> arguments) =>
         new FormattedValue(method.ParameterType(0), arguments[0], (int)Integer(arguments[1]), (int)Integer(arguments[2]), (int)Integer(arguments[3]));
 
-    static Value FormatString(MethodReference method, IReadOnlyList<Value> arguments)
-    {
-        var type = method.ParameterType(0);
-        if (arguments[0] is StringValue text)
-            return text;
-        return new StringValue(RuntimeText.Format(type, arguments[0]));
-    }
-
-    static Value Compare(MethodReference method, IReadOnlyList<Value> arguments) =>
-        new IntValue(RuntimeArithmetic.CompareTotal(method.ParameterType(0), arguments[0], arguments[1]));
-
     static Value? BoundsCheck(IReadOnlyList<Value> arguments, string? location)
     {
         var index = Integer(arguments[0]);
@@ -196,6 +193,8 @@ public sealed partial class Interpreter
                 return Slice(bytes, (int)Integer(arguments[0]), (int)Integer(arguments[1]), location);
             case "compareTo":
                 return new IntValue(RuntimeText.CompareBytes(bytes, Text(arguments[0])));
+            case "toString":
+                return receiver;
             case "charAt":
                 return new CharValue(Decode(bytes, (int)Integer(arguments[0])));
             case "nextChar":

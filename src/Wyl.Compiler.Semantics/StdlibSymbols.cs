@@ -35,17 +35,29 @@ public sealed class StdlibSymbols
     /// <summary>Weak references, which <c>T</c> and <c>T?</c> convert to.</summary>
     public TypeSymbol? Weak { get; private set; }
 
-    /// <summary>Types string interpolation can write, which the runtime's formatted types satisfy without implementing.</summary>
+    /// <summary>Types string interpolation writes through <c>toString</c>.</summary>
     public TypeSymbol? Printable { get; private set; }
 
-    /// <summary>Types in an order, which the numbers, <c>char</c>, and <c>String</c> satisfy without implementing.</summary>
+    /// <summary>Types in an order.</summary>
     public TypeSymbol? Comparable { get; private set; }
 
     /// <summary>
-    /// The members of the built-in <c>String</c>, declared by an <c>extern struct</c> of that name.
-    /// It is not a type: <c>String</c> always names <see cref="WylType.String"/>.
+    /// The built-in types whose members and interfaces the standard library declares, each in an
+    /// <c>extern struct</c> of its name. That declaration is not a type of its own: its name keeps
+    /// naming the built-in type.
     /// </summary>
-    public TypeSymbol? String { get; private set; }
+    static readonly Dictionary<string, WylType> HostedTypes =
+        ((WylType[])[WylType.String, WylType.Bool, WylType.Char, WylType.Float, WylType.Double, .. WylType.Integers]).ToDictionary(t => t.Name);
+
+    public static bool IsHostedTypeName(string name) => HostedTypes.ContainsKey(name);
+
+    /// <summary>The hosted primitive types, whose extern members the runtime's <c>wyl::Builtin</c> has.</summary>
+    public static IEnumerable<WylType> HostedPrimitives => HostedTypes.Values.Where(t => t != WylType.String);
+
+    public static bool IsHostedPrimitive(WylType type) => type != WylType.String && HostedTypes.ContainsValue(type);
+
+    /// <summary>The <c>extern struct</c> that declares each hosted built-in type's members.</summary>
+    readonly Dictionary<WylType, TypeSymbol> hosts = [];
 
     /// <summary>
     /// The types the language itself is built on, because its syntax needs them (spec
@@ -78,6 +90,11 @@ public sealed class StdlibSymbols
 
     public void Register(TypeSymbol symbol)
     {
+        if (symbol.IsExtern && HostedTypes.TryGetValue(symbol.Name, out var hosted))
+        {
+            hosts[hosted] = symbol;
+            return;
+        }
         switch (symbol.Name)
         {
             case "Result": Result = symbol; break;
@@ -91,29 +108,17 @@ public sealed class StdlibSymbols
             case "Weak": Weak = symbol; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
-            case "String": String = symbol; break;
         }
     }
 
-    /// <summary>The type whose declared members a value of the type has: itself, except for <c>String</c>.</summary>
-    public WylType MemberHost(WylType type) => type == WylType.String && String is { } s ? s.Type : type;
+    /// <summary>The type whose declared members and interfaces a value of the type has: itself, except for a hosted built-in type.</summary>
+    public WylType MemberHost(WylType type) => hosts.TryGetValue(type, out var host) ? host.Type : type;
 
-    /// <summary>Whether a type is printable: formatted by the runtime, or implementing <see cref="Printable"/>.</summary>
-    public bool IsPrintable(WylType type) =>
-        type.IsFormatted || (Printable is { } printable && Conversions.IsSubtype(type, printable.Type));
+    /// <summary>Whether a type implements <see cref="Printable"/>, which a bound or interpolation may ask.</summary>
+    public bool IsPrintable(WylType type) => Printable is { } printable && SatisfiesBound(type, printable.Type);
 
-    public bool IsPrintableToString(FunctionSymbol method) => method.Name == "toString" && method.ContainingType is { } s && s == Printable;
-
-    /// <summary>The numbers, <c>char</c>, and <c>String</c>, which the runtime compares itself.</summary>
-    public static bool IsBuiltinComparable(WylType type) => type.IsNumeric || type == WylType.Char || type == WylType.String;
-
-    /// <summary>Whether a type satisfies the bound, as a builtin comparable type does <c>Comparable</c> of itself.</summary>
-    public bool SatisfiesBound(WylType type, WylType bound) =>
-        Conversions.IsSubtype(type, bound)
-        || (bound.Symbol == Printable && IsPrintable(type))
-        || (bound.Symbol == Comparable && IsBuiltinComparable(type) && bound.TypeArguments[0] == type);
-
-    public bool IsComparableCompareTo(FunctionSymbol method) => method.Name == "compareTo" && method.ContainingType is { } s && s == Comparable;
+    /// <summary>Whether a type satisfies an interface bound: implements it, itself or through its host.</summary>
+    public bool SatisfiesBound(WylType type, WylType bound) => Conversions.IsSubtype(MemberHost(type), bound);
 
     public bool IsSpan(WylType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 

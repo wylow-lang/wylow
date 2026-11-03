@@ -236,10 +236,6 @@ public sealed partial class Binder
         List<Argument> arguments)
     {
         var receiverType = receiver.Type;
-        if (name == "toString" && receiverType.IsFormatted)
-            return BindFormattedToString(location, receiver, typeArguments, arguments);
-        if (name == "compareTo" && (receiverType.IsNumeric || receiverType == WylType.Char))
-            return BindBuiltinCompareTo(location, receiver, typeArguments, arguments);
         var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
         {
@@ -257,35 +253,6 @@ public sealed partial class Binder
         }
         CheckVisible(nameLocation, method.Symbol.Reach, $"method '{declaring.Name}.{name}'");
         return MakeCall(location, method, receiver, arguments);
-    }
-
-    /// <summary>Primitives and <c>String</c> are printable without implementing <c>Printable</c>, so their <c>toString()</c> is the runtime's.</summary>
-    BoundExpression BindFormattedToString(Location location, BoundExpression receiver, IReadOnlyList<WylType>? typeArguments, List<Argument> arguments)
-    {
-        if (typeArguments is not null)
-            return ErrorExpression(Catalog.NoTypeArguments(location, $"{receiver.Type}.toString"));
-        if (arguments.Count != 0)
-            return ErrorExpression(Catalog.NoOverloadForCount(location, $"overload of '{receiver.Type}.toString'", arguments.Count));
-        return new BoundCall(location, new MethodReference(Builtins.ToString(receiver.Type), null, []), null, [receiver]);
-    }
-
-    /// <summary>
-    /// The numbers and <c>char</c> are comparable without implementing <c>Comparable</c>, so their
-    /// <c>compareTo(other)</c> is the runtime's. <c>String</c>'s is declared in the standard library.
-    /// </summary>
-    BoundExpression BindBuiltinCompareTo(Location location, BoundExpression receiver, IReadOnlyList<WylType>? typeArguments, List<Argument> arguments)
-    {
-        var type = receiver.Type;
-        if (typeArguments is not null)
-            return ErrorExpression(Catalog.NoTypeArguments(location, $"{type}.compareTo"));
-        if (arguments.Count != 1)
-            return ErrorExpression(Catalog.NoOverloadForCount(location, $"overload of '{type}.compareTo'", arguments.Count));
-        var other = arguments[0];
-        if (other.Name is { } argumentName && argumentName != "other")
-            return ErrorExpression(Catalog.NoParameterNamed(other.NameLocation, $"{type}.compareTo", argumentName));
-        if (other.IsRef)
-            return ErrorExpression(Catalog.ArgumentNotRef(other.Location, "argument 1", $"{type}.compareTo"));
-        return new BoundCall(location, new MethodReference(Builtins.CompareTo(type), null, []), null, [receiver, Convert(other.Expression, type)]);
     }
 
     BoundExpression BindSuperMethodCall(CallExpr e, SuperExpr super, MemberAccessExpr member, IReadOnlyList<WylType>? typeArguments, PendingArguments pending)

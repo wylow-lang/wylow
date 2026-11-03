@@ -28,16 +28,10 @@ public sealed partial class Interpreter
 
         var storage = call.Receiver is { } receiver ? ReceiverStorage(receiver, caller) : null;
         var obj = (storage as OwnedStorage)?.Cell.Value as ObjectRef;
-        // A formatted type, or the numbers, char, and String, satisfy a Printable or Comparable
-        // bound without implementing it: the runtime writes and compares those itself.
-        if (Received(storage) is { Value: var received, Type: var concrete })
-        {
-            if (program.Bound.Stdlib.IsPrintableToString(method.Symbol) && concrete.IsFormatted)
-                return new StringValue(RuntimeText.Format(concrete, received));
-            if (program.Bound.Stdlib.IsComparableCompareTo(method.Symbol) && StdlibSymbols.IsBuiltinComparable(concrete))
-                return new IntValue(RuntimeArithmetic.CompareTotal(concrete, received, ArgumentValue(call.Arguments[0], caller)));
-        }
         var callee = Resolve(call, storage, obj);
+        // A primitive's or String's implementation is an extern member of the standard library.
+        if (callee.Symbol.IsBuiltin)
+            return CallIntrinsic(call, caller, callee.Symbol);
         if (callee.Symbol.IsAbstract)
             throw new WylPanic(callee.Symbol.AbstractCallMessage, callee.Symbol.Declaration!.NameLocation.PanicText);
         var function = program.Functions.Single(callee.Symbol)
@@ -50,14 +44,6 @@ public sealed partial class Interpreter
         BindArguments(call.Arguments, function.Parameters, frame, caller);
         return Invoke(function, frame);
     }
-
-    /// <summary>The receiver's value and the type of the storage holding it, which a type parameter's substitution made concrete.</summary>
-    static (Value Value, WylType Type)? Received(Storage? storage) => storage switch
-    {
-        OwnedStorage owned => (owned.Cell.Value, owned.Cell.Type),
-        RefStorage { Cell: { } cell } => (cell.Value, cell.Type),
-        _ => null,
-    };
 
     /// <summary>
     /// Which method a call runs: the one named, or for a dispatched call the receiver's

@@ -263,7 +263,10 @@ So far only the standard library declares extern functions, one at a time: `stat
 check(int index, int length);` in a struct, or a free `extern` function. The C++ runtime
 (`runtime/wyl/intrinsics.h`) implements them, as `wyl::name`, or `wyl::type::name` for a method of a
 type (the type's name in lower camel case). An `extern struct` of the standard library is the C++
-class `wyl::Name` (`wyl::Weak`, `wyl::String`).
+class `wyl::Name` (`wyl::Weak`, `wyl::String`), except one named for a primitive type
+(`Stdlib/primitives.wyl`): a C++ arithmetic type has no members, so its extern methods are members
+of `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::bound<I>` gives a primitive or a
+`String` as its `Builtin`, whose `m_`-named members are what a call through a generic bound names.
 
 For each extern struct declared with fields, the compiler emits size and offset checks into the
 generated C++:

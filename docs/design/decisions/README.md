@@ -65,3 +65,4 @@ history and a reason can be found without searching the spec.
 | [0035](0035-main-arguments-and-exit-status.md) | `main` may take the arguments and return the exit status |
 | [0036](0036-type-properties.md) | `copyable` and `sendable` are type properties, not interfaces |
 | [0037](0037-interfaces-the-language-calls.md) | Interfaces the language calls are ordinary interfaces |
+| [0038](0038-built-in-types-declare-their-interfaces.md) | The built-in types declare their interfaces in the standard library |

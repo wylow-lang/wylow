@@ -651,17 +651,12 @@ public sealed partial class CppEmitter
         };
         var receiverType = receiverPlace.Type;
         var receiverText = receiver is IrRead value ? OperandText(value) : PlaceText(receiverPlace);
-        // Formatted types satisfy a Printable bound without implementing it, so the runtime writes those itself.
-        if (receiverType.IsTypeParameter && stdlib.IsPrintableToString(function))
-            return $"wyl::to_string<{ObjectType(method.Owner!)}>({receiverText})";
-        // So are the numbers, char, and String a Comparable one.
-        if (receiverType.IsTypeParameter && stdlib.IsComparableCompareTo(function))
-            return $"wyl::compare_to<{ObjectType(method.Owner!)}>({receiverText}, {arguments})";
         bool isThis = receiverPlace is { IsDeref: false, Projections.Count: 0, Local.IsThis: true };
         var target = isThis ? ThisReceiverText(method, call.IsSuperCall) : ReceiverText(receiverType, method, receiverText);
-        // An extern struct's instance methods are members of its C++ class.
+        // An extern struct's instance methods are members of its C++ class, and a primitive's are
+        // members of the wyl::Builtin that wraps it.
         if (function.IsExtern)
-            return $"{target}{function.BuiltinCppName}({arguments})";
+            return StdlibSymbols.IsHostedPrimitive(receiverType) ? $"wyl::Builtin({receiverText}).{function.BuiltinCppName}({arguments})" : $"{target}{function.BuiltinCppName}({arguments})";
         return $"{target}{memberName}({arguments})";
     }
 

@@ -319,17 +319,6 @@ inline String format_string(const T& value) {
     }
 }
 
-// Printable.toString through a generic bound I: formatted types satisfy the bound without
-// implementing it. m_toString is the name CppEmitter gives the method.
-template <class I, class T>
-inline String to_string(const T& value) {
-    if constexpr (is_formatted<T>) {
-        return format_string(value);
-    } else {
-        return bound<I>(value).m_toString();
-    }
-}
-
 // `$"a{b}c"`: the parts in order, then the call site's location.
 template <class... A>
 inline String interpolate(const A&... arguments) {

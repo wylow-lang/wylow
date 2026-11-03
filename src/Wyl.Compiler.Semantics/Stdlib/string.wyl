@@ -1,9 +1,9 @@
-// The members of `String`, the built-in immutable UTF-8 text. `String` itself is not a struct: this
-// declaration only gives it methods, which the runtime's `wyl::String` implements. Offsets and
-// lengths count bytes of UTF-8, which is what a string stores; a character (`char`) takes 1 to 4.
-// See docs/spec/02-types.md.
+// The members and interfaces of `String`, the built-in immutable UTF-8 text. `String` itself is not
+// a struct: this declaration only gives it methods, which the runtime's `wyl::String` implements.
+// Offsets and lengths count bytes of UTF-8, which is what a string stores; a character (`char`)
+// takes 1 to 4.
 
-pub extern struct String {
+pub extern struct String implements Comparable<String>, Printable {
     // The length in bytes, not in characters.
     @Pure
     pub extern int byteLength();
@@ -40,6 +40,10 @@ pub extern struct String {
     // byte, which for UTF-8 is the order of the code points.
     @Pure
     pub extern int compareTo(String other);
+
+    // The string itself.
+    @Pure
+    pub extern String toString();
 
     // For the compiler's loops over a string's characters. `offset` must be where one starts.
     @Pure

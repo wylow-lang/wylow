@@ -433,11 +433,22 @@ inline B* as(const Borrow<T>& value) {
     return value.operator->();
 }
 
-// A call through a generic bound: objects through the bound interface, structs directly.
+// The members the standard library declares for a primitive type or String (compare.h).
+template <class T>
+struct Builtin;
+
+template <class T>
+inline constexpr bool is_builtin = std::is_arithmetic_v<T> || std::is_same_v<T, String>;
+
+// A call through a generic bound: objects through the bound interface, primitives and String
+// through their Builtin, structs directly.
 template <class I, class T>
 inline decltype(auto) bound(T&& value) {
-    if constexpr (is_ref<std::remove_cvref_t<T>>::value || is_borrow<std::remove_cvref_t<T>>::value) {
+    using V = std::remove_cvref_t<T>;
+    if constexpr (is_ref<V>::value || is_borrow<V>::value) {
         return static_cast<I&>(*value.operator->());
+    } else if constexpr (is_builtin<V>) {
+        return Builtin<V>(value);
     } else {
         return (value);
     }

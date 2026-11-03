@@ -179,7 +179,7 @@ home is written.
 | | Generic vs non-generic overload | `functions.overloading.resolution` |
 | | `Name<...>` read as type arguments | `expressions.primary` (grammar) |
 | Bounds | Interfaces or type properties, nullable doesn't satisfy, no conversion | `generics.bounds` |
-| | Built-in types satisfy `Printable`, `Comparable` | `library.printable`, `library.comparable` |
+| | Built-in types implement `Printable`, `Comparable`, declared in `std`; nullables don't (decision 0038) | `library.printable`, `library.comparable` |
 | Type properties | What is copyable, `copyable` in a bound, the words only in bounds; decision 0036 | `types.copyable` (the property), `generics.bounds` (naming it in a bound) |
 | | `sendable` in a bound, type parameters | `concurrency.sendable` |
 | | `Comparable` example, float total order | `library.comparable` |

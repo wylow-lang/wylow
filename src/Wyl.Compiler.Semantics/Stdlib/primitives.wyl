@@ -1,0 +1,115 @@
+// The members and interfaces of the primitive types. Each declaration only gives its type members:
+// `int` still names the built-in type, and the runtime implements the methods.
+
+pub extern struct bool implements Printable {
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct char implements Comparable<char>, Printable {
+    // By code point.
+    @Pure
+    pub extern int compareTo(char other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct sbyte implements Comparable<sbyte>, Printable {
+    @Pure
+    pub extern int compareTo(sbyte other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct byte implements Comparable<byte>, Printable {
+    @Pure
+    pub extern int compareTo(byte other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct short implements Comparable<short>, Printable {
+    @Pure
+    pub extern int compareTo(short other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct ushort implements Comparable<ushort>, Printable {
+    @Pure
+    pub extern int compareTo(ushort other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct int implements Comparable<int>, Printable {
+    @Pure
+    pub extern int compareTo(int other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct uint implements Comparable<uint>, Printable {
+    @Pure
+    pub extern int compareTo(uint other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct long implements Comparable<long>, Printable {
+    @Pure
+    pub extern int compareTo(long other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct ulong implements Comparable<ulong>, Printable {
+    @Pure
+    pub extern int compareTo(ulong other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct nint implements Comparable<nint>, Printable {
+    @Pure
+    pub extern int compareTo(nint other);
+
+    @Pure
+    pub extern String toString();
+}
+
+pub extern struct nuint implements Comparable<nuint>, Printable {
+    @Pure
+    pub extern int compareTo(nuint other);
+
+    @Pure
+    pub extern String toString();
+}
+
+// A total order, unlike the comparison operators: -0 sorts before 0, and NaN after every other
+// value, infinity included, and the same as any other NaN.
+pub extern struct float implements Comparable<float>, Printable {
+    @Pure
+    pub extern int compareTo(float other);
+
+    @Pure
+    pub extern String toString();
+}
+
+// The same total order as float's.
+pub extern struct double implements Comparable<double>, Printable {
+    @Pure
+    pub extern int compareTo(double other);
+
+    @Pure
+    pub extern String toString();
+}

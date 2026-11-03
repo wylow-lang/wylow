@@ -423,22 +423,6 @@ public static class Builtins
             PassesLocation = true,
         };
 
-    /// <summary><c>value.toString()</c> on a primitive or <c>String</c>, which the runtime formats as interpolation does.</summary>
-    public static FunctionSymbol ToString(WylType type) =>
-        new("toString", [new LocalSymbol("value", type, isParameter: true)], WylType.String)
-        {
-            BuiltinCppName = "wyl::format_string",
-            IsPure = true,
-        };
-
-    /// <summary><c>value.compareTo(other)</c> on a number or <c>char</c>, which compares them in the runtime.</summary>
-    public static FunctionSymbol CompareTo(WylType type) =>
-        new("compareTo", [new LocalSymbol("value", type, isParameter: true), new LocalSymbol("other", type, isParameter: true)], WylType.Int)
-        {
-            BuiltinCppName = "wyl::compare",
-            IsPure = true,
-        };
-
     /// <summary>
     /// An interpolated value with a format specifier or alignment (<c>{x,8:F2}</c>): its specifier's
     /// letter (or 0), precision (or -1), and alignment (or 0). The runtime gives back a deferred

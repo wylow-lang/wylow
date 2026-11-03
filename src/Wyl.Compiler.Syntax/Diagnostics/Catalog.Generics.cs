@@ -22,10 +22,6 @@ public static partial class Catalog
     public static Diagnostic VariantTypeArguments(Location at, string type, string variant) =>
         Make(at, "type arguments belong to the enum, not its variant").Help($"write '{type}<...>.{variant}(...)'");
 
-    [Error(198, "generics.arguments")]
-    public static Diagnostic NoTypeArguments(Location at, string method) =>
-        Make(at, $"'{method}' takes no type arguments");
-
     [Error(192, "generics.parameters")]
     public static Diagnostic DuplicateTypeParameter(Location at, string name) =>
         Make(at, $"type parameter '{name}' is already defined");

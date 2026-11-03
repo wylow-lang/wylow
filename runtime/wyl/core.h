@@ -154,6 +154,8 @@ public:
         return order < 0 ? -1 : order > 0 ? 1 : 0;
     }
 
+    String toString() const { return *this; }
+
 private:
     String(const char* data, int32_t length, Block* block) : data_(data), length_(length), block_(block) {}
 

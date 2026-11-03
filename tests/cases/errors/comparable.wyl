@@ -12,11 +12,13 @@ void main() {
     print(maxOf(true, false));          // error[WYL0208]: 'bool' does not implement 'Comparable<bool>'
     var p = maxOf(Plain(1), Plain(2));  // error[WYL0208]: 'Plain' does not implement 'Comparable<Plain>'
     print(true.compareTo(false));       // error[WYL0300]: cannot find method 'compareTo' in 'bool'
-    print(1.5.compareTo(2.5d));         // error[WYL0079]: expected 'float', found 'double'
-    print(5.compareTo(5L));             // error[WYL0079]: expected 'int', found 'long'
+    print(1.5.compareTo(2.5d));         // error[WYL0236]: no overload of 'float.compareTo' accepts (double)
+    print(5.compareTo(5L));             // error[WYL0236]: no overload of 'int.compareTo' accepts (long)
     print(5.compareTo());               // error[WYL0233]: no overload of 'int.compareTo' takes 0 arguments
     print(5.compareTo(1, 2));           // error[WYL0233]: no overload of 'int.compareTo' takes 2 arguments
-    print(5.compareTo(value: 1));       // error[WYL0227]: cannot find parameter 'value' in 'int.compareTo'
-    print('a'.compareTo(97));           // error[WYL0079]: expected 'char', found 'int'
+    print(5.compareTo(value: 1));       // error[WYL0227]: cannot find parameter 'value' in 'compareTo'
+    print('a'.compareTo(97));           // error[WYL0236]: no overload of 'char.compareTo' accepts (int)
+    int? maybe = 1;
+    print(maxOf(maybe, maybe));         // error[WYL0208]: 'int?' does not implement 'Comparable<int?>'
     print("a".compareTo('a'));          // error[WYL0236]: no overload of 'String.compareTo' accepts (char)
 }

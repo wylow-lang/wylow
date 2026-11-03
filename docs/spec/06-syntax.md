@@ -795,10 +795,11 @@ struct Vec3 implements Printable {
 }
 ```
 
-- Primitives, `String`, and their nullables satisfy a `T extends Printable` bound without
-  implementing it, so generic code can print any printable value, including an `int`, with
-  `$"{value}"` or `value.toString()`. Outside generic code too, they have a `toString()` that
-  writes them as interpolation does: `5.toString()` is `"5"`.
+- The primitive types and `String` implement `Printable` ([02-types.md](02-types.md#bounds)), so
+  generic code can print any printable value, including an `int`, with `$"{value}"` or
+  `value.toString()`. Outside generic code too, their `toString()` writes them as interpolation
+  does: `5.toString()` is `"5"`. A nullable type doesn't satisfy a `Printable` bound, though
+  interpolation writes a nullable value as its value or `null`.
 
 `print` writes its value and then one `\n` byte. The runtime writes standard output unchanged on
 every platform (the stream is binary), so a value that ends in a newline character carries exactly

@@ -74,6 +74,10 @@ each. When rewriting the chapter a row points at, write these too:
 - **0037, interfaces the language calls**: written in `library.names`; a struct or enum is not
   `Borrowable` through an extending interface either (`03-memory-model.md`, `Borrowable`), pinned by
   `errors/containers.wyl`. To `memory.borrows.borrowable`.
+- **0038, the built-in types' interfaces are declared** (`02-types.md`, Bounds; `06-syntax.md`,
+  String interpolation): to `library.printable`, `library.comparable`, and `types.primitives.methods`
+  (each primitive's `extern struct` in `Stdlib/primitives.wyl`). Pinned by
+  `basics/interpolation.wyl`, `errors/interpolation.wyl`, `errors/comparable.wyl`.
 - **`is ref` holds** (`03-memory-model.md`, Nullable references): a hold lasts until the statement
   ends, even where the rest of the condition is false, pinned by
   `panics/list_reference_pattern_held_in_else.wyl` and `..._guard_held.wyl`. To `memory.holds`.

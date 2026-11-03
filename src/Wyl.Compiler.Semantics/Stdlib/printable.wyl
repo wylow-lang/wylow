@@ -1,6 +1,5 @@
-// Types whose values can be written as text, as string interpolation writes them. Primitives and
-// String are printable without implementing it: the runtime formats them, and they satisfy a
-// `T extends Printable` bound.
+// Types whose values can be written as text: string interpolation writes such a value by calling
+// `toString`.
 
 pub interface Printable {
     String toString();

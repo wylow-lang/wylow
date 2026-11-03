@@ -869,9 +869,12 @@ bound may mention the type parameters, as in `T extends Comparable<T>`.
 - A nullable type such as `Player?` does not satisfy a bound, since its methods could not be called
   on null.
 - A bound does not make `T` convert to the interface (`T` might be a struct).
-- Three standard library interfaces are satisfied by built-in types without implementing them:
-  primitives and `String` are `Printable` ([06-syntax.md](06-syntax.md#string-interpolation)),
-  and the numbers, `char`, and `String` are `Comparable` of themselves.
+- The standard library declares the primitive types' and `String`'s interfaces, each in an
+  `extern struct` of the type's name that gives the type members and changes nothing else about
+  it: every primitive type and `String` implements `Printable`
+  ([06-syntax.md](06-syntax.md#string-interpolation)), and the numbers, `char`, and `String`
+  implement `Comparable` of themselves. Their nullable types, like any nullable type, satisfy
+  neither.
 
 ```java
 interface Comparable<T> {

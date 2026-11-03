@@ -1431,8 +1431,6 @@ static class InterpreterSelfTests
             .Concat(Builtins.All.Select(builtin => builtin.Function))
             .Concat([
                 Builtins.Interpolate([]),
-                Builtins.ToString(WylType.Int),
-                Builtins.CompareTo(WylType.Int),
                 Builtins.Formatted(WylType.Int),
             ]);
         var missing = symbols.Select(Interpreter.RuntimeKey).Distinct().Where(key => !Interpreter.Handles(key)).Order().ToList();
