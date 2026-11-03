@@ -8,15 +8,18 @@ the rules for every rewrite; decision 0002 is the structure, chapter 1 the phras
 ## Next session: chapters 18 to 22 and appendix A
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). Chapters 1 to 17 are written, and parts of 20; the rest are anchors only.
+(18–22 + appendix A). Chapters 1 to 17 are written, and parts of 18, 20, and 22; the rest are
+anchors only.
 
 - **Chapters 18 to 22** (`18-errors.md`, `19-concurrency.md`, `20-unsafe.md`, `21-interop.md`,
   `22-annotations.md`) and **appendix A** (`a-library.md`): from the rows of `spec-mapping.md` that
   point at `errors.*`, `concurrency.*`, `unsafe.*`, `interop.*`, `annotations.*`, and `library.*`,
   mostly in `04-errors.md`, `05-concurrency.md`, `07-interop.md`, and the remaining parts of
-  `02-types.md` and `06-syntax.md`.
+  `02-types.md` and `06-syntax.md`. Take them in that order: errors, concurrency, unsafe, interop,
+  annotations, appendix A.
 - **Diagnostics pages**: the catalog entries anchored in these chapters
   (`grep -E '"(errors|concurrency|unsafe|interop|annotations|library)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
+  All 14 of them (`WYL0421`–`WYL0434`) are still on `without-pages.txt` and need a page.
   Chapters 2 to 17's pages show the form; a code only a package produces gets a package example
   (`docs/diagnostics/README.md`).
 - Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
@@ -28,7 +31,9 @@ The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15
     appendix A), and "Type properties" (`concurrency.sendable`, chapter 19).
   - `06-syntax.md` §6.1's `std::panic` and `std::memory` (`library.panic`, `library.memory`,
     appendix A), §6.5 "No properties" (the guide), and §6.10 "Annotations" (chapter 22).
-  - `04-errors.md`, `05-concurrency.md`, and `07-interop.md`, in full.
+  - The rest of `04-errors.md` (§4.3 `try` is already in chapter 13), `05-concurrency.md`
+    (§5.8's unsafe rules are already in chapter 20), and `07-interop.md` (§7.5's enums are
+    already in chapter 9).
 - **Open bug found while writing chapter 11:** the compiler never finishes on a generic function or
   method that instantiates itself with growing type arguments (#22). `generics.recursion` states the
   error; it needs a catalog code, a page, and a test. Not part of the spec sessions.
@@ -40,15 +45,14 @@ The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15
 ## Where it stands
 
 The diagnostics catalog is merged (decision 0003): every diagnostic is a factory method in
-`src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`, with a code (`WYL0001` to `WYL0434`, in spec-chapter
+`src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`, with a code (`WYL0001` to `WYL0437`, in spec-chapter
 order) and the anchor of the spec section that makes it an error. Codes are now stable: **never
 renumber one**, and give a new diagnostic the next number. `CatalogSelfTests` checks the catalog
 (codes, anchors, a test per code, a page per code or a place on `docs/diagnostics/without-pages.txt`).
 
-The new chapter files (`01-introduction.md`, `02-lexical.md`, `03-programs.md`, `04-types.md`, ...)
-hold the anchors the catalog names, mostly as empty sections. A rewrite fills a section; the
-catalog test fails if an anchor it names disappears, so a section that is renamed or merged is
-renamed in the catalog in the same change.
+Chapters 18 to 22 and appendix A hold the anchors the catalog names, mostly as empty sections. A
+rewrite fills a section; the catalog test fails if an anchor it names disappears, so a section that
+is renamed or merged is renamed in the catalog in the same change.
 
 ## For each chapter
 
@@ -61,8 +65,10 @@ renamed in the catalog in the same change.
    from `docs/diagnostics/without-pages.txt`. The test fails until it is removed.
 4. Message wording a page shows follows `docs/diagnostics/README.md`. If a rewrite changes what a
    rule says, change the catalog method's message and the tests' markers in the same change.
+5. Commit each chapter once it passes, so a usage limit costs at most one chapter.
 
-The last chapter's session deletes `spec-mapping.md`, the old files, and this handoff.
+The last chapter's session deletes `spec-mapping.md`, the old files, this handoff, and the
+"Chapters being rewritten" list in `docs/spec/README.md`.
 
 ## Rules added to the old files since the mapping was written
 
@@ -72,8 +78,8 @@ each. The ones whose chapters are written are now in the spec. These remain:
 - **0036, `copyable` and `sendable` are type properties**: `types.copyable` and
   `generics.bounds` are written; `concurrency.sendable` comes with chapter 19. Neither property
   is implemented (#6), so neither has tests yet.
-- **0038, the built-in types' interfaces are declared**: `library.printable`,
-  `library.comparable`, and `types.primitives.methods` come with appendix A. Pinned by
+- **0038, the built-in types' interfaces are declared**: `types.primitives.methods` is written;
+  `library.printable` and `library.comparable` come with appendix A. Pinned by
   `basics/interpolation.wyl`, `errors/interpolation.wyl`, `errors/comparable.wyl`.
 - **0028, destructors on unique structs**: the rules are written (`structs.unique`,
   `memory.holds`, `flow.moves`). Of the errors it lists, `WYL0146` ("cannot have destructors")
