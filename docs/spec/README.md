@@ -23,8 +23,8 @@ and what to expect coming from other languages in [the guide](../guide/README.md
 | [13](13-expressions.md) | `expressions` | Evaluation order, operators, `try`, string interpolation |
 | [14](14-statements.md) | `statements` | Blocks, assignment, loops, `switch`, `defer` |
 | [15](15-patterns.md) | `patterns` | Patterns, cases, guards, exhaustiveness |
-| [16](16-flow.md) | `flow` | Definite assignment, narrowing, moves, reachability |
-| [17](17-memory.md) | `memory` | Moves, objects, releases, weak references, cycles, references, holds, borrows |
+| [16](16-flow.md) | `flow` | Definite assignment, single assignment, narrowing, use after move, fields in constructors, reachability, lambdas |
+| [17](17-memory.md) | `memory` | Kinds of storage, moves, objects, releases, weak references, cycles, references, holds, borrows, second-class values |
 | [18](18-errors.md) | `errors` | Panics, `Result` |
 | [19](19-concurrency.md) | `concurrency` | Thread confinement, sendable types, shared classes and functions, isolated graphs |
 | [20](20-unsafe.md) | `unsafe` | Unsafe code, pointers, undefined behavior |
