@@ -50,8 +50,9 @@ follows from whether it can be copied ([02-types.md](02-types.md#unique-structs)
   `mut`. Statics, `shared class` fields, and what a `shared fn` captures are read by several
   threads, so they must be sendable **and copyable**.
 - A unique sendable value is **moved**: it has one owner, so after it moves, only the receiving
-  thread has it. A unique value may change when it is only read, as a borrow counter in what it
-  owns does, which is safe because only one thread holds it. Channels, mutexes, and a thread's
+  thread has it, and its destructor, if it has one, runs on the thread that releases it. A unique
+  value may change when it is only read, as a borrow counter in what it owns does, which is safe
+  because only one thread holds it. Channels, mutexes, and a thread's
   argument and result move values, so they take unique values too.
 - **Moving a value to another thread panics if anything it owns is borrowed**
   ([03-memory-model.md](03-memory-model.md#borrow-counters-on-containers)): sending it over a
@@ -147,9 +148,16 @@ class Audio {
   suggests `Frozen<T>` or a `Mutex<T>`.
 - State that one thread changes, such as the game's world or the editor's selection, belongs in an
   object the program passes to what uses it.
-- A static is initialized the first time it is read, as in Java, exactly once even if threads read
-  it at the same time. One whose initializer reads it again, directly or through the functions it
-  calls, panics.
+- **Every static is initialized before `main` runs**, on the main thread, exactly once: those of
+  the program's package and of every package it depends on, directly or not, `std` included.
+  - A package's statics are initialized after those of every package it depends on; packages
+    neither depends on are taken in order of name. Within a package, files are taken in order of
+    their path under `src/`, and within a file, statics in the order they are written.
+  - An initializer that reads a static not yet initialized initializes that one first.
+  - Reading a static whose initializer is still running, directly or through the functions it
+    calls, panics, naming the statics involved.
+  - Starting a thread before `main` begins panics.
+  - A panic in an initializer ends the program before `main` begins (§5.7).
 - A static is never destroyed, whether the program ends by `main` returning or by a panic
   ([06-syntax.md](06-syntax.md#entry-point)).
 
@@ -215,6 +223,9 @@ while (loaded.receiver.tryReceive() is Mesh mesh) {   // each frame; never waits
   receiver receives until the channel is closed and empty.
 - Channels have no size limit, so `send` never waits. It returns `false`, dropping the value, once
   every `Receiver` is gone.
+- A channel released while it still holds values releases them oldest first, in the order they
+  would have been received.
+
 ### Locks and atomics
 
 `Mutex<T>` gives one thread at a time access to a `T`, through a `ref` that can't escape the lock
@@ -241,8 +252,11 @@ both places. Data that must change together belongs behind one mutex.
 `Atomic<T>` holds a primitive and changes it with atomic operations (`load`, `store`, `add`,
 `compareExchange`, ...), all sequentially consistent.
 
-What the rules don't prevent: two threads each waiting to receive from the other wait forever, as
-in any language. Like an infinite loop, that is a bug the language doesn't catch.
+What the rules don't prevent is waiting forever: two threads each waiting to receive from the
+other; a thread receiving until its channel closes while it holds one of that channel's `Sender`s
+itself, so the channel never closes; and a thread releasing a `Thread` whose thread waits for one
+of these, since the release joins it. Like an infinite loop, that is a bug the language doesn't
+catch.
 
 ### Isolated object graphs
 

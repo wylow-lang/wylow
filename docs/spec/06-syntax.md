@@ -137,7 +137,8 @@ members, written to hold functions, is a module in disguise; make it a module.
 
 ### Entry point
 
-A top-level `void main()` or `int main(String[] args)` in the root module.
+A top-level `void main()` or `int main(String[] args)` in the root module. Before it runs, every
+static of the program is initialized ([05-concurrency.md](05-concurrency.md#55-statics)).
 
 **The end of the program.** The program ends when `main` returns, after `main`'s locals and
 temporaries have been released as at the end of any function. Then:

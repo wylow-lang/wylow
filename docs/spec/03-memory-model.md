@@ -55,6 +55,8 @@ value's contents without copying anything; the source no longer holds a value.
   then releases the fields it declares, in reverse declaration order, before the base class's
   destructor runs. Its abstract or virtual methods dispatch to the class being destroyed, so they
   never see a derived class's fields.
+- An array, fixed (`T[N]`) or on the heap (`T[]`), releases its elements from the last to the first,
+  as a struct releases its fields in reverse. So does a `List<T>` when it is released or cleared.
 - A closure releases the copies it captured, and a choice the callables it holds, in the order they
   are held, not in the reverse order a struct's fields take. Either one's last reference releases
   them, like an object's fields.
@@ -318,9 +320,13 @@ if (found != null) {
 - Overloads cannot differ only in `ref` and `ref?` (`f(ref int)` and `f(ref? int)`), since
   `f(ref x)` could call either.
 - `x is ref T name` (or `ref var name`) is only an `is` test, not a case of a switch. The name is in
-  scope like any pattern's, and while it is, what it refers into is held or borrowed as for a `ref`
-  variable; when the test fails, that is let go at once, so an `else` branch can still add to the
-  list that `list.get(i)` looked in.
+  scope like any pattern's. When the test fails, nothing is held, so an `else` branch reached because
+  it failed can still add to the list that `list.get(i)` looked in. When it succeeds, what the name
+  refers into is held or borrowed as for a `ref` variable until the statement ends, even where the
+  rest of the condition turns out false: in `if (list.get(i) is ref T e && e.ready())`, the `else`
+  branch runs with the list borrowed when `e.ready()` was false. In a `while` condition, the hold
+  lasts until that iteration's body ends; in a `when` guard, until the `switch` ends, through the
+  cases after it.
 
 Because a reference cannot outlive the function that created it, the only remaining danger is the
 storage it points into being freed or moved while the function runs. Two runtime mechanisms

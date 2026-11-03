@@ -197,6 +197,7 @@ home is written.
 | | Unique operand used in place | `expressions.order` |
 | 3.2 Objects | `new`, counted, destructor on last release | `memory.objects` |
 | When references are released | Locals, parameters, fields; destruction order | `memory.release.destruction` |
+| | Arrays and `List` release their elements last to first | `memory.release.destruction` (arrays); `list.wyl` doc comment (`List`); decision 0031 |
 | | Closures and choices release order | `memory.release.destruction` |
 | | Temporaries (all bullets) | `memory.release.temporaries` |
 | | Assignment stores before releasing | `memory.release` |
@@ -220,7 +221,7 @@ home is written.
 | Returning references | All | `functions.ref-returns` |
 | Nullable references | All | `memory.nullable-references` |
 | | Conversions from `ref` | `conversions.references` |
-| | `is ref` | `patterns.references` |
+| | `is ref` | `patterns.references`; how long its hold lasts to `memory.holds` |
 | | `?.` on a `ref?` | `expressions.null` |
 | | Overloads `ref` vs `ref?` | `functions.overloading` |
 | | "Because a reference cannot outlive ..." | `memory.holds` (intro) |
@@ -260,6 +261,7 @@ home is written.
 | 5.4 Shared functions | All | `concurrency.shared-functions` |
 | | Conversion to non-`shared` | `conversions.functions` |
 | 5.5 Statics | All | `variables.statics` |
+| | Initialized before `main`: order, on demand, cycles, no threads | `variables.statics`; `programs.execution` links it; decision 0030 |
 | 5.6 Intro | Output order may vary | `concurrency.interleaving` |
 | Threads, Channels, Locks and atomics, Frozen arrays, Parallel work | Library behavior | issue #14 (the stdlib design brief) until the library implements them, then their doc comments; the one-lock panic is library behavior too |
 | Isolated object graphs | All | `concurrency.isolated`; its cycle buffer in `memory.cycles` (link) |

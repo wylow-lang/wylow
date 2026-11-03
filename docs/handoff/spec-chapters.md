@@ -31,6 +31,32 @@ renamed in the catalog in the same change.
 
 The last chapter's session deletes `spec-mapping.md`, the old files, and this handoff.
 
+## Rules added to the old files since the mapping was written
+
+Decisions 0028 to 0031 put their rules into the old files, and `spec-mapping.md` has a row for
+each. When rewriting the chapter a row points at, write these too:
+
+- **0028, destructors on unique structs** (`02-types.md`, "Destructors of unique structs";
+  `03-memory-model.md`, values in use): to `structs.unique`, `memory.holds`. Of the errors it lists,
+  a destructor's modifiers and parameters already have codes for classes (`WYL0144`, `WYL0149`,
+  anchored at `classes.destructors`), and `WYL0146` ("cannot have destructors") would change to
+  allow unique structs. New codes are needed for `discard` of anything but a by-value parameter of a
+  unique type with a destructor, `discard` outside the type's file, and moving out of `this` in a
+  destructor. None of this is implemented (#6).
+- **0029, the end of the program** (`06-syntax.md`, Entry point; `05-concurrency.md` §5.5): to
+  `programs.execution`, `variables.statics`.
+- **0030, statics initialized before `main`** (`05-concurrency.md` §5.5): to `variables.statics`.
+  Static fields aren't implemented (#6), so it has no tests yet.
+- **0031, elements released last to first** (`03-memory-model.md`, When references are released):
+  to `memory.release.destruction`; implemented, pinned by `containers/release_order.wyl`.
+- **`is ref` holds** (`03-memory-model.md`, Nullable references): a hold lasts until the statement
+  ends, even where the rest of the condition is false, pinned by
+  `panics/list_reference_pattern_held_in_else.wyl` and `..._guard_held.wyl`. To `memory.holds`.
+
+The old files still compare Wylow with other languages in places (`05-concurrency.md`: Rust's
+`unsafe impl Send`, `std::jthread`, Rust's scoped threads), and use game examples; the rewrite
+removes both.
+
 ## Open from the catalog
 
 - `Binder.Visibility.cs` ("as in Java"), `Binder.Statements.cs` `Declare` ("Like Java"), and

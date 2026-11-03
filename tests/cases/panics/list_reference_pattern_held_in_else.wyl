@@ -1,0 +1,15 @@
+// A test that succeeded keeps the list borrowed until the statement ends, in the else branch too
+// when the rest of the condition is false.
+
+import std::{List, print};
+
+void main() {
+    var numbers = new List<int>();
+    numbers.add(1);
+    if (numbers.get(0) is ref int first && first > 5) {
+        print(first);
+    } else {
+        print("else");          // output: else
+        numbers.add(2);         // panic-here: cannot change the length or capacity of a list while it is borrowed
+    }
+}
