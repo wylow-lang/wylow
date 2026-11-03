@@ -20,10 +20,6 @@ Packages, modules, imports, visibility, and the entry point are in
 Visibility is in [chapter 3](03-programs.md#programs.visibility). These rules about it stay here
 until their chapters are written:
 
-- **An override is written with exactly the visibility of the method it overrides**, and an
-  interface method's implementation with the interface's visibility, so a method's reach is the
-  same in the base class and every subclass.
-- A class's implicit parameterless constructor is as visible as the class.
 - **A call chooses only among the overloads visible where it is**, as in Java: one it can't see
   never wins over one it can. If none is visible, the error says how far the one that fits reaches.
 

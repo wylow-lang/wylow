@@ -264,28 +264,6 @@ var n = Reply<int>.Pending;            // ...or written
 
 ## 2.9 Structs
 
-A `struct` is a **value type**.
-
-```java
-struct Transform {
-    pub Vec3 position;
-    pub Quat rotation;
-    pub Vec3 scale = Vec3.ONE;
-}
-```
-
-- Stored inline: on the stack, inside other structs, inside arrays, inside classes.
-- **Copied** on assignment and when passed by value. A copy is a field-by-field copy. A
-  `unique struct` (below) is moved instead, and can't be copied.
-- **No copy constructors.** Only a unique struct (below) may have a destructor; any other struct
-  that declares one is a compile-time error.
-- No inheritance. Structs may implement interfaces, but only for use as generic bounds (§2.12).
-
-> ⚠️ **Struct copies are shallow.** If a struct contains a class reference (a `List`, any class),
-> the copy refers to the *same* object. Mutating the list through one copy is visible through the
-> other. A `String` copy shares its counted bytes, which is unobservable because a string never
-> changes. Use `.clone()` when a deep copy is wanted.
-
 ### Unique structs
 
 A `unique struct` can't be copied, only moved, so each value has exactly one owner:
@@ -604,37 +582,6 @@ heap-allocate a large value that isn't already inside a class:
 ```java
 var grid = new Box<Tile[65536]>();
 ```
-
-## 2.12 Interfaces
-
-- **On classes:** as in Java. An interface-typed variable holds any implementing class and calls
-  through a vtable.
-- **On structs:** usable **only as generic bounds** (static dispatch, zero cost). A struct cannot
-  be stored in an interface-typed variable, since that would require hidden boxing. Wrap it in a
-  class if that is needed.
-
-```java
-interface Damageable extends Named {
-    void damage(int amount);
-}
-
-class Crate implements Damageable { ... }
-struct Counter implements Named { ... }
-```
-
-- Interfaces contain only method signatures: no fields, constructors, bodies, static methods, or
-  type parameters on methods. An interface may `extend` other interfaces.
-- A class or struct implements an interface method with a method of the same name, written with the interface's visibility ([Visibility](03-programs.md#programs.visibility)), and
-  exactly the same parameter and return types, declared in it or inherited from a base class. No
-  `override` is needed (as in C#). Implementing an interface method does not make the method
-  overridable: mark it `virtual` for that.
-- An interface may not be listed twice, and a method may not be redeclared by an extending interface.
-- An interface method may be declared `mut`, as in `mut void reset();`, which lets a struct
-  implement it with a `mut` method. A struct can't implement an interface method that isn't `mut`
-  with one that is; a class may use any method, since calling a class's method never changes the
-  reference it is called through. A generic body can call an interface method that isn't `mut` on
-  any value, including one that isn't `mut` (§2.7) or is an `in` parameter; calling a `mut` one on a
-  type parameter's value needs a mutable place, since the type argument may be a struct.
 
 ## 2.13 Generics
 
