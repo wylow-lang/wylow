@@ -183,8 +183,9 @@ public static partial class Catalog
         Make(at, package is null ? "program has no 'main' function" : $"package '{package}' has no 'main' function in its root module");
 
     [Error(59, "programs.entry")]
-    public static Diagnostic MainParameters(Location at) =>
-        Make(at, "'main' cannot take parameters or type parameters");
+    public static Diagnostic MainParameters(Location at, bool typeParameters) => typeParameters
+        ? Make(at, "'main' cannot have type parameters")
+        : Make(at, "'main' cannot take these parameters").Help("write 'main()' or 'main(String[] args)'");
 
     [Error(60, "programs.entry")]
     public static Diagnostic MainReturnType(Location at) =>

@@ -82,6 +82,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         CheckInheritanceCycles(typeList);
 
         var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
+        foreach (var function in functionList.Where(f => f.Declaration!.Location.Source.Module.Package.IsStd))
+            stdlib.Register(function);
         CheckImports();
         foreach (var s in typeList)
             DeclareMembers(s);

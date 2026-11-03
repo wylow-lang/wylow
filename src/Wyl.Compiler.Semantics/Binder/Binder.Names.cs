@@ -271,8 +271,10 @@ public sealed partial class Binder
         FunctionSymbol? main = null;
         foreach (var candidate in candidates)
         {
-            if (candidate.Parameters.Count != 0 || candidate.IsGeneric)
-                Error(Catalog.MainParameters(candidate.Declaration!.NameLocation));
+            if (candidate.IsGeneric)
+                Error(Catalog.MainParameters(candidate.Declaration!.NameLocation, typeParameters: true));
+            else if (!TakesProgramArguments(candidate) && candidate.Parameters.Count != 0)
+                Error(Catalog.MainParameters(candidate.Declaration!.NameLocation, typeParameters: false));
             else if (candidate.ReturnType != WylType.Void && candidate.ReturnType != WylType.Int)
                 Error(Catalog.MainReturnType(candidate.Declaration!.NameLocation));
             else if (main is not null)
@@ -282,4 +284,8 @@ public sealed partial class Binder
         }
         return main;
     }
+
+    /// <summary>Whether a <c>main</c> is declared <c>main(String[] args)</c>, the one parameter list it may have but none.</summary>
+    bool TakesProgramArguments(FunctionSymbol main) =>
+        main.Parameters is [{ RefKind: RefKind.None } parameter] && stdlib.IsStringArray(parameter.Type);
 }

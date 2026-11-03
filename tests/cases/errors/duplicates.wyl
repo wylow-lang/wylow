@@ -19,4 +19,4 @@ enum Shape {
 
 void Shape() { }                        // error[WYL0034]: 'Shape' is already defined in this module
 
-void main(int argc) { }                 // error[WYL0059]: 'main' cannot take parameters or type parameters
+void main(int argc) { }                 // error[WYL0059]: 'main' cannot take these parameters

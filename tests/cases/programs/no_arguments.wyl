@@ -1,0 +1,7 @@
+// A main declared to take the arguments, run with none, gets an empty array (spec programs.entry).
+
+import std::print;
+
+void main(String[] args) {
+    print(args.length);                     // output: 0
+}

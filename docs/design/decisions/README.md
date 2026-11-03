@@ -62,3 +62,4 @@ history and a reason can be found without searching the spec.
 | [0032](0032-no-statics-in-generic-types.md) | Generic types have no static fields |
 | [0033](0033-source-text-and-columns.md) | Source files are strict UTF-8, and columns count characters |
 | [0034](0034-language-names-are-reserved.md) | The names every file sees mean only their declarations |
+| [0035](0035-main-arguments-and-exit-status.md) | `main` may take the arguments and return the exit status |

@@ -99,6 +99,14 @@ public sealed partial class Interpreter : IObjectLifetime
         var main = program.Bound.Main ?? throw new InterpreterException("the program has no 'main'");
         var function = program.Functions.Single(main) ?? throw new InterpreterException($"no lowered function for '{main.Name}'");
         var frame = new Frame(TypeMap.Empty);
+        // A main(String[] args) gets the array the standard library builds, as the emitted C++ main gives it.
+        if (function.Parameters is [var parameter])
+        {
+            var symbol = stdlib.ProgramArguments ?? throw new InterpreterException("the standard library has no 'programArguments'");
+            var build = program.Functions.Single(symbol) ?? throw new InterpreterException("no lowered function for 'programArguments'");
+            var arguments = Invoke(build, new Frame(TypeMap.Empty)) ?? throw new InterpreterException("'programArguments' returned nothing");
+            frame.Locals[parameter] = new OwnedStorage(new Cell(parameter.Type, arguments));
+        }
         var result = Invoke(function, frame);
         // The collector is destroyed at exit, which reports the cycles it never freed.
         ReportUncollected();

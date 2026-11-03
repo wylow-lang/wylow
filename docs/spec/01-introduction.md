@@ -194,7 +194,9 @@ its choice.
    offsets of its fields ([Layout](07-structs.md#structs.layout)).
 3. How deep calls may nest before the stack is exhausted.
 4. How much memory a program may use before running out.
-5. The exit status of a program that panics or aborts, which is never 0.
+5. The exit status of a program that panics or aborts, which is never 0, and the exit status a
+   target reports for a value outside 0 to 255 that `main` returns
+   ([Running a program](03-programs.md#programs.execution)).
 6. The bits of a NaN that floating-point arithmetic produces.
 7. Which buffered objects a call of `memory::collectCycles` with a budget visits, and so which
    cycles it frees and what `memory::cycleStats()` reports ([Cycles](17-memory.md#memory.cycles)).

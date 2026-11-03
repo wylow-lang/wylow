@@ -1,0 +1,13 @@
+// main(String[] args) receives the program's arguments, without its name, as UTF-8
+// (spec programs.entry), and an int main's value is the exit status (spec programs.execution).
+// args: alpha beta café
+// exit: 3
+
+import std::print;
+
+int main(String[] args) {
+    print(args[0]);                         // output: alpha
+    print(args[2]);                         // output: café
+    print(args[2].byteLength());            // output: 5
+    return args.length;
+}

@@ -35,7 +35,8 @@ Other modes, the fuzzer, the generator, mutation testing, coverage, and the dash
 ## Writing tests
 
 `tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error[WYLnnnn]: <message>` (on the
-erroring line; list every error, with its code and exact message), `// panic:` or `// panic-here:` (also checks the line), and
+erroring line; list every error, with its code and exact message), `// panic:` or `// panic-here:` (also checks the line),
+`// args:` (the program's arguments, split at spaces), `// exit:` (its exit status, otherwise 0), and
 `// mode: release` comments. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the `std` names it uses (`import std::{List, print};`). A directory with a

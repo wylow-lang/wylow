@@ -1,0 +1,2 @@
+void main<T>() {                // error[WYL0059]: 'main' cannot have type parameters
+}

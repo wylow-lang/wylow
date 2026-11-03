@@ -34,7 +34,7 @@ static partial class TestCase
         // A test that observes an optimization isn't compared without one.
         if (expected.Optimized)
             return null;
-        var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release));
+        var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
         var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (expected.Errors.Count > 0 || errors.Count > 0)
             return CompareErrors(expected.Errors, errors);
@@ -65,9 +65,9 @@ static partial class TestCase
             if (result.Status != InterpretationStatus.Panicked || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got {result.Status} and stderr: {stderr}");
         }
-        else if (result.Status != InterpretationStatus.Completed || result.ExitCode != 0)
+        else if (result.Status != InterpretationStatus.Completed || result.ExitCode != expected.Exit)
         {
-            problems.Add($"exit code {result.ExitCode}; stderr: {stderr}");
+            problems.Add($"exit code {result.ExitCode}, expected {expected.Exit}; stderr: {stderr}");
         }
 
         const string warningPrefix = "performance warning: ";
@@ -84,7 +84,7 @@ static partial class TestCase
 
         // The pass-regression check: the optimized IR is the same program, so interpreting it must
         // agree with interpreting the meaning (docs/design/ir.md §9.11).
-        var optimized = Compilation.Interpret(test.Sources, new CompileOptions(), new InterpreterOptions(Release: expected.Release));
+        var optimized = Compilation.Interpret(test.Sources, new CompileOptions(), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
         if (optimized.Interpretation is { } optimizedResult)
         {
             switch (optimizedResult.Status)

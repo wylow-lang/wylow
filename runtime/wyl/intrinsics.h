@@ -1,9 +1,129 @@
 #pragma once
 
+#include <string>
+
 #include "cycles.h"
 #include "strings.h"
 
+#if defined(_WIN32)
+// argv is in the ANSI code page on Windows, so the arguments are read from the UTF-16 command line.
+// Declared here rather than by <windows.h>, whose macros (min, max, ...) would reach every program.
+extern "C" __declspec(dllimport) wchar_t* __stdcall GetCommandLineW();
+extern "C" __declspec(dllimport) wchar_t** __stdcall CommandLineToArgvW(const wchar_t* line, int* count);
+extern "C" __declspec(dllimport) void* __stdcall LocalFree(void* memory);
+#if defined(_MSC_VER)
+#pragma comment(lib, "shell32.lib")
+#endif
+#endif
+
 namespace wyl {
+
+// The program's arguments (spec programs.entry): what main(String[] args) receives, without the
+// program's name, as UTF-8 with each ill-formed part replaced by U+FFFD.
+namespace detail {
+
+inline std::vector<String>& program_arguments() {
+    static std::vector<String> arguments;
+    return arguments;
+}
+
+inline void append_code_point(std::string& out, uint32_t c) {
+    if (c < 0x80) {
+        out += static_cast<char>(c);
+    } else if (c < 0x800) {
+        out += static_cast<char>(0xC0 | (c >> 6));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    } else if (c < 0x10000) {
+        out += static_cast<char>(0xE0 | (c >> 12));
+        out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    } else {
+        out += static_cast<char>(0xF0 | (c >> 18));
+        out += static_cast<char>(0x80 | ((c >> 12) & 0x3F));
+        out += static_cast<char>(0x80 | ((c >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (c & 0x3F));
+    }
+}
+
+// Bytes as UTF-8, each maximal subpart of an ill-formed sequence replaced by one U+FFFD, the
+// practice Unicode recommends (The Unicode Standard, §3.9, "U+FFFD Substitution of Maximal
+// Subparts"), which .NET's decoder, and so the interpreter, follows too.
+inline std::string well_formed(const char* text, size_t length) {
+    std::string out;
+    size_t i = 0;
+    while (i < length) {
+        auto lead = static_cast<unsigned char>(text[i]);
+        if (lead < 0x80) {
+            out += static_cast<char>(lead);
+            i++;
+            continue;
+        }
+        int needed = 0;
+        unsigned char low = 0x80, high = 0xBF;
+        if (lead >= 0xC2 && lead <= 0xDF) needed = 1;
+        else if (lead == 0xE0) needed = 2, low = 0xA0;
+        else if ((lead >= 0xE1 && lead <= 0xEC) || lead == 0xEE || lead == 0xEF) needed = 2;
+        else if (lead == 0xED) needed = 2, high = 0x9F;
+        else if (lead == 0xF0) needed = 3, low = 0x90;
+        else if (lead >= 0xF1 && lead <= 0xF3) needed = 3;
+        else if (lead == 0xF4) needed = 3, high = 0x8F;
+        size_t end = i + 1;
+        int found = 0;
+        while (found < needed && end < length) {
+            auto next = static_cast<unsigned char>(text[end]);
+            if (next < low || next > high) break;
+            low = 0x80, high = 0xBF;
+            end++, found++;
+        }
+        if (needed > 0 && found == needed) out.append(text + i, end - i);
+        else out += "\xEF\xBF\xBD";
+        i = end;
+    }
+    return out;
+}
+
+inline String make_string(const std::string& bytes) {
+    StringBuffer buffer;
+    buffer.append(bytes.data(), bytes.size(), "program arguments");
+    return buffer.take();
+}
+
+#if defined(_WIN32)
+// UTF-16 as UTF-8, each unpaired surrogate replaced by U+FFFD.
+inline std::string from_utf16(const wchar_t* text) {
+    std::string out;
+    for (size_t i = 0; text[i] != 0; i++) {
+        uint32_t c = static_cast<uint16_t>(text[i]);
+        if (c >= 0xD800 && c <= 0xDBFF && text[i + 1] >= 0xDC00 && text[i + 1] <= 0xDFFF) {
+            c = 0x10000 + ((c - 0xD800) << 10) + (static_cast<uint16_t>(text[++i]) - 0xDC00);
+        } else if (c >= 0xD800 && c <= 0xDFFF) {
+            c = 0xFFFD;
+        }
+        append_code_point(out, c);
+    }
+    return out;
+}
+#endif
+
+}  // namespace detail
+
+// Called by the emitted C++ main before anything else runs, when main takes the arguments.
+inline void set_arguments([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+    auto& arguments = detail::program_arguments();
+#if defined(_WIN32)
+    int count = 0;
+    wchar_t** wide = CommandLineToArgvW(GetCommandLineW(), &count);
+    if (wide == nullptr) return;
+    for (int i = 1; i < count; i++) arguments.push_back(detail::make_string(detail::from_utf16(wide[i])));
+    LocalFree(wide);
+#else
+    for (int i = 1; i < argc; i++) arguments.push_back(detail::make_string(detail::well_formed(argv[i], std::strlen(argv[i]))));
+#endif
+}
+
+inline int32_t argumentCount() { return static_cast<int32_t>(detail::program_arguments().size()); }
+
+inline String argument(int32_t index) { return detail::program_arguments()[static_cast<size_t>(index)]; }
 
 // The C++ side of extern functions in the standard library: wyl::memory is Memory, and wyl::bounds
 // is Bounds. Memory's functions are unsafe; misusing them is undefined behavior.

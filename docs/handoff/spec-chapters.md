@@ -82,5 +82,4 @@ removes both.
   "Docs state checked facts"): cite or cut.
 - Issue #6 lists each restriction that diagnostics state as rules (top-level variables, `const`,
   `@CallerLocation` and `ref` returns on virtual methods, `this(...)`/`super(...)` arguments,
-  `extern`), checked 2026-11-02. It does not list `int main(String[] args)`, which the old text
-  allowed and `programs.entry` no longer does (`WYL0059`).
+  `extern`), checked 2026-11-02.

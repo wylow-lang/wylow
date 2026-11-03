@@ -120,17 +120,26 @@ public sealed partial class CppEmitter
         }
 
         Line();
-        Line("int main()");
+        // A main declared main(String[] args) gets the array the standard library builds from them.
+        bool takesArguments = main.Parameters.Count == 1;
+        Line(takesArguments ? "int main(int argc, char** argv)" : "int main()");
         Line("{");
         indent++;
         Line("wyl::init();");
+        var call = $"{FunctionName(main)}()";
+        if (takesArguments)
+        {
+            var arguments = stdlib.ProgramArguments ?? throw new InvalidOperationException("the standard library has no 'programArguments'");
+            Line("wyl::set_arguments(argc, argv);");
+            call = $"{FunctionName(main)}({FunctionName(arguments)}())";
+        }
         if (main.ReturnType == WylType.Int)
         {
-            Line($"return {FunctionName(main)}();");
+            Line($"return {call};");
         }
         else
         {
-            Line($"{FunctionName(main)}();");
+            Line($"{call};");
             Line("return 0;");
         }
         indent--;

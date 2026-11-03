@@ -36,6 +36,8 @@ public sealed partial class Interpreter
             ["wyl::panic::checkIndex"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
             ["wyl::panic::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
+            ["wyl::argumentCount"] = (i, call, location, caller) => new IntValue((i.options.Arguments ?? []).Count),
+            ["wyl::argument"] = (i, call, location, caller) => i.ProgramArgument(i.ArgumentsOf(call, caller)),
         };
         foreach (var name in MemoryNames)
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
@@ -54,6 +56,16 @@ public sealed partial class Interpreter
         if (symbol.IsInstanceMethod && symbol.ContainingType is { IsExtern: true } owner)
             key = $"{owner.Name}::{key}";
         return key;
+    }
+
+    /// <summary>
+    /// An argument of the program as UTF-8, each unpaired surrogate replaced by U+FFFD, as the
+    /// runtime's set_arguments makes it from the Windows command line.
+    /// </summary>
+    StringValue ProgramArgument(IReadOnlyList<Value> arguments)
+    {
+        int index = (int)(long)((IntValue)arguments[0]).Bits;
+        return new StringValue(System.Text.Encoding.UTF8.GetBytes(options.Arguments![index]));
     }
 
     /// <summary>Whether the interpreter has a handler for a runtime name, which the registry self-test asks.</summary>

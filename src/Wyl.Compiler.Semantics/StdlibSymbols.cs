@@ -63,6 +63,19 @@ public sealed class StdlibSymbols
     /// </summary>
     public bool IsLanguageName(string name) => name == "String" || LanguageType(name) is not null;
 
+    /// <summary>The function that builds the <c>String[]</c> a <c>main(String[] args)</c> receives (Stdlib/arguments.wyl).</summary>
+    public FunctionSymbol? ProgramArguments { get; private set; }
+
+    public void Register(FunctionSymbol function)
+    {
+        if (function is { Name: "programArguments", Declaration.Location.Source.Module.IsRoot: true })
+            ProgramArguments = function;
+    }
+
+    /// <summary>Whether a type is <c>String[]</c>, the type of <c>main</c>'s one parameter.</summary>
+    public bool IsStringArray(WylType type) =>
+        !type.IsNullable && type.Symbol is { } s && s == Array && type.TypeArguments is [var element] && element == WylType.String;
+
     public void Register(TypeSymbol symbol)
     {
         switch (symbol.Name)

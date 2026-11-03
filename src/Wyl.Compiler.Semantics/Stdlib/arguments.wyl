@@ -1,0 +1,16 @@
+/// The program's arguments, without its name, for a `main` declared `main(String[] args)` (spec
+/// programs.entry). The compiler calls it before `main`; no program can.
+String[] programArguments() {
+    int count = argumentCount();
+    mut String[] arguments = new String[count];
+    for (mut int i = 0; i < count; i++) {
+        arguments[i] = argument(i);
+    }
+    return arguments;
+}
+
+/// The number of arguments the program was started with, not counting its name.
+extern int argumentCount();
+
+/// The argument at `index`, from 0, as UTF-8 text with each ill-formed part replaced by U+FFFD.
+extern String argument(int index);

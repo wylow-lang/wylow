@@ -7,7 +7,7 @@ using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
 const string Usage = """
-    usage: wyl <command> <file.wyl | package directory> [options]
+    usage: wyl <command> <file.wyl | package directory> [options] [-- <program arguments>]
 
     commands:
       run      build and run the program
@@ -26,6 +26,7 @@ const string Usage = """
       -o <path>        where to write the executable (build only)
       --no-nest        declare every temporary instead of nesting it into its use
       --no-opt         run no optimizations: keep every hold and copy lowering made, every object on the heap
+      --               what follows is the program's arguments, for a main(String[] args) (run and interpret)
     """;
 
 string[] commands = ["run", "build", "check", "emit", "ir", "interpret"];
@@ -41,9 +42,15 @@ bool release = false;
 Toolchain? toolchain = null;
 string? output = null;
 var options = new CompileOptions();
+string[] programArguments = [];
 
 for (int i = 2; i < args.Length; i++)
 {
+    if (args[i] == "--")
+    {
+        programArguments = args[(i + 1)..];
+        break;
+    }
     switch (args[i])
     {
         case "--release":
@@ -77,7 +84,7 @@ if (!isPackage && !File.Exists(file))
 var source = isPackage ? PackageSources.Load(file) : PackageSources.Of(SourceText.FromFile(file));
 if (command == "interpret")
 {
-    var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release));
+    var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release, Arguments: programArguments));
     ReportErrors(interpreted.Diagnostics);
     if (!interpreted.Success)
         return 1;
@@ -134,6 +141,9 @@ if (command == "build")
     return 0;
 }
 
-using var process = Process.Start(new ProcessStartInfo(build.ExePath!) { UseShellExecute = false })!;
+var start = new ProcessStartInfo(build.ExePath!) { UseShellExecute = false };
+foreach (var argument in programArguments)
+    start.ArgumentList.Add(argument);
+using var process = Process.Start(start)!;
 process.WaitForExit();
 return process.ExitCode;

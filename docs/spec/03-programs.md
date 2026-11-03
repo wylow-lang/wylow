@@ -343,12 +343,35 @@ These names always mean these declarations:
 ## 3.9 The entry point
 
 A program's **entry point** is the function named `main` declared at the top level of its root
-module. It is declared `void main()` or `int main()`. A function named `main` in any other module is
-an ordinary function.
+module. It returns `void` or `int`, and takes no parameters or one by-value parameter of type
+`String[]`: `void main()`, `int main()`, `void main(String[] args)`, or `int main(String[] args)`. A
+function named `main` in any other module is an ordinary function.
+
+A `String[]` parameter holds the program's **arguments**, in order, without the program's name.
+Each is UTF-8 text: a part of an argument that is not well-formed text is replaced by U+FFFD, one
+for each maximal ill-formed subsequence, as Unicode recommends (*The Unicode Standard*, section 3.9,
+"U+FFFD Substitution of Maximal Subparts"). The arguments are an input of the run
+([Observable behavior](01-introduction.md#introduction.observable)).
 
 - It is a compile-time error if the root module has no function named `main`, or has more than one.
-- It is a compile-time error if `main` has parameters or type parameters.
+- It is a compile-time error if `main` has type parameters, or parameters other than one by-value
+  `String[]`.
 - It is a compile-time error if `main` returns a type other than `void` or `int`.
+
+**Example:**
+
+```java
+import std::print;
+
+int main(String[] args) {
+    if (args.length == 0) {
+        print("usage: greet <name>");
+        return 2;
+    }
+    print($"hello, {args[0]}");
+    return 0;
+}
+```
 
 <a id="programs.execution"></a>
 ## 3.10 Running a program
@@ -365,5 +388,7 @@ the end of any function ([Releasing](17-memory.md#memory.release)). Then:
   `Thread` that `main` still holds is joined when it is released, before `main` returns.
 
 The exit status of a program that ends this way is the value `main` returns, or 0 if `main` returns
-`void`. A program that panics or aborts ends as [Program behavior](01-introduction.md#introduction.behavior)
+`void`. How the target reports a value outside 0 to 255 is implementation-defined
+([Implementation-defined behavior](01-introduction.md#introduction.implementation-defined)). A
+program that panics or aborts ends as [Program behavior](01-introduction.md#introduction.behavior)
 gives.

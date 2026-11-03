@@ -19,6 +19,8 @@ using Wyl.Harness;
 //   // panic: <text>      the program panics with a message starting with <text>
 //   // panic-here: <text> the same, reported at this line
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
+//   // args: <a> <b>      run with these arguments, split at spaces
+//   // exit: <n>          the program exits with status <n>; without one, 0
 //   // mode: release      build with --release
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
@@ -232,12 +234,12 @@ sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
     List<string> Output, List<(string File, int Line, string Code, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
-    Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false);
+    Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false, string[]? Arguments = null, int Exit = 0);
 
 static partial class TestCase
 {
     // A line may hold several, as two errors reported at one location need.
-    [GeneratedRegex(@"//\s*(output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place):(.*?)(?=//\s*(?:output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place):|$)")]
+    [GeneratedRegex(@"//\s*(output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place|args|exit):(.*?)(?=//\s*(?:output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place|args|exit):|$)")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain, CompileOptions options)
@@ -283,6 +285,8 @@ static partial class TestCase
                 case "panic-here": expectations = expectations with { Panic = value, PanicLine = i + 1 }; break;
                 case "mode" when value == "optimized": expectations = expectations with { Optimized = true }; break;
                 case "mode": expectations = expectations with { Release = expectations.Release || value == "release" }; break;
+                case "args": expectations = expectations with { Arguments = value.Split(' ', StringSplitOptions.RemoveEmptyEntries) }; break;
+                case "exit": expectations = expectations with { Exit = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) }; break;
                 case "stack": expectations.Stack[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
                 case "in-place": expectations.InPlace[i + 1] = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
             }
@@ -350,11 +354,11 @@ static partial class TestCase
             return build.Error;
 
         var run = ProcessRunner.Run(
-            new ProcessStartInfo(build.ExePath!)
+            WithArguments(new ProcessStartInfo(build.ExePath!)
             {
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
-            },
+            }, expected.Arguments),
             TimeSpan.FromSeconds(10));
         if (run.TimedOut)
             return "timed out";
@@ -384,9 +388,9 @@ static partial class TestCase
             if (run.ExitCode == 0 || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got exit code {run.ExitCode} and stderr: {stderr}");
         }
-        else if (run.ExitCode != 0)
+        else if (run.ExitCode != expected.Exit)
         {
-            problems.Add($"exit code {run.ExitCode}; stderr: {stderr}");
+            problems.Add($"exit code {run.ExitCode}, expected {expected.Exit}; stderr: {stderr}");
         }
 
         const string warningPrefix = "performance warning: ";
@@ -402,6 +406,13 @@ static partial class TestCase
         problems.AddRange(warnings.Select(w => $"unexpected warning: {w}"));
 
         return problems.Count == 0 ? null : string.Join('\n', problems);
+    }
+
+    static ProcessStartInfo WithArguments(ProcessStartInfo start, string[]? arguments)
+    {
+        foreach (var argument in arguments ?? [])
+            start.ArgumentList.Add(argument);
+        return start;
     }
 
     static IEnumerable<string> CompareCounts(string what, Dictionary<int, int> expected, IEnumerable<Location> actual)
