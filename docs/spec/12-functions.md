@@ -81,8 +81,7 @@ void main() {
 }
 ```
 
-- It is a compile-time error if a by-value parameter is declared with `mut` and the function is a
-  class method, or if `mut` is written with `ref` or `in`.
+- It is a compile-time error if a parameter is declared `mut` together with `ref` or `in`.
 - It is a compile-time error if a `ref` or `in` parameter has a class or interface type, or a
   function type: a class reference is already passed without copying, and so is a function value.
 - It is a compile-time error if a `ref` argument is not a mutable place: it is a `mut` local or
@@ -348,7 +347,7 @@ The one exception is indexing. A struct or class declares an **indexer**, an ins
 `operator []`, whose result `a[i]` is:
 
 ```ebnf
-Indexer = { Annotation } [ Visibility ] [ "mut" ] [ "static" ] ( Type | "ref" Type | "in" Type )
+Indexer = { Annotation } [ Visibility ] [ "mut" ] ( Type | "ref" Type | "in" Type )
           "operator" "[" "]" "(" [ Parameters ] ")" ( Block | ";" ) .
 ```
 

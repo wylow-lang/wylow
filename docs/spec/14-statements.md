@@ -339,8 +339,6 @@ void main() {
 apply to the enclosing loop.
 
 - It is a compile-time error to use `break` or `continue` outside a loop.
-- A loop variable declared by a `for` or for-each can be captured by a lambda
-  ([Captures](12-functions.md#functions.lambdas.captures)).
 
 **Example:**
 
@@ -363,9 +361,7 @@ function's return type. `return ref place;` returns a reference
 - It is a compile-time error to return no value from a function that returns a value, or to return
   a value of a type that does not convert to the return type.
 - A `return` in a lambda returns from the lambda ([Lambdas](12-functions.md#functions.lambdas)).
-- When `return` runs, the statement's temporaries are released, last made first, and then the
-  function's locals ([Release](17-memory.md#memory.release)), except that a reference returned with
-  `return ref` is not released.
+- What a `return` releases is in [Release](17-memory.md#memory.release).
 
 **Example:**
 
