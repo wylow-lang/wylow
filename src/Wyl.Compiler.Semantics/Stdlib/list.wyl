@@ -1,6 +1,7 @@
 // A growable array on the heap. Adding or removing elements may move the others, so while a
 // reference, span, or loop into the list exists, the list is borrowed, and changing its length
-// panics. See docs/spec/03-memory-model.md.
+// panics. Clearing or releasing the list releases its elements last to first. See
+// docs/spec/03-memory-model.md.
 
 pub final class List<T> implements Borrowable, Spannable<T> {
     pub int count() {
@@ -105,7 +106,9 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         // Dropping an element may run a destructor, which must not change the list meanwhile.
         borrows++;
         unsafe {
-            for (int i : 0..old) {
+            mut int i = old;
+            while (i > 0) {
+                i--;
                 memory::drop(data + i);
             }
         }
@@ -188,7 +191,9 @@ pub final class List<T> implements Borrowable, Spannable<T> {
 
     ~List() {
         unsafe {
-            for (int i : 0..size) {
+            mut int i = size;
+            while (i > 0) {
+                i--;
                 memory::drop(data + i);
             }
             memory::free(data);

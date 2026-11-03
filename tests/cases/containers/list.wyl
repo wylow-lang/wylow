@@ -102,8 +102,8 @@ void main() {
     enemies();
     // output: b
     // output: 2
-    // output: a
     // output: c
+    // output: a
     // output: 0
     // output: b
 

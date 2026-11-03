@@ -67,5 +67,5 @@ void main() {
     // output: y
     // output: b
 }
-// output: y
 // output: b
+// output: y

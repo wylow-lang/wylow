@@ -105,5 +105,5 @@ void main() {
 }
 // output: o
 // output: q
-// output: g
 // output: b
+// output: g
