@@ -324,9 +324,8 @@ Every file sees these declarations of `std` without importing them:
 - `Result` ([`Result`](18-errors.md#errors.result));
 - the interfaces `Spannable`, `ReadOnlySpannable` ([`Spannable`](a-library.md#library.spannable)),
   `Borrowable` ([`Borrowable`](17-memory.md#memory.borrows.borrowable)), `Printable`
-  ([`Printable`](a-library.md#library.printable)), `Comparable`
-  ([`Comparable`](a-library.md#library.comparable)), and `Copyable`
-  ([Copyable types](04-types.md#types.copyable)).
+  ([`Printable`](a-library.md#library.printable)), and `Comparable`
+  ([`Comparable`](a-library.md#library.comparable)).
 
 Every other declaration is reached through an import or a path, `print` and `List` among them.
 

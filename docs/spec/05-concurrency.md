@@ -24,11 +24,13 @@ on its thread and nothing it can reach is another thread's.
 ## 5.2 Sendable types
 
 A type is **sendable** if no part of a value of it belongs to one thread, so the value may be used
-on another. The compiler infers this; it is never written.
+on another. It follows from the type, and no declaration states it; a bound asks for it with
+`sendable` ([02-types.md](02-types.md#type-properties)), as `Mutex<T extends sendable>` does.
 
 | Type | Sendable |
 |---|---|
 | Primitives | ✅ |
+| A type parameter bounded by `sendable` | ✅ |
 | Structs, enums, and `T[N]` whose fields or elements are all sendable, unique ones included | ✅ |
 | `String` (an immutable value whose copies share one block, counted atomically) | ✅ |
 | References to a `shared class` (§5.3), including the standard library's `Frozen<T>`, `Mutex<T>`, `Atomic<T>`, and channel ends | ✅ |
@@ -37,6 +39,7 @@ on another. The compiler infers this; it is never written.
 | `Isolated<T>`, for any `T` (§5.6), and the standard library's owning unique structs (below) when their elements are sendable | ✅ |
 | References to normal classes (`List<T>`, `T[]`, user classes), `Weak<T>` of a normal class, and functions that aren't `shared` | ❌ |
 | Structs, enums, and fixed arrays with any field or element that isn't sendable | ❌ |
+| A type parameter not bounded by `sendable` | ❌ |
 
 Wherever a sendable type is required, using another is a compile error naming the field that
 isn't sendable.

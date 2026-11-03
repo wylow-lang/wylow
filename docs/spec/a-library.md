@@ -16,7 +16,6 @@ these of its declarations, and on nothing else in it:
 | `Borrowable` | Borrows ([`Borrowable`](17-memory.md#memory.borrows.borrowable)) |
 | `Printable` | String interpolation ([`Printable`](#library.printable)) |
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
-| `Copyable` | Copying values of a type parameter ([Copyable types](04-types.md#types.copyable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
 | `Isolated<T>` | Isolated object graphs ([Isolated object graphs](19-concurrency.md#concurrency.isolated)) |
@@ -24,6 +23,12 @@ these of its declarations, and on nothing else in it:
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
+
+The language calls the methods of some of these interfaces: `Printable`'s `toString` in string
+interpolation, `ReadOnlySpannable`'s `asReadOnlySpan` and `Spannable`'s `asSpan` in conversions to
+spans and in for-each loops, and `Borrowable`'s `beginBorrow` and `endBorrow` around borrows. A
+type takes part by implementing the interface. Each interface's section says which types may
+implement it and whether a program may call its methods.
 
 <a id="library.spannable"></a>
 ## A.2 `Spannable` and `ReadOnlySpannable`

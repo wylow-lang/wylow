@@ -52,7 +52,7 @@ Each is explained in detail in its chapter.
 14. **Unmarked means private to the file, not to the type.** Other types in the same file see a
    type's unmarked members; `pub(module)`, `pub(package)`, and `pub` widen it. There is no
    `protected`. See [Visibility](../spec/03-programs.md#programs.visibility).
-15. **Generic code can't copy a `T` unless `T extends Copyable`**, since `T` may be a
+15. **Generic code can't copy a `T` unless `T extends copyable`**, since `T` may be a
    `unique struct`, which is moved and never copied. Moving, passing by `ref` or `in`, and returning
    need no bound. See [02-types.md](../spec/02-types.md#unbounded-type-parameters).
 

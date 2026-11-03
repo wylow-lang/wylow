@@ -420,8 +420,8 @@ print(kept.rate);                      // error: 'kept' is used after it is move
   A fixed array `T[N]` and a nullable `T?` of a unique `T` are unique, and so is a generic struct
   or enum given a type argument that makes one of its fields unique: `Pair<SampleBuffer, int>`.
   Classes are never unique: an object is shared by reference counting.
-- A unique type doesn't satisfy `Copyable` (§2.13), so generic code copies a `T` only where its
-  bound says it may.
+- A unique type isn't `copyable` (§2.13, Type properties), so generic code copies a `T` only where
+  its bound says it may.
 - A unique struct may declare a destructor, `~Name() { ... }`, with no parameters and no modifiers.
   It is a compile-time error to declare one on a struct that isn't `unique`. A unique enum has no
   destructor, but releasing it releases its variant's fields, which runs the destructors of the
@@ -860,9 +860,9 @@ var y = identity<long>(5);                // ...or written explicitly
 
 ### Bounds
 
-`T extends A & B` requires every type argument for `T` to implement the interfaces `A` and `B`
-(bounds must be interfaces). Inside the generic, `T` has the bounds' methods. A bound may mention the
-type parameters, as in `T extends Comparable<T>`.
+`T extends A & B` requires every type argument for `T` to implement the interfaces `A` and `B`. A
+bound is an interface or a type property (below). Inside the generic, `T` has the bounds' methods. A
+bound may mention the type parameters, as in `T extends Comparable<T>`.
 
 - Both structs and classes satisfy a bound by implementing the interface. Calls through a bound use
   static dispatch for structs. For classes they go through the interface.
@@ -872,8 +872,6 @@ type parameters, as in `T extends Comparable<T>`.
 - Three standard library interfaces are satisfied by built-in types without implementing them:
   primitives and `String` are `Printable` ([06-syntax.md](06-syntax.md#string-interpolation)),
   and the numbers, `char`, and `String` are `Comparable` of themselves.
-- `Copyable` has no methods, and nothing implements it by declaring so: every type satisfies it
-  except unique types (§2.9) and type parameters that aren't bounded by it.
 
 ```java
 interface Comparable<T> {
@@ -892,20 +890,51 @@ depends on where NaNs are: `-0` sorts before `0`, and NaN after every other valu
 infinity, and the same as any other NaN. This differs from the operators, under which `-0 == 0`,
 and NaN is unordered and unequal even to itself.
 
+### Type properties
+
+`copyable` and `sendable` are properties of a type that follow from the type itself; no
+declaration states them. A bound may name them: `T extends Comparable<T> & copyable` requires a
+type argument that implements `Comparable<T>` and is copyable.
+
+- A type parameter has a property only if one of its bounds names it.
+- A type is **copyable** unless it is a type parameter without the property, a unique struct or
+  enum (§2.9), or a fixed array, nullable type, or struct or enum not declared `unique` with an
+  element or field that isn't copyable. Class and interface references, function types, primitives,
+  and `String` are copyable.
+- A type is **sendable** as [05-concurrency.md §5.2](05-concurrency.md#52-sendable-types) says,
+  with a type parameter sendable only if a bound names the property.
+- `copyable` and `sendable` have this meaning only in a bound. Elsewhere they are ordinary
+  identifiers.
+
+```java
+struct Pair<A, B> {
+    pub A first;
+    pub B second;
+}
+
+Pair<T, T> twin<T extends copyable>(T value) {
+    return Pair<T, T>(first: value, second: value);     // valid: the first use copies 'value'
+}
+
+Pair<T, T> twinOf<T>(T value) {
+    return Pair<T, T>(first: value, second: value);     // error: 'value' is used after it is moved
+}
+```
+
 ### Unbounded type parameters
 
 Without bounds, a type parameter `T` supports only what every type supports: declaring, moving,
 passing (including by `ref`/`in`), and returning values. In particular:
 
-- **`T` may be a unique type (§2.9), so it can't be copied** unless it is bounded by `Copyable`.
+- **`T` may be a unique type (§2.9), so it can't be copied** unless it is bounded by `copyable`.
   A generic body is checked against that when it is declared, so a container written once works
   for unique elements without remembering to allow them. Moves need no bound: `add(T value)`
   stores its argument, `removeAt` returns the element it takes out, and the indexer returns
   `ref T`. A method that copies, such as returning a copy of the first element, takes a
-  `Copyable` element type:
+  `copyable` element type:
 
   ```java
-  T? firstCopy<T extends Copyable>(this ReadOnlySpan<T> items) {
+  T? firstCopy<T extends copyable>(this ReadOnlySpan<T> items) {
       return items.length() == 0 ? null : items[0];
   }
   ```

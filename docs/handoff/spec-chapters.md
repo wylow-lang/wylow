@@ -6,10 +6,6 @@ the rules for every rewrite; decision 0002 is the structure, chapter 1 the phras
 
 ## Next session: chapters 4 to 6
 
-**First**, the design session in [builtin-interfaces.md](builtin-interfaces.md): how `Copyable`,
-sendability, and the interfaces built-in types satisfy without declaring it should work. Its outcome
-changes what chapter 4 says about `types.copyable`.
-
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
 (18–22 + appendix A). Chapters 1, 2, and 3 are written, and parts of 20; the rest are anchors only.
 
@@ -71,6 +67,13 @@ each. When rewriting the chapter a row points at, write these too:
   to `memory.release.destruction`; implemented, pinned by `containers/release_order.wyl`.
 - **0032, generic types have no static fields** (`05-concurrency.md` §5.5): to
   `variables.statics`; its error and catalog code come when static fields are implemented.
+- **0036, `copyable` and `sendable` are type properties** (`02-types.md`, "Type properties";
+  `05-concurrency.md` §5.2): to `types.copyable`, `generics.bounds`, `concurrency.sendable`. There
+  is no `Copyable` declaration any more; `programs.builtin-names` and `library.names` already drop
+  it. Neither property is implemented (#6), so neither has tests yet.
+- **0037, interfaces the language calls**: written in `library.names`; a struct or enum is not
+  `Borrowable` through an extending interface either (`03-memory-model.md`, `Borrowable`), pinned by
+  `errors/containers.wyl`. To `memory.borrows.borrowable`.
 - **`is ref` holds** (`03-memory-model.md`, Nullable references): a hold lasts until the statement
   ends, even where the rest of the condition is false, pinned by
   `panics/list_reference_pattern_held_in_else.wyl` and `..._guard_held.wyl`. To `memory.holds`.

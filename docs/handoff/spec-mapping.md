@@ -123,7 +123,7 @@ home is written.
 | Unique structs | Moves where copies would be | `memory.moves` |
 | | Use after move is an error | `flow.moves` |
 | | Containing types must be `unique`; `T[N]`, `T?`, generic instances | `structs.unique` |
-| | Not `Copyable` | `types.copyable` |
+| | Not `copyable` | `types.copyable` |
 | | Destructor, `discard`, read-only `this` ("Destructors of unique structs") | `structs.unique`; decision 0028 |
 | | `clone()` convention | the guide |
 | Values in use | The panic on releasing a value in use | `memory.holds`; decision 0028 |
@@ -178,9 +178,10 @@ home is written.
 | | Inference, struct type arguments written | `generics.arguments`, `generics.arguments.inference` |
 | | Generic vs non-generic overload | `functions.overloading.resolution` |
 | | `Name<...>` read as type arguments | `expressions.primary` (grammar) |
-| Bounds | Interfaces only, nullable doesn't satisfy, no conversion | `generics.bounds` |
+| Bounds | Interfaces or type properties, nullable doesn't satisfy, no conversion | `generics.bounds` |
 | | Built-in types satisfy `Printable`, `Comparable` | `library.printable`, `library.comparable` |
-| | `Copyable` | `types.copyable` |
+| Type properties | What is copyable, `copyable` in a bound, the words only in bounds; decision 0036 | `types.copyable` (the property), `generics.bounds` (naming it in a bound) |
+| | `sendable` in a bound, type parameters | `concurrency.sendable` |
 | | `Comparable` example, float total order | `library.comparable` |
 | Unbounded type parameters | All | `generics.unbounded` |
 | Default values | Defaultable types, defaults | `types.defaults` |
@@ -232,7 +233,7 @@ home is written.
 | Evaluation order and the heap | All | `expressions.order` (state plain left-to-right; the "conflicts with every call" wording describes the compiler) |
 | Borrow counters | Borrow count, table, examples, how long a borrow lasts | `memory.borrows`; `List`'s panicking operations in `list.wyl` doc comments |
 | | "The usual fix" | the guide |
-| `Borrowable` | All | `memory.borrows.borrowable` |
+| `Borrowable` | All, including an interface that extends it (decision 0037) | `memory.borrows.borrowable` |
 | Spans | `ref struct` rules | `structs.ref` |
 | Second-class values | All | `memory.second-class` |
 
@@ -256,7 +257,7 @@ home is written.
 |---|---|---|
 | Intro | What the language adds | `concurrency` (chapter intro), without the library list |
 | 5.1 Thread confinement | All | `concurrency.confinement` |
-| 5.2 Sendable types | Table, inferred, errors | `concurrency.sendable` |
+| 5.2 Sendable types | Table (type parameter rows from decision 0036), follows from the type, errors | `concurrency.sendable` |
 | | Moving and sharing, the borrow panic on moving | `concurrency.sendable.moving` |
 | | The library floor declaring sendable | `concurrency.sendable` (how is open, #6) |
 | 5.3 `shared class` | All, including cycles among them | `concurrency.shared-classes` |
