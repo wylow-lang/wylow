@@ -4,18 +4,18 @@ Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. `spec-m
 directory) says where each passage of the old spec files (`02-types.md` to `07-interop.md`) goes and
 the rules for every rewrite; decision 0002 is the structure, chapter 1 the phrasing.
 
-## Next session: chapters 4 to 6
+## Next session: chapters 12 to 15
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). Chapters 1, 2, and 3 are written, and parts of 20; the rest are anchors only.
+(18–22 + appendix A). Chapters 1 to 11 are written, and parts of 20; the rest are anchors only.
 
-- **Chapters 4 to 6** (`04-types.md`, `05-conversions.md`, `06-variables.md`): from the rows of
-  `spec-mapping.md` that point at `types.*`, `conversions.*`, and `variables.*`, mostly in
-  `02-types.md` (§2.1, §2.3, §2.5 to §2.7, §2.11, §2.13) and `05-concurrency.md` §5.5 (statics,
-  with decisions 0030 and 0032).
-- **Diagnostics pages**: 33 catalog entries are anchored in these chapters
-  (`grep -E '"(types|conversions|variables)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
-  Chapters 2 and 3's pages show the form; a code only a package produces gets a package example
+- **Chapters 12 to 15** (`12-functions.md`, `13-expressions.md`, `14-statements.md`,
+  `15-patterns.md`): from the rows of `spec-mapping.md` that point at `functions.*`, `expressions.*`,
+  `statements.*`, and `patterns.*`, mostly in `06-syntax.md` (§6.4 to §6.9), `02-types.md` (§2.3,
+  §2.4, §2.5) and `04-errors.md` (`try`).
+- **Diagnostics pages**: the catalog entries anchored in these chapters
+  (`grep -E '"(functions|expressions|statements|patterns)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
+  Chapters 2 to 11's pages show the form; a code only a package produces gets a package example
   (`docs/diagnostics/README.md`).
 - Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
   under "Already written".

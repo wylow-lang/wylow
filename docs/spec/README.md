@@ -37,10 +37,11 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 7 to 22 are being written from these files, which are deleted as their text moves:
+Chapters 12 to 22 are being written from these files, which are deleted as their text moves:
 
-- [02-types.md](02-types.md): casts, arithmetic, nullability, mutability, enums, unique structs, classes,
-  arrays and spans, interfaces, generics
+- [02-types.md](02-types.md): casts, arithmetic, nullability, mutability, unique structs and their
+  destructors, inheritance and construction of classes, strings, arrays and spans, and the
+  declaration, bounds, and type properties of generics
 - [03-memory-model.md](03-memory-model.md): values and moves, objects, weak references, cycles,
   references, borrows, spans
 - [04-errors.md](04-errors.md): `Result`, `try`
