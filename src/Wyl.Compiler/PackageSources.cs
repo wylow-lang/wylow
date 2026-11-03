@@ -46,7 +46,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
             foreach (var file in Directory.GetFiles(path, "*.wyl").Order(StringComparer.Ordinal))
             {
                 var name = Path.GetRelativePath(src, file).Replace('\\', '/');
-                into.Add(new SourceText(file, File.ReadAllText(file), module, name));
+                into.Add(SourceText.FromFile(file, module, name));
             }
             foreach (var child in Directory.GetDirectories(path).Order(StringComparer.Ordinal))
             {

@@ -109,6 +109,8 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
 
     public List<Token> Lex()
     {
+        if (source.InvalidUtf8At is { } invalid)
+            diagnostics.Add(Catalog.InvalidUtf8(At(new TextSpan(invalid, 1))));
         var tokens = new List<Token>();
         while (true)
         {

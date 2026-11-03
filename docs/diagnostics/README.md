@@ -28,8 +28,9 @@ compiles it. A code only a package can produce, such as a manifest's, has a pack
 instead: each of its blocks names its file after the language, as in ```` ```wylcfg package.wylcfg ````
 and ```` ```wyl src/main.wyl ````, and the test writes them out and compiles the package. Codes whose
 page is not written are in `without-pages.txt`, which only shrinks. A code stays there when no
-program produces it alone: `WYL0022` (the interpolated string leaves a value another rule rejects),
-and `WYL0029` and `WYL0030` (a `dependencies` entry is itself `WYL0031`).
+example can produce it alone: `WYL0022` (the interpolated string leaves a value another rule
+rejects), `WYL0029` and `WYL0030` (a `dependencies` entry is itself `WYL0031`), and `WYL0436` (it
+is about a file's bytes, and an example is text).
 
 ## The primary message
 

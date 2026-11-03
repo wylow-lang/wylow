@@ -1,0 +1,3 @@
+void main() {
+    String s = "café";              // error[WYL0436]: file is not valid UTF-8
+}

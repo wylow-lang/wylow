@@ -12,7 +12,13 @@ A source file is a file whose name ends in `.wyl`. Its contents are text in UTF-
 mark at its start is not part of the text. The text is a sequence of Unicode characters (code
 points).
 
-A line ends after a line feed (U+000A). Lines are numbered from 1.
+It is a compile-time error if a source file's bytes are not UTF-8: if any part of them is not a
+well-formed UTF-8 sequence. A UTF-16 file that starts with a byte order mark is such a file.
+
+A line ends after a line feed (U+000A). Lines are numbered from 1. A character's **column** is its
+position in its line, counted in characters from 1: a character above U+FFFF counts once, and a
+combining mark counts as a character of its own. A location in the program, such as a panic's
+([Panics](18-errors.md#errors.panics)), is a line and a column.
 
 These classes of characters are used by the productions of this chapter:
 

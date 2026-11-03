@@ -60,3 +60,4 @@ history and a reason can be found without searching the spec.
 | [0030](0030-statics-are-initialized-before-main.md) | Statics are initialized before `main`, on one thread |
 | [0031](0031-elements-are-released-last-to-first.md) | Elements are released last to first |
 | [0032](0032-no-statics-in-generic-types.md) | Generic types have no static fields |
+| [0033](0033-source-text-and-columns.md) | Source files are strict UTF-8, and columns count characters |

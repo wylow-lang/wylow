@@ -6,6 +6,10 @@ namespace Wyl.Compiler.Diagnostics;
 // Chapter 2, lexical structure.
 public static partial class Catalog
 {
+    [Error(436, "lexical.source")]
+    public static Diagnostic InvalidUtf8(Location at) =>
+        Make(at, "file is not valid UTF-8").Note("its first invalid byte is here").Help("save the file as UTF-8");
+
     [Error(3, "lexical.comments")]
     public static Diagnostic UnclosedBlockComment(Location at) =>
         Make(at, "block comment is not closed");
