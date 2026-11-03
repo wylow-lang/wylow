@@ -6,6 +6,10 @@ the rules for every rewrite; decision 0002 is the structure, chapter 1 the phras
 
 ## Next session: chapters 4 to 6
 
+**First**, the design session in [builtin-interfaces.md](builtin-interfaces.md): how `Copyable`,
+sendability, and the interfaces built-in types satisfy without declaring it should work. Its outcome
+changes what chapter 4 says about `types.copyable`.
+
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
 (18–22 + appendix A). Chapters 1, 2, and 3 are written, and parts of 20; the rest are anchors only.
 

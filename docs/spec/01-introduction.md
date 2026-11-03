@@ -130,7 +130,8 @@ These are defined where their rules are:
 
 | Term | Defined in |
 |---|---|
-| Copyable, unique | [Unique structs](07-structs.md#structs.unique) |
+| Copyable | [Copyable types](04-types.md#types.copyable) |
+| Unique | [Unique structs](07-structs.md#structs.unique) |
 | Defaultable, default value | [Default values](04-types.md#types.defaults) |
 | Escaping, non-escaping | [Escaping and non-escaping](12-functions.md#functions.lambdas.escaping) |
 | Hold, borrow | [Holds](17-memory.md#memory.holds), [Borrows](17-memory.md#memory.borrows) |
