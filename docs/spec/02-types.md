@@ -262,38 +262,6 @@ var n = Reply<int>.Pending;            // ...or written
   same enum, and otherwise infers them from the fields' values, as for generic functions (§2.13).
   `Option.None` alone is an error, since nothing determines `T`.
 
-### Equality, defaults, conversions
-
-- `==` and `!=` compare the variant and then its fields, and are available when every field of
-  every variant supports `==` (so never when a field's type is a type parameter or a function).
-  Enums are not ordered.
-- **An enum's default value is its first variant, if that variant carries no data.** Otherwise the
-  enum has no default value: a field of that type needs an initializer or, in a class, an assignment
-  in every constructor (§2.10, "Default values" in §2.13).
-- Enums without data convert to and from integers with a cast: `(int)Direction.East` is `1`, and
-  `(Direction)i` panics if `i` is not the value of a variant. A variant's value is its position, or
-  as in C, the value written for it or one more than the previous variant's
-  ([07-interop.md](07-interop.md#75-enums-with-integer-representations)).
-
-### `switch`
-
-`switch` over an enum must be **exhaustive**; a missing case is a compile error.
-
-```java
-switch (ai.state) {
-    case Idle                       -> wander();
-    case Chasing(var t)             -> moveToward(t);
-    case Fleeing(var from, var tl)  -> runFrom(from);
-}
-```
-
-See [06-syntax.md](06-syntax.md#switch) for `switch` and patterns.
-
-### Representation
-
-Enums without data may declare an explicit integer type with `@Repr(uint)` and give variants values,
-and may be marked `@Flags`; see [07-interop.md](07-interop.md#75-enums-with-integer-representations).
-
 ## 2.9 Structs
 
 A `struct` is a **value type**.
@@ -467,7 +435,7 @@ builds the result in one allocation. There is no `+` on strings.
 A literal refers to static text and never allocates; a string built at run time, as by
 [interpolation](06-syntax.md#string-interpolation), is one counted allocation shared by its copies.
 
-`==` and `!=` compare contents ([equality](06-syntax.md#equality)).
+`==` and `!=` compare contents ([equality](04-types.md#types.string)).
 
 A string is stored as UTF-8 bytes, and **offsets and lengths count bytes**, never characters: a
 `char` (a code point) takes 1 to 4 bytes.:

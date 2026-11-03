@@ -27,10 +27,10 @@ Each is explained in detail in its chapter.
 5. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](../spec/06-syntax.md#63-construction).
 6. **Class `==` is identity, struct `==` is memberwise.** `String` is the exception: its `==`
-   compares contents. See [06-syntax.md](../spec/06-syntax.md#equality).
+   compares contents. See [Equality](../spec/07-structs.md#structs.equality), [classes](../spec/08-classes.md#classes.equality), [enums](../spec/09-enums.md#enums.equality), and [`String`](../spec/04-types.md#types.string).
 7. **A variant can leave out its enum only where the type is known.** `Direction d = East;` and
    `move(East)` work, but `var d = East;` doesn't, and neither does an argument to overloads that
-   disagree on its type. See [02-types.md](../spec/02-types.md#creating-values).
+   disagree on its type. See [02-types.md](../spec/09-enums.md#enums.variants.implicit).
 8. **`break` in a `switch` case leaves the enclosing loop**, since a switch has no fallthrough to
    stop. See [06-syntax.md](../spec/06-syntax.md#switch).
 9. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into

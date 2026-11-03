@@ -127,37 +127,6 @@ signatures and extern struct fields. This is checked at compile time.
 For each extern struct declared with fields, the build checks its size and field offsets against
 the C header. If the Wylow declaration does not match it, **the build fails**.
 
-## 7.5 Enums with integer representations
-
-```java
-@Repr(uint)
-enum Format {
-    Undefined = 0,
-    R8G8B8A8_UNORM = 37,
-}
-
-@Flags
-@Repr(ulong)
-enum WindowFlags {
-    Fullscreen = 0x1,
-    Resizable  = 0x20,
-}
-
-var f = WindowFlags.Fullscreen | WindowFlags.Resizable;
-```
-
-- `@Repr(T)` gives the enum an explicit integer representation `T`, as Rust's `#[repr(u32)]`.
-  It is an annotation like the struct layout ones (§2.9), not a supertype: the enum doesn't
-  convert to `T` implicitly. Variants may have explicit values.
-- `@Flags` enums support `|`, `&`, `^`, `~` and `has(flag)`. Any combination of bits is a valid value.
-- Converting an integer to a non-`@Flags` enum with a cast (`(Format)i`) **panics** if the value is
-  not a declared variant. `Format.tryFrom(i)` returns `Format?`. In `unsafe` code, `bitcast<Format>(i)`
-  performs no check.
-- A variant without a value is one more than the previous variant, and the first is `0`. Two
-  variants may not have the same value. Values must be integer literals that fit the enum's
-  integer type, which is `int` when values are given without `@Repr`.
-- Only enums whose variants carry no data can have `@Repr` or values.
-
 ## 7.6 Passing data across the boundary
 
 ### Strings

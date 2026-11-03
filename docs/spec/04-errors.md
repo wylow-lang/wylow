@@ -22,7 +22,7 @@ enum Result<T, E> {
 ```
 
 `Ok(x)` and `Err(e)` can be used directly to construct results wherever the `Result` type is known,
-such as in a `return` (see [02-types.md](02-types.md#creating-values)). Elsewhere, write the type:
+such as in a `return` (see [02-types.md](09-enums.md#enums.variants.implicit)). Elsewhere, write the type:
 `Result<Mesh, LoadError>.Ok(mesh)`.
 
 Error types are usually enums carrying data:
