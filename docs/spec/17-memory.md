@@ -392,17 +392,18 @@ while the reference is used. A **hold** is a reference that keeps an object aliv
   scope, so the object is not destroyed and the field stays where it is.
 - The receiver of a method call is held during the call, so the method may replace the field that
   holds the object it runs on.
-- A `ref` or `in` variable, and a span variable, holds the object it refers into for its whole
-  scope, even while a local also holds it, since the function may reassign that local.
+- A `ref`, `in`, `ref?`, or `in?` variable, and a span variable, holds the object it refers into
+  for its whole scope, even while a local also holds it, since the function may reassign that
+  local.
 - An object that `this` holds, or that a field of `this` that is not `mut` holds outside its
   class's constructors, needs no hold.
 - What an expression refers into is held until the statement ends.
 - A stored function value is held during its call, so the call may replace the field or element
   that holds it.
-- An `is ref` test that succeeds holds what the name refers into until the statement that contains
-  the test ends, even where the rest of the condition is false. In a `while` condition the hold
-  lasts until that iteration's body ends, and in a `when` guard until the `switch` ends, through
-  the cases after it. When the test fails, nothing is held.
+- An `is ref` or `is in` test that succeeds holds what the name refers into until the statement
+  that contains the test ends, even where the rest of the condition is false. In a `while`
+  condition the hold lasts until that iteration's body ends, and in a `when` guard until the
+  `switch` ends, through the cases after it. When the test fails, nothing is held.
 - The holds that a statement adds are released as its temporaries are, in the reverse of the order
   in which they were made.
 
