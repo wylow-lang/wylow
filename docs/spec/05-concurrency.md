@@ -106,7 +106,7 @@ synchronization types is already sendable, and needs no class.
 ## 5.4 Shared functions
 
 `shared` on a function type means its lambda may run on another thread. It is part of the type,
-like `escaping` ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)), and is written wherever a
+like `escaping` ([06-syntax.md](12-functions.md#functions.lambdas.escaping)), and is written wherever a
 function type is: `shared fn(Span<float>) -> void`, `escaping shared fn() -> R`,
 `Channel<shared fn() -> void>`.
 

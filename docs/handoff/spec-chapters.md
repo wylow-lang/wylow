@@ -4,35 +4,39 @@ Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. `spec-m
 directory) says where each passage of the old spec files (`02-types.md` to `07-interop.md`) goes and
 the rules for every rewrite; decision 0002 is the structure, chapter 1 the phrasing.
 
-## Next session: chapters 12 to 15
+## Next session: chapters 16 and 17
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). Chapters 1 to 11 are written, and parts of 20; the rest are anchors only.
+(18–22 + appendix A). Chapters 1 to 15 are written, and parts of 20; the rest are anchors only.
 
-- **Chapters 12 to 15** (`12-functions.md`, `13-expressions.md`, `14-statements.md`,
-  `15-patterns.md`): from the rows of `spec-mapping.md` that point at `functions.*`, `expressions.*`,
-  `statements.*`, and `patterns.*`, mostly in `06-syntax.md` (§6.4 to §6.9), `02-types.md` (§2.3,
-  §2.4, §2.5) and `04-errors.md` (`try`).
+- **Chapters 16 and 17** (`16-flow.md`, `17-memory.md`): from the rows of `spec-mapping.md` that
+  point at `flow.*` and `memory.*`, mostly in `03-memory-model.md` and the nullability, unique-struct,
+  and reference parts of `02-types.md`.
 - **Diagnostics pages**: the catalog entries anchored in these chapters
-  (`grep -E '"(functions|expressions|statements|patterns)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
-  Chapters 2 to 11's pages show the form; a code only a package produces gets a package example
+  (`grep -E '"(flow|memory)[."]' src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`).
+  Chapters 2 to 15's pages show the form; a code only a package produces gets a package example
   (`docs/diagnostics/README.md`).
 - Delete each old passage once its new home is written, and update the rows of `spec-mapping.md`
   under "Already written".
-- **Old passages kept for chapters 12 to 15.** Chapters 7 to 11 are written, but these passages stay
-  until every row of them points at a written chapter. After each chapter, check them and delete
-  those that are now complete:
-  - `02-types.md` "Inheritance rules": downcasts through `is` go to `patterns.kinds` (chapter 15).
-  - `02-types.md` "Declaring and using generics": `functions.overloading.resolution` (chapter 12) and
-    `expressions.primary` (chapter 13).
-  - `06-syntax.md` §6.3 "Construction": `expressions.construction` (chapter 13).
-  - Waiting on chapters 16 to 19 and appendix A: "Unique structs" and "Destructors of unique structs"
-    (`memory.moves`, `flow.moves`, `memory.holds`), "Construction" in `02-types.md`
-    (`flow.constructors`), "Bounds" (`library.printable`, `library.comparable`), and "Type
-    properties" (`concurrency.sendable`).
+- **Old passages still waiting.** Chapters 7 to 15 are written, but these passages stay until every
+  row of them points at a written chapter:
+  - `02-types.md` §2.5 "Nullability": narrowing (`flow.narrowing`, chapter 16), references into
+    nullable values (`memory.references`) and `ref T?`/`ref? T` (`memory.nullable-references`).
+  - `02-types.md` §2.7 "Mutability and constants": variables assigned once (`flow.assign-once`).
+  - `02-types.md` "Unique structs" and "Destructors of unique structs" (`memory.moves`,
+    `flow.moves`, `memory.holds`), "Construction" of classes (`flow.constructors`), "Bounds"
+    (`library.printable`, `library.comparable`), and "Type properties" (`concurrency.sendable`).
+  - `06-syntax.md` §6.3's definite-assignment rule (`flow.definite-assignment`), §6.7's
+    "Escaping and non-escaping" remaining row and its `flow.lambdas` bullet, §6.9 "Unreachable
+    statements" (`flow.returns`) and "Reference bindings" (`memory.second-class`).
+  - `06-syntax.md` §6.5 "No properties" (the guide), and §6.1's `std::panic` and `std::memory`
+    (`library.panic`, `library.memory`, appendix A).
 - **Open bug found while writing chapter 11:** the compiler never finishes on a generic function or
   method that instantiates itself with growing type arguments (#22). `generics.recursion` states the
   error; it needs a catalog code, a page, and a test. Not part of the spec sessions.
+- **Compiler restrictions found while writing chapters 12 to 15** (specified, not implemented; #6):
+  `this` receivers for extension methods, `defer`, and `do`; unique structs and their destructors;
+  `discard`; `@Flags`; and enum `tryFrom`.
 
 ## Where it stands
 

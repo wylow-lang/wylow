@@ -37,16 +37,15 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 12 to 22 are being written from these files, which are deleted as their text moves:
+Chapters 16 to 22 are being written from these files, which are deleted as their text moves:
 
-- [02-types.md](02-types.md): casts, arithmetic, nullability, mutability, unique structs and their
-  destructors, inheritance and construction of classes, strings, arrays and spans, and the
-  declaration, bounds, and type properties of generics
+- [02-types.md](02-types.md): nullability and narrowing, mutability and constants, unique structs
+  and their destructors, class construction, strings, arrays and spans, and the bounds and type
+  properties of generics
 - [03-memory-model.md](03-memory-model.md): values and moves, objects, weak references, cycles,
-  references, borrows, spans
-- [04-errors.md](04-errors.md): `Result`, `try`
+  references, holds, borrows, second-class values
+- [04-errors.md](04-errors.md): `Result`
 - [05-concurrency.md](05-concurrency.md): threads and the standard library's threading types
-- [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, visibility of overrides,
-  constructors, and overloads, construction, parameters, indexers, lambdas, control flow, patterns,
-  interpolation, annotations
+- [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, the rules that stay for flow and
+  memory, annotations
 - [07-interop.md](07-interop.md): `extern`, blittable types, C enums, callbacks

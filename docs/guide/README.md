@@ -23,7 +23,7 @@ Each is explained in detail in its chapter.
 3. **`1.5` is a `float`.** Use `1.5d` for `double`. See [Floating-point literals](../spec/02-lexical.md#lexical.literals.float).
 4. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
    **Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, not an `int`, so it can
-   overflow. Widen first where it might: `((int)a + b) / 2`. See [02-types.md](../spec/02-types.md#24-arithmetic).
+   overflow. Widen first where it might: `((int)a + b) / 2`. See [02-types.md](../spec/13-expressions.md#expressions.arithmetic).
 5. **`new` means heap allocation.** Structs are constructed without it: `Vec3(1, 2, 3)`.
    See [06-syntax.md](../spec/06-syntax.md#63-construction).
 6. **Class `==` is identity, struct `==` is memberwise.** `String` is the exception: its `==`
@@ -32,7 +32,7 @@ Each is explained in detail in its chapter.
    `move(East)` work, but `var d = East;` doesn't, and neither does an argument to overloads that
    disagree on its type. See [02-types.md](../spec/09-enums.md#enums.variants.implicit).
 8. **`break` in a `switch` case leaves the enclosing loop**, since a switch has no fallthrough to
-   stop. See [06-syntax.md](../spec/06-syntax.md#switch).
+   stop. See [06-syntax.md](../spec/14-statements.md#statements.switch).
 9. **A list can't change length while it's borrowed.** A loop over a list, a `ref` or span into
    it, or an assignment like `list[0] = f()` borrows it, and `add` or `removeAt` meanwhile panics.
    See [03-memory-model.md](../spec/03-memory-model.md#borrow-counters-on-containers).

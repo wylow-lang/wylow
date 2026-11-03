@@ -36,7 +36,7 @@ value's contents without copying anything; the source no longer holds a value.
   scope only if it holds a value then; where it was moved on some paths and not others, a hidden
   flag decides. Assigning to a moved variable stores without releasing anything.
 - **A unique operand is used in place, never copied at its turn.** Where a copyable operand is copied
-  when it is evaluated ([Evaluation order](#evaluation-order-and-the-heap)), a unique one passed to
+  when it is evaluated ([Evaluation order](13-expressions.md#expressions.order)), a unique one passed to
   an `in` parameter, or used as a receiver, is referred to as a `ref` argument is: in
   `mix(voice.buffer, nextBlock())`, `mix` sees what `nextBlock` left in `voice.buffer`. A unique
   operand moved into a by-value parameter is moved at its turn.
@@ -169,7 +169,7 @@ container elements (`List<Node>`), and counting every class a field's type could
 (subclasses, interface implementations). `Node` above is cyclic through `children`; a class holding
 `Vec3`s, a `List<int>`, a `String`, and a `Mesh` that holds no references back is not.
 
-An escaping function ([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) holds a closure
+An escaping function ([06-syntax.md](12-functions.md#functions.lambdas.escaping)) holds a closure
 object with copies of what its lambda captured, and can only be a lambda of its own type. So a
 function field (or a `List<fn() -> void>`) counts as able to reach what any lambda of that type
 captures, and each lambda's closures are decided like a class: cyclic only if what it captures can
@@ -251,28 +251,6 @@ References are **second-class**:
 A `ref` or `in` variable must be initialized with the place it refers to: a variable, field, or
 element, never a temporary value. It cannot refer to a class object itself (objects are already
 references). Assigning to it assigns to the place.
-
-### Returning references
-
-A method may return `ref T` or `in T`, using `return ref place;`. The returned reference
-**borrows the method's receiver**, so it must point into the receiver's own storage: `this`, a
-field or element of `this` (but not of another object a field refers to), a reference returned
-by a method of `this`, or, in unsafe code, the target of a pointer. Indexers are the usual case:
-
-```java
-struct Mat4 {
-    pub float[16] m;
-    pub mut ref float operator [](int row, int col) { return ref m[row * 4 + col]; }
-}
-```
-
-- Only instance methods return references, and for now they cannot be virtual or abstract.
-- A `ref` return must point into mutable storage, so a struct method that isn't `mut` returns `in` (or a
-  pointer's target). Calling a method that returns `in` gives a read-only place.
-- The result is a place for as long as the receiver is. A temporary struct can't be the receiver of
-  a `mut` method ([06-syntax.md](07-structs.md#structs.methods.mut)), and on one, such as
-  `makeMatrix().at(0)`, an `in` result can be read but not referred to.
-- Free functions and static methods cannot return references yet.
 
 ### Nullable references: `ref? T`
 
@@ -367,22 +345,6 @@ class Session {
 // session.log.write(session);   'write' calls 'session.reopen()' while 'log' is in use
 ```
 
-### Evaluation order and the heap
-
-Operands are evaluated left to right ([06-syntax.md](06-syntax.md#evaluation-order)). Since any call
-can modify any object, reading a field of an object counts as conflicting with every call in the
-same expression: in `obj.x + f()`, `obj.x` is read before `f` runs. The same holds for reads
-through `ref`/`in` parameters and a struct method's `this`, which may point into an object. In an
-assignment, the object holding the target is evaluated before the value: in
-`a.b.x = f()`, `a.b` is read before `f` runs. An element target is found, including its index and
-bounds check, before the value: `list[i()] = f()` calls `i` before `f`, and `a[f()] += 1` calls
-`f` once.
-
-A call that may run a lambda (a call of a function value, or a call given one) counts as
-conflicting with reading a local that a lambda captures and that is changed anywhere, since only a
-non-escaping lambda can change a local, and only while such a call runs: in `x + run(() -> x = 5)`,
-`x` is read before `run`. Other locals are read wherever C++ reads them.
-
 ### Borrow counters on containers
 
 Containers that can move or free their elements keep a **borrow count**. Taking a `ref` or `Span`
@@ -451,7 +413,7 @@ is gone after the statement. A temporary object is fine: the span holds it.
 ### Second-class values
 
 References, `ref struct`s (spans among them), and non-escaping functions
-([06-syntax.md](06-syntax.md#escaping-and-non-escaping)) are **second-class values**: each may
+([06-syntax.md](12-functions.md#functions.lambdas.escaping)) are **second-class values**: each may
 point into storage it doesn't own (a place, the elements it views, or the locals a lambda uses), so
 it must not outlive that storage. Without a borrow checker, the rule that ensures this is where
 they may be:

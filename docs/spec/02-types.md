@@ -1,62 +1,5 @@
 # 2. Types
 
-## 2.3 Casts
-
-A cast to a named type, such as `(Format)i`, is recognized as in Java: `(Name)` followed by something
-that can only start an operand. `(Format)-1` is therefore a subtraction; write `(Format)(-1)`.
-
-## 2.4 Arithmetic
-
-### Operand and result types
-
-**Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, as in Rust. Small types are not
-promoted to `int` as in C, Java, and C#.
-
-- A binary operator on two numbers first converts both operands to one type:
-  - the operands' type, if they have the same type;
-  - otherwise, if one operand is a constant that converts to the other operand's type ([Integer constants](05-conversions.md#conversions.constants)), the
-    other operand's type: `light - 1` with a `byte light` is a `byte`, and `1 + 2u` is a `uint`;
-  - otherwise, the type one operand converts to implicitly. Between two integer types that don't
-    convert to each other, it is the smallest integer type both convert to: `int + uint` is a `long`.
-  - If there is none, the operation is an error, and one side needs a cast: `long + ulong`,
-    `int + float` (an `int` converts to `double`, but mixed math should not silently become `double`).
-- Arithmetic (`+ - * / %`) and bitwise (`& | ^`) operators produce that type, and comparisons
-  compare in it.
-- `++`, `--`, and compound assignment work in the variable's type. `b += 1` is fine for a `byte b`;
-  `b += i` with an `int i` is an error, since `b + i` is an `int`.
-- Unary `-` is an error on unsigned types. `~` works on every integer type.
-
-The type of an operation never depends on where its result is stored.
-
-### Shifts
-
-- `a << n` and `a >> n` have `a`'s type; `n` may be any integer type. `>>` is arithmetic for signed
-  types and logical for unsigned ones.
-- The count is masked to the width of `a`'s type, as in Java and C#: an `int` shifts by `n & 31`.
-  Shifts never panic.
-- A constant count outside `0` to width − 1 is an error. This catches the classic packing mistake
-  `hi << 8 | lo` with a `byte hi`, which would shift every bit out (and, masked, not shift at all):
-  write `(int)hi << 8 | lo`.
-
-### `char`
-
-`char` supports `==`, `!=`, and the ordering comparisons (by code point) with another `char`, and
-character literals in `switch` and patterns. It has no arithmetic of its own: an arithmetic,
-bitwise, or shift operator converts a `char` operand to its code point as an `int`, so `c - '0'` is
-an `int`, and `(char)(c + 1)` is the next character, checked by the cast. Unary `-` and `~`, `++`,
-and `--` are errors, and `c == 65` is an error (compare with `'A'`).
-
-### Overflow
-
-- Integer arithmetic operators panic on overflow in **debug** builds and wrap in **release** builds.
-  For unsigned types, a result below zero is an overflow. Floating-point arithmetic follows IEEE 754
-  instead: a result too large is an infinity, and never a panic.
-- Integer division by zero panics in every build, as does `MIN / -1` for signed types. Dividing a
-  floating-point value by zero is an infinity or NaN.
-- Explicit operations are available when the behavior matters:
-  - `a.wrappingAdd(b)`, `wrappingSub`, `wrappingMul`: always wrap (hashing, RNG).
-  - `a.checkedAdd(b)` etc.: return a nullable of `a`'s type (`int?` for `int`), null on overflow.
-
 ## 2.5 Nullability
 
 No type is nullable unless written with `?`. This applies to every type, including value types.
@@ -159,7 +102,7 @@ mut var target = enemies.first();
   the variable isn't `mut`, nothing in it can change. Its fields and elements can't be assigned, it
   can't be passed by `ref` or bound to a `ref` variable, its `mut` methods can't be called,
   and a fixed array converts only to `ReadOnlySpan`. These are the rules of an `in` parameter
-  ([06-syntax.md](06-syntax.md#parameter-modes)). For the same reason, struct fields take no `mut`.
+  ([06-syntax.md](12-functions.md#functions.parameters.modes)). For the same reason, struct fields take no `mut`.
 - **Class fields** are immutable unless declared `mut`. The class's own constructors may assign
   them through `this` any number of times; nothing else can: not a method, not a subclass's
   constructor, and not a lambda created in a constructor. A struct stored in a field follows the
@@ -278,27 +221,6 @@ Result<void, IoError> close(File f) {
 
 ## 2.10 Classes
 
-### Inheritance rules
-
-- **Upcasts are implicit**: a class converts to its base classes and to the interfaces it
-  implements. **Downcasts only go through `is`**: `if (weapon is Shotgun s) { ... }`. There is no
-  unchecked cast.
-- `override` must match the overridden method's parameter types (including nullability) and return
-  type exactly. Return types are not covariant.
-- **No hiding.** A method with the signature of an inherited method the class can see must be an
-  `override`; if the inherited method isn't `virtual`, that is an error. A field may not have the
-  name of an inherited field.
-- `super.method(...)` calls the base class's implementation without dispatch; it cannot call an
-  abstract method.
-- A non-abstract class must implement every inherited abstract method and every method of every
-  interface it implements, directly or through a base class. An `abstract` class may leave them to
-  its subclasses.
-- Generic methods cannot be `virtual`, `override`, or `abstract`.
-- A class that declares no constructor gets a parameterless one, as visible as the class. That is an error if a field
-  needs a value (see construction below) or the base class has no parameterless constructor.
-- Visibility is [chapter 3's](03-programs.md#programs.visibility): a subclass sees what its file and module see, and a method it can't see
-  isn't inherited for overriding.
-
 ### Construction
 
 Construction follows Java's order, and C++'s rule for what the object is while it is built:
@@ -338,12 +260,12 @@ counted block that its copies share (it may cross threads; see
 `extern struct`, which the runtime implements; `String` and `Weak<T>` are the only such built-in
 values.
 
-Strings are joined by [interpolation](06-syntax.md#string-interpolation), `$"{a}{b}"`, which
+Strings are joined by [interpolation](13-expressions.md#expressions.interpolation), `$"{a}{b}"`, which
 builds the result in one allocation. There is no `+` on strings.
 `StringBuilder` builds a string up piece by piece, as in a loop.
 
 A literal refers to static text and never allocates; a string built at run time, as by
-[interpolation](06-syntax.md#string-interpolation), is one counted allocation shared by its copies.
+[interpolation](13-expressions.md#expressions.interpolation), is one counted allocation shared by its copies.
 
 `==` and `!=` compare contents ([equality](04-types.md#types.string)).
 
@@ -478,72 +400,7 @@ Conversions to spans are implicit, from:
 A generic function taking a span infers its element type from any of these:
 `T first<T>(ReadOnlySpan<T> values)` accepts an `int[4]` or a `List<int>`.
 
-### Queries
-
-The standard library has LINQ-style queries, as extension methods on `ReadOnlySpan<T>`
-([06-syntax.md](06-syntax.md#extension-methods)), so they work on fixed arrays, `T[]`, `List`, and
-spans. There is no query syntax, only calls:
-
-```java
-var weak = mobs.where(m -> m.health < 5).select(m -> m.position).toList();
-int alive = mobs.count(m -> m.health > 0);
-Mob? target = mobs.where(m -> m.isHostile).first();
-```
-
-- **Adapters are lazy**: `where`, `select`, `take`, and `skip` return a `ref struct` that does
-  nothing until a terminal operation or a `for` loop consumes it, and that holds its lambdas
-  without allocating ([06-syntax.md](06-syntax.md#lambdas-held-by-ref-structs)). Like a span, it
-  borrows the list it reads for as long as it exists, and it can't be stored; call `toList()` to
-  keep a result.
-- **Terminal operations** run the query: `toList()`, `count()`, `any(f)`, `all(f)`, `sum()`, and
-  ones that return null when there is no answer: `first()`, `first(f)`, and `min()` and `max()`
-  for `T extends Comparable<T>`.
-- A chain compiles to one loop with the lambdas inlined, like a hand-written `for`.
-
-Lazy adapters need two changes to the `ref struct` rules
-([03-memory-model.md](03-memory-model.md#spans)): a `ref struct` may have fields of `ref struct`
-type, as an adapter holds its source, and a generic `ref struct` may take a `ref struct` type
-argument, as `Select<Where<...>>` does. Both stay second-class, so neither can outlive what it
-views.
-
-### `Box<T>`
-
-`Box<T>` is a standard library class holding a single value of type `T` on the heap. Use it to
-heap-allocate a large value that isn't already inside a class:
-
-```java
-var grid = new Box<Tile[65536]>();
-```
-
 ## 2.13 Generics
-
-### Declaring and using generics
-
-```java
-struct Pair<A, B> {
-    pub A first;
-    pub B second;
-}
-
-T identity<T>(T value) { return value; }
-
-var p = Pair<int, float>(1, 2.5);         // struct type arguments are always written
-var s = Pair<String, bool>(second: true, first: "a");
-var x = identity(5);                      // function type arguments are inferred...
-var y = identity<long>(5);                // ...or written explicitly
-```
-
-- Type parameters go after the name, for structs, functions, and methods. A method's type
-  parameters may not reuse its struct's type parameter names.
-- **Function type arguments are inferred** from the arguments. When arguments disagree, the type the
-  others implicitly convert to is chosen: `max(1, 2L)` infers `long`. As for operators (§2.4), an
-  integer constant takes another argument's type when that type holds it: `max(b, 1)` with a
-  `byte b` infers `byte`. Inside type arguments there are
-  no conversions, so `Pair<int, int>` and `Pair<long, long>` never unify.
-- **Struct type arguments are always written.** There is no inference for construction.
-- When a generic and a non-generic overload are equally good, the non-generic one is chosen.
-- `Name<...>` in an expression is read as type arguments when followed by `(` or `.`. As in C#,
-  `f(a < b, c > (d))` is therefore a call to the generic `a<b, c>`.
 
 ### Bounds
 
@@ -559,7 +416,7 @@ bound may mention the type parameters, as in `T extends Comparable<T>`.
 - The standard library declares the primitive types' and `String`'s interfaces, each in an
   `extern struct` of the type's name that gives the type members and changes nothing else about
   it: every primitive type and `String` implements `Printable`
-  ([06-syntax.md](06-syntax.md#string-interpolation)), and the numbers, `char`, and `String`
+  ([06-syntax.md](13-expressions.md#expressions.interpolation)), and the numbers, `char`, and `String`
   implement `Comparable` of themselves. Their nullable types, like any nullable type, satisfy
   neither.
 
