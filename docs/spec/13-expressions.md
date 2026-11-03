@@ -429,12 +429,12 @@ var label = switch (state) {
 };
 ```
 
-- The value is evaluated once, before any case is tried, and must have a type of its own
-  ([Patterns](15-patterns.md#patterns.matching)).
+- The value is evaluated once, before any case is tried. It is a compile-time error for it to have
+  no type of its own.
 - Every case is an expression followed by `;`. It is a compile-time error for a case to be a block.
 - It is a compile-time error for a case to produce no value.
-- The cases must have one type: the expected type, or else the type that every other case converts
-  to, as for `?:`.
+- It is a compile-time error if the cases do not have one type: the expected type, or else the type
+  that every other case converts to, as for `?:`.
 - It is a compile-time error if the cases have incompatible types, or if no case produces a value.
 - It is a compile-time error for a switch expression to produce a `ref struct` or a reference: the
   result would view or refer to one of its cases.
@@ -540,8 +540,8 @@ void main() {
 - It is a compile-time error if the operand of `try` does not have a `Result` type.
 - It is a compile-time error to use `try` outside a function, method, or lambda whose return type
   is a `Result`.
-- The enclosing function's `Result` must have the same error type as the operand's. It is a
-  compile-time error if it does not; the error is converted explicitly first.
+- It is a compile-time error if the enclosing function's `Result` does not have the same error type
+  as the operand's; the error is converted explicitly first.
 - It is a compile-time error to use `try` in a lambda whose return type is inferred.
 
 **Example:**
@@ -576,8 +576,8 @@ log($"order {order.id}: {order.quantity} items");
 - `{{` and `}}` in a `$` string stand for `{` and `}`. A lone `}` is a compile-time error. Escapes
   work as in any string ([Escapes](02-lexical.md#lexical.literals.escapes)).
 - The parts are evaluated left to right, each exactly once.
-- A hole holds any expression on one line, including other strings. A conditional `a ? b : c` must
-  be parenthesized, since `:` starts a format specifier.
+- It is a compile-time error to write a conditional `a ? b : c` in a hole without parentheses, since
+  `:` starts a format specifier.
 - An interpolated value is printable. The primitive types and `String` are, and are written as
   `print` writes them: a `char` as its character, and a nullable as its value or `null`. A
   floating-point value is the shortest text that reads back as the same value, and `inf`, `-inf`,

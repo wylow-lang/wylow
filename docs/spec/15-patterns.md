@@ -40,7 +40,7 @@ A pattern either always matches or tests the value. These are the patterns:
   be null. A whole `is` pattern cannot be `null`, since `x == null` says that; `x is Moved(null)` is
   valid.
 - Floating-point and string literals are not patterns.
-- A type pattern cannot name a function type
+- It is a compile-time error for a type pattern to name a function type
   ([Function types](04-types.md#types.functions)); a nullable function is checked with `== null`.
 
 - It is a compile-time error to name a variant that the matched enum does not have.
@@ -179,7 +179,7 @@ expression;` for a switch expression. There is no fallthrough.
 - `case A, B -> ...` matches either pattern. A case with several patterns matches when any of them
   does, and binds no names.
 - The cases are tried in order. `default` matches every value that the cases above it do not, and it
-  must be the last case.
+  is a compile-time error for it not to be the last case.
 - A guard is written `when condition` after the pattern of a case.
 - A case of a switch expression produces a value
   ([Switch expressions](13-expressions.md#expressions.switch)).
@@ -263,11 +263,11 @@ Every switch is exhaustive: its cases match every value of the switched type, or
 - Over an enum, listing every variant is enough. Over `bool`, listing both values is enough. Over an
   integer or a class, a `default` or a pattern that always matches is needed. A struct value is
   covered by a struct pattern whose field patterns all always match.
-- A nullable value is null or a value of its type, and the cases must cover both. A switched field
-  of a nullable type is treated the same way.
+- A nullable value is null or a value of its type, and it is a compile-time error if the cases do
+  not cover both. A switched field of a nullable type is treated the same way.
 - It is a compile-time error if the cases do not cover every value. The error names a value that no
   case handles, such as `Pair(South, _)` or `Moved(null)`.
-- `default` must be the last case.
+- It is a compile-time error if `default` is not the last case.
 - It is a compile-time error for a case to be unreachable: one whose values the cases above it all
   match, including a `default` after cases that already cover every value.
 - A type test on a class counts as possibly failing, so it never makes a later case unreachable

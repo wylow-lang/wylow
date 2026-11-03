@@ -299,7 +299,8 @@ switch (state) {
 }
 ```
 
-- The value is evaluated once, before any case is tried, and must have a type of its own.
+- The value is evaluated once, before any case is tried. It is a compile-time error for it to have
+  no type of its own.
 - It is a compile-time error to switch on a `void` value, on `null`, or on a nullable class or
   interface value that no `case null` handles.
 - A case has an arrow: `case Pattern -> statement`. There is no fallthrough.
@@ -308,7 +309,7 @@ switch (state) {
 - The body of a case is a block or a single statement other than a declaration.
 - It is a compile-time error to declare a variable directly in a case; use a block.
 - It is a compile-time error to write `:` instead of `->`.
-- `default` must be the last case.
+- It is a compile-time error if `default` is not the last case.
 - Every switch is exhaustive ([Exhaustiveness](15-patterns.md#patterns.exhaustiveness)).
 - `break` and `continue` inside a case apply to the enclosing loop; a switch is not a loop and
   needs no `break` ([`break` and `continue`](#statements.jumps)).
