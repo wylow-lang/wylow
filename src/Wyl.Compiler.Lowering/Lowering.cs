@@ -79,6 +79,13 @@ public sealed partial class IrLowering
     static IrLocalKind KindOf(LocalSymbol local) =>
         local.RefKind != RefKind.None || local.Type.IsNullableReference ? IrLocalKind.Reference : IrLocalKind.Value;
 
+    /// <summary>
+    /// Whether a value of the type is moved where a copyable value is copied (spec <c>memory.moves</c>).
+    /// A type parameter's value is still copied, since an unbounded one does not say what it is
+    /// (spec <c>generics.checking</c>).
+    /// </summary>
+    static bool Moves(WylType type) => type.IsUniqueType;
+
     IrFunction Function(BoundFunction bound)
     {
         function.Body = block = new IrBlock { Origin = bound.Body.Location };
@@ -103,7 +110,7 @@ public sealed partial class IrLowering
         }
         // The flow analysis reports a function that returns a value and whose end is reachable.
         if (reachable && function.Struct is { } made)
-            Add(new IrReturn(IrRead.Copy(new IrPlace(made))) { Origin = null });
+            Add(new IrReturn(ReadWhole(made)) { Origin = null });
     }
 
     void Add(IrStatement statement) => block.Statements.Add(statement);
@@ -268,10 +275,17 @@ public sealed partial class IrLowering
         Define(local, initializer);
     }
 
+    /// <summary>A whole local read by value: copied, or moved when its type is unique.</summary>
+    static IrRead ReadWhole(IrLocal local) => Moves(local.Type) ? IrRead.Move(new IrPlace(local)) : IrRead.Copy(new IrPlace(local));
+
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
-    IrOperand OperandOf(IrRvalue value) => value is IrUse { Operand: var operand }
-        ? operand is IrRead { Ownership: IrOwnership.Borrow } read ? IrRead.Copy(read.Place) : operand
-        : IrRead.Move(new IrPlace(Let(value)));
+    IrOperand OperandOf(IrRvalue value) => value switch
+    {
+        IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } read } when Moves(read.Type) => IrRead.Move(read.Place),
+        IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } read } => IrRead.Copy(read.Place),
+        IrUse { Operand: var operand } => operand,
+        _ => IrRead.Move(new IrPlace(Let(value))),
+    };
 
     /// <summary>What a <c>ref</c>, <c>in</c>, <c>ref?</c>, or <c>in?</c> local is initialized with.</summary>
     IrRvalue ReferenceTo(BoundExpression initializer, LocalSymbol local)
@@ -313,7 +327,7 @@ public sealed partial class IrLowering
     {
         if (ret.Value is not { } value)
         {
-            Add(new IrReturn(function.Struct is { } made ? IrRead.Copy(new IrPlace(made)) : null) { Origin = at });
+            Add(new IrReturn(function.Struct is { } made ? ReadWhole(made) : null) { Origin = at });
         }
         else if (symbol.ReturnRefKind != RefKind.None)
         {

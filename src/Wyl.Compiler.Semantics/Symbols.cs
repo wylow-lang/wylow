@@ -328,6 +328,9 @@ public sealed class TypeSymbol
     /// <summary>A <c>ref struct</c>: second-class, like a <c>ref</c>, so it can only be a local or parameter.</summary>
     public bool IsRefStruct => (Declaration.Modifiers & Modifiers.Ref) != 0;
 
+    /// <summary>A <c>unique struct</c> or <c>unique enum</c>: moved rather than copied.</summary>
+    public bool IsUnique => (Declaration.Modifiers & Modifiers.Unique) != 0;
+
     /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
     public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 

@@ -441,4 +441,9 @@ public static partial class Catalog
     [Error(127, "classes.overriding")]
     public static Diagnostic UnsafeOverride(Location at, string name, string overridden) =>
         Make(at, $"'{name}' cannot be 'unsafe'").Note($"'{overridden}' is not, and a call through it needs no 'unsafe' code");
+
+    /// <param name="what"><c>field</c>, or <c>variant field</c> for an enum.</param>
+    [Error(439, "structs.unique")]
+    public static Diagnostic UniqueField(Location at, string kind, string name, string what, string type) =>
+        Make(at, $"{kind} '{name}' has a {what} of unique type '{type}'").Help($"declare it 'unique {kind} {name}'");
 }

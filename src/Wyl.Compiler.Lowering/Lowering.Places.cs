@@ -188,9 +188,16 @@ public sealed partial class IrLowering
 
     IrLocal Hold(IrPlace place, bool borrows) => Let(new IrHold(place, borrows));
 
-    /// <summary>A read of a place, copied into a temporary at its turn, which the instruction using it moves from, or copies if it is a reference.</summary>
+    /// <summary>
+    /// A read of a place. A copyable value is copied into a temporary at its turn, which the
+    /// instruction using it moves from, or copies if it is a reference. A unique value is used in
+    /// place, as the operand of an operator is (spec <c>memory.moves</c>); whoever takes it moves it
+    /// from the place, which the flow analysis checks is a whole local or parameter.
+    /// </summary>
     IrRead Read(IrPlace place)
     {
+        if (Moves(place.Type))
+            return IrRead.Borrow(place);
         var copy = Let(new IrUse(IrRead.Copy(place)));
         return new IrRead(copy.Kind == IrLocalKind.Value ? IrOwnership.Move : IrOwnership.Copy, new IrPlace(copy));
     }

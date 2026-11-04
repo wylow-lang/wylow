@@ -59,4 +59,10 @@ public static partial class Catalog
     [Error(400, "flow.constructors")]
     public static Diagnostic ThisBeforeFieldsAssigned(Location at, string unassigned) =>
         Make(at, "'this' cannot be used until every field is assigned").Note($"field '{unassigned}' might not have been assigned");
+
+    [Error(440, "flow.moves")]
+    public static Diagnostic UseAfterMove(Location at, string name, Location? movedAt) =>
+        movedAt is { } move
+            ? Make(at, $"'{name}' is used after being moved").Note(move, $"'{name}' was moved here")
+            : Make(at, $"'{name}' is used after being moved");
 }

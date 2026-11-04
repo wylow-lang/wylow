@@ -22,7 +22,10 @@ static class MatrixTypes
         {
             foreach (var context in Contexts)
             {
-                var source = $"// matrix: types x contexts, cell: {row.Name}/{context}\n\n{Fixture}\n{Cell(row, context)}";
+                if (row.Skips.Contains(context))
+                    continue;
+                var extra = row.Declarations.Length > 0 ? row.Declarations + "\n" : "";
+                var source = $"// matrix: types x contexts, cell: {row.Name}/{context}\n\n{Fixture}\n{extra}{Cell(row, context)}";
                 cells.Add(new MatrixCell($"{row.Name}/{context}", source));
             }
         }
@@ -43,8 +46,19 @@ static class MatrixTypes
         Func<string, string> Value,
         Func<string, string> Show,
         bool Nullable = false,
-        bool Comparable = true)
+        bool Comparable = true,
+        bool Unique = false,
+        string Declarations = "")
     {
+        /// <summary>The modifier a struct declaration of the row's type needs: unique types hold a unique field.</summary>
+        public string StructModifier => Unique ? "unique " : "";
+
+        /// <summary>
+        /// Contexts the row leaves out: binding a unique value by value is a moving binding, which
+        /// this step does not lower yet, and generic code still copies a type parameter, so a unique
+        /// type argument is refused.
+        /// </summary>
+        public IReadOnlyList<string> Skips => Unique ? ["type-argument", "struct-pattern", "case-null", "guarded"] : [];
         /// <summary>
         /// A local holding the row's value. A local is written like a parameter, so a function type
         /// takes the row's parameter form; <paramref name="raw"/> is a value expression.
@@ -63,6 +77,11 @@ static class MatrixTypes
         yield return new("struct", "Vec", "Vec", "Vec[2]", "3", "7",
             raw => $"Vec(x: {raw})",
             expr => $"print({expr}.x);");
+        yield return new("unique", "Unique", "Unique", "Unique[2]", "3", "7",
+            raw => $"Unique(x: {raw})",
+            expr => $"print({expr}.x);",
+            Unique: true,
+            Declarations: "unique struct Unique {\n    int x = 1;\n}");
         yield return new("class", "Cell", "Cell", "Cell[2]", "3", "7",
             raw => $"new Cell({raw})",
             expr => $"print({expr}.value);");
@@ -212,14 +231,23 @@ static class MatrixTypes
             case "element":
                 main.Add(row.Declare("value", row.First));
                 main.Add(row.Declare("other", row.Second));
-                main.Add($"mut {row.ArrayType} values = [value, value];");
+                // A unique value moves into its element, so each element is a value of its own.
+                main.Add($"mut {row.ArrayType} values = [{(row.Unique ? "value, other" : "value, value")}];");
                 main.Add(row.Show("values[0]"));
                 if (row.Nullable)
                 {
                     main.Add("values[1] = null;");
                     main.Add(row.Show("values[1]"));
                 }
-                main.Add("values[1] = other;");
+                if (row.Unique)
+                {
+                    main.Add(row.Declare("replacement", row.Second));
+                    main.Add("values[1] = replacement;");
+                }
+                else
+                {
+                    main.Add("values[1] = other;");
+                }
                 main.Add(row.Show("values[1]"));
                 return Wrap(main);
 
@@ -300,7 +328,7 @@ static class MatrixTypes
                         }
                     }
 
-                    struct Kept {
+                    {{row.StructModifier}}struct Kept {
                         {{row.Type}} value;
 
                         Kept({{row.ParameterType}} value) {
@@ -332,7 +360,7 @@ static class MatrixTypes
                     main.Add(row.Show("defaults.value"));
                 }
                 return $$"""
-                    struct Defaults {
+                    {{row.StructModifier}}struct Defaults {
                         {{row.Type}} value;
                     }
 
@@ -377,7 +405,7 @@ static class MatrixTypes
                     main.Add("}");
                 }
                 return $$"""
-                    struct Holds {
+                    {{row.StructModifier}}struct Holds {
                         {{row.Type}} value;
                         int tag;
                     }
@@ -397,7 +425,7 @@ static class MatrixTypes
                 main.Add("default -> print(\"other\");");
                 main.Add("}");
                 return $$"""
-                    struct Holds {
+                    {{row.StructModifier}}struct Holds {
                         {{row.Type}} value;
                         int tag;
                     }

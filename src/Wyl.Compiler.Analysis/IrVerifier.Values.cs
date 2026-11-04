@@ -36,7 +36,9 @@ public sealed partial class IrVerifier
         /// <summary>In a constructor, the fields it must assign that it has.</summary>
         public HashSet<FieldSymbol> AssignedFields { get; private init; } = [];
         public HashSet<IrLocal> MaybeAssigned { get; private init; } = [];
-        public HashSet<IrLocal> Moved { get; private init; } = [];
+
+        /// <summary>The locals moved on some path, and where each was moved, which any later use reports.</summary>
+        public Dictionary<IrLocal, Location?> Moved { get; private init; } = [];
         public HashSet<IrLocal> Ended { get; private init; } = [];
 
         /// <summary>Dependents that may no longer be used, and why.</summary>
@@ -66,7 +68,7 @@ public sealed partial class IrVerifier
             NonNull = [.. NonNull],
             AssignedFields = [.. AssignedFields],
             MaybeAssigned = [.. MaybeAssigned],
-            Moved = [.. Moved],
+            Moved = new(Moved),
             Ended = [.. Ended],
             Invalid = new(Invalid),
             Outcomes = new(Outcomes),
@@ -83,6 +85,9 @@ public sealed partial class IrVerifier
             foreach (var (local, reason) in b.Invalid)
                 invalid.TryAdd(local, reason);
             var known = a.Known.Meet(b.Known);
+            var moved = new Dictionary<IrLocal, Location?>(a.Moved);
+            foreach (var (local, at) in b.Moved)
+                moved.TryAdd(local, at);
             var outcomes = new Dictionary<IrLocal, Outcome>();
             foreach (var local in a.Outcomes.Keys.Union(b.Outcomes.Keys))
             {
@@ -97,7 +102,7 @@ public sealed partial class IrVerifier
                 NonNull = known.NonNull,
                 AssignedFields = [.. a.AssignedFields.Intersect(b.AssignedFields)],
                 MaybeAssigned = [.. a.MaybeAssigned.Union(b.MaybeAssigned)],
-                Moved = [.. a.Moved.Union(b.Moved)],
+                Moved = moved,
                 Ended = [.. a.Ended.Union(b.Ended)],
                 Invalid = invalid,
                 Lambdas = [.. a.Lambdas.Union(b.Lambdas)],
@@ -107,7 +112,7 @@ public sealed partial class IrVerifier
         public bool SameAs(State other) =>
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
             && NonNull.SetEquals(other.NonNull) && AssignedFields.SetEquals(other.AssignedFields)
-            && Moved.SetEquals(other.Moved) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
+            && Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
             && Lambdas.SetEquals(other.Lambdas)
             && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
 
@@ -462,8 +467,23 @@ public sealed partial class IrVerifier
             else
                 Error($"'{N(local)}' may be read before it is stored");
         }
-        if (state.Moved.Contains(local))
-            Error($"'{N(local)}' is used after it is moved");
+        if (reads)
+        {
+            // A move earlier in the same instruction is not in the state yet. A temporary's second
+            // move reports itself as a compiler invariant, in <see cref="Operand"/>.
+            bool movedEarlier = state.Moved.TryGetValue(local, out var movedAt);
+            bool movedInInstruction = pendingMoves.Contains(local) && SourceOf(local) is not null;
+            if (movedEarlier || movedInInstruction)
+            {
+                if (SourceOf(local) is { } moved)
+                {
+                    if (reportedMoved.Add(moved))
+                        Violation(l => Catalog.UseAfterMove(l, moved.Name, movedEarlier ? movedAt : current?.Origin));
+                }
+                else
+                    Error($"'{N(local)}' is used after it is moved");
+            }
+        }
         if (state.Ended.Contains(local))
             Error($"'{N(local)}' is used after it ends");
         if (state.Invalid.TryGetValue(local, out var reason))
@@ -512,15 +532,43 @@ public sealed partial class IrVerifier
         if (operand is not IrRead read)
             return;
         Place(read.Place, state, reads: true);
+        var local = read.Place.Local;
+        if (read.Ownership == IrOwnership.Copy && !read.Type.IsCopyable && !read.Type.ContainsTypeParameters)
+            Violation(l => Catalog.CopyOfUnique(l, read.Type.ToString()));
         if (read.Ownership != IrOwnership.Move)
             return;
-        var local = read.Place.Local;
         if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Count > 0))
-            Error($"only a local's whole value can be moved, not '{N(local)}''s");
+        {
+            if (SourceOf(local) is { } symbol)
+                Violation(l => Catalog.MoveOutOfPlace(l, MovedPart(read.Place), read.Type.ToString()));
+            else
+                Error($"only a local's whole value can be moved, not '{N(local)}''s");
+        }
         else if (pendingMoves.Contains(local))
-            Error($"'{N(local)}' is moved twice");
+        {
+            if (SourceOf(local) is { } symbol)
+            {
+                if (reportedMoved.Add(symbol))
+                    Violation(l => Catalog.UseAfterMove(l, symbol.Name, current?.Origin));
+            }
+            else
+                Error($"'{N(local)}' is moved twice");
+        }
         else
             pendingMoves.Add(local);
+    }
+
+    /// <summary>What a move would take from a place that is not a whole local, as a message names it.</summary>
+    string MovedPart(IrPlace place)
+    {
+        var name = N(place.Local);
+        if (place.Local.IsThis)
+            return "out of 'this'";
+        if (place.IsDeref)
+            return $"out of what '{name}' refers to";
+        return place.Projections.Count > 0 && place.Projections[0] is IrElement
+            ? $"an element out of '{name}'"
+            : $"a field out of '{name}'";
     }
 
     void Argument(IrArgument argument, State state)
@@ -681,8 +729,32 @@ public sealed partial class IrVerifier
         var effects = IrEffects.Of(value);
         if (value is IrCall or IrInvoke or IrNew or IrConstruct)
             CheckInUse(value, effects, state);
+        CheckMovedReferences(value);
         Apply(state, effects, Describe(value));
         CommitMoves(state);
+    }
+
+    /// <summary>
+    /// A reference taken by an earlier operand refers into the value at the call, so moving the
+    /// value in a later operand would leave it referring to nothing.
+    /// </summary>
+    void CheckMovedReferences(IrRvalue value)
+    {
+        if (pendingMoves.Count == 0)
+            return;
+        foreach (var argument in IrWalk.Operands(value))
+        {
+            var (place, kind) = argument switch
+            {
+                IrRefArgument reference => (reference.Place, reference.Kind),
+                IrAddrArgument address => (address.Place, address.Kind),
+                _ => (null, RefKind.None),
+            };
+            if (place is not { IsDeref: false, Local: var local } || !pendingMoves.Contains(local) || SourceOf(local) is not { } symbol)
+                continue;
+            if (reportedMoved.Add(symbol))
+                Violation(l => Catalog.MoveWhileUsed(l, symbol.Name, FunctionSymbol.RefPrefix(kind).Trim()));
+        }
     }
 
     /// <summary>A temporary moved by an instruction is gone once the instruction is done.</summary>
@@ -690,7 +762,7 @@ public sealed partial class IrVerifier
     {
         foreach (var moved in pendingMoves)
         {
-            state.Moved.Add(moved);
+            state.Moved[moved] = current?.Origin;
             DependentsOf(moved, state, $"'{N(moved)}' was moved");
         }
         pendingMoves.Clear();

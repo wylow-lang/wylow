@@ -1,0 +1,42 @@
+// Using a value after it is moved, moving it out of what is not a whole local, and moving it while
+// an earlier operand refers to it are flow errors. Binding a unique value by value would copy it.
+
+import std::print;
+
+unique struct Counter {
+    pub int value;
+}
+
+unique struct Pair {
+    pub Counter first;
+}
+
+unique enum MaybeCounter {
+    None,
+    Some(Counter counter),
+}
+
+void use(ref Counter counter) {
+    var copy = counter;                 // error[WYL0441]: cannot move out of what 'counter' refers to
+}
+
+void choose(in Counter counter, Counter moved) { }
+
+void bind(MaybeCounter maybe) {
+    switch (maybe) {                    // error[WYL0444]: cannot copy a value of type 'Counter'
+        case MaybeCounter.Some(var counter) -> print(counter.value);
+        default -> print(-1);
+    }
+}
+
+void main() {
+    var counter = Counter(1);
+    var kept = counter;
+    print(counter.value);               // error[WYL0440]: 'counter' is used after being moved
+
+    var pair = Pair(Counter(2));
+    var taken = pair.first;             // error[WYL0441]: cannot move a field out of 'pair'
+
+    var a = Counter(3);
+    choose(a, a);                       // error[WYL0443]: cannot move 'a' while it is passed by 'in'
+}

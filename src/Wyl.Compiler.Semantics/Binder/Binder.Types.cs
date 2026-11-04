@@ -145,8 +145,25 @@ public sealed partial class Binder
     bool IsWeakConversion(WylType from, WylType to) =>
         stdlib.IsWeak(to) && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable)));
 
-    bool CheckTypeArguments(IReadOnlyList<WylType> arguments, Location location) =>
-        arguments.All(a => CheckStorable(a, location, "a type argument"));
+    /// <summary>
+    /// A type argument must be storable, and a unique type cannot be one while generic code copies
+    /// a value of its type parameter.
+    /// </summary>
+    bool CheckTypeArguments(IReadOnlyList<WylType> arguments, Location location)
+    {
+        bool ok = true;
+        foreach (var argument in arguments)
+        {
+            if (!CheckStorable(argument, location, "a type argument"))
+                ok = false;
+            else if (argument.IsUniqueType)
+            {
+                Error(Catalog.UniqueTypeArgument(location, argument.ToString()));
+                ok = false;
+            }
+        }
+        return ok;
+    }
 
     void QueueBoundChecks(IReadOnlyList<TypeParameterSymbol> parameters, IReadOnlyList<WylType> arguments, Location location)
     {

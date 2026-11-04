@@ -100,7 +100,8 @@ public sealed partial class Parser
                 var allowed = kind switch
                 {
                     TypeKind.Class => Modifiers.Abstract | Modifiers.Final,
-                    TypeKind.Struct => Modifiers.Ref | Modifiers.Extern,
+                    TypeKind.Struct => Modifiers.Ref | Modifiers.Extern | Modifiers.Unique,
+                    TypeKind.Enum => Modifiers.Ref | Modifiers.Unique,
                     _ => Modifiers.Ref,
                 };
                 Disallow(modifiers, ~allowed, token => Catalog.ModifierOnType(Loc(token.Span), token.Text, SyntaxFacts.KindNameWithArticle(kind)));
@@ -317,6 +318,7 @@ public sealed partial class Parser
             {
                 TokenKind.StaticKeyword => Modifiers.Static,
                 TokenKind.MutKeyword => Modifiers.Mut,
+                TokenKind.UniqueKeyword => Modifiers.Unique,
                 TokenKind.VirtualKeyword => Modifiers.Virtual,
                 TokenKind.OverrideKeyword => Modifiers.Override,
                 TokenKind.AbstractKeyword => Modifiers.Abstract,

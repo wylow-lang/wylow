@@ -76,4 +76,8 @@ public static partial class Catalog
     public static Diagnostic AmbiguousLambdaInference(Location at, string parameter, string function) =>
         Make(at, $"cannot infer type argument '{parameter}' of '{function}' from a lambda")
             .Note("other overloads also take these arguments").Help($"specify it, as in '{function}<...>(...)'");
+
+    [Error(442, "generics.checking")]
+    public static Diagnostic UniqueTypeArgument(Location at, string type) =>
+        Make(at, $"'{type}' cannot be a type argument").Note("a value of a type parameter is copied, and a unique value cannot be copied");
 }

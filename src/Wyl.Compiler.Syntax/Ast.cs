@@ -20,6 +20,9 @@ public enum Modifiers
 
     /// <summary>On a class field: assignable after construction. On a struct or interface method: may change <c>this</c>.</summary>
     Mut = 8192,
+
+    /// <summary>On a struct or enum: moved rather than copied.</summary>
+    Unique = 16384,
 }
 
 /// <summary>

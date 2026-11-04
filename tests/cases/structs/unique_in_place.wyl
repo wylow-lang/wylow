@@ -1,0 +1,27 @@
+// A unique operand used in place is not moved: passed to an 'in' parameter, or used as the
+// receiver of a method that does not take it by value.
+
+import std::print;
+
+unique struct Counter {
+    pub int value;
+
+    mut void bump() {
+        value = value + 1;
+    }
+}
+
+void peek(in Counter counter) {
+    print(counter.value);
+}
+
+void main() {
+    mut Counter counter = Counter(1);
+    peek(counter);
+    // output: 1
+    counter.bump();
+    print(counter.value);
+    // output: 2
+    peek(counter);
+    // output: 2
+}

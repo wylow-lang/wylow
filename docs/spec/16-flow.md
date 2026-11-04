@@ -162,15 +162,15 @@ from holds no value.
 
 **Example:**
 
-```java unchecked
+```java
 unique struct Buffer {
     pub int length;
 }
 
 void main() {
-    var data = Buffer(4);
+    mut Buffer data = Buffer(4);
     Buffer kept = data;             // 'data' is moved into 'kept'
-    print(data.length);             // error: 'data' is used after being moved
+    print(data.length);             // error[WYL0440]: 'data' is used after being moved
     data = Buffer(8);
     print(data.length);
 }

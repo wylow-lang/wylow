@@ -111,14 +111,14 @@ false      final      float      fn         for        if         implements imp
 in         int        interface  is         long       loop       module     mut
 new        nint       nuint      null       operator   override   package    pub
 ref        return     sbyte      short      static     struct     super      switch
-this       true       try        uint       ulong      unsafe     ushort     var
-virtual    void       when       while
+this       true       try        uint       ulong      unique     unsafe     ushort
+var        virtual    void       when       while
 ```
 
 These are **reserved words**:
 
 ```
-const      defer      discard    private    protected  public     shared     unique
+const      defer      discard    private    protected  public     shared
 ```
 
 It is a compile-time error if a token is a reserved word.

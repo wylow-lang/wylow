@@ -67,6 +67,54 @@ out 3
 out 7
 exit 0
 
+=== unique/local
+out 3
+exit 0
+
+=== unique/field
+out 3
+out 7
+exit 0
+
+=== unique/parameter
+out 3
+exit 0
+
+=== unique/return
+out 3
+exit 0
+
+=== unique/element
+out 3
+out 7
+exit 0
+
+=== unique/capture
+out 3
+exit 0
+
+=== unique/equality
+out true
+out false
+out true
+exit 0
+
+=== unique/default
+out 1
+exit 0
+
+=== unique/overloads
+out typed
+exit 0
+
+=== unique/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
+
 === class/local
 out 3
 exit 0

@@ -471,6 +471,24 @@ public sealed partial class Binder
             Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, (referenced.NonNull.IsFunction ? referenced.NonNull : referenced).ToString(), referenced.NonNull.IsFunction));
     }
 
+    /// <summary>
+    /// A value type that holds a unique value inline must be unique itself, since a copy of it
+    /// would copy that value (spec <c>structs.unique</c>, <c>enums.unique</c>). A class's object is
+    /// shared by its copies, so it may hold one. A type that nests without end is already reported,
+    /// and looking through its fields would never finish.
+    /// </summary>
+    void CheckUniqueFields(TypeSymbol s, HashSet<TypeSymbol> cyclic)
+    {
+        if (s.IsUnique || s.IsExtern || cyclic.Contains(s) || s.Kind is not (TypeKind.Struct or TypeKind.Enum))
+            return;
+        var what = s.Kind == TypeKind.Enum ? "variant field" : "field";
+        foreach (var field in s.ValueFields)
+        {
+            if (field.Type.IsUniqueType)
+                Error(Catalog.UniqueField(field.Declaration.NameLocation, SyntaxFacts.KindName(s.Kind), s.Name, what, field.Type.ToString()));
+        }
+    }
+
     void DeclareVariants(TypeSymbol s)
     {
         foreach (var decl in s.Declaration.Variants)

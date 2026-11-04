@@ -45,7 +45,50 @@ static class TypeSelfTests
         if (first is null)
             return [failure!];
         var types = new TypeGenerator(first, Seed).Take(Count);
-        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first)];
+        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first), CopyingFacts()];
+    }
+
+    /// <summary>
+    /// What a unique type is copyable as (spec <c>types.copyable</c>, <c>structs.unique</c>): a
+    /// unique struct or enum is not copyable, nor is anything holding one; a type parameter is not
+    /// copyable until a bound says so; and a class reference, a function, a primitive, and a string are.
+    /// </summary>
+    static TestResult CopyingFacts()
+    {
+        const string text = """
+            unique struct Owned { int n; }
+            unique struct Holder { Owned owned; }
+            unique enum MaybeOwned { None, Some(Owned owned) }
+            struct Box<T> { T value; }
+
+            class Node { }
+
+            void main() { }
+            """;
+        if (Compile(text, "types/copying", out var failure) is not { } program)
+            return failure!;
+        var owned = program.Types.Single(s => s.Name == "Owned").Type;
+        var holder = program.Types.Single(s => s.Name == "Holder").Type;
+        var maybe = program.Types.Single(s => s.Name == "MaybeOwned").Type;
+        var box = program.Types.Single(s => s.Name == "Box").Construct([owned]);
+        var node = program.Types.Single(s => s.Name == "Node").Type;
+        List<string> problems = [];
+        void Expect(WylType type, bool unique, bool copyable)
+        {
+            if (type.IsUniqueType != unique || type.IsCopyable != copyable)
+                problems.Add($"'{type}' is {(type.IsUniqueType ? "" : "not ")}unique and {(type.IsCopyable ? "" : "not ")}copyable");
+        }
+        Expect(owned, unique: true, copyable: false);
+        Expect(owned.FixedArrayOf(2), unique: true, copyable: false);
+        Expect(owned.Nullable, unique: true, copyable: false);
+        Expect(holder, unique: true, copyable: false);
+        Expect(maybe, unique: true, copyable: false);
+        Expect(box, unique: true, copyable: false);
+        Expect(node, unique: false, copyable: true);
+        Expect(WylType.String, unique: false, copyable: true);
+        Expect(WylType.Int, unique: false, copyable: true);
+        Expect(WylType.Int.FunctionReturning([]), unique: false, copyable: true);
+        return new("types/copying", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     static BoundProgram? Compile(string text, string name, out TestResult? failure)

@@ -93,6 +93,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         foreach (var s in typeList)
             CheckIndexerSetters(s);
         var cyclic = CheckStructCycles([.. typeList.Where(s => s.Kind is TypeKind.Struct or TypeKind.Enum)]);
+        foreach (var s in typeList)
+            CheckUniqueFields(s, cyclic);
         // A struct that contains itself, or a field that can't be stored, is already an error.
         foreach (var s in typeList.Where(s => s is { Kind: TypeKind.Struct, IsExtern: false, Constructors.Count: 0, Fields.Count: > 0 }
                      && !cyclic.Contains(s) && s.Fields.All(f => !f.Type.IsRefStruct)))

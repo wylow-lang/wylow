@@ -65,9 +65,9 @@ public sealed partial class IrLowering
                 return new IrConstruct(construction.Type, construction.Constructor, Arguments(construction.Constructor, construction.Arguments),
                     LocationFor(construction.Constructor, construction));
             case BoundVariant variant:
-                return new IrVariant(variant.Type, variant.Variant, [.. variant.Arguments.Select(Value)]);
+                return new IrVariant(variant.Type, variant.Variant, [.. variant.Arguments.Select(Transferred)]);
             case BoundArrayLiteral array:
-                return new IrArray(array.Type, [.. array.Elements.Select(Value)]);
+                return new IrArray(array.Type, [.. array.Elements.Select(Transferred)]);
             case BoundConversion conversion:
                 return Conversion(conversion, use);
             case BoundLambda lambda:
@@ -162,6 +162,13 @@ public sealed partial class IrLowering
     IrOperand ViewOperand(BoundExpression view, Use use) =>
         IsPlace(view) ? Read(Place(view, use)) : IrRead.Move(new IrPlace(Let(Rvalue(view, use))));
 
+    /// <summary>A value stored into an array's element or a variant's field: copied, or moved when its type is unique.</summary>
+    IrOperand Transferred(BoundExpression expression)
+    {
+        var operand = Value(expression);
+        return operand is IrRead { Ownership: IrOwnership.Borrow } read && Moves(read.Type) ? IrRead.Move(read.Place) : operand;
+    }
+
     IrCall Call(BoundCall call, IrArgument? receiver)
     {
         var method = call.Method;
@@ -243,6 +250,9 @@ public sealed partial class IrLowering
     /// </summary>
     IrOperand Kept(IrOperand operand) => operand switch
     {
+        // A unique value is the callee's, moved from its place rather than copied for the statement to release.
+        IrRead { Ownership: IrOwnership.Borrow } read when Moves(read.Type) => IrRead.Move(read.Place),
+        _ when Moves(operand.Type) => operand,
         IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true } temp } => IrRead.Copy(temp),
         IrRead read => IrRead.Copy(new IrPlace(Let(new IrUse(IrRead.Copy(read.Place))))),
         _ => operand,

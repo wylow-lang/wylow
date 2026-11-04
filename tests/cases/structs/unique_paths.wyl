@@ -1,0 +1,47 @@
+// A move on one path makes the variable unmoved where it is assigned again, a loop may move a
+// local declared outside it when the next iteration begins with a value, and an escaping lambda
+// moves what it captures.
+
+import std::print;
+
+unique struct Counter {
+    pub int value;
+}
+
+void use(Counter counter) {
+    print(counter.value);
+}
+
+Counter make(int value) {
+    var counter = Counter(value);
+    return counter;
+}
+
+void main() {
+    mut Counter counter = make(1);
+    if (counter.value == 1) {
+        use(counter);
+        // output: 1
+        counter = make(2);
+    } else {
+        use(counter);
+        counter = make(3);
+    }
+    print(counter.value);
+    // output: 2
+
+    for (mut int i = 0; i < 2; i++) {
+        use(counter);
+        counter = make(i + 10);
+    }
+    // output: 2
+    // output: 10
+    use(counter);
+    counter = make(3);
+    // output: 11
+
+    var captured = make(7);
+    escaping fn() -> int read = () -> captured.value;
+    print(read());
+    // output: 7
+}

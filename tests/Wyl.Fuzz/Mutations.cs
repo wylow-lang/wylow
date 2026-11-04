@@ -109,6 +109,7 @@ static class Mutations
         new("type-fixed-array-length", SiteKind.Type, FixedArrayApplies, FixedArrayBuild),
         new("type-fixed-array", SiteKind.Type, ArrayApplies, TypeArrayBuild),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
+        new("type-unique", SiteKind.TypeDecl, UniqueApplies, UniqueBuild),
         // Constructs through a this(...) chain, which changes nothing a program does: a class's
         // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
         new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
@@ -210,6 +211,25 @@ static class Mutations
         return index < 0
             ? null
             : Single("type-kind", site, text[..index] + replacement + text[(index + keyword.Length)..]);
+    }
+
+    static bool UniqueApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Struct or TypeKind.Enum } declaration
+        && (declaration.Modifiers & (Modifiers.Ref | Modifiers.Extern)) == 0;
+
+    /// <summary>Makes a value type unique, or a unique one copyable again, which changes every copy it makes to a move.</summary>
+    static Candidate? UniqueBuild(MutationContext context, Site site)
+    {
+        var declaration = (TypeDecl)site.Node;
+        var text = context.Slice(site.Span);
+        if ((declaration.Modifiers & Modifiers.Unique) != 0)
+        {
+            int at = IndexOfWord(text, "unique");
+            return at < 0 ? null : Single("type-unique", site, text.Remove(at, "unique ".Length));
+        }
+        var keyword = declaration.Kind == TypeKind.Struct ? "struct" : "enum";
+        int index = IndexOfWord(text, keyword);
+        return index < 0 ? null : Single("type-unique", site, text.Insert(index, "unique "));
     }
 
     static bool ChainApplies(Site site) =>

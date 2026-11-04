@@ -25,12 +25,12 @@ public sealed partial class IrLowering
             foreach (var local in capturedLocals.Select(a => a.Local))
             {
                 outer.Add((local, locals[local]));
-                captures.Add(IrRead.Copy(new IrPlace(locals[local])));
+                captures.Add(Moves(local.Type) ? IrRead.Move(new IrPlace(locals[local])) : IrRead.Copy(new IrPlace(locals[local])));
                 lowered.Captures.Add(new IrLocal(local.Name, local.Type, IrLocalKind.Value, IrLocalRole.Capture) { Symbol = local });
             }
             if (capturesThis is not null)
             {
-                captures.Add(IrRead.Copy(new IrPlace(self!)));
+                captures.Add(Moves(self!.Type) ? IrRead.Move(new IrPlace(self!)) : IrRead.Copy(new IrPlace(self!)));
                 lowered.Captures.Add(capturedThis = new IrLocal("this", self!.Type, IrLocalKind.Value, IrLocalRole.Capture));
             }
         }

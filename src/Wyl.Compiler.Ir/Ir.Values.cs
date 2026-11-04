@@ -114,7 +114,7 @@ public enum IrOwnership
 {
     /// <summary>A copy of the value, which takes its own references (+1).</summary>
     Copy,
-    /// <summary>The value of a temporary, or part of one, that isn't used again: its references are taken over.</summary>
+    /// <summary>A value taken from a place that isn't used again, a whole local's or parameter's for a unique type: its references are taken over.</summary>
     Move,
     /// <summary>The value in place (+0), valid only while nothing writes the place.</summary>
     Borrow,

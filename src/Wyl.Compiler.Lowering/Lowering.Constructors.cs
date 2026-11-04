@@ -80,7 +80,7 @@ public sealed partial class IrLowering
             else if (field.Type.HasDefaultCode)
                 Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
         }
-        Add(new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = at });
+        Add(new IrReturn(ReadWhole(self)) { Origin = at });
         return function;
     }
 
@@ -136,7 +136,10 @@ public sealed partial class IrLowering
                     {
                         // A non-escaping function parameter takes the function value before its conversion.
                         value = Temp(operand.Type);
-                        Add(new IrStore(new IrPlace(value), operand is IrRead { Ownership: IrOwnership.Borrow } read ? IrRead.Copy(read.Place) : operand) { Origin = at });
+                        var stored = operand is IrRead { Ownership: IrOwnership.Borrow } read
+                            ? (Moves(read.Type) ? IrRead.Move(read.Place) : IrRead.Copy(read.Place))
+                            : operand;
+                        Add(new IrStore(new IrPlace(value), stored) { Origin = at });
                     }
                 });
                 if (direct is not null)

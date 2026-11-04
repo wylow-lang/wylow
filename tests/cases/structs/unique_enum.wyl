@@ -1,0 +1,37 @@
+// A unique enum is moved as a whole, like a unique struct. Its variant's fields are released with
+// the value, in whichever function finally holds it.
+
+import std::print;
+
+class Item {
+    String name;
+
+    Item(String name) { this.name = name; }
+
+    ~Item() { print($"release {name}"); }
+}
+
+unique enum Message {
+    Ping,
+    Data(Item item),
+}
+
+Message make(String name) {
+    var message = Message.Data(new Item(name));
+    return message;
+}
+
+void consume(Message message) {
+    print("consumed");
+}
+
+void main() {
+    print("start");
+    // output: start
+    var message = make("message");
+    consume(message);
+    // output: consumed
+    // output: release message
+    print("end");
+    // output: end
+}

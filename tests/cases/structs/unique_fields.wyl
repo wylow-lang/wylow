@@ -1,0 +1,25 @@
+// A struct or enum holding a unique value inline must be unique itself. A class may hold one,
+// since its copies share the object.
+
+unique struct Buffer {
+    pub int length;
+}
+
+struct Holder {
+    pub Buffer buffer;                  // error[WYL0439]: struct 'Holder' has a field of unique type 'Buffer'
+}
+
+enum Maybe {
+    None,
+    Some(Buffer buffer);                // error[WYL0439]: enum 'Maybe' has a variant field of unique type 'Buffer'
+}
+
+class Box {
+    mut Buffer buffer;
+
+    Box(Buffer buffer) {
+        this.buffer = buffer;
+    }
+}
+
+void main() { }

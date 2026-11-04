@@ -55,6 +55,7 @@ public sealed partial class IrVerifier
     readonly List<(IrLocal Local, Location At, IrFunction By)> nullableWrites = [];
     readonly HashSet<(Location, string)> reportedViolations = [];
     readonly HashSet<LocalSymbol> reportedUnassigned = [];
+    readonly HashSet<LocalSymbol> reportedMoved = [];
 
     /// <summary>While a closure's captures are read, where its body uses the one being read, which an error about it is reported at.</summary>
     Location? captureOrigin;
@@ -206,6 +207,8 @@ public sealed partial class IrVerifier
     /// <summary>A struct constructor's value given as a whole, as a chained constructor makes it, has every field.</summary>
     void AssignedWhole(IrLocal local, State state)
     {
+        // A local given a value again is not moved anymore (spec flow.moves).
+        state.Moved.Remove(local);
         if (local == constructed)
             state.AssignedFields.UnionWith(requiredFields);
     }
@@ -295,7 +298,7 @@ public sealed partial class IrVerifier
         scopes.RemoveAt(scopes.Count - 1);
         if (!state.Reachable)
             return state;
-        var released = ending.Where(l => !state.Ended.Contains(l) && !state.Moved.Contains(l)).SelectMany(l => IrEffects.Releasing(l).Runs).Distinct().ToList();
+        var released = ending.Where(l => !state.Ended.Contains(l) && !state.Moved.ContainsKey(l)).SelectMany(l => IrEffects.Releasing(l).Runs).Distinct().ToList();
         if (released.Count > 0)
             Apply(state, new IrEffects([], released, false), "a release at the end of a block");
         foreach (var local in ending)

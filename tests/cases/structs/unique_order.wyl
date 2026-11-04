@@ -1,0 +1,35 @@
+// A unique operand passed to 'in' is referred to where it is, so a call in a later operand sees
+// what that call left in it. Replacing the value releases the old one first.
+
+import std::print;
+
+class Item {
+    String name;
+
+    Item(String name) { this.name = name; }
+
+    ~Item() { print($"release {name}"); }
+}
+
+unique struct Box {
+    pub Item item;
+}
+
+void mix(in Box box, int extra) {
+    print(box.item.name);
+}
+
+int next(ref Box box) {
+    box = Box(new Item("next"));
+    return 0;
+}
+
+void main() {
+    mut Box box = Box(new Item("first"));
+    mix(box, next(ref box));
+    // output: release first
+    // output: next
+    print(box.item.name);
+    // output: next
+    // output: release next
+}
