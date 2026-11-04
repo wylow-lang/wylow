@@ -37,12 +37,11 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 1 to 18 are written. Chapters 19 to 22 and appendix A are being written from these files,
+Chapters 1 to 19 are written. Chapters 20 to 22 and appendix A are being written from these files,
 which are deleted as their text moves:
 
 - [02-types.md](02-types.md): strings, arrays and spans, and the bounds and type properties of
   generics
-- [05-concurrency.md](05-concurrency.md): threads and the standard library's threading types
 - [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, annotations, and the advice on
   properties
 - [07-interop.md](07-interop.md): `extern`, blittable types, C enums, callbacks

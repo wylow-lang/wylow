@@ -59,6 +59,7 @@ home is written.
 | Chapter 16 | old `02-types.md` §2.5 (narrowing), §2.7 (assigned once), §2.10 "Construction" (the field checks); `06-syntax.md` §6.3 (definite assignment), §6.7 (definite assignment and narrowing in lambdas), §6.9 ("Unreachable statements"); `03-memory-model.md` "Moves" (use after move) | Complete, with the pages of `WYL0394`–`WYL0401`. Unique structs and their destructors are specified; the compiler rejects `unique` (#6), so use after move has no test or catalog code |
 | Chapter 17 | old `03-memory-model.md` (all of it); `02-types.md` §2.5 (references into nullable values, `ref T?` and `ref? T`), §2.9 ("Unique structs", "Destructors of unique structs"), "Values in use"; `06-syntax.md` §6.7 (a stored function value is held), §6.9 ("Reference bindings") | Complete, with the pages of `WYL0402`–`WYL0420`. `std::replace` and `std::swap`, which the old text names, have no declaration yet |
 | Chapter 18 | old `04-errors.md` §4.1, §4.2, §4.4 (`Result`, unused results, handling) | Complete, with the page of `WYL0421`. `04-errors.md` is deleted |
+| Chapter 19 | old `05-concurrency.md` §5.1–§5.4, §5.6 (intro, isolated graphs), §5.7; `02-types.md` §2.13 "Type properties" (`sendable` in a bound) | Complete. The library types of §5.6 are issue #14; §5.5 is in [Statics](../spec/06-variables.md#variables.statics), and §5.8 in chapter 20. `05-concurrency.md` is deleted. No rule here is tested: `shared`, `unique`, and `Isolated` are not implemented (#6) |
 
 ## 02-types.md
 

@@ -8,7 +8,7 @@ the rules for every rewrite; decision 0002 is the structure, chapter 1 the phras
 ## Next session: chapters 18 to 22 and appendix A
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). Chapters 1 to 18 are written, and parts of 20 and 22; the rest are
+(18–22 + appendix A). Chapters 1 to 19 are written, and parts of 20 and 22; the rest are
 anchors only.
 
 - **Chapters 18 to 22** (`18-errors.md`, `19-concurrency.md`, `20-unsafe.md`, `21-interop.md`,
@@ -28,11 +28,11 @@ anchors only.
   every row of them points at a written chapter:
   - `02-types.md` "Strings" (the `StringBuilder` row, #6), "Arrays and spans"
     (`unsafe.unchecked`, chapter 20), "Bounds" (`library.printable`, `library.comparable`,
-    appendix A), and "Type properties" (`concurrency.sendable`, chapter 19).
+    appendix A), and "Type properties" (written: [chapter 19](../spec/19-concurrency.md#concurrency.sendable)).
   - `06-syntax.md` §6.1's `std::panic` and `std::memory` (`library.panic`, `library.memory`,
     appendix A), §6.5 "No properties" (the guide), and §6.10 "Annotations" (chapter 22).
-  - The rest of `05-concurrency.md` (§5.8's unsafe rules are already in chapter 20), and
-    `07-interop.md` (§7.5's enums are already in chapter 9). `04-errors.md` is deleted.
+  - `07-interop.md` (§7.5's enums are already in chapter 9). `04-errors.md` and
+    `05-concurrency.md` are deleted.
 - **Open bug found while writing chapter 11:** the compiler never finishes on a generic function or
   method that instantiates itself with growing type arguments (#22). `generics.recursion` states the
   error; it needs a catalog code, a page, and a test. Not part of the spec sessions.
@@ -74,9 +74,9 @@ The last chapter's session deletes `spec-mapping.md`, the old files, this handof
 Decisions 0028 to 0038 put their rules into the old files, and `spec-mapping.md` has a row for
 each. The ones whose chapters are written are now in the spec. These remain:
 
-- **0036, `copyable` and `sendable` are type properties**: `types.copyable` and
-  `generics.bounds` are written; `concurrency.sendable` comes with chapter 19. Neither property
-  is implemented (#6), so neither has tests yet.
+- **0036, `copyable` and `sendable` are type properties**: `types.copyable`, `generics.bounds`,
+  and `concurrency.sendable` are written. Neither property is implemented (#6), so neither has
+  tests yet.
 - **0038, the built-in types' interfaces are declared**: `types.primitives.methods` is written;
   `library.printable` and `library.comparable` come with appendix A. Pinned by
   `basics/interpolation.wyl`, `errors/interpolation.wyl`, `errors/comparable.wyl`.
@@ -86,9 +86,8 @@ each. The ones whose chapters are written are now in the spec. These remain:
   but a by-value parameter of a unique type with a destructor, `discard` outside the type's file,
   and moving out of `this` in a destructor. None of this is implemented (#6).
 
-The old files still compare Wylow with other languages in places (`05-concurrency.md`: Rust's
-`unsafe impl Send`, `std::jthread`, Rust's scoped threads), and use game examples; the rewrite
-removes both.
+The remaining old files still compare Wylow with other languages in places and use game examples;
+the rewrite removes both.
 
 ## Open from the catalog
 

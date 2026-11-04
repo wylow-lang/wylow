@@ -34,7 +34,7 @@ int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
 | Float → int out of range | Saturates; NaN → 0 |
 | Unsequenced evaluation | Evaluation order is always left to right; codegen emits temporaries as needed |
 | Strict aliasing / type punning | Only via `bitcast<T>(x)` (emitted as `std::bit_cast`/`memcpy`). Storage of one type is never read or written as another, which the compiler relies on ([spec](../spec/20-unsafe.md#unsafe.aliasing)) |
-| Data races | Prevented by the concurrency model ([05-concurrency.md](../spec/05-concurrency.md)) |
+| Data races | Prevented by the concurrency model ([19-concurrency.md](../spec/19-concurrency.md#concurrency)) |
 | Stack overflow | OS guard page; process aborts |
 
 ## Values
