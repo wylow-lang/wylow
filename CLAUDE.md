@@ -15,7 +15,6 @@ compiler is C# (.NET 10) and compiles Wylow to C++20.
 - `docs/design/testing.md`: the oracles and harnesses, how to run them, triage, and the backlog.
 - `docs/diagnostics/README.md`: how error messages are written; follow it in every new message.
 - `docs/design/working.md`: how we work: design principles, design sessions, handoffs, long runs.
-  For design, spec, docs, and review work, load the `rigor` skill.
 - `docs/handoff/`: task prompts for upcoming work. Project knowledge goes in committed files, not
   assistant memory, so it reaches every machine.
 

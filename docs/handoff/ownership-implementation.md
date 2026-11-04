@@ -1,6 +1,6 @@
 # Next: implement ownership, step 1
 
-Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. The design of how a unique
+Repo `E:\Repos\Wylow\wylow`, branch `dev`. The design of how a unique
 value gets out is decided: the rules are in the spec, and the reasons are in decisions 0049 and 0050.
 Read them, then the steps under "Ownership" and "Suggested order" in issue #6.
 

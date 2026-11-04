@@ -2,8 +2,7 @@
 
 The working agreements for Wylow: how designs are made, how sessions run, and how work is handed
 over. They apply to every session, on any machine. `CLAUDE.md` has the rules about code and docs;
-this file has the rest. For design, spec, and review work, load the `rigor` skill
-(`.claude/skills/rigor/SKILL.md`).
+this file has the rest.
 
 ## Who decides
 
