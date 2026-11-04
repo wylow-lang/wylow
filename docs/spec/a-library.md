@@ -21,6 +21,7 @@ these of its declarations, and on nothing else in it:
 | `Isolated<T>` | Isolated object graphs ([Isolated object graphs](19-concurrency.md#concurrency.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
+| `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
 
@@ -83,7 +84,7 @@ pub interface Printable {
 
 ```java unchecked
 pub interface Comparable<T> {
-    int compareTo(T other);
+    int compareTo(in T other);
 }
 ```
 
@@ -133,8 +134,29 @@ unsafe, since the compiler cannot check how the storage is used
 - `drop<T>(T* place)` destroys the value at `place`, leaving its storage uninitialized.
 - `moveTo<T>(T* from, T* to, int count)` moves `count` values into uninitialized storage. The two
   ranges may overlap.
+- `moveOut<T>(T* place)` returns the value at `place`, leaving its storage uninitialized.
 - `collectCycles()` frees every cycle that nothing outside refers to. `collectCycles(int maxVisits)`
   visits at most about `maxVisits` objects and leaves the rest for a later call; a negative number
   panics. Both panic when called from a destructor ([Cycles](17-memory.md#memory.cycles)).
 - `cycleStats()` returns what the collector did since the last call: the numbers of objects it
   buffered, visited, and freed, as `buffered`, `visited`, and `freed`.
+
+<a id="library.replace"></a>
+## A.7 `replace`, `swap`, and `take`
+
+These functions of `std` take a value out of a place that cannot be moved from
+([Moves](17-memory.md#memory.moves)):
+
+```java unchecked
+pub T replace<T>(ref T place, T value);
+pub void swap<T>(ref T a, ref T b);
+pub T? take<T>(ref T? place);
+```
+
+- `replace` stores `value` in `place` and returns what `place` held.
+- `swap` exchanges what `a` and `b` hold. When they are the same place, nothing changes.
+- `take` returns what `place` held, and leaves null in it.
+- No destructor runs, since nothing is released.
+- They panic if a value they would take out is in use, or has one in use among its fields, before
+  they change anything ([Holds](17-memory.md#memory.holds)). Their own `ref` arguments do not make a
+  value in use.

@@ -127,7 +127,9 @@ It is a compile-time error if a token is a reserved word, except `package` in `p
 
 The identifiers `as` and `module` have a meaning only in an import
 ([Imports](03-programs.md#programs.imports)) and in `pub(module)`
-([Visibility](03-programs.md#programs.visibility)). Elsewhere they are ordinary identifiers.
+([Visibility](03-programs.md#programs.visibility)). The identifier `move` has a meaning only as a
+method modifier ([`move` methods](07-structs.md#structs.methods.move)). Elsewhere they are ordinary
+identifiers.
 
 <a id="lexical.literals"></a>
 ## 2.6 Literals

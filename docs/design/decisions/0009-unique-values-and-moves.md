@@ -1,6 +1,6 @@
 # 0009. Unique structs and enums, and moves
 
-- Status: accepted (2026-11-01); destructors on unique structs added by [0028](0028-destructors-on-unique-structs.md)
+- Status: accepted (2026-11-01); destructors on unique structs added by [0028](0028-destructors-on-unique-structs.md); moves out of patterns added by [0049](0049-getting-a-unique-value-out.md)
 - Spec: `structs.unique`, `enums.unique`, `memory.moves`, `flow.moves`, `types.copyable`
 
 ## Decision

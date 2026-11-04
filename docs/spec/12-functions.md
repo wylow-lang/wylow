@@ -83,8 +83,10 @@ void main() {
 ```
 
 - It is a compile-time error if a parameter is declared `mut` together with `ref` or `in`.
-- It is a compile-time error if a `ref` or `in` parameter has a class or interface type, or a
-  function type: a class reference is already passed without copying, and so is a function value.
+- It is a compile-time error if a `ref` or `in` parameter has a function type.
+- A `ref` or `in` parameter of a class or interface type refers to the variable that holds the class
+  reference: a `ref` parameter can assign the caller's variable, and an `in` parameter sees what that
+  variable holds. A by-value parameter has a class reference of its own.
 - It is a compile-time error if a `ref` argument is not a mutable place: it is a `mut` local or
   parameter, a field path rooted at one, an element, or a place a method returned. A place is
   read-only, and cannot be passed by `ref`, when it is rooted at an `in` parameter or variable, at a
@@ -237,7 +239,7 @@ void main() {
 ```ebnf
 Method     = { Annotation } [ Visibility ] { Modifier } ReturnType Identifier [ TypeParameters ]
              "(" [ Parameters ] ")" ( Block | ";" ) .
-Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
+Modifier   = "static" | "mut" | "move" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
 ReturnType = [ ParameterMode ] Type .
 ```
 
@@ -342,11 +344,10 @@ bool any<T>(this ReadOnlySpan<T> items, fn(T) -> bool test) {
 if (orders.any(o -> o.unpaid)) { ... }
 ```
 
-- The receiver takes a parameter mode: `this T` passes a copy, or a class reference, `this in T`
-  passes a read-only reference, and `this ref T` passes a mutable place. A `this ref` receiver
-  requires a mutable place, as a `mut` struct method does, but the call writes no `ref`.
-- It is a compile-time error to declare `this ref` or `this in` on a class type, or on a function
-  type.
+- The receiver takes a parameter mode: `this T` passes by value, as any by-value parameter does,
+  `this in T` passes a read-only reference, and `this ref T` passes a mutable place. A `this ref`
+  receiver requires a mutable place, as a `mut` struct method does, but the call writes no `ref`.
+- It is a compile-time error to declare `this ref` or `this in` on a function type.
 - A member of the receiver's type wins over an extension of the same name: the extensions of a type
   are considered only when it has no member of the name. Among extensions, overload resolution
   chooses as for functions ([Overload resolution](#functions.overloading.resolution)).
@@ -549,6 +550,8 @@ them when it is created; a non-escaping lambda refers to them in place.
 - An escaping lambda **moves** a unique local or by-value parameter it uses
   ([Moves](17-memory.md#memory.moves)), which cannot be used after the lambda is made. Inside the
   lambda it is read-only. A non-escaping lambda refers to it in place.
+- It is a compile-time error for a lambda to move a local or parameter it captures: the lambda may
+  run more than once.
 - It is a compile-time error if an escaping lambda captures a `ref` or `in` variable or parameter, a
   span or other `ref struct`, a non-escaping function, or `this` in a struct's method or
   constructor. A captured class reference, `this` included, keeps its object alive, so a closure can

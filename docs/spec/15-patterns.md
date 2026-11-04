@@ -110,15 +110,17 @@ void main() {
 ## 15.3 Bindings
 
 `var name` and a type pattern with a name bind the matched value, or a part of it, to a name. The
-name is a variable of the pattern's type and is a copy of the value it binds. A pattern binding
-cannot be declared `mut` ([Mutability](06-variables.md#variables.mutability)).
+name is a variable of the pattern's type. It holds a copy of the value it binds, or that value itself
+if its type is not copyable ([Moving bindings](#patterns.bindings.moves)). A pattern binding cannot
+be declared `mut` ([Mutability](06-variables.md#variables.mutability)).
 
 - A name bound in a case is in scope in the case's guard and body, and its value is definitely
   assigned there.
 - A name bound by an `is` in an `if` or `while` condition is in scope for the whole statement, and
   is definitely assigned where the test succeeded ([Narrowing](16-flow.md#flow.narrowing)).
-- The names are bound left to right. Every bound value is copied out of the matched value before an
-  earlier binding's local is released, since a destructor it runs may change the matched value.
+- The names are bound left to right. Every bound value is copied or moved out of the matched value
+  before an earlier binding's local is released, since a destructor it runs may change the matched
+  value.
 - It is a compile-time error for a case with several patterns to bind a name: the name would have a
   different value for each pattern.
 
@@ -135,6 +137,45 @@ void main() {
 }
 ```
 
+<a id="patterns.bindings.moves"></a>
+### 15.3.1 Moving bindings
+
+A binding by value of a part whose type is not copyable is a **moving binding**. Binding a part of a
+copyable type copies it, and `_` and a reference binding leave the value where it is.
+
+- It is a compile-time error for a moving binding to bind a part of anything but a temporary, a whole
+  local or by-value parameter, or `this` in a `move` method: a field, an element, what a reference
+  refers to, and `this` elsewhere are bound with `in var`
+  ([Reference bindings](#patterns.references)).
+- It is a compile-time error for a moving binding to move a field out of a value whose type has a
+  destructor. Moving such a value whole, and leaving it in what the pattern does not move, are valid.
+- A moving binding moves the whole matched value. A local or parameter is moved on the path where its
+  case is chosen or its `is` test is true, and on no other path
+  ([Use after move](16-flow.md#flow.moves)). A case that binds nothing by moving leaves it as it was.
+- What the pattern does not move out of the value leaves the local or parameter when the move happens,
+  and is held until the pattern's names go out of scope: at the end of the case, when a switch
+  expression's value is produced, at the end of an `if`, or at the end of an iteration of a `while`.
+  It is released right after them, in the order a struct's fields are
+  ([Order of destruction](17-memory.md#memory.release.destruction)). A copied binding's original is
+  part of it. The local or parameter holds no value in the meantime, so it may be assigned.
+- A reference binding in the same pattern may refer to what is held.
+
+**Example:**
+
+```java unchecked
+unique struct Pair {
+    Buffer first;
+    Buffer second;
+}
+
+void use(Pair pair) {
+    switch (pair) {
+        case Pair(var a, _) -> print(a.length);     // 'a' is released, and then 'second'
+    }
+    print(pair.second.length);                      // error: 'pair' is used after being moved
+}
+```
+
 <a id="patterns.references"></a>
 ## 15.4 Reference bindings
 
@@ -142,11 +183,16 @@ A field pattern may bind a reference to the field instead of a copy: `in var nam
 reference, and `ref var name` is a mutable one. A type may be written before the name, as in
 `in Point name`.
 
-- A field of a unique type is bound by reference: a binding by value would copy it.
-- A reference binding refers into the matched value, so the matched value is a place that stays put
-  while the binding is in scope: a local or parameter, or a field or element path rooted at one,
-  that nothing in the binding's scope assigns, a lambda that may run there included. A value in an
-  object, which any call might replace, is copied into a local first.
+- A reference binding refers into the matched value. It is a compile-time error if the matched value
+  is a by-value local or parameter, or a field or element path rooted at one, that something in the
+  binding's scope assigns, a lambda that may run there included.
+- A copyable value that may be replaced while the binding is in scope, one in an object or reached
+  through a `ref` or `in`, is copied into a local first, and the binding refers into the copy. A value
+  of any other type is bound in place, and is in use while the binding is in scope
+  ([Holds](17-memory.md#memory.holds)).
+- In generic code, the type argument of the instance decides between the two: in an instance whose
+  matched type is copyable, the binding refers into a copy
+  ([Checking generic code](11-generics.md#generics.checking)).
 - `ref` needs a mutable place. A variant's fields are not changed in place, so a variant field is
   bound with `in` only; `ref` binds a field of a struct pattern
   ([Variants](09-enums.md#enums.variants)).
@@ -158,7 +204,6 @@ reference, and `ref var name` is a mutable one. A type may be written before the
   written only after `is`.
 - It is a compile-time error to use `is ref` or `is in` on a value that is not a nullable reference.
 - It is a compile-time error if the pattern's type is not the type the reference refers to.
-- It is a compile-time error to move a unique field out of the matched value with a pattern.
 
 **Example:**
 
@@ -205,6 +250,10 @@ expression;` for a switch expression. There is no fallthrough.
 `bool`, is true.
 
 - The guard runs after the case's names are bound, so the guard and the case see the same values.
+- In the guard, a moving binding is a read-only reference into the matched value
+  ([Moving bindings](#patterns.bindings.moves)). The move happens when the guard is true, so a guard
+  that is false leaves the value whole. It is a compile-time error for the guard to move the name, or
+  to use a reference it binds into the name in the case's body.
 - The names the pattern binds are in scope in the guard. The case is to its guard as an `if`'s body
   is to its condition: names an `is` in the guard binds are in scope in the guard, and what the
   guard narrows stays narrowed.

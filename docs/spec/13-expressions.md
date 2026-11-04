@@ -380,7 +380,13 @@ Three operators work with `null`:
 - `a?.m()` calls a `mut` struct method on a copy, so it is a compile-time error when `m` is `mut`:
   the changes would be lost.
 - `a!` and `a?.m()` work on a copy, so `a!.x = 1` and `a!.m()` are compile-time errors, as for any
-  temporary ([`mut` methods](07-structs.md#structs.methods.mut)).
+  temporary ([`mut` methods](07-structs.md#structs.methods.mut)). The errors are the same when `a`'s
+  type is not copyable.
+- When `a`'s type is not copyable, `a!` behaves as `a` does, and panics when it is null: used by
+  value it moves `a`, and as a receiver or with `.` it is used in place
+  ([Moves](17-memory.md#memory.moves)). `a?.b` uses `a` in place, unless `b` is a `move` method.
+- `a ?? b` and `a?.m()` with a `move` method `m` move a non-copyable `a`, which is moved afterwards
+  whether or not it was null. `b` and the arguments of `m` are moved only when they are evaluated.
 - No operator other than `?.`, `??`, `!`, `==`, and `!=` accepts a nullable value: narrow it first
   ([Narrowing](16-flow.md#flow.narrowing)).
 - A nullable value's `==` and `!=` compare it with `null`, with another nullable value, or with a
@@ -559,6 +565,8 @@ void main() {
 
 - When the result is `Ok(v)`, the value of `try` is `v`.
 - When the result is `Err(e)`, the enclosing function returns `Err(e)` at that point.
+- The operand is used by value on both paths: a value of a copyable type is copied, and any other
+  value is moved ([Moves](17-memory.md#memory.moves)).
 - `try` may be used anywhere in an expression, a `for` loop's update included. It returns when it is
   evaluated, so what was evaluated before it has happened and the rest is not evaluated. An operand
   that is not evaluated, such as the right side of `&&` when the left is false, does not return.

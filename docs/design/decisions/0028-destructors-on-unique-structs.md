@@ -1,6 +1,6 @@
 # 0028. Destructors on unique structs
 
-- Status: accepted (2026-11-02); adds destructors to the unique structs of [0009](0009-unique-values-and-moves.md)
+- Status: accepted (2026-11-02); adds destructors to the unique structs of [0009](0009-unique-values-and-moves.md); "in use" extended by [0049](0049-getting-a-unique-value-out.md)
 - Spec: `structs.unique`, `memory.release.destruction`, `memory.holds`
 
 ## Decision

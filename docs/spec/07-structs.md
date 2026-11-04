@@ -188,7 +188,8 @@ void main() {
 A method of a struct is written as any method is ([Instance and static methods](12-functions.md#functions.methods)).
 A method of a struct is called on a struct value or place, and `this` is that value. In a method that
 is not `mut`, `this` is read-only: its fields cannot be assigned, and its `mut` methods cannot be
-called. A `static` method has no `this`. A method is called on a place without copying it.
+called. A `static` method has no `this`. A method is called on a place without copying it, unless it
+is `move` ([`move` methods](#structs.methods.move)).
 
 <a id="structs.methods.mut"></a>
 ### 7.4.1 `mut` methods
@@ -228,6 +229,43 @@ void main() {
 }
 ```
 
+<a id="structs.methods.move"></a>
+### 7.4.2 `move` methods
+
+A struct or enum method declared `move` takes `this` by value. In its body, `this` is a by-value
+parameter that is not `mut`: it may be moved from, and it is released when the method ends if it
+holds a value then ([Moves](17-memory.md#memory.moves)). The receiver is passed as a by-value argument
+is, at its turn: a value of a copyable type is copied, and any other value is moved.
+
+- It is a compile-time error to declare a class method or an interface method `move`, or a method
+  both `move` and `mut` or both `move` and `static`.
+- It is a compile-time error for a `move` method to return a `ref`, `in`, `ref?`, or `in?`, or a
+  `ref struct`.
+- It is a compile-time error to call a `move` method on a field, an element, or what a reference
+  refers to, if the receiver's type is not copyable.
+
+**Example:**
+
+```java unchecked
+unique enum Lookup {
+    Found(Buffer buffer),
+    Missing;
+
+    pub move Buffer orElse(Buffer fallback) {
+        return switch (this) {
+            case Found(var buffer) -> buffer;
+            case Missing -> fallback;
+        };
+    }
+}
+
+void main() {
+    var lookup = Lookup.Found(Buffer(4));
+    Buffer kept = lookup.orElse(Buffer(0));
+    lookup.orElse(Buffer(0));               // error: 'lookup' is used after being moved
+}
+```
+
 <a id="structs.copies"></a>
 ## 7.5 Copies
 
@@ -259,8 +297,8 @@ held by one variable, field, or element, its **owner**.
 - A unique struct is not copyable ([Copyable types](04-types.md#types.copyable)).
 - Wherever [Copies](#structs.copies) lists a copy, a unique struct is moved instead ([Moves](17-memory.md#memory.moves)).
   It is a compile-time error to use a variable after its value is moved out
-  ([Moves](16-flow.md#flow.moves)). A `ref` or `in` parameter, a `ref` or `in` variable, and a method
-  call refer to the value in place and do not move it.
+  ([Moves](16-flow.md#flow.moves)). A `ref` or `in` parameter, a `ref` or `in` variable, and a call of a
+  method that is not `move` refer to the value in place and do not move it.
 - It is a compile-time error if a struct has a field of a unique type and is not declared `unique`; the
   same holds for an enum with a variant field of one ([Unique enums](09-enums.md#enums.unique)).
 - A fixed array `T[N]` and a nullable type `T?` with a unique `T` are unique types. A generic struct
@@ -271,7 +309,7 @@ held by one variable, field, or element, its **owner**.
 ### 7.6.1 Destructors and `discard`
 
 ```ebnf
-Discard = "discard" Identifier ";" .
+Discard = "discard" ( Identifier | "this" ) ";" .
 ```
 
 A unique struct may declare one destructor ([Destructors](08-classes.md#classes.destructors) gives its
@@ -293,13 +331,16 @@ destructor runs it.
   runs at the end of the program.
 
 `discard name;` ends the lifetime of a by-value parameter without running its destructor's body; its
-fields are released as usual.
+fields are released as usual. `discard this;` does the same for `this` in a `move` method
+([`move` methods](#structs.methods.move)).
 
 - It is a compile-time error if `name` is not a by-value parameter of a unique struct type that has a
   destructor.
 - It is a compile-time error if the function that contains `discard` is not declared in the file of the
-  type. It may be a function, a static method, or an extension method whose receiver is `this T` for
-  that type.
+  type. It may be a function, a static method, an extension method whose receiver is `this T` for
+  that type, or a `move` method of the type.
+- A pattern does not move a field out of a value whose type has a destructor
+  ([Moving bindings](15-patterns.md#patterns.bindings.moves)).
 - After `discard name;` the parameter is moved. On a path that does not discard it, the parameter is
   released when the function ends, and its destructor runs.
 

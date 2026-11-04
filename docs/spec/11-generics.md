@@ -210,6 +210,12 @@ are resolved, and operations are allowed, with the type parameters as types that
 give. It is a compile-time error in the declaration, not in a use of it, if the code calls a method that no
 bound provides.
 
+Whether a value of a type involving a type parameter is copied or moved follows from the bounds in the
+declaration, not from the type arguments of an instance: `T y = x;` moves `x` for every `T` unless `T` has the
+bound `copyable`, and using `x` after that is a compile-time error even if every instance is copyable
+([Moves](17-memory.md#memory.moves)). The one place an instance decides is a reference binding into a value that
+may be replaced ([Reference bindings](15-patterns.md#patterns.references)).
+
 **Example:**
 
 ```java

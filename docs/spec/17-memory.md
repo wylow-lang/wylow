@@ -33,20 +33,25 @@ Every value is held in one of three ways:
 <a id="memory.moves"></a>
 ## 17.2 Moves
 
-A value of a unique type is **moved** where a copyable value would be copied: initializing or
-assigning a variable, passing a by-value argument, a `return`, storing into a field or element, and
-an escaping lambda's capture ([Copies](07-structs.md#structs.copies)). A move gives the destination
-the value's contents, and the source holds no value afterwards.
+A value of a type that is not copyable is **moved** where a copyable value would be copied:
+initializing or assigning a variable, passing a by-value argument or the receiver of a `move` method,
+a `return`, storing into a field or element, an escaping lambda's capture, the operand of `try`, and
+a binding by value in a pattern ([Copies](07-structs.md#structs.copies),
+[`move` methods](07-structs.md#structs.methods.move), [`try`](13-expressions.md#expressions.try),
+[Moving bindings](15-patterns.md#patterns.bindings.moves)). A move gives the destination the value's
+contents, and the source holds no value afterwards.
 
-- Only a whole local or by-value parameter is moved. A field, an element, and what a reference
-  refers to are not moved out of.
+- Only a whole local or by-value parameter, or a temporary, is moved. A field, an element, and what a
+  reference refers to are not moved out of. It is a compile-time error to use one by value if its
+  type is not copyable. `replace`, `swap`, and `take` exchange what such a place holds
+  ([`replace`, `swap`, and `take`](a-library.md#library.replace)).
 - It is a compile-time error to use a variable after its value is moved
   ([Use after move](16-flow.md#flow.moves)).
 - A moved variable is not released. A unique local or parameter is released at the end of its
   scope only if it holds a value then, and assigning to a moved variable stores a value without
   releasing anything.
 - A unique operand is used in place, never copied at its turn: passed to an `in` parameter or used
-  as a receiver, it is referred to as a `ref` argument is, so a call in another operand sees and
+  as the receiver of a method that is not `move`, it is referred to as a `ref` argument is, so a call in another operand sees and
   may change the same value: in `mix(buffer, next())`, `mix` sees what `next` left in `buffer`. A
   unique operand moved into a by-value parameter is moved at its turn
   ([Evaluation order](13-expressions.md#expressions.order)).
@@ -105,8 +110,9 @@ created it completes, not at its last use. Within a statement:
   that operand completes.
 - Each evaluation of an `if` or `while` condition, or of a `for` loop's condition or update, is a
   statement of its own, so its temporaries are released before the body or the next step runs. A
-  `switch`'s matched value and what an `is ref` binding holds last longer
-  ([Holds](#memory.holds)).
+  `switch`'s matched value, what an `is ref` binding holds, and what a moving binding leaves of a
+  temporary last longer ([Holds](#memory.holds),
+  [Moving bindings](15-patterns.md#patterns.bindings.moves)).
 - In a `return`, the statement's temporaries are released after the value is computed and before
   the function's locals.
 - Each argument of `super(...)` is a statement of its own, so its temporaries are released before
@@ -279,8 +285,7 @@ refers to, and a reference refers to the same place for its whole scope.
   [Parameter modes](12-functions.md#functions.parameters.modes).
 - It is a compile-time error to bind `ref` to a read-only place; `in` takes a place that is
   mutable or read-only.
-- It is a compile-time error for a `ref` or `in` type to name a class or interface type, or a
-  function type: a class object and a function value are already passed without copying.
+- It is a compile-time error for a `ref` or `in` type to name a function type.
 - It is a compile-time error for a field to be a reference.
 - It is a compile-time error for a `ref` or `ref?` variable to refer to a nullable local, which a
   null check could narrow and the reference could then set to null. An `in` or `in?` variable is
@@ -417,9 +422,17 @@ place holding it: from the start of a call of one of its methods, or of a call g
 variable or pattern binding that refers to it; and for the body of its destructor. A call on
 `this`, or on a `ref` or `in` parameter, while the value is already in use is part of the same use.
 
+A value of a unique enum, or a value of a nullable type whose value type is not copyable, is **in
+use** while anything refers into what it holds: for the scope of a reference binding into its variant
+or value, and until a call returns when it is reached through `!` or `?.` as a receiver or as a `ref`
+or `in` argument. Each such value that the reference passes through is in use. A reference to the
+whole value does not make it in use, since the place stays and shows the new value.
+
 It panics to release a value that is in use: by assigning to the place that holds it, by removing
-it from a container, or by any other release. A move releases nothing, so moving a value does not
-panic.
+it from a container, or by any other release. `replace`, `swap`, and `take` panic on a value that is
+in use, or that has one in use among its fields, before they change anything
+([`replace`, `swap`, and `take`](a-library.md#library.replace)). A move of any other kind releases
+nothing and does not panic.
 
 **Example:**
 
