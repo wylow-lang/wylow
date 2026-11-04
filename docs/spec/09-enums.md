@@ -12,7 +12,7 @@ that give an enum without data an integer representation.
 EnumDeclaration = { Annotation } [ Visibility ] [ "unique" ] "enum" Identifier [ TypeParameters ]
                   [ "implements" TypeList ] "{" [ Variants ] [ ";" { EnumMethod } ] "}" .
 Variants        = Variant { "," Variant } [ "," ] .
-Variant         = Identifier [ "=" IntegerLiteral ] | Identifier "(" VariantField { "," VariantField } ")" .
+Variant         = Identifier [ "=" [ "-" ] IntegerLiteral ] | Identifier "(" VariantField { "," VariantField } ")" .
 VariantField    = Type Identifier .
 ```
 
@@ -172,10 +172,11 @@ Repr = "@Repr" "(" IntegerType ")" .
 ([Integers](04-types.md#types.primitives.integers)). The enum does not convert to `T` implicitly.
 
 - The first variant without a value has the value 0, and any other has the value one more than the variant
-  before it. A variant has the value written for it, an integer literal, with `= value`.
+  before it. A variant has the value written for it, an integer literal that may be negative, with
+  `= value`.
 - It is a compile-time error if a value, written or counted, is not a value of the integer type.
 - It is a compile-time error if two variants have the same value.
-- It is a compile-time error if a variant's value is not an integer literal.
+- It is a compile-time error if a variant's value is not an integer literal, optionally negative.
 - It is a compile-time error if an enum whose variants carry data has `@Repr`, or a variant with a value.
 - It is a compile-time error if `@Repr` is given more than once, has other than one argument, or has a
   type that is not an integer type.

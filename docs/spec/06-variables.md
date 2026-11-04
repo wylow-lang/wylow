@@ -11,9 +11,8 @@ how a program keeps a value for its whole run.
 A **local variable** is declared in a block by a declaration statement:
 
 ```ebnf
-LocalDeclaration = { Annotation } [ "mut" | ReferenceMode ] [ "escaping" ]
+LocalDeclaration = { Annotation } [ "mut" | ParameterMode ] [ "escaping" ]
                    ( "var" | Type ) Identifier [ "=" Expression ] ";" .
-ReferenceMode    = ( "ref" | "in" ) [ "?" ] .
 ```
 
 A local is in scope from its declaration to the end of the block that holds it. Parameters, loop
@@ -76,7 +75,7 @@ void main() {
 
 A variable, parameter, loop variable, or lambda parameter is **mutable** if it is declared `mut`, and
 is otherwise **immutable**. `mut` comes after any annotations and modifiers and before the rest of the
-declaration: `mut int count;`, `pub mut int total;`, `void aim(mut Point dir)`,
+declaration: `mut int count;`, `pub mut int total;`, `void shift(mut Point by)`,
 `for (mut int i = 0; i < n; i++)`, `(mut x) -> ...`. It is not a part of a type or of a function's
 signature.
 

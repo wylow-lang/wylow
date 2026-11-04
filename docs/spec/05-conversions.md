@@ -187,7 +187,8 @@ Conversions to spans have these limits.
 - It is a compile-time error to convert a fixed array or a struct value that lies inside a nullable
   value type's variable to a span, unless that variable cannot be assigned again: assigning it
   `null` would destroy the elements the span views.
-- The element type must be the same: `int[2]` does not convert to `Span<long>`.
+- It is a compile-time error to convert to a span of another element type: `int[2]` does not convert
+  to `Span<long>`.
 
 These errors are all reported as a failed implicit conversion, with the reason attached.
 Converting a list or other object to a span holds or borrows it while the span is used

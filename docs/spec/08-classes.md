@@ -12,7 +12,7 @@ is declared, what a subclass inherits and overrides, how an object is constructe
 ClassDeclaration = { Annotation } [ Visibility ] [ "abstract" | "final" ] "class" Identifier
                    [ TypeParameters ] [ "extends" Type ] [ "implements" TypeList ]
                    "{" { ClassMember } "}" .
-ClassMember      = Field | Constructor | Method | Destructor .
+ClassMember      = ClassField | ClassConstructor | ClassMethod | Destructor .
 ```
 
 An object of a class is made with `new` ([Construction](13-expressions.md#expressions.construction)) and is
@@ -28,7 +28,7 @@ A class is never `unique`: its objects are shared ([Unique structs](07-structs.m
 ## 8.2 Fields
 
 ```ebnf
-Field = { Annotation } [ Visibility ] [ "mut" ] Type Identifier { "," Identifier } [ "=" Expression ] ";" .
+ClassField = { Annotation } [ Visibility ] [ "mut" ] Type Identifier { "," Identifier } [ "=" Expression ] ";" .
 ```
 
 A field has a type and optionally an initializer, which is evaluated when an object is constructed

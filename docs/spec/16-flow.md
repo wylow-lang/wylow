@@ -150,7 +150,8 @@ from holds no value.
   have been moved: to read it, to call a method on it, to use a field or element of it, to take a
   reference to it, to pass it, or to call a lambda that uses it.
 - An assignment gives it a value again, and it may be used after that.
-- A loop that moves a local declared outside it must assign it again before the next iteration.
+- It is a compile-time error if a loop moves a local declared outside it and does not assign it again
+  before the next iteration.
 - Only a whole local or by-value parameter is moved. A field, an element, and what a reference
   refers to are not moved out of ([Moves](17-memory.md#memory.moves)).
 - A moved variable is not released ([Moves](17-memory.md#memory.moves)).
@@ -214,8 +215,8 @@ void use(Link link) { }
 <a id="flow.returns"></a>
 ## 16.6 Returns and reachability
 
-A function, method, or lambda whose return type is not `void` must return a value on every path
-through its body.
+A function, method, or lambda whose return type is not `void` returns a value on every path through
+its body.
 
 - It is a compile-time error if a path reaches the end of the body without returning a value, where
   the body's type is not `void`.

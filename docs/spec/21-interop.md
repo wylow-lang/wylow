@@ -137,8 +137,8 @@ unsafe {
 <a id="interop.callbacks"></a>
 ## 21.6 Callbacks
 
-- Only a static or top-level function marked `@CCallback` converts to a C++ function pointer. Its
-  parameters and return type must be blittable. A lambda does not convert.
+- Only a static or top-level function marked `@CCallback` converts to a C++ function pointer. A lambda
+  does not convert. It is a compile-time error if its parameters or return type are not blittable.
 - The C library's `void*` context passes the callback its state. Casting the context back to a
   Wylow type is unsafe.
 - A panic inside a callback ends the program.
@@ -192,8 +192,8 @@ extern {
 <a id="interop.export"></a>
 ## 21.9 Exporting functions
 
-`@Export` on a top-level function gives it C++ linkage and a stable name, so C++ code calls it. Its
-parameters and return type must be blittable.
+`@Export` on a top-level function gives it C++ linkage and a stable name, so C++ code calls it. It is a
+compile-time error if its parameters or return type are not blittable.
 
 ```java unchecked
 @Export

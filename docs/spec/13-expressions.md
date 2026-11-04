@@ -50,7 +50,7 @@ binding, a function, a type, an enum variant, or a value of a type the file sees
 type arguments is read as type arguments when the matching `>` is followed by `(` or `.`
 ([Type arguments](11-generics.md#generics.arguments)).
 
-- It is a compile-time error to use a type as a value, as in `print(int)`.
+- It is a compile-time error to use a type as a value, as in `var p = Point;`.
 - It is a compile-time error to use a function or method as a value where a function value is not
   expected; it is called instead ([Function references](12-functions.md#functions.references)).
 - It is a compile-time error to use a name that no declaration in scope provides.
@@ -520,8 +520,8 @@ implicit conversion exists.
   ([Kinds of patterns](15-patterns.md#patterns.kinds)).
 - A cast from an integer to `char` panics when the value is not a Unicode scalar value, and a cast
   from an integer to an enum without data panics when no variant has the value.
-- A cast from a nullable type panics when the value is null
-  ([Nullable value types](04-types.md#types.nullable.values)): narrow it first.
+- It is a compile-time error to cast a nullable value to its non-nullable type: narrow it first
+  ([Nullable conversions](05-conversions.md#conversions.nullable)).
 
 **Example:**
 
@@ -530,6 +530,8 @@ void main() {
     int n = (int)true;              // error[WYL0083]
     byte b = (byte)300;             // 44
     char c = (char)65;              // 'A'
+    int? maybe = 1;
+    int m = (int)maybe;             // error[WYL0083]
 }
 ```
 
@@ -656,11 +658,45 @@ void main() {
 A **constant expression** is a literal, `null`, an enum variant, or an operator applied to constant
 expressions. A struct constructor given constant expressions is also a constant expression.
 
-Constant expressions are used where the language needs a value before the program runs: a
-parameter's default value ([Default values and named arguments](12-functions.md#functions.arguments)),
-an array length in a type ([Fixed arrays](04-types.md#types.fixed-arrays)), an annotation's
-arguments ([Annotation syntax](22-annotations.md#annotations.syntax)), and an enum variant's value
-([Integer representations](09-enums.md#enums.repr)).
+A parameter's default value is a constant expression
+([Default values and named arguments](12-functions.md#functions.arguments)). An array length in a
+type, an annotation's argument, and an enum variant's value are literals, as their sections give
+([Fixed arrays](04-types.md#types.fixed-arrays), [Annotation syntax](22-annotations.md#annotations.syntax),
+[Integer representations](09-enums.md#enums.repr)). An operator applied to constants is not an
+integer constant, so `byte b = 1 + 2;` is an error ([Integer constants](05-conversions.md#conversions.constants)).
 
-An **integer constant** is a constant expression of an integer type. It converts to another integer
-type when it is a value of that type ([Integer constants](05-conversions.md#conversions.constants)).
+<a id="expressions.precedence"></a>
+## 13.20 Operator precedence
+
+Operators group by these levels, tightest first. A cast and the unary operators apply to the operand
+that follows them, and member access, calls, indexing, `?.`, and `!` apply to the operand before them,
+tighter than any level here.
+
+| Level | Operators | Groups |
+|---|---|---|
+| 1 | `*`, `/`, `%` | left to right |
+| 2 | `+`, `-` | left to right |
+| 3 | `<<`, `>>` | left to right |
+| 4 | `<`, `<=`, `>`, `>=`, `is` | left to right |
+| 5 | `==`, `!=` | left to right |
+| 6 | `&` | left to right |
+| 7 | `^` | left to right |
+| 8 | `\|` | left to right |
+| 9 | `&&` | left to right |
+| 10 | `\|\|` | left to right |
+| 11 | `??` | right to left |
+| 12 | `? :` | right to left |
+
+A lambda is not an operand ([Lambdas](12-functions.md#functions.lambdas)), and assignment is a statement
+([Assignment](14-statements.md#statements.assignment)). Parentheses group anything.
+
+**Example:**
+
+```java statements
+int a = 1 + 2 * 3;                  // 7
+int b = 1 << 1 + 1;                 // 4
+bool c = 1 << 2 < 5;                // true
+bool d = 1 < 2 == 2 > 1;            // true
+bool e = true || false && false;    // true
+int f = false ? 1 : true ? 2 : 3;   // 2
+```

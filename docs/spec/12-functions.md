@@ -51,8 +51,9 @@ int pending(int x);                     // error[WYL0211]
 Parameters    = Parameter { "," Parameter } .
 Parameter     = { Annotation } [ "mut" | ParameterMode ] [ "escaping" ] Type Identifier
                 [ "=" Expression ] .
-ParameterMode = ( "ref" | "in" ) [ "?" ] .
 ```
+
+`ParameterMode` is given in [Function types](04-types.md#types.functions).
 
 The parameter passed by value has the type written. A `mut` parameter is a by-value parameter whose
 variable is mutable ([Mutability](06-variables.md#variables.mutability)). A `ref` or `in` parameter
@@ -286,8 +287,9 @@ struct Buffer {
   field or element of `this`, a place a method of `this` returned, or, in `unsafe` code, the target
   of a pointer. A place in an object that a field of `this` refers to, or in a local or a
   parameter, is not in the receiver.
-- It is a compile-time error if a method that returns `ref` is not `mut`: a `ref` return refers to
-  mutable storage.
+- It is a compile-time error if a struct method that returns `ref` is not `mut`: a `ref` return
+  refers to mutable storage. A class method is never `mut`, and its `mut` fields are mutable
+  ([`mut` methods](07-structs.md#structs.methods.mut)).
 - An instance method returns only a view of its receiver: of its fields or elements, or a span its
   methods return ([`ref struct`s](07-structs.md#structs.ref)).
 - The result is a place for as long as the receiver is. An `in` result of a call on a temporary may

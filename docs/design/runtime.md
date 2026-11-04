@@ -172,7 +172,7 @@ contains.
 
 ## In-place loop elements
 
-In `for (Enemy e : list)`, `e` holds its own reference to each element's object, like any local,
+In `for (Node e : list)`, `e` holds its own reference to each element's object, like any local,
 unless nothing the loop can run may store over an element of that type: assign to an element
 (`list[i] = x`, `array[i] = x`, or through a `ref` in generic code), or to a value containing a fixed
 array of them. Then `e` refers to the element in place, saving a count increment and decrement per
@@ -195,7 +195,7 @@ structs, fixed arrays, container elements, and what closures capture), the objec
 so the destructors that count are those of every class an object reachable that way may have. A
 value whose type involves a type parameter, or a class only generic code instantiates, may
 destroy anything. So a destructor that stores over an element of a type (`~Squad() { members[0] =
-new Enemy(...); }`) keeps a loop over elements of that type, such as `for (Enemy e : enemies) {
+new Node(...); }`) keeps a loop over elements of that type, such as `for (Node e : nodes) {
 e.hp -= 1; }`, holding its own reference to each element only if the loop may release a `Squad`,
 or something that may hold one; `memory::collectCycles()` may release anything. Destructors that
 only assign fields, or store elements of other types, never affect it.

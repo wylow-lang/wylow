@@ -85,7 +85,7 @@ shared class Settings {
 
 - The last reference to one of its objects may be released on any thread, which then runs the
   destructor.
-- No field may be `mut`, and every field must be sendable and copyable.
+- It is a compile-time error if a field is `mut`, or if a field's type is not sendable and copyable.
 - Its base class, if any, and every class extending it are shared too.
 - Its objects are never cycle-collected ([Cycles](17-memory.md#memory.cycles)), since other threads
   may refer to them. Their fields cannot change, so a cycle among them can only pass through a

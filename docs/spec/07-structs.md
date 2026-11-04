@@ -11,7 +11,7 @@ has one owner, and the `ref struct`, which views storage it does not own.
 ```ebnf
 StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" ] "struct" Identifier
                     [ TypeParameters ] [ "implements" TypeList ] "{" { StructMember } "}" .
-StructMember      = Field | Constructor | Method | Destructor .
+StructMember      = StructField | StructConstructor | StructMethod | Destructor .
 ```
 
 A struct is a **value type**: a value of a struct type is stored in its variable, field, or element, and
@@ -47,7 +47,7 @@ struct Marker extends Point { }         // error[WYL0095]
 ## 7.2 Fields
 
 ```ebnf
-Field = { Annotation } [ Visibility ] Type Identifier { "," Identifier } [ "=" Expression ] ";" .
+StructField = { Annotation } [ Visibility ] Type Identifier { "," Identifier } [ "=" Expression ] ";" .
 ```
 
 A field has a type and optionally an initializer, an expression evaluated each time the field is given
@@ -269,18 +269,16 @@ held by one variable, field, or element, its **owner**.
 - A fixed array `T[N]` and a nullable type `T?` with a unique `T` are unique types. A generic struct
   or enum is unique for the type arguments that make one of its fields unique: `Pair<Buffer, int>`
   is unique when `Buffer` is. A class is never unique.
-- A unique struct can be made again by a method written for the purpose.
 
 <a id="structs.unique.destructors"></a>
 ### 7.6.1 Destructors and `discard`
 
 ```ebnf
-Destructor = "~" Identifier "(" ")" Block .
-Discard    = "discard" Identifier ";" .
+Discard = "discard" Identifier ";" .
 ```
 
-A unique struct may declare one destructor, named `~` and the struct's name, with no parameters and no
-modifiers. It is a compile-time error to declare one in a struct that is not `unique`.
+A unique struct may declare one destructor ([Destructors](08-classes.md#classes.destructors) gives its
+form), named `~` and the struct's name, with no parameters and no modifiers. It is a compile-time error to declare one in a struct that is not `unique`.
 
 A value's destructor runs when the value is released
 ([Destruction](17-memory.md#memory.release.destruction)): when its owner leaves scope holding it, when

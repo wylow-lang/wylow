@@ -280,7 +280,7 @@ are in [Span conversions](05-conversions.md#conversions.spans).
 A function type gives the parameters a function value takes and the type it returns:
 
 ```ebnf
-FunctionType      = "fn" "(" [ FunctionTypeParam { "," FunctionTypeParam } ] ")" "->" Type .
+FunctionType      = [ "shared" ] "fn" "(" [ FunctionTypeParam { "," FunctionTypeParam } ] ")" "->" Type .
 FunctionTypeParam = { Annotation } [ ParameterMode ] [ "escaping" ] Type .
 ParameterMode     = ( "ref" | "in" ) [ "?" ] .
 ```

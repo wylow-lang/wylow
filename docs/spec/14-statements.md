@@ -6,7 +6,7 @@ and expression statements, assignment, the conditional and loop statements, `swi
 `return`, and `defer`.
 
 ```ebnf
-Statement      = Block | Declaration | ExpressionStatement | Assignment | If | While | DoWhile
+Statement      = Block | Declaration | ExpressionStatement | Assignment | If | While | Loop
                | For | ForEach | Switch | Break | Continue | Return | Defer .
 Block          = "{" { Statement } "}" .
 ```

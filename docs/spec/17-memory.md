@@ -333,10 +333,10 @@ copying what it finds.
   place, and `x != null` narrows a `ref?` local or parameter. Narrowing is always sound here, since
   a reference cannot be made to refer elsewhere: assigning to it assigns to the place. A null
   check outside a lambda therefore narrows a `ref?` inside it too. `x!` gives the place or panics.
-- Where it is narrowed, it is used as the place: `found.health -= 10`, `found = Enemy(...)` (which
+- Where it is narrowed, it is used as the place: `found.quantity -= 10`, `found = Point(...)` (which
   assigns the place), or passed by `ref`.
 - `x?.member` reaches the member in the place referred to, not in a copy, so
-  `list.get(i)?.takeDamage(5)` changes the element. What the place lies in is held or borrowed
+  `list.get(i)?.reset()` changes the element. What the place lies in is held or borrowed
   until the member is done.
 - It is not a value: `var x = list.get(i)` is a compile-time error (write `ref? var`, or copy with
   `!`), and so are `??` on one, a `?:` or switch expression that produces one, and using one as a
