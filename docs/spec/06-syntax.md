@@ -31,34 +31,3 @@ which covers what a read-only property would: `array.length`. A struct's fields 
 the variable holding it ([Mutability](06-variables.md#variables.mutability)), so a struct whose
 fields must keep an invariant leaves them unmarked, private to its file, and offers methods:
 `span.length()`. Turning a field into a method later means updating its uses.
-
-## 6.10 Annotations
-
-Java syntax: `@Name` or `@Name(args)`. Currently compiler-defined only:
-
-| Annotation | Meaning | Chapter |
-|---|---|---|
-| `@CallerLocation` | A panic inside the function reports where it was called from | below |
-| `@AllowLargeStack` | Suppress the large-stack warning | [`@AllowLargeStack`](22-annotations.md#annotations.allow-large-stack) |
-| `@Align(n)`, `@Packed` | Struct layout | [Layout](07-structs.md#structs.layout) |
-| `@Repr(T)` | An enum's integer representation | [09-enums.md](09-enums.md#enums.repr) |
-| `@Flags` | An enum whose values combine as bits | [09-enums.md](09-enums.md#enums.flags) |
-| `@Acyclic` | A class's objects never form cycles | [What the collector looks at](17-memory.md#memory.cycles.collected) |
-
-An argument is a type, as in `@Repr(uint)`, or a literal, as in `@Align(16)`. Settings that
-change how a declaration is laid out or treated, rather than what it is, are annotations rather
-than new syntax. **An annotation never changes a type**: what can be assigned, converted, or
-captured. Whatever is part of a type is a keyword, such as a parameter's mode (`ref`, `in`) or
-whether a function is `escaping` ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)).
-
-Parentheses right after an annotation are its arguments unless they start with `fn`, which makes
-them the parentheses that group the annotated declaration's function type: `@Name (fn(int) -> int)? f`.
-
-### `@CallerLocation`
-
-Every panic inside a function marked `@CallerLocation`, including those of the checks it calls
-and of other `@CallerLocation` functions it calls, reports the location of the call to it. The
-standard library uses it so that a failed `list[i]` points at the user's line rather than into
-`List`. A lambda written in such a function reports its own locations, since it may run after the
-call has returned. It applies to functions, methods, constructors, and indexers, but
-not yet to virtual, abstract, or interface methods.
