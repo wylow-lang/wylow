@@ -58,9 +58,9 @@ void main() {
     print(count(mobs, m -> m.hp < limit));                  // output: 1
 
     // Names declared by patterns and loops are captured like any local.
-    Shape s = Shape.Circle(2.0);
+    Shape s = Shape.Circle(2.0f);
     if (s is Circle(var r)) {
-        call(() -> print(r * 2.0));                         // output: 4.0
+        call(() -> print(r * 2.0f));                         // output: 4.0
     }
     switch (s) {
         case Circle(var r) -> call(() -> print(r));          // output: 2.0

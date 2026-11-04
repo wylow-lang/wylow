@@ -471,7 +471,7 @@ sealed partial class ExpressionGenerator(
         var result = a.DivideByPowerOfTwo(shift);
         if (!result.Fits(type))
             return null;
-        var divisor = text + (type == WylType.Double ? "d" : "");
+        var divisor = text + (type == WylType.Float ? "f" : "");
         return new($"({left.Text} / {divisor})", type, null, result);
     }
 

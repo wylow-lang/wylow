@@ -51,6 +51,12 @@ public sealed partial class Parser
             }
             case TokenKind.ForKeyword:
                 return ParseFor();
+            case TokenKind.LoopKeyword:
+            {
+                Advance();
+                var body = ParseBody("loop");
+                return new ForStmt(LocationFrom(start), null, null, null, body);
+            }
             case TokenKind.UnsafeKeyword when Peek(1).Kind == TokenKind.OpenBrace:
                 Advance();
                 return new UnsafeStmt(LocationFrom(start), ParseBlock());
@@ -146,6 +152,8 @@ public sealed partial class Parser
             return ParseForEach(start);
         var initializer = At(TokenKind.Semicolon) ? null : ParseSimpleStatement(allowDeclaration: true);
         Expect(TokenKind.Semicolon, "';'");
+        if (At(TokenKind.Semicolon))
+            Report(Catalog.ForWithoutCondition(Loc(Current.Span)));
         var condition = At(TokenKind.Semicolon) ? null : ParseExpression();
         Expect(TokenKind.Semicolon, "';'");
         var update = At(TokenKind.CloseParen) ? null : ParseSimpleStatement(allowDeclaration: false);

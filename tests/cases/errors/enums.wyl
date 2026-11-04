@@ -78,7 +78,7 @@ void main() {
     print(Direction.East == 1);         // error[WYL0308]: operator '==' cannot be applied to 'Direction' and 'int'
     print(Direction.North < Direction.East); // error[WYL0308]: operator '<' cannot be applied to 'Direction' and 'Direction'
     print((int)label);                  // error[WYL0083]: cannot cast 'Named' to 'int'
-    print((Direction)1.5);              // error[WYL0083]: cannot cast 'float' to 'Direction'
+    print((Direction)1.5f);              // error[WYL0083]: cannot cast 'float' to 'Direction'
     Option<int> o = Some(1);
     Option<Thing> t = Some(1);          // error[WYL0236]: no variant 'Option.Some' accepts (int)
     mut Direction q = Direction.North;

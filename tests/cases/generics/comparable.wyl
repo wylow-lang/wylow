@@ -51,11 +51,11 @@ void main() {
     print(5.compareTo(other: 6));           // output: -1
 
     // Floating-point numbers are in a total order, as in Java: -0 before 0, and NaN last.
-    float zero = 0.0;
+    float zero = 0.0f;
     float negativeZero = -zero;
     float nan = zero / zero;
-    float infinity = 1.0 / zero;
-    print(1.5.compareTo(2.5));              // output: -1
+    float infinity = 1.0f / zero;
+    print(1.5.compareTo(2.5f));              // output: -1
     print(2.5d.compareTo(2.5d));            // output: 0
     print(negativeZero.compareTo(zero));    // output: -1
     print(zero.compareTo(negativeZero));    // output: 1
@@ -93,7 +93,7 @@ void main() {
     words.add("fig");
     sort<String>(words);
 
-    mut float[5] samples = [2.5, nan, -1.0, negativeZero, zero];
+    mut float[5] samples = [2.5f, nan, -1.0f, negativeZero, zero];
     sort<float>(samples);
     for (float sample : samples) {
         print(sample);

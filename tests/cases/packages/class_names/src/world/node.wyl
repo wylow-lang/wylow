@@ -2,7 +2,7 @@ pub class Node {
     pub mut Node? next;
 }
 
-pub void loop() {
+pub void leak() {
     var b = new Node();
     b.next = b;
 }

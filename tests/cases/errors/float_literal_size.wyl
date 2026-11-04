@@ -1,0 +1,4 @@
+void main() {
+    float big = 1e39f;                  // error[WYL0009]: literal is too large for 'float'
+    double huge = 1e309;                // error[WYL0009]: literal is too large for 'double'
+}

@@ -11,11 +11,11 @@ void main() {
     print((long)18446744073709551615uL); // output: -1
 
     // Float to integer saturates to the target's range.
-    print((byte)-1.5);            // output: 0
-    print((byte)1e10);            // output: 255
-    print((uint)-7.0);            // output: 0
+    print((byte)-1.5f);            // output: 0
+    print((byte)1e10f);            // output: 255
+    print((uint)-7.0f);            // output: 0
     print((ulong)1e30d);          // output: 18446744073709551615
-    print((sbyte)-1000.0);        // output: -128
+    print((sbyte)-1000.0f);        // output: -128
 
     print((float)(byte)255);      // output: 255.0
     print((double)4000000001u);   // output: 4000000001.0

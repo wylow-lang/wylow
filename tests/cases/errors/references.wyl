@@ -24,7 +24,7 @@ struct Mat2 {
     }
 
     mut ref float temporary() {
-        return ref 1.5;                 // error[WYL0407]: returned 'ref' must refer to a variable, field, or element
+        return ref 1.5f;                 // error[WYL0407]: returned 'ref' must refer to a variable, field, or element
     }
 
     ref float leak() {

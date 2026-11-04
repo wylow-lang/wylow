@@ -397,6 +397,10 @@ public static partial class Catalog
     public static Diagnostic ReturnFromVoid(Location at, string? function) =>
         Make(at, function is null ? "cannot return a value from a 'void' lambda" : $"cannot return a value from 'void' function '{function}'");
 
+    [Error(438, "statements.loops")]
+    public static Diagnostic ForWithoutCondition(Location at) =>
+        Make(at, "'for' needs a condition").Help("write 'loop' for a loop with no condition");
+
     [Error(371, "statements.jumps")]
     public static Diagnostic JumpOutsideLoop(Location at, string keyword) =>
         Make(at, $"'{keyword}' can only be used inside a loop");

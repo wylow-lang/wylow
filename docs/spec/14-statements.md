@@ -18,7 +18,7 @@ A **block** is a sequence of statements between `{` and `}`. A local variable is
 declaration to the end of the block that holds it, and a variable of an inner block hides nothing of
 the same name in an outer one ([Local variables](06-variables.md#variables.locals)).
 
-- The body of `if`, `else`, `while`, `do`, `for`, and `for`-each is a block.
+- The body of `if`, `else`, `while`, `loop`, `for`, and `for`-each is a block.
 - `else if` is a block whose one statement is another `if`.
 - It is a compile-time error if a body of one of these statements is not enclosed in braces.
 - A statement after one that cannot complete — after `return`, `break`, `continue`, or a call that
@@ -39,7 +39,7 @@ void main() {
 A declaration statement declares a local variable ([Local variables](06-variables.md#variables.locals)).
 It is a statement, so it cannot appear in the initialization or update of a `for` loop except in the
 initialization, which declares the loop's variable
-([`while`, `do`, and `for`](#statements.loops)).
+([`while`, `loop`, and `for`](#statements.loops)).
 
 - It is a compile-time error to declare a variable in the update part of a `for` loop.
 
@@ -144,21 +144,21 @@ if (order.paid) {
   ([Narrowing](16-flow.md#flow.narrowing)).
 
 <a id="statements.loops"></a>
-## 14.6 `while`, `do`, and `for`
+## 14.6 `while`, `loop`, and `for`
 
 ```java
 while (condition) { ... }
 
-do { ... } while (condition);
+loop { ... }
 
 for (init; condition; update) { ... }
 ```
 
-- The condition of each loop has type `bool`.
-- A `for` loop's initialization is a declaration or an expression statement, its condition may be
-  left out, and its update is an expression statement. A loop with no condition runs until a jump
-  ends it.
-- A `while` loop's condition is evaluated before each iteration, and a `do` loop's after each.
+- The condition of a `while` or `for` loop has type `bool`, and is evaluated before each iteration.
+- A `loop` has no condition: it runs until a jump ends it.
+- A `for` loop's initialization is a declaration or an expression statement, and its update is an
+  expression statement. Either may be left out.
+- It is a compile-time error if a `for` loop has no condition.
 - `break` ends the loop, and `continue` begins the next iteration
   ([`break` and `continue`](#statements.jumps)).
 - Every variable declared by the initialization is in scope in the condition, the update, and the

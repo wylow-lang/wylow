@@ -69,7 +69,7 @@ void main() {
         if (x > 0) {
             return n;
         }
-        return 0.5;
+        return 0.5f;
     });
     var bad = Pair<(fn() -> int)?, int>();
     print(bad == bad);            // error[WYL0310]: operator '==' cannot be applied to 'Pair<(fn() -> int)?, int>'

@@ -7,7 +7,7 @@ void main() {
     float i = 1_e5;           // error[WYL0005]: '_' in a number literal must be between digits
     int e = 0x;               // error[WYL0007]: number literal has no digits
     double f = 1e400d;        // error[WYL0009]: literal is too large for 'double'
-    float g = 1e39;           // error[WYL0009]: literal is too large for 'float'
+    float g = 1e39f;          // error[WYL0009]: literal is too large for 'float'
     ulong h = 99999999999999999999uL; // error[WYL0008]: integer literal does not fit in 64 bits
     String t = "open          // error[WYL0013]: string literal is not closed
     ;

@@ -10,7 +10,7 @@ class Node {
 void main() {
     var a = new Node();
     a.next = a;
-    world::loop();
+    world::leak();
     print("done");                          // output: done
 }
 // warning: at exit, 2 objects in cycles were never freed: 1 class_names::Node, 1 class_names::world::Node

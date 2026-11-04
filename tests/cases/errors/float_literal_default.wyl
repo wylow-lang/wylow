@@ -1,0 +1,3 @@
+void main() {
+    float f = 1.5;                      // error[WYL0079]: expected 'float', found 'double'
+}

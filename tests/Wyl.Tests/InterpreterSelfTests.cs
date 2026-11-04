@@ -18,7 +18,7 @@ static class InterpreterSelfTests
             void main() {
                 print("hi");
                 print(1 + 2);
-                print($"[{42,5}] {3.5:F2}");
+                print($"[{42,5}] {3.5f:F2}");
             }
             """, output: ["hi", "3", "[   42] 3.50"]);
 
@@ -38,21 +38,21 @@ static class InterpreterSelfTests
 
         Case(results, "float_text", """
             void main() {
-                print(3.0);
-                print(1e20);
-                print(0.0001);
-                print(0.00012);
+                print(3.0f);
+                print(1e20f);
+                print(0.0001f);
+                print(0.00012f);
                 print(1.0d / 3.0d);
                 print(1.0f / 3.0f);
-                print(0.0 / 0.0);
-                print(-1.0 / 0.0);
+                print(0.0f / 0.0f);
+                print(-1.0f / 0.0f);
             }
             """, output: ["3.0", "1e+20", "1e-04", "0.00012", "0.3333333333333333", "0.33333334", "nan", "-inf"]);
 
         Case(results, "conversions", """
             void main() {
-                print((int)3.9);
-                print((int)1e20);
+                print((int)3.9f);
+                print((int)1e20f);
                 print((byte)300);
                 print((float)1e300d);
                 print((long)'a');
@@ -153,7 +153,7 @@ static class InterpreterSelfTests
             }
 
             void main() {
-                var v = Vec3(1, 2.5, -3);
+                var v = Vec3(1, 2.5f, -3);
                 print($"{v.y}");
                 var t = Tagged();
                 print(t.id);
@@ -242,7 +242,7 @@ static class InterpreterSelfTests
             void main() {
                 int n = 42;
                 print($"{n:D5} {255:X} {5:B8} {-1:X}");
-                print($"{3.14159f:F2} {1500.0:E2} {0.00012:E1}");
+                print($"{3.14159f:F2} {1500.0f:E2} {0.00012f:E1}");
                 int? none = null;
                 print($"[{none,6:D2}] [{n,-4}]");
             }
@@ -784,7 +784,7 @@ static class InterpreterSelfTests
                 var p = Pair<int, String>(1, "two");
                 var q = flip(p);
                 print($"{q.first} {q.second}");
-                print(p.swapped().text(3.5));
+                print(p.swapped().text(3.5f));
                 print(Pair<int, int>().first + Pair<int, int>().second);
                 print(identity(identity(7)));
             }
@@ -964,7 +964,7 @@ static class InterpreterSelfTests
                 print(show('x'));
                 print(show("text"));
                 print(show(true));
-                print(show(2.5));
+                print(show(2.5f));
                 print(order(3, 5));
                 print(order("b", "a"));
                 print(max(9, 4));

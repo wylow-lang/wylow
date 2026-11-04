@@ -26,7 +26,7 @@ int say(int value) {
     return value;
 }
 
-String spawn(Vec3 pos, int count = 1, float spread = 0.5) {
+String spawn(Vec3 pos, int count = 1, float spread = 0.5f) {
     return $"{pos.y} x{count} ~{spread}";
 }
 
@@ -101,8 +101,8 @@ void main() {
     // Parameters left out take their defaults; named arguments skip over them.
     print(spawn(pos));                                  // output: 2.0 x1 ~0.5
     print(spawn(pos, 5));                               // output: 2.0 x5 ~0.5
-    print(spawn(pos, spread: 2.0));                     // output: 2.0 x1 ~2.0
-    print(spawn(pos, count: 3, spread: 1.5));           // output: 2.0 x3 ~1.5
+    print(spawn(pos, spread: 2.0f));                     // output: 2.0 x1 ~2.0
+    print(spawn(pos, count: 3, spread: 1.5f));           // output: 2.0 x3 ~1.5
     print(spawn(pos: pos, count: 4));                   // output: 2.0 x4 ~0.5
     print(constants());                                 // output: -1 none c true true 16
     print(unary());                                     // output: -1 false

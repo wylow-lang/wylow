@@ -1,6 +1,6 @@
 # 0007. An unsuffixed floating-point literal is a `float`
 
-- Status: accepted (2026-10-19)
+- Status: superseded by 0041 (2026-11-03)
 - Spec: `lexical.literals.float`
 
 ## Decision

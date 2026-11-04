@@ -51,7 +51,7 @@ after its name: `Pair<int, float>`. A generic function or method may be called w
 after its name, `identity<long>(5)`.
 
 - A generic type is written with all its type arguments wherever a type is written, and wherever a struct,
-  enum, or class is constructed: there is no inference for a construction. `Pair<int, float>(1, 2.5)` and
+  enum, or class is constructed: there is no inference for a construction. `Pair<int, float>(1, 2.5f)` and
   `new Box<int>()`.
 - Type arguments follow the name of a call or of a construction, or of the type of an enum value:
   `Reply<int>.Pending`. The type arguments of a generic enum belong to the enum, not its variant.
@@ -69,8 +69,8 @@ or `.` ([Primary expressions](13-expressions.md#expressions.primary)).
 **Example:**
 
 ```java
-var p = Pair<int, float>(1, 2.5);
-var q = Pair(1, 2.5);                   // error[WYL0200]: no type arguments
+var p = Pair<int, float>(1, 2.5f);
+var q = Pair(1, 2.5f);                  // error[WYL0200]: no type arguments
 var r = Option.Some<int>(1);            // error[WYL0197]: they belong to the enum
 ```
 

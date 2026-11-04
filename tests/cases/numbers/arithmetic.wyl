@@ -4,8 +4,8 @@ void main() {
     print(7 / 2);            // output: 3
     print(-7 / 2);           // output: -3
     print(-7 % 3);           // output: -1
-    print(7.0 / 2);          // output: 3.5
-    print(7.5 % 2);          // output: 1.5
+    print(7.0f / 2);          // output: 3.5
+    print(7.5f % 2);          // output: 1.5
     int count = 33;
     print(1 << count);       // output: 2
     print(-16 >> 2);         // output: -4
@@ -19,7 +19,7 @@ void main() {
     print(0xFF + 0b101);     // output: 260
     print(10L * 1000000000); // output: 10000000000
     print(2.5d * 2);         // output: 5.0
-    print(1.0 / 3);          // output: 0.33333334
+    print(1.0f / 3);          // output: 0.33333334
     print(1.0d / 3);         // output: 0.3333333333333333
     print(true & false);     // output: false
     print(true ^ true);      // output: false

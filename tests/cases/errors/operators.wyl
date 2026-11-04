@@ -17,7 +17,7 @@ struct Bag {
 unsafe void main() {
     int? maybe = 1;
     print(maybe ?? true);               // error[WYL0308]: operator '??' cannot be applied to 'int?' and 'bool'
-    print(1.5 << 2);                    // error[WYL0308]: operator '<<' cannot be applied to 'float' and 'int'
+    print(1.5f << 2);                    // error[WYL0308]: operator '<<' cannot be applied to 'float' and 'int'
     Holder holder = new Holder();
     print(holder.name + 1);             // error[WYL0308]: operator '+' cannot be applied to 'String?' and 'int'
     print(maybe == "x");                // error[WYL0308]: operator '==' cannot be applied to 'int?' and 'String'

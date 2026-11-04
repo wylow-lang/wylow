@@ -67,7 +67,7 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
         case Color.Red -> print(1);             // error[WYL0380]: pattern 'Color.Red' can never match a value of type 'Shape'
         case Circle(1, 2) -> print(1);          // error[WYL0379]: fields of 'Circle': expected 1, found 2
         case Point() -> print(1);               // error[WYL0378]: variant 'Point' carries no data
-        case Circle(1.5) -> print(1);           // error[WYL0376]: only integer, character, and 'bool' literals can be patterns
+        case Circle(1.5f) -> print(1);           // error[WYL0376]: only integer, character, and 'bool' literals can be patterns
         case Circle(int r) -> print(1);         // error[WYL0380]: pattern 'int' can never match a value of type 'float'
         case Pair(1, _) -> print(1);            // error[WYL0380]: pattern '1' can never match a value of type 'Direction'
         default -> print(2);

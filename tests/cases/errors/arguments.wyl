@@ -25,7 +25,7 @@ struct Hit {
 
 int compute() { return 1; }
 
-String spawn(Vec3 pos, int count = 1, float spread = 0.5) { return "spawned"; }
+String spawn(Vec3 pos, int count = 1, float spread = 0.5f) { return "spawned"; }
 
 void notConstant(int x = compute()) {}                 // error[WYL0216]: default value must be a constant or a struct constructor call
 void otherParameter(int x, int y = x) {}               // error[WYL0216]: default value must be a constant or a struct constructor call
@@ -52,12 +52,12 @@ class Dog extends Animal {
 
 void main() {
     var pos = Vec3(0, 1, 0);
-    spawn(pos, sprd: 2.0);                      // error[WYL0227]: cannot find parameter 'sprd' in 'spawn'
-    spawn(pos, spread: 2.0, count: 3);          // error[WYL0230]: argument 'count' must come before 'spread'
+    spawn(pos, sprd: 2.0f);                      // error[WYL0227]: cannot find parameter 'sprd' in 'spawn'
+    spawn(pos, spread: 2.0f, count: 3);          // error[WYL0230]: argument 'count' must come before 'spread'
     spawn(pos, 2, count: 3);                    // error[WYL0229]: parameter 'count' is given more than one argument
     spawn(count: 3, pos);                       // error[WYL0226]: positional argument cannot follow a named argument
     spawn();                                    // error[WYL0231]: call to 'spawn' has no argument for parameter 'pos'
-    spawn(pos, 1, 0.5, 4);                      // error[WYL0228]: argument count of 'spawn': expected 3, found 4
+    spawn(pos, 1, 0.5f, 4);                      // error[WYL0228]: argument count of 'spawn': expected 3, found 4
     spawn(pos, count: "many");                  // error[WYL0236]: no overload of 'spawn' accepts (Vec3, count: String)
     amb(1);                                     // error[WYL0237]: call to 'amb' is ambiguous
     short narrow = 1;

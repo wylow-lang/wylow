@@ -45,7 +45,7 @@ Pair<B, A> flip<A, B>(Pair<A, B> p) {
 }
 
 void main() {
-    var p = Pair<int, float>(1, 2.5);
+    var p = Pair<int, float>(1, 2.5f);
     print(p.first);              // output: 1
     print(p.second);             // output: 2.5
     var q = p.swapped();

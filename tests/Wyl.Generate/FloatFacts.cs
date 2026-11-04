@@ -80,8 +80,8 @@ static class FloatFacts
         ("0.25", new ExactFloat(1, -2)),
     ];
 
-    static readonly (string Text, ExactFloat Value)[] FloatLiterals = [.. Values];
-    static readonly (string Text, ExactFloat Value)[] DoubleLiterals = [.. Values.Select(value => (value.Text + "d", value.Value))];
+    static readonly (string Text, ExactFloat Value)[] FloatLiterals = [.. Values.Select(value => (value.Text + "f", value.Value))];
+    static readonly (string Text, ExactFloat Value)[] DoubleLiterals = [.. Values];
 
     public static IReadOnlyList<(string Text, ExactFloat Value)> Literals(WylType type) => type == WylType.Float
         ? FloatLiterals

@@ -3,6 +3,6 @@ import std::print;
 void main() {
     print("Hello, Wylow!"); // output: Hello, Wylow!
     print(42);            // output: 42
-    print(1.5);           // output: 1.5
+    print(1.5f);           // output: 1.5
     print(true);          // output: true
 }

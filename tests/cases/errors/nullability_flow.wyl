@@ -30,11 +30,11 @@ void main() {
     while (cur != null) {
         cur = cur.next;
     }
-    mut Node? loop = n;
-    if (loop != null) {
+    mut Node? walk = n;
+    if (walk != null) {
         while (true) {
-            print(loop.value);          // error[WYL0397]: 'loop' might be null
-            loop = loop.next;           // error[WYL0397]: 'loop' might be null
+            print(walk.value);          // error[WYL0397]: 'walk' might be null
+            walk = walk.next;           // error[WYL0397]: 'walk' might be null
         }
     }
     if (maybe != null || maybe.value == 1) { }  // error[WYL0397]: 'maybe' might be null

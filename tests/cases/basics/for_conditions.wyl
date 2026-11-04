@@ -28,23 +28,25 @@ void counted() {
     print(step);
 }
 
-// A condition-less loop whose first statement is an if is a while (true): the if's then branch is a
+// A loop whose first statement is an if is a while (true): the if's then branch is a
 // statement, not a test to fold into the for header.
 void guarded() {
-    for (mut int i = 0; ; i++) {
+    mut int i = 0;
+    loop {
         if (i < 2) {
             print(i);
         } else {
             break;
         }
         print("x");
+        i++;
     }
 }
 
-// A loop that tests nothing is a while (true), whose continue must reach the update.
+// A for whose condition is constant true is still a loop with an update, which continue must reach.
 void jumping() {
     mut int guard = 0;
-    for (mut int i = 0; ; i++) {
+    for (mut int i = 0; true; i++) {
         guard++;
         if (guard > 5) {
             break;

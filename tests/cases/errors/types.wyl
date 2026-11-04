@@ -5,7 +5,7 @@ void takesFloat(float f) {
 
 void main() {
     int i = 1;
-    float f = 2.0;
+    float f = 2.0f;
     float bad = i;            // error[WYL0079]: expected 'float', found 'int'
     int alsoBad = f;          // error[WYL0079]: expected 'int', found 'float'
     print(i + f);             // error[WYL0308]: operator '+' cannot be applied to 'int' and 'float'

@@ -61,7 +61,7 @@ void main() {
     print(sum(samples.view())); // output: 7.0
 
     mut var sensor = new Sensor();
-    sensor.readings[1] = 2.5;
+    sensor.readings[1] = 2.5f;
     print(sum(sensor.readings)); // output: 2.5
     Span<float> readings = sensor.readings;
     sensor = new Sensor();

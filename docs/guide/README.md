@@ -20,7 +20,7 @@ Each is explained in detail in its chapter.
 2. **Statics are read-only.** Unlike Java, there is no `static mut`: a static's type must be
    sendable, and shared state changes through `Atomic<T>` or `Mutex<T>`. State one thread changes
    lives in an object passed to what uses it. See [Statics](../spec/06-variables.md#variables.statics).
-3. **`1.5` is a `float`.** Use `1.5d` for `double`. See [Floating-point literals](../spec/02-lexical.md#lexical.literals.float).
+3. **There is no `do` loop.** Write `loop { ... }` with a `break` at the end of the body. See [`while`, `loop`, and `for`](../spec/14-statements.md#statements.loops).
 4. **`byte` is unsigned** (like C#). `sbyte` is the signed version.
    **Arithmetic keeps its operands' type**: `byte + byte` is a `byte`, not an `int`, so it can
    overflow. Widen first where it might: `((int)a + b) / 2`. See [Arithmetic](../spec/13-expressions.md#expressions.arithmetic).

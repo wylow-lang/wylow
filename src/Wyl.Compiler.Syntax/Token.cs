@@ -32,6 +32,7 @@ public enum TokenKind
     ElseKeyword,
     WhileKeyword,
     ForKeyword,
+    LoopKeyword,
     ReturnKeyword,
     BreakKeyword,
     ContinueKeyword,

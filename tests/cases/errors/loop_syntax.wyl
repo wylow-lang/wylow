@@ -1,0 +1,5 @@
+void main() {
+    for (mut int i = 0; ; i++) { }      // error[WYL0438]: 'for' needs a condition
+    for (;;) { }                        // error[WYL0438]: 'for' needs a condition
+    loop print(1);                      // error[WYL0341]: body of 'loop' is not enclosed in braces
+}

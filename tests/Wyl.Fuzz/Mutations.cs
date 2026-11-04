@@ -397,7 +397,7 @@ static class Mutations
     static Candidate? FloatEdgeBuild(MutationContext context, Site site)
     {
         var literal = (FloatLiteralExpr)site.Node;
-        var suffix = literal.IsDouble ? "d" : "";
+        var suffix = literal.IsDouble ? "" : "f";
         string[] edges = ["(0.0" + suffix + ")", "(-0.0" + suffix + ")", "(0.1" + suffix + ")", "(1e30" + suffix + ")"];
         return Single("float-edge", site, edges[context.Random.Next(edges.Length)]);
     }

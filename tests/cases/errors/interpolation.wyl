@@ -41,7 +41,7 @@ void main() {
     print(true.toString<int>());        // error[WYL0234]: no overload of 'bool.toString' takes 1 type argument
     int x = 1;
     print($"{x:F2}");                   // error[WYL0340]: format specifier 'F2' cannot format a value of type 'int'
-    print($"{1.5:D}");                  // error[WYL0340]: format specifier 'D' cannot format a value of type 'float'
+    print($"{1.5f:D}");                  // error[WYL0340]: format specifier 'D' cannot format a value of type 'float'
     print($"{"text":X}");               // error[WYL0340]: format specifier 'X' cannot format a value of type 'String'
     print($"{new Animal():F2}");            // error[WYL0340]: format specifier 'F2' cannot format a value of type 'Animal'
     print($"{x:Q}");                    // error[WYL0339]: cannot find format specifier 'Q'

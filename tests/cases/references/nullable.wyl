@@ -96,7 +96,7 @@ void main() {
     mut Mat2 m = Mat2();
     ref? float a = m.at(1);
     if (a != null) {
-        a = 2.5;
+        a = 2.5f;
     }
     print(m.m[1]);                  // output: 2.5
     ref? float none = m.at(9);
@@ -155,7 +155,7 @@ void main() {
     // output: 1
     // output: 2
     // output: 4
-    print(sum(null, m.at(order(1))! == 2.5 ? order(5) : 0));
+    print(sum(null, m.at(order(1))! == 2.5f ? order(5) : 0));
     // output: 1
     // output: 5
     // output: 5

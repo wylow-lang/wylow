@@ -11,7 +11,7 @@ abstract class Weapon {
     abstract int damage();
 
     virtual float cooldown() {
-        return 0.5;
+        return 0.5f;
     }
 
     // Non-virtual, but calls virtual methods.

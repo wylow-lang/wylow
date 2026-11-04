@@ -36,7 +36,7 @@ struct Loop {                      // error[WYL0106]: struct 'Loop' contains its
 }
 
 struct Inner {
-    Loop loop;
+    Loop cycle;
 }
 
 struct Defaults {

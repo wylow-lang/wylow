@@ -38,6 +38,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["else"] = TokenKind.ElseKeyword,
         ["while"] = TokenKind.WhileKeyword,
         ["for"] = TokenKind.ForKeyword,
+        ["loop"] = TokenKind.LoopKeyword,
         ["return"] = TokenKind.ReturnKeyword,
         ["break"] = TokenKind.BreakKeyword,
         ["continue"] = TokenKind.ContinueKeyword,
@@ -82,7 +83,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "const", "defer", "discard", "do", "package", "shared", "unique",
+        "const", "defer", "discard", "package", "shared", "unique",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.
@@ -263,7 +264,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
             diagnostics.Add(Catalog.MisplacedDigitSeparator(At(span)));
 
         var integerSuffix = IntegerSuffix.None;
-        bool isDouble = false;
+        bool isSingle = false;
         switch (suffix)
         {
             case "":
@@ -279,10 +280,10 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
                 break;
             case "f" or "F" when radix == 10:
                 isFloat = true;
+                isSingle = true;
                 break;
             case "d" or "D" when radix == 10:
                 isFloat = true;
-                isDouble = true;
                 break;
             default:
                 diagnostics.Add(Catalog.UnknownNumberSuffix(At(span), suffix));
@@ -298,20 +299,20 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         if (isFloat)
         {
             double value;
-            if (isDouble)
-            {
-                value = double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
-                if (double.IsInfinity(value))
-                    diagnostics.Add(Catalog.FloatLiteralTooLarge(At(span), isDouble: true));
-            }
-            else
+            if (isSingle)
             {
                 float f = float.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
                 if (float.IsInfinity(f))
                     diagnostics.Add(Catalog.FloatLiteralTooLarge(At(span), isDouble: false));
                 value = f;
             }
-            return Make(TokenKind.FloatLiteral, start, new FloatLiteralValue(value, isDouble));
+            else
+            {
+                value = double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
+                if (double.IsInfinity(value))
+                    diagnostics.Add(Catalog.FloatLiteralTooLarge(At(span), isDouble: true));
+            }
+            return Make(TokenKind.FloatLiteral, start, new FloatLiteralValue(value, !isSingle));
         }
 
         if (!TryParseInteger(digits, radix, out ulong integer))

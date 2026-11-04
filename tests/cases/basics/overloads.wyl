@@ -28,7 +28,7 @@ void pick(long a, int b = 0, int c = 0) {
 void main() {
     show(1);    // output: int
     show(1L);   // output: long
-    show(1.5);  // output: float
+    show(1.5f);  // output: float
     show(1.5d); // output: double
     int i = 3;
     show(i);    // output: int

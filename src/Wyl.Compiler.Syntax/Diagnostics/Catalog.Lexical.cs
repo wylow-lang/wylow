@@ -37,7 +37,7 @@ public static partial class Catalog
     [Error(9, "lexical.literals.float")]
     public static Diagnostic FloatLiteralTooLarge(Location at, bool isDouble) => isDouble
         ? Make(at, "literal is too large for 'double'")
-        : Make(at, "literal is too large for 'float'").Help("add a 'd' suffix to make it a 'double'");
+        : Make(at, "literal is too large for 'float'").Help("remove the 'f' suffix to make it a 'double'");
 
     [Error(10, "lexical.literals.char")]
     public static Diagnostic EmptyCharacterLiteral(Location at) =>

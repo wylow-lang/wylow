@@ -68,7 +68,7 @@ void main() {
     // Primitives are written as print writes them.
     byte b = 255;
     long big = -9000000000L;
-    print($"{1} {b} {big} {2u} {1.5} {3.0} {0.1d} {true} {'x'} {'é'}");  // output: 1 255 -9000000000 2 1.5 3.0 0.1 true x é
+    print($"{1} {b} {big} {2u} {1.5f} {3.0f} {0.1d} {true} {'x'} {'é'}");  // output: 1 255 -9000000000 2 1.5 3.0 0.1 true x é
     print($"{"inner"} and {$"nested {1 + 1}"}");                        // output: inner and nested 2
 
     // Braces, escapes, and empty texts.
@@ -83,7 +83,7 @@ void main() {
     print($"{none} {some} {noText}");                                    // output: null 4 null
 
     // A Printable value is written by its toString(): structs, classes (dispatched), enums, interfaces, and type parameters.
-    var v = Vec3(1, 2.5, -3);
+    var v = Vec3(1, 2.5f, -3);
     print($"at {v}");                                                    // output: at (1.0, 2.5, -3.0)
     Animal pet = new Dog("Rex");
     print($"{pet} and {new Animal("Tom")}");                             // output: dog Rex and animal Tom
@@ -98,7 +98,7 @@ void main() {
     print(describe(false));                                              // output: <false> false
     print(describe("text"));                                             // output: <text> text
     print($"{7.toString()} {"same".toString()}");                       // output: 7 same
-    print($"{Shape.Circle(2)}, {Shape.Square(1.5)}");                    // output: circle of radius 2.0, square of side 1.5
+    print($"{Shape.Circle(2)}, {Shape.Square(1.5f)}");                    // output: circle of radius 2.0, square of side 1.5
     Vec3? noVec = null;
     Vec3? someVec = Vec3(0, 0, 0);
     Animal? noAnimal = null;
@@ -115,8 +115,8 @@ void main() {
     // Format specifiers and alignment, as in C#.
     int n = 42;
     print($"{n:D5} {-n:D5} {255:X} {255:x4} {5:B8} {-1:X} {4294967295u:X} {b:X}"); // output: 00042 -00042 FF 00ff 00000101 FFFFFFFF FFFFFFFF FF
-    float pi = 3.14159;
-    print($"{pi:F2} {1234.5678d:F1} {0.1:F} {pi:F0} {1500.0:E2} {1500.0d:e} {0.00012:E1}"); // output: 3.14 1234.6 0.10 3 1.50E+003 1.500000e+003 1.2E-004
+    float pi = 3.14159f;
+    print($"{pi:F2} {1234.5678d:F1} {0.1f:F} {pi:F0} {1500.0f:E2} {1500.0d:e} {0.00012f:E1}"); // output: 3.14 1234.6 0.10 3 1.50E+003 1.500000e+003 1.2E-004
     print($"[{n,5}] [{n,-5}] [{"é",3}] [{pi,8:F3}] [{n,1}]");             // output: [   42] [42   ] [  é] [   3.142] [42]
     print($"[{v,20}] [{none,6:D2}] [{some,-4:D2}] [{noVec,5}]");          // output: [    (1.0, 2.5, -3.0)] [  null] [04  ] [ null]
     print($"[{Pair<int, int>(7, 8).first,3}]");                          // output: [  7]

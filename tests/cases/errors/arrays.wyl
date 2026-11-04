@@ -51,7 +51,7 @@ void main() {
     }
     for (int i, int x : nope) {     // error[WYL0281]: cannot find 'nope' in this scope
     }
-    for (var i : 0.5..2) {          // error[WYL0361]: range bounds must be integers, found 'float' and 'int'
+    for (var i : 0.5f..2) {          // error[WYL0361]: range bounds must be integers, found 'float' and 'int'
     }
     for (float f : 0..2) {          // error[WYL0362]: range variable type: expected an integer type, found 'float'
     }

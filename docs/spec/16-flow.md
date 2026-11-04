@@ -22,7 +22,8 @@ The check follows every path through the program:
   or a `switch`, the local is assigned only if it is assigned on every path into the meeting point.
 - A `for` or `while` body may run no times, and each iteration is a path of its own: an assignment
   in a body does not assign the local after the loop, and an assignment in one iteration does not
-  count in the next. A `do` loop's body runs at least once.
+  count in the next. A `loop` body runs at least once, and what follows the loop is reached only
+  through a `break`.
 - A `switch` runs exactly one case, so the local is assigned after it when it is assigned in every
   case.
 

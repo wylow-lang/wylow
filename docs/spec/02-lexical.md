@@ -106,18 +106,18 @@ These are the **keywords**:
 _          abstract   bool       break      byte       case       char       class
 continue   default    double     else       enum       escaping   extends    extern
 false      final      float      fn         for        if         implements import
-in         int        interface  is         long       mut        new        nint
-nuint      null       operator   override   pub        ref        return     sbyte
-short      static     struct     super      switch     this       true       try
-uint       ulong      unsafe     ushort     var        virtual    void       when
-while
+in         int        interface  is         long       loop       mut        new
+nint       nuint      null       operator   override   pub        ref        return
+sbyte      short      static     struct     super      switch     this       true
+try        uint       ulong      unsafe     ushort     var        virtual    void
+when       while
 ```
 
 These are **reserved words**:
 
 ```
-const      defer      discard    do         package    private    protected  public
-shared     unique
+const      defer      discard    package    private    protected  public     shared
+unique
 ```
 
 It is a compile-time error if a token is a reserved word, except `package` in `pub(package)`
@@ -190,7 +190,7 @@ Exponent     = ( "e" | "E" ) [ "+" | "-" ] DecimalNumeral .
 FloatSuffix  = "f" | "F" | "d" | "D" .
 ```
 
-A floating-point literal with the suffix `d` or `D` is a `double`; any other is a `float`. Its value
+A floating-point literal with the suffix `f` or `F` is a `float`; any other is a `double`. Its value
 is the decimal number it writes, rounded to the nearest value of its type, with ties going to the
 value whose last bit is 0.
 
@@ -203,10 +203,11 @@ literals, and in `1..5` the `.` belongs to the `..` token.
 **Example:**
 
 ```java
-float f = 1.5;
-double d = 1.5d;
-float big = 1e39;               // error[WYL0009]
-double fine = 1e39d;
+double d = 1.5;
+float f = 1.5f;
+float wrong = 1.5;              // error[WYL0079]
+float big = 1e39f;              // error[WYL0009]
+double fine = 1e39;
 ```
 
 <a id="lexical.literals.char"></a>
@@ -317,7 +318,7 @@ Where a `>` closes a list of type arguments, a `>>` token is read as two `>` tok
 > | Types: classes, structs, enums, interfaces | `PascalCase` | `OrderQueue` |
 > | Enum variants | `PascalCase` | `Status.Pending` |
 > | Methods, fields, locals, parameters | `camelCase` | `addItem`, `isEmpty` |
-> | Constants: `const` and `static` fields | `UPPER_SNAKE_CASE` | `MAX_SIZE` |
+> | Constants: `static` fields | `UPPER_SNAKE_CASE` | `MAX_SIZE` |
 > | Packages and modules, and the directories that are modules | `snake_case` | `text_format::parse` |
 > | Files | `snake_case`, named for what they hold | `order_queue.wyl` |
 >

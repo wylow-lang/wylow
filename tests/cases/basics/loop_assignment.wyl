@@ -1,0 +1,12 @@
+// A `loop` body runs at least once, so an assignment before its only `break` assigns the local.
+
+import std::print;
+
+void main() {
+    int x;
+    loop {
+        x = 7;
+        break;
+    }
+    print(x);                           // output: 7
+}
