@@ -62,6 +62,7 @@ home is written.
 | Chapter 18 | old `04-errors.md` §4.1, §4.2, §4.4 (`Result`, unused results, handling) | Complete, with the page of `WYL0421`. `04-errors.md` is deleted |
 | Chapter 19 | old `05-concurrency.md` §5.1–§5.4, §5.6 (intro, isolated graphs), §5.7; `02-types.md` §2.13 "Type properties" (`sendable` in a bound) | Complete. The library types of §5.6 are issue #14; §5.5 is in [Statics](../spec/06-variables.md#variables.statics), and §5.8 in chapter 20. `05-concurrency.md` is deleted. No rule here is tested: `shared`, `unique`, and `Isolated` are not implemented (#6) |
 | Chapter 20 | old `01-safety.md` §1.4 (the pointer operations); `02-types.md` "Arrays and spans" (§2.11) | Complete (`unsafe.pointers` filled; the other sections were written earlier), with the pages of `WYL0422` and `WYL0423`. The "Arrays and spans" passage is deleted. Pointer comparison, `p[i]`, and `p + n` are tested (`unsafe/pointers.wyl`); address-of, pointer casts, and `bitcast` are not implemented (#6) |
+| Chapter 21 | old `07-interop.md` §7.1, §7.2, §7.4, §7.6–§7.9; §7.3 goes to the guide and §7.5 was written in chapter 9 | Complete, with the pages of `WYL0424`, `WYL0426`, and `WYL0427`. `07-interop.md` is deleted. Extern declarations in a program, `@Include`, `@Safe`, `@CppName`, `@CCallback`, `@Export`, the layout check, `cstr`, `fromCString`, and the span members are specified but not implemented (#6); `WYL0425`, `WYL0428`, `WYL0429`, and `WYL0430` stay in `without-pages.txt` because a program cannot produce them alone |
 
 ## 02-types.md
 

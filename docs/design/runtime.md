@@ -138,7 +138,8 @@ any of these. How the current compiler decides is in
 The first time an object is referred to weakly, it allocates a small weak
 block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` is a pointer to the block and
 one to the target (C++ can't cast the block's `wyl::Object*` back down to `T`), and copying one adds
-to the block's count. `Weak<T>` is an `extern struct` ([07-interop.md](../spec/07-interop.md)) implemented
+to the block's count. `Weak<T>` is an `extern struct`
+([Extern structs](../spec/21-interop.md#interop.extern.extern-structs)) implemented
 by `wyl::Weak` in the runtime. A shared object's weak block is made with an atomic exchange, so two
 threads referring to it weakly at once agree on one, and its count is atomic; its `get()` takes a
 strong reference only while the target's count is above zero, so it never revives an object

@@ -37,10 +37,9 @@ names, never the numbers.
 
 ## Chapters being rewritten
 
-Chapters 1 to 20 are written. Chapters 21 and 22 and appendix A are being written from these
-files, which are deleted as their text moves:
+Chapters 1 to 21 are written. Chapter 22 and appendix A are being written from these files, which
+are deleted as their text moves:
 
 - [02-types.md](02-types.md): strings, and the bounds of generics
 - [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, annotations, and the advice on
   properties
-- [07-interop.md](07-interop.md): `extern`, blittable types, C enums, callbacks
