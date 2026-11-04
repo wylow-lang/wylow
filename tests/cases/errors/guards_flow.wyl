@@ -2,21 +2,21 @@
 // condition does.
 import std::print;
 
-class Enemy {
-    int hp;
+class Account {
+    int total;
 
-    Enemy(int hp) {
-        this.hp = hp;
+    Account(int total) {
+        this.total = total;
     }
 }
 
-enum State { Idle, Chasing(Enemy? target) }
+enum State { Idle, Chasing(Account? target) }
 
 void use(State st, bool flag) {
     switch (st) {
-        case Chasing(var t) when t != null || flag -> print(t.hp);      // error[WYL0397]: 't' might be null
-        case Chasing(var t) when t is Enemy e || flag -> print(e.hp);   // error[WYL0394]: 'e' might not have been assigned
-        case Chasing(var t) when t is Enemy e && flag -> print(e.hp);
+        case Chasing(var t) when t != null || flag -> print(t.total);      // error[WYL0397]: 't' might be null
+        case Chasing(var t) when t is Account e || flag -> print(e.total);   // error[WYL0394]: 'e' might not have been assigned
+        case Chasing(var t) when t is Account e && flag -> print(e.total);
         default -> print(0);
     }
 }

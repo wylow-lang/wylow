@@ -2,11 +2,11 @@
 
 import std::{List, print};
 
-class Mob {
-    int hp;
+class Task {
+    int total;
 
-    Mob(int hp) {
-        this.hp = hp;
+    Task(int total) {
+        this.total = total;
     }
 }
 
@@ -31,9 +31,9 @@ int add(int a, int b) {
     return a + b;
 }
 
-int count(List<Mob> mobs, fn(Mob) -> bool test) {
+int count(List<Task> mobs, fn(Task) -> bool test) {
     mut int n = 0;
-    for (Mob m : mobs) {
+    for (Task m : mobs) {
         if (test(m)) {
             n++;
         }
@@ -51,11 +51,11 @@ void bump(ref int v, fn() -> void during) {
 }
 
 void main() {
-    List<Mob> mobs = new List<Mob>();
-    mobs.add(new Mob(5));
-    mobs.add(new Mob(50));
+    List<Task> mobs = new List<Task>();
+    mobs.add(new Task(5));
+    mobs.add(new Task(50));
     int limit = 10;
-    print(count(mobs, m -> m.hp < limit));                  // output: 1
+    print(count(mobs, m -> m.total < limit));                  // output: 1
 
     // Names declared by patterns and loops are captured like any local.
     Shape s = Shape.Circle(2.0f);

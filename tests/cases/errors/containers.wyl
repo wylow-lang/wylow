@@ -1,6 +1,6 @@
 import std::{List, print};
 
-class Enemy {
+class Account {
 }
 
 struct Counter implements Borrowable {     // error[WYL0420]: only classes can be 'Borrowable'
@@ -23,8 +23,8 @@ struct Gauge implements Tracked {         // error[WYL0420]: only classes can be
 }
 
 void main() {
-    Enemy[] squad = new Enemy[3];           // error[WYL0078]: cannot fill a new array with default values of 'Enemy'
-    var team = new Array<Enemy>(3);         // error[WYL0078]: cannot fill a new array with default values of 'Enemy'
+    Account[] group = new Account[3];           // error[WYL0078]: cannot fill a new array with default values of 'Account'
+    var team = new Array<Account>(3);         // error[WYL0078]: cannot fill a new array with default values of 'Account'
     var list = new List<int>();
     list.beginBorrow();                     // error[WYL0419]: 'beginBorrow' cannot be called directly
     var numbers = new int[3];

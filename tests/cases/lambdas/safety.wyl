@@ -24,15 +24,15 @@ class Crate {
     mut Box box = new Box(2);
 }
 
-class Enemy {
-    int hp;
+class Account {
+    int total;
 
-    Enemy(int hp) {
-        this.hp = hp;
+    Account(int total) {
+        this.total = total;
     }
 
-    ~Enemy() {
-        print("enemy freed");
+    ~Account() {
+        print("account freed");
     }
 }
 
@@ -72,24 +72,24 @@ void main() {
     // output: 1
 
     // A loop element keeps its own reference, since a function value it calls may store over it.
-    List<Enemy> enemies = new List<Enemy>();
-    enemies.add(new Enemy(1));
-    enemies.add(new Enemy(2));
+    List<Account> accounts = new List<Account>();
+    accounts.add(new Account(1));
+    accounts.add(new Account(2));
     fn() -> void replace = () -> {
-        enemies[0] = new Enemy(99);
+        accounts[0] = new Account(99);
     };
-    for (Enemy e : enemies) {
+    for (Account e : accounts) {
         replace();
-        print(e.hp);
+        print(e.total);
     }
     // output: 1
-    // output: enemy freed
-    // output: enemy freed
+    // output: account freed
+    // output: account freed
     // output: 2
-    print(enemies[0].hp);
+    print(accounts[0].total);
     // output: 99
 }
-// output: enemy freed
-// output: enemy freed
+// output: account freed
+// output: account freed
 // output: box freed
 // output: box freed

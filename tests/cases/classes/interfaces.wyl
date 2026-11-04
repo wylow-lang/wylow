@@ -4,51 +4,51 @@ interface Named {
     String name();
 }
 
-interface Damageable extends Named {
-    mut void damage(int amount);
-    mut int health();
+interface Adjustable extends Named {
+    mut void amount(int amount);
+    mut int balance();
 }
 
-class Crate implements Damageable {
-    mut int hp = 30;
+class Crate implements Adjustable {
+    mut int total = 30;
 
     String name() {
         return "crate";
     }
 
-    void damage(int amount) {
-        hp -= amount;
+    void amount(int amount) {
+        total -= amount;
     }
 
-    int health() {
-        return hp;
+    int balance() {
+        return total;
     }
 }
 
 class Unit {
-    mut int hp = 100;
+    mut int total = 100;
 
-    void damage(int amount) {
-        hp -= amount * 2;
+    void amount(int amount) {
+        total -= amount * 2;
     }
 
-    int health() {
-        return hp;
+    int balance() {
+        return total;
     }
 }
 
 // The interface is implemented with methods inherited from Unit.
-class Soldier extends Unit implements Damageable {
+class Employee extends Unit implements Adjustable {
     String name() {
-        return "soldier";
+        return "employee";
     }
 }
 
-// Damageable through an interface reference: dynamic dispatch.
-void hit(Damageable target) {
-    target.damage(5);
+// Adjustable through an interface reference: dynamic dispatch.
+void apply(Adjustable target) {
+    target.amount(5);
     print(target.name());
-    print(target.health());
+    print(target.balance());
 }
 
 // Through a bound: static dispatch, for structs and classes alike.
@@ -65,17 +65,17 @@ void describe<T extends Named>(T value) {
 }
 
 void main() {
-    hit(new Crate());
+    apply(new Crate());
     // output: crate
     // output: 25
-    hit(new Soldier());
-    // output: soldier
+    apply(new Employee());
+    // output: employee
     // output: 90
 
-    Named n = new Soldier();
-    print(n.name());              // output: soldier
+    Named n = new Employee();
+    print(n.name());              // output: employee
 
     describe(new Crate());        // output: crate
     describe(Counter(n: 1));// output: counter
-    describe<Named>(n);           // output: soldier
+    describe<Named>(n);           // output: employee
 }

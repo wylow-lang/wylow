@@ -1,20 +1,20 @@
 import std::print;
 
-abstract class Weapon {
+abstract class Product {
     abstract void fire();
-    virtual int ammo() { return 0; }
+    virtual int stock() { return 0; }
     int weight() { return 1; }
 }
 
-class Gun extends Weapon {               // error[WYL0133]: 'Gun' does not implement abstract method 'Weapon.fire()'
-    int ammo() { return 1; }            // error[WYL0120]: 'ammo()' must be marked 'override'
-    int weight() { return 2; }          // error[WYL0121]: 'weight()' hides inherited method 'Weapon.weight()'
+class Gun extends Product {               // error[WYL0133]: 'Gun' does not implement abstract method 'Product.fire()'
+    int stock() { return 1; }            // error[WYL0120]: 'stock()' must be marked 'override'
+    int weight() { return 2; }          // error[WYL0121]: 'weight()' hides inherited method 'Product.weight()'
     override int missing() { return 0; }    // error[WYL0122]: 'missing()' overrides nothing
 }
 
-class Rifle extends Weapon {
+class Rifle extends Product {
     override void fire() { }
-    override long ammo() { return 1L; }     // error[WYL0125]: 'ammo' does not match the parameter and return types of 'Weapon.ammo'
+    override long stock() { return 1L; }     // error[WYL0125]: 'stock' does not match the parameter and return types of 'Product.stock'
 }
 
 final class Sealed {
@@ -23,7 +23,7 @@ final class Sealed {
 
 class Breaks extends Sealed { }         // error[WYL0116]: cannot extend final class 'Sealed'
 
-class Pistol extends Weapon {
+class Pistol extends Product {
     final override void fire() { }
 }
 
@@ -59,7 +59,7 @@ class Generic {
 }
 
 void main() {
-    var w = new Weapon();               // error[WYL0130]: cannot create an instance of abstract class 'Weapon'
+    var w = new Product();               // error[WYL0130]: cannot create an instance of abstract class 'Product'
     var p = Point(1, 2);                // error[WYL0233]: no constructor of 'Point' takes 2 arguments
     var q = new Point();                // error[WYL0289]: struct 'Point' cannot be created with 'new'
     var g = Gun();                      // error[WYL0287]: class 'Gun' cannot be created without 'new'

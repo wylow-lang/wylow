@@ -3,15 +3,15 @@
 import std::print;
 
 struct Holder {
-    Enemy[2] enemies;
+    Account[2] accounts;
 }
 
-struct Enemy {
+struct Account {
     int id = 5;
 }
 
 void main() {
     var h = Holder();
-    print(h.enemies[0].id);   // output: 5
-    print(h.enemies[1].id);   // output: 5
+    print(h.accounts[0].id);   // output: 5
+    print(h.accounts[1].id);   // output: 5
 }

@@ -4,11 +4,11 @@
 
 import std::print;
 
-class Enemy {
-    int hp;
+class Account {
+    int total;
 
-    Enemy(int hp) {
-        this.hp = hp;
+    Account(int total) {
+        this.total = total;
     }
 }
 
@@ -20,7 +20,7 @@ struct Vec3 {
 
 enum Shape { Circle(int r), Rect(int w, int h), Moved(Vec3 to) }
 
-enum State { Idle, Chasing(Enemy? target) }
+enum State { Idle, Chasing(Account? target) }
 
 class Ai {
     mut State state = State.Idle;
@@ -75,11 +75,11 @@ void main() {
 
     // The names the pattern binds are in scope in the guard; what the guard narrows, or an 'is' in
     // it binds, is in the case.
-    State[3] states = [State.Chasing(new Enemy(4)), State.Chasing(null), State.Idle];
+    State[3] states = [State.Chasing(new Account(4)), State.Chasing(null), State.Idle];
     for (State st : states) {
         switch (st) {
-            case Chasing(var t) when t is Enemy e && e.hp > 3 -> print($"chasing {e.hp}");
-            case Chasing(var t) when t != null -> print($"weak {t.hp}");
+            case Chasing(var t) when t is Account e && e.total > 3 -> print($"chasing {e.total}");
+            case Chasing(var t) when t != null -> print($"weak {t.total}");
             case Chasing(_) -> print("chasing nothing");
             case Idle -> print("idle");
         }
@@ -97,14 +97,14 @@ void main() {
 
     // A guard that changes the value changes what later cases test.
     var ai = new Ai();
-    ai.state = State.Chasing(new Enemy(1));
+    ai.state = State.Chasing(new Account(1));
     switch (ai.state) {
         case Chasing(_) when ai.calm() -> print("chasing");
         case Idle -> print("calmed down");          // output: calmed down
         case Chasing(_) -> print("still chasing");
     }
     // A copy is how to match the value as it was.
-    ai.state = State.Chasing(new Enemy(1));
+    ai.state = State.Chasing(new Account(1));
     var snapshot = ai.state;
     switch (snapshot) {
         case Chasing(_) when ai.calm() -> print("chasing");

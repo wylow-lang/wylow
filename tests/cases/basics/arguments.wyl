@@ -26,7 +26,7 @@ int say(int value) {
     return value;
 }
 
-String spawn(Vec3 pos, int count = 1, float spread = 0.5f) {
+String create(Vec3 pos, int count = 1, float spread = 0.5f) {
     return $"{pos.y} x{count} ~{spread}";
 }
 
@@ -66,18 +66,18 @@ class Box<T> {
     }
 }
 
-class Weapon {
+class Product {
     String name;
-    int damage;
+    int amount;
 
-    Weapon(String name, int damage = 10) {
+    Product(String name, int amount = 10) {
         this.name = name;
-        this.damage = damage;
+        this.amount = amount;
     }
 }
 
-class Sword extends Weapon {
-    Sword(int damage = 25) { super(name: "sword", damage: damage); }
+class Sword extends Product {
+    Sword(int amount = 25) { super(name: "sword", amount: amount); }
 }
 
 class Animal {
@@ -99,11 +99,11 @@ class Friendly implements Greeter {
 void main() {
     var pos = Vec3(0, 2, 0);
     // Parameters left out take their defaults; named arguments skip over them.
-    print(spawn(pos));                                  // output: 2.0 x1 ~0.5
-    print(spawn(pos, 5));                               // output: 2.0 x5 ~0.5
-    print(spawn(pos, spread: 2.0f));                     // output: 2.0 x1 ~2.0
-    print(spawn(pos, count: 3, spread: 1.5f));           // output: 2.0 x3 ~1.5
-    print(spawn(pos: pos, count: 4));                   // output: 2.0 x4 ~0.5
+    print(create(pos));                                  // output: 2.0 x1 ~0.5
+    print(create(pos, 5));                               // output: 2.0 x5 ~0.5
+    print(create(pos, spread: 2.0f));                     // output: 2.0 x1 ~2.0
+    print(create(pos, count: 3, spread: 1.5f));           // output: 2.0 x3 ~1.5
+    print(create(pos: pos, count: 4));                   // output: 2.0 x4 ~0.5
     print(constants());                                 // output: -1 none c true true 16
     print(unary());                                     // output: -1 false
     print(constants(name: "set", color: Color.Red));    // output: -1 set c true false 16
@@ -140,12 +140,12 @@ void main() {
     print(box.item);                                    // output: gem
 
     // Constructors take them too, including through super(...).
-    var club = new Weapon("club");
-    print($"{club.name} {club.damage}");                // output: club 10
-    var axe = new Weapon(name: "axe", damage: 15);
-    print($"{axe.name} {axe.damage}");                  // output: axe 15
+    var club = new Product("club");
+    print($"{club.name} {club.amount}");                // output: club 10
+    var axe = new Product(name: "axe", amount: 15);
+    print($"{axe.name} {axe.amount}");                  // output: axe 15
     var sword = new Sword();
-    print($"{sword.name} {sword.damage}");              // output: sword 25
+    print($"{sword.name} {sword.amount}");              // output: sword 25
 
     // Overrides and implementations take the defaults of what they override.
     Animal pet = new Dog();

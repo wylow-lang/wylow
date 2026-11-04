@@ -1,14 +1,14 @@
 import std::print;
 
-abstract class Weapon {
+abstract class Product {
     mut int shots = 0;
     String name;
 
-    Weapon(String name) {
+    Product(String name) {
         this.name = name;
     }
 
-    abstract int damage();
+    abstract int amount();
 
     virtual float cooldown() {
         return 0.5f;
@@ -18,25 +18,25 @@ abstract class Weapon {
     void fire() {
         shots++;
         print(name);
-        print(damage());
+        print(amount());
     }
 
-    ~Weapon() {
-        print("weapon destroyed");
+    ~Product() {
+        print("product destroyed");
     }
 }
 
-class Pistol extends Weapon {
+class Pistol extends Product {
     Pistol() {
         super("pistol");
     }
 
-    override int damage() {
+    override int amount() {
         return 10;
     }
 }
 
-class Shotgun extends Weapon {
+class Shotgun extends Product {
     int pellets;
 
     Shotgun(int pellets) {
@@ -44,7 +44,7 @@ class Shotgun extends Weapon {
         this.pellets = pellets;
     }
 
-    override int damage() {
+    override int amount() {
         return pellets * 5;
     }
 
@@ -62,8 +62,8 @@ final class DoubleShotgun extends Shotgun {
         super(8);
     }
 
-    final override int damage() {
-        return super.damage() * 2;
+    final override int amount() {
+        return super.amount() * 2;
     }
 }
 
@@ -79,19 +79,19 @@ class Derived extends Base {
     }
 }
 
-int total(Weapon w) {
-    return w.damage();
+int total(Product w) {
+    return w.amount();
 }
 
 void main() {
-    mut Weapon w = new Pistol();
+    mut Product w = new Pistol();
     w.fire();
     // output: pistol
     // output: 10
     print(w.cooldown());          // output: 0.5
 
     w = new Shotgun(3);
-    // output: weapon destroyed
+    // output: product destroyed
     w.fire();
     // output: shotgun
     // output: 15
@@ -101,7 +101,7 @@ void main() {
     print(total(new DoubleShotgun()));
     // output: 80
     // output: shotgun destroyed
-    // output: weapon destroyed
+    // output: product destroyed
 
     var d = new Derived();
     print(d.sum());               // output: 3
@@ -110,4 +110,4 @@ void main() {
     print(b == d);                // output: true
 }
 // output: shotgun destroyed
-// output: weapon destroyed
+// output: product destroyed

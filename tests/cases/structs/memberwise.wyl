@@ -14,15 +14,15 @@ struct Pair<A, B> {
     B second;
 }
 
-class Player {
+class Customer {
     String name;
-    Player(String name) { this.name = name; }
+    Customer(String name) { this.name = name; }
 }
 
 // Without a default value, a memberwise constructor is the only way to build it positionally.
-struct Hit {
-    Player target;
-    int damage = 10;
+struct Event {
+    Customer target;
+    int amount = 10;
 }
 
 struct Samples {
@@ -36,10 +36,10 @@ struct Hidden {
     int secret;
 }
 
-struct Enemy {
+struct Account {
     Vec2 position;
-    int health = 100;
-    Player? target;
+    int balance = 100;
+    Customer? target;
 }
 
 int announce(int value) {
@@ -83,9 +83,9 @@ void main() {
     var p = Pair<int, String>(1, "one");
     print(p.second);                  // output: one
 
-    var hit = Hit(new Player("Ana"), 3);
-    print(hit.target.name);           // output: Ana
-    print(hit.damage);                // output: 3
+    var apply = Event(new Customer("Ana"), 3);
+    print(apply.target.name);           // output: Ana
+    print(apply.amount);                // output: 3
 
     mut int[2] values = [4, 5];
     var samples = Samples(values);
@@ -100,15 +100,15 @@ void main() {
     print(ordered.y);                 // output: 2.0
 
     // Fields left out take their initializers or their types' default values, and fields may be named.
-    var idle = Enemy();
-    print($"{idle.health} {idle.target?.name}");          // output: 100 null
-    var placed = Enemy(Vec2(1, 2));
-    print($"{placed.position.y} {placed.health}");      // output: 2.0 100
-    print(Enemy(health: 50).health);                   // output: 50
-    var chasing = Enemy(position: v, target: new Player("Bo"));
-    print($"{chasing.health} {chasing.target?.name}");  // output: 100 Bo
-    print(Hit(new Player("Cy")).damage);               // output: 10
-    print(Hit(target: new Player("Di"), damage: 4).damage); // output: 4
+    var idle = Account();
+    print($"{idle.balance} {idle.target?.name}");          // output: 100 null
+    var placed = Account(Vec2(1, 2));
+    print($"{placed.position.y} {placed.balance}");      // output: 2.0 100
+    print(Account(balance: 50).balance);                   // output: 50
+    var chasing = Account(position: v, target: new Customer("Bo"));
+    print($"{chasing.balance} {chasing.target?.name}");  // output: 100 Bo
+    print(Event(new Customer("Cy")).amount);               // output: 10
+    print(Event(target: new Customer("Di"), amount: 4).amount); // output: 4
     print(withFirst("x").second);                      // output: 0
 
     // A field's initializer runs only when the call leaves it out, after the arguments.

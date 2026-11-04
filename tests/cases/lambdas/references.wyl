@@ -3,14 +3,14 @@
 
 import std::{List, print};
 
-class Mob {
+class Task {
     int depth;
 
-    Mob(int depth) {
+    Task(int depth) {
         this.depth = depth;
     }
 
-    static int byDepth(Mob a, Mob b) {
+    static int byDepth(Task a, Task b) {
         return a.depth - b.depth;
     }
 
@@ -52,8 +52,8 @@ T same<T>(T value) {
     return value;
 }
 
-String describe(Mob m) {
-    return m.depth > 0 ? "deep mob" : "mob";
+String describe(Task m) {
+    return m.depth > 0 ? "deep task" : "task";
 }
 
 int fact(int n) {
@@ -110,9 +110,9 @@ void main() {
     print(longTwice(5L));                           // output: 15
 
     // Static methods, `in` and `ref` parameters, and a generic function.
-    fn(Mob, Mob) -> int compare = Mob.byDepth;
-    print(compare(new Mob(5), new Mob(2)));         // output: 3
-    print(new Mob(1).scaledTwice());                // output: 25
+    fn(Task, Task) -> int compare = Task.byDepth;
+    print(compare(new Task(5), new Task(2)));         // output: 3
+    print(new Task(1).scaledTwice());                // output: 25
     fn(in Vec) -> int read = Vec.read;
     print(read(Vec(7)));                            // output: 7
     print(callRef(bump));                           // output: 11
@@ -121,7 +121,7 @@ void main() {
     print(fact(5));                                 // output: 120
 
     // Generic inference from what the function returns.
-    print(map(new Mob(4), describe));               // output: deep mob
+    print(map(new Task(4), describe));               // output: deep task
     print(map(3, inc) + 1);                         // output: 5
 
     // Escaping: fields, returns, containers, and parameters.

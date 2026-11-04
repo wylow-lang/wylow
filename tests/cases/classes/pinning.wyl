@@ -3,80 +3,80 @@
 import std::{Weak, print};
 
 struct Stats {
-    int hp;
+    int total;
 }
 
 struct Gear {
-    Weapon spare;
+    Product spare;
 }
 
-class Player {
+class Customer {
     String name;
-    mut Weapon weapon;
+    mut Product product;
     mut Stats stats;
     mut Gear gear;
 
-    Player(String name) {
-        weapon = new Weapon("old");
-        gear = Gear(new Weapon("spare"));
+    Customer(String name) {
+        product = new Product("old");
+        gear = Gear(new Product("spare"));
         this.name = name;
-        weapon.owner = this;
+        product.owner = this;
         gear.spare.owner = this;
     }
 
-    ~Player() {
-        print("player destroyed");
+    ~Customer() {
+        print("customer destroyed");
     }
 }
 
-class Weapon {
+class Product {
     String name;
-    mut Weak<Player> owner;
+    mut Weak<Customer> owner;
 
-    Weapon(String name) {
+    Product(String name) {
         this.name = name;
 
     }
 
-    // Replaces the owner's weapon, which is `this`, while running on it.
+    // Replaces the owner's product, which is `this`, while running on it.
     void fire() {
-        if (owner.get() is Player p) {
-            p.weapon = new Weapon("new");
+        if (owner.get() is Customer p) {
+            p.product = new Product("new");
         }
         print(name);
     }
 
     // Replaces the owner's spare, which is `this`, through a reference to the struct holding it.
     void swap() {
-        if (owner.get() is Player p) {
+        if (owner.get() is Customer p) {
             restock(ref p.gear);
         }
         print(name);
     }
 
-    ~Weapon() {
-        print("weapon destroyed");
+    ~Product() {
+        print("product destroyed");
     }
 }
 
 class World {
-    mut Player player;
+    mut Customer customer;
 
-    World(Player player) {
-        this.player = player;
+    World(Customer customer) {
+        this.customer = customer;
     }
 }
 
 class Team {
-    Player leader;
+    Customer leader;
 
     // Its constructors can still replace a field that isn't 'mut', so `s` holds the first leader.
     Team() {
-        leader = new Player("x");
+        leader = new Customer("x");
         ref Stats s = leader.stats;
-        leader = new Player("y");
-        s.hp = 3;
-        print(s.hp);
+        leader = new Customer("y");
+        s.total = 3;
+        print(s.total);
     }
 
     // Elsewhere it is never replaced, so nothing holds it while `heal` runs.
@@ -87,58 +87,58 @@ class Team {
 }
 
 void restock(ref Gear gear) {
-    gear.spare = new Weapon("restocked");
+    gear.spare = new Product("restocked");
 }
 
-// Replaces the player that `s` points into.
+// Replaces the customer that `s` points into.
 void heal(ref Stats s, World world) {
-    world.player = new Player("b");
-    s.hp += 5;
-    print(s.hp);
+    world.customer = new Customer("b");
+    s.total += 5;
+    print(s.total);
 }
 
 void main() {
-    var player = new Player("a");
+    var customer = new Customer("a");
 
 
-    // The call holds the receiver: "old" prints before the old weapon is destroyed.
-    player.weapon.fire();
+    // The call holds the receiver: "old" prints before the old product is destroyed.
+    customer.product.fire();
     // output: old
-    // output: weapon destroyed
-    player.gear.spare.swap();
+    // output: product destroyed
+    customer.gear.spare.swap();
     // output: spare
-    // output: weapon destroyed
+    // output: product destroyed
 
     // The call holds the object that a 'ref' argument points into.
-    var world = new World(new Player("p"));
-    world.player.stats.hp = 10;
-    heal(ref world.player.stats, world);
+    var world = new World(new Customer("p"));
+    world.customer.stats.total = 10;
+    heal(ref world.customer.stats, world);
     // output: 15
-    // output: player destroyed
-    // output: weapon destroyed
-    // output: weapon destroyed
-    print(world.player.stats.hp);       // output: 0
+    // output: customer destroyed
+    // output: product destroyed
+    // output: product destroyed
+    print(world.customer.stats.total);       // output: 0
 
     {
         var team = new Team();
         // output: 3
-        // output: player destroyed
-        // output: weapon destroyed
-        // output: weapon destroyed
+        // output: customer destroyed
+        // output: product destroyed
+        // output: product destroyed
         team.rally(world);
-        // output: player destroyed
-        // output: weapon destroyed
-        // output: weapon destroyed
+        // output: customer destroyed
+        // output: product destroyed
+        // output: product destroyed
         // output: 5
         // output: y
     }
-    // output: player destroyed
-    // output: weapon destroyed
-    // output: weapon destroyed
+    // output: customer destroyed
+    // output: product destroyed
+    // output: product destroyed
 }
-// output: player destroyed
-// output: weapon destroyed
-// output: weapon destroyed
-// output: player destroyed
-// output: weapon destroyed
-// output: weapon destroyed
+// output: customer destroyed
+// output: product destroyed
+// output: product destroyed
+// output: customer destroyed
+// output: product destroyed
+// output: product destroyed

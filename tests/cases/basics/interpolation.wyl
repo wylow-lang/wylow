@@ -124,8 +124,8 @@ void main() {
     print(padded);                                                       // output:   42
 
     // A conditional must be parenthesized.
-    int hp = 30;
-    print($"hp is {(hp > 50 ? "high" : "low")}");                         // output: hp is low
+    int total = 30;
+    print($"total is {(total > 50 ? "high" : "low")}");                         // output: total is low
 
     // Parts are evaluated left to right, once each.
     var counter = new Counter();

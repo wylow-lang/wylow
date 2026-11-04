@@ -59,7 +59,7 @@ enum Item {
 
 enum Event {
     Moved(String who, Vec2 to),
-    Attacked(String who, String target, int damage),
+    Attacked(String who, String target, int amount),
     Died(String who),
     Looted(String who, Item item),
 }
@@ -71,16 +71,16 @@ interface Describable {
 abstract class Entity implements Describable {
     String name;
     mut Vec2 position;
-    mut int health;
+    mut int balance;
 
-    Entity(String name, Vec2 position, int health) {
+    Entity(String name, Vec2 position, int balance) {
         this.name = name;
         this.position = position;
-        this.health = health;
+        this.balance = balance;
     }
 
     bool alive() {
-        return health > 0;
+        return balance > 0;
     }
 
     abstract int attackPower();
@@ -94,11 +94,11 @@ abstract class Entity implements Describable {
     }
 }
 
-class Hero extends Entity {
+class Member extends Entity {
     mut int gold;
     Entity? target;
 
-    Hero(String name, Vec2 position) {
+    Member(String name, Vec2 position) {
         super(name, position, 30);
     }
 
@@ -109,14 +109,14 @@ class Hero extends Entity {
     void pickUp(Item item) {
         switch (item) {
             case Gold(var amount) -> gold += amount;
-            case Potion(var heal) -> health += heal;
+            case Potion(var heal) -> balance += heal;
             case Nothing -> { }
         }
     }
 }
 
-class Goblin extends Entity {
-    Goblin(String name, Vec2 position) {
+class Invoice extends Entity {
+    Invoice(String name, Vec2 position) {
         super(name, position, 10);
     }
 
@@ -129,10 +129,10 @@ class Goblin extends Entity {
     }
 }
 
-final class Troll extends Goblin {
+final class Troll extends Invoice {
     Troll(Vec2 position) {
         super("troll", position);
-        health = 25;
+        balance = 25;
     }
 
     override int attackPower() {
@@ -165,7 +165,7 @@ final class World {
     List<Entity> entities = new List<Entity>();
     mut EventLog log;
     mut Rng rng = Rng(state: 12345);
-    mut int damageDealt;
+    mut int amountDealt;
     mut int deaths;
     mut int goldFound;
     mut int potionsFound;
@@ -187,7 +187,7 @@ final class World {
         log.push(e);
         switch (e) {
             case Moved(_, _) -> { }
-            case Attacked(_, _, var damage) -> damageDealt += damage;
+            case Attacked(_, _, var amount) -> amountDealt += amount;
             case Died(_) -> deaths++;
             case Looted(_, Gold(var amount)) -> goldFound += amount;
             case Looted(_, Potion(_)) -> potionsFound++;
@@ -205,14 +205,14 @@ final class World {
             if (other == actor) {
                 return;
             }
-            other.health -= actor.attackPower();
+            other.balance -= actor.attackPower();
             record(Event.Attacked(actor.name, other.describe(), actor.attackPower()));
             if (!other.alive()) {
                 record(Event.Died(other.name));
                 var item = other.loot();
-                if (actor is Hero hero) {
-                    hero.pickUp(item);
-                    record(Event.Looted(hero.name, item));
+                if (actor is Member member) {
+                    member.pickUp(item);
+                    record(Event.Looted(member.name, item));
                 }
             }
         } else {
@@ -259,14 +259,14 @@ Result<int, String> parseDigit(int c) {
 
 void main() {
     var world = new World();
-    var hero = new Hero("hero", Vec2(0, 0));
-    world.entities.add(hero);
-    world.entities.add(new Goblin("goblin", Vec2(1, 0)));
-    world.entities.add(new Goblin("grunt", Vec2(0, 1)));
+    var member = new Member("member", Vec2(0, 0));
+    world.entities.add(member);
+    world.entities.add(new Invoice("invoice", Vec2(1, 0)));
+    world.entities.add(new Invoice("grunt", Vec2(0, 1)));
     world.entities.add(new Troll(Vec2(2, 2)));
 
     for (int turn : 0..60) {
-        if (!hero.alive() || world.living() == 1) {
+        if (!member.alive() || world.living() == 1) {
             break;
         }
         for (int i : 0..world.entities.count()) {
@@ -278,11 +278,11 @@ void main() {
         world.removeDead();
     }
 
-    print(hero.alive());                    // output: true
-    print(hero.gold);                     // output: 5
+    print(member.alive());                    // output: true
+    print(member.gold);                     // output: 5
     print(world.entities.count());          // output: 2
     print(world.log.written);             // output: 16
-    print(world.damageDealt);             // output: 50
+    print(world.amountDealt);             // output: 50
     print(world.deaths);                  // output: 2
     print(world.goldFound);               // output: 5
     print(world.potionsFound);            // output: 0
@@ -290,11 +290,11 @@ void main() {
     int[5] scores = [3, 1, 4, 1, 5];
     print(sum(scores));                   // output: 14
 
-    var healths = new int[world.entities.count()];
+    var balances = new int[world.entities.count()];
     for (int i, Entity e : world.entities) {
-        healths[i] = e.health;
+        balances[i] = e.balance;
     }
-    print(sum(healths));                  // output: 31
+    print(sum(balances));                  // output: 31
 
     print(parseDigit(55).orElse(-1));     // output: 7
     print(parseDigit(65) is Err);        // output: true

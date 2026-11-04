@@ -33,10 +33,10 @@ interface Identified {
     mut int key();
 }
 
-class Enemy implements Identified {
+class Account implements Identified {
     int id;
 
-    Enemy(int id) {
+    Account(int id) {
         this.id = id;
     }
 
@@ -44,7 +44,7 @@ class Enemy implements Identified {
         return id;
     }
 
-    ~Enemy() {
+    ~Account() {
         print(id);
     }
 }
@@ -69,7 +69,7 @@ void describe(Weak<Identified> weak) {
     }
 }
 
-Weak<Enemy> pick(Enemy e) {
+Weak<Account> pick(Account e) {
     return e;
 }
 
@@ -105,7 +105,7 @@ void main() {
     // output: child destroyed
 
     // Locals, parameters, return values, and copies, converting from a class to an interface.
-    mut var a = new Enemy(1);
+    mut var a = new Account(1);
     mut Weak<Identified> w = a;
     Weak<Identified> copy = w;
     Weak<Identified> none = null;
@@ -115,7 +115,7 @@ void main() {
     w = null;
     describe(w);                // output: gone
     describe(copy);             // output: 1
-    a = new Enemy(2);           // output: 1
+    a = new Account(2);           // output: 1
     describe(copy);             // output: gone
 
     // In a struct.
@@ -135,17 +135,17 @@ void main() {
     }
 
     // In a list, across growth.
-    var enemies = new List<Enemy>();
-    var watched = new List<Weak<Enemy>>();
+    var accounts = new List<Account>();
+    var watched = new List<Weak<Account>>();
     for (int i : 0..10) {
-        var e = new Enemy(10 + i);
-        enemies.add(e);
+        var e = new Account(10 + i);
+        accounts.add(e);
         watched.add(e);
     }
-    enemies.removeAt(3);        // output: 13
+    accounts.removeAt(3);        // output: 13
     mut int alive = 0;
-    for (Weak<Enemy> weak : watched) {
-        if (weak.get() is Enemy e) {
+    for (Weak<Account> weak : watched) {
+        if (weak.get() is Account e) {
             alive++;
         }
     }

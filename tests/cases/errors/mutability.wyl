@@ -16,7 +16,7 @@ struct Vec {
 
 class Body {
     Vec position;
-    mut Vec velocity;
+    mut Vec rate;
     int id;
 
     Body(int id) {
@@ -31,7 +31,7 @@ class Body {
     }
 
     void move() {
-        velocity.x = 1;
+        rate.x = 1;
         position.x = 1;                     // error[WYL0351]: cannot assign to 'position.x'
         position.grow();                    // error[WYL0105]: cannot call 'mut' method 'grow' on 'position'
         id = 4;                             // error[WYL0351]: cannot assign to 'id'

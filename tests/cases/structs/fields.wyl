@@ -6,12 +6,12 @@ int next(String label, int value) {
 }
 
 struct Stats {
-    int health = 100;
-    int armor;
+    int balance = 100;
+    int margin;
     float speed = 2.5f;
 }
 
-struct Enemy {
+struct Account {
     Stats stats;
     int id = next("id initializer", 7);
     bool alive = true;
@@ -19,33 +19,33 @@ struct Enemy {
 
 void main() {
     var s = Stats();
-    print(s.health);       // output: 100
-    print(s.armor);        // output: 0
+    print(s.balance);       // output: 100
+    print(s.margin);        // output: 0
     print(s.speed);        // output: 2.5
 
-    mut var e = Enemy(alive: false);
+    mut var e = Account(alive: false);
     // output: id initializer
-    print(e.stats.health); // output: 100
+    print(e.stats.balance); // output: 100
     print(e.id);           // output: 7
     print(e.alive);        // output: false
 
-    e.stats.armor = 5;
-    e.stats.health -= 30;
-    print(e.stats.armor);  // output: 5
-    print(e.stats.health); // output: 70
+    e.stats.margin = 5;
+    e.stats.balance -= 30;
+    print(e.stats.margin);  // output: 5
+    print(e.stats.balance); // output: 70
 
-    var ordered = Enemy(id: next("first", 1), alive: next("second", 2) > 1);
+    var ordered = Account(id: next("first", 1), alive: next("second", 2) > 1);
     // output: first
     // output: second
     print(ordered.id);     // output: 1
 
     // A local declared without a value has none until assigned, so no initializer runs for it.
-    Enemy later;
-    later = Enemy(id: 3);
+    Account later;
+    later = Account(id: 3);
     print(later.id);       // output: 3
 
     // A fixed array holds its elements' defaults from the start.
-    Enemy[2] pair;
+    Account[2] pair;
     // output: id initializer
     // output: id initializer
     print(pair[1].id);     // output: 7

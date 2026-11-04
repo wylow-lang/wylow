@@ -3,16 +3,16 @@
 
 import std::print;
 
-class Enemy {
-    int hp;
+class Account {
+    int total;
 
-    Enemy(int hp) {
-        this.hp = hp;
+    Account(int total) {
+        this.total = total;
     }
 }
 
-class Boss extends Enemy {
-    Boss() {
+class Manager extends Account {
+    Manager() {
         super(9);
     }
 }
@@ -23,18 +23,18 @@ struct Vec3 {
     int z;
 }
 
-enum State { Idle, Chasing(Enemy target), Moved(Vec3? to) }
+enum State { Idle, Chasing(Account target), Moved(Vec3? to) }
 
 struct Ship {
     Vec3? pos;
     State? state;
 }
 
-Enemy? find(int i) {
+Account? find(int i) {
     if (i == 0) {
         return null;
     }
-    return i == 1 ? new Enemy(3) : new Boss();
+    return i == 1 ? new Account(3) : new Manager();
 }
 
 int? number(int i) {
@@ -56,9 +56,9 @@ void main() {
     for (int i : 0..3) {
         // On an object, after the cases that test it.
         switch (find(i)) {
-            case Boss b -> print($"boss {b.hp}");
-            case null -> print("no enemy");
-            case var e -> print($"enemy {e.hp}");
+            case Manager b -> print($"manager {b.total}");
+            case null -> print("no account");
+            case var e -> print($"account {e.total}");
         }
         // On a value, first, with a constant and 'default'.
         switch (number(i)) {
@@ -78,15 +78,15 @@ void main() {
             case null -> print("nowhere");
         }
     }
-    // output: no enemy
+    // output: no account
     // output: no number
     // output: not two
     // output: nowhere
-    // output: enemy 3
+    // output: account 3
     // output: one
     // output: not two
     // output: y 10
-    // output: boss 9
+    // output: manager 9
     // output: more
     // output: two
     // output: z 200
@@ -99,9 +99,9 @@ void main() {
     }
 
     // A case's test narrows the local, as in an 'if'.
-    Enemy? target = find(1);
+    Account? target = find(1);
     switch (target) {
-        case Enemy e -> print(target.hp);               // output: 3
+        case Account e -> print(target.total);               // output: 3
         case null -> print("none");
     }
 
@@ -113,12 +113,12 @@ void main() {
     }
     switch (ship.state) {
         case Idle, null -> print("idle or none");       // output: idle or none
-        case Chasing(var t) -> print(t.hp);
+        case Chasing(var t) -> print(t.total);
         case Moved(_) -> print("moved");
     }
 
     // 'null' nested in a pattern matches a nullable field.
-    State[3] states = [State.Moved(null), State.Moved(Vec3(7, 8, 9)), State.Chasing(new Enemy(1))];
+    State[3] states = [State.Moved(null), State.Moved(Vec3(7, 8, 9)), State.Chasing(new Account(1))];
     for (State s : states) {
         switch (s) {
             case Moved(null) -> print("moved nowhere");
@@ -148,5 +148,5 @@ void main() {
 
     // A generic value's null.
     print(describe<int>(null));                         // output: nothing
-    print(describe<Enemy>(new Enemy(2)));               // output: something
+    print(describe<Account>(new Account(2)));               // output: something
 }

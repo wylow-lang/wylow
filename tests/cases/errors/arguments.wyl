@@ -13,19 +13,19 @@ struct Tag {
     Tag(int value = 1) { id = value; }   // error[WYL0212]: struct constructor cannot give every parameter a default value
 }
 
-class Player {
+class Customer {
     String name;
-    Player(String name) { this.name = name; }
+    Customer(String name) { this.name = name; }
 }
 
-struct Hit {
-    Player target;
-    int damage = 10;
+struct Event {
+    Customer target;
+    int amount = 10;
 }
 
 int compute() { return 1; }
 
-String spawn(Vec3 pos, int count = 1, float spread = 0.5f) { return "spawned"; }
+String create(Vec3 pos, int count = 1, float spread = 0.5f) { return "spawned"; }
 
 void notConstant(int x = compute()) {}                 // error[WYL0216]: default value must be a constant or a struct constructor call
 void otherParameter(int x, int y = x) {}               // error[WYL0216]: default value must be a constant or a struct constructor call
@@ -52,17 +52,17 @@ class Dog extends Animal {
 
 void main() {
     var pos = Vec3(0, 1, 0);
-    spawn(pos, sprd: 2.0f);                      // error[WYL0227]: cannot find parameter 'sprd' in 'spawn'
-    spawn(pos, spread: 2.0f, count: 3);          // error[WYL0230]: argument 'count' must come before 'spread'
-    spawn(pos, 2, count: 3);                    // error[WYL0229]: parameter 'count' is given more than one argument
-    spawn(count: 3, pos);                       // error[WYL0226]: positional argument cannot follow a named argument
-    spawn();                                    // error[WYL0231]: call to 'spawn' has no argument for parameter 'pos'
-    spawn(pos, 1, 0.5f, 4);                      // error[WYL0228]: argument count of 'spawn': expected 3, found 4
-    spawn(pos, count: "many");                  // error[WYL0236]: no overload of 'spawn' accepts (Vec3, count: String)
+    create(pos, sprd: 2.0f);                      // error[WYL0227]: cannot find parameter 'sprd' in 'create'
+    create(pos, spread: 2.0f, count: 3);          // error[WYL0230]: argument 'count' must come before 'spread'
+    create(pos, 2, count: 3);                    // error[WYL0229]: parameter 'count' is given more than one argument
+    create(count: 3, pos);                       // error[WYL0226]: positional argument cannot follow a named argument
+    create();                                    // error[WYL0231]: call to 'create' has no argument for parameter 'pos'
+    create(pos, 1, 0.5f, 4);                      // error[WYL0228]: argument count of 'create': expected 3, found 4
+    create(pos, count: "many");                  // error[WYL0236]: no overload of 'create' accepts (Vec3, count: String)
     amb(1);                                     // error[WYL0237]: call to 'amb' is ambiguous
     short narrow = 1;
     pair(narrow, narrow);                       // error[WYL0237]: call to 'pair' is ambiguous
-    Hit(damage: 3);                             // error[WYL0100]: 'Hit' needs a value for field 'target'
+    Event(amount: 3);                             // error[WYL0100]: 'Event' needs a value for field 'target'
     Vec3(z: 1, x: 2);                           // error[WYL0230]: argument 'x' must come before 'z'
     fn(int) -> void callback = (int x) -> {};
     callback(x: 1);                             // error[WYL0259]: arguments to 'callback' cannot be named

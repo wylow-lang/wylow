@@ -1,6 +1,6 @@
 import std::print;
 
-import Player {               // error[WYL0001]: expected ';'
+import Customer {               // error[WYL0001]: expected ';'
 }
 
 int counter = 0;                // error[WYL0093]: variables cannot be declared at the top level

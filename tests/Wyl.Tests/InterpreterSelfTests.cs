@@ -667,7 +667,7 @@ static class InterpreterSelfTests
 
             class Particle {
                 Vec3 position;
-                mut Vec3 velocity;
+                mut Vec3 rate;
 
                 Particle(Vec3 position) {
                     this.position = position;
@@ -676,9 +676,9 @@ static class InterpreterSelfTests
 
             void main() {
                 var p = new Particle(Vec3(1, 2, 3));
-                p.velocity = Vec3(0.5f, 0, 0);
+                p.rate = Vec3(0.5f, 0, 0);
                 print(p.position.y);
-                print(p.velocity.x);
+                print(p.rate.x);
                 mut var copy = p.position;
                 copy.y = 7;
                 print(p.position.y);

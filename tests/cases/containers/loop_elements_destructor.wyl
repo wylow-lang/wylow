@@ -4,35 +4,35 @@
 
 import std::{List, print};
 
-class Enemy {
+class Account {
     String name;
 
-    Enemy(String name) {
+    Account(String name) {
         this.name = name;
     }
 
-    ~Enemy() {
+    ~Account() {
         print(name);
     }
 }
 
 class Owner {
-    List<Enemy> list;
+    List<Account> list;
 
-    Owner(List<Enemy> list) {
+    Owner(List<Account> list) {
         this.list = list;
     }
 
     ~Owner() {
-        list[0] = new Enemy("y");
+        list[0] = new Account("y");
     }
 }
 
 void main() {
-    var list = new List<Enemy>();
-    list.add(new Enemy("a"));
-    list.add(new Enemy("b"));
-    for (Enemy e : list) {
+    var list = new List<Account>();
+    list.add(new Account("a"));
+    list.add(new Account("b"));
+    for (Account e : list) {
         mut Owner? owner = new Owner(list);
         owner = null;
         print(e.name);
@@ -43,15 +43,15 @@ void main() {
     // output: b
 
     // Releases nothing.
-    for (Enemy e : list) { // in-place: 1
+    for (Account e : list) { // in-place: 1
         print(e.name);
     }
     // output: y
     // output: b
 
-    // Releases an Enemy, whose destructor stores nothing.
-    for (Enemy e : list) { // in-place: 1
-        var other = new Enemy("c");
+    // Releases an Account, whose destructor stores nothing.
+    for (Account e : list) { // in-place: 1
+        var other = new Account("c");
         print(e.name);
     }
     // output: y
@@ -60,7 +60,7 @@ void main() {
     // output: c
 
     // Releases a list that may hold an Owner.
-    for (Enemy e : list) {
+    for (Account e : list) {
         var owners = new List<Owner>();
         print(e.name);
     }

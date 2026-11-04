@@ -1,7 +1,7 @@
 // A 'case null' on a local the flow analysis knows isn't null could never match.
 import std::print;
 
-class Enemy { }
+class Account { }
 
 int? number() {
     return null;
@@ -13,7 +13,7 @@ void use(int? given, ref int? alias) {
         case null -> print(0);                  // error[WYL0396]: 'case null' can never match
         default -> print(1);
     }
-    Enemy? e = number() == null ? new Enemy() : null;
+    Account? e = number() == null ? new Account() : null;
     if (e != null) {
         switch (e) {
             case null, default -> print(0);     // error[WYL0396]: 'case null' can never match

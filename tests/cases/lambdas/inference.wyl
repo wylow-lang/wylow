@@ -22,9 +22,9 @@ U? whenPositive<U>(int x, fn(int) -> U? f) {
     return x > 0 ? f(x) : null;
 }
 
-struct Mob {
+struct Task {
     String name;
-    int health;
+    int balance;
 }
 
 class Bag<T> {
@@ -48,15 +48,15 @@ class Bag<T> {
     }
 }
 
-Result<Mob, String> find(bool ok) {
+Result<Task, String> find(bool ok) {
     if (ok) {
-        return Result.Ok(Mob("orc", 5));
+        return Result.Ok(Task("orc", 5));
     }
     return Result.Err("missing");
 }
 
 void main() {
-    Mob orc = Mob("orc", 5);
+    Task orc = Task("orc", 5);
     print(apply(orc, m -> m.name));                     // output: orc
     print(apply(3, x -> x * 2L));                       // output: 6
     print(apply(3, (int x) -> x > 2));                  // output: true
@@ -66,7 +66,7 @@ void main() {
     // Lambdas that disagree take a type both convert to.
     print(pick(false, () -> 1, () -> 2L));              // output: 2
     print(run(() -> {
-        if (orc.health > 3) {
+        if (orc.balance > 3) {
             return 1;
         }
         return 2.5d;
@@ -74,7 +74,7 @@ void main() {
 
     // Each lambda's parameters come from the lambdas before it.
     print(compose(2, x -> x + 0.5d, y -> y * 2d));      // output: 5.0
-    print(compose(orc, m -> m.health, h -> h > 3));     // output: true
+    print(compose(orc, m -> m.balance, h -> h > 3));     // output: true
 
     mut int calls = 0;
     print(run(() -> {
@@ -86,17 +86,17 @@ void main() {
     int? half = whenPositive(4, x -> x / 2);
     print(half ?? -1);                                  // output: 2
 
-    Bag<Mob> bag = new Bag<Mob>();
+    Bag<Task> bag = new Bag<Task>();
     bag.add(orc);
-    bag.add(Mob("elf", 9));
-    List<int> healths = bag.map(m -> m.health);
-    print(healths[1]);                                  // output: 9
+    bag.add(Task("elf", 9));
+    List<int> balances = bag.map(m -> m.balance);
+    print(balances[1]);                                  // output: 9
     print(bag.names()[0]);                              // output: item
 
     Result<String, String> name = find(true).map(m -> m.name);
     print(name.orElse("?"));                            // output: orc
-    print(find(false).map(m -> m.health).orElse(-1));   // output: -1
+    print(find(false).map(m -> m.balance).orElse(-1));   // output: -1
     print(find(false).mapErr(e -> 404) is Err);        // output: true
-    var total = find(true).map(m -> find(false).map(n -> n.health + m.health).orElse(m.health * 10));
+    var total = find(true).map(m -> find(false).map(n -> n.balance + m.balance).orElse(m.balance * 10));
     print(total.orElse(0));                             // output: 50
 }

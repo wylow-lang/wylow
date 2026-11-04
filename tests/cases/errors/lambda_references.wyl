@@ -3,7 +3,7 @@
 
 import std::print;
 
-class Mob {
+class Task {
     int score(int x) {
         return x;
     }
@@ -30,8 +30,8 @@ int add(int a) {
     return a;
 }
 
-String name(Mob m) {
-    return "mob";
+String name(Task m) {
+    return "task";
 }
 
 int apply(fn(int) -> int f, int value) {
@@ -56,7 +56,7 @@ int pair(long a, fn(int) -> int f) {
 
 void main() {
     var f = inc;                                    // error[WYL0280]: function 'inc' is used as a value
-    var r = Mob.rank;                               // error[WYL0280]: method 'Mob.rank' is used as a value
+    var r = Task.rank;                               // error[WYL0280]: method 'Task.rank' is used as a value
     int n = inc;                                    // error[WYL0280]: function 'inc' is used as a value
     print(applyInt(name, 1));                       // error[WYL0236]: no overload of 'name' accepts (int)
     fn(int, int) -> int two = inc;                    // error[WYL0233]: no overload of 'inc' takes 2 arguments

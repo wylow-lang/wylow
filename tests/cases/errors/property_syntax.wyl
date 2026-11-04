@@ -1,7 +1,7 @@
-class Player {
-    int health;
+class Customer {
+    int balance;
 
-    bool isDead { get -> health <= 0; }     // error[WYL0108]: 'isDead' cannot have a property body
+    bool isDead { get -> balance <= 0; }     // error[WYL0108]: 'isDead' cannot have a property body
     int score { get { return 1; } set { } } // error[WYL0108]: 'score' cannot have a property body
 }
 

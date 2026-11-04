@@ -42,13 +42,13 @@ class Square extends Shape implements Visitor {
 }
 
 // Implements Visitor.visit only through Floor, which overrides it in C++ by forwarding here.
-class Tile {
+class Cell {
     void visit(fn(int) -> void action) {
         action(7);
     }
 }
 
-class Floor extends Tile implements Visitor {
+class Floor extends Cell implements Visitor {
 }
 
 // A struct implements an interface only as a generic bound, so its method can be a template.

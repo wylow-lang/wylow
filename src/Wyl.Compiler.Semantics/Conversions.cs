@@ -67,7 +67,7 @@ public static class Conversions
 
     static IEnumerable<WylType> DirectSupertypes(WylType type)
     {
-        // `Player?` is no subtype of an interface: a bound method could not be called on null.
+        // `Customer?` is no subtype of an interface: a bound method could not be called on null.
         if (type.IsNullable)
             return [];
         if (type is TypeParameterType parameter)

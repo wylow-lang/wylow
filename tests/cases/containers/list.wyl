@@ -1,20 +1,20 @@
 import std::{List, print};
 
-class Enemy {
+class Account {
     String name;
 
-    Enemy(String name) {
+    Account(String name) {
         this.name = name;
     }
 
-    ~Enemy() {
+    ~Account() {
         print(name);
     }
 }
 
-struct Bullet {
+struct Packet {
     float x;
-    bool hit;
+    bool apply;
 
     mut void move(float dx) {
         x += dx;
@@ -29,11 +29,11 @@ int total(ReadOnlySpan<int> values) {
     return sum;
 }
 
-void enemies() {
-    var list = new List<Enemy>();
-    list.add(new Enemy("a"));
-    list.add(new Enemy("b"));
-    list.add(new Enemy("c"));
+void accounts() {
+    var list = new List<Account>();
+    list.add(new Account("a"));
+    list.add(new Account("b"));
+    list.add(new Account("c"));
     var removed = list.removeAt(1);
     print(removed.name);
     list.trim();
@@ -99,7 +99,7 @@ void main() {
     numbers.add(6);
     print(numbers[5]);          // output: 6
 
-    enemies();
+    accounts();
     // output: b
     // output: 2
     // output: c
@@ -107,13 +107,13 @@ void main() {
     // output: 0
     // output: b
 
-    var bullets = new List<Bullet>();
-    bullets.add(Bullet(x: 1));
-    bullets[0].x += 2;
-    print(bullets[0].x);        // output: 3.0
-    ref Bullet first = bullets[0];
-    first.hit = true;
-    print(bullets[0].hit);      // output: true
+    var packets = new List<Packet>();
+    packets.add(Packet(x: 1));
+    packets[0].x += 2;
+    print(packets[0].x);        // output: 3.0
+    ref Packet first = packets[0];
+    first.apply = true;
+    print(packets[0].apply);      // output: true
 
     // A list of lists: the inner list is pinned while it is used.
     var grid = new List<List<int>>();
@@ -142,20 +142,20 @@ void main() {
         scores.add(20);         // the failed test doesn't borrow the list
     }
     print(scores.count());      // output: 2
-    ref? Bullet hit = bullets.get(0);
-    if (hit != null) {
-        hit.x = 9;
+    ref? Packet apply = packets.get(0);
+    if (apply != null) {
+        apply.x = 9;
     }
-    print(bullets[0].x);        // output: 9.0
-    print(bullets.get(-1) == null); // output: true
+    print(packets[0].x);        // output: 9.0
+    print(packets.get(-1) == null); // output: true
 
     // `?.` on a reference reaches the element itself, so a method changes it in place.
-    bullets.get(0)?.move(1);
-    bullets.get(5)?.move(1);
-    print(bullets[0].x);        // output: 10.0
-    print(bullets.get(0)?.x);   // output: 10.0
-    print(bullets.get(5)?.x);   // output: null
-    ref? Bullet maybe2 = bullets.get(0);
+    packets.get(0)?.move(1);
+    packets.get(5)?.move(1);
+    print(packets[0].x);        // output: 10.0
+    print(packets.get(0)?.x);   // output: 10.0
+    print(packets.get(5)?.x);   // output: null
+    ref? Packet maybe2 = packets.get(0);
     maybe2?.move(2);
-    print(bullets[0].x);        // output: 12.0
+    print(packets[0].x);        // output: 12.0
 }

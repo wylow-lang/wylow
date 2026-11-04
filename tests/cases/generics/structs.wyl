@@ -33,7 +33,7 @@ struct Box<T> {
 }
 
 struct Stats {
-    int health = 100;
+    int balance = 100;
 }
 
 struct Holder {
@@ -64,7 +64,7 @@ void main() {
     print(b.convert(true));      // output: true
 
     var h = Holder();
-    print(h.pair.second.health); // output: 100
+    print(h.pair.second.balance); // output: 100
     print(h.pair.first);         // output: 0
 
     var d = Pair<int, int>();

@@ -317,7 +317,7 @@ already lowered by the binder to a span local and a counting loop, so it needs n
 
 ```
 {
-  let %h = hold.borrow enemies
+  let %h = hold.borrow accounts
   let span = call List.asReadOnlySpan(borrow %h)     // rooted at %h
   let i = 0
   loop L {

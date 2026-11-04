@@ -5,15 +5,15 @@
 
 import std::{List, print};
 
-class Enemy {
-    int hp;
+class Account {
+    int total;
 
-    Enemy(int hp) {
-        this.hp = hp;
+    Account(int total) {
+        this.total = total;
     }
 
-    ~Enemy() {
-        print(-hp);
+    ~Account() {
+        print(-total);
     }
 }
 
@@ -37,21 +37,21 @@ void tick(fn() -> void f) {
 }
 
 // Making a lambda doesn't run it: only a call of a function value of its type can.
-Hooks replacer(List<Enemy> list) {
+Hooks replacer(List<Account> list) {
     return new Hooks(() -> {
-        list[0] = new Enemy(60);
+        list[0] = new Account(60);
     });
 }
 
 void main() {
-    var enemies = new List<Enemy>();
-    enemies.add(new Enemy(1));
-    enemies.add(new Enemy(2));
+    var accounts = new List<Account>();
+    accounts.add(new Account(1));
+    accounts.add(new Account(2));
 
-    var store = storer(enemies, new Enemy(7));
-    for (Enemy e : enemies) {
+    var store = storer(accounts, new Account(7));
+    for (Account e : accounts) {
         store(e);
-        print(e.hp);
+        print(e.total);
     }
     // output: 1
     // output: -1
@@ -59,20 +59,20 @@ void main() {
 
     // An escaping lambda runs through a non-escaping parameter.
     var hooks = new Hooks(() -> {
-        enemies[1] = new Enemy(50);
+        accounts[1] = new Account(50);
     });
-    for (Enemy e : enemies) {
+    for (Account e : accounts) {
         tick(hooks.onTick);
-        print(e.hp);
+        print(e.total);
     }
     // output: -2
     // output: 7
     // output: 50
     // output: -50
 
-    for (Enemy e : enemies) { // in-place: 1
-        var unused = replacer(enemies);
-        print(e.hp);
+    for (Account e : accounts) { // in-place: 1
+        var unused = replacer(accounts);
+        print(e.total);
     }
     // output: 7
     // output: 50

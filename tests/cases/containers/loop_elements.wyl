@@ -3,11 +3,11 @@
 
 import std::{List, print};
 
-class Enemy {
+class Account {
     String name;
-    mut Enemy? target;
+    mut Account? target;
 
-    Enemy(String name) {
+    Account(String name) {
         this.name = name;
     }
 
@@ -15,28 +15,28 @@ class Enemy {
         return name;
     }
 
-    void aim(Enemy other) {
+    void aim(Account other) {
         target = other;
     }
 
-    ~Enemy() {
+    ~Account() {
         print(name);
     }
 }
 
 class Visitor {
-    virtual void visit(List<Enemy> list) {
+    virtual void visit(List<Account> list) {
     }
 }
 
 class Replacer extends Visitor {
-    override void visit(List<Enemy> list) {
-        list[0] = new Enemy("x");
+    override void visit(List<Account> list) {
+        list[0] = new Account("x");
     }
 }
 
-void replaceFirst(List<Enemy> list) {
-    list[0] = new Enemy("new");
+void replaceFirst(List<Account> list) {
+    list[0] = new Account("new");
 }
 
 void setFirst<T>(List<T> list, T value) {
@@ -44,12 +44,12 @@ void setFirst<T>(List<T> list, T value) {
 }
 
 void main() {
-    var list = new List<Enemy>();
-    list.add(new Enemy("a"));
-    list.add(new Enemy("b"));
+    var list = new List<Account>();
+    list.add(new Account("a"));
+    list.add(new Account("b"));
 
     // Getters and setters of fields never store over an element.
-    for (Enemy e : list) { // in-place: 1
+    for (Account e : list) { // in-place: 1
         e.aim(e);
         print(e.label());
         e.target = null;
@@ -57,7 +57,7 @@ void main() {
     // output: a
     // output: b
 
-    for (Enemy e : list) {
+    for (Account e : list) {
         replaceFirst(list);
         print(e.name);
     }
@@ -67,7 +67,7 @@ void main() {
     // output: b
 
     Visitor visitor = new Replacer();
-    for (Enemy e : list) {
+    for (Account e : list) {
         visitor.visit(list);
         print(e.name);
     }
@@ -76,8 +76,8 @@ void main() {
     // output: x
     // output: b
 
-    for (Enemy e : list) {
-        setFirst(list, new Enemy("g"));
+    for (Account e : list) {
+        setFirst(list, new Account("g"));
         print(e.name);
     }
     // output: x
@@ -85,8 +85,8 @@ void main() {
     // output: g
     // output: b
 
-    mut Enemy[2] pair = [new Enemy("p"), new Enemy("q")];
-    for (Enemy e : pair) {
+    mut Account[2] pair = [new Account("p"), new Account("q")];
+    for (Account e : pair) {
         pair[0] = e;
         print(e.name);
     }
@@ -95,8 +95,8 @@ void main() {
     // output: q
 
     // Reassigning the loop variable makes it hold its own reference.
-    var other = new Enemy("o");
-    for (mut Enemy e : list) {
+    var other = new Account("o");
+    for (mut Account e : list) {
         e = other;
         print(e.name);
     }

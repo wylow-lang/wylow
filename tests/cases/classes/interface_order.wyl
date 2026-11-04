@@ -2,25 +2,25 @@
 
 import std::print;
 
-class Crate implements Damageable {
-    mut int hp = 3;
+class Crate implements Adjustable {
+    mut int total = 3;
 
-    void damage(int amount) {
-        hp -= amount;
+    void amount(int amount) {
+        total -= amount;
     }
 
-    int health() {
-        return hp;
+    int balance() {
+        return total;
     }
 }
 
-interface Damageable {
-    mut void damage(int amount);
-    mut int health();
+interface Adjustable {
+    mut void amount(int amount);
+    mut int balance();
 }
 
 void main() {
     var c = new Crate();
-    c.damage(1);
-    print(c.health());        // output: 2
+    c.amount(1);
+    print(c.balance());        // output: 2
 }

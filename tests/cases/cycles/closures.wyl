@@ -2,25 +2,25 @@
 
 import std::{List, memory, print};
 
-class Enemy {
+class Account {
     int id;
-    mut fn() -> void onHit = () -> print(0);
+    mut fn() -> void onEvent = () -> print(0);
 
-    Enemy(int id) {
+    Account(int id) {
         this.id = id;
     }
 
     void arm() {
-        onHit = () -> react(this);
+        onEvent = () -> react(this);
     }
 
-    ~Enemy() {
+    ~Account() {
         print(id);
     }
 }
 
-void react(Enemy enemy) {
-    print(enemy.id * 10);
+void react(Account account) {
+    print(account.id * 10);
 }
 
 class Bus {
@@ -59,9 +59,9 @@ class Box {
 void main() {
     // A closure capturing `this`, stored in a field of the same object.
     if (true) {
-        var enemy = new Enemy(1);
-        enemy.arm();
-        enemy.onHit();                              // output: 10
+        var account = new Account(1);
+        account.arm();
+        account.onEvent();                              // output: 10
     }
     print(-9);                                      // output: -9
     memory::collectCycles();                         // output: 1
@@ -90,11 +90,11 @@ void main() {
     memory::collectCycles();                         // output: -2
 
     // Breaking the cycle by hand frees it without the collector.
-    mut var enemy = new Enemy(4);
-    enemy.arm();
-    enemy.onHit = () -> print(5);
+    mut var account = new Account(4);
+    account.arm();
+    account.onEvent = () -> print(5);
     print(-9);                                      // output: -9
-    enemy = new Enemy(6);                           // output: 4
+    account = new Account(6);                           // output: 4
 
     _ = memory::cycleStats();
     memory::collectCycles();

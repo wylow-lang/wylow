@@ -59,7 +59,7 @@ int total(in int[3] cells) {
 }
 
 class Body {
-    mut Vec? velocity;
+    mut Vec? rate;
     mut Holder? held;
 }
 
@@ -91,9 +91,9 @@ void main() {
 
     // Fields of nullable type default to null.
     mut var body = new Body();
-    print(body.velocity == null);           // output: true
-    body.velocity = Vec(1, 1);
-    print(body.velocity?.sum());            // output: 2
+    print(body.rate == null);           // output: true
+    body.rate = Vec(1, 1);
+    print(body.rate?.sum());            // output: 2
 
     // Assigning null destroys the value inside, releasing what it holds.
     mut Holder? holder = Holder(new Token("first"), null);

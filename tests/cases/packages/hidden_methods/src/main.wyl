@@ -11,9 +11,9 @@ class Square extends Shape {
     }
 }
 
-class Tile extends Square {
+class Cell extends Square {
     override String describe() {
-        return "a tile";
+        return "a cell";
     }
 }
 
@@ -21,9 +21,9 @@ void main() {
     var square = new Square();
     print(square.describe());           // output: a square
     print(show(square));                // output: a shape
-    Square tile = new Tile();
-    print(tile.describe());             // output: a tile
-    print(show(tile));                  // output: a shape
+    Square cell = new Cell();
+    print(cell.describe());             // output: a cell
+    print(show(cell));                  // output: a shape
     var circle = new Circle();
     print(circle.secretOf());           // output: a circle's secret
     print(reveal(circle));              // output: a shape's secret

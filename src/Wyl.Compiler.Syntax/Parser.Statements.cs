@@ -283,7 +283,7 @@ public sealed partial class Parser
         return location;
     }
 
-    /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Enemy e : enemies)</c>.</summary>
+    /// <summary>Whether the header starts with a variable followed by ':' or ',', as in <c>for (ref Account e : accounts)</c>.</summary>
     bool IsForEachHeader()
     {
         int index = position;
