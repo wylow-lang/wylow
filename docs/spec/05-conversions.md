@@ -249,7 +249,8 @@ Node strong = parent;           // error[WYL0079]
 A cast `(T) e` converts the value of `e` to `T`. Its form is given in
 [Casts](13-expressions.md#expressions.casts). A cast is valid between any two numeric types, between
 integers and `char`, between integers and enums without data, and wherever an implicit conversion
-exists.
+exists. In unsafe code, a cast also converts a pointer to another pointer type
+([Pointers](20-unsafe.md#unsafe.pointers)).
 
 - It is a compile-time error if a cast is applied between any other types, such as `bool` and an
   integer, `char` and a floating-point type, or `String` and a number.

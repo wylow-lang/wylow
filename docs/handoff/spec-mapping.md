@@ -41,7 +41,8 @@ home is written.
 |---|---|---|
 | Chapter 1 | decision 0002, old `01-safety.md` §1.1 | Complete |
 | `errors.panics` | old `01-safety.md` §1.3 | Rewritten; check against tests |
-| `unsafe.blocks`, `unsafe.aliasing`, `unsafe.unchecked`, `unsafe.threads`, `unsafe.undefined` | old `01-safety.md` §1.4, `05-concurrency.md` §5.8 | Rewritten; `unsafe.pointers` still empty (pointer defaults, `==`, `p[i]`, `p + n`, address-of, casts, `bitcast`) |
+| `unsafe.blocks`, `unsafe.aliasing`, `unsafe.unchecked`, `unsafe.threads`, `unsafe.undefined` | old `01-safety.md` §1.4, `05-concurrency.md` §5.8 | Complete |
+| `unsafe.pointers` | old `01-safety.md` §1.4 (the pointer operations) | Complete; address-of, pointer casts, and `bitcast` are specified but the compiler has none of them (#6) |
 | `annotations.allow-large-stack` | old `01-safety.md` §1.5 | Rewritten; the threshold and flag belong to the warning's diagnostics page |
 | `library.names` | old README, "Standard library" | Complete; `@Pure` externs are an implementation detail (`runtime.md`) |
 | Chapter 2 | old `02-types.md` §2.2, `06-syntax.md` §6.11, `07-interop.md` §7.5 (naming exemption); tokens, comments, identifiers, keywords, and operators from the lexer | Complete, with the pages of its codes |
@@ -60,6 +61,7 @@ home is written.
 | Chapter 17 | old `03-memory-model.md` (all of it); `02-types.md` §2.5 (references into nullable values, `ref T?` and `ref? T`), §2.9 ("Unique structs", "Destructors of unique structs"), "Values in use"; `06-syntax.md` §6.7 (a stored function value is held), §6.9 ("Reference bindings") | Complete, with the pages of `WYL0402`–`WYL0420`. `std::replace` and `std::swap`, which the old text names, have no declaration yet |
 | Chapter 18 | old `04-errors.md` §4.1, §4.2, §4.4 (`Result`, unused results, handling) | Complete, with the page of `WYL0421`. `04-errors.md` is deleted |
 | Chapter 19 | old `05-concurrency.md` §5.1–§5.4, §5.6 (intro, isolated graphs), §5.7; `02-types.md` §2.13 "Type properties" (`sendable` in a bound) | Complete. The library types of §5.6 are issue #14; §5.5 is in [Statics](../spec/06-variables.md#variables.statics), and §5.8 in chapter 20. `05-concurrency.md` is deleted. No rule here is tested: `shared`, `unique`, and `Isolated` are not implemented (#6) |
+| Chapter 20 | old `01-safety.md` §1.4 (the pointer operations); `02-types.md` "Arrays and spans" (§2.11) | Complete (`unsafe.pointers` filled; the other sections were written earlier), with the pages of `WYL0422` and `WYL0423`. The "Arrays and spans" passage is deleted. Pointer comparison, `p[i]`, and `p + n` are tested (`unsafe/pointers.wyl`); address-of, pointer casts, and `bitcast` are not implemented (#6) |
 
 ## 02-types.md
 

@@ -34,6 +34,42 @@ unsafe {
 <a id="unsafe.pointers"></a>
 ## 20.2 Pointers
 
+A pointer type `T*` points to storage that holds a `T` ([Pointer types](04-types.md#types.pointers)).
+Its default value is the null pointer, and `null` converts to every pointer type. A pointer type is
+not nullable.
+
+- `p[i]`, for a pointer `p` and an `int` `i`, is the place `i` elements after the one `p` points to;
+  `p[0]` is the place `p` points to. The index is not checked, and may be negative.
+- `p + n` and `p - n`, for an `int` `n`, are the pointers `n` elements after or before `p`. They are
+  not checked.
+- `&place` is a pointer to that place: a `T*` when the place holds a `T`.
+- `(U*) p` converts a pointer to type `U*`. The pointer's value does not change; reading or writing
+  through it is allowed only as [Storage and types](#unsafe.aliasing) says.
+- Two pointers of one type compare with `==` and `!=` by address: they are equal when they point to
+  the same element of the same storage. A pointer compares with `null`. No other operator applies
+  to a pointer, and comparing needs no unsafe code.
+- `bitcast<T>(x)` returns a value of type `T` whose bits are those of `x`. It is a compile-time
+  error if `T` and the type of `x` have different sizes. The result is a value of `T` only when
+  those bits are one, so `bitcast<Direction>(i)` converts a `@Repr` enum's value without the check
+  a cast makes ([Integer representations](09-enums.md#enums.repr)).
+
+It is undefined behavior to read or write through a pointer outside the storage it points into, or
+after that storage is gone or has moved.
+
+**Example:**
+
+```java
+unsafe {
+    int[4] values = [10, 20, 30, 40];
+    int* first = &values[0];
+    int* third = first + 2;
+    print(third[0]);                    // 30
+    third[0] = 35;
+    print(values[2]);                   // 35
+    print(first == third);              // false
+}
+```
+
 <a id="unsafe.aliasing"></a>
 ## 20.3 Storage and types
 

@@ -8,8 +8,7 @@ the rules for every rewrite; decision 0002 is the structure, chapter 1 the phras
 ## Next session: chapters 18 to 22 and appendix A
 
 The rewrites go in the order issue #6 gives: (2, 3), (4–6), (7–11), (12–15), (16–17),
-(18–22 + appendix A). Chapters 1 to 19 are written, and parts of 20 and 22; the rest are
-anchors only.
+(18–22 + appendix A). Chapters 1 to 20 are written, and parts of 22; the rest are anchors only.
 
 - **Chapters 18 to 22** (`18-errors.md`, `19-concurrency.md`, `20-unsafe.md`, `21-interop.md`,
   `22-annotations.md`) and **appendix A** (`a-library.md`): from the rows of `spec-mapping.md` that
@@ -26,9 +25,9 @@ anchors only.
   under "Already written".
 - **Old passages still waiting.** Chapters 16 and 17 are written, but these passages stay until
   every row of them points at a written chapter:
-  - `02-types.md` "Strings" (the `StringBuilder` row, #6), "Arrays and spans"
-    (`unsafe.unchecked`, chapter 20), "Bounds" (`library.printable`, `library.comparable`,
-    appendix A), and "Type properties" (written: [chapter 19](../spec/19-concurrency.md#concurrency.sendable)).
+  - `02-types.md` "Strings" (the `StringBuilder` row, #6) and "Bounds"
+    (`library.printable`, `library.comparable`, appendix A). "Arrays and spans" and "Type
+    properties" are deleted.
   - `06-syntax.md` §6.1's `std::panic` and `std::memory` (`library.panic`, `library.memory`,
     appendix A), §6.5 "No properties" (the guide), and §6.10 "Annotations" (chapter 22).
   - `07-interop.md` (§7.5's enums are already in chapter 9). `04-errors.md` and
@@ -49,7 +48,7 @@ order) and the anchor of the spec section that makes it an error. Codes are now 
 renumber one**, and give a new diagnostic the next number. `CatalogSelfTests` checks the catalog
 (codes, anchors, a test per code, a page per code or a place on `docs/diagnostics/without-pages.txt`).
 
-Chapters 19 to 22 and appendix A hold the anchors the catalog names, mostly as empty sections. A
+Chapters 21, 22, and appendix A hold the anchors the catalog names, mostly as empty sections. A
 rewrite fills a section; the catalog test fails if an anchor it names disappears, so a section that
 is renamed or merged is renamed in the catalog in the same change.
 

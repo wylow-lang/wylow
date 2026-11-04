@@ -180,7 +180,7 @@ Repr = "@Repr" "(" IntegerType ")" .
 A cast ([Casts](05-conversions.md#conversions.casts)) converts between such an enum and an integer type:
 `(int)Direction.East` is the value of the variant `East` as an `int`. `(Direction)i` panics if no variant of
 `Direction` has the value `i`. In `unsafe` code, `bitcast<Direction>(i)` converts without that check
-([Unchecked operations](20-unsafe.md#unsafe.unchecked)). `Direction.tryFrom(i)` returns the variant with the
+([Pointers](20-unsafe.md#unsafe.pointers)). `Direction.tryFrom(i)` returns the variant with the
 value `i`, or `null`: a `Direction?`.
 
 **Example:**
