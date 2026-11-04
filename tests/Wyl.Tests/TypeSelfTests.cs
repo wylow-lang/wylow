@@ -216,7 +216,7 @@ static class TypeSelfTests
         yield return Report("conversion_explicit", list.SelectMany(a => converts[a].Where(b => !Conversions.IsExplicit(a, b))
             .Select(b => $"'{a}' converts implicitly but not explicitly to '{b}'")));
         // The one exception: `char` converts to `int`, which converts to `double`, but `char` isn't a
-        // number (spec 02-types.md §2.3).
+        // number (spec 04-types.md#types.primitives.char).
         yield return Report("conversion_transitive", list.SelectMany(a => converts[a].SelectMany(b => converts[b]
             .Where(c => !converts[a].Contains(c) && !(a.NonNull == WylType.Char && c.NonNull.IsFloatingPoint))
             .Select(c => $"'{a}' converts to '{b}', and that to '{c}', but not '{a}' to '{c}'"))));

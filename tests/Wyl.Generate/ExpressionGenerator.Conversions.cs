@@ -3,7 +3,8 @@ using Wyl.Compiler.Semantics;
 namespace Wyl.Generate;
 
 /// <summary>
-/// Constructors that mix types (docs/spec/02-types.md §2.3–2.4): an operator on two types the spec
+/// Constructors that mix types (docs/spec/05-conversions.md#conversions.numeric and
+/// 13-expressions.md#expressions.arithmetic.operands): an operator on two types the spec
 /// converts to one, an unsuffixed constant that takes its partner's type, casts between integers,
 /// floats, and <c>char</c>, and values for a slot that converts what it is given.
 /// </summary>

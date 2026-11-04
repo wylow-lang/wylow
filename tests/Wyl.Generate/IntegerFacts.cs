@@ -6,7 +6,7 @@ namespace Wyl.Generate;
 
 /// <summary>
 /// The one home for integer range arithmetic and literal spelling: every overflow guard and every
-/// printed integer literal goes through it (docs/spec/02-types.md §2.4).
+/// printed integer literal goes through it (docs/spec/13-expressions.md#expressions.arithmetic).
 /// </summary>
 static class IntegerFacts
 {
@@ -108,7 +108,7 @@ static class IntegerFacts
         return range.Min + (Int128)(rng.NextU64() % (ulong)(span + 1));
     }
 
-    /// <summary>Spells a value as a literal of exactly this type (docs/spec/02-types.md §2.2).</summary>
+    /// <summary>Spells a value as a literal of exactly this type (docs/spec/02-lexical.md#lexical.literals.integer).</summary>
     public static string Literal(WylType type, Int128 value)
     {
         var digits = Constant(value);
@@ -127,8 +127,8 @@ static class IntegerFacts
 
     /// <summary>
     /// An unsuffixed constant: an <c>int</c> that converts to any integer type holding its value and to
-    /// a float that holds it exactly (docs/spec/02-types.md §2.3). A negative one is a negated literal,
-    /// which is still a constant.
+    /// a float that holds it exactly (docs/spec/05-conversions.md#conversions.constants). A negative
+    /// one is a negated literal, which is still a constant.
     /// </summary>
     public static string Constant(Int128 value) => value.ToString(CultureInfo.InvariantCulture);
 

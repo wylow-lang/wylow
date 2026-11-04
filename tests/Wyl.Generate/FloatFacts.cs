@@ -6,7 +6,7 @@ namespace Wyl.Generate;
 /// <summary>
 /// A dyadic rational, <c>Mantissa * 2^Exponent</c>. Float arithmetic is emitted only when both
 /// operands are exact and the result is exactly representable, so a C++ compiler cannot contract an
-/// addition and a multiplication into an FMA and change the last bit (docs/spec/02-types.md §2.4).
+/// addition and a multiplication into an FMA and change the last bit (docs/spec/13-expressions.md#expressions.arithmetic).
 /// </summary>
 readonly record struct ExactFloat(BigInteger Mantissa, int Exponent)
 {
@@ -57,7 +57,7 @@ readonly record struct ExactFloat(BigInteger Mantissa, int Exponent)
     }
 }
 
-/// <summary>The exactly representable literals and their values, in one place (docs/spec/02-types.md §2.2).</summary>
+/// <summary>The exactly representable literals and their values, in one place (docs/spec/02-lexical.md#lexical.literals.float).</summary>
 static class FloatFacts
 {
     static readonly (string Text, ExactFloat Value)[] Values =

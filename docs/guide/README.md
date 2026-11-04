@@ -79,3 +79,10 @@ Written against [chapter 7](../spec/07-structs.md#structs) and [chapter 8](../sp
 - **Copying a unique struct on purpose.** Give it a method that makes the copy, conventionally `clone()`.
 - **Owning a resource.** A resource that has to be released is held by a class, whose destructor runs when
   the last reference goes, or by a `unique` struct with a destructor, whose single owner decides when.
+- **Keeping an invariant in a struct.** There are no properties: a value is a field, read and
+  assigned directly, or a method, called with parentheses. A struct's fields are as mutable as the
+  variable that holds it ([Mutability](../spec/06-variables.md#variables.mutability)), so a struct
+  whose fields must keep an invariant leaves them unmarked, private to its file, and offers methods:
+  `span.length()`. A class field that is not `mut` is read anywhere and assigned only by its class's
+  constructors ([Fields](../spec/08-classes.md#classes.fields)), which covers what a read-only
+  property would. Turning a field into a method later means updating its uses.

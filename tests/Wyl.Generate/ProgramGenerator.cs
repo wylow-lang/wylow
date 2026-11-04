@@ -29,7 +29,7 @@ sealed class ProgramGenerator(GenerateOptions options)
         }
 
         var writer = new SourceWriter();
-        // Its programs only print, of the standard library's names (spec 06-syntax.md §6.1, Imports).
+        // Its programs only print, of the standard library's names (spec 03-programs.md#programs.builtin-names).
         writer.Line("import std::print;");
         writer.Line("");
         var budget = new PrintBudget(options.PrintLines);

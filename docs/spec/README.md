@@ -34,11 +34,3 @@ and what to expect coming from other languages in [the guide](../guide/README.md
 
 A chapter's name starts the name of each of its sections (`memory.moves`), and links use the
 names, never the numbers.
-
-## Chapters being rewritten
-
-Chapters 1 to 22 are written. Appendix A is being written from these files, which are deleted as
-their text moves:
-
-- [02-types.md](02-types.md): strings, and the bounds of generics
-- [06-syntax.md](06-syntax.md): `std::panic` and `std::memory`, and the advice on properties

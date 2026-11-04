@@ -4,8 +4,9 @@ using Wyl.Compiler.Semantics;
 namespace Wyl.Generate;
 
 /// <summary>
-/// What the spec says about mixing stage-1 types: which implicit conversions exist (docs/spec/02-types.md
-/// §2.3) and which type a binary operator on two of them works in (§2.4). Written from the spec, not
+/// What the spec says about mixing stage-1 types: which implicit conversions exist
+/// (docs/spec/05-conversions.md#conversions.numeric) and which type a binary operator on two of them
+/// works in (docs/spec/13-expressions.md#expressions.arithmetic.operands). Written from the spec, not
 /// asked of the compiler, so a binder that disagrees rejects or mistypes a generated program instead of
 /// silently agreeing with itself; the self-check compares the table with <c>Conversions.IsImplicit</c>
 /// before every run.

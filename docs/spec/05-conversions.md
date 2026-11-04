@@ -163,8 +163,8 @@ these cases:
   `Span<T>` or `ReadOnlySpan<T>`.
 - A value of a type that implements `Spannable<T>` converts to `Span<T>`, and one that implements
   `ReadOnlySpannable<T>` to `ReadOnlySpan<T>`. The conversion calls `asSpan()` or `asReadOnlySpan()`
-  ([`Spannable`](a-library.md#library.spannable)). `Array<T>`, `List<T>`, and `Span<T>` implement
-  them.
+  ([`Spannable`](a-library.md#library.spannable)). `Array<T>` and `List<T>` implement
+  `Spannable<T>`, and `Span<T>` implements `ReadOnlySpannable<T>`.
 
 Conversions to spans have these limits.
 

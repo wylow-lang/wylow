@@ -9,6 +9,7 @@ namespace Wyl.Generate;
 /// </summary>
 /// <param name="Constant">
 /// Whether the binder may read the text as an unsuffixed integer constant, which takes the type of
-/// the operand beside it (docs/spec/02-types.md §2.4); over-approximated, since it only refuses.
+/// the operand beside it (docs/spec/13-expressions.md#expressions.arithmetic.operands);
+/// over-approximated, since it only refuses.
 /// </param>
 sealed record GenExpr(string Text, WylType Type, IntegerRange? Range = null, ExactFloat? Exact = null, bool Constant = false);

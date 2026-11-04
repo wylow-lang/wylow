@@ -45,8 +45,9 @@ sealed partial class ExpressionGenerator(
 
     /// <summary>
     /// An integer type's constructors without those that cannot make it: unary minus is an error on
-    /// unsigned types (docs/spec/02-types.md §2.4), no two other types mix into a <c>sbyte</c> or a
-    /// <c>byte</c>, and a constant beside an <c>int</c> is an <c>int</c> already.
+    /// unsigned types (docs/spec/13-expressions.md#expressions.arithmetic.operands), no two other
+    /// types mix into a <c>sbyte</c> or a <c>byte</c>, and a constant beside an <c>int</c> is an
+    /// <c>int</c> already.
     /// </summary>
     static readonly Dictionary<WylType, string[]> IntegerConstructorsByType = IntegerFacts.Types.ToDictionary(
         type => type,
@@ -269,7 +270,7 @@ sealed partial class ExpressionGenerator(
         var divisor = NonZero(type, depth - 1);
         if (numerator.Range is not { } a || divisor.Range is not { } b)
             return null;
-        // MIN / -1 panics in every build (docs/spec/02-types.md §2.4).
+        // MIN / -1 panics in every build (docs/spec/13-expressions.md#expressions.arithmetic.overflow).
         if (a.Contains(IntegerFacts.Full(type).Min) && b.Contains(-1))
             return null;
         var result = remainder ? IntegerFacts.Remainder(a, b) : IntegerFacts.Divide(a, b);

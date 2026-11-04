@@ -89,7 +89,7 @@ public static partial class RunComparison
     /// Compares two runs: stdout, the panic's message and location, the exit code, and, where the
     /// caller asks, the performance warnings. A program with a budgeted collector may legitimately
     /// reach other cycles when an optimization is off, and one reading `cycleStats` counts what an optimization
-    /// keeps off the heap (spec 03-memory-model.md, diagnostics), so neither program's stdout is compared. The abort exit
+    /// keeps off the heap (docs/spec/17-memory.md), so neither program's stdout is compared. The abort exit
     /// code is the platform's, so two panics are compared by their text, not their code.
     /// <para>
     /// With <paramref name="ignoreZeroSign"/>, which only a comparison involving a native build asks

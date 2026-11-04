@@ -4,8 +4,8 @@ namespace Wyl.Harness;
 
 /// <summary>
 /// The test cases under <c>tests/cases/</c>: each <c>.wyl</c> file is a program, except the files of a
-/// package directory (one with a <c>package.wylcfg</c>, spec 06-syntax.md §6.1), which together are
-/// one. The runner runs both; the fuzzer and the generator work on single files.
+/// package directory (one with a <c>package.wylcfg</c>, spec 03-programs.md#programs.packages), which
+/// together are one. The runner runs both; the fuzzer and the generator work on single files.
 /// </summary>
 public static class TestCases
 {
