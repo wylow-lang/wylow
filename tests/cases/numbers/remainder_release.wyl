@@ -1,0 +1,31 @@
+// mode: release
+
+// MSVC /O2 emitted a trapping `idiv` for the minimum value by -1 when the divisor came from a
+// division; the generator found it, and `wyl::rem` computes magnitudes so that no signed `%` runs.
+import std::print;
+
+int remainderOfMinimum(int x) {
+    return -2147483648 % (x / -1);
+}
+
+long remainderOfMinimum(long x) {
+    return -9223372036854775808L % (x / -1L);
+}
+
+void main(String[] args) {
+    int minusOne = args.length - 1;
+    long longMinusOne = (long)(args.length) - 1;
+    print(remainderOfMinimum(minusOne));      // output: 0
+    print(remainderOfMinimum(longMinusOne));  // output: 0
+    int intMin = -2147483648;
+    print(intMin % -1);                       // output: 0
+    short shortMin = -32768;
+    print(shortMin % -1);                     // output: 0
+    sbyte byteMin = -128;
+    print(byteMin % -1);                      // output: 0
+    long longMin = -9223372036854775808L;
+    print(longMin % -1L);                     // output: 0
+    print(-7 % 3);                            // output: -1
+    print(7 % -3);                            // output: 1
+    print(-7 % -3);                           // output: -1
+}

@@ -91,13 +91,21 @@ inline F fdiv(F a, F b) {
     return a / b;
 }
 
+// The signed remainder works on magnitudes: MSVC 14.50 and 14.51 /O2 remove the `b == -1` case
+// and emit a bare `idiv` for a remainder whose dividend is the minimum value, which raises
+// STATUS_INTEGER_OVERFLOW. Unsigned `%` never traps.
 template <class T>
 inline T rem(T a, T b, const char* location) {
     if (b == 0) raise_panic("division by zero", location);
     if constexpr (std::is_signed_v<T>) {
-        if (b == -1) return 0;
+        using U = std::make_unsigned_t<T>;
+        U ua = a < 0 ? static_cast<U>(0) - static_cast<U>(a) : static_cast<U>(a);
+        U ub = b < 0 ? static_cast<U>(0) - static_cast<U>(b) : static_cast<U>(b);
+        U r = static_cast<U>(ua % ub);
+        return static_cast<T>(a < 0 && r != 0 ? static_cast<U>(0) - r : r);
+    } else {
+        return static_cast<T>(a % b);
     }
-    return static_cast<T>(a % b);
 }
 
 template <class T, class N>
