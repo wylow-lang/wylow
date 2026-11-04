@@ -1,6 +1,6 @@
-// 'world::gen' sees 'world' only as any other module does: never its pub(module) names.
+// 'world::gen' sees 'world' only as any other module does: never the names it marks 'module'.
 import world::local;                // error[WYL0054]: 'local' is not visible here
 import world::count;
 
-pub(package) int deep() { return count(); }
-pub(module) int nested() { return 4; }
+package int deep() { return count(); }
+module int nested() { return 4; }

@@ -12,7 +12,7 @@ String helper() {
 }
 
 // Overloads of greeting.wyl's 'describe': one the module sees, and one only this file does.
-pub(module) String describe(Shape shape) {
+module String describe(Shape shape) {
     return $"a shape with {sides(shape)} sides";
 }
 

@@ -1,19 +1,19 @@
-pub(module) String greeting() {
+module String greeting() {
     return "hello from greeting.wyl";
 }
 
-pub(module) struct Point {
+module struct Point {
     pub int x;
     pub int y;
 }
 
-pub(module) String describe(Point p) {
+module String describe(Point p) {
     return $"({p.x}, {p.y})";
 }
 
-pub(module) enum Shape { Triangle, Square }
+module enum Shape { Triangle, Square }
 
-pub(module) int sides(Shape shape) {
+module int sides(Shape shape) {
     return switch (shape) {
         case Triangle -> 3;
         case Square -> 4;
@@ -29,14 +29,14 @@ String helper() {
     return "greeting's helper";
 }
 
-pub(module) String otherHelper() {
+module String otherHelper() {
     return helper();
 }
 
-pub(module) String describeFromGreeting() {
+module String describeFromGreeting() {
     return describe(Shape.Triangle);
 }
 
-pub(module) int otherNode() {
+module int otherNode() {
     return Node(value: 7).value;
 }

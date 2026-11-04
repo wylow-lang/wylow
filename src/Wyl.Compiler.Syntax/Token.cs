@@ -40,6 +40,8 @@ public enum TokenKind
     FalseKeyword,
     StructKeyword,
     PubKeyword,
+    ModuleKeyword,
+    PackageKeyword,
 
     /// <summary><c>public</c>, <c>private</c>, or <c>protected</c>, reserved so that each gets an error naming what Wylow writes instead.</summary>
     JavaAccessKeyword,

@@ -1,5 +1,5 @@
 pub class Shape {
-    pub(module) virtual String describe() {
+    module virtual String describe() {
         return "a shape";
     }
 

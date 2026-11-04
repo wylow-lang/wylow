@@ -33,7 +33,7 @@ pub unsafe extern void initialize<T>(T* place, T value);
 ///
 /// `T` must have a default value, and the places must hold no value. The compiler can't check
 /// that a generic `T` has one, so the function is the package's own.
-pub(package) unsafe extern void initializeDefault<T>(T* data, int count);
+package unsafe extern void initializeDefault<T>(T* data, int count);
 
 /// Destroys the value at `place`, leaving its storage uninitialized.
 ///

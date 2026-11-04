@@ -336,7 +336,7 @@ public sealed partial class Parser
         }
     }
 
-    /// <summary><c>pub</c>, <c>pub(module)</c>, or <c>pub(package)</c>; or a Java access keyword, reported as what to write instead.</summary>
+    /// <summary><c>module</c>, <c>package</c>, or <c>pub</c>; or a Java access keyword, reported as what to write instead.</summary>
     Visibility ParseVisibility()
     {
         var keyword = Advance();
@@ -345,22 +345,22 @@ public sealed partial class Parser
             Report(Catalog.NotAVisibility(Loc(keyword.Span), keyword.Text));
             return keyword.Text == "public" ? Visibility.Public : Visibility.File;
         }
-        // Only a name in parentheses is a visibility; `pub (fn() -> void)? f;` is a field.
-        if (!At(TokenKind.OpenParen) || Peek(1).Kind is not (TokenKind.Identifier or TokenKind.ReservedKeyword) || Peek(2).Kind != TokenKind.CloseParen)
-            return Visibility.Public;
-        Advance();
-        var scope = Advance();
-        Advance();
-        switch (scope.Text)
+        if (keyword.Kind == TokenKind.ModuleKeyword)
+            return Visibility.Module;
+        if (keyword.Kind == TokenKind.PackageKeyword)
+            return Visibility.Package;
+        // `pub(module)` and `pub(package)` were the visibility before it was one word; `pub (fn() -> void)? f;` is a field.
+        if (At(TokenKind.OpenParen)
+            && Peek(1).Kind is TokenKind.Identifier or TokenKind.ReservedKeyword or TokenKind.ModuleKeyword
+                or TokenKind.PackageKeyword or TokenKind.JavaAccessKeyword
+            && Peek(2).Kind == TokenKind.CloseParen)
         {
-            case "module":
-                return Visibility.Module;
-            case "package":
-                return Visibility.Package;
-            default:
-                Report(Catalog.UnknownVisibilityScope(Loc(scope.Span), scope.Text));
-                return Visibility.Public;
+            Advance();
+            var scope = Advance();
+            Advance();
+            Report(Catalog.UnknownVisibilityScope(Loc(scope.Span), scope.Text));
         }
+        return Visibility.Public;
     }
 
     void Disallow(ModifierList modifiers, Modifiers disallowed, Func<Token, Diagnostic> message)

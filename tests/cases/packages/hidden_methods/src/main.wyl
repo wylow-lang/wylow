@@ -5,7 +5,7 @@ import std::print;
 import shapes::{Shape, Circle, show, reveal};
 
 class Square extends Shape {
-    // Shape's describe is pub(module), visible only in 'shapes'.
+    // Shape's describe is visible only in 'shapes': it is marked 'module'.
     virtual String describe() {
         return "a square";
     }

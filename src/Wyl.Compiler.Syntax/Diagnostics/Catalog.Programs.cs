@@ -104,7 +104,8 @@ public static partial class Catalog
 
     [Error(52, "programs.visibility")]
     public static Diagnostic UnknownVisibilityScope(Location at, string scope) =>
-        Make(at, $"'pub({scope})' is not a visibility").Help("write 'pub(module)' or 'pub(package)'");
+        Make(at, $"'pub({scope})' is not a visibility")
+            .Help(scope is "module" or "package" ? $"write '{scope}'" : "write 'module' or 'package' without parentheses");
 
     [Error(53, "programs.visibility")]
     public static Diagnostic VisibilityBlock(Location at) =>

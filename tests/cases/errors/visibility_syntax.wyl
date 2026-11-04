@@ -1,40 +1,42 @@
 class Java {
-    public int a;                       // error[WYL0051]: 'public' is not a visibility
-    private int b;                      // error[WYL0051]: 'private' is not a visibility
-    protected int c;                    // error[WYL0051]: 'protected' is not a visibility
-    public {                            // error[WYL0053]: visibility cannot be given to a block of members
+    public int a;                   // error[WYL0051]: 'public' is not a visibility
+    private int b;                  // error[WYL0051]: 'private' is not a visibility
+    protected int c;                // error[WYL0051]: 'protected' is not a visibility
+    public {                        // error[WYL0053]: visibility cannot be given to a block of members
         int d;
     }
 }
 
 class Blocked {
-    pub {                               // error[WYL0053]: visibility cannot be given to a block of members
+    pub {                           // error[WYL0053]: visibility cannot be given to a block of members
         int a;
     }
     int b;
 }
 
 class Twice {
-    pub pub(module) int a;              // error[WYL0048]: declaration already has a visibility
-    static pub void f() { }             // error[WYL0049]: visibility must come before other modifiers
-    mut pub(package) int b;             // error[WYL0049]: visibility must come before other modifiers
-    pub(crate) int c;                   // error[WYL0052]: 'pub(crate)' is not a visibility
+    pub module int a;               // error[WYL0048]: declaration already has a visibility
+    static pub void f() { }         // error[WYL0049]: visibility must come before other modifiers
+    mut package int b;              // error[WYL0049]: visibility must come before other modifiers
+    pub(module) int c;              // error[WYL0052]: 'pub(module)' is not a visibility
+    pub(package) int d;             // error[WYL0052]: 'pub(package)' is not a visibility
+    pub(crate) int e;               // error[WYL0052]: 'pub(crate)' is not a visibility
 }
 
 class Destroyed {
-    pub ~Destroyed() { }                // error[WYL0145]: destructor cannot have a visibility
+    pub ~Destroyed() { }            // error[WYL0145]: destructor cannot have a visibility
 }
 
 enum Shape {
-    pub Circle,                         // error[WYL0154]: enum variants cannot have a visibility
+    pub Circle,                     // error[WYL0154]: enum variants cannot have a visibility
     Square;
 }
 
 interface Named {
-    pub String name();                  // error[WYL0175]: interface methods cannot have a visibility
+    pub String name();              // error[WYL0175]: interface methods cannot have a visibility
 }
 
-final pub class Late { }                // error[WYL0049]: visibility must come before other modifiers
+final pub class Late { }            // error[WYL0049]: visibility must come before other modifiers
 
 void main() {
 }

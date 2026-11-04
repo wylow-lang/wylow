@@ -138,7 +138,7 @@ String describe(Order o) { ... }    // file-private
 
 // orders/queue.wyl
 String describe(Order o) { ... }    // file-private here too: no conflict
-pub(module) struct Order { }        // error[WYL0034]
+module struct Order { }              // error[WYL0034]
 ```
 
 <a id="programs.imports"></a>
@@ -237,7 +237,7 @@ pub String text(Order o) {
 ## 3.7 Visibility
 
 ```ebnf
-Visibility = "pub" [ "(" ( "module" | "package" ) ")" ] .
+Visibility = "module" | "package" | "pub" .
 ```
 
 A declaration's **visibility** says where it may be used:
@@ -245,14 +245,14 @@ A declaration's **visibility** says where it may be used:
 | Written | Visible in |
 |---|---|
 | nothing | Its file |
-| `pub(module)` | Every file of its module: its directory, not the directories below it |
-| `pub(package)` | Its package |
+| `module` | Every file of its module: its directory, not the directories below it |
+| `package` | Its package |
 | `pub` | Every package |
 
 Visibility applies alike to top-level declarations and to members. A member is visible only where
-its type is visible too: a `pub` method of a `pub(module)` class is visible in the class's module.
+its type is visible too: a `pub` method of a class marked `module` is visible in the class's module.
 A module and the modules below it see each other as any two modules do: a submodule sees its
-parent's `pub(package)` and `pub` names, not its `pub(module)` ones.
+parent's `package` and `pub` names, not the ones it marks `module`.
 
 A type's members without a visibility are visible in the rest of the type's file, including in the
 file's other types. A subclass sees the members of its base class that its file sees, as any other
@@ -270,7 +270,7 @@ The visibility comes first among a declaration's modifiers, after its annotation
   another modifier, or if it repeats a modifier.
 - It is a compile-time error if a visibility is given to a block of members, as in `pub { ... }`.
 - It is a compile-time error if a declaration is marked `public`, `private`, or `protected`, or
-  with `pub(...)` naming anything but `module` or `package`.
+  if its visibility is written `pub(...)`.
 - It is a compile-time error if a destructor, an enum variant, or an interface method has a
   visibility. A variant or an interface method is as visible as its enum or interface
   ([Destructors](08-classes.md#classes.destructors), [Variants](09-enums.md#enums.variants),
@@ -284,7 +284,7 @@ pub class Account {
     pub String owner;
     mut int balance;                          // this file only
 
-    pub(package) void credit(int amount) { balance += amount; }
+    package void credit(int amount) { balance += amount; }
 }
 ```
 

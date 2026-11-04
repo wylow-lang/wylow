@@ -6,7 +6,7 @@ import world::count;
 import world::Shared;               // error[WYL0044]: 'Shared' is already a name of this module
 import world::Shared as WorldShared;
 
-pub(module) struct Shared { }
+module struct Shared { }
 
 void main() {
     int a = count();

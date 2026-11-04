@@ -2,14 +2,14 @@ import std::{List, memory};
 
 pub class Base {
     pub virtual void shown() { }
-    pub(package) virtual void engine() { }
+    package virtual void engine() { }
     virtual void local() { }
 }
 
 pub class Derived extends Base {
     override void shown() { }                   // error[WYL0126]: 'shown' must have 'pub'
-    pub override void engine() { }              // error[WYL0126]: 'engine' must have 'pub(package)'
-    pub(module) override void local() { }       // error[WYL0126]: 'local' must have no visibility
+    pub override void engine() { }              // error[WYL0126]: 'engine' must have 'package'
+    module override void local() { }            // error[WYL0126]: 'local' must have no visibility
 }
 
 pub interface Named {
@@ -17,7 +17,7 @@ pub interface Named {
 }
 
 pub struct Tag implements Named {
-    pub(package) String name() { return "tag"; }    // error[WYL0187]: 'Tag.name' must have 'pub'
+    package String name() { return "tag"; }     // error[WYL0187]: 'Tag.name' must have 'pub'
 }
 
 struct Secret {
@@ -34,12 +34,12 @@ pub void sorted<T extends Hidden>(T x) { }      // error[WYL0056]: type paramete
 
 pub struct Holder {
     pub Secret inside;                          // error[WYL0056]: type 'Secret' is less visible than field 'Holder.inside'
-    pub(module) Secret? maybe;                  // error[WYL0056]: type 'Secret?' is less visible than field 'Holder.maybe'
+    module Secret? maybe;                       // error[WYL0056]: type 'Secret?' is less visible than field 'Holder.maybe'
     Secret kept;
 }
 
 pub class Outer extends Inner { }               // error[WYL0056]: base class 'Inner' is less visible than class 'Outer'
-pub(package) class Shown implements Hidden { }  // error[WYL0056]: interface 'Hidden' is less visible than class 'Shown'
+package class Shown implements Hidden { }       // error[WYL0056]: interface 'Hidden' is less visible than class 'Shown'
 
 pub enum Choice {
     Some(Secret value),                         // error[WYL0056]: field type 'Secret' is less visible than variant 'Choice.Some'

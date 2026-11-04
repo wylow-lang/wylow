@@ -1,6 +1,6 @@
 pub class Circle extends Shape {
     // Visible here, so this overrides it.
-    pub(module) override String describe() {
+    module override String describe() {
         return "a circle";
     }
 

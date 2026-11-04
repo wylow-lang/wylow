@@ -2,22 +2,22 @@
 pub import world::gen::deep as deepAlias;   // error[WYL0055]: 'deep' cannot be re-exported to reach farther than it is visible
 import world::gen;                          // error[WYL0044]: 'gen' is already a name of this module
 
-pub(module) int local() { return 1; }
-pub(package) int count() { return 2; }
-pub(package) struct Shared { }
+module int local() { return 1; }
+package int count() { return 2; }
+package struct Shared { }
 struct Hidden { }
 
 // A struct pattern lists every field, so it can be written only where they are all visible.
-pub(package) struct Corner {
-    pub(package) int x;
+package struct Corner {
+    package int x;
     int hidden;
 }
-pub(package) Corner corner() { return Corner(1, 2); }
+package Corner corner() { return Corner(1, 2); }
 
 // An indexer's 'operator []=' may reach less far than its 'operator []', as C#'s 'private set'.
-pub(package) class Cells {
+package class Cells {
     mut int[2] items;
-    pub(package) int operator [](int i) { return items[i]; }
-    pub(module) void operator []=(int i, int value) { items[i] = value; }
+    package int operator [](int i) { return items[i]; }
+    module void operator []=(int i, int value) { items[i] = value; }
 }
-pub(package) Cells cells() { return new Cells(); }
+package Cells cells() { return new Cells(); }

@@ -30,7 +30,7 @@ pub Kind kindOf(Block b) {
     return b.id > 5 ? Kind.Dirt : Kind.Stone;
 }
 
-pub(module) String pick(int x) {
+module String pick(int x) {
     return "int";
 }
 

@@ -2,15 +2,15 @@
 // keeps private, since a file would then see two meanings of it (spec programs.names). A
 // function's overloads may be in any of its files, but no file may see one signature twice.
 
-pub(module) struct Shared { }
+module struct Shared { }
 struct Mine { }
-pub(module) void overloaded(int x) { }
-pub(module) void repeated(int x) { }
+module void overloaded(int x) { }
+module void repeated(int x) { }
 void quiet(int x) { }
 void alone(int x) { }
 
-pub(module) enum Shape { Dot }
-pub(package) int corners(Shape shape) { return 0; }   // error[WYL0056]: parameter type 'Shape' is less visible than function 'corners'
+module enum Shape { Dot }
+package int corners(Shape shape) { return 0; }   // error[WYL0056]: parameter type 'Shape' is less visible than function 'corners'
 
 void main() {
     secret();                       // error[WYL0054]: function 'secret' is not visible here
