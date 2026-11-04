@@ -34,7 +34,7 @@ public sealed partial class IrLowering
         Add(scope);
     }
 
-    /// <summary>A condition, evaluated as a statement of its own (spec §3.2, When references are released).</summary>
+    /// <summary>A condition, evaluated as a statement of its own (spec memory.release.temporaries).</summary>
     IrOperand Condition(BoundExpression condition)
     {
         if (condition is BoundLiteral literal)

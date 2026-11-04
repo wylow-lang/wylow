@@ -257,7 +257,7 @@ public sealed partial class Parser
             Advance();
             var name = Expect(TokenKind.Identifier, "an annotation name");
             var arguments = new List<Node>();
-            // `@Name (fn(int) -> int)? f`: parentheses starting with `fn` group the annotated declaration's type (§6.10).
+            // `@Name (fn(int) -> int)? f`: parentheses starting with `fn` group the annotated declaration's type (spec annotations.syntax).
             if (At(TokenKind.OpenParen) && !StartsType(position))
             {
                 Advance();

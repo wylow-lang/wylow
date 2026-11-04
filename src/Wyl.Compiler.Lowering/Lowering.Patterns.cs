@@ -12,7 +12,7 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// The names an expression's patterns bind, declared before the statement evaluating it: they
-    /// are in scope for the whole statement, and assigned where their pattern matched (spec §6, Patterns).
+    /// are in scope for the whole statement, and assigned where their pattern matched (spec patterns.bindings).
     /// </summary>
     void DeclarePatternLocals(BoundExpression? expression, bool? references = null)
     {
@@ -351,7 +351,7 @@ public sealed partial class IrLowering
         reachable = completes;
     }
 
-    /// <summary>The value is evaluated once, and a temporary one lives until the switch ends (spec §6, switch).</summary>
+    /// <summary>The value is evaluated once, and a temporary one lives until the switch ends (spec statements.switch).</summary>
     void Switch(BoundSwitch switchStatement)
     {
         var scope = new IrBlock { Origin = at };

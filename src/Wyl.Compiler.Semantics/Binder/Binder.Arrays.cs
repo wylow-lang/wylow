@@ -65,7 +65,7 @@ public sealed partial class Binder
             : null;
 
     /// <summary>
-    /// <c>operator []=</c> is the writing half of an indexer (§6.6): each pairs with the
+    /// <c>operator []=</c> is the writing half of an indexer (spec functions.indexers.setters): each pairs with the
     /// <c>operator []</c> taking the same indices, whose element type it assigns, and which resolves
     /// the indices of an assignment for both. Beside a <c>ref</c> indexer, an assignment would have two meanings.
     /// </summary>

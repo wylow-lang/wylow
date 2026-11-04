@@ -45,7 +45,7 @@ Enums compile to a C++ struct containing a tag and a union (not `std::variant`).
 smallest unsigned integer that numbers the variants, or the `@Repr` type when one is given. When
 no variant can hold an object reference, the enum is trivially copyable; otherwise copying and
 destroying it copy and destroy only the active variant's fields, and assigning it stores the new
-value before releasing the old one, as for structs (§3.2).
+value before releasing the old one, as for structs ([Order of destruction](../spec/17-memory.md#memory.release.destruction)).
 
 A fixed array `T[N]` is a `std::array`.
 
@@ -161,7 +161,7 @@ would a temporary) the receiver of a method call, and the object owning the plac
 `ref`/`in` argument or used as a struct method's receiver, unless that object is `this` or a local
 or parameter, or is held by a field that isn't `mut` of such an object. Locals are safe without a pin because nothing but the
 function itself can assign them, and a class-typed local cannot even be passed by `ref`. `this` is
-safe because whoever called the method has pinned it. A field that isn't `mut` (§2.7) is never
+safe because whoever called the method has pinned it. A field that isn't `mut` ([Fields](../spec/08-classes.md#classes.fields)) is never
 reassigned once its object is constructed, so it holds its object as long as the object holding it
 lives; inside its own class's constructors, which may still assign it, it is pinned like a `mut`
 field. Nor does it pin an object held by a `mut` field of such an object when nothing that runs

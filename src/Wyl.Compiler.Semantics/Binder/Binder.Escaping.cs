@@ -5,7 +5,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Escaping functions (§6.7): which function types are escaping, and what an escaping lambda may
+/// Escaping functions (spec functions.lambdas.escaping): which function types are escaping, and what an escaping lambda may
 /// capture. A non-escaping function may use its creator's locals by reference, so it can't be
 /// stored; an escaping one copies what it captures, so what it captures must not change.
 /// </summary>
@@ -174,7 +174,7 @@ public sealed partial class Binder
         return false;
     }
 
-    /// <summary>Checks what the escaping lambdas in a body capture (§6.7).</summary>
+    /// <summary>Checks what the escaping lambdas in a body capture (spec functions.lambdas.captures).</summary>
     void CheckEscapingCaptures(BoundBlock body)
     {
         var reported = new HashSet<LocalSymbol>();

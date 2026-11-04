@@ -4,7 +4,7 @@ using Wyl.Compiler.Syntax;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// Function references (§6.7): the name of a free function or static method, used as a function
+/// Function references (spec functions.references): the name of a free function or static method, used as a function
 /// value, is the lambda that calls it with its arguments. So the parameters of the function type it
 /// is converted to pick the overload, as a call's arguments would, and everything a lambda does
 /// (waiting for overload resolution, generic inference, escaping) works the same way.

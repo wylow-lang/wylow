@@ -23,7 +23,7 @@ sealed partial class ExpressionGenerator
 
     /// <summary>
     /// Whether the binder would read one operand as a constant that takes the other's integer type
-    /// (§2.4), which turns a mixed operation into a same-type one in the narrower type. A constant
+    /// (spec expressions.arithmetic.operands), which turns a mixed operation into a same-type one in the narrower type. A constant
     /// beside a <c>double</c> always converts exactly, so it changes no type there.
     /// </summary>
     static bool Adopts(GenExpr left, GenExpr right) =>
@@ -119,7 +119,7 @@ sealed partial class ExpressionGenerator
         return new(constantFirst ? $"({text} {op} {value.Text})" : $"({value.Text} {op} {text})", type, range);
     }
 
-    /// <summary>Toward zero and saturated (§2.3); the range is one value when the float's is known.</summary>
+    /// <summary>Toward zero and saturated (spec conversions.casts); the range is one value when the float's is known.</summary>
     GenExpr IntegerFromFloat(WylType type, int depth)
     {
         var value = Build(rng.NextBool() ? WylType.Float : WylType.Double, depth - 1);
@@ -137,7 +137,7 @@ sealed partial class ExpressionGenerator
         return new($"(({type.Name})({value.Text}))", type, IntegerFacts.Fits(type, source) ? source : IntegerFacts.Full(type));
     }
 
-    /// <summary>Rounds to nearest when the value doesn't fit (§2.3), so only a known, fitting value stays exact.</summary>
+    /// <summary>Rounds to nearest when the value doesn't fit (spec conversions.casts), so only a known, fitting value stays exact.</summary>
     GenExpr FloatFromInteger(WylType type, int depth)
     {
         var value = Build(rng.Pick(IntegerFacts.Types), depth - 1);
@@ -164,7 +164,7 @@ sealed partial class ExpressionGenerator
         return FloatOperation(type, (converted.Text, x), (same.Text, y));
     }
 
-    /// <summary>An integer constant beside a float takes its type: <c>velocity * 2</c> (§2.3).</summary>
+    /// <summary>An integer constant beside a float takes its type: <c>scale * 2</c> (spec conversions.constants).</summary>
     GenExpr? AdoptFloat(WylType type, int depth)
     {
         var value = Build(type, depth - 1);

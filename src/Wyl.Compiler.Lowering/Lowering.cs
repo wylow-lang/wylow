@@ -205,7 +205,7 @@ public sealed partial class IrLowering
         block = saved;
     }
 
-    /// <summary>A statement's temporaries are released when it completes (spec §3.2, When references are released), so they are declared in a block of its own.</summary>
+    /// <summary>A statement's temporaries are released when it completes (spec memory.release.temporaries), so they are declared in a block of its own.</summary>
     void InStatement(BoundStatement statement, Action lower)
     {
         var scope = new IrBlock { Origin = at, IsStatement = true };
@@ -342,7 +342,7 @@ public sealed partial class IrLowering
             return;
         }
         // The target, its indices and their checks included, is found before the value, which reads
-        // it from there in a compound assignment like `a[f()] += 1` (spec §3.3, Evaluation order and the heap).
+        // it from there in a compound assignment like `a[f()] += 1` (spec expressions.order).
         var target = Place(assignment.Target, Use.InUse);
         bool compound = BoundTree.AllExpressions(assignment.Value).Any(e => ReferenceEquals(e, assignment.Target));
         if (compound && target.Projections.Any(p => p is IrElement { Index: IrRead }))
@@ -356,7 +356,7 @@ public sealed partial class IrLowering
     /// <summary>
     /// An assignment through <c>operator []=</c>, which is a call: the receiver and indices are
     /// found once, before the value, and a compound assignment reads the element with the paired
-    /// <c>operator []</c> in between (spec §3.3, Evaluation order and the heap).
+    /// <c>operator []</c> in between (spec expressions.order).
     /// </summary>
     void IndexerAssignment(BoundIndexerElement element, BoundExpression value)
     {

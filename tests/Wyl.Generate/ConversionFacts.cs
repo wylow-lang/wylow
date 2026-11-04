@@ -13,10 +13,10 @@ namespace Wyl.Generate;
 /// </summary>
 static class ConversionFacts
 {
-    /// <summary>The integers a binary operator meets in, smallest first (§2.4); nint and nuint are never generated.</summary>
+    /// <summary>The integers a binary operator meets in, smallest first (spec expressions.arithmetic.operands); nint and nuint are never generated.</summary>
     static readonly WylType[] Integers = [.. IntegerFacts.Types];
 
-    /// <summary>The §2.3 table among stage-1 types, without nint and nuint.</summary>
+    /// <summary>The table of conversions.numeric among stage-1 types, without nint and nuint.</summary>
     static readonly Dictionary<WylType, WylType[]> Widenings = new()
     {
         [WylType.SByte] = [WylType.Short, WylType.Int, WylType.Long, WylType.Float, WylType.Double],
@@ -93,7 +93,7 @@ static class ConversionFacts
         return value.Fits(floatingType) ? value : null;
     }
 
-    /// <summary>A float cast to an integer: toward zero, then saturated (§2.3); NaN is never generated.</summary>
+    /// <summary>A float cast to an integer: toward zero, then saturated (spec conversions.casts); NaN is never generated.</summary>
     public static Int128 Truncate(ExactFloat value, WylType type)
     {
         var whole = value.Exponent >= 0

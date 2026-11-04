@@ -278,7 +278,7 @@ public sealed class IrBlock : IrStatement
 
     /// <summary>
     /// A block holding only temporaries: one statement's, which are released when it completes
-    /// (spec §3.2, When references are released), or a switch expression's, which are its
+    /// (spec memory.release.temporaries), or a switch expression's, which are its
     /// statement's. <c>HoldElision</c> flattens one where releasing none of them may be observed
     /// (<see cref="DeclaresOwner"/>).
     /// </summary>

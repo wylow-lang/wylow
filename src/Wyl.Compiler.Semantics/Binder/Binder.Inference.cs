@@ -7,7 +7,7 @@ namespace Wyl.Compiler.Semantics;
 public sealed partial class Binder
 {
     /// <summary>
-    /// The type arguments of a generic candidate, inferred from a call's arguments (§6.7). The
+    /// The type arguments of a generic candidate, inferred from a call's arguments (spec generics.arguments.inference). The
     /// arguments that aren't lambdas, and the parameter types lambdas declare, are used at once. A
     /// type parameter only a lambda's return type can give waits for <see cref="FinishFromLambdas"/>,
     /// which binds the lambda's body and is run only for the one candidate left, so each lambda is
