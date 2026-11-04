@@ -56,7 +56,7 @@ decided once, in lowering and the flow analysis. Today `T y = x` copies, with or
   same answer. The fact decides; nothing may decide it twice.
 - **The error.** `IrVerifier.Use` reports `'{local}' is used after it is moved` through `Error`,
   which is for compiler invariants; a source local must go through `Violation` and a new
-  `Catalog` entry, as the unassigned case already does (`report Unassigned`).
+  `Catalog` entry, as the unassigned case already does (`reportedUnassigned`).
 - **Diagnostics.** A new code needs a catalog factory with a spec anchor, a `tests/cases/` marker
   for the code, and a page `docs/diagnostics/WYLnnnn.md` (or, as a last resort, a line in
   `without-pages.txt`, a list kept only to shrink). The temporary unique-type-argument error also
