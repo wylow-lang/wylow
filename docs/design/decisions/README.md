@@ -74,3 +74,5 @@ history and a reason can be found without searching the spec.
 | [0044](0044-moved-value-destructor.md) | A moved value's destructor runs on the thread that releases it |
 | [0045](0045-byte-pointers-follow-the-rule.md) | A `byte*` has no exception to the storage rule |
 | [0046](0046-nan-bits-and-budgets.md) | NaN bits and budgeted collection stay implementation-defined |
+| [0047](0047-standard-output-buffering.md) | Standard output is buffered, and an abort may lose what is not yet written |
+| [0048](0048-long-chains-are-released-by-their-destructor.md) | A long chain of objects is released by a destructor that loops |

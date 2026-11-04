@@ -288,9 +288,9 @@ A panic prints its message and a stack trace where it happens, and a debugger st
 
 ## Known limits
 
-**Long chains are destroyed recursively.** Releasing the head of a long linked list destroys
-each node from inside the previous node's destruction, which can exhaust the stack (an abort). Break
-up very long chains by hand for now.
+**Long chains are destroyed recursively.** Releasing the head of a long linked list destroys each
+object inside the release of the one before it, and a long enough chain exhausts the stack. A type
+that forms long chains releases them in a loop in its destructor (decision 0048).
 
 ## Costs to remove later
 

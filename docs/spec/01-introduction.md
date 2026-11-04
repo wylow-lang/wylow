@@ -174,6 +174,10 @@ informative ([Panics](18-errors.md#errors.panics)).
 "The program aborts" is used only for the two failures that aren't panics: exhausting the stack,
 and running out of memory. An abort ends the program as a panic does, but reports no location.
 
+Everything a program writes to standard output before it panics is written. Before an abort, that
+holds when standard output is an interactive device; otherwise, what the program wrote last may be
+lost.
+
 <a id="introduction.order"></a>
 ### 1.6.4 Evaluation order
 
@@ -198,7 +202,8 @@ its choice.
    bits.
 2. The target's layout rules for C: the alignment of each type, and so the size of a struct and the
    offsets of its fields ([Layout](07-structs.md#structs.layout)).
-3. How deep calls may nest before the stack is exhausted.
+3. How deep calls may nest before the stack is exhausted, the releases of one value inside another
+   included ([Order of destruction](17-memory.md#memory.release.destruction)).
 4. How much memory a program may use before running out.
 5. The exit status of a program that panics or aborts, which is never 0, and the exit status a
    target reports for a value outside 0 to 255 that `main` returns
@@ -230,7 +235,8 @@ A run's **inputs** are its arguments, the values extern functions return, and th
 program reads it. A program's observable behavior is determined by its source, its inputs, its
 build mode, and the implementation-defined properties above. For a program that starts threads, it
 is also determined by the order in which the threads' steps interleave
-([Concurrency](19-concurrency.md#concurrency)).
+([Concurrency](19-concurrency.md#concurrency)). What an abort loses of its standard output also
+depends on what standard output is connected to ([Aborts](#introduction.aborts)).
 
 An implementation may run a program in any way that gives it the observable behavior these rules
 determine. Anything else, such as whether a value is copied, where an object is allocated, or

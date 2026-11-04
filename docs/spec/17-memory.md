@@ -143,6 +143,10 @@ void main() {
 - A closure releases the copies it captured in the order in which they are held, and a choice the
   callables it holds in the order in which they are held.
 - A temporary follows [Temporaries](#memory.release.temporaries).
+- Releasing a value that holds the last reference to an object destroys that object inside the
+  release, so the stack holds one nested release for each object of a chain, and a long enough chain
+  exhausts it ([Aborts](01-introduction.md#introduction.aborts)). A destructor that detaches the
+  rest of a chain and releases it in a loop does not nest.
 
 <a id="memory.weak"></a>
 ## 17.5 Weak references
