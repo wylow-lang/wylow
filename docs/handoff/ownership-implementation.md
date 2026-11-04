@@ -4,8 +4,10 @@ Repo `E:\Repos\Wylow\wylow`, branch `dev`. The design of how a unique
 value gets out is decided: the rules are in the spec, and the reasons are in decisions 0049 and 0050.
 Read them, then the steps under "Ownership" and "Suggested order" in issue #6.
 
-The order is chosen: concrete types first, then generic code. Check the roadmap's first item (fuzz and
-generate on the double-literal and `loop` changes) before starting.
+The order is chosen: concrete types first, then generic code. The roadmap's first item is done: the
+scheduled fuzz and generate runs of 2026-11-04 are triaged. Fuzz was clean; generate's one finding
+(an MSVC /O2 miscompile of a signed remainder whose dividend is the minimum, in a release build) is
+fixed in `runtime/wyl/arithmetic.h` and replayed clean. Start at step 1.
 
 ## Step 1: moves on concrete types
 
@@ -21,6 +23,44 @@ generate on the double-literal and `loop` changes) before starting.
 internal check rather than a catalog error, and `copyable` and `sendable` appear nowhere in `src`.
 IR is built once per generic with `T` abstract, and the C++ is a template, so copy or move can be
 decided once, in lowering and the flow analysis. Today `T y = x` copies, with or without `--no-opt`.
+
+## Orientation from the last session
+
+- **The word.** `unique` lexes as `TokenKind.ReservedKeyword` (`Lexer.ReservedKeywords`). Making it
+  real means a token kind, removing it from that set, `Modifiers.Unique`, and the parser's allowed
+  sets (`Parser.cs` near the `TypeKeywordKind` switch: structs allow `Ref | Extern`, enums `Ref`).
+  The spec lists `unique` among the reserved words (`02-lexical.md` §2.5) and must move it to the
+  keywords.
+- **The symbol.** `TypeSymbol` reads modifiers from `Declaration.Modifiers`; `IsUnique` sits beside
+  `IsRefStruct` and `IsExtern`. A field of a unique type in a struct, or a variant field in an enum,
+  is a new binder error. Fields are bound in `DeclareMembers` (structs) and `DeclareVariants`
+  (enums), so the check goes after `BindType` there.
+- **Two questions, not one.** `!copyable` is not the same as "a unique field type": an unbounded
+  type parameter is not copyable (`generics.checking`), yet `struct Pair<T> { T first; }` is legal,
+  and `Pair<Buffer, int>` is unique by its type arguments. So the binder rule asks whether the
+  field's type is a *unique* type (a concrete unique struct or enum, or a fixed array, nullable, or
+  struct/enum containing one), while the move decision asks `IsCopyable`, which answers false for a
+  type parameter. Both are derived; neither is a flag that a pass sets.
+- **The fact.** Type facts are extension members by topic in Semantics (`TypeStorage.cs`,
+  `TypeDefaults.cs`, ...). `types.copyable` is a new topic file: unique struct/enum → false; fixed
+  array, nullable, or a non-unique struct/enum whose `InlineTypes()` include a non-copyable type →
+  false; classes, interfaces, functions, primitives, `String` → true. `InlineTypes()` already walks
+  fields, elements, and nullable values with type arguments.
+- **Bounds.** `Binder.BindBounds` accepts only interfaces, and `ParseTypeParameters` parses each
+  bound as a type, so the words `copyable` and `sendable` are not parsed yet. In step 1 the fact
+  answers "not copyable" for every type parameter; parsing the word bound is step 3.
+- **The move.** The verifier already tracks `Moved`, and lowering's `Read` (`Lowering.Places.cs`)
+  copies a place into a temporary and moves from it. For a non-copyable type that copy is illegal:
+  `Read` must move from the place itself when it is a whole local or parameter, and `Kept`
+  (`Lowering.Expressions.cs`) and the other copy sites (`IrRead.Copy` calls in Lowering) need the
+  same answer. The fact decides; nothing may decide it twice.
+- **The error.** `IrVerifier.Use` reports `'{local}' is used after it is moved` through `Error`,
+  which is for compiler invariants; a source local must go through `Violation` and a new
+  `Catalog` entry, as the unassigned case already does (`report Unassigned`).
+- **Diagnostics.** A new code needs a catalog factory with a spec anchor, a `tests/cases/` marker
+  for the code, and a page `docs/diagnostics/WYLnnnn.md` (or, as a last resort, a line in
+  `without-pages.txt`, a list kept only to shrink). The temporary unique-type-argument error also
+  gets one; step 3 deletes it.
 
 ## Tests
 
