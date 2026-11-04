@@ -4,6 +4,10 @@
 <a id="unsafe.blocks"></a>
 ## 20.1 `unsafe` blocks and functions
 
+```ebnf
+UnsafeBlock = "unsafe" Block .
+```
+
 A block preceded by `unsafe` is an **unsafe block**. A function, method, or constructor declared
 `unsafe` is an **unsafe function**. The code inside either is **unsafe code**; all other code is
 safe code.

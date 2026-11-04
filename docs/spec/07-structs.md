@@ -9,9 +9,10 @@ has one owner, and the `ref struct`, which views storage it does not own.
 ## 7.1 Struct declarations
 
 ```ebnf
-StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" ] "struct" Identifier
+StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" | "extern" ] "struct"
+                    ( Identifier | PrimitiveName )
                     [ TypeParameters ] [ "implements" TypeList ] "{" { StructMember } "}" .
-StructMember      = StructField | StructConstructor | StructMethod | Destructor .
+StructMember      = StructField | StructConstructor | Method | Indexer | Destructor .
 ```
 
 A struct is a **value type**: a value of a struct type is stored in its variable, field, or element, and
@@ -76,7 +77,7 @@ struct Point {
 ## 7.3 Constructors
 
 ```ebnf
-StructConstructor = { Annotation } [ Visibility ] Identifier "(" [ Parameters ] ")" Block .
+StructConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")" Block .
 ```
 
 A struct value is made by calling a constructor, written as a call to the struct's name: `Point(1, 2)`,
@@ -184,11 +185,7 @@ void main() {
 <a id="structs.methods"></a>
 ## 7.4 Methods
 
-```ebnf
-StructMethod = { Annotation } [ Visibility ] [ "static" | "mut" ] [ "unsafe" ] ( Type | "void" ) Identifier
-               [ TypeParameters ] "(" [ Parameters ] ")" ( Block | ";" ) .
-```
-
+A method of a struct is written as any method is ([Instance and static methods](12-functions.md#functions.methods)).
 A method of a struct is called on a struct value or place, and `this` is that value. In a method that
 is not `mut`, `this` is read-only: its fields cannot be assigned, and its `mut` methods cannot be
 called. A `static` method has no `this`. A method is called on a place without copying it.

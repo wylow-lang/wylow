@@ -11,6 +11,13 @@ checked for exhaustiveness.
 <a id="patterns.kinds"></a>
 ## 15.1 Kinds of patterns
 
+```ebnf
+Pattern          = "_" | "var" Identifier | LiteralPattern | ReferencePattern | NamePattern .
+LiteralPattern   = [ "-" ] Literal .
+ReferencePattern = ( "ref" | "in" ) ( "var" | Type ) Identifier .
+NamePattern      = TypeName [ "." Identifier ] [ "(" [ Pattern { "," Pattern } ] ")" ] [ Identifier ] .
+```
+
 A pattern either always matches or tests the value. These are the patterns:
 
 | Pattern | Matches |
@@ -172,6 +179,11 @@ void main() {
 
 <a id="patterns.cases"></a>
 ## 15.5 Cases
+
+```ebnf
+CaseLabel = "case" Pattern { "," Pattern } [ "," "default" ] | "default" .
+Guard     = "when" Conditional .
+```
 
 A case is written `case Pattern -> statement` for a switch statement, and `case Pattern ->
 expression;` for a switch expression. There is no fallthrough.

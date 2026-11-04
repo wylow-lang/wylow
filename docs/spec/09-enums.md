@@ -10,7 +10,7 @@ that give an enum without data an integer representation.
 
 ```ebnf
 EnumDeclaration = { Annotation } [ Visibility ] [ "unique" ] "enum" Identifier [ TypeParameters ]
-                  [ "implements" TypeList ] "{" [ Variants ] [ ";" { EnumMethod } ] "}" .
+                  [ "implements" TypeList ] "{" [ Variants ] [ ";" { Method } ] "}" .
 Variants        = Variant { "," Variant } [ "," ] .
 Variant         = Identifier [ "=" [ "-" ] IntegerLiteral ] | Identifier "(" VariantField { "," VariantField } ")" .
 VariantField    = Type Identifier .
@@ -163,10 +163,6 @@ initializer, or is assigned in every constructor of its class
 
 An enum whose variants carry no data has an **integer type** and gives each variant an integer **value**.
 Without `@Repr`, the integer type is `int`.
-
-```ebnf
-Repr = "@Repr" "(" IntegerType ")" .
-```
 
 `@Repr(T)` before an enum declaration gives the enum the integer type `T`, one of the integer types
 ([Integers](04-types.md#types.primitives.integers)). The enum does not convert to `T` implicitly.

@@ -6,6 +6,11 @@ An annotation marks a declaration with a setting that changes how it is treated,
 <a id="annotations.syntax"></a>
 ## 22.1 Annotation syntax
 
+```ebnf
+Annotation         = "@" Identifier [ "(" AnnotationArgument { "," AnnotationArgument } ")" ] .
+AnnotationArgument = Type | Literal .
+```
+
 A declaration may have annotations before its visibility and its other modifiers:
 `@CallerLocation pub static void check(...)` ([Visibility](03-programs.md#programs.visibility)). An
 annotation is `@Name` or `@Name(arguments)`. An argument is a type, as in `@Repr(uint)`, or a

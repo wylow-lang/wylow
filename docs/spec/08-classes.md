@@ -12,7 +12,7 @@ is declared, what a subclass inherits and overrides, how an object is constructe
 ClassDeclaration = { Annotation } [ Visibility ] [ "abstract" | "final" ] "class" Identifier
                    [ TypeParameters ] [ "extends" Type ] [ "implements" TypeList ]
                    "{" { ClassMember } "}" .
-ClassMember      = ClassField | ClassConstructor | ClassMethod | Destructor .
+ClassMember      = ClassField | ClassConstructor | Method | Indexer | Destructor .
 ```
 
 An object of a class is made with `new` ([Construction](13-expressions.md#expressions.construction)) and is
@@ -176,7 +176,7 @@ void main() {
 ## 8.6 Constructors
 
 ```ebnf
-ClassConstructor = { Annotation } [ Visibility ] Identifier "(" [ Parameters ] ")" Block .
+ClassConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")" Block .
 ```
 
 A constructor has the name of the class. It is not inherited, and has none of the modifiers of a

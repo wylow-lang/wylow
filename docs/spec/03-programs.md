@@ -102,7 +102,9 @@ Each `.wyl` file in a module's directory belongs to that module.
 A source file is a list of imports, then a list of declarations:
 
 ```ebnf
-SourceFile = { Import } { Declaration } .
+SourceFile  = { Import } { Declaration } .
+Declaration = StructDeclaration | ClassDeclaration | EnumDeclaration | InterfaceDeclaration
+            | FunctionDeclaration | ExternBlock .
 ```
 
 A top-level declaration is a type or a function; a file may have any number of them. A declaration

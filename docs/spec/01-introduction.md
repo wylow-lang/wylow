@@ -67,7 +67,12 @@ The productions of chapter 2 are lexical: they describe a token as a sequence of
 nothing between them. All other productions describe a sequence of tokens, which whitespace and
 comments may separate ([Tokens](02-lexical.md#lexical.tokens)).
 
-Each production appears once, in the section that gives its meaning.
+Each production appears once, in the section that gives its meaning. A source file is a `SourceFile`
+([A module's names](03-programs.md#programs.names)) and a manifest is a `Manifest`
+([The manifest](03-programs.md#programs.manifest)); every production is reached from one of these.
+`CharLiteral`, `StringLiteral`, and `InterpolatedString` are given in words
+([Literals](02-lexical.md#lexical.literals)). A program the productions allow may still break a rule
+stated in words.
 
 <a id="introduction.notation.examples"></a>
 ### 1.3.2 Examples

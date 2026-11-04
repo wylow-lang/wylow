@@ -136,6 +136,11 @@ A **literal** is a token that denotes a value: an integer, floating-point, chara
 literal, or an interpolated string. The keywords `true` and `false` denote the two values of
 `bool`, and `null` the null value ([Nullable types](04-types.md#types.nullable)).
 
+```ebnf
+Literal = IntegerLiteral | FloatLiteral | CharLiteral | StringLiteral | InterpolatedString
+        | "true" | "false" | "null" .
+```
+
 An integer or floating-point literal is a **number literal**. The letters, digits, and `_` that
 directly follow a number literal's digits are its **suffix**.
 

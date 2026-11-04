@@ -22,7 +22,7 @@ exist, what each can't see, and what to add next.
 | Expected output, reviewed snapshots | a wrong answer every mode agrees on | `tests/cases`, `tests/matrix`, `tests/cases/values` |
 | Every diagnostic is cataloged, tested, and explained | an error with no code, spec section, test, or page | `CatalogSelfTests`; a test's `// error[WYLnnnn]: <message>` marker matches the code and the message exactly |
 | The spec's examples compile and mark the errors they produce | an example that drifts from the compiler or contradicts a rule | `SpecExampleSelfTests` |
-| `std` is documented and the docs' links work | a `pub` declaration with no doc comment, a panic with no `# Panics`, a link to nothing | `DocSelfTests` |
+| `std` is documented, the docs' links work, and the grammar is whole | a `pub` declaration with no doc comment, a panic with no `# Panics`, a link to nothing, a grammar name defined twice or never | `DocSelfTests` |
 | Mutation testing | a test that wouldn't notice a wrong answer | `tests/Wyl.Mutation` |
 
 **What no oracle sees:** every mode and the interpreter share lowering, so a wrong meaning

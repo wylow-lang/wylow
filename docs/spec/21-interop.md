@@ -9,6 +9,12 @@ package exports.
 <a id="interop.extern"></a>
 ## 21.1 Extern declarations
 
+```ebnf
+ExternBlock  = { Annotation } "extern" "{" { ExternMember } "}" .
+ExternMember = "static" Type Identifier ";" | "struct" Identifier ";" | StructDeclaration
+             | FunctionDeclaration .
+```
+
 An **extern block** is written `extern { ... }` and preceded by `@Include("path")`, which names the
 header that provides its declarations:
 
@@ -43,7 +49,8 @@ extern {
 An **extern struct** is a value type that the C++ class `wyl::Name` implements. `String` and
 `Weak<T>` are declared this way ([The standard library](a-library.md#library.names)).
 
-- Only the standard library declares an extern struct.
+- Only the standard library declares an extern struct. Only an extern struct is named by a primitive
+  type's keyword ([Methods of primitive types](04-types.md#types.primitives.methods)).
 - It has no fields and no constructors. Its default value is the C++ class's default constructor.
 - Its methods are all extern, and an instance method calls the member function of the same name.
 - It has no `==`.

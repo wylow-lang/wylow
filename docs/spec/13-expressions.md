@@ -39,10 +39,12 @@ void main() {
 <a id="expressions.primary"></a>
 ## 13.2 Names, literals, and `this`
 
-A primary expression is a name, a literal, `this`, `super`, or a parenthesized expression.
+A primary expression is a name, a literal, `this`, `super`, a parenthesized expression, a construction
+with `new`, an array literal, or a switch expression.
 
 ```ebnf
-Primary = Identifier [ TypeArguments ] | Literal | "this" | "super" | "(" Expression ")" .
+Primary = { Identifier "::" } Identifier [ TypeArguments ] | Literal | "this" | "super"
+        | "(" Expression ")" | New | ArrayLiteral | SwitchExpression .
 ```
 
 A name is resolved to the declarations in scope: a local, a parameter, a loop variable, a pattern
@@ -78,6 +80,11 @@ void main() {
 
 <a id="expressions.construction"></a>
 ## 13.3 Construction
+
+```ebnf
+New          = "new" Type ( ArgumentList | "[" Expression "]" ) .
+ArrayLiteral = "[" [ Expression { "," Expression } ] "]" .
+```
 
 `new` appears only where memory is allocated: for a class object or a heap array. A struct value is
 made by calling its constructor without `new`, and an enum value by naming a variant.
@@ -150,6 +157,11 @@ void main() {
 
 <a id="expressions.calls"></a>
 ## 13.5 Calls
+
+```ebnf
+ArgumentList = "(" [ Argument { "," Argument } ] ")" .
+Argument     = [ Identifier ":" ] [ "ref" ] Expression .
+```
 
 `f(args)` calls a function or a function value, and `e.m(args)` calls a method of `e`. The
 arguments are evaluated left to right and converted to the parameters
@@ -426,6 +438,10 @@ void main() {
 
 A switch expression chooses one of several expressions:
 
+```ebnf
+SwitchExpression = "switch" "(" Expression ")" "{" { CaseLabel [ Guard ] "->" Expression ";" } "}" .
+```
+
 ```java
 enum State { Idle, Running(int n), Done }
 
@@ -667,6 +683,18 @@ integer constant, so `byte b = 1 + 2;` is an error ([Integer constants](05-conve
 
 <a id="expressions.precedence"></a>
 ## 13.20 Operator precedence
+
+```ebnf
+Expression      = Lambda | Conditional .
+Conditional     = Coalesce [ "?" Expression ":" Expression ] .
+Coalesce        = Binary [ "??" Coalesce ] .
+Binary          = UnaryExpression { BinaryOperator UnaryExpression | "is" Pattern } .
+BinaryOperator  = "*" | "/" | "%" | "+" | "-" | "<<" | ">>" | "<" | "<=" | ">" | ">=" | "==" | "!="
+                | "&" | "^" | "|" | "&&" | "||" .
+UnaryExpression = ( "-" | "!" | "~" | "try" ) UnaryExpression | Cast | Postfix .
+Postfix         = Primary { ArgumentList | "." Identifier [ TypeArguments ]
+                          | "[" Argument { "," Argument } "]" | "?." Identifier | "!" } .
+```
 
 Operators group by these levels, tightest first. A cast and the unary operators apply to the operand
 that follows them, and member access, calls, indexing, `?.`, and `!` apply to the operand before them,

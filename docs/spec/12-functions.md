@@ -11,7 +11,7 @@ function references, and the choice between functions.
 ## 12.1 Function declarations
 
 ```ebnf
-FunctionDeclaration = { Annotation } [ Visibility ] [ "unsafe" | "extern" ] Type Identifier
+FunctionDeclaration = { Annotation } [ Visibility ] { "unsafe" | "extern" } Type Identifier
                       [ TypeParameters ] "(" [ Parameters ] ")" ( Block | ";" ) .
 ```
 
@@ -48,7 +48,7 @@ int pending(int x);                     // error[WYL0211]
 ## 12.2 Parameters
 
 ```ebnf
-Parameters    = Parameter { "," Parameter } .
+Parameters    = ( Parameter | ReceiverParameter ) { "," Parameter } .
 Parameter     = { Annotation } [ "mut" | ParameterMode ] [ "escaping" ] Type Identifier
                 [ "=" Expression ] .
 ```
@@ -234,6 +234,17 @@ void main() {
 <a id="functions.methods"></a>
 ## 12.5 Instance and static methods
 
+```ebnf
+Method     = { Annotation } [ Visibility ] { Modifier } ReturnType Identifier [ TypeParameters ]
+             "(" [ Parameters ] ")" ( Block | ";" ) .
+Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
+ReturnType = [ ParameterMode ] Type .
+```
+
+Which modifiers a method may have is a rule of the type that declares it
+([Struct declarations](07-structs.md#structs.declarations), [Virtual methods](08-classes.md#classes.overriding),
+[Interfaces](10-interfaces.md#interfaces.declarations), [Enum methods](09-enums.md#enums.methods)).
+
 A method declared in a type is an **instance method** unless it is declared `static`. An instance
 method has a receiver, `this`, which is the value or place it is called on
 ([Methods](07-structs.md#structs.methods), [Class declarations](08-classes.md#classes.declarations)).
@@ -356,8 +367,8 @@ The one exception is indexing. A struct or class declares an **indexer**, an ins
 `operator []`, whose result `a[i]` is:
 
 ```ebnf
-Indexer = { Annotation } [ Visibility ] [ "mut" ] ( Type | "ref" Type | "in" Type )
-          "operator" "[" "]" "(" [ Parameters ] ")" ( Block | ";" ) .
+Indexer = { Annotation } [ Visibility ] { Modifier } ReturnType
+          "operator" "[" "]" [ "=" ] "(" [ Parameters ] ")" ( Block | ";" ) .
 ```
 
 ```java
@@ -417,7 +428,9 @@ A **lambda** is a function value written where it is used. Its parameters are ei
 taking their types and modes from the function type it is converted to, or all typed:
 
 ```ebnf
-Lambda       = [ Parameters ] "->" ( Expression | Block ) .
+Lambda          = ( Identifier | "(" [ LambdaParameter { "," LambdaParameter } ] ")" ) "->"
+                  ( Expression | Block ) .
+LambdaParameter = { Annotation } [ "mut" | ParameterMode ] [ "escaping" ] [ Type ] Identifier .
 ```
 
 A lambda is never an operand: its body extends as far as an expression can, so `x -> x + 1` is a

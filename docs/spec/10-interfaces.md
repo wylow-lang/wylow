@@ -9,8 +9,9 @@ declared, how a class, struct, or enum implements it, and where a value of an in
 
 ```ebnf
 InterfaceDeclaration = { Annotation } [ Visibility ] "interface" Identifier [ TypeParameters ]
-                       [ "extends" TypeList ] "{" { InterfaceMethod } "}" .
-InterfaceMethod      = [ "mut" ] ( Type | "void" ) Identifier "(" [ Parameters ] ")" ";" .
+                       [ "extends" TypeList ] "{" { InterfaceMember } "}" .
+InterfaceMember      = InterfaceMethod | Indexer .
+InterfaceMethod      = [ "mut" ] ReturnType Identifier "(" [ Parameters ] ")" ";" .
 ```
 
 An interface has methods, each a signature with no body. An interface that `extends` others has their
@@ -48,7 +49,7 @@ void main() {
 ## 10.2 Implementing an interface
 
 ```ebnf
-Implements = "implements" Type { "," Type } .
+TypeList = Type { "," Type } .
 ```
 
 A class, struct, or enum **implements** the interfaces after `implements`, and the interfaces they extend. A

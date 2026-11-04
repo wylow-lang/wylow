@@ -23,10 +23,72 @@ static partial class DocSelfTests
     [GeneratedRegex(@"^#+ (.*)$", RegexOptions.Multiline)]
     private static partial Regex HeadingPattern();
 
+    [GeneratedRegex(@"```ebnf\n(.*?)```", RegexOptions.Singleline)]
+    private static partial Regex GrammarPattern();
+
+    [GeneratedRegex("\"[^\"]*\"")]
+    private static partial Regex QuotedTokenPattern();
+
+    [GeneratedRegex(@"^([A-Z]\w*)\s*=(.*?)(?=^[A-Z]\w*\s*=|\z)", RegexOptions.Singleline | RegexOptions.Multiline)]
+    private static partial Regex ProductionPattern();
+
+    [GeneratedRegex(@"\b[A-Z]\w*\b")]
+    private static partial Regex NonterminalPattern();
+
+    /// <summary>What a source file and a manifest are, which nothing else refers to (introduction.notation.grammar).</summary>
+    static readonly string[] GrammarRoots = ["SourceFile", "Manifest"];
+
+    /// <summary>The tokens chapter 2 gives in words, since a production can't say "any character but".</summary>
+    static readonly string[] TokensInWords = ["CharLiteral", "StringLiteral", "InterpolatedString"];
+
     public static IEnumerable<TestResult> Run(string root)
     {
         yield return Result("docs/std-comments", StdComments(root));
         yield return Result("docs/links", Links(root));
+        yield return Result("docs/grammar", Grammar(root));
+    }
+
+    /// <summary>
+    /// Each production of the spec appears once, every name a production uses has one, and every
+    /// production is reached from a source file or a manifest. Whether the grammar agrees with the
+    /// parser is not checked here; the examples that compile are the check of that.
+    /// </summary>
+    static IEnumerable<string> Grammar(string root)
+    {
+        var uses = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var definedIn = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var path in Directory.GetFiles(Path.Combine(root, "docs/spec"), "*.md").Order(StringComparer.Ordinal))
+        {
+            var text = File.ReadAllText(path).ReplaceLineEndings("\n");
+            var file = Path.GetFileName(path);
+            foreach (Match block in GrammarPattern().Matches(text))
+            {
+                foreach (Match production in ProductionPattern().Matches(QuotedTokenPattern().Replace(block.Groups[1].Value, " ")))
+                {
+                    var name = production.Groups[1].Value;
+                    if (!definedIn.TryAdd(name, file))
+                        yield return $"{name} is defined in {definedIn[name]} and again in {file}";
+                    uses[name] = [.. NonterminalPattern().Matches(production.Groups[2].Value).Select(m => m.Value)];
+                }
+            }
+        }
+        foreach (var name in uses.Values.SelectMany(u => u).Distinct().Order(StringComparer.Ordinal))
+        {
+            if (!definedIn.ContainsKey(name) && !TokensInWords.Contains(name))
+                yield return $"{name} is used by a production, and has none";
+        }
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>(GrammarRoots);
+        while (pending.TryPop(out var name))
+        {
+            if (reached.Add(name) && uses.TryGetValue(name, out var used))
+            {
+                foreach (var next in used)
+                    pending.Push(next);
+            }
+        }
+        foreach (var name in definedIn.Keys.Where(n => !reached.Contains(n)).Order(StringComparer.Ordinal))
+            yield return $"{name} is reached from no source file or manifest";
     }
 
     static TestResult Result(string name, IEnumerable<string> problems) =>

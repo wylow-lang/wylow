@@ -6,9 +6,10 @@ and expression statements, assignment, the conditional and loop statements, `swi
 `return`, and `defer`.
 
 ```ebnf
-Statement      = Block | Declaration | ExpressionStatement | Assignment | If | While | Loop
-               | For | ForEach | Switch | Break | Continue | Return | Defer .
-Block          = "{" { Statement } "}" .
+Statement       = Block | LocalDeclaration | SimpleStatement ";" | If | While | Loop | For | ForEach
+                | Switch | Break | Continue | Return | Defer | Discard | UnsafeBlock .
+SimpleStatement = Expression | DiscardValue | Assignment | Increment .
+Block           = "{" { Statement } "}" .
 ```
 
 <a id="statements.blocks"></a>
@@ -57,6 +58,10 @@ An expression statement evaluates an expression for its effect.
 <a id="statements.expressions.discard"></a>
 ### 14.3.1 Discarding a value
 
+```ebnf
+DiscardValue = "_" "=" Expression .
+```
+
 `_ = expr;` evaluates `expr` and ignores its value.
 
 - It is a compile-time error to discard the value of a call that returns `void`.
@@ -78,6 +83,12 @@ void main() {
 
 <a id="statements.assignment"></a>
 ## 14.4 Assignment
+
+```ebnf
+Assignment         = Expression AssignmentOperator Expression .
+AssignmentOperator = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" .
+Increment          = ( "++" | "--" ) UnaryExpression | Expression ( "++" | "--" ) .
+```
 
 Assignment sets a place to a value. `=`, the compound assignments (`+=`, `-=`, `*=`, `/=`, `%=`,
 `&=`, `|=`, `^=`, `<<=`, `>>=`), and `++` and `--` are statements, not expressions.
@@ -127,6 +138,10 @@ struct Point { pub int x; }
 <a id="statements.if"></a>
 ## 14.5 `if`
 
+```ebnf
+If = "if" "(" Expression ")" Block [ "else" ( If | Block ) ] .
+```
+
 `if (condition) { ... } else { ... }` runs the first block when the condition is true, and the
 `else` block otherwise. The condition has type `bool`, and an `else` may be another `if`.
 
@@ -148,12 +163,10 @@ if (paid) {
 <a id="statements.loops"></a>
 ## 14.6 `while`, `loop`, and `for`
 
-```java unchecked
-while (condition) { ... }
-
-loop { ... }
-
-for (init; condition; update) { ... }
+```ebnf
+While = "while" "(" Expression ")" Block .
+Loop  = "loop" Block .
+For   = "for" "(" ( LocalDeclaration | [ SimpleStatement ] ";" ) Expression ";" [ SimpleStatement ] ")" Block .
 ```
 
 - The condition of a `while` or `for` loop has type `bool`, and is evaluated before each iteration.
@@ -188,7 +201,7 @@ A for-each loop visits each element of a value:
 
 ```ebnf
 ForEach      = "for" "(" [ "mut" ] [ "ref" | "in" ] ( "var" | Type ) Identifier
-               [ "," [ "mut" ] [ "ref" | "in" ] ( "var" | Type ) Identifier ] ":" Expression ")" Block .
+               [ "," [ "mut" ] [ "ref" | "in" ] ( "var" | Type ) Identifier ] ":" ( Expression | Range ) ")" Block .
 ```
 
 ```java statements
@@ -231,6 +244,10 @@ void main() {
 
 <a id="statements.for-each.ranges"></a>
 ### 14.7.1 Ranges
+
+```ebnf
+Range = Expression ( ".." | "..=" ) Expression .
+```
 
 A range is `start..end` or `start..=end` and loops over the integers from `start` up to, or through,
 `end`:
@@ -293,6 +310,10 @@ void main() {
 
 A switch statement selects one of several blocks:
 
+```ebnf
+Switch = "switch" "(" Expression ")" "{" { CaseLabel [ Guard ] "->" Statement } "}" .
+```
+
 ```java
 enum State { Idle, Running(int count), Done }
 
@@ -346,6 +367,11 @@ void main() {
 <a id="statements.jumps"></a>
 ## 14.9 `break` and `continue`
 
+```ebnf
+Break    = "break" ";" .
+Continue = "continue" ";" .
+```
+
 `break;` ends the innermost loop, and `continue;` begins its next iteration. Inside a switch, both
 apply to the enclosing loop.
 
@@ -361,6 +387,10 @@ void main() {
 
 <a id="statements.return"></a>
 ## 14.10 `return`
+
+```ebnf
+Return = "return" [ [ "ref" ] Expression ] ";" .
+```
 
 `return;` ends a function that returns nothing, and `return expr;` returns a value converted to the
 function's return type. `return ref place;` returns a reference
@@ -386,6 +416,10 @@ int value() {
 
 <a id="statements.defer"></a>
 ## 14.11 `defer`
+
+```ebnf
+Defer = "defer" Statement .
+```
 
 `defer statement;` runs its statement when the enclosing block exits, whether it completes normally
 or through `return`, `break`, or `continue`. Several deferred statements of one block run in reverse
