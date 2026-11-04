@@ -34,7 +34,7 @@ public sealed partial class Binder
 
     void Declare(LocalSymbol local, Location location)
     {
-        // Like Java, a local may not shadow another local or parameter (it may shadow a field).
+        // A local may not shadow another local or parameter (it may shadow a field).
         local.Owner ??= currentFunction;
         if (scope!.Lookup(local.Name) is not null)
         {

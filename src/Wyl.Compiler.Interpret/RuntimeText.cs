@@ -163,7 +163,7 @@ internal static class FloatText
             number = (float)number;
         var (sign, digits, exponent) = Parse(roundTrip);
         var text = Shortest(sign, number, digits, exponent);
-        // Whole numbers read as "3.0", like Java, and non-finite values were handled above.
+        // Whole numbers read as "3.0", and non-finite values were handled above.
         return text.Contains('.') || text.Contains('e') || text.Contains('n') ? text : text + ".0";
     }
 

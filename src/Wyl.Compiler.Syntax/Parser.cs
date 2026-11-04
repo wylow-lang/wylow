@@ -84,7 +84,7 @@ public sealed partial class Parser
                 if (annotations.Count > 0)
                     Report(Catalog.ImportWithAnnotations(annotations[0].Location));
                 Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnImport(Loc(token.Span), token.Text));
-                // As in Java, so a file's first lines say what it uses.
+                // So a file's first lines say what it uses.
                 if (declarations.Count > 0)
                     Report(Catalog.ImportAfterDeclaration(Loc(Current.Span)));
                 imports.Add(ParseImport(start, modifiers.Visibility));

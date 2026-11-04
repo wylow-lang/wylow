@@ -6,7 +6,7 @@ namespace Wyl.Compiler.Syntax;
 
 public sealed partial class Parser
 {
-    // As in Java, a lambda is never an operand: its body extends as far as an expression can.
+    // A lambda is never an operand: its body extends as far as an expression can.
     Expr ParseExpression() => IsLambdaStart() ? ParseLambda() : ParseConditional();
 
     Expr ParseConditional()
@@ -102,7 +102,7 @@ public sealed partial class Parser
         };
     }
 
-    // `??` binds looser than `||` and groups to the right, as in C#.
+    // `??` binds looser than `||` and groups to the right.
     Expr ParseCoalesce()
     {
         int start = position;
@@ -122,7 +122,7 @@ public sealed partial class Parser
         {
             if (At(TokenKind.IsKeyword))
             {
-                // `is` has the precedence of the relational operators, like Java's instanceof.
+                // `is` has the precedence of the relational operators.
                 if (SyntaxFacts.RelationalPrecedence <= parentPrecedence)
                     return left;
                 Advance();
@@ -167,7 +167,7 @@ public sealed partial class Parser
     }
 
     /// <summary>
-    /// A cast to a primitive type, or as in Java, a parenthesized name followed by something that
+    /// A cast to a primitive type, or a parenthesized name followed by something that
     /// can only start an operand, so that <c>(a) - b</c> stays a subtraction.
     /// </summary>
     bool IsCastStart()

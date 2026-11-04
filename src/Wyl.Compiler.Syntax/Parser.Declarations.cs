@@ -77,7 +77,7 @@ public sealed partial class Parser
         };
     }
 
-    /// <summary>Variants separated by commas, then, if members follow, a ';' as in Java.</summary>
+    /// <summary>Variants separated by commas, then, if members follow, a ';'.</summary>
     List<VariantDecl> ParseVariants()
     {
         var variants = new List<VariantDecl>();

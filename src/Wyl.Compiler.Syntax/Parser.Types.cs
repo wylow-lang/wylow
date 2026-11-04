@@ -52,7 +52,7 @@ public sealed partial class Parser
 
     /// <summary>
     /// Checks without consuming whether a type argument list starts at token <paramref name="index"/>,
-    /// and returns the index just past it, or -1. Like C#, <c>a &lt; b &gt; (c)</c> is read as a generic call.
+    /// and returns the index just past it, or -1. <c>a &lt; b &gt; (c)</c> is read as a generic call.
     /// </summary>
     int ScanTypeArguments(int index)
     {

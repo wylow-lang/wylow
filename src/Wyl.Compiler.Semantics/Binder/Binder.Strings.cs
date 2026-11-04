@@ -49,7 +49,7 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// A format specifier, a letter and an optional precision of up to two digits, as in C#:
+    /// A format specifier, a letter and an optional precision of up to two digits:
     /// <c>D</c>, <c>X</c>, and <c>B</c> for integers, <c>F</c> and <c>E</c> for floating point.
     /// </summary>
     (char Kind, int Precision)? BindFormatSpecifier(Location location, string format, WylType type)
