@@ -15,7 +15,7 @@ header that provides its declarations:
 ```java
 @Include("parser.h")
 extern {
-    const int MAX_TOKENS;                       // a constant or macro, by name
+    static int MAX_TOKENS;                      // a constant or macro, by name
 
     struct Parser;                              // opaque: usable only through pointers
 

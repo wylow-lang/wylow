@@ -34,7 +34,7 @@ history and a reason can be found without searching the spec.
 | [0004](0004-doc-comments.md) | Doc comments: `///` Markdown, Javadoc style, fixed sections |
 | [0005](0005-design-principles.md) | Design principles (superseded by 0027) |
 | [0006](0006-lengths-are-int.md) | Lengths and indices are `int` |
-| [0007](0007-float-literals.md) | An unsuffixed floating-point literal is a `float` |
+| [0007](0007-float-literals.md) | An unsuffixed floating-point literal is a `float` (superseded by 0041) |
 | [0008](0008-arithmetic-keeps-operand-types.md) | Arithmetic keeps its operands' type |
 | [0009](0009-unique-values-and-moves.md) | Unique structs and enums, and moves |
 | [0010](0010-construction-sees-base-class.md) | While a base class constructs, the object is that class |
@@ -66,3 +66,11 @@ history and a reason can be found without searching the spec.
 | [0036](0036-type-properties.md) | `copyable` and `sendable` are type properties, not interfaces |
 | [0037](0037-interfaces-the-language-calls.md) | Interfaces the language calls are ordinary interfaces |
 | [0038](0038-built-in-types-declare-their-interfaces.md) | The built-in types declare their interfaces in the standard library |
+| [0039](0039-loop-replaces-do.md) | `loop` replaces `do`, and a `for` has a condition |
+| [0040](0040-defer-rules.md) | A deferred statement cannot jump out |
+| [0041](0041-double-literals.md) | An unsuffixed floating-point literal is a `double` |
+| [0042](0042-unit.md) | A `Result` with no success value uses `Unit` |
+| [0043](0043-no-constants.md) | No constant declaration and no top-level variables |
+| [0044](0044-moved-value-destructor.md) | A moved value's destructor runs on the thread that releases it |
+| [0045](0045-byte-pointers-follow-the-rule.md) | A `byte*` has no exception to the storage rule |
+| [0046](0046-nan-bits-and-budgets.md) | NaN bits and budgeted collection stay implementation-defined |

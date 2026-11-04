@@ -56,6 +56,10 @@ Result<Order, ReadError> readOrder(String path) {
 }
 ```
 
+`void` is not a type argument ([Kinds of types](04-types.md#types.kinds)), so a function with no value
+to return on success uses `std`'s empty struct `Unit`: `Result<Unit, ReadError>`, with
+`return Ok(Unit());`.
+
 `try` returns the error through the enclosing function
 ([`try`](13-expressions.md#expressions.try)). The standard library's declaration of `Result` also
 gives methods that use a result or one of its values; its doc comments give them.

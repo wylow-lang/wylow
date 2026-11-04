@@ -81,7 +81,7 @@ StructConstructor = { Annotation } [ Visibility ] Identifier "(" [ Parameters ] 
 
 A struct value is made by calling a constructor, written as a call to the struct's name: `Point(1, 2)`,
 without `new`. A generic struct is written with its type arguments:
-`Pair<int, float>(1, 2.5)` ([Type arguments](11-generics.md#generics.arguments)). The arguments of a
+`Pair<int, float>(1, 2.5f)` ([Type arguments](11-generics.md#generics.arguments)). The arguments of a
 constructor call are evaluated in the order written
 ([Evaluation order](13-expressions.md#expressions.order)).
 
@@ -308,12 +308,12 @@ unique struct Handle {
     ~Handle() { release(id); }
 }
 
-Result<void, Error> close(Handle h) {
+Result<Unit, Error> close(Handle h) {
     if (!flush(h.id)) {
-        return Result.err(Error.Flush);     // 'h' is released here: the destructor runs
+        return Err(Error.Flush);            // 'h' is released here: the destructor runs
     }
     discard h;                              // the destructor does not run
-    return Result.ok();
+    return Ok(Unit());
 }
 ```
 

@@ -389,7 +389,14 @@ void send(Buffer buffer) {
 }
 ```
 
-- The deferred statement is not run when a panic ends the program.
+- A `defer` that execution does not reach defers nothing, and each iteration of a loop defers its
+  own.
+- The deferred statement is evaluated when it runs, not at the `defer`. A `return`'s value is
+  computed before the deferred statements run.
+- Deferred statements and the releases of the block's locals run together, each in the reverse of
+  the order they were reached, so a `defer` after `var x` runs before `x` is released.
+- The deferred statement is not run when a panic ends the program, and a panic in it ends the
+  program.
 - A deferred statement is in the scope of the block that defers it.
-- A deferred statement that cannot complete ends the enclosing function or loop as it would
-  anywhere else.
+- It is a compile-time error if a `return`, `try`, `break`, or `continue` in a deferred statement
+  would leave that statement. A `break` or `continue` of a loop inside it is allowed.

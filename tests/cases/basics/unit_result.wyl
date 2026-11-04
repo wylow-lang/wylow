@@ -1,0 +1,22 @@
+// A fallible function with nothing to return gives its Result the type Unit.
+
+import std::{Unit, print};
+
+enum CloseError { Busy }
+
+Result<Unit, CloseError> close(bool busy) {
+    if (busy) {
+        return Err(CloseError.Busy);
+    }
+    return Ok(Unit());
+}
+
+Result<Unit, CloseError> closeTwice() {
+    _ = try close(false);
+    return close(true);
+}
+
+void main() {
+    print(close(false) is Ok);          // output: true
+    print(closeTwice() is Err);         // output: true
+}
