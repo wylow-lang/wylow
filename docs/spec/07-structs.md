@@ -135,14 +135,19 @@ field's type. A call may name its arguments and leave out the ones that have def
 **Example:**
 
 ```java
+class Customer { }
+
 struct Order {
     pub int id;
     pub int quantity = 1;
     pub Customer customer;
 }
 
-Order(7, customer: c)                   // quantity is 1
-Order(id: 7)                            // error[WYL0100]: 'customer' has no value
+void main() {
+    var c = new Customer();
+    var a = Order(7, customer: c);      // quantity is 1
+    var b = Order(id: 7);               // error[WYL0100]: 'customer' has no value
+}
 ```
 
 <a id="structs.constructors.default"></a>
@@ -162,15 +167,18 @@ cannot be declared.
 **Example:**
 
 ```java
-class Target { }
+class Customer { }
 
-struct Hit {
-    pub int damage;
-    pub Target target;
+struct Invoice {
+    pub int total;
+    pub Customer customer;
 }
 
-var h = Hit();                          // error[WYL0102]: 'Target' has no default value
-var g = Hit(target: t);                 // valid
+void main() {
+    var c = new Customer();
+    var a = Invoice();                  // error[WYL0102]: 'Customer' has no default value
+    var b = Invoice(customer: c);       // valid
+}
 ```
 
 <a id="structs.methods"></a>
@@ -302,7 +310,7 @@ fields are released as usual.
 
 **Example:**
 
-```java
+```java unchecked
 unique struct Handle {
     pub int id;
     ~Handle() { release(id); }
@@ -390,8 +398,8 @@ struct, according to where they are used as fields.
 **Example:**
 
 ```java
-struct Node {
+struct Node {                           // error[WYL0106]: a nullable value is stored inline
     pub int value;
-    pub Node? next;                     // error[WYL0106]: a nullable value is stored inline
+    pub Node? next;
 }
 ```

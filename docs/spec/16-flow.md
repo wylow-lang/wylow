@@ -157,7 +157,7 @@ from holds no value.
 
 **Example:**
 
-```java
+```java unchecked
 unique struct Buffer {
     pub int length;
 }

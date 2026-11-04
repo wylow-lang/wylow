@@ -129,7 +129,7 @@ they are declared ([Overloading](12-functions.md#functions.overloading)).
 
 **Example:**
 
-```java
+```java unchecked
 // orders/order.wyl
 pub struct Order { ... }
 String describe(Order o) { ... }    // file-private
@@ -190,7 +190,7 @@ of one name found in two of these are never overloads of each other.
 
 **Example:**
 
-```java
+```java unchecked
 import std::{List, print};
 import orders::Order;
 import orders::format;                 // the module: format::text(o)
@@ -219,7 +219,7 @@ file imports, or a module its module re-exports.
 
 **Example:**
 
-```java
+```java unchecked
 // orders/format/text.wyl
 import orders::Order;
 import std::memory;
@@ -280,7 +280,7 @@ The visibility comes first among a declaration's modifiers, after its annotation
 ```java
 pub class Account {
     pub String owner;
-    int balance;                              // this file only
+    mut int balance;                          // this file only
 
     pub(package) void credit(int amount) { balance += amount; }
 }

@@ -12,7 +12,7 @@ package exports.
 An **extern block** is written `extern { ... }` and preceded by `@Include("path")`, which names the
 header that provides its declarations:
 
-```java
+```java unchecked
 @Include("parser.h")
 extern {
     static int MAX_TOKENS;                      // a constant or macro, by name
@@ -54,7 +54,7 @@ An **extern struct** is a value type that the C++ class `wyl::Name` implements. 
 `@CppName("name")` maps an extern declaration to any C++ name, including a namespaced or overloaded
 function:
 
-```java
+```java unchecked
 extern {
     @CppName("text::parse") bool parseText(byte* text);
 }
@@ -125,7 +125,7 @@ The pointer is valid only while the span's borrow is active, which is its lexica
 ([Borrows](17-memory.md#memory.borrows)). If foreign code keeps the pointer after that, its use is
 undefined behavior.
 
-```java
+```java unchecked
 int[] values = new int[n];
 
 unsafe {
@@ -147,7 +147,7 @@ unsafe {
   the unsafe cast of the context, and the program is responsible for avoiding races
   ([Undefined behavior](20-unsafe.md#unsafe.undefined)).
 
-```java
+```java unchecked
 @CCallback
 static void onProgress(void* context, int done) { ... }
 
@@ -180,7 +180,7 @@ API.
 extern "C" ParserId parser_create_parser(ParserWorld* world, int capacity);
 ```
 
-```java
+```java unchecked
 @Include("parser_shim.h")
 extern {
     struct ParserWorld;
@@ -195,7 +195,7 @@ extern {
 `@Export` on a top-level function gives it C++ linkage and a stable name, so C++ code calls it. Its
 parameters and return type must be blittable.
 
-```java
+```java unchecked
 @Export
 int parser_version() { return 3; }
 ```

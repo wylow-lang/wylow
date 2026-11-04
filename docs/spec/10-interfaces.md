@@ -39,7 +39,9 @@ interface Labeled extends Named {
     String label();
 }
 
-var n = new Named();                    // error[WYL0180]
+void main() {
+    var n = new Named();                // error[WYL0180]
+}
 ```
 
 <a id="interfaces.implementing"></a>
@@ -123,5 +125,7 @@ struct Tag implements Named {
     String name() { return "t"; }
 }
 
-Named n = Tag();                        // error[WYL0079]: expected 'Named', found 'Tag'
+void main() {
+    Named n = Tag();                    // error[WYL0079]: expected 'Named', found 'Tag'
+}
 ```

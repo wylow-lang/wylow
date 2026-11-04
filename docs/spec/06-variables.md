@@ -54,12 +54,21 @@ keeps the form of its initializer ([Escaping and non-escaping](12-functions.md#f
 **Example:**
 
 ```java
-var orders = new List<Order>();
-var total = 0;                      // an int
-var v;                              // error[WYL0085]
-var w = log("x");                   // error[WYL0086], 'log' returns void
-var x = null;                       // error[WYL0087]
-var copy = list.get(0);             // error[WYL0088]
+struct Row {
+    float[4] cells;
+
+    mut ref? float at(int i) { ... }
+}
+
+void main() {
+    var orders = new List<Order>();
+    var total = 0;                  // an int
+    var v;                          // error[WYL0085]
+    var w = log("x");               // error[WYL0086], 'log' returns void
+    var x = null;                   // error[WYL0087]
+    mut Row row = Row();
+    var copy = row.at(0);           // error[WYL0088]
+}
 ```
 
 <a id="variables.mutability"></a>
@@ -105,12 +114,14 @@ variable to be changed.
 ```java
 struct Counter { int n; mut void bump() { n++; } }
 
-Counter c = Counter();
-c.n = 1;                        // error[WYL0351]: 'c' is not 'mut'
-mut Counter d = Counter();
-d.bump();
-List<int> list = new List<int>();
-list.add(1);                    // valid: the object changes, the variable does not
+void main() {
+    Counter c = Counter();
+    c.n = 1;                    // error[WYL0351]: 'c' is not 'mut'
+    mut Counter d = Counter();
+    d.bump();
+    List<int> list = new List<int>();
+    list.add(1);                // valid: the object changes, the variable does not
+}
 ```
 
 <a id="variables.assign-once"></a>
@@ -122,12 +133,13 @@ analysis ([Variables assigned once](16-flow.md#flow.assign-once)).
 
 **Example:**
 
-```java
+```java statements
+int count = 1;
 String label;
-if (hp > 0) {
-    label = "alive";
+if (count > 0) {
+    label = "some";
 } else {
-    label = "dead";
+    label = "none";
 }
 ```
 
@@ -151,7 +163,7 @@ refers to stays valid are the rules of [References](17-memory.md#memory.referenc
 
 **Example:**
 
-```java
+```java statements
 ref int first = values[0];
 first = 5;                          // assigns values[0]
 ref int r;                          // error[WYL0091]
@@ -202,7 +214,7 @@ A static is never destroyed, whether the program ends by `main` returning or by 
 
 **Example:**
 
-```java
+```java unchecked
 class Audio {
     static int SAMPLE_RATE = 48_000;
     static Frozen<float> SINE_TABLE = makeSineTable();      // computed once, before 'main'

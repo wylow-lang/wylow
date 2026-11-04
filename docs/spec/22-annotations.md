@@ -68,6 +68,7 @@ int at(int[] values, int index) {
 }
 
 void main() {
+    var values = new int[2];
     print(at(values, 3));          // a panic here names this line
 }
 ```

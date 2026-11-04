@@ -39,7 +39,7 @@ int distance(Point a, Point b) {
     return dx * dx + dy * dy;
 }
 
-static int count;                       // error[WYL0209]
+static int count() { return 0; }        // error[WYL0209]
 
 int pending(int x);                     // error[WYL0211]
 ```
@@ -102,7 +102,7 @@ void main() {
 void swap(ref int a, ref int b) { int t = a; a = b; b = t; }
 
 void main() {
-    int x = 1;
+    mut int x = 1;
     swap(ref x, ref 2);                 // error[WYL0222]
     swap(ref x, 2);                     // error[WYL0224]
 }
@@ -117,9 +117,12 @@ parameter. The arguments of a call may be given by the parameter's name.
 ```java
 void scale(Point p, float by = 2, float limit = 100) { ... }
 
-scale(p);
-scale(p, 3);
-scale(p, limit: 10);                    // 'by' is 2
+void main() {
+    var p = Point();
+    scale(p);
+    scale(p, 3);
+    scale(p, limit: 10);                // 'by' is 2
+}
 ```
 
 - It is a compile-time error if a default value is not a constant
@@ -152,15 +155,19 @@ scale(p, limit: 10);                    // 'by' is 2
 **Example:**
 
 ```java
+class Customer { }
+
 struct Order {
     pub int id;
     pub int quantity = 1;
     pub Customer customer;
 }
 
-Order(id: 7);                           // error[WYL0100]
-Order(id: 7, 3);                        // error[WYL0226]
-order(id: 7, id: 8);                    // error[WYL0229]
+void main() {
+    Order(id: 7);                       // error[WYL0100]
+    Order(id: 7, 3);                    // error[WYL0226]
+    Order(7, id: 8);                    // error[WYL0229]
+}
 ```
 
 <a id="functions.overloading"></a>
@@ -293,9 +300,9 @@ struct Buffer {
 struct Buffer {
     int[16] data;
 
-    pub static ref int first() { return ref data[0]; }      // error[WYL0244]
-    pub ref int at(int index) { return data[index]; }       // error[WYL0240]
-    pub in int size() { return ref data.length; }           // error[WYL0241]
+    pub static ref int first() { ... }                      // error[WYL0244]
+    pub mut ref int at(int index) { return data[index]; }   // error[WYL0240]
+    mut ref int other(ref Buffer o) { return ref o.data[0]; }   // error[WYL0241]
 }
 ```
 
@@ -309,7 +316,7 @@ method of the receiver's type, and may also be called as a function.
 ReceiverParameter = "this" [ "ref" | "in" ] Type Identifier .
 ```
 
-```java
+```java unchecked
 bool any<T>(this ReadOnlySpan<T> items, fn(T) -> bool test) {
     for (in T item : items) {
         if (test(item)) {
@@ -421,10 +428,9 @@ cannot leave it.
 
 **Example:**
 
-```java
+```java statements
 fn(int, int) -> int add = (a, b) -> a + b;
 fn(int) -> int twice = x -> x * 2;
-list.sort((a, b) -> a.order - b.order);
 ```
 
 <a id="functions.lambdas.typing"></a>
@@ -504,7 +510,7 @@ form: on a parameter, a local, or a function type's own parameter.
 ```java
 void forEach(Order[] orders, fn(Order) -> void visit) { ... }
 
-void onEvent(escaping fn() -> void handler) { handlers.add(handler); }
+void onEvent(List<fn() -> void> handlers, escaping fn() -> void handler) { handlers.add(handler); }
 
 fn() -> void make() {
     mut int count = 0;
@@ -542,9 +548,13 @@ overload as a call's arguments would, and the result converts to the function ty
 is discarded when that is `void`.
 
 ```java
+void sort(List<Order> orders, fn(Order, Order) -> int compare) { ... }
 int byOrder(Order a, Order b) { return a.id - b.id; }
 
-list.sort(byOrder);                     // (a, b) -> byOrder(a, b)
+void main() {
+    var orders = new List<Order>();
+    sort(orders, byOrder);              // (a, b) -> byOrder(a, b)
+}
 ```
 
 - It is a compile-time error to use an instance method as a value.
@@ -561,18 +571,17 @@ list.sort(byOrder);                     // (a, b) -> byOrder(a, b)
 **Example:**
 
 ```java
-struct Order {
+class Order {
     pub int id;
 
-    pub int key() { return id; }
+    pub int key(int x) { return id + x; }
 
-    pub static int byKey(Order a, Order b) { return a.id - b.id; }
-}
+    pub static int twice(int x) { return x * 2; }
 
-void main() {
-    Order[] orders = new Order[0];
-    orders.sort(Order.byKey);
-    var key = Order.key;                // error[WYL0275]
+    void test() {
+        fn(int) -> int f = Order.twice;
+        fn(int) -> int g = key;         // error[WYL0275]
+    }
 }
 ```
 
@@ -588,8 +597,9 @@ descending)`. The choice is made once, when the expression is evaluated
 - Passed as an argument, a choice whose options include lambdas waits for its function type as a
   lambda does: overload resolution and generic inference treat each option as the argument.
 - Anywhere else, a lambda option without a target type takes another option's function type.
-- It is a compile-time error if a lambda that a switch expression chooses uses a name its case
-  declares: the lambda is made outside the case.
+- It is a compile-time error if a lambda that a switch expression of non-escaping type chooses uses
+  a name its case declares: the lambda is made outside the case. An escaping lambda is made in its
+  case, and may use them.
 - A choice of non-escaping type makes its lambdas and refers to its non-escaping locals where the
   choice is evaluated. An escaping option, such as a field or a call, is evaluated only when it is
   chosen.
@@ -597,12 +607,14 @@ descending)`. The choice is made once, when the expression is evaluated
 **Example:**
 
 ```java
+enum Mode { Add(int n) }
+
 fn(int) -> int pick(bool add) {
     return add ? x -> x + 1 : x -> x - 1;
 }
 
-fn(int) -> int bad(Mode mode) {
-    return switch (mode) {
+void bad(Mode mode) {
+    fn(int) -> int f = switch (mode) {
         case Add(var n) -> x -> x + n;  // error[WYL0278]
     };
 }

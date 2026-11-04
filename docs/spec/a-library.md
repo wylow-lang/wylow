@@ -35,7 +35,7 @@ implement it and whether a program may call its methods.
 
 These are the interfaces through which a type's elements are viewed as a span:
 
-```java
+```java unchecked
 pub interface ReadOnlySpannable<T> {
     ReadOnlySpan<T> asReadOnlySpan();
 }
@@ -62,7 +62,7 @@ pub interface Spannable<T> extends ReadOnlySpannable<T> {
 
 `Printable` is the interface of a type whose values string interpolation writes:
 
-```java
+```java unchecked
 pub interface Printable {
     String toString();
 }
@@ -81,7 +81,7 @@ pub interface Printable {
 
 `Comparable` is the interface of a type whose values are in an order:
 
-```java
+```java unchecked
 pub interface Comparable<T> {
     int compareTo(T other);
 }

@@ -27,7 +27,7 @@ path under the package's `src/` directory, a line, and a column
 ([Names every file sees](03-programs.md#programs.builtin-names)). It holds either a value of type
 `T`, the success, or a value of type `E`, the error:
 
-```java
+```java unchecked
 enum Result<T, E> {
     Ok(T value),
     Err(E error),
@@ -51,7 +51,7 @@ Result<String, ReadError> readText(String path) { ... }
 
 Result<Order, ReadError> readOrder(String path) {
     var text = try readText(path);
-    ...
+    var order = new Order();
     return Ok(order);
 }
 ```
@@ -100,10 +100,20 @@ A `switch` over a `Result` handles its two variants, and is exhaustive when both
 ([Exhaustiveness](15-patterns.md#patterns.exhaustiveness)):
 
 ```java
-switch (readOrder(path)) {
-    case Ok(var order)                    -> process(order);
-    case Err(ReadError.Missing(var path)) -> log($"missing {path}");
-    case Err(ReadError.BadFormat(var why)) -> log($"bad format: {why}");
+enum ReadError {
+    Missing(String path),
+    BadFormat(String reason),
+}
+
+Result<Order, ReadError> readOrder(String name) { ... }
+void process(Order order) { }
+
+void main() {
+    switch (readOrder("orders")) {
+        case Ok(var order)                     -> process(order);
+        case Err(ReadError.Missing(var path))  -> log($"missing {path}");
+        case Err(ReadError.BadFormat(var why)) -> log($"bad format: {why}");
+    }
 }
 ```
 
@@ -111,8 +121,15 @@ switch (readOrder(path)) {
 ([Kinds of patterns](15-patterns.md#patterns.kinds)):
 
 ```java
-if (readOrder(path) is Ok(var order)) {
-    process(order);
+enum ReadError { Missing }
+
+Result<Order, ReadError> readOrder(String name) { ... }
+void process(Order order) { }
+
+void main() {
+    if (readOrder("orders") is Ok(var order)) {
+        process(order);
+    }
 }
 ```
 

@@ -73,9 +73,11 @@ enum Shape {
     Empty
 }
 
-var a = Shape.Circle(2);
-var b = Shape.Empty;
-var c = Shape.Circle;                   // error[WYL0157]
+void main() {
+    var a = Shape.Circle(2);
+    var b = Shape.Empty;
+    var c = Shape.Circle;               // error[WYL0157]
+}
 ```
 
 <a id="enums.variants.implicit"></a>
@@ -107,10 +109,12 @@ if a type argument is determined by neither.
 ```java
 enum Option<T> { None, Some(T value) }
 
-Option<int> a = None;                   // from the declared type
-var b = Option.Some(1);                 // Option<int>, from the value
-var c = Option<int>.None;               // written
-var d = Option.None;                    // error[WYL0160]
+void main() {
+    Option<int> a = None;               // from the declared type
+    var b = Option.Some(1);             // Option<int>, from the value
+    var c = Option<int>.None;           // written
+    var d = Option.None;                // error[WYL0160]
+}
 ```
 
 <a id="enums.methods"></a>
@@ -193,8 +197,10 @@ enum Format {
     Bgra,                               // 38
 }
 
-uint code = (uint)Format.Bgra;
-Format f = (Format)code;
+void main() {
+    uint code = (uint)Format.Bgra;
+    Format f = (Format)code;
+}
 ```
 
 <a id="enums.flags"></a>
@@ -209,7 +215,7 @@ of the variants' values is a value of the enum.
 
 **Example:**
 
-```java
+```java unchecked
 @Flags
 @Repr(ulong)
 enum WindowFlags {

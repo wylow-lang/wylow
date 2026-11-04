@@ -22,9 +22,10 @@ operations above need unsafe code.
 
 **Example:**
 
-```java
+```java unchecked
 unsafe {
-    Point* p = points.data();
+    Span<Point> view = points;
+    Point* p = view.data();
     for (mut int i = 0; i < count; i++) {
         p[i].x = 0;
     }
@@ -58,7 +59,7 @@ after that storage is gone or has moved.
 
 **Example:**
 
-```java
+```java unchecked
 unsafe {
     int[4] values = [10, 20, 30, 40];
     int* first = &values[0];

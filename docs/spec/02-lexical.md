@@ -44,7 +44,7 @@ literal starts no token, such as `#`, a `$` not followed by `"`, or a letter out
 
 **Example:**
 
-```java
+```java statements
 bool atLeast = x>=-1;   // the tokens 'x', '>=', '-', '1'
 bool below = x<-1;      // the tokens 'x', '<', '-', '1'
 int café = 1;           // error[WYL0002]
@@ -78,12 +78,14 @@ means.
 **Example:**
 
 ```java
-/// Removes and returns the element at `index`, moving the later elements down by one.
-///
-/// # Panics
-///
-/// If `index` is out of bounds.
-pub T removeAt(int index) { ... }
+class Items<T> {
+    /// Removes and returns the element at `index`, moving the later elements down by one.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
+    pub T removeAt(int index) { ... }
+}
 ```
 
 <a id="lexical.identifiers"></a>
@@ -172,7 +174,7 @@ with `0` is still decimal. Its type is given by its suffix alone, never by its v
 
 **Example:**
 
-```java
+```java statements
 long big = 3_000_000_000L;
 uint mask = 0xFFFF_FFFFu;
 int flags = 0b1010;
@@ -202,7 +204,7 @@ literals, and in `1..5` the `.` belongs to the `..` token.
 
 **Example:**
 
-```java
+```java statements
 double d = 1.5;
 float f = 1.5f;
 float wrong = 1.5;              // error[WYL0079]
@@ -254,7 +256,7 @@ An **escape** is a `\` and what follows it, in a character or string literal:
 
 **Example:**
 
-```java
+```java statements
 String s = "tab\there, smile \u{1F600}";
 char quote = '\'';
 char bad = '\u{D800}';          // error[WYL0016]
@@ -284,7 +286,7 @@ What a hole's tokens mean, and how its value is formatted, is given in
 
 **Example:**
 
-```java
+```java statements
 String a = $"{count} items, {{braces}}";
 String b = $"{price:F2} each";
 String c = $"{(ok ? "yes" : "no")}";

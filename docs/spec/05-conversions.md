@@ -32,11 +32,12 @@ arguments. No conversion applies inside type arguments, so there is none from `A
 
 **Example:**
 
-```java
+```java statements
+int i = 1;
 byte b = 300;                   // error[WYL0079]
 float f = i;                    // error[WYL0079], 'i' is an int
 long[] wide = new int[2];       // error[WYL0079]
-if (count) { ... }              // error[WYL0079], not a bool
+if (i) { ... }                  // error[WYL0079], not a bool
 ```
 
 <a id="conversions.identity"></a>
@@ -56,10 +57,17 @@ derived class with a pattern ([Kinds of patterns](15-patterns.md#patterns.kinds)
 **Example:**
 
 ```java
-Animal a = Dog();               // Dog extends Animal
-Animal? maybe = a;
-Dog d = a;                      // error[WYL0079]
-Named n = Point();              // error[WYL0079], 'Point' is a struct
+class Animal { }
+class Dog extends Animal { }
+interface Named { }
+struct Tag implements Named { }
+
+void main() {
+    Animal a = new Dog();
+    Animal? maybe = a;
+    Dog d = a;                  // error[WYL0079]
+    Named n = Tag();            // error[WYL0079], 'Tag' is a struct
+}
 ```
 
 <a id="conversions.numeric"></a>
@@ -95,7 +103,9 @@ but `char` does not convert to `double`.
 
 **Example:**
 
-```java
+```java statements
+int someInt = 1;
+uint someUint = 1;
 long l = someInt;
 double d = someUint;
 float f = someInt;              // error[WYL0079]
@@ -121,7 +131,7 @@ An integer constant does not convert to `char`.
 
 **Example:**
 
-```java
+```java statements
 byte a = 200;
 sbyte b = -128;
 float c = 7;
@@ -145,10 +155,11 @@ Conversions of nullable class types are those of [Identity and upcasts](#convers
 
 **Example:**
 
-```java
+```java statements
 long? a = 5;                    // an int converts to long?
 int? b = 5;
 long? c = b;
+var n = new Node();
 Node m = null;                  // error[WYL0079]
 Node definite = n.next;         // error[WYL0079], 'n.next' is a Node?
 ```
@@ -186,11 +197,16 @@ Converting a list or other object to a span holds or borrows it while the span i
 
 ```java
 int sum(ReadOnlySpan<int> values) { ... }
-
-sum(array);                     // an int[4] variable
-sum(list);                      // a List<int>
-Span<int> s = makeArray();      // error[WYL0079], a temporary
+int[4] makeArray() { ... }
 void f(in int[2] v) { Span<int> t = v; }   // error[WYL0079]
+
+void main() {
+    var array = makeArray();
+    var list = new List<int>();
+    sum(array);                 // an int[4] variable
+    sum(list);                  // a List<int>
+    Span<int> s = makeArray();  // error[WYL0079], a temporary
+}
 ```
 
 <a id="conversions.references"></a>
@@ -224,8 +240,12 @@ of their own: each converts to a function type that fits it ([Lambdas](12-functi
 **Example:**
 
 ```java
-int n = () -> 1;                // error[WYL0081]
-int m = up ? x -> x : x -> 1;   // error[WYL0082]
+void run(int n) { }
+
+void main() {
+    run(() -> 1);                   // error[WYL0081]
+    run(true ? x -> x : x -> 1);    // error[WYL0082]
+}
 ```
 
 <a id="conversions.weak"></a>
@@ -238,9 +258,14 @@ target is read with `get()` ([Weak references](17-memory.md#memory.weak)).
 **Example:**
 
 ```java
-Weak<Node> parent = node;
-parent = null;                  // refers to nothing
-Node strong = parent;           // error[WYL0079]
+import std::Weak;
+
+void main() {
+    var node = new Node();
+    mut Weak<Node> parent = node;
+    parent = null;              // refers to nothing
+    Node strong = parent;       // error[WYL0079]
+}
 ```
 
 <a id="conversions.casts"></a>
@@ -275,7 +300,7 @@ cast from an integer to an enum without data panics if no variant has the value.
 
 **Example:**
 
-```java
+```java statements
 int a = (int)3.9;               // 3
 byte b = (byte)300;             // 44
 Direction d = (Direction)1;     // panics if no variant has the value 1

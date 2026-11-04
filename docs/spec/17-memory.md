@@ -167,7 +167,7 @@ library, so it can be a field, a local, a parameter, or an element.
 **Example:**
 
 ```java
-import std::Weak;
+import std::{Weak, print};
 
 class Node {
     pub mut Weak<Node> parent;

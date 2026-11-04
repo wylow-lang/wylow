@@ -1,0 +1,17 @@
+// A lambda an escaping choice makes is made in its case, so it may use the names the case declares.
+
+import std::print;
+
+enum Mode { Add(int n), Stop }
+
+fn(int) -> int pick(Mode mode) {
+    return switch (mode) {
+        case Add(var n) -> x -> x + n;
+        case Stop -> x -> x;
+    };
+}
+
+void main() {
+    print(pick(Mode.Add(2))(1));        // output: 3
+    print(pick(Mode.Stop)(1));          // output: 1
+}

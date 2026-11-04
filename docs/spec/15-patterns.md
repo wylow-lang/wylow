@@ -163,7 +163,7 @@ struct Container {
 }
 
 void main() {
-    var c = Container(1);
+    mut Container c = Container(1);
     int n = 1;
     if (n is ref int place) { }         // error[WYL0383]
     if (c.at(0) is ref int wrong) { }   // error[WYL0384], it refers to a 'float'
@@ -280,9 +280,9 @@ enum Direction { North, East, South, West }
 
 void main() {
     var d = Direction.North;
-    switch (d) {
+    switch (d) {                    // error[WYL0393]
         case North, East -> { }
         case South -> { }
-    }                               // error[WYL0393]
+    }
 }
 ```

@@ -21,6 +21,8 @@ exist, what each can't see, and what to add next.
 | The interpreter agrees | emitter and pass bugs against the meaning; a pass bug without a C++ build | `--interpret` |
 | Expected output, reviewed snapshots | a wrong answer every mode agrees on | `tests/cases`, `tests/matrix`, `tests/cases/values` |
 | Every diagnostic is cataloged, tested, and explained | an error with no code, spec section, test, or page | `CatalogSelfTests`; a test's `// error[WYLnnnn]: <message>` marker matches the code and the message exactly |
+| The spec's examples compile and mark the errors they produce | an example that drifts from the compiler or contradicts a rule | `SpecExampleSelfTests` |
+| `std` is documented and the docs' links work | a `pub` declaration with no doc comment, a panic with no `# Panics`, a link to nothing | `DocSelfTests` |
 | Mutation testing | a test that wouldn't notice a wrong answer | `tests/Wyl.Mutation` |
 
 **What no oracle sees:** every mode and the interpreter share lowering, so a wrong meaning

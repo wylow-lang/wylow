@@ -69,7 +69,7 @@ int readValue() { return 1; }
 void log(String text) { }
 
 void main() {
-    readValue();                    // error[WYL0343]
+    readValue();
     1 + 2;                          // error[WYL0343]
     _ = readValue();
     _ = log("x");                   // error[WYL0344]
@@ -82,7 +82,7 @@ void main() {
 Assignment sets a place to a value. `=`, the compound assignments (`+=`, `-=`, `*=`, `/=`, `%=`,
 `&=`, `|=`, `^=`, `<<=`, `>>=`), and `++` and `--` are statements, not expressions.
 
-```java
+```java statements
 mut int count = 0;
 count = 1;
 count += 2;
@@ -130,13 +130,15 @@ struct Point { pub int x; }
 `if (condition) { ... } else { ... }` runs the first block when the condition is true, and the
 `else` block otherwise. The condition has type `bool`, and an `else` may be another `if`.
 
-```java
-if (order.paid) {
-    ship(order);
-} else if (order.cancelled) {
-    refund(order);
+```java statements
+bool paid = true;
+bool cancelled = false;
+if (paid) {
+    log("ship");
+} else if (cancelled) {
+    log("refund");
 } else {
-    wait(order);
+    log("wait");
 }
 ```
 
@@ -146,7 +148,7 @@ if (order.paid) {
 <a id="statements.loops"></a>
 ## 14.6 `while`, `loop`, and `for`
 
-```java
+```java unchecked
 while (condition) { ... }
 
 loop { ... }
@@ -189,10 +191,11 @@ ForEach      = "for" "(" [ "mut" ] [ "ref" | "in" ] ( "var" | Type ) Identifier
                [ "," [ "mut" ] [ "ref" | "in" ] ( "var" | Type ) Identifier ] ":" Expression ")" Block .
 ```
 
-```java
-for (Order order : orders) { ... }
-for (ref Order order : orders) { order.ship(); }
-for (in Order order : orders) { ... }
+```java statements
+var points = new List<Point>();
+for (Point point : points) { ... }
+for (ref Point point : points) { point.x = 0; }
+for (in Point point : points) { ... }
 ```
 
 - A for-each loops over a range ([Ranges](#statements.for-each.ranges)), a fixed array, a span, a
@@ -232,7 +235,8 @@ void main() {
 A range is `start..end` or `start..=end` and loops over the integers from `start` up to, or through,
 `end`:
 
-```java
+```java statements
+int n = 3;
 for (int i : 0..n) { ... }          // 0, 1, ..., n - 1
 for (int i : 0..=n) { ... }         // 0, 1, ..., n
 ```
@@ -254,7 +258,7 @@ for (int i : 0..=n) { ... }         // 0, 1, ..., n
 void main() {
     for (int i, int value : 0..3) { }   // error[WYL0359]
     for (ref int i : 0..3) { }          // error[WYL0360]
-    for (int i : 0.0..3.0) { }          // error[WYL0361]
+    for (var i : 0.5..3) { }            // error[WYL0361]
 }
 ```
 
@@ -264,8 +268,9 @@ void main() {
 A for-each may declare two variables: the first is the element's index, and the second is the
 element itself.
 
-```java
-for (int i, ref Order order : orders) { ... }
+```java statements
+var points = new List<Point>();
+for (int i, ref Point point : points) { ... }
 ```
 
 - The index is a copy of the position, of type `int`.
@@ -289,13 +294,17 @@ void main() {
 A switch statement selects one of several blocks:
 
 ```java
-switch (state) {
-    case Idle -> wander();
-    case Running(var target) -> {
-        moveToward(target);
-        attack(target);
+enum State { Idle, Running(int count), Done }
+
+void report(State state) {
+    switch (state) {
+        case Idle -> log("idle");
+        case Running(var count) -> {
+            print(count);
+            print(count + 1);
+        }
+        case Done -> { }
     }
-    case Done -> { }
 }
 ```
 
@@ -326,9 +335,10 @@ void main() {
         case Idle: { }              // error[WYL0366]
         case Done -> { }
     }
-    switch (state) {
-        default -> { }
-        case Idle -> { }            // error[WYL0370]
+    int? n = 1;
+    switch (n) {
+        default -> { }              // error[WYL0370]
+        case null -> { }
     }
 }
 ```
@@ -381,7 +391,7 @@ int value() {
 or through `return`, `break`, or `continue`. Several deferred statements of one block run in reverse
 order.
 
-```java
+```java unchecked
 void send(Buffer buffer) {
     buffer.begin();
     defer buffer.end();

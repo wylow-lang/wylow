@@ -84,8 +84,10 @@ has the fields of `A` and `B`, and `B` has the methods of `A` that it can see
 class Shape { }
 class Square extends Shape { }
 
-Shape s = new Square();
-if (s is Square q) { }              // the only way to a Square
+void main() {
+    Shape s = new Square();
+    if (s is Square q) { }          // the only way to a Square
+}
 ```
 
 <a id="classes.overriding"></a>
@@ -165,7 +167,9 @@ class Square extends Shape {
     pub override int area() { return 1; }
 }
 
-var s = new Shape();                    // error[WYL0130]
+void main() {
+    var s = new Shape();                // error[WYL0130]
+}
 ```
 
 <a id="classes.constructors"></a>

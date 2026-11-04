@@ -75,7 +75,7 @@ copyable ([Copyable types](04-types.md#types.copyable)).
 
 A `shared class` may be referenced from several threads:
 
-```java
+```java unchecked
 shared class Settings {
     pub String name;
     pub int limit;
@@ -92,7 +92,7 @@ shared class Settings {
   synchronization type, such as a mutex that holds a reference back. Such a cycle is broken with a
   `Weak<T>`, which is sendable when `T` is a `shared class`; otherwise it leaks.
 
-```java
+```java unchecked
 shared class Node {
     pub Mutex<Weak<Node>> parent = new Mutex<Weak<Node>>(null);
     pub Mutex<Node?> next = new Mutex<Node?>(null);
@@ -149,7 +149,7 @@ reach those objects.
 - `take` moves the value out and ends the box: the graph joins the current thread's objects.
 - A mutex holds one, and its `lock` is `open` while holding the lock.
 
-```java
+```java unchecked
 Isolated<Index> built = Isolated<Index>(() -> Index.build(entries));  // 'entries' is sendable
 channel.send(built);                                     // moves the box and the graph
 

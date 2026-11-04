@@ -32,7 +32,10 @@ convert to which, and chapter 6 how variables are declared.
 
 ```java
 void log(String message) { ... }       // 'void' as a return type
-List<void> nothing;                    // error[WYL0062]
+
+void main() {
+    List<void> nothing;                // error[WYL0062]
+}
 ```
 
 <a id="types.syntax"></a>
@@ -66,9 +69,7 @@ an array of four `int[2]`.
 
 **Example:**
 
-```java
-import std::List;
-
+```java statements
 List<Order[]> batches;          // a list of arrays
 Order?[3] slots;                // three nullable orders
 Order[]? pending;               // a nullable array
@@ -174,7 +175,7 @@ and the reference types `ref? T` and `ref T?` in
 
 **Example:**
 
-```java
+```java statements
 Node root = new Node();
 print(root.next.value);         // error[WYL0065]
 print(root.next?.value);        // the value, or null
@@ -221,7 +222,7 @@ A fixed array of a type with a default value has one too: each element's default
 
 **Example:**
 
-```java
+```java statements
 int[4] a = [1, 2, 3, 4];
 int[2][3] grid;                 // three arrays of two ints
 print(a[4]);                    // error[WYL0068]
@@ -251,7 +252,7 @@ it with copies of `value`.
 
 **Example:**
 
-```java
+```java statements
 int[] counts = new int[n];
 Order[] orders = new Order[3];          // error[WYL0078]: 'Order' is a class and has no default value
 var grid = new int[2][3];               // error[WYL0073]
@@ -306,12 +307,12 @@ Whether a function value is escaping is part of its type
 **Example:**
 
 ```java
-fn(int, int) -> int add;
-(fn() -> void)? onDone;
-(fn() -> void) grouped;         // error[WYL0074]
-(int) -> int old;               // error[WYL0075]
-fn -> void click;               // error[WYL0076]
-fn() -> Span<int> view;         // error[WYL0077]
+void add(fn(int, int) -> int f) { }
+void done((fn() -> void)? f) { }
+void grouped((fn() -> void) f) { }  // error[WYL0074]
+void old((int) -> int f) { }        // error[WYL0075]
+void click(fn -> void f) { }        // error[WYL0076]
+void view(fn() -> Span<int> f) { }  // error[WYL0077]
 ```
 
 <a id="types.pointers"></a>

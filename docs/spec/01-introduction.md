@@ -92,7 +92,7 @@ diagnostic it produces, as in `// error[WYL0397]`. An example produces exactly t
 
 **Example:**
 
-```java
+```java statements
 Node? next = null;
 print(next.value);              // error[WYL0397]
 ```

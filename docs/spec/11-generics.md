@@ -68,7 +68,7 @@ or `.` ([Primary expressions](13-expressions.md#expressions.primary)).
 
 **Example:**
 
-```java
+```java statements
 var p = Pair<int, float>(1, 2.5f);
 var q = Pair(1, 2.5f);                  // error[WYL0200]: no type arguments
 var r = Option.Some<int>(1);            // error[WYL0197]: they belong to the enum
@@ -106,9 +106,11 @@ The type arguments of a generic enum written without them are inferred in the sa
 T make<T>() { ... }
 void same<T>(T a, T b) { }
 
-var a = make();                         // error[WYL0201]: nothing determines 'T'
-same(1, "a");                           // error[WYL0204]: 'int' or 'String'
-var b = make<int>();
+void main() {
+    var a = make();                     // error[WYL0201]: nothing determines 'T'
+    same(1, "a");                       // error[WYL0204]: 'int' or 'String'
+    var b = make<int>();
+}
 ```
 
 <a id="generics.bounds"></a>
@@ -141,12 +143,16 @@ T maxOf<T extends Comparable<T>>(T a, T b) {
     return a.compareTo(b) >= 0 ? a : b;
 }
 
+void main() {
+    maxOf(3, 7);
+    maxOf(true, false);                 // error[WYL0208]: 'bool' is not 'Comparable'
+}
+```
+
+```java unchecked
 Pair<T, T> twin<T extends copyable>(T value) {
     return Pair<T, T>(first: value, second: value);     // 'value' is copied
 }
-
-maxOf(3, 7);
-maxOf(true, false);                     // error[WYL0208]: 'bool' is not 'Comparable'
 ```
 
 <a id="generics.unbounded"></a>
@@ -166,7 +172,7 @@ returned, and nothing else.
 
 **Example:**
 
-```java
+```java unchecked
 T? firstCopy<T extends copyable>(ReadOnlySpan<T> items) {
     return items.length() == 0 ? null : items[0];
 }
@@ -186,9 +192,14 @@ A call infers `T` from a `T?` parameter through the value type of its argument: 
 ```java
 T? first<T>(List<T> items) { ... }
 
-int? a = first(ints);                   // a List<int>
-Node? b = first(nodes);                 // a List<Node>
-int? c = first(maybeInts);              // a List<int?>: null for an empty list and for a null element
+void main() {
+    var ints = new List<int>();
+    var nodes = new List<Node>();
+    var maybeInts = new List<int?>();
+    int? a = first(ints);
+    Node? b = first(nodes);
+    int? c = first(maybeInts);          // null for an empty list and for a null element
+}
 ```
 
 <a id="generics.checking"></a>

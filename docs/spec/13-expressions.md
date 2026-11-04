@@ -17,7 +17,9 @@ of a call, the elements of an array literal, and the parts of an interpolated st
 int a() { print("a"); return 1; }
 int b() { print("b"); return 2; }
 
-a() + b();                          // prints "a", then "b"
+void main() {
+    int sum = a() + b();            // prints "a", then "b"
+}
 ```
 
 - In `obj.x + f()`, the field `obj.x` is read before `f` runs.
@@ -68,7 +70,7 @@ type arguments is read as type arguments when the matching `>` is followed by `(
 
 ```java
 void main() {
-    print(int);                     // error[WYL0279]
+    var p = Point;                  // error[WYL0279]
     print(undefined);               // error[WYL0281]
     print(this);                    // error[WYL0283]
 }
@@ -80,9 +82,9 @@ void main() {
 `new` appears only where memory is allocated: for a class object or a heap array. A struct value is
 made by calling its constructor without `new`, and an enum value by naming a variant.
 
-```java
+```java statements
 var p = Point(1, 2);                // a struct value
-var o = new Order(7);               // a class object
+var o = new Order();                // a class object
 var a = new int[16];                // a heap array
 var d = Direction.North;            // an enum value
 ```
@@ -141,8 +143,8 @@ struct Point { pub int x; }
 
 void main() {
     var p = Point(1);
-    print(p.y);                     // error[WYL0296]
-    print(p.x());                   // error[WYL0299]
+    print(p.y);                     // error[WYL0297]
+    print(p.x());                   // error[WYL0301]
 }
 ```
 
@@ -324,12 +326,12 @@ these and `null` ([Nullable value types](#expressions.null)).
 **Example:**
 
 ```java
-struct Point { pub fn(int) -> int f; }
+struct Callback { (fn() -> int)? run; }
 
 void main() {
-    var p = Point();
-    print(p == p);                  // error[WYL0310]
-    print(true < false);            // error[WYL0311]
+    var c = Callback(null);
+    print(c == c);                  // error[WYL0310]
+    print(true < false);            // error[WYL0308]
 }
 ```
 
@@ -406,13 +408,16 @@ type `bool`, and only the chosen branch is evaluated.
 **Example:**
 
 ```java
+struct Bag {
+    int[2] items;
+
+    mut ref? int at(int index) { return ref items[index]; }
+}
+
 void main() {
-    mut int x = 1;
-    mut int y = 2;
-    ref int a = x;
-    ref int b = y;
-    var c = true ? a : b;           // error[WYL0321]
-    var d = true ? 1 : "one";       // error[WYL0319]
+    mut Bag bag = Bag();
+    var c = true ? bag.at(0) : null;    // error[WYL0321]
+    var d = true ? 1 : "one";           // error[WYL0319]
 }
 ```
 
@@ -422,11 +427,15 @@ void main() {
 A switch expression chooses one of several expressions:
 
 ```java
-var label = switch (state) {
-    case Idle            -> "idle";
-    case Running(var n)  -> $"running {n}";
-    case Done            -> "done";
-};
+enum State { Idle, Running(int n), Done }
+
+String name(State state) {
+    return switch (state) {
+        case Idle            -> "idle";
+        case Running(var n)  -> $"running {n}";
+        case Done            -> "done";
+    };
+}
 ```
 
 - The value is evaluated once, before any case is tried. It is a compile-time error for it to have
@@ -448,7 +457,7 @@ enum State { Idle, Done }
 
 String name(State state) {
     return switch (state) {
-        case Idle -> { "idle" }     // error[WYL0322]
+        case Idle -> { print(1); }  // error[WYL0322]
         case Done -> "done";
     };
 }
@@ -460,7 +469,8 @@ String name(State state) {
 `x is pattern` is true when `pattern` matches the value of `x`
 ([Patterns](15-patterns.md#patterns)).
 
-```java
+```java statements
+var node = Option.Some(1);
 if (node is Some(var value) && value > 0) { ... }
 ```
 
@@ -554,7 +564,7 @@ Result<int, ParseError> parse(String text) { ... }
 Result<int, IoError> read(String path) { ... }
 
 Result<int, ParseError> twice(String text) {
-    return try parse(text) * 2;
+    return Ok(try parse(text) * 2);
 }
 
 Result<int, ParseError> load(String path) {
@@ -569,7 +579,8 @@ A string literal prefixed with `$` is interpolated: each `{expression}` in it is
 expression's value, and the value of the literal is a new `String`. Only `$` strings interpolate, so
 braces in an ordinary string mean nothing special.
 
-```java
+```java statements
+var order = new Order();
 log($"order {order.id}: {order.quantity} items");
 ```
 
@@ -635,7 +646,7 @@ void main() {
     var b = 2.5;
     print($"{a:F2}");               // error[WYL0340]
     print($"{b:D3}");               // error[WYL0340]
-    print($"{a,1.5}");              // error[WYL0338]
+    print($"{a:F123}");             // error[WYL0338]
 }
 ```
 
