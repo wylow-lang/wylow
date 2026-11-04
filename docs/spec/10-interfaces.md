@@ -64,8 +64,9 @@ Implementing a method does not make it overridable: a method that is to be overr
   implements ([Abstract classes](08-classes.md#classes.abstract)).
 - It is a compile-time error if the type after `implements` is not an interface, or if an interface is listed
   twice.
-- It is a compile-time error if the implementing method is `static`, is `unsafe`, has another visibility, or
-  has other parameter or return types.
+- It is a compile-time error if the implementing method is `static`, is `unsafe`, has a by-value receiver
+  ([By-value receivers](07-structs.md#structs.methods.by-value)), has another visibility, or has other
+  parameter or return types.
 
 **Example:**
 

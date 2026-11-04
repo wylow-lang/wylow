@@ -34,10 +34,10 @@ Every value is held in one of three ways:
 ## 17.2 Moves
 
 A value of a type that is not copyable is **moved** where a copyable value would be copied:
-initializing or assigning a variable, passing a by-value argument or the receiver of a `move` method,
+initializing or assigning a variable, passing a by-value argument or a by-value receiver,
 a `return`, storing into a field or element, an escaping lambda's capture, the operand of `try`, and
 a binding by value in a pattern ([Copies](07-structs.md#structs.copies),
-[`move` methods](07-structs.md#structs.methods.move), [`try`](13-expressions.md#expressions.try),
+[By-value receivers](07-structs.md#structs.methods.by-value), [`try`](13-expressions.md#expressions.try),
 [Moving bindings](15-patterns.md#patterns.bindings.moves)). A move gives the destination the value's
 contents, and the source holds no value afterwards.
 
@@ -51,8 +51,8 @@ contents, and the source holds no value afterwards.
   scope only if it holds a value then, and assigning to a moved variable stores a value without
   releasing anything.
 - A unique operand is used in place, never copied at its turn: passed to an `in` parameter or used
-  as the receiver of a method that is not `move`, it is referred to as a `ref` argument is, so a call in another operand sees and
-  may change the same value: in `mix(buffer, next())`, `mix` sees what `next` left in `buffer`. A
+  as a receiver that is not taken by value, it is referred to as a `ref` argument is, so a call in
+  another operand sees and may change the same value: in `mix(buffer, next())`, `mix` sees what `next` left in `buffer`. A
   unique operand moved into a by-value parameter is moved at its turn
   ([Evaluation order](13-expressions.md#expressions.order)).
 

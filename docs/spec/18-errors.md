@@ -63,8 +63,8 @@ to return on success uses `std`'s empty struct `Unit`: `Result<Unit, ReadError>`
 `try` returns the error through the enclosing function
 ([`try`](13-expressions.md#expressions.try)). The standard library's declaration of `Result` also
 gives methods that use a result or one of its values; its doc comments give them. A method that
-takes one of its values out is a `move` method
-([`move` methods](07-structs.md#structs.methods.move)).
+takes one of its values out takes its receiver by value
+([By-value receivers](07-structs.md#structs.methods.by-value)).
 
 <a id="errors.unused"></a>
 ## 18.3 Unused results

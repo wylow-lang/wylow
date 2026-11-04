@@ -189,7 +189,7 @@ A method of a struct is written as any method is ([Instance and static methods](
 A method of a struct is called on a struct value or place, and `this` is that value. In a method that
 is not `mut`, `this` is read-only: its fields cannot be assigned, and its `mut` methods cannot be
 called. A `static` method has no `this`. A method is called on a place without copying it, unless it
-is `move` ([`move` methods](#structs.methods.move)).
+takes its receiver by value ([By-value receivers](#structs.methods.by-value)).
 
 <a id="structs.methods.mut"></a>
 ### 7.4.1 `mut` methods
@@ -229,20 +229,28 @@ void main() {
 }
 ```
 
-<a id="structs.methods.move"></a>
-### 7.4.2 `move` methods
+<a id="structs.methods.by-value"></a>
+### 7.4.2 By-value receivers
 
-A struct or enum method declared `move` takes `this` by value. In its body, `this` is a by-value
-parameter that is not `mut`: it may be moved from, and it is released when the method ends if it
-holds a value then ([Moves](17-memory.md#memory.moves)). The receiver is passed as a by-value argument
-is, at its turn: a value of a copyable type is copied, and any other value is moved.
+A struct or enum method whose first parameter is written `this T name` takes its receiver by value,
+as a **by-value receiver**. `T` is the type that declares the method, with that type's own type
+parameters as its type arguments. In the body, `name` is a by-value parameter that is not `mut`: it
+may be moved from, and it is released when the method ends if it holds a value then
+([Moves](17-memory.md#memory.moves)). The method has no `this`, and reaches the receiver's members
+through `name`.
 
-- It is a compile-time error to declare a class method or an interface method `move`, or a method
-  both `move` and `mut` or both `move` and `static`.
-- It is a compile-time error for a `move` method to return a `ref`, `in`, `ref?`, or `in?`, or a
-  `ref struct`.
-- It is a compile-time error to call a `move` method on a field, an element, or what a reference
-  refers to, if the receiver's type is not copyable.
+The method is called as an instance method is, and the receiver is not among the call's arguments. It
+is passed as a by-value argument is, at its turn: a value of a copyable type is copied, and any other
+value is moved. A field, an element, or what a reference refers to is therefore not a receiver if its
+type is not copyable ([Moves](17-memory.md#memory.moves)).
+
+- It is a compile-time error to declare a by-value receiver on a method of a class or an interface,
+  on a constructor, or on an indexer.
+- It is a compile-time error to write `this ref` or `this in` on a method.
+- It is a compile-time error if `T` is any other type than the one described above.
+- It is a compile-time error if a method with a by-value receiver is `mut` or `static`.
+- It is a compile-time error for a method with a by-value receiver to return a `ref`, `in`, `ref?`, or
+  `in?`, or a `ref struct`.
 
 **Example:**
 
@@ -251,8 +259,8 @@ unique enum Lookup {
     Found(Buffer buffer),
     Missing;
 
-    pub move Buffer orElse(Buffer fallback) {
-        return switch (this) {
+    pub Buffer orElse(this Lookup lookup, Buffer fallback) {
+        return switch (lookup) {
             case Found(var buffer) -> buffer;
             case Missing -> fallback;
         };
@@ -298,7 +306,7 @@ held by one variable, field, or element, its **owner**.
 - Wherever [Copies](#structs.copies) lists a copy, a unique struct is moved instead ([Moves](17-memory.md#memory.moves)).
   It is a compile-time error to use a variable after its value is moved out
   ([Moves](16-flow.md#flow.moves)). A `ref` or `in` parameter, a `ref` or `in` variable, and a call of a
-  method that is not `move` refer to the value in place and do not move it.
+  method that does not take its receiver by value refer to the value in place and do not move it.
 - It is a compile-time error if a struct has a field of a unique type and is not declared `unique`; the
   same holds for an enum with a variant field of one ([Unique enums](09-enums.md#enums.unique)).
 - A fixed array `T[N]` and a nullable type `T?` with a unique `T` are unique types. A generic struct
@@ -309,7 +317,7 @@ held by one variable, field, or element, its **owner**.
 ### 7.6.1 Destructors and `discard`
 
 ```ebnf
-Discard = "discard" ( Identifier | "this" ) ";" .
+Discard = "discard" Identifier ";" .
 ```
 
 A unique struct may declare one destructor ([Destructors](08-classes.md#classes.destructors) gives its
@@ -330,15 +338,14 @@ destructor runs it.
 - A static cannot have a unique type ([Statics](06-variables.md#variables.statics)), so no destructor
   runs at the end of the program.
 
-`discard name;` ends the lifetime of a by-value parameter without running its destructor's body; its
-fields are released as usual. `discard this;` does the same for `this` in a `move` method
-([`move` methods](#structs.methods.move)).
+`discard name;` ends the lifetime of a by-value parameter, a by-value receiver among them, without
+running its destructor's body; its fields are released as usual.
 
 - It is a compile-time error if `name` is not a by-value parameter of a unique struct type that has a
   destructor.
 - It is a compile-time error if the function that contains `discard` is not declared in the file of the
   type. It may be a function, a static method, an extension method whose receiver is `this T` for
-  that type, or a `move` method of the type.
+  that type, or a method of the type with a by-value receiver.
 - A pattern does not move a field out of a value whose type has a destructor
   ([Moving bindings](15-patterns.md#patterns.bindings.moves)).
 - After `discard name;` the parameter is moved. On a path that does not discard it, the parameter is

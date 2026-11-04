@@ -143,10 +143,9 @@ void main() {
 A binding by value of a part whose type is not copyable is a **moving binding**. Binding a part of a
 copyable type copies it, and `_` and a reference binding leave the value where it is.
 
-- It is a compile-time error for a moving binding to bind a part of anything but a temporary, a whole
-  local or by-value parameter, or `this` in a `move` method: a field, an element, what a reference
-  refers to, and `this` elsewhere are bound with `in var`
-  ([Reference bindings](#patterns.references)).
+- It is a compile-time error for a moving binding to bind a part of anything but a temporary or a
+  whole local or by-value parameter: a field, an element, what a reference refers to, and `this` are
+  bound with `in var` ([Reference bindings](#patterns.references)).
 - It is a compile-time error for a moving binding to move a field out of a value whose type has a
   destructor. Moving such a value whole, and leaving it in what the pattern does not move, are valid.
 - A moving binding moves the whole matched value. A local or parameter is moved on the path where its

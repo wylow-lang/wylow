@@ -187,6 +187,8 @@ selects one of them by its arguments.
   or only in which parameters are `escaping`.
 - A method that overrides or implements another is not an additional overload of it
   ([Virtual methods](08-classes.md#classes.overriding)).
+- A by-value receiver is not one of a method's parameter types
+  ([By-value receivers](07-structs.md#structs.methods.by-value)).
 
 **Example:**
 
@@ -239,7 +241,7 @@ void main() {
 ```ebnf
 Method     = { Annotation } [ Visibility ] { Modifier } ReturnType Identifier [ TypeParameters ]
              "(" [ Parameters ] ")" ( Block | ";" ) .
-Modifier   = "static" | "mut" | "move" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
+Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
 ReturnType = [ ParameterMode ] Type .
 ```
 
@@ -249,7 +251,8 @@ Which modifiers a method may have is a rule of the type that declares it
 
 A method declared in a type is an **instance method** unless it is declared `static`. An instance
 method has a receiver, `this`, which is the value or place it is called on
-([Methods](07-structs.md#structs.methods), [Class declarations](08-classes.md#classes.declarations)).
+([Methods](07-structs.md#structs.methods), [Class declarations](08-classes.md#classes.declarations)),
+or a parameter that takes it by value ([By-value receivers](07-structs.md#structs.methods.by-value)).
 A static method has no `this`, and is called through its type: `Point.origin()`.
 
 - It is a compile-time error if a static method is declared `virtual`, `override`, `abstract`,
@@ -325,7 +328,9 @@ struct Buffer {
 ## 12.7 Extension methods
 
 A function whose first parameter is marked `this` is an **extension method**. It is called like a
-method of the receiver's type, and may also be called as a function.
+method of the receiver's type, and may also be called as a function. A method marks its first
+parameter the same way to take its receiver by value
+([By-value receivers](07-structs.md#structs.methods.by-value)).
 
 ```ebnf
 ReceiverParameter = "this" [ "ref" | "in" ] Type Identifier .

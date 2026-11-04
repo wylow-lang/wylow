@@ -156,8 +156,6 @@ from holds no value.
   refers to are not moved out of ([Moves](17-memory.md#memory.moves)).
 - A moving binding moves the matched local or parameter on the path where its case is chosen or its
   `is` test is true ([Moving bindings](15-patterns.md#patterns.bindings.moves)).
-- `this` in a `move` method is moved and used as a by-value parameter is
-  ([`move` methods](07-structs.md#structs.methods.move)).
 - A moved variable holds no value, which is not the same as null. It is a compile-time error to test
   it against null.
 - A moved variable is not released ([Moves](17-memory.md#memory.moves)).

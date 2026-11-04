@@ -77,3 +77,4 @@ history and a reason can be found without searching the spec.
 | [0047](0047-standard-output-buffering.md) | Standard output is buffered, and an abort may lose what is not yet written |
 | [0048](0048-long-chains-are-released-by-their-destructor.md) | A long chain of objects is released by a destructor that loops |
 | [0049](0049-getting-a-unique-value-out.md) | Getting a unique value out: moving bindings, `move` methods, `replace`, and references on classes |
+| [0050](0050-by-value-receivers.md) | By-value receivers replace `move` methods |

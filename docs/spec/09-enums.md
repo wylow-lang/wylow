@@ -125,7 +125,7 @@ Because an enum value is immutable, the methods can be called on an `in` paramet
 is not `mut`.
 
 - It is a compile-time error if a method of an enum is declared `mut`.
-- A method declared `move` takes `this` by value ([`move` methods](07-structs.md#structs.methods.move)).
+- A method may take its receiver by value ([By-value receivers](07-structs.md#structs.methods.by-value)).
 - It is a compile-time error if a member of an enum is declared `virtual`, `override`, `abstract`, or
   `final`.
 

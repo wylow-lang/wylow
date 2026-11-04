@@ -56,12 +56,14 @@ type arguments is read as type arguments when the matching `>` is followed by `(
 - It is a compile-time error to use a function or method as a value where a function value is not
   expected; it is called instead ([Function references](12-functions.md#functions.references)).
 - It is a compile-time error to use a name that no declaration in scope provides.
-- It is a compile-time error to use an instance field or method where no receiver exists: in a
-  static method, a field initializer, the arguments of `this(...)` or `super(...)`, or a default
-  value.
+- It is a compile-time error to use an instance field or method by its name alone where there is no
+  `this`: in a static method, a method with a by-value receiver
+  ([By-value receivers](07-structs.md#structs.methods.by-value)), a field initializer, the arguments
+  of `this(...)` or `super(...)`, or a default value.
 - `this` is the receiver of the instance method or constructor that holds it, and only a struct or
   class has one.
-- It is a compile-time error to use `this` outside a struct or class, or where no receiver exists.
+- It is a compile-time error to use `this` outside a struct or class, where no receiver exists, or
+  in a method with a by-value receiver.
 - `super` names the base class of the class whose method or constructor holds it. `super.m(...)`
   calls the method `m` of the base class on `this`, without dispatch to an override, and
   `super(...)` calls a base class constructor.
@@ -383,10 +385,12 @@ Three operators work with `null`:
   temporary ([`mut` methods](07-structs.md#structs.methods.mut)). The errors are the same when `a`'s
   type is not copyable.
 - When `a`'s type is not copyable, `a!` behaves as `a` does, and panics when it is null: used by
-  value it moves `a`, and as a receiver or with `.` it is used in place
-  ([Moves](17-memory.md#memory.moves)). `a?.b` uses `a` in place, unless `b` is a `move` method.
-- `a ?? b` and `a?.m()` with a `move` method `m` move a non-copyable `a`, which is moved afterwards
-  whether or not it was null. `b` and the arguments of `m` are moved only when they are evaluated.
+  value or as a receiver taken by value it moves `a`, and as any other receiver or with `.` it is
+  used in place ([Moves](17-memory.md#memory.moves)). `a?.b` uses `a` in place, unless `b` is a method
+  that takes its receiver by value.
+- `a ?? b`, and `a?.m()` with a method `m` that takes its receiver by value, move a non-copyable `a`,
+  which is moved afterwards whether or not it was null. `b` and the arguments of `m` are moved only
+  when they are evaluated.
 - No operator other than `?.`, `??`, `!`, `==`, and `!=` accepts a nullable value: narrow it first
   ([Narrowing](16-flow.md#flow.narrowing)).
 - A nullable value's `==` and `!=` compare it with `null`, with another nullable value, or with a

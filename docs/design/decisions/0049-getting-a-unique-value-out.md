@@ -1,7 +1,8 @@
 # 0049. Getting a unique value out
 
 - Status: accepted (2026-11-04); extends [0009](0009-unique-values-and-moves.md) and
-  [0028](0028-destructors-on-unique-structs.md)
+  [0028](0028-destructors-on-unique-structs.md); `move` methods replaced by by-value receivers in
+  [0050](0050-by-value-receivers.md), and `structs.methods.move` is now `structs.methods.by-value`
 - Spec: `generics.checking`, `patterns.bindings`, `patterns.bindings.moves`, `patterns.references`,
   `patterns.cases.guards`, `structs.methods.move`, `structs.unique.destructors`, `enums.methods`,
   `expressions.null`, `expressions.try`, `functions.parameters.modes`, `functions.extensions`,

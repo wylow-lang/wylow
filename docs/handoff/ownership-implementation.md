@@ -1,15 +1,16 @@
 # Next: start implementing ownership
 
 Load the `rigor` skill first. Repo `E:\Repos\Wylow\wylow`, branch `dev`. The design of how a unique
-value gets out is decided: the rules are in the spec, and the reasons are in decision 0049. Read
-0049, then the order in issue #6's "Suggested order".
+value gets out is decided: the rules are in the spec, and the reasons are in decisions 0049 and 0050.
+Read them, then the order in issue #6's "Suggested order".
 
 ## Ask first
 
-0049 removed two reasons to build extension methods before ownership: `Result`'s consuming methods
-are `move` methods, and `List.first` and `last` may return `ref? T`. Issue #6 still lists extension
-methods first. Recommend moving them out of the ownership chain, since nothing in it now needs them,
-and let the user decide. They remain the path for `String`'s higher-level methods.
+0049 and 0050 removed two reasons to build extension methods before ownership: `Result`'s consuming
+methods take their receiver by value as members, and `List.first` and `last` may return `ref? T`.
+Issue #6 still lists extension methods first. Recommend moving them out of the ownership chain, since
+nothing in it now needs their lookup or imports, only the `this T name` parameter on a member, and let
+the user decide. They remain the path for `String`'s higher-level methods.
 
 ## What the back end has
 
