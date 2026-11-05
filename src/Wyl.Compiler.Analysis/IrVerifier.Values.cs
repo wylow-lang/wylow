@@ -611,9 +611,9 @@ public sealed partial class IrVerifier
         if (read.Ownership == IrOwnership.Copy && !read.Type.IsCopyableIn(function.Symbol) && !copiesReference)
             Error($"a '{read.Type}' is copied, which is not copyable");
         // A lambda may run more than once, so it never moves what it captures (spec functions.lambdas.captures).
-        if (read.Ownership == IrOwnership.Move && capturedOutside.Contains(local))
+        if (read.Ownership == IrOwnership.Move && capturedOutside.Contains(local) && SourceOf(local) is { } captured)
         {
-            if (SourceOf(local) is { } captured && reportedCaptureMoves.Add(captured))
+            if (reportedCaptureMoves.Add(captured))
                 Violation(l => Catalog.LambdaMovesCapture(l, captured.Name));
             return;
         }
@@ -627,6 +627,16 @@ public sealed partial class IrVerifier
                     Violation(l => Catalog.MoveOutOfThisInDestructor(l));
                 else
                     Violation(l => Catalog.MoveOutOfPlace(l, part, read.Type.ToString()));
+            }
+            else if (diagnostics is not null && read.Place.IsDeref)
+            {
+                var what = read.Place.Local.Deref switch
+                {
+                    IrDeref.Pointee => "out of what a pointer refers to",
+                    IrDeref.Generic => "out of a held value",
+                    _ => "out of what a reference refers to",
+                };
+                Violation(l => Catalog.MoveOutOfPlace(l, what, read.Type.ToString()));
             }
             else
                 Error($"only a local's whole value can be moved, not '{N(local)}''s");

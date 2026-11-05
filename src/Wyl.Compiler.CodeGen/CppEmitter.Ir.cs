@@ -18,6 +18,7 @@ public sealed partial class CppEmitter
     readonly Dictionary<IrLocal, IrClosure> closureSlots = [];
     /// <summary>The function whose body is being printed, for the rules a return needs.</summary>
     IrFunction? emitting;
+    int computedLambdas;
     /// <summary>The hold making each hold declared before it, which an <c>is ref</c> name's holder is.</summary>
     readonly Dictionary<IrLocal, IrHold> declaredHolds = [];
 
@@ -54,6 +55,7 @@ public sealed partial class CppEmitter
             Line($"    : {(NeedsArgumentsConstructor(function) ? ArgumentsConstructorText(function, constructorCall) : ConstructorCallText(constructorCall))}");
         Line("{");
         indent++;
+        EmitParameterReleases(function.Parameters);
         // A moved-from or discarded unique struct has no value for its destructor body to run on.
         if (function.Symbol is { IsDestructor: true, ContainingType.Kind: TypeKind.Struct })
         {
@@ -120,8 +122,10 @@ public sealed partial class CppEmitter
             case IrDeclare declare when plan.Evaluated.TryGetValue(declare.Local, out var evaluated):
                 Line($"auto {Name(declare.Local)} = [&] {{");
                 indent++;
+                computedLambdas++;
                 IrStatements(evaluated.Block);
                 Line($"return {ReturnedText(evaluated.Store.Value)};");
+                computedLambdas--;
                 indent--;
                 Line("}();");
                 break;
@@ -191,7 +195,8 @@ public sealed partial class CppEmitter
         {
             if (!plan.Nested.TryGetValue(local, out var definition))
             {
-                if (ValueVariable(local))
+                bool declaredHere = local.Role is IrLocalRole.Variable or IrLocalRole.Temporary;
+                if (ValueVariable(local) && declaredHere && computedLambdas == 0)
                     return Name(local);
                 break;
             }
@@ -442,11 +447,13 @@ public sealed partial class CppEmitter
     /// <summary>An immediately invoked lambda running the block, which returns what it stores last.</summary>
     string EvaluatedText(IrLocal local, IrBlock block, IrStore store)
     {
+        computedLambdas++;
         var body = IndentedBody(() =>
         {
             IrStatements(block);
             Line($"return {ReturnedText(store.Value)};");
         });
+        computedLambdas--;
         var type = local.Type.IsNonEscapingFunction ? "auto" : CppType(local.Type);
         return $"[&]() -> {type} {{\n{body}{new string(' ', indent * 4)}}}()";
     }
@@ -693,9 +700,25 @@ public sealed partial class CppEmitter
     string LambdaText(IrFunction lambda, string introducer, IEnumerable<string> leading)
     {
         var parameters = leading.Concat(lambda.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {Name(p)}"));
-        var body = IndentedBody(() => IrStatements(lambda.Body));
+        var body = IndentedBody(() =>
+        {
+            EmitParameterReleases(lambda.Parameters);
+            IrStatements(lambda.Body);
+        });
         return $"{introducer}({string.Join(", ", parameters)}) -> {CppType(lambda.Symbol.ReturnType)} {{\n{body}{new string(' ', indent * 4)}}}";
     }
+
+    void EmitParameterReleases(IEnumerable<IrLocal> parameters)
+    {
+        foreach (var parameter in parameters.Where(HeldByValue))
+        {
+            if (parameter.Type.MayOwnObjects || parameter.Type.RunsDestructor)
+                Line($"wyl::ReleaseAtEnd<{CppType(parameter.Type)}> {NewTemp()}{{{Name(parameter)}}};");
+        }
+    }
+
+    static bool HeldByValue(IrLocal local) => local.Kind == IrLocalKind.Value
+        || (local.Kind == IrLocalKind.Reference && local.Type.IsNullableReference);
 
     /// <summary>
     /// A <c>wyl::Function</c> made by <c>wyl::closure</c>, which copies the captured values into a

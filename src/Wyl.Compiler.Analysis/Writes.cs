@@ -20,7 +20,7 @@ public sealed class WriteSet : IMonotone<WriteSet>
 
     /// <summary>Whether it holds every write and release <paramref name="earlier"/> may have.</summary>
     public bool Contains(WriteSet earlier) =>
-        (Unknown || !earlier.Unknown) && earlier.writes.IsSubsetOf(writes) && earlier.released.IsSubsetOf(released);
+        earlier.released.IsSubsetOf(released) && (Unknown || (!earlier.Unknown && earlier.writes.IsSubsetOf(writes)));
 
     /// <summary>The types of the values it may release, null among them if any.</summary>
     public IReadOnlyCollection<WylType?> Released => released;

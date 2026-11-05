@@ -42,6 +42,13 @@ struct ReadOnlySpan;
 inline constexpr uint8_t k_engaged = 1;
 inline constexpr uint8_t k_in_use = 2;
 
+template <class t_T>
+struct ReleaseAtEnd {
+    t_T& value;
+
+    ~ReleaseAtEnd() { [[maybe_unused]] t_T released = std::move(value); }
+};
+
 [[noreturn]] inline void raise_panic(const char* message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);

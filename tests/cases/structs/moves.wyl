@@ -1,7 +1,7 @@
 // Using a value after it is moved, moving it out of what is not a whole local, and moving it while
 // an earlier operand refers to it are flow errors.
 
-import std::print;
+import std::{List, print};
 
 unique struct Counter {
     pub int value;
@@ -42,6 +42,26 @@ void conflict(mut Counter counter) {
 
 void from_object(Slot slot) {
     var taken = slot.counter;           // error[WYL0441]: cannot move a field out of 'slot'
+}
+
+void from_list(List<Counter> counters) {
+    var taken = counters[0];            // error[WYL0441]: cannot move out of what a reference refers to
+}
+
+void each(List<Counter> counters) {
+    for (Counter counter : counters) { }  // error[WYL0441]: cannot move out of what a reference refers to
+}
+
+struct Holder<T> {
+    T value;
+
+    T grab() {
+        return take(() -> value);       // error[WYL0441]: cannot move out of 'this'
+    }
+}
+
+T take<T>(fn() -> T f) {
+    return f();
 }
 
 void bind(MaybeCounter maybe) {

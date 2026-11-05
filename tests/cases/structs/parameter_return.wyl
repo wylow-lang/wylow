@@ -1,0 +1,19 @@
+import std::print;
+
+unique struct Tracked {
+    int id;
+
+    ~Tracked() { print($"release {id}"); }
+}
+
+Tracked pass(Tracked value) {
+    return value;
+}
+
+void main() {
+    var first = Tracked(id: 1);
+    var second = pass(first);
+    print($"got {second.id}");
+    // output: got 1
+    // output: release 1
+}
