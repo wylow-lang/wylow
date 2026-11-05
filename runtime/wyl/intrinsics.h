@@ -200,6 +200,40 @@ inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) 
 
 }  // namespace memory
 
+// Taking a value out of a place (spec library.replace). Nothing is released: the value moves out
+// and the new one moves in, so no destructor runs.
+template <class T>
+inline void check_not_in_use(const T& place, const char* message, const char* location) {
+    if (any_in_use(place)) raise_panic(message, location);
+}
+
+template <class T>
+inline T replace(T& place, T value, const char* location) {
+    check_not_in_use(place, "cannot replace a value that is in use", location);
+    T previous(std::move(place));
+    place = std::move(value);
+    return previous;
+}
+
+template <class T>
+inline void swap(T& a, T& b, const char* location) {
+    check_not_in_use(a, "cannot swap a value that is in use", location);
+    check_not_in_use(b, "cannot swap a value that is in use", location);
+    if (std::addressof(a) == std::addressof(b)) return;
+    using std::swap;
+    swap(a, b);
+}
+
+template <class T>
+inline Nullable<T> take(Nullable<T>& place, const char* location) {
+    check_not_in_use(place, "cannot take a value that is in use", location);
+    Nullable<T> taken(std::move(place));
+    // A trivial move copies, so the place is cleared explicitly. The value in it moved into
+    // `taken`, so nothing is released.
+    place = Nullable<T>();
+    return taken;
+}
+
 // std::panic (spec library.panic): panic itself and the checks built-in arrays make.
 namespace panic {
 

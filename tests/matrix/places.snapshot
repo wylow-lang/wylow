@@ -32,6 +32,9 @@ out 1
 out 1
 exit 0
 
+=== local/replace
+error 30: cannot pass 'x' by 'ref'
+
 === local/span
 out 1
 out 1
@@ -102,6 +105,11 @@ exit 0
 out 5
 exit 0
 
+=== mut-local/replace
+out 1
+out 5
+exit 0
+
 === mut-local/span
 out 5
 out 2
@@ -163,6 +171,11 @@ out 5
 exit 0
 
 === field/take-ref-nullable
+out 5
+exit 0
+
+=== field/replace
+out 1
 out 5
 exit 0
 
@@ -231,6 +244,11 @@ exit 0
 out 5
 exit 0
 
+=== fixed-element-first/replace
+out 1
+out 5
+exit 0
+
 === fixed-element-first/span
 out 5
 out 2
@@ -293,6 +311,11 @@ out 5
 exit 0
 
 === fixed-element-last/take-ref-nullable
+out 5
+exit 0
+
+=== fixed-element-last/replace
+out 3
 out 5
 exit 0
 
@@ -361,6 +384,11 @@ exit 0
 out 5
 exit 0
 
+=== fixed-element-single/replace
+out 1
+out 5
+exit 0
+
 === fixed-element-single/span
 out 5
 out 2
@@ -423,6 +451,11 @@ out 5
 exit 0
 
 === list-element-first/take-ref-nullable
+out 5
+exit 0
+
+=== list-element-first/replace
+out 1
 out 5
 exit 0
 
@@ -491,6 +524,11 @@ exit 0
 out 5
 exit 0
 
+=== list-element-last/replace
+out 3
+out 5
+exit 0
+
 === list-element-last/span
 out 5
 out 8
@@ -553,6 +591,11 @@ out 5
 exit 0
 
 === list-element-single/take-ref-nullable
+out 5
+exit 0
+
+=== list-element-single/replace
+out 1
 out 5
 exit 0
 
@@ -621,6 +664,11 @@ exit 0
 out 5
 exit 0
 
+=== span-element-first/replace
+out 1
+out 5
+exit 0
+
 === span-element-first/span
 out 5
 out 2
@@ -682,6 +730,11 @@ out 5
 exit 0
 
 === span-element-last/take-ref-nullable
+out 5
+exit 0
+
+=== span-element-last/replace
+out 3
 out 5
 exit 0
 
@@ -749,6 +802,11 @@ exit 0
 out 5
 exit 0
 
+=== span-element-single/replace
+out 1
+out 5
+exit 0
+
 === span-element-single/span
 out 5
 out 2
@@ -810,6 +868,11 @@ out 5
 exit 0
 
 === ref-local/take-ref-nullable
+out 5
+exit 0
+
+=== ref-local/replace
+out 1
 out 5
 exit 0
 
@@ -878,6 +941,9 @@ out 1
 out 1
 exit 0
 
+=== in-local/replace
+error 31: cannot pass 'r' by 'ref'
+
 === in-local/span
 out 1
 out 1
@@ -943,6 +1009,11 @@ out 5
 exit 0
 
 === ref-nullable-local/take-ref-nullable
+out 5
+exit 0
+
+=== ref-nullable-local/replace
+out 1
 out 5
 exit 0
 
@@ -1013,6 +1084,9 @@ out 1
 out 1
 exit 0
 
+=== in-nullable-local/replace
+error 31: cannot pass 'q!' by 'ref'
+
 === in-nullable-local/span
 out 1
 out 1
@@ -1080,6 +1154,11 @@ error 31: 'ref' variable cannot refer to nullable variable 'v'
 === nullable-value/take-ref-nullable
 error 31: 'ref?' variable cannot refer to nullable variable 'v'
 
+=== nullable-value/replace
+out 1
+out 5
+exit 0
+
 === nullable-value/span
 error 31: expected 'Span<int>', found 'int[3]?'
 
@@ -1135,6 +1214,11 @@ out 5
 exit 0
 
 === captured-local/take-ref-nullable
+out 5
+exit 0
+
+=== captured-local/replace
+out 1
 out 5
 exit 0
 
@@ -1199,6 +1283,11 @@ out 5
 exit 0
 
 === this-field/take-ref-nullable
+out 5
+exit 0
+
+=== this-field/replace
+out 1
 out 5
 exit 0
 
@@ -1268,6 +1357,11 @@ exit 0
 out 5
 exit 0
 
+=== chained-field/replace
+out 1
+out 5
+exit 0
+
 === chained-field/span
 out 5
 out 2
@@ -1331,6 +1425,9 @@ error 30: 'ref' variable must refer to a variable, field, or element
 === setter-element/take-ref-nullable
 error 30: 'ref?' variable must refer to a variable, field, or element
 
+=== setter-element/replace
+error 30: 'ref' argument must be a variable, field, or element
+
 === setter-element/span
 error 30: expected 'Span<int>', found 'int[3]'
 
@@ -1382,6 +1479,9 @@ error 30: 'ref' variable must refer to a variable, field, or element
 === temporary-field/take-ref-nullable
 error 30: 'ref?' variable must refer to a variable, field, or element
 
+=== temporary-field/replace
+error 30: 'ref' argument must be a variable, field, or element
+
 === temporary-field/span
 error 30: expected 'Span<int>', found 'int[3]'
 
@@ -1432,6 +1532,9 @@ error 30: 'ref' variable must refer to a variable, field, or element
 
 === temporary-setter-element/take-ref-nullable
 error 30: 'ref?' variable must refer to a variable, field, or element
+
+=== temporary-setter-element/replace
+error 30: 'ref' argument must be a variable, field, or element
 
 === temporary-setter-element/span
 error 30: expected 'Span<int>', found 'int[3]'

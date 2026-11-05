@@ -77,7 +77,8 @@ public sealed partial class IrLowering
     /// The mandatory passes, in the order they run on the lowered program. The IR after them is the
     /// program's meaning.
     /// </summary>
-    public static IReadOnlyList<MandatoryPass> Passes { get; } = [new("deciding borrows", Borrows.Apply)];
+    public static IReadOnlyList<MandatoryPass> Passes { get; } =
+        [new("deciding borrows", Borrows.Apply), new("marking values in use", InUse.Apply)];
 
     static IrLocalKind KindOf(LocalSymbol local) =>
         local.RefKind != RefKind.None || local.Type.IsNullableReference ? IrLocalKind.Reference : IrLocalKind.Value;
@@ -179,6 +180,9 @@ public sealed partial class IrLowering
             case BoundExpressionStatement expression:
                 DeclarePatternLocals(expression.Expression);
                 InStatement(statement, () => ExpressionStatement(expression));
+                break;
+            case BoundDiscardLocal discard:
+                Add(new IrDiscard(locals[discard.Local]) { Origin = at });
                 break;
             case BoundReturn ret:
                 DeclarePatternLocals(ret.Value);

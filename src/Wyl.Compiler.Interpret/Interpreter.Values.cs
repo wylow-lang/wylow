@@ -285,6 +285,7 @@ public sealed partial class Interpreter
         public Value? Test(IrTest value) => interpreter.Test(value, frame);
         public Value? Convert(IrConvert value) => interpreter.Convert(value, frame);
         public Value? Hold(IrHold value) => interpreter.Hold(value, frame);
+        public Value? InUse(IrInUse value) => throw new InterpreterException("an in-use mark is made by the guard it defines");
         public Value? Invoke(IrInvoke value) => interpreter.CallFunctionValue(value, frame);
         public Value? New(IrNew value) => interpreter.New(value, frame);
         public Value? Closure(IrClosure value) => interpreter.Closure(value, frame);

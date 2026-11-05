@@ -74,6 +74,13 @@ static class MatrixTypes
             expr => $"print({expr}.x);",
             Unique: true,
             Declarations: "unique struct Unique {\n    int x = 1;\n}");
+        // A unique struct with a destructor can be moved like any unique value, and its destructor
+        // runs wherever a value of it is released.
+        yield return new("unique-destructor", "Tracked", "Tracked", "Tracked[2]", "3", "7",
+            raw => $"Tracked(x: {raw})",
+            expr => $"print({expr}.x);",
+            Unique: true,
+            Declarations: "unique struct Tracked {\n    int x = 1;\n\n    ~Tracked() { print($\"tracked {x}\"); }\n}");
         yield return new("class", "Cell", "Cell", "Cell[2]", "3", "7",
             raw => $"new Cell({raw})",
             expr => $"print({expr}.value);");

@@ -16,13 +16,15 @@ public sealed partial class CppEmitter
 
     /// <summary>The closure each slot holds, whose type the slot is declared with before it.</summary>
     readonly Dictionary<IrLocal, IrClosure> closureSlots = [];
-
+    /// <summary>The function whose body is being printed, for the rules a return needs.</summary>
+    IrFunction? emitting;
     /// <summary>The hold making each hold declared before it, which an <c>is ref</c> name's holder is.</summary>
     readonly Dictionary<IrLocal, IrHold> declaredHolds = [];
 
     /// <summary>A lowered function's mem-initializer, if it is a class constructor calling its base's, and its body.</summary>
     void EmitIrFunction(IrFunction function)
     {
+        emitting = function;
         // A name is chosen against the function it is used in: lowering puts one source local in
         // several functions, as a field initializer's binding is in every constructor form that leaves
         // its field out, and one form's parameter may have the name another form gave the binding.
@@ -52,6 +54,12 @@ public sealed partial class CppEmitter
             Line($"    : {(NeedsArgumentsConstructor(function) ? ArgumentsConstructorText(function, constructorCall) : ConstructorCallText(constructorCall))}");
         Line("{");
         indent++;
+        // A moved-from or discarded unique struct has no value for its destructor body to run on.
+        if (function.Symbol is { IsDestructor: true, ContainingType.Kind: TypeKind.Struct })
+        {
+            Line("if ((wyl_flags_ & wyl::k_engaged) == 0) return;");
+            Line("if (wyl_get_in_use()) wyl::raise_panic(\"cannot release a value that is in use\", \"<runtime>\");");
+        }
         if (function.Symbol.IsConstructor && function.This is { } self && !function.Chains)
             Line($"this->wyl_set_cyclic({CyclicFlag(self.Type.Symbol!)});");
         IrStatements(function.Body);
@@ -75,6 +83,9 @@ public sealed partial class CppEmitter
     {
         switch (statement)
         {
+            case IrLet { Local.Kind: IrLocalKind.InUse } let:
+                Line($"wyl::InUseMark {Name(let.Local)}({PlaceText(((IrInUse)let.Value).Place)});");
+                break;
             case var definition when DefinedBy(definition) is { } local:
                 Line(Declaration(local, InitializedText(local)));
                 break;
@@ -115,9 +126,14 @@ public sealed partial class CppEmitter
                 Line("}();");
                 break;
             case IrDeclare declare:
-                Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{{}};");
+                bool storagePlaceholder = declare.Local.Kind == IrLocalKind.Value
+                    && (!declare.Local.Type.IsDefaultable || declare.Local.Type.RunsDestructor || declare.Local.Type.IsTypeParameter);
+                Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{(storagePlaceholder ? $" = {Storage(declare.Local.Type)}" : "{}")};");
                 break;
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
+                Line($"{Name(end.Local)}.end();");
+                break;
+            case IrEnd { Local.Kind: IrLocalKind.InUse } end:
                 Line($"{Name(end.Local)}.end();");
                 break;
             case IrEnd end:
@@ -131,7 +147,15 @@ public sealed partial class CppEmitter
             case IrCheck check:
                 Line(CheckText(check) + ";");
                 break;
+            case IrDiscard discard:
+                Line($"{Name(discard.Local)}.wyl_discard();");
+                break;
             case IrReturn ret:
+                // A struct constructor's value is storage until it is returned, so its destructor
+                // body may not run before then.
+                if (emitting is { Symbol.IsConstructor: true, Struct: { } made } && made.Type.Symbol?.Destructor is not null
+                    && ret.Value is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made)
+                    Line($"{Name(made)}.wyl_engage();");
                 Line(ret.Value is { } value ? $"return {ReturnedText(value)};" : "return;");
                 break;
             case IrIf conditional:
@@ -578,7 +602,7 @@ public sealed partial class CppEmitter
         // Braces evaluate the elements left to right.
         IrArray array => $"{CppType(array.Type)}{{{string.Join(", ", array.Elements.Select(OperandText))}}}",
         IrDefault defaulted => DefaultValue(defaulted.Type),
-        IrZeroed zeroed => $"{CppType(zeroed.Type)}{{}}",
+        IrZeroed zeroed => Storage(zeroed.Type),
         IrRef reference => PlaceText(reference.Place),
         IrAddr address => $"wyl::address_of({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",

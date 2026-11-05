@@ -82,7 +82,7 @@ public sealed record AnnotationSyntax(Location Location, string Name, IReadOnlyL
 public sealed record TypeParameterSyntax(Location Location, string Name, IReadOnlyList<TypeSyntax> Bounds) : Node(Location);
 
 /// <summary>
-/// A struct, class, interface, or enum. Only classes have a <see cref="BaseType"/> or
+/// A struct, class, interface, or enum. Only classes and unique structs have a
 /// <see cref="Destructor"/>; only enums have <see cref="Variants"/>.
 /// </summary>
 public sealed record TypeDecl(
@@ -244,6 +244,9 @@ public sealed record IncDecStmt(Location Location, Expr Target, bool IsIncrement
 
 /// <summary><c>_ = value;</c>, which evaluates a value and ignores it.</summary>
 public sealed record DiscardStmt(Location Location, Expr Value) : Stmt(Location);
+
+/// <summary><c>discard name;</c>: ends a by-value parameter's lifetime without its destructor's body (spec <c>structs.unique.destructors</c>).</summary>
+public sealed record DiscardLocalStmt(Location Location, string Name, Location NameLocation) : Stmt(Location);
 
 public sealed record SwitchStmt(Location Location, Expr Value, IReadOnlyList<SwitchCase> Cases) : Stmt(Location);
 

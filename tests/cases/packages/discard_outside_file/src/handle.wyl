@@ -1,0 +1,9 @@
+// Only a function in this file may end a Handle's lifetime early.
+
+pub unique struct Handle {
+    pub int id;
+
+    pub Handle(int id) { this.id = id; }
+
+    ~Handle() { }
+}

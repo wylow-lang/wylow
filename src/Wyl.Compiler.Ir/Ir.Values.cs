@@ -184,6 +184,7 @@ public interface IIrRvalueVisitor<out T>
     T Test(IrTest value);
     T Convert(IrConvert value);
     T Hold(IrHold value);
+    T InUse(IrInUse value);
 }
 
 public abstract class IrRvalue
@@ -421,4 +422,16 @@ public sealed class IrHold(IrPlace place, bool borrows) : IrRvalue
     public IrPlace Place { get; } = place;
     public bool Borrows { get; set; } = borrows;
     public override WylType Type => Place.Type.NonNull;
+}
+
+/// <summary>
+/// <c>inuse P</c>: while the local that holds it lives, the value at <c>P</c> is in use, and the
+/// state it had is restored when the local ends (spec <c>memory.holds</c>). Its value is the state
+/// it saved, which nothing reads.
+/// </summary>
+public sealed class IrInUse(IrPlace place) : IrRvalue
+{
+    public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.InUse(this);
+    public IrPlace Place { get; } = place;
+    public override WylType Type => WylType.Bool;
 }

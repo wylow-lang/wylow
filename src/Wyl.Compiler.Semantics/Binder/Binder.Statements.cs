@@ -68,6 +68,7 @@ public sealed partial class Binder
         AssignStmt s => BindAssignment(s),
         IncDecStmt s => BindIncDec(s),
         DiscardStmt s => BindDiscard(s),
+        DiscardLocalStmt s => BindDiscardLocal(s),
         SwitchStmt s => BindSwitch(s),
         _ => throw new InvalidOperationException($"unexpected statement {statement.GetType().Name}"),
     };
@@ -413,6 +414,32 @@ public sealed partial class Binder
         if (value.Type == WylType.Void)
             Error(Catalog.DiscardVoid(s.Value.Location));
         return new BoundExpressionStatement(s.Location, value, IsDiscard: true);
+    }
+
+    /// <summary>
+    /// <c>discard name;</c>, which ends a by-value parameter's lifetime without its destructor's
+    /// body. Only a parameter of a unique struct that declares a destructor may be discarded, and
+    /// only from a function declared in the type's file (spec <c>structs.unique.destructors</c>).
+    /// </summary>
+    BoundStatement BindDiscardLocal(DiscardLocalStmt s)
+    {
+        if (scope!.Lookup(s.Name) is not { IsParameter: true } local || local.Owner != currentFunction)
+        {
+            Error(Catalog.DiscardNotParameter(s.NameLocation, s.Name));
+            return ErrorStatement(s.Location);
+        }
+        if (local.RefKind != RefKind.None || local.Type.NonNull.Symbol is not { Kind: TypeKind.Struct, Destructor: not null } type)
+        {
+            Error(Catalog.DiscardNotParameter(s.NameLocation, s.Name));
+            return ErrorStatement(s.Location);
+        }
+        var typeFile = type.Declaration.Location.Source;
+        if (currentFunction!.Declaration?.Location.Source is not { } functionFile || !ReferenceEquals(functionFile, typeFile))
+        {
+            Error(Catalog.DiscardOutsideTypeFile(s.NameLocation, s.Name, type.DisplayName, typeFile.Name));
+            return ErrorStatement(s.Location);
+        }
+        return new BoundDiscardLocal(s.Location, local);
     }
 
     BoundStatement BindAssignment(AssignStmt s)

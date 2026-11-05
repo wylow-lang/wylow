@@ -9,7 +9,7 @@ static class MatrixPlaces
     static readonly string[] Operations =
     [
         "read", "assign", "compound", "pass", "pass-ref-in", "take-ref-in", "take-ref-nullable",
-        "span", "loop", "capture", "capture-escaping", "narrow", "return", "return-ref", "reassign",
+        "replace", "span", "loop", "capture", "capture-escaping", "narrow", "return", "return-ref", "reassign",
     ];
 
     public static Matrix Build()
@@ -205,6 +205,9 @@ static class MatrixPlaces
             "take-ref-nullable" => use.Mutable
                 ? $"ref? {use.Type} {slot} = {place};\n{slot}! = {value};"
                 : $"in? {use.Type} {slot} = {place};\nprint({slot}!);",
+            // 'replace' takes the old value out and returns it; a place that can't be referred to
+            // is refused where the reference is bound.
+            "replace" => $"var replaced = replace(ref {place}, {value});\n{use.Read("replaced")}",
             "span" => use.Mutable
                 ? $"Span<int> view = {place};\nview[0] = 5;"
                 : $"ReadOnlySpan<int> view = {place};\nprint(view[0]);",

@@ -13,7 +13,7 @@ interface K implements J {              // error[WYL0174]: interfaces cannot use
 }
 
 struct S {
-    ~S() { }                            // error[WYL0146]: structs cannot have destructors
+    ~S() { }                            // error[WYL0458]: only a 'unique' struct can have a destructor
 }
 
 enum E {
@@ -28,12 +28,12 @@ class C {
     +;                              // error[WYL0001]: expected a field, method, or constructor
     const int limit;                // error[WYL0004]: 'const' is a reserved word and cannot be used
 
-    ~D() { }                            // error[WYL0147]: destructor is not named after its class
+    ~D() { }                            // error[WYL0147]: destructor is not named after its type
 }
 
 class Twice {
     ~Twice() { }
-    ~Twice() { }                        // error[WYL0148]: class already has a destructor
+    ~Twice() { }                        // error[WYL0148]: 'Twice' already has a destructor
 }
 
 void main() {
@@ -41,7 +41,6 @@ void main() {
     int b = const;                      // error[WYL0004]: 'const' is a reserved word and cannot be used
     defer print(1);                     // error[WYL0004]: 'defer' is a reserved word and cannot be used
     int c = shared;                     // error[WYL0004]: 'shared' is a reserved word and cannot be used
-    discard c;                          // error[WYL0004]: 'discard' is a reserved word and cannot be used
     if (b is ) { }                      // error[WYL0001]: expected a pattern
     for (int i = 0; i < 3; int j = 1) { }  // error[WYL0342]: variable cannot be declared here
 }

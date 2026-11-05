@@ -1,0 +1,30 @@
+// A pattern does not move a field out of a value whose type has a destructor. A value that holds
+// the same field may be taken apart when its own type has no destructor.
+
+import std::print;
+
+unique struct Inner {
+    pub int value;
+}
+
+unique struct Handle {
+    pub Inner inner;
+
+    ~Handle() { }
+}
+
+unique struct Pair {
+    pub Inner inner;
+}
+
+void main() {
+    var handle = Handle(Inner(value: 1));
+    switch (handle) {                                   // error[WYL0462]: cannot move a field out of a value of type 'Handle', which has a destructor
+        case Handle(var inner) -> print(inner.value);
+    }
+
+    var pair = Pair(Inner(value: 2));
+    switch (pair) {
+        case Pair(var inner) -> print(inner.value);
+    }
+}

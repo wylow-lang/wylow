@@ -36,6 +36,9 @@ public sealed partial class Interpreter
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
             ["wyl::argumentCount"] = (i, call, location, caller) => new IntValue((i.options.Arguments ?? []).Count),
             ["wyl::argument"] = (i, call, location, caller) => i.ProgramArgument(i.ArgumentsOf(call, caller)),
+            ["wyl::replace"] = (i, call, location, caller) => i.Replace(call, caller, location),
+            ["wyl::swap"] = (i, call, location, caller) => i.Swap(call, caller, location),
+            ["wyl::take"] = (i, call, location, caller) => i.Take(call, caller, location),
         };
         foreach (var name in MemoryNames)
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
@@ -101,6 +104,57 @@ public sealed partial class Interpreter
         [.. call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller))];
 
     Value? ReceiverOf(IrCall call, Frame caller) => call.Receiver is { } given ? ArgumentValue(given, caller) : null;
+
+    /// <summary>The cell a call's <c>ref</c> argument names, which <c>replace</c>, <c>swap</c>, and <c>take</c> change.</summary>
+    Cell RefArgumentCell(IrCall call, int index, Frame caller)
+    {
+        var given = call.Arguments[index];
+        return given switch
+        {
+            IrRefArgument reference => PlaceCell(reference.Place, caller),
+            IrAddrArgument address => PlaceCell(address.Place, caller),
+            _ => throw new InterpreterException($"argument {index + 1} of '{call.Method.Symbol.Name}' is not a 'ref' argument"),
+        };
+    }
+
+    void CheckTakenOut(Cell cell, string message, string? location)
+    {
+        if (AnyInUse(cell.Type, cell.Value))
+            throw new WylPanic(message, location ?? "<unknown>");
+    }
+
+    /// <summary><c>replace(place, value)</c>: returns what the place held, and stores the new value.</summary>
+    Value? Replace(IrCall call, Frame caller, string? location)
+    {
+        var cell = RefArgumentCell(call, 0, caller);
+        CheckTakenOut(cell, "cannot replace a value that is in use", location);
+        var value = ArgumentValue(call.Arguments[1], caller);
+        var previous = cell.Value;
+        cell.Value = value;
+        return previous;
+    }
+
+    /// <summary><c>swap(a, b)</c>: exchanges what the two places hold, running no destructor.</summary>
+    Value? Swap(IrCall call, Frame caller, string? location)
+    {
+        var a = RefArgumentCell(call, 0, caller);
+        var b = RefArgumentCell(call, 1, caller);
+        CheckTakenOut(a, "cannot swap a value that is in use", location);
+        CheckTakenOut(b, "cannot swap a value that is in use", location);
+        if (!ReferenceEquals(a, b))
+            (a.Value, b.Value) = (b.Value, a.Value);
+        return null;
+    }
+
+    /// <summary><c>take(place)</c>: returns what the place held, and leaves null in it.</summary>
+    Value? Take(IrCall call, Frame caller, string? location)
+    {
+        var cell = RefArgumentCell(call, 0, caller);
+        CheckTakenOut(cell, "cannot take a value that is in use", location);
+        var previous = cell.Value;
+        cell.Value = cell.Type.IsNullableValue ? new OptionalValue(null) : new RefValue(null);
+        return previous;
+    }
 
     Value? Print(MethodReference method, IReadOnlyList<Value> arguments)
     {

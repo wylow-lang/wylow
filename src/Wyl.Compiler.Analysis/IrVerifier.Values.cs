@@ -15,6 +15,9 @@ public sealed partial class IrVerifier
 
     /// <summary>The place each hold holds, so that a move through one names the source local it came from.</summary>
     readonly Dictionary<IrLocal, IrPlace> holdPlaces = [];
+
+    /// <summary>For an in-use guard, the local whose value it marks.</summary>
+    readonly Dictionary<IrLocal, IrLocal> guardTargets = [];
     readonly List<IrLocal> pendingMoves = [];
 
     /// <summary>What each temporary, or <c>is ref</c> name, holds a copy of the value of, until either is given another.</summary>
@@ -48,6 +51,12 @@ public sealed partial class IrVerifier
         public Dictionary<IrLocal, string> Invalid { get; private init; } = [];
 
         /// <summary>
+        /// The in-use guards that are active, so that a write to a value they mark cannot make a
+        /// reference into it dangle: releasing the value panics first (spec memory.holds).
+        /// </summary>
+        public HashSet<IrLocal> Guards { get; private init; } = [];
+
+        /// <summary>
         /// The lambdas made on some path here, which code that runs may run. As in flow analysis, one
         /// may run from where it is made on, a loop's next iteration included.
         /// </summary>
@@ -76,6 +85,7 @@ public sealed partial class IrVerifier
             Invalid = new(Invalid),
             Outcomes = new(Outcomes),
             Lambdas = [.. Lambdas],
+            Guards = [.. Guards],
         };
 
         public static State Merge(State a, State b)
@@ -109,6 +119,7 @@ public sealed partial class IrVerifier
                 Ended = [.. a.Ended.Union(b.Ended)],
                 Invalid = invalid,
                 Lambdas = [.. a.Lambdas.Union(b.Lambdas)],
+                Guards = [.. a.Guards.Union(b.Guards)],
             };
         }
 
@@ -116,7 +127,7 @@ public sealed partial class IrVerifier
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
             && NonNull.SetEquals(other.NonNull) && AssignedFields.SetEquals(other.AssignedFields)
             && Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
-            && Lambdas.SetEquals(other.Lambdas)
+            && Lambdas.SetEquals(other.Lambdas) && Guards.SetEquals(other.Guards)
             && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
 
         public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Known, Known);
@@ -384,10 +395,17 @@ public sealed partial class IrVerifier
 
     void Invalidate(State state, IrLocal local, string reason)
     {
+        // A reference into a value that is in use cannot dangle: releasing or replacing the value
+        // panics before it can (spec memory.holds).
+        if (dependencies.TryGetValue(local, out var dependency) && dependency.Roots.Any(r => Guarded(state, r.Local)))
+            return;
         if (!state.Invalid.TryAdd(local, reason))
             return;
         DependentsOf(local, state, $"'{N(local)}' was invalidated: {reason}");
     }
+
+    /// <summary>Whether an in-use guard marks the value at the local as in use.</summary>
+    bool Guarded(State state, IrLocal local) => state.Guards.Any(guard => guardTargets.GetValueOrDefault(guard) == local);
 
     void DependentsOf(IrLocal root, State state, string reason, bool throughOnly = false, IReadOnlySet<IrLocal>? except = null)
     {
@@ -604,9 +622,20 @@ public sealed partial class IrVerifier
         if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed)))
         {
             if (MovedPart(read.Place) is { } part)
-                Violation(l => Catalog.MoveOutOfPlace(l, part, read.Type.ToString()));
+            {
+                if (part == "out of 'this'" && function.Symbol.IsDestructor)
+                    Violation(l => Catalog.MoveOutOfThisInDestructor(l));
+                else
+                    Violation(l => Catalog.MoveOutOfPlace(l, part, read.Type.ToString()));
+            }
             else
                 Error($"only a local's whole value can be moved, not '{N(local)}''s");
+        }
+        // A pattern cannot move a field out of a value whose type has a destructor: the rest of the
+        // value would be one the destructor cannot describe (spec structs.unique.destructors).
+        else if (MovedFromDestructorValue(read.Place) is { } holder)
+        {
+            Violation(l => Catalog.MoveOutOfDestructorValue(l, holder.ToString()));
         }
         else if (pendingMoves.Contains(local))
         {
@@ -620,6 +649,24 @@ public sealed partial class IrVerifier
         }
         else
             pendingMoves.Add(local);
+    }
+
+    /// <summary>
+    /// The type of a value a move takes a field out of, when that type declares a destructor, or
+    /// null. Only a temporary's field reaches here: another place is reported where it is found.
+    /// </summary>
+    static WylType? MovedFromDestructorValue(IrPlace place)
+    {
+        if (place.IsDeref)
+            return null;
+        var holder = place.BaseType;
+        foreach (var projection in place.Projections)
+        {
+            if (projection is IrField && holder.NonNull.Symbol is { Destructor: not null })
+                return holder.NonNull;
+            holder = projection.Type;
+        }
+        return null;
     }
 
     /// <summary>
@@ -820,6 +867,9 @@ public sealed partial class IrVerifier
                 Place(hold.Place, state, reads: true);
                 if (!hold.Place.Type.MayShareStorage)
                     Error($"a hold holds an object or a string, not a '{hold.Place.Type}'");
+                break;
+            case IrInUse inUse:
+                Place(inUse.Place, state, reads: true);
                 break;
             default:
                 throw new InvalidOperationException($"unexpected IR rvalue {value.GetType().Name}");

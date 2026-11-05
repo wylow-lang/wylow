@@ -51,6 +51,9 @@ public sealed record BoundAssignment(Location Location, BoundExpression Target, 
 /// <summary><see cref="IsDiscard"/> for <c>_ = value;</c>, which may discard any value.</summary>
 public sealed record BoundExpressionStatement(Location Location, BoundExpression Expression, bool IsDiscard = false) : BoundStatement(Location);
 
+/// <summary><c>discard name;</c>: ends a by-value parameter's lifetime without its destructor's body (spec <c>structs.unique.destructors</c>).</summary>
+public sealed record BoundDiscardLocal(Location Location, LocalSymbol Local) : BoundStatement(Location);
+
 public sealed record BoundIf(Location Location, BoundExpression Condition, BoundStatement Then, BoundStatement? Else)
     : BoundStatement(Location);
 

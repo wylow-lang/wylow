@@ -106,19 +106,19 @@ These are the **keywords**:
 
 ```
 _          abstract   bool       break      byte       case       char       class
-continue   default    double     else       enum       escaping   extends    extern
-false      final      float      fn         for        if         implements import
-in         int        interface  is         long       loop       module     mut
-new        nint       nuint      null       operator   override   package    pub
-ref        return     sbyte      short      static     struct     super      switch
-this       true       try        uint       ulong      unique     unsafe     ushort
-var        virtual    void       when       while
+continue   default    discard    double     else       enum       escaping   extends
+extern     false      final      float      fn         for        if         implements
+import     in         int        interface  is         long       loop       module
+mut        new        nint       nuint      null       operator   override   package
+pub        ref        return     sbyte      short      static     struct     super
+switch     this       true       try        uint       ulong      unique     unsafe
+ushort     var        virtual    void       when       while
 ```
 
 These are **reserved words**:
 
 ```
-const      defer      discard    private    protected  public     shared
+const      defer      private    protected  public     shared
 ```
 
 It is a compile-time error if a token is a reserved word.

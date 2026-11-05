@@ -40,11 +40,12 @@ Statement   = let x = Rvalue            declare and define a temporary or local
             | if Operand Block [else Block]
             | loop L Block [continue Block]  with break L / continue L inside
             | return Operand?
-            | end x                     end a hold or a stack slot before its scope does
+            | end x                     end a hold, a stack slot, or an in-use guard before its scope does
+            | discard x                 end a by-value parameter's lifetime without its destructor's body
             | unreachable @Loc
 Rvalue      = Operand | unary/binary (checked ones carry @Loc) | call | new | construct | variant
             | array | default T | closure | lambda | choose | ref Place | addr Place
-            | data Place | test (null, tag, class, has_value) | convert | hold Place
+            | data Place | test (null, tag, class, has_value) | convert | hold Place | inuse Place
 Operand     = constant | copy Place | move Place | borrow Place | borrow.element Place
               (move: a temporary, or part of one, that isn't used again)
 Argument    = Operand | ref Place | in Place | addr Place      (a call's receiver and arguments)
@@ -57,7 +58,8 @@ Loc         = a source location constant | the function's location parameter
 Locals have a kind that the emitter maps to a C++ declaration: **value** (`T x`), **reference**
 (`T& x` for `ref`/`in`, `T* x` for `ref?`/`in?`), **borrowed** (`const T& x`, an alias of a place
 that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::pin`, or `wyl::Borrow<T>`
-from `wyl::borrow`), and **slot** (`wyl::StackSlot<T>`).
+from `wyl::borrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark<T>`, which
+marks a value in use while it lives and restores the state before it).
 
 Some notes on the choices:
 
@@ -104,6 +106,9 @@ Some notes on the choices:
 | `loop` whose head is `if !c break` with `c` nestable | `while (c)`, or `for (;; update)` when the update nests |
 | `loop` in general | `while (true) { ... }`. A `continue` that must skip to statements in the update block is `goto` to a label after the body's block, which skips no declaration |
 | `end %h` | `wyl::unhold(h)` / `slot.end()` |
+| `let %g = inuse P` | `wyl::InUseMark gN(P);` |
+| `end %g` on an in-use guard | `g.end()`, which restores the state the value had |
+| `discard x` | `x.wyl_discard()`, which keeps its fields for the scope to release |
 
 Destruction order inside a statement becomes a C++ scope's reverse declaration order, which is
 fully specified, and is the order the spec now requires ([When values are released](../spec/17-memory.md#memory.release)). A

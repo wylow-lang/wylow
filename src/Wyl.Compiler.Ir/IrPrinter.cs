@@ -163,6 +163,7 @@ public sealed class IrPrinter
         IrReturn { Value: null } => "return",
         IrReturn ret => $"return {Operand(ret.Value!)}",
         IrEnd end => $"end {Name(end.Local)}",
+        IrDiscard discard => $"discard {Name(discard.Local)}",
         IrUnreachable unreachable => $"unreachable {Loc(unreachable.Loc)}",
         _ => throw new InvalidOperationException($"unexpected IR statement {statement.GetType().Name}"),
     };
@@ -299,6 +300,7 @@ public sealed class IrPrinter
         },
         IrConvert conversion => WithLoc($"convert {Operand(conversion.Operand)} to {conversion.Type}", conversion.Loc),
         IrHold hold => $"hold{(hold.Borrows ? ".borrow" : "")} {Place(hold.Place)}",
+        IrInUse inUse => $"inuse {Place(inUse.Place)}",
         _ => throw new InvalidOperationException($"unexpected rvalue {value.GetType().Name}"),
     };
 

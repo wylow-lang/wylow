@@ -68,7 +68,7 @@ public sealed partial class Parser
         Expect(TokenKind.OpenBrace, "'{'");
         var variants = kind == TypeKind.Enum ? ParseVariants() : [];
         var members = new Members();
-        ParseMembers(kind, name.Text, members);
+        ParseMembers(kind, name.Text, modifiers.Flags, members);
         Expect(TokenKind.CloseBrace, "'}'");
         return new TypeDecl(LocationFrom(start), modifiers.Flags, kind, name.Text, Loc(name.Span), typeParameters,
             kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants)
@@ -111,7 +111,7 @@ public sealed partial class Parser
     /// A type's members, in any order, each with its own visibility or none, which is the file. An
     /// interface's methods take none: they are as visible as the interface.
     /// </summary>
-    void ParseMembers(TypeKind kind, string typeName, Members members)
+    void ParseMembers(TypeKind kind, string typeName, Modifiers typeModifiers, Members members)
     {
         while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
         {
@@ -119,7 +119,7 @@ public sealed partial class Parser
             if (SyntaxFacts.IsVisibilityKeyword(Current.Kind) && Peek(1).Kind == TokenKind.OpenBrace)
                 ParseVisibilityBlock();
             else
-                ParseMember(kind, typeName, members);
+                ParseMember(kind, typeName, typeModifiers, members);
             if (position == before)
                 Advance();
         }
@@ -133,7 +133,7 @@ public sealed partial class Parser
             while (!At(TokenKind.CloseBrace) && !At(TokenKind.EndOfFile))
             {
                 int before = position;
-                ParseMember(kind, typeName, members);
+                ParseMember(kind, typeName, typeModifiers, members);
                 if (position == before)
                     Advance();
             }
@@ -147,11 +147,11 @@ public sealed partial class Parser
 
     bool IsDestructorStart() => At(TokenKind.Tilde) && Peek(1).Kind == TokenKind.Identifier && Peek(2).Kind == TokenKind.OpenParen;
 
-    void ParseMember(TypeKind kind, string typeName, Members members)
+    void ParseMember(TypeKind kind, string typeName, Modifiers typeModifiers, Members members)
     {
         var annotations = ParseAnnotations();
         var (methods, fields) = (members.Methods.Count, members.Fields.Count);
-        ParseMemberDeclaration(kind, typeName, members);
+        ParseMemberDeclaration(kind, typeName, typeModifiers, members);
         if (annotations.Count == 0)
             return;
         for (int i = methods; i < members.Methods.Count; i++)
@@ -160,7 +160,7 @@ public sealed partial class Parser
             members.Fields[i] = members.Fields[i] with { Annotations = annotations };
     }
 
-    void ParseMemberDeclaration(TypeKind kind, string typeName, Members members)
+    void ParseMemberDeclaration(TypeKind kind, string typeName, Modifiers typeModifiers, Members members)
     {
         int start = position;
         var modifiers = ParseModifiers();
@@ -190,7 +190,7 @@ public sealed partial class Parser
 
         if (IsDestructorStart())
         {
-            ParseDestructor(start, kind, typeName, modifiers, members);
+            ParseDestructor(start, kind, typeName, typeModifiers, modifiers, members);
             return;
         }
 
@@ -333,19 +333,21 @@ public sealed partial class Parser
             Disallow(modifiers, Modifiers.Final, token => Catalog.FinalWithoutOverride(Loc(token.Span)));
     }
 
-    void ParseDestructor(int start, TypeKind kind, string typeName, ModifierList modifiers, Members members)
+    void ParseDestructor(int start, TypeKind kind, string typeName, Modifiers typeModifiers, ModifierList modifiers, Members members)
     {
         if (modifiers.VisibilitySpan is { } visibility)
             Report(Catalog.DestructorVisibility(Loc(visibility)));
         Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnDestructor(Loc(token.Span), token.Text));
         Advance();
         var name = Advance();
-        if (kind != TypeKind.Class)
-            Report(Catalog.DestructorOutsideClass(Loc(name.Span), kind switch { TypeKind.Struct => "structs", TypeKind.Enum => "enums", _ => "interfaces" }));
+        if (kind == TypeKind.Struct && (typeModifiers & Modifiers.Unique) == 0)
+            Report(Catalog.DestructorOnNonUniqueStruct(Loc(name.Span)));
+        else if (kind is TypeKind.Enum or TypeKind.Interface)
+            Report(Catalog.DestructorOutsideClass(Loc(name.Span), kind == TypeKind.Enum ? "enums" : "interfaces"));
         else if (name.Text != typeName)
             Report(Catalog.DestructorName(Loc(name.Span), typeName));
         else if (members.Destructor is not null)
-            Report(Catalog.SecondDestructor(Loc(name.Span)));
+            Report(Catalog.SecondDestructor(Loc(name.Span), typeName));
         Advance();
         if (!At(TokenKind.CloseParen))
         {
@@ -355,7 +357,8 @@ public sealed partial class Parser
         }
         Expect(TokenKind.CloseParen, "')'");
         var body = ParseBlock();
-        if (kind == TypeKind.Class && name.Text == typeName && members.Destructor is null)
+        bool allowed = kind == TypeKind.Class || kind == TypeKind.Struct && (typeModifiers & Modifiers.Unique) != 0;
+        if (allowed && name.Text == typeName && members.Destructor is null)
             members.Destructor = new DestructorDecl(LocationFrom(start), Loc(name.Span), body);
     }
 

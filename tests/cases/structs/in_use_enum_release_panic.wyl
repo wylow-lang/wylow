@@ -1,0 +1,26 @@
+// Releasing an enum while a reference binding holds its variant panics.
+
+import std::print;
+
+unique struct Buffer {
+    pub int id;
+
+    ~Buffer() { print($"release {id}"); }
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer);
+}
+
+void main() {
+    mut var maybe = Maybe.Some(Buffer(id: 1));
+    switch (maybe) {
+        case Some(in var buffer) -> {
+            maybe = Maybe.None;
+            // panic: cannot release a value that is in use
+            print(buffer.id);
+        }
+        case None -> { }
+    }
+}

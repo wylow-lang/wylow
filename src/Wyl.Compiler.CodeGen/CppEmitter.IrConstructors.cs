@@ -22,8 +22,16 @@ public sealed partial class CppEmitter
     {
         var call = ConstructorCallOf(function.ConstructorCall!);
         // A reference argument is stored as the address of its place, which the constructor reads back.
+        // A value that cannot be copied is moved into the constructor it is passed to. A copyable
+        // one is copied, so that the arguments' storage releases its values last to first, as the
+        // spec requires; a parameter's own destruction order is the ABI's.
         var arguments = call.Arguments.Select((argument, i) => FunctionArgument(call.Method, i,
-            argument is IrRefArgument ? $"(*wyl::argument<{i}>(arguments))" : $"wyl::argument<{i}>(arguments)")).ToList();
+            argument switch
+            {
+                IrRefArgument => $"(*wyl::argument<{i}>(arguments))",
+                IrOperand operand when !operand.Type.IsCopyableIn(function.Symbol) => $"std::move(wyl::argument<{i}>(arguments))",
+                _ => $"wyl::argument<{i}>(arguments)",
+            })).ToList();
         if (call.Loc is { } loc)
             arguments.Add(LocText(loc));
         Line("template <class A>");

@@ -105,15 +105,27 @@ public static partial class Catalog
 
     [Error(147, "classes.destructors")]
     public static Diagnostic DestructorName(Location at, string type) =>
-        Make(at, "destructor is not named after its class").Help($"name it '~{type}()'");
+        Make(at, "destructor is not named after its type").Help($"name it '~{type}()'");
 
     [Error(148, "classes.destructors")]
-    public static Diagnostic SecondDestructor(Location at) =>
-        Make(at, "class already has a destructor");
+    public static Diagnostic SecondDestructor(Location at, string type) =>
+        Make(at, $"'{type}' already has a destructor");
 
     [Error(149, "classes.destructors")]
     public static Diagnostic DestructorParameters(Location at) =>
         Make(at, "destructors cannot have parameters");
+
+    [Error(458, "structs.unique.destructors")]
+    public static Diagnostic DestructorOnNonUniqueStruct(Location at) =>
+        Make(at, "only a 'unique' struct can have a destructor").Help("declare the struct 'unique'");
+
+    [Error(459, "structs.unique.destructors")]
+    public static Diagnostic DiscardNotParameter(Location at, string name) =>
+        Make(at, $"cannot discard '{name}'").Note("'discard' applies to a by-value parameter of a unique struct with a destructor");
+
+    [Error(460, "structs.unique.destructors")]
+    public static Diagnostic DiscardOutsideTypeFile(Location at, string name, string type, string file) =>
+        Make(at, $"cannot discard '{name}' outside the file of '{type}'").Note($"only a function declared in '{file}' may discard it");
 
     [Error(150, "enums.declarations")]
     public static Diagnostic EnumExtends(Location at) =>

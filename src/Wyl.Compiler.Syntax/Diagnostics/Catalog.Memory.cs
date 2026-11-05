@@ -87,6 +87,14 @@ public static partial class Catalog
     public static Diagnostic MoveOutOfPlace(Location at, string what, string type) =>
         Make(at, $"cannot move {what}").Note($"'{type}' is not copyable");
 
+    [Error(461, "structs.unique.destructors")]
+    public static Diagnostic MoveOutOfThisInDestructor(Location at) =>
+        Make(at, "cannot move out of 'this' in a destructor");
+
+    [Error(462, "patterns.bindings.moves")]
+    public static Diagnostic MoveOutOfDestructorValue(Location at, string type) =>
+        Make(at, $"cannot move a field out of a value of type '{type}', which has a destructor");
+
     [Error(443, "memory.moves")]
     public static Diagnostic MoveWhileUsed(Location at, string name, string keyword) =>
         Make(at, $"cannot move '{name}' while it is passed by '{keyword}'").Note("the call uses the value where it is");

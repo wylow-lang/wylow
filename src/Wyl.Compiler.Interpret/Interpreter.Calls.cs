@@ -366,6 +366,25 @@ public sealed partial class Interpreter
     }
 
     /// <summary>
+    /// A unique struct value is released: its destructor's body runs, unless a move or a
+    /// <c>discard</c> took the value away, and then its fields are released by the caller.
+    /// </summary>
+    public void ReleasingStruct(StructValue value)
+    {
+        if (!value.Engaged)
+            return;
+        value.Engaged = false;
+        if (value.Type.Symbol is { Destructor: { } destructor }
+            && program.Functions.Single(destructor) is { } function)
+        {
+            var frame = new Frame(TypeMap.For(value.Type));
+            if (function.This is { } self)
+                frame.Locals[self] = new OwnedStorage(new Cell(value.Type, value));
+            Invoke(function, frame);
+        }
+    }
+
+    /// <summary>
     /// Whether objects of the class may be on a cycle: what the analysis found, or, for an
     /// instantiation only C++ sees, what <c>wyl::is_cyclic</c> defaults to, which is true.
     /// </summary>
@@ -415,11 +434,16 @@ public sealed partial class Interpreter
         {
             var build = program.Functions.Default(type.Symbol!) ?? throw new InterpreterException($"no make_default for '{type}'");
             var frameFor = CalleeFrame(frame, TypeMap.For(type));
-            return Invoke(build, frameFor) ?? throw new InterpreterException($"'{build.Name}' returned nothing");
+            var value = Invoke(build, frameFor) ?? throw new InterpreterException($"'{build.Name}' returned nothing");
+            // A value of a type without a default value is storage a constructor starts from: its
+            // initializers have run, but the value is not one yet.
+            if (value is StructValue made)
+                made.Engaged = type.IsDefaultable;
+            return value;
         }
         if (type.IsEnum && type.Symbol!.Variants.Count > 0)
             return new EnumValue(type, type.Symbol.Variants[0], []);
-        return Values.Zeroed(type, program.Bound.Stdlib);
+        return Values.Zeroed(type, program.Bound.Stdlib, engaged: type.IsDefaultable);
     }
 
     /// <summary>Makes a struct value with one of its constructors, including its implicit and memberwise forms.</summary>
@@ -437,13 +461,21 @@ public sealed partial class Interpreter
                 ?? throw new InterpreterException($"no memberwise form of '{method.Symbol.Name}'");
             var frame = CalleeFrame(caller, TypeMap.For(type));
             BindArguments(arguments, build.Parameters, frame, caller);
-            return Invoke(build, frame) ?? throw new InterpreterException($"'{build.Name}' returned nothing");
+            return Engaged(Invoke(build, frame) ?? throw new InterpreterException($"'{build.Name}' returned nothing"));
         }
         var function = program.Functions.Single(method.Symbol) ?? throw new UnsupportedFeature($"no lowered function for '{method.Symbol.Signature}'");
         var body = CalleeFrame(caller, method.Map);
         if (function.HasLocationParameter)
             body.CallerLocation = Location(construction.Loc, caller);
         BindArguments(arguments, function.Parameters, body, caller);
-        return Invoke(function, body) ?? throw new InterpreterException($"constructor '{function.Name}' returned nothing");
+        return Engaged(Invoke(function, body) ?? throw new InterpreterException($"constructor '{function.Name}' returned nothing"));
+    }
+
+    /// <summary>The value a constructor made: its fields are set, so it holds a value now.</summary>
+    static Value Engaged(Value value)
+    {
+        if (value is StructValue structure)
+            structure.Engaged = true;
+        return value;
     }
 }

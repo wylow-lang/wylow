@@ -1,0 +1,21 @@
+// 'discard' names a by-value parameter of a unique struct that has a destructor. A local and a
+// 'ref' parameter are not discarded, and neither is a parameter of another type.
+
+unique struct Handle {
+    pub int id;
+}
+
+void close(int value) {
+    discard value;                      // error[WYL0459]: cannot discard 'value'
+}
+
+void touch(ref Handle handle) {
+    discard handle;                     // error[WYL0459]: cannot discard 'handle'
+}
+
+void local() {
+    var handle = Handle(id: 1);
+    discard handle;                     // error[WYL0459]: cannot discard 'handle'
+}
+
+void main() { }

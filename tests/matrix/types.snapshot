@@ -133,6 +133,100 @@ out 3
 out 7
 exit 0
 
+=== unique-destructor/local
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/field
+out tracked 1
+out 3
+out tracked 3
+out 7
+out tracked 7
+exit 0
+
+=== unique-destructor/parameter
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/return
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/type-argument
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/element
+out 3
+out tracked 7
+out 7
+out tracked 7
+out tracked 3
+exit 0
+
+=== unique-destructor/capture
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/equality
+out true
+out false
+out true
+out tracked 7
+out tracked 3
+out tracked 3
+exit 0
+
+=== unique-destructor/default
+out 1
+out tracked 1
+exit 0
+
+=== unique-destructor/overloads
+out tracked 3
+out typed
+exit 0
+
+=== unique-destructor/struct-pattern
+out 3
+out tracked 3
+out 7
+out tracked 7
+exit 0
+
+=== unique-destructor/case-null
+out 3
+out tracked 3
+out null
+exit 0
+
+=== unique-destructor/guarded
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/constructor-call
+out tracked 1
+out 3
+out tracked 1
+out 7
+out tracked 1
+out 7
+out 3
+out tracked 1
+out 7
+out tracked 7
+out tracked 7
+out tracked 7
+out tracked 3
+exit 0
+
 === class/local
 out 3
 exit 0

@@ -1,0 +1,32 @@
+// A destructor cannot move out of 'this', and a discarded parameter is moved, so a later use of the
+// parameter is a use after being moved.
+
+import std::print;
+
+unique struct Inner {
+    pub int value;
+}
+
+unique struct Handle {
+    pub int id;
+    pub Inner inner;
+
+    ~Handle() {
+        var kept = this;                // error[WYL0461]: cannot move out of 'this' in a destructor
+    }
+}
+
+unique struct Wrapper {
+    pub Inner inner;
+
+    ~Wrapper() {
+        var kept = inner;               // error[WYL0461]: cannot move out of 'this' in a destructor
+    }
+}
+
+void close(Handle handle) {
+    discard handle;
+    print(handle.id);                   // error[WYL0440]: 'handle' is used after being moved
+}
+
+void main() { }

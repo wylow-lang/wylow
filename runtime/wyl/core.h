@@ -37,6 +37,11 @@ namespace wyl {
 template <class t_T>
 struct ReadOnlySpan;
 
+// A unique struct with a destructor keeps its state in one byte: whether it still holds a value,
+// which a move or a discard takes away, and whether a reference into it is live (spec memory.holds).
+inline constexpr uint8_t k_engaged = 1;
+inline constexpr uint8_t k_in_use = 2;
+
 [[noreturn]] inline void raise_panic(const char* message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);
@@ -228,6 +233,16 @@ const auto& argument(const Arguments<T, Rest...>& arguments) {
         return argument<I - 1>(arguments.rest);
 }
 
+// A delegating constructor moves its arguments into the constructor it calls, since a unique
+// value cannot be copied.
+template <size_t I, class T, class... Rest>
+auto& argument(Arguments<T, Rest...>& arguments) {
+    if constexpr (I == 0)
+        return arguments.first;
+    else
+        return argument<I - 1>(arguments.rest);
+}
+
 inline void init() {
 #if defined(_WIN32)
     // Output is the bytes the program writes, on every platform: in text mode, print's '\n' would
@@ -258,6 +273,83 @@ inline T default_value() {
         return T{};
     }
 }
+
+// Clears the state of every value in a place, so that zeroed storage holds nothing a destructor
+// may run on. A fixed array's elements and a unique struct's fields are cleared recursively.
+template <class T>
+inline void disengage(T& value) {
+    if constexpr (requires { value.wyl_disengage(); }) value.wyl_disengage();
+}
+
+template <class T, size_t N>
+inline void disengage(std::array<T, N>& value) {
+    for (auto& element : value) disengage(element);
+}
+
+// Zeroed storage of T, which a constructor starts from.
+template <class T>
+inline T zeroed() {
+    T value{};
+    disengage(value);
+    return value;
+}
+
+// A value whose field initializers have run, but which is not a value of its type yet.
+template <class T>
+inline T disengaged(T value) {
+    if constexpr (requires { value.wyl_disengage_self(); }) value.wyl_disengage_self();
+    return value;
+}
+
+// Whether a value, or one in its fields, is in use (spec memory.holds). Only a unique struct with
+// a destructor, an enum with data, and a nullable of a non-copyable value record it.
+template <class T>
+inline bool any_in_use(const T& value) {
+    if constexpr (requires { value.wyl_any_in_use(); }) return value.wyl_any_in_use();
+    else return false;
+}
+
+template <class T, size_t N>
+inline bool any_in_use(const std::array<T, N>& value) {
+    for (const auto& element : value) {
+        if (any_in_use(element)) return true;
+    }
+    return false;
+}
+
+template <class T>
+inline bool get_in_use(const T& value) {
+    if constexpr (requires { value.wyl_get_in_use(); }) return value.wyl_get_in_use();
+    else return false;
+}
+
+template <class T>
+inline void set_in_use(T& value, bool on) {
+    if constexpr (requires { value.wyl_set_in_use(on); }) value.wyl_set_in_use(on);
+}
+
+// Marks a value in use while it lives, restoring the state the value had before.
+template <class T>
+class InUseMark {
+    T* value_;
+    bool previous_;
+
+public:
+    explicit InUseMark(T& value) : value_(&value), previous_(get_in_use(value)) { set_in_use(value, true); }
+    explicit InUseMark(T* value) : value_(value), previous_(value != nullptr && get_in_use(*value)) {
+        if (value_ != nullptr) set_in_use(*value_, true);
+    }
+    InUseMark(const InUseMark&) = delete;
+    InUseMark& operator=(const InUseMark&) = delete;
+    ~InUseMark() { end(); }
+
+    void end() {
+        if (value_ != nullptr) {
+            set_in_use(*value_, previous_);
+            value_ = nullptr;
+        }
+    }
+};
 
 [[noreturn]] inline void panic_index(int64_t index, int64_t length, const char* location) {
     char message[96];

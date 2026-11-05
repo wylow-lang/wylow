@@ -74,6 +74,7 @@ public enum TokenKind
     ExternKeyword,
     OperatorKeyword,
     ImportKeyword,
+    DiscardKeyword,
     Underscore,
     ReservedKeyword,
 

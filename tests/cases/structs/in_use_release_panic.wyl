@@ -1,0 +1,17 @@
+// Releasing a value that something refers into panics, including by assigning over it.
+
+import std::print;
+
+unique struct Handle {
+    pub int id;
+
+    ~Handle() { print($"release {id}"); }
+}
+
+void main() {
+    mut var handle = Handle(id: 1);
+    ref int id = handle.id;
+    handle = Handle(id: 2);
+    // panic: cannot release a value that is in use
+    id = 3;
+}

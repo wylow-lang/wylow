@@ -163,6 +163,8 @@ public enum IrLocalKind
     Hold,
     /// <summary><c>wyl::StackSlot&lt;T&gt;</c>, which a <c>new</c> or closure puts its object in.</summary>
     Slot,
+    /// <summary>A guard that marks the value at a place in use while it lives (spec <c>memory.holds</c>).</summary>
+    InUse,
 }
 
 /// <summary>What dereferencing a local reaches.</summary>
@@ -255,6 +257,7 @@ public interface IIrStatementVisitor<out T>
     T Continue(IrContinue statement);
     T Return(IrReturn statement);
     T End(IrEnd statement);
+    T Discard(IrDiscard statement);
     T Unreachable(IrUnreachable statement);
 }
 
@@ -326,6 +329,7 @@ public sealed class IrLet : IrStatement
         var kind = value switch
         {
             IrHold => IrLocalKind.Hold,
+            IrInUse => IrLocalKind.InUse,
             IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } } => IrLocalKind.Borrowed,
             IrRef or IrAddr => IrLocalKind.Reference,
             IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => IrLocalKind.Reference,
@@ -470,6 +474,18 @@ public sealed class IrReturn(IrOperand? value = null) : IrStatement
 public sealed class IrEnd(IrLocal local) : IrStatement
 {
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.End(this);
+
+    public IrLocal Local { get; } = local;
+}
+
+/// <summary>
+/// <c>discard x</c>: ends a by-value parameter's lifetime without its destructor's body. Its value
+/// is moved, and its fields are released when the scope ends. Only a parameter of a unique struct
+/// that declares a destructor is discarded, which the binder checks.
+/// </summary>
+public sealed class IrDiscard(IrLocal local) : IrStatement
+{
+    public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Discard(this);
 
     public IrLocal Local { get; } = local;
 }

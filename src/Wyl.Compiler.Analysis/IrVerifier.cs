@@ -308,6 +308,8 @@ public sealed partial class IrVerifier
         foreach (var local in ending)
         {
             DependentsOf(local, state, $"'{N(local)}' went out of scope");
+            if (local.Kind == IrLocalKind.InUse)
+                state.Guards.Remove(local);
             state.Forget(local);
         }
         return state;
@@ -328,6 +330,11 @@ public sealed partial class IrVerifier
                     Declare(let.Local, state, let);
                 CheckLet(let);
                 Define(let.Local, let.Value, state);
+                if (let.Value is IrInUse inUse)
+                {
+                    guardTargets[let.Local] = inUse.Place.Local;
+                    state.Guards.Add(let.Local);
+                }
                 // A constructor starts from the default value, which isn't one with every field.
                 if (let.Value is not (IrDefault or IrZeroed))
                     AssignedWhole(let.Local, state);
@@ -369,6 +376,9 @@ public sealed partial class IrVerifier
                 return State.Unreachable;
             case IrEnd end:
                 End(end, state);
+                return state;
+            case IrDiscard discard:
+                Discard(discard, state);
                 return state;
             case IrUnreachable unreachable:
                 CheckLoc(unreachable.Loc);
@@ -633,14 +643,37 @@ public sealed partial class IrVerifier
     void End(IrEnd end, State state)
     {
         var local = end.Local;
-        if (local.Kind is not (IrLocalKind.Hold or IrLocalKind.Slot))
-            Error($"only a hold or a slot can be ended, not '{N(local)}'");
+        if (local.Kind is not (IrLocalKind.Hold or IrLocalKind.Slot or IrLocalKind.InUse))
+            Error($"only a hold, a slot, or an in-use guard can be ended, not '{N(local)}'");
         // A slot may be ended again, as a loop's assignment does each time it runs.
-        if (local.Kind != IrLocalKind.Slot || !state.Ended.Contains(local))
+        if (local.Kind is IrLocalKind.Slot or IrLocalKind.InUse && !state.Ended.Contains(local))
             Use(local, state, reads: false);
         Apply(state, IrEffects.Of(end), "the end of a hold");
         state.Ended.Add(local);
+        if (local.Kind == IrLocalKind.InUse)
+            state.Guards.Remove(local);
         DependentsOf(local, state, $"'{N(local)}' was ended", except: knownNull);
+    }
+
+    /// <summary><c>discard x</c> moves the parameter, so a later use is a use after being moved.</summary>
+    void Discard(IrDiscard discard, State state)
+    {
+        pendingMoves.Clear();
+        var local = discard.Local;
+        if (local.Kind != IrLocalKind.Value || local.IsThis)
+        {
+            Error($"'discard' names a by-value parameter, not '{N(local)}'");
+            return;
+        }
+        if (state.Moved.ContainsKey(local) || pendingMoves.Contains(local))
+        {
+            if (SourceOf(new IrPlace(local)) is { } symbol && reportedMoved.Add(symbol))
+                Violation(l => Catalog.UseAfterMove(l, symbol.Name, current?.Origin));
+            return;
+        }
+        pendingMoves.Add(local);
+        Apply(state, IrEffects.Of(discard), "the discard");
+        CommitMoves(state);
     }
 
     void CheckLoc(IrLoc? loc)

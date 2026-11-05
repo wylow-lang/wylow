@@ -207,6 +207,15 @@ public sealed class StructValue(WylType type, Cell[] fields) : Value
     public WylType Type { get; } = type;
     public Cell[] Fields { get; } = fields;
 
+    /// <summary>
+    /// Whether it holds a value. A move or a <c>discard</c> takes that away, and its destructor's
+    /// body does not run when it is released.
+    /// </summary>
+    public bool Engaged { get; set; } = true;
+
+    /// <summary>Whether something refers into it, so releasing or replacing it panics (spec <c>memory.holds</c>).</summary>
+    public bool InUse { get; set; }
+
     public override string ToString() => $"{Type} {{...}}";
 }
 
@@ -216,6 +225,9 @@ public sealed class EnumValue(WylType type, VariantSymbol variant, Cell[] fields
     public WylType Type { get; } = type;
     public VariantSymbol Variant { get; } = variant;
     public Cell[] Fields { get; } = fields;
+
+    /// <summary>Whether something refers into its payload, so releasing or replacing it panics.</summary>
+    public bool InUse { get; set; }
 
     public override string ToString() => $"{Variant}";
 }
@@ -293,6 +305,9 @@ public sealed class PointerValue(Buffer buffer, int index) : Value
 public sealed class OptionalValue(Cell? inner) : Value
 {
     public Cell? Inner { get; } = inner;
+
+    /// <summary>Whether something refers into the value it holds, so replacing or releasing it panics.</summary>
+    public bool InUse { get; set; }
 
     public override string ToString() => Inner is null ? "null" : Inner.Value.ToString()!;
 }
@@ -431,4 +446,10 @@ public interface IObjectLifetime
 {
     /// <summary>A reference went away: the object's count has already been lowered by one.</summary>
     void Released(HeapObject obj);
+
+    /// <summary>
+    /// A unique struct value is released: its destructor's body runs, if it still holds a value,
+    /// before its fields are released.
+    /// </summary>
+    void ReleasingStruct(StructValue value);
 }

@@ -325,6 +325,7 @@ public static class IrWalk
         IrTest test => [test.Operand],
         IrConvert conversion => [conversion.Operand],
         IrHold hold => [IrRead.Borrow(hold.Place)],
+        IrInUse inUse => [IrRead.Borrow(inUse.Place)],
         IrDefault or IrZeroed or IrLambda => [],
         _ => throw new InvalidOperationException($"unexpected IR rvalue {value.GetType().Name}"),
     };
@@ -401,6 +402,7 @@ public static class IrWalk
         {
             IrLet let => [let.Local, .. Slot(let.Value)],
             IrEnd end => [end.Local],
+            IrDiscard discard => [discard.Local],
             IrDo run => Slot(run.Value),
             _ => Declared(statement) is { } declared ? [declared] : [],
         };

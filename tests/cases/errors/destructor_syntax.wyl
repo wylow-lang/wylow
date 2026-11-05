@@ -1,0 +1,27 @@
+// A destructor is declared in a class or a unique struct, with no parameters and no visibility,
+// named after its type, once.
+
+unique struct Params {
+    ~Params(int x) { }                  // error[WYL0149]: destructors cannot have parameters
+}
+
+unique struct Shown {
+    pub ~Shown() { }                    // error[WYL0145]: destructor cannot have a visibility
+}
+
+struct Plain {
+    int id;
+
+    ~Plain() { }                        // error[WYL0458]: only a 'unique' struct can have a destructor
+}
+
+unique struct Twice {
+    ~Twice() { }
+    ~Twice() { }                        // error[WYL0148]: 'Twice' already has a destructor
+}
+
+unique struct Wrong {
+    ~Other() { }                        // error[WYL0147]: destructor is not named after its type
+}
+
+void main() { }

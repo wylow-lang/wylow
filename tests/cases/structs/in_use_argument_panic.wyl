@@ -1,0 +1,21 @@
+// A value passed to a call by 'in' is in use until the call returns, so replacing it through
+// another place during the call panics.
+
+import std::replace;
+
+unique struct Handle {
+    pub int id;
+
+    ~Handle() { }
+}
+
+void steal(in Handle value, ref Handle place) {
+    var previous = replace(ref place, Handle(id: 2));
+    // panic: cannot replace a value that is in use
+    var kept = value.id;
+}
+
+void main() {
+    mut var handle = Handle(id: 1);
+    steal(handle, ref handle);
+}

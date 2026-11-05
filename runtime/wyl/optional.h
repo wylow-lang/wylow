@@ -12,14 +12,23 @@ class Optional {
         char empty_;
         T value_;
     };
-    bool has_ = false;
+    // Bit 1: it holds a value. Bit 2: something refers into that value, so the value is in use
+    // (spec memory.holds).
+    uint8_t state_ = 0;
+
+    static constexpr uint8_t k_has = 1;
+    static constexpr uint8_t k_in_use = 2;
 
     template <class>
     friend class Optional;
 
+    bool holds() const { return (state_ & k_has) != 0; }
+
     void reset() noexcept {
-        if (has_) {
-            has_ = false;
+        if (holds()) {
+            if (wyl_get_in_use())
+                raise_panic("cannot release a value that is in use", "<runtime>");
+            state_ &= uint8_t(~k_has);
             value_.~T();
         }
     }
@@ -27,31 +36,32 @@ class Optional {
 public:
     Optional() noexcept : empty_() {}
     Optional(std::nullptr_t) noexcept : empty_() {}
-    Optional(const T& value) : value_(value), has_(true) {}
-    Optional(T&& value) : value_(std::move(value)), has_(true) {}
+    Optional(const T& value) : value_(value), state_(k_has) {}
+    Optional(T&& value) : value_(std::move(value)), state_(k_has) {}
 
     // Between nullables of numbers whose conversion Wylow makes implicit, such as `int?` to `long?`.
     template <class U>
     explicit Optional(const Optional<U>& other) : empty_() {
-        if (other.has_) {
+        if (other.holds()) {
             ::new (static_cast<void*>(&value_)) T(static_cast<T>(other.value_));
-            has_ = true;
+            state_ = k_has;
         }
     }
 
     Optional(const Optional&) requires std::is_trivially_copy_constructible_v<T> = default;
     Optional(const Optional& other) requires(!std::is_trivially_copy_constructible_v<T>) : empty_() {
-        if (other.has_) {
+        if (other.holds()) {
             ::new (static_cast<void*>(&value_)) T(other.value_);
-            has_ = true;
+            state_ = other.state_;
         }
     }
 
     Optional(Optional&&) requires std::is_trivially_move_constructible_v<T> = default;
     Optional(Optional&& other) noexcept requires(!std::is_trivially_move_constructible_v<T>) : empty_() {
-        if (other.has_) {
+        if (other.holds()) {
             ::new (static_cast<void*>(&value_)) T(std::move(other.value_));
-            has_ = true;
+            state_ = other.state_;
+            other.state_ = 0;
         }
     }
 
@@ -63,16 +73,16 @@ public:
     Optional& operator=(Optional&&) requires std::is_trivially_move_assignable_v<T> = default;
     Optional& operator=(Optional&& other) noexcept requires(!std::is_trivially_move_assignable_v<T>) {
         Optional taken(std::move(other));
-        if (has_ && taken.has_) {
+        if (holds() && taken.holds()) {
             using std::swap;
             swap(value_, taken.value_);
-        } else if (taken.has_) {
+        } else if (taken.holds()) {
             ::new (static_cast<void*>(&value_)) T(std::move(taken.value_));
-            has_ = true;
-            taken.reset();
-        } else if (has_) {
+            state_ = taken.state_;
+            taken.state_ = 0;
+        } else if (holds()) {
             ::new (static_cast<void*>(&taken.value_)) T(std::move(value_));
-            taken.has_ = true;
+            taken.state_ = state_;
             reset();
         }
         return *this;
@@ -85,12 +95,16 @@ public:
         return *this;
     }
 
-    bool has_value() const { return has_; }
+    bool has_value() const { return holds(); }
+
+    bool wyl_get_in_use() const { return (state_ & k_in_use) != 0; }
+    void wyl_set_in_use(bool on) { state_ = on ? uint8_t(state_ | k_in_use) : uint8_t(state_ & ~k_in_use); }
+    bool wyl_any_in_use() const { return wyl_get_in_use(); }
 
     // Flow analysis proved there is a value.
     T& assumed() {
         if constexpr (WYL_DEBUG != 0) {
-            if (!has_) raise_panic("internal compiler error: null value used as narrowed", "<runtime>");
+            if (!holds()) raise_panic("internal compiler error: null value used as narrowed", "<runtime>");
         }
         return value_;
     }
@@ -99,7 +113,7 @@ public:
     friend bool operator==(const Optional& a, const Optional& b)
         requires requires(const T& x) { x == x; }
     {
-        return a.has_ == b.has_ && (!a.has_ || a.value_ == b.value_);
+        return a.holds() == b.holds() && (!a.holds() || a.value_ == b.value_);
     }
 };
 

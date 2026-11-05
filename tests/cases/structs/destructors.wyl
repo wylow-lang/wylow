@@ -1,0 +1,74 @@
+// A unique struct's destructor runs when its value is released: at the end of a scope, when it is
+// assigned over, and when it is a field of a value that is released. A moved-from value is not
+// released. 'discard' releases a parameter's fields without running its destructor's body.
+
+import std::print;
+
+class Item {
+    pub String name;
+
+    pub Item(String name) { this.name = name; }
+
+    ~Item() { print($"item {name}"); }
+}
+
+unique struct Handle {
+    pub int id;
+    pub Item item;
+
+    pub Handle(int id, Item item) { this.id = id; this.item = item; }
+
+    ~Handle() { print($"handle {id}"); }
+}
+
+unique struct Pair {
+    pub Handle first;
+    pub Handle second;
+
+    pub Pair(Handle first, Handle second) { this.first = first; this.second = second; }
+}
+
+Handle make(int id, String name) { return Handle(id, new Item(name)); }
+
+void close(Handle h) {
+    discard h;
+    print("closed");
+}
+
+void closeIf(Handle h, bool ok) {
+    if (!ok) {
+        return;
+    }
+    discard h;
+}
+
+void main() {
+    var moved = make(1, "moved");
+    var owner = moved;
+    print("moved");
+    // output: moved
+
+    mut var replaced = make(2, "old");
+    replaced = make(3, "new");
+    // output: handle 2
+    // output: item old
+
+    close(make(7, "discarded"));
+    // output: closed
+    // output: item discarded
+    closeIf(make(4, "kept"), false);
+    // output: handle 4
+    // output: item kept
+
+    var pair = Pair(make(5, "first"), make(6, "second"));
+    print("built");
+    // output: built
+    // output: handle 6
+    // output: item second
+    // output: handle 5
+    // output: item first
+    // output: handle 3
+    // output: item new
+    // output: handle 1
+    // output: item moved
+}

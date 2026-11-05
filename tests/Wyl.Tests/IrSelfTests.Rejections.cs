@@ -144,7 +144,7 @@ static partial class IrSelfTests
         {
             var v = b.Local("v", WylType.Int);
             return b.Function("end_of_value", [], Let(v, new IrUse(IrConstant.Int(1))), new IrEnd(v) { Origin = null });
-        }, Error: "only a hold or a slot can be ended");
+        }, Error: "only a hold, a slot, or an in-use guard can be ended");
 
         yield return new("caller_location_not_given", () => b.Function("caller_location_not_given", [],
             new IrCheck(IrCheckKind.Index, [IrConstant.Int(0), IrConstant.Int(1)], IrLoc.Caller) { Origin = null }),

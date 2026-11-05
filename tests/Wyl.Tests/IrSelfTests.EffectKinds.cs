@@ -45,6 +45,7 @@ static partial class IrSelfTests
             [nameof(IIrStatementVisitor<int>.Continue)] = (IrEffects.Of(new IrContinue(loop) { Origin = null }), false, false, 0),
             [nameof(IIrStatementVisitor<int>.Return)] = (IrEffects.Of(new IrReturn() { Origin = null }), false, false, 0),
             [nameof(IIrStatementVisitor<int>.End)] = (IrEffects.Of(new IrEnd(b.Local("e", obj)) { Origin = null }), true, false, 0),
+            [nameof(IIrStatementVisitor<int>.Discard)] = (IrEffects.Of(new IrDiscard(b.Local("d", obj)) { Origin = null }), false, false, 1),
             [nameof(IIrStatementVisitor<int>.Unreachable)] = (IrEffects.Of(new IrUnreachable(b.Loc) { Origin = null }), false, true, 0),
 
             // Rvalues.
@@ -68,6 +69,7 @@ static partial class IrSelfTests
             [nameof(IIrRvalueVisitor<int>.Test)] = (IrEffects.Of(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(objectLocal)))), false, false, 0),
             [nameof(IIrRvalueVisitor<int>.Convert)] = (IrEffects.Of(new IrConvert(WylType.Char, one, b.Loc)), false, true, 0),
             [nameof(IIrRvalueVisitor<int>.Hold)] = (IrEffects.Of(new IrHold(new IrPlace(holderLocal), borrows: false)), false, false, 0),
+            [nameof(IIrRvalueVisitor<int>.InUse)] = (IrEffects.Of(new IrInUse(new IrPlace(holderLocal))), false, false, 0),
         };
 
         var kinds = new[] { typeof(IIrStatementVisitor<>), typeof(IIrRvalueVisitor<>) }

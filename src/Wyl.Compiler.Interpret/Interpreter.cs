@@ -191,6 +191,13 @@ public sealed partial class Interpreter : IObjectLifetime
         public HeapObject? Object { get; set; }
     }
 
+    /// <summary>A guard that marks a value in use until the local ends, restoring the state it had.</summary>
+    internal sealed class InUseStorage(Value value, bool previous) : Storage
+    {
+        public Value Value { get; } = value;
+        public bool Previous { get; } = previous;
+    }
+
     Cell LocalCell(Frame frame, IrLocal local) => frame.Find(local) switch
     {
         OwnedStorage owned => owned.Cell,
@@ -246,9 +253,47 @@ public sealed partial class Interpreter : IObjectLifetime
                 case SlotStorage slot:
                     EndSlot(slot);
                     break;
+                case InUseStorage guard:
+                    SetInUse(guard.Value, guard.Previous);
+                    break;
             }
         }
     }
+
+    /// <summary>Whether a value, or one in its fields, is in use (spec <c>memory.holds</c>).</summary>
+    static bool GetInUse(Value value) => value switch
+    {
+        StructValue structure => structure.InUse,
+        EnumValue enumeration => enumeration.InUse,
+        OptionalValue nullable => nullable.InUse,
+        _ => false,
+    };
+
+    static void SetInUse(Value value, bool on)
+    {
+        switch (value)
+        {
+            case StructValue structure:
+                structure.InUse = on;
+                break;
+            case EnumValue enumeration:
+                enumeration.InUse = on;
+                break;
+            case OptionalValue nullable:
+                nullable.InUse = on;
+                break;
+        }
+    }
+
+    /// <summary>Whether a value, or one in its fields, is in use, which a place operation checks.</summary>
+    static bool AnyInUse(WylType type, Value value) => value switch
+    {
+        StructValue structure => structure.InUse || structure.Fields.Any(f => AnyInUse(f.Type, f.Value)),
+        EnumValue enumeration => enumeration.InUse || enumeration.Fields.Any(f => AnyInUse(f.Type, f.Value)),
+        OptionalValue { Inner: { } inner } => AnyInUse(inner.Type, inner.Value),
+        ArrayValue array => array.Elements.Any(e => AnyInUse(e.Type, e.Value)),
+        _ => false,
+    };
 
     void EndBlock(Frame frame, List<IrLocal> declared)
     {
@@ -316,6 +361,7 @@ public sealed partial class Interpreter : IObjectLifetime
         public object? Continue(IrContinue statement) => throw new ContinueSignal(statement.Loop);
         public object? Return(IrReturn statement) => throw new ReturnSignal(statement.Value is { } value ? interpreter.EvalOperand(value, frame) : null);
         public object? End(IrEnd statement) => Run(() => interpreter.ReleaseLocal(frame, statement.Local));
+        public object? Discard(IrDiscard statement) => Run(() => interpreter.ExecDiscard(statement, frame));
 
         public object? Unreachable(IrUnreachable statement) =>
             throw new WylPanic("reached the end of a non-void function", interpreter.Location(statement.Loc, frame) ?? "<unknown>");
@@ -328,6 +374,14 @@ public sealed partial class Interpreter : IObjectLifetime
     }
 
     void Discard(Value value, WylType type, Frame frame) => Release(frame.Type(type), value);
+
+    /// <summary><c>discard x</c> takes the value away, so the parameter's destructor body does not run.</summary>
+    void ExecDiscard(IrDiscard discard, Frame frame)
+    {
+        if (LocalCell(frame, discard.Local).Value is not StructValue value)
+            throw new InterpreterException($"discarded '{discard.Local.Name}', which holds no struct value");
+        value.Engaged = false;
+    }
 
     void ExecDeclare(IrLocal local, Frame frame, List<IrLocal> declared)
     {
@@ -366,6 +420,17 @@ public sealed partial class Interpreter : IObjectLifetime
         // A slot is declared by `declare`, and filled by the `new` or closure that names it.
         if (local.Kind is IrLocalKind.Slot)
             throw new InterpreterException($"the slot '{local.Name}' is defined by a value");
+        if (local.Kind is IrLocalKind.InUse)
+        {
+            if (let.Value is not IrInUse inUse)
+                throw new InterpreterException($"the guard '{local.Name}' is defined by something other than an in-use mark");
+            var guarded = PlaceCell(inUse.Place, frame).Value;
+            frame.Locals[local] = new InUseStorage(guarded, GetInUse(guarded));
+            SetInUse(guarded, true);
+            if (!declared.Contains(local))
+                Declare(frame, local, declared);
+            return;
+        }
 
         bool borrows = let.Value is IrHold { Borrows: true };
         var value = EvalRvalue(let.Value, frame) ?? throw new InterpreterException($"'{local.Name}' is defined by a value that returned nothing");

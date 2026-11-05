@@ -86,6 +86,12 @@ public sealed partial class CppEmitter
             EmitDefaultFunction(s);
         }
 
+        foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Struct && s.Destructor is not null))
+        {
+            Line();
+            EmitStructMove(s);
+        }
+
         foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Class))
         {
             if (s.Destructor is null)

@@ -97,6 +97,14 @@ public sealed partial class Parser
                 FinishStatement(errors);
                 return declaration;
             }
+            case TokenKind.DiscardKeyword:
+            {
+                Advance();
+                int errors = diagnostics.Count;
+                var name = Expect(TokenKind.Identifier, "a parameter name");
+                FinishStatement(errors);
+                return new DiscardLocalStmt(LocationFrom(start), name.Text, Loc(name.Span));
+            }
             case TokenKind.ReservedKeyword:
                 Report(Catalog.ReservedKeyword(Loc(Current.Span), Current.Text));
                 SkipStatement();

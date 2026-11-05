@@ -25,7 +25,7 @@ public static class Values
         FunctionValue function when type.NonNull.IsEscaping && function.Closure is not null => function.Copy(),
         FunctionValue => value,
         WeakValue weak => weak.Copy(),
-        StructValue s => new StructValue(s.Type, [.. s.Fields.Select(CopyCell)]),
+        StructValue s => new StructValue(s.Type, [.. s.Fields.Select(CopyCell)]) { Engaged = s.Engaged },
         EnumValue e => new EnumValue(e.Type, e.Variant, [.. e.Fields.Select(CopyCell)]),
         ArrayValue a => new ArrayValue(a.Type, [.. a.Elements.Select(CopyCell)]),
         OptionalValue o => new OptionalValue(o.Inner is null ? null : CopyCell(o.Inner)),
@@ -49,6 +49,9 @@ public static class Values
     /// </summary>
     public static void Release(WylType type, Value value, IObjectLifetime lifetime)
     {
+        // It is a run-time error to release a value that something refers into (spec memory.holds).
+        if (value is StructValue { InUse: true } or EnumValue { InUse: true } or OptionalValue { InUse: true })
+            throw new WylPanic("cannot release a value that is in use", "<runtime>");
         switch (value)
         {
             case ObjectRef obj:
@@ -66,6 +69,7 @@ public static class Values
                 ReleaseHeld(choice.Options, lifetime);
                 break;
             case StructValue s:
+                lifetime.ReleasingStruct(s);
                 ReleaseCells(s.Fields, lifetime);
                 break;
             case EnumValue e:
@@ -97,17 +101,21 @@ public static class Values
             Release(cell.Type, cell.Value, lifetime);
     }
 
-    /// <summary>The zeroed storage of a type, which <c>IrZeroed</c> makes and a default builds on.</summary>
-    public static Value Zeroed(WylType type, StdlibSymbols stdlib)
+    /// <summary>
+    /// The zeroed storage of a type, which <c>IrZeroed</c> makes: a constructor starts from it, and
+    /// a struct with a destructor that holds no value has it. <paramref name="engaged"/> makes the
+    /// structs and elements it builds real values instead, as a default value's are.
+    /// </summary>
+    public static Value Zeroed(WylType type, StdlibSymbols stdlib, bool engaged = false)
     {
         if (stdlib.IsWeak(type))
             return new WeakValue(null, null);
         if (type.IsNullableValue)
             return new OptionalValue(null);
         if (type is FixedArrayType array)
-            return new ArrayValue(type, [.. Enumerable.Range(0, array.Length).Select(_ => new Cell(array.Element, Zeroed(array.Element, stdlib)))]);
+            return new ArrayValue(type, [.. Enumerable.Range(0, array.Length).Select(_ => new Cell(array.Element, Zeroed(array.Element, stdlib, engaged)))]);
         if (type.IsStruct)
-            return new StructValue(type, [.. Fields(type).Select(f => new Cell(f.Type, Zeroed(f.Type, stdlib)))]);
+            return new StructValue(type, [.. Fields(type).Select(f => new Cell(f.Type, Zeroed(f.Type, stdlib, engaged)))]) { Engaged = engaged };
         if (type.IsEnum && type.Symbol!.Variants.Count > 0)
             return new EnumValue(type, type.Symbol.Variants[0], []);
         if (type.IsReference)

@@ -110,6 +110,9 @@ static class Mutations
         new("type-fixed-array", SiteKind.Type, ArrayApplies, TypeArrayBuild),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
         new("type-unique", SiteKind.TypeDecl, UniqueApplies, UniqueBuild),
+        // Gives a unique struct an empty destructor, which crosses destructor lowering and the
+        // in-use bit without changing what the program does.
+        new("type-unique-destructor", SiteKind.TypeDecl, UniqueDestructorApplies, UniqueDestructorBuild),
         // Constructs through a this(...) chain, which changes nothing a program does: a class's
         // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
         new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
@@ -232,8 +235,20 @@ static class Mutations
         return index < 0 ? null : Single("type-unique", site, text.Insert(index, "unique "));
     }
 
-    static bool ChainApplies(Site site) =>
-        site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration
+    static bool UniqueDestructorApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Struct, Destructor: null } declaration
+        && (declaration.Modifiers & Modifiers.Unique) != 0;
+
+    static Candidate? UniqueDestructorBuild(MutationContext context, Site site)
+    {
+        var declaration = (TypeDecl)site.Node;
+        if (!context.Slice(site.Span).EndsWith('}'))
+            return null;
+        return new("type-unique-destructor",
+            [new Edit(site.Span.End - 1, site.Span.End - 1, $"    ~{declaration.Name}() {{ }}\n")]);
+    }
+
+    static bool ChainApplies(Site site) =>        site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration
         && (declaration.Modifiers & Modifiers.Extern) == 0
         && declaration.Methods.Any(m => m is { IsConstructor: true, Body: not null });
 

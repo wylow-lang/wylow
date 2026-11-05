@@ -40,7 +40,9 @@ public sealed partial class CppEmitter
                 : $"{OwnName(owner)}({Parameters(member)})";
         }
         if (member.IsDestructor)
-            return owner.HasSeparateDestructor ? "void wyl_destructor()" : $"~{OwnName(owner)}() override";
+            return owner.Kind == TypeKind.Struct
+                ? $"~{OwnName(owner)}()"
+                : owner.HasSeparateDestructor ? "void wyl_destructor()" : $"~{OwnName(owner)}() override";
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
         if (member.IsStatic || member.HasByValueReceiver)
             return "static " + signature;

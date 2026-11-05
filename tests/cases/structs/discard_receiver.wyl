@@ -1,0 +1,33 @@
+// 'discard' applies to a by-value receiver, as it does to any by-value parameter: the destructor's
+// body does not run, and the fields are released at the end of the method.
+
+import std::print;
+
+class Item {
+    pub String name;
+
+    pub Item(String name) { this.name = name; }
+
+    ~Item() { print($"item {name}"); }
+}
+
+unique struct Handle {
+    pub int id;
+    pub Item item;
+
+    pub Handle(int id, Item item) { this.id = id; this.item = item; }
+
+    ~Handle() { print($"handle {id}"); }
+
+    pub void close(this Handle handle) {
+        discard handle;
+        print("closed");
+    }
+}
+
+void main() {
+    var handle = Handle(1, new Item("held"));
+    handle.close();
+    // output: closed
+    // output: item held
+}

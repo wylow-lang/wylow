@@ -1,0 +1,7 @@
+// 'discard' is only allowed in the file of the type.
+
+void close(Handle handle) {
+    discard handle;                     // error[WYL0460]: cannot discard 'handle' outside the file of 'Handle'
+}
+
+void main() { }

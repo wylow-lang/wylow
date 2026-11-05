@@ -115,6 +115,16 @@ public sealed class Callees
         if ((type is null ? null : cycles.Destroyable(type)) is not { } destroyed)
             return Released.Select(f => new Callee(f, TypeMap.Empty));
         var found = new List<Callee>();
+        // A unique struct with a destructor runs it when a value of its type, or one holding it
+        // inline, is released.
+        if (type is not null)
+        {
+            foreach (var inline in type.InlineTypes())
+            {
+                if (inline.Symbol is { Kind: TypeKind.Struct, Destructor: { } destructor })
+                    found.AddRange(functions.Of(destructor).Select(f => new Callee(f, TypeMap.For(inline))));
+            }
+        }
         foreach (var destroyedClass in destroyed)
         {
             for (var c = destroyedClass; c is not null; c = c.BaseType)

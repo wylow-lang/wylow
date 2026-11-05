@@ -44,9 +44,14 @@ public static class TypeStorage
 
         /// <summary>
         /// Whether copying or destroying a value of the type runs code: it counts references, strong
-        /// or weak, or a string's bytes. An extern struct's storage is the runtime's, so it may.
+        /// or weak, or a string's bytes. A unique struct's destructor runs code when the value is
+        /// released. An extern struct's storage is the runtime's, so it may.
         /// </summary>
-        public bool IsCounted => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping || t == WylType.String || t.Symbol is { IsExtern: true });
+        public bool IsCounted => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping || t == WylType.String || t.Symbol is { IsExtern: true }
+            || t.Symbol is { Destructor: not null });
+
+        /// <summary>Whether releasing a value of the type runs a struct destructor's body.</summary>
+        public bool RunsDestructor => type.InlineTypes().Any(t => t.Symbol is { Destructor: not null });
 
         /// <summary>
         /// Whether referring to a value of the type where it is, instead of copying it, saves work:

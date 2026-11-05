@@ -61,8 +61,24 @@ public sealed partial class CppEmitter
     {
         if (type.IsTypeParameter || (type.IsFixedArray && type.HasDefaultCode))
             return $"wyl::default_value<{CppType(type)}>()";
-        return type.IsStruct && type.HasDefaultCode ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
+        if (!type.IsDefaultable && !(type.IsStruct && type.HasDefaultCode))
+            return Storage(type);
+        var value = type.IsStruct && type.HasDefaultCode ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
+        // A constructor of a type without a default value starts from storage whose field
+        // initializers have run, so the value itself is not one yet.
+        return type.IsDefaultable ? value : $"wyl::disengaged({value})";
     }
+
+    /// <summary>Zeroed storage of a type, which a constructor starts from and nothing may be released as if it were a value.</summary>
+    static string Storage(WylType type) => $"wyl::zeroed<{CppType(type)}>()";
+
+    /// <summary>
+    /// A field's initializer: empty storage for a value whose parts are not values yet. A field of
+    /// a type that may hold a destructor must not be an engaged zeroed value, which its
+    /// destructor would run on when a constructor assigns over it.
+    /// </summary>
+    static string StorageInitializer(WylType type) =>
+        type.IsTypeParameter || type.RunsDestructor || !type.IsDefaultable ? $" = {Storage(type)}" : "{}";
 
     /// <summary>
     /// How a type's own definition names it: C++'s injected class name, unqualified, since a type
@@ -79,7 +95,28 @@ public sealed partial class CppEmitter
         Line("{");
         indent++;
         foreach (var field in s.Fields)
-            Line($"{CppType(field.Type)} {FieldName(field)}{{}};");
+            Line($"{CppType(field.Type)} {FieldName(field)}{StorageInitializer(field.Type)};");
+        if (s.Destructor is not null)
+        {
+            // A unique struct with a destructor is moved, and a move leaves the source without a
+            // value, so its destructor must not run there. The flag also records 'discard'.
+            Line("uint8_t wyl_flags_{1};");
+            Line($"{name}() = default;");
+            Line($"{name}({name}&& other) noexcept;");
+            Line($"{name}& operator=({name}&& other) noexcept;");
+            Line($"{name}(const {name}&) = delete;");
+            Line($"{name}& operator=(const {name}&) = delete;");
+            Line("void wyl_discard() { wyl_flags_ &= ~wyl::k_engaged; }");
+            Line("void wyl_disengage_self() { wyl_flags_ = 0; }");
+            Line("void wyl_engage() { wyl_flags_ |= wyl::k_engaged; }");
+            Line("bool wyl_get_in_use() const { return (wyl_flags_ & wyl::k_in_use) != 0; }");
+            Line("void wyl_set_in_use(bool on) { wyl_flags_ = on ? uint8_t(wyl_flags_ | wyl::k_in_use) : uint8_t(wyl_flags_ & ~wyl::k_in_use); }");
+            Line($"bool wyl_any_in_use() const {{ return wyl_get_in_use(){(s.Fields.Count == 0 ? "" : " || " + string.Join(" || ", s.Fields.Select(f => $"wyl::any_in_use({FieldName(f)})")))}; }}");
+        }
+        else if (s.Type.RunsDestructor)
+            Line($"bool wyl_any_in_use() const {{ return {string.Join(" || ", s.Fields.Select(f => $"wyl::any_in_use({FieldName(f)})"))}; }}");
+        if (s.Type.RunsDestructor)
+            Line($"void wyl_disengage() {{ {(s.Destructor is null ? "" : "wyl_flags_ = 0; ")}{string.Concat(s.Fields.Select(f => $"wyl::disengage({FieldName(f)}); "))}}}");
         if (s.Type.HasDefaultCode)
             Line($"static {name} make_default();");
         DeclareCollectorMembers(s);
@@ -95,6 +132,36 @@ public sealed partial class CppEmitter
             Line($"bool operator==(const {name}&) const = default;");
         indent--;
         Line("};");
+    }
+
+    /// <summary>
+    /// A unique struct with a destructor moves by taking its fields and its flag from the source,
+    /// which then holds no value: its destructor body does not run and it releases nothing.
+    /// </summary>
+    void EmitStructMove(TypeSymbol s)
+    {
+        var type = CppType(s.Type);
+        var name = OwnName(s);
+        if (s.IsGeneric)
+            Line(TemplatePrefix(s.TypeParameters).TrimEnd());
+        var moves = string.Join(", ", s.Fields.Select(f => $"{FieldName(f)}(std::move(other.{FieldName(f)}))"));
+        Line($"{type}::{name}({type}&& other) noexcept{(moves.Length == 0 ? "" : " : " + moves)}");
+        Line("{");
+        Line("    wyl_flags_ = other.wyl_flags_;");
+        Line("    other.wyl_flags_ = 0;");
+        Line("}");
+        Line();
+        Line($"{type}& {type}::operator=({type}&& other) noexcept");
+        Line("{");
+        Line("    if (this != &other)");
+        Line("    {");
+        foreach (var field in s.Fields)
+            Line($"        {FieldName(field)} = std::move(other.{FieldName(field)});");
+        Line("        wyl_flags_ = other.wyl_flags_;");
+        Line("        other.wyl_flags_ = 0;");
+        Line("    }");
+        Line("    return *this;");
+        Line("}");
     }
 
     static string PayloadName(VariantSymbol variant) => "p_" + variant.Name;
@@ -153,6 +220,9 @@ public sealed partial class CppEmitter
                 Line($"{PayloadName(variant)} {UnionMember(variant)};");
             indent--;
             Line("};");
+            // A value may be an instantiation whose type argument is not copyable, so every enum
+            // with data records whether something refers into it (spec memory.holds).
+            Line("bool wyl_in_use_{};");
         }
 
         // C++ needs a default constructor for placeholders such as unassigned locals. It makes the
@@ -163,7 +233,7 @@ public sealed partial class CppEmitter
             : $"{name}() : tag({TagValue(first)}) {{}}");
         Line($"explicit {name}(wyl::RawTag, {tag} value) : tag(value) {{}}");
         if (withData.Count > 0 && s.Type.IsCounted)
-            EmitEnumLifetime(name, withData);
+            EmitEnumLifetime(s, name, withData);
 
         foreach (var variant in s.Variants)
             EmitVariantFactory(name, variant);
@@ -185,6 +255,25 @@ public sealed partial class CppEmitter
             EmitTagSwitch(withData, v => $"return {UnionMember(v)} == other.{UnionMember(v)};", "return true;");
             Line("}");
         }
+        if (s.Type.RunsDestructor)
+        {
+            Line("void wyl_disengage()");
+            Line("{");
+            if (withData.Count > 0)
+                Line("    wyl_in_use_ = false;");
+            EmitTagSwitch(withData, v => string.Concat(v.Fields.Select(f => $"wyl::disengage({UnionMember(v)}.{FieldName(f)}); ")) + "break;", "break;");
+            Line("}");
+        }
+        if (withData.Count > 0)
+        {
+            Line("bool wyl_get_in_use() const { return wyl_in_use_; }");
+            Line("void wyl_set_in_use(bool on) { wyl_in_use_ = on; }");
+            Line("bool wyl_any_in_use() const");
+            Line("{");
+            Line("    if (wyl_in_use_) return true;");
+            EmitTagSwitch(withData, v => $"return {string.Join(" || ", v.Fields.Select(f => $"wyl::any_in_use({UnionMember(v)}.{FieldName(f)})"))};", "return false;");
+            Line("}");
+        }
         indent--;
         Line("};");
     }
@@ -200,25 +289,39 @@ public sealed partial class CppEmitter
         Line("    }");
     }
 
-    void EmitEnumLifetime(string name, List<VariantSymbol> withData)
+    void EmitEnumLifetime(TypeSymbol s, string name, List<VariantSymbol> withData)
     {
         string Construct(VariantSymbol v, string source) =>
             $"::new (static_cast<void*>(&{UnionMember(v)})) {PayloadName(v)}({source}.{UnionMember(v)}); break;";
-
-        Line($"{name}(const {name}& other) : tag(other.tag)");
+        // An enum with a variant that holds a value that cannot be copied is itself not copyable
+        // (spec structs.unique). C++ deletes the copy operations then, rather than failing to
+        // define them. A generic enum decides this for each instantiation.
+        var copyable = string.Join(" && ", withData.Select(v => $"std::is_copy_constructible_v<{PayloadName(v)}>"));
+        bool copies = s.IsGeneric || s.Type.IsCopyable;
+        if (!copies)
+        {
+            Line($"{name}(const {name}&) = delete;");
+            Line($"void operator=(const {name}&) = delete;");
+        }
+        else
+        {
+            var clause = s.IsGeneric ? $" requires ({copyable})" : "";
+            Line($"{name}(const {name}& other){clause} : tag(other.tag)");
+            Line("{");
+            EmitTagSwitch(withData, v => Construct(v, "other"), "break;");
+            Line("}");
+            Line($"void operator=(const {name}& other){clause}");
+            Line("{");
+            Line($"    {name} copy(other);");
+            Line("    *this = std::move(copy);");
+            Line("}");
+        }
+        Line($"{name}({name}&& other) noexcept : tag(other.tag), wyl_in_use_(other.wyl_in_use_)");
         Line("{");
-        EmitTagSwitch(withData, v => Construct(v, "other"), "break;");
-        Line("}");
-        Line($"{name}({name}&& other) noexcept : tag(other.tag)");
-        Line("{");
+        Line("    other.wyl_in_use_ = false;");
         EmitTagSwitch(withData, v => Construct(v, "std::move(other)"), "break;");
         Line("}");
         Line($"~{name}() {{ wyl_destroy(); }}");
-        Line($"void operator=(const {name}& other)");
-        Line("{");
-        Line($"    {name} copy(other);");
-        Line("    *this = std::move(copy);");
-        Line("}");
         // Like wyl::Ref, the old value is released only after the new one is stored, since releasing
         // it may run a destructor that reads this enum. Nothing touches `this` afterwards.
         Line($"void operator=({name}&& other) noexcept");
@@ -228,9 +331,12 @@ public sealed partial class CppEmitter
         Line("    wyl_destroy();");
         Line("    tag = other.tag;");
         EmitTagSwitch(withData, v => Construct(v, "std::move(other)"), "break;");
+        Line("    wyl_in_use_ = other.wyl_in_use_;");
+        Line("    other.wyl_in_use_ = false;");
         Line("}");
         Line("void wyl_destroy()");
         Line("{");
+        Line("    if (wyl_in_use_) wyl::raise_panic(\"cannot release a value that is in use\", \"<runtime>\");");
         EmitTagSwitch(withData, v => $"{UnionMember(v)}.~{PayloadName(v)}(); break;", "break;");
         Line("}");
     }
@@ -300,7 +406,7 @@ public sealed partial class CppEmitter
         Line("{");
         indent++;
         foreach (var field in s.Fields)
-            Line($"{CppType(field.Type)} {FieldName(field)}{{}};");
+            Line($"{CppType(field.Type)} {FieldName(field)}{StorageInitializer(field.Type)};");
         if (s.Kind == TypeKind.Class)
         {
             if (s.Constructors.Count == 0)

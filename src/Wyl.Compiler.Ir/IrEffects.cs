@@ -89,8 +89,8 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     public static bool ReleaseMayRunCode(IrLocal local) => local.Kind switch
     {
         IrLocalKind.Hold or IrLocalKind.Slot => true,
-        IrLocalKind.Value => local.Type.MayOwnObjects,
-        IrLocalKind.Reference or IrLocalKind.Borrowed => false,
+        IrLocalKind.Value => local.Type.MayOwnObjects || local.Type.RunsDestructor,
+        IrLocalKind.Reference or IrLocalKind.Borrowed or IrLocalKind.InUse => false,
         _ => throw new InvalidOperationException($"unexpected local kind {local.Kind}"),
     };
 
@@ -102,11 +102,13 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // The old value is released after the new one is stored.
         public IrEffects Store(IrStore statement) =>
-            new([new IrWrite(statement.Target)], statement.Target.Type.MayOwnObjects ? [new IrRunRelease(statement.Target.Type)] : [], false);
+            new([new IrWrite(statement.Target)], statement.Target.Type.MayOwnObjects || statement.Target.Type.RunsDestructor ? [new IrRunRelease(statement.Target.Type)] : [], false);
 
         public IrEffects Do(IrDo statement) => Of(statement.Value);
         public IrEffects Check(IrCheck statement) => new([], [], !statement.NeverRuns);
         public IrEffects End(IrEnd statement) => Releasing(statement.Local);
+        // The value is moved, and its fields are released when the scope ends.
+        public IrEffects Discard(IrDiscard statement) => new([new IrWrite(new IrPlace(statement.Local))], [], false);
         public IrEffects Unreachable(IrUnreachable statement) => new([], [], true);
         public IrEffects Declare(IrDeclare statement) => None;
         public IrEffects Return(IrReturn statement) => None;
@@ -139,6 +141,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         // Borrowing calls the object's beginBorrow.
         public IrEffects Hold(IrHold value) => value.Borrows ? Releasing(value.Type) : None;
+        public IrEffects InUse(IrInUse value) => None;
 
         public IrEffects Use(IrUse value) => None;
         public IrEffects Variant(IrVariant value) => None;
