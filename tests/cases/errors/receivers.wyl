@@ -48,4 +48,18 @@ struct Item implements Named {
 
 void free(this Counter counter) { }           // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
 
+struct Made {
+    int value;
+
+    Made(this Made made) { }                  // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+}
+
+struct Grid {
+    int value;
+
+    int operator [](this Grid grid, int index) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+        return index;
+    }
+}
+
 void main() { }

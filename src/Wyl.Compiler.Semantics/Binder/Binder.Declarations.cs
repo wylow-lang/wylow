@@ -287,7 +287,8 @@ public sealed partial class Binder
             var parameters = BindParameters(decl.Parameters, out var receiver);
             var receiverSyntax = decl.Parameters.FirstOrDefault(p => p.IsReceiver);
             var modifiers = decl.Modifiers;
-            if (receiver is not null && decl.IsConstructor)
+            bool writesReceiver = receiver is not null;
+            if (writesReceiver && decl.IsConstructor)
                 Error(Catalog.ReceiverOutsideValueMethod(receiverSyntax!.Location));
             receiver = decl.IsConstructor ? null : receiver;
             bool isInterface = s.Kind == TypeKind.Interface;
@@ -300,7 +301,7 @@ public sealed partial class Binder
                     Error(Catalog.ExternStructConstructor(decl.NameLocation));
                     continue;
                 }
-                if (parameters.Count == 0 && receiver is null && s.Kind == TypeKind.Struct)
+                if (parameters.Count == 0 && !writesReceiver && s.Kind == TypeKind.Struct)
                 {
                     Error(Catalog.ParameterlessStructConstructor(decl.NameLocation));
                     continue;
