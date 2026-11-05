@@ -185,8 +185,8 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// A returned value. C++ moves a returned local itself, and <c>std::move</c> would prevent
-    /// eliding the move, so a move that nesting forwards from a local is printed as that local.
+    /// A returned value. C++ moves a returned local or parameter itself, and <c>std::move</c>
+    /// would prevent eliding the move, so a move that nesting forwards from one is printed as it.
     /// </summary>
     string ReturnedText(IrOperand value)
     {
@@ -195,7 +195,7 @@ public sealed partial class CppEmitter
         {
             if (!plan.Nested.TryGetValue(local, out var definition))
             {
-                bool declaredHere = local.Role is IrLocalRole.Variable or IrLocalRole.Temporary;
+                bool declaredHere = local.Role is IrLocalRole.Variable or IrLocalRole.Temporary or IrLocalRole.Parameter;
                 if (ValueVariable(local) && declaredHere && computedLambdas == 0)
                     return Name(local);
                 break;
