@@ -48,7 +48,7 @@ public static partial class Catalog
     public static IReadOnlyCollection<DiagnosticDescriptor> All => descriptors.Values;
 
     /// <summary>Codes no longer emitted, which are never given to another diagnostic.</summary>
-    public static IReadOnlyList<int> Retired { get; } = [198];
+    public static IReadOnlyList<int> Retired { get; } = [198, 385, 444];
 
     static Dictionary<string, DiagnosticDescriptor> Describe()
     {

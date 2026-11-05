@@ -107,6 +107,20 @@ exit 0
 out typed
 exit 0
 
+=== unique/struct-pattern
+out 3
+out 7
+exit 0
+
+=== unique/case-null
+out 3
+out null
+exit 0
+
+=== unique/guarded
+out 3
+exit 0
+
 === unique/constructor-call
 out 3
 out 7

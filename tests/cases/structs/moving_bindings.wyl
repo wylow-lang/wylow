@@ -1,0 +1,56 @@
+// A moving binding takes the whole matched value where its case is chosen or its 'is' test is
+// true. A guard that fails leaves it whole, and an 'in' or 'ref' binding binds a field by reference.
+
+import std::print;
+
+unique struct Buffer {
+    pub int length;
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer),
+}
+
+struct Pair {
+    pub int first;
+    pub int second;
+}
+
+void main() {
+    var maybe = Maybe.Some(Buffer(3));
+    switch (maybe) {
+        case Maybe.Some(var b) when b.length > 5 -> print(0);
+        case Maybe.Some(var b) -> print(b.length);
+        // output: 3
+        case Maybe.None -> print(-1);
+    }
+
+    var whole = Maybe.Some(Buffer(4));
+    if (whole is Maybe.Some(var b)) {
+        print(b.length);
+        // output: 4
+    } else {
+        print(whole is Maybe.None ? 1 : 0);
+    }
+
+    mut Pair pair = Pair(1, 2);
+    switch (pair) {
+        case Pair(ref var first, in var second) -> {
+            first = first + second;
+            print(second);
+            // output: 2
+        }
+    }
+    print(pair.first);
+    // output: 3
+
+    var viewed = Maybe.Some(Buffer(5));
+    switch (viewed) {
+        case Maybe.Some(in var b) -> print(b.length);
+        // output: 5
+        case Maybe.None -> print(-1);
+    }
+    print(viewed is Maybe.None ? 1 : 0);
+    // output: 0
+}

@@ -103,6 +103,8 @@ public sealed partial class IrLowering
     /// </summary>
     IrLocal Accessed(BoundLocalAccess access)
     {
+        if (guardReferences.TryGetValue(access.Local, out var reference))
+            return reference;
         var local = locals[access.Local];
         if (access.AssumesNonNull && access.Local.Type.MayBeNull)
             Add(new IrCheck(IrCheckKind.Narrowed, [IrRead.Borrow(new IrPlace(local))], null) { Origin = access.Location });

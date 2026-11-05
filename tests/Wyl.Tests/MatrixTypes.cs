@@ -54,11 +54,10 @@ static class MatrixTypes
         public string StructModifier => Unique ? "unique " : "";
 
         /// <summary>
-        /// Contexts the row leaves out: binding a unique value by value is a moving binding, which
-        /// this step does not lower yet, and generic code still copies a type parameter, so a unique
-        /// type argument is refused.
+        /// Contexts the row leaves out: generic code still copies a type parameter, so a unique type
+        /// argument is refused.
         /// </summary>
-        public IReadOnlyList<string> Skips => Unique ? ["type-argument", "struct-pattern", "case-null", "guarded"] : [];
+        public IReadOnlyList<string> Skips => Unique ? ["type-argument"] : [];
         /// <summary>
         /// A local holding the row's value. A local is written like a parameter, so a function type
         /// takes the row's parameter form; <paramref name="raw"/> is a value expression.
@@ -393,7 +392,8 @@ static class MatrixTypes
                 main.Add("}");
                 main.Add("default -> print(\"other\");");
                 main.Add("}");
-                main.Add("Holds? maybe = held;");
+                // A unique value is moved by the case, so the nullable one is another value.
+                main.Add(row.Unique ? $"Holds? maybe = Holds({row.Value(row.Second)}, 2);" : "Holds? maybe = held;");
                 main.Add("if (maybe is Holds(var copied, _)) {");
                 main.Add(row.Show("copied"));
                 main.Add("}");

@@ -91,8 +91,4 @@ public static partial class Catalog
     [Error(443, "memory.moves")]
     public static Diagnostic MoveWhileUsed(Location at, string name, string keyword) =>
         Make(at, $"cannot move '{name}' while it is passed by '{keyword}'").Note("the call uses the value where it is");
-
-    [Error(444, "memory.moves")]
-    public static Diagnostic CopyOfUnique(Location at, string type) =>
-        Make(at, $"cannot copy a value of type '{type}'").Note("a unique value is moved, not copied");
 }

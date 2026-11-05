@@ -418,7 +418,7 @@ public static class Patterns
     /// <summary>Whether a pattern matches every value of its type, so it tests nothing.</summary>
     public static bool AlwaysMatches(BoundPattern pattern) => pattern switch
     {
-        BoundDiscardPattern or BoundBindingPattern => true,
+        BoundDiscardPattern or BoundBindingPattern or BoundReferencePattern => true,
         BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target),
         BoundStructPattern structPattern => !structPattern.Type.IsNullable && structPattern.Fields.All(AlwaysMatches),
         _ => false,

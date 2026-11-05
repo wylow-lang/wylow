@@ -208,7 +208,7 @@ public sealed partial class IrVerifier
     void AssignedWhole(IrLocal local, State state)
     {
         // A local given a value again is not moved anymore (spec flow.moves).
-        state.Moved.Remove(local);
+        state.ForgetMoved(local);
         if (local == constructed)
             state.AssignedFields.UnionWith(requiredFields);
     }
@@ -538,11 +538,13 @@ public sealed partial class IrVerifier
         {
             thenState.Assigned.UnionWith(whenTrue.Assigned);
             thenState.NonNull.UnionWith(whenTrue.NonNull);
+            thenState.TakeMoved(whenTrue.Moved);
         }
         if (outcome?.WhenFalse is { } whenFalse)
         {
             elseState.Assigned.UnionWith(whenFalse.Assigned);
             elseState.NonNull.UnionWith(whenFalse.NonNull);
+            elseState.TakeMoved(whenFalse.Moved);
         }
         var then = Block(conditional.Then, thenState);
         // Where a reference's null test failed, nothing it points into needs to stay held.

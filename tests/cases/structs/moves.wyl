@@ -1,5 +1,5 @@
 // Using a value after it is moved, moving it out of what is not a whole local, and moving it while
-// an earlier operand refers to it are flow errors. Binding a unique value by value would copy it.
+// an earlier operand refers to it are flow errors.
 
 import std::print;
 
@@ -23,7 +23,7 @@ void use(ref Counter counter) {
 void choose(in Counter counter, Counter moved) { }
 
 void bind(MaybeCounter maybe) {
-    switch (maybe) {                    // error[WYL0444]: cannot copy a value of type 'Counter'
+    switch (maybe) {
         case MaybeCounter.Some(var counter) -> print(counter.value);
         default -> print(-1);
     }

@@ -1,0 +1,56 @@
+// A moving binding moves its local only where the case is chosen or the 'is' test is true, and in a
+// guard it is a read-only reference, which moving it would break.
+
+import std::print;
+
+unique struct Buffer {
+    pub int length;
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer),
+}
+
+unique struct Holder {
+    pub Maybe maybe;
+}
+
+int take(Buffer buffer) {
+    return buffer.length;
+}
+
+void after_if(Maybe maybe) {
+    if (maybe is Maybe.Some(var b)) {
+        print(b.length);
+    } else {
+        print(maybe is Maybe.None ? 1 : 0);
+    }
+    print(maybe is Maybe.None ? 1 : 0);     // error[WYL0440]: 'maybe' is used after being moved
+}
+
+void after_switch(Maybe maybe) {
+    switch (maybe) {
+        case Maybe.Some(var b) -> print(b.length);
+        case Maybe.None -> print(-1);
+    }
+    print(maybe is Maybe.None ? 1 : 0);     // error[WYL0440]: 'maybe' is used after being moved
+}
+
+void from_field(Holder holder) {
+    switch (holder.maybe) {                 // error[WYL0441]: cannot move a field out of 'holder'
+        case Maybe.Some(var b) -> print(b.length);
+        case Maybe.None -> print(-1);
+    }
+}
+
+void in_guard(Maybe maybe) {
+    switch (maybe) {
+        case Maybe.Some(var b) when take(b) > 1 -> print(b.length);   // error[WYL0441]: cannot move out of what 'b' refers to
+        case Maybe.Some(var b) -> print(0);
+        case Maybe.None -> print(-1);
+    }
+}
+
+void main() {
+}

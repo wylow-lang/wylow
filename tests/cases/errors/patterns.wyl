@@ -26,3 +26,36 @@ void main() {
         default -> bag.at(1);
     };
 }
+
+enum Shape { Circle(int r), Empty }
+
+void variant(Shape shape) {
+    switch (shape) {
+        case Circle(ref var r) -> { }       // error[WYL0445]: cannot bind 'ref' to a field of a variant
+        default -> { }
+    }
+}
+
+struct Pair {
+    pub int first;
+    pub int second;
+}
+
+Pair makePair() {
+    return Pair(1, 2);
+}
+
+void readOnly(Pair pair) {
+    switch (pair) {
+        case Pair(ref var first, _) -> { }   // error[WYL0408]: cannot bind 'ref' to read-only 'pair'
+    }
+    switch (pair) {
+        case ref var whole -> { }           // error[WYL0408]: cannot bind 'ref' to read-only 'pair'
+    }
+}
+
+void temporary() {
+    switch (makePair()) {
+        case Pair(ref var first, _) -> { }   // error[WYL0407]: a 'ref' binding must refer to a variable, field, or element
+    }
+}

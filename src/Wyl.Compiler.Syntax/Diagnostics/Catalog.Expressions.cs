@@ -135,9 +135,9 @@ public static partial class Catalog
         Make(at, $"pattern type: expected '{referenced}', found '{written}'")
             .Note($"'{text}' refers to a value of type '{referenced}'");
 
-    [Error(385, "patterns.references")]
-    public static Diagnostic ReferencePatternInCase(Location at, string keyword) =>
-        Make(at, $"'{keyword}' pattern can only be used with 'is'").Help($"write 'if (x is {keyword} T name)'");
+    [Error(445, "patterns.references")]
+    public static Diagnostic VariantFieldReference(Location at) =>
+        Make(at, "cannot bind 'ref' to a field of a variant").Note("a variant's field is not changed in place").Help("bind it with 'in'");
 
     [Error(386, "patterns.cases.guards")]
     public static Diagnostic GuardOnDefault(Location at) =>

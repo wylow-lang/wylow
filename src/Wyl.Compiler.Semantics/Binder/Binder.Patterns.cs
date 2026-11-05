@@ -6,6 +6,25 @@ namespace Wyl.Compiler.Semantics;
 
 public sealed partial class Binder
 {
+    /// <summary>
+    /// Where a pattern matches, which a reference binding in it needs: the place the matched value is
+    /// in, or a field of it, whose mutability is the place's, or a variant's field, which never changes.
+    /// </summary>
+    readonly record struct MatchPlace(BoundExpression? Root, PlaceKind Kind, ReadOnlyReason Reason, bool VariantField, string Text)
+    {
+        public static MatchPlace Of(Binder binder, BoundExpression value)
+        {
+            var (kind, reason) = binder.ClassifyPlace(value);
+            return new(value, kind, reason, VariantField: false, TextOf(value.Location));
+        }
+
+        /// <summary>A field of a struct pattern's value, which is as changeable as the value itself.</summary>
+        public MatchPlace AsField() => this with { Root = null };
+
+        /// <summary>A variant's field, which is not changed in place.</summary>
+        public MatchPlace AsVariantField() => this with { Root = null, VariantField = true };
+    }
+
     BoundExpression BindIs(IsExpr e)
     {
         var operand = BindExpression(e.Operand);
@@ -40,7 +59,7 @@ public sealed partial class Binder
             return ErrorExpression(Catalog.TypeTestOnValue(e.Operand.Location, operand.Type.ToString()));
         }
         int errors = diagnostics.Count;
-        var pattern = BindPattern(e.Pattern, operand.Type, canBind: true);
+        var pattern = BindPattern(e.Pattern, operand.Type, canBind: true, MatchPlace.Of(this, operand));
         // A type test that always passes is allowed: it states the type, as an upcast would.
         if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern))
             Error(Catalog.PatternAlwaysMatches(e.Pattern.Location));
@@ -72,7 +91,7 @@ public sealed partial class Binder
     }
 
     /// <summary>Binds a pattern matching values of <paramref name="type"/> and declares its names in the current scope.</summary>
-    BoundPattern BindPattern(PatternSyntax syntax, WylType type, bool canBind)
+    BoundPattern BindPattern(PatternSyntax syntax, WylType type, bool canBind, MatchPlace place)
     {
         if (type == WylType.Error)
         {
@@ -93,23 +112,67 @@ public sealed partial class Binder
             case VariantPatternSyntax { Enum: null, Fields: null } v when !type.IsEnum:
                 return BindTypePattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), null, v.NameLocation, type, canBind);
             case VariantPatternSyntax { Enum: null, Fields: { } fields } v when type.NonNull.IsStruct:
-                return BindStructPattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), fields, type, canBind);
+                return BindStructPattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), fields, type, canBind, place);
             case StructPatternSyntax s:
-                return BindStructPattern(s.Location, s.Type, s.Fields, type, canBind);
+                return BindStructPattern(s.Location, s.Type, s.Fields, type, canBind, place);
             case VariantPatternSyntax v:
-                return BindVariantPattern(v, type, canBind);
+                return BindVariantPattern(v, type, canBind, place);
             case ReferencePatternSyntax r:
-                return ErrorPattern(r, type, Catalog.ReferencePatternInCase(r.Location, FunctionSymbol.RefPrefix(r.RefKind).Trim()));
+                return BindReferenceBinding(r, type, canBind, place);
             default:
                 throw new InvalidOperationException($"unexpected pattern {syntax.GetType().Name}");
         }
     }
 
-    LocalSymbol DeclareBinding(string name, WylType type, Location location, bool canBind)
+    /// <summary>
+    /// <c>in var name</c> or <c>ref var name</c> in a pattern: a reference to the part it matches, or
+    /// to the whole matched value (spec <c>patterns.references</c>). A variant's field is bound with
+    /// <c>in</c> only, and <c>ref</c> needs a place that can be changed.
+    /// </summary>
+    BoundPattern BindReferenceBinding(ReferencePatternSyntax r, WylType type, bool canBind, MatchPlace place)
+    {
+        var keyword = r.RefKind == RefKind.Ref ? "ref" : "in";
+        if (place.VariantField && r.RefKind == RefKind.Ref)
+        {
+            Error(Catalog.VariantFieldReference(r.Location));
+            DeclareErrorBindings(r);
+            return new BoundDiscardPattern(r.Location, type);
+        }
+        if (r.Type is { } written)
+        {
+            var target = BindType(written, allowVoid: false);
+            if (target != WylType.Error && target != type)
+            {
+                Error(Catalog.ReferencePatternType(written.Location, TextOf(r.Location), type.ToString(), target.ToString()));
+                DeclareErrorBindings(r);
+                return new BoundDiscardPattern(r.Location, type);
+            }
+        }
+        if (r.RefKind == RefKind.Ref)
+        {
+            Diagnostic? problem = place.Kind switch
+            {
+                PlaceKind.Temporary => Catalog.ReferenceToTemporary(r.Location, "a 'ref' binding", null),
+                PlaceKind.ReadOnly => Catalog.RefToReadOnly(r.Location, keyword, place.Text, throughReference: false, place.Reason, ""),
+                _ => null,
+            };
+            if (problem is not null)
+            {
+                Error(problem);
+                DeclareErrorBindings(r);
+                return new BoundDiscardPattern(r.Location, type);
+            }
+        }
+        return new BoundReferencePattern(r.Location, type, DeclareBinding(r.Name, type, r.NameLocation, canBind, r.RefKind));
+    }
+
+    LocalSymbol DeclareBinding(string name, WylType type, Location location, bool canBind, RefKind refKind = RefKind.None)
     {
         if (!canBind)
             Error(Catalog.BindingInSeveralPatterns(location));
-        var local = new LocalSymbol(name, type, isParameter: false);
+        var local = refKind == RefKind.None
+            ? new LocalSymbol(name, type, isParameter: false)
+            : new LocalSymbol(name, type.NullableReference(refKind), isParameter: false, refKind) { IsPatternBinding = true };
         Declare(local, location);
         return local;
     }
@@ -206,7 +269,7 @@ public sealed partial class Binder
         return Binding(target) is { } local ? new BoundBindingPattern(location, type, local) : new BoundDiscardPattern(location, type);
     }
 
-    BoundPattern BindVariantPattern(VariantPatternSyntax v, WylType type, bool canBind)
+    BoundPattern BindVariantPattern(VariantPatternSyntax v, WylType type, bool canBind, MatchPlace place)
     {
         var written = v.Enum is null ? v.Name : $"{TextOf(v.Enum.Location)}.{v.Name}";
         if (!type.IsEnum)
@@ -232,7 +295,7 @@ public sealed partial class Binder
             int count = variant.Fields.Count;
             return ErrorPattern(v, type, Catalog.PatternFieldCount(v.Location, variant.Name, count, v.Fields.Count));
         }
-        var fields = v.Fields.Zip(variant.Fields, (field, symbol) => BindPattern(field, map.Apply(symbol.Type), canBind)).ToList();
+        var fields = v.Fields.Zip(variant.Fields, (field, symbol) => BindPattern(field, map.Apply(symbol.Type), canBind, place.AsVariantField())).ToList();
         return new BoundVariantPattern(v.Location, type, variant, fields);
     }
 
@@ -246,7 +309,7 @@ public sealed partial class Binder
             : BindType(syntax, allowVoid: false) is var named && (named == type || named == WylType.Error);
 
     /// <summary>A struct's fields, each matching its pattern; on a nullable struct, also a test that it isn't null.</summary>
-    BoundPattern BindStructPattern(Location location, TypeSyntax typeSyntax, IReadOnlyList<PatternSyntax> fieldSyntax, WylType type, bool canBind)
+    BoundPattern BindStructPattern(Location location, TypeSyntax typeSyntax, IReadOnlyList<PatternSyntax> fieldSyntax, WylType type, bool canBind, MatchPlace place)
     {
         var value = type.NonNull;
         var syntax = new StructPatternSyntax(location, typeSyntax, fieldSyntax);
@@ -262,7 +325,7 @@ public sealed partial class Binder
         var fields = fieldSyntax.Zip(s.Fields, (field, symbol) =>
         {
             CheckVisible(field.Location, symbol.Reach, $"field '{s.Name}.{symbol.Name}'");
-            return BindPattern(field, map.Apply(symbol.Type), canBind);
+            return BindPattern(field, map.Apply(symbol.Type), canBind, place.AsField());
         }).ToList();
         return new BoundStructPattern(location, type, fields);
     }
@@ -274,10 +337,11 @@ public sealed partial class Binder
     /// non-null type. Sets <paramref name="broken"/> if a pattern has an error, which would make
     /// coverage errors misleading.
     /// </summary>
-    List<BoundPattern> BindCasePatterns(SwitchCase c, WylType type, ref bool broken)
+    List<BoundPattern> BindCasePatterns(SwitchCase c, BoundExpression value, ref bool broken)
     {
         int errors = diagnostics.Count;
-        List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, IsNullPattern(p) ? type : type.NonNull, canBind: c.Patterns.Count == 1))];
+        var place = MatchPlace.Of(this, value);
+        List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, IsNullPattern(p) ? value.Type : value.Type.NonNull, canBind: c.Patterns.Count == 1, place))];
         if (c.Default is { } listed && !c.Patterns.All(IsNullPattern))
             Error(Catalog.DefaultListedWithPattern(listed));
         broken |= diagnostics.Count > errors;
@@ -324,7 +388,7 @@ public sealed partial class Binder
         foreach (var c in s.Cases)
         {
             scope = new Scope(scope);
-            var patterns = BindCasePatterns(c, value.Type, ref broken);
+            var patterns = BindCasePatterns(c, value, ref broken);
             var guard = BindGuard(c);
             cases.Add(new BoundSwitchCase<BoundStatement>(c.Location, patterns, c.IsDefault, guard, BindStatement(c.Body!)));
             scope = scope.Parent;
@@ -368,7 +432,7 @@ public sealed partial class Binder
         foreach (var c in e.Cases)
         {
             scope = new Scope(scope);
-            var patterns = BindCasePatterns(c, value.Type, ref broken);
+            var patterns = BindCasePatterns(c, value, ref broken);
             var guard = BindGuard(c);
             options.Add((c, patterns, guard, BindOption(c.Value!, expected), scope));
             scope = scope.Parent!;

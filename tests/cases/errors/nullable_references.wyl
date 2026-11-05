@@ -111,8 +111,7 @@ void main() {
     if (m.peek(0) is ref float fixedRef) { // error[WYL0408]: cannot bind 'ref' to what 'm.peek(0)' refers to, which is read-only
     }
     switch (x) {
-        case ref int e -> print(e);     // error[WYL0385]: 'ref' pattern can only be used with 'is'
-        default -> print(0);
+        case ref int e -> print(e);
     }
     if (r is in int readOnly) {
         readOnly = 1;                   // error[WYL0351]: cannot assign to 'readOnly'

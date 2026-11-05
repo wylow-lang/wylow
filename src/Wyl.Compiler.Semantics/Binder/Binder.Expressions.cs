@@ -140,7 +140,7 @@ public sealed partial class Binder
             return ErrorExpression(Catalog.TypeArgumentsOnName(e.Location));
 
         if (scope!.Lookup(e.Name) is { } local)
-            return new BoundLocalAccess(e.Location, local, AssumesNonNull: local.IsReferenceBinding);
+            return new BoundLocalAccess(e.Location, local, AssumesNonNull: local.IsReferenceBinding || local.IsPatternBinding);
 
         if (currentType is not null && LookupField(currentType.Type, e.Name) is var (field, owner))
         {

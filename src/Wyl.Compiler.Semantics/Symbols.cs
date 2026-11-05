@@ -22,6 +22,12 @@ public sealed class LocalSymbol(string name, WylType type, bool isParameter, Ref
     /// </summary>
     public bool IsReferenceBinding { get; init; }
 
+    /// <summary>
+    /// A <c>ref</c> or <c>in</c> name a pattern binds, which refers to a place wherever its case
+    /// matched, so it is used as a place as an <c>is ref</c> name is, but is never nothing.
+    /// </summary>
+    public bool IsPatternBinding { get; init; }
+
     /// <summary>Declared <c>mut</c>: it may be reassigned, and a value in it changed in place.</summary>
     public bool IsMutable { get; init; }
 

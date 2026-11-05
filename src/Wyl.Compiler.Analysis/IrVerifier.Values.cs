@@ -59,7 +59,7 @@ public sealed partial class IrVerifier
 
         public static State Unreachable => new() { Reachable = false };
 
-        public Known Known => new([.. Assigned], [.. NonNull]);
+        public Known Known => new([.. Assigned], [.. NonNull], new(Moved));
 
         public State Clone() => new()
         {
@@ -118,12 +118,31 @@ public sealed partial class IrVerifier
 
         public Outcome OutcomeOf(IrLocal condition) => Outcomes.TryGetValue(condition, out var known) ? known : new(Known, Known);
 
+        /// <summary>The locals moved on a branch's path, which replace what the merged state only knows some path moved.</summary>
+        public void TakeMoved(IReadOnlyDictionary<IrLocal, Location?> moved)
+        {
+            Moved.Clear();
+            foreach (var (local, at) in moved)
+                Moved[local] = at;
+        }
+
+        /// <summary>A local given a value again is not moved anymore, on any path an outcome describes.</summary>
+        public void ForgetMoved(IrLocal moved)
+        {
+            Moved.Remove(moved);
+            foreach (var (condition, outcome) in Outcomes.ToList())
+            {
+                if (outcome.WhenTrue?.Moved.ContainsKey(moved) == true || outcome.WhenFalse?.Moved.ContainsKey(moved) == true)
+                    Outcomes[condition] = new(outcome.WhenTrue?.WithoutMoved(moved), outcome.WhenFalse?.WithoutMoved(moved));
+            }
+        }
+
         /// <summary>A local declared again, as in a later iteration, starts over.</summary>
         public void Forget(IrLocal local)
         {
             Assigned.Remove(local);
             MaybeAssigned.Remove(local);
-            Moved.Remove(local);
+            ForgetMoved(local);
             Ended.Remove(local);
             Invalid.Remove(local);
             Outcomes.Remove(local);
@@ -148,20 +167,39 @@ public sealed partial class IrVerifier
         }
     }
 
-    /// <summary>What is known on every path to a point: the locals assigned, and those known not to be null.</summary>
-    sealed record Known(HashSet<IrLocal> Assigned, HashSet<IrLocal> NonNull)
+    /// <summary>
+    /// What is known on every path to a point: the locals assigned, those known not to be null, and
+    /// those moved there. A condition's outcome keeps the moves of each side, so that a use after it
+    /// is an error only where the path that moved the value is taken.
+    /// </summary>
+    sealed record Known(HashSet<IrLocal> Assigned, HashSet<IrLocal> NonNull, Dictionary<IrLocal, Location?> Moved)
     {
-        public Known Meet(Known other) => new([.. Assigned.Intersect(other.Assigned)], [.. NonNull.Intersect(other.NonNull)]);
+        public Known Meet(Known other)
+        {
+            var moved = new Dictionary<IrLocal, Location?>(Moved);
+            foreach (var (local, at) in other.Moved)
+                moved.TryAdd(local, at);
+            return new([.. Assigned.Intersect(other.Assigned)], [.. NonNull.Intersect(other.NonNull)], moved);
+        }
 
-        public bool SameAs(Known other) => Assigned.SetEquals(other.Assigned) && NonNull.SetEquals(other.NonNull);
+        public bool SameAs(Known other) =>
+            Assigned.SetEquals(other.Assigned) && NonNull.SetEquals(other.NonNull) && Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys);
 
         /// <summary>Whether it knows more than <paramref name="other"/>.</summary>
-        public bool Adds(Known other) => Assigned.Any(l => !other.Assigned.Contains(l)) || NonNull.Any(l => !other.NonNull.Contains(l));
+        public bool Adds(Known other) => Assigned.Any(l => !other.Assigned.Contains(l)) || NonNull.Any(l => !other.NonNull.Contains(l))
+            || !Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys);
 
         public bool Mentions(IrLocal local, bool assigned) => NonNull.Contains(local) || (assigned && Assigned.Contains(local));
 
         public Known Without(IrLocal local, bool unassigned) =>
-            new(unassigned ? [.. Assigned.Where(l => l != local)] : Assigned, [.. NonNull.Where(l => l != local)]);
+            new(unassigned ? [.. Assigned.Where(l => l != local)] : Assigned, [.. NonNull.Where(l => l != local)], Moved);
+
+        public Known WithoutMoved(IrLocal local)
+        {
+            var moved = new Dictionary<IrLocal, Location?>(Moved);
+            moved.Remove(local);
+            return new(Assigned, NonNull, moved);
+        }
     }
 
     /// <summary>What is known when a condition is true and when it is false; null for one that can't happen.</summary>
@@ -533,8 +571,9 @@ public sealed partial class IrVerifier
             return;
         Place(read.Place, state, reads: true);
         var local = read.Place.Local;
+        // No source copies a value that is not copyable: lowering moves every one of them.
         if (read.Ownership == IrOwnership.Copy && !read.Type.IsCopyable && !read.Type.ContainsTypeParameters)
-            Violation(l => Catalog.CopyOfUnique(l, read.Type.ToString()));
+            Error($"a '{read.Type}' is copied, which is not copyable");
         if (read.Ownership != IrOwnership.Move)
             return;
         if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed)))
@@ -561,7 +600,7 @@ public sealed partial class IrVerifier
     /// <summary>What a move would take from a place that is not a whole local, as a message names it.</summary>
     string MovedPart(IrPlace place)
     {
-        var name = N(place.Local);
+        var name = SourceOf(place.Local)?.Name ?? N(place.Local);
         if (place.Local.IsThis)
             return "out of 'this'";
         if (place.IsDeref)

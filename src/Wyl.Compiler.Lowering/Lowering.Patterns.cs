@@ -7,8 +7,11 @@ namespace Wyl.Compiler.Lowering;
 
 public sealed partial class IrLowering
 {
-    /// <summary>A name a pattern binds, and the value it is bound to, read from the matched value.</summary>
-    sealed record Binding(LocalSymbol Local, Func<IrRvalue> Value);
+    /// <summary>
+    /// A name a pattern binds, the place it is bound to, whether the binding moves what it binds, and
+    /// the kind of reference it is when it binds a reference.
+    /// </summary>
+    sealed record Binding(LocalSymbol Local, Func<IrPlace> Place, bool Moves, RefKind Reference = RefKind.None);
 
     /// <summary>
     /// The names an expression's patterns bind, declared before the statement evaluating it: they
@@ -16,6 +19,19 @@ public sealed partial class IrLowering
     /// </summary>
     void DeclarePatternLocals(BoundExpression? expression, bool? references = null)
     {
+        // A moving binding's matched value is held in a local of the statement's own, so that what the
+        // pattern leaves is released after the names (spec patterns.bindings.moves).
+        if (references is null or false)
+        {
+            foreach (var test in MovingTests(expression))
+            {
+                if (helds.ContainsKey(test))
+                    continue;
+                var held = Temp(test.Operand.Type);
+                Add(new IrDeclare(held) { Origin = at });
+                helds[test] = held;
+            }
+        }
         foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || l.IsReferenceBinding == references))
         {
             var declare = new IrDeclare(Declare(local)) { Origin = at };
@@ -25,8 +41,25 @@ public sealed partial class IrLowering
         }
     }
 
+    /// <summary>The tests whose match moves the value they match, outside any lambda, which is lowered on its own.</summary>
+    static IEnumerable<BoundIs> MovingTests(BoundExpression? expression) => expression switch
+    {
+        null or BoundLambda => [],
+        BoundIs test when Patterns.Bindings(test.Pattern).Any(local => Moves(local.Type)) => [test],
+        _ => BoundTree.Children(expression).SelectMany(MovingTests),
+    };
+
+    /// <summary>The local each moving <c>is</c> holds the value it moves into.</summary>
+    readonly Dictionary<BoundIs, IrLocal> helds = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>Where each <c>is ref</c> name is declared, which its holder is declared just before.</summary>
     readonly Dictionary<LocalSymbol, (IrBlock Block, IrDeclare Declare)> bindings = [];
+
+    /// <summary>
+    /// The reference local each pattern name means in a guard, into the matched value the guard tests,
+    /// for a binding whose value the case moves.
+    /// </summary>
+    readonly Dictionary<LocalSymbol, IrLocal> guardReferences = [];
 
     /// <summary>
     /// <c>r is ref T name</c>: stores the reference in the name and tests it. The hold of the object
@@ -102,60 +135,70 @@ public sealed partial class IrLowering
     /// <summary>
     /// The tests matching a pattern makes, in order, and what it binds. A test reads a projection
     /// only an earlier test makes valid, such as a variant's field, so each runs only if those
-    /// before it passed (see <see cref="Conjunction"/>).
+    /// before it passed (see <see cref="Conjunction"/>). The places the bindings take are built from
+    /// the root each time they are asked for: what is matched first, and then what it left behind.
     /// </summary>
-    void Tests(BoundPattern pattern, IrPlace value, List<Func<IrOperand>> tests, List<Binding> bindings)
+    void Tests(BoundPattern pattern, Func<IrPlace> value, List<Func<IrOperand>> tests, List<Binding> bindings)
     {
         switch (pattern)
         {
             case BoundDiscardPattern:
                 break;
             case BoundBindingPattern binding:
-                bindings.Add(new Binding(binding.Local, () => new IrUse(IrRead.Copy(value))));
+                bindings.Add(new Binding(binding.Local, value, Moves(binding.Type)));
+                break;
+            case BoundReferencePattern reference:
+                bindings.Add(new Binding(reference.Binding, value, Moves: false, reference.Binding.RefKind));
                 break;
             case BoundNullPattern:
-                tests.Add(() => IsNull(value));
+                tests.Add(() => IsNull(value()));
                 break;
             case BoundTypePattern { Type.IsNullableValue: true } test:
-                tests.Add(() => Tested(Present(value)));
+                tests.Add(() => Tested(Present(value())));
                 if (test.Binding is { } valueBinding)
-                    bindings.Add(new Binding(valueBinding, () => new IrUse(IrRead.Copy(value.Assumed()))));
+                    bindings.Add(new Binding(valueBinding, () => value().Assumed(), Moves(valueBinding.Type)));
                 break;
             case BoundTypePattern test:
             {
                 // A value whose type is already a `Target` needs only to be non-null.
                 bool upcast = Conversions.IsSubtype(test.Type.NonNull, test.Target);
                 if (!upcast)
-                    tests.Add(() => Tested(new IrTest(IrTestKind.Class, IrRead.Borrow(value)) { Target = test.Target }));
+                    tests.Add(() => Tested(new IrTest(IrTestKind.Class, IrRead.Borrow(value())) { Target = test.Target }));
                 else if (test.Type.IsNullable)
-                    tests.Add(() => Tested(Present(value)));
+                    tests.Add(() => Tested(Present(value())));
                 if (test.Binding is { } local)
-                    bindings.Add(new Binding(local, () => test.Type == test.Target ? new IrUse(IrRead.Copy(value)) : new IrConvert(test.Target, IrRead.Copy(value))));
+                    bindings.Add(new Binding(local, value, Moves(local.Type)));
                 break;
             }
             case BoundConstantPattern { Value.Value: bool expected }:
-                tests.Add(() => expected ? IrRead.Copy(value) : Tested(new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Copy(value))));
+                tests.Add(() => expected ? IrRead.Copy(value()) : Tested(new IrUnary(BoundUnaryOperator.LogicalNot, IrRead.Copy(value()))));
                 break;
             case BoundConstantPattern constant:
-                tests.Add(() => Tested(new IrBinary(BoundBinaryOperator.Equal, IrRead.Copy(value),
+                tests.Add(() => Tested(new IrBinary(BoundBinaryOperator.Equal, IrRead.Copy(value()),
                     new IrConstant(constant.Value.Type, constant.Value.Value), WylType.Bool)));
                 break;
             case BoundStructPattern structPattern:
             {
-                var fields = value;
+                Func<IrPlace> fields = value;
                 if (structPattern.Type.IsNullableValue)
                 {
-                    tests.Add(() => Tested(Present(value)));
-                    fields = value.Assumed();
+                    tests.Add(() => Tested(Present(value())));
+                    fields = () => value().Assumed();
                 }
                 for (int i = 0; i < structPattern.Fields.Count; i++)
-                    Tests(structPattern.Fields[i], fields.Field(structPattern.Symbols[i]), tests, bindings);
+                {
+                    var symbol = structPattern.Symbols[i];
+                    Tests(structPattern.Fields[i], () => fields().Field(symbol), tests, bindings);
+                }
                 break;
             }
             case BoundVariantPattern variant:
-                tests.Add(() => Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value)) { Variant = variant.Variant }));
+                tests.Add(() => Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value())) { Variant = variant.Variant }));
                 for (int i = 0; i < variant.Fields.Count; i++)
-                    Tests(variant.Fields[i], value.VariantField(variant.Variant, i), tests, bindings);
+                {
+                    int index = i;
+                    Tests(variant.Fields[i], () => value().VariantField(variant.Variant, index), tests, bindings);
+                }
                 break;
             default:
                 throw new InvalidOperationException($"unexpected pattern {pattern.GetType().Name}");
@@ -188,32 +231,46 @@ public sealed partial class IrLowering
         return OperandOf(Chosen(WylType.Bool, tests[from], () => Conjunction(tests, from + 1, matched), () => IrConstant.Bool(false)));
     }
 
-    /// <summary>A binding's value as its local's type.</summary>
-    IrRvalue BoundValue(Binding binding)
+    /// <summary>A binding's value as its local's type: its place's value copied or moved, or a reference to it.</summary>
+    IrOperand BoundValue(Binding binding)
     {
-        var value = binding.Value();
-        return value.Type == binding.Local.Type ? value : new IrConvert(binding.Local.Type, OperandOf(value));
+        if (binding.Reference != RefKind.None)
+            return IrRead.Copy(new IrPlace(Let(new IrAddr(binding.Reference, binding.Place()))));
+        var read = binding.Moves ? IrRead.Move(binding.Place()) : IrRead.Copy(binding.Place());
+        return read.Type == binding.Local.Type ? read : IrRead.Move(new IrPlace(Let(new IrConvert(binding.Local.Type, read))));
     }
 
     /// <summary>
     /// <c>x is pattern</c>. Binding stores to existing locals, releasing their old values, which may
     /// run a destructor that changes the matched value, so every bound value is copied first. The
-    /// first store needs no copy of its own: it reads its value before releasing anything.
+    /// first store needs no copy of its own: it reads its value before releasing anything. A moving
+    /// binding moves the whole matched value here, where the test is true, and the names take what
+    /// they bind out of what is left.
     /// </summary>
     IrRvalue Is(BoundIs test)
     {
         if (test.Pattern is BoundReferencePattern reference)
             return ReferenceTest(test.Operand, reference.Binding);
         var matched = Matched(test.Operand);
+        IrPlace root = matched;
         var tests = new List<Func<IrOperand>>();
         var bindings = new List<Binding>();
-        Tests(test.Pattern, matched, tests, bindings);
+        Tests(test.Pattern, () => root, tests, bindings);
         if (bindings.Count == 0)
             return new IrUse(Conjunction(tests, 0, null));
+        bool moves = bindings.Any(b => b.Moves);
+        IrLocal? held = null;
+        if (moves && !helds.TryGetValue(test, out held))
+            Add(new IrDeclare(held = Temp(matched.Type)) { Origin = at });
         return new IrUse(Conjunction(tests, 0, () =>
         {
-            var copies = bindings.Skip(1).Select(b => (b.Local, Copy: Let(BoundValue(b)))).ToList();
-            Add(new IrStore(new IrPlace(locals[bindings[0].Local]), OperandOf(BoundValue(bindings[0]))) { Origin = at });
+            if (held is not null)
+            {
+                Add(new IrStore(new IrPlace(held), IrRead.Move(root)) { Origin = at });
+                root = new IrPlace(held);
+            }
+            var copies = bindings.Skip(1).Select(b => (b.Local, Copy: Let(new IrUse(BoundValue(b))))).ToList();
+            Add(new IrStore(new IrPlace(locals[bindings[0].Local]), BoundValue(bindings[0])) { Origin = at });
             foreach (var (local, copy) in copies)
                 Add(new IrStore(new IrPlace(locals[local]), IrRead.Move(new IrPlace(copy))) { Origin = at });
             return IrConstant.Bool(true);
@@ -226,18 +283,18 @@ public sealed partial class IrLowering
     /// pattern but <c>null</c>, and <c>default</c>, first tests that the value isn't null; each case
     /// tests it itself, as it does the rest of the value, since a guard may have changed it.
     /// </summary>
-    Func<IrOperand>? CaseCondition<T>(BoundSwitchCase<T> c, IrPlace matched, bool nullable, List<Binding> bindings)
+    Func<IrOperand>? CaseCondition<T>(BoundSwitchCase<T> c, Func<IrPlace> matched, bool nullable, List<Binding> bindings)
     {
         var alternatives = new List<List<Func<IrOperand>>>();
         foreach (var pattern in c.Patterns)
         {
             var tests = new List<Func<IrOperand>>();
             if (pattern is BoundNullPattern)
-                tests.Add(() => CaseNull(matched, pattern.Location));
+                tests.Add(() => CaseNull(matched(), pattern.Location));
             else if (nullable)
             {
-                tests.Add(() => Tested(Present(matched)));
-                Tests(pattern, NonNull(matched), tests, bindings);
+                tests.Add(() => Tested(Present(matched())));
+                Tests(pattern, () => NonNull(matched()), tests, bindings);
             }
             else
                 Tests(pattern, matched, tests, bindings);
@@ -249,7 +306,7 @@ public sealed partial class IrLowering
         {
             if (!nullable)
                 return null;
-            alternatives.Add([() => Tested(Present(matched))]);
+            alternatives.Add([() => Tested(Present(matched()))]);
         }
         IrOperand Any(int from) => from == alternatives.Count - 1
             ? Conjunction(alternatives[from], 0, null)
@@ -271,7 +328,9 @@ public sealed partial class IrLowering
     /// <summary>
     /// Tries the cases in order, as an <c>if</c> chain whose last <c>else</c> panics. A case's names
     /// are fresh locals copied from the matched value before its body runs, and before its guard.
-    /// The value is matched where it is, so a later case sees what a guard changed (spec patterns.matching).
+    /// A moving binding moves the whole matched value where the case is chosen, and the names take
+    /// what they bind out of what it leaves. The value is matched where it is, so a later case sees
+    /// what a guard changed (spec patterns.matching).
     /// </summary>
     void Cases<T>(IReadOnlyList<BoundSwitchCase<T>> cases, IrPlace matched, bool nullable, Location location, Action<T> body)
     {
@@ -285,18 +344,29 @@ public sealed partial class IrLowering
                 Add(new IrUnreachable(loc) { Origin = at });
                 return;
             }
+            IrPlace root = matched;
             var bindings = new List<Binding>();
-            var matches = CaseCondition(cases[i], matched, nullable, bindings);
+            var matches = CaseCondition(cases[i], () => root, nullable, bindings);
+            bool moves = bindings.Any(b => b.Moves);
             if (cases[i].Guard is { } guard)
             {
-                Guarded(i, guard, matches, bindings);
+                Guarded(i, guard, matches, bindings, moves, useRoot: place => root = place);
                 return;
             }
             var condition = matches?.Invoke();
             var then = Then(i, () =>
             {
+                IrLocal? held = moves ? HeldValue(matched) : null;
+                if (held is not null)
+                {
+                    Add(new IrStore(new IrPlace(held), IrRead.Move(root)) { Origin = at });
+                    root = new IrPlace(held);
+                }
                 foreach (var binding in bindings)
-                    Add(LetOf(Declare(binding.Local), BoundValue(binding)));
+                {
+                    Add(new IrDeclare(Declare(binding.Local)) { Origin = at });
+                    Add(new IrStore(new IrPlace(locals[binding.Local]), BoundValue(binding)) { Origin = at });
+                }
             });
             if (condition is null)
             {
@@ -327,28 +397,74 @@ public sealed partial class IrLowering
         }
 
         // As `if (value is Pattern && guard)`: the names are declared around the case's `if`, and
-        // assigned where the patterns matched, before the guard runs.
-        void Guarded(int i, BoundExpression guard, Func<IrOperand>? matches, List<Binding> bindings)
+        // assigned where the patterns matched, before the guard runs. In the guard, a name the move
+        // would take is a read-only reference into the matched value; the others are as they will be
+        // in the body.
+        void Guarded(int i, BoundExpression guard, Func<IrOperand>? matches, List<Binding> bindings, bool moves, Action<IrPlace> useRoot)
         {
             var scope = new IrBlock { Origin = at };
             Into(scope, () =>
             {
+                IrLocal? held = moves ? HeldValue(matched) : null;
                 foreach (var binding in bindings)
                     Add(new IrDeclare(Declare(binding.Local)) { Origin = at });
                 DeclarePatternLocals(guard);
                 IrOperand Bound()
                 {
-                    foreach (var binding in bindings)
-                        Add(new IrStore(new IrPlace(locals[binding.Local]), OperandOf(BoundValue(binding))) { Origin = at });
-                    return Condition(guard);
+                    var saved = new Dictionary<LocalSymbol, IrLocal>(guardReferences);
+                    try
+                    {
+                        foreach (var binding in bindings)
+                        {
+                            if (binding.Moves)
+                                guardReferences[binding.Local] = GuardReference(binding, RefKind.In, binding.Local.Type.NullableReference(RefKind.In));
+                            else if (moves && binding.Reference != RefKind.None)
+                                guardReferences[binding.Local] = GuardReference(binding, binding.Reference, binding.Local.Type);
+                            else
+                                Add(new IrStore(new IrPlace(locals[binding.Local]), BoundValue(binding)) { Origin = at });
+                        }
+                        return Condition(guard);
+                    }
+                    finally
+                    {
+                        guardReferences.Clear();
+                        foreach (var (symbol, local) in saved)
+                            guardReferences[symbol] = local;
+                    }
                 }
                 var condition = matches is null ? Bound() : OperandOf(Chosen(WylType.Bool, matches, Bound, () => IrConstant.Bool(false)));
-                Add(new IrIf(condition, Then(i, () => { }), Otherwise(i)) { Origin = at });
+                Add(new IrIf(condition, Then(i, () =>
+                {
+                    if (held is not null)
+                    {
+                        Add(new IrStore(new IrPlace(held), IrRead.Move(matched)) { Origin = at });
+                        useRoot(new IrPlace(held));
+                    }
+                    foreach (var binding in bindings.Where(b => b.Moves || held is not null && b.Reference != RefKind.None))
+                        Add(new IrStore(new IrPlace(locals[binding.Local]), BoundValue(binding)) { Origin = at });
+                }), Otherwise(i)) { Origin = at });
             });
             Add(scope);
         }
         From(0);
         reachable = completes;
+    }
+
+    /// <summary>A local holding the matched value a case moves into, declared in the case's block before its names.</summary>
+    IrLocal HeldValue(IrPlace matched)
+    {
+        var held = Temp(matched.Type);
+        Add(new IrDeclare(held) { Origin = at });
+        return held;
+    }
+
+    /// <summary>The reference local a name means in a guard, referring into the matched value the guard tests.</summary>
+    IrLocal GuardReference(Binding binding, RefKind kind, WylType type)
+    {
+        var reference = new IrLocal(binding.Local.Name, type, IrLocalKind.Reference, IrLocalRole.Variable) { RefKind = kind, Symbol = binding.Local };
+        Add(new IrDeclare(reference) { Origin = at });
+        Add(new IrStore(new IrPlace(reference), IrRead.Copy(new IrPlace(Let(new IrAddr(kind, binding.Place()))))) { Origin = at });
+        return reference;
     }
 
     /// <summary>The value is evaluated once, and a temporary one lives until the switch ends (spec statements.switch).</summary>
