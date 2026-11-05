@@ -62,14 +62,15 @@ to return on success uses `std`'s empty struct `Unit`: `Result<Unit, ReadError>`
 
 `try` returns the error through the enclosing function
 ([`try`](13-expressions.md#expressions.try)). The standard library's declaration of `Result` also
-gives methods that use a result or one of its values; its doc comments give them. A method that
+gives methods that use a result or one of its values; its doc comments describe them. A method that
 takes one of its values out takes its receiver by value
 ([By-value receivers](07-structs.md#structs.methods.by-value)).
 
 <a id="errors.unused"></a>
 ## 18.3 Unused results
 
-A call that returns a `Result` reports a failure the program should handle or choose to ignore.
+A function that returns a `Result` reports a failure that the program should handle or choose to
+ignore.
 
 - It is a compile-time error to call a function that returns a `Result` as a statement. The result
   is used, returned, or discarded with `_ = expr;`

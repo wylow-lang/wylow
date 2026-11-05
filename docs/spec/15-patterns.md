@@ -199,8 +199,8 @@ reference, and `ref var name` is a mutable one. A type may be written before the
   ([Second-class values](17-memory.md#memory.second-class), [References](17-memory.md#memory.references)).
 - `is ref` and `is in` test a `ref?` or `in?` reference: they are true when it refers to a place,
   and bind that place.
-- A case's whole pattern may bind its value by reference, as in `case in var whole`, and a field
-  pattern may bind a field, as in `case Pair(in var x, _)`.
+- A case may bind the whole matched value by reference, as in `case in var whole`, and a field
+  pattern may bind one of its fields by reference, as in `case Pair(in var x, _)`.
 - It is a compile-time error to use `is ref` or `is in` on a value that is not a nullable reference.
 - It is a compile-time error if the pattern's type is not the type the reference refers to.
 

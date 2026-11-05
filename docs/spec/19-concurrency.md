@@ -61,7 +61,7 @@ copyable ([Copyable types](04-types.md#types.copyable)).
   their type must be sendable and copyable ([Statics](06-variables.md#variables.statics)).
 - A **unique** sendable value is **moved**: it has one owner, so after it moves only the receiving
   thread has it, and its destructor, if it has one, runs on the thread that releases it. A unique
-  value may change when it is only read, as a borrow counter in what it owns does. A channel, a
+  value may change even when it is only read, as a borrow counter in what it owns does. A channel, a
   mutex, and a thread's argument and result move values, so they accept unique values too.
 - Moving a value to another thread panics if anything it owns is borrowed
   ([Borrows](17-memory.md#memory.borrows)): sending it over a channel, storing it in a mutex, or
@@ -140,8 +140,9 @@ nothing outside refers to any normal object in it. It is a unique struct
 `T`: moving it moves the whole graph to whoever receives it, and leaves nothing behind that could
 reach those objects.
 
-- Making one runs a non-escaping `shared fn() -> T` at once, on the current thread. Its result is
-  isolated. A sendable value is isolated already, and converts to `Isolated<T>` by being moved in.
+- Making one runs a non-escaping `shared fn() -> T` immediately, on the current thread. Its
+  result is isolated. A sendable value is isolated already, and converts to `Isolated<T>` by being
+  moved in.
 - `open` runs a non-escaping `shared fn(ref T) -> R` on the value, where `R` is sendable or `void`,
   and returns its result. The lambda's captures are sendable and copyable, so nothing of the
   thread's can get in, and its result is sendable, so nothing inside can get out; the graph is still
@@ -166,7 +167,7 @@ thread's, so everything it buffers belongs to the graph or was made during the c
 `take` adds the graph's buffer to the thread's.
 
 Code inside `open` cannot read the thread's own objects. Data built from the thread's objects is
-filled in ordinary code and moved in as a sendable value.
+assembled in ordinary code and moved in as a sendable value.
 
 <a id="concurrency.panics"></a>
 ## 19.6 Panics on threads
@@ -179,6 +180,6 @@ lock needs no poisoning.
 ## 19.7 Interleaving
 
 A program with threads may write its output in a different order from run to run, as threads are
-scheduled. That is the only way threads make a program's behavior vary: everything a thread does by
-itself is as deterministic as single-threaded code
+scheduled. That is the only way threads make a program's behavior vary between runs: everything a
+thread does by itself is as deterministic as single-threaded code
 ([Observable behavior](01-introduction.md#introduction.observable)).

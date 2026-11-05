@@ -41,8 +41,8 @@ a binding by value in a pattern ([Copies](07-structs.md#structs.copies),
 [Moving bindings](15-patterns.md#patterns.bindings.moves)). A move gives the destination the value's
 contents, and the source holds no value afterwards.
 
-- Only a whole local or by-value parameter, or a temporary, is moved. A field, an element, and what a
-  reference refers to are not moved out of. It is a compile-time error to use one by value if its
+- Only a whole local, a by-value parameter, or a temporary is moved. A field, an element, and what
+  a reference refers to are not moved out of. It is a compile-time error to use one by value if its
   type is not copyable. `replace`, `swap`, and `take` exchange what such a place holds
   ([`replace`, `swap`, and `take`](a-library.md#library.replace)).
 - It is a compile-time error to use a variable after its value is moved
@@ -50,10 +50,11 @@ contents, and the source holds no value afterwards.
 - A moved variable is not released. A unique local or parameter is released at the end of its
   scope only if it holds a value then, and assigning to a moved variable stores a value without
   releasing anything.
-- A unique operand is used in place, never copied at its turn: passed to an `in` parameter or used
-  as a receiver that is not taken by value, it is referred to as a `ref` argument is, so a call in
-  another operand sees and may change the same value: in `mix(buffer, next())`, `mix` sees what `next` left in `buffer`. A
-  unique operand moved into a by-value parameter is moved at its turn
+- A unique operand is used in place, never copied at its turn. When it is passed to an `in`
+  parameter or used as a receiver that is not taken by value, it is referred to the way a `ref`
+  argument is, so a call in another operand sees and may change the same value: in
+  `mix(buffer, next())`, `mix` sees what `next` left in `buffer`. A unique operand moved into a
+  by-value parameter is moved at its turn
   ([Evaluation order](13-expressions.md#expressions.order)).
 
 <a id="memory.objects"></a>
@@ -139,16 +140,16 @@ void main() {
 
 - The locals and parameters of a scope are released at its end, in the reverse of the order in
   which they were declared.
-- A class's object is destroyed starting at its own class. Each class in turn runs its destructor,
+- A class's object is destroyed starting with its own class. Each class in turn runs its destructor,
   releases the fields it declares in reverse order of declaration, and then the destructor of its
   base class runs ([Destructors](08-classes.md#classes.destructors)).
 - A struct releases its fields in reverse order of declaration, after its destructor if it has one
   ([Destructors](07-structs.md#structs.unique.destructors)).
 - An array, fixed (`T[N]`) or on the heap (`T[]`), releases its elements from the last to the
   first.
-- A closure releases the copies it captured in the order in which they are held, and a choice the
-  callables it holds in the order in which they are held.
-- A temporary follows [Temporaries](#memory.release.temporaries).
+- A closure releases the copies it captured in the order in which they are held, and a choice
+  releases the callables it holds in that order.
+- A temporary follows the rules of [Temporaries](#memory.release.temporaries).
 - Releasing a value that holds the last reference to an object destroys that object inside the
   release, so the stack holds one nested release for each object of a chain, and a long enough chain
   exhausts it ([Aborts](01-introduction.md#introduction.aborts)). A destructor that detaches the
@@ -203,7 +204,7 @@ runs only when the program calls it.
 - The collector never runs on its own: no allocation, release, or timer triggers it, and the
   program does not collect at the end of the run
   ([Running a program](03-programs.md#programs.execution)).
-- A thread other than the main one frees the cycles left in its buffer when it ends.
+- A thread other than the main one frees the cycles left in its buffer when that thread ends.
 - `memory::collectCycles()` frees every cycle that is unreachable.
   `memory::collectCycles(int maxVisits)` visits at most about `maxVisits` objects and leaves the
   rest for a later call; a negative number panics.
@@ -212,7 +213,7 @@ runs only when the program calls it.
   ([Implementation-defined behavior](01-introduction.md#introduction.implementation-defined)).
 - Each thread collects only its own objects. An isolated object graph has a buffer of its own
   ([Isolated object graphs](19-concurrency.md#concurrency.isolated)).
-- Collection is always safe: an object that code which runs can still reach is never freed, so an
+- Collection is always safe: an object that running code can still reach is never freed, so an
   object in use has a reference from outside any cycle it is in.
 
 <a id="memory.cycles.collected"></a>
@@ -248,8 +249,8 @@ A collection that frees a cycle does this, in order:
 1. Every weak reference to every object in the cycle is cleared.
 2. Every object's destructor runs, oldest object first, while all their fields are intact, so each
    destructor sees the rest of the cycle undestroyed. The destructors of every cycle that one call
-   frees interleave in this way. Among objects created 2^32 or more objects apart, the order is
-   fixed but may not be by age.
+   frees interleave in this way. For objects created 2^32 or more objects apart, the order is
+   fixed, but it may not follow age.
 3. The fields are released and the memory is freed. The standard library's containers release
    their elements here, with the fields, so their destructors run after every destructor of the
    cycle.
@@ -269,7 +270,7 @@ A debug build writes performance warnings to standard error
 - at the end of the run, about the cycles that were never freed, by class.
 
 Each warning is written once per program. A generic class is named with its type arguments where
-they are known. The text of a warning is informative.
+they are known. The exact wording of a warning is not specified.
 
 <a id="memory.references"></a>
 ## 17.7 References
@@ -376,10 +377,8 @@ void bump(ref? int value) {
 
 References, `ref struct`s (spans among them), and non-escaping functions are **second-class
 values**: each may point into storage it does not own, so it must not outlive that storage. A
-second-class value may be only:
-
-- a local variable or a parameter;
-- bound once, where it is declared, and never made to refer to or hold something else.
+second-class value may be only a local variable or a parameter, bound once where it is declared
+and never made to refer to or hold something else.
 
 - It is a compile-time error for a second-class value to be a field, a variant field, an array or
   container element, or a type argument.

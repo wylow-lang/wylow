@@ -111,8 +111,9 @@ statement's temporaries are declared in the statement's scope; a temporary of an
 not be evaluated is declared in that operand's block, so it is released when the operand completes.
 Today a by-value parameter's destruction point is ABI-dependent, which is why `wyl::keep` exists.
 In the IR, lowering passes every by-value argument of a copyable type as `copy %t`, where `%t`
-belongs to the statement's scope; one of a unique type is `move %local`, which the callee owns. That's the same guarantee, made explicit; `ReadsInPlace` passes `%t` itself
-where its release runs no code.
+belongs to the statement's scope; an argument of a unique type is `move %local`, which the callee
+owns. That is the same guarantee, made explicit; `ReadsInPlace` passes `%t` itself where its
+release runs no code.
 
 ## 4. Where it sits
 

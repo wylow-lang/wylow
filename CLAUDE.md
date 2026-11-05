@@ -71,6 +71,12 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
   a proposal), or is cut: never a bare "as in C++". Old text is source material: rewrite it and
   check its claims; never copy it over verbatim. A rule adopted partway through a session applies
   to everything written earlier in it.
+- **Write plain English.** Every sentence should mean what it says on the first read. Prefer a full
+  clause to an elliptical one: "It is a contextual keyword: it has this meaning only here", not
+  "The word is a word here only". Name the actor ("The compiler checks ...", not "The check is
+  asked"), avoid reversed constructions ("X makes the programmer responsible for Y", not "X makes
+  Y the programmer's responsibility"), and split a sentence that needs two colons. Terseness never
+  excuses ambiguity; the formal register stays.
 - **Examples are generic**: `Point`, `Node`, `Order`, `Parser`, `Buffer`, never game development.
   Wylow is general-purpose; no design is justified by what a game needs.
 - **Every feature gets tests** for its behavior and each error it can produce, its row or column in

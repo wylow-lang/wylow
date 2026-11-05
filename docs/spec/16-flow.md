@@ -10,7 +10,7 @@ what a constructor assigns and when a function returns a value.
 ## 16.1 Definite assignment
 
 A local variable declared without an initializer holds no value until an assignment gives it one. A
-parameter, and a local declared with an initializer, holds a value from its declaration.
+parameter and a local declared with an initializer hold a value from their declaration.
 
 - It is a compile-time error to use a local where it might not have been assigned: to read it, to
   call a method on it, to use a field or element of it, to take a `ref` or `in` reference to it, or
@@ -18,8 +18,9 @@ parameter, and a local declared with an initializer, holds a value from its decl
 
 The check follows every path through the program:
 
-- An assignment before a use on every path to it assigns the local. Where paths meet after an `if`
-  or a `switch`, the local is assigned only if it is assigned on every path into the meeting point.
+- An assignment assigns the local if it comes before the use on every path to that use. Where
+  paths meet after an `if` or a `switch`, the local is assigned only if it is assigned on every
+  path into the meeting point.
 - A `for` or `while` body may run no times, and each iteration is a path of its own: an assignment
   in a body does not assign the local after the loop, and an assignment in one iteration does not
   count in the next. A `loop` body runs at least once, and what follows the loop is reached only
@@ -27,8 +28,8 @@ The check follows every path through the program:
 - A `switch` runs exactly one case, so the local is assigned after it when it is assigned in every
   case.
 
-Declaring a local makes no value, so a struct's field initializers do not run for a local declared
-without an initializer. A fixed array local whose element type has a default value is the
+Declaring a local does not create a value, so a struct's field initializers do not run for a local
+declared without an initializer. A fixed array local whose element type has a default value is the
 exception: it holds its default value ([Default values](04-types.md#types.defaults)).
 
 **Example:**
@@ -231,7 +232,7 @@ its body.
   above does not apply to it ([Panics](18-errors.md#errors.panics)).
 
 A statement that can never run is allowed and does nothing. A statement can never run after a
-`return`, `break`, `continue`, or `panic(...)`, and where every path above it ends in one of these.
+`return`, `break`, `continue`, or `panic(...)`, or where every path above it ends in one of those.
 
 **Example:**
 

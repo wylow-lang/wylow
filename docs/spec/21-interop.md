@@ -75,8 +75,8 @@ There is no extern declaration of a C++ template or class. A native shim declare
 
 - Calling an extern function requires `unsafe` code, unless the declaration is marked `@Safe`.
 - `@Safe` is the programmer's promise that the function is safe for every argument its signature
-  permits. A `@Safe` function is called from safe code as any function is. Declaring an unsafe
-  function `@Safe` makes any undefined behavior that follows the programmer's responsibility.
+  permits. A `@Safe` function is called from safe code as any function is. Marking an unsafe
+  function `@Safe` makes the programmer responsible for any undefined behavior that follows.
 - Reading an extern constant needs no unsafe code.
 - An extern function's documentation gives, in its `# Safety` section, the conditions under which
   it may be called. Breaking one is undefined behavior
@@ -103,7 +103,7 @@ of a struct declared in an extern block.
 | A `@CCallback` function reference | A function pointer | yes |
 | A class reference, `List<T>`, `T[]`, `Span<T>`, `ref T`, an enum with data, a nullable value, `String` | — | no |
 
-It is a compile-time error to use a type that is not blittable where one of these places needs one.
+It is a compile-time error to use a type that is not blittable in one of these places.
 
 <a id="interop.blittable.layout"></a>
 ### 21.3.1 Layout checks

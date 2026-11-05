@@ -55,8 +55,8 @@ not nullable.
   to a pointer, and comparing needs no unsafe code.
 - `bitcast<T>(x)` returns a value of type `T` whose bits are those of `x`. It is a compile-time
   error if `T` and the type of `x` have different sizes. The result is a value of `T` only when
-  those bits are one, so `bitcast<Direction>(i)` converts a `@Repr` enum's value without the check
-  a cast makes ([Integer representations](09-enums.md#enums.repr)).
+  the bits are one of `T`'s valid representations, so `bitcast<Direction>(i)` converts a `@Repr`
+  enum's value without the check a cast makes ([Integer representations](09-enums.md#enums.repr)).
 
 It is undefined behavior to read or write through a pointer outside the storage it points into, or
 after that storage is gone or has moved.
@@ -94,9 +94,9 @@ arguments its documentation forbids is undefined behavior.
 ## 20.5 Sharing across threads
 
 Through pointers, unsafe code may give data to another thread without the rules of
-[Concurrency](19-concurrency.md#concurrency). Two threads accessing the same storage at the same
-time, at least one of them writing, without a synchronization type ordering the accesses, is
-undefined behavior.
+[Concurrency](19-concurrency.md#concurrency). It is undefined behavior for two threads to access
+the same storage at the same time, with at least one of them writing, unless a synchronization type
+orders the accesses.
 
 <a id="unsafe.undefined"></a>
 ## 20.6 Undefined behavior

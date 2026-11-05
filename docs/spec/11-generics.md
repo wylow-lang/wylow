@@ -139,7 +139,8 @@ properties the other bounds name.
 - It is a compile-time error if a type argument does not satisfy a bound of its parameter.
 
 A member of a generic type may add bounds to its type's type parameters with a **`where` clause**
-after its parameter list. The word is a word here only: everywhere else it is a name.
+after its parameter list. It is a contextual keyword: it has this meaning only here, and it is an
+ordinary identifier everywhere else.
 
 ```java
 struct Box<T> {
@@ -153,7 +154,7 @@ struct Box<T> {
 
 - A clause names a type parameter of the type the member belongs to. It is written like a type
   parameter's own bounds.
-- Inside the member, the parameter has the bounds: `copyable` makes its values copies, and an
+- Inside the member, the parameter has the bounds: `copyable` makes its values copyable, and an
   interface among them provides its methods.
 - At every use, the type's type arguments must satisfy the member's clause. It is a compile-time
   error if they do not.
@@ -161,8 +162,8 @@ struct Box<T> {
   interface, on a method that is `virtual`, `override`, or `abstract`, or on a method that
   implements an interface method: a call through the interface or the base class would not check
   the bound.
-- A clause is not part of a member's signature: two members of one name and parameter types
-  conflict whatever their clauses.
+- A clause is not part of a member's signature: two members with the same name and parameter
+  types conflict regardless of their clauses.
 
 **Example:**
 

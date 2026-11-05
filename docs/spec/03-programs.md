@@ -252,7 +252,7 @@ A declaration's **visibility** says where it may be used:
 Visibility applies alike to top-level declarations and to members. A member is visible only where
 its type is visible too: a `pub` method of a class marked `module` is visible in the class's module.
 A module and the modules below it see each other as any two modules do: a submodule sees its
-parent's `package` and `pub` names, not the ones it marks `module`.
+parent's `package` and `pub` names, but not its parent's `module` names.
 
 A type's members without a visibility are visible in the rest of the type's file, including in the
 file's other types. A subclass sees the members of its base class that its file sees, as any other
