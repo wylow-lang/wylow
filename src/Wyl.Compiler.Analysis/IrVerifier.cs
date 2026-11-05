@@ -325,7 +325,7 @@ public sealed partial class IrVerifier
                 return Block(block, state);
             case IrLet let:
                 Rvalue(let.Value, state, let.Local);
-                if (IsDeclaredHold(let.Local))
+                if (IsDeclaredHold(let.Local) || IsDeclaredGuard(let.Local))
                     Refill(let.Local, state);
                 else
                     Declare(let.Local, state, let);
@@ -410,7 +410,10 @@ public sealed partial class IrVerifier
     bool IsDeclaredHold(IrLocal local) =>
         local.Kind == IrLocalKind.Hold && declarations.TryGetValue(local, out var declaration) && declaration.Statement is IrDeclare;
 
-    /// <summary>A declared hold made again, as a loop's test does each time, lets go of what it held first.</summary>
+    bool IsDeclaredGuard(IrLocal local) =>
+        local.Kind == IrLocalKind.InUse && declarations.TryGetValue(local, out var declaration) && declaration.Statement is IrDeclare;
+
+    /// <summary>A declared hold or guard made again, as a loop's test does each time, lets go of what it held first.</summary>
     void Refill(IrLocal local, State state)
     {
         if (!Visible(local))

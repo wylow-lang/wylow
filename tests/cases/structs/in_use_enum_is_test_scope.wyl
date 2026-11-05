@@ -1,0 +1,27 @@
+// A reference binding in an 'is' test is in use until the statement that holds the test ends, so
+// replacing the enum after the 'if' does not panic.
+
+import std::{print, replace};
+
+unique struct Handle {
+    pub int id;
+
+    ~Handle() { }
+}
+
+unique enum Maybe {
+    None,
+    Some(Handle h);
+}
+
+void main() {
+    mut var maybe = Maybe.Some(Handle(id: 1));
+    if (maybe is Maybe.Some(in var h)) {
+        print(h.id);                // output: 1
+    }
+    var previous = replace(ref maybe, Maybe.None);
+    switch (previous) {
+        case Some(in var old) -> print(old.id);     // output: 1
+        case None -> print("none");
+    }
+}

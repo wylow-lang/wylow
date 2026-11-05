@@ -33,7 +33,8 @@ IrFunction  = symbol, parameters, location parameter?, captures (for lambdas), b
 Block       = statements; a local is scoped to the block that declares it
 Statement   = let x = Rvalue            declare and define a temporary or local
             | declare x                 declare a local stored later: a deferred local, a value out of
-                                        control flow, a slot, or an `is ref` name's hold
+                                        control flow, a slot, an `is ref` name's hold, or an in-use
+                                        guard whose binding's scope is an enclosing block
             | store Place = Operand     assign: store the new value, then release the old
             | do Rvalue                 evaluate for effect
             | check Condition @Loc      panic unless (bounds, null, no_match, ...)
@@ -58,7 +59,7 @@ Loc         = a source location constant | the function's location parameter
 Locals have a kind that the emitter maps to a C++ declaration: **value** (`T x`), **reference**
 (`T& x` for `ref`/`in`, `T* x` for `ref?`/`in?`), **borrowed** (`const T& x`, an alias of a place
 that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::pin`, or `wyl::Borrow<T>`
-from `wyl::borrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark<T>`, which
+from `wyl::borrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark`, which
 marks a value in use while it lives and restores the state before it). A local's **role** says
 where it lives: a variable, a temporary, a parameter, `this`, a capture, or a **static**, which
 belongs to `IrProgram.Statics` rather than to a function and lasts for the whole program.
@@ -108,7 +109,7 @@ Some notes on the choices:
 | `loop` whose head is `if !c break` with `c` nestable | `while (c)`, or `for (;; update)` when the update nests |
 | `loop` in general | `while (true) { ... }`. A `continue` that must skip to statements in the update block is `goto` to a label after the body's block, which skips no declaration |
 | `end %h` | `wyl::unhold(h)` / `slot.end()` |
-| `let %g = inuse P` | `wyl::InUseMark gN(P);` |
+| `let %g = inuse P` | `wyl::InUseMark gN(P);`, or `gN.begin(P);` when `declare %g` made `wyl::InUseMark gN;` first |
 | `end %g` on an in-use guard | `g.end()`, which restores the state the value had |
 | `discard x` | `x.wyl_discard()`, which keeps its fields for the scope to release |
 

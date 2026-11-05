@@ -23,11 +23,36 @@ static class InUse
     {
         if (function.Symbol is { IsDestructor: true, ContainingType.Kind: TypeKind.Struct } && function.This is { } self)
             function.Body.Statements.Insert(0, GuardLet(new IrPlace(self), function.Body));
-        Process(function.Body, function.Symbol);
+        Process(function.Body, function.Symbol, DeclaringBlocks(function.Body));
     }
 
+    static Dictionary<IrLocal, IrBlock> DeclaringBlocks(IrBlock body)
+    {
+        var blocks = new Dictionary<IrLocal, IrBlock>();
+        void Walk(IrBlock block)
+        {
+            foreach (var statement in block.Statements)
+            {
+                if (statement is IrDeclare declare)
+                    blocks[declare.Local] = block;
+                foreach (var inner in InnerBlocks(statement))
+                    Walk(inner);
+            }
+        }
+        Walk(body);
+        return blocks;
+    }
+
+    static IEnumerable<IrBlock> InnerBlocks(IrStatement statement) => statement switch
+    {
+        IrBlock block => [block],
+        IrIf conditional => conditional.Else is null ? [conditional.Then] : [conditional.Then, conditional.Else],
+        IrLoop loop => loop.Continue is null ? [loop.Body] : [loop.Body, loop.Continue],
+        _ => [],
+    };
+
     /// <summary>A guard for each value the statement uses in place, and for each reference it starts.</summary>
-    static void Process(IrBlock block, FunctionSymbol function)
+    static void Process(IrBlock block, FunctionSymbol function, Dictionary<IrLocal, IrBlock> declaredIn)
     {
         var statements = block.Statements.ToList();
         block.Statements.Clear();
@@ -38,7 +63,7 @@ static class InUse
         var endsAfter = new Dictionary<int, List<IrLocal>>();
         foreach (var (statement, index) in statements.Select((s, i) => (s, i)))
         {
-            ProcessNested(statement, function);
+            ProcessNested(statement, function, declaredIn);
             if (statement is IrLet { Value: IrRef reference } declared)
                 places[declared.Local] = reference.Place;
             else if (statement is IrLet { Value: IrAddr address } addressed)
@@ -59,11 +84,16 @@ static class InUse
             }
             if (Reference(statement, places) is { } referenced)
             {
+                IrBlock? scope = ReferenceIsStored(statement) && declaredIn.TryGetValue(referenced.Local, out var declaredInBlock) && declaredInBlock != block
+                    ? declaredInBlock
+                    : null;
                 foreach (var place in Guards(referenced.Place, function, forCall: false))
                 {
                     var guard = GuardLet(place, statement);
                     block.Statements.Add(guard);
-                    if (ReferenceIsStored(statement) && LastRead(statements, index, referenced.Local) is { } last)
+                    if (scope is not null)
+                        scope.Statements.Add(new IrDeclare(guard.Local) { Origin = statement.Origin });
+                    else if (ReferenceIsStored(statement) && LastRead(statements, index, referenced.Local) is { } last)
                         (endsAfter.TryGetValue(last, out var list) ? list : endsAfter[last] = []).Add(guard.Local);
                 }
             }
@@ -109,22 +139,22 @@ static class InUse
             .SelectMany(IrWalk.Places)
             .Any(place => place.Local == local);
 
-    static void ProcessNested(IrStatement statement, FunctionSymbol function)
+    static void ProcessNested(IrStatement statement, FunctionSymbol function, Dictionary<IrLocal, IrBlock> declaredIn)
     {
         switch (statement)
         {
             case IrBlock block:
-                Process(block, function);
+                Process(block, function, declaredIn);
                 break;
             case IrIf conditional:
-                Process(conditional.Then, function);
+                Process(conditional.Then, function, declaredIn);
                 if (conditional.Else is { } otherwise)
-                    Process(otherwise, function);
+                    Process(otherwise, function, declaredIn);
                 break;
             case IrLoop loop:
-                Process(loop.Body, function);
+                Process(loop.Body, function, declaredIn);
                 if (loop.Continue is { } next)
-                    Process(next, function);
+                    Process(next, function, declaredIn);
                 break;
         }
     }

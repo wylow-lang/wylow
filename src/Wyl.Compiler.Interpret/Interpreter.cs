@@ -220,10 +220,10 @@ public sealed partial class Interpreter : IObjectLifetime
         public HeapObject? Object { get; set; }
     }
 
-    /// <summary>A guard that marks a value in use until the local ends, restoring the state it had.</summary>
-    internal sealed class InUseStorage(Value value, bool previous) : Storage
+    /// <summary>A guard that marks a value in use until the local ends, restoring the state it had. A declared guard holds no value until its <c>let</c> makes it.</summary>
+    internal sealed class InUseStorage(Value? value, bool previous) : Storage
     {
-        public Value Value { get; } = value;
+        public Value? Value { get; } = value;
         public bool Previous { get; } = previous;
     }
 
@@ -282,8 +282,10 @@ public sealed partial class Interpreter : IObjectLifetime
                 case SlotStorage slot:
                     EndSlot(slot);
                     break;
-                case InUseStorage guard:
-                    SetInUse(guard.Value, guard.Previous);
+                case InUseStorage { Value: { } guarded } guard:
+                    SetInUse(guarded, guard.Previous);
+                    break;
+                case InUseStorage:
                     break;
             }
         }
@@ -421,6 +423,7 @@ public sealed partial class Interpreter : IObjectLifetime
             IrLocalKind.Reference => new RefStorage(null),
             IrLocalKind.Borrowed => throw new InterpreterException($"a borrowed local '{local.Name}' is declared without an alias"),
             IrLocalKind.Slot => new SlotStorage(),
+            IrLocalKind.InUse => new InUseStorage(null, false),
             _ => throw new InterpreterException($"unexpected local kind {local.Kind}"),
         };
         Declare(frame, local, declared);
@@ -454,9 +457,10 @@ public sealed partial class Interpreter : IObjectLifetime
             if (let.Value is not IrInUse inUse)
                 throw new InterpreterException($"the guard '{local.Name}' is defined by something other than an in-use mark");
             var guarded = PlaceCell(inUse.Place, frame).Value;
+            bool declaredBefore = frame.Locals.ContainsKey(local);
             frame.Locals[local] = new InUseStorage(guarded, GetInUse(guarded));
             SetInUse(guarded, true);
-            if (!declared.Contains(local))
+            if (!declaredBefore)
                 Declare(frame, local, declared);
             return;
         }

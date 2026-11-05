@@ -21,6 +21,8 @@ public sealed partial class CppEmitter
     int computedLambdas;
     /// <summary>The hold making each hold declared before it, which an <c>is ref</c> name's holder is.</summary>
     readonly Dictionary<IrLocal, IrHold> declaredHolds = [];
+    /// <summary>The in-use guards declared before the <c>let</c> that makes them, for a binding whose scope is an enclosing block.</summary>
+    readonly HashSet<IrLocal> declaredGuards = [];
 
     /// <summary>A lowered function's mem-initializer, if it is a class constructor calling its base's, and its body.</summary>
     void EmitIrFunction(IrFunction function)
@@ -39,10 +41,12 @@ public sealed partial class CppEmitter
         continueLabels.Clear();
         closureSlots.Clear();
         declaredHolds.Clear();
+        declaredGuards.Clear();
         var statements = IrWalk.Descendants(function.Body).ToList();
         var declared = statements.OfType<IrDeclare>().Select(d => d.Local).Where(l => l.Kind == IrLocalKind.Hold).ToHashSet();
         foreach (var let in statements.OfType<IrLet>().Where(l => declared.Contains(l.Local)))
             declaredHolds[let.Local] = (IrHold)let.Value;
+        declaredGuards.UnionWith(statements.OfType<IrDeclare>().Select(d => d.Local).Where(l => l.Kind == IrLocalKind.InUse));
         foreach (var closure in IrWalk.Descendants(function.Body).OfType<IrLet>().Select(l => l.Value).OfType<IrClosure>())
         {
             if (closure.Slot is { } slot)
@@ -86,7 +90,10 @@ public sealed partial class CppEmitter
         switch (statement)
         {
             case IrLet { Local.Kind: IrLocalKind.InUse } let:
-                Line($"wyl::InUseMark {Name(let.Local)}({PlaceText(((IrInUse)let.Value).Place)});");
+                var mark = PlaceText(((IrInUse)let.Value).Place);
+                Line(declaredGuards.Contains(let.Local)
+                    ? $"{Name(let.Local)}.begin({mark});"
+                    : $"wyl::InUseMark {Name(let.Local)}({mark});");
                 break;
             case var definition when DefinedBy(definition) is { } local:
                 Line(Declaration(local, InitializedText(local)));
@@ -118,6 +125,9 @@ public sealed partial class CppEmitter
             case IrDeclare { Local.Kind: IrLocalKind.Hold } declare:
                 var type = declare.Local.Type;
                 Line($"{(declaredHolds[declare.Local].Borrows ? $"std::optional<wyl::Borrow<{ObjectType(type)}>>" : CppType(type))} {Name(declare.Local)};");
+                break;
+            case IrDeclare { Local.Kind: IrLocalKind.InUse } declare:
+                Line($"wyl::InUseMark {Name(declare.Local)};");
                 break;
             case IrDeclare declare when plan.Evaluated.TryGetValue(declare.Local, out var evaluated):
                 Line($"auto {Name(declare.Local)} = [&] {{");

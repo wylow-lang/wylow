@@ -1,0 +1,24 @@
+// A reference binding in an 'is' test keeps the enum in use for the statement that holds the
+// test, so replacing the enum inside the 'if' panics.
+
+import std::{print, replace};
+
+unique struct Handle {
+    pub int id;
+
+    ~Handle() { }
+}
+
+unique enum Maybe {
+    None,
+    Some(Handle h);
+}
+
+void main() {
+    mut var maybe = Maybe.Some(Handle(id: 1));
+    if (maybe is Maybe.Some(in var h)) {
+        var previous = replace(ref maybe, Maybe.None);
+        // panic: cannot replace a value that is in use
+        print(h.id);
+    }
+}

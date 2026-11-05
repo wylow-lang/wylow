@@ -335,24 +335,42 @@ inline void set_in_use(T& value, bool on) {
 }
 
 // Marks a value in use while it lives, restoring the state the value had before.
-template <class T>
 class InUseMark {
-    T* value_;
-    bool previous_;
+    const void* value_ = nullptr;
+    bool previous_ = false;
+    void (*restore_)(const void*, bool) = nullptr;
 
 public:
-    explicit InUseMark(T& value) : value_(&value), previous_(get_in_use(value)) { set_in_use(value, true); }
-    explicit InUseMark(T* value) : value_(value), previous_(value != nullptr && get_in_use(*value)) {
-        if (value_ != nullptr) set_in_use(*value_, true);
-    }
+    InUseMark() = default;
+    template <class T>
+    explicit InUseMark(T& value) { begin(value); }
+    template <class T>
+    explicit InUseMark(T* value) { begin(value); }
     InUseMark(const InUseMark&) = delete;
     InUseMark& operator=(const InUseMark&) = delete;
     ~InUseMark() { end(); }
 
+    template <class T>
+    void begin(T& value) {
+        end();
+        value_ = &value;
+        previous_ = get_in_use(value);
+        restore_ = [](const void* p, bool before) {
+            set_in_use(*const_cast<T*>(static_cast<const T*>(p)), before);
+        };
+        set_in_use(value, true);
+    }
+
+    template <class T>
+    void begin(T* value) {
+        if (value != nullptr) begin(*value);
+    }
+
     void end() {
         if (value_ != nullptr) {
-            set_in_use(*value_, previous_);
+            restore_(value_, previous_);
             value_ = nullptr;
+            restore_ = nullptr;
         }
     }
 };
