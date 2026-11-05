@@ -34,6 +34,10 @@ extern method outside an extern struct is also `WYL0426`), `WYL0428`, `WYL0429`,
 extern struct in a program is also `WYL0427`), and `WYL0436` (it is about a file's bytes, and an
 example is text).
 
+Write the page as prose for a reader who is learning the rule, not as notes for the implementer.
+Give every sentence a subject and a full verb, and name the thing again rather than pointing at the
+previous sentence. The writing pass, and the rule behind it, are in `CLAUDE.md`.
+
 ## The primary message
 
 - **One statement of what is wrong**, about the code, in the present tense: `'x' is used after

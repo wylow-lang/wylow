@@ -54,7 +54,8 @@ easier: the language is young and churn is expected.
 Tell the user what was done (decisions, commits, spec and roadmap changes, anything decided
 without their explicit approval), what is open, and what's next with a recommendation. Then write
 the next session's kickoff prompt to `docs/handoff/` and commit it, so it survives on any machine.
-A handoff is deleted when its work is done; code and docs never cite one.
+Write the handoff in the same plain English as the docs it belongs to. The writing pass is in
+`CLAUDE.md`. A handoff is deleted when its work is done; code and docs never cite one.
 
 ## State and memory
 

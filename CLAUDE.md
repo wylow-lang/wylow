@@ -71,12 +71,23 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
   a proposal), or is cut: never a bare "as in C++". Old text is source material: rewrite it and
   check its claims; never copy it over verbatim. A rule adopted partway through a session applies
   to everything written earlier in it.
-- **Write plain English.** Every sentence should mean what it says on the first read. Prefer a full
-  clause to an elliptical one: "It is a contextual keyword: it has this meaning only here", not
-  "The word is a word here only". Name the actor ("The compiler checks ...", not "The check is
-  asked"), avoid reversed constructions ("X makes the programmer responsible for Y", not "X makes
-  Y the programmer's responsibility"), and split a sentence that needs two colons. Terseness never
-  excuses ambiguity; the formal register stays.
+- **Write prose a reader can read once.** This rule covers every sentence you write in every file:
+  the spec, decision records, handoffs, diagnostic pages, test-file comments, doc comments, and
+  commit bodies. Name the actor and keep the verb: "The compiler checks ...", not "The check is
+  asked". Avoid reversed constructions: write "X makes the programmer responsible for Y", not
+  "X makes Y the programmer's responsibility". Name the subject in each sentence, even when it
+  repeats the previous sentence's subject, and name the thing again instead of using "this", "that",
+  "it", or "which" for the previous sentence's idea. State a condition and its consequence as full
+  clauses: "If a struct is copied, no single owner exists to release it", not "A copied struct has
+  no single owner whose scope end could release it". Prefer a full clause to an elliptical one:
+  "It is a contextual keyword: it has this meaning only here", not "The word is a word here only".
+  Split a sentence that needs two colons or a semicolon. A bullet is still a sentence: give it a
+  subject and end it with a period. Terseness never excuses ambiguity. The formal register stays.
+- **The writing pass.** Before a docs change is done, read every sentence you added or rewrote with
+  the code out of sight. Rewrite any sentence that needs the next sentence, a second read, or a
+  referent you cannot point to. Do this before you run the tests. If you notice yourself compressing
+  because the rule is long or the code makes it obvious, stop, because that is when compression
+  happens.
 - **Examples are generic**: `Point`, `Node`, `Order`, `Parser`, `Buffer`, never game development.
   Wylow is general-purpose; no design is justified by what a game needs.
 - **Every feature gets tests** for its behavior and each error it can produce, its row or column in
