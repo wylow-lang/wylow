@@ -63,3 +63,7 @@ user decide before starting the migration.
   iteration as `patterns.bindings.moves` says; nothing observes it until destructors exist (step 4).
 - A `ref` guard binding into a value that the guard changes through another path is rejected by the
   verifier's dependency check, not by a rule of its own.
+- A reference binding into a value that may be replaced, one in an object or reached through a
+  `ref` or `in`, refers into it in place. `patterns.references` says a copyable value is copied into
+  a local first, so a program that writes the value while the binding is in use is rejected here
+  rather than accepted. The in-use bit of step 4 is where the two meet.
