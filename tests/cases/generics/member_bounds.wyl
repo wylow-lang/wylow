@@ -1,0 +1,21 @@
+// A member's where clause bounds its type's parameter for that member alone.
+
+import std::print;
+
+struct Holder<T> {
+    T value;
+
+    String show() where T extends Printable {
+        return value.toString();
+    }
+
+    T copy() where T extends copyable {
+        return value;
+    }
+}
+
+void main() {
+    var holder = Holder<int>(7);
+    print(holder.show());                // output: 7
+    print(holder.copy());                // output: 7
+}

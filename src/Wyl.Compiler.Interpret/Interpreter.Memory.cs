@@ -76,6 +76,13 @@ public sealed partial class Interpreter
                 Release(cell);
                 return null;
             }
+            case "moveOut":
+            {
+                var place = PointerAt(arguments[0]);
+                var cell = place.Buffer.Read(place.Index) ?? throw new UndefinedBehavior("moved storage that was never initialized");
+                place.Buffer.Write(place.Index, null);
+                return cell.Value;
+            }
             case "moveTo":
             {
                 int count = (int)(long)Integer(arguments[2]);

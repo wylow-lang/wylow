@@ -49,8 +49,8 @@ class Holder {
         return ref callback;
     }
 
-    ref Node first() {                  // error[WYL0409]: 'ref' cannot be used with type 'Node'
-        return ref node;
+    ref Node first() {
+        return ref node;                // error[WYL0408]: cannot bind 'ref' to read-only 'node'
     }
 
     virtual ref int sizeRef() {         // error[WYL0245]: methods returning 'ref' cannot be virtual or abstract

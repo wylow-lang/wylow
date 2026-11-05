@@ -240,7 +240,7 @@ void main() {
 
 ```ebnf
 Method     = { Annotation } [ Visibility ] { Modifier } ReturnType Identifier [ TypeParameters ]
-             "(" [ Parameters ] ")" ( Block | ";" ) .
+             "(" [ Parameters ] ")" [ WhereClause ] ( Block | ";" ) .
 Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
 ReturnType = [ ParameterMode ] Type .
 ```

@@ -27,7 +27,7 @@ struct Task {
     int balance;
 }
 
-class Bag<T> {
+class Bag<T extends copyable> {
     List<T> items = new List<T>();
 
     void add(T item) {

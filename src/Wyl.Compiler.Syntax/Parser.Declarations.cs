@@ -235,9 +235,10 @@ public sealed partial class Parser
             CheckMethodModifiers(kind, modifiers);
             var indexerName = LocationFrom(operatorStart);
             var indexerParameters = ParseParameterList(allowRefKinds: true);
+            var indexerWhere = ParseWhereClauses();
             var indexerBody = Accept(TokenKind.Semicolon) ? null : ParseBlock();
             AddMethod(kind, modifiers, members, new FunctionDecl(LocationFrom(start), modifiers.Flags, type, operatorName,
-                indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind, Visibility = modifiers.Visibility });
+                indexerName, [], indexerParameters, indexerBody) { ReturnRefKind = returnRefKind, Visibility = modifiers.Visibility, Where = indexerWhere });
             return;
         }
         if (At(TokenKind.ThisKeyword) && Peek(1).Kind == TokenKind.OpenBracket)
@@ -363,11 +364,37 @@ public sealed partial class Parser
         // A constructor is recognized only by its name and '(', so it has no type parameters.
         var typeParameters = ParseTypeParameters();
         var parameters = ParseParameterList(allowRefKinds: true);
+        var where = ParseWhereClauses();
         var body = Accept(TokenKind.Semicolon) ? null : ParseBlock();
         return new FunctionDecl(LocationFrom(start), modifiers.Flags, returnType, name.Text, Loc(name.Span), typeParameters, parameters, body)
         {
             Visibility = modifiers.Visibility,
+            Where = where,
         };
+    }
+
+    /// <summary>
+    /// A member's <c>where</c> clauses. The word is contextual, so a name stays usable: nothing
+    /// else may follow a parameter list but a body, a ';', or this.
+    /// </summary>
+    List<TypeBoundSyntax> ParseWhereClauses()
+    {
+        var clauses = new List<TypeBoundSyntax>();
+        if (!At(TokenKind.Identifier) || Current.Text != "where")
+            return clauses;
+        Advance();
+        do
+        {
+            int start = position;
+            var parameter = Expect(TokenKind.Identifier, "a type parameter name");
+            Expect(TokenKind.ExtendsKeyword, "'extends'");
+            var bounds = new List<TypeSyntax>();
+            do
+                bounds.Add(ParseType());
+            while (Accept(TokenKind.Ampersand));
+            clauses.Add(new TypeBoundSyntax(LocationFrom(start), parameter.Text, Loc(parameter.Span), bounds));
+        } while (Accept(TokenKind.Comma));
+        return clauses;
     }
 
     /// <summary>Function parameters, or with <paramref name="allowRefKinds"/> false, the fields of an enum variant.</summary>

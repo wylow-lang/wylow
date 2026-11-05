@@ -158,6 +158,14 @@ inline void drop(T* place) {
     place->~T();
 }
 
+// Moves the value at place out, leaving its storage uninitialized.
+template <class T>
+inline T moveOut(T* place) {
+    T value(std::move(*place));
+    place->~T();
+    return value;
+}
+
 // Moves count values into uninitialized storage, leaving the source uninitialized. The ranges may
 // overlap: every step constructs into storage that is outside the source or was just vacated.
 template <class T>

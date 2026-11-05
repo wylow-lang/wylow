@@ -11,6 +11,8 @@ parameter may have, and what the code of a generic declaration may do with a val
 ```ebnf
 TypeParameters = "<" TypeParameter { "," TypeParameter } ">" .
 TypeParameter  = Identifier [ "extends" Bound { "&" Bound } ] .
+WhereClause    = "where" BoundParameter { "," BoundParameter } .
+BoundParameter = Identifier "extends" Bound { "&" Bound } .
 Bound          = Type | "copyable" | "sendable" .
 ```
 
@@ -135,6 +137,32 @@ properties the other bounds name.
   bound names it. The words have this meaning in a bound only; elsewhere they are identifiers.
 - It is a compile-time error if a bound is a type other than an interface or one of the two words.
 - It is a compile-time error if a type argument does not satisfy a bound of its parameter.
+
+A member of a generic type may add bounds to its type's type parameters with a **`where` clause**
+after its parameter list. The word is a word here only: everywhere else it is a name.
+
+```java
+struct Box<T> {
+    T value;
+
+    T copy() where T extends copyable {
+        return value;
+    }
+}
+```
+
+- A clause names a type parameter of the type the member belongs to. It is written like a type
+  parameter's own bounds.
+- Inside the member, the parameter has the bounds: `copyable` makes its values copies, and an
+  interface among them provides its methods.
+- At every use, the type's type arguments must satisfy the member's clause. It is a compile-time
+  error if they do not.
+- It is a compile-time error to write a `where` clause on a free function, on a method of an
+  interface, on a method that is `virtual`, `override`, or `abstract`, or on a method that
+  implements an interface method: a call through the interface or the base class would not check
+  the bound.
+- A clause is not part of a member's signature: two members of one name and parameter types
+  conflict whatever their clauses.
 
 **Example:**
 

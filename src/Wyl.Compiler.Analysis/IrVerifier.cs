@@ -56,6 +56,10 @@ public sealed partial class IrVerifier
     readonly HashSet<(Location, string)> reportedViolations = [];
     readonly HashSet<LocalSymbol> reportedUnassigned = [];
     readonly HashSet<LocalSymbol> reportedMoved = [];
+    readonly HashSet<LocalSymbol> reportedCaptureMoves = [];
+
+    /// <summary>Locals the lambda being verified may not move: its captures, or what it refers to in place.</summary>
+    HashSet<IrLocal> capturedOutside = [];
 
     /// <summary>While a closure's captures are read, where its body uses the one being read, which an error about it is reported at.</summary>
     Location? captureOrigin;

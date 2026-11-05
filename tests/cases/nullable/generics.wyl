@@ -7,7 +7,7 @@ struct Score implements Comparable<Score> {
         this.points = points;
     }
 
-    pub int compareTo(Score other) {
+    pub int compareTo(in Score other) {
         return points - other.points;
     }
 }
@@ -21,7 +21,7 @@ class Node {
 }
 
 // `T?` is a nullable value or a nullable reference, whichever `T` stands for.
-T? first<T>(List<T> items) {
+T? first<T extends copyable>(List<T> items) {
     if (items.count() == 0) {
         return null;
     }
@@ -35,7 +35,7 @@ T orElse<T>(T? value, T fallback) {
     return fallback;
 }
 
-T? largest<T extends Comparable<T>>(List<T> items) {
+T? largest<T extends Comparable<T> & copyable>(List<T> items) {
     mut T? best = null;
     for (T item : items) {
         if (best == null || item.compareTo(best) > 0) {

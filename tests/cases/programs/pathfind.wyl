@@ -28,7 +28,7 @@ struct Scored<T> implements Ordered<Scored<T>> {
     }
 }
 
-final class Heap<T extends Ordered<T>> {
+final class Heap<T extends Ordered<T> & copyable> {
     int count() {
         return items.count();
     }

@@ -42,7 +42,7 @@ public sealed partial class IrLowering
     }
 
     /// <summary>The tests whose match moves the value they match, outside any lambda, which is lowered on its own.</summary>
-    static IEnumerable<BoundIs> MovingTests(BoundExpression? expression) => expression switch
+    IEnumerable<BoundIs> MovingTests(BoundExpression? expression) => expression switch
     {
         null or BoundLambda => [],
         BoundIs test when Patterns.Bindings(test.Pattern).Any(local => Moves(local.Type)) => [test],

@@ -22,8 +22,6 @@ static class MatrixTypes
         {
             foreach (var context in Contexts)
             {
-                if (row.Skips.Contains(context))
-                    continue;
                 var extra = row.Declarations.Length > 0 ? row.Declarations + "\n" : "";
                 var source = $"// matrix: types x contexts, cell: {row.Name}/{context}\n\n{Fixture}\n{extra}{Cell(row, context)}";
                 cells.Add(new MatrixCell($"{row.Name}/{context}", source));
@@ -53,11 +51,6 @@ static class MatrixTypes
         /// <summary>The modifier a struct declaration of the row's type needs: unique types hold a unique field.</summary>
         public string StructModifier => Unique ? "unique " : "";
 
-        /// <summary>
-        /// Contexts the row leaves out: generic code still copies a type parameter, so a unique type
-        /// argument is refused.
-        /// </summary>
-        public IReadOnlyList<string> Skips => Unique ? ["type-argument"] : [];
         /// <summary>
         /// A local holding the row's value. A local is written like a parameter, so a function type
         /// takes the row's parameter form; <paramref name="raw"/> is a value expression.
@@ -219,7 +212,20 @@ static class MatrixTypes
             case "type-argument":
                 main.Add(row.Declare("value", row.First));
                 main.Add($"Box<{row.Type}> box = Box<{row.Type}>(value);");
-                main.Add(row.Show("box.value"));
+                // A unique value moves into the box and back out through a pattern, since a field
+                // is read out only where its type is copyable.
+                if (row.Unique)
+                {
+                    main.Add("switch (box) {");
+                    main.Add($"case Box<{row.Type}>(var field) -> {{");
+                    main.Add(row.Show("field"));
+                    main.Add("}");
+                    main.Add("}");
+                }
+                else
+                {
+                    main.Add(row.Show("box.value"));
+                }
                 if (row.Nullable)
                 {
                     main.Add($"Box<{row.Type}> empty = Box<{row.Type}>(null);");

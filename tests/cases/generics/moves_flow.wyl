@@ -1,0 +1,10 @@
+// A moving binding of a type parameter leaves nothing behind.
+
+T twice<T>(T value) {
+    T copy = value;
+    return value;                    // error[WYL0440]: 'value' is used after being moved
+}
+
+void main() {
+    twice(1);
+}

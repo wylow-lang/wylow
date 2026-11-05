@@ -38,7 +38,7 @@ struct Mat2 {
         return ref at(0);               // error[WYL0412]: 'at(0)' might refer to nothing
     }
 
-    mut ref? Node node() {                  // error[WYL0409]: 'ref?' cannot be used with type 'Node'
+    mut ref? Node node() {
         return null;
     }
 }
@@ -55,7 +55,7 @@ void freeze(in? int x) {
     }
 }
 
-void link(ref? Node n) {                // error[WYL0409]: 'ref' cannot be used with type 'Node'
+void link(ref? Node n) {
 }
 
 void defaulted(ref? int x = 5) {        // error[WYL0079]: expected 'ref? int', found 'int'
@@ -83,7 +83,7 @@ void main() {
     ref float sure = m.at(0);           // error[WYL0412]: 'm.at(0)' might refer to nothing
     ref? float writable = m.peek(0);    // error[WYL0408]: cannot bind 'ref?' to what 'm.peek(0)' refers to, which is read-only
     ref? int temporary = 5;             // error[WYL0407]: 'ref?' variable must refer to a variable, field, or element
-    ref? Node node = null;              // error[WYL0409]: 'ref?' cannot be used with type 'Node'
+    ref? Node node = null;
     ref? var unknown = null;            // error[WYL0092]: cannot infer a type from 'null'
     print(m.at(0) ?? 1);                // error[WYL0313]: '??' cannot be applied to 'ref? float'
     print(id(m.at(0)));                 // error[WYL0413]: 'ref? float' cannot be a type argument

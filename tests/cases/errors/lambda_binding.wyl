@@ -62,7 +62,6 @@ void check() {
     int m = 5;
     m(1);                                           // error[WYL0299]: cannot call 'm' of non-function type 'int'
     bool n = inc == inc;                            // error[WYL0308]: operator '==' cannot be applied to 'fn(int) -> int' and 'fn(int) -> int'
-    fn(ref Widget) -> void o = w -> run(1);           // error[WYL0409]: 'ref' cannot be used with type 'Widget'
     fn() -> Span<int> p = () -> p();                  // error[WYL0077]: function type cannot return 'Span<int>'
     int q = 1;
     fn(int) -> int r = q -> q;                        // error[WYL0084]: 'q' is already defined in this scope

@@ -12,7 +12,7 @@ class Dog extends Animal { }
 class Car { }
 
 void take(Node n) { }
-void takeRef(ref Node n) { }            // error[WYL0409]: 'ref' cannot be used with type 'Node'
+void takeRef(ref Node n) { }
 
 void main() {
     var n = new Node();

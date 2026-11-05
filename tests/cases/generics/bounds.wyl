@@ -3,7 +3,7 @@ import std::print;
 struct Score implements Comparable<Score> {
     int points;
 
-    pub int compareTo(Score other) {
+    pub int compareTo(in Score other) {
         return points - other.points;
     }
 }
@@ -15,7 +15,7 @@ class Version implements Comparable<Version> {
         this.number = number;
     }
 
-    pub int compareTo(Version other) {
+    pub int compareTo(in Version other) {
         return number - other.number;
     }
 }
@@ -59,7 +59,7 @@ struct Pair<A extends Shape, B extends Shape> {
     }
 }
 
-class Box<T> {
+class Box<T extends copyable> {
     T value;
     mut Box<T>? next;
 
@@ -72,7 +72,7 @@ class Box<T> {
     }
 }
 
-class Labeled<T> extends Box<T> {
+class Labeled<T extends copyable> extends Box<T> {
     String label;
 
     Labeled(String label, T value) {

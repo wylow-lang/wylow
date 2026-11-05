@@ -79,3 +79,4 @@ history and a reason can be found without searching the spec.
 | [0049](0049-getting-a-unique-value-out.md) | Getting a unique value out: moving bindings, `move` methods, `replace`, and references on classes |
 | [0050](0050-by-value-receivers.md) | By-value receivers replace `move` methods |
 | [0051](0051-visibility-is-one-word.md) | Visibility is one word: `module`, `package`, or `pub` |
+| [0052](0052-member-bounds.md) | A member may bound its type's type parameters |

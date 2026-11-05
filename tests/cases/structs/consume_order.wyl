@@ -1,0 +1,39 @@
+// A failing try releases the statement's temporaries before the function's locals.
+
+import std::print;
+
+class Item {
+    String name;
+
+    Item(String name) {
+        this.name = name;
+    }
+
+    ~Item() {
+        print($"release {name}");
+    }
+}
+
+unique struct Buffer {
+    Item item;
+}
+
+Result<int, String> parse(String text) {
+    return Result.Err("bad");
+}
+
+int consume(Buffer buffer, int value) {
+    print($"consume {buffer.item.name}");
+    return value;
+}
+
+Result<int, String> run() {
+    var local = Buffer(new Item("local"));
+    return Result.Ok(consume(Buffer(new Item("temporary")), try parse("bad")));
+}
+
+void main() {
+    print(run() is Err);             // output: release temporary
+                                     // output: release local
+                                     // output: true
+}

@@ -85,7 +85,7 @@ struct Slots<T> {
     }
 }
 
-T orDefault<T>(in? T value, T fallback) {
+T orDefault<T extends copyable>(in? T value, T fallback) {
     if (value != null) {
         return value;
     }

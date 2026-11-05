@@ -30,7 +30,7 @@ void scale(Span<float> values, float factor) {
     }
 }
 
-T first<T>(ReadOnlySpan<T> values) {
+T first<T extends copyable>(ReadOnlySpan<T> values) {
     return values[0];
 }
 

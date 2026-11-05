@@ -12,7 +12,7 @@ public sealed partial class Interpreter
     delegate Value? IntrinsicHandler(Interpreter interpreter, IrCall call, string? location, Frame caller);
 
     static readonly string[] MemoryNames =
-        ["collectCycles", "takeCycleStats", "allocate", "free", "initialize", "initializeDefault", "drop", "moveTo"];
+        ["collectCycles", "takeCycleStats", "allocate", "free", "initialize", "initializeDefault", "drop", "moveTo", "moveOut"];
 
     static readonly string[] StringNames =
         ["byteLength", "isEmpty", "bytes", "charCount", "startsWith", "endsWith", "contains", "indexOf", "slice", "compareTo", "toString", "charAt", "nextChar"];

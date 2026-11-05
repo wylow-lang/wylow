@@ -81,7 +81,7 @@ String apply(fn() -> String f) {
     return f();
 }
 
-class Box<T> {
+class Box<T extends copyable> {
     T value;
     int count = trace("box field", 0);
 

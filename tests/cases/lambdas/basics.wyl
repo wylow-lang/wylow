@@ -51,7 +51,7 @@ int pick(fn(String) -> int f) {
 }
 
 // Type arguments are inferred from the other arguments, then give the lambda its types.
-void eachOf<T>(T[3] items, fn(T) -> void action) {
+void eachOf<T extends copyable>(T[3] items, fn(T) -> void action) {
     for (T item : items) {
         action(item);
     }

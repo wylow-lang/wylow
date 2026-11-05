@@ -580,9 +580,18 @@ public sealed partial class IrVerifier
             return;
         Place(read.Place, state, reads: true);
         var local = read.Place.Local;
-        // No source copies a value that is not copyable: lowering moves every one of them.
-        if (read.Ownership == IrOwnership.Copy && !read.Type.IsCopyable && !read.Type.ContainsTypeParameters)
+        // No source copies a value that is not copyable: lowering moves every one of them. A
+        // reference local's whole value is the reference itself, whose type is what it refers to.
+        bool copiesReference = local.Kind == IrLocalKind.Reference && !read.Place.IsDeref && read.Place.Projections.Count == 0;
+        if (read.Ownership == IrOwnership.Copy && !read.Type.IsCopyableIn(function.Symbol) && !copiesReference)
             Error($"a '{read.Type}' is copied, which is not copyable");
+        // A lambda may run more than once, so it never moves what it captures (spec functions.lambdas.captures).
+        if (read.Ownership == IrOwnership.Move && capturedOutside.Contains(local))
+        {
+            if (SourceOf(local) is { } captured && reportedCaptureMoves.Add(captured))
+                Violation(l => Catalog.LambdaMovesCapture(l, captured.Name));
+            return;
+        }
         if (read.Ownership != IrOwnership.Move)
             return;
         if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed)))
@@ -1027,6 +1036,8 @@ public sealed partial class IrVerifier
         // It may run any number of times, as a loop's body does.
         loopDepth++;
         scopes.Add([]);
+        var savedOutside = capturedOutside;
+        capturedOutside = [.. capturedOutside, .. declarations.Keys];
         var inner = state.Clone();
         inner.NonNull.RemoveWhere(l => !l.Type.IsNullableReference);
         foreach (var parameter in Entry(lambda))
@@ -1036,6 +1047,7 @@ public sealed partial class IrVerifier
             MissingReturn(lambda);
         scopes.RemoveAt(scopes.Count - 1);
         loopDepth--;
+        capturedOutside = savedOutside;
         (function, loops, current, narrowedOutside) = (savedFunction, savedLoops, savedCurrent, savedNarrowed);
         pendingMoves.Clear();
         pendingMoves.AddRange(savedMoves);
@@ -1050,7 +1062,10 @@ public sealed partial class IrVerifier
         var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList(), narrowedOutside, constructed);
         narrowedOutside = NarrowedAround(state);
         constructed = capturedThis;
+        var savedOutside = capturedOutside;
+        capturedOutside = [.. capturedOutside, .. lambda.Captures];
         VerifyFunction(lambda, root, capturedThis is null ? [] : state.AssignedFields);
+        capturedOutside = savedOutside;
         (function, loops, scopes, loopDepth, current, _, narrowedOutside, constructed) = saved;
         pendingMoves.Clear();
         pendingMoves.AddRange(saved.moves);

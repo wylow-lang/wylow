@@ -28,13 +28,24 @@ pub final class Array<T> implements Spannable<T> {
     ///
     /// If `length` is negative, or `length` elements are too large to address.
     @CallerLocation
-    pub Array(int length, T value) {
+    pub Array(int length, T value) where T extends copyable {
         unsafe {
-            data = memory::allocate<T>(length);
+            var storage = memory::allocate<T>(length);
             for (int i : 0..length) {
-                memory::initialize(data + i, value);
+                memory::initialize(storage + i, value);
             }
+            this.data = storage;
         }
+        this.length = length;
+    }
+
+    /// Makes an array of `length` elements whose storage is `data`.
+    ///
+    /// # Safety
+    ///
+    /// `data` must be uninitialized storage from `memory::allocate`, for `length` elements.
+    package unsafe Array(int length, T* data) {
+        this.data = data;
         this.length = length;
     }
 

@@ -59,11 +59,11 @@ void main() {
     print(numbers.tryRemoveAt(numbers.count() - 1));  // output: 7
     var stack = new List<String>();
     print(stack.removeLast());              // output: null
-    print(stack.first());                   // output: null
+    print(stack.first() == null);           // output: true
     stack.add("a");
     stack.add("b");
-    print(stack.first());                   // output: a
-    print(stack.last());                    // output: b
+    print(stack.first()!);                  // output: a
+    print(stack.last()!);                   // output: b
     print(stack.removeLast());              // output: b
     print(stack.removeLast());              // output: a
     print(stack.count());                   // output: 0

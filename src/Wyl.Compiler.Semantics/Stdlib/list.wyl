@@ -19,14 +19,24 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         return space;
     }
 
-    /// Returns a copy of the first element, or null if the list is empty.
-    pub T? first() {
-        return size == 0 ? null : this[0];
+    /// Returns a reference to the first element, or null if the list is empty.
+    pub ref? T first() {
+        if (size == 0) {
+            return null;
+        }
+        unsafe {
+            return ref data[0];
+        }
     }
 
-    /// Returns a copy of the last element, or null if the list is empty.
-    pub T? last() {
-        return size == 0 ? null : this[size - 1];
+    /// Returns a reference to the last element, or null if the list is empty.
+    pub ref? T last() {
+        if (size == 0) {
+            return null;
+        }
+        unsafe {
+            return ref data[size - 1];
+        }
     }
 
     /// Returns a reference to the element at `index`.
@@ -99,9 +109,8 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         checkNotBorrowed();
         panic::checkIndex(index, size);
         unsafe {
-            // A copy keeps the element alive, so no destructor runs while the list is rearranged.
-            T removed = data[index];
-            memory::drop(data + index);
+            // Moving the element out keeps it alive, so no destructor runs while the list is rearranged.
+            T removed = memory::moveOut(data + index);
             memory::moveTo(data + index + 1, data + index, size - index - 1);
             size--;
             return removed;

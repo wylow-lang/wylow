@@ -26,7 +26,7 @@ class Hooks {
 }
 
 // A lambda of generic type, `fn(T) -> void`, may be any `fn(X) -> void`.
-fn(T) -> void storer<T>(List<T> list, T value) {
+fn(T) -> void storer<T extends copyable>(List<T> list, T value) {
     return x -> {
         list[0] = value;
     };

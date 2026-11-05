@@ -77,7 +77,20 @@ public static partial class Catalog
         Make(at, $"cannot infer type argument '{parameter}' of '{function}' from a lambda")
             .Note("other overloads also take these arguments").Help($"specify it, as in '{function}<...>(...)'");
 
-    [Error(442, "generics.checking")]
-    public static Diagnostic UniqueTypeArgument(Location at, string type) =>
-        Make(at, $"'{type}' cannot be a type argument").Note("a value of a type parameter is copied, and a unique value cannot be copied");
+    [Error(453, "generics.bounds")]
+    public static Diagnostic PropertyNotSatisfied(Location at, string argument, string property, string parameter) =>
+        Make(at, $"'{argument}' is not '{property}'").Note($"type parameter '{parameter}' requires it");
+
+    [Error(454, "generics.bounds")]
+    public static Diagnostic WhereNotAllowed(Location at, string where, string? help = null) =>
+        help is null ? Make(at, $"a 'where' clause cannot {where}") : Make(at, $"a 'where' clause cannot {where}").Help(help);
+
+    [Error(455, "generics.bounds")]
+    public static Diagnostic WhereParameterUnknown(Location at, string name, string owner, bool declaredHere) =>
+        Make(at, $"'{name}' is not a type parameter of '{owner}'")
+            .Help(declaredHere ? $"put the bound on '{name}' where it is declared" : "a member can only bound its type's type parameters");
+
+    [Error(456, "generics.bounds")]
+    public static Diagnostic MemberBoundNotSatisfied(Location at, string argument, string bound, string member, bool property) =>
+        Make(at, property ? $"'{argument}' is not '{bound}'" : $"'{argument}' does not implement '{bound}'").Note($"'{member}' requires it");
 }

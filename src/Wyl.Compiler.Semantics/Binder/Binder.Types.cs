@@ -145,10 +145,7 @@ public sealed partial class Binder
     bool IsWeakConversion(WylType from, WylType to) =>
         stdlib.IsWeak(to) && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable)));
 
-    /// <summary>
-    /// A type argument must be storable, and a unique type cannot be one while generic code copies
-    /// a value of its type parameter.
-    /// </summary>
+    /// <summary>A type argument must be storable.</summary>
     bool CheckTypeArguments(IReadOnlyList<WylType> arguments, Location location)
     {
         bool ok = true;
@@ -156,11 +153,6 @@ public sealed partial class Binder
         {
             if (!CheckStorable(argument, location, "a type argument"))
                 ok = false;
-            else if (argument.IsUniqueType)
-            {
-                Error(Catalog.UniqueTypeArgument(location, argument.ToString()));
-                ok = false;
-            }
         }
         return ok;
     }
@@ -176,9 +168,13 @@ public sealed partial class Binder
     {
         foreach (var (argument, parameter, map, location) in boundChecks)
         {
+            if (argument == WylType.Error)
+                continue;
+            if (parameter.IsCopyableBound && !argument.IsCopyable)
+                Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "copyable", parameter.Name));
             foreach (var bound in parameter.Bounds.Select(map.Apply))
             {
-                if (argument != WylType.Error && !stdlib.SatisfiesBound(argument, bound))
+                if (!stdlib.SatisfiesBound(argument, bound))
                     Error(Catalog.BoundNotSatisfied(location, argument.ToString(), bound.ToString(), parameter.Name));
             }
         }

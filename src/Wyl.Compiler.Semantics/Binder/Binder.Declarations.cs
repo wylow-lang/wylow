@@ -29,6 +29,12 @@ public sealed partial class Binder
         {
             foreach (var boundSyntax in syntax[i].Bounds)
             {
+                // The word is a type property only in a bound, whatever a type of that name is (spec generics.bounds).
+                if (boundSyntax is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" })
+                {
+                    symbols[i].IsCopyableBound = true;
+                    continue;
+                }
                 var bound = BindType(boundSyntax, allowVoid: false);
                 if (bound == WylType.Error)
                     continue;
@@ -38,6 +44,76 @@ public sealed partial class Binder
                     symbols[i].Bounds.Add(bound);
             }
         }
+    }
+
+    /// <summary>
+    /// Binds a member's <c>where</c> clauses, which bound its type's type parameters for this
+    /// member alone (spec <c>generics.bounds</c>).
+    /// </summary>
+    void BindWhere(FunctionDecl decl, FunctionSymbol function, TypeSymbol owner)
+    {
+        if (decl.Where.Count == 0)
+            return;
+        if (owner.Kind == TypeKind.Interface)
+        {
+            Error(Catalog.WhereNotAllowed(decl.Where[0].Location, "be used on a method of an interface"));
+            return;
+        }
+        if (function.IsVirtual || function.IsOverride || function.IsAbstract)
+        {
+            var modifier = function.IsVirtual ? "virtual" : function.IsOverride ? "override" : "abstract";
+            Error(Catalog.WhereNotAllowed(decl.Where[0].Location, $"be used on an '{modifier}' method", "a call through the base class or interface could not check it"));
+            return;
+        }
+        foreach (var clause in decl.Where)
+        {
+            var parameter = owner.TypeParameters.FirstOrDefault(p => p.Name == clause.Parameter);
+            if (parameter is null)
+            {
+                bool own = function.TypeParameters.Any(p => p.Name == clause.Parameter);
+                Error(Catalog.WhereParameterUnknown(clause.ParameterLocation, clause.Parameter, owner.Name, own));
+                continue;
+            }
+            foreach (var boundSyntax in clause.Bounds)
+            {
+                if (boundSyntax is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" })
+                {
+                    function.CopyableParameters.Add(parameter);
+                    continue;
+                }
+                var bound = BindType(boundSyntax, allowVoid: false);
+                if (bound == WylType.Error)
+                    continue;
+                if (!bound.IsInterface || bound.IsNullable)
+                    Error(Catalog.NonInterfaceBound(boundSyntax.Location, bound.ToString()));
+                else
+                    function.MemberInterfaceBounds.Add(new MemberInterfaceBound(parameter, bound));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gives the body a member's <c>where</c> clause to check against, and returns how to take it
+    /// away again, since the type's parameters are shared with the type's other members.
+    /// </summary>
+    static Action ApplyMemberBounds(FunctionSymbol function)
+    {
+        var added = new List<(TypeParameterSymbol Parameter, WylType Bound)>();
+        foreach (var bound in function.MemberInterfaceBounds)
+        {
+            bound.Parameter.Bounds.Add(bound.Bound);
+            added.Add((bound.Parameter, bound.Bound));
+        }
+        var madeCopyable = function.CopyableParameters.Where(p => !p.IsCopyableBound).ToList();
+        foreach (var parameter in madeCopyable)
+            parameter.IsCopyableBound = true;
+        return () =>
+        {
+            foreach (var (parameter, bound) in added)
+                parameter.Bounds.Remove(bound);
+            foreach (var parameter in madeCopyable)
+                parameter.IsCopyableBound = false;
+        };
     }
 
     TypeSymbol? DeclareType(TypeDecl decl)
@@ -148,6 +224,8 @@ public sealed partial class Binder
         var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, []);
         typeParameters = ownTypeParameters;
         BindBounds(decl.TypeParameters, ownTypeParameters);
+        if (decl.Where.Count > 0)
+            Error(Catalog.WhereNotAllowed(decl.Where[0].Location, "bound a free function's type parameter", "put the bound where the type parameter is declared"));
         var parameters = BindParameters(decl.Parameters, out var receiver);
         if (receiver is not null)
             Error(Catalog.ReceiverOutsideValueMethod(decl.NameLocation));
@@ -316,6 +394,7 @@ public sealed partial class Binder
                     IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
                     PassesLocation = HasCallerLocation(decl),
                 };
+                BindWhere(decl, constructor, s);
                 if (FindSameSignature(s.Constructors, constructor) is { } existingConstructor)
                 {
                     Error(Catalog.DuplicateFunction(decl.NameLocation, "constructor", constructor.Signature, existingConstructor.Declaration?.NameLocation, DiffersOnlyInEscaping(constructor, existingConstructor) ? existingConstructor.Signature : null));
@@ -347,6 +426,7 @@ public sealed partial class Binder
                 BuiltinCppName = ExternName(decl, s),
                 IsPure = IsPure(decl),
             };
+            BindWhere(decl, method, s);
             if (receiver is not null)
                 CheckReceiver(method, s, receiverSyntax!, receiver);
             else
@@ -489,8 +569,8 @@ public sealed partial class Binder
             Error(Catalog.DispatchedReferenceReturn(location, keyword));
         else if (referenced == WylType.Void)
             Error(Catalog.VoidReferenceReturn(location, keyword));
-        else if (referenced.PassedWithoutCopying)
-            Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, (referenced.NonNull.IsFunction ? referenced.NonNull : referenced).ToString(), referenced.NonNull.IsFunction));
+        else if (referenced.NonNull.IsFunction)
+            Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, referenced.NonNull.ToString()));
     }
 
     /// <summary>

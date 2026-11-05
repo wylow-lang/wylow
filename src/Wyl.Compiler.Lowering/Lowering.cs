@@ -84,10 +84,10 @@ public sealed partial class IrLowering
 
     /// <summary>
     /// Whether a value of the type is moved where a copyable value is copied (spec <c>memory.moves</c>).
-    /// A type parameter's value is still copied, since an unbounded one does not say what it is
-    /// (spec <c>generics.checking</c>).
+    /// A type parameter's value moves unless a <c>copyable</c> bound, or the current member's
+    /// <c>where</c> clause, says it is copied (spec <c>generics.checking</c>, <c>generics.bounds</c>).
     /// </summary>
-    static bool Moves(WylType type) => type.IsUniqueType;
+    bool Moves(WylType type) => !type.IsCopyableIn(symbol);
 
     IrFunction Function(BoundFunction bound)
     {
@@ -279,7 +279,7 @@ public sealed partial class IrLowering
     }
 
     /// <summary>A whole local read by value: copied, or moved when its type is unique.</summary>
-    static IrRead ReadWhole(IrLocal local) => Moves(local.Type) ? IrRead.Move(new IrPlace(local)) : IrRead.Copy(new IrPlace(local));
+    IrRead ReadWhole(IrLocal local) => Moves(local.Type) ? IrRead.Move(new IrPlace(local)) : IrRead.Copy(new IrPlace(local));
 
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
     IrOperand OperandOf(IrRvalue value) => value switch

@@ -61,6 +61,7 @@ public sealed partial class Binder
         if (constructor is null)
             return null;
         CheckVisible(call.Location, constructor.Symbol.Reach, $"constructor '{constructor}'");
+        CheckMemberBounds(constructor, call.Location);
         if (!CheckUnsafeCall(call.Location, constructor) || !CheckDefaultValue(call.Location, called, constructor))
             return null;
         var converted = ConvertArguments(constructor, arguments);

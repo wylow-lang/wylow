@@ -84,6 +84,10 @@ exit 0
 out 3
 exit 0
 
+=== unique/type-argument
+out 3
+exit 0
+
 === unique/element
 out 3
 out 7

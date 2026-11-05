@@ -234,6 +234,15 @@ public sealed partial class CppEmitter
         return name;
     }
 
+    /// <summary>A name for a local of a symbol that already names one, without taking the symbol's name over.</summary>
+    string FreshLocalName(LocalSymbol local)
+    {
+        var name = "l_" + local.Name;
+        for (int i = 2; !local.IsParameter && !usedLocalNames.Add(name); i++)
+            name = $"l_{local.Name}_{i}";
+        return name;
+    }
+
     static string TemplatePrefix(IReadOnlyList<TypeParameterSymbol> parameters) => parameters.Count == 0
         ? ""
         : $"template <{string.Join(", ", parameters.Select(p => "class " + TypeParameterName(p)))}> ";

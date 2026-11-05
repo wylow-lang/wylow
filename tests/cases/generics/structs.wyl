@@ -1,6 +1,6 @@
 import std::print;
 
-struct Pair<A, B> {
+struct Pair<A extends copyable, B extends copyable> {
     A first;
     B second;
 
@@ -18,7 +18,7 @@ struct Pair<A, B> {
     }
 }
 
-struct Box<T> {
+struct Box<T extends copyable> {
     T value;
     int reads = 0;
 
@@ -40,7 +40,7 @@ struct Holder {
     Pair<int, Stats> pair;
 }
 
-Pair<B, A> flip<A, B>(Pair<A, B> p) {
+Pair<B, A> flip<A extends copyable, B extends copyable>(Pair<A, B> p) {
     return p.swapped();
 }
 

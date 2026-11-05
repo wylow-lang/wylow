@@ -348,6 +348,9 @@ public sealed partial class CppEmitter
         {
             { Role: IrLocalRole.Capture, Symbol: { } captured } => $"{LocalName(captured)}_{NewTemp()}",
             { Role: IrLocalRole.Capture } => $"wyl_this_{NewTemp()}",
+            // A name a guard moves from is a reference while the guard runs and a value when it
+            // matches, so its reference needs a C++ name of its own.
+            { Symbol: { } guarded, Kind: IrLocalKind.Borrowed or IrLocalKind.Reference } => FreshLocalName(guarded),
             { Symbol: { } symbol } => LocalName(symbol),
             _ => NewTemp(),
         };

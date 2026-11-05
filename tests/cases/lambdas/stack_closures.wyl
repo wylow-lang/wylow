@@ -107,7 +107,7 @@ void reassigned() {
 }
 
 // Generic code declares the slot with the type parameter.
-T twiceCalled<T>(T value) {
+T twiceCalled<T extends copyable>(T value) {
     escaping fn() -> T f = () -> value; // stack: 1
     f();
     return f();

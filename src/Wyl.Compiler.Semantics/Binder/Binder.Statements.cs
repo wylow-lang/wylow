@@ -24,9 +24,11 @@ public sealed partial class Binder
             scope.Add(parameter);
         }
 
+        var undo = ApplyMemberBounds(function);
         var body = function.IsConstructor
             ? BindConstructorBody(function)
             : BindBlock(function.Body!);
+        undo();
         CheckEscapingCaptures(body);
 
         currentFunction = null;
@@ -240,9 +242,9 @@ public sealed partial class Binder
     bool CheckReferencedType(WylType type, string keyword, Location location)
     {
         var target = type.Referred.NonNull;
-        if (!type.PassedWithoutCopying)
+        if (!target.IsFunction)
             return true;
-        Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, target.ToString(), target.IsFunction));
+        Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, target.ToString()));
         return false;
     }
 
@@ -358,7 +360,7 @@ public sealed partial class Binder
         else if (!s.IsRef)
             Error(Catalog.ReturnReferenceWithoutRef(s.Location, function.Name, returnType.IsNullableReference));
         // A return type that cannot be a reference was reported with the method.
-        else if (referenced.PassedWithoutCopying || referenced == WylType.Void)
+        else if (referenced.NonNull.IsFunction || referenced == WylType.Void)
             return new BoundReturn(s.Location, null);
         else if (place.Type != WylType.Error)
         {

@@ -242,7 +242,8 @@ that cannot be assigned. Like any object, an array is shared when its reference 
 
 `new T[n]` creates an array of `n` elements, each the default value of `T`
 ([Default values](#types.defaults)); it is the call `new Array<T>(n)`. `new Array<T>(n, value)` fills
-it with copies of `value`.
+it with copies of `value`, so it is a compile-time error if `T` is not copyable
+([Copyable types](#types.copyable)).
 
 - `new T[n]` panics if `n` is negative.
 - It is a compile-time error if `T` has no default value in `new T[n]` or `new Array<T>(n)`.

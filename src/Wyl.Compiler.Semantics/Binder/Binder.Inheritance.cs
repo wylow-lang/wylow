@@ -70,6 +70,8 @@ public sealed partial class Binder
                     Error(Catalog.StaticImplementation(location, implementing, description));
                 else if (implementation.Symbol.HasByValueReceiver)
                     Error(Catalog.ReceiverImplementation(location, implementing));
+                else if (implementation.Symbol.HasMemberBounds)
+                    Error(Catalog.WhereNotAllowed(location, "be used on a method that implements an interface method", "a call through the interface cannot check the bound"));
                 else if (implementation.Symbol.Declaration!.Visibility != iface.Symbol.Declaration.Visibility)
                     Error(Catalog.ImplementationVisibility(location, implementing, description, iface.Symbol.Declaration.Visibility, iface.Symbol.Name));
                 else if (!HasSameTypes(implementation, required))

@@ -47,7 +47,7 @@ pub extern struct String implements Comparable<String>, Printable {
     /// Returns -1, 0, or 1 as this string sorts before, the same as, or after `other`: by byte,
     /// which for UTF-8 is the order of the code points.
     @Pure
-    pub extern int compareTo(String other);
+    pub extern int compareTo(in String other);
 
     /// Returns the string itself.
     @Pure

@@ -77,7 +77,8 @@ struct Point {
 ## 7.3 Constructors
 
 ```ebnf
-StructConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")" Block .
+StructConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")"
+                    [ WhereClause ] Block .
 ```
 
 A struct value is made by calling a constructor, written as a call to the struct's name: `Point(1, 2)`,

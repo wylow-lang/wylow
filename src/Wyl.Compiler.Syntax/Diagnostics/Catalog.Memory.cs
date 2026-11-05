@@ -33,9 +33,8 @@ public static partial class Catalog
             .Because(reason).Help($"bind with 'in{suffix}'");
 
     [Error(409, "memory.references")]
-    public static Diagnostic ReferenceToPassedWithoutCopying(Location at, string keyword, string type, bool isFunction) =>
-        Make(at, $"'{keyword}' cannot be used with type '{type}'")
-            .Note(isFunction ? "functions are already passed without copying" : "class objects are already references");
+    public static Diagnostic ReferenceToPassedWithoutCopying(Location at, string keyword, string type) =>
+        Make(at, $"'{keyword}' cannot be used with type '{type}'").Note("functions are already passed without copying");
 
     [Error(410, "memory.references")]
     public static Diagnostic ReferenceToNullableVariable(Location at, string what, string name) =>

@@ -6,24 +6,24 @@ pub enum Result<T, E> {
     Err(E error);
 
     /// Returns the value, or `fallback` if this is an error.
-    pub T orElse(T fallback) {
-        return switch (this) {
+    pub T orElse(this Result<T, E> result, T fallback) {
+        return switch (result) {
             case Ok(var value) -> value;
             case Err -> fallback;
         };
     }
 
     /// Returns the value that `f` makes of this value, or the same error.
-    pub Result<U, E> map<U>(fn(T) -> U f) {
-        return switch (this) {
+    pub Result<U, E> map<U>(this Result<T, E> result, fn(T) -> U f) {
+        return switch (result) {
             case Ok(var value) -> Result.Ok(f(value));
             case Err(var error) -> Result.Err(error);
         };
     }
 
     /// Returns the same value, or the error that `f` makes of this error.
-    pub Result<T, F> mapErr<F>(fn(E) -> F f) {
-        return switch (this) {
+    pub Result<T, F> mapErr<F>(this Result<T, E> result, fn(E) -> F f) {
+        return switch (result) {
             case Ok(var value) -> Result.Ok(value);
             case Err(var error) -> Result.Err(f(error));
         };
@@ -35,8 +35,8 @@ pub enum Result<T, E> {
     ///
     /// With `message`, if this is an error.
     @CallerLocation
-    pub T orPanic(String message) {
-        return switch (this) {
+    pub T orPanic(this Result<T, E> result, String message) {
+        return switch (result) {
             case Ok(var value) -> value;
             case Err -> panic(message);
         };

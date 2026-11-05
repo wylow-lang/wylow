@@ -332,4 +332,8 @@ public static partial class Catalog
     [Error(100, "structs.constructors.memberwise")]
     public static Diagnostic MissingFieldValue(Location at, string type, string field, string fieldType) =>
         Make(at, $"'{type}' needs a value for field '{field}'").Note($"its type '{fieldType}' has no default value");
+
+    [Error(457, "functions.lambdas.captures")]
+    public static Diagnostic LambdaMovesCapture(Location at, string name) =>
+        Make(at, $"cannot move '{name}', which a lambda captures").Note("the lambda may run more than once");
 }

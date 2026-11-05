@@ -13,7 +13,7 @@ class Tracked {
 }
 
 // A growable stack built on raw memory, the way the standard library's containers are.
-class Stack<T> {
+class Stack<T extends copyable> {
     mut T* data;
     mut int size;
     mut int capacity;

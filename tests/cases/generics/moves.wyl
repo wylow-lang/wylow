@@ -1,0 +1,23 @@
+// An unbounded type parameter moves, so generic code works for a unique type argument.
+
+import std::print;
+
+unique struct Buffer {
+    pub int length;
+}
+
+T identity<T>(T value) {
+    return value;
+}
+
+T take<T>(T value) {
+    T moved = value;
+    return moved;
+}
+
+void main() {
+    var buffer = take(Buffer(3));
+    print(buffer.length);            // output: 3
+    print(identity(4));              // output: 4
+    print(identity("text"));         // output: text
+}

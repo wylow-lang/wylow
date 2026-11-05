@@ -288,7 +288,9 @@ public sealed partial class Binder
         // Through a reference, the member is reached in the place it refers to, not in a copy.
         if (receiver.Type is NullableReferenceType reference)
         {
-            return (receiver, new LocalSymbol(TextOf(e.Target.Location), reference, isParameter: false, reference.Kind)
+            // A temporary's name is never written, so it takes the one the other branch gives it
+            // rather than the target's text, which can be any expression.
+            return (receiver, new LocalSymbol("value", reference, isParameter: false, reference.Kind)
             {
                 IsTemporary = true,
                 IsReferenceBinding = true,
@@ -337,6 +339,31 @@ public sealed partial class Binder
         return ErrorExpression(Catalog.ConditionalNotNullable(location, access.Type.ToString()));
     }
 
+    /// <summary>
+    /// Checks a member's <c>where</c> clause against the type arguments its type is used with at
+    /// this call (spec <c>generics.bounds</c>).
+    /// </summary>
+    void CheckMemberBounds(MethodReference method, Location location)
+    {
+        var symbol = method.Symbol;
+        if (!symbol.HasMemberBounds || method.Owner is not { } owner)
+            return;
+        var member = symbol.IsConstructor ? symbol.Signature : $"{symbol.ContainingType?.Name}.{symbol.Signature}";
+        foreach (var parameter in symbol.CopyableParameters)
+        {
+            var argument = method.Map.Apply(parameter.Type);
+            if (argument != WylType.Error && !argument.IsCopyable)
+                Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), "copyable", member, property: true));
+        }
+        foreach (var bound in symbol.MemberInterfaceBounds)
+        {
+            var argument = method.Map.Apply(bound.Parameter.Type);
+            var required = method.Map.Apply(bound.Bound);
+            if (argument != WylType.Error && !stdlib.SatisfiesBound(argument, required))
+                Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), required.ToString(), member, property: false));
+        }
+    }
+
     BoundExpression MakeCall(Location location, MethodReference method, BoundExpression? receiver, List<Argument> arguments, bool isSuperCall = false)
     {
         if (receiver is not null && !CheckMutReceiver(location, method, receiver))
@@ -346,6 +373,7 @@ public sealed partial class Binder
         if (IsBorrowHook(method.Symbol))
             return ErrorExpression(Catalog.BorrowHookCall(location, method.Symbol.Name));
         QueueBoundChecks(method.Symbol.TypeParameters, method.TypeArguments, location);
+        CheckMemberBounds(method, location);
         return new BoundCall(location, method, receiver, ConvertArguments(method, arguments), isSuperCall);
     }
 
@@ -438,6 +466,7 @@ public sealed partial class Binder
         if (constructor is null)
             return new BoundErrorExpression(location);
         CheckVisible(location, constructor.Symbol.Reach, $"constructor '{constructor}'");
+        CheckMemberBounds(constructor, location);
         if (!CheckArrayElementsDefaultable(typeLocation, type, constructor) || !CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
         return new BoundNew(location, type, constructor, ConvertArguments(constructor, arguments));
@@ -453,6 +482,7 @@ public sealed partial class Binder
         if (constructor is null)
             return new BoundErrorExpression(location);
         CheckVisible(location, constructor.Symbol.Reach, $"constructor '{constructor}'");
+        CheckMemberBounds(constructor, location);
         if (!CheckUnsafeCall(location, constructor))
             return new BoundErrorExpression(location);
 

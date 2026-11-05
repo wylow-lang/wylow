@@ -176,7 +176,8 @@ void main() {
 ## 8.6 Constructors
 
 ```ebnf
-ClassConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")" Block .
+ClassConstructor = { Annotation } [ Visibility ] [ "unsafe" ] Identifier "(" [ Parameters ] ")"
+                   [ WhereClause ] Block .
 ```
 
 A constructor has the name of the class. It is not inherited, and has none of the modifiers of a

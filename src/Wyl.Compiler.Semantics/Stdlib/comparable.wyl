@@ -2,5 +2,5 @@
 pub interface Comparable<T> {
     /// Returns a negative number, zero, or a positive number as this value sorts before, the same
     /// as, or after `other`.
-    int compareTo(T other);
+    int compareTo(in T other);
 }

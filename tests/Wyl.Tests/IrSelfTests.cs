@@ -507,7 +507,8 @@ static partial class IrSelfTests
             var alias = b.Local("x", WylType.Int, IrLocalKind.Borrowed);
             return b.Function(name, [o, r, v],
                 new IrLet(alias, Use(IrRead.Borrow(IrPlace.Deref(o).Field(x)))) { Origin = null },
-                new IrStore(IrPlace.Deref(r), IrRead.Copy(new IrPlace(v))) { Origin = null },
+                // The value moves, since a type parameter's value has no copies.
+                new IrStore(IrPlace.Deref(r), IrRead.Move(new IrPlace(v))) { Origin = null },
                 new IrDo(b.Call("use", IrRead.Copy(new IrPlace(alias)))) { Origin = null });
         }
         yield return new("borrowed_local_unrelated_write", () => WrittenThrough("borrowed_local_unrelated_write", WylType.Float));

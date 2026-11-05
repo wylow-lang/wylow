@@ -1,0 +1,19 @@
+// A list holds unique elements: a reference reads one, and removing moves it out.
+
+import std::{List, print};
+
+unique struct Buffer {
+    pub int length;
+}
+
+void main() {
+    var list = new List<Buffer>();
+    list.add(Buffer(1));
+    list.add(Buffer(2));
+    print(list.first()!.length);         // output: 1
+    print(list.last()!.length);          // output: 2
+    print(list.get(5) == null);          // output: true
+    var removed = list.removeAt(0);
+    print(removed.length);               // output: 1
+    print(list.count());                 // output: 1
+}

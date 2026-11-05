@@ -4,7 +4,7 @@ T identity<T>(T value) {
     return value;
 }
 
-void swap<T>(ref T a, ref T b) {
+void swap<T extends copyable>(ref T a, ref T b) {
     T t = a;
     a = b;
     b = t;
@@ -24,7 +24,7 @@ T describe<T>(T x) {
     return x;
 }
 
-T middle<T>(T[3] items) {
+T middle<T extends copyable>(T[3] items) {
     return items[1];
 }
 

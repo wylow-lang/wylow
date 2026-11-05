@@ -1,0 +1,31 @@
+// A member's 'where' clause bounds its type's parameter for that member alone.
+
+unique struct Buffer {
+    pub int length;
+}
+
+T firstCopy<T extends copyable>(T value) {
+    return value;
+}
+
+void show<T>(T value) where T extends copyable {     // error[WYL0454]: a 'where' clause cannot bound a free function's type parameter
+}
+
+struct Pair<A> {
+    A first;
+
+    A copy() where B extends copyable {              // error[WYL0455]: 'B' is not a type parameter of 'Pair'
+        return first;
+    }
+}
+
+struct Box<T extends copyable> {
+    T value;
+}
+
+void main() {
+    var buffer = Buffer(2);
+    var copy = firstCopy(buffer);                    // error[WYL0453]: 'Buffer' is not 'copyable'
+    var array = new Array<Buffer>(2, buffer);        // error[WYL0456]: 'Buffer' is not 'copyable'
+    var box = Box<Buffer>(Buffer(3));                // error[WYL0453]: 'Buffer' is not 'copyable'
+}

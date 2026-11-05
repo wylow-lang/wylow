@@ -33,10 +33,10 @@ public sealed partial class Binder
 
     bool CheckParameterMode(RefKind refKind, WylType type, Location location)
     {
-        if (refKind == RefKind.None || !type.PassedWithoutCopying)
+        if (refKind == RefKind.None || !type.Referred.NonNull.IsFunction)
             return true;
         var target = type.Referred.NonNull;
-        Error(Catalog.ReferenceToPassedWithoutCopying(location, FunctionSymbol.RefPrefix(refKind).Trim(), target.ToString(), target.IsFunction));
+        Error(Catalog.ReferenceToPassedWithoutCopying(location, FunctionSymbol.RefPrefix(refKind).Trim(), target.ToString()));
         return false;
     }
 

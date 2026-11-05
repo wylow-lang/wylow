@@ -1,0 +1,9 @@
+// A lambda may run more than once, so it never moves a value it captures.
+
+fn() -> T picked<T>(T value) {
+    return () -> value;                  // error[WYL0457]: cannot move 'value', which a lambda captures
+}
+
+void main() {
+    var f = picked(5);
+}

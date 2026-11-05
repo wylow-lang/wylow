@@ -14,7 +14,7 @@ pub extern struct char implements Comparable<char>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, by code
     /// point.
     @Pure
-    pub extern int compareTo(char other);
+    pub extern int compareTo(in char other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -25,7 +25,7 @@ pub extern struct char implements Comparable<char>, Printable {
 pub extern struct sbyte implements Comparable<sbyte>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(sbyte other);
+    pub extern int compareTo(in sbyte other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -36,7 +36,7 @@ pub extern struct sbyte implements Comparable<sbyte>, Printable {
 pub extern struct byte implements Comparable<byte>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(byte other);
+    pub extern int compareTo(in byte other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -47,7 +47,7 @@ pub extern struct byte implements Comparable<byte>, Printable {
 pub extern struct short implements Comparable<short>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(short other);
+    pub extern int compareTo(in short other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -58,7 +58,7 @@ pub extern struct short implements Comparable<short>, Printable {
 pub extern struct ushort implements Comparable<ushort>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(ushort other);
+    pub extern int compareTo(in ushort other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -69,7 +69,7 @@ pub extern struct ushort implements Comparable<ushort>, Printable {
 pub extern struct int implements Comparable<int>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(int other);
+    pub extern int compareTo(in int other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -80,7 +80,7 @@ pub extern struct int implements Comparable<int>, Printable {
 pub extern struct uint implements Comparable<uint>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(uint other);
+    pub extern int compareTo(in uint other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -91,7 +91,7 @@ pub extern struct uint implements Comparable<uint>, Printable {
 pub extern struct long implements Comparable<long>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(long other);
+    pub extern int compareTo(in long other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -102,7 +102,7 @@ pub extern struct long implements Comparable<long>, Printable {
 pub extern struct ulong implements Comparable<ulong>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(ulong other);
+    pub extern int compareTo(in ulong other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -113,7 +113,7 @@ pub extern struct ulong implements Comparable<ulong>, Printable {
 pub extern struct nint implements Comparable<nint>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(nint other);
+    pub extern int compareTo(in nint other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -124,7 +124,7 @@ pub extern struct nint implements Comparable<nint>, Printable {
 pub extern struct nuint implements Comparable<nuint>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
-    pub extern int compareTo(nuint other);
+    pub extern int compareTo(in nuint other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -137,7 +137,7 @@ pub extern struct float implements Comparable<float>, Printable {
     /// total order: -0 sorts before 0, and NaN after every other value, infinity included, and the
     /// same as any other NaN.
     @Pure
-    pub extern int compareTo(float other);
+    pub extern int compareTo(in float other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure
@@ -149,7 +149,7 @@ pub extern struct double implements Comparable<double>, Printable {
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in the
     /// same total order as `float`'s.
     @Pure
-    pub extern int compareTo(double other);
+    pub extern int compareTo(in double other);
 
     /// Returns the value as text, as interpolation writes it.
     @Pure

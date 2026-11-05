@@ -124,7 +124,14 @@ public sealed record FunctionDecl(
 
     /// <summary>For <c>ref T name(...)</c> or <c>in T name(...)</c>, which return a reference.</summary>
     public RefKind ReturnRefKind { get; init; }
+
+    /// <summary>The <c>where</c> clauses of a member, which bound its type's type parameters (spec <c>generics.bounds</c>).</summary>
+    public IReadOnlyList<TypeBoundSyntax> Where { get; init; } = [];
 }
+
+/// <summary>A <c>where T extends Bound &amp; Bound</c> clause of a member.</summary>
+public sealed record TypeBoundSyntax(Location Location, string Parameter, Location ParameterLocation, IReadOnlyList<TypeSyntax> Bounds)
+    : Node(Location);
 
 public sealed record DestructorDecl(Location Location, Location NameLocation, BlockStmt Body) : Node(Location);
 

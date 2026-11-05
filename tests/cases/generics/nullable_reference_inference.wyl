@@ -2,7 +2,7 @@
 
 import std::print;
 
-T pick<T>(ref? T r, fn() -> T make) {
+T pick<T extends copyable>(ref? T r, fn() -> T make) {
     if (r is ref T value) {
         return value;
     }

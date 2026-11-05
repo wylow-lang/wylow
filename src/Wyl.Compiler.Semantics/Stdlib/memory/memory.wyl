@@ -42,6 +42,13 @@ package unsafe extern void initializeDefault<T>(T* data, int count);
 /// `place` must hold a value.
 pub unsafe extern void drop<T>(T* place);
 
+/// Moves the value at `place` out, leaving its storage uninitialized.
+///
+/// # Safety
+///
+/// `place` must hold a value.
+pub unsafe extern T moveOut<T>(T* place);
+
 /// Moves the `count` values at `from` into the uninitialized storage at `to`, leaving the source
 /// uninitialized. The two ranges may overlap.
 ///

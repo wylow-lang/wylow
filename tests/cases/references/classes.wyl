@@ -1,0 +1,53 @@
+// A reference may refer to the variable that holds a class reference, or an interface's.
+
+import std::print;
+
+interface Named {
+    String name();
+}
+
+class Tag implements Named {
+    String label;
+
+    Tag(String label) {
+        this.label = label;
+    }
+
+    String name() {
+        return label;
+    }
+}
+
+class Node {
+    mut int value;
+
+    Node(int value) {
+        this.value = value;
+    }
+}
+
+void replace(ref Node target, Node value) {
+    target = value;
+}
+
+void bump(in Node node) {
+    print(node.value);
+}
+
+String describe(in Named named) {
+    return named.name();
+}
+
+void main() {
+    mut var first = new Node(1);
+    ref Node alias = first;
+    alias = new Node(2);
+    print(first.value);              // output: 2
+
+    replace(ref first, new Node(3));
+    print(first.value);              // output: 3
+    bump(first);                     // output: 3
+
+    var tag = new Tag("tag");
+    print(describe(tag));            // output: tag
+}

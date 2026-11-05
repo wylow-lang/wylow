@@ -44,7 +44,7 @@ void main() {
     ref int five = 5;               // error[WYL0407]: 'ref' variable must refer to a variable, field, or element
     ref long wide = n;              // error[WYL0405]: 'ref' variable of type 'long' cannot refer to a 'int'
     var box = new Box();
-    ref Box b = box;                // error[WYL0409]: 'ref' cannot be used with type 'Box'
+    ref Box b = box;                // error[WYL0408]: cannot bind 'ref' to read-only 'box'
     print(r + five + b.value);      // no cascade: the variables above count as assigned
 
     for (int x : n) {               // error[WYL0353]: cannot loop over 'int'

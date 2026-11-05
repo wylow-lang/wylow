@@ -87,6 +87,15 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     public IReadOnlyList<TypeParameterSymbol> TypeParameters { get; init; } = [];
 
+    /// <summary>The interfaces a member's <c>where</c> clause requires of its type's parameters (spec <c>generics.bounds</c>).</summary>
+    public List<MemberInterfaceBound> MemberInterfaceBounds { get; } = [];
+
+    /// <summary>The type parameters a member's <c>where</c> clause says are copyable.</summary>
+    public HashSet<TypeParameterSymbol> CopyableParameters { get; } = [];
+
+    /// <summary>Whether a <c>where</c> clause bounds any of the declaring type's parameters.</summary>
+    public bool HasMemberBounds => MemberInterfaceBounds.Count > 0 || CopyableParameters.Count > 0;
+
     /// <summary>A method returning <c>ref</c> or <c>in</c> returns a reference into its receiver.</summary>
     public RefKind ReturnRefKind { get; init; }
 
@@ -203,6 +212,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public override string ToString() => Signature;
 }
 
+/// <summary>An interface that a member requires of one of its type's type parameters.</summary>
+public sealed record MemberInterfaceBound(TypeParameterSymbol Parameter, WylType Bound);
+
 public sealed class TypeParameterSymbol
 {
     public TypeParameterSymbol(string name)
@@ -216,6 +228,9 @@ public sealed class TypeParameterSymbol
 
     /// <summary>Interfaces that every type argument must implement.</summary>
     public List<WylType> Bounds { get; } = [];
+
+    /// <summary>Whether a <c>copyable</c> bound says a value of it is copied (spec <c>generics.bounds</c>).</summary>
+    public bool IsCopyableBound { get; set; }
 
     public override string ToString() => Name;
 }

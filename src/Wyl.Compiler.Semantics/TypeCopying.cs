@@ -11,12 +11,20 @@ public static class TypeCopying
         /// <summary>
         /// Whether a value of the type is copied where a value is stored, passed by value, or
         /// returned; any other value is moved (spec <c>types.copyable</c>). A unique struct or enum
-        /// is not copyable, and neither is anything holding one inline. A type parameter is not
-        /// copyable until a <c>copyable</c> bound can say so (spec <c>generics.checking</c>): the
+        /// is not copyable, and neither is anything holding one inline. A type parameter is copied
+        /// only if a <c>copyable</c> bound names the property (spec <c>generics.checking</c>): the
         /// declaration's bounds decide, never its type arguments.
         /// </summary>
-        public bool IsCopyable =>
-            !type.InlineTypes().Any(t => t.IsTypeParameter || t.Symbol is { IsUnique: true });
+        public bool IsCopyable => type.IsCopyableIn(null);
+
+        /// <summary>
+        /// Whether a value of the type is copied in <paramref name="function"/>. A member's
+        /// <c>where</c> clause may make its type's parameter copyable for that member alone
+        /// (spec <c>generics.bounds</c>).
+        /// </summary>
+        public bool IsCopyableIn(FunctionSymbol? function) =>
+            !type.InlineTypes().Any(t => t.Symbol is { IsUnique: true }
+                || t is TypeParameterType { Parameter: var parameter } && !parameter.IsCopyableBound && function?.CopyableParameters.Contains(parameter) != true);
 
         /// <summary>
         /// Whether the type is unique: a unique struct or enum, or a fixed array, nullable value, or

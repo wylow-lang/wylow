@@ -26,7 +26,7 @@ struct Accumulator {
     }
 }
 
-class Stack<T> {
+class Stack<T extends copyable> {
     List<T> items;
 
     Stack() {

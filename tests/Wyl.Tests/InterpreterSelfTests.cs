@@ -754,7 +754,7 @@ static class InterpreterSelfTests
             """, output: ["42", "15", "end", "freed 20"]);
 
         Case(results, "generic_type_maps", """
-            struct Pair<A, B> {
+            struct Pair<A extends copyable, B extends copyable> {
                 A first;
                 B second;
 
@@ -772,7 +772,7 @@ static class InterpreterSelfTests
                 }
             }
 
-            Pair<B, A> flip<A, B>(Pair<A, B> p) {
+            Pair<B, A> flip<A extends copyable, B extends copyable>(Pair<A, B> p) {
                 return p.swapped();
             }
 
@@ -985,11 +985,11 @@ static class InterpreterSelfTests
                 }
             }
 
-            fn() -> String maker<T extends Printable>(T value) {
+            fn() -> String maker<T extends Printable & copyable>(T value) {
                 return () -> Cell<T>(value).show();
             }
 
-            class Box<T extends Printable> {
+            class Box<T extends Printable & copyable> {
                 T value;
 
                 Box(T value) {

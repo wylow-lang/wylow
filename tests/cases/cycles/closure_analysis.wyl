@@ -37,7 +37,7 @@ class Cell {
     }
 }
 
-fn(int) -> T constant<T>(T value) {
+fn(int) -> T constant<T extends copyable>(T value) {
     return x -> value;
 }
 
