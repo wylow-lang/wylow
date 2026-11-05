@@ -54,7 +54,7 @@ public readonly record struct IrExtent(IrFootprint Extent, IrFootprint Reference
 
     /// <summary>Whether a local of this kind refers to storage it doesn't own.</summary>
     public static bool Refers(IrLocal local) =>
-        local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsSecondClass || local.Type.IsPointer;
+        local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.MayPointAway;
 
     /// <summary>Whether the statement uses one of the locals while it runs code, rather than only reading a value out of it first.</summary>
     static bool InUse(IrStatement statement, HashSet<IrLocal> locals)

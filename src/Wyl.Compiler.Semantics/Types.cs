@@ -107,6 +107,12 @@ public abstract class WylType
     /// </summary>
     public bool IsSecondClass => IsRefStruct || NonNull.IsNonEscapingFunction;
 
+    /// <summary>
+    /// Whether a value of the type may point into storage it doesn't own: a reference, a
+    /// second-class value, or a pointer.
+    /// </summary>
+    public bool MayPointAway => IsNullableReference || IsSecondClass || IsPointer;
+
     /// <summary>The type a value of this type has where a null check proved it not null.</summary>
     public WylType Narrowed => this is NullableReferenceType r ? r.Referenced : NonNull;
 
