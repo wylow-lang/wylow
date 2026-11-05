@@ -1,0 +1,32 @@
+// A unique value converted to a nullable value is moved into it: the parameter that takes it owns
+// it and releases it when the function returns, so the source holds nothing afterwards.
+
+import std::print;
+
+class C {
+    String name;
+
+    C(String name) {
+        this.name = name;
+    }
+
+    ~C() {
+        print($"destroyed {name}");
+    }
+}
+
+unique struct S {
+    C c;
+}
+
+int f(S? maybe) {
+    return 1;
+}
+
+void main() {
+    var value = S(new C("only"));
+    int n = f(value);
+    // output: destroyed only
+    print(n);
+    // output: 1
+}

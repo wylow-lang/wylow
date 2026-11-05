@@ -158,6 +158,10 @@ public sealed partial class IrLowering
         if (to.IsNullableReference)
             throw new InvalidOperationException("a conversion to a nullable reference is only made in a call or declaration");
         var operand = to.IsRefStruct ? ViewOperand(conversion.Operand, use) : Value(conversion.Operand);
+        // A conversion of a value takes the value: a unique one is moved into the result, not
+        // borrowed from a place the result would then share.
+        if (operand is IrRead { Ownership: IrOwnership.Borrow } borrowed && Moves(from))
+            operand = IrRead.Move(borrowed.Place);
         return new IrConvert(to, operand, Loc(conversion.Location));
     }
 

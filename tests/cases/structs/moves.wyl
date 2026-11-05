@@ -26,6 +26,20 @@ class Slot {
 
 void choose(in Counter counter, Counter moved) { }
 
+void optional(Counter? maybe) { }
+
+void both(Counter? maybe, ref Counter counter) { }
+
+// A unique value converted to a nullable value is moved into it, so the source is spent.
+void converted(Counter counter) {
+    optional(counter);
+    print(counter.value);               // error[WYL0440]: 'counter' is used after being moved
+}
+
+void conflict(mut Counter counter) {
+    both(counter, ref counter);         // error[WYL0440]: 'counter' is used after being moved
+}
+
 void from_object(Slot slot) {
     var taken = slot.counter;           // error[WYL0441]: cannot move a field out of 'slot'
 }
