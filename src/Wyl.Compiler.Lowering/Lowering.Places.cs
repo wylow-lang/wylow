@@ -25,6 +25,7 @@ public sealed partial class IrLowering
         BoundLocalAccess or BoundFieldAccess or BoundIndex => true,
         BoundThis self => !self.Type.IsReference,
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } => true,
+        BoundNonNull { Operand.Type.IsNullableValue: true } => true,
         BoundNonNull { Operand.Type.IsNullableReference: true } => true,
         _ => false,
     };
@@ -129,6 +130,11 @@ public sealed partial class IrLowering
                 return Returned(call, new IrRefArgument(call.Method.Symbol.IsReadOnly ? RefKind.In : RefKind.Ref, current));
             case BoundNonNull nonNull:
             {
+                if (current.Type.IsNullableValue)
+                {
+                    Add(new IrCheck(IrCheckKind.HasValue, [IrRead.Borrow(current)], Loc(nonNull.Location)) { Origin = at });
+                    return current.Assumed();
+                }
                 var reference = current is { IsDeref: false, Projections.Count: 0 } ? current.Local : Let(new IrUse(IrRead.Copy(current)));
                 Add(new IrCheck(IrCheckKind.NotNull, [IrRead.Copy(new IrPlace(reference))], Loc(nonNull.Location)) { Origin = at });
                 return IrPlace.Deref(reference);

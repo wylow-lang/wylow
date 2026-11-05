@@ -241,7 +241,12 @@ public sealed partial class IrLowering
         var result = attempt.Operand.Type.Symbol!;
         var (ok, err) = (result.FindVariant("Ok")!, result.FindVariant("Err")!);
         var value = Matched(attempt.Operand);
-        var ownership = value.Local.IsTemporary && value is { IsDeref: false, Projections.Count: 0 } ? IrOwnership.Move : IrOwnership.Copy;
+        // The operand is used by value on both paths: a unique result is moved into a temporary,
+        // out of which each variant's field is moved.
+        bool moves = Moves(value.Type);
+        if (moves && !(value is { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true }))
+            value = new IrPlace(Let(new IrUse(IrRead.Move(value))));
+        var ownership = moves || value.Local.IsTemporary && value is { IsDeref: false, Projections.Count: 0 } ? IrOwnership.Move : IrOwnership.Copy;
         var failed = Tested(new IrTest(IrTestKind.Tag, IrRead.Borrow(value)) { Variant = err });
         var returns = new IrBlock { Origin = at };
         Into(returns, () => Add(new IrReturn(OperandOf(new IrVariant(symbol.ReturnType, err, [new IrRead(ownership, value.VariantField(err, 0))]))) { Origin = at }));
@@ -268,36 +273,50 @@ public sealed partial class IrLowering
             () => OperandOf(Rvalue(conditional.WhenFalse, Use.Read)));
     }
 
-    /// <summary><c>left ?? right</c>: the left value, if it isn't null, is copied out of a temporary.</summary>
+    /// <summary>
+    /// <c>left ?? right</c>: the left value, if it isn't null, is taken out of a temporary, which a
+    /// unique left is moved into whether or not it is null (spec <c>expressions.null</c>).
+    /// </summary>
     IrRvalue Coalesce(BoundCoalesce coalesce)
     {
         IrLocal left = null!;
         var type = coalesce.Left.Type;
+        bool moves = Moves(type);
         IrOperand Test()
         {
-            left = Let(new IrUse(Value(coalesce.Left)));
-            return IrRead.Move(new IrPlace(Let(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(left))))));
+            left = Let(new IrUse(ByValue(Value(coalesce.Left))));
+            return IrRead.Move(new IrPlace(Let(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Borrow(new IrPlace(left))))));
         }
         return Chosen(coalesce.Type, Test,
-            () => Converted(type.IsNullableValue ? IrRead.Copy(new IrPlace(left).Assumed()) : IrRead.Copy(new IrPlace(left)), coalesce.Type),
+            () => Converted(type.IsNullableValue
+                ? (moves ? IrRead.Move(new IrPlace(left).Assumed()) : IrRead.Copy(new IrPlace(left).Assumed()))
+                : IrRead.Copy(new IrPlace(left)), coalesce.Type),
             () => OperandOf(Rvalue(coalesce.Right, Use.Read)));
     }
 
     /// <summary>
     /// <c>receiver?.member</c>, through the binder's <see cref="BoundConditionalAccess.Value"/>: a
     /// <c>ref?</c> receiver's reference, whose holds last until the member is done; otherwise, where
-    /// the receiver isn't null, its object, or the value in a copy of it. Returns null for a
-    /// <c>void</c> member, which is a statement.
+    /// the receiver isn't null, its object, or the value in a copy of it. A unique receiver is used in
+    /// place, or moved into a temporary when the member takes its receiver by value
+    /// (spec <c>expressions.null</c>). Returns null for a <c>void</c> member, which is a statement.
     /// </summary>
     IrRvalue? ConditionalAccess(BoundConditionalAccess access)
     {
         var type = access.Receiver.Type;
+        bool uniqueValue = type.IsNullableValue && Moves(type);
+        bool byValue = TakesReceiverByValue(access);
         IrLocal held;
         if (type.IsNullableReference)
             Add(LetOf(held = Declare(access.Value), ReferenceValue(access.Receiver, access.Value.Type)));
+        else if (uniqueValue && byValue)
+            // Moved whether or not it is null, since the member's receiver takes it by value.
+            held = Let(new IrUse(ByValue(Value(access.Receiver))));
         else
+            // A copyable value is copied; a unique one is aliased where it is, so the test reads it.
             held = Let(new IrUse(Value(access.Receiver)));
-        IrOperand Test() => Tested(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull, IrRead.Copy(new IrPlace(held))));
+        IrOperand Test() => Tested(new IrTest(type.IsNullableValue ? IrTestKind.HasValue : IrTestKind.NotNull,
+            uniqueValue ? IrRead.Borrow(new IrPlace(held)) : IrRead.Copy(new IrPlace(held))));
         void Bind()
         {
             if (type.IsNullableReference)
@@ -306,6 +325,12 @@ public sealed partial class IrLowering
             if (!type.IsNullableValue)
             {
                 Add(LetOf(value, new IrConvert(value.Type, IrRead.Copy(new IrPlace(held)))));
+                return;
+            }
+            if (uniqueValue && byValue)
+            {
+                // The member moves the value, which no longer aliases the receiver.
+                Add(LetOf(value, new IrUse(IrRead.Move(new IrPlace(held).Assumed()))));
                 return;
             }
             var place = new IrPlace(held).Assumed();
@@ -330,4 +355,8 @@ public sealed partial class IrLowering
             return Converted(OperandOf(Rvalue(access.WhenNotNull, Use.Read)), access.Type);
         }, () => new IrConstant(access.Type, null));
     }
+
+    /// <summary>Whether the <c>?.</c> member is a call whose method takes its receiver by value.</summary>
+    static bool TakesReceiverByValue(BoundConditionalAccess access) =>
+        access.WhenNotNull is BoundCall { Receiver: BoundLocalAccess { Local: var receiver }, Method.Symbol.HasByValueReceiver: true } && receiver == access.Value;
 }

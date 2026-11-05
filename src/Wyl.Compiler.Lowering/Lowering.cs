@@ -281,9 +281,7 @@ public sealed partial class IrLowering
     /// <summary>The rvalue as an operand a store or return can take: its value, moved out of a temporary if it computes one.</summary>
     IrOperand OperandOf(IrRvalue value) => value switch
     {
-        IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } read } when Moves(read.Type) => IrRead.Move(read.Place),
-        IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow } read } => IrRead.Copy(read.Place),
-        IrUse { Operand: var operand } => operand,
+        IrUse { Operand: var operand } => ByValue(operand),
         _ => IrRead.Move(new IrPlace(Let(value))),
     };
 

@@ -91,6 +91,15 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool IsReadOnly { get; init; }
 
     /// <summary>
+    /// A struct or enum method that takes its receiver by value, written as its first parameter,
+    /// <c>this T name</c> (spec <c>structs.methods.by-value</c>). It has no <c>this</c>.
+    /// </summary>
+    public bool HasByValueReceiver => ReceiverParameter is not null;
+
+    /// <summary>The receiver of a method with a by-value receiver; it is not one of <see cref="Parameters"/>.</summary>
+    public LocalSymbol? ReceiverParameter { get; init; }
+
+    /// <summary>
     /// Where it can be named from, already within its type's. A symbol the binder doesn't give one
     /// is visible nowhere, so a missed one is an error rather than a hole.
     /// </summary>

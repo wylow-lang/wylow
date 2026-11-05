@@ -460,6 +460,8 @@ public sealed partial class Binder
                 BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, default),
                 BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, new(ReadOnlyKind.ImmutableField, field.Field.Name)),
                 BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, default),
+                // The value in a nullable value is a temporary, so `a!.x = 1` and `a!.m()` are errors.
+                BoundNonNull { Operand.Type.IsNullableValue: true } => (PlaceKind.Temporary, default),
                 BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } call => ClassifyReturnedReference(call, place.Kind),
                 // A view is a value, whatever it views.
                 BoundCall => (PlaceKind.Temporary, default),

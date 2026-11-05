@@ -76,7 +76,8 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
                     steps.Add(index);
                     current = index.Target;
                     break;
-                case BoundNonNull { Operand.Type.IsNullableReference: true } nonNull:
+                case BoundNonNull nonNull:
+                    // Its value is the same storage, once it is tested not to be null.
                     steps.Add(nonNull);
                     current = nonNull.Operand;
                     break;

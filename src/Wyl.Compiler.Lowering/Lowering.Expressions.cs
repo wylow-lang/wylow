@@ -112,10 +112,13 @@ public sealed partial class IrLowering
     {
         var operand = Value(nonNull.Operand);
         var (place, ownership) = operand is IrRead read
-            ? (read.Place, read.Ownership == IrOwnership.Move ? IrOwnership.Move : IrOwnership.Copy)
+            ? (read.Place, read.Ownership)
             : (new IrPlace(Let(new IrUse(operand))), IrOwnership.Move);
         bool isValue = nonNull.Operand.Type.IsNullableValue;
         Add(new IrCheck(isValue ? IrCheckKind.HasValue : IrCheckKind.NotNull, [IrRead.Borrow(place)], Loc(nonNull.Location)) { Origin = at });
+        // The value is taken by value here: a unique one is moved and a copyable one copied.
+        if (ownership == IrOwnership.Borrow)
+            ownership = Moves(place.Type) ? IrOwnership.Move : IrOwnership.Copy;
         return isValue ? new IrUse(new IrRead(ownership, place.Assumed())) : new IrConvert(nonNull.Type, new IrRead(ownership, place));
     }
 
@@ -163,11 +166,18 @@ public sealed partial class IrLowering
         IsPlace(view) ? Read(Place(view, use)) : IrRead.Move(new IrPlace(Let(Rvalue(view, use))));
 
     /// <summary>A value stored into an array's element or a variant's field: copied, or moved when its type is unique.</summary>
-    IrOperand Transferred(BoundExpression expression)
+    IrOperand Transferred(BoundExpression expression) => ByValue(Value(expression));
+
+    /// <summary>
+    /// An operand taken by value: a unique one is moved from its place, and a copy of any other is
+    /// made where a read borrowed it (spec <c>memory.moves</c>).
+    /// </summary>
+    IrOperand ByValue(IrOperand operand) => operand switch
     {
-        var operand = Value(expression);
-        return operand is IrRead { Ownership: IrOwnership.Borrow } read && Moves(read.Type) ? IrRead.Move(read.Place) : operand;
-    }
+        IrRead { Ownership: IrOwnership.Borrow } read when Moves(read.Type) => IrRead.Move(read.Place),
+        IrRead { Ownership: IrOwnership.Borrow } read => IrRead.Copy(read.Place),
+        _ => operand,
+    };
 
     IrCall Call(BoundCall call, IrArgument? receiver)
     {

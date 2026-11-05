@@ -537,7 +537,7 @@ public sealed partial class IrVerifier
             Violation(l => Catalog.CopyOfUnique(l, read.Type.ToString()));
         if (read.Ownership != IrOwnership.Move)
             return;
-        if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Count > 0))
+        if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed)))
         {
             if (SourceOf(local) is { } symbol)
                 Violation(l => Catalog.MoveOutOfPlace(l, MovedPart(read.Place), read.Type.ToString()));
