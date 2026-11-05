@@ -32,7 +32,7 @@ public sealed partial class IrLowering
                 helds[test] = held;
             }
         }
-        foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || l.IsReferenceBinding == references))
+        foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || (l.RefKind != RefKind.None) == references))
         {
             var declare = new IrDeclare(Declare(local)) { Origin = at };
             if (local.IsReferenceBinding)
@@ -107,7 +107,7 @@ public sealed partial class IrLowering
     /// <summary>A statement whose condition binds names, in a block of its own that declares them.</summary>
     void WithPatternLocals(BoundExpression condition, Action lower, bool? references = null)
     {
-        if (!BoundTree.PatternLocals(condition).Any(l => references is null || l.IsReferenceBinding == references))
+        if (!BoundTree.PatternLocals(condition).Any(l => references is null || (l.RefKind != RefKind.None) == references))
         {
             lower();
             return;

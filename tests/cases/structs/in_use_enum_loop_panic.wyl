@@ -1,0 +1,26 @@
+// A reference binding in a while condition keeps the enum in use while the iteration's body runs,
+// so replacing the enum in the body panics.
+
+import std::{print, replace};
+
+unique struct Handle {
+    pub int id;
+
+    ~Handle() { }
+}
+
+unique enum Maybe {
+    None,
+    Some(Handle h);
+}
+
+void main() {
+    mut var maybe = Maybe.Some(Handle(id: 1));
+    mut int count = 0;
+    while (maybe is Maybe.Some(in var h) && count < 2) {
+        var previous = replace(ref maybe, Maybe.None);
+        // panic: cannot replace a value that is in use
+        print(h.id);
+        count += 1;
+    }
+}
