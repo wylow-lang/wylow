@@ -93,8 +93,10 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The type parameters a member's <c>where</c> clause says are copyable.</summary>
     public HashSet<TypeParameterSymbol> CopyableParameters { get; } = [];
 
+    public HashSet<TypeParameterSymbol> SendableParameters { get; } = [];
+
     /// <summary>Whether a <c>where</c> clause bounds any of the declaring type's parameters.</summary>
-    public bool HasMemberBounds => MemberInterfaceBounds.Count > 0 || CopyableParameters.Count > 0;
+    public bool HasMemberBounds => MemberInterfaceBounds.Count > 0 || CopyableParameters.Count > 0 || SendableParameters.Count > 0;
 
     /// <summary>A method returning <c>ref</c> or <c>in</c> returns a reference into its receiver.</summary>
     public RefKind ReturnRefKind { get; init; }
@@ -231,6 +233,8 @@ public sealed class TypeParameterSymbol
 
     /// <summary>Whether a <c>copyable</c> bound says a value of it is copied (spec <c>generics.bounds</c>).</summary>
     public bool IsCopyableBound { get; set; }
+
+    public bool IsSendableBound { get; set; }
 
     public override string ToString() => Name;
 }

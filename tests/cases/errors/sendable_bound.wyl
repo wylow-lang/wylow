@@ -1,0 +1,36 @@
+// 'sendable' names the types whose values may reach another thread.
+
+import std::{Array, List};
+
+class Node { }
+
+int twice(int value) {
+    return value * 2;
+}
+
+T same<T extends sendable>(T value) {
+    return value;
+}
+
+T forward<T>(T value) {
+    return same(value);                          // error[WYL0453]: 'T' is not 'sendable'
+}
+
+struct Box<T> {
+    T value;
+
+    void nothing() where T extends sendable {
+    }
+}
+
+void main() {
+    var node = new Node();
+    same(node);                                  // error[WYL0453]: 'Node' is not 'sendable'
+    var array = new Array<int>(1);
+    same(array);                                 // error[WYL0453]: 'Array<int>' is not 'sendable'
+    var list = new List<int>();
+    same(list);                                  // error[WYL0453]: 'List<int>' is not 'sendable'
+    escaping fn(int) -> int doubled = twice;
+    same(doubled);                               // error[WYL0453]: 'fn(int) -> int' is not 'sendable'
+    Box<Node>(node).nothing();                   // error[WYL0456]: 'Node' is not 'sendable'
+}

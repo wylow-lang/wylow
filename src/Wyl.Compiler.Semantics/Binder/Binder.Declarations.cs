@@ -29,11 +29,14 @@ public sealed partial class Binder
         {
             foreach (var boundSyntax in syntax[i].Bounds)
             {
-                // The word is a type property only in a bound, whatever a type of that name is (spec generics.bounds).
-                if (boundSyntax is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" })
+                switch (PropertyBound(boundSyntax))
                 {
-                    symbols[i].IsCopyableBound = true;
-                    continue;
+                    case "copyable":
+                        symbols[i].IsCopyableBound = true;
+                        continue;
+                    case "sendable":
+                        symbols[i].IsSendableBound = true;
+                        continue;
                 }
                 var bound = BindType(boundSyntax, allowVoid: false);
                 if (bound == WylType.Error)
@@ -45,6 +48,9 @@ public sealed partial class Binder
             }
         }
     }
+
+    static string? PropertyBound(TypeSyntax bound) =>
+        bound is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" or "sendable" } ? bound.Name : null;
 
     /// <summary>
     /// Binds a member's <c>where</c> clauses, which bound its type's type parameters for this
@@ -76,10 +82,14 @@ public sealed partial class Binder
             }
             foreach (var boundSyntax in clause.Bounds)
             {
-                if (boundSyntax is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" })
+                switch (PropertyBound(boundSyntax))
                 {
-                    function.CopyableParameters.Add(parameter);
-                    continue;
+                    case "copyable":
+                        function.CopyableParameters.Add(parameter);
+                        continue;
+                    case "sendable":
+                        function.SendableParameters.Add(parameter);
+                        continue;
                 }
                 var bound = BindType(boundSyntax, allowVoid: false);
                 if (bound == WylType.Error)
@@ -107,12 +117,17 @@ public sealed partial class Binder
         var madeCopyable = function.CopyableParameters.Where(p => !p.IsCopyableBound).ToList();
         foreach (var parameter in madeCopyable)
             parameter.IsCopyableBound = true;
+        var madeSendable = function.SendableParameters.Where(p => !p.IsSendableBound).ToList();
+        foreach (var parameter in madeSendable)
+            parameter.IsSendableBound = true;
         return () =>
         {
             foreach (var (parameter, bound) in added)
                 parameter.Bounds.Remove(bound);
             foreach (var parameter in madeCopyable)
                 parameter.IsCopyableBound = false;
+            foreach (var parameter in madeSendable)
+                parameter.IsSendableBound = false;
         };
     }
 

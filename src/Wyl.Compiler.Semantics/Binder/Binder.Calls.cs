@@ -355,6 +355,12 @@ public sealed partial class Binder
             if (argument != WylType.Error && !argument.IsCopyable)
                 Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), "copyable", member, property: true));
         }
+        foreach (var parameter in symbol.SendableParameters)
+        {
+            var argument = method.Map.Apply(parameter.Type);
+            if (argument != WylType.Error && !argument.IsSendable)
+                Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), "sendable", member, property: true));
+        }
         foreach (var bound in symbol.MemberInterfaceBounds)
         {
             var argument = method.Map.Apply(bound.Parameter.Type);

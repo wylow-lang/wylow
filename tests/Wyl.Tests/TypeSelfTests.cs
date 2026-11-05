@@ -45,7 +45,7 @@ static class TypeSelfTests
         if (first is null)
             return [failure!];
         var types = new TypeGenerator(first, Seed).Take(Count);
-        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first), CopyingFacts()];
+        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first), CopyingFacts(), SendableFacts()];
     }
 
     /// <summary>
@@ -89,6 +89,50 @@ static class TypeSelfTests
         Expect(WylType.Int, unique: false, copyable: true);
         Expect(WylType.Int.FunctionReturning([]), unique: false, copyable: true);
         return new("types/copying", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    static TestResult SendableFacts()
+    {
+        const string text = """
+            import std::{List};
+
+            struct Pair { int first; String second; }
+            struct Holds { Node node; }
+            struct Box<T> { T value; }
+
+            class Node { }
+
+            void main() { }
+            """;
+        if (Compile(text, "types/sendable", out var failure) is not { } program)
+            return failure!;
+        var pair = program.Types.Single(s => s.Name == "Pair").Type;
+        var holds = program.Types.Single(s => s.Name == "Holds").Type;
+        var node = program.Types.Single(s => s.Name == "Node").Type;
+        var box = program.Types.Single(s => s.Name == "Box");
+        var list = program.Types.Single(s => s.Name == "List");
+        List<string> problems = [];
+        void Expect(WylType type, bool sendable)
+        {
+            if (type.IsSendable != sendable)
+                problems.Add($"'{type}' is {(type.IsSendable ? "" : "not ")}sendable");
+        }
+        Expect(pair, sendable: true);
+        Expect(holds, sendable: false);
+        Expect(holds.FixedArrayOf(2), sendable: false);
+        Expect(node, sendable: false);
+        Expect(node.Nullable, sendable: false);
+        Expect(node.FixedArrayOf(2), sendable: false);
+        Expect(box.Construct([WylType.Int]), sendable: true);
+        Expect(box.Construct([node]), sendable: false);
+        Expect(list.Construct([WylType.Int]), sendable: false);
+        Expect(program.Stdlib.Array!.Type, sendable: false);
+        Expect(WylType.Int, sendable: true);
+        Expect(WylType.Int.Nullable, sendable: true);
+        Expect(WylType.String, sendable: true);
+        Expect(WylType.Int.FunctionReturning([]), sendable: false);
+        Expect(WylType.Int.PointerTo, sendable: false);
+        return new("types/sendable", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     static BoundProgram? Compile(string text, string name, out TestResult? failure)

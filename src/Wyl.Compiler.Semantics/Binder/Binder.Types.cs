@@ -172,6 +172,8 @@ public sealed partial class Binder
                 continue;
             if (parameter.IsCopyableBound && !argument.IsCopyable)
                 Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "copyable", parameter.Name));
+            if (parameter.IsSendableBound && !argument.IsSendable)
+                Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "sendable", parameter.Name));
             foreach (var bound in parameter.Bounds.Select(map.Apply))
             {
                 if (!stdlib.SatisfiesBound(argument, bound))
