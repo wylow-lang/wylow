@@ -20,7 +20,15 @@ void use(ref Counter counter) {
     var copy = counter;                 // error[WYL0441]: cannot move out of what 'counter' refers to
 }
 
+class Slot {
+    mut Counter counter = Counter(0);
+}
+
 void choose(in Counter counter, Counter moved) { }
+
+void from_object(Slot slot) {
+    var taken = slot.counter;           // error[WYL0441]: cannot move a field out of 'slot'
+}
 
 void bind(MaybeCounter maybe) {
     switch (maybe) {

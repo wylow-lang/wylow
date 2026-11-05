@@ -12,6 +12,9 @@ public sealed partial class IrVerifier
     readonly Dictionary<IrLocal, Dependency> dependencies = [];
     readonly HashSet<IrLocal> borrowingHolds = [];
     readonly Dictionary<IrLocal, IrRvalue> slotObjects = [];
+
+    /// <summary>The place each hold holds, so that a move through one names the source local it came from.</summary>
+    readonly Dictionary<IrLocal, IrPlace> holdPlaces = [];
     readonly List<IrLocal> pendingMoves = [];
 
     /// <summary>What each temporary, or <c>is ref</c> name, holds a copy of the value of, until either is given another.</summary>
@@ -495,6 +498,10 @@ public sealed partial class IrVerifier
             borrowingHolds.Add(local);
         else
             borrowingHolds.Remove(local);
+        if (value is IrHold hold)
+            holdPlaces[local] = hold.Place;
+        else
+            holdPlaces.Remove(local);
     }
 
     void Use(IrLocal local, State state, bool reads)
@@ -596,8 +603,8 @@ public sealed partial class IrVerifier
             return;
         if (read.Place.IsDeref || local.Kind != IrLocalKind.Value || local.IsThis || (!local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed)))
         {
-            if (SourceOf(local) is { } symbol)
-                Violation(l => Catalog.MoveOutOfPlace(l, MovedPart(read.Place), read.Type.ToString()));
+            if (MovedPart(read.Place) is { } part)
+                Violation(l => Catalog.MoveOutOfPlace(l, part, read.Type.ToString()));
             else
                 Error($"only a local's whole value can be moved, not '{N(local)}''s");
         }
@@ -615,17 +622,52 @@ public sealed partial class IrVerifier
             pendingMoves.Add(local);
     }
 
-    /// <summary>What a move would take from a place that is not a whole local, as a message names it.</summary>
-    string MovedPart(IrPlace place)
+    /// <summary>
+    /// What a move would take from a place that is not a whole local, as a message names it, or null
+    /// where the place is one the compiler made and the source doesn't name.
+    /// </summary>
+    string? MovedPart(IrPlace place)
     {
-        var name = SourceOf(place.Local)?.Name ?? N(place.Local);
-        if (place.Local.IsThis)
+        if (place.Local.IsThis || HeldThis(place.Local))
             return "out of 'this'";
+        if (SourceOf(place) is not { } source)
+            return null;
+        var name = source.Name;
+        // A field an object holds is reached by dereferencing it, and is still a field of its source.
         if (place.IsDeref)
-            return $"out of what '{name}' refers to";
+            return place.Projections.Count > 0 && place.Projections[0] is IrField
+                ? $"a field out of '{name}'"
+                : $"out of what '{name}' refers to";
         return place.Projections.Count > 0 && place.Projections[0] is IrElement
             ? $"an element out of '{name}'"
             : $"a field out of '{name}'";
+    }
+
+    /// <summary>The source local a place's local is, or the one the place a hold holds came from.</summary>
+    LocalSymbol? SourceOf(IrPlace place)
+    {
+        var local = place.Local;
+        for (int depth = 0; depth < 8; depth++)
+        {
+            if (SourceOf(local) is { } symbol)
+                return symbol;
+            if (!holdPlaces.TryGetValue(local, out var held))
+                return null;
+            local = held.Local;
+        }
+        return null;
+    }
+
+    /// <summary>Whether a hold eventually holds <c>this</c>, which a move out of names as such.</summary>
+    bool HeldThis(IrLocal local)
+    {
+        for (int depth = 0; depth < 8 && holdPlaces.TryGetValue(local, out var held); depth++)
+        {
+            if (held.Local.IsThis)
+                return true;
+            local = held.Local;
+        }
+        return false;
     }
 
     void Argument(IrArgument argument, State state)
