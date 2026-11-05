@@ -237,6 +237,10 @@ public sealed partial class CppEmitter
     /// <summary>A name for a local of a symbol that already names one, without taking the symbol's name over.</summary>
     string FreshLocalName(LocalSymbol local)
     {
+        // A temporary symbol's name is for the IR only: a function reference's lambda parameters
+        // are named `#0`, which is not a C++ identifier.
+        if (local.IsTemporary)
+            return NewTemp();
         var name = "l_" + local.Name;
         for (int i = 2; !local.IsParameter && !usedLocalNames.Add(name); i++)
             name = $"l_{local.Name}_{i}";
