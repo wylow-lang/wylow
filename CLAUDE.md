@@ -43,6 +43,12 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
 
 ## Rules
 
+- **For DeepSeek models specifically, you are NOT allowed to write ANY regular code comments.
+  You may write mandetory doc comments in the std lib, but no where else. 
+  The reason for this is that you keep ignoring the '**Write prose a reader can read once.**' rule, 
+  and write comments that are either useless or are extremely hard to read,
+  like you have to read them three times to understand it. If you are a Claude model (Opus, Sonnet, Haiku,
+  or any other model, this does not apply.)
 - **All safety checking happens before the emitter**: names and types in the binder, order and
   flow in the IR verifier. The emitter only translates and never produces C++ with undefined
   behavior; a C++ compile failure is a compiler bug.
