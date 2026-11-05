@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <optional>
 
 #include "pools.h"
@@ -15,13 +16,13 @@ class Object;
 // object holds one count and each weak reference one; the last to let go frees the block.
 struct WeakBlock {
     Object* target;
-    uintptr_t count;
+    std::atomic<uintptr_t> count;
     // The object's buffer slot and creation number, which the block takes over from the object's header.
     uint32_t slot;
     uint32_t created;
 
-    static void* operator new(size_t size) { return pools.allocate(size); }
-    static void operator delete(void* block, size_t size) { pools.deallocate(block, size); }
+    WeakBlock(Object* target, uintptr_t count, uint32_t slot, uint32_t created)
+        : target(target), count(count), slot(slot), created(created) {}
 };
 
 template <class R>
@@ -114,7 +115,7 @@ class Object {
     uint32_t age() const { return objects_created - ((state & has_weak) ? side.weak->created : side.own.created); }
 
     // Null for a dying object, so that weak references taken by its destructor read null too.
-    WeakBlock* weak_block() {
+    virtual WeakBlock* weak_block() {
         if (state & dying) return nullptr;
         if (!(state & has_weak)) {
             side.weak = new WeakBlock{this, 1, (state & buffered) ? side.own.slot : 0, side.own.created};
@@ -124,7 +125,7 @@ class Object {
     }
 
     // Leaves the slot behind in the header, for an object still to leave the buffer.
-    void clear_weak() {
+    virtual void clear_weak() {
         state |= dying;
         if (!(state & has_weak)) return;
         WeakBlock* weak = side.weak;
@@ -168,17 +169,67 @@ public:
     bool wyl_finalized() const { return (state & finalized) != 0; }
 
     // 57 bits of count cannot overflow: the references alone would fill more than any address space.
-    void retain() { state += one_ref; }
+    virtual void retain() { state += one_ref; }
 
     // A release that leaves a cyclic object's count above zero may have left it in an unreachable
     // cycle, so it is buffered for the collector, once until the next collection.
-    void release() {
+    virtual void release() {
         state -= one_ref;
         if (state < one_ref) {
             destroy();
         } else if ((state & (flag_mask & ~has_weak)) == cyclic) {
             add_to_buffer();
         }
+    }
+};
+
+class SharedObject : public virtual Object {
+    std::atomic<uint64_t> shared_count{1};
+    std::atomic<bool> is_dying{false};
+    std::atomic<WeakBlock*> weak_ptr{nullptr};
+
+    WeakBlock* weak_block() override {
+        if (is_dying.load(std::memory_order_acquire)) return nullptr;
+        if (WeakBlock* block = weak_ptr.load(std::memory_order_acquire)) return block;
+        WeakBlock* made = new WeakBlock{this, 1, 0, 0};
+        WeakBlock* expected = nullptr;
+        if (!weak_ptr.compare_exchange_strong(expected, made, std::memory_order_acq_rel)) {
+            delete made;
+            return expected;
+        }
+        return made;
+    }
+
+    void clear_weak() override {
+        is_dying.store(true, std::memory_order_release);
+        WeakBlock* block = weak_ptr.exchange(nullptr, std::memory_order_acq_rel);
+        if (block == nullptr) return;
+        block->target = nullptr;
+        if (--block->count == 0) delete block;
+    }
+
+public:
+    SharedObject() = default;
+    SharedObject(const SharedObject&) = delete;
+    SharedObject& operator=(const SharedObject&) = delete;
+
+    ~SharedObject() override {
+        if (shared_count.load(std::memory_order_relaxed) != 1)
+            raise_panic("an object's destructor kept a reference to the object", "<destructor>");
+    }
+
+    static void* operator new(size_t size) { return ::operator new(size); }
+    static void* operator new(size_t size, std::align_val_t align) { return ::operator new(size, align); }
+    static void operator delete(void* object, size_t size) { ::operator delete(object, size); }
+    static void operator delete(void* object, size_t size, std::align_val_t align) { ::operator delete(object, size, align); }
+
+    void retain() override { shared_count.fetch_add(1, std::memory_order_relaxed); }
+
+    void release() override {
+        if (shared_count.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
+        shared_count.fetch_add(1, std::memory_order_relaxed);
+        clear_weak();
+        delete this;
     }
 };
 

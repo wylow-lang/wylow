@@ -15,9 +15,16 @@ public static class TypeSendable
                 parameter.IsSendableBound || function?.SendableParameters.Contains(parameter) == true,
             _ when type == WylType.Error => true,
             _ when type == WylType.String => true,
-            _ when type.IsReference || type.IsFunction || type.IsPointer => false,
+            _ when type.IsWeakOfSharedClass => true,
+            _ when type.IsReference => type.Symbol is { IsShared: true },
+            _ when type.IsFunction || type.IsPointer => false,
             _ when type.Symbol is { IsExtern: true } => false,
             _ => true,
         };
+
+        internal bool IsWeakOfSharedClass =>
+            type.Symbol is { IsWeak: true }
+            && type.TypeArguments is [{ IsReference: true } target]
+            && target.Symbol is { IsShared: true };
     }
 }

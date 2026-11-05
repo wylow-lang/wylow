@@ -105,7 +105,7 @@ public sealed class StdlibSymbols
             case "Spannable": Spannable = symbol; break;
             case "ReadOnlySpannable": ReadOnlySpannable = symbol; break;
             case "Borrowable": Borrowable = symbol; break;
-            case "Weak": Weak = symbol; break;
+            case "Weak": Weak = symbol; symbol.IsWeak = true; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
         }

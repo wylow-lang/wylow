@@ -81,3 +81,4 @@ history and a reason can be found without searching the spec.
 | [0051](0051-visibility-is-one-word.md) | Visibility is one word: `module`, `package`, or `pub` |
 | [0052](0052-member-bounds.md) | A member may bound its type's type parameters |
 | [0053](0053-statics-initialization-and-storage.md) | Statics: one order, one initializer, storage never destroyed |
+| [0054](0054-shared-classes.md) | Shared classes: a count for any thread, the global heap, and no collection |

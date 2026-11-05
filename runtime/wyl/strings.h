@@ -243,7 +243,7 @@ private:
         size_t capacity = capacity_ < 16 ? 16 : capacity_;
         while (capacity < needed) capacity = capacity <= static_cast<size_t>(INT32_MAX) / 2 ? capacity * 2 : static_cast<size_t>(INT32_MAX);
         // One more byte for the terminator take() writes.
-        auto* block = static_cast<String::Block*>(::operator new(sizeof(String::Block) + capacity + 1));
+        auto* block = ::new (static_cast<void*>(::operator new(sizeof(String::Block) + capacity + 1))) String::Block{};
         if (block_ != nullptr) {
             std::memcpy(block->bytes(), block_->bytes(), length_);
             ::operator delete(block_);

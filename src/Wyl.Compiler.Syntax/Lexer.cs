@@ -52,6 +52,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
         ["static"] = TokenKind.StaticKeyword,
         ["mut"] = TokenKind.MutKeyword,
         ["unique"] = TokenKind.UniqueKeyword,
+        ["shared"] = TokenKind.SharedKeyword,
         ["escaping"] = TokenKind.EscapingKeyword,
         ["this"] = TokenKind.ThisKeyword,
         ["ref"] = TokenKind.RefKeyword,
@@ -87,7 +88,7 @@ public sealed class Lexer(SourceText source, DiagnosticBag diagnostics)
     // Reserved now so that implementing them later doesn't break existing programs.
     static readonly HashSet<string> ReservedKeywords =
     [
-        "const", "defer", "shared",
+        "const", "defer",
     ];
 
     // Longest first, so that maximal munch falls out of a linear scan.

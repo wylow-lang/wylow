@@ -395,9 +395,9 @@ public sealed partial class CppEmitter
         if (s.BaseType is { } baseType)
             bases.Add(ObjectType(baseType));
         else if (s.Kind == TypeKind.Interface || sharedObjectRoots.Contains(s))
-            bases.Add("virtual wyl::Object");
+            bases.Add(s.IsShared ? "virtual wyl::SharedObject" : "virtual wyl::Object");
         else
-            bases.Add("wyl::Object");
+            bases.Add(s.IsShared ? "wyl::SharedObject" : "wyl::Object");
         bases.AddRange(s.Interfaces.Select(i => "virtual " + ObjectType(i)));
 
         if (s.IsGeneric)

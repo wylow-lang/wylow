@@ -32,7 +32,7 @@ public sealed partial class CppEmitter
     }
 
     string CyclicFlag(TypeSymbol s) =>
-        s.IsGeneric ? $"wyl::is_cyclic<{ObjectType(s.Type)}>" : cycles.IsCyclic(s.Type) ? "true" : "false";
+        s.IsShared ? "false" : s.IsGeneric ? $"wyl::is_cyclic<{ObjectType(s.Type)}>" : cycles.IsCyclic(s.Type) ? "true" : "false";
 
     static bool NeedsVisit(WylType fieldType) => fieldType.MayOwnObjects;
 

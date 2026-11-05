@@ -1,0 +1,27 @@
+class Node { }
+
+unique struct Token {
+    int id;
+}
+
+shared class MutableCounter {
+    mut int count;                              // error[WYL0470]: field 'count' of shared class 'MutableCounter' cannot be 'mut'
+}
+
+shared class HoldsNode {
+    Node? node;                                 // error[WYL0471]: the type of field 'node' of shared class 'HoldsNode' is not sendable
+}
+
+shared class HoldsUnique {
+    Token token;                                // error[WYL0471]: the type of field 'token' of shared class 'HoldsUnique' is not copyable
+}
+
+class PlainBase {
+    Node? node;                                 // error[WYL0471]: the type of field 'node' of shared class 'PlainBase' is not sendable
+}
+
+shared class Child extends PlainBase {
+}
+
+void main() {
+}

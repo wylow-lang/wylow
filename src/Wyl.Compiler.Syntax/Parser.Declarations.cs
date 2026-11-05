@@ -164,6 +164,7 @@ public sealed partial class Parser
     {
         int start = position;
         var modifiers = ParseModifiers();
+        DisallowShared(modifiers);
         switch (kind)
         {
             case TypeKind.Struct:

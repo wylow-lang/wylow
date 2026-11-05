@@ -1,0 +1,31 @@
+shared struct Buffer {                          // error[WYL0469]: 'shared' can only be used on a class
+    int size;
+}
+
+shared interface Reader {                       // error[WYL0469]: 'shared' can only be used on a class
+    int read();
+}
+
+shared enum Mode {                              // error[WYL0469]: 'shared' can only be used on a class
+    On,
+    Off,
+}
+
+shared int twice(int value) {                   // error[WYL0469]: 'shared' can only be used on a class
+    return value * 2;
+}
+
+class Box {
+    shared int value;                           // error[WYL0469]: 'shared' can only be used on a class
+
+    shared int get() {                          // error[WYL0469]: 'shared' can only be used on a class
+        return value;
+    }
+}
+
+void locals() {
+    shared int value = 1;                       // error[WYL0469]: 'shared' can only be used on a class
+}
+
+void main() {
+}

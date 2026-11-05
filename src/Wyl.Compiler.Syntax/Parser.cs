@@ -84,6 +84,7 @@ public sealed partial class Parser
                 if (annotations.Count > 0)
                     Report(Catalog.ImportWithAnnotations(annotations[0].Location));
                 Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnImport(Loc(token.Span), token.Text));
+                DisallowShared(modifiers);
                 // So a file's first lines say what it uses.
                 if (declarations.Count > 0)
                     Report(Catalog.ImportAfterDeclaration(Loc(Current.Span)));
@@ -99,12 +100,14 @@ public sealed partial class Parser
             {
                 var allowed = kind switch
                 {
-                    TypeKind.Class => Modifiers.Abstract | Modifiers.Final,
+                    TypeKind.Class => Modifiers.Abstract | Modifiers.Final | Modifiers.Shared,
                     TypeKind.Struct => Modifiers.Ref | Modifiers.Extern | Modifiers.Unique,
                     TypeKind.Enum => Modifiers.Ref | Modifiers.Unique,
                     _ => Modifiers.Ref,
                 };
                 Disallow(modifiers, ~allowed, token => Catalog.ModifierOnType(Loc(token.Span), token.Text, SyntaxFacts.KindNameWithArticle(kind)));
+                if (kind != TypeKind.Class)
+                    DisallowShared(modifiers);
                 if ((modifiers.Flags & (Modifiers.Abstract | Modifiers.Final)) == (Modifiers.Abstract | Modifiers.Final))
                     Report(Catalog.AbstractFinalClass(Loc(modifiers.Tokens.First(t => t.Flag == Modifiers.Final).Token.Span)));
                 declarations.Add(ParseTypeDecl(start, modifiers, kind) with { Annotations = annotations });
@@ -114,6 +117,7 @@ public sealed partial class Parser
             if (SyntaxFacts.IsTypeStart(Current.Kind) || At(TokenKind.OpenParen))
             {
                 Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => Catalog.ModifierOnFunction(Loc(token.Span), token.Text));
+                DisallowShared(modifiers);
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
                 if (name.Text != "" && (At(TokenKind.Assign) || At(TokenKind.Semicolon)))
@@ -128,10 +132,12 @@ public sealed partial class Parser
             }
             if (At(TokenKind.VarKeyword) && Peek(1).Kind == TokenKind.Identifier)
             {
+                DisallowShared(modifiers);
                 Advance();
                 SkipTopLevelVariable(Advance());
                 continue;
             }
+            DisallowShared(modifiers);
             Report(At(TokenKind.ReservedKeyword) ? Catalog.ReservedKeyword(Loc(Current.Span), Current.Text) : Catalog.Expected(Loc(Current.Span), "a function or type declaration"));
             SkipDeclaration();
             if (position == start)
@@ -319,6 +325,7 @@ public sealed partial class Parser
                 TokenKind.StaticKeyword => Modifiers.Static,
                 TokenKind.MutKeyword => Modifiers.Mut,
                 TokenKind.UniqueKeyword => Modifiers.Unique,
+                TokenKind.SharedKeyword => Modifiers.Shared,
                 TokenKind.VirtualKeyword => Modifiers.Virtual,
                 TokenKind.OverrideKeyword => Modifiers.Override,
                 TokenKind.AbstractKeyword => Modifiers.Abstract,
@@ -369,8 +376,19 @@ public sealed partial class Parser
     {
         foreach (var (flag, token) in modifiers.Tokens)
         {
+            if (flag == Modifiers.Shared)
+                continue;
             if ((flag & disallowed) != 0)
                 Report(message(token));
+        }
+    }
+
+    void DisallowShared(ModifierList modifiers)
+    {
+        foreach (var (flag, token) in modifiers.Tokens)
+        {
+            if (flag == Modifiers.Shared)
+                Report(Catalog.SharedOutsideClass(Loc(token.Span)));
         }
     }
 

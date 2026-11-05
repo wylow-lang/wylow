@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cfloat>
 #include <charconv>
 #include <cinttypes>
@@ -61,14 +62,12 @@ class Optional;
 
 // An immutable, null-terminated UTF-8 string. A literal points at static bytes and owns nothing, so
 // literals never allocate; a built string shares one counted block among its copies.
-// The count is non-atomic like objects' (object.h). String is a shared class, so it must become
-// atomic once threads exist.
 // The camelCase members are String's methods in Wylow (String.wyl); indexOf, contains, and slice are
 // defined in strings.h.
 class String {
 public:
     struct Block {
-        size_t count;
+        std::atomic<size_t> count;
         // The bytes follow the header, then a null terminator.
         char* bytes() { return reinterpret_cast<char*>(this + 1); }
     };

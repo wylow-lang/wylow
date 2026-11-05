@@ -156,7 +156,7 @@ public sealed class CyclicClasses
     /// <summary>A node is cyclic if it is on a cycle: in a strongly connected component of several nodes, or with an edge to itself.</summary>
     void MarkCycles()
     {
-        var nodes = classes.Where(c => !c.Symbol!.IsAcyclic).ToList();
+        var nodes = classes.Where(c => !c.Symbol!.IsAcyclic && !c.Symbol!.IsShared).ToList();
         int closuresStart = nodes.Count;
         // Stands for the instantiations only C++ sees, which may hold anything.
         int unknown = closuresStart + closures.Count;
@@ -209,7 +209,7 @@ public sealed class CyclicClasses
     /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees.</summary>
     bool MayReferToUnknown(WylType reference) =>
         reference.IsTypeParameter
-        || types.Any(s => s is { Kind: TypeKind.Class, IsGeneric: true, IsAcyclic: false }
+        || types.Any(s => s is { Kind: TypeKind.Class, IsGeneric: true, IsAcyclic: false, IsShared: false }
             && Conversions.Supertypes(s.Type).Any(t => t.Symbol == reference.Symbol));
 
     /// <summary>Tarjan's algorithm.</summary>

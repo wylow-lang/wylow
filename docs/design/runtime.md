@@ -76,9 +76,14 @@ and each count change a lookup of the base's offset. References are
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
 `this` cannot destroy the object early.
 
+An object of a shared class derives from `wyl::SharedObject`, which holds an atomic count and an
+atomic weak block pointer and allocates from the global heap. `retain` and `release` are virtual, so
+a reference to an interface implemented by a shared class counts the object the shared way. A shared
+object has no place in the collector's buffer and no collector flags (spec `memory.cycles`).
+
 ## Allocation
 
-Objects, closures, and weak blocks up to 512 bytes come from the runtime's **pools** rather than the
+Objects and closures up to 512 bytes come from the runtime's **pools** rather than the
 C++ global heap; larger ones, and over-aligned ones, use the global heap. A pool is a size class:
 slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned to their size.
 
@@ -140,9 +145,10 @@ block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` 
 one to the target (C++ can't cast the block's `wyl::Object*` back down to `T`), and copying one adds
 to the block's count. `Weak<T>` is an `extern struct`
 ([Extern structs](../spec/21-interop.md#interop.extern.extern-structs)) implemented
-by `wyl::Weak` in the runtime. A shared object's weak block is made with an atomic exchange, so two
-threads referring to it weakly at once agree on one, and its count is atomic; its `get()` takes a
-strong reference only while the target's count is above zero, so it never revives an object
+by `wyl::Weak` in the runtime. A weak block's count is atomic and the block comes from the global
+heap, since a shared object's weak references may live on several threads. A shared object's block is
+made with an atomic exchange, so two threads referring to it weakly at once agree on one; its `get()`
+takes a strong reference only while the target's count is above zero, so it never revives an object
 another thread has just released. When the target's count reaches zero, the block's target is
 set to null; the block itself is freed when the target and the last `Weak` to it are gone.
 

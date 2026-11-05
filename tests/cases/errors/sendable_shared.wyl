@@ -1,0 +1,19 @@
+import std::Weak;
+
+class Plain { }
+
+shared class Shared { }
+
+T same<T extends sendable>(T value) {
+    return value;
+}
+
+void main() {
+    var plain = new Plain();
+    same(plain);                                // error[WYL0453]: 'Plain' is not 'sendable'
+    Weak<Plain> weak = plain;
+    same(weak);                                 // error[WYL0453]: 'Weak<Plain>' is not 'sendable'
+    same(new Shared());
+    Weak<Shared> sharedWeak = new Shared();
+    same(sharedWeak);
+}

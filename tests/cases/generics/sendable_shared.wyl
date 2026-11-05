@@ -1,0 +1,48 @@
+import std::{Weak, print};
+
+class Derived extends Shared { }
+
+class Base { }
+
+shared class Shared { }
+
+shared class Child extends Base { }
+
+shared class Box<T extends sendable & copyable> {
+    T value;
+
+    Box(T value) {
+        this.value = value;
+    }
+}
+
+T same<T extends sendable>(T value) {
+    return value;
+}
+
+void main() {
+    var value = new Shared();
+    print(same(value) == value);                // output: true
+
+    Shared? maybe = value;
+    print(same(maybe) != null);                 // output: true
+
+    var derived = new Derived();
+    print(same(derived) != null);               // output: true
+
+    var base = new Base();
+    print(same(base) != null);                  // output: true
+
+    var child = new Child();
+    print(same(child) != null);                 // output: true
+
+    Weak<Shared> weak = value;
+    print(same(weak).get() != null);            // output: true
+
+    Weak<Derived> derivedWeak = derived;
+    print(same(derivedWeak).get() != null);     // output: true
+
+    var box = new Box<int>(3);
+    print(same(box) == box);                    // output: true
+    print(box.value);                           // output: 3
+}

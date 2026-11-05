@@ -234,6 +234,33 @@ public sealed partial class Binder
         }
     }
 
+    void PropagateSharedClasses(IReadOnlyList<TypeSymbol> all)
+    {
+        foreach (var s in all.Where(s => s.Kind == TypeKind.Class && (s.Declaration.Modifiers & Modifiers.Shared) != 0))
+            s.IsShared = true;
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var s in all.Where(s => s.Kind == TypeKind.Class))
+            {
+                bool shared = s.BaseType?.Symbol is { IsShared: true } || s.IsShared;
+                if (!shared)
+                    continue;
+                if (!s.IsShared)
+                {
+                    s.IsShared = true;
+                    changed = true;
+                }
+                if (s.BaseType?.Symbol is { Kind: TypeKind.Class, IsShared: false } baseClass)
+                {
+                    baseClass.IsShared = true;
+                    changed = true;
+                }
+            }
+        }
+    }
+
     FunctionSymbol DeclareFunction(FunctionDecl decl)
     {
         var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, []);
@@ -363,9 +390,36 @@ public sealed partial class Binder
         }
         if (!field.Type.IsCopyable)
         {
-            var unique = field.Type.InlineTypes().FirstOrDefault(t => t.Symbol is { IsUnique: true });
-            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "copyable", unique is null ? $"'{field.Type}' has no copies" : $"'{unique}' is unique", unique?.Symbol?.Declaration.NameLocation));
+            var (detail, at) = CopyableProblem(field.Type);
+            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "copyable", detail, at));
         }
+    }
+
+    void CheckSharedField(FieldSymbol field, TypeSymbol s)
+    {
+        if (!s.IsShared || field.Type == WylType.Error)
+            return;
+        var name = field.Declaration.NameLocation;
+        if (field.IsMutable)
+            Error(Catalog.MutSharedClassField(name, field.Name, s.Name));
+        if (!field.Type.IsSendable)
+        {
+            var (detail, at) = SendableProblem(field.Type);
+            Error(Catalog.SharedClassFieldTypeNotAllowed(name, field.Name, s.Name, "sendable", detail, at));
+        }
+        if (!field.Type.IsCopyable)
+        {
+            var (detail, at) = CopyableProblem(field.Type);
+            Error(Catalog.SharedClassFieldTypeNotAllowed(name, field.Name, s.Name, "copyable", detail, at));
+        }
+    }
+
+    static (string Detail, Location? At) CopyableProblem(WylType type)
+    {
+        var unique = type.InlineTypes().FirstOrDefault(t => t.Symbol is { IsUnique: true });
+        return unique is null
+            ? ($"'{type}' has no copies", null)
+            : ($"'{unique}' is unique", unique.Symbol?.Declaration.NameLocation);
     }
 
     static (string Detail, Location? At) SendableProblem(WylType type)
@@ -413,6 +467,7 @@ public sealed partial class Binder
             }
             else
             {
+                CheckSharedField(field, s);
                 s.Fields.Add(field);
             }
         }

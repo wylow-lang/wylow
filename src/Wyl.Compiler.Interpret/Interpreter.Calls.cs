@@ -390,6 +390,8 @@ public sealed partial class Interpreter
     /// </summary>
     bool IsCyclicClass(WylType type)
     {
+        if (type.Symbol is { IsShared: true })
+            return false;
         type = type.CppIdentity;
         if (type.ContainsTypeParameters)
             return true;

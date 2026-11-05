@@ -187,7 +187,9 @@ sealed class StackSlots
             : null;
 
     /// <summary>Whether an rvalue allocates: a <c>new</c>, or an escaping lambda that captures something, whose closure holds the copies.</summary>
-    static bool IsCreation(IrRvalue value) => value is IrNew || value is IrClosure { Captures.Count: > 0 };
+    static bool IsCreation(IrRvalue value) =>
+        value is IrClosure { Captures.Count: > 0 }
+        || (value is IrNew created && created.Type.Symbol?.IsShared != true);
 
     /// <summary>Whether the local is a plain variable, which a slot can be declared with, that no lambda assigns.</summary>
     bool MayHold(IrLocal local) =>

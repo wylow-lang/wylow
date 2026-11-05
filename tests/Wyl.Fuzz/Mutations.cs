@@ -114,6 +114,7 @@ static class Mutations
         // in-use bit without changing what the program does.
         new("type-unique-destructor", SiteKind.TypeDecl, UniqueDestructorApplies, UniqueDestructorBuild),
         new("type-static-field", SiteKind.TypeDecl, StaticFieldApplies, StaticFieldBuild),
+        new("type-shared-class", SiteKind.TypeDecl, SharedClassApplies, SharedClassBuild),
         // Constructs through a this(...) chain, which changes nothing a program does: a class's
         // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
         new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
@@ -296,6 +297,16 @@ static class Mutations
         var name = context.UniqueName("STATIC_VALUE");
         int at = site.Span.Start + brace + 1;
         return new("type-static-field", [new Edit(at, at, $"\n    pub static int {name} = 0;")]);
+    }
+
+    static bool SharedClassApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Class } declaration
+        && (declaration.Modifiers & Modifiers.Shared) == 0;
+
+    static Candidate? SharedClassBuild(MutationContext context, Site site)
+    {
+        int index = IndexOfWord(context.Slice(site.Span), "class");
+        return index < 0 ? null : Insert("type-shared-class", site, site.Span.Start + index, "shared ");
     }
 
     static Candidate? ParameterInBuild(MutationContext context, Site site) => Insert("parameter-in", site, site.Span.Start, "in ");

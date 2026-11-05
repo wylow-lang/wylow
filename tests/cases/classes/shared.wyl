@@ -1,0 +1,74 @@
+import std::{Weak, print};
+
+shared class Token {
+    String name;
+    int weight;
+
+    Token(String name, int weight) {
+        this.name = name;
+        this.weight = weight;
+    }
+
+    int doubled() {
+        return weight * 2;
+    }
+
+    ~Token() {
+        print($"released {name}");
+    }
+}
+
+class Special extends Token {
+    int code;
+
+    Special(String name, int weight, int code) {
+        super(name, weight);
+        this.code = code;
+    }
+
+    int sum() {
+        return doubled() + code;
+    }
+}
+
+interface Labeled {
+    String label();
+}
+
+shared class Label implements Labeled {
+    String text;
+
+    Label(String text) {
+        this.text = text;
+    }
+
+    String label() {
+        return text;
+    }
+}
+
+void main() {
+    mut var token = new Token("one", 2);
+    print(token.doubled());                 // output: 4
+    mut var copy = token;
+    Weak<Token> weak = token;
+    print(weak.get() != null);              // output: true
+    token = new Token("two", 3);
+    print(weak.get() != null);              // output: true
+    copy = token;
+    // output: released one
+    print(weak.get() == null);              // output: true
+
+    {
+        var special = new Special("special", 4, 5);
+        print(special.sum());               // output: 13
+        print(special is Token);            // output: true
+    }
+    // output: released special
+
+    Labeled labeled = new Label("interface");
+    print(labeled.label());                 // output: interface
+
+    print(token.doubled());                 // output: 6
+}
+// output: released two

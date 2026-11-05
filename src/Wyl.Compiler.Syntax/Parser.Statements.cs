@@ -109,6 +109,10 @@ public sealed partial class Parser
                 Report(Catalog.ReservedKeyword(Loc(Current.Span), Current.Text));
                 SkipStatement();
                 return new BlockStmt(LocationFrom(start), []);
+            case TokenKind.SharedKeyword:
+                Report(Catalog.SharedOutsideClass(Loc(Current.Span)));
+                SkipStatement();
+                return new BlockStmt(LocationFrom(start), []);
             default:
             {
                 int errors = diagnostics.Count;

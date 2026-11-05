@@ -84,6 +84,10 @@ static class MatrixTypes
         yield return new("class", "Cell", "Cell", "Cell[2]", "3", "7",
             raw => $"new Cell({raw})",
             expr => $"print({expr}.value);");
+        yield return new("shared-class", "Shared", "Shared", "Shared[2]", "3", "7",
+            raw => $"new Shared({raw})",
+            expr => $"print({expr}.value);",
+            Declarations: "shared class Shared {\n    int value;\n\n    Shared(int value) {\n        this.value = value;\n    }\n}");
         yield return new("enum", "Shape", "Shape", "Shape[2]", "3", "7",
             raw => $"Shape.Circle({raw})",
             expr => $"print(radiusOf({expr}));");

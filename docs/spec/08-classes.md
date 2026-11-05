@@ -9,7 +9,7 @@ is declared, what a subclass inherits and overrides, how an object is constructe
 ## 8.1 Class declarations
 
 ```ebnf
-ClassDeclaration = { Annotation } [ Visibility ] [ "abstract" | "final" ] "class" Identifier
+ClassDeclaration = { Annotation } [ Visibility ] [ "shared" ] [ "abstract" | "final" ] "class" Identifier
                    [ TypeParameters ] [ "extends" Type ] [ "implements" TypeList ]
                    "{" { ClassMember } "}" .
 ClassMember      = ClassField | ClassConstructor | Method | Indexer | Destructor .
@@ -23,6 +23,10 @@ any number of interfaces ([Inheritance](#classes.inheritance),
 ([Chapter 11](11-generics.md#generics)).
 
 A class is never `unique`: its objects are shared ([Unique structs](07-structs.md#structs.unique)).
+A class declared `shared` may be referred to from several threads. The base class of a shared class
+and every class extending a shared class are shared too
+([Shared classes](19-concurrency.md#concurrency.shared-classes)). `shared` is a compile-time error on
+a struct, an enum, an interface, or any other declaration.
 
 <a id="classes.fields"></a>
 ## 8.2 Fields

@@ -1,0 +1,27 @@
+import std::{memory, print};
+
+shared class Kept {
+    int id;
+
+    Kept(int id) {
+        this.id = id;
+    }
+
+    ~Kept() {
+        print($"released {id}");
+    }
+}
+
+void main() {
+    mut var kept = new Kept(1);
+    mut var other = kept;
+    kept = new Kept(2);
+    memory::collectCycles();
+    var stats = memory::cycleStats();
+    print(stats.buffered);                  // output: 0
+    print(stats.visited);                   // output: 0
+    other = kept;
+    // output: released 1
+    print(1);                               // output: 1
+}
+// output: released 2

@@ -34,6 +34,18 @@ public static partial class Catalog
     public static Diagnostic StaticWithoutDefault(Location at, string name, string type) =>
         Make(at, $"static '{name}' has no initializer and '{type}' has no default value").Help("give it an initializer");
 
+    [Error(469, "concurrency.shared-classes")]
+    public static Diagnostic SharedOutsideClass(Location at) =>
+        Make(at, "'shared' can only be used on a class");
+
+    [Error(470, "concurrency.shared-classes")]
+    public static Diagnostic MutSharedClassField(Location at, string field, string type) =>
+        Make(at, $"field '{field}' of shared class '{type}' cannot be 'mut'").Note("a shared class's fields are read by several threads");
+
+    [Error(471, "concurrency.shared-classes")]
+    public static Diagnostic SharedClassFieldTypeNotAllowed(Location at, string field, string type, string property, string detail, Location? detailAt) =>
+        Make(at, $"the type of field '{field}' of shared class '{type}' is not {property}").Note(detailAt, detail);
+
     [Error(89, "variables.references")]
     public static Diagnostic MutReference(Location at, string keyword, string what) =>
         Make(at, $"'{keyword}' {what} cannot be 'mut'").Note("it refers to the same place for its whole scope");

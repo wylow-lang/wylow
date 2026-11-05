@@ -23,6 +23,8 @@ public enum Modifiers
 
     /// <summary>On a struct or enum: moved rather than copied.</summary>
     Unique = 16384,
+
+    Shared = 32768,
 }
 
 /// <summary>

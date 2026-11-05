@@ -292,6 +292,71 @@ out 3
 out 7
 exit 0
 
+=== shared-class/local
+out 3
+exit 0
+
+=== shared-class/field
+out 3
+out 7
+exit 0
+
+=== shared-class/parameter
+out 3
+exit 0
+
+=== shared-class/return
+out 3
+exit 0
+
+=== shared-class/type-argument
+out 3
+exit 0
+
+=== shared-class/element
+out 3
+out 7
+exit 0
+
+=== shared-class/capture
+out 3
+exit 0
+
+=== shared-class/equality
+out false
+out false
+out true
+exit 0
+
+=== shared-class/default
+error 47: 'Defaults' has no default value
+
+=== shared-class/overloads
+out typed
+exit 0
+
+=== shared-class/struct-pattern
+out 3
+out 3
+exit 0
+
+=== shared-class/case-null
+out 3
+out null
+exit 0
+
+=== shared-class/guarded
+out 3
+exit 0
+
+=== shared-class/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
+
 === enum/local
 out 3
 exit 0

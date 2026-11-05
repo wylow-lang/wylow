@@ -390,6 +390,10 @@ public sealed class TypeSymbol
     /// <summary>Set by <see cref="StdlibSymbols.Register"/> for the hooks the runtime refers to.</summary>
     internal bool IsNamedByRuntime { get; set; }
 
+    public bool IsShared { get; internal set; }
+
+    internal bool IsWeak { get; set; }
+
     /// <summary>A class declared <c>@Acyclic</c>, whose objects the cycle collector never looks at.</summary>
     public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
 
