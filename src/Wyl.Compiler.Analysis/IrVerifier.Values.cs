@@ -255,11 +255,21 @@ public sealed partial class IrVerifier
             IrRead { Ownership: IrOwnership.Borrow } read => verifier.Into(read.Place, alias: true) with { Element = read.Element },
             // A copy of a reference, view, or pointer points where it does, so it outlives the local it
             // was copied from; a non-escaping function value needs what its lambda captured. Neither
-            // needs the local itself, whose scope, ending, or being moved from changes neither.
-            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when verifier.dependencies.TryGetValue(local, out var copied) =>
+            // needs the local itself, whose scope, ending, or being moved from changes neither. An
+            // owned value copied out of a borrowed local is the value itself, so it needs nothing.
+            IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } }
+                when !CopiesOwnedValue(local) && verifier.dependencies.TryGetValue(local, out var copied) =>
                 copied with { Alias = false, Element = false },
             _ => null,
         };
+
+        /// <summary>
+        /// Whether copying the local copies an owned value rather than a reference into storage. A
+        /// type parameter may be a view or pointer, which still points where the place did.
+        /// </summary>
+        static bool CopiesOwnedValue(IrLocal local) =>
+            local.Kind == IrLocalKind.Borrowed && !local.Type.IsSecondClass && !local.Type.IsPointer
+            && !local.Type.NonNull.IsTypeParameter;
 
         static bool PointsAway(IrLocal local) => local.Kind == IrLocalKind.Reference || local.Type.IsRefStruct || local.Type.IsPointer;
 

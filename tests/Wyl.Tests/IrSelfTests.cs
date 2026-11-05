@@ -238,6 +238,22 @@ static partial class IrSelfTests
             Error: "an element of its type, or a part of one, may be written");
         yield return new("alias_across_call", () => ElementAcrossCall("alias_across_call", element: false), Error: "the place it borrows may be written");
 
+        // A copy of a borrowed owned value is the value itself, so it outlives the borrowed place.
+        yield return new("copy_of_borrowed_value", () =>
+        {
+            var outer = b.Local("outer", WylType.Int);
+            var borrowed = b.Local("borrowed", WylType.Int, IrLocalKind.Borrowed);
+            var inner = b.Temp(WylType.Int);
+            return b.Function("copy_of_borrowed_value", [],
+                new IrDeclare(outer) { Origin = null },
+                new IrBlock([
+                    new IrLet(inner, Use(IrConstant.Int(1))) { Origin = null },
+                    new IrLet(borrowed, Use(IrRead.Borrow(new IrPlace(inner)))) { Origin = null },
+                    new IrStore(new IrPlace(outer), IrRead.Copy(new IrPlace(borrowed))) { Origin = null },
+                ]) { Origin = null },
+                new IrDo(b.Call("use", IrRead.Copy(new IrPlace(outer)))) { Origin = null });
+        });
+
         // A lambda's body runs during the call it is passed to, so what it refers into must last that long.
         yield return new("lambda_reference_across_call", () => LambdaReferenceAcrossCall(b, "lambda_reference_across_call", held: true));
         yield return new("lambda_reference_unheld_across_call", () => LambdaReferenceAcrossCall(b, "lambda_reference_unheld_across_call", held: false),

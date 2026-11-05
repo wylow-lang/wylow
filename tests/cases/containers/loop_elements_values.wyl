@@ -77,4 +77,12 @@ void main() {
     }
     // output: a
     // output: b
+
+    // A copy of an element in place is the value itself, so it outlives the loop's span.
+    mut String last = "";
+    for (String name : names) { // in-place: 1
+        last = name;
+    }
+    print(last);
+    // output: b
 }

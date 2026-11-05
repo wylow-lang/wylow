@@ -1,0 +1,32 @@
+// A local borrowed from a place keeps the place alive until its scope ends; a copy of that local
+// is the value itself, so it outlives the place it was read from.
+
+import std::print;
+
+struct Pair {
+    int a, b;
+
+    Pair(int a, int b) {
+        this.a = a;
+        this.b = b;
+    }
+}
+
+void main() {
+    mut String text = "";
+    {
+        String inner = "text";
+        String copy = inner;
+        text = copy;
+    }
+    print(text);                        // output: text
+
+    mut Pair pair = Pair(0, 0);
+    {
+        Pair inner = Pair(1, 2);
+        Pair copy = inner;
+        pair = copy;
+    }
+    print(pair.a);                      // output: 1
+    print(pair.b);                      // output: 2
+}
