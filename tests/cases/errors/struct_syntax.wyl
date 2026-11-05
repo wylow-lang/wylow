@@ -1,7 +1,7 @@
 pub struct A {
     pub int x;
 
-    static int count;              // error[WYL0094]: fields cannot be 'static'
+    static int count;
     static mut void f() {          // error[WYL0238]: static method cannot be 'mut'
     }
 }

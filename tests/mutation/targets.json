@@ -21,6 +21,13 @@
     "note": "Implicit and explicit conversions. TypeSelfTests checks the properties on random types; error and value tests print the conversions a program uses."
   },
   {
+    "id": "type-sendable",
+    "title": "Type sendable",
+    "path": "src/Wyl.Compiler.Semantics/TypeSendable.cs",
+    "filters": ["types/", "errors", "statics"],
+    "note": "Which types a value may reach another thread with. TypeSelfTests checks the property, and the sendable-bound and statics error tests pin the bounds and the static type check."
+  },
+  {
     "id": "place-path",
     "title": "Place paths",
     "path": "src/Wyl.Compiler.Semantics/PlacePath.cs",
@@ -345,7 +352,7 @@
     "id": "verifier",
     "title": "IR verifier",
     "path": "src/Wyl.Compiler.Analysis/IrVerifier.cs",
-    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable", "statics"],
     "arguments": ["--interpret"],
     "note": "The flow analysis. IrSelfTests builds the IR it must reject, and the error tests are the user's view of the same checks."
   },

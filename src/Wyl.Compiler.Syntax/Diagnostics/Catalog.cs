@@ -12,7 +12,7 @@ public enum NullableOperand { None, Value, Reference }
 public enum NoThisContext { Static, FieldInitializer, SuperArguments, ChainArguments, DefaultValue }
 
 /// <summary>Why a place cannot be changed, which a message gives as a note.</summary>
-public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn }
+public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn, Static }
 
 /// <summary>A <see cref="ReadOnlyKind"/> and the field, variable, parameter, or method it names.</summary>
 public readonly record struct ReadOnlyReason(ReadOnlyKind Kind, string Name = "");
@@ -48,7 +48,7 @@ public static partial class Catalog
     public static IReadOnlyCollection<DiagnosticDescriptor> All => descriptors.Values;
 
     /// <summary>Codes no longer emitted, which are never given to another diagnostic.</summary>
-    public static IReadOnlyList<int> Retired { get; } = [198, 385, 444];
+    public static IReadOnlyList<int> Retired { get; } = [94, 198, 385, 444];
 
     static Dictionary<string, DiagnosticDescriptor> Describe()
     {
@@ -109,6 +109,7 @@ public static partial class Catalog
         ReadOnlyKind.ImmutableVariable => diagnostic.Note($"variable '{reason.Name}' is not 'mut'"),
         ReadOnlyKind.ImmutableParameter => diagnostic.Note($"parameter '{reason.Name}' is not 'mut'"),
         ReadOnlyKind.ReturnsIn => diagnostic.Note($"'{reason.Name}' returns 'in'"),
+        ReadOnlyKind.Static => diagnostic.Note("every static is read-only"),
         _ => diagnostic,
     };
 

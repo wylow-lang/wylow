@@ -194,6 +194,10 @@ to what uses it.
 - It is a compile-time error if the type of a static is not sendable or not copyable.
 - It is a compile-time error if a generic type declares a static field. Its static methods are
   allowed.
+- It is a compile-time error to declare a static `mut`.
+- A static without an initializer holds its type's default value
+  ([The default value](07-structs.md#structs.constructors.default)). It is a compile-time error if
+  its type has no default value.
 
 **Initialization.** Every static is initialized before `main` runs, on the main thread, exactly once.
 

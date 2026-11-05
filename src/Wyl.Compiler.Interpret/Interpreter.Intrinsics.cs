@@ -84,6 +84,11 @@ public sealed partial class Interpreter
     /// <summary>Runs the intrinsic a call names, or <paramref name="resolved"/>, the one a dispatched call reached.</summary>
     Value? CallIntrinsic(IrCall call, Frame caller, FunctionSymbol? resolved = null)
     {
+        if (program.StaticOf(call.Method.Symbol) is { } statik)
+        {
+            EnsureStatic(statik, call.Loc is { } at ? Location(at, caller) ?? "" : "");
+            return null;
+        }
         var key = RuntimeKey(resolved ?? call.Method.Symbol);
         if (!Intrinsics.TryGetValue(key, out var handler))
             throw new UnsupportedFeature($"the intrinsic '{key}'");

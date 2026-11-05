@@ -22,7 +22,7 @@ public sealed partial class IrLowering
 
     static bool IsPlace(BoundExpression expression) => expression switch
     {
-        BoundLocalAccess or BoundFieldAccess or BoundIndex => true,
+        BoundLocalAccess or BoundFieldAccess or BoundStaticFieldAccess or BoundIndex => true,
         BoundThis self => !self.Type.IsReference,
         BoundCall { Method.Symbol.ReturnRefKind: not RefKind.None } => true,
         BoundNonNull { Operand.Type.IsNullableValue: true } => true,
@@ -74,6 +74,9 @@ public sealed partial class IrLowering
                 first = 1;
                 break;
             }
+            case PlaceBase.Static:
+                place = StaticPlace((BoundStaticFieldAccess)path.Root);
+                break;
             case PlaceBase.Returned:
                 throw new InvalidOperationException("only methods return references");
             default:
@@ -83,6 +86,13 @@ public sealed partial class IrLowering
         for (int i = first; i < path.Steps.Count; i++)
             place = Step(place, path.Steps[i]);
         return place;
+    }
+
+    IrPlace StaticPlace(BoundStaticFieldAccess access)
+    {
+        var statik = statics[access.Field];
+        Add(new IrDo(new IrCall(new MethodReference(statik.Ensure, null, []), null, [], Loc(access.Location))) { Origin = access.Location });
+        return new IrPlace(statik.Storage);
     }
 
     IrPlace LocalPlace(BoundLocalAccess access)

@@ -10,9 +10,29 @@ public static partial class Catalog
     public static Diagnostic TopLevelVariable(Location at, string name) =>
         Make(at, "variables cannot be declared at the top level").Help($"declare '{name}' inside a function or type");
 
-    [Error(94, "variables.statics")]
-    public static Diagnostic StaticField(Location at) =>
-        Make(at, "fields cannot be 'static'");
+    [Error(463, "variables.statics")]
+    public static Diagnostic StaticInGenericType(Location at, string type) =>
+        Make(at, $"generic type '{type}' cannot declare a static field").Help("declare the static in a type that has no type parameters");
+
+    [Error(464, "variables.statics")]
+    public static Diagnostic StaticTypeNotAllowed(Location at, string name, string property, string detail, Location? detailAt) =>
+        Make(at, $"the type of static '{name}' is not {property}").Note(detailAt, detail);
+
+    [Error(465, "variables.statics")]
+    public static Diagnostic StaticAssignment(Location at, string name) =>
+        Make(at, $"cannot assign to static '{name}'").Note("every static is read-only");
+
+    [Error(466, "variables.statics")]
+    public static Diagnostic MutStaticField(Location at) =>
+        Make(at, "static fields cannot be 'mut'").Note("every static is read-only");
+
+    [Error(467, "expressions.members")]
+    public static Diagnostic StaticFieldThroughValue(Location at, string name, string type) =>
+        Make(at, $"static field '{name}' cannot be read through a value").Help($"read it through its type, as in '{type}.{name}'");
+
+    [Error(468, "variables.statics")]
+    public static Diagnostic StaticWithoutDefault(Location at, string name, string type) =>
+        Make(at, $"static '{name}' has no initializer and '{type}' has no default value").Help("give it an initializer");
 
     [Error(89, "variables.references")]
     public static Diagnostic MutReference(Location at, string keyword, string what) =>

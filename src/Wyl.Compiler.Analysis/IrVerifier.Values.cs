@@ -361,7 +361,7 @@ public sealed partial class IrVerifier
         return null;
     }
 
-    bool Visible(IrLocal local) => scopes.Any(s => s.Contains(local));
+    bool Visible(IrLocal local) => local.Role == IrLocalRole.Static || scopes.Any(s => s.Contains(local));
 
     void Apply(State state, IrEffects effects, string what)
     {

@@ -20,7 +20,7 @@ static class MatrixPlaces
         places.AddRange(IndexPlaces("span-element", SpanElement));
         places.AddRange([RefLocal(), InLocal(), RefNullableLocal(), InNullableLocal(),
             NullableValue(), CapturedLocal(), ThisField(), ChainedField(), SetterElement(),
-            TemporaryField(), TemporarySetterElement()]);
+            TemporaryField(), TemporarySetterElement(), StaticField()]);
         var cells = new List<MatrixCell>();
         foreach (var place in places)
         {
@@ -179,6 +179,10 @@ static class MatrixPlaces
         U("int[3]", "", "pair().values", mutable: true),
         (use, operation, body) => MainHost(use, operation, body) + "\n" + TemporaryFunctions + "\n" + SetterTypes,
         use => GenericReturnRef(use) + "\n" + TemporaryFunctions + "\n" + SetterTypes);
+
+    static Place StaticField() => InMain("static-field",
+        U("int", "", "Statics.value", mutable: false),
+        U("int[3]", "", "Statics.values", mutable: false));
 
     static Place TemporarySetterElement() => new("temporary-setter-element",
         U("int", "", "cells()[0]", mutable: true),
@@ -439,6 +443,11 @@ static class MatrixPlaces
 
         int peek(in int value) {
             return value;
+        }
+
+        struct Statics {
+            static int value = 1;
+            static int[3] values = [1, 2, 3];
         }
         """;
 }

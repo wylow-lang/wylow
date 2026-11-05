@@ -1,0 +1,36 @@
+import std::print;
+
+class First {
+    static int A = first();
+    static int B = A + 1;
+}
+
+class Second {
+    static int C = First.B + 1;
+    static int D = second();
+}
+
+int first() {
+    print("first");                     // output: first
+    return 1;
+}
+
+int second() {
+    print("second");                    // output: second
+    return 4;
+}
+
+class Unused {
+    static int VALUE = announce();
+}
+
+int announce() {
+    print("unused");                    // output: unused
+    return 3;
+}
+
+void main() {
+    print(Second.C);                    // output: 3
+    print(First.B);                     // output: 2
+    print(Unused.VALUE);                // output: 3
+}

@@ -286,6 +286,8 @@ public sealed class FieldSymbol(string name, WylType type, TypeSymbol owner, Fie
     /// <summary>Declared <c>mut</c>, so it may be assigned after construction.</summary>
     public bool IsMutable => (Declaration.Modifiers & Modifiers.Mut) != 0;
 
+    public bool IsStatic => (Declaration.Modifiers & Modifiers.Static) != 0;
+
     public BoundExpression? Initializer { get; set; }
 
     /// <summary>Whether a constructor must assign it before using <c>this</c> and before returning.</summary>
@@ -413,6 +415,8 @@ public sealed class TypeSymbol
 
     public List<FieldSymbol> Fields { get; } = [];
 
+    public List<FieldSymbol> StaticFields { get; } = [];
+
     public List<VariantSymbol> Variants { get; } = [];
 
     /// <summary>For an enum, whether any variant carries data.</summary>
@@ -448,6 +452,8 @@ public sealed class TypeSymbol
     public List<FunctionSymbol> Members { get; } = [];
 
     public FieldSymbol? FindField(string name) => Fields.FirstOrDefault(f => f.Name == name);
+
+    public FieldSymbol? FindStaticField(string name) => StaticFields.FirstOrDefault(f => f.Name == name);
 
     public override string ToString() => DisplayName;
 }

@@ -1,0 +1,10 @@
+import std::print;
+
+module class Late {
+    pub static int VALUE = late();
+}
+
+module int late() {
+    print("late");
+    return 2;
+}

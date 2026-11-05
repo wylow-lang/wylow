@@ -486,6 +486,7 @@ public sealed partial class Binder
             { Base: PlaceBase.This } when currentFunction is { IsReadOnly: true } => (PlaceKind.ReadOnly, new(ReadOnlyKind.ReadOnlyThis)),
             { Base: PlaceBase.This } => (PlaceKind.Mutable, default),
             { Base: PlaceBase.Returned, Root: BoundCall call } => ClassifyReturnedReference(call, PlaceKind.Temporary),
+            { Base: PlaceBase.Static } => (PlaceKind.ReadOnly, new(ReadOnlyKind.Static)),
             _ => (PlaceKind.Temporary, default),
         };
         foreach (var step in path.Steps)
@@ -561,6 +562,11 @@ public sealed partial class Binder
         }
         if (target is BoundIndexerElement)
             return true;
+        if (PlacePath.Of(target).Base == PlaceBase.Static)
+        {
+            Error(Catalog.StaticAssignment(target.Location, TextOf(target.Location)));
+            return false;
+        }
         var (kind, reason) = ClassifyPlace(target);
         switch (kind)
         {

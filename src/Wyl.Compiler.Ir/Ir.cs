@@ -16,6 +16,13 @@ public sealed class IrProgram(BoundProgram bound)
     public BoundProgram Bound { get; } = bound;
     public IrFunctions Functions { get; } = new();
 
+    public List<IrStatic> Statics { get; } = [];
+
+    Dictionary<FunctionSymbol, IrStatic>? staticsByEnsure;
+
+    public IrStatic? StaticOf(FunctionSymbol ensure) =>
+        (staticsByEnsure ??= Statics.ToDictionary(s => s.Ensure)).GetValueOrDefault(ensure);
+
     /// <summary>
     /// How many times the pipeline has changed the program, so that facts found from it can tell
     /// when they describe an earlier program.
@@ -86,6 +93,18 @@ public sealed class IrFunctions : IReadOnlyList<IrFunction>
 
     public IEnumerator<IrFunction> GetEnumerator() => functions.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public sealed class IrStatic(FieldSymbol field, IrLocal storage, IrFunction? initializer, FunctionSymbol ensure)
+{
+    public FieldSymbol Field { get; } = field;
+    public IrLocal Storage { get; } = storage;
+    public IrFunction Initializer { get; set; } = initializer!;
+    public FunctionSymbol Ensure { get; } = ensure;
+
+    public string Name => $"{Field.Owner.DisplayName}.{Field.Name}";
+
+    public override string ToString() => $"static {Name}";
 }
 
 public sealed class IrFunction(FunctionSymbol symbol, string name)
@@ -195,6 +214,7 @@ public enum IrLocalRole
     This,
     /// <summary>An escaping lambda's copy of a local, or of <c>this</c> if it has no <see cref="IrLocal.Symbol"/>.</summary>
     Capture,
+    Static,
 }
 
 /// <summary>A local, parameter, or temporary.</summary>

@@ -21,6 +21,10 @@ public sealed partial class Interpreter : IObjectLifetime
     readonly InterpreterOptions options;
     readonly List<byte> output = [];
 
+    readonly Dictionary<IrLocal, Storage> statics = [];
+    readonly Dictionary<IrStatic, byte> staticStates = [];
+    readonly List<IrStatic> initializing = [];
+
     /// <summary>Standard error's lines so far: the collector's performance warnings, in the order they were reported.</summary>
     readonly List<string> standardError = [];
 
@@ -96,6 +100,13 @@ public sealed partial class Interpreter : IObjectLifetime
 
     Interpretation Execute()
     {
+        foreach (var statik in program.Statics)
+        {
+            statics[statik.Storage] = new OwnedStorage(new Cell(statik.Field.Type, MovedValue.Instance));
+            staticStates[statik] = 0;
+        }
+        foreach (var statik in program.Statics)
+            EnsureStatic(statik, "");
         var main = program.Bound.Main ?? throw new InterpreterException("the program has no 'main'");
         var function = program.Functions.Single(main) ?? throw new InterpreterException($"no lowered function for '{main.Name}'");
         var frame = new Frame(TypeMap.Empty);
@@ -112,6 +123,24 @@ public sealed partial class Interpreter : IObjectLifetime
         ReportUncollected();
         int exitCode = result is IntValue code ? (int)(long)code.Bits : 0;
         return Interpretation.Completed(Output, exitCode, ErrorText);
+    }
+
+    void EnsureStatic(IrStatic statik, string location)
+    {
+        if (staticStates[statik] == 2)
+            return;
+        if (staticStates[statik] == 1)
+        {
+            var chain = string.Join(" -> ", initializing.Select(s => s.Name).Append(statik.Name));
+            throw new WylPanic($"reading static '{statik.Name}' while its initializer is still running ({chain})", location);
+        }
+        staticStates[statik] = 1;
+        initializing.Add(statik);
+        var value = Invoke(statik.Initializer, new Frame(TypeMap.Empty))
+            ?? throw new InterpreterException($"the initializer of static '{statik.Name}' returned nothing");
+        initializing.RemoveAt(initializing.Count - 1);
+        ((OwnedStorage)statics[statik.Storage]).Cell.Value = value;
+        staticStates[statik] = 2;
     }
 
     void Step() => Charge(1);
@@ -198,7 +227,7 @@ public sealed partial class Interpreter : IObjectLifetime
         public bool Previous { get; } = previous;
     }
 
-    Cell LocalCell(Frame frame, IrLocal local) => frame.Find(local) switch
+    Cell LocalCell(Frame frame, IrLocal local) => (local.Role == IrLocalRole.Static ? statics[local] : frame.Find(local)) switch
     {
         OwnedStorage owned => owned.Cell,
         HoldStorage hold => hold.Cell,

@@ -174,6 +174,7 @@ public sealed partial class IrVerifier
             constructed = requiredFields.Count > 0 ? verified.This ?? verified.Struct : null;
         }
         var state = new State();
+        state.Assigned.UnionWith(program.Statics.Select(s => s.Storage));
         state.AssignedFields.UnionWith(assignedFields ?? new HashSet<FieldSymbol>());
         foreach (var parameter in Entry(verified))
             DeclareParameter(parameter, state);

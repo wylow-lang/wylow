@@ -1,0 +1,19 @@
+import std::print;
+
+class First {
+    static int A = Helper.read();
+}
+
+class Helper {
+    pub static int read() {
+        return Second.B;
+    }
+}
+
+class Second {
+    static int B = First.A;            // panic-here: reading static 'First.A' while its initializer is still running (First.A -> Second.B -> First.A)
+}
+
+void main() {
+    print("main");
+}

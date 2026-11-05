@@ -1,0 +1,34 @@
+import std::print;
+
+class Node { }
+
+class Box<T> {
+    static int COUNT = 1;                         // error[WYL0463]: generic type 'Box' cannot declare a static field
+}
+
+struct Holds {
+    Node node;
+}
+
+unique struct Buffer {
+    int length;
+}
+
+enum Choice {
+    Filled(int value),
+    Empty
+}
+
+class Settings {
+    static Node NODE = new Node();                // error[WYL0464]: the type of static 'NODE' is not sendable
+    static Holds HOLDS = Holds(node: new Node()); // error[WYL0464]: the type of static 'HOLDS' is not sendable
+    static Buffer BUFFER = Buffer(1);             // error[WYL0464]: the type of static 'BUFFER' is not copyable
+    static mut int CHANGE = 2;                    // error[WYL0466]: static fields cannot be 'mut'
+    static Choice CHOICE;                         // error[WYL0468]: static 'CHOICE' has no initializer and 'Choice' has no default value
+}
+
+void main() {
+    Settings.NODE = new Node();                   // error[WYL0465]: cannot assign to static 'Settings.NODE'
+    var settings = new Settings();
+    print(settings.NODE);                         // error[WYL0467]: static field 'NODE' cannot be read through a value
+}

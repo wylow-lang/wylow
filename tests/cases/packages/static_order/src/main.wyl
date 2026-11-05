@@ -1,0 +1,21 @@
+import std::print;
+
+class MainValue {
+    static int VALUE = mainValue();
+}
+
+int mainValue() {
+    print("main value");
+    return 3;
+}
+
+// output: early
+// output: late
+// output: main value
+
+void main() {
+    print(Early.VALUE);         // output: 1
+    print(Late.VALUE);          // output: 2
+    print(MainValue.VALUE);     // output: 3
+    print("done");              // output: done
+}

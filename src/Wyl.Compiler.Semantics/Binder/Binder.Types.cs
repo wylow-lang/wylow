@@ -196,6 +196,16 @@ public sealed partial class Binder
         return null;
     }
 
+    static (FieldSymbol Field, WylType Owner)? LookupStaticField(WylType type, string name)
+    {
+        for (var t = type.NonNull; t?.Symbol is not null; t = t.BaseType)
+        {
+            if (t.Symbol.FindStaticField(name) is { } field)
+                return (field, t);
+        }
+        return null;
+    }
+
     /// <summary>
     /// Methods callable on a value of the type: its own, then inherited ones that it does not
     /// override. A type parameter has the methods of its bounds.

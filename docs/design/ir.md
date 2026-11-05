@@ -59,7 +59,9 @@ Locals have a kind that the emitter maps to a C++ declaration: **value** (`T x`)
 (`T& x` for `ref`/`in`, `T* x` for `ref?`/`in?`), **borrowed** (`const T& x`, an alias of a place
 that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::pin`, or `wyl::Borrow<T>`
 from `wyl::borrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark<T>`, which
-marks a value in use while it lives and restores the state before it).
+marks a value in use while it lives and restores the state before it). A local's **role** says
+where it lives: a variable, a temporary, a parameter, `this`, a capture, or a **static**, which
+belongs to `IrProgram.Statics` rather than to a function and lasts for the whole program.
 
 Some notes on the choices:
 
@@ -438,6 +440,29 @@ one argument needs statements, the constructor delegates to one of its class tha
 constructor returns and destroys them the last first. The `wyl::Arguments` holds a copy of every
 argument, including one passed by `in` or `ref`: a value, or the address of the place, both of
 which the delegating constructor receives as it would have directly.
+
+### 5.12 Statics
+
+A static field is an `IrLocal` with the `static` role, which `IrProgram.Statics` lists in the order
+the spec gives: the statics of a package after those of the packages it depends on, the files of a
+package by their path, and the statics of a file in the order they are written. Lowering builds the
+list once, in that order, so the emitter and the interpreter cannot disagree about it. Each entry
+holds its storage, its initializer, and the symbol of its ensure call.
+
+An initializer is an ordinary lowered function with no parameters that returns the static's value;
+a static without one returns its type's default value. Reading a static is a read of its place,
+and lowering puts a call of the static's ensure before the read, with the read's location. The
+ensure initializes the static if it is not initialized, and panics if its initializer is still
+running, naming the chain of statics involved. The call's effects run code and may panic, so no
+pass moves a read across it. Once initialization has finished, the ensure tests one state byte and
+returns, running no program code.
+
+A static is never destroyed ([0029](decisions/0029-statics-are-not-destroyed.md)). The emitted
+C++ keeps its value in `wyl::StaticStorage<T>`, raw storage with a state byte and the static's
+name, filled by placement new in the ensure and never destroyed. A function `wyl_init_statics`,
+called before `main`, runs every ensure in the list's order. The interpreter keeps one cell per
+static for the run, runs the same order, and restores the same ensure rule, so a cycle panics with
+the same message and location in both executors.
 
 ## 6. The analyses on the IR
 

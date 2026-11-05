@@ -3,6 +3,7 @@
 #pragma once
 
 #include "wyl/core.h"
+#include "wyl/statics.h"
 #include "wyl/arithmetic.h"
 #include "wyl/pools.h"
 #include "wyl/object.h"

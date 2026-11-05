@@ -22,6 +22,7 @@ public sealed partial class IrLowering
     IrLocal? self;
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
+    readonly IReadOnlyDictionary<FieldSymbol, IrStatic> statics;
 
     /// <summary>The statement or expression being lowered, which the statements made for it come from.</summary>
     Location? at;
@@ -31,10 +32,11 @@ public sealed partial class IrLowering
     IrBlock block;
     bool reachable = true;
 
-    IrLowering(BoundProgram program, FunctionSymbol symbol, string? name = null)
+    IrLowering(BoundProgram program, FunctionSymbol symbol, string? name, IReadOnlyDictionary<FieldSymbol, IrStatic> statics)
     {
         this.program = program;
         this.symbol = symbol;
+        this.statics = statics;
         var owner = symbol.ContainingType;
         function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
         block = function.Body;
@@ -50,13 +52,39 @@ public sealed partial class IrLowering
     public static IrProgram Lower(BoundProgram program)
     {
         var ir = new IrProgram(program);
+        var statics = new Dictionary<FieldSymbol, IrStatic>();
+        foreach (var s in program.Types)
+        {
+            foreach (var field in s.StaticFields)
+            {
+                if (field.Type == WylType.Error)
+                    continue;
+                var storage = new IrLocal($"{s.Name}.{field.Name}", field.Type, IrLocalKind.Value, IrLocalRole.Static);
+                var ensure = new FunctionSymbol("static_ensure", [], WylType.Void)
+                {
+                    BuiltinCppName = $"wyl_ensure_static_{ir.Statics.Count}",
+                    PassesLocation = true,
+                };
+                var statik = new IrStatic(field, storage, null, ensure);
+                statics[field] = statik;
+                ir.Statics.Add(statik);
+            }
+        }
         void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
-            var lowering = new IrLowering(program, symbol, name);
+            var lowering = new IrLowering(program, symbol, name, statics);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
         }
 
+        foreach (var statik in ir.Statics)
+        {
+            var symbol = new FunctionSymbol("static_initializer", [], statik.Field.Type);
+            var lowering = new IrLowering(program, symbol, $"init {statik.Name}", statics);
+            statik.Initializer = lowering.StaticInitializer(statik.Field);
+            ir.Functions.Add(statik.Initializer);
+            ir.Functions.AddRange(lowering.lambdas);
+        }
         foreach (var function in program.Functions.Where(f => !f.Symbol.IsMemberwise))
             Add(function.Symbol, null, lowering => lowering.Function(function));
         foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Struct && s.Type.HasDefaultCode))
@@ -71,6 +99,18 @@ public sealed partial class IrLowering
                 Add(function.Symbol, $"{function.Symbol.ContainingType!.Name}.{function.Symbol.Name}[{FormKey(form)}]", lowering => lowering.Built(function, form));
         }
         return ir;
+    }
+
+    IrFunction StaticInitializer(FieldSymbol field)
+    {
+        symbol = function.Symbol;
+        function.Body = block = new IrBlock { Origin = field.Declaration.Location };
+        at = field.Declaration.NameLocation;
+        var value = field.Initializer is { } initializer
+            ? Value(initializer)
+            : IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))));
+        Add(new IrReturn(value) { Origin = field.Declaration.NameLocation });
+        return function;
     }
 
     /// <summary>

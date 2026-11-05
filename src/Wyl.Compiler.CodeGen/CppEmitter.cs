@@ -34,6 +34,8 @@ public sealed partial class CppEmitter
     /// <summary>The program's lowered functions, indexed by the symbol each instruction names.</summary>
     IrFunctions functions = null!;
 
+    readonly Dictionary<IrLocal, string> staticNames = [];
+
     /// <summary>What the program's lambdas change, which decides what code nested past a call may see change.</summary>
     IIrLambdaChanges lambdas = null!;
 
@@ -45,6 +47,8 @@ public sealed partial class CppEmitter
         this.lambdas = lambdas;
         functions = ir.Functions;
         this.nest = nest;
+        for (int i = 0; i < ir.Statics.Count; i++)
+            staticNames[ir.Statics[i].Storage] = $"wyl_static_{i}.value()";
         cycles = callees.Cycles;
         recursive = FindRecursive(ir);
         overloaded = FindOverloaded(program);
@@ -110,6 +114,8 @@ public sealed partial class CppEmitter
         foreach (var s in program.Types.Where(s => !s.IsExtern))
             EmitCollectorMembers(s);
 
+        EmitStatics(ir);
+
         foreach (var function in program.Functions)
         {
             if (function.Symbol.IsMemberwise)
@@ -132,6 +138,7 @@ public sealed partial class CppEmitter
         Line("{");
         indent++;
         Line("wyl::init();");
+        Line("wyl_init_statics();");
         var call = $"{FunctionName(main)}()";
         if (takesArguments)
         {
@@ -151,6 +158,48 @@ public sealed partial class CppEmitter
         indent--;
         Line("}");
         return output.ToString();
+    }
+
+    void EmitStatics(IrProgram ir)
+    {
+        for (int i = 0; i < ir.Statics.Count; i++)
+        {
+            Line();
+            Line($"static wyl::StaticStorage<{CppType(ir.Statics[i].Field.Type)}> wyl_static_{i}(\"{ir.Statics[i].Name}\");");
+        }
+        if (ir.Statics.Count > 0)
+            Line();
+        for (int i = 0; i < ir.Statics.Count; i++)
+            Line($"static void wyl_ensure_static_{i}(const char* wyl_location);");
+        for (int i = 0; i < ir.Statics.Count; i++)
+        {
+            var statik = ir.Statics[i];
+            var type = CppType(statik.Field.Type);
+            Line();
+            Line($"static {type} wyl_init_static_{i}()");
+            EmitIrFunction(statik.Initializer);
+            Line();
+            Line($"static void wyl_ensure_static_{i}(const char* wyl_location)");
+            Line("{");
+            indent++;
+            Line($"if (wyl_static_{i}.state == 2) return;");
+            Line($"if (wyl_static_{i}.state == 1) wyl::static_cycle(\"{statik.Name}\", wyl_location);");
+            Line($"wyl_static_{i}.state = 1;");
+            Line($"wyl::static_begin(\"{statik.Name}\");");
+            Line($"new (wyl_static_{i}.place()) {type}(wyl_init_static_{i}());");
+            Line("wyl::static_end();");
+            Line($"wyl_static_{i}.state = 2;");
+            indent--;
+            Line("}");
+        }
+        Line();
+        Line("static void wyl_init_statics()");
+        Line("{");
+        indent++;
+        for (int i = 0; i < ir.Statics.Count; i++)
+            Line($"wyl_ensure_static_{i}(nullptr);");
+        indent--;
+        Line("}");
     }
 
     void Line(string text = "")

@@ -98,7 +98,7 @@ public sealed partial class IrLowering
             case BoundArrayData data:
                 // A view isn't read right away, so the object it points into is held while it may be used.
                 return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));
-            case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
+            case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundStaticFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
                 return new IrUse(Value(expression));
             case BoundNonNull nonNull:
                 return Unwrapped(nonNull);

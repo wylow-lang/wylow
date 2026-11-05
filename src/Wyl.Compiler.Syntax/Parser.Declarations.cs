@@ -274,7 +274,6 @@ public sealed partial class Parser
             Report(Catalog.InterfaceField(Loc(name.Span)));
         else if (kind == TypeKind.Enum)
             Report(Catalog.EnumField(Loc(name.Span)));
-        Disallow(modifiers, Modifiers.Static, token => Catalog.StaticField(Loc(token.Span)));
         if (kind == TypeKind.Struct)
             Disallow(modifiers, Modifiers.Mut, token => Catalog.MutStructField(Loc(token.Span)));
         Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => Catalog.ModifierOnField(Loc(token.Span), token.Text));

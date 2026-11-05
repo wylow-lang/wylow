@@ -88,7 +88,7 @@ public sealed partial class IrLowering
     static Dictionary<FunctionSymbol, List<IReadOnlyList<bool>>> MemberwiseForms(BoundProgram program)
     {
         var expressions = program.Functions.SelectMany(f => BoundTree.AllExpressions(f.Body))
-            .Concat(program.Types.SelectMany(s => s.Fields).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
+            .Concat(program.Types.SelectMany(s => s.Fields.Concat(s.StaticFields)).Select(f => f.Initializer).OfType<BoundExpression>().SelectMany(BoundTree.AllExpressions));
         return expressions
             .OfType<BoundConstruction>()
             .Where(c => c.Constructor.Symbol.IsMemberwise)

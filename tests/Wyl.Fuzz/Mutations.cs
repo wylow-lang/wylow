@@ -113,6 +113,7 @@ static class Mutations
         // Gives a unique struct an empty destructor, which crosses destructor lowering and the
         // in-use bit without changing what the program does.
         new("type-unique-destructor", SiteKind.TypeDecl, UniqueDestructorApplies, UniqueDestructorBuild),
+        new("type-static-field", SiteKind.TypeDecl, StaticFieldApplies, StaticFieldBuild),
         // Constructs through a this(...) chain, which changes nothing a program does: a class's
         // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
         new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
@@ -283,6 +284,19 @@ static class Mutations
     static bool ParameterInApplies(Site site) =>
         site.Node is ParameterSyntax { RefKind: RefKind.None } parameter
         && !(parameter.Type.Shape == TypeShape.Named && parameter.Type.Name == "void");
+
+    static bool StaticFieldApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Struct or TypeKind.Class, TypeParameters.Count: 0 };
+
+    static Candidate? StaticFieldBuild(MutationContext context, Site site)
+    {
+        int brace = context.Slice(site.Span).IndexOf('{');
+        if (brace < 0)
+            return null;
+        var name = context.UniqueName("STATIC_VALUE");
+        int at = site.Span.Start + brace + 1;
+        return new("type-static-field", [new Edit(at, at, $"\n    pub static int {name} = 0;")]);
+    }
 
     static Candidate? ParameterInBuild(MutationContext context, Site site) => Insert("parameter-in", site, site.Span.Start, "in ");
 

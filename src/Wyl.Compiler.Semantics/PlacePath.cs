@@ -20,6 +20,7 @@ public enum PlaceBase
     Returned,
     /// <summary>A <c>ref struct</c> constructed from views and arrays, which are its <see cref="PlacePath.Parts"/>.</summary>
     Views,
+    Static,
     /// <summary>Any other value, whose storage is a temporary.</summary>
     Temporary,
 }
@@ -89,6 +90,8 @@ public sealed record PlacePath(PlaceBase Base, BoundExpression Root, IReadOnlyLi
                     return Done(PlaceBase.Views, construction, parts: [.. construction.Arguments
                         .Where(a => a is BoundArrayData || a.Type.IsRefStruct)
                         .Select(a => Of(a is BoundArrayData data ? data.Array : a))]);
+                case BoundStaticFieldAccess:
+                    return Done(PlaceBase.Static, current);
                 case BoundLocalAccess:
                     return Done(PlaceBase.Local, current);
                 case BoundThis:

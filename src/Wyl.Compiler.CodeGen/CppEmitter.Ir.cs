@@ -370,6 +370,8 @@ public sealed partial class CppEmitter
 
     string Name(IrLocal local)
     {
+        if (staticNames.TryGetValue(local, out var staticName))
+            return staticName;
         if (irNames.TryGetValue(local, out var name))
             return name;
         // A closure's copies get new names, so they don't shadow the variables they copy.

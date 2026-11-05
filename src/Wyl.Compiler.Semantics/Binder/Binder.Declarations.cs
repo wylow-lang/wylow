@@ -347,6 +347,45 @@ public sealed partial class Binder
         return result;
     }
 
+    void CheckStaticField(FieldSymbol field, TypeSymbol s)
+    {
+        var name = field.Declaration.NameLocation;
+        if (s.IsGeneric)
+            Error(Catalog.StaticInGenericType(name, s.Name));
+        if (field.IsMutable)
+            Error(Catalog.MutStaticField(name));
+        if (field.Type == WylType.Error)
+            return;
+        if (!field.Type.IsSendable)
+        {
+            var (detail, at) = SendableProblem(field.Type);
+            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "sendable", detail, at));
+        }
+        if (!field.Type.IsCopyable)
+        {
+            var unique = field.Type.InlineTypes().FirstOrDefault(t => t.Symbol is { IsUnique: true });
+            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "copyable", unique is null ? $"'{field.Type}' has no copies" : $"'{unique}' is unique", unique?.Symbol?.Declaration.NameLocation));
+        }
+    }
+
+    static (string Detail, Location? At) SendableProblem(WylType type)
+    {
+        var value = type.NonNull;
+        if (value.IsStructOrEnum && !value.Symbol!.IsExtern)
+        {
+            var map = TypeMap.For(value);
+            foreach (var field in value.Symbol.ValueFields)
+            {
+                var fieldType = map.Apply(field.Type);
+                if (!fieldType.IsSendable)
+                    return ($"field '{field.Name}' has type '{fieldType}', which is not sendable", field.Declaration.NameLocation);
+            }
+        }
+        if (value is FixedArrayType array && !array.Element.IsSendable)
+            return ($"element type '{array.Element}' is not sendable", null);
+        return ($"'{type}' is not sendable", null);
+    }
+
     void DeclareMembers(TypeSymbol s)
     {
         typeParameters = s.TypeParameters;
@@ -360,11 +399,20 @@ public sealed partial class Binder
             var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)
                 Error(Catalog.ExternStructField(decl.NameLocation));
-            if (s.FindField(decl.Name) is not null)
-                Error(Catalog.DuplicateField(decl.NameLocation, decl.Name, s.FindField(decl.Name)!.Declaration.NameLocation));
+            var previous = s.FindField(decl.Name) ?? s.FindStaticField(decl.Name);
+            if (previous is not null)
+            {
+                Error(Catalog.DuplicateField(decl.NameLocation, decl.Name, previous.Declaration.NameLocation));
+                continue;
+            }
+            TakesLanguageName(decl.Name, decl.NameLocation);
+            if (field.IsStatic)
+            {
+                CheckStaticField(field, s);
+                s.StaticFields.Add(field);
+            }
             else
             {
-                TakesLanguageName(decl.Name, decl.NameLocation);
                 s.Fields.Add(field);
             }
         }
@@ -791,6 +839,25 @@ public sealed partial class Binder
             currentType = s;
             typeParameters = s.TypeParameters;
             noThisContext = NoThisContext.FieldInitializer;
+            scope = new Scope(null);
+            field.Initializer = Convert(BindExpression(initializer, field.Type), field.Type);
+            currentType = null;
+            typeParameters = [];
+            noThisContext = NoThisContext.Static;
+            scope = null;
+        }
+        foreach (var field in s.StaticFields)
+        {
+            if (field.Declaration.Initializer is not { } initializer)
+            {
+                if (field.Type != WylType.Error && !field.Type.IsDefaultable)
+                    Error(Catalog.StaticWithoutDefault(field.Declaration.NameLocation, field.Name, field.Type.ToString()));
+                continue;
+            }
+            currentType = s;
+            typeParameters = s.TypeParameters;
+            noThisContext = NoThisContext.FieldInitializer;
+            hasThis = false;
             scope = new Scope(null);
             field.Initializer = Convert(BindExpression(initializer, field.Type), field.Type);
             currentType = null;

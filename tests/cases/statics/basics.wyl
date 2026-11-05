@@ -1,0 +1,50 @@
+import std::print;
+
+struct Config {
+    int limit;
+    String name;
+}
+
+class Settings {
+    static int RATE = 10;
+    static Config LIMITS = Config(limit: 5, name: "main");
+    static int DOUBLED = RATE * 2;
+    static int ZERO;
+    static String EMPTY;
+
+    pub static int rate() {
+        return RATE;
+    }
+
+    pub int limitPlus() {
+        return LIMITS.limit + RATE;
+    }
+}
+
+class Tables {
+    static int[3] VALUES = [3, 4, 5];
+    static Config CONFIG = Config(limit: 9, name: "table");
+
+    pub static int middle() {
+        return VALUES[1];
+    }
+}
+
+void main() {
+    print(Settings.RATE);                    // output: 10
+    print(Settings.LIMITS.limit);            // output: 5
+    print(Settings.DOUBLED);                 // output: 20
+    print(Settings.rate());                  // output: 10
+    print(Settings.ZERO);                    // output: 0
+    print(Settings.EMPTY);                   // output:
+    var settings = new Settings();
+    print(settings.limitPlus());             // output: 15
+    print(Tables.VALUES[2]);                 // output: 5
+    print(Tables.CONFIG.name);               // output: table
+    print(Tables.middle());                  // output: 4
+    print(Settings.RATE + Settings.LIMITS.limit);   // output: 15
+    in int rate = Settings.RATE;
+    print(rate);                             // output: 10
+    escaping fn() -> int read = () -> Tables.VALUES[0];
+    print(read());                           // output: 3
+}

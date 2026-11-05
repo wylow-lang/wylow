@@ -227,6 +227,9 @@ public sealed record BoundThis(Location Location, WylType Type) : BoundExpressio
 public sealed record BoundFieldAccess(Location Location, BoundExpression Receiver, FieldSymbol Field, WylType Type)
     : BoundExpression(Location, Type);
 
+public sealed record BoundStaticFieldAccess(Location Location, FieldSymbol Field, WylType Type)
+    : BoundExpression(Location, Type);
+
 /// <summary>An element of a fixed array, which is bounds-checked, or of a pointer, which is not.</summary>
 public sealed record BoundIndex(Location Location, BoundExpression Target, BoundExpression Index)
     : BoundExpression(Location, ((IndexedType)Target.Type).Element);
