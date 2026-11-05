@@ -1,0 +1,33 @@
+// A reference binding into an enum's variant keeps the enum in use while a lambda made in the
+// binding's scope runs, so replacing the enum inside the lambda panics.
+
+import std::{print, replace};
+
+unique struct Buffer {
+    pub int id;
+
+    ~Buffer() { }
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer);
+}
+
+void run(fn() -> void f) {
+    f();
+}
+
+void main() {
+    mut var maybe = Maybe.Some(Buffer(id: 1));
+    switch (maybe) {
+        case Some(in var buffer) -> {
+            run(() -> {
+                var previous = replace(ref maybe, Maybe.None);
+                // panic: cannot replace a value that is in use
+                print(buffer.id);
+            });
+        }
+        case None -> { }
+    }
+}

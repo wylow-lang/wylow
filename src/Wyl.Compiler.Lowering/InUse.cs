@@ -33,7 +33,8 @@ static class InUse
         block.Statements.Clear();
         // The places the block's reference temporaries refer to, which a store of one copies.
         var places = new Dictionary<IrLocal, IrPlace>();
-        // The scope guards whose reference is a binding made by a store: they end where it is last read.
+        // The guards whose reference is made by a store, which end after its last read unless a
+        // lambda made in the block reads it.
         var endsAfter = new Dictionary<int, List<IrLocal>>();
         foreach (var (statement, index) in statements.Select((s, i) => (s, i)))
         {
@@ -62,18 +63,8 @@ static class InUse
                 {
                     var guard = GuardLet(place, statement);
                     block.Statements.Add(guard);
-                    if (ReferenceIsStored(statement))
-                    {
-                        // A binding's reference is used only while the case or guard it belongs to
-                        // is tested, which ends at its last use in this block.
-                        int last = index;
-                        for (int next = index; next < statements.Count; next++)
-                        {
-                            if (Reads(statements[next], referenced.Local))
-                                last = next;
-                        }
+                    if (ReferenceIsStored(statement) && LastRead(statements, index, referenced.Local) is { } last)
                         (endsAfter.TryGetValue(last, out var list) ? list : endsAfter[last] = []).Add(guard.Local);
-                    }
                 }
             }
             if (endsAfter.TryGetValue(index, out var ends))
@@ -87,9 +78,33 @@ static class InUse
     /// <summary>Whether a reference local is made by a store into one declared without a value, as a pattern binding is.</summary>
     static bool ReferenceIsStored(IrStatement statement) => statement is IrStore;
 
+    static int? LastRead(List<IrStatement> statements, int index, IrLocal local)
+    {
+        int? last = index;
+        for (int next = index; next < statements.Count; next++)
+        {
+            if (ReadsInLambda(statements[next], local))
+                return null;
+            if (Reads(statements[next], local, intoLambdas: false))
+                last = next;
+        }
+        return last;
+    }
+
+    static bool ReadsInLambda(IrStatement statement, IrLocal local) =>
+        IrWalk.Descendants(statement)
+            .OfType<IrLet>()
+            .Select(let => let.Value)
+            .Any(value => value switch
+            {
+                IrLambda lambda => Reads(lambda.Function.Body, local, intoLambdas: true),
+                IrClosure closure => Reads(closure.Function.Body, local, intoLambdas: true),
+                _ => false,
+            });
+
     /// <summary>Whether the statement, or one inside it, reads the local.</summary>
-    static bool Reads(IrStatement statement, IrLocal local) =>
-        IrWalk.Descendants(statement, intoLambdas: false)
+    static bool Reads(IrStatement statement, IrLocal local, bool intoLambdas) =>
+        IrWalk.Descendants(statement, intoLambdas)
             .SelectMany(IrWalk.Operands)
             .SelectMany(IrWalk.Places)
             .Any(place => place.Local == local);
