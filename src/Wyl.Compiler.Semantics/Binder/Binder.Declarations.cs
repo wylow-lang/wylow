@@ -148,7 +148,10 @@ public sealed partial class Binder
         var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, []);
         typeParameters = ownTypeParameters;
         BindBounds(decl.TypeParameters, ownTypeParameters);
-        var function = new FunctionSymbol(decl.Name, BindParameters(decl.Parameters), BindType(decl.ReturnType!, allowVoid: true))
+        var parameters = BindParameters(decl.Parameters, out var receiver);
+        if (receiver is not null)
+            Error(Catalog.ReceiverOutsideValueMethod(decl.NameLocation));
+        var function = new FunctionSymbol(decl.Name, parameters, BindType(decl.ReturnType!, allowVoid: true))
         {
             Declaration = decl,
             Body = decl.Body,
@@ -214,12 +217,17 @@ public sealed partial class Binder
         a.ReturnType == b.ReturnType
         && Enumerable.Range(0, a.Symbol.Parameters.Count).All(i => a.ParameterType(i) == b.ParameterType(i));
 
-    List<LocalSymbol> BindParameters(IReadOnlyList<ParameterSyntax> parameters)
+    /// <summary>
+    /// A function's or method's parameters, and its by-value receiver, if it writes one as its first
+    /// parameter (spec <c>structs.methods.by-value</c>).
+    /// </summary>
+    List<LocalSymbol> BindParameters(IReadOnlyList<ParameterSyntax> parameters, out LocalSymbol? receiver)
     {
         var result = new List<LocalSymbol>();
+        receiver = null;
         foreach (var parameter in parameters)
         {
-            if (result.Any(p => p.Name == parameter.Name))
+            if (result.Any(p => p.Name == parameter.Name) || receiver?.Name == parameter.Name)
                 Error(Catalog.DuplicateParameter(parameter.Location, parameter.Name));
             else
                 TakesLanguageName(parameter.Name, parameter.Location);
@@ -238,7 +246,10 @@ public sealed partial class Binder
             };
             if (local.DefaultSyntax is not null)
                 local.DefaultDeclaration = local;
-            result.Add(local);
+            if (parameter.IsReceiver)
+                receiver = local;
+            else
+                result.Add(local);
         }
         return result;
     }
@@ -273,8 +284,12 @@ public sealed partial class Binder
             var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, s.TypeParameters);
             typeParameters = [.. s.TypeParameters, .. ownTypeParameters];
             BindBounds(decl.TypeParameters, ownTypeParameters);
-            var parameters = BindParameters(decl.Parameters);
+            var parameters = BindParameters(decl.Parameters, out var receiver);
+            var receiverSyntax = decl.Parameters.FirstOrDefault(p => p.IsReceiver);
             var modifiers = decl.Modifiers;
+            if (receiver is not null && decl.IsConstructor)
+                Error(Catalog.ReceiverOutsideValueMethod(receiverSyntax!.Location));
+            receiver = decl.IsConstructor ? null : receiver;
             bool isInterface = s.Kind == TypeKind.Interface;
             // An interface method is as visible as its interface (spec programs.visibility).
             var reach = isInterface ? s.Reach : Reach.Of(decl).Within(s.Reach);
@@ -285,7 +300,7 @@ public sealed partial class Binder
                     Error(Catalog.ExternStructConstructor(decl.NameLocation));
                     continue;
                 }
-                if (parameters.Count == 0 && s.Kind == TypeKind.Struct)
+                if (parameters.Count == 0 && receiver is null && s.Kind == TypeKind.Struct)
                 {
                     Error(Catalog.ParameterlessStructConstructor(decl.NameLocation));
                     continue;
@@ -312,6 +327,7 @@ public sealed partial class Binder
 
             var method = new FunctionSymbol(decl.Name, parameters, BindType(decl.ReturnType!, allowVoid: true))
             {
+                ReceiverParameter = receiver,
                 Declaration = decl,
                 Body = decl.Body,
                 TypeParameters = ownTypeParameters,
@@ -330,9 +346,14 @@ public sealed partial class Binder
                 BuiltinCppName = ExternName(decl, s),
                 IsPure = IsPure(decl),
             };
-            if (method.ReturnRefKind != RefKind.None)
-                CheckReturnsReference(method);
-            CheckReturnsView(method);
+            if (receiver is not null)
+                CheckReceiver(method, s, receiverSyntax!, receiver);
+            else
+            {
+                if (method.ReturnRefKind != RefKind.None)
+                    CheckReturnsReference(method);
+                CheckReturnsView(method);
+            }
             if (method.PassesLocation && method.IsDispatched)
                 Error(Catalog.CallerLocationOnDispatched(decl.NameLocation));
             if (method.IsBuiltin && !method.IsStatic && !s.IsExtern)
@@ -469,6 +490,31 @@ public sealed partial class Binder
             Error(Catalog.VoidReferenceReturn(location, keyword));
         else if (referenced.PassedWithoutCopying)
             Error(Catalog.ReferenceToPassedWithoutCopying(location, keyword, (referenced.NonNull.IsFunction ? referenced.NonNull : referenced).ToString(), referenced.NonNull.IsFunction));
+    }
+
+    /// <summary>
+    /// What a method with a by-value receiver must be and take: not a class's or interface's, not a
+    /// constructor or an indexer, not `mut` or `static`, a receiver of the declaring type itself, and
+    /// no reference or view returned (spec <c>structs.methods.by-value</c>).
+    /// </summary>
+    void CheckReceiver(FunctionSymbol method, TypeSymbol owner, ParameterSyntax syntax, LocalSymbol receiver)
+    {
+        var location = syntax.Location;
+        if (owner.Kind is not (TypeKind.Struct or TypeKind.Enum) || method.IsIndexer || method.IsIndexerSetter)
+            Error(Catalog.ReceiverOutsideValueMethod(location));
+        if (receiver.RefKind != RefKind.None)
+            Error(Catalog.ReceiverMode(location));
+        if (receiver.Type != WylType.Error && receiver.Type != owner.Type)
+            Error(Catalog.ReceiverType(location, owner.Type.ToString(), receiver.Type.ToString()));
+        var modifiers = new List<string>();
+        if ((method.Declaration!.Modifiers & Modifiers.Mut) != 0)
+            modifiers.Add("'mut'");
+        if (method.IsStatic)
+            modifiers.Add("'static'");
+        if (modifiers.Count > 0)
+            Error(Catalog.ReceiverModifier(location, string.Join(" or ", modifiers)));
+        if (method.ReturnRefKind != RefKind.None || method.ReturnType.IsNullableReference || method.ReturnType.IsRefStruct)
+            Error(Catalog.ReceiverReferenceReturn(location, method.ReturnType.ToString()));
     }
 
     /// <summary>

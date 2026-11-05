@@ -11,8 +11,13 @@ public sealed partial class Binder
         currentFunction = function;
         currentType = function.ContainingType;
         typeParameters = [.. currentType?.TypeParameters ?? [], .. function.TypeParameters];
-        hasThis = currentType is not null && !function.IsStatic;
+        hasThis = currentType is not null && !function.IsStatic && function.ReceiverParameter is null;
         scope = new Scope(null);
+        if (function.ReceiverParameter is { } receiver)
+        {
+            receiver.Owner = function;
+            scope.Add(receiver);
+        }
         foreach (var parameter in function.Parameters)
         {
             parameter.Owner = function;
@@ -322,7 +327,8 @@ public sealed partial class Binder
             return new BoundReturn(s.Location, null);
         }
         var converted = Convert(value, function.ReturnType);
-        if (function.ReturnType.IsRefStruct && converted.Type != WylType.Error && !IsThisDerived(converted))
+        // A by-value receiver cannot return a view, which is reported with the method.
+        if (function.ReturnType.IsRefStruct && function.ReceiverParameter is null && converted.Type != WylType.Error && !IsThisDerived(converted))
         {
             var holderText = converted is BoundCall { Receiver: { } holder } && holder.Type.SharesStorage && IsThisRooted(holder)
                 ? TextOf(holder.Location)
@@ -362,7 +368,8 @@ public sealed partial class Binder
                 : null;
             if (reference is not null && IsThisRooted(place))
                 return new BoundReturn(s.Location, reference);
-            if (reference is not null)
+            // A by-value receiver cannot return a reference, which is reported with the method.
+            if (reference is not null && function.ReceiverParameter is null)
                 Error(Catalog.ReturnedReferenceNotOfReceiver(s.Value!.Location, what));
         }
         return new BoundReturn(s.Location, null);

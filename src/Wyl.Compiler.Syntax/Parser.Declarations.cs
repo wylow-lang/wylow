@@ -375,11 +375,30 @@ public sealed partial class Parser
     {
         Expect(TokenKind.OpenParen, "'('");
         var parameters = new List<ParameterSyntax>();
+        // A receiver, `this T name`, may come first (spec functions.extensions).
+        if (allowRefKinds && At(TokenKind.ThisKeyword))
+        {
+            parameters.Add(ParseReceiverParameter());
+            if (At(TokenKind.CloseParen))
+            {
+                Advance();
+                return parameters;
+            }
+            Expect(TokenKind.Comma, "','");
+        }
         if (!At(TokenKind.CloseParen))
         {
             do
             {
                 int parameterStart = position;
+                if (allowRefKinds && At(TokenKind.ThisKeyword))
+                {
+                    // Consume it as the receiver it was meant to be, without its meaning.
+                    var misplaced = ParseReceiverParameter();
+                    Report(Catalog.ReceiverNotFirst(misplaced.Location));
+                    parameters.Add(misplaced with { IsReceiver = false });
+                    continue;
+                }
                 var annotations = ParseAnnotations();
                 if (!allowRefKinds && At(TokenKind.MutKeyword))
                     Report(Catalog.MutVariantField(Loc(Current.Span)));
@@ -413,5 +432,26 @@ public sealed partial class Parser
         }
         Expect(TokenKind.CloseParen, "')'");
         return parameters;
+    }
+
+    /// <summary><c>this [ref|in] T name</c>: a method's receiver, which it takes by value.</summary>
+    ParameterSyntax ParseReceiverParameter()
+    {
+        int start = position;
+        Advance();
+        var refKind = RefKind.None;
+        if (At(TokenKind.RefKeyword))
+        {
+            Advance();
+            refKind = RefKind.Ref;
+        }
+        else if (At(TokenKind.InKeyword))
+        {
+            Advance();
+            refKind = RefKind.In;
+        }
+        var type = ParseType();
+        var name = Expect(TokenKind.Identifier, "a parameter name");
+        return new ParameterSyntax(LocationFrom(start), refKind, type, name.Text) { IsReceiver = true };
     }
 }

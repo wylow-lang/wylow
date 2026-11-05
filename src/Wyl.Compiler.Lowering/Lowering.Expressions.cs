@@ -182,10 +182,25 @@ public sealed partial class IrLowering
     IrCall Call(BoundCall call, IrArgument? receiver)
     {
         var method = call.Method;
-        if (receiver is null && call.Receiver is not null)
+        var arguments = new List<IrArgument>();
+        if (method.Symbol.HasByValueReceiver)
+        {
+            // The receiver is the call's first argument, passed as a by-value receiver is.
+            arguments.Add(ReceiverArgument(method, call.Receiver!));
+        }
+        else if (receiver is null && call.Receiver is not null)
+        {
             receiver = Receiver(call);
-        var arguments = Arguments(method, call.Arguments);
+        }
+        arguments.AddRange(Arguments(method, call.Arguments));
         return new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
+    }
+
+    /// <summary>A by-value receiver, kept for its statement as any by-value argument is, or moved when it is unique.</summary>
+    IrArgument ReceiverArgument(MethodReference method, BoundExpression receiver)
+    {
+        var argument = Argument(method.ReceiverType, RefKind.None, receiver);
+        return argument is IrOperand operand ? Kept(operand) : argument;
     }
 
     /// <summary>

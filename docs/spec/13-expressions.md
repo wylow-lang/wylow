@@ -60,10 +60,10 @@ type arguments is read as type arguments when the matching `>` is followed by `(
   `this`: in a static method, a method with a by-value receiver
   ([By-value receivers](07-structs.md#structs.methods.by-value)), a field initializer, the arguments
   of `this(...)` or `super(...)`, or a default value.
-- `this` is the receiver of the instance method or constructor that holds it, and only a struct or
-  class has one.
-- It is a compile-time error to use `this` outside a struct or class, where no receiver exists, or
-  in a method with a by-value receiver.
+- `this` is the receiver of the instance method or constructor that holds it, and only a struct,
+  class, or enum has one.
+- It is a compile-time error to use `this` outside a struct, class, or enum, where no receiver
+  exists, or in a method with a by-value receiver.
 - `super` names the base class of the class whose method or constructor holds it. `super.m(...)`
   calls the method `m` of the base class on `this`, without dispatch to an override, and
   `super(...)` calls a base class constructor.

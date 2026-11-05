@@ -168,6 +168,9 @@ public sealed record ParameterSyntax(Location Location, RefKind RefKind, TypeSyn
     public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
     public bool IsMutable { get; init; }
 
+    /// <summary>Written <c>this T name</c>, which a method takes as its by-value receiver.</summary>
+    public bool IsReceiver { get; init; }
+
     /// <summary>Where <c>escaping</c> is written, if it is.</summary>
     public Location? Escaping { get; init; }
 

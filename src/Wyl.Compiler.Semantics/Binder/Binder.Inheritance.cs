@@ -68,6 +68,8 @@ public sealed partial class Binder
                 var implementing = $"{implementation.Owner!.Symbol!.Name}.{method.Name}";
                 if (implementation.Symbol.IsStatic)
                     Error(Catalog.StaticImplementation(location, implementing, description));
+                else if (implementation.Symbol.HasByValueReceiver)
+                    Error(Catalog.ReceiverImplementation(location, implementing));
                 else if (implementation.Symbol.Declaration!.Visibility != iface.Symbol.Declaration.Visibility)
                     Error(Catalog.ImplementationVisibility(location, implementing, description, iface.Symbol.Declaration.Visibility, iface.Symbol.Name));
                 else if (!HasSameTypes(implementation, required))

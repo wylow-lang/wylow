@@ -820,7 +820,9 @@ public sealed partial class IrVerifier
     void Call(IrCall call, State state)
     {
         var method = call.Method;
-        if (method.Symbol.IsInstanceMethod != call.Receiver is not null)
+        // A by-value receiver is passed as the first argument, so the call has no receiver of its own.
+        bool takesReceiver = method.Symbol.IsInstanceMethod && !method.Symbol.HasByValueReceiver;
+        if (takesReceiver != call.Receiver is not null)
             Error(call.Receiver is null ? $"calls method '{method.Symbol.Name}' without a receiver" : $"calls '{method.Symbol.Name}' with a receiver");
         if (call.Receiver is { } receiver)
         {
@@ -847,28 +849,31 @@ public sealed partial class IrVerifier
     void Arguments(MethodReference method, IReadOnlyList<IrArgument> arguments, State state)
     {
         var parameters = method.Symbol.Parameters;
-        if (arguments.Count != parameters.Count)
+        int count = parameters.Count + method.ReceiverCount;
+        if (arguments.Count != count)
         {
-            Error($"passes {arguments.Count} arguments to '{method.Symbol.Name}', which takes {parameters.Count}");
+            Error($"passes {arguments.Count} arguments to '{method.Symbol.Name}', which takes {count}");
             return;
         }
         for (int i = 0; i < arguments.Count; i++)
         {
             Argument(arguments[i], state);
-            var type = method.ParameterType(i);
-            var kind = method.ParameterRefKind(i);
+            var type = method.ArgumentType(i);
+            var kind = method.ArgumentRefKind(i);
             bool fits = arguments[i] switch
             {
                 IrAddrArgument address => type is NullableReferenceType nullable && address.Place.Type == nullable.Referenced && (address.Kind == nullable.Kind || nullable.Kind == RefKind.In),
                 IrRefArgument reference => !type.IsNullableReference && reference.Place.Type == type && (reference.Kind == kind || kind == RefKind.In),
                 IrOperand operand => operand.Type == type || (type is NullableReferenceType nullable && operand.Type is NullableReferenceType passed && passed.Referenced == nullable.Referenced) || PassesFunction(operand.Type, type),
-                IrFieldDefault field => parameters[i].Field == field.Field,
+                IrFieldDefault field => i >= method.ReceiverCount && parameters[i - method.ReceiverCount].Field == field.Field,
                 _ => false,
             };
             if (fits && arguments[i] is IrOperand && kind != RefKind.None && !type.IsNullableReference)
                 fits = false;
             if (!fits)
-                Error($"argument {i + 1} doesn't fit parameter '{FunctionSymbol.ParameterText(kind, type)} {parameters[i].Name}'");
+                Error(i < method.ReceiverCount
+                    ? $"the receiver doesn't fit '{method.ReceiverType}'"
+                    : $"argument {i + 1 - method.ReceiverCount} doesn't fit parameter '{FunctionSymbol.ParameterText(kind, type)} {parameters[i - method.ReceiverCount].Name}'");
         }
     }
 

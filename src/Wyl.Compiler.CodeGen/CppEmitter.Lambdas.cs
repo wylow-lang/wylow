@@ -119,7 +119,7 @@ public sealed partial class CppEmitter
     /// <summary>An argument for a <c>wyl::FunctionRef</c> parameter, converted explicitly so that C++ picks the overload Wylow did.</summary>
     string FunctionArgument(MethodReference method, int index, string argument)
     {
-        var type = method.ParameterType(index);
+        var type = method.ArgumentType(index);
         if (type.IsNullableNonEscapingFunction)
             return OptionalFunctionArgument(type, argument);
         return type is FunctionType { IsEscaping: false } function && !TakesCallables(method.Symbol) ? $"wyl::FunctionRef<{FunctionSignature(function)}>({argument})" : argument;

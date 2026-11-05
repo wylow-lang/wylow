@@ -34,6 +34,30 @@ public static partial class Catalog
     public static Diagnostic MutStructField(Location at) =>
         Make(at, "struct fields cannot be 'mut'").Note("a struct's fields can be changed wherever the struct can");
 
+    [Error(447, "structs.methods.by-value")]
+    public static Diagnostic ReceiverOutsideValueMethod(Location at) =>
+        Make(at, "'this' parameter is only for a method of a struct or enum").Note("a class, an interface, a constructor, and an indexer have no by-value receiver");
+
+    [Error(448, "structs.methods.by-value")]
+    public static Diagnostic ReceiverMode(Location at) =>
+        Make(at, "'this' parameter cannot be 'ref' or 'in'").Note("a method's receiver is passed by value").Help("declare the method 'mut' to change the receiver");
+
+    [Error(449, "structs.methods.by-value")]
+    public static Diagnostic ReceiverType(Location at, string expected, string found) =>
+        Make(at, $"receiver type: expected '{expected}', found '{found}'").Note("a method's receiver has the type that declares it");
+
+    [Error(450, "structs.methods.by-value")]
+    public static Diagnostic ReceiverModifier(Location at, string modifiers) =>
+        Make(at, $"a method with a by-value receiver cannot be {modifiers}");
+
+    [Error(451, "structs.methods.by-value")]
+    public static Diagnostic ReceiverReferenceReturn(Location at, string type) =>
+        Make(at, "a method with a by-value receiver cannot return a reference or a view").Note($"it returns '{type}'");
+
+    [Error(452, "interfaces.implementing")]
+    public static Diagnostic ReceiverImplementation(Location at, string method) =>
+        Make(at, $"{method} cannot implement an interface method with a by-value receiver").Note("an interface call uses the value in place");
+
     [Error(103, "structs.methods.mut")]
     public static Diagnostic MutClassMethod(Location at) =>
         Make(at, "'mut' cannot be used on a class method")

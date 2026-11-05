@@ -1,0 +1,41 @@
+// A by-value receiver is moved from its local, as a by-value argument is.
+
+import std::print;
+
+unique struct Buffer {
+    pub int length;
+
+    pub int measure(this Buffer buffer) {
+        return buffer.length;
+    }
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer);
+
+    pub int lengthOr(this Maybe maybe, int fallback) {
+        return switch (maybe) {
+            case Some(in var b) -> b.length;
+            case None -> fallback;
+        };
+    }
+}
+
+void moved(Buffer buffer) {
+    print(buffer.measure());
+    print(buffer.length);           // error[WYL0440]: 'buffer' is used after being moved
+}
+
+void twice(Maybe maybe) {
+    print(maybe.lengthOr(0));
+    print(maybe.lengthOr(1));       // error[WYL0440]: 'maybe' is used after being moved
+}
+
+void conditional(Maybe? maybe) {
+    print(maybe?.lengthOr(0) ?? -1);
+    print(maybe!.lengthOr(1));      // error[WYL0440]: 'maybe' is used after being moved
+}
+
+void main() {
+}

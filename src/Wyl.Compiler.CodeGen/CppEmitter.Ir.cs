@@ -29,6 +29,8 @@ public sealed partial class CppEmitter
         localNames.Clear();
         usedLocalNames.Clear();
         usedLocalNames.UnionWith(function.Symbol.Parameters.Select(LocalName));
+        if (function.Symbol.ReceiverParameter is { } receiver)
+            usedLocalNames.Add(LocalName(receiver));
         currentType = function.Symbol.ContainingType;
         irNames.Clear();
         continueLabels.Clear();

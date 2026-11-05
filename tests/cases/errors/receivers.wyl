@@ -1,0 +1,51 @@
+// What a method's by-value receiver must be: a struct's or enum's own method, built from the
+// declaring type, not 'ref' or 'in', and not 'mut' or 'static'.
+
+interface Named {
+    int name();
+}
+
+class Cell {
+    mut int value;
+
+    Cell(int value) {
+        this.value = value;
+    }
+
+    int read(this Cell cell) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+        return cell.value;
+    }
+}
+
+struct Counter {
+    int value;
+
+    mut void reset(this Counter counter) { }   // error[WYL0450]: a method with a by-value receiver cannot be 'mut'
+    void read(this ref Counter counter) { }    // error[WYL0448]: 'this' parameter cannot be 'ref' or 'in'
+}
+
+struct Box<T> {
+    T value;
+
+    void copy(this Box<int> other) { }         // error[WYL0449]: receiver type: expected 'Box<T>', found 'Box<int>'
+}
+
+struct Store {
+    int value;
+
+    ReadOnlySpan<byte> bytes(this Store store) {   // error[WYL0451]: a method with a by-value receiver cannot return a reference or a view
+        return "a".bytes();
+    }
+}
+
+struct Item implements Named {
+    int value;
+
+    int name(this Item item) {                // error[WYL0452]: Item.name cannot implement an interface method with a by-value receiver
+        return item.value;
+    }
+}
+
+void free(this Counter counter) { }           // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+
+void main() { }

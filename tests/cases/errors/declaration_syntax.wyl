@@ -45,3 +45,11 @@ void main() {
     if (b is ) { }                      // error[WYL0001]: expected a pattern
     for (int i = 0; i < 3; int j = 1) { }  // error[WYL0342]: variable cannot be declared here
 }
+
+struct Late {
+    int value;
+
+    int read(int extra, this Late late) {   // error[WYL0446]: 'this' parameter must come first
+        return extra;
+    }
+}

@@ -6,6 +6,10 @@ namespace Wyl.Compiler.Diagnostics;
 // Chapter 12, functions and methods.
 public static partial class Catalog
 {
+    [Error(446, "functions.parameters")]
+    public static Diagnostic ReceiverNotFirst(Location at) =>
+        Make(at, "'this' parameter must come first").Note("a method's receiver is its first parameter");
+
     [Error(209, "functions.declarations")]
     public static Diagnostic ModifierOnFunction(Location at, string modifier) =>
         Make(at, $"'{modifier}' cannot be used on a function");

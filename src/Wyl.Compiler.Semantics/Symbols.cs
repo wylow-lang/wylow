@@ -239,8 +239,18 @@ public sealed class MethodReference
     public IReadOnlyList<WylType> TypeArguments { get; }
     public TypeMap Map { get; }
 
+    /// <summary>Whether the call passes the receiver as its first argument, which is not one of <see cref="Symbol.Parameters"/>.</summary>
+    public int ReceiverCount => Symbol.HasByValueReceiver ? 1 : 0;
+
     public WylType ParameterType(int index) => Map.Apply(Symbol.Parameters[index].Type);
     public RefKind ParameterRefKind(int index) => Symbol.Parameters[index].RefKind;
+
+    /// <summary>The type of the argument at <paramref name="index"/>, counting a by-value receiver first.</summary>
+    public WylType ArgumentType(int index) => index < ReceiverCount ? ReceiverType : ParameterType(index - ReceiverCount);
+
+    public RefKind ArgumentRefKind(int index) => index < ReceiverCount ? RefKind.None : ParameterRefKind(index - ReceiverCount);
+
+    public WylType ReceiverType => Map.Apply(Symbol.ReceiverParameter!.Type);
     public WylType ReturnType => Map.Apply(Symbol.ReturnType);
 
     public override string ToString() => Symbol.Signature;

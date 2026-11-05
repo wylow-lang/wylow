@@ -1,0 +1,74 @@
+// A method whose first parameter is 'this T name' takes its receiver by value: a copyable one is
+// copied and stays usable, a unique one is moved, and '?.' moves it when the member takes it by value.
+
+import std::print;
+
+struct Counter {
+    pub int value;
+
+    pub Counter twice(this Counter counter) {
+        return Counter(counter.value * 2);
+    }
+}
+
+unique struct Buffer {
+    pub int length;
+
+    pub int measure(this Buffer buffer) {
+        return buffer.length;
+    }
+}
+
+unique enum Maybe {
+    None,
+    Some(Buffer buffer);
+
+    pub int lengthOr(this Maybe maybe, int fallback) {
+        return switch (maybe) {
+            case Some(in var b) -> b.length;
+            case None -> fallback;
+        };
+    }
+
+    pub int peek() {
+        return switch (this) {
+            case Some(in var b) -> b.length;
+            case None -> -1;
+        };
+    }
+}
+
+void main() {
+    var counter = Counter(2);
+    print(counter.twice().value);
+    // output: 4
+    print(counter.value);
+    // output: 2
+
+    var buffer = Buffer(5);
+    print(buffer.measure());
+    // output: 5
+
+    var some = Maybe.Some(Buffer(7));
+    print(some.lengthOr(0));
+    // output: 7
+
+    mut Maybe? maybe = Maybe.Some(Buffer(8));
+    print(maybe?.lengthOr(0) ?? -1);
+    // output: 8
+
+    mut Maybe? none = null;
+    print(none?.lengthOr(1) ?? -1);
+    // output: -1
+
+    mut Maybe? forced = Maybe.Some(Buffer(9));
+    print(forced!.lengthOr(0));
+    // output: 9
+
+    mut Maybe? viewed = Maybe.Some(Buffer(6));
+    print(viewed?.peek() ?? -1);
+    // output: 6
+    // 'peek' takes its receiver in place, so 'viewed' still holds it.
+    print(viewed!.peek());
+    // output: 6
+}

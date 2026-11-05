@@ -16,7 +16,13 @@ public sealed partial class CppEmitter
     static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
 
     string Parameters(FunctionSymbol function) =>
-        WithLocationParameter(function, function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type)));
+        WithLocationParameter(function, DeclaredParameters(function));
+
+    /// <summary>A function's parameters, with a by-value receiver first, as its call passes it.</summary>
+    IEnumerable<string> DeclaredParameters(FunctionSymbol function) =>
+        function.ReceiverParameter is { } receiver
+            ? [ParameterDeclaration(function, receiver, receiver.Type), .. function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type))]
+            : function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type));
 
     string Parameters(MethodReference method) =>
         WithLocationParameter(method.Symbol, method.Symbol.Parameters.Select((p, i) => ParameterDeclaration(method.Symbol, p, method.ParameterType(i))));
@@ -36,7 +42,7 @@ public sealed partial class CppEmitter
         if (member.IsDestructor)
             return owner.HasSeparateDestructor ? "void wyl_destructor()" : $"~{OwnName(owner)}() override";
         var signature = $"{ReturnType(member)} {MethodName(member)}({Parameters(member)})";
-        if (member.IsStatic)
+        if (member.IsStatic || member.HasByValueReceiver)
             return "static " + signature;
         if (OverridesInCpp(member))
             return signature + (member.IsFinal ? " override final" : " override");
@@ -68,7 +74,7 @@ public sealed partial class CppEmitter
         if (function.IsDestructor)
             return s.HasSeparateDestructor ? $"void {owner}::wyl_destructor()" : $"{owner}::~{OwnName(s)}()";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
-        return function.IsReadOnly ? signature + " const" : signature;
+        return function.IsReadOnly && !function.HasByValueReceiver ? signature + " const" : signature;
     }
 
     void EmitFunction(BoundFunction function)
