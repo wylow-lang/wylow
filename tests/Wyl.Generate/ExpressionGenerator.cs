@@ -4,7 +4,11 @@ using Wyl.Compiler.Semantics;
 namespace Wyl.Generate;
 
 /// <summary>A helper an expression may call: declared earlier, so the call graph is acyclic.</summary>
-sealed record Helper(string Name, WylType Return, IReadOnlyList<WylType> Parameters);
+sealed record Helper(string Name, WylType Return, IReadOnlyList<WylType> Parameters)
+{
+    /// <summary>The prints one call makes, its own statements and the calls in them counted, so a caller can budget for it.</summary>
+    public int Cost { get; set; }
+}
 
 /// <summary>
 /// Gives an expression of exactly one type by trying that type's constructors in a seeded order.
@@ -16,6 +20,8 @@ sealed partial class ExpressionGenerator(
     GenerateOptions options,
     Scope scope,
     IReadOnlyList<Helper> helpers,
+    PrintBudget budget,
+    bool topLevel,
     List<string> shapes,
     List<WylType> types)
 {
@@ -149,7 +155,7 @@ sealed partial class ExpressionGenerator(
         return name switch
         {
             "local" => scope.OfType(type).Count > 0,
-            "call" => helpers.Any(helper => helper.Return == type),
+            "call" => Afford(helpers.Where(helper => helper.Return == type)).Any(),
             _ => true,
         };
     }
@@ -518,11 +524,25 @@ sealed partial class ExpressionGenerator(
 
     GenExpr? Call(WylType type, int depth)
     {
-        var candidates = helpers.Where(helper => helper.Return == type).ToList();
+        var candidates = Afford(helpers.Where(helper => helper.Return == type)).ToList();
         if (candidates.Count == 0)
             return null;
         var helper = rng.Pick(candidates);
+        if (topLevel)
+            budget.TryRun(Charge(helper));
+        budget.Ran(Charge(helper));
         var arguments = helper.Parameters.Select(parameter => SlotValue(parameter, depth - 1).Text).ToList();
         return new($"{helper.Name}({string.Join(", ", arguments)})", type, FullRange(type));
     }
+
+    /// <summary>The prints one call makes, each counted as many times as the statement runs.</summary>
+    int Charge(Helper helper) => helper.Cost * budget.Multiplicity;
+
+    /// <summary>Whether a call's prints fit what main may make, or what one run of this helper may.</summary>
+    bool Affordable(Helper helper) => topLevel
+        ? Charge(helper) <= budget.Left
+        : budget.Dynamic + Charge(helper) <= options.PrintLines;
+
+    /// <summary>The helpers a statement may still afford to call, so its prints stay within the budget.</summary>
+    IEnumerable<Helper> Afford(IEnumerable<Helper> helpers) => helpers.Where(Affordable);
 }

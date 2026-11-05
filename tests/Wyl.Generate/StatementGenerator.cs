@@ -2,24 +2,52 @@ using Wyl.Compiler.Semantics;
 
 namespace Wyl.Generate;
 
-/// <summary>The prints a whole program may make, shared by main and its helpers.</summary>
+/// <summary>
+/// The prints a whole program may make. <see cref="TextLeft"/> bounds the print statements in its
+/// text, which main and its helpers share. <see cref="Left"/> bounds what main's run prints: a print
+/// inside loops counts once for each time it runs, and a call counts the prints its body makes, so
+/// the bound holds while the program runs and not only in its text. <see cref="Dynamic"/> counts
+/// what the body being made prints when it is called once.
+/// </summary>
 sealed class PrintBudget(int lines)
 {
+    public int TextLeft { get; private set; } = lines;
     public int Left { get; private set; } = lines;
 
-    public bool TryUse()
+    /// <summary>How many times the statement or expression being made runs, from the loops around it.</summary>
+    public int Multiplicity { get; set; } = 1;
+
+    /// <summary>What one run of the body being made prints.</summary>
+    public int Dynamic { get; private set; }
+
+    public void ResetDynamic() => Dynamic = 0;
+
+    /// <summary>Charges a print statement's own line, which every body shares.</summary>
+    public bool TryText()
     {
-        if (Left <= 0)
+        if (TextLeft <= 0)
             return false;
-        Left--;
+        TextLeft--;
         return true;
     }
+
+    /// <summary>Charges what main's run makes, and fails where the program could not afford it.</summary>
+    public bool TryRun(int count)
+    {
+        if (count > Left)
+            return false;
+        Left -= count;
+        return true;
+    }
+
+    public void Ran(int count) => Dynamic += count;
 }
 
 /// <summary>
 /// Statements: declarations, assignments, prints, ifs, bounded range loops, and helper calls. Every
 /// integer operation is guarded by <see cref="IntegerFacts"/>, every loop has a literal bound, and a
-/// block is bounded in depth, so a generated program terminates and never panics.
+/// block is bounded in depth, so a generated program terminates and never panics. Its prints are
+/// bounded as it runs, not only in its text: see <see cref="PrintBudget"/>.
 /// </summary>
 sealed class StatementGenerator(
     Rng rng,
@@ -37,8 +65,12 @@ sealed class StatementGenerator(
 
     int loopDepth;
 
+    /// <summary>Whether this body is main's, whose run the program's budget bounds.</summary>
+    bool topLevel;
+
     public void WriteMain(Scope scope, ExpressionGenerator expressions)
     {
+        topLevel = true;
         writer.Open("void main() {");
         for (int i = 0; i < options.Size; i++)
             WriteStatement(scope, expressions, depth: 0);
@@ -50,6 +82,7 @@ sealed class StatementGenerator(
 
     public void WriteHelper(Helper helper, Scope scope, ExpressionGenerator expressions)
     {
+        topLevel = false;
         var parameters = helper.Parameters.Select((type, index) => $"{type.Name} a{index}");
         writer.Open($"{helper.Return.Name} {helper.Name}({string.Join(", ", parameters)}) {{");
         for (int i = 0, count = 1 + rng.Next(3); i < count; i++)
@@ -66,10 +99,10 @@ sealed class StatementGenerator(
             bool applies = kind switch
             {
                 "assign" => scope.Visible.Any(local => local.Mutable && GenerateOptions.Types.Contains(local.Type)),
-                "print" => budget.Left > 0,
+                "print" => budget.TextLeft > 0,
                 "if" => depth < MaxBlockDepth,
                 "for" => depth < MaxBlockDepth && loopDepth < options.LoopDepth,
-                "call" => helpers.Count > 0 && budget.Left > 0,
+                "call" => helpers.Any(Affordable),
                 _ => true,
             };
             if (applies)
@@ -189,26 +222,55 @@ sealed class StatementGenerator(
         writer.Open($"for (int {counter} : 0..{count}) {{");
         scope.Push();
         scope.Declare(counter, WylType.Int, new IntegerRange(0, count - 1));
+        budget.Multiplicity *= count;
         Print(counter);
         loopDepth++;
         for (int i = 0, statements = 1 + rng.Next(4); i < statements; i++)
             WriteStatement(scope, expressions, depth + 1);
         loopDepth--;
+        budget.Multiplicity /= count;
         scope.Pop();
         writer.Close();
     }
 
     void Call(ExpressionGenerator expressions)
     {
-        var helper = rng.Pick(helpers);
+        var affordable = helpers.Where(Affordable).ToList();
+        if (affordable.Count == 0)
+            return;
+        var helper = rng.Pick(affordable);
+        Run(Charge(helper));
         var arguments = helper.Parameters.Select(type => expressions.Slot(type, options.Depth - 1).Text);
         Print($"{helper.Name}({string.Join(", ", arguments)})");
     }
 
+    /// <summary>The prints one call makes, each counted as many times as the statement runs.</summary>
+    int Charge(Helper helper) => helper.Cost * budget.Multiplicity;
+
+    /// <summary>Whether a call's prints fit what main may make, or what one run of this helper may.</summary>
+    bool Affordable(Helper helper) => topLevel
+        ? Charge(helper) <= budget.Left
+        : budget.Dynamic + Charge(helper) <= options.PrintLines;
+
+    /// <summary>
+    /// Charges what the statement prints as it runs: against main's budget, which fails when the
+    /// program cannot afford it, or against this helper's own cost, which a caller budgets for.
+    /// </summary>
+    void Run(int count)
+    {
+        if (topLevel)
+            budget.TryRun(count);
+        budget.Ran(count);
+    }
+
     void Print(string text)
     {
-        if (!budget.TryUse())
+        int count = budget.Multiplicity;
+        if (topLevel && !budget.TryRun(count))
             return;
+        if (!budget.TryText())
+            return;
+        budget.Ran(count);
         writer.Line($"print({text});");
     }
 }

@@ -128,7 +128,7 @@ static class GeneratorSelfTests
             if (constructor == "local")
                 scope.Declare("probe", type);
             IReadOnlyList<Helper> helpers = constructor == "call" ? [new Helper("probe", type, [])] : [];
-            var expressions = new ExpressionGenerator(new Rng((ulong)(attempt + 1)), options, scope, helpers, [], []);
+            var expressions = new ExpressionGenerator(new Rng((ulong)(attempt + 1)), options, scope, helpers, new PrintBudget(options.PrintLines), topLevel: true, [], []);
             if (expressions.TryConstruct(constructor, type, depth: 1) is { } expression && expression.Type == type)
                 return true;
         }
@@ -360,6 +360,9 @@ static class GeneratorSelfTests
             int prints = program.Text.Split("print(").Length - 1;
             if (prints > options.PrintLines)
                 return $"program {index} printed {prints} times, over {options.PrintLines}";
+            // Loops and calls make a program print more than its text does, which the budget bounds too.
+            if (generator.RunPrints > options.PrintLines)
+                return $"program {index} prints {generator.RunPrints} times when it runs, over {options.PrintLines}";
             if (!program.Text.Contains("void main()", StringComparison.Ordinal))
                 return $"program {index} has no main";
             if (program.Text.Length > 200_000)

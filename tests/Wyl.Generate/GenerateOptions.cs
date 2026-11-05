@@ -12,7 +12,7 @@ namespace Wyl.Generate;
 /// <param name="NodeBudget">Constructor nodes in one expression tree.</param>
 /// <param name="LoopDepth">Nested range-for loops allowed.</param>
 /// <param name="MaxHelpers">Helpers; each is declared before the functions that call it.</param>
-/// <param name="PrintLines">Prints in the whole program, so a finding stays triageable.</param>
+/// <param name="PrintLines">Print statements in the program's text, and prints its run makes, so a finding stays triageable.</param>
 sealed record GenerateOptions(
     int Stage = 1,
     int Size = 40,

@@ -39,18 +39,25 @@ sealed class ProgramGenerator(GenerateOptions options)
             for (int p = 0; p < helpers[i].Parameters.Count; p++)
                 scope.Declare($"a{p}", helpers[i].Parameters[p]);
             var earlier = helpers[..i];
-            var expressions = new ExpressionGenerator(rng, options, scope, earlier, shapes, types);
+            var expressions = new ExpressionGenerator(rng, options, scope, earlier, budget, topLevel: false, shapes, types);
             var statements = new StatementGenerator(rng, options, writer, budget, earlier);
+            budget.ResetDynamic();
             statements.WriteHelper(helpers[i], scope, expressions);
+            // What one run of the body makes is what one call to it prints, so a caller can budget for it.
+            helpers[i].Cost = budget.Dynamic;
             writer.Blank();
         }
 
         var mainScope = new Scope();
-        var mainExpressions = new ExpressionGenerator(rng, options, mainScope, helpers, shapes, types);
+        var mainExpressions = new ExpressionGenerator(rng, options, mainScope, helpers, budget, topLevel: true, shapes, types);
         var mainStatements = new StatementGenerator(rng, options, writer, budget, helpers);
         mainStatements.WriteMain(mainScope, mainExpressions);
+        RunPrints = options.PrintLines - budget.Left;
         return new GeneratedProgram(writer.ToString(), seed, index, shapes, types);
     }
+
+    /// <summary>What one run of the last program generated prints, as the budget charges it.</summary>
+    public int RunPrints { get; private set; }
 
     /// <summary>Why a program would not bind. A non-empty list is a generator bug, never a compiler finding.</summary>
     public IReadOnlyList<(int Line, int Column, string Message)> Validate(string text)
