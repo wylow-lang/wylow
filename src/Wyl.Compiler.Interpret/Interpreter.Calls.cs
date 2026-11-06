@@ -122,7 +122,7 @@ public sealed partial class Interpreter
     /// <summary>
     /// A by-value parameter's cell. A parameter of nullable value type may be given a value that
     /// isn't nullable, as a lambda is given to a nullable function parameter without allocating:
-    /// the value becomes the nullable's value, as <c>wyl::optional_ref</c> makes it.
+    /// the value becomes the nullable's value, as <c>wyl::OptionalRef</c> makes it.
     /// </summary>
     Cell ArgumentCell(WylType parameterType, IrArgument argument, Frame frame, Frame caller)
     {
@@ -386,7 +386,7 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// Whether objects of the class may be on a cycle: what the analysis found, or, for an
-    /// instantiation only C++ sees, what <c>wyl::is_cyclic</c> defaults to, which is true.
+    /// instantiation only C++ sees, what <c>wyl::IS_CYCLIC</c> defaults to, which is true.
     /// </summary>
     bool IsCyclicClass(WylType type)
     {

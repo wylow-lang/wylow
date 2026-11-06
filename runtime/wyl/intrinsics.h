@@ -22,12 +22,12 @@ namespace wyl {
 // program's name, as UTF-8 with each ill-formed part replaced by U+FFFD.
 namespace detail {
 
-inline std::vector<String>& program_arguments() {
+inline std::vector<String>& ProgramArguments() {
     static std::vector<String> arguments;
     return arguments;
 }
 
-inline void append_code_point(std::string& out, uint32_t c) {
+inline void AppendCodePoint(std::string& out, uint32_t c) {
     if (c < 0x80) {
         out += static_cast<char>(c);
     } else if (c < 0x800) {
@@ -48,7 +48,7 @@ inline void append_code_point(std::string& out, uint32_t c) {
 // Bytes as UTF-8, each maximal subpart of an ill-formed sequence replaced by one U+FFFD, the
 // practice Unicode recommends (The Unicode Standard, §3.9, "U+FFFD Substitution of Maximal
 // Subparts"), which .NET's decoder, and so the interpreter, follows too.
-inline std::string well_formed(const char* text, size_t length) {
+inline std::string WellFormed(const char* text, size_t length) {
     std::string out;
     size_t i = 0;
     while (i < length) {
@@ -82,15 +82,15 @@ inline std::string well_formed(const char* text, size_t length) {
     return out;
 }
 
-inline String make_string(const std::string& bytes) {
+inline String MakeString(const std::string& bytes) {
     StringBuffer buffer;
-    buffer.append(bytes.data(), bytes.size(), "program arguments");
-    return buffer.take();
+    buffer.Append(bytes.data(), bytes.size(), "program arguments");
+    return buffer.Take();
 }
 
 #if defined(_WIN32)
 // UTF-16 as UTF-8, each unpaired surrogate replaced by U+FFFD.
-inline std::string from_utf16(const wchar_t* text) {
+inline std::string FromUtf16(const wchar_t* text) {
     std::string out;
     for (size_t i = 0; text[i] != 0; i++) {
         uint32_t c = static_cast<uint16_t>(text[i]);
@@ -99,7 +99,7 @@ inline std::string from_utf16(const wchar_t* text) {
         } else if (c >= 0xD800 && c <= 0xDFFF) {
             c = 0xFFFD;
         }
-        append_code_point(out, c);
+        AppendCodePoint(out, c);
     }
     return out;
 }
@@ -108,22 +108,22 @@ inline std::string from_utf16(const wchar_t* text) {
 }  // namespace detail
 
 // Called by the emitted C++ main before anything else runs, when main takes the arguments.
-inline void set_arguments([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-    auto& arguments = detail::program_arguments();
+inline void SetArguments([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+    auto& arguments = detail::ProgramArguments();
 #if defined(_WIN32)
     int count = 0;
     wchar_t** wide = CommandLineToArgvW(GetCommandLineW(), &count);
     if (wide == nullptr) return;
-    for (int i = 1; i < count; i++) arguments.push_back(detail::make_string(detail::from_utf16(wide[i])));
+    for (int i = 1; i < count; i++) arguments.push_back(detail::MakeString(detail::FromUtf16(wide[i])));
     LocalFree(wide);
 #else
-    for (int i = 1; i < argc; i++) arguments.push_back(detail::make_string(detail::well_formed(argv[i], std::strlen(argv[i]))));
+    for (int i = 1; i < argc; i++) arguments.push_back(detail::MakeString(detail::WellFormed(argv[i], std::strlen(argv[i]))));
 #endif
 }
 
-inline int32_t argumentCount() { return static_cast<int32_t>(detail::program_arguments().size()); }
+inline int32_t argumentCount() { return static_cast<int32_t>(detail::ProgramArguments().size()); }
 
-inline String argument(int32_t index) { return detail::program_arguments()[static_cast<size_t>(index)]; }
+inline String argument(int32_t index) { return detail::ProgramArguments()[static_cast<size_t>(index)]; }
 
 // The C++ side of extern functions in the standard library: wyl::memory is Memory, and wyl::bounds
 // is Bounds. Memory's functions are unsafe; misusing them is undefined behavior.
@@ -133,8 +133,8 @@ namespace memory {
 // Uninitialized storage for count values of T.
 template <class T>
 inline T* allocate(int32_t count, const char* location) {
-    if (count < 0) raise_panic("cannot allocate a negative number of elements", location);
-    if (static_cast<size_t>(count) > SIZE_MAX / sizeof(T)) raise_panic("allocation is too large", location);
+    if (count < 0) RaisePanic("cannot allocate a negative number of elements", location);
+    if (static_cast<size_t>(count) > SIZE_MAX / sizeof(T)) RaisePanic("allocation is too large", location);
     return static_cast<T*>(::operator new(sizeof(T) * static_cast<size_t>(count), std::align_val_t(alignof(T))));
 }
 
@@ -150,7 +150,7 @@ inline void initialize(T* place, T value) {
 
 template <class T>
 inline void initializeDefault(T* data, int32_t count) {
-    for (int32_t i = 0; i < count; ++i) ::new (static_cast<void*>(data + i)) T(default_value<T>());
+    for (int32_t i = 0; i < count; ++i) ::new (static_cast<void*>(data + i)) T(DefaultValue<T>());
 }
 
 template <class T>
@@ -183,19 +183,19 @@ inline void moveTo(T* from, T* to, int32_t count) {
     }
 }
 
-inline void collectCycles(const char* location) { cycles.collect(SIZE_MAX, location); }
+inline void collectCycles(const char* location) { s_Cycles.Collect(SIZE_MAX, location); }
 
 inline void collectCycles(int32_t maxVisits, const char* location) {
-    if (maxVisits < 0) raise_panic("cannot visit a negative number of objects", location);
-    cycles.collect(static_cast<size_t>(maxVisits), location);
+    if (maxVisits < 0) RaisePanic("cannot visit a negative number of objects", location);
+    s_Cycles.Collect(static_cast<size_t>(maxVisits), location);
 }
 
 inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) {
     auto clamp = [](size_t count) { return static_cast<int32_t>(count < INT32_MAX ? count : INT32_MAX); };
-    CycleStats stats = cycles.take_stats();
-    buffered = clamp(stats.buffered);
-    visited = clamp(stats.visited);
-    freed = clamp(stats.freed);
+    CycleStats stats = s_Cycles.TakeStats();
+    buffered = clamp(stats.Buffered);
+    visited = clamp(stats.Visited);
+    freed = clamp(stats.Freed);
 }
 
 }  // namespace memory
@@ -203,13 +203,13 @@ inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) 
 // Taking a value out of a place (spec library.replace). Nothing is released: the value moves out
 // and the new one moves in, so no destructor runs.
 template <class T>
-inline void check_not_in_use(const T& place, const char* message, const char* location) {
-    if (any_in_use(place)) raise_panic(message, location);
+inline void CheckNotInUse(const T& place, const char* message, const char* location) {
+    if (AnyInUse(place)) RaisePanic(message, location);
 }
 
 template <class T>
 inline T replace(T& place, T value, const char* location) {
-    check_not_in_use(place, "cannot replace a value that is in use", location);
+    CheckNotInUse(place, "cannot replace a value that is in use", location);
     T previous(std::move(place));
     place = std::move(value);
     return previous;
@@ -217,8 +217,8 @@ inline T replace(T& place, T value, const char* location) {
 
 template <class T>
 inline void swap(T& a, T& b, const char* location) {
-    check_not_in_use(a, "cannot swap a value that is in use", location);
-    check_not_in_use(b, "cannot swap a value that is in use", location);
+    CheckNotInUse(a, "cannot swap a value that is in use", location);
+    CheckNotInUse(b, "cannot swap a value that is in use", location);
     if (std::addressof(a) == std::addressof(b)) return;
     using std::swap;
     swap(a, b);
@@ -226,7 +226,7 @@ inline void swap(T& a, T& b, const char* location) {
 
 template <class T>
 inline Nullable<T> take(Nullable<T>& place, const char* location) {
-    check_not_in_use(place, "cannot take a value that is in use", location);
+    CheckNotInUse(place, "cannot take a value that is in use", location);
     Nullable<T> taken(std::move(place));
     // A trivial move copies, so the place is cleared explicitly. The value in it moved into
     // `taken`, so nothing is released.
@@ -237,10 +237,10 @@ inline Nullable<T> take(Nullable<T>& place, const char* location) {
 // std::panic (spec library.panic): panic itself and the checks built-in arrays make.
 namespace panic {
 
-[[noreturn]] inline void panic(const String& message, const char* location) { raise_panic(message, location); }
+[[noreturn]] inline void panic(const String& message, const char* location) { RaisePanic(message, location); }
 
 inline void checkIndex(int32_t index, int32_t length, const char* location) {
-    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) panic_index(index, length, location);
+    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) PanicIndex(index, length, location);
 }
 
 inline void checkRange(int32_t start, int32_t count, int32_t length, const char* location) {
@@ -248,30 +248,30 @@ inline void checkRange(int32_t start, int32_t count, int32_t length, const char*
         char message[128];
         std::snprintf(message, sizeof message, "range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
                       length);
-        raise_panic(message, location);
+        RaisePanic(message, location);
     }
 }
 
 }  // namespace panic
 
 template <class T>
-    requires requires(FormatBuffer& buffer, T value) { format(buffer, value); }
+    requires requires(FormatBuffer& buffer, T value) { Format(buffer, value); }
 inline void print(T value) {
     FormatBuffer buffer;
-    size_t length = format(buffer, value);
+    size_t length = Format(buffer, value);
     buffer[length] = '\n';
     std::fwrite(buffer, 1, length + 1, stdout);
 }
 
 inline void print(const String& value) {
-    std::fwrite(value.data(), 1, static_cast<size_t>(value.length()), stdout);
+    std::fwrite(value.Data(), 1, static_cast<size_t>(value.Length()), stdout);
     std::fputc('\n', stdout);
 }
 
 template <class T>
 inline void print(const Optional<T>& value) {
-    if (value.has_value()) {
-        print(value.assumed());
+    if (value.HasValue()) {
+        print(value.Assumed());
     } else {
         std::puts("null");
     }

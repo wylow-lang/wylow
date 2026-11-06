@@ -108,7 +108,7 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// Calls <paramref name="visit"/> on each strong reference the object holds, in the order its
-    /// generated <c>wyl_visit</c> visits them: a base's before its own, fields in declaration order,
+    /// generated <c>Visit</c> visits them: a base's before its own, fields in declaration order,
     /// a container's elements last, and a closure's captures in the order it holds them.
     /// </summary>
     void ForEachReference(HeapObject heap, ReferenceVisitor visit)
@@ -116,7 +116,7 @@ public sealed partial class Interpreter
         switch (heap)
         {
             case ObjectRef obj:
-                // The chain is most derived first; a class's wyl_visit starts with its base's.
+                // The chain is most derived first; a class's Visit starts with its base's.
                 foreach (var type in obj.Chain.Reverse())
                 {
                     foreach (var cell in obj.Fields[type.Symbol!])
@@ -140,7 +140,7 @@ public sealed partial class Interpreter
                 visit(target);
         });
 
-    /// <summary>A strong reference in a value, and what forgets it, as <c>wyl::visit</c> finds and clears one.</summary>
+    /// <summary>A strong reference in a value, and what forgets it, as <c>wyl::Visit</c> finds and clears one.</summary>
     delegate void ReferenceVisitor(HeapObject target, Action clear);
 
     void VisitCellReferences(Cell cell, ReferenceVisitor visit)
@@ -188,13 +188,13 @@ public sealed partial class Interpreter
         Released(closure);
     }
 
-    /// <summary>Whether a class declares the container elements its own <c>wyl_visit</c> walks, rather than inheriting them.</summary>
+    /// <summary>Whether a class declares the container elements its own <c>Visit</c> walks, rather than inheriting them.</summary>
     bool OwnsContainerElement(WylType type) =>
         stdlib.ContainerElement(type) is not null
         && (type.BaseType is not { } baseType || stdlib.ContainerElement(baseType) is null);
 
     /// <summary>
-    /// Visits a container's elements, which its generated <c>wyl_visit</c> reaches through
+    /// Visits a container's elements, which its generated <c>Visit</c> reaches through
     /// <c>asReadOnlySpan</c>, so the interpreter never assumes the container's layout.
     /// </summary>
     void VisitContainerElements(ObjectRef obj, WylType type, ReferenceVisitor visit)
@@ -404,7 +404,7 @@ public sealed partial class Interpreter
         stats.Freed += garbage.Count;
     }
 
-    /// <summary>Runs an object's destructor bodies without releasing its fields, as <c>wyl_finalize</c> does.</summary>
+    /// <summary>Runs an object's destructor bodies without releasing its fields, as <c>Finalize</c> does.</summary>
     void Finalize(HeapObject heap)
     {
         if (heap is not ObjectRef obj)
@@ -490,7 +490,7 @@ public sealed partial class Interpreter
     // Debug builds' diagnostics
     // ---------------------------------------------------------------------------------------------
 
-    /// <summary>A class's name, as <c>wyl_class_name</c> writes it, for the collector's diagnostics.</summary>
+    /// <summary>A class's name, as <c>ClassName</c> writes it, for the collector's diagnostics.</summary>
     static string ClassName(HeapObject heap) => heap switch
     {
         ObjectRef obj => obj.Type.Name,

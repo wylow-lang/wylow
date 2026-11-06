@@ -48,7 +48,7 @@ public sealed partial class CppEmitter
         functions = ir.Functions;
         this.nest = nest;
         for (int i = 0; i < ir.Statics.Count; i++)
-            staticNames[ir.Statics[i].Storage] = $"wyl_static_{i}.value()";
+            staticNames[ir.Statics[i].Storage] = $"wyl_static_{i}.Value()";
         cycles = callees.Cycles;
         recursive = FindRecursive(ir);
         overloaded = FindOverloaded(program);
@@ -137,13 +137,13 @@ public sealed partial class CppEmitter
         Line(takesArguments ? "int main(int argc, char** argv)" : "int main()");
         Line("{");
         indent++;
-        Line("wyl::init();");
+        Line("wyl::Init();");
         Line("wyl_init_statics();");
         var call = $"{FunctionName(main)}()";
         if (takesArguments)
         {
             var arguments = stdlib.ProgramArguments ?? throw new InvalidOperationException("the standard library has no 'programArguments'");
-            Line("wyl::set_arguments(argc, argv);");
+            Line("wyl::SetArguments(argc, argv);");
             call = $"{FunctionName(main)}({FunctionName(arguments)}())";
         }
         if (main.ReturnType == WylType.Int)
@@ -182,13 +182,13 @@ public sealed partial class CppEmitter
             Line($"static void wyl_ensure_static_{i}(const char* wyl_location)");
             Line("{");
             indent++;
-            Line($"if (wyl_static_{i}.state == 2) return;");
-            Line($"if (wyl_static_{i}.state == 1) wyl::static_cycle(\"{statik.Name}\", wyl_location);");
-            Line($"wyl_static_{i}.state = 1;");
-            Line($"wyl::static_begin(\"{statik.Name}\");");
-            Line($"new (wyl_static_{i}.place()) {type}(wyl_init_static_{i}());");
-            Line("wyl::static_end();");
-            Line($"wyl_static_{i}.state = 2;");
+            Line($"if (wyl_static_{i}.State == 2) return;");
+            Line($"if (wyl_static_{i}.State == 1) wyl::StaticCycle(\"{statik.Name}\", wyl_location);");
+            Line($"wyl_static_{i}.State = 1;");
+            Line($"wyl::StaticBegin(\"{statik.Name}\");");
+            Line($"new (wyl_static_{i}.Place()) {type}(wyl_init_static_{i}());");
+            Line("wyl::StaticEnd();");
+            Line($"wyl_static_{i}.State = 2;");
             indent--;
             Line("}");
         }

@@ -9,37 +9,37 @@ namespace wyl {
 // The slot owns the reference that `new` starts the object with, so the count never reaches 0
 // before the slot's end, which runs the destructors. The compiler ends a slot for a temporary at
 // the end of its statement, and one for a local where the local goes out of scope.
-inline constexpr size_t stack_object_limit = 512;
+inline constexpr size_t STACK_OBJECT_LIMIT = 512;
 
 template <class T>
 class StackSlot {
-    static constexpr bool in_place = sizeof(T) <= stack_object_limit;
-    alignas(T) unsigned char storage[in_place ? sizeof(T) : 1];
-    T* object = nullptr;
+    static constexpr bool IN_PLACE = sizeof(T) <= STACK_OBJECT_LIMIT;
+    alignas(T) unsigned char m_Storage[IN_PLACE ? sizeof(T) : 1];
+    T* m_Object = nullptr;
 
 public:
     StackSlot() = default;
     StackSlot(const StackSlot&) = delete;
     StackSlot& operator=(const StackSlot&) = delete;
-    ~StackSlot() { end(); }
+    ~StackSlot() { End(); }
 
     template <class... A>
-    Ref<T> make(A&&... arguments) {
+    Ref<T> Make(A&&... arguments) {
         if constexpr (WYL_DEBUG != 0) {
-            if (object != nullptr) raise_panic("internal compiler error: a stack slot was filled twice", "<runtime>");
+            if (m_Object != nullptr) RaisePanic("internal compiler error: a stack slot was filled twice", "<runtime>");
         }
-        if constexpr (in_place) {
-            object = ::new (static_cast<void*>(storage)) T(std::forward<A>(arguments)...);
+        if constexpr (IN_PLACE) {
+            m_Object = ::new (static_cast<void*>(m_Storage)) T(std::forward<A>(arguments)...);
         } else {
-            object = new T(std::forward<A>(arguments)...);
+            m_Object = new T(std::forward<A>(arguments)...);
         }
-        static_cast<Object*>(object)->leave_collector();
-        return Ref<T>(object);
+        static_cast<Object*>(m_Object)->LeaveCollector();
+        return Ref<T>(m_Object);
     }
 
-    void end() {
-        if (object == nullptr) return;
-        static_cast<Object*>(std::exchange(object, nullptr))->destroy_in_slot(in_place);
+    void End() {
+        if (m_Object == nullptr) return;
+        static_cast<Object*>(std::exchange(m_Object, nullptr))->DestroyInSlot(IN_PLACE);
     }
 };
 

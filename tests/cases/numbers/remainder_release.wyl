@@ -1,7 +1,7 @@
 // mode: release
 
 // MSVC /O2 emitted a trapping `idiv` for the minimum value by -1 when the divisor came from a
-// division; the generator found it, and `wyl::rem` computes magnitudes so that no signed `%` runs.
+// division; the generator found it, and `wyl::Rem` computes magnitudes so that no signed `%` runs.
 import std::print;
 
 int remainderOfMinimum(int x) {

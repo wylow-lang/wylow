@@ -10,19 +10,19 @@ using FormatBuffer = char[64];
 
 template <class I>
     requires std::is_integral_v<I>
-inline size_t format(FormatBuffer& buffer, I value) {
+inline size_t Format(FormatBuffer& buffer, I value) {
     auto result = std::to_chars(buffer, buffer + sizeof buffer, value);
     return static_cast<size_t>(result.ptr - buffer);
 }
 
-inline size_t format(FormatBuffer& buffer, bool value) {
+inline size_t Format(FormatBuffer& buffer, bool value) {
     const char* text = value ? "true" : "false";
     size_t length = std::strlen(text);
     std::memcpy(buffer, text, length);
     return length;
 }
 
-inline size_t format(FormatBuffer& buffer, char32_t value) {
+inline size_t Format(FormatBuffer& buffer, char32_t value) {
     auto c = static_cast<uint32_t>(value);
     if (c < 0x80) {
         buffer[0] = static_cast<char>(c);
@@ -47,15 +47,15 @@ inline size_t format(FormatBuffer& buffer, char32_t value) {
 }
 
 // Every NaN is written "nan": C++ libraries differ on writing its sign and payload.
-inline size_t format_nan(char* buffer) {
+inline size_t FormatNan(char* buffer) {
     std::memcpy(buffer, "nan", 3);
     return 3;
 }
 
 template <class F>
     requires std::is_floating_point_v<F>
-inline size_t format(FormatBuffer& buffer, F value) {
-    if (std::isnan(value)) return format_nan(buffer);
+inline size_t Format(FormatBuffer& buffer, F value) {
+    if (std::isnan(value)) return FormatNan(buffer);
     // Leaves room for the ".0" below and print's newline.
     auto result = std::to_chars(buffer, buffer + sizeof buffer - 3, value);
     auto length = static_cast<size_t>(result.ptr - buffer);
@@ -73,11 +73,11 @@ inline size_t format(FormatBuffer& buffer, F value) {
 using SpecifiedBuffer = char[416];
 
 template <class I>
-inline constexpr bool is_formatted_integer = std::is_integral_v<I> && !std::is_same_v<I, bool> && !std::is_same_v<I, char32_t>;
+inline constexpr bool IS_FORMATTED_INTEGER = std::is_integral_v<I> && !std::is_same_v<I, bool> && !std::is_same_v<I, char32_t>;
 
 template <class I>
-    requires is_formatted_integer<I>
-inline size_t format(SpecifiedBuffer& buffer, I value, int32_t kind, int32_t precision) {
+    requires IS_FORMATTED_INTEGER<I>
+inline size_t Format(SpecifiedBuffer& buffer, I value, int32_t kind, int32_t precision) {
     using U = std::make_unsigned_t<I>;
     size_t length = 0;
     int base = 10;
@@ -105,8 +105,8 @@ inline size_t format(SpecifiedBuffer& buffer, I value, int32_t kind, int32_t pre
 
 template <class F>
     requires std::is_floating_point_v<F>
-inline size_t format(SpecifiedBuffer& buffer, F value, int32_t kind, int32_t precision) {
-    if (std::isnan(value)) return format_nan(buffer);
+inline size_t Format(SpecifiedBuffer& buffer, F value, int32_t kind, int32_t precision) {
+    if (std::isnan(value)) return FormatNan(buffer);
     bool exponential = kind == 'E' || kind == 'e';
     if (precision < 0) precision = exponential ? 6 : 2;
     auto style = exponential ? std::chars_format::scientific : std::chars_format::fixed;
@@ -129,16 +129,16 @@ inline size_t format(SpecifiedBuffer& buffer, F value, int32_t kind, int32_t pre
 // positive alignment pads on the left, a negative one on the right.
 template <class T>
 struct Formatted {
-    T value;
-    int32_t kind;
-    int32_t precision;
-    int32_t alignment;
+    T Value;
+    int32_t Kind;
+    int32_t Precision;
+    int32_t Alignment;
 
     operator String() const;
 };
 
 template <class T>
-inline Formatted<T> formatted(const T& value, int32_t kind, int32_t precision, int32_t alignment) {
+inline Formatted<T> MakeFormatted(const T& value, int32_t kind, int32_t precision, int32_t alignment) {
     return {value, kind, precision, alignment};
 }
 
@@ -148,186 +148,186 @@ public:
     StringBuffer() = default;
     StringBuffer(const StringBuffer&) = delete;
     StringBuffer& operator=(const StringBuffer&) = delete;
-    ~StringBuffer() { ::operator delete(block_); }
+    ~StringBuffer() { ::operator delete(m_Block); }
 
-    void append(const char* bytes, size_t count, const char* location) {
+    void Append(const char* bytes, size_t count, const char* location) {
         // An empty buffer has no block to point into.
         if (count == 0) return;
-        if (count > static_cast<size_t>(INT32_MAX) - length_) raise_panic("string is too long", location);
-        size_t needed = length_ + count;
-        if (needed > capacity_) grow(needed);
-        std::memcpy(block_->bytes() + length_, bytes, count);
-        length_ = needed;
+        if (count > static_cast<size_t>(INT32_MAX) - m_Length) RaisePanic("string is too long", location);
+        size_t needed = m_Length + count;
+        if (needed > m_Capacity) Grow(needed);
+        std::memcpy(m_Block->Bytes() + m_Length, bytes, count);
+        m_Length = needed;
     }
 
-    void append(const String& value, const char* location) {
-        append(value.data(), static_cast<size_t>(value.length()), location);
+    void Append(const String& value, const char* location) {
+        Append(value.Data(), static_cast<size_t>(value.Length()), location);
     }
 
     template <class T>
-    void append(const Optional<T>& value, const char* location) {
-        if (value.has_value()) {
-            append(value.assumed(), location);
+    void Append(const Optional<T>& value, const char* location) {
+        if (value.HasValue()) {
+            Append(value.Assumed(), location);
         } else {
-            append("null", 4, location);
+            Append("null", 4, location);
         }
     }
 
     template <class T>
-        requires requires(FormatBuffer& buffer, T value) { format(buffer, value); }
-    void append(T value, const char* location) {
+        requires requires(FormatBuffer& buffer, T value) { Format(buffer, value); }
+    void Append(T value, const char* location) {
         FormatBuffer buffer;
-        append(buffer, format(buffer, value), location);
+        Append(buffer, Format(buffer, value), location);
     }
 
     template <class T>
-    void append(const Formatted<T>& value, const char* location) {
-        size_t start = length_;
-        append_specified(value.value, value.kind, value.precision, location);
-        if (value.alignment != 0) pad(start, value.alignment, location);
+    void Append(const Formatted<T>& value, const char* location) {
+        size_t start = m_Length;
+        AppendSpecified(value.Value, value.Kind, value.Precision, location);
+        if (value.Alignment != 0) Pad(start, value.Alignment, location);
     }
 
-    String take() {
-        if (block_ == nullptr) return String();
-        block_->bytes()[length_] = '\0';
-        block_->count = 1;
-        auto* block = std::exchange(block_, nullptr);
-        return String::adopt(block, static_cast<int32_t>(std::exchange(length_, 0)));
+    String Take() {
+        if (m_Block == nullptr) return String();
+        m_Block->Bytes()[m_Length] = '\0';
+        m_Block->Count = 1;
+        auto* block = std::exchange(m_Block, nullptr);
+        return String::Adopt(block, static_cast<int32_t>(std::exchange(m_Length, 0)));
     }
 
 private:
     template <class T>
-    void append_specified(const T& value, int32_t kind, int32_t precision, const char* location) {
-        if constexpr (is_formatted_integer<T> || std::is_floating_point_v<T>) {
+    void AppendSpecified(const T& value, int32_t kind, int32_t precision, const char* location) {
+        if constexpr (IS_FORMATTED_INTEGER<T> || std::is_floating_point_v<T>) {
             if (kind != 0) {
                 SpecifiedBuffer buffer;
-                append(buffer, format(buffer, value, kind, precision), location);
+                Append(buffer, Format(buffer, value, kind, precision), location);
                 return;
             }
         }
-        append(value, location);
+        Append(value, location);
     }
 
     template <class T>
-    void append_specified(const Optional<T>& value, int32_t kind, int32_t precision, const char* location) {
-        if (value.has_value()) {
-            append_specified(value.assumed(), kind, precision, location);
+    void AppendSpecified(const Optional<T>& value, int32_t kind, int32_t precision, const char* location) {
+        if (value.HasValue()) {
+            AppendSpecified(value.Assumed(), kind, precision, location);
         } else {
-            append("null", 4, location);
+            Append("null", 4, location);
         }
     }
 
     // Pads the text written since start with spaces to the alignment's width in characters.
-    void pad(size_t start, int32_t alignment, const char* location) {
+    void Pad(size_t start, int32_t alignment, const char* location) {
         size_t characters = 0;
-        for (size_t i = start; i < length_; i++) {
-            if (!String::is_continuation(block_->bytes()[i])) characters++;
+        for (size_t i = start; i < m_Length; i++) {
+            if (!String::IsContinuation(m_Block->Bytes()[i])) characters++;
         }
         auto width = static_cast<size_t>(alignment < 0 ? -static_cast<int64_t>(alignment) : alignment);
         if (characters >= width) return;
         size_t count = width - characters;
-        size_t end = length_;
-        if (count > static_cast<size_t>(INT32_MAX) - length_) raise_panic("string is too long", location);
-        if (length_ + count > capacity_) grow(length_ + count);
-        char* bytes = block_->bytes();
+        size_t end = m_Length;
+        if (count > static_cast<size_t>(INT32_MAX) - m_Length) RaisePanic("string is too long", location);
+        if (m_Length + count > m_Capacity) Grow(m_Length + count);
+        char* bytes = m_Block->Bytes();
         if (alignment > 0) {
             std::memmove(bytes + start + count, bytes + start, end - start);
             std::memset(bytes + start, ' ', count);
         } else {
             std::memset(bytes + end, ' ', count);
         }
-        length_ = end + count;
+        m_Length = end + count;
     }
 
-    void grow(size_t needed) {
-        size_t capacity = capacity_ < 16 ? 16 : capacity_;
+    void Grow(size_t needed) {
+        size_t capacity = m_Capacity < 16 ? 16 : m_Capacity;
         while (capacity < needed) capacity = capacity <= static_cast<size_t>(INT32_MAX) / 2 ? capacity * 2 : static_cast<size_t>(INT32_MAX);
-        // One more byte for the terminator take() writes.
+        // One more byte for the terminator Take() writes.
         auto* block = ::new (static_cast<void*>(::operator new(sizeof(String::Block) + capacity + 1))) String::Block{};
-        if (block_ != nullptr) {
-            std::memcpy(block->bytes(), block_->bytes(), length_);
-            ::operator delete(block_);
+        if (m_Block != nullptr) {
+            std::memcpy(block->Bytes(), m_Block->Bytes(), m_Length);
+            ::operator delete(m_Block);
         }
-        block_ = block;
-        capacity_ = capacity;
+        m_Block = block;
+        m_Capacity = capacity;
     }
 
-    String::Block* block_ = nullptr;
-    size_t length_ = 0;
-    size_t capacity_ = 0;
+    String::Block* m_Block = nullptr;
+    size_t m_Length = 0;
+    size_t m_Capacity = 0;
 };
 
 inline Optional<int32_t> String::indexOf(const String& text) const {
-    if (text.length_ > length_) return nullptr;
-    if (text.length_ == 0) return 0;
-    const char* last = data_ + (length_ - text.length_);
-    for (const char* p = data_; p <= last; p++) {
-        p = static_cast<const char*>(std::memchr(p, text.data_[0], static_cast<size_t>(last - p) + 1));
+    if (text.m_Length > m_Length) return nullptr;
+    if (text.m_Length == 0) return 0;
+    const char* last = m_Data + (m_Length - text.m_Length);
+    for (const char* p = m_Data; p <= last; p++) {
+        p = static_cast<const char*>(std::memchr(p, text.m_Data[0], static_cast<size_t>(last - p) + 1));
         if (p == nullptr) break;
-        if (std::memcmp(p, text.data_, static_cast<size_t>(text.length_)) == 0) return static_cast<int32_t>(p - data_);
+        if (std::memcmp(p, text.m_Data, static_cast<size_t>(text.m_Length)) == 0) return static_cast<int32_t>(p - m_Data);
     }
     return nullptr;
 }
 
-inline bool String::contains(const String& text) const { return indexOf(text).has_value(); }
+inline bool String::contains(const String& text) const { return indexOf(text).HasValue(); }
 
 inline String String::slice(int32_t start, int32_t count, const char* location) const {
-    if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > length_) {
+    if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > m_Length) {
         char message[128];
         std::snprintf(message, sizeof message, "byte range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
-                      length_);
-        raise_panic(message, location);
+                      m_Length);
+        RaisePanic(message, location);
     }
     for (int32_t offset : {start, start + count}) {
-        if (!is_boundary(offset)) {
+        if (!IsBoundary(offset)) {
             char message[96];
             std::snprintf(message, sizeof message, "byte offset %" PRId32 " is inside a character", offset);
-            raise_panic(message, location);
+            RaisePanic(message, location);
         }
     }
-    if (count == length_) return *this;
+    if (count == m_Length) return *this;
     StringBuffer text;
-    text.append(data_ + start, static_cast<size_t>(count), location);
-    return text.take();
+    text.Append(m_Data + start, static_cast<size_t>(count), location);
+    return text.Take();
 }
 
 template <class T>
 inline Formatted<T>::operator String() const {
     StringBuffer text;
     // Only a huge alignment reaches the length limit, and a conversion has no location to report.
-    text.append(*this, "");
-    return text.take();
+    text.Append(*this, "");
+    return text.Take();
 }
 
-// The types written by format, and their nullables.
+// The types written by Format, and their nullables.
 template <class T>
-inline constexpr bool is_formatted = std::is_same_v<T, String> || requires(FormatBuffer& buffer, T value) { format(buffer, value); };
+inline constexpr bool IS_FORMATTED = std::is_same_v<T, String> || requires(FormatBuffer& buffer, T value) { Format(buffer, value); };
 template <class T>
-inline constexpr bool is_formatted<Optional<T>> = is_formatted<T>;
+inline constexpr bool IS_FORMATTED<Optional<T>> = IS_FORMATTED<T>;
 
 // toString() of a primitive or String.
 template <class T>
-    requires is_formatted<T>
-inline String format_string(const T& value) {
+    requires IS_FORMATTED<T>
+inline String FormatString(const T& value) {
     if constexpr (std::is_same_v<T, String>) {
         return value;
     } else {
         StringBuffer text;
         // One formatted value is far too short to reach the length limit, which needs a location.
-        text.append(value, "");
-        return text.take();
+        text.Append(value, "");
+        return text.Take();
     }
 }
 
 // `$"a{b}c"`: the parts in order, then the call site's location.
 template <class... A>
-inline String interpolate(const A&... arguments) {
+inline String Interpolate(const A&... arguments) {
     constexpr size_t parts = sizeof...(A) - 1;
     auto all = std::forward_as_tuple(arguments...);
     const char* location = std::get<parts>(all);
     StringBuffer text;
-    [&]<size_t... I>(std::index_sequence<I...>) { (text.append(std::get<I>(all), location), ...); }(std::make_index_sequence<parts>{});
-    return text.take();
+    [&]<size_t... I>(std::index_sequence<I...>) { (text.Append(std::get<I>(all), location), ...); }(std::make_index_sequence<parts>{});
+    return text.Take();
 }
 
 }  // namespace wyl

@@ -10,8 +10,8 @@
   class's base class and every class extending a shared class are shared too. The binder, the cycle
   analysis, the emitter, and the interpreter read that one mark.
 - A shared class's object has a count of its own that any thread may change, and its last release
-  destroys it on that thread. A normal object keeps its non-atomic count. `wyl::Object`'s `retain`
-  and `release` are virtual, so a reference to an interface implemented by a shared class counts the
+  destroys it on that thread. A normal object keeps its non-atomic count. `wyl::Object`'s `Retain`
+  and `Release` are virtual, so a reference to an interface implemented by a shared class counts the
   object the shared way.
 - A shared object comes from the global heap, never from the program's pool, since the thread that
   frees it need not be the thread that allocated it.

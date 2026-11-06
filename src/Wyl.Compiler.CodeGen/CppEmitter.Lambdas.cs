@@ -133,7 +133,7 @@ public sealed partial class CppEmitter
     /// in it wouldn't outlive. Any other argument is passed as it is.
     /// </summary>
     string OptionalFunctionArgument(WylType parameter, string argument) =>
-        parameter.IsNullableNonEscapingFunction ? $"wyl::optional_ref<{FunctionSignature((FunctionType)parameter.NonNull)}>({argument})" : argument;
+        parameter.IsNullableNonEscapingFunction ? $"wyl::OptionalRef<{FunctionSignature((FunctionType)parameter.NonNull)}>({argument})" : argument;
 
     /// <summary>
     /// The functions with function-typed parameters that a template would instantiate without end:

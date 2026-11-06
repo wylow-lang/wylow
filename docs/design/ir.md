@@ -58,8 +58,8 @@ Loc         = a source location constant | the function's location parameter
 
 Locals have a kind that the emitter maps to a C++ declaration: **value** (`T x`), **reference**
 (`T& x` for `ref`/`in`, `T* x` for `ref?`/`in?`), **borrowed** (`const T& x`, an alias of a place
-that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::pin`, or `wyl::Borrow<T>`
-from `wyl::borrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark`, which
+that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::Pin`, or `wyl::Borrow<T>`
+from `wyl::MakeBorrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark`, which
 marks a value in use while it lives and restores the state before it). A local's **role** says
 where it lives: a variable, a temporary, a parameter, `this`, a capture, or a **static**, which
 belongs to `IrProgram.Statics` rather than to a function and lasts for the whole program.
@@ -81,7 +81,7 @@ Some notes on the choices:
 - **Checks are separate from places.** `arr[i]` lowers to `check.index i, 4 @loc` followed by the
   unchecked place `arr[i]`, as MIR does with `Assert`. Evaluating a place then never panics and
   runs no code, which makes places safe to use anywhere. The emitter fuses the check back into
-  `wyl::at` when they're adjacent, to keep the output readable.
+  `wyl::At` when they're adjacent, to keep the output readable.
 - **Temporaries are single-assignment**, and the verifier checks it. Values that come out of
   control flow (`?:`, `??`, switch expressions, `&&` whose right side needs statements) are a
   local assigned in each branch, or in the emitter an immediately invoked lambda where the type
@@ -103,21 +103,21 @@ Some notes on the choices:
 | `let %t = rvalue` (value) | `auto tN = ...;`, or nested into its single use (§5.1) |
 | `let %r = ref P` / `addr P` | `auto& tN = P;` / `T* tN = &P;` |
 | borrowed local | `const T& x = P;` |
-| `let %h = hold P` / `hold.borrow P` | `auto tN = wyl::pin(P);` / `auto tN = wyl::borrow(P);` |
-| `store P = v` | `P = v` or `wyl::assign(P, v)`, as `StoreText` decides today |
-| `check.index i, n @loc` + `a[i]` | `wyl::at(a, i, loc)` when adjacent, else a check call and `a[i]` |
+| `let %h = hold P` / `hold.borrow P` | `auto tN = wyl::Pin(P);` / `auto tN = wyl::MakeBorrow(P);` |
+| `store P = v` | `P = v` or `wyl::Assign(P, v)`, as `StoreText` decides today |
+| `check.index i, n @loc` + `a[i]` | `wyl::At(a, i, loc)` when adjacent, else a check call and `a[i]` |
 | `loop` whose head is `if !c break` with `c` nestable | `while (c)`, or `for (;; update)` when the update nests |
 | `loop` in general | `while (true) { ... }`. A `continue` that must skip to statements in the update block is `goto` to a label after the body's block, which skips no declaration |
-| `end %h` | `wyl::unhold(h)` / `slot.end()` |
-| `let %g = inuse P` | `wyl::InUseMark gN(P);`, or `gN.begin(P);` when `declare %g` made `wyl::InUseMark gN;` first |
-| `end %g` on an in-use guard | `g.end()`, which restores the state the value had |
-| `discard x` | `x.wyl_discard()`, which keeps its fields for the scope to release |
+| `end %h` | `wyl::Unhold(h)` / `slot.End()` |
+| `let %g = inuse P` | `wyl::InUseMark gN(P);`, or `gN.Begin(P);` when `declare %g` made `wyl::InUseMark gN;` first |
+| `end %g` on an in-use guard | `g.End()`, which restores the state the value had |
+| `discard x` | `x.Discard()`, which keeps its fields for the scope to release |
 
 Destruction order inside a statement becomes a C++ scope's reverse declaration order, which is
 fully specified, and is the order the spec now requires ([When values are released](../spec/17-memory.md#memory.release)). A
 statement's temporaries are declared in the statement's scope; a temporary of an operand that may
 not be evaluated is declared in that operand's block, so it is released when the operand completes.
-Today a by-value parameter's destruction point is ABI-dependent, which is why `wyl::keep` exists.
+Today a by-value parameter's destruction point is ABI-dependent, which is why `wyl::Keep` exists.
 In the IR, lowering passes every by-value argument of a copyable type as `copy %t`, where `%t`
 belongs to the statement's scope; an argument of a unique type is `move %local`, which the callee
 owns. That is the same guarantee, made explicit; `ReadsInPlace` passes `%t` itself where its
@@ -176,9 +176,9 @@ Four structural rules go with it:
 
 - A value whose release may be observable is nested only into its statement's last C++
   statement. In an earlier one, C++ would destroy it at that statement's end, before the Wylow
-  statement completes. `wyl::keep` around it is still nesting: its temporary lives to the end of
+  statement completes. `wyl::Keep` around it is still nesting: its temporary lives to the end of
   the full-expression. A copied argument of such a type is such a value too, even when what it
-  copies is a move: nesting prints it as the `wyl::keep` temporary, a new owner of the copied
+  copies is a move: nesting prints it as the `wyl::Keep` temporary, a new owner of the copied
   value. A condition is not such an end: C++ destroys a condition's
   temporaries before the body runs, while the IR keeps them until its block's, so none nests
   there. A source condition's own temporaries are a block of their own, which leaves only a
@@ -207,11 +207,11 @@ In the listing above, `%c` nests into the `print` call and `%b` into `%c`. `%a` 
 `%b` is nested, but it's `%b`'s sibling, and `f` may write any object:
 
 ```cpp
-{ auto tmp_0 = l_obj->f_x; wyl::print(wyl::add(tmp_0, fn_f(), "t.wyl:3:13")); }
+{ auto tmp_0 = l_obj->f_x; wyl::print(wyl::Add(tmp_0, fn_f(), "t.wyl:3:13")); }
 ```
 
 With field-precise summaries (`Writes`), if `f` writes no `x` of `obj`'s class, `%a` nests too:
-`wyl::print(wyl::add(l_obj->f_x, fn_f(), "t.wyl:3:13"))`.
+`wyl::print(wyl::Add(l_obj->f_x, fn_f(), "t.wyl:3:13"))`.
 
 `g(k(), h())`, where `k` and `h` conflict:
 
@@ -229,7 +229,7 @@ nesting both lets C++ choose:
 ```
 
 `g(a[i], b[j])`: the two bounds checks are siblings that may both panic, so only the second fuses
-into `wyl::at`. If both indices are out of range, every compiler reports the first:
+into `wyl::At`. If both indices are out of range, every compiler reports the first:
 
 ```
 check.index i, (length a) @"t.wyl:5:7"
@@ -240,7 +240,7 @@ do call g(move %x, move %y)
 ```
 
 ```cpp
-{ auto tmp_0 = wyl::at(l_a, l_i, "t.wyl:5:7"); fn_g(tmp_0, wyl::at(l_b, l_j, "t.wyl:5:13")); }
+{ auto tmp_0 = wyl::At(l_a, l_i, "t.wyl:5:7"); fn_g(tmp_0, wyl::At(l_b, l_j, "t.wyl:5:13")); }
 ```
 
 The important property is that nesting is the emitter's only freedom, and declining to nest is always correct.
@@ -311,7 +311,7 @@ to `ref?` is `addr P`. None of these introduce anything an analysis has to learn
 
 ### 5.4 Nullable values
 
-A narrowed `v` of type `Vec3?` is the place `v!` (`wyl::assume_value`). `v!` checks first. `v?.m()`
+A narrowed `v` of type `Vec3?` is the place `v!` (`wyl::AssumeValue`). `v!` checks first. `v?.m()`
 copies `v` into a temporary and branches, as today. The binder's `NullableValueRoot` check of
 what a reference or view may refer into stays on the bound tree. The verifier checks the invariant
 behind the rest: no reference whose place goes through `v!` is used after an instruction that may write `v`. That is the same check as for
@@ -391,9 +391,9 @@ Each lambda is an `IrFunction`.
   its fields.
 - A **choice** of non-escaping functions is `choose %index [λ1, λ2, borrow g]`. The index is
   computed by ordinary control flow, and an escaping option is evaluated only on its branch, into
-  a held local, as `wyl::choose_held` does. A `!` option's check runs on its branch too, which is
+  a held local, as `wyl::ChooseHeld` does. A `!` option's check runs on its branch too, which is
   why its option is a `borrow` of the nullable itself: the emitter passes it as
-  `wyl::narrowed`, which unwraps the option the choice selected when it is called. A choice owns
+  `wyl::MakeNarrowed`, which unwraps the option the choice selected when it is called. A choice owns
   the lambdas made into it and the copies it takes, and refers to its `borrow` options.
 - A **non-escaping local** owns what it is made with
   ([Escaping and non-escaping](../spec/12-functions.md#functions.lambdas.escaping)): a lambda or a
@@ -618,7 +618,7 @@ The migration now under way is [architecture.md](architecture.md)'s.
    depend on flow, because the binder narrows from what the context needs (`AssumesNonNull`) and
    only the check asks whether it was checked.
 5. **Bounds checks as separate instructions?** **Decided: yes** (pure places), with the emitter
-   fusing them back into `wyl::at`.
+   fusing them back into `wyl::At`.
 6. **Accept more programs once the IR can check them?** For example, allow a `ref` into a `mut`
    nullable local as long as nothing in its extent may write the local. This is a language change,
    for the spec. **Decided: defer** until the flow analysis is on the IR (architecture.md).

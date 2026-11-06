@@ -221,7 +221,7 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// <c>!</c>: the value inside a nullable value, or for a nullable reference, the reference
-    /// itself, which is what <c>wyl::assume_value</c> hands back.
+    /// itself, which is what <c>wyl::AssumeValue</c> hands back.
     /// </summary>
     static Cell AssumedCell(Cell cell) => cell.Value switch
     {

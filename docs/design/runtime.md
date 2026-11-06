@@ -18,7 +18,7 @@ int x = arr[i] + y;
 ```
 ```cpp
 // generated C++ (illustrative)
-int32_t x = wyl::add(wyl::at(arr, i), y);   // checked index, defined overflow
+int32_t x = wyl::Add(wyl::At(arr, i), y);   // checked index, defined overflow
 ```
 
 | C++ UB | Wylow behavior |
@@ -77,7 +77,7 @@ starts at 1, owned by the `new` expression, so a constructor that hands out and 
 `this` cannot destroy the object early.
 
 An object of a shared class derives from `wyl::SharedObject`, which holds an atomic count and an
-atomic weak block pointer and allocates from the global heap. `retain` and `release` are virtual, so
+atomic weak block pointer and allocates from the global heap. `Retain` and `Release` are virtual, so
 a reference to an interface implemented by a shared class counts the object the shared way. A shared
 object has no place in the collector's buffer and no collector flags (spec `memory.cycles`).
 
@@ -272,7 +272,7 @@ check(int index, int length);` in a struct, or a free `extern` function. The C++
 type (the type's name in lower camel case). An `extern struct` of the standard library is the C++
 class `wyl::Name` (`wyl::Weak`, `wyl::String`), except one named for a primitive type
 (`Stdlib/primitives.wyl`): a C++ arithmetic type has no members, so its extern methods are members
-of `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::bound<I>` gives a primitive or a
+of `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::Bound<I>` gives a primitive or a
 `String` as its `Builtin`, whose `m_`-named members are what a call through a generic bound names.
 
 For each extern struct declared with fields, the compiler emits size and offset checks into the
@@ -290,7 +290,7 @@ Wylow code calls `std::terminate`.
 
 ## Panics
 
-A panic prints its message and a stack trace where it happens, and a debugger stops there (`wyl::panic` in `runtime/wyl/core.h`, which ends with `std::abort`).
+A panic prints its message and a stack trace where it happens, and a debugger stops there (`wyl::RaisePanic` in `runtime/wyl/core.h`, which ends with `std::abort`).
 
 ## Known limits
 

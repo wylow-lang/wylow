@@ -20,7 +20,7 @@ conversions, what its lambda may capture, and the closure object. The runtime st
   checks what an escaping lambda captures, and `Lowering.Lambdas.cs` makes an `IrClosure` that copies
   the captures.
 - An escaping lambda's closure is `wyl::Closure<Name, Captures...> : wyl::Object`, made by
-  `wyl::closure` in `runtime/wyl/functions.h`. `StackSlots` may make it in a stack slot.
+  `wyl::MakeClosure` in `runtime/wyl/functions.h`. `StackSlots` may make it in a stack slot.
 - `TypeSendable` says no for every function type. `CyclicClasses` treats every closure that captures
   as a possible cycle node, and the interpreter marks its `ClosureValue` the same way.
 
@@ -70,7 +70,7 @@ conversions, what its lambda may capture, and the closure object. The runtime st
 
 - An escaping shared lambda's closure is a shared object, so its last reference may be released on
   any thread. Add `wyl::SharedClosure<Name, Captures...> : wyl::SharedObject` and
-  `wyl::shared_closure` beside `Closure` and `closure` in `runtime/wyl/functions.h`. The emitter
+  `wyl::MakeSharedClosure` beside `Closure` and `MakeClosure` in `runtime/wyl/functions.h`. The emitter
   chooses them from `IrClosure.Type.IsShared` in `CppEmitter.Ir.cs` (`ClosureText` and
   `ClosureObjectType`). A lambda that captures nothing owns no closure either way.
 - `StackSlots` must not put a shared closure in a slot, as it already refuses a shared class's

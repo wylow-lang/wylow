@@ -60,17 +60,17 @@ public sealed partial class CppEmitter
     string DefaultValue(WylType type)
     {
         if (type.IsTypeParameter || (type.IsFixedArray && type.HasDefaultCode))
-            return $"wyl::default_value<{CppType(type)}>()";
+            return $"wyl::DefaultValue<{CppType(type)}>()";
         if (!type.IsDefaultable && !(type.IsStruct && type.HasDefaultCode))
             return Storage(type);
         var value = type.IsStruct && type.HasDefaultCode ? $"{CppType(type)}::make_default()" : $"{CppType(type)}{{}}";
         // A constructor of a type without a default value starts from storage whose field
         // initializers have run, so the value itself is not one yet.
-        return type.IsDefaultable ? value : $"wyl::disengaged({value})";
+        return type.IsDefaultable ? value : $"wyl::Disengaged({value})";
     }
 
     /// <summary>Zeroed storage of a type, which a constructor starts from and nothing may be released as if it were a value.</summary>
-    static string Storage(WylType type) => $"wyl::zeroed<{CppType(type)}>()";
+    static string Storage(WylType type) => $"wyl::Zeroed<{CppType(type)}>()";
 
     /// <summary>
     /// A field's initializer: empty storage for a value whose parts are not values yet. A field of
@@ -106,17 +106,17 @@ public sealed partial class CppEmitter
             Line($"{name}& operator=({name}&& other) noexcept;");
             Line($"{name}(const {name}&) = delete;");
             Line($"{name}& operator=(const {name}&) = delete;");
-            Line("void wyl_discard() { wyl_flags_ &= ~wyl::k_engaged; }");
-            Line("void wyl_disengage_self() { wyl_flags_ = 0; }");
-            Line("void wyl_engage() { wyl_flags_ |= wyl::k_engaged; }");
-            Line("bool wyl_get_in_use() const { return (wyl_flags_ & wyl::k_in_use) != 0; }");
-            Line("void wyl_set_in_use(bool on) { wyl_flags_ = on ? uint8_t(wyl_flags_ | wyl::k_in_use) : uint8_t(wyl_flags_ & ~wyl::k_in_use); }");
-            Line($"bool wyl_any_in_use() const {{ return wyl_get_in_use(){(s.Fields.Count == 0 ? "" : " || " + string.Join(" || ", s.Fields.Select(f => $"wyl::any_in_use({FieldName(f)})")))}; }}");
+            Line("void Discard() { wyl_flags_ &= ~wyl::ENGAGED; }");
+            Line("void DisengageSelf() { wyl_flags_ = 0; }");
+            Line("void Engage() { wyl_flags_ |= wyl::ENGAGED; }");
+            Line("bool GetInUse() const { return (wyl_flags_ & wyl::IN_USE) != 0; }");
+            Line("void SetInUse(bool on) { wyl_flags_ = on ? uint8_t(wyl_flags_ | wyl::IN_USE) : uint8_t(wyl_flags_ & ~wyl::IN_USE); }");
+            Line($"bool AnyInUse() const {{ return GetInUse(){(s.Fields.Count == 0 ? "" : " || " + string.Join(" || ", s.Fields.Select(f => $"wyl::AnyInUse({FieldName(f)})")))}; }}");
         }
         else if (s.Type.RunsDestructor)
-            Line($"bool wyl_any_in_use() const {{ return {string.Join(" || ", s.Fields.Select(f => $"wyl::any_in_use({FieldName(f)})"))}; }}");
+            Line($"bool AnyInUse() const {{ return {string.Join(" || ", s.Fields.Select(f => $"wyl::AnyInUse({FieldName(f)})"))}; }}");
         if (s.Type.RunsDestructor)
-            Line($"void wyl_disengage() {{ {(s.Destructor is null ? "" : "wyl_flags_ = 0; ")}{string.Concat(s.Fields.Select(f => $"wyl::disengage({FieldName(f)}); "))}}}");
+            Line($"void Disengage() {{ {(s.Destructor is null ? "" : "wyl_flags_ = 0; ")}{string.Concat(s.Fields.Select(f => $"wyl::Disengage({FieldName(f)}); "))}}}");
         if (s.Type.HasDefaultCode)
             Line($"static {name} make_default();");
         DeclareCollectorMembers(s);
@@ -257,21 +257,21 @@ public sealed partial class CppEmitter
         }
         if (s.Type.RunsDestructor)
         {
-            Line("void wyl_disengage()");
+            Line("void Disengage()");
             Line("{");
             if (withData.Count > 0)
                 Line("    wyl_in_use_ = false;");
-            EmitTagSwitch(withData, v => string.Concat(v.Fields.Select(f => $"wyl::disengage({UnionMember(v)}.{FieldName(f)}); ")) + "break;", "break;");
+            EmitTagSwitch(withData, v => string.Concat(v.Fields.Select(f => $"wyl::Disengage({UnionMember(v)}.{FieldName(f)}); ")) + "break;", "break;");
             Line("}");
         }
         if (withData.Count > 0)
         {
-            Line("bool wyl_get_in_use() const { return wyl_in_use_; }");
-            Line("void wyl_set_in_use(bool on) { wyl_in_use_ = on; }");
-            Line("bool wyl_any_in_use() const");
+            Line("bool GetInUse() const { return wyl_in_use_; }");
+            Line("void SetInUse(bool on) { wyl_in_use_ = on; }");
+            Line("bool AnyInUse() const");
             Line("{");
             Line("    if (wyl_in_use_) return true;");
-            EmitTagSwitch(withData, v => $"return {string.Join(" || ", v.Fields.Select(f => $"wyl::any_in_use({UnionMember(v)}.{FieldName(f)})"))};", "return false;");
+            EmitTagSwitch(withData, v => $"return {string.Join(" || ", v.Fields.Select(f => $"wyl::AnyInUse({UnionMember(v)}.{FieldName(f)})"))};", "return false;");
             Line("}");
         }
         indent--;
@@ -336,7 +336,7 @@ public sealed partial class CppEmitter
         Line("}");
         Line("void wyl_destroy()");
         Line("{");
-        Line("    if (wyl_in_use_) wyl::raise_panic(\"cannot release a value that is in use\", \"<runtime>\");");
+        Line("    if (wyl_in_use_) wyl::RaisePanic(\"cannot release a value that is in use\", \"<runtime>\");");
         EmitTagSwitch(withData, v => $"{UnionMember(v)}.~{PayloadName(v)}(); break;", "break;");
         Line("}");
     }
@@ -380,7 +380,7 @@ public sealed partial class CppEmitter
         Line("        default: break;");
         Line("        }");
         Line("    }");
-        Line($"    wyl::raise_panic({message}, location);");
+        Line($"    wyl::RaisePanic({message}, location);");
         Line("}");
     }
 
@@ -435,8 +435,8 @@ public sealed partial class CppEmitter
         // class that implements them, so every Borrowable gets them from the interface.
         if (s == stdlib.Borrowable)
         {
-            Line("void wyl_begin_borrow() override { m_beginBorrow(); }");
-            Line("void wyl_end_borrow() override { m_endBorrow(); }");
+            Line("void BeginBorrow() override { m_beginBorrow(); }");
+            Line("void EndBorrow() override { m_endBorrow(); }");
         }
         indent--;
         Line("};");
@@ -455,7 +455,7 @@ public sealed partial class CppEmitter
         var location = SourceLocation(method.Declaration!.NameLocation);
         var message = CppStringLiteral(method.AbstractCallMessage);
         var signature = $"{CppType(method.ReturnType)} {MethodName(method)}({parameterTypes})";
-        Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ wyl::raise_panic({message}, {location}); }}");
+        Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ wyl::RaisePanic({message}, {location}); }}");
     }
 
     void EmitDefaultFunction(TypeSymbol s)

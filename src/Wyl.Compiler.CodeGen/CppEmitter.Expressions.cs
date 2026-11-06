@@ -11,10 +11,10 @@ public sealed partial class CppEmitter
 
     static string UnaryText(BoundUnaryOperator op, string operand, string? location) => op switch
     {
-        BoundUnaryOperator.Negate when location is not null => $"wyl::neg({operand}, {location})",
+        BoundUnaryOperator.Negate when location is not null => $"wyl::Neg({operand}, {location})",
         BoundUnaryOperator.Negate => $"(-{operand})",
         BoundUnaryOperator.LogicalNot => $"(!{operand})",
-        BoundUnaryOperator.BitwiseNot => $"wyl::bnot({operand})",
+        BoundUnaryOperator.BitwiseNot => $"wyl::BitNot({operand})",
         _ => throw new InvalidOperationException($"unexpected unary operator {op}"),
     };
 
@@ -22,26 +22,26 @@ public sealed partial class CppEmitter
     static string BinaryText(BoundBinaryOperator op, WylType operandType, WylType type, string left, string right, string? location)
     {
         if (operandType.IsReference || operandType == WylType.Null)
-            return $"(wyl::identity({left}) {(op == BoundBinaryOperator.Equal ? "==" : "!=")} wyl::identity({right}))";
+            return $"(wyl::Identity({left}) {(op == BoundBinaryOperator.Equal ? "==" : "!=")} wyl::Identity({right}))";
         if (location is not null)
         {
             var name = op switch
             {
-                BoundBinaryOperator.Add => "add",
-                BoundBinaryOperator.Subtract => "sub",
-                BoundBinaryOperator.Multiply => "mul",
-                BoundBinaryOperator.Divide => "div",
-                BoundBinaryOperator.Remainder => "rem",
+                BoundBinaryOperator.Add => "Add",
+                BoundBinaryOperator.Subtract => "Sub",
+                BoundBinaryOperator.Multiply => "Mul",
+                BoundBinaryOperator.Divide => "Div",
+                BoundBinaryOperator.Remainder => "Rem",
                 _ => throw new InvalidOperationException($"unexpected checked operator {op}"),
             };
             return $"wyl::{name}({left}, {right}, {location})";
         }
         if (operandType.IsInteger && op is BoundBinaryOperator.ShiftLeft or BoundBinaryOperator.ShiftRight)
-            return $"wyl::{(op == BoundBinaryOperator.ShiftLeft ? "shl" : "shr")}({left}, {right})";
+            return $"wyl::{(op == BoundBinaryOperator.ShiftLeft ? "ShiftLeft" : "ShiftRight")}({left}, {right})";
         if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Remainder)
             return $"std::fmod({left}, {right})";
         if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Divide)
-            return $"wyl::fdiv({left}, {right})";
+            return $"wyl::FloatDiv({left}, {right})";
 
         var cppOperator = op switch
         {
@@ -67,14 +67,14 @@ public sealed partial class CppEmitter
         return $"({left} {cppOperator} {right})";
     }
 
-    /// <summary>The receiver and member operator. Calls go through the declaring type; see <c>wyl::as</c>.</summary>
+    /// <summary>The receiver and member operator. Calls go through the declaring type; see <c>wyl::As</c>.</summary>
     string ReceiverText(WylType receiverType, MethodReference method, string receiver)
     {
         var declaring = ObjectType(method.Owner!);
         if (receiverType.IsTypeParameter)
-            return $"wyl::bound<{declaring}>({receiver}).";
+            return $"wyl::Bound<{declaring}>({receiver}).";
         if (receiverType.IsReference)
-            return receiverType.NonNull.Symbol == method.Owner!.Symbol ? $"{receiver}->" : $"wyl::as<{declaring}>({receiver})->";
+            return receiverType.NonNull.Symbol == method.Owner!.Symbol ? $"{receiver}->" : $"wyl::As<{declaring}>({receiver})->";
         return receiver + ".";
     }
 
@@ -95,7 +95,7 @@ public sealed partial class CppEmitter
     string ConversionText(WylType from, WylType to, string operand, string? location)
     {
         if (location is not null)
-            return to.IsEnum ? $"{ObjectType(to)}::from_value({operand}, {location})" : $"wyl::to_char({operand}, {location})";
+            return to.IsEnum ? $"{ObjectType(to)}::from_value({operand}, {location})" : $"wyl::ToChar({operand}, {location})";
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)
@@ -105,9 +105,9 @@ public sealed partial class CppEmitter
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";
         if (from.IsFloatingPoint && to.IsInteger)
-            return $"wyl::f2i<{CppType(to)}>({operand})";
+            return $"wyl::FloatToInt<{CppType(to)}>({operand})";
         if (from == WylType.Double && to == WylType.Float)
-            return $"wyl::d2f({operand})";
+            return $"wyl::DoubleToFloat({operand})";
         return $"static_cast<{CppType(to)}>({operand})";
     }
 
@@ -122,7 +122,7 @@ public sealed partial class CppEmitter
         long l => l < 0 ? $"(-INT64_C({-l}))" : $"INT64_C({l})",
         uint u => $"UINT32_C({u})",
         ulong u => $"UINT64_C({u})",
-        // Typed, so that templates like wyl::add deduce the Wylow type rather than int.
+        // Typed, so that templates like wyl::Add deduce the Wylow type rather than int.
         sbyte or byte or short or ushort or nint or nuint => $"{CppType(type)}{{{System.Convert.ToString(value, CultureInfo.InvariantCulture)}}}",
         Rune r => $"char32_t{{0x{r.Value:X}}}",
         float f => FloatText(f.ToString("R", CultureInfo.InvariantCulture)) + "f",

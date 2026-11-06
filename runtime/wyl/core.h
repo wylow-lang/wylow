@@ -35,22 +35,22 @@ namespace wyl {
 
 // The standard library's ReadOnlySpan, which String::bytes returns. The runtime names it, and the
 // emitter defines it under this name (TypeSymbol.RuntimeName).
-template <class t_T>
+template <class T>
 struct ReadOnlySpan;
 
 // A unique struct with a destructor keeps its state in one byte: whether it still holds a value,
 // which a move or a discard takes away, and whether a reference into it is live (spec memory.holds).
-inline constexpr uint8_t k_engaged = 1;
-inline constexpr uint8_t k_in_use = 2;
+inline constexpr uint8_t ENGAGED = 1;
+inline constexpr uint8_t IN_USE = 2;
 
-template <class t_T>
+template <class T>
 struct ReleaseAtEnd {
-    t_T& value;
+    T& Value;
 
-    ~ReleaseAtEnd() { [[maybe_unused]] t_T released = std::move(value); }
+    ~ReleaseAtEnd() { [[maybe_unused]] T released = std::move(Value); }
 };
 
-[[noreturn]] inline void raise_panic(const char* message, const char* location) {
+[[noreturn]] inline void RaisePanic(const char* message, const char* location) {
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);
     std::fflush(stderr);
@@ -67,24 +67,24 @@ class Optional;
 class String {
 public:
     struct Block {
-        std::atomic<size_t> count;
+        std::atomic<size_t> Count;
         // The bytes follow the header, then a null terminator.
-        char* bytes() { return reinterpret_cast<char*>(this + 1); }
+        char* Bytes() { return reinterpret_cast<char*>(this + 1); }
     };
 
     String() : String("", 0) {}
-    String(const char* data, int32_t length) : data_(data), length_(length), block_(nullptr) {}
+    String(const char* data, int32_t length) : m_Data(data), m_Length(length), m_Block(nullptr) {}
 
     // Takes over a block holding one count, with length bytes and their terminator written.
-    static String adopt(Block* block, int32_t length) { return String(block->bytes(), length, block); }
+    static String Adopt(Block* block, int32_t length) { return String(block->Bytes(), length, block); }
 
-    String(const String& other) : data_(other.data_), length_(other.length_), block_(other.block_) {
-        if (block_ != nullptr) ++block_->count;
+    String(const String& other) : m_Data(other.m_Data), m_Length(other.m_Length), m_Block(other.m_Block) {
+        if (m_Block != nullptr) ++m_Block->Count;
     }
-    String(String&& other) noexcept : data_(other.data_), length_(other.length_), block_(other.block_) {
-        other.block_ = nullptr;
+    String(String&& other) noexcept : m_Data(other.m_Data), m_Length(other.m_Length), m_Block(other.m_Block) {
+        other.m_Block = nullptr;
     }
-    ~String() { release(); }
+    ~String() { Release(); }
 
     String& operator=(const String& other) {
         String copy(other);
@@ -92,50 +92,50 @@ public:
     }
     String& operator=(String&& other) noexcept {
         if (this != &other) {
-            release();
-            data_ = other.data_;
-            length_ = other.length_;
-            block_ = other.block_;
-            other.block_ = nullptr;
+            Release();
+            m_Data = other.m_Data;
+            m_Length = other.m_Length;
+            m_Block = other.m_Block;
+            other.m_Block = nullptr;
         }
         return *this;
     }
 
-    const char* data() const { return data_; }
-    int32_t length() const { return length_; }
+    const char* Data() const { return m_Data; }
+    int32_t Length() const { return m_Length; }
 
     // A byte after the first of a character's UTF-8 encoding.
-    static bool is_continuation(char byte) { return (static_cast<unsigned char>(byte) & 0xC0) == 0x80; }
+    static bool IsContinuation(char byte) { return (static_cast<unsigned char>(byte) & 0xC0) == 0x80; }
 
     friend bool operator==(const String& a, const String& b) {
-        return a.length_ == b.length_ && (a.data_ == b.data_ || std::memcmp(a.data_, b.data_, static_cast<size_t>(a.length_)) == 0);
+        return a.m_Length == b.m_Length && (a.m_Data == b.m_Data || std::memcmp(a.m_Data, b.m_Data, static_cast<size_t>(a.m_Length)) == 0);
     }
 
-    int32_t byteLength() const { return length_; }
-    bool isEmpty() const { return length_ == 0; }
+    int32_t byteLength() const { return m_Length; }
+    bool isEmpty() const { return m_Length == 0; }
 
     // A template so that the span is a complete type by the time a program instantiates it. The
     // span is read-only, so a literal's static bytes are never written.
     template <class Byte = uint8_t>
     wyl::ReadOnlySpan<Byte> bytes() const {
-        return wyl::ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(data_)), length_);
+        return wyl::ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(m_Data)), m_Length);
     }
 
     int32_t charCount() const {
         int32_t count = 0;
-        for (int32_t i = 0; i < length_; i++) {
-            if (!is_continuation(data_[i])) count++;
+        for (int32_t i = 0; i < m_Length; i++) {
+            if (!IsContinuation(m_Data[i])) count++;
         }
         return count;
     }
 
     bool startsWith(const String& prefix) const {
-        return prefix.length_ <= length_ && std::memcmp(data_, prefix.data_, static_cast<size_t>(prefix.length_)) == 0;
+        return prefix.m_Length <= m_Length && std::memcmp(m_Data, prefix.m_Data, static_cast<size_t>(prefix.m_Length)) == 0;
     }
 
     bool endsWith(const String& suffix) const {
-        return suffix.length_ <= length_ &&
-               std::memcmp(data_ + (length_ - suffix.length_), suffix.data_, static_cast<size_t>(suffix.length_)) == 0;
+        return suffix.m_Length <= m_Length &&
+               std::memcmp(m_Data + (m_Length - suffix.m_Length), suffix.m_Data, static_cast<size_t>(suffix.m_Length)) == 0;
     }
 
     bool contains(const String& text) const;
@@ -144,7 +144,7 @@ public:
 
     // A string is always valid UTF-8, and the compiler passes only offsets where a character starts.
     char32_t charAt(int32_t offset) const {
-        auto byte = [&](int32_t i) { return static_cast<uint32_t>(static_cast<unsigned char>(data_[offset + i])); };
+        auto byte = [&](int32_t i) { return static_cast<uint32_t>(static_cast<unsigned char>(m_Data[offset + i])); };
         uint32_t lead = byte(0);
         if (lead < 0x80) return static_cast<char32_t>(lead);
         if (lead < 0xE0) return static_cast<char32_t>(((lead & 0x1F) << 6) | (byte(1) & 0x3F));
@@ -153,57 +153,57 @@ public:
     }
 
     int32_t nextChar(int32_t offset) const {
-        auto lead = static_cast<unsigned char>(data_[offset]);
+        auto lead = static_cast<unsigned char>(m_Data[offset]);
         return offset + (lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4);
     }
 
     // memcmp compares bytes as unsigned, so UTF-8 sorts by code point.
     int32_t compareTo(const String& other) const {
-        auto common = static_cast<size_t>(length_ < other.length_ ? length_ : other.length_);
-        int order = std::memcmp(data_, other.data_, common);
-        if (order == 0) order = length_ < other.length_ ? -1 : length_ > other.length_ ? 1 : 0;
+        auto common = static_cast<size_t>(m_Length < other.m_Length ? m_Length : other.m_Length);
+        int order = std::memcmp(m_Data, other.m_Data, common);
+        if (order == 0) order = m_Length < other.m_Length ? -1 : m_Length > other.m_Length ? 1 : 0;
         return order < 0 ? -1 : order > 0 ? 1 : 0;
     }
 
     String toString() const { return *this; }
 
 private:
-    String(const char* data, int32_t length, Block* block) : data_(data), length_(length), block_(block) {}
+    String(const char* data, int32_t length, Block* block) : m_Data(data), m_Length(length), m_Block(block) {}
 
     // Whether a character starts at the byte offset, or it is the end.
-    bool is_boundary(int32_t offset) const { return offset == length_ || !is_continuation(data_[offset]); }
+    bool IsBoundary(int32_t offset) const { return offset == m_Length || !IsContinuation(m_Data[offset]); }
 
-    void release() {
-        if (block_ != nullptr && --block_->count == 0) ::operator delete(block_);
+    void Release() {
+        if (m_Block != nullptr && --m_Block->Count == 0) ::operator delete(m_Block);
     }
 
-    const char* data_;
-    int32_t length_;
-    Block* block_;
+    const char* m_Data;
+    int32_t m_Length;
+    Block* m_Block;
 };
 
-[[noreturn]] inline void raise_panic(const String& message, const char* location) {
+[[noreturn]] inline void RaisePanic(const String& message, const char* location) {
     std::fflush(stdout);
-    std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.length()), message.data(), location);
+    std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.Length()), message.Data(), location);
     std::fflush(stderr);
     std::abort();
 }
 
 // Reported in debug builds, when the program works but could be faster.
-inline void performance_warning(const char* message) {
+inline void PerformanceWarning(const char* message) {
     std::fflush(stdout);
     std::fprintf(stderr, "performance warning: %s\n", message);
     std::fflush(stderr);
 }
 
 // Flow analysis rules this out; reaching it means a compiler bug, which must still not be UB.
-[[noreturn]] inline void unreachable(const char* location) {
-    raise_panic("reached the end of a non-void function", location);
+[[noreturn]] inline void Unreachable(const char* location) {
+    RaisePanic("reached the end of a non-void function", location);
 }
 
 // Exhaustiveness checking rules this out too.
-[[noreturn]] inline void no_match(const char* location) {
-    raise_panic("internal compiler error: no switch case matched", location);
+[[noreturn]] inline void NoMatch(const char* location) {
+    RaisePanic("internal compiler error: no switch case matched", location);
 }
 
 // Selects the constructor that sets an enum's tag and leaves its payload to be constructed.
@@ -217,39 +217,39 @@ struct BaseArguments {};
 // The arguments a delegating constructor passes on, by value or, for one passed by 'in' or 'ref',
 // as the address of its place; unlike std::tuple's elements they are destroyed in a fixed order,
 // the last first.
-template <class... T>
+template <class... TRest>
 struct Arguments {};
 
-template <class T, class... Rest>
-struct Arguments<T, Rest...> {
-    T first;
-    Arguments<Rest...> rest;
+template <class T, class... TRest>
+struct Arguments<T, TRest...> {
+    T First;
+    Arguments<TRest...> Rest;
 
-    explicit Arguments(T value, Rest... rest_values) : first(std::move(value)), rest(std::move(rest_values)...) {}
+    explicit Arguments(T value, TRest... restValues) : First(std::move(value)), Rest(std::move(restValues)...) {}
 };
 
 template <class... T>
 Arguments(T...) -> Arguments<T...>;
 
-template <size_t I, class T, class... Rest>
-const auto& argument(const Arguments<T, Rest...>& arguments) {
+template <size_t I, class T, class... TRest>
+const auto& Argument(const Arguments<T, TRest...>& arguments) {
     if constexpr (I == 0)
-        return arguments.first;
+        return arguments.First;
     else
-        return argument<I - 1>(arguments.rest);
+        return Argument<I - 1>(arguments.Rest);
 }
 
 // A delegating constructor moves its arguments into the constructor it calls, since a unique
 // value cannot be copied.
-template <size_t I, class T, class... Rest>
-auto& argument(Arguments<T, Rest...>& arguments) {
+template <size_t I, class T, class... TRest>
+auto& Argument(Arguments<T, TRest...>& arguments) {
     if constexpr (I == 0)
-        return arguments.first;
+        return arguments.First;
     else
-        return argument<I - 1>(arguments.rest);
+        return Argument<I - 1>(arguments.Rest);
 }
 
-inline void init() {
+inline void Init() {
 #if defined(_WIN32)
     // Output is the bytes the program writes, on every platform: in text mode, print's '\n' would
     // become "\r\n" and a program's own '\r' would merge with it.
@@ -262,18 +262,18 @@ inline void init() {
 }
 
 template <class T>
-struct is_std_array : std::false_type {};
+struct IsStdArray : std::false_type {};
 template <class T, size_t N>
-struct is_std_array<std::array<T, N>> : std::true_type {};
+struct IsStdArray<std::array<T, N>> : std::true_type {};
 
 // The Wylow default value of T, for generic code: struct field initializers run via make_default.
 template <class T>
-inline T default_value() {
+inline T DefaultValue() {
     if constexpr (requires { T::make_default(); }) {
         return T::make_default();
-    } else if constexpr (is_std_array<T>::value) {
+    } else if constexpr (IsStdArray<T>::value) {
         T result{};
-        for (auto& element : result) element = default_value<typename T::value_type>();
+        for (auto& element : result) element = DefaultValue<typename T::value_type>();
         return result;
     } else {
         return T{};
@@ -283,108 +283,108 @@ inline T default_value() {
 // Clears the state of every value in a place, so that zeroed storage holds nothing a destructor
 // may run on. A fixed array's elements and a unique struct's fields are cleared recursively.
 template <class T>
-inline void disengage(T& value) {
-    if constexpr (requires { value.wyl_disengage(); }) value.wyl_disengage();
+inline void Disengage(T& value) {
+    if constexpr (requires { value.Disengage(); }) value.Disengage();
 }
 
 template <class T, size_t N>
-inline void disengage(std::array<T, N>& value) {
-    for (auto& element : value) disengage(element);
+inline void Disengage(std::array<T, N>& value) {
+    for (auto& element : value) Disengage(element);
 }
 
 // Zeroed storage of T, which a constructor starts from.
 template <class T>
-inline T zeroed() {
+inline T Zeroed() {
     T value{};
-    disengage(value);
+    Disengage(value);
     return value;
 }
 
 // A value whose field initializers have run, but which is not a value of its type yet.
 template <class T>
-inline T disengaged(T value) {
-    if constexpr (requires { value.wyl_disengage_self(); }) value.wyl_disengage_self();
+inline T Disengaged(T value) {
+    if constexpr (requires { value.DisengageSelf(); }) value.DisengageSelf();
     return value;
 }
 
 // Whether a value, or one in its fields, is in use (spec memory.holds). Only a unique struct with
 // a destructor, an enum with data, and a nullable of a non-copyable value record it.
 template <class T>
-inline bool any_in_use(const T& value) {
-    if constexpr (requires { value.wyl_any_in_use(); }) return value.wyl_any_in_use();
+inline bool AnyInUse(const T& value) {
+    if constexpr (requires { value.AnyInUse(); }) return value.AnyInUse();
     else return false;
 }
 
 template <class T, size_t N>
-inline bool any_in_use(const std::array<T, N>& value) {
+inline bool AnyInUse(const std::array<T, N>& value) {
     for (const auto& element : value) {
-        if (any_in_use(element)) return true;
+        if (AnyInUse(element)) return true;
     }
     return false;
 }
 
 template <class T>
-inline bool get_in_use(const T& value) {
-    if constexpr (requires { value.wyl_get_in_use(); }) return value.wyl_get_in_use();
+inline bool GetInUse(const T& value) {
+    if constexpr (requires { value.GetInUse(); }) return value.GetInUse();
     else return false;
 }
 
 template <class T>
-inline void set_in_use(T& value, bool on) {
-    if constexpr (requires { value.wyl_set_in_use(on); }) value.wyl_set_in_use(on);
+inline void SetInUse(T& value, bool on) {
+    if constexpr (requires { value.SetInUse(on); }) value.SetInUse(on);
 }
 
 // Marks a value in use while it lives, restoring the state the value had before.
 class InUseMark {
-    const void* value_ = nullptr;
-    bool previous_ = false;
-    void (*restore_)(const void*, bool) = nullptr;
+    const void* m_Value = nullptr;
+    bool m_Previous = false;
+    void (*m_Restore)(const void*, bool) = nullptr;
 
 public:
     InUseMark() = default;
     template <class T>
-    explicit InUseMark(T& value) { begin(value); }
+    explicit InUseMark(T& value) { Begin(value); }
     template <class T>
-    explicit InUseMark(T* value) { begin(value); }
+    explicit InUseMark(T* value) { Begin(value); }
     InUseMark(const InUseMark&) = delete;
     InUseMark& operator=(const InUseMark&) = delete;
-    ~InUseMark() { end(); }
+    ~InUseMark() { End(); }
 
     template <class T>
-    void begin(T& value) {
-        end();
-        value_ = &value;
-        previous_ = get_in_use(value);
-        restore_ = [](const void* p, bool before) {
-            set_in_use(*const_cast<T*>(static_cast<const T*>(p)), before);
+    void Begin(T& value) {
+        End();
+        m_Value = &value;
+        m_Previous = GetInUse(value);
+        m_Restore = [](const void* p, bool before) {
+            SetInUse(*const_cast<T*>(static_cast<const T*>(p)), before);
         };
-        set_in_use(value, true);
+        SetInUse(value, true);
     }
 
     template <class T>
-    void begin(T* value) {
-        if (value != nullptr) begin(*value);
+    void Begin(T* value) {
+        if (value != nullptr) Begin(*value);
     }
 
-    void end() {
-        if (value_ != nullptr) {
-            restore_(value_, previous_);
-            value_ = nullptr;
-            restore_ = nullptr;
+    void End() {
+        if (m_Value != nullptr) {
+            m_Restore(m_Value, m_Previous);
+            m_Value = nullptr;
+            m_Restore = nullptr;
         }
     }
 };
 
-[[noreturn]] inline void panic_index(int64_t index, int64_t length, const char* location) {
+[[noreturn]] inline void PanicIndex(int64_t index, int64_t length, const char* location) {
     char message[96];
     std::snprintf(message, sizeof message, "index %" PRId64 " is out of bounds for length %" PRId64, index, length);
-    raise_panic(message, location);
+    RaisePanic(message, location);
 }
 
 // Fixed array indexing. The index may be given as a function, called after the array is found,
 // so that the element stays a place while Wylow's left-to-right order is kept.
 template <class A, class I>
-inline decltype(auto) at(A&& array, I index, const char* location) {
+inline decltype(auto) At(A&& array, I index, const char* location) {
     int32_t i;
     if constexpr (std::is_invocable_v<I>) {
         i = index();
@@ -392,36 +392,36 @@ inline decltype(auto) at(A&& array, I index, const char* location) {
         i = index;
     }
     constexpr size_t length = std::tuple_size_v<std::remove_cvref_t<A>>;
-    if (static_cast<uint32_t>(i) >= length) panic_index(i, static_cast<int64_t>(length), location);
+    if (static_cast<uint32_t>(i) >= length) PanicIndex(i, static_cast<int64_t>(length), location);
     return array[static_cast<size_t>(i)];
 }
 
 template <class T, size_t N>
-constexpr int32_t length(const std::array<T, N>&) {
+constexpr int32_t Length(const std::array<T, N>&) {
     return static_cast<int32_t>(N);
 }
 
 // A 'ref?' or 'in?' is a pointer to the place it refers to, or null. A temporary passed to an 'in?'
 // parameter lives until the end of the caller's full expression, which includes the call.
 template <class T>
-inline std::remove_reference_t<T>* address_of(T&& place) {
+inline std::remove_reference_t<T>* AddressOf(T&& place) {
     return std::addressof(place);
 }
 
 template <class T>
-inline T* unwrap(T* reference, const char* location) {
-    if (reference == nullptr) raise_panic("null reference unwrapped with '!'", location);
+inline T* Unwrap(T* reference, const char* location) {
+    if (reference == nullptr) RaisePanic("null reference unwrapped with '!'", location);
     return reference;
 }
 
 // A check printed apart from what it guards, where it can't be part of the expression using it.
-inline void check_index(int32_t index, int32_t length, const char* location) {
-    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) panic_index(index, length, location);
+inline void CheckIndex(int32_t index, int32_t length, const char* location) {
+    if (static_cast<uint32_t>(index) >= static_cast<uint32_t>(length)) PanicIndex(index, length, location);
 }
 
 template <class T>
-inline void check_not_null(const T* reference, const char* location) {
-    if (reference == nullptr) raise_panic("null reference unwrapped with '!'", location);
+inline void CheckNotNull(const T* reference, const char* location) {
+    if (reference == nullptr) RaisePanic("null reference unwrapped with '!'", location);
 }
 
 }  // namespace wyl

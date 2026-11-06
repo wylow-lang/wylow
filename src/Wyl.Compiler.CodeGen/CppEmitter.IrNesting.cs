@@ -24,7 +24,7 @@ public sealed partial class CppEmitter
         /// <summary>Temporaries printed where they are used, with what defines them.</summary>
         public Dictionary<IrLocal, IrStatement> Nested { get; } = [];
 
-        /// <summary>Index checks printed as <c>wyl::at</c> in the element they check.</summary>
+        /// <summary>Index checks printed as <c>wyl::At</c> in the element they check.</summary>
         public Dictionary<IrElement, IrCheck> Fused { get; } = new(ReferenceEqualityComparer.Instance);
 
         /// <summary>
@@ -173,7 +173,7 @@ public sealed partial class CppEmitter
     /// <summary>Something an instruction evaluates that may be nested into it: a temporary it names, or an element whose check precedes it.</summary>
     abstract record Nestable;
     /// <param name="TakesPlace">Whether the instruction needs the very object the temporary names rather than a value made from it.</param>
-    /// <param name="CopiesOwner">Whether the instruction copies the temporary as an argument of a type whose release may run code, which prints as a <c>wyl::keep</c> temporary of its own.</param>
+    /// <param name="CopiesOwner">Whether the instruction copies the temporary as an argument of a type whose release may run code, which prints as a <c>wyl::Keep</c> temporary of its own.</param>
     sealed record TemporaryUse(IrLocal Local, bool TakesPlace, bool CopiesOwner) : Nestable;
     sealed record CheckedElement(IrElement Element, IrLocal Index) : Nestable;
 
@@ -280,7 +280,7 @@ public sealed partial class CppEmitter
                     if (candidate is not IrCheck { Kind: IrCheckKind.Index, Operands: [IrRead { Place: { IsDeref: false, Projections.Count: 0 } checkedPlace }, _] }
                         || checkedPlace.Local != index || plan.Fused.ContainsKey(element))
                         continue;
-                    // The check and the element read the index once, as `wyl::at`'s argument.
+                    // The check and the element read the index once, as `wyl::At`'s argument.
                     plan.Log.Add((index, plan.Uses[index]));
                     plan.Uses[index]--;
                     break;

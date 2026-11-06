@@ -7,7 +7,7 @@ namespace wyl {
 // compareTo() of an integer or char.
 template <class T>
     requires std::is_integral_v<T>
-inline int32_t compare(T value, T other) {
+inline int32_t Compare(T value, T other) {
     return value < other ? -1 : value > other ? 1 : 0;
 }
 
@@ -15,7 +15,7 @@ inline int32_t compare(T value, T other) {
 // else and the same as any other NaN.
 template <class F>
     requires std::is_floating_point_v<F>
-inline int32_t compare(F value, F other) {
+inline int32_t Compare(F value, F other) {
     if (value < other) return -1;
     if (value > other) return 1;
     bool valueIsNaN = std::isnan(value);
@@ -31,20 +31,20 @@ inline int32_t compare(F value, F other) {
 // bound uses the m_ name CppEmitter gives an interface method.
 template <class T>
 struct Builtin {
-    const T& value;
+    const T& Value;
 
-    explicit Builtin(const T& initial) : value(initial) {}
+    explicit Builtin(const T& initial) : Value(initial) {}
 
     int32_t compareTo(const T& other) const {
         if constexpr (std::is_same_v<T, String>) {
-            return value.compareTo(other);
+            return Value.compareTo(other);
         } else {
-            return compare(value, other);
+            return Compare(Value, other);
         }
     }
 
     String toString() const {
-        return format_string(value);
+        return FormatString(Value);
     }
 
     int32_t m_compareTo(const T& other) const {

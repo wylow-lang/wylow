@@ -28,9 +28,9 @@ public sealed partial class CppEmitter
         var arguments = call.Arguments.Select((argument, i) => FunctionArgument(call.Method, i,
             argument switch
             {
-                IrRefArgument => $"(*wyl::argument<{i}>(arguments))",
-                IrOperand operand when !operand.Type.IsCopyableIn(function.Symbol) => $"std::move(wyl::argument<{i}>(arguments))",
-                _ => $"wyl::argument<{i}>(arguments)",
+                IrRefArgument => $"(*wyl::Argument<{i}>(arguments))",
+                IrOperand operand when !operand.Type.IsCopyableIn(function.Symbol) => $"std::move(wyl::Argument<{i}>(arguments))",
+                _ => $"wyl::Argument<{i}>(arguments)",
             })).ToList();
         if (call.Loc is { } loc)
             arguments.Add(LocText(loc));
@@ -52,7 +52,7 @@ public sealed partial class CppEmitter
         {
             // The constructor receives the address and reads the place back, so its 'in' or 'ref'
             // parameter still names what the caller gave rather than a copy of it.
-            IrRefArgument reference => $"wyl::address_of({PlaceText(reference.Place)})",
+            IrRefArgument reference => $"wyl::AddressOf({PlaceText(reference.Place)})",
             IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var local } } when computed.Contains(local) => $"std::move({Name(local)})",
             _ => ArgumentText(a),
         });

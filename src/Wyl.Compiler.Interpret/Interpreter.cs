@@ -91,7 +91,7 @@ public sealed partial class Interpreter : IObjectLifetime
     /// <summary>What the program wrote to standard error, as its lines.</summary>
     string ErrorText => standardError.Count == 0 ? "" : string.Join('\n', standardError) + "\n";
 
-    /// <summary>Reports a performance warning, in a debug build, as the runtime's <c>performance_warning</c> does.</summary>
+    /// <summary>Reports a performance warning, in a debug build, as the runtime's <c>PerformanceWarning</c> does.</summary>
     void PerformanceWarning(string message)
     {
         if (!options.Release)
@@ -488,7 +488,7 @@ public sealed partial class Interpreter : IObjectLifetime
 
     /// <summary>
     /// Stores a declared local's new value. A hold lets go of the old one first, as
-    /// <c>wyl::hold</c> does; any other local stores the new value before releasing the old one
+    /// <c>wyl::Hold</c> does; any other local stores the new value before releasing the old one
     /// (spec memory.release).
     /// </summary>
     void AssignStorage(Storage storage, Value value, bool borrows)

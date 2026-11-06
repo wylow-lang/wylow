@@ -99,6 +99,15 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
 - **Every feature gets tests** for its behavior and each error it can produce, its row or column in
   the matrices, and a fuzzer mutation where one can cross it (enforced only by review). Every
   fuzzer, generator, or mutation finding is triaged into a test or a deleted line.
+- **The C++ runtime has its own naming conventions.** `runtime/**/*.h` uses `snake_case` files,
+  `lower_case` namespaces, `PascalCase` types, functions, methods, and public data members,
+  `camelCase` locals and parameters, `m_PascalCase` private and protected data members,
+  `s_PascalCase` static data members and namespace-scope state, and `UPPER_SNAKE_CASE` constants
+  and variable templates. A name the emitter derives from a Wylow declaration keeps the derived
+  spelling: the binder names an `extern` member from its Wylow name (`Binder.ExternName`), so
+  `String.charAt`, `wyl::memory.allocate`, `wyl::replace`, and `wyl::print` stay `camelCase`, and
+  an interface implementation keeps the emitter's `m_` prefix (`Builtin::m_compareTo`). A name the
+  runtime and the emitter's generated C++ share is renamed on both sides in the same change.
 - **Comments are concise and explain why, never what.** A comment that would go stale when other
   code changes (a list of callers or users, what something is for, a count, which file does
   something else) is cut: say what a thing is, not who uses it ("Raw memory and the cycle

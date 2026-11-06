@@ -476,7 +476,7 @@ public static class Builtins
     public static FunctionSymbol Interpolate(IEnumerable<WylType> partTypes) =>
         new("interpolate", [.. partTypes.Select(t => new LocalSymbol("part", t, isParameter: true))], WylType.String)
         {
-            BuiltinCppName = "wyl::interpolate",
+            BuiltinCppName = "wyl::Interpolate",
             PassesLocation = true,
         };
 
@@ -493,7 +493,7 @@ public static class Builtins
             new LocalSymbol("alignment", WylType.Int, isParameter: true),
         ], WylType.String)
         {
-            BuiltinCppName = "wyl::formatted",
+            BuiltinCppName = "wyl::MakeFormatted",
             IsPure = true,
         };
 

@@ -122,7 +122,7 @@ internal static class RuntimeText
     }
 
     /// <summary>
-    /// The panic text of an index check, as <c>wyl::panic_index</c> writes it.
+    /// The panic text of an index check, as <c>wyl::PanicIndex</c> writes it.
     /// </summary>
     public static string IndexMessage(Int128 index, Int128 length) =>
         $"index {index.ToString(CultureInfo.InvariantCulture)} is out of bounds for length {length.ToString(CultureInfo.InvariantCulture)}";

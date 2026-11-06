@@ -29,8 +29,8 @@ public sealed partial class Interpreter
         {
             ["wyl::print"] = (i, call, location, caller) => i.Print(call.Method, i.ArgumentsOf(call, caller)),
             ["wyl::panic::panic"] = (i, call, location, caller) => Panic(i.ArgumentsOf(call, caller), location),
-            ["wyl::interpolate"] = (i, call, location, caller) => i.Interpolate(call.Method, i.ArgumentsOf(call, caller), location),
-            ["wyl::formatted"] = (i, call, location, caller) => Formatted(call.Method, i.ArgumentsOf(call, caller)),
+            ["wyl::Interpolate"] = (i, call, location, caller) => i.Interpolate(call.Method, i.ArgumentsOf(call, caller), location),
+            ["wyl::MakeFormatted"] = (i, call, location, caller) => Formatted(call.Method, i.ArgumentsOf(call, caller)),
             ["wyl::panic::checkIndex"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
             ["wyl::panic::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
@@ -70,7 +70,7 @@ public sealed partial class Interpreter
 
     /// <summary>
     /// An argument of the program as UTF-8, each unpaired surrogate replaced by U+FFFD, as the
-    /// runtime's set_arguments makes it from the Windows command line.
+    /// runtime's SetArguments makes it from the Windows command line.
     /// </summary>
     StringValue ProgramArgument(IReadOnlyList<Value> arguments)
     {

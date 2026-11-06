@@ -71,7 +71,7 @@ whenever it is called, may let it escape or return it, which each lambda's summa
 
 - `wyl::StackSlot<T>` holds the object. A closure's slot is a
   `wyl::StackSlot<wyl::Closure<Name, C...>>`, declared with the types of what the lambda captures: the
-  closure's type doesn't depend on the lambda's code, which `wyl::closure_in` gives the function value
+  closure's type doesn't depend on the lambda's code, which `wyl::MakeClosureIn` gives the function value
   where the lambda is.
 - **The reference count still works.** The slot holds the reference `new` starts the object with, so
   passing the object to functions that hold and release it never brings the count to 0 early. At the

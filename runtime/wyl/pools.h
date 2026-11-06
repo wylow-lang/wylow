@@ -20,17 +20,17 @@
 // Declared here rather than by including <windows.h>, whose macros would collide with Wylow names.
 #if defined(_WIN32)
 #if defined(_WIN64)
-using wyl_win_size = unsigned long long;
+using WylWinSize = unsigned long long;
 #else
-using wyl_win_size = unsigned long;
+using WylWinSize = unsigned long;
 #endif
-extern "C" __declspec(dllimport) void* __stdcall VirtualAlloc(void*, wyl_win_size, unsigned long, unsigned long);
-extern "C" __declspec(dllimport) int __stdcall VirtualFree(void*, wyl_win_size, unsigned long);
+extern "C" __declspec(dllimport) void* __stdcall VirtualAlloc(void*, WylWinSize, unsigned long, unsigned long);
+extern "C" __declspec(dllimport) int __stdcall VirtualFree(void*, WylWinSize, unsigned long);
 #endif
 
 namespace wyl {
 
-// Objects up to max_size bytes come from 64 KiB chunks, each split into equal slots of one size
+// Objects up to MAX_SIZE bytes come from 64 KiB chunks, each split into equal slots of one size
 // class. A slot is taken from the size class's current chunk, from its free list or else its
 // uncarved end; a freed slot goes back to its own chunk's list, found by masking its address. When
 // the current chunk is full, the fullest chunk that has room becomes current, so that new objects
@@ -39,63 +39,63 @@ namespace wyl {
 // a chunk each time. Larger objects use the global heap.
 class Pools {
 public:
-    static constexpr size_t max_size = 512;
+    static constexpr size_t MAX_SIZE = 512;
 
 private:
-    static constexpr size_t granule = 16;
-    static constexpr size_t chunk_size = size_t{64} * 1024;
-    static constexpr size_t class_count = max_size / granule + 1;
+    static constexpr size_t GRANULE = 16;
+    static constexpr size_t CHUNK_SIZE = size_t{64} * 1024;
+    static constexpr size_t CLASS_COUNT = MAX_SIZE / GRANULE + 1;
     // Chunks that are neither current nor full are listed by how full they are, in bins of equal width.
-    static constexpr uint32_t bin_count = 8;
-    static constexpr uint8_t unlisted = bin_count;
+    static constexpr uint32_t BIN_COUNT = 8;
+    static constexpr uint8_t UNLISTED = BIN_COUNT;
 
     struct Slot {
-        Slot* next;
+        Slot* Next;
     };
 
     struct Chunk {
-        Slot* free = nullptr;
-        char* bump = nullptr;
-        char* end = nullptr;
-        Chunk* prev = nullptr;
-        Chunk* next = nullptr;
-        uint32_t live = 0;
+        Slot* Free = nullptr;
+        char* Bump = nullptr;
+        char* End = nullptr;
+        Chunk* Prev = nullptr;
+        Chunk* Next = nullptr;
+        uint32_t Live = 0;
         // A free that leaves fewer live slots than this has the chunk change bins: 0 for the
         // current chunk, which is in none, and the capacity for a full one, which isn't listed yet.
-        uint32_t floor = 0;
-        uint32_t capacity = 0;
-        uint8_t size_class = 0;
-        uint8_t bin = unlisted;
+        uint32_t Floor = 0;
+        uint32_t Capacity = 0;
+        uint8_t SizeClass = 0;
+        uint8_t Bin = UNLISTED;
     };
 
     // Slots start 16-aligned, so over-aligned classes use the global heap instead.
-    static constexpr size_t header_size = (sizeof(Chunk) + granule - 1) / granule * granule;
+    static constexpr size_t HEADER_SIZE = (sizeof(Chunk) + GRANULE - 1) / GRANULE * GRANULE;
 
     // Current until a size class first allocates, so that taking a slot needs no null check.
-    static Chunk no_chunk;
+    static Chunk s_NoChunk;
 
     struct SizeClass {
-        Chunk* current = &no_chunk;
-        Chunk* spare = nullptr;
-        Chunk* bins[bin_count] = {};
+        Chunk* Current = &s_NoChunk;
+        Chunk* Spare = nullptr;
+        Chunk* Bins[BIN_COUNT] = {};
     };
 
-    SizeClass classes[class_count];
+    SizeClass m_Classes[CLASS_COUNT];
 
-    static Chunk* chunk_of(void* slot) {
-        return reinterpret_cast<Chunk*>(reinterpret_cast<uintptr_t>(slot) & ~uintptr_t{chunk_size - 1});
+    static Chunk* ChunkOf(void* slot) {
+        return reinterpret_cast<Chunk*>(reinterpret_cast<uintptr_t>(slot) & ~uintptr_t{CHUNK_SIZE - 1});
     }
 
-    static void* map_chunk() {
+    static void* MapChunk() {
 #if defined(_WIN32)
         // Windows hands out address space 64 KiB-aligned.
-        return VirtualAlloc(nullptr, chunk_size, 0x1000 | 0x2000, 0x04);   // MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+        return VirtualAlloc(nullptr, CHUNK_SIZE, 0x1000 | 0x2000, 0x04);   // MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
 #else
-        return std::aligned_alloc(chunk_size, chunk_size);
+        return std::aligned_alloc(CHUNK_SIZE, CHUNK_SIZE);
 #endif
     }
 
-    static void unmap_chunk(Chunk* chunk) {
+    static void UnmapChunk(Chunk* chunk) {
 #if defined(_WIN32)
         VirtualFree(chunk, 0, 0x8000);   // MEM_RELEASE
 #else
@@ -103,109 +103,109 @@ private:
 #endif
     }
 
-    static void reset(Chunk* chunk) {
-        chunk->free = nullptr;
-        chunk->bump = reinterpret_cast<char*>(chunk) + header_size;
-        chunk->end = chunk->bump + size_t{chunk->capacity} * chunk->size_class * granule;
+    static void Reset(Chunk* chunk) {
+        chunk->Free = nullptr;
+        chunk->Bump = reinterpret_cast<char*>(chunk) + HEADER_SIZE;
+        chunk->End = chunk->Bump + size_t{chunk->Capacity} * chunk->SizeClass * GRANULE;
     }
 
-    static Chunk* new_chunk(size_t index) {
-        void* memory = map_chunk();
-        if (memory == nullptr) raise_panic("out of memory", "<runtime>");
+    static Chunk* NewChunk(size_t index) {
+        void* memory = MapChunk();
+        if (memory == nullptr) RaisePanic("out of memory", "<runtime>");
         Chunk* chunk = ::new (memory) Chunk{};
-        chunk->size_class = static_cast<uint8_t>(index);
-        chunk->capacity = static_cast<uint32_t>((chunk_size - header_size) / (index * granule));
-        reset(chunk);
+        chunk->SizeClass = static_cast<uint8_t>(index);
+        chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
+        Reset(chunk);
         return chunk;
     }
 
-    void link(SizeClass& c, Chunk* chunk) {
-        uint32_t bin = chunk->live * bin_count / chunk->capacity;
-        uint32_t floor = (bin * chunk->capacity + bin_count - 1) / bin_count;
-        chunk->bin = static_cast<uint8_t>(bin);
-        chunk->floor = floor > 0 ? floor : 1;
-        chunk->prev = nullptr;
-        chunk->next = c.bins[bin];
-        if (chunk->next != nullptr) chunk->next->prev = chunk;
-        c.bins[bin] = chunk;
+    void Link(SizeClass& c, Chunk* chunk) {
+        uint32_t bin = chunk->Live * BIN_COUNT / chunk->Capacity;
+        uint32_t floor = (bin * chunk->Capacity + BIN_COUNT - 1) / BIN_COUNT;
+        chunk->Bin = static_cast<uint8_t>(bin);
+        chunk->Floor = floor > 0 ? floor : 1;
+        chunk->Prev = nullptr;
+        chunk->Next = c.Bins[bin];
+        if (chunk->Next != nullptr) chunk->Next->Prev = chunk;
+        c.Bins[bin] = chunk;
     }
 
-    void unlink(SizeClass& c, Chunk* chunk) {
-        if (chunk->prev != nullptr) {
-            chunk->prev->next = chunk->next;
+    void Unlink(SizeClass& c, Chunk* chunk) {
+        if (chunk->Prev != nullptr) {
+            chunk->Prev->Next = chunk->Next;
         } else {
-            c.bins[chunk->bin] = chunk->next;
+            c.Bins[chunk->Bin] = chunk->Next;
         }
-        if (chunk->next != nullptr) chunk->next->prev = chunk->prev;
-        chunk->bin = unlisted;
+        if (chunk->Next != nullptr) chunk->Next->Prev = chunk->Prev;
+        chunk->Bin = UNLISTED;
     }
 
-    void* refill(size_t index) {
-        SizeClass& c = classes[index];
-        if (c.current != &no_chunk) c.current->floor = c.current->capacity;
+    void* Refill(size_t index) {
+        SizeClass& c = m_Classes[index];
+        if (c.Current != &s_NoChunk) c.Current->Floor = c.Current->Capacity;
         Chunk* chunk = nullptr;
-        for (uint32_t bin = bin_count; bin-- > 0 && chunk == nullptr;) chunk = c.bins[bin];
+        for (uint32_t bin = BIN_COUNT; bin-- > 0 && chunk == nullptr;) chunk = c.Bins[bin];
         if (chunk != nullptr) {
-            unlink(c, chunk);
+            Unlink(c, chunk);
         } else {
-            chunk = c.spare != nullptr ? std::exchange(c.spare, nullptr) : new_chunk(index);
+            chunk = c.Spare != nullptr ? std::exchange(c.Spare, nullptr) : NewChunk(index);
         }
-        chunk->floor = 0;
-        c.current = chunk;
-        return allocate(index * granule);
+        chunk->Floor = 0;
+        c.Current = chunk;
+        return Allocate(index * GRANULE);
     }
 
-    void rebin(Chunk* chunk) {
-        SizeClass& c = classes[chunk->size_class];
-        if (chunk->bin != unlisted) unlink(c, chunk);
-        if (chunk->live > 0) {
-            link(c, chunk);
-        } else if (c.spare == nullptr) {
-            reset(chunk);
-            c.spare = chunk;
+    void Rebin(Chunk* chunk) {
+        SizeClass& c = m_Classes[chunk->SizeClass];
+        if (chunk->Bin != UNLISTED) Unlink(c, chunk);
+        if (chunk->Live > 0) {
+            Link(c, chunk);
+        } else if (c.Spare == nullptr) {
+            Reset(chunk);
+            c.Spare = chunk;
         } else {
-            unmap_chunk(chunk);
+            UnmapChunk(chunk);
         }
     }
 
 public:
-    void* allocate(size_t size) {
+    void* Allocate(size_t size) {
         if constexpr (WYL_POOLS == 0) {
             return ::operator new(size);
         } else {
-            if (size > max_size) return ::operator new(size);
-            size_t index = (size + granule - 1) / granule;
-            Chunk* chunk = classes[index].current;
-            if (Slot* slot = chunk->free) {
-                chunk->free = slot->next;
-                ++chunk->live;
+            if (size > MAX_SIZE) return ::operator new(size);
+            size_t index = (size + GRANULE - 1) / GRANULE;
+            Chunk* chunk = m_Classes[index].Current;
+            if (Slot* slot = chunk->Free) {
+                chunk->Free = slot->Next;
+                ++chunk->Live;
                 return slot;
             }
-            if (chunk->bump != chunk->end) {
-                char* slot = chunk->bump;
-                chunk->bump += index * granule;
-                ++chunk->live;
+            if (chunk->Bump != chunk->End) {
+                char* slot = chunk->Bump;
+                chunk->Bump += index * GRANULE;
+                ++chunk->Live;
                 return slot;
             }
-            return refill(index);
+            return Refill(index);
         }
     }
 
-    void deallocate(void* slot, size_t size) {
-        if (WYL_POOLS == 0 || size > max_size) {
+    void Deallocate(void* slot, size_t size) {
+        if (WYL_POOLS == 0 || size > MAX_SIZE) {
             ::operator delete(slot, size);
             return;
         }
-        Chunk* chunk = chunk_of(slot);
-        chunk->free = ::new (slot) Slot{chunk->free};
-        if (--chunk->live < chunk->floor) rebin(chunk);
+        Chunk* chunk = ChunkOf(slot);
+        chunk->Free = ::new (slot) Slot{chunk->Free};
+        if (--chunk->Live < chunk->Floor) Rebin(chunk);
     }
 };
 
-inline Pools::Chunk Pools::no_chunk{};
+inline Pools::Chunk Pools::s_NoChunk{};
 
 // Objects belong to one thread, and so will the pools once Wylow has threads; a `shared class`
 // object, which may be freed on any thread, will need the global heap or its own pools.
-inline Pools pools;
+inline Pools s_Pools;
 
 }  // namespace wyl

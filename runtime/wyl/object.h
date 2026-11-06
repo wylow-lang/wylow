@@ -15,24 +15,24 @@ class Object;
 // Shared by an object and the weak references to it, so that they can tell when it is gone. The
 // object holds one count and each weak reference one; the last to let go frees the block.
 struct WeakBlock {
-    Object* target;
-    std::atomic<uintptr_t> count;
+    Object* Target;
+    std::atomic<uintptr_t> Count;
     // The object's buffer slot and creation number, which the block takes over from the object's header.
-    uint32_t slot;
-    uint32_t created;
+    uint32_t Slot;
+    uint32_t Created;
 
-    WeakBlock(Object* target_, uintptr_t count_, uint32_t slot_, uint32_t created_)
-        : target(target_), count(count_), slot(slot_), created(created_) {}
+    WeakBlock(Object* target, uintptr_t count, uint32_t slot, uint32_t created)
+        : Target(target), Count(count), Slot(slot), Created(created) {}
 };
 
 template <class R>
 class Weak;
 
 // Called by the cycle collector for each strong reference an object holds, through the generated
-// wyl_visit; returning true clears the reference.
+// Visit; returning true clears the reference.
 class Visitor {
 public:
-    virtual bool visit(Object* target) = 0;
+    virtual bool Visit(Object* target) = 0;
 
 protected:
     ~Visitor() = default;
@@ -43,49 +43,49 @@ class CycleCollector;
 // Whether objects of a generic class instantiation may be part of a cycle. The compiler specializes it
 // to false for the instantiations it knows are acyclic; others only C++ sees are assumed cyclic.
 template <class T>
-inline constexpr bool is_cyclic = true;
+inline constexpr bool IS_CYCLIC = true;
 
 // The Wylow name of a generic class instantiation, for diagnostics; the compiler specializes it for the
 // instantiations it knows of.
 template <class T>
-inline constexpr const char* class_name = nullptr;
+inline constexpr const char* CLASS_NAME = nullptr;
 
 class Object {
     // The flags below in the low bits and the reference count above them, so that the header is
     // the vtable pointer and two words. The count starts at 1 for the `new` expression that creates
     // the object, so a constructor can hand out and drop references to `this` without it reaching 0.
-    static constexpr int flag_bits = 7;
-    static constexpr uint64_t one_ref = uint64_t{1} << flag_bits;
-    uint64_t state = one_ref;
+    static constexpr int FLAG_BITS = 7;
+    static constexpr uint64_t ONE_REF = uint64_t{1} << FLAG_BITS;
+    uint64_t m_State = ONE_REF;
     // The weak block once the object has one; otherwise, while buffered, one more than the
     // object's index in the cycle buffer, so that it can leave the buffer when destroyed, and the
     // object's creation number, which orders a collected cycle's destructors.
     union {
-        WeakBlock* weak;
+        WeakBlock* WeakPointer;
         struct {
-            uint32_t slot;
-            uint32_t created;
-        } own;
-    } side{.own = {0, objects_created++}};
+            uint32_t Slot;
+            uint32_t Created;
+        } Own;
+    } m_Side{.Own = {0, s_ObjectsCreated++}};
 
     // One counter for the program, until objects belong to a thread and the collector with them. It
-    // wraps after 2^32 objects, which only objects that far apart in age can tell (see age()).
-    inline static uint32_t objects_created = 0;
+    // wraps after 2^32 objects, which only objects that far apart in age can tell (see Age()).
+    inline static uint32_t s_ObjectsCreated = 0;
 
     // Set once the count has reached zero, or once the collector has found the object to be
     // garbage: weak references to the object read null from then on.
-    static constexpr uint64_t dying = 1;
+    static constexpr uint64_t DYING = 1;
     // The object's class may be part of a cycle; set by its constructor.
-    static constexpr uint64_t cyclic = 2;
-    static constexpr uint64_t buffered = 4;
+    static constexpr uint64_t CYCLIC = 2;
+    static constexpr uint64_t BUFFERED = 4;
     // Trial deletion's marks; an object with neither is black.
-    static constexpr uint64_t gray = 8;
-    static constexpr uint64_t white = 16;
+    static constexpr uint64_t GRAY = 8;
+    static constexpr uint64_t WHITE = 16;
     // The collector has run the object's destructors, which its C++ destructor then skips.
-    static constexpr uint64_t finalized = 32;
-    // `side` holds the weak block, which holds the buffer slot.
-    static constexpr uint64_t has_weak = 64;
-    static constexpr uint64_t flag_mask = one_ref - 1;
+    static constexpr uint64_t FINALIZED = 32;
+    // `m_Side` holds the weak block, which holds the buffer slot.
+    static constexpr uint64_t HAS_WEAK = 64;
+    static constexpr uint64_t FLAG_MASK = ONE_REF - 1;
 
     template <class>
     friend class Weak;
@@ -93,46 +93,46 @@ class Object {
     template <class>
     friend class StackSlot;
 
-    void destroy();
-    void add_to_buffer();
-    void leave_collector();
-    void destroy_in_slot(bool in_place);
+    void Destroy();
+    void AddToBuffer();
+    void LeaveCollector();
+    void DestroyInSlot(bool inPlace);
 
-    uint64_t refs() const { return state >> flag_bits; }
+    uint64_t Refs() const { return m_State >> FLAG_BITS; }
     // Only for the collector, which balances every one of these.
-    void unretain() { state -= one_ref; }
+    void Unretain() { m_State -= ONE_REF; }
 
-    uint32_t slot() const { return (state & has_weak) ? side.weak->slot : side.own.slot; }
-    void set_slot(uint32_t value) {
-        if (state & has_weak) {
-            side.weak->slot = value;
+    uint32_t Slot() const { return (m_State & HAS_WEAK) ? m_Side.WeakPointer->Slot : m_Side.Own.Slot; }
+    void SetSlot(uint32_t value) {
+        if (m_State & HAS_WEAK) {
+            m_Side.WeakPointer->Slot = value;
         } else {
-            side.own.slot = value;
+            m_Side.Own.Slot = value;
         }
     }
 
     // How many objects were created after this one, which stays in creation order across the counter's wrap.
-    uint32_t age() const { return objects_created - ((state & has_weak) ? side.weak->created : side.own.created); }
+    uint32_t Age() const { return s_ObjectsCreated - ((m_State & HAS_WEAK) ? m_Side.WeakPointer->Created : m_Side.Own.Created); }
 
     // Null for a dying object, so that weak references taken by its destructor read null too.
-    virtual WeakBlock* weak_block() {
-        if (state & dying) return nullptr;
-        if (!(state & has_weak)) {
-            side.weak = new WeakBlock{this, 1, (state & buffered) ? side.own.slot : 0, side.own.created};
-            state |= has_weak;
+    virtual WeakBlock* GetWeakBlock() {
+        if (m_State & DYING) return nullptr;
+        if (!(m_State & HAS_WEAK)) {
+            m_Side.WeakPointer = new WeakBlock{this, 1, (m_State & BUFFERED) ? m_Side.Own.Slot : 0, m_Side.Own.Created};
+            m_State |= HAS_WEAK;
         }
-        return side.weak;
+        return m_Side.WeakPointer;
     }
 
     // Leaves the slot behind in the header, for an object still to leave the buffer.
-    virtual void clear_weak() {
-        state |= dying;
-        if (!(state & has_weak)) return;
-        WeakBlock* weak = side.weak;
-        side.own = {weak->slot, weak->created};
-        state &= ~has_weak;
-        weak->target = nullptr;
-        if (--weak->count == 0) delete weak;
+    virtual void ClearWeak() {
+        m_State |= DYING;
+        if (!(m_State & HAS_WEAK)) return;
+        WeakBlock* weak = m_Side.WeakPointer;
+        m_Side.Own = {weak->Slot, weak->Created};
+        m_State &= ~HAS_WEAK;
+        weak->Target = nullptr;
+        if (--weak->Count == 0) delete weak;
     }
 
 public:
@@ -141,71 +141,71 @@ public:
     Object& operator=(const Object&) = delete;
 
     virtual ~Object() {
-        if (refs() != 1) raise_panic("an object's destructor kept a reference to the object", "<destructor>");
+        if (Refs() != 1) RaisePanic("an object's destructor kept a reference to the object", "<destructor>");
     }
 
     // The virtual destructor has every delete pass the size of the object's dynamic type.
-    static void* operator new(size_t size) { return pools.allocate(size); }
+    static void* operator new(size_t size) { return s_Pools.Allocate(size); }
     static void* operator new(size_t size, std::align_val_t align) { return ::operator new(size, align); }
-    static void operator delete(void* object, size_t size) { pools.deallocate(object, size); }
+    static void operator delete(void* object, size_t size) { s_Pools.Deallocate(object, size); }
     static void operator delete(void* object, size_t size, std::align_val_t align) { ::operator delete(object, size, align); }
 
     // Called around every borrow of the object: for a class implementing the standard library's
     // Borrowable, the generated override calls its beginBorrow and endBorrow.
-    virtual void wyl_begin_borrow() {}
-    virtual void wyl_end_borrow() {}
+    virtual void BeginBorrow() {}
+    virtual void EndBorrow() {}
 
     // Generated for classes: visits each strong reference the object holds, for the collector.
-    virtual void wyl_visit(Visitor&) {}
+    virtual void Visit(Visitor&) {}
 
     // Generated for classes with destructors: runs the object's destructors without releasing its
     // fields, for the collector.
-    virtual void wyl_finalize() {}
+    virtual void Finalize() {}
 
     // Generated for classes, for the collector's diagnostics.
-    virtual const char* wyl_class_name() const { return "object"; }
+    virtual const char* ClassName() const { return "object"; }
 
-    void wyl_set_cyclic(bool value) { state = value ? state | cyclic : state & ~cyclic; }
-    bool wyl_finalized() const { return (state & finalized) != 0; }
+    void SetCyclic(bool value) { m_State = value ? m_State | CYCLIC : m_State & ~CYCLIC; }
+    bool Finalized() const { return (m_State & FINALIZED) != 0; }
 
     // 57 bits of count cannot overflow: the references alone would fill more than any address space.
-    virtual void retain() { state += one_ref; }
+    virtual void Retain() { m_State += ONE_REF; }
 
     // A release that leaves a cyclic object's count above zero may have left it in an unreachable
     // cycle, so it is buffered for the collector, once until the next collection.
-    virtual void release() {
-        state -= one_ref;
-        if (state < one_ref) {
-            destroy();
-        } else if ((state & (flag_mask & ~has_weak)) == cyclic) {
-            add_to_buffer();
+    virtual void Release() {
+        m_State -= ONE_REF;
+        if (m_State < ONE_REF) {
+            Destroy();
+        } else if ((m_State & (FLAG_MASK & ~HAS_WEAK)) == CYCLIC) {
+            AddToBuffer();
         }
     }
 };
 
 class SharedObject : public virtual Object {
-    std::atomic<uint64_t> shared_count{1};
-    std::atomic<bool> is_dying{false};
-    std::atomic<WeakBlock*> weak_ptr{nullptr};
+    std::atomic<uint64_t> m_SharedCount{1};
+    std::atomic<bool> m_IsDying{false};
+    std::atomic<WeakBlock*> m_WeakPtr{nullptr};
 
-    WeakBlock* weak_block() override {
-        if (is_dying.load(std::memory_order_acquire)) return nullptr;
-        if (WeakBlock* block = weak_ptr.load(std::memory_order_acquire)) return block;
+    WeakBlock* GetWeakBlock() override {
+        if (m_IsDying.load(std::memory_order_acquire)) return nullptr;
+        if (WeakBlock* block = m_WeakPtr.load(std::memory_order_acquire)) return block;
         WeakBlock* made = new WeakBlock{this, 1, 0, 0};
         WeakBlock* expected = nullptr;
-        if (!weak_ptr.compare_exchange_strong(expected, made, std::memory_order_acq_rel)) {
+        if (!m_WeakPtr.compare_exchange_strong(expected, made, std::memory_order_acq_rel)) {
             delete made;
             return expected;
         }
         return made;
     }
 
-    void clear_weak() override {
-        is_dying.store(true, std::memory_order_release);
-        WeakBlock* block = weak_ptr.exchange(nullptr, std::memory_order_acq_rel);
+    void ClearWeak() override {
+        m_IsDying.store(true, std::memory_order_release);
+        WeakBlock* block = m_WeakPtr.exchange(nullptr, std::memory_order_acq_rel);
         if (block == nullptr) return;
-        block->target = nullptr;
-        if (--block->count == 0) delete block;
+        block->Target = nullptr;
+        if (--block->Count == 0) delete block;
     }
 
 public:
@@ -214,8 +214,8 @@ public:
     SharedObject& operator=(const SharedObject&) = delete;
 
     ~SharedObject() override {
-        if (shared_count.load(std::memory_order_relaxed) != 1)
-            raise_panic("an object's destructor kept a reference to the object", "<destructor>");
+        if (m_SharedCount.load(std::memory_order_relaxed) != 1)
+            RaisePanic("an object's destructor kept a reference to the object", "<destructor>");
     }
 
     static void* operator new(size_t size) { return ::operator new(size); }
@@ -223,12 +223,12 @@ public:
     static void operator delete(void* object, size_t size) { ::operator delete(object, size); }
     static void operator delete(void* object, size_t size, std::align_val_t align) { ::operator delete(object, size, align); }
 
-    void retain() override { shared_count.fetch_add(1, std::memory_order_relaxed); }
+    void Retain() override { m_SharedCount.fetch_add(1, std::memory_order_relaxed); }
 
-    void release() override {
-        if (shared_count.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
-        shared_count.fetch_add(1, std::memory_order_relaxed);
-        clear_weak();
+    void Release() override {
+        if (m_SharedCount.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
+        m_SharedCount.fetch_add(1, std::memory_order_relaxed);
+        ClearWeak();
         delete this;
     }
 };
@@ -237,77 +237,77 @@ static_assert(sizeof(void*) != 8 || sizeof(Object) == 24);
 
 template <class T>
 class Ref {
-    T* ptr = nullptr;
+    T* m_Ptr = nullptr;
 
     template <class>
     friend class Ref;
 
-    static void retain(T* p) {
-        if (p != nullptr) static_cast<Object*>(p)->retain();
+    static void Retain(T* p) {
+        if (p != nullptr) static_cast<Object*>(p)->Retain();
     }
-    static void release(T* p) {
-        if (p != nullptr) static_cast<Object*>(p)->release();
+    static void Release(T* p) {
+        if (p != nullptr) static_cast<Object*>(p)->Release();
     }
 
 public:
     Ref() = default;
     Ref(std::nullptr_t) {}
-    explicit Ref(T* p) : ptr(p) { retain(p); }
-    Ref(const Ref& other) : ptr(other.ptr) { retain(ptr); }
-    Ref(Ref&& other) noexcept : ptr(other.ptr) { other.ptr = nullptr; }
+    explicit Ref(T* p) : m_Ptr(p) { Retain(p); }
+    Ref(const Ref& other) : m_Ptr(other.m_Ptr) { Retain(m_Ptr); }
+    Ref(Ref&& other) noexcept : m_Ptr(other.m_Ptr) { other.m_Ptr = nullptr; }
 
     template <class U>
         requires std::is_convertible_v<U*, T*>
-    Ref(const Ref<U>& other) : ptr(other.ptr) {
-        retain(ptr);
+    Ref(const Ref<U>& other) : m_Ptr(other.m_Ptr) {
+        Retain(m_Ptr);
     }
 
     template <class U>
         requires std::is_convertible_v<U*, T*>
-    Ref(Ref<U>&& other) noexcept : ptr(other.ptr) {
-        other.ptr = nullptr;
+    Ref(Ref<U>&& other) noexcept : m_Ptr(other.m_Ptr) {
+        other.m_Ptr = nullptr;
     }
 
-    ~Ref() { release(ptr); }
+    ~Ref() { Release(m_Ptr); }
 
     // Takes over the reference that `new` starts every object with.
-    static Ref adopt(T* p) {
+    static Ref Adopt(T* p) {
         Ref result;
-        result.ptr = p;
+        result.m_Ptr = p;
         return result;
     }
 
     // The new value is stored before the old one is released, since the old object's destructor
     // may read this reference. Nothing touches `this` afterwards: that destructor may free it.
     void operator=(const Ref& other) {
-        T* old = ptr;
-        retain(other.ptr);
-        ptr = other.ptr;
-        release(old);
+        T* old = m_Ptr;
+        Retain(other.m_Ptr);
+        m_Ptr = other.m_Ptr;
+        Release(old);
     }
 
     // As for a copy, the old value is released at the store, not when `other` dies later.
     Ref& operator=(Ref&& other) noexcept {
         if (&other == this) return *this;
-        T* old = ptr;
-        ptr = other.ptr;
-        other.ptr = nullptr;
-        release(old);
+        T* old = m_Ptr;
+        m_Ptr = other.m_Ptr;
+        other.m_Ptr = nullptr;
+        Release(old);
         return *this;
     }
 
     T* operator->() const {
         if constexpr (WYL_DEBUG != 0) {
-            if (ptr == nullptr) raise_panic("internal compiler error: null dereference", "<runtime>");
+            if (m_Ptr == nullptr) RaisePanic("internal compiler error: null dereference", "<runtime>");
         }
-        return ptr;
+        return m_Ptr;
     }
 
-    T* get() const { return ptr; }
-    explicit operator bool() const { return ptr != nullptr; }
+    T* Get() const { return m_Ptr; }
+    explicit operator bool() const { return m_Ptr != nullptr; }
 
     friend bool operator==(const Ref& a, const Ref& b) {
-        return static_cast<const Object*>(a.ptr) == static_cast<const Object*>(b.ptr);
+        return static_cast<const Object*>(a.m_Ptr) == static_cast<const Object*>(b.m_Ptr);
     }
 };
 
@@ -315,152 +315,152 @@ public:
 // target as a T* too, since a pointer to the virtual base Object cannot be cast back down.
 template <class T>
 class Weak<Ref<T>> {
-    WeakBlock* block = nullptr;
-    T* ptr = nullptr;
+    WeakBlock* m_Block = nullptr;
+    T* m_Ptr = nullptr;
 
 public:
     Weak() = default;
 
     template <class U>
         requires std::is_convertible_v<U*, T*>
-    explicit Weak(const Ref<U>& target) : ptr(target.get()) {
-        if (ptr == nullptr) return;
-        block = static_cast<Object*>(ptr)->weak_block();
-        if (block != nullptr) ++block->count;
+    explicit Weak(const Ref<U>& target) : m_Ptr(target.Get()) {
+        if (m_Ptr == nullptr) return;
+        m_Block = static_cast<Object*>(m_Ptr)->GetWeakBlock();
+        if (m_Block != nullptr) ++m_Block->Count;
     }
 
-    Weak(const Weak& other) : block(other.block), ptr(other.ptr) {
-        if (block != nullptr) ++block->count;
+    Weak(const Weak& other) : m_Block(other.m_Block), m_Ptr(other.m_Ptr) {
+        if (m_Block != nullptr) ++m_Block->Count;
     }
 
-    Weak(Weak&& other) noexcept : block(other.block), ptr(other.ptr) {
-        other.block = nullptr;
-        other.ptr = nullptr;
+    Weak(Weak&& other) noexcept : m_Block(other.m_Block), m_Ptr(other.m_Ptr) {
+        other.m_Block = nullptr;
+        other.m_Ptr = nullptr;
     }
 
     Weak& operator=(const Weak& other) {
         Weak copy(other);
-        std::swap(block, copy.block);
-        std::swap(ptr, copy.ptr);
+        std::swap(m_Block, copy.m_Block);
+        std::swap(m_Ptr, copy.m_Ptr);
         return *this;
     }
 
     Weak& operator=(Weak&& other) noexcept {
-        std::swap(block, other.block);
-        std::swap(ptr, other.ptr);
+        std::swap(m_Block, other.m_Block);
+        std::swap(m_Ptr, other.m_Ptr);
         return *this;
     }
 
     ~Weak() {
-        if (block != nullptr && --block->count == 0) delete block;
+        if (m_Block != nullptr && --m_Block->Count == 0) delete m_Block;
     }
 
-    Ref<T> get() const { return block != nullptr && block->target != nullptr ? Ref<T>(ptr) : Ref<T>(); }
+    Ref<T> get() const { return m_Block != nullptr && m_Block->Target != nullptr ? Ref<T>(m_Ptr) : Ref<T>(); }
 };
 
 template <class T>
-struct is_ref : std::false_type {};
+struct IsRef : std::false_type {};
 template <class T>
-struct is_ref<Ref<T>> : std::true_type {};
+struct IsRef<Ref<T>> : std::true_type {};
 
 template <class Signature>
 class Function;
 
 template <class T>
-struct is_function_value : std::false_type {};
+struct IsFunctionValue : std::false_type {};
 template <class S>
-struct is_function_value<Function<S>> : std::true_type {};
+struct IsFunctionValue<Function<S>> : std::true_type {};
 
 template <class T>
-inline Ref<T> adopt(T* object) {
-    return Ref<T>::adopt(object);
+inline Ref<T> Adopt(T* object) {
+    return Ref<T>::Adopt(object);
 }
 
 template <class T>
-inline const Object* identity(const Ref<T>& value) {
-    return value.get();
+inline const Object* Identity(const Ref<T>& value) {
+    return value.Get();
 }
-inline const Object* identity(std::nullptr_t) { return nullptr; }
+inline const Object* Identity(std::nullptr_t) { return nullptr; }
 
 // A strong copy that keeps an object alive while a method runs on it or a reference into it is used.
 template <class T>
-inline Ref<T> pin(const Ref<T>& value) {
+inline Ref<T> Pin(const Ref<T>& value) {
     return value;
 }
 
 // Holds an object and borrows it, for as long as a reference or span into its storage is used.
 template <class T>
 class Borrow {
-    Ref<T> ref;
+    Ref<T> m_Ref;
 
 public:
-    explicit Borrow(Ref<T> value) : ref(std::move(value)) { static_cast<Object*>(ref.get())->wyl_begin_borrow(); }
+    explicit Borrow(Ref<T> value) : m_Ref(std::move(value)) { static_cast<Object*>(m_Ref.Get())->BeginBorrow(); }
     Borrow(const Borrow&) = delete;
     Borrow& operator=(const Borrow&) = delete;
-    ~Borrow() { static_cast<Object*>(ref.get())->wyl_end_borrow(); }
+    ~Borrow() { static_cast<Object*>(m_Ref.Get())->EndBorrow(); }
 
-    T* operator->() const { return ref.operator->(); }
+    T* operator->() const { return m_Ref.operator->(); }
 };
 
 template <class T>
-inline Borrow<T> borrow(Ref<T> value) {
+inline Borrow<T> MakeBorrow(Ref<T> value) {
     return Borrow<T>(std::move(value));
 }
 
 template <class T>
-struct is_borrow : std::false_type {};
+struct IsBorrow : std::false_type {};
 
 template <class T>
-struct is_borrow<Borrow<T>> : std::true_type {};
+struct IsBorrow<Borrow<T>> : std::true_type {};
 
 // An 'is ref' pattern's holder keeps the object its name points into alive, and borrowed if that is
 // how its storage was handed out, for as long as the name is in scope. A failed test lets it go.
 template <class T>
-inline const Borrow<T>& hold(std::optional<Borrow<T>>& holder, Ref<T> value) {
+inline const Borrow<T>& Hold(std::optional<Borrow<T>>& holder, Ref<T> value) {
     holder.reset();
     return holder.emplace(std::move(value));
 }
 
 template <class T>
-inline const Ref<T>& hold(Ref<T>& holder, Ref<T> value) {
+inline const Ref<T>& Hold(Ref<T>& holder, Ref<T> value) {
     holder = std::move(value);
     return holder;
 }
 
 template <class T>
-inline bool unhold(std::optional<Borrow<T>>& holder) {
+inline bool Unhold(std::optional<Borrow<T>>& holder) {
     holder.reset();
     return false;
 }
 
 template <class T>
-inline bool unhold(Ref<T>& holder) {
+inline bool Unhold(Ref<T>& holder) {
     holder = nullptr;
     return false;
 }
 
 // Calls f with value, so that value is evaluated before anything f evaluates.
 template <class T, class F>
-inline decltype(auto) with(T&& value, F&& f) {
+inline decltype(auto) With(T&& value, F&& f) {
     return f(value);
 }
 
 // A copy that keeps a string's bytes alive while a span views them.
-inline String pin(const String& value) {
+inline String Pin(const String& value) {
     return value;
 }
 
 // In generic code a value may be a struct, which lives in its place and needs no pin.
 template <class T>
-    requires(!is_ref<std::remove_cv_t<T>>::value && !is_function_value<std::remove_cv_t<T>>::value && !std::is_same_v<std::remove_cv_t<T>, String>)
-inline T& pin(T& value) {
+    requires(!IsRef<std::remove_cv_t<T>>::value && !IsFunctionValue<std::remove_cv_t<T>>::value && !std::is_same_v<std::remove_cv_t<T>, String>)
+inline T& Pin(T& value) {
     return value;
 }
 
 // In generic code a value may be a struct, which is borrowed through whatever holds it.
 template <class T>
-    requires(!is_ref<std::remove_cv_t<T>>::value)
-inline T& borrow(T& value) {
+    requires(!IsRef<std::remove_cv_t<T>>::value)
+inline T& MakeBorrow(T& value) {
     return value;
 }
 
@@ -468,19 +468,19 @@ inline T& borrow(T& value) {
 // parameter dies when the callee returns or at the end of the caller's statement; the temporary
 // always lives to the end of the statement, so objects are destroyed at the same point everywhere.
 template <class T>
-inline const T& keep(const T& value) {
+inline const T& Keep(const T& value) {
     return value;
 }
 
 // Calls go through the class that declares the method, so C++ name hiding and ambiguity between
 // bases cannot pick a different overload than Wylow did.
 template <class B, class T>
-inline B* as(const Ref<T>& value) {
+inline B* As(const Ref<T>& value) {
     return value.operator->();
 }
 
 template <class B, class T>
-inline B* as(const Borrow<T>& value) {
+inline B* As(const Borrow<T>& value) {
     return value.operator->();
 }
 
@@ -489,16 +489,16 @@ template <class T>
 struct Builtin;
 
 template <class T>
-inline constexpr bool is_builtin = std::is_arithmetic_v<T> || std::is_same_v<T, String>;
+inline constexpr bool IS_BUILTIN = std::is_arithmetic_v<T> || std::is_same_v<T, String>;
 
 // A call through a generic bound: objects through the bound interface, primitives and String
 // through their Builtin, structs directly.
 template <class I, class T>
-inline decltype(auto) bound(T&& value) {
+inline decltype(auto) Bound(T&& value) {
     using V = std::remove_cvref_t<T>;
-    if constexpr (is_ref<V>::value || is_borrow<V>::value) {
+    if constexpr (IsRef<V>::value || IsBorrow<V>::value) {
         return static_cast<I&>(*value.operator->());
-    } else if constexpr (is_builtin<V>) {
+    } else if constexpr (IS_BUILTIN<V>) {
         return Builtin<V>(value);
     } else {
         return (value);
@@ -506,26 +506,26 @@ inline decltype(auto) bound(T&& value) {
 }
 
 template <class T, class U>
-inline bool is(const Ref<U>& value) {
-    return dynamic_cast<T*>(value.get()) != nullptr;
+inline bool Is(const Ref<U>& value) {
+    return dynamic_cast<T*>(value.Get()) != nullptr;
 }
 
 template <class T, class U>
-inline bool is(const Ref<U>& value, Ref<T>& out) {
-    T* p = dynamic_cast<T*>(value.get());
+inline bool Is(const Ref<U>& value, Ref<T>& out) {
+    T* p = dynamic_cast<T*>(value.Get());
     if (p == nullptr) return false;
     out = Ref<T>(p);
     return true;
 }
 
 template <class T, class U>
-inline Ref<T> downcast(const Ref<U>& value) {
-    return Ref<T>(dynamic_cast<T*>(value.get()));
+inline Ref<T> Downcast(const Ref<U>& value) {
+    return Ref<T>(dynamic_cast<T*>(value.Get()));
 }
 
 template <class T>
-inline Ref<T> unwrap(Ref<T> value, const char* location) {
-    if (!value) raise_panic("null value unwrapped with '!'", location);
+inline Ref<T> Unwrap(Ref<T> value, const char* location) {
+    if (!value) RaisePanic("null value unwrapped with '!'", location);
     return value;
 }
 

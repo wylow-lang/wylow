@@ -88,7 +88,7 @@ To list structural optimization opportunities (not micro-optimizations the C++ c
 
 - Read `tests/.out/<group>/<name>/<name>.cpp`; user code starts after the standard library's
   instantiations (`grep -n "^void fn_main()"`). The largest user programs are in `programs/`.
-- Grep across files for `wyl::pin(`, `wyl::borrow(`, `wyl::keep(`, by-value `wyl::Ref<` parameters,
+- Grep across files for `wyl::Pin(`, `wyl::MakeBorrow(`, `wyl::Keep(`, by-value `wyl::Ref<` parameters,
   and `Ref` locals copied from fields.
 - Categories: repeated or unneeded pins; borrows used only to reach an element; reference counts
   that a move or a `const` reference would save; value copies of large structs; ordering lambdas

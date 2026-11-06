@@ -71,7 +71,7 @@ public sealed partial class Interpreter
         var callee = EvalOperandInPlace(invoke.Callee, caller);
         // A choice's option may be a choice, which C++ calls through its own operator(): a chosen
         // function value is one like any other, so `?:` around it makes a choice of choices. An
-        // option that is a nullable function is still optional, as `wyl::narrowed` holds one: only
+        // option that is a nullable function is still optional, as `wyl::MakeNarrowed` holds one: only
         // the option the choice selected was checked by the `!` that made it.
         while (callee is ChoiceValue or OptionalValue or RefValue)
         {

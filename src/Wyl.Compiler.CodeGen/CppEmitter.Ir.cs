@@ -63,11 +63,11 @@ public sealed partial class CppEmitter
         // A moved-from or discarded unique struct has no value for its destructor body to run on.
         if (function.Symbol is { IsDestructor: true, ContainingType.Kind: TypeKind.Struct })
         {
-            Line("if ((wyl_flags_ & wyl::k_engaged) == 0) return;");
-            Line("if (wyl_get_in_use()) wyl::raise_panic(\"cannot release a value that is in use\", \"<runtime>\");");
+            Line("if ((wyl_flags_ & wyl::ENGAGED) == 0) return;");
+            Line("if (GetInUse()) wyl::RaisePanic(\"cannot release a value that is in use\", \"<runtime>\");");
         }
         if (function.Symbol.IsConstructor && function.This is { } self && !function.Chains)
-            Line($"this->wyl_set_cyclic({CyclicFlag(self.Type.Symbol!)});");
+            Line($"this->SetCyclic({CyclicFlag(self.Type.Symbol!)});");
         IrStatements(function.Body);
         indent--;
         Line("}");
@@ -92,7 +92,7 @@ public sealed partial class CppEmitter
             case IrLet { Local.Kind: IrLocalKind.InUse } let:
                 var mark = PlaceText(((IrInUse)let.Value).Place);
                 Line(declaredGuards.Contains(let.Local)
-                    ? $"{Name(let.Local)}.begin({mark});"
+                    ? $"{Name(let.Local)}.Begin({mark});"
                     : $"wyl::InUseMark {Name(let.Local)}({mark});");
                 break;
             case var definition when DefinedBy(definition) is { } local:
@@ -113,7 +113,7 @@ public sealed partial class CppEmitter
                 }
                 break;
             case IrLet { Value: IrHold hold } let when declaredHolds.ContainsKey(let.Local):
-                Line($"wyl::hold({Name(let.Local)}, {PlaceText(hold.Place)});");
+                Line($"wyl::Hold({Name(let.Local)}, {PlaceText(hold.Place)});");
                 break;
             case IrLet let:
                 Line(Declaration(let.Local, RvalueText(let.Value), let.Value));
@@ -145,13 +145,13 @@ public sealed partial class CppEmitter
                 Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{(storagePlaceholder ? $" = {Storage(declare.Local.Type)}" : "{}")};");
                 break;
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
-                Line($"{Name(end.Local)}.end();");
+                Line($"{Name(end.Local)}.End();");
                 break;
             case IrEnd { Local.Kind: IrLocalKind.InUse } end:
-                Line($"{Name(end.Local)}.end();");
+                Line($"{Name(end.Local)}.End();");
                 break;
             case IrEnd end:
-                Line($"wyl::unhold({Name(end.Local)});");
+                Line($"wyl::Unhold({Name(end.Local)});");
                 break;
             case IrStore or IrDo:
                 Line(StatementText(statement) + ";");
@@ -162,14 +162,14 @@ public sealed partial class CppEmitter
                 Line(CheckText(check) + ";");
                 break;
             case IrDiscard discard:
-                Line($"{Name(discard.Local)}.wyl_discard();");
+                Line($"{Name(discard.Local)}.Discard();");
                 break;
             case IrReturn ret:
                 // A struct constructor's value is storage until it is returned, so its destructor
                 // body may not run before then.
                 if (emitting is { Symbol.IsConstructor: true, Struct: { } made } && made.Type.Symbol?.Destructor is not null
                     && ret.Value is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made)
-                    Line($"{Name(made)}.wyl_engage();");
+                    Line($"{Name(made)}.Engage();");
                 Line(ret.Value is { } value ? $"return {ReturnedText(value)};" : "return;");
                 break;
             case IrIf conditional:
@@ -185,9 +185,9 @@ public sealed partial class CppEmitter
                 Line(continueLabels.TryGetValue(jump.Loop, out var label) ? $"goto {label};" : "continue;");
                 break;
             case IrUnreachable unreachable:
-                // A call that doesn't return is [[noreturn]] in C++ too, and so is `wyl::no_match`.
+                // A call that doesn't return is [[noreturn]] in C++ too, and so is `wyl::NoMatch`.
                 if (previous is not (IrDo { Value: IrCall { Method.Symbol.IsNoReturn: true } } or IrCheck { Kind: IrCheckKind.NoMatch }))
-                    Line($"wyl::unreachable({LocText(unreachable.Loc)});");
+                    Line($"wyl::Unreachable({LocText(unreachable.Loc)});");
                 break;
             default:
                 throw new InvalidOperationException($"the IR emitter can't print {statement.GetType().Name} yet");
@@ -375,7 +375,7 @@ public sealed partial class CppEmitter
     {
         bool aggregate = type.IsAggregate || type.IsTypeParameter;
         bool plain = type.IsReference || !aggregate;
-        return plain ? $"{target} = {value}" : $"wyl::assign({target}, {value})";
+        return plain ? $"{target} = {value}" : $"wyl::Assign({target}, {value})";
     }
 
     string Name(IrLocal local)
@@ -527,11 +527,11 @@ public sealed partial class CppEmitter
             text = projection switch
             {
                 IrField field => $"{text}.{FieldName(field.Field)}",
-                IrElement element when plan.Fused.TryGetValue(element, out var check) => $"wyl::at({text}, {OperandText(element.Index)}, {LocText(check.Loc!)})",
+                IrElement element when plan.Fused.TryGetValue(element, out var check) => $"wyl::At({text}, {OperandText(element.Index)}, {LocText(check.Loc!)})",
                 IrElement { Index: IrConstant constant } => $"{text}[{ConstantText(constant)}]",
                 IrElement element => $"{text}[static_cast<size_t>({OperandText(element.Index)})]",
                 IrVariantField variant => $"{text}.{UnionMember(variant.Variant)}.{FieldName(variant.Field)}",
-                IrAssumed => $"wyl::assume_value({text})",
+                IrAssumed => $"wyl::AssumeValue({text})",
                 _ => throw new InvalidOperationException($"unexpected projection {projection.GetType().Name}"),
             };
         }
@@ -569,23 +569,23 @@ public sealed partial class CppEmitter
 
     /// <summary>
     /// Whether a read of a whole place is a copied argument whose value the statement keeps: nesting
-    /// it prints <c>wyl::keep</c>, whose temporary lives to the end of the C++ statement.
+    /// it prints <c>wyl::Keep</c>, whose temporary lives to the end of the C++ statement.
     /// </summary>
     static bool KeptCopy(IrRead read, IrPlace place) =>
         read.Ownership == IrOwnership.Copy && place is { IsDeref: false, Projections.Count: 0 } && place.Local.Type.MayOwnObjects;
 
     /// <summary>
-    /// A by-value argument. A copy of a temporary the statement keeps is passed through <c>wyl::keep</c>,
+    /// A by-value argument. A copy of a temporary the statement keeps is passed through <c>wyl::Keep</c>,
     /// which makes the temporary the caller's, released when the statement completes.
     /// </summary>
     string ArgumentText(IrArgument argument) => argument switch
     {
         IrRefArgument reference => PlaceText(reference.Place),
-        IrAddrArgument address => $"wyl::address_of({PlaceText(address.Place)})",
+        IrAddrArgument address => $"wyl::AddressOf({PlaceText(address.Place)})",
         IrRead read when KeptCopy(read, read.Place) && plan.Nested.ContainsKey(read.Place.Local) =>
             plan.Nested[read.Place.Local] is IrLet { Value: IrUse { Operand: IrRead place } }
-                ? $"wyl::keep({CppType(read.Type)}({PlaceText(place.Place)}))"
-                : $"wyl::keep({NestedText(read.Place.Local)})",
+                ? $"wyl::Keep({CppType(read.Type)}({PlaceText(place.Place)}))"
+                : $"wyl::Keep({NestedText(read.Place.Local)})",
         IrOperand operand => OperandText(operand),
         _ => throw new InvalidOperationException($"unexpected argument {argument.GetType().Name}"),
     };
@@ -613,9 +613,9 @@ public sealed partial class CppEmitter
         IrInvoke invoke => $"{OperandText(invoke.Callee)}({string.Join(", ", invoke.Arguments.Select((a, i) => OptionalFunctionArgument(invoke.Signature.ParameterType(i), ArgumentText(a))))})",
         IrLambda lambda => LambdaText(lambda.Function, "[&]", []),
         IrClosure closure => ClosureText(closure),
-        IrChoose choice => $"wyl::choose({string.Join(", ", [OperandText(choice.Index), .. choice.Options.Select(OptionText)])})",
-        IrNew { Slot: null } creation => $"wyl::adopt(new {ObjectType(creation.Type)}({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))}))",
-        IrNew { Slot: { } slot } creation => $"{Name(slot)}.make({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))})",
+        IrChoose choice => $"wyl::Choose({string.Join(", ", [OperandText(choice.Index), .. choice.Options.Select(OptionText)])})",
+        IrNew { Slot: null } creation => $"wyl::Adopt(new {ObjectType(creation.Type)}({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))}))",
+        IrNew { Slot: { } slot } creation => $"{Name(slot)}.Make({string.Join(", ", ArgumentsText(creation.Constructor, creation.Arguments, creation.Loc))})",
         IrConstruct construction => ConstructText(construction),
         IrVariant variant => $"{CppType(variant.Type)}::{VariantFactory(variant.Variant)}({string.Join(", ", variant.Fields.Select(OperandText))})",
         // Braces evaluate the elements left to right.
@@ -623,14 +623,14 @@ public sealed partial class CppEmitter
         IrDefault defaulted => DefaultValue(defaulted.Type),
         IrZeroed zeroed => Storage(zeroed.Type),
         IrRef reference => PlaceText(reference.Place),
-        IrAddr address => $"wyl::address_of({PlaceText(address.Place)})",
+        IrAddr address => $"wyl::AddressOf({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",
         IrTest test => TestText(test),
         // The function value is converted where it is used, which a template parameter may take as it is.
         IrConvert { Type.IsNonEscapingFunction: true } conversion => OperandText(conversion.Operand),
-        IrConvert conversion when IsDowncast(conversion) => $"wyl::downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
+        IrConvert conversion when IsDowncast(conversion) => $"wyl::Downcast<{ObjectType(conversion.Type)}>({OperandText(conversion.Operand)})",
         IrConvert conversion => ConversionText(conversion.Operand.Type, conversion.Type, OperandText(conversion.Operand), PanicText(conversion.Loc)),
-        IrHold hold => $"wyl::{(hold.Borrows ? "borrow" : "pin")}({PlaceText(hold.Place)})",
+        IrHold hold => $"wyl::{(hold.Borrows ? "MakeBorrow" : "Pin")}({PlaceText(hold.Place)})",
         _ => throw new InvalidOperationException($"the IR emitter can't print {value.GetType().Name} yet"),
     };
 
@@ -640,9 +640,9 @@ public sealed partial class CppEmitter
         return test.Kind switch
         {
             IrTestKind.NotNull when test.Operand.Type.IsPointer || test.Operand.Type.IsNullableReference => $"({operand} != nullptr)",
-            IrTestKind.NotNull or IrTestKind.HasValue => $"wyl::has_value({operand})",
+            IrTestKind.NotNull or IrTestKind.HasValue => $"wyl::HasValue({operand})",
             IrTestKind.Tag => $"({operand}.tag == {TagValue(test.Variant!)})",
-            IrTestKind.Class => $"wyl::is<{ObjectType(test.Target!)}>({operand})",
+            IrTestKind.Class => $"wyl::Is<{ObjectType(test.Target!)}>({operand})",
             _ => throw new InvalidOperationException($"the IR emitter can't print a {test.Kind} test yet"),
         };
     }
@@ -656,10 +656,10 @@ public sealed partial class CppEmitter
         var operands = check.Operands.Select(OperandText).Append(LocText(check.Loc!));
         var name = check.Kind switch
         {
-            IrCheckKind.Index => "check_index",
-            IrCheckKind.NotNull => "check_not_null",
-            IrCheckKind.HasValue => "check_has_value",
-            IrCheckKind.NoMatch => "no_match",
+            IrCheckKind.Index => "CheckIndex",
+            IrCheckKind.NotNull => "CheckNotNull",
+            IrCheckKind.HasValue => "CheckHasValue",
+            IrCheckKind.NoMatch => "NoMatch",
             _ => throw new InvalidOperationException($"unexpected check {check.Kind}"),
         };
         return $"wyl::{name}({string.Join(", ", operands)})";
@@ -733,9 +733,9 @@ public sealed partial class CppEmitter
         || (local.Kind == IrLocalKind.Reference && local.Type.IsNullableReference);
 
     /// <summary>
-    /// A <c>wyl::Function</c> made by <c>wyl::closure</c>, which copies the captured values into a
+    /// A <c>wyl::Function</c> made by <c>wyl::MakeClosure</c>, which copies the captured values into a
     /// closure object and passes them to the body ahead of the arguments, or by
-    /// <c>wyl::closure_in</c>, which makes the closure in its stack slot. The body is a C++ lambda
+    /// <c>wyl::MakeClosureIn</c>, which makes the closure in its stack slot. The body is a C++ lambda
     /// capturing nothing, so it can't use anything it wasn't given.
     /// </summary>
     string ClosureText(IrClosure closure)
@@ -744,8 +744,8 @@ public sealed partial class CppEmitter
         var values = closure.Captures.Select(OperandText);
         var signature = FunctionSignature((FunctionType)closure.Type);
         if (closure.Slot is { } slot)
-            return $"wyl::closure_in<{signature}>({string.Join(", ", [Name(slot), function, .. values])})";
-        return $"wyl::closure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [cycles.IsCyclicClosure(closure.Function.Symbol) ? "true" : "false", function, .. values])})";
+            return $"wyl::MakeClosureIn<{signature}>({string.Join(", ", [Name(slot), function, .. values])})";
+        return $"wyl::MakeClosure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [cycles.IsCyclicClosure(closure.Function.Symbol) ? "true" : "false", function, .. values])})";
     }
 
     string ClosureObjectType(IrClosure closure) =>
@@ -758,8 +758,8 @@ public sealed partial class CppEmitter
     /// </summary>
     string OptionText(IrOperand option) => option switch
     {
-        IrRead { Ownership: IrOwnership.Borrow, Type.IsNullableNonEscapingFunction: true } => $"wyl::narrowed({OperandText(option)})",
-        IrRead { Ownership: IrOwnership.Borrow } => $"wyl::borrowed({OperandText(option)})",
+        IrRead { Ownership: IrOwnership.Borrow, Type.IsNullableNonEscapingFunction: true } => $"wyl::MakeNarrowed({OperandText(option)})",
+        IrRead { Ownership: IrOwnership.Borrow } => $"wyl::MakeBorrowed({OperandText(option)})",
         _ => OperandText(option),
     };
 }
