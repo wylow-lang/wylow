@@ -456,7 +456,8 @@ and lowering puts a call of the static's ensure before the read, with the read's
 ensure initializes the static if it is not initialized, and panics if its initializer is still
 running, naming the chain of statics involved. The call's effects run code and may panic, so no
 pass moves a read across it. Once initialization has finished, the ensure tests one state byte and
-returns, running no program code.
+returns, running no program code. `StaticEnsures` drops the call in every function that no
+initializer can run, because `wyl_init_statics` has initialized every static before `main` runs.
 
 A static is never destroyed ([0029](decisions/0029-statics-are-not-destroyed.md)). The emitted
 C++ keeps its value in `wyl::StaticStorage<T>`, raw storage with a state byte and the static's

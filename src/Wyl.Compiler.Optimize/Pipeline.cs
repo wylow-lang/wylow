@@ -39,6 +39,7 @@ public static class Pipeline
             return null;
         if (!optimize)
             return Emitted(ir, [], []);
+        Pass(ir, "dropping post-initialization ensures", (callees, _) => StaticEnsures.Apply(ir, InitializerReach.Find(callees)));
         Pass(ir, "reading in place", (_, writes) => ReadsInPlace.Apply(ir, writes));
         Pass(ir, "eliding holds", (_, writes) => HoldElision.Apply(ir, writes));
         var inPlace = Pass(ir, "borrowing loop elements in place", (_, writes) => InPlaceElements.Apply(ir, writes)).Locations;

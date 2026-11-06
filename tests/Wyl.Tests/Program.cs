@@ -105,7 +105,7 @@ var results = files
     .WithDegreeOfParallelism(parallelism)
     .Select(file => interpret ? TestCase.RunInterpreted(file, casesDirectory) : TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
-results.AddRange(IrSelfTests.Run().Concat(AnalysisSelfTests.Run()).Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Concat(InterpreterSelfTests.Run()).Concat(SourceTextSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+results.AddRange(IrSelfTests.Run().Concat(AnalysisSelfTests.Run()).Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Concat(InterpreterSelfTests.Run()).Concat(SourceTextSelfTests.Run()).Concat(StaticEnsureSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(CatalogSelfTests.Run(root).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(SpecExampleSelfTests.Run(root).Concat(DocSelfTests.Run(root)).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
 results.AddRange(FuzzSelfTests.Run(casesDirectory)

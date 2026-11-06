@@ -82,12 +82,12 @@ past ~600 lines is split.
   `Generation`: `Callees.cs` (what each instruction runs), `Summaries.cs` (per-unit summaries over
   callees, with a worklist), `Writes.cs`, `LambdaWrites.cs`, `Escapes.cs`, `CyclicClasses.cs`
   (which classes and closures may form cycles, and `Destroyable`), `Overrides.cs`,
-  `FunctionValues.cs`.
+  `FunctionValues.cs`, and `InitializerReach.cs` (which functions a static initializer may run).
 - **Optimize**: `Pipeline.cs` runs everything; the passes are `ReadsInPlace.cs`, `HoldElision.cs`,
   `InPlaceElements.cs` (tests mark loops `// in-place: <n>`), `BorrowedLocals.cs` (with
-  `Aliasing.cs`, shared with `HoldElision`), `LastUseMoves.cs`, and `StackSlots.cs`
-  ([stack-objects.md](stack-objects.md); tests mark lines `// stack: <n>`). A test observing an
-  optimization through diagnostics is `// mode: optimized`.
+  `Aliasing.cs`, shared with `HoldElision`), `LastUseMoves.cs`, `StackSlots.cs`
+  ([stack-objects.md](stack-objects.md); tests mark lines `// stack: <n>`), and `StaticEnsures.cs`.
+  A test observing an optimization through diagnostics is `// mode: optimized`.
 - **CodeGen**: `CppEmitter*.cs`: declarations from the bound program, bodies from the IR
   (`CppEmitter.Ir.cs`), and nesting (`CppEmitter.IrNesting.cs`).
 - **Interpret**: `Interpreter*.cs`, a second executor of the IR ([ir.md](ir.md) §9.11): one visitor
