@@ -225,12 +225,7 @@ public:
 
     void Retain() override { m_SharedCount.fetch_add(1, std::memory_order_relaxed); }
 
-    void Release() override {
-        if (m_SharedCount.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
-        m_SharedCount.fetch_add(1, std::memory_order_relaxed);
-        ClearWeak();
-        delete this;
-    }
+    void Release() override;
 };
 
 static_assert(sizeof(void*) != 8 || sizeof(Object) == 24);

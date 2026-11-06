@@ -63,6 +63,7 @@ class CycleCollector {
     std::vector<Object*> m_Garbage;
 
     friend class Object;
+    friend class SharedObject;
 
     // Calls f on each cyclic object the object refers to. Objects of acyclic classes are never on a
     // cycle, so references to them are left out, and references they hold count as from outside.
@@ -382,6 +383,15 @@ inline void Object::Destroy() {
     Retain();
     ClearWeak();
     if (m_State & BUFFERED) s_Cycles.Remove(this);
+    ++s_Cycles.m_Destroying;
+    delete this;
+    --s_Cycles.m_Destroying;
+}
+
+inline void SharedObject::Release() {
+    if (m_SharedCount.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
+    m_SharedCount.fetch_add(1, std::memory_order_relaxed);
+    ClearWeak();
     ++s_Cycles.m_Destroying;
     delete this;
     --s_Cycles.m_Destroying;

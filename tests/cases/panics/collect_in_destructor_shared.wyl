@@ -1,0 +1,12 @@
+import std::memory;
+
+shared class Node {
+
+    ~Node() {
+        memory::collectCycles();     // panic-here: memory::collectCycles cannot be called from a destructor
+    }
+}
+
+void main() {
+    mut var n = new Node();
+}
