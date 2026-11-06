@@ -90,8 +90,9 @@ Decide and record the rest:
   a `Sender<T>` and whose `receiver()` method returns a `Receiver<T>`, both shared classes.
   `Sender.send(T value)` returns nothing, and `Receiver.receive() -> T?` returns null once the
   channel is closed and drained.
-- What `receive` does when the channel is open and empty: it waits for a value. State that a
-  waiting thread holds no Wylow lock, so the one-lock rule of 0016 does not apply to it.
+- What `receive` does when the channel is open and empty: it waits for a value, and the wait
+  releases the channel's internal lock. A blocking `receive` is a wait, so when `Mutex` arrives its
+  one-lock check must reject a `receive` that waits while the thread holds a lock (0016).
 - What a `send` does when every `Receiver` has been released. Sending never waits, so the value
   stays queued until the last `Sender` closes the channel, and closing drops every queued value.
   Decide whether that rule stands, or whether releasing the last receiver also closes the channel.
