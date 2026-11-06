@@ -84,3 +84,6 @@ history and a reason can be found without searching the spec.
 | [0054](0054-shared-classes.md) | Shared classes: a count for any thread, the global heap, and no collection |
 | [0055](0055-shared-functions.md) | Shared functions: four forms, shared closures, and no collection |
 | [0056](0056-threads.md) | Threads: a unique handle, a free `spawn`, and a by-value `join` |
+| [0057](0057-interpreter-interleaving.md) | The interpreter runs the operating system's threads |
+| [0058](0058-sendable-handle.md) | A standard library type the compiler knows is sendable |
+| [0059](0059-channel.md) | Channels: an unbounded queue, ends that count, and a close that drains |

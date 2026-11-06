@@ -6,3 +6,5 @@ void main() {
     print(thread.join());
     // output: 42
 }
+
+// tsan

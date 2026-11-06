@@ -459,7 +459,10 @@ sealed class TypeGenerator(BoundProgram program, int seed)
             return WeakTarget(depth) is { } target ? symbol.Construct([target]) : null;
         List<WylType> arguments = [.. symbol.TypeParameters.Select(_ => Make(Place.Storable, depth - 1))];
         var map = TypeMap.Empty.With(symbol.TypeParameters, arguments);
-        bool satisfied = symbol.TypeParameters.Zip(arguments).All(pair => pair.First.Bounds.All(b => program.Stdlib.SatisfiesBound(pair.Second, map.Apply(b))));
+        bool satisfied = symbol.TypeParameters.Zip(arguments).All(pair =>
+            (!pair.First.IsSendableBound || pair.Second.IsSendable)
+            && (!pair.First.IsCopyableBound || pair.Second.IsCopyable)
+            && pair.First.Bounds.All(b => program.Stdlib.SatisfiesBound(pair.Second, map.Apply(b))));
         return satisfied ? symbol.Construct(arguments) : null;
     }
 

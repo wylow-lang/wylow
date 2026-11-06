@@ -277,11 +277,26 @@ collector's `EndThread` first, then the pools' destructor.
   `joinThread` joins and moves the result out, and panics on a null handle, which a thread that was
   never started has. `releaseThread` joins and destroys the handle, and does nothing for a null
   handle.
-- This step's `spawn` takes no argument, so a unique value crosses a thread only as its result. The
-  remote free list and adoption paths are therefore not reachable from a program yet, since no
-  sendable value of the standard library carries an object from one thread's pool into another's.
-  The tests cover the per-thread state and lifetime rules they can reach; the cross-thread free path
-  is **enforced only by review** until `Isolated<T>` or a value-carrying thread argument arrives.
+- `std::channel`'s `SyncState<T>` is a `std::shared_ptr` to a `wyl::channel::State<T>` on the global
+  heap: a mutex, a condition variable, a `std::deque<T>`, and counts of the senders and receivers
+  (`runtime/wyl/channels.h`). A copy of the handle shares the state, and the last handle frees it.
+  `send` moves the value into the queue under the mutex and notifies one waiter. `receive` waits on
+  the condition variable until the queue is not empty or the channel closed, and moves a value out.
+  Releasing the last sender closes the channel and notifies every waiter, and the close destroys the
+  queued values after the mutex is released, since a destructor may run any code. The close destroys
+  the queue only when no receiver is left: a receiver that lives still takes the queued values and
+  then reads null, and the last receiver leaving after the close destroys what is left.
+- A unique value now crosses threads through a channel as well as through a thread's result, so the
+  remote free list and the adoption of an ownerless chunk are reachable from a program:
+  `channels/unique_value` sends an object made in one thread's pool and frees it in another's.
+
+The interpreter runs each logical Wylow thread on an operating-system thread, with no schedule of
+its own (decision 0057). Each thread has its own cycle buffer, collector figures, destroying
+counter, and call depth (`Interpreter.ThreadState`). Reference counts, the weak block, the creation
+counter, and the output are the parts several threads reach. The interpreter counts references
+atomically, changes the weak block under a lock, and writes the output under a lock. A wait in
+`join`, in a thread's release, or in `receive` ends when the target returns, when a value arrives,
+when the channel closes, or when the run ends. A panic on any thread wakes every wait.
 
 ## Interop
 

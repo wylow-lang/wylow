@@ -220,7 +220,7 @@ public sealed partial class Interpreter
     {
         var type = caller.Type(creation.Type).NonNull;
         var obj = Values.Allocate(type, program.Bound.Stdlib);
-        obj.Created = objectsCreated++;
+        obj.Created = (uint)Interlocked.Increment(ref objectsCreated);
         var constructor = creation.Constructor;
         if (program.Functions.Single(constructor.Symbol) is { } function)
         {
@@ -236,7 +236,7 @@ public sealed partial class Interpreter
         if (creation.Slot is { } slot)
         {
             FillSlot(slot, obj, caller);
-            obj.Count++;
+            obj.Retain();
         }
         return obj;
     }
@@ -425,6 +425,8 @@ public sealed partial class Interpreter
     Value DefaultValue(WylType type, Frame frame)
     {
         type = frame.Type(type);
+        if (program.Bound.Stdlib.IsSyncState(type))
+            return new SyncStateValue(null);
         if (program.Bound.Stdlib.IsWeak(type))
             return new WeakValue(null, null);
         if (type.IsNullableValue)

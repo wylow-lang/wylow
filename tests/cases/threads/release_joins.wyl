@@ -15,3 +15,5 @@ void main() {
     // output: main
     // output: marker 9
 }
+
+// tsan

@@ -20,6 +20,7 @@ public sealed partial class Interpreter : IObjectLifetime
     readonly StdlibSymbols stdlib;
     readonly InterpreterOptions options;
     readonly List<byte> output = [];
+    readonly object outputLock = new();
 
     readonly Dictionary<IrLocal, Storage> statics = [];
     readonly Dictionary<IrStatic, byte> staticStates = [];
@@ -29,9 +30,10 @@ public sealed partial class Interpreter : IObjectLifetime
     readonly List<string> standardError = [];
 
     long steps;
-    int depth;
-    bool mainStarted;
+    volatile bool mainStarted;
     long started = Stopwatch.GetTimestamp();
+
+    readonly ThreadLocal<ThreadState> current = new();
 
     Interpreter(IrProgram program, Callees callees, InterpreterOptions options)
     {
@@ -59,19 +61,19 @@ public sealed partial class Interpreter : IObjectLifetime
             }
             catch (WylPanic panic)
             {
-                outcome = Interpretation.Panicked([.. interpreter.output], panic.PanicMessage, panic.Location, interpreter.ErrorText);
+                outcome = Interpretation.Panicked(interpreter.Output, panic.PanicMessage, panic.Location, interpreter.ErrorText);
             }
             catch (BudgetExceededException)
             {
-                outcome = Interpretation.BudgetExceeded([.. interpreter.output], interpreter.ErrorText);
+                outcome = Interpretation.BudgetExceeded(interpreter.Output, interpreter.ErrorText);
             }
             catch (UnsupportedFeature unsupported)
             {
-                outcome = Interpretation.Unsupported([.. interpreter.output], unsupported.Message, interpreter.ErrorText);
+                outcome = Interpretation.Unsupported(interpreter.Output, unsupported.Message, interpreter.ErrorText);
             }
             catch (UndefinedBehavior undefined)
             {
-                outcome = Interpretation.Undefined([.. interpreter.output], undefined.Message, interpreter.ErrorText);
+                outcome = Interpretation.Undefined(interpreter.Output, undefined.Message, interpreter.ErrorText);
             }
             catch (Exception exception)
             {
@@ -87,19 +89,53 @@ public sealed partial class Interpreter : IObjectLifetime
 
     const int StackSize = 64 * 1024 * 1024;
 
-    byte[] Output => [.. output];
+    byte[] Output
+    {
+        get
+        {
+            lock (outputLock)
+                return [.. output];
+        }
+    }
 
     /// <summary>What the program wrote to standard error, as its lines.</summary>
-    string ErrorText => standardError.Count == 0 ? "" : string.Join('\n', standardError) + "\n";
+    string ErrorText
+    {
+        get
+        {
+            lock (outputLock)
+                return standardError.Count == 0 ? "" : string.Join('\n', standardError) + "\n";
+        }
+    }
 
     /// <summary>Reports a performance warning, in a debug build, as the runtime's <c>PerformanceWarning</c> does.</summary>
     void PerformanceWarning(string message)
     {
-        if (!options.Release)
+        if (options.Release)
+            return;
+        lock (outputLock)
             standardError.Add("performance warning: " + message);
     }
 
     Interpretation Execute()
+    {
+        current.Value = new ThreadState();
+        try
+        {
+            return RunMain();
+        }
+        catch (AbortedRun)
+        {
+            ThrowFailure();
+            throw;
+        }
+        finally
+        {
+            EndThreads();
+        }
+    }
+
+    Interpretation RunMain()
     {
         foreach (var statik in program.Statics)
         {
@@ -154,12 +190,20 @@ public sealed partial class Interpreter : IObjectLifetime
     /// </summary>
     void Charge(long amount)
     {
-        steps += amount;
-        if (steps > options.StepBudget)
+        long spent = Interlocked.Add(ref steps, amount);
+        if (aborting)
+            throw new AbortedRun();
+        if (spent > options.StepBudget)
+        {
+            Abort(new BudgetExceededException());
             throw new BudgetExceededException();
+        }
         // A harness's time limit is checked rarely: the clock is far more expensive than a step.
-        if (options.TimeLimit is { } limit && (steps & 0xFFFF) == 0 && Stopwatch.GetElapsedTime(started) > limit)
+        if (options.TimeLimit is { } limit && (spent & 0xFFFF) == 0 && Stopwatch.GetElapsedTime(started) > limit)
+        {
+            Abort(new BudgetExceededException());
             throw new BudgetExceededException();
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

@@ -21,3 +21,5 @@ void main() {
     // output: node
     // output: node
 }
+
+// tsan

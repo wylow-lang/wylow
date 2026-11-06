@@ -34,6 +34,8 @@ static class MatrixTests
     public static List<TestResult> Run(string root, string outputDirectory, Toolchain? toolchain, CompileOptions options, string? filter, bool update, int parallelism, bool interpret)
     {
         List<TestResult> results = [];
+        if (toolchain == Toolchain.ThreadSanitized)
+            return results;
         foreach (var matrix in Matrices())
         {
             var name = "matrix/" + matrix.Name;

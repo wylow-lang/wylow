@@ -396,6 +396,8 @@ public sealed class TypeSymbol
 
     internal bool IsWeak { get; set; }
 
+    internal bool IsSendableHandle { get; set; }
+
     /// <summary>A class declared <c>@Acyclic</c>, whose objects the cycle collector never looks at.</summary>
     public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
 

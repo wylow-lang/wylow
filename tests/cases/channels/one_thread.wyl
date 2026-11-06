@@ -1,0 +1,18 @@
+import std::print;
+import std::channel::Channel;
+
+void main() {
+    var channel = new Channel<int>();
+    var receiver = channel.receiver();
+    {
+        var sender = channel.sender();
+        sender.send(1);
+        sender.send(2);
+    }
+    print(receiver.receive()!);
+    print(receiver.receive()!);
+    print(receiver.receive() == null);
+    // output: 1
+    // output: 2
+    // output: true
+}

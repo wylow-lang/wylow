@@ -20,3 +20,5 @@ void main() {
     // output: 7
     // output: buffer 7
 }
+
+// tsan

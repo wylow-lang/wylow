@@ -1,0 +1,90 @@
+package extern struct SyncState<T extends sendable> {
+}
+
+/// An unbounded channel, through which one thread sends values that another receives.
+///
+/// The channel has no size limit, so `send` never waits. It closes when its last `Sender` is
+/// released, and a receive then returns what is still queued and null after that.
+pub shared class Channel<T extends sendable> {
+    package SyncState<T> state;
+
+    /// Returns a channel whose ends carry values of `T`.
+    pub Channel() {
+        state = createState<T>();
+    }
+
+    /// Returns an end that sends values into the channel. Every `Sender` keeps the channel open.
+    ///
+    /// # Panics
+    ///
+    /// If the channel has closed.
+    @CallerLocation
+    pub Sender<T> sender() {
+        attachSender<T>(state);
+        return new Sender<T>(state);
+    }
+
+    /// Returns an end that receives the channel's values.
+    pub Receiver<T> receiver() {
+        attachReceiver<T>(state);
+        return new Receiver<T>(state);
+    }
+}
+
+/// An end of a channel that sends values.
+pub shared class Sender<T extends sendable> {
+    package SyncState<T> state;
+
+    package Sender(SyncState<T> state) {
+        this.state = state;
+    }
+
+    ~Sender() {
+        detachSender<T>(state);
+    }
+
+    /// Sends `value` into the channel. A send never waits, even when no receiver is left.
+    ///
+    /// # Panics
+    ///
+    /// If something `value` owns is borrowed.
+    @CallerLocation
+    pub void send(T value) {
+        sendValue<T>(state, value);
+    }
+}
+
+/// An end of a channel that receives values.
+pub shared class Receiver<T extends sendable> {
+    package SyncState<T> state;
+
+    package Receiver(SyncState<T> state) {
+        this.state = state;
+    }
+
+    ~Receiver() {
+        detachReceiver<T>(state);
+    }
+
+    /// Returns the next value, waiting until one arrives, or null once the channel is closed and
+    /// every queued value is taken.
+    pub T? receive() {
+        return receiveValue<T>(state);
+    }
+}
+
+extern SyncState<T> createState<T extends sendable>();
+
+@CallerLocation
+extern void attachSender<T extends sendable>(SyncState<T> state);
+
+extern void detachSender<T extends sendable>(SyncState<T> state);
+
+extern void attachReceiver<T extends sendable>(SyncState<T> state);
+
+extern void detachReceiver<T extends sendable>(SyncState<T> state);
+
+@CallerLocation
+extern void sendValue<T extends sendable>(SyncState<T> state, T value);
+
+extern T? receiveValue<T extends sendable>(SyncState<T> state);

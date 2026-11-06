@@ -101,6 +101,8 @@ sealed partial class Mutator
             // An error test already has an error, so mutating it mostly reproduces that error.
             if (!includeErrors && ErrorDirective().IsMatch(text))
                 continue;
+            if (IsConcurrent(text))
+                continue;
             files.Add(new BaseFile(name, text));
         }
         return files;
@@ -108,4 +110,7 @@ sealed partial class Mutator
 
     [GeneratedRegex(@"//\s*error(?:\[WYL\d{4}\])?:")]
     private static partial Regex ErrorDirective();
+
+    static bool IsConcurrent(string text) =>
+        text.Contains("std::thread", StringComparison.Ordinal) || text.Contains("std::channel", StringComparison.Ordinal);
 }

@@ -20,9 +20,10 @@ const string Usage = """
 
     options:
       --release        optimized build; integer overflow wraps instead of panicking
-      --cc msvc|gcc|asan
+      --cc msvc|gcc|asan|tsan
                        C++ compiler to use (default: msvc if installed, otherwise gcc);
-                       asan is clang-cl with AddressSanitizer and UBSan
+                       asan is clang-cl with AddressSanitizer and UBSan, and tsan builds
+                       with ThreadSanitizer where the platform supports it
       -o <path>        where to write the executable (build only)
       --no-nest        declare every temporary instead of nesting it into its use
       --no-opt         run no optimizations: keep every hold and copy lowering made, every object on the heap
@@ -56,8 +57,8 @@ for (int i = 2; i < args.Length; i++)
         case "--release":
             release = true;
             break;
-        case "--cc" when i + 1 < args.Length && args[i + 1] is "msvc" or "gcc" or "asan":
-            toolchain = args[++i] switch { "msvc" => Toolchain.Msvc, "gcc" => Toolchain.Gcc, _ => Toolchain.ClangSanitized };
+        case "--cc" when i + 1 < args.Length && args[i + 1] is "msvc" or "gcc" or "asan" or "tsan":
+            toolchain = args[++i] switch { "msvc" => Toolchain.Msvc, "gcc" => Toolchain.Gcc, "tsan" => Toolchain.ThreadSanitized, _ => Toolchain.ClangSanitized };
             break;
         case "-o" when i + 1 < args.Length:
             output = args[++i];

@@ -56,3 +56,20 @@ jobs:
       - name: Self-check
         shell: pwsh
         run: dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test
+
+  tsan:
+    name: tsan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Toolchain
+        run: |
+          g++ --version
+          sudo sysctl -w vm.mmap_rnd_bits=28 || true
+      - run: dotnet build
+      - name: Test (tsan)
+        run: dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc tsan --jobs $(nproc)

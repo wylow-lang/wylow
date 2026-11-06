@@ -22,10 +22,10 @@ compiler is C# (.NET 10) and compiles Wylow to C++20.
 
 ```
 dotnet build
-dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret         # whole suite, interpreter only (~20 s)
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret         # whole suite, interpreter only (~70 s)
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs             # MSVC, tests whose path contains "structs"
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix --update-snapshots
-dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl | dir> [--release] [--cc gcc|asan] [--no-nest] [--no-opt]
+dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl | dir> [--release] [--cc gcc|asan|tsan] [--no-nest] [--no-opt]
 ```
 
 Other modes, the fuzzer, the generator, mutation testing, coverage, and the dashboard:
@@ -35,8 +35,9 @@ Other modes, the fuzzer, the generator, mutation testing, coverage, and the dash
 
 `tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error[WYLnnnn]: <message>` (on the
 erroring line; list every error, with its code and exact message), `// panic:` or `// panic-here:` (also checks the line),
-`// args:` (the program's arguments, split at spaces), `// exit:` (its exit status, otherwise 0), and
-`// mode: release` comments. Outputs match in file order, so put a called function's output at the
+`// args:` (the program's arguments, split at spaces), `// exit:` (its exit status, otherwise 0),
+`// mode: release` comments, and `// tsan` on a test that starts a thread, which is the only kind
+`--cc tsan` runs. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the `std` names it uses (`import std::{List, print};`). A directory with a
 `package.wylcfg` (`tests/cases/packages/`) is one test of all its files.
@@ -127,7 +128,7 @@ binds). A test imports the `std` names it uses (`import std::{List, print};`). A
 |---|---|
 | Editing | one mode with a filter: seconds |
 | Before each commit | whole suite `--interpret`, and MSVC filtered to the area touched. Docs-only changes run nothing; dashboard-only changes only build. Nothing else unless asked |
-| Push to `dev` or `main` (CI) | all seven modes, each on its own runner, and the generator's `--self-test` |
+| Push to `dev` or `main` (CI) | all seven modes, each on its own runner, the TSan mode on a Linux runner, and the generator's `--self-test` |
 | Nightly / weekly (CI) | fuzzing and generation; mutation testing |
 
 Long runs (fuzzing, generation, mutation, coverage) go through CI or the user; hand over the

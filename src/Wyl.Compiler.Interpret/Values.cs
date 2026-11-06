@@ -17,7 +17,7 @@ public static class Values
     /// </summary>
     public static Value Copy(WylType type, Value value) => value switch
     {
-        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue or ThreadValue => value,
+        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue or ThreadValue or SyncStateValue => value,
         ObjectRef obj => Retain(obj),
         // A choice copies every callable it holds, as a tuple of them does.
         ChoiceValue choice => new ChoiceValue(choice.Index, [.. choice.Options.Select(CopyCell)]),
@@ -35,7 +35,7 @@ public static class Values
 
     static ObjectRef Retain(ObjectRef obj)
     {
-        obj.Count++;
+        obj.Retain();
         return obj;
     }
 
@@ -55,12 +55,10 @@ public static class Values
         switch (value)
         {
             case ObjectRef obj:
-                obj.Count--;
-                lifetime.Released(obj);
+                lifetime.Released(obj, obj.ReleasedOne());
                 break;
             case FunctionValue function when type.NonNull.IsEscaping && function.Closure is { } closure:
-                closure.Count--;
-                lifetime.Released(closure);
+                lifetime.Released(closure, closure.ReleasedOne());
                 break;
             case WeakValue weak:
                 weak.Release();
@@ -108,6 +106,8 @@ public static class Values
     /// </summary>
     public static Value Zeroed(WylType type, StdlibSymbols stdlib, bool engaged = false)
     {
+        if (stdlib.IsSyncState(type))
+            return new SyncStateValue(null);
         if (stdlib.IsWeak(type))
             return new WeakValue(null, null);
         if (type.IsNullableValue)

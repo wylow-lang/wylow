@@ -48,9 +48,10 @@ for (int i = 0; i < args.Length; i++)
         {
             "gcc" => Toolchain.Gcc,
             "asan" => Toolchain.ClangSanitized,
+            "tsan" => Toolchain.ThreadSanitized,
             "msvc" => Toolchain.Msvc,
             "interpret" => null,
-            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, asan, or interpret"),
+            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, asan, tsan, or interpret"),
         };
         if (args[i] == "interpret")
             interpret = true;
@@ -119,6 +120,8 @@ results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filt
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));
+if (toolchain == Toolchain.ThreadSanitized)
+    results.Add(ThreadSanitizersLive(outputDirectory));
 
 foreach (var result in results.Where(r => r.Failure is not null))
 {
@@ -219,6 +222,34 @@ static TestResult SanitizersLive(string outputDirectory)
     if (NativeCompiler.SanitizerReport(run.StandardError) is null)
         missing.Add("anything SanitizerReport finds");
     return new(name, missing.Count == 0 ? null : $"no report of: {string.Join(", ", missing)}; stderr: {run.StandardError.Trim()}");
+}
+
+static TestResult ThreadSanitizersLive(string outputDirectory)
+{
+    const string name = "sanitizers/live-tsan";
+    var directory = Path.Combine(outputDirectory, "sanitizers", "tsan");
+    Directory.CreateDirectory(directory);
+    var cpp = Path.Combine(directory, "race.cpp");
+    File.WriteAllText(cpp, """
+        #include <thread>
+        int counter = 0;
+        int main() {
+            std::thread a([] { for (int i = 0; i < 100000; i++) counter++; });
+            std::thread b([] { for (int i = 0; i < 100000; i++) counter++; });
+            a.join();
+            b.join();
+            return counter == 0;
+        }
+        """);
+    var compiler = NativeCompiler.Find(Toolchain.ThreadSanitized, out _)!;
+    var exe = Path.ChangeExtension(cpp, OperatingSystem.IsWindows() ? ".exe" : null);
+    var build = compiler.Build(cpp, exe, release: false, precompiledHeader: false);
+    if (!build.Success)
+        return new(name, build.Output);
+    var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(60));
+    return NativeCompiler.SanitizerReport(run.StandardError) is null
+        ? new(name, $"no race report; stderr: {run.StandardError.Trim()}")
+        : new(name, null);
 }
 
 static string FindRepositoryRoot()
@@ -333,6 +364,8 @@ static partial class TestCase
             return test.Problem;
         var expected = test.Expected;
         if (expected.Optimized && !options.Optimize)
+            return null;
+        if (toolchain == Toolchain.ThreadSanitized && !test.Text.Contains("// tsan", StringComparison.Ordinal))
             return null;
         var compilation = Compilation.Compile(test.Sources, options);
         var errors = compilation.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

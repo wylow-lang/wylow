@@ -12,44 +12,55 @@ namespace Wyl.Compiler.Interpret;
 public sealed partial class Interpreter
 {
     /// <summary>What the collector did since the last call, as <c>wyl::CycleStats</c>.</summary>
-    sealed class CycleStats
+    internal sealed class CycleStats
     {
         public long Buffered;
         public long Visited;
         public long Freed;
     }
 
-    /// <summary>Objects whose count dropped without reaching zero since the last collection; null where one was destroyed meanwhile.</summary>
-    List<HeapObject?> buffer = [];
-    int capacity;
-    int holes;
+    internal sealed class ThreadState
+    {
+        public List<HeapObject?> Buffer = [];
+        public int Capacity;
+        public int Holes;
+        public int Destroying;
+        public CycleStats Stats = new();
+        public List<HeapObject?> Roots = [];
+        public List<HeapObject> Marked = [], Stack = [], Garbage = [];
+        public int Depth;
+        public long LastWaiting;
+        public int GrowingCalls;
+        public bool WarnedGrowing;
+        public List<(string Name, int Count)> FreedClasses = [];
+    }
 
-    /// <summary>Destructors running, outside or inside a collection, which may not start one.</summary>
-    int destroying;
-
-    CycleStats stats = new();
-
-    /// <summary>Working storage for a collection, kept between collections so that each one reuses it.</summary>
-    List<HeapObject?> roots = [];
-    List<HeapObject> marked = [], stack = [], garbage = [];
+    List<HeapObject?> buffer { get => current.Value!.Buffer; set => current.Value!.Buffer = value; }
+    int capacity { get => current.Value!.Capacity; set => current.Value!.Capacity = value; }
+    int holes { get => current.Value!.Holes; set => current.Value!.Holes = value; }
+    int destroying { get => current.Value!.Destroying; set => current.Value!.Destroying = value; }
+    CycleStats stats { get => current.Value!.Stats; set => current.Value!.Stats = value; }
+    List<HeapObject?> roots { get => current.Value!.Roots; set => current.Value!.Roots = value; }
+    List<HeapObject> marked { get => current.Value!.Marked; set => current.Value!.Marked = value; }
+    List<HeapObject> stack { get => current.Value!.Stack; set => current.Value!.Stack = value; }
+    List<HeapObject> garbage { get => current.Value!.Garbage; set => current.Value!.Garbage = value; }
+    int depth { get => current.Value!.Depth; set => current.Value!.Depth = value; }
+    long lastWaiting { get => current.Value!.LastWaiting; set => current.Value!.LastWaiting = value; }
+    int growingCalls { get => current.Value!.GrowingCalls; set => current.Value!.GrowingCalls = value; }
+    bool warnedGrowing { get => current.Value!.WarnedGrowing; set => current.Value!.WarnedGrowing = value; }
+    List<(string Name, int Count)> freedClasses => current.Value!.FreedClasses;
 
     /// <summary>How many objects were created, which gives each its creation number and so its age.</summary>
-    uint objectsCreated;
+    long objectsCreated;
 
     // Debug builds' diagnostics, as runtime/wyl/cycles.h keeps them.
     const int GrowingCallsToWarn = 5;
     const int CollectionsToWarn = 10;
-    long lastWaiting;
-    int growingCalls;
-    bool warnedGrowing;
-
-    /// <summary>For each class whose objects collections have freed, how many collections did; negative once reported.</summary>
-    readonly List<(string Name, int Count)> freedClasses = [];
 
     /// <summary>A reference to a counted object went away: destroy it at zero, or buffer it for the collector.</summary>
-    public void Released(HeapObject heap)
+    public void Released(HeapObject heap, long count)
     {
-        if (heap.Count <= 0)
+        if (count <= 0)
             DestroyHeapObject(heap);
         // Only a cyclic object whose count stayed above zero may have joined a cycle; any other flag
         // means the collector already has it (wyl::Object::release).
@@ -184,8 +195,7 @@ public sealed partial class Interpreter
         if (function.Closure is not { } closure)
             return;
         function.Closure = null;
-        closure.Count--;
-        Released(closure);
+        Released(closure, closure.ReleasedOne());
     }
 
     /// <summary>Whether a class declares the container elements its own <c>Visit</c> walks, rather than inheriting them.</summary>
@@ -245,7 +255,7 @@ public sealed partial class Interpreter
         {
             ForEachChild(marked[expanded++], child =>
             {
-                child.Count--;
+                child.ReleasedOne();
                 if (!child.Gray)
                 {
                     child.Gray = true;
@@ -255,7 +265,7 @@ public sealed partial class Interpreter
             if (marked.Count > budget)
             {
                 for (int i = start; i < expanded; i++)
-                    ForEachChild(marked[i], child => child.Count++);
+                    ForEachChild(marked[i], child => child.Retain());
                 for (int i = start; i < marked.Count; i++)
                     marked[i].Gray = false;
                 marked.RemoveRange(start, marked.Count - start);
@@ -301,7 +311,7 @@ public sealed partial class Interpreter
             stack.RemoveAt(stack.Count - 1);
             ForEachChild(heap, child =>
             {
-                child.Count++;
+                child.Retain();
                 if (child.Gray || child.White)
                 {
                     child.Gray = false;
@@ -357,14 +367,15 @@ public sealed partial class Interpreter
     /// </summary>
     void DestroyGarbage()
     {
-        garbage.Sort((a, b) => b.Age(objectsCreated).CompareTo(a.Age(objectsCreated)));
+        var created = (uint)Interlocked.Read(ref objectsCreated);
+        garbage.Sort((a, b) => b.Age(created).CompareTo(a.Age(created)));
         if (!options.Release)
             NoteFreed();
         foreach (var heap in garbage)
-            ForEachChild(heap, child => child.Count++);
+            ForEachChild(heap, child => child.Retain());
         foreach (var heap in garbage)
         {
-            heap.Count++;
+            heap.Retain();
             heap.Buffered = false;
             heap.ClearWeak();
             heap.Slot = 0;
@@ -383,7 +394,7 @@ public sealed partial class Interpreter
             ForEachChild(heap, child =>
             {
                 if (child.Finalized)
-                    child.Count--;
+                    child.ReleasedOne();
             });
         foreach (var heap in garbage)
         {
@@ -396,7 +407,7 @@ public sealed partial class Interpreter
             ForEachReference(heap, (target, clear) =>
             {
                 if (target.Finalized)
-                    target.Count++;
+                    target.Retain();
                 clear();
             });
         foreach (var heap in garbage)

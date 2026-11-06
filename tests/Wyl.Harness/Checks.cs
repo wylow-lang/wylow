@@ -354,7 +354,8 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
 
         // A mode the program is not compared in: its mutation edited `unsafe` code, or the test
         // observes an optimization that --no-opt (and the meaning) turns off.
-        bool Skipped(Mode mode) => unsafeCode || (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal));
+        bool Skipped(Mode mode) => unsafeCode || (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal))
+            || (mode.Toolchain == Toolchain.ThreadSanitized && !text.Contains("// tsan", StringComparison.Ordinal));
     }
 
     int IndexOfMode(string name) => Modes.Select((mode, index) => (mode, index)).First(pair => pair.mode.Name == name).index;

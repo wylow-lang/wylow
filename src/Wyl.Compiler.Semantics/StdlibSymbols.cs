@@ -35,6 +35,8 @@ public sealed class StdlibSymbols
     /// <summary>Weak references, which <c>T</c> and <c>T?</c> convert to.</summary>
     public TypeSymbol? Weak { get; private set; }
 
+    public TypeSymbol? SyncState { get; private set; }
+
     /// <summary>Types string interpolation writes through <c>toString</c>.</summary>
     public TypeSymbol? Printable { get; private set; }
 
@@ -106,6 +108,7 @@ public sealed class StdlibSymbols
             case "ReadOnlySpannable": ReadOnlySpannable = symbol; break;
             case "Borrowable": Borrowable = symbol; break;
             case "Weak": Weak = symbol; symbol.IsWeak = true; break;
+            case "SyncState": SyncState = symbol; symbol.IsSendableHandle = true; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
         }
@@ -123,6 +126,8 @@ public sealed class StdlibSymbols
     public bool IsSpan(WylType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 
     public bool IsWeak(WylType type) => type.Symbol is { } s && s == Weak;
+
+    public bool IsSyncState(WylType type) => type.Symbol is { } s && s == SyncState;
 
     /// <summary>
     /// The element type of a standard library container: a class implementing <see cref="ReadOnlySpannable"/>,

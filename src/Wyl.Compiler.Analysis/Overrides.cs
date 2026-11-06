@@ -23,20 +23,23 @@ public sealed class Overrides
     /// <summary>The methods a call of the method may run if it dispatches, starting with the method itself.</summary>
     public IReadOnlyList<FunctionSymbol> Targets(FunctionSymbol method)
     {
-        if (targets.TryGetValue(method, out var found))
-            return found;
-        var all = new List<FunctionSymbol>();
-        var seen = new HashSet<FunctionSymbol>();
-        var pending = new Queue<FunctionSymbol>([method]);
-        while (pending.TryDequeue(out var next))
+        lock (targets)
         {
-            if (!seen.Add(next))
-                continue;
-            all.Add(next);
-            foreach (var overrider in overriders[next])
-                pending.Enqueue(overrider);
+            if (targets.TryGetValue(method, out var found))
+                return found;
+            var all = new List<FunctionSymbol>();
+            var seen = new HashSet<FunctionSymbol>();
+            var pending = new Queue<FunctionSymbol>([method]);
+            while (pending.TryDequeue(out var next))
+            {
+                if (!seen.Add(next))
+                    continue;
+                all.Add(next);
+                foreach (var overrider in overriders[next])
+                    pending.Enqueue(overrider);
+            }
+            return targets[method] = all;
         }
-        return targets[method] = all;
     }
 
     /// <summary>

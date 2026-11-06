@@ -1,47 +1,108 @@
+using System.Runtime.ExceptionServices;
 using Wyl.Compiler.Ir;
 using Wyl.Compiler.Semantics;
 
 namespace Wyl.Compiler.Interpret;
 
+internal sealed class LogicalThread(WylType resultType)
+{
+    public Interpreter.ThreadState State { get; } = new();
+    internal WylType ResultType { get; } = resultType;
+    internal Thread? Os;
+    internal ManualResetEventSlim Done { get; } = new(false);
+    internal Cell? Result;
+}
+
 public sealed partial class Interpreter
 {
-    sealed record CycleState(
-        List<HeapObject?> Buffer,
-        int Capacity,
-        int Holes,
-        int Destroying,
-        CycleStats Stats,
-        List<HeapObject?> Roots,
-        List<HeapObject> Marked,
-        List<HeapObject> Stack,
-        List<HeapObject> Garbage);
+    sealed class AbortedRun : Exception;
 
-    CycleState EnterThread()
+    readonly ManualResetEventSlim aborted = new(false);
+    readonly object threadLock = new();
+    readonly List<LogicalThread> logicalThreads = [];
+    volatile bool aborting;
+    Exception? failure;
+
+    Exception? Failure
     {
-        var saved = new CycleState(buffer, capacity, holes, destroying, stats, roots, marked, stack, garbage);
-        buffer = [];
-        capacity = 0;
-        holes = 0;
-        destroying = 0;
-        stats = new();
-        roots = [];
-        marked = [];
-        stack = [];
-        garbage = [];
-        return saved;
+        get
+        {
+            lock (threadLock)
+                return failure;
+        }
     }
 
-    void RestoreThread(CycleState saved)
+    void Abort(Exception exception)
     {
-        buffer = saved.Buffer;
-        capacity = saved.Capacity;
-        holes = saved.Holes;
-        destroying = saved.Destroying;
-        stats = saved.Stats;
-        roots = saved.Roots;
-        marked = saved.Marked;
-        stack = saved.Stack;
-        garbage = saved.Garbage;
+        lock (threadLock)
+            failure ??= exception;
+        aborting = true;
+        aborted.Set();
+    }
+
+    LogicalThread SpawnLogical(WylType resultType, Func<Value?> body)
+    {
+        var thread = new LogicalThread(resultType);
+        lock (threadLock)
+        {
+            if (aborting)
+                throw new AbortedRun();
+            thread.Os = new Thread(() => RunLogical(thread, body), StackSize);
+            logicalThreads.Add(thread);
+            thread.Os.Start();
+        }
+        return thread;
+    }
+
+    void RunLogical(LogicalThread thread, Func<Value?> body)
+    {
+        current.Value = thread.State;
+        try
+        {
+            if (body() is { } value)
+                thread.Result = new Cell(thread.ResultType, value);
+        }
+        catch (AbortedRun)
+        {
+        }
+        catch (Exception exception)
+        {
+            Abort(exception);
+        }
+        finally
+        {
+            thread.Done.Set();
+        }
+    }
+
+    void WaitFor(LogicalThread thread)
+    {
+        WaitHandle.WaitAny([thread.Done.WaitHandle, aborted.WaitHandle]);
+        if (aborting)
+            throw new AbortedRun();
+    }
+
+    void EndThreads()
+    {
+        LogicalThread[] threads;
+        lock (threadLock)
+        {
+            aborting = true;
+            aborted.Set();
+            threads = [.. logicalThreads];
+        }
+        foreach (var thread in threads)
+            thread.Os?.Join();
+        foreach (var thread in threads)
+            thread.Done.Dispose();
+    }
+
+    Value? RunThreadBody(FunctionValue body, WylType bodyType)
+    {
+        var result = Invoke(body.Function, CallFrame(body));
+        Collect(long.MaxValue, "<thread end>");
+        Release(bodyType, body);
+        return result;
     }
 
     Value? ThreadIntrinsic(string name, IrCall call, Frame caller, string? location)
@@ -57,44 +118,42 @@ public sealed partial class Interpreter
                     ?? throw new InterpreterException("the thread's body is not a function value");
                 var bodyType = caller.Map.Apply(call.Method.ParameterType(0));
                 var resultType = caller.Map.Apply(call.Method.TypeArguments[0]);
-                var saved = EnterThread();
-                Value? result;
-                try
-                {
-                    result = Invoke(body.Function, CallFrame(body));
-                }
-                catch
-                {
-                    RestoreThread(saved);
-                    throw;
-                }
-                Collect(long.MaxValue, location ?? "<thread end>");
-                RestoreThread(saved);
-                Release(bodyType, body);
-                return new ThreadValue { Result = result is null ? null : new Cell(resultType, result) };
+                var thread = SpawnLogical(resultType, () => RunThreadBody(body, bodyType));
+                return new ThreadValue { Thread = thread };
             }
             case "join":
             {
                 if (arguments[0] is NullValue)
                     throw new WylPanic("cannot join a thread that was never started", location ?? "<runtime>");
-                var thread = arguments[0] as ThreadValue
+                var thread = (arguments[0] as ThreadValue)?.Thread
                     ?? throw new InterpreterException("joined something that is not a thread");
-                if (thread.Result is not { } result)
-                    throw new InterpreterException("joined a thread that has no result");
+                WaitFor(thread);
+                var result = thread.Result ?? throw new InterpreterException("joined a thread that has no result");
                 thread.Result = null;
                 return result.Value;
             }
             case "release":
             {
-                if (arguments[0] is ThreadValue { Result: { } result } thread)
+                if (arguments[0] is ThreadValue { Thread: { } thread })
                 {
-                    thread.Result = null;
-                    Release(result);
+                    WaitFor(thread);
+                    if (thread.Result is { } result)
+                    {
+                        thread.Result = null;
+                        Release(result);
+                    }
                 }
                 return null;
             }
             default:
                 throw new UnsupportedFeature($"the intrinsic 'wyl::thread::{name}'");
         }
+    }
+
+    void ThrowFailure()
+    {
+        if (Failure is { } raised)
+            ExceptionDispatchInfo.Capture(raised).Throw();
+        throw new AbortedRun();
     }
 }

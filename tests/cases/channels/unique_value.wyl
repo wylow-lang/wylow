@@ -1,0 +1,38 @@
+import std::print;
+import std::thread::spawn;
+import std::channel::Channel;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() {
+        print($"buffer {length}");
+    }
+}
+
+void main() {
+    var channel = new Channel<Buffer>();
+    var sender = channel.sender();
+    var receiver = channel.receiver();
+    var worker = spawn(() -> {
+        mut var value = receiver.receive();
+        if (value != null) {
+            var buffer = value!;
+            print($"got {buffer.length}");
+        }
+        print("child done");
+        return 0;
+    });
+    sender.send(Buffer(7));
+    worker.join();
+    print("parent done");
+    // output: got 7
+    // output: buffer 7
+    // output: child done
+    // output: parent done
+    // tsan
+}

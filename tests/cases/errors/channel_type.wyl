@@ -1,0 +1,8 @@
+import std::channel::Channel;
+
+class Node {
+}
+
+void main() {
+    var channel = new Channel<Node>();    // error[WYL0453]: 'Node' is not 'sendable'
+}

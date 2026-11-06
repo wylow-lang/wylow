@@ -11,3 +11,5 @@ void main() {
     // output: body
     // output: main
 }
+
+// tsan

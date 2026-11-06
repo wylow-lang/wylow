@@ -1,0 +1,25 @@
+import std::print;
+import std::channel::Channel;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() {
+        print($"buffer {length}");
+    }
+}
+
+void main() {
+    var channel = new Channel<Buffer>();
+    {
+        var sender = channel.sender();
+        sender.send(Buffer(1));
+    }
+    print("closed");
+    // output: buffer 1
+    // output: closed
+}

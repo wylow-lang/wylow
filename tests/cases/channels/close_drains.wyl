@@ -1,0 +1,26 @@
+import std::print;
+import std::thread::spawn;
+import std::channel::Channel;
+
+void main() {
+    var channel = new Channel<int>();
+    var receiver = channel.receiver();
+    var worker = spawn(() -> {
+        var first = channel.sender();
+        var second = channel.sender();
+        first.send(1);
+        first.send(2);
+        second.send(3);
+        return 0;
+    });
+    worker.join();
+    mut var total = 0;
+    mut var value = receiver.receive();
+    while (value != null) {
+        total += value!;
+        value = receiver.receive();
+    }
+    print(total);
+    // output: 6
+    // tsan
+}

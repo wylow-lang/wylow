@@ -10,7 +10,7 @@ namespace Wyl.Compiler.Build;
 /// AddressSanitizer and UBSan, for testing: a program that runs clean under it does nothing undefined
 /// that they can see.
 /// </summary>
-public enum Toolchain { Msvc, Gcc, ClangSanitized }
+public enum Toolchain { Msvc, Gcc, ClangSanitized, ThreadSanitized }
 
 public sealed record NativeBuildResult(bool Success, string Output);
 
@@ -21,6 +21,10 @@ public sealed class NativeCompiler
 
     // The installed clang may be older than the MSVC STL expects.
     static readonly string[] SanitizedFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
+
+    static readonly string[] ThreadSanitizedClangFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=thread", "-g", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
+
+    static readonly string[] ThreadSanitizedGccFlags = ["-std=c++20", "-fsanitize=thread", "-g", "-pthread"];
 
     readonly string compilerPath;
     readonly IReadOnlyDictionary<string, string>? environment;
@@ -68,12 +72,15 @@ public sealed class NativeCompiler
             return gcc;
         if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } clang)
             return clang;
+        if (preferred is Toolchain.ThreadSanitized && ThreadSanitized.Value is { } threaded)
+            return threaded;
 
         error = preferred switch
         {
             Toolchain.Msvc => "could not find MSVC; install Visual Studio with the 'Desktop development with C++' workload",
             Toolchain.Gcc => "could not find g++ on PATH",
             Toolchain.ClangSanitized => "could not find clang-cl on PATH, or MSVC, whose headers and libraries it uses",
+            Toolchain.ThreadSanitized => "no C++ toolchain here builds a program with ThreadSanitizer",
             _ => "no C++ compiler found; install Visual Studio with the 'Desktop development with C++' workload, or g++",
         };
         return null;
@@ -91,6 +98,48 @@ public sealed class NativeCompiler
     {
         var gcc = FindOnPath(OperatingSystem.IsWindows() ? "g++.exe" : "g++", Environment.GetEnvironmentVariable("PATH"));
         return gcc is null ? null : new NativeCompiler(Toolchain.Gcc, gcc, null);
+    }
+
+    static readonly Lazy<NativeCompiler?> ThreadSanitized = new(ProbeThreadSanitized);
+
+    static IEnumerable<NativeCompiler> ThreadSanitizedCandidates()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH")) is { } clang && MsvcEnvironment.Value is { } env)
+                yield return new NativeCompiler(Toolchain.ThreadSanitized, clang, env);
+            yield break;
+        }
+        foreach (var name in new[] { "clang++", "g++" })
+        {
+            if (FindOnPath(name, Environment.GetEnvironmentVariable("PATH")) is { } compiler)
+                yield return new NativeCompiler(Toolchain.ThreadSanitized, compiler, null);
+        }
+    }
+
+    static NativeCompiler? ProbeThreadSanitized()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "wyl-tsan-probe-" + Environment.ProcessId);
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var cpp = Path.Combine(directory, "probe.cpp");
+            File.WriteAllText(cpp, "int main() { return 0; }\n");
+            var exe = Path.Combine(directory, "probe" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+            foreach (var compiler in ThreadSanitizedCandidates())
+            {
+                if (!compiler.Build(cpp, exe, release: false, precompiledHeader: false).Success)
+                    continue;
+                var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(30));
+                if (run is { ExitCode: 0 } and { TimedOut: false })
+                    return compiler;
+            }
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>clang-cl compiles against MSVC's headers and libraries, so it runs in MSVC's environment.</summary>
@@ -175,7 +224,9 @@ public sealed class NativeCompiler
     }
 
     string? PrecompiledDirectory(bool release) =>
-        PrecompiledHeaders.GetOrAdd($"{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
+        Toolchain == Toolchain.ThreadSanitized
+            ? null
+            : PrecompiledHeaders.GetOrAdd($"{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
     public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true)
     {
@@ -211,9 +262,9 @@ public sealed class NativeCompiler
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "wyl.obj"));
         }
-        else if (Toolchain == Toolchain.ClangSanitized)
+        else if (Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized && environment is not null)
         {
-            foreach (var arg in SanitizedFlags)
+            foreach (var arg in Toolchain == Toolchain.ThreadSanitized ? ThreadSanitizedClangFlags : SanitizedFlags)
                 args.Add(arg);
             // link.exe took over ten seconds per sanitized program, since every link writes its debug
             // information through the one shared PDB server; lld-link has no such server.
@@ -241,8 +292,14 @@ public sealed class NativeCompiler
         }
         else
         {
-            args.Add("-std=c++20");
-            args.Add("-pthread");
+            if (Toolchain == Toolchain.ThreadSanitized)
+                foreach (var arg in ThreadSanitizedGccFlags)
+                    args.Add(arg);
+            else
+            {
+                args.Add("-std=c++20");
+                args.Add("-pthread");
+            }
             args.Add(release ? "-O2" : "-O0");
             if (!release)
                 args.Add("-DWYL_DEBUG=1");

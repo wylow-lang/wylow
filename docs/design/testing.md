@@ -18,6 +18,7 @@ exist, what each can't see, and what to add next.
 | The C++ compiles, warning-free | emitter bugs | `Driver.BuildExecutable` |
 | Every mode prints and exits the same | optimization bugs; C++ that depends on UB or on the compiler | MSVC, g++, `--no-opt`, `--no-nest`, `--release` (generator only) |
 | ASan and UBSan stay quiet | use after free, overflow in generated code and the runtime | `--cc asan` |
+| ThreadSanitizer stays quiet | a data race in generated code or the runtime | `--cc tsan`, on tests marked `// tsan` |
 | The interpreter agrees | emitter and pass bugs against the meaning; a pass bug without a C++ build | `--interpret` |
 | Expected output, reviewed snapshots | a wrong answer every mode agrees on | `tests/cases`, `tests/matrix`, `tests/cases/values` |
 | Every diagnostic is cataloged, tested, and explained | an error with no code, spec section, test, or page | `CatalogSelfTests`; a test's `// error[WYLnnnn]: <message>` marker matches the code and the message exactly |
@@ -46,6 +47,7 @@ Commands (`CLAUDE.md` has the everyday ones):
 ```
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc     # all tests, g++
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc asan    # clang-cl with ASan and UBSan
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc tsan    # ThreadSanitizer, tests marked '// tsan' only
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --all-modes  # CI's seven modes, one process each
 dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --seconds 120  # fuzz, tier 1 (in-process)
 dotnet tests/Wyl.Fuzz/bin/Debug/net10.0/Wyl.Fuzz.dll --tier 2 --seconds 900  # also build and run every mode
@@ -68,6 +70,18 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   -Wno-sign-compare -Wno-overflow -fsyntax-only -Iruntime <file>` (unused parameters in test
   programs are fine; integer conversion warnings are left out, since g++ draws them after constant
   folding on explicit casts, and a narrowing that changes a value disagrees with the interpreter).
+- **ThreadSanitizer.** `--cc tsan` runs only the tests marked `// tsan`, since TSan is much slower
+  and the suite's other tests start no thread. TSan does not work on Windows, so the mode runs on
+  `ubuntu-latest` in CI, where it finds clang++ or g++ on PATH; the toolchain exists only after a
+  probe program builds and runs with `-fsanitize=thread`, which is why the mode disappears rather
+  than failing when the platform cannot do it. A report fails the test but does not enter the
+  output comparison (`sanitizers/live-tsan` checks that the mode still reports a deliberate race).
+  Reproduce with `wyl run <file> --cc tsan`.
+- **Threads.** The interpreter runs each logical thread on an operating-system thread, so two runs
+  of one program may interleave differently (decision 0057). A test of threads or channels
+  synchronizes before each line it prints, with a `join` or a `receive`, and expects a property of
+  the run rather than an order. The fuzzer's corpus leaves out every file that imports
+  `std::thread` or `std::channel`, because a mutant's output is then not stable enough to compare.
 - **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
   checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
   free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is

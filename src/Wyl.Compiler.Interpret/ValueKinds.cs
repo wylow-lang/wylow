@@ -77,10 +77,21 @@ public sealed class NullValue : Value
 /// A reference-counted thing the collector tracks, as <c>wyl::Object</c> carries: a class object or
 /// an escaping lambda's closure. Each flag is one bit of the runtime header's state.
 /// </summary>
+internal static class HeapSync
+{
+    public static readonly object Lock = new();
+}
+
 public abstract class HeapObject : Value
 {
+    long m_Count = 1;
+
     /// <summary>The references to it; the <c>new</c> expression owns the first.</summary>
-    public long Count { get; set; } = 1;
+    public long Count { get => Interlocked.Read(ref m_Count); set => Interlocked.Exchange(ref m_Count, value); }
+
+    public void Retain() => Interlocked.Increment(ref m_Count);
+
+    public long ReleasedOne() => Interlocked.Decrement(ref m_Count);
 
     /// <summary>Its class may be part of a cycle, so the collector buffers and visits it.</summary>
     public bool Cyclic { get; set; }
@@ -126,8 +137,14 @@ public abstract class HeapObject : Value
 /// </summary>
 public sealed class WeakBlock(ObjectRef target, uint slot, uint created)
 {
+    long m_Count = 1;
+
     public ObjectRef? Target { get; set; } = target;
-    public long Count { get; set; } = 1;
+    public long Count { get => Interlocked.Read(ref m_Count); set => Interlocked.Exchange(ref m_Count, value); }
+
+    public void Retain() => Interlocked.Increment(ref m_Count);
+
+    public long ReleasedOne() => Interlocked.Decrement(ref m_Count);
 
     /// <summary>The object's buffer slot and creation number, which the block takes over from its header.</summary>
     public uint Slot { get; set; } = slot;
@@ -179,21 +196,27 @@ public sealed class ObjectRef(WylType type, Dictionary<TypeSymbol, Cell[]> field
     /// <summary>Its weak block, made on the first weak reference; null for an object already dying.</summary>
     public WeakBlock? WeakBlock()
     {
-        if (Dying)
-            return null;
-        return Weak ??= new WeakBlock(this, Slot, base.AgeBasis);
+        lock (HeapSync.Lock)
+        {
+            if (Dying)
+                return null;
+            return Weak ??= new WeakBlock(this, Slot, base.AgeBasis);
+        }
     }
 
     public override void ClearWeak()
     {
-        Dying = true;
-        if (Weak is not { } weak)
-            return;
-        Weak = null;
-        Slot = weak.Slot;
-        Created = weak.Created;
-        weak.Target = null;
-        weak.Count--;
+        lock (HeapSync.Lock)
+        {
+            Dying = true;
+            if (Weak is not { } weak)
+                return;
+            Weak = null;
+            Slot = weak.Slot;
+            Created = weak.Created;
+            weak.Target = null;
+            weak.ReleasedOne();
+        }
     }
 
     public Cell FieldCell(FieldSymbol field) => Fields[field.Owner][field.Owner.Fields.IndexOf(field)];
@@ -294,9 +317,26 @@ public sealed class Buffer
 
 public sealed class ThreadValue : Value
 {
-    public Cell? Result { get; set; }
+    internal LogicalThread? Thread { get; set; }
 
     public override string ToString() => "thread";
+}
+
+public sealed class ChannelState
+{
+    public readonly object Gate = new();
+    public readonly Queue<Cell> Queue = new();
+    public readonly ManualResetEventSlim Ready = new(false);
+    public int Senders;
+    public int Receivers;
+    public bool Closed;
+}
+
+public sealed class SyncStateValue(ChannelState? state) : Value
+{
+    public ChannelState? State { get; } = state;
+
+    public override string ToString() => "sync state";
 }
 
 /// <summary>A pointer: a buffer and the element it points at, which may be one past the end. Null is <see cref="NullValue"/>.</summary>
@@ -366,8 +406,6 @@ public sealed class ClosureValue(string name, Cell[] captures) : HeapObject
 
     public Cell[] Captures { get; } = captures;
 
-    public void Retain() => Count++;
-
     public override string ToString() => "closure";
 }
 
@@ -387,21 +425,21 @@ public sealed class WeakValue(WeakBlock? block, ObjectRef? target) : Value
             return new WeakValue(null, null);
         var block = target.WeakBlock();
         if (block is not null)
-            block.Count++;
+            block.Retain();
         return new WeakValue(block, target);
     }
 
     public WeakValue Copy()
     {
         if (Block is { } block)
-            block.Count++;
+            block.Retain();
         return new WeakValue(Block, Target);
     }
 
     public void Release()
     {
         if (Block is { } block)
-            block.Count--;
+            block.ReleasedOne();
     }
 
     /// <summary>
@@ -410,10 +448,13 @@ public sealed class WeakValue(WeakBlock? block, ObjectRef? target) : Value
     /// </summary>
     public Value Get()
     {
-        if (Block is not { Target: { } target })
-            return new RefValue(null);
-        target.Count++;
-        return target;
+        lock (HeapSync.Lock)
+        {
+            if (Block is not { Target: { } target })
+                return new RefValue(null);
+            target.Retain();
+            return target;
+        }
     }
 
     public override string ToString() => "weak";
@@ -451,8 +492,8 @@ public sealed class MovedValue : Value
 /// <summary>What releasing a value asks when a counted object's count falls: to destroy or buffer it.</summary>
 public interface IObjectLifetime
 {
-    /// <summary>A reference went away: the object's count has already been lowered by one.</summary>
-    void Released(HeapObject obj);
+    /// <summary>A reference went away: the object's count has already been lowered by one, to <paramref name="count"/>.</summary>
+    void Released(HeapObject obj, long count);
 
     /// <summary>
     /// A unique struct value is released: its destructor's body runs, if it still holds a value,

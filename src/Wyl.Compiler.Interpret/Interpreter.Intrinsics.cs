@@ -42,6 +42,13 @@ public sealed partial class Interpreter
             ["wyl::thread::spawnThread"] = (i, call, location, caller) => i.ThreadIntrinsic("spawn", call, caller, location),
             ["wyl::thread::joinThread"] = (i, call, location, caller) => i.ThreadIntrinsic("join", call, caller, location),
             ["wyl::thread::releaseThread"] = (i, call, location, caller) => i.ThreadIntrinsic("release", call, caller, location),
+            ["wyl::channel::createState"] = (i, call, location, caller) => i.ChannelIntrinsic("createState", call, caller, location),
+            ["wyl::channel::attachSender"] = (i, call, location, caller) => i.ChannelIntrinsic("attachSender", call, caller, location),
+            ["wyl::channel::detachSender"] = (i, call, location, caller) => i.ChannelIntrinsic("detachSender", call, caller, location),
+            ["wyl::channel::attachReceiver"] = (i, call, location, caller) => i.ChannelIntrinsic("attachReceiver", call, caller, location),
+            ["wyl::channel::detachReceiver"] = (i, call, location, caller) => i.ChannelIntrinsic("detachReceiver", call, caller, location),
+            ["wyl::channel::sendValue"] = (i, call, location, caller) => i.ChannelIntrinsic("sendValue", call, caller, location),
+            ["wyl::channel::receiveValue"] = (i, call, location, caller) => i.ChannelIntrinsic("receiveValue", call, caller, location),
         };
         foreach (var name in MemoryNames)
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
@@ -166,8 +173,12 @@ public sealed partial class Interpreter
 
     Value? Print(MethodReference method, IReadOnlyList<Value> arguments)
     {
-        output.AddRange(RuntimeText.Format(method.ParameterType(0), arguments[0]));
-        output.Add((byte)'\n');
+        var line = RuntimeText.Format(method.ParameterType(0), arguments[0]);
+        lock (outputLock)
+        {
+            output.AddRange(line);
+            output.Add((byte)'\n');
+        }
         return null;
     }
 

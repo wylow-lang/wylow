@@ -25,12 +25,12 @@ public sealed partial class Interpreter
             var capture = closure.Captures[i];
             captures[i] = new Cell(frame.Type(capture.Type), EvalOperand(capture, frame));
         }
-        var value = new ClosureValue(closure.Name, captures) { Created = objectsCreated++ };
+        var value = new ClosureValue(closure.Name, captures) { Created = (uint)Interlocked.Increment(ref objectsCreated) };
         if (closure.Slot is { } slot)
         {
             // The slot takes the object's first reference, and the function value a counted copy.
             FillSlot(slot, value, frame);
-            value.Count++;
+            value.Retain();
         }
         else
         {

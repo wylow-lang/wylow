@@ -12,7 +12,7 @@ public static class Modes
     /// fuzzer mutant, legitimately disagrees with the interpreter in it.
     /// </param>
     /// <returns>False when neither MSVC nor g++ is installed; the caller reports that.</returns>
-    public static bool TryAvailable(out IReadOnlyList<Mode> modes, bool release = false)
+    public static bool TryAvailable(out IReadOnlyList<Mode> modes, bool release = false, bool threadSanitized = false)
     {
         var preferred = NativeCompiler.Find(Toolchain.Msvc, out _) is not null ? Toolchain.Msvc
             : NativeCompiler.Find(Toolchain.Gcc, out _) is not null ? Toolchain.Gcc
@@ -34,6 +34,8 @@ public static class Modes
             result.Add(new(other == Toolchain.Msvc ? "msvc" : "gcc", other, new CompileOptions()));
         if (NativeCompiler.Find(Toolchain.ClangSanitized, out _) is not null)
             result.Add(new("asan", Toolchain.ClangSanitized, new CompileOptions()));
+        if (threadSanitized && NativeCompiler.Find(Toolchain.ThreadSanitized, out _) is not null)
+            result.Add(new("tsan", Toolchain.ThreadSanitized, new CompileOptions()));
         result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
         if (release)
             result.Add(new(name + "-release", preferred.Value, new CompileOptions(), Release: true));

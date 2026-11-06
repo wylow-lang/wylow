@@ -1,0 +1,18 @@
+import std::print;
+import std::thread::spawn;
+import std::channel::Channel;
+
+void main() {
+    var channel = new Channel<int>();
+    var sender = channel.sender();
+    var receiver = channel.receiver();
+    var worker = spawn(() -> {
+        var value = receiver.receive();
+        print($"child {value!}");
+        return 0;
+    });
+    sender.send(5);
+    worker.join();
+    // output: child 5
+    // tsan
+}

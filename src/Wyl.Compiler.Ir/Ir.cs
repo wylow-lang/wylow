@@ -64,8 +64,16 @@ public sealed class IrFunctions : IReadOnlyList<IrFunction>
     }
 
     /// <summary>The functions under the symbol: one, or a memberwise constructor's forms.</summary>
-    public IReadOnlyList<IrFunction> Of(FunctionSymbol symbol) =>
-        (bySymbol ??= functions.GroupBy(f => f.Symbol).ToDictionary(g => g.Key, g => g.ToList())).TryGetValue(symbol, out var found) ? found : None;
+    public IReadOnlyList<IrFunction> Of(FunctionSymbol symbol)
+    {
+        var index = bySymbol;
+        if (index is null)
+        {
+            lock (functions)
+                index = bySymbol ??= functions.GroupBy(f => f.Symbol).ToDictionary(g => g.Key, g => g.ToList());
+        }
+        return index.TryGetValue(symbol, out var found) ? found : None;
+    }
 
     /// <summary>Whether any function is under the symbol.</summary>
     public bool Contains(FunctionSymbol symbol) => Of(symbol).Count > 0;
@@ -87,9 +95,21 @@ public sealed class IrFunctions : IReadOnlyList<IrFunction>
     /// <summary>Every struct's <c>make_default</c>, which a type parameter's default may be.</summary>
     public IReadOnlyList<IrFunction> Defaults => [.. DefaultsByType.Values];
 
-    Dictionary<TypeSymbol, IrFunction> DefaultsByType => defaults ??= functions
-        .Where(f => f is { Builds: not null, Symbol.IsMemberwise: false, Symbol.ContainingType: not null })
-        .ToDictionary(f => f.Symbol.ContainingType!, f => f);
+    Dictionary<TypeSymbol, IrFunction> DefaultsByType
+    {
+        get
+        {
+            var index = defaults;
+            if (index is null)
+            {
+                lock (functions)
+                    index = defaults ??= functions
+                        .Where(f => f is { Builds: not null, Symbol.IsMemberwise: false, Symbol.ContainingType: not null })
+                        .ToDictionary(f => f.Symbol.ContainingType!, f => f);
+            }
+            return index;
+        }
+    }
 
     public IEnumerator<IrFunction> GetEnumerator() => functions.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();

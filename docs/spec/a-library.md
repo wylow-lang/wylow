@@ -22,6 +22,7 @@ these of its declarations, and on nothing else in it:
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([`std::thread`](#library.thread)) |
+| `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([`std::channel`](#library.channel)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -186,3 +187,39 @@ pub T join(this Thread<T> thread);
 - A panic in the body ends the program ([Panics on threads](19-concurrency.md#concurrency.panics)).
 - `spawn` panics if the program calls it before `main` begins
   ([Statics](06-variables.md#variables.statics)).
+
+<a id="library.channel"></a>
+## A.9 `std::channel`
+
+The module `std::channel` declares a channel, through which one thread sends values that another
+receives ([Interleaving](19-concurrency.md#concurrency.interleaving)):
+
+```java unchecked
+pub shared class Channel<T extends sendable> {
+    pub Channel();
+    pub Sender<T> sender();
+    pub Receiver<T> receiver();
+}
+pub shared class Sender<T extends sendable> {
+    pub void send(T value);
+}
+pub shared class Receiver<T extends sendable> {
+    pub T? receive();
+}
+```
+
+- A channel is unbounded, so `send` never waits. The values it carries are sendable, and a unique
+  value moves into it ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
+- A channel closes when its last `Sender` is released, and a closed channel stays closed. Calling
+  `sender()` on a closed channel panics.
+- `receive` waits until a value is queued or the channel closes. After the close, `receive` returns
+  the values still queued, in the order they were sent, and then null.
+- If no `Receiver` is left when the channel closes, the close drops the values still queued.
+- Releasing every `Receiver` does not close the channel.
+- Only a `Sender` keeps a channel open. Releasing the `Channel` object does not close the channel,
+  which stays open while a `Sender` lives.
+- A channel is not cycle-collected: a value that refers back to a shared object holding the
+  channel's end needs a `Weak<T>`, as a cycle among shared objects does
+  ([Cycles](17-memory.md#memory.cycles)).
+- `send` panics if something the value owns is borrowed
+  ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
