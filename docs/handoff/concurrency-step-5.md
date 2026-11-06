@@ -5,7 +5,8 @@ Repo `E:\Repos\Wylow\wylow`, branch `dev`. `shared class` (0054), `shared fn` (0
 `concurrency.confinement`, `concurrency.sendable`, `concurrency.shared-classes`,
 `concurrency.panics`, `concurrency.interleaving`, `programs.execution`, `memory.cycles`, and
 `introduction.observable`, the "Threads", "Allocation", and "Cycle collector" sections of
-`docs/design/runtime.md`, and issues #14 (the sendable floor) and #20 (thread lifetime gaps).
+`docs/design/runtime.md`, `docs/design/testing.md` (the modes and the sanitizer self-check), and
+issues #14 (the sendable floor) and #20 (thread lifetime gaps).
 
 This step adds the first type through which one thread observes another: an unbounded channel. That
 changes what a valid schedule is, so the interpreter's thread model changes first. The native
@@ -118,13 +119,40 @@ closes the channel at zero and wakes every receiver.
   thing the spec lets vary (`introduction.observable`).
 - Run each test in the interpreter and the native modes.
 
-## Step 5: docs
+## Step 5: ThreadSanitizer for the threaded tests
 
-Update `docs/design/runtime.md` with the channel's state and the interpreter's schedule, add the
-decision records (the interpreter's model, the sendable floor, the channel's API), add the channel
-to the roadmap issue, and rewrite the claim in 0056's interpreter bullet through the new decision.
-Nothing here belongs in the spec's chapter 19 unless a rule changes what a program does that the
-current text does not cover; the channel's API is `std`'s, documented with doc comments.
+Add a mode that builds with ThreadSanitizer and runs only the tests that start a thread. TSan is
+much slower than a normal build, so the mode must not run the whole suite; ASan and UBSan keep
+covering every test.
+
+- TSan does not work on Windows with either toolchain. `clang-cl -fsanitize=thread` reports
+  `unsupported option '-fsanitize=thread' for target 'x86_64-pc-windows-msvc'`, and MinGW's g++
+  fails to link the runtime. The mode needs a Linux runner with clang or g++ and
+  `-fsanitize=thread -pthread -g`. The runtime already has non-Windows branches in its allocator;
+  check that the generated C++ builds there.
+- Add the toolchain beside `Toolchain.ClangSanitized`, and add the mode only when a probe build
+  succeeds. Keep the mode out of the list the fuzzer and the generator build: their mutants rarely
+  start threads, and TSan's slowdown would starve those runs. Add `--cc tsan` to the CLI for
+  reproducing a failure.
+- Mark a test that starts a thread with a `// tsan` line, and make the runner skip every unmarked
+  test in this mode (`Checks.Skipped`). Add the marker to every test in `tests/cases/threads/` and
+  to each new threaded test. A path filter would stop selecting a synchronization test that lives
+  outside that directory.
+- A TSan report on standard error fails the test, as an ASan or UBSan report does
+  (`NativeCompiler.SanitizerReport`). The report's text does not enter the output comparison.
+- A deliberate race must be reported by the mode, as `sanitizers/live` checks for ASan and UBSan, so
+  a mode that stops detecting races fails the suite.
+- Run the mode in CI on `ubuntu-latest` on every push to `dev` or `main`, beside the seven Windows
+  modes. Leave the nightly fuzz and generate jobs as they are.
+
+## Step 6: docs
+
+Update `docs/design/runtime.md` with the channel's state and the interpreter's schedule and
+`docs/design/testing.md` with the TSan mode and its marker, add the decision records (the
+interpreter's model, the sendable floor, the channel's API), add the channel to the roadmap issue,
+and rewrite the claim in 0056's interpreter bullet through the new decision. Nothing here belongs
+in the spec's chapter 19 unless a rule changes what a program does that the current text does not
+cover; the channel's API is `std`'s, documented with doc comments.
 
 ## Still open
 
