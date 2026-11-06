@@ -26,17 +26,23 @@ private:
     // Declared first, so that an assignment stores the new code before releasing the old closure,
     // whose destructor may read this function.
     Code m_Code = nullptr;
+    const void* m_Callable = nullptr;
     Ref<Object> m_Closure;
 
 public:
     Function() = default;
-    Function(Code code, Ref<Object> captured) : m_Code(code), m_Closure(std::move(captured)) {}
+    Function(Code code, Ref<Object> captured) : m_Code(code), m_Callable(captured.Get()), m_Closure(std::move(captured)) {}
+    Function(Code code, Ref<Object> captured, const void* callable) : m_Code(code), m_Callable(callable), m_Closure(std::move(captured)) {}
 
     Function(const Function&) = default;
-    Function(Function&& other) noexcept : m_Code(other.m_Code), m_Closure(std::move(other.m_Closure)) { other.m_Code = nullptr; }
+    Function(Function&& other) noexcept : m_Code(other.m_Code), m_Callable(other.m_Callable), m_Closure(std::move(other.m_Closure)) {
+        other.m_Code = nullptr;
+        other.m_Callable = nullptr;
+    }
     Function& operator=(const Function&) = default;
     Function& operator=(Function&& other) noexcept {
         m_Code = other.m_Code;
+        m_Callable = other.m_Callable;
         m_Closure = std::move(other.m_Closure);
         return *this;
     }
@@ -45,11 +51,11 @@ public:
         if constexpr (WYL_DEBUG != 0) {
             if (m_Code == nullptr) RaisePanic("internal compiler error: null function called", "<runtime>");
         }
-        return m_Code(m_Closure.Get(), std::forward<A>(arguments)...);
+        return m_Code(m_Callable, std::forward<A>(arguments)...);
     }
 
     Code GetCode() const { return m_Code; }
-    const void* GetClosure() const { return m_Closure.Get(); }
+    const void* GetClosure() const { return m_Callable; }
     bool IsNull() const { return m_Code == nullptr; }
 
     void Visit(Visitor& visitor) { wyl::Visit(visitor, m_Closure); }
@@ -139,7 +145,7 @@ struct SharedClosureCode;
 template <class R, class... A, class Body, class Created>
 struct SharedClosureCode<R(A...), Body, Created> {
     static R Call([[maybe_unused]] const void* self, A... arguments) {
-        const auto* closure = static_cast<const Created*>(dynamic_cast<const void*>(static_cast<const Object*>(self)));
+        const auto* closure = static_cast<const Created*>(self);
         return std::apply([&](const auto&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, closure->Captures);
     }
 };
@@ -164,7 +170,7 @@ inline Function<Signature> MakeSharedClosure(Body, C&&... captures) {
     } else {
         using Created = SharedClosure<Name, std::remove_cvref_t<C>...>;
         auto* created = new Created(std::forward<C>(captures)...);
-        return Function<Signature>(&SharedClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created));
+        return Function<Signature>(&SharedClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created), created);
     }
 }
 

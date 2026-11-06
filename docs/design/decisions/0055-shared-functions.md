@@ -27,9 +27,10 @@
   ([0054](0054-shared-classes.md)).
 - `StackSlots` never puts a shared closure in a slot, because a slot's end destroys what it holds
   and a shared object's last release may be on another thread.
-- The code a shared closure calls reaches its captures through the most-derived pointer, which it
-  takes with `dynamic_cast`, because `SharedObject` derives virtually from `Object` and a static
-  cast cannot go down a virtual base.
+- A `wyl::Function` keeps, beside the counted closure it owns, the pointer its code is called
+  with. For an ordinary closure that pointer is the object's address; for a shared closure it is
+  the address of its most-derived class, which a cast from `Object` cannot recover because
+  `SharedObject` derives virtually from `Object`.
 
 ## Alternatives
 
