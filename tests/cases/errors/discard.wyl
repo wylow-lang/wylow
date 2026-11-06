@@ -5,8 +5,18 @@ unique struct Handle {
     pub int id;
 }
 
+unique struct Guard {
+    pub int id;
+
+    ~Guard() { }
+}
+
 void close(int value) {
     discard value;                      // error[WYL0459]: cannot discard 'value'
+}
+
+void nullable(Guard? guard) {
+    discard guard;                      // error[WYL0459]: cannot discard 'guard'
 }
 
 void touch(ref Handle handle) {

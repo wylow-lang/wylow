@@ -24,7 +24,7 @@ A `unique struct` may declare a destructor. A struct that is not unique may not.
 
 Compile-time errors this adds (each needs a catalog entry, a test, and a page): a destructor on a
 struct that is not unique; a destructor with parameters or modifiers; `discard` of anything but a by-value
-parameter of a unique type with a destructor; `discard` outside the type's file; moving out of
+parameter of a unique struct type with a destructor; `discard` outside the type's file; moving out of
 `this` in a destructor.
 
 ## Alternatives

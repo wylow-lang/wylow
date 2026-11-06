@@ -116,7 +116,7 @@ public sealed partial class IrLowering
                 case BoundSwitchExpression switchExpression:
                     return OperandOf(SwitchExpression(switchExpression, WylType.Int, Index));
                 case var escaping when IsHeld(escaping):
-                    Add(new IrStore(new IrPlace(held!), OperandOf(Rvalue(((BoundConversion)escaping).Operand, Use.Read))) { Origin = at });
+                    Add(new IrStore(new IrPlace(held!), Converted(OperandOf(Rvalue(((BoundConversion)escaping).Operand, Use.Read)), held!.Type)) { Origin = at });
                     return IrConstant.Int(made.Count);
                 case BoundNonNull { Operand: var nullable } nonNull:
                     // The check runs only where its option is chosen, unlike a lambda, which is made

@@ -428,7 +428,7 @@ public sealed partial class Binder
             Error(Catalog.DiscardNotParameter(s.NameLocation, s.Name));
             return ErrorStatement(s.Location);
         }
-        if (local.RefKind != RefKind.None || local.Type.NonNull.Symbol is not { Kind: TypeKind.Struct, Destructor: not null } type)
+        if (local.RefKind != RefKind.None || local.Type.Symbol is not { Kind: TypeKind.Struct, Destructor: not null } type)
         {
             Error(Catalog.DiscardNotParameter(s.NameLocation, s.Name));
             return ErrorStatement(s.Location);

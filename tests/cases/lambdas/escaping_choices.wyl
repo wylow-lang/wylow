@@ -21,6 +21,11 @@ fn(int) -> int make(int id) {
     return x -> x + id;
 }
 
+shared fn(int) -> int makeShared(int id) {
+    print(id);
+    return x -> x + id;
+}
+
 int apply(fn(int) -> int f, int value) {
     return f(value);
 }
@@ -65,6 +70,12 @@ void main() {
     print(apply(check(true, 5) ? make(60) : x -> x, 1));               // output: 5
                                                                         // output: 60
                                                                         // output: 61
+
+    fn(int) -> int held = check(true, 8) ? makeShared(70) : x -> -x;      // output: 8
+                                                                        // output: 70
+    print(held(1));                                                     // output: 71
+    fn(int) -> int unchosen = check(false, 9) ? makeShared(80) : x -> -x; // output: 9
+    print(unchosen(1));                                                 // output: -1
 
     switches(Mode.Double, holder);                  // output: 6
                                                     // output: 2
