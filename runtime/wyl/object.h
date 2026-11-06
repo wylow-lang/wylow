@@ -21,8 +21,8 @@ struct WeakBlock {
     uint32_t slot;
     uint32_t created;
 
-    WeakBlock(Object* target, uintptr_t count, uint32_t slot, uint32_t created)
-        : target(target), count(count), slot(slot), created(created) {}
+    WeakBlock(Object* target_, uintptr_t count_, uint32_t slot_, uint32_t created_)
+        : target(target_), count(count_), slot(slot_), created(created_) {}
 };
 
 template <class R>
