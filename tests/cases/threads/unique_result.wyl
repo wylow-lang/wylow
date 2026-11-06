@@ -1,0 +1,22 @@
+import std::print;
+import std::thread::spawn;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() {
+        print($"buffer {length}");
+    }
+}
+
+void main() {
+    var thread = spawn(() -> Buffer(7));
+    var buffer = thread.join();
+    print(buffer.length);
+    // output: 7
+    // output: buffer 7
+}

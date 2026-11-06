@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <vector>
+
 #include "core.h"
 
 // Objects come from the runtime's pools, except under AddressSanitizer, which can only catch a use
@@ -66,6 +69,8 @@ private:
         uint32_t Capacity = 0;
         uint8_t SizeClass = 0;
         uint8_t Bin = UNLISTED;
+        std::atomic<Slot*> Remote{nullptr};
+        std::atomic<Pools*> Owner{nullptr};
     };
 
     // Slots start 16-aligned, so over-aligned classes use the global heap instead.
@@ -81,6 +86,7 @@ private:
     };
 
     SizeClass m_Classes[CLASS_COUNT];
+    std::vector<Chunk*> m_AllChunks;
 
     static Chunk* ChunkOf(void* slot) {
         return reinterpret_cast<Chunk*>(reinterpret_cast<uintptr_t>(slot) & ~uintptr_t{CHUNK_SIZE - 1});
@@ -109,14 +115,25 @@ private:
         chunk->End = chunk->Bump + size_t{chunk->Capacity} * chunk->SizeClass * GRANULE;
     }
 
-    static Chunk* NewChunk(size_t index) {
+    Chunk* NewChunk(size_t index) {
         void* memory = MapChunk();
         if (memory == nullptr) RaisePanic("out of memory", "<runtime>");
         Chunk* chunk = ::new (memory) Chunk{};
         chunk->SizeClass = static_cast<uint8_t>(index);
         chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
         Reset(chunk);
+        chunk->Owner.store(this, std::memory_order_relaxed);
+        m_AllChunks.push_back(chunk);
         return chunk;
+    }
+
+    void Forget(Chunk* chunk) {
+        for (size_t i = 0; i < m_AllChunks.size(); ++i) {
+            if (m_AllChunks[i] != chunk) continue;
+            m_AllChunks[i] = m_AllChunks.back();
+            m_AllChunks.pop_back();
+            return;
+        }
     }
 
     void Link(SizeClass& c, Chunk* chunk) {
@@ -164,11 +181,64 @@ private:
             Reset(chunk);
             c.Spare = chunk;
         } else {
+            Forget(chunk);
             UnmapChunk(chunk);
         }
     }
 
+    Slot* DrainRemote(Chunk* chunk) {
+        Slot* list = chunk->Remote.exchange(nullptr, std::memory_order_acquire);
+        if (list == nullptr) return nullptr;
+        uint32_t count = 1;
+        Slot* tail = list;
+        while (tail->Next != nullptr) {
+            tail = tail->Next;
+            ++count;
+        }
+        tail->Next = chunk->Free;
+        chunk->Free = list;
+        chunk->Live -= count;
+        return list;
+    }
+
+    void FreeRemotely(Chunk* chunk, void* slot) {
+        Slot* node = ::new (slot) Slot{nullptr};
+        Slot* head = chunk->Remote.load(std::memory_order_relaxed);
+        while (!chunk->Remote.compare_exchange_weak(head, node, std::memory_order_release, std::memory_order_relaxed)) {
+            node->Next = head;
+        }
+    }
+
+    void Adopt(Chunk* chunk, void* slot) {
+        Pools* expected = nullptr;
+        if (!chunk->Owner.compare_exchange_strong(expected, this, std::memory_order_acq_rel, std::memory_order_acquire)) {
+            FreeRemotely(chunk, slot);
+            return;
+        }
+        chunk->Prev = nullptr;
+        chunk->Next = nullptr;
+        chunk->Bin = UNLISTED;
+        chunk->Free = ::new (slot) Slot{chunk->Free};
+        --chunk->Live;
+        m_AllChunks.push_back(chunk);
+        Rebin(chunk);
+    }
+
 public:
+    Pools() = default;
+    Pools(const Pools&) = delete;
+    Pools& operator=(const Pools&) = delete;
+
+    ~Pools() {
+        for (Chunk* chunk : m_AllChunks) {
+            if (chunk->Live == 0) {
+                UnmapChunk(chunk);
+            } else {
+                chunk->Owner.store(nullptr, std::memory_order_release);
+            }
+        }
+    }
+
     void* Allocate(size_t size) {
         if constexpr (WYL_POOLS == 0) {
             return ::operator new(size);
@@ -177,6 +247,12 @@ public:
             size_t index = (size + GRANULE - 1) / GRANULE;
             Chunk* chunk = m_Classes[index].Current;
             if (Slot* slot = chunk->Free) {
+                chunk->Free = slot->Next;
+                ++chunk->Live;
+                return slot;
+            }
+            if (chunk->Remote.load(std::memory_order_relaxed) != nullptr && DrainRemote(chunk) != nullptr) {
+                Slot* slot = chunk->Free;
                 chunk->Free = slot->Next;
                 ++chunk->Live;
                 return slot;
@@ -197,15 +273,20 @@ public:
             return;
         }
         Chunk* chunk = ChunkOf(slot);
-        chunk->Free = ::new (slot) Slot{chunk->Free};
-        if (--chunk->Live < chunk->Floor) Rebin(chunk);
+        Pools* owner = chunk->Owner.load(std::memory_order_acquire);
+        if (owner == this) {
+            chunk->Free = ::new (slot) Slot{chunk->Free};
+            if (--chunk->Live < chunk->Floor) Rebin(chunk);
+        } else if (owner == nullptr) {
+            Adopt(chunk, slot);
+        } else {
+            FreeRemotely(chunk, slot);
+        }
     }
 };
 
 inline Pools::Chunk Pools::s_NoChunk{};
 
-// Objects belong to one thread, and so will the pools once Wylow has threads; a `shared class`
-// object, which may be freed on any thread, will need the global heap or its own pools.
-inline Pools s_Pools;
+Pools& CurrentPools();
 
 }  // namespace wyl

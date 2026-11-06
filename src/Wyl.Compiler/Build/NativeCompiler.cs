@@ -242,6 +242,7 @@ public sealed class NativeCompiler
         else
         {
             args.Add("-std=c++20");
+            args.Add("-pthread");
             args.Add(release ? "-O2" : "-O0");
             if (!release)
                 args.Add("-DWYL_DEBUG=1");
@@ -327,6 +328,7 @@ public sealed class NativeCompiler
             else
             {
                 args.Add("-std=c++20");
+                args.Add("-pthread");
                 args.Add(release ? "-O2" : "-O0");
                 if (!release)
                     args.Add("-DWYL_DEBUG=1");

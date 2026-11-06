@@ -21,6 +21,7 @@ these of its declarations, and on nothing else in it:
 | `Isolated<T>` | Isolated object graphs ([Isolated object graphs](19-concurrency.md#concurrency.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
+| `Thread<T>`, `spawn`, `join` | Threads ([`std::thread`](#library.thread)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -160,3 +161,28 @@ pub T? take<T>(ref T? place);
 - They panic if a value they would take out is in use, or has one in use among its fields, before
   they change anything ([Holds](17-memory.md#memory.holds)). Their own `ref` arguments do not make a
   value in use.
+
+<a id="library.thread"></a>
+## A.8 `std::thread`
+
+The module `std::thread` declares the type that a running thread is and the functions that start
+and join one ([Concurrency](19-concurrency.md#concurrency)):
+
+```java unchecked
+pub unique struct Thread<T> { ... }
+pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body);
+pub T join(this Thread<T> thread);
+```
+
+- `spawn` starts a thread that runs `body`, and returns a `Thread<T>` that refers to it.
+- `join` waits for the body to return and returns its result. It takes its receiver by value, so a
+  thread is joined at most once ([By-value receivers](07-structs.md#structs.methods.by-value)).
+- `join` panics if the thread was never started. The default value of `Thread<T>` is such a thread.
+- Releasing a `Thread` without calling `join` waits for the body to return, then releases the
+  result. A `Thread` that `main` still holds is therefore joined when it is released
+  ([Running a program](03-programs.md#programs.execution)).
+- The result's type must be sendable, since the value leaves the thread
+  ([Sendable types](19-concurrency.md#concurrency.sendable)).
+- A panic in the body ends the program ([Panics on threads](19-concurrency.md#concurrency.panics)).
+- `spawn` panics if the program calls it before `main` begins
+  ([Statics](06-variables.md#variables.statics)).

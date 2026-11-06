@@ -10,5 +10,5 @@ public static class TestPrograms
     /// every line the program's expectations count stays where it is, and <c>*</c> imports give way
     /// to the program's own names.
     /// </summary>
-    public static string WithStd(string program) => "import std::*; import std::memory::*; import std::panic::*; " + program;
+    public static string WithStd(string program) => "import std::*; import std::memory::*; import std::panic::*; import std::thread::*; " + program;
 }

@@ -30,6 +30,7 @@ public sealed partial class Interpreter : IObjectLifetime
 
     long steps;
     int depth;
+    bool mainStarted;
     long started = Stopwatch.GetTimestamp();
 
     Interpreter(IrProgram program, Callees callees, InterpreterOptions options)
@@ -107,6 +108,7 @@ public sealed partial class Interpreter : IObjectLifetime
         }
         foreach (var statik in program.Statics)
             EnsureStatic(statik, "");
+        mainStarted = true;
         var main = program.Bound.Main ?? throw new InterpreterException("the program has no 'main'");
         var function = program.Functions.Single(main) ?? throw new InterpreterException($"no lowered function for '{main.Name}'");
         var frame = new Frame(TypeMap.Empty);

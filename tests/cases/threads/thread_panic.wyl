@@ -1,0 +1,13 @@
+// panic: boom
+
+import std::panic;
+import std::thread::spawn;
+
+int boom() {
+    panic("boom");
+}
+
+void main() {
+    var thread = spawn(() -> boom());
+    thread.join();
+}

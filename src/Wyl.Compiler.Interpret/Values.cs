@@ -17,7 +17,7 @@ public static class Values
     /// </summary>
     public static Value Copy(WylType type, Value value) => value switch
     {
-        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue => value,
+        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue or ThreadValue => value,
         ObjectRef obj => Retain(obj),
         // A choice copies every callable it holds, as a tuple of them does.
         ChoiceValue choice => new ChoiceValue(choice.Index, [.. choice.Options.Select(CopyCell)]),

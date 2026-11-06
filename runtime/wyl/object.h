@@ -68,9 +68,7 @@ class Object {
         } Own;
     } m_Side{.Own = {0, s_ObjectsCreated++}};
 
-    // One counter for the program, until objects belong to a thread and the collector with them. It
-    // wraps after 2^32 objects, which only objects that far apart in age can tell (see Age()).
-    inline static uint32_t s_ObjectsCreated = 0;
+    inline static thread_local uint32_t s_ObjectsCreated = 0;
 
     // Set once the count has reached zero, or once the collector has found the object to be
     // garbage: weak references to the object read null from then on.
@@ -145,9 +143,9 @@ public:
     }
 
     // The virtual destructor has every delete pass the size of the object's dynamic type.
-    static void* operator new(size_t size) { return s_Pools.Allocate(size); }
+    static void* operator new(size_t size) { return CurrentPools().Allocate(size); }
     static void* operator new(size_t size, std::align_val_t align) { return ::operator new(size, align); }
-    static void operator delete(void* object, size_t size) { s_Pools.Deallocate(object, size); }
+    static void operator delete(void* object, size_t size) { CurrentPools().Deallocate(object, size); }
     static void operator delete(void* object, size_t size, std::align_val_t align) { ::operator delete(object, size, align); }
 
     // Called around every borrow of the object: for a class implementing the standard library's

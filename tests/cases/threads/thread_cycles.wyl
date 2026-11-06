@@ -1,0 +1,23 @@
+import std::print;
+import std::thread::spawn;
+
+class Node {
+    pub mut Node? next;
+
+    ~Node() {
+        print("node");
+    }
+}
+
+void main() {
+    var thread = spawn(() -> {
+        var first = new Node();
+        var second = new Node();
+        first.next = second;
+        second.next = first;
+        return 0;
+    });
+    thread.join();
+    // output: node
+    // output: node
+}

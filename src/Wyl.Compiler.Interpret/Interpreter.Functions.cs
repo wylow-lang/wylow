@@ -91,6 +91,13 @@ public sealed partial class Interpreter
             NullValue => throw new WylPanic("internal compiler error: null function called", "<runtime>"),
             _ => throw new InterpreterException($"called a {callee.GetType().Name}"),
         };
+        var frame = CallFrame(value);
+        BindArguments(invoke.Arguments, value.Function.Parameters, frame, caller);
+        return Invoke(value.Function, frame);
+    }
+
+    Frame CallFrame(FunctionValue value)
+    {
         var function = value.Function;
         Frame frame;
         if (value.Enclosing is { } enclosing)
@@ -110,8 +117,7 @@ public sealed partial class Interpreter
                     frame.Locals[function.Captures[i]] = new RefStorage(closure.Captures[i]);
             }
         }
-        BindArguments(invoke.Arguments, function.Parameters, frame, caller);
-        return Invoke(function, frame);
+        return frame;
     }
 
     /// <summary>

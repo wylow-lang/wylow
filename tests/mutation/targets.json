@@ -232,6 +232,14 @@
     "note": "The port of runtime/wyl/cycles.h, down to its stats and debug diagnostics. Cycle tests pin the order and the messages."
   },
   {
+    "id": "interpreter-threads",
+    "title": "Interpreter: threads",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Threads.cs",
+    "filters": ["threads"],
+    "arguments": ["--interpret"],
+    "note": "The deterministic spawn model, the join and release intrinsics, and the nested cycle buffer, as std::thread's handle and runtime/wyl/threads.h implement them."
+  },
+  {
     "id": "interpreter-text",
     "title": "Interpreter: text",
     "path": "src/Wyl.Compiler.Interpret/RuntimeText.cs",

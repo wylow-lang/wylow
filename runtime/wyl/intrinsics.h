@@ -183,16 +183,16 @@ inline void moveTo(T* from, T* to, int32_t count) {
     }
 }
 
-inline void collectCycles(const char* location) { s_Cycles.Collect(SIZE_MAX, location); }
+inline void collectCycles(const char* location) { CurrentCycles().Collect(SIZE_MAX, location); }
 
 inline void collectCycles(int32_t maxVisits, const char* location) {
     if (maxVisits < 0) RaisePanic("cannot visit a negative number of objects", location);
-    s_Cycles.Collect(static_cast<size_t>(maxVisits), location);
+    CurrentCycles().Collect(static_cast<size_t>(maxVisits), location);
 }
 
 inline void takeCycleStats(int32_t& buffered, int32_t& visited, int32_t& freed) {
     auto clamp = [](size_t count) { return static_cast<int32_t>(count < INT32_MAX ? count : INT32_MAX); };
-    CycleStats stats = s_Cycles.TakeStats();
+    CycleStats stats = CurrentCycles().TakeStats();
     buffered = clamp(stats.Buffered);
     visited = clamp(stats.Visited);
     freed = clamp(stats.Freed);

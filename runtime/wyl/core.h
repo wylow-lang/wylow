@@ -50,7 +50,10 @@ struct ReleaseAtEnd {
     ~ReleaseAtEnd() { [[maybe_unused]] T released = std::move(Value); }
 };
 
+inline std::atomic<bool> s_Panicking{false};
+
 [[noreturn]] inline void RaisePanic(const char* message, const char* location) {
+    s_Panicking.store(true, std::memory_order_relaxed);
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %s\n    at %s\n", message, location);
     std::fflush(stderr);
@@ -183,6 +186,7 @@ private:
 };
 
 [[noreturn]] inline void RaisePanic(const String& message, const char* location) {
+    s_Panicking.store(true, std::memory_order_relaxed);
     std::fflush(stdout);
     std::fprintf(stderr, "panic: %.*s\n    at %s\n", static_cast<int>(message.Length()), message.Data(), location);
     std::fflush(stderr);
@@ -249,7 +253,10 @@ auto& Argument(Arguments<T, TRest...>& arguments) {
         return Argument<I - 1>(arguments.Rest);
 }
 
+void MarkMainThread();
+
 inline void Init() {
+    MarkMainThread();
 #if defined(_WIN32)
     // Output is the bytes the program writes, on every platform: in text mode, print's '\n' would
     // become "\r\n" and a program's own '\r' would merge with it.

@@ -1,0 +1,8 @@
+import std::print;
+import std::thread::spawn;
+
+void main() {
+    var thread = spawn(() -> 42);
+    print(thread.join());
+    // output: 42
+}

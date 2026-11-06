@@ -197,6 +197,7 @@ class CycleCollector {
     size_t m_LastWaiting = 0;
     int m_GrowingCalls = 0;
     bool m_WarnedGrowing = false;
+    bool m_Report = true;
     // For each class whose objects collections have freed, how many collections did; negative once
     // reported.
     std::vector<std::pair<const char*, int>> m_FreedClasses;
@@ -260,6 +261,7 @@ class CycleCollector {
 
     // Finds the garbage among the buffered objects without destroying it, at exit.
     void ReportUncollected() {
+        if (s_Panicking.load(std::memory_order_relaxed)) return;
         for (Object* root : m_Buffer) {
             if (root == nullptr) continue;
             MarkGray(root, SIZE_MAX);
@@ -368,38 +370,47 @@ public:
     CycleCollector& operator=(const CycleCollector&) = delete;
 
     ~CycleCollector() {
-        if constexpr (WYL_DEBUG != 0) ReportUncollected();
+        if constexpr (WYL_DEBUG != 0) {
+            if (m_Report) ReportUncollected();
+        }
+    }
+
+    void EndThread() {
+        m_Report = false;
+        Collect(SIZE_MAX, "<thread end>");
     }
 
     CycleStats TakeStats() { return std::exchange(m_Stats, CycleStats{}); }
 };
 
-// Objects belong to one thread, and so will the collector's state once Wylow has threads.
-inline CycleCollector s_Cycles;
+CycleCollector& CurrentCycles();
 
 inline void Object::Destroy() {
     // Holding the count at 1 lets the destructor create and drop temporary references to `this`
     // without destroying it twice; ~Object checks that none outlive it.
     Retain();
     ClearWeak();
-    if (m_State & BUFFERED) s_Cycles.Remove(this);
-    ++s_Cycles.m_Destroying;
+    CycleCollector& cycles = CurrentCycles();
+    if (m_State & BUFFERED) cycles.Remove(this);
+    ++cycles.m_Destroying;
     delete this;
-    --s_Cycles.m_Destroying;
+    --cycles.m_Destroying;
 }
 
 inline void SharedObject::Release() {
     if (m_SharedCount.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
     m_SharedCount.fetch_add(1, std::memory_order_relaxed);
     ClearWeak();
-    ++s_Cycles.m_Destroying;
+    CycleCollector& cycles = CurrentCycles();
+    ++cycles.m_Destroying;
     delete this;
-    --s_Cycles.m_Destroying;
+    --cycles.m_Destroying;
 }
 
 inline void Object::AddToBuffer() {
-    s_Cycles.Add(this);
-    ++s_Cycles.m_Stats.Buffered;
+    CycleCollector& cycles = CurrentCycles();
+    cycles.Add(this);
+    ++cycles.m_Stats.Buffered;
 }
 
 // Its slot holds a reference for the object's whole life, so a release never frees it and could
@@ -408,7 +419,7 @@ inline void Object::AddToBuffer() {
 // buffered it already, by releasing a reference to `this`.
 inline void Object::LeaveCollector() {
     m_State &= ~CYCLIC;
-    if (m_State & BUFFERED) s_Cycles.Remove(this);
+    if (m_State & BUFFERED) CurrentCycles().Remove(this);
 }
 
 // As Destroy(), except that the slot's reference is still held: it is the 1 that ~Object checks for.
@@ -417,14 +428,40 @@ inline void Object::DestroyInSlot(bool inPlace) {
         if (Refs() != 1) RaisePanic("internal compiler error: an object on the stack outlived its scope", "<runtime>");
     }
     ClearWeak();
-    if (m_State & BUFFERED) s_Cycles.Remove(this);
-    ++s_Cycles.m_Destroying;
+    CycleCollector& cycles = CurrentCycles();
+    if (m_State & BUFFERED) cycles.Remove(this);
+    ++cycles.m_Destroying;
     if (inPlace) {
         this->~Object();
     } else {
         delete this;
     }
-    --s_Cycles.m_Destroying;
+    --cycles.m_Destroying;
 }
+
+struct ThreadState {
+    Pools PoolState;
+    CycleCollector CycleState;
+    bool IsMain = false;
+
+    ~ThreadState() {
+        if (!IsMain) CycleState.EndThread();
+    }
+};
+
+inline ThreadState& CurrentThread() {
+    thread_local ThreadState state;
+    return state;
+}
+
+inline Pools& CurrentPools() { return CurrentThread().PoolState; }
+
+inline CycleCollector& CurrentCycles() { return CurrentThread().CycleState; }
+
+inline std::atomic<bool> s_MainStarted{false};
+
+inline void BeginMain() { s_MainStarted.store(true, std::memory_order_release); }
+
+inline void MarkMainThread() { CurrentThread().IsMain = true; }
 
 }  // namespace wyl

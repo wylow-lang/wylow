@@ -1,0 +1,44 @@
+/// A thread that runs a function (spec `concurrency`).
+///
+/// Releasing a thread without joining it waits for its body to finish and releases its result.
+pub unique struct Thread<T> {
+    byte* handle;
+
+    ~Thread() {
+        unsafe {
+            releaseThread<T>(handle);
+        }
+    }
+
+    /// Returns what the body returned, after waiting for it to finish.
+    ///
+    /// # Panics
+    ///
+    /// If the thread was never started.
+    pub T join(this Thread<T> thread) {
+        unsafe {
+            mut T result = joinThread<T>(thread.handle);
+            discard thread;
+            return result;
+        }
+    }
+}
+
+/// Returns a thread that runs `body`. What `body` returns is `join`'s result.
+///
+/// # Panics
+///
+/// If the program starts a thread before `main` begins.
+@CallerLocation
+pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body) {
+    unsafe {
+        return Thread<T>(spawnThread<T>(body));
+    }
+}
+
+@CallerLocation
+extern byte* spawnThread<T>(escaping shared fn() -> T body);
+
+extern T joinThread<T>(byte* handle);
+
+extern void releaseThread<T>(byte* handle);

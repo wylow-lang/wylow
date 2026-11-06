@@ -292,6 +292,13 @@ public sealed class Buffer
     }
 }
 
+public sealed class ThreadValue : Value
+{
+    public Cell? Result { get; set; }
+
+    public override string ToString() => "thread";
+}
+
 /// <summary>A pointer: a buffer and the element it points at, which may be one past the end. Null is <see cref="NullValue"/>.</summary>
 public sealed class PointerValue(Buffer buffer, int index) : Value
 {

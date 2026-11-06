@@ -20,7 +20,7 @@ public sealed partial class Interpreter
     }
 
     /// <summary>Objects whose count dropped without reaching zero since the last collection; null where one was destroyed meanwhile.</summary>
-    readonly List<HeapObject?> buffer = [];
+    List<HeapObject?> buffer = [];
     int capacity;
     int holes;
 
@@ -30,8 +30,8 @@ public sealed partial class Interpreter
     CycleStats stats = new();
 
     /// <summary>Working storage for a collection, kept between collections so that each one reuses it.</summary>
-    readonly List<HeapObject?> roots = [];
-    readonly List<HeapObject> marked = [], stack = [], garbage = [];
+    List<HeapObject?> roots = [];
+    List<HeapObject> marked = [], stack = [], garbage = [];
 
     /// <summary>How many objects were created, which gives each its creation number and so its age.</summary>
     uint objectsCreated;

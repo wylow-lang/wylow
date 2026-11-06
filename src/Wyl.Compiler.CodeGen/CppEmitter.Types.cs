@@ -151,6 +151,8 @@ public sealed partial class CppEmitter
         Line("    other.wyl_flags_ = 0;");
         Line("}");
         Line();
+        if (s.IsGeneric)
+            Line(TemplatePrefix(s.TypeParameters).TrimEnd());
         Line($"{type}& {type}::operator=({type}&& other) noexcept");
         Line("{");
         Line("    if (this != &other)");

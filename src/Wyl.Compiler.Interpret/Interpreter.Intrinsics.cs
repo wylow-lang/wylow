@@ -39,6 +39,9 @@ public sealed partial class Interpreter
             ["wyl::replace"] = (i, call, location, caller) => i.Replace(call, caller, location),
             ["wyl::swap"] = (i, call, location, caller) => i.Swap(call, caller, location),
             ["wyl::take"] = (i, call, location, caller) => i.Take(call, caller, location),
+            ["wyl::thread::spawnThread"] = (i, call, location, caller) => i.ThreadIntrinsic("spawn", call, caller, location),
+            ["wyl::thread::joinThread"] = (i, call, location, caller) => i.ThreadIntrinsic("join", call, caller, location),
+            ["wyl::thread::releaseThread"] = (i, call, location, caller) => i.ThreadIntrinsic("release", call, caller, location),
         };
         foreach (var name in MemoryNames)
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);

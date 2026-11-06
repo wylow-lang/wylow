@@ -11,6 +11,7 @@
 #include "wyl/cycles.h"
 #include "wyl/stack_slot.h"
 #include "wyl/functions.h"
+#include "wyl/threads.h"
 #include "wyl/strings.h"
 #include "wyl/compare.h"
 #include "wyl/intrinsics.h"

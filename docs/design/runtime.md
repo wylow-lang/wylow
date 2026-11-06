@@ -111,8 +111,6 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
 - Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
   after free.
 
-So far the pools are global and have no remote free lists, since there are no threads yet.
-
 ## Stack allocation
 
 The compiler may put an object made by `new` (or the closure an escaping lambda makes) in the
@@ -157,8 +155,7 @@ set to null; the block itself is freed when the target and the last `Weak` to it
 Instantiations of generic classes that only C++ sees, through a generic function's type arguments,
 are treated as cyclic, and a field whose type could refer to one as reaching every class; neither
 affects correctness, only how much is buffered. `cycleStats().visited` counts the objects of the
-groups that fit in the budget. Per-class counts and visit timing aren't reported yet, and the buffer
-is global, since there are no threads.
+groups that fit in the budget. Per-class counts and visit timing aren't reported yet.
 
 ## Holds
 
@@ -263,6 +260,28 @@ thread's pools.
 - `String`'s count is always atomic. A program that never starts a thread could use non-atomic
   counts instead, which no program can observe; that is an optimization for later.
 - The threads themselves are the operating system's.
+
+A thread's pools and buffer are two members of one `wyl::ThreadState`, which `wyl::CurrentThread`
+makes on first use in that thread and destroys when the thread ends. The destruction runs the
+collector's `EndThread` first, then the pools' destructor.
+
+- A thread other than the main one collects its buffer when it ends, as `EndThread` does. The
+  thread's chunks with live slots are made ownerless, and the next thread that frees into one adopts
+  it: that thread adds the chunk to its own size class and then frees the slot. The main thread
+  reports the cycles it never freed instead.
+- `wyl::Init` marks the main thread's state, and `wyl::BeginMain` marks that `main` has begun after
+  every static is initialized. `spawn` panics before that mark.
+- `std::thread`'s `Thread<T>` holds a `byte*` to a `wyl::thread::HandleOf<T>`, which the global heap
+  holds: the operating-system thread, and an `Optional<T>` for its result. `spawnThread` moves the
+  body, a `wyl::Function<T()>`, into a new thread whose first act is to make the thread's state.
+  `joinThread` joins and moves the result out, and panics on a null handle, which a thread that was
+  never started has. `releaseThread` joins and destroys the handle, and does nothing for a null
+  handle.
+- This step's `spawn` takes no argument, so a unique value crosses a thread only as its result. The
+  remote free list and adoption paths are therefore not reachable from a program yet, since no
+  sendable value of the standard library carries an object from one thread's pool into another's.
+  The tests cover the per-thread state and lifetime rules they can reach; the cross-thread free path
+  is **enforced only by review** until `Isolated<T>` or a value-carrying thread argument arrives.
 
 ## Interop
 

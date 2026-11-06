@@ -139,6 +139,7 @@ public sealed partial class CppEmitter
         indent++;
         Line("wyl::Init();");
         Line("wyl_init_statics();");
+        Line("wyl::BeginMain();");
         var call = $"{FunctionName(main)}()";
         if (takesArguments)
         {
