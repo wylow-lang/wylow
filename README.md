@@ -34,7 +34,8 @@ What's next is tracked in the roadmap issue (#6).
 ## Requirements
 
 - .NET 10 SDK
-- Visual Studio with the "Desktop development with C++" workload (MSVC), or `g++` on `PATH`
+- clang-cl on `PATH`, with Visual Studio's "Desktop development with C++" workload for its headers
+  and libraries; or `g++` on `PATH`
 
 ## Usage
 
@@ -52,7 +53,7 @@ dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run examples/hello.wyl
 | `wyl ir <file>` | print the lowered IR |
 | `wyl interpret <file>` | run with the IR interpreter, no C++ toolchain needed |
 
-Options: `--release` (optimized; integer overflow wraps instead of panicking), `--cc msvc|gcc|asan`.
+Options: `--release` (optimized; integer overflow wraps instead of panicking), `--cc clang|msvc|gcc|asan`.
 
 ## Layout
 

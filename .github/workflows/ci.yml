@@ -20,13 +20,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { mode: msvc, args: "" }
+          - { mode: clang, args: "--cc clang" }
           - { mode: gcc, args: "--cc gcc" }
           - { mode: no-opt, args: "--no-opt" }
           - { mode: no-nest, args: "--no-nest" }
           - { mode: asan, args: "--cc asan" }
           # Declining to nest changes which temporaries live how long, so a use after free can hide
-          # in this combination alone; MSVC's --no-nest run prints the old bytes and passes.
+          # in this combination alone; the un-sanitized --no-nest run can print the old bytes and pass.
           - { mode: asan-no-nest, args: "--cc asan --no-nest" }
           - { mode: interpret, args: "--interpret" }
     steps:

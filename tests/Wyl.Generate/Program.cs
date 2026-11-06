@@ -89,7 +89,7 @@ if (tier == 2)
     // interpreter does.
     if (!Modes.TryAvailable(out var available, release: true))
     {
-        Console.Error.WriteLine("tier 2 needs MSVC or g++; none was found");
+        Console.Error.WriteLine("tier 2 needs clang-cl or g++; none was found");
         return 1;
     }
     modes = available;

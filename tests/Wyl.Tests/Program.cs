@@ -25,7 +25,7 @@ using Wyl.Harness;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
-// Usage: Wyl.Tests [--cc msvc|gcc|asan|interpret] [--interpret] [--no-nest] [--no-opt] [--all-modes]
+// Usage: Wyl.Tests [--cc clang|msvc|gcc|asan|interpret] [--interpret] [--no-nest] [--no-opt] [--all-modes]
 //                  [--out <dir>] [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.
 // --interpret runs the IR interpreter instead of a native build.
@@ -46,12 +46,13 @@ for (int i = 0; i < args.Length; i++)
     {
         toolchain = args[++i] switch
         {
+            "clang" => Toolchain.Clang,
             "gcc" => Toolchain.Gcc,
             "asan" => Toolchain.ClangSanitized,
             "tsan" => Toolchain.ThreadSanitized,
             "msvc" => Toolchain.Msvc,
             "interpret" => null,
-            var other => throw new ArgumentException($"unknown compiler '{other}'; expected msvc, gcc, asan, tsan, or interpret"),
+            var other => throw new ArgumentException($"unknown compiler '{other}'; expected clang, msvc, gcc, asan, tsan, or interpret"),
         };
         if (args[i] == "interpret")
             interpret = true;
@@ -142,7 +143,7 @@ static int RunAllModes(string outputDirectory, string? filter, int jobs)
 {
     (string Key, string[] Arguments)[] modes =
     [
-        ("msvc", []),
+        ("clang", ["--cc", "clang"]),
         ("gcc", ["--cc", "gcc"]),
         ("no-opt", ["--no-opt"]),
         ("no-nest", ["--no-nest"]),

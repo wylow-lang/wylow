@@ -6,11 +6,11 @@ using System.Text;
 namespace Wyl.Compiler.Build;
 
 /// <summary>
-/// The C++ compiler a program is built with. <see cref="ClangSanitized"/> is clang-cl with
-/// AddressSanitizer and UBSan, for testing: a program that runs clean under it does nothing undefined
-/// that they can see.
+/// The C++ compiler a program is built with. <see cref="Clang"/> is clang-cl without sanitizers, the
+/// default on Windows. <see cref="ClangSanitized"/> is clang-cl with AddressSanitizer and UBSan, for
+/// testing: a program that runs clean under it does nothing undefined that they can see.
 /// </summary>
-public enum Toolchain { Msvc, Gcc, ClangSanitized, ThreadSanitized }
+public enum Toolchain { Msvc, Clang, Gcc, ClangSanitized, ThreadSanitized }
 
 public sealed record NativeBuildResult(bool Success, string Output);
 
@@ -66,24 +66,35 @@ public sealed class NativeCompiler
     public static NativeCompiler? Find(Toolchain? preferred, out string? error)
     {
         error = null;
+        if (preferred is null or Toolchain.Clang && FindClang() is { } clang)
+            return clang;
         if (preferred is null or Toolchain.Msvc && FindMsvc() is { } msvc)
             return msvc;
         if (preferred is null or Toolchain.Gcc && FindGcc() is { } gcc)
             return gcc;
-        if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } clang)
-            return clang;
+        if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } sanitized)
+            return sanitized;
         if (preferred is Toolchain.ThreadSanitized && ThreadSanitized.Value is { } threaded)
             return threaded;
 
         error = preferred switch
         {
+            Toolchain.Clang or Toolchain.ClangSanitized =>
+                "could not find clang-cl on PATH, or MSVC, whose headers and libraries it uses",
             Toolchain.Msvc => "could not find MSVC; install Visual Studio with the 'Desktop development with C++' workload",
             Toolchain.Gcc => "could not find g++ on PATH",
-            Toolchain.ClangSanitized => "could not find clang-cl on PATH, or MSVC, whose headers and libraries it uses",
             Toolchain.ThreadSanitized => "no C++ toolchain here builds a program with ThreadSanitizer",
-            _ => "no C++ compiler found; install Visual Studio with the 'Desktop development with C++' workload, or g++",
+            _ => "no C++ compiler found; install clang-cl, or Visual Studio with the 'Desktop development with C++' workload, or g++",
         };
         return null;
+    }
+
+    static NativeCompiler? FindClang()
+    {
+        if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
+            return null;
+        var clang = FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH"));
+        return clang is null ? null : new NativeCompiler(Toolchain.Clang, clang, env);
     }
 
     static NativeCompiler? FindMsvc()
@@ -226,7 +237,7 @@ public sealed class NativeCompiler
     string? PrecompiledDirectory(bool release) =>
         Toolchain == Toolchain.ThreadSanitized
             ? null
-            : PrecompiledHeaders.GetOrAdd($"{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
+            : PrecompiledHeaders.GetOrAdd($"{Toolchain}|{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
     public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true)
     {
@@ -242,10 +253,12 @@ public sealed class NativeCompiler
         }
 
         var args = startInfo.ArgumentList;
-        if (Toolchain == Toolchain.Msvc)
+        if (Toolchain is Toolchain.Msvc or Toolchain.Clang)
         {
             foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3" })
                 args.Add(arg);
+            if (Toolchain == Toolchain.Clang)
+                args.Add("/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH");
             args.Add(release ? "/O2" : "/Od");
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
@@ -257,7 +270,10 @@ public sealed class NativeCompiler
                 args.Add($"/Fp{Path.Combine(precompiled, "wyl.pch")}");
             }
             args.Add($"/Fe{exePath}");
-            args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
+            if (Toolchain == Toolchain.Clang && precompiled is not null)
+                args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
+            else
+                args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
             args.Add(cppPath);
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "wyl.obj"));
@@ -325,7 +341,7 @@ public sealed class NativeCompiler
     /// </summary>
     string? BuildPrecompiledHeader(bool release)
     {
-        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(compilerPath)))[..12];
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{Toolchain}|{compilerPath}")))[..12];
         var directory = Path.Combine(AppContext.BaseDirectory, "pch", key, release ? "release" : "debug");
         string[] artifacts = Toolchain == Toolchain.Gcc
             ? [Path.Combine(directory, "wyl.h.gch")]
@@ -351,12 +367,14 @@ public sealed class NativeCompiler
                     startInfo.Environment[name] = value;
             }
             var args = startInfo.ArgumentList;
-            if (Toolchain == Toolchain.Msvc)
+            if (Toolchain is Toolchain.Msvc or Toolchain.Clang)
             {
                 var stub = Path.Combine(directory, "wyl.cpp");
                 File.WriteAllText(stub, "#include \"wyl.h\"\n");
                 foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3", "/c" })
                     args.Add(arg);
+                if (Toolchain == Toolchain.Clang)
+                    args.Add("/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH");
                 args.Add(release ? "/O2" : "/Od");
                 if (!release)
                     args.Add("/DWYL_DEBUG=1");

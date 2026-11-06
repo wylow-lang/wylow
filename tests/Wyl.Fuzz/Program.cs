@@ -74,12 +74,12 @@ if (corpus.Count == 0)
     return 1;
 }
 
-IReadOnlyList<Mode> modes = [new("msvc", Toolchain.Msvc, new CompileOptions())];
+IReadOnlyList<Mode> modes = [new("clang", Toolchain.Clang, new CompileOptions())];
 if (tier == 2)
 {
     if (!Modes.TryAvailable(out var available))
     {
-        Console.Error.WriteLine("tier 2 needs MSVC or g++; none was found");
+        Console.Error.WriteLine("tier 2 needs clang-cl or g++; none was found");
         return 1;
     }
     modes = available;

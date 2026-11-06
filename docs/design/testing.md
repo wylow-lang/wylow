@@ -16,7 +16,7 @@ exist, what each can't see, and what to add next.
 | The compiler never throws | crashes anywhere in the pipeline | `Compilation.Compile` |
 | The verifier accepts every pass's output | a pass that broke a rule | `Optimize/Pipeline.cs` |
 | The C++ compiles, warning-free | emitter bugs | `Driver.BuildExecutable` |
-| Every mode prints and exits the same | optimization bugs; C++ that depends on UB or on the compiler | MSVC, g++, `--no-opt`, `--no-nest`, `--release` (generator only) |
+| Every mode prints and exits the same | optimization bugs; C++ that depends on UB or on the compiler | clang-cl, g++, `--no-opt`, `--no-nest`, `--release` (generator only) |
 | ASan and UBSan stay quiet | use after free, overflow in generated code and the runtime | `--cc asan` |
 | ThreadSanitizer stays quiet | a data race in generated code or the runtime | `--cc tsan`, on tests marked `// tsan` |
 | The interpreter agrees | emitter and pass bugs against the meaning; a pass bug without a C++ build | `--interpret` |
@@ -25,6 +25,10 @@ exist, what each can't see, and what to add next.
 | The spec's examples compile and mark the errors they produce | an example that drifts from the compiler or contradicts a rule | `SpecExampleSelfTests` |
 | `std` is documented, the docs' links work, and the grammar is whole | a `pub` declaration with no doc comment, a panic with no `# Panics`, a link to nothing, a grammar name defined twice or never | `DocSelfTests` |
 | Mutation testing | a test that wouldn't notice a wrong answer | `tests/Wyl.Mutation` |
+
+The native modes build with clang-cl. MSVC is not one of them: its `/O2` optimizer raises internal
+compiler errors (C1001) on correct generated C++, and a compiler that cannot build a valid program
+makes every run fail. `--cc msvc` still selects MSVC for a caller who asks for it.
 
 **What no oracle sees:** every mode and the interpreter share lowering, so a wrong meaning
 (evaluation order, release order) is agreed on everywhere. Only expected-output tests, the
