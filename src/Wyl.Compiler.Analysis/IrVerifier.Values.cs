@@ -964,7 +964,8 @@ public sealed partial class IrVerifier
 
     /// <summary>A function value a non-escaping function parameter takes, which the call converts to the parameter's type.</summary>
     static bool PassesFunction(WylType value, WylType parameter) =>
-        parameter.NonNull.IsNonEscapingFunction && value.NonNull is FunctionType function && function.NonEscaping == parameter.NonNull && (parameter.IsNullable || !value.IsNullable);
+        parameter.NonNull is FunctionType target && !target.IsEscaping && value.NonNull is FunctionType function
+        && Conversions.IsFunctionConversion(function, target) && (parameter.IsNullable || !value.IsNullable);
 
     void Arguments(MethodReference method, IReadOnlyList<IrArgument> arguments, State state)
     {

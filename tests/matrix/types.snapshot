@@ -758,6 +758,120 @@ error 40: non-escaping parameter 'value' cannot be stored or returned
 error 67: non-escaping parameter 'value' cannot be stored or returned
 error 80: non-escaping variable 'value' cannot be stored or returned
 
+=== function-shared-escaping/local
+out 3
+exit 0
+
+=== function-shared-escaping/field
+out 3
+out 7
+exit 0
+
+=== function-shared-escaping/parameter
+out 3
+exit 0
+
+=== function-shared-escaping/return
+out 3
+exit 0
+
+=== function-shared-escaping/type-argument
+out 3
+exit 0
+
+=== function-shared-escaping/element
+out 3
+out 7
+exit 0
+
+=== function-shared-escaping/capture
+out 3
+exit 0
+
+=== function-shared-escaping/equality
+error 38: operator '==' cannot be applied to 'shared fn() -> int' and 'shared fn() -> int'
+
+=== function-shared-escaping/default
+error 40: 'Defaults' has no default value
+
+=== function-shared-escaping/overloads
+out typed
+exit 0
+
+=== function-shared-escaping/struct-pattern
+out 3
+out 3
+exit 0
+
+=== function-shared-escaping/case-null
+error 39: expected 'shared fn() -> int?', found 'null'
+error 44: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+error 50: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+
+=== function-shared-escaping/guarded
+out 3
+exit 0
+
+=== function-shared-escaping/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
+
+=== function-shared-nonescaping/local
+out 3
+exit 0
+
+=== function-shared-nonescaping/field
+error 39: non-escaping parameter 'value' cannot be stored or returned
+error 48: non-escaping variable 'other' cannot be stored or returned
+
+=== function-shared-nonescaping/parameter
+out 3
+exit 0
+
+=== function-shared-nonescaping/return
+error 37: non-escaping variable 'value' cannot be stored or returned
+
+=== function-shared-nonescaping/type-argument
+error 37: non-escaping variable 'value' cannot be stored or returned
+
+=== function-shared-nonescaping/element
+error 38: non-escaping variable 'value' cannot be stored or returned
+error 38: non-escaping variable 'value' cannot be stored or returned
+error 40: non-escaping variable 'other' cannot be stored or returned
+
+=== function-shared-nonescaping/capture
+error 38: escaping lambda cannot capture 'value'
+
+=== function-shared-nonescaping/equality
+error 38: operator '==' cannot be applied to 'shared fn() -> int' and 'shared fn() -> int'
+
+=== function-shared-nonescaping/default
+error 40: 'Defaults' has no default value
+
+=== function-shared-nonescaping/overloads
+out typed
+exit 0
+
+=== function-shared-nonescaping/struct-pattern
+error 42: non-escaping variable 'value' cannot be stored or returned
+
+=== function-shared-nonescaping/case-null
+error 39: expected 'shared fn() -> int?', found 'null'
+error 44: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+error 50: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+
+=== function-shared-nonescaping/guarded
+error 42: non-escaping variable 'value' cannot be stored or returned
+
+=== function-shared-nonescaping/constructor-call
+error 40: non-escaping parameter 'value' cannot be stored or returned
+error 67: non-escaping parameter 'value' cannot be stored or returned
+error 80: non-escaping variable 'value' cannot be stored or returned
+
 === generic/local
 out 3
 exit 0

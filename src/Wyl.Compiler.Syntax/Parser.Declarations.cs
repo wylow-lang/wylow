@@ -212,7 +212,7 @@ public sealed partial class Parser
         int typeStart = position;
         var (returnRefKind, mayBeNull) = ParseRefKind();
         // A '(' is a grouped function type, or the old spelling, which ParseType reports.
-        if (!SyntaxFacts.IsTypeStart(Current.Kind) && !At(TokenKind.OpenParen))
+        if (!StartsType(position) && !At(TokenKind.OpenParen))
         {
             Report(At(TokenKind.ReservedKeyword) ? Catalog.ReservedKeyword(Loc(Current.Span), Current.Text) : Catalog.Expected(Loc(Current.Span), "a field, method, or constructor"));
             SkipDeclaration();

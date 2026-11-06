@@ -1,0 +1,45 @@
+import std::{Weak, memory, print};
+
+shared class Node {
+    pub int id;
+    pub shared fn() -> int read;
+
+    Node(int id) {
+        this.id = id;
+        this.read = () -> this.id;
+    }
+
+    ~Node() {
+        print($"released {id}");
+    }
+}
+
+shared class Kept {
+    pub int id;
+
+    Kept(int id) {
+        this.id = id;
+    }
+
+    ~Kept() {
+        print($"kept {id}");
+    }
+}
+
+void main() {
+    {
+        var node = new Node(1);
+        print(node.read());                 // output: 1
+    }
+    memory::collectCycles();
+    var stats = memory::cycleStats();
+    print(stats.buffered);                  // output: 0
+    print(stats.freed);                     // output: 0
+
+    mut var kept = new Kept(2);
+    Weak<Kept> weak = kept;
+    kept = new Kept(3);
+    // output: kept 2
+    print(weak.get() == null);              // output: true
+}
+// output: kept 3

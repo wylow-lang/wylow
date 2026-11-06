@@ -109,6 +109,13 @@ public sealed partial class Parser
                 Report(Catalog.ReservedKeyword(Loc(Current.Span), Current.Text));
                 SkipStatement();
                 return new BlockStmt(LocationFrom(start), []);
+            case TokenKind.SharedKeyword when Peek(1).Kind == TokenKind.FnKeyword:
+            {
+                int errors = diagnostics.Count;
+                var declaration = ParseVariableDeclaration();
+                FinishStatement(errors);
+                return declaration;
+            }
             case TokenKind.SharedKeyword:
                 Report(Catalog.SharedOutsideClass(Loc(Current.Span)));
                 SkipStatement();
@@ -218,6 +225,7 @@ public sealed partial class Parser
     {
         TokenKind.VarKeyword or TokenKind.MutKeyword => true,
         TokenKind.FnKeyword => true,
+        TokenKind.SharedKeyword => SyntaxFacts.IsTypeStart(Current.Kind, Peek(1).Kind) && IsDeclarationAfterTypeName(ScanType(position)),
         _ when SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) => true,
         TokenKind.Identifier => IsDeclarationAfterTypeName(ScanType(position)),
         TokenKind.OpenParen => ScanType(position) is > 0 and var end && IsDeclarationAfterTypeName(end),

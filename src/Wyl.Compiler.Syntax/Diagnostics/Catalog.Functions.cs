@@ -218,6 +218,40 @@ public static partial class Catalog
         Make(at, "escaping lambda cannot capture 'this' in a struct's method or constructor")
             .Note("'this' is a reference to the struct").Help("copy what the lambda needs to a local first");
 
+    [Error(472, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureNotSendable(Location at, string name, string type, bool isParameter) =>
+        Make(at, $"shared lambda cannot capture '{name}'")
+            .Note($"'{name}' is a {(isParameter ? "parameter" : "variable")} of type '{type}', which is not sendable");
+
+    [Error(473, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureNotCopyable(Location at, string name, string type, bool isParameter) =>
+        Make(at, $"shared lambda cannot capture '{name}'")
+            .Note($"'{name}' is a {(isParameter ? "parameter" : "variable")} of type '{type}', which is not copyable")
+            .Help("move it to the lambda as an argument instead");
+
+    [Error(474, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureMutable(Location at, string name, bool isParameter) =>
+        Make(at, $"shared lambda cannot capture '{name}'")
+            .Note($"'{name}' is a 'mut' {(isParameter ? "parameter" : "variable")}")
+            .Help("copy it to a variable that is not 'mut'");
+
+    [Error(475, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureReference(Location at, string name, string keyword, bool isParameter) =>
+        Make(at, $"shared lambda cannot capture '{name}'")
+            .Note($"'{name}' is a '{keyword}' {(isParameter ? "parameter" : "variable")}, which another thread could change")
+            .Help("copy it to a local first");
+
+    [Error(476, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureView(Location at, string name, string type) =>
+        Make(at, $"shared lambda cannot capture '{name}'")
+            .Note($"'{name}' is a '{type}', which another thread could change")
+            .Help("capture a 'ReadOnlySpan' instead");
+
+    [Error(477, "concurrency.shared-functions")]
+    public static Diagnostic SharedCaptureOfThis(Location at) =>
+        Make(at, "shared lambda cannot capture 'this' outside a shared class's method")
+            .Help("copy what the lambda needs to a local first");
+
     [Error(232, "functions.overloading")]
     public static Diagnostic DuplicateFunction(Location at, string kind, string signature, Location? previous, string? escapingOnly) =>
         (previous, escapingOnly) switch

@@ -133,43 +133,66 @@ public sealed class FixedArrayType : IndexedType
 }
 
 /// <summary>
-/// A function type <c>fn(A, ref B) -> R</c>. It has two forms, written the same way: the escaping one
-/// is a heap closure that may be stored, and the other may only be called and passed on during the
-/// call it was given to.
+/// A function type <c>fn(A, ref B) -> R</c>. It has four forms: escaping or not, and shared or not.
+/// The escaping one is a heap closure that may be stored, and the other may only be called and
+/// passed on during the call it was given to.
 /// </summary>
 public sealed class FunctionType : WylType
 {
-    static readonly ConditionalWeakTable<WylType, ConcurrentDictionary<IReadOnlyList<FunctionParameterType>, FunctionType>> byReturnType = new();
+    static readonly ConditionalWeakTable<WylType, ConcurrentDictionary<IReadOnlyList<FunctionParameterType>, Forms>> byReturnType = new();
 
-    // The other form: created on demand by the non-escaping one, and given to the escaping one.
-    FunctionType? twin;
-
-    FunctionType(IReadOnlyList<FunctionParameterType> parameters, WylType returnType, FunctionType? nonEscaping)
+    sealed class Forms(IReadOnlyList<FunctionParameterType> parameters, WylType returnType)
     {
-        Parameters = parameters;
-        ReturnType = returnType;
-        IsEscaping = nonEscaping is not null;
-        twin = nonEscaping;
+        public IReadOnlyList<FunctionParameterType> Parameters { get; } = parameters;
+        public WylType ReturnType { get; } = returnType;
+
+        FunctionType? plain, escaping, shared, sharedEscaping;
+
+        public FunctionType Get(bool isEscaping, bool isShared)
+        {
+            ref FunctionType? slot = ref plain;
+            if (isEscaping && isShared)
+                slot = ref sharedEscaping;
+            else if (isEscaping)
+                slot = ref escaping;
+            else if (isShared)
+                slot = ref shared;
+            var created = new FunctionType(this, isEscaping, isShared);
+            return Interlocked.CompareExchange(ref slot, created, null) ?? created;
+        }
+    }
+
+    readonly Forms forms;
+
+    FunctionType(Forms forms, bool isEscaping, bool isShared)
+    {
+        this.forms = forms;
+        IsEscaping = isEscaping;
+        IsShared = isShared;
     }
 
     internal static FunctionType Of(IReadOnlyList<FunctionParameterType> parameters, WylType returnType) =>
         byReturnType.GetValue(returnType, static _ => new(FunctionParameterListComparer.Instance))
-            .GetOrAdd(parameters, static (p, r) => new FunctionType([.. p], r, null), returnType);
+            .GetOrAdd(parameters, static (p, r) => new Forms([.. p], r), returnType)
+            .Get(false, false);
 
-    public IReadOnlyList<FunctionParameterType> Parameters { get; }
-    public WylType ReturnType { get; }
+    public IReadOnlyList<FunctionParameterType> Parameters => forms.Parameters;
+    public WylType ReturnType => forms.ReturnType;
     public override bool IsEscaping { get; }
+    public override bool IsShared { get; }
 
-    public FunctionType Escaping => IsEscaping ? this : twin ?? Publish(ref twin, new FunctionType(Parameters, ReturnType, this));
-    public FunctionType NonEscaping => IsEscaping ? twin! : this;
-    public FunctionType WithEscaping(bool escaping) => escaping ? Escaping : NonEscaping;
+    public FunctionType Escaping => forms.Get(true, IsShared);
+    public FunctionType NonEscaping => forms.Get(false, IsShared);
+    public FunctionType Shared => forms.Get(IsEscaping, true);
+    public FunctionType NonShared => forms.Get(IsEscaping, false);
+    public FunctionType WithForms(bool escaping, bool shared) => forms.Get(escaping, shared);
 
     public override IReadOnlyList<WylType> Parts => [.. Parameters.Select(p => p.Type), ReturnType];
 
     public override WylType MapParts(Func<WylType, WylType> map) =>
-        map(ReturnType).FunctionReturning([.. Parameters.Select(p => p with { Type = map(p.Type) })]).WithEscaping(IsEscaping);
+        map(ReturnType).FunctionReturning([.. Parameters.Select(p => p with { Type = map(p.Type) })]).WithForms(IsEscaping, IsShared);
 
-    private protected override string BuildName() => $"fn({string.Join(", ", Parameters)}) -> {ReturnType}";
+    private protected override string BuildName() => $"{(IsShared ? "shared " : "")}fn({string.Join(", ", Parameters)}) -> {ReturnType}";
 }
 
 /// <summary>

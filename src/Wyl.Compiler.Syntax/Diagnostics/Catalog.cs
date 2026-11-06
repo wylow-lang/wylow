@@ -12,13 +12,15 @@ public enum NullableOperand { None, Value, Reference }
 public enum NoThisContext { Static, FieldInitializer, SuperArguments, ChainArguments, DefaultValue }
 
 /// <summary>Why a place cannot be changed, which a message gives as a note.</summary>
-public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn, Static }
+public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn, Static, SharedCapture }
 
 /// <summary>A <see cref="ReadOnlyKind"/> and the field, variable, parameter, or method it names.</summary>
 public readonly record struct ReadOnlyReason(ReadOnlyKind Kind, string Name = "");
 
 /// <summary>Why an escaping lambda cannot capture a local.</summary>
 public enum CaptureProblem { Reference, View, NonEscaping, Mutable }
+
+public enum SharedCaptureProblem { NotSendable, NotCopyable, Mutable, Reference, View }
 
 /// <summary>A parameter that is 'escaping' in only one of two signatures that must match, and whether in the first.</summary>
 public readonly record struct EscapingDifference(string Parameter, bool EscapingHere);
@@ -110,6 +112,7 @@ public static partial class Catalog
         ReadOnlyKind.ImmutableParameter => diagnostic.Note($"parameter '{reason.Name}' is not 'mut'"),
         ReadOnlyKind.ReturnsIn => diagnostic.Note($"'{reason.Name}' returns 'in'"),
         ReadOnlyKind.Static => diagnostic.Note("every static is read-only"),
+        ReadOnlyKind.SharedCapture => diagnostic.Note($"another thread may read '{reason.Name}' while the lambda runs"),
         _ => diagnostic,
     };
 

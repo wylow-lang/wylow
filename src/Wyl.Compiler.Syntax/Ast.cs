@@ -161,6 +161,8 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
     public RefKind ReferenceKind { get; init; }
 
     public IReadOnlyList<FunctionTypeParameter> Parameters { get; init; } = [];
+
+    public bool IsShared { get; init; }
 }
 
 /// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>fn(ref Vec3) -> void</c>.</summary>

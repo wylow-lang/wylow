@@ -174,25 +174,95 @@ public sealed partial class Binder
         return false;
     }
 
-    /// <summary>Checks what the escaping lambdas in a body capture (spec functions.lambdas.captures).</summary>
-    void CheckEscapingCaptures(BoundBlock body)
+    /// <summary>Checks what the escaping and shared lambdas in a body capture (spec functions.lambdas.captures, concurrency.shared-functions).</summary>
+    void CheckCaptures(BoundBlock body)
     {
         var reported = new HashSet<LocalSymbol>();
-        bool reportedThis = false;
-        foreach (var lambda in BoundTree.AllExpressions(body).OfType<BoundLambda>().Where(l => l.Function.IsEscaping))
+        bool reportedStructThis = false;
+        bool reportedSharedThis = false;
+        foreach (var lambda in BoundTree.AllExpressions(body).OfType<BoundLambda>())
         {
+            var function = lambda.Function;
             var (locals, self) = BoundTree.Captures(lambda);
+            if (function.IsEscaping)
+            {
+                foreach (var use in locals)
+                {
+                    if (FindCaptureProblem(use.Local) is var (problem, detail) && reported.Add(use.Local))
+                        Error(Catalog.EscapingCapture(use.Location, use.Local.Name, problem, use.Local.IsParameter, detail));
+                }
+                if (!function.IsShared && self is { Type.IsReference: false } && !reportedStructThis)
+                {
+                    reportedStructThis = true;
+                    Error(Catalog.EscapingCaptureOfStructThis(self.Location));
+                }
+            }
+            if (!function.IsShared)
+                continue;
             foreach (var use in locals)
             {
-                if (FindCaptureProblem(use.Local) is var (problem, detail) && reported.Add(use.Local))
-                    Error(Catalog.EscapingCapture(use.Location, use.Local.Name, problem, use.Local.IsParameter, detail));
+                if (reported.Contains(use.Local))
+                    continue;
+                if (FindSharedCaptureProblem(function, use.Local) is { } problem)
+                {
+                    reported.Add(use.Local);
+                    Error(SharedCaptureError(use.Location, use.Local, problem));
+                }
             }
-            if (self is { Type.IsReference: false } && !reportedThis)
+            if (self is { } captured && !reportedSharedThis && !InSharedClassMethod(function))
             {
-                reportedThis = true;
-                Error(Catalog.EscapingCaptureOfStructThis(self.Location));
+                reportedSharedThis = true;
+                Error(Catalog.SharedCaptureOfThis(captured.Location));
             }
         }
+    }
+
+    (SharedCaptureProblem Kind, string Detail)? FindSharedCaptureProblem(FunctionSymbol lambda, LocalSymbol local)
+    {
+        if (!lambda.IsEscaping)
+        {
+            if (local.IsMutable)
+                return (SharedCaptureProblem.Mutable, "");
+            if (local.RefKind == RefKind.Ref)
+                return (SharedCaptureProblem.Reference, "ref");
+            if (local.Type.IsRefStruct && local.Type.Symbol != stdlib.ReadOnlySpan)
+                return (SharedCaptureProblem.View, local.Type.ToString());
+        }
+        var type = local.Type.IsRefStruct && local.Type.Symbol == stdlib.ReadOnlySpan ? local.Type.TypeArguments[0] : local.Type;
+        if (!type.IsSendableIn(local.Owner))
+            return (SharedCaptureProblem.NotSendable, type.ToString());
+        if (!type.IsCopyableIn(local.Owner))
+            return (SharedCaptureProblem.NotCopyable, type.ToString());
+        return null;
+    }
+
+    static Diagnostic SharedCaptureError(Location at, LocalSymbol local, (SharedCaptureProblem Kind, string Detail) problem) => problem.Kind switch
+    {
+        SharedCaptureProblem.NotSendable => Catalog.SharedCaptureNotSendable(at, local.Name, problem.Detail, local.IsParameter),
+        SharedCaptureProblem.NotCopyable => Catalog.SharedCaptureNotCopyable(at, local.Name, problem.Detail, local.IsParameter),
+        SharedCaptureProblem.Mutable => Catalog.SharedCaptureMutable(at, local.Name, local.IsParameter),
+        SharedCaptureProblem.Reference => Catalog.SharedCaptureReference(at, local.Name, problem.Detail, local.IsParameter),
+        _ => Catalog.SharedCaptureView(at, local.Name, problem.Detail),
+    };
+
+    static bool InSharedClassMethod(FunctionSymbol lambda)
+    {
+        var enclosing = lambda.Enclosing;
+        while (enclosing is { IsLambda: true })
+            enclosing = enclosing.Enclosing;
+        return enclosing?.ContainingType is { IsShared: true };
+    }
+
+    bool IsCapturedBySharedLambda(LocalSymbol local)
+    {
+        if (local.Owner is null)
+            return false;
+        for (var function = currentFunction; function is not null && function != local.Owner; function = function.Enclosing)
+        {
+            if (function.IsShared)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>Why an escaping lambda cannot capture a local, with the keyword or type that makes it so.</summary>

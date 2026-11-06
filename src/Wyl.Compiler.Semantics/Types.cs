@@ -95,6 +95,8 @@ public abstract class WylType
     /// <summary>The escaping form of a function type; see <see cref="FunctionType"/>.</summary>
     public virtual bool IsEscaping => false;
 
+    public virtual bool IsShared => false;
+
     public bool IsNonEscapingFunction => this is FunctionType { IsEscaping: false };
 
     /// <summary>A nullable non-escaping function, which only a parameter passing it on may be.</summary>
@@ -166,6 +168,7 @@ public abstract class WylType
         this == NInt ? Long
         : this == NUInt ? ULong
         : this is NullableType { NonNull.IsReference: true } ? NonNull.CppIdentity
+        : this is FunctionType { IsShared: true } shared ? ((FunctionType)shared.MapParts(t => t.CppIdentity)).NonShared
         : MapParts(t => t.CppIdentity);
 
     public bool IsStruct => Symbol?.Kind == TypeKind.Struct;

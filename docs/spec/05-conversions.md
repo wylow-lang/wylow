@@ -225,7 +225,7 @@ conversion applies to a reference type, and none changes the type `T` that it re
 
 An escaping function type converts to its non-escaping form, and a `shared` function type to the
 same type without `shared`. Nothing converts the other way. Function types whose parameters differ
-in `escaping` are different types, and neither converts to the other
+in `escaping` or `shared` are different types, and neither converts to the other
 ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)).
 
 A lambda, a function reference, and a `?:` or `switch` expression that chooses between them have no type

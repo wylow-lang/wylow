@@ -114,7 +114,7 @@ public sealed partial class Parser
                 continue;
             }
             // A '(' is a grouped function type, or the old spelling, which ParseType reports.
-            if (SyntaxFacts.IsTypeStart(Current.Kind) || At(TokenKind.OpenParen))
+            if (StartsType(position) || At(TokenKind.OpenParen))
             {
                 Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => Catalog.ModifierOnFunction(Loc(token.Span), token.Text));
                 DisallowShared(modifiers);
@@ -296,6 +296,8 @@ public sealed partial class Parser
         TextSpan? visibilitySpan = null;
         while (true)
         {
+            if (At(TokenKind.SharedKeyword) && Peek(1).Kind == TokenKind.FnKeyword)
+                return new ModifierList(flags, tokens, visibility, visibilitySpan);
             if (SyntaxFacts.IsVisibilityKeyword(Current.Kind))
             {
                 int start = Current.Span.Start;

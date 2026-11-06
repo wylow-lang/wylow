@@ -45,7 +45,7 @@ static class TypeSelfTests
         if (first is null)
             return [failure!];
         var types = new TypeGenerator(first, Seed).Take(Count);
-        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first), CopyingFacts(), SendableFacts()];
+        return [.. Properties(first).Select(p => Check(p, types)), .. PoolChecks(types), ParsesBack(types), ConversionFacts(first), CopyingFacts(), SendableFacts(), FunctionFormFacts()];
     }
 
     /// <summary>
@@ -131,8 +131,45 @@ static class TypeSelfTests
         Expect(WylType.Int.Nullable, sendable: true);
         Expect(WylType.String, sendable: true);
         Expect(WylType.Int.FunctionReturning([]), sendable: false);
+        Expect(WylType.Int.FunctionReturning([]).Escaping, sendable: false);
+        Expect(WylType.Int.FunctionReturning([]).Shared, sendable: false);
+        Expect(WylType.Int.FunctionReturning([]).Shared.Escaping, sendable: true);
         Expect(WylType.Int.PointerTo, sendable: false);
         return new("types/sendable", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    static TestResult FunctionFormFacts()
+    {
+        List<string> problems = [];
+        void Expect(bool condition, string problem)
+        {
+            if (!condition)
+                problems.Add(problem);
+        }
+        var plain = WylType.Int.FunctionReturning([]);
+        var escaping = plain.Escaping;
+        var shared = plain.Shared;
+        var sharedEscaping = shared.Escaping;
+        Expect(new[] { plain, escaping, shared, sharedEscaping }.Distinct().Count() == 4, "the four forms are not distinct");
+        Expect(ReferenceEquals(plain.Escaping, escaping) && ReferenceEquals(escaping.NonEscaping, plain), "escaping does not return to the same forms");
+        Expect(ReferenceEquals(plain.Shared, shared) && ReferenceEquals(shared.NonShared, plain), "shared does not return to the same forms");
+        Expect(ReferenceEquals(shared.Escaping, sharedEscaping) && ReferenceEquals(sharedEscaping.Shared, sharedEscaping), "the shared and escaping forms disagree");
+        Expect(ReferenceEquals(escaping.Shared, sharedEscaping) && ReferenceEquals(sharedEscaping.NonShared, escaping), "the two ways to the shared escaping form disagree");
+        Expect(ReferenceEquals(sharedEscaping.NonEscaping, shared), "dropping escaping leaves another shared form");
+        Expect(Conversions.IsImplicit(sharedEscaping, plain), "an escaping shared function does not convert to a non-escaping one");
+        Expect(Conversions.IsImplicit(sharedEscaping, escaping), "a shared function does not convert to the same type without shared");
+        Expect(Conversions.IsImplicit(sharedEscaping, shared), "an escaping shared function does not convert to a non-escaping shared one");
+        Expect(!Conversions.IsImplicit(plain, escaping), "a conversion adds escaping");
+        Expect(!Conversions.IsImplicit(plain, shared), "a conversion adds shared");
+        Expect(!Conversions.IsImplicit(escaping, sharedEscaping), "a conversion adds shared to an escaping function");
+        Expect(!Conversions.IsImplicit(shared, sharedEscaping), "a conversion adds escaping to a shared function");
+        Expect(sharedEscaping.MapParts(p => p) == sharedEscaping, "rebuilding a shared form changes it");
+        Expect(sharedEscaping.CppIdentity == escaping.CppIdentity, "the C++ identity keeps shared");
+        var inner = new FunctionParameterType(RefKind.None, plain);
+        var outer = (FunctionType)WylType.Int.FunctionReturning([inner]).Shared.MapParts(p => p.NonNull is FunctionType function ? function.Escaping : p);
+        Expect(outer.IsShared, "MapParts drops shared");
+        Expect(outer.Parameters[0].Type.IsEscaping, "MapParts does not map the parameters");
+        return new("types/function_forms", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     static BoundProgram? Compile(string text, string name, out TestResult? failure)
@@ -449,6 +486,8 @@ sealed class TypeGenerator(BoundProgram program, int seed)
     {
         var functionParameters = Enumerable.Range(0, random.Next(4)).Select(_ => Parameter(depth - 1)).ToList();
         var function = Make(Place.Return, depth - 1).FunctionReturning(functionParameters);
+        if (random.Next(2) == 0)
+            function = function.Shared;
         // A function type is escaping unless it is a parameter's.
         return place == Place.Parameter && random.Next(2) == 0 ? function : function.Escaping;
     }

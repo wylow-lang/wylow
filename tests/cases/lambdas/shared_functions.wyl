@@ -1,0 +1,100 @@
+// A 'shared fn' may run on another thread. It is part of the function type, converts to the same
+// type without 'shared', and a shared lambda copies only sendable copyable captures.
+
+import std::{print};
+
+shared class Logger {
+    String name;
+
+    Logger(String name) {
+        this.name = name;
+    }
+
+    shared fn() -> String describe() {
+        return () -> name;
+    }
+}
+
+shared class Action {
+    pub shared fn() -> int run;
+
+    Action(escaping shared fn() -> int run) {
+        this.run = run;
+    }
+
+    int perform() {
+        return run();
+    }
+}
+
+shared class Token {
+    int id;
+
+    Token(int id) {
+        this.id = id;
+    }
+
+    ~Token() {
+        print($"released {id}");
+    }
+}
+
+T identity<T extends sendable>(T value) {
+    return value;
+}
+
+fn() -> int withoutShared() {
+    escaping shared fn() -> int kept = () -> 5;
+    return kept;
+}
+
+int callPlain(fn() -> int f) {
+    return f();
+}
+
+void releases() {
+    mut escaping shared fn() -> int read = () -> 0;
+    {
+        var token = new Token(1);
+        read = () -> token.id;
+        print(read());
+    }
+    print("held");
+    read = () -> 0;
+    print("gone");
+}
+
+void main() {
+    escaping shared fn() -> int three = () -> 3;
+    print(three());                                     // output: 3
+
+    fn() -> int plain = three;
+    print(plain());                                     // output: 3
+
+    escaping fn() -> int escapingButShared = three;
+    print(escapingButShared());                         // output: 3
+
+    var same = identity(three);
+    print(same());                                      // output: 3
+
+    var logger = new Logger("api");
+    print(logger.describe()());                         // output: api
+
+    var action = new Action(three);
+    print(action.perform());                            // output: 3
+
+    shared fn() -> int four = () -> 4;
+    print(four());                                      // output: 4
+
+    mut escaping fn() -> int assigned = () -> 0;
+    assigned = three;
+    print(assigned());                                  // output: 3
+    print(withoutShared()());                           // output: 5
+    print(callPlain(three));                            // output: 3
+
+    releases();
+    // output: 1
+    // output: held
+    // output: released 1
+    // output: gone
+}

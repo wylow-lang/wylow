@@ -53,8 +53,9 @@ public sealed class CyclicClasses
 
     public bool IsCyclic(WylType classType) => cyclic.Contains(classType.CppIdentity);
 
-    /// <summary>Whether the closures of an escaping lambda may be part of a cycle; one the analysis didn't see is assumed to be.</summary>
-    public bool IsCyclicClosure(FunctionSymbol lambda) => !captured.ContainsKey(lambda) || cyclicClosures.Contains(lambda);
+    /// <summary>Whether the closures of an escaping lambda may be part of a cycle; one the analysis didn't see is assumed to be, and a shared one never is.</summary>
+    public bool IsCyclicClosure(FunctionSymbol lambda) =>
+        !lambda.IsShared && (!captured.ContainsKey(lambda) || cyclicClosures.Contains(lambda));
 
     internal static CyclicClasses Find(IrProgram program)
     {
@@ -157,21 +158,22 @@ public sealed class CyclicClasses
     void MarkCycles()
     {
         var nodes = classes.Where(c => !c.Symbol!.IsAcyclic && !c.Symbol!.IsShared).ToList();
+        var unshared = this.closures.Where(c => !c.Lambda.IsShared).ToList();
         int closuresStart = nodes.Count;
         // Stands for the instantiations only C++ sees, which may hold anything.
-        int unknown = closuresStart + closures.Count;
+        int unknown = closuresStart + unshared.Count;
         var edges = new List<int>[unknown + 1];
         for (int i = 0; i < unknown; i++)
         {
             edges[i] = [];
             bool reachesUnknown = false;
-            foreach (var reference in i < closuresStart ? held[nodes[i]] : captured[closures[i - closuresStart].Lambda])
+            foreach (var reference in i < closuresStart ? held[nodes[i]] : captured[unshared[i - closuresStart].Lambda])
             {
                 if (reference.IsFunction)
                 {
-                    for (int j = 0; j < closures.Count; j++)
+                    for (int j = 0; j < unshared.Count; j++)
                     {
-                        if (FunctionValues.MayBe(reference, closures[j].Type))
+                        if (FunctionValues.MayBe(reference, unshared[j].Type))
                             edges[i].Add(closuresStart + j);
                     }
                     reachesUnknown |= reference.ContainsTypeParameters;
@@ -198,7 +200,7 @@ public sealed class CyclicClasses
                 if (node < closuresStart)
                     cyclic.Add(nodes[node]);
                 else
-                    cyclicClosures.Add(closures[node - closuresStart].Lambda);
+                    cyclicClosures.Add(unshared[node - closuresStart].Lambda);
             }
         }
     }

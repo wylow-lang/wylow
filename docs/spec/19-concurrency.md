@@ -42,6 +42,7 @@ and type arguments; no declaration states it. A bound asks for it with `sendable
 | A reference to a normal class, an array, a `List`, or a class of the program | no |
 | `Weak<T>` where `T` is a normal class | no |
 | A function that is not `shared` | no |
+| A non-escaping `shared fn` | no |
 | A struct, enum, or fixed array with any field or element that is not sendable | no |
 | A type parameter whose bounds do not name `sendable` | no |
 
@@ -106,6 +107,8 @@ shared class Node {
 `escaping` is ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)), and is
 written wherever a function type is: `shared fn(Span<float>) -> void`,
 `escaping shared fn() -> R`, `Channel<shared fn() -> void>`.
+
+A function type has four forms: `fn`, `escaping fn`, `shared fn`, and `escaping shared fn`.
 
 | | Escaping `shared fn` | Non-escaping `shared fn` |
 |---|---|---|

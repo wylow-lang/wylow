@@ -186,9 +186,9 @@ sealed class StackSlots
             ? Created(let.Value, statements)
             : null;
 
-    /// <summary>Whether an rvalue allocates: a <c>new</c>, or an escaping lambda that captures something, whose closure holds the copies.</summary>
+    /// <summary>Whether an rvalue may be put in a slot: a <c>new</c>, or an escaping lambda that captures something, whose closure holds the copies. A shared closure never may, since a slot's end destroys what it holds.</summary>
     static bool IsCreation(IrRvalue value) =>
-        value is IrClosure { Captures.Count: > 0 }
+        value is IrClosure { Captures.Count: > 0 } closure && !closure.Type.IsShared
         || (value is IrNew created && created.Type.Symbol?.IsShared != true);
 
     /// <summary>Whether the local is a plain variable, which a slot can be declared with, that no lambda assigns.</summary>

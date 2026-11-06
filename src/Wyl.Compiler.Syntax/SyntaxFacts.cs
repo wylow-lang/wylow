@@ -80,6 +80,9 @@ public static class SyntaxFacts
     /// </summary>
     public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.FnKeyword;
 
+    public static bool IsTypeStart(TokenKind kind, TokenKind next) =>
+        IsTypeStart(kind) || kind == TokenKind.SharedKeyword && next == TokenKind.FnKeyword;
+
     public static string GetText(TokenKind kind) => kind switch
     {
         TokenKind.Plus => "+",

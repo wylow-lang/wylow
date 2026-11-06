@@ -1,0 +1,79 @@
+// What a shared lambda may capture, and what it may do with a capture.
+
+class Node {
+    int value;
+}
+
+unique struct Owned {
+    int n;
+}
+
+struct Counter {
+    int value;
+
+    mut int bump() {
+        value++;
+        return value;
+    }
+}
+
+struct Point {
+    int x;
+
+    shared fn() -> int reader() {
+        return () -> x;                     // error[WYL0477]: shared lambda cannot capture 'this' outside a shared class's method
+    }
+}
+
+class Plain {
+    int limit;
+
+    Plain(int limit) {
+        this.limit = limit;
+    }
+
+    shared fn() -> int reader() {
+        return () -> limit;                 // error[WYL0477]: shared lambda cannot capture 'this' outside a shared class's method
+    }
+}
+
+void keep(escaping shared fn() -> int f) { }
+void run(shared fn() -> int f) { }
+int byRef(ref int value) {
+    value++;
+    return value;
+}
+
+void references(ref int value, in int read, Span<int> view) {
+    run(() -> value);                       // error[WYL0475]: shared lambda cannot capture 'value'
+    run(() -> read);
+    run(() -> view[0]);                     // error[WYL0476]: shared lambda cannot capture 'view'
+}
+
+void values() {
+    var node = new Node();
+    keep(() -> node.value);                 // error[WYL0472]: shared lambda cannot capture 'node'
+
+    var owned = Owned(1);
+    keep(() -> owned.n);                    // error[WYL0473]: shared lambda cannot capture 'owned'
+}
+
+void changes() {
+    mut int changing = 1;
+    run(() -> changing);                    // error[WYL0474]: shared lambda cannot capture 'changing'
+    run(() -> {
+        changing = 2;                       // error[WYL0351]: cannot assign to 'changing'
+    });
+
+    mut var counter = Counter(1);
+    run(() -> counter.bump());              // error[WYL0105]: cannot call 'mut' method 'bump' on 'counter'
+    mut var other = Counter(2);
+    run(() -> byRef(ref other.value));      // error[WYL0474]: shared lambda cannot capture 'other' // error[WYL0223]: cannot pass 'other.value' by 'ref'
+}
+
+void store() {
+    shared fn() -> int local = () -> 1;
+    keep(local);                            // error[WYL0271]: non-escaping variable 'local' cannot be stored or returned
+}
+
+void main() { }

@@ -307,7 +307,7 @@ public sealed partial class IrLowering
 
         if (initializer is not null && OwnedFunction(symbol, initializer) is { } owned)
         {
-            Define(Declare(symbol, ((FunctionType)symbol.Type).Escaping), owned);
+            Define(Declare(symbol, ((FunctionType)owned.Type).Escaping), owned);
             return;
         }
 

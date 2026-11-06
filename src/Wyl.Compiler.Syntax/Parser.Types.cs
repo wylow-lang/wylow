@@ -68,7 +68,7 @@ public sealed partial class Parser
                 depth--;
             else if (kind == TokenKind.GreaterGreater)
                 depth -= 2;
-            else if (kind is TokenKind.OpenParen or TokenKind.FnKeyword)
+            else if (kind is TokenKind.OpenParen or TokenKind.FnKeyword || kind == TokenKind.SharedKeyword && KindAt(i + 1) == TokenKind.FnKeyword)
             {
                 int end = ScanType(i);
                 if (end < 0)
@@ -103,7 +103,8 @@ public sealed partial class Parser
     /// </summary>
     /// <summary>Whether a type starts at token <paramref name="index"/>, including <c>(fn(int) -> int)?</c>.</summary>
     bool StartsType(int index) =>
-        SyntaxFacts.IsTypeStart(KindAt(index)) || KindAt(index) == TokenKind.OpenParen && KindAt(index + 1) == TokenKind.FnKeyword;
+        SyntaxFacts.IsTypeStart(KindAt(index), KindAt(index + 1))
+        || KindAt(index) == TokenKind.OpenParen && SyntaxFacts.IsTypeStart(KindAt(index + 1), KindAt(index + 2)) && KindAt(index + 1) is TokenKind.FnKeyword or TokenKind.SharedKeyword;
 
     TypeSyntax ParseType(bool allowNullable = true, bool allowArrays = true)
     {
@@ -116,6 +117,17 @@ public sealed partial class Parser
         int start = position;
         if (Accept(TokenKind.FnKeyword))
             return ParseFunctionTypeRest(start, allowNullable, allowArrays);
+        if (At(TokenKind.SharedKeyword))
+        {
+            if (Peek(1).Kind == TokenKind.FnKeyword)
+            {
+                Advance();
+                Advance();
+                return ParseFunctionTypeRest(start, allowNullable, allowArrays, isShared: true);
+            }
+            Report(Catalog.SharedOutsideClass(Loc(Current.Span)));
+            Advance();
+        }
 
         TypeSyntax type;
         if (At(TokenKind.OpenParen) && StartsType(position))
@@ -189,7 +201,7 @@ public sealed partial class Parser
     /// A function type's parameters and return type, after its <c>fn</c>; <paramref name="reported"/>
     /// when the type already has an error, so a missing '->' isn't another.
     /// </summary>
-    TypeSyntax ParseFunctionTypeRest(int start, bool allowNullable, bool allowArrays, bool reported = false)
+    TypeSyntax ParseFunctionTypeRest(int start, bool allowNullable, bool allowArrays, bool reported = false, bool isShared = false)
     {
         var parameters = ParseFunctionTypeParameters();
         if (!Accept(TokenKind.Arrow))
@@ -200,7 +212,7 @@ public sealed partial class Parser
         }
         // The return type takes the suffixes: `fn(int) -> int?` returns an `int?`.
         var returnType = ParseType(allowNullable, allowArrays);
-        return new TypeSyntax(LocationFrom(start), "", []) { Shape = TypeShape.Function, Element = returnType, Parameters = parameters };
+        return new TypeSyntax(LocationFrom(start), "", []) { Shape = TypeShape.Function, Element = returnType, Parameters = parameters, IsShared = isShared };
     }
 
     List<FunctionTypeParameter> ParseFunctionTypeParameters()
@@ -243,6 +255,8 @@ public sealed partial class Parser
     {
         if (index >= tokens.Count || !StartsType(index))
             return -1;
+        if (KindAt(index) == TokenKind.SharedKeyword)
+            index++;
         if (KindAt(index) == TokenKind.FnKeyword)
         {
             int end = ScanFunctionTypeParameters(index + 1);

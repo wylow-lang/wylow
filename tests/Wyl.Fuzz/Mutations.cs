@@ -108,6 +108,7 @@ static class Mutations
         new("type-integer", SiteKind.Type, IntegerApplies, IntegerBuild),
         new("type-fixed-array-length", SiteKind.Type, FixedArrayApplies, FixedArrayBuild),
         new("type-fixed-array", SiteKind.Type, ArrayApplies, TypeArrayBuild),
+        new("type-shared-function", SiteKind.Type, SharedFunctionApplies, SharedFunctionBuild),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
         new("type-unique", SiteKind.TypeDecl, UniqueApplies, UniqueBuild),
         // Gives a unique struct an empty destructor, which crosses destructor lowering and the
@@ -200,6 +201,12 @@ static class Mutations
 
     static Candidate? TypeArrayBuild(MutationContext context, Site site) =>
         Single("type-fixed-array", site, context.Slice(site.Span) + "[1]");
+
+    static bool SharedFunctionApplies(Site site) =>
+        site.Node is TypeSyntax { Shape: TypeShape.Function, IsShared: false };
+
+    static Candidate? SharedFunctionBuild(MutationContext context, Site site) =>
+        Insert("type-shared-function", site, site.Span.Start, "shared ");
 
     static bool KindApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration

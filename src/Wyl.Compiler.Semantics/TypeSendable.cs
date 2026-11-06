@@ -17,7 +17,8 @@ public static class TypeSendable
             _ when type == WylType.String => true,
             _ when type.IsWeakOfSharedClass => true,
             _ when type.IsReference => type.Symbol is { IsShared: true },
-            _ when type.IsFunction || type.IsPointer => false,
+            _ when type.IsFunction => type is FunctionType { IsEscaping: true, IsShared: true },
+            _ when type.IsPointer => false,
             _ when type.Symbol is { IsExtern: true } => false,
             _ => true,
         };

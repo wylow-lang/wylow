@@ -144,6 +144,8 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>A lambda converted to an escaping function type, which copies what it captures.</summary>
     public bool IsEscaping { get; init; }
 
+    public bool IsShared { get; init; }
+
     /// <summary>For a lambda, the function or lambda whose body creates it.</summary>
     public FunctionSymbol? Enclosing { get; init; }
 

@@ -103,6 +103,17 @@ public:
     const char* ClassName() const override { return Name.Text; }
 };
 
+template <ClosureName Name, class... C>
+class SharedClosure final : public SharedObject {
+public:
+    std::tuple<C...> Captures;
+
+    template <class... V>
+    explicit SharedClosure(V&&... values) : Captures(std::forward<V>(values)...) {}
+
+    const char* ClassName() const override { return Name.Text; }
+};
+
 // The code a function value calls with its closure: Body is a C++ lambda that captures nothing and
 // takes the captured values as its first parameters. Capturing nothing, it can be
 // default-constructed here, so only the captures are stored. Created is void for a lambda that
@@ -122,6 +133,17 @@ struct ClosureCode<R(A...), Body, Created> {
     }
 };
 
+template <class Signature, class Body, class Created>
+struct SharedClosureCode;
+
+template <class R, class... A, class Body, class Created>
+struct SharedClosureCode<R(A...), Body, Created> {
+    static R Call([[maybe_unused]] const void* self, A... arguments) {
+        const auto* closure = static_cast<const Created*>(dynamic_cast<const void*>(static_cast<const Object*>(self)));
+        return std::apply([&](const auto&... values) -> R { return Body{}(values..., std::forward<A>(arguments)...); }, closure->Captures);
+    }
+};
+
 // `cyclic` is whether the compiler found that the lambda's closures may be part of a cycle.
 template <class Signature, ClosureName Name, class Body, class... C>
 inline Function<Signature> MakeClosure([[maybe_unused]] bool cyclic, Body, C&&... captures) {
@@ -132,6 +154,17 @@ inline Function<Signature> MakeClosure([[maybe_unused]] bool cyclic, Body, C&&..
         auto* created = new Created(std::forward<C>(captures)...);
         created->SetCyclic(cyclic);
         return Function<Signature>(&ClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created));
+    }
+}
+
+template <class Signature, ClosureName Name, class Body, class... C>
+inline Function<Signature> MakeSharedClosure(Body, C&&... captures) {
+    if constexpr (sizeof...(C) == 0) {
+        return Function<Signature>(&ClosureCode<Signature, Body, void>::Call, nullptr);
+    } else {
+        using Created = SharedClosure<Name, std::remove_cvref_t<C>...>;
+        auto* created = new Created(std::forward<C>(captures)...);
+        return Function<Signature>(&SharedClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created));
     }
 }
 

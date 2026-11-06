@@ -745,11 +745,13 @@ public sealed partial class CppEmitter
         var signature = FunctionSignature((FunctionType)closure.Type);
         if (closure.Slot is { } slot)
             return $"wyl::MakeClosureIn<{signature}>({string.Join(", ", [Name(slot), function, .. values])})";
+        if (closure.Type.IsShared)
+            return $"wyl::MakeSharedClosure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [function, .. values])})";
         return $"wyl::MakeClosure<{signature}, {CppStringLiteral(closure.Name)}>({string.Join(", ", [cycles.IsCyclicClosure(closure.Function.Symbol) ? "true" : "false", function, .. values])})";
     }
 
     string ClosureObjectType(IrClosure closure) =>
-        $"wyl::Closure<{string.Join(", ", [CppStringLiteral(closure.Name), .. closure.Captures.Select(c => CppType(c.Type))])}>";
+        $"wyl::{(closure.Type.IsShared ? "SharedClosure" : "Closure")}<{string.Join(", ", [CppStringLiteral(closure.Name), .. closure.Captures.Select(c => CppType(c.Type))])}>";
 
     /// <summary>
     /// A choice's option: a non-escaping local or parameter it refers to, which outlives it, or a

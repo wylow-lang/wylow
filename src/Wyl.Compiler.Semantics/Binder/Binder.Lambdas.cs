@@ -28,7 +28,8 @@ public sealed partial class Binder
         }
         if (failed || returnType == WylType.Error)
             return WylType.Error;
-        return returnType.FunctionReturning(parameters).Escaping;
+        var function = returnType.FunctionReturning(parameters).Escaping;
+        return syntax.IsShared ? function.Shared : function;
     }
 
     bool CheckParameterMode(RefKind refKind, WylType type, Location location)
@@ -105,6 +106,7 @@ public sealed partial class Binder
         {
             IsLambda = true,
             IsEscaping = type.IsEscaping,
+            IsShared = type.IsShared,
             Enclosing = currentFunction,
             IsUnsafe = InUnsafe,
             IsReadOnly = currentFunction?.IsReadOnly == true,
@@ -133,11 +135,11 @@ public sealed partial class Binder
     /// Binds a lambda's body before its return type is known, for generic inference. Its returns are
     /// converted once the type is known, by <see cref="RetargetLambda"/>.
     /// </summary>
-    InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters, bool escaping)
+    InferredLambda BindLambdaInferringReturn(BoundPendingLambda lambda, IReadOnlyList<FunctionParameterType> parameters, bool escaping, bool shared)
     {
         var e = lambda.SyntaxFor(parameters);
         // The return type stands in until it is inferred; returns don't look at it.
-        var function = LambdaFunction(e, WylType.Error.FunctionReturning(parameters).WithEscaping(escaping), lambda.DeclaredParameters, WylType.Error);
+        var function = LambdaFunction(e, WylType.Error.FunctionReturning(parameters).WithForms(escaping, shared), lambda.DeclaredParameters, WylType.Error);
         var enclosing = inferring;
         var values = new List<BoundExpression>();
         inferring = (function, values);

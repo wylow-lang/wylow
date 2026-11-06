@@ -110,6 +110,14 @@ static class MatrixTypes
             raw => $"() -> {raw}",
             expr => $"print({expr}());",
             Comparable: false);
+        yield return new("function-shared-escaping", "shared fn() -> int", "escaping shared fn() -> int", "(shared fn() -> int)[2]", "3", "7",
+            raw => $"() -> {raw}",
+            expr => $"print({expr}());",
+            Comparable: false);
+        yield return new("function-shared-nonescaping", "shared fn() -> int", "shared fn() -> int", "(shared fn() -> int)[2]", "3", "7",
+            raw => $"() -> {raw}",
+            expr => $"print({expr}());",
+            Comparable: false);
         yield return new("generic", "Box<int>", "Box<int>", "Box<int>[2]", "3", "7",
             raw => $"Box<int>({raw})",
             expr => $"print({expr}.value);");

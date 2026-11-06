@@ -217,7 +217,7 @@ public sealed partial class Binder
                     }
                     foreach (var lambda in lambdas)
                     {
-                        var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters, target.IsEscaping);
+                        var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters, target.IsEscaping, target.IsShared);
                         if (inferred.Values.Any(v => v.Type == WylType.Error))
                             return null;
                         if (inferred.Values.Count == 0)

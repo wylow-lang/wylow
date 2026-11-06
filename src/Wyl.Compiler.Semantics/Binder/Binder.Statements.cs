@@ -29,7 +29,7 @@ public sealed partial class Binder
             ? BindConstructorBody(function)
             : BindBlock(function.Body!);
         undo();
-        CheckEscapingCaptures(body);
+        CheckCaptures(body);
 
         currentFunction = null;
         currentType = null;
@@ -511,6 +511,7 @@ public sealed partial class Binder
     (PlaceKind Kind, ReadOnlyReason Reason) ClassifyLocal(LocalSymbol local) => local switch
     {
         _ when IsCopiedByEscapingLambda(local) => (PlaceKind.ReadOnly, new(ReadOnlyKind.LambdaCopy, local.Name)),
+        _ when IsCapturedBySharedLambda(local) => (PlaceKind.ReadOnly, new(ReadOnlyKind.SharedCapture, local.Name)),
         { RefKind: RefKind.In } => (PlaceKind.ReadOnly, new(local.IsParameter ? ReadOnlyKind.InParameter : ReadOnlyKind.InVariable, local.Name)),
         { IsWritable: false } => (PlaceKind.ReadOnly, new(local.IsParameter ? ReadOnlyKind.ImmutableParameter : ReadOnlyKind.ImmutableVariable, local.Name)),
         _ => (PlaceKind.Mutable, default),

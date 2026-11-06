@@ -8,18 +8,24 @@ public static class Conversions
     /// Only conversions that can never lose information are implicit: numeric widening, and for
     /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
     /// to, and a nullable value to another nullable whose value type it converts to. An escaping
-    /// function converts to its non-escaping form, and a <c>ref? T</c> to an <c>in? T</c>.
+    /// function converts to its non-escaping form, a shared one to the same type without shared, and
+    /// a <c>ref? T</c> to an <c>in? T</c>.
     /// </summary>
     public static bool IsImplicit(WylType from, WylType to) =>
         from == to
         || from == WylType.Error
         || to == WylType.Error
-        || (from is FunctionType { IsEscaping: true } function && to == function.NonEscaping)
+        || (from is FunctionType function && to is FunctionType target && IsFunctionConversion(function, target))
         || IsNumericWidening(from, to)
         || (from == WylType.Null && (to.IsNullable || to.IsPointer || to.IsNullableReference))
         || (from is NullableReferenceType reference && to is NullableReferenceType { Kind: RefKind.In } readOnly && reference.Referenced == readOnly.Referenced)
         || (to.IsNullableValue && from != WylType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull));
+
+    public static bool IsFunctionConversion(FunctionType from, FunctionType to) =>
+        (!to.IsEscaping || from.IsEscaping)
+        && (!to.IsShared || from.IsShared)
+        && from.NonEscaping.NonShared == to.NonEscaping.NonShared;
 
     /// <summary>
     /// An integer or <c>char</c> converts to an integer type that holds all its values on every
