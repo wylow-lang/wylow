@@ -362,6 +362,11 @@ public sealed partial class IrLowering
             ConditionalAccess(access);
             return;
         }
+        if (statement.IsDiscard && IsPlace(expression))
+        {
+            Place(expression, Use.Read);
+            return;
+        }
         var value = Rvalue(expression, Use.Read);
         Add(DoOf(value));
         if (value is IrCall { Method.Symbol.IsNoReturn: true })

@@ -1,0 +1,31 @@
+import std::print;
+
+unique struct Box {
+    int value;
+
+    Box(int value) {
+        this.value = value;
+    }
+}
+
+Result<T, String> first<T>(Result<T, String> a, Result<T, String> b) {
+    T x = try a;
+    _ = [try b][0];
+    return Ok(x);
+}
+
+void report(Result<int, String> r) {
+    switch (r) {
+        case Ok(var value) -> print(value);
+        case Err(var error) -> print(error);
+    }
+}
+
+void main() {
+    Box box = Box(1);
+    _ = box;
+    _ = box.value;
+    print(box.value);                                                         // output: 1
+    report(first(Result<int, String>.Ok(2), Result<int, String>.Ok(3)));      // output: 2
+    report(first(Result<int, String>.Ok(2), Result<int, String>.Err("no")));  // output: no
+}
