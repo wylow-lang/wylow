@@ -668,15 +668,23 @@ static partial class IrSelfTests
         }, Error: "reads 'self' before it is built");
         yield return new("built_struct_from_default", () => Built("built_struct_from_default", vec, [false], [], _ => [], new IrDefault(vec)),
             Error: "a built struct starts as zeroed storage");
-        yield return new("zeroed_outside_built", () =>
+        yield return new("zeroed_in_constructor", () =>
         {
             var self = b.Local("self", vec);
-            return new IrFunction(new FunctionSymbol("zeroed_outside_built", [], WylType.Void) { IsConstructor = true }, "zeroed_outside_built")
+            return new IrFunction(new FunctionSymbol("zeroed_in_constructor", [], WylType.Void) { IsConstructor = true }, "zeroed_in_constructor")
             {
                 Struct = self,
                 Body = new IrBlock([new IrLet(self, new IrZeroed(vec)) { Origin = null }, new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = null }]) { Origin = null },
             };
-        }, Error: "only a built struct starts as zeroed storage");
+        });
+        yield return new("zeroed_outside_built", () =>
+        {
+            var self = b.Local("self", vec);
+            return new IrFunction(new FunctionSymbol("zeroed_outside_built", [], WylType.Void), "zeroed_outside_built")
+            {
+                Body = new IrBlock([new IrLet(self, new IrZeroed(vec)) { Origin = null }]) { Origin = null },
+            };
+        }, Error: "only a struct being built starts as zeroed storage");
 
         yield return new("struct_constructor", () => StructConstructor("struct_constructor", returnsSelf: true));
         yield return new("struct_constructor_returns_other", () => StructConstructor("struct_constructor_returns_other", returnsSelf: false),

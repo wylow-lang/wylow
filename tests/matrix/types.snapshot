@@ -139,7 +139,6 @@ out tracked 3
 exit 0
 
 === unique-destructor/field
-out tracked 1
 out 3
 out tracked 3
 out 7
@@ -212,14 +211,10 @@ out tracked 3
 exit 0
 
 === unique-destructor/constructor-call
-out tracked 1
 out 3
-out tracked 1
 out 7
-out tracked 1
 out 7
 out 3
-out tracked 1
 out 7
 out tracked 7
 out tracked 7
