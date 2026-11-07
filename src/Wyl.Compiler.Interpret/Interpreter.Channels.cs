@@ -26,22 +26,16 @@ public sealed partial class Interpreter
     Value? DetachSender(IrCall call, Frame caller)
     {
         var state = StateOf(ArgumentsOf(call, caller)[0]);
-        List<Cell>? dropped = null;
+        List<Cell> dropped = [];
         lock (state.Gate)
         {
             if (--state.Senders > 0 || state.Closed)
                 return null;
             state.Closed = true;
             if (state.Receivers == 0)
-            {
-                dropped = [.. state.Queue];
-                state.Queue.Clear();
-            }
+                dropped = TakeQueued(state);
         }
-        state.Ready.Set();
-        if (dropped is { } values)
-            foreach (var cell in values)
-                Release(cell);
+        Detached(state, dropped);
         return null;
     }
 
@@ -56,19 +50,30 @@ public sealed partial class Interpreter
     Value? DetachReceiver(IrCall call, Frame caller)
     {
         var state = StateOf(ArgumentsOf(call, caller)[0]);
-        List<Cell>? dropped = null;
+        List<Cell> dropped;
         lock (state.Gate)
         {
             if (--state.Receivers > 0 || !state.Closed)
                 return null;
-            dropped = [.. state.Queue];
-            state.Queue.Clear();
+            dropped = TakeQueued(state);
         }
-        state.Ready.Set();
-        if (dropped is { } values)
-            foreach (var cell in values)
-                Release(cell);
+        Detached(state, dropped);
         return null;
+    }
+
+    static List<Cell> TakeQueued(ChannelState state)
+    {
+        List<Cell> taken = [.. state.Queue];
+        state.Queue.Clear();
+        return taken;
+    }
+
+    /// <summary>Wakes every receiver, then releases the values a detach dropped, in the order they were sent.</summary>
+    void Detached(ChannelState state, List<Cell> dropped)
+    {
+        state.Ready.Set();
+        foreach (var cell in dropped)
+            Release(cell);
     }
 
     Value? SendValue(IrCall call, Frame caller, string? location)
@@ -99,10 +104,10 @@ public sealed partial class Interpreter
                 if (state.Queue.Count > 0)
                 {
                     var taken = state.Queue.Dequeue();
-                    return nullable == element ? taken.Value : nullable.IsNullableValue ? new OptionalValue(taken) : taken.Value;
+                    return nullable != element && nullable.IsNullableValue ? new OptionalValue(taken) : taken.Value;
                 }
                 if (state.Closed)
-                    return NullOf(nullable == element ? element : nullable);
+                    return NullOf(nullable);
                 state.Ready.Reset();
             }
             WaitHandle.WaitAny([state.Ready.WaitHandle, aborted.WaitHandle]);
