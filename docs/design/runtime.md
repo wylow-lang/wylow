@@ -98,9 +98,10 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
   kept in 8 bins by how full they are, which makes the choice constant-time.
 - **Freeing** pushes the slot onto its own chunk's free list, found by masking its address, so a
   slot needs no header. The size comes from C++'s sized delete through the virtual destructor.
-- **Memory goes back to the OS** when a chunk is left with no live slots, except that one empty
-  chunk per size class is kept, so that a count of objects hovering at a chunk's edge doesn't map
-  and unmap a chunk each time. A chunk with any live object stays mapped: objects never move, so a
+- **Memory goes back to the OS** only beyond 64 empty chunks per pool. A chunk left with no live slots
+  goes on the pool's stack of empty chunks, and any size class reuses a chunk from that stack, so a
+  program whose count of objects swings makes no system call to free and allocate them. So a thread may
+  hold up to 4 MiB that it isn't using. A chunk with any live object stays mapped: objects never move, so a
   few long-lived objects scattered over many chunks keep all of those chunks. Choosing the fullest
   chunk only reduces this.
 - **Pools are per thread, with no synchronization on the usual path.** Most objects are freed on

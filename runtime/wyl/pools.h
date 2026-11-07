@@ -36,9 +36,10 @@ namespace wyl {
 // class. A slot is taken from the size class's current chunk, from its free list or else its
 // uncarved end; a freed slot goes back to its own chunk's list, found by masking its address. When
 // the current chunk is full, the fullest chunk that has room becomes current, so that new objects
-// fill few chunks while the others drain. A chunk left empty goes back to the OS, except one kept
-// per size class, so that a count of objects hovering at a chunk's edge doesn't allocate and free
-// a chunk each time. Larger objects use the global heap.
+// fill few chunks while the others drain. A chunk left empty goes on a stack that any size class
+// reuses from, so that freeing and allocating make no system call while the pool's count of objects
+// swings. Only an empty chunk beyond MAX_EMPTY_CHUNKS goes back to the OS. Larger objects use the
+// global heap.
 //
 // A slot freed by another pool goes on its chunk's remote list, and nothing tells the owner. The
 // owner finds such a list on its current chunk when that runs out. Before it maps a new chunk, it
@@ -57,6 +58,7 @@ private:
     static constexpr uint32_t BIN_COUNT = 8;
     static constexpr uint8_t UNLISTED = BIN_COUNT;
     static constexpr size_t SCAN_CHUNKS = 4;
+    static constexpr size_t MAX_EMPTY_CHUNKS = 64;
 
     struct Slot {
         Slot* Next;
@@ -94,7 +96,6 @@ private:
 
     struct SizeClass {
         Chunk* Current = &s_NoChunk;
-        Chunk* Spare = nullptr;
         Chunk* Bins[BIN_COUNT] = {};
     };
 
@@ -103,6 +104,9 @@ private:
     // The next chunk a scan checks, or null to start again from the list's head.
     Chunk* m_ScanNext = nullptr;
     size_t m_ChunkCount = 0;
+    // A stack through Chunk::Next. These chunks stay in the list of all chunks.
+    Chunk* m_EmptyChunks = nullptr;
+    size_t m_EmptyChunkCount = 0;
 
     inline static std::atomic<size_t> s_MappedChunks{0};
 
@@ -128,7 +132,9 @@ private:
 #endif
     }
 
-    static void Reset(Chunk* chunk) {
+    static void Format(Chunk* chunk, size_t index) {
+        chunk->SizeClass = static_cast<uint8_t>(index);
+        chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
         chunk->Free = nullptr;
         chunk->Bump = reinterpret_cast<char*>(chunk) + HEADER_SIZE;
         chunk->End = chunk->Bump + size_t{chunk->Capacity} * chunk->SizeClass * GRANULE;
@@ -139,9 +145,7 @@ private:
         if (memory == nullptr) RaisePanic("out of memory", "<runtime>");
         s_MappedChunks.fetch_add(1, std::memory_order_relaxed);
         Chunk* chunk = ::new (memory) Chunk{};
-        chunk->SizeClass = static_cast<uint8_t>(index);
-        chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
-        Reset(chunk);
+        Format(chunk, index);
         chunk->Owner.store(this, std::memory_order_relaxed);
         Remember(chunk);
         return chunk;
@@ -187,14 +191,21 @@ private:
         chunk->Bin = UNLISTED;
     }
 
-    Chunk* TakeHeldChunk(SizeClass& c) {
+    Chunk* TakeHeldChunk(size_t index) {
+        SizeClass& c = m_Classes[index];
         Chunk* chunk = nullptr;
         for (uint32_t bin = BIN_COUNT; bin-- > 0 && chunk == nullptr;) chunk = c.Bins[bin];
         if (chunk != nullptr) {
             Unlink(c, chunk);
             return chunk;
         }
-        return std::exchange(c.Spare, nullptr);
+        chunk = m_EmptyChunks;
+        if (chunk != nullptr) {
+            m_EmptyChunks = chunk->Next;
+            --m_EmptyChunkCount;
+            Format(chunk, index);
+        }
+        return chunk;
     }
 
     // A chunk that is full is in no bin, so only this scan finds what other pools freed from it.
@@ -209,10 +220,10 @@ private:
         SizeClass& c = m_Classes[index];
         if (c.Current != &s_NoChunk) c.Current->Floor = c.Current->Capacity;
         c.Current = &s_NoChunk;
-        Chunk* chunk = TakeHeldChunk(c);
+        Chunk* chunk = TakeHeldChunk(index);
         for (size_t i = 0; i < SCAN_CHUNKS && chunk == nullptr; ++i) {
             ScanNextChunk();
-            chunk = TakeHeldChunk(c);
+            chunk = TakeHeldChunk(index);
         }
         if (chunk == nullptr) chunk = NewChunk(index);
         chunk->Floor = 0;
@@ -225,9 +236,10 @@ private:
         if (chunk->Bin != UNLISTED) Unlink(c, chunk);
         if (chunk->Live > 0) {
             Link(c, chunk);
-        } else if (c.Spare == nullptr) {
-            Reset(chunk);
-            c.Spare = chunk;
+        } else if (m_EmptyChunkCount < MAX_EMPTY_CHUNKS) {
+            chunk->Next = m_EmptyChunks;
+            m_EmptyChunks = chunk;
+            ++m_EmptyChunkCount;
         } else {
             Forget(chunk);
             UnmapChunk(chunk);
@@ -303,6 +315,8 @@ public:
     }
 
     size_t ChunkCount() const { return m_ChunkCount; }
+
+    size_t EmptyChunkCount() const { return m_EmptyChunkCount; }
 
     static size_t MappedChunks() { return s_MappedChunks.load(std::memory_order_relaxed); }
 

@@ -16,6 +16,9 @@ namespace {
 constexpr size_t SLOT_SIZE = 48;
 // Enough slots to fill many chunks of this size class.
 constexpr size_t SLOTS = 20000;
+// Enough slots to fill more chunks than a pool keeps empty.
+constexpr size_t MANY_SLOTS = 200000;
+constexpr size_t MAX_EMPTY_CHUNKS = 64;
 
 int s_Failures = 0;
 
@@ -87,7 +90,7 @@ void OrphanedChunksAreAdopted() {
         }
         Expect(Pools::MappedChunks() > before, "an ending owner leaves chunks with live slots mapped");
         FreeAll(other, slots);
-        Expect(other.ChunkCount() <= 1, "a pool that adopts chunks returns the emptied ones");
+        Expect(other.ChunkCount() == other.EmptyChunkCount(), "a pool that adopts chunks holds no live slots once they are freed");
     }
     Expect(Pools::MappedChunks() == before, "the adopting pool unmaps what it adopted");
 }
@@ -107,7 +110,7 @@ void FreesBeforeAndAfterOwnerEnds() {
         }
         Pools adopter;
         FreeAll(adopter, late);
-        Expect(adopter.ChunkCount() <= 1, "an adopter returns chunks emptied by frees before and after the owner ended");
+        Expect(adopter.ChunkCount() == adopter.EmptyChunkCount(), "an adopter counts frees from before and after the owner ended");
     }
     Expect(Pools::MappedChunks() == before, "every chunk goes back");
 }
@@ -116,10 +119,33 @@ void FreesBeforeAndAfterOwnerEnds() {
 void ScanSurvivesUnmappedChunks() {
     Pools owner;
     for (int round = 0; round < 4; ++round) {
-        auto slots = AllocateAll(owner);
+        auto slots = AllocateAll(owner, MANY_SLOTS);
         FreeAll(owner, slots);
     }
-    Expect(owner.ChunkCount() <= 2, "a pool keeps only its current chunk and its spare once its slots are freed");
+    Expect(owner.EmptyChunkCount() <= MAX_EMPTY_CHUNKS, "a pool keeps at most its limit of empty chunks");
+    Expect(owner.ChunkCount() <= MAX_EMPTY_CHUNKS + 1, "a pool unmaps the empty chunks beyond its limit");
+}
+
+// An empty chunk serves whichever size class needs one next, so memory that moves between size
+// classes maps nothing.
+void EmptyChunksServeAnySizeClass() {
+    Pools pools;
+    auto slots = AllocateAll(pools);
+    FreeAll(pools, slots);
+    size_t mapped = Pools::MappedChunks();
+    std::vector<void*> larger(SLOTS / 4);
+    for (void*& slot : larger) slot = pools.Allocate(SLOT_SIZE * 2);
+    Expect(Pools::MappedChunks() == mapped, "a size class reuses the chunks another one emptied");
+    constexpr size_t WORDS = SLOT_SIZE * 2 / sizeof(size_t);
+    for (size_t i = 0; i < larger.size(); ++i) {
+        for (size_t word = 0; word < WORDS; ++word) static_cast<size_t*>(larger[i])[word] = i;
+    }
+    bool intact = true;
+    for (size_t i = 0; i < larger.size(); ++i) {
+        for (size_t word = 0; word < WORDS; ++word) intact = intact && static_cast<size_t*>(larger[i])[word] == i;
+    }
+    Expect(intact, "a reused chunk is carved for its new size class");
+    for (void* slot : larger) pools.Deallocate(slot, SLOT_SIZE * 2);
 }
 
 // Taking back a remote list leaves the slots still in use alone.
@@ -185,6 +211,7 @@ int main() {
         OrphanedChunksAreAdopted();
         FreesBeforeAndAfterOwnerEnds();
         ScanSurvivesUnmappedChunks();
+        EmptyChunksServeAnySizeClass();
         LiveSlotsSurviveReuse();
         ThreadsFreeConcurrently();
     }
