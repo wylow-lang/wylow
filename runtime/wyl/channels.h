@@ -46,6 +46,14 @@ inline SyncState<T> createState() {
 }
 
 template <class T>
+inline void dropQueued(std::deque<T>& queue) {
+    while (!queue.empty()) {
+        T value = std::move(queue.front());
+        queue.pop_front();
+    }
+}
+
+template <class T>
 inline void attachSender(SyncState<T> state, const char* location) {
     State<T>& shared = state.Get();
     std::lock_guard lock(shared.Mutex);
@@ -64,6 +72,7 @@ inline void detachSender(SyncState<T> state) {
         if (shared.Receivers == 0) dropped.swap(shared.Queue);
     }
     shared.Ready.notify_all();
+    dropQueued(dropped);
 }
 
 template <class T>
@@ -83,6 +92,7 @@ inline void detachReceiver(SyncState<T> state) {
         dropped.swap(shared.Queue);
     }
     shared.Ready.notify_all();
+    dropQueued(dropped);
 }
 
 template <class T>

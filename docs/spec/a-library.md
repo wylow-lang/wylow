@@ -214,7 +214,9 @@ pub shared class Receiver<T extends sendable> {
   `sender()` on a closed channel panics.
 - `receive` waits until a value is queued or the channel closes. After the close, `receive` returns
   the values still queued, in the order they were sent, and then null.
-- If no `Receiver` is left when the channel closes, the close drops the values still queued.
+- If no `Receiver` is left when the channel closes, the close drops the values still queued. If the
+  last `Receiver` is released after the channel closes, the release drops the values still queued.
+  The channel drops the values in the order they were sent.
 - Releasing every `Receiver` does not close the channel.
 - Only a `Sender` keeps a channel open. Releasing the `Channel` object does not close the channel,
   which stays open while a `Sender` lives.

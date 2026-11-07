@@ -18,8 +18,12 @@ void main() {
     {
         var sender = channel.sender();
         sender.send(Buffer(1));
+        sender.send(Buffer(2));
+        sender.send(Buffer(3));
     }
     print("closed");
     // output: buffer 1
+    // output: buffer 2
+    // output: buffer 3
     // output: closed
 }
