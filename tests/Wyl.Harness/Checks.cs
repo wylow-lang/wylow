@@ -502,6 +502,14 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
             int space = rest.IndexOf(' ');
             return space < 0 ? rest : rest[..space];
         }
+        const string tsan = "ThreadSanitizer: ";
+        index = report.IndexOf(tsan, StringComparison.Ordinal);
+        if (index >= 0)
+        {
+            var rest = report[(index + tsan.Length)..];
+            int space = rest.IndexOf(" (", StringComparison.Ordinal);
+            return (space < 0 ? rest : rest[..space]).Trim().Replace(' ', '-');
+        }
         const string ubsan = ": runtime error: ";
         index = report.IndexOf(ubsan, StringComparison.Ordinal);
         if (index >= 0)

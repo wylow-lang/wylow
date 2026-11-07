@@ -184,12 +184,15 @@ public sealed class NativeCompiler
     }
 
     /// <summary>
-    /// The first report AddressSanitizer or UBSan wrote to a program's standard error, or null. UBSan
-    /// reports and continues, so the exit code doesn't show it.
+    /// The first report AddressSanitizer, UBSan, or ThreadSanitizer wrote to a program's standard
+    /// error, or null. UBSan and ThreadSanitizer report and continue, so the exit code doesn't show
+    /// either.
     /// </summary>
     public static string? SanitizerReport(string standardError) =>
         standardError.Replace("\r\n", "\n").Split('\n')
-            .FirstOrDefault(l => l.Contains("ERROR: AddressSanitizer", StringComparison.Ordinal) || l.Contains(": runtime error: ", StringComparison.Ordinal));
+            .FirstOrDefault(l => l.Contains("ERROR: AddressSanitizer", StringComparison.Ordinal)
+                || l.Contains(": runtime error: ", StringComparison.Ordinal)
+                || l.Contains("WARNING: ThreadSanitizer:", StringComparison.Ordinal));
 
     static string? FindOnPath(string fileName, string? path) =>
         path?.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
