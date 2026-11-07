@@ -1,5 +1,7 @@
 # Next: `Mutex` and the one-lock check
 
+Do `before-mutex.md` first. This work starts when that handoff is done and deleted.
+
 Repo `E:\Repos\Wylow\wylow`, branch `dev`. Threads (0056), an interpreter that interleaves (0057),
 the sendable floor (0058), channels (0059), and `Isolated<T>` (0060–0063) are done, and so is the
 constructor-start rule (0064). Read decisions 0016, 0049, 0054, 0057, 0059, 0060, 0061, 0062, and
