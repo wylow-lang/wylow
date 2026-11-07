@@ -381,18 +381,8 @@ public sealed partial class Binder
             Error(Catalog.StaticInGenericType(name, s.Name));
         if (field.IsMutable)
             Error(Catalog.MutStaticField(name));
-        if (field.Type == WylType.Error)
-            return;
-        if (!field.Type.IsSendable)
-        {
-            var (detail, at) = SendableProblem(field.Type);
-            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "sendable", detail, at));
-        }
-        if (!field.Type.IsCopyable)
-        {
-            var (detail, at) = CopyableProblem(field.Type);
-            Error(Catalog.StaticTypeNotAllowed(name, field.Name, "copyable", detail, at));
-        }
+        if (field.Type != WylType.Error)
+            CheckSendableAndCopyable(field.Type, (property, detail, at) => Catalog.StaticTypeNotAllowed(name, field.Name, property, detail, at));
     }
 
     void CheckSharedField(FieldSymbol field, TypeSymbol s)
@@ -402,15 +392,21 @@ public sealed partial class Binder
         var name = field.Declaration.NameLocation;
         if (field.IsMutable)
             Error(Catalog.MutSharedClassField(name, field.Name, s.Name));
-        if (!field.Type.IsSendable)
+        CheckSendableAndCopyable(field.Type, (property, detail, at) => Catalog.SharedClassFieldTypeNotAllowed(name, field.Name, s.Name, property, detail, at));
+    }
+
+    /// <summary>Reports a type that other threads would share but that is not sendable, or not copyable.</summary>
+    void CheckSendableAndCopyable(WylType type, Func<string, string, Location?, Diagnostic> error)
+    {
+        if (!type.IsSendable)
         {
-            var (detail, at) = SendableProblem(field.Type);
-            Error(Catalog.SharedClassFieldTypeNotAllowed(name, field.Name, s.Name, "sendable", detail, at));
+            var (detail, at) = SendableProblem(type);
+            Error(error("sendable", detail, at));
         }
-        if (!field.Type.IsCopyable)
+        if (!type.IsCopyable)
         {
-            var (detail, at) = CopyableProblem(field.Type);
-            Error(Catalog.SharedClassFieldTypeNotAllowed(name, field.Name, s.Name, "copyable", detail, at));
+            var (detail, at) = CopyableProblem(type);
+            Error(error("copyable", detail, at));
         }
     }
 
