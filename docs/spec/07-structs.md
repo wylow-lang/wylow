@@ -87,12 +87,13 @@ without `new`. A generic struct is written with its type arguments:
 constructor call are evaluated in the order written
 ([Evaluation order](13-expressions.md#expressions.order)).
 
-A constructor declared in a struct starts from empty storage: the field initializers run, and then
-the body runs with `this` as the value being built. A `return;` ends the construction, and the value
-is what `this` holds then. A field's **initial value** is the value empty storage holds for its type:
-a nullable value's initial value is null, and any other type with a default value has that value as
-its initial value. A type that runs a destructor has no initial value, and neither does a struct or
-fixed array that contains such a type.
+A constructor declared in a struct starts from empty storage. Each field then takes its initializer or,
+if it has none, its initial value, in declaration order. The body then runs with `this` as the value
+being built. A `return;` ends the construction, and the value is what `this` holds then. A type's
+**initial value** is the value a field of that type holds when the field has no initializer: a nullable
+value's initial value is null, and any other type with a default value has that value as its initial
+value. A type that runs a destructor has no initial value, and neither does a struct or fixed array that
+contains such a type.
 
 - A constructor whose first statement is `this(...)` calls another constructor of the struct and starts
   from the value that constructor made. It is a compile-time error if the arguments of `this(...)` use

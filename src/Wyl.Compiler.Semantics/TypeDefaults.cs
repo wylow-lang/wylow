@@ -16,9 +16,11 @@ public static class TypeDefaults
         public FieldSymbol? FindNonDefaultableField() => FindNonDefaultableField(type, []);
 
         /// <summary>
-        /// Whether empty storage makes a value of the type, so a field with no initializer may start as
-        /// that value. Empty storage makes none for a value that runs a destructor, nor for a struct or
-        /// array containing one; a nullable value's is null.
+        /// Whether a field of the type with no initializer may start as the type's default value without
+        /// a constructor assigning it. A value that runs a destructor may not, nor may a struct or array
+        /// containing one, since the program would destroy a value it never named. A nullable value's
+        /// initial value is null. Lowering stores the value where it is more than empty storage
+        /// (<c>HasDefaultCode</c>).
         /// </summary>
         public bool HasInitialValue => HasInitialValue(type, []);
 
@@ -47,7 +49,7 @@ public static class TypeDefaults
     {
         /// <summary>
         /// Whether a construction may leave the field out: it has an initializer, or its type, with
-        /// <paramref name="map"/> applied, has a default value that empty storage makes.
+        /// <paramref name="map"/> applied, has an initial value.
         /// </summary>
         public bool HasDefault(TypeMap map) => MayBeLeftOut(field, map, []);
     }

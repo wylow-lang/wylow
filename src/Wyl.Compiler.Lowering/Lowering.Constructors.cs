@@ -8,9 +8,9 @@ public sealed partial class IrLowering
 {
     /// <summary>
     /// Lowers what a constructor runs before its body (docs/design/ir.md, §5.11), and returns the
-    /// body's statements left to lower. A constructor starts from empty storage, where a field whose
-    /// type has an initial value already holds it, and runs the field initializers. A constructor that
-    /// chains starts from the constructor it calls, which runs them instead.
+    /// body's statements left to lower. A constructor starts from empty storage and gives each field
+    /// it may leave out its initial value. A constructor that chains starts from the constructor it
+    /// calls, which does this instead.
     /// </summary>
     IReadOnlyList<BoundStatement> ConstructorStart(IReadOnlyList<BoundStatement> statements)
     {
@@ -43,15 +43,31 @@ public sealed partial class IrLowering
     }
 
     /// <summary>
-    /// The field initializers a constructor runs before its body, in declaration order. Every other
-    /// field holds its type's initial value, or is one a constructor has to assign.
+    /// Gives each field a constructor may leave out its initial value before the body runs, in
+    /// declaration order. The constructor has to assign every other field, so no default of such a
+    /// field is made and then destroyed.
     /// </summary>
     void RunInitializers(TypeSymbol owner)
     {
-        foreach (var field in owner.Fields.Where(f => f.Initializer is not null))
+        foreach (var field in owner.Fields.Where(f => !f.RequiresAssignment))
+            StartField(owner, field);
+    }
+
+    /// <summary>
+    /// Stores the field's initializer, or else its type's default value unless that is empty storage,
+    /// which the field holds already.
+    /// </summary>
+    void StartField(TypeSymbol owner, FieldSymbol field)
+    {
+        if (field.Initializer is { } initializer)
         {
-            var location = field.Initializer!.Location;
-            Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), field.Initializer));
+            var location = initializer.Location;
+            Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
+        }
+        else if (field.Type.HasDefaultCode)
+        {
+            var target = self!.Type.IsReference ? IrPlace.Deref(self) : new IrPlace(self);
+            Add(new IrStore(target.Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
         }
     }
 
@@ -76,13 +92,8 @@ public sealed partial class IrLowering
             var field = owner.Fields[i];
             if (form[i])
                 Statement(memberwise!.Body.Statements[i]);
-            else if (field.Initializer is { } initializer)
-            {
-                var location = initializer.Location;
-                Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
-            }
-            else if (field.Type.HasDefaultCode)
-                Add(new IrStore(new IrPlace(self).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
+            else
+                StartField(owner, field);
         }
         Add(new IrReturn(ReadWhole(self)) { Origin = at });
         return function;

@@ -309,8 +309,9 @@ public sealed class IrDefault(WylType type) : IrRvalue
 }
 
 /// <summary>
-/// A struct's storage zeroed, which only a <see cref="IrFunction.Builds"/> function's value starts
-/// as: a field's zero is its default value only if its type has no default code (<c>HasDefaultCode</c>).
+/// A struct's storage zeroed, which only a <see cref="IrFunction.Builds"/> function's value or a struct
+/// constructor's value starts as: a field's zero is its default value only if its type has no default
+/// code (<c>HasDefaultCode</c>).
 /// </summary>
 public sealed class IrZeroed(WylType type) : IrRvalue
 {

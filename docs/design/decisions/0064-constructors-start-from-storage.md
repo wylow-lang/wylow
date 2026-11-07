@@ -1,6 +1,6 @@
 # 0064. A constructor starts from empty storage, so a field with a destructor must be assigned
 
-- Status: accepted (2026-11-06)
+- Status: accepted (2026-11-06), corrected by 0065
 - Spec: `structs.constructors`, `structs.constructors.memberwise`, `classes.construction`,
   `flow.constructors`
 

@@ -185,6 +185,35 @@ public sealed partial class IrVerifier
             CheckFieldsAssigned(state, EndOf(body));
         if (verified.Builds is not null)
             CheckBuilt(verified);
+        else if (verified.Symbol is { IsConstructor: true, ContainingType: { } constructedType } && StartsEmpty(verified))
+            CheckConstructorStart(verified, constructedType);
+    }
+
+    /// <summary>
+    /// Whether a constructor starts from empty storage: a class constructor that does not chain, or a
+    /// struct constructor that starts from a zeroed value and not from the constructor it calls.
+    /// </summary>
+    static bool StartsEmpty(IrFunction constructor) => constructor.Struct is { } made
+        ? constructor.Body.Statements.FirstOrDefault() is IrLet { Value: IrZeroed } start && start.Local == made
+        : !constructor.Chains;
+
+    /// <summary>
+    /// A constructor stores each field it may leave out whose initial value isn't empty storage.
+    /// Lowering stores each one in its own statement, so where the stores are needs no flow.
+    /// </summary>
+    void CheckConstructorStart(IrFunction constructor, TypeSymbol owner)
+    {
+        var made = constructor.Struct ?? constructor.This;
+        var stored = IrWalk.Descendants(constructor.Body)
+            .OfType<IrStore>()
+            .Where(store => store.Target.Local == made && store.Target.IsDeref == made?.Type.IsReference)
+            .Select(store => store.Target.Projections is [IrField field] ? field.Field : null)
+            .ToHashSet();
+        foreach (var field in owner.Fields.Where(f => !f.RequiresAssignment && !stored.Contains(f)))
+        {
+            if (field.Initializer is not null || field.Type.HasDefaultCode)
+                Report(constructor, null, $"field '{field.Name}' is left zeroed, which isn't its default value");
+        }
     }
 
     void CheckFieldsAssigned(State state, Location at)

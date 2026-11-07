@@ -92,3 +92,4 @@ history and a reason can be found without searching the spec.
 | [0062](0062-isolated-api.md) | The `Isolated<T>` API: one `open`, `Unit` for nothing, and a by-value `take` |
 | [0063](0063-isolated-conversion.md) | A sendable value converts to a box, and a box is sendable for any `T` |
 | [0064](0064-constructors-start-from-storage.md) | A constructor starts from empty storage, so a field with a destructor must be assigned |
+| [0065](0065-initial-value-is-the-default.md) | A field's initial value is its type's default value, which a constructor stores when it is more than empty storage |

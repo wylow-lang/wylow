@@ -677,6 +677,15 @@ static partial class IrSelfTests
                 Body = new IrBlock([new IrLet(self, new IrZeroed(vec)) { Origin = null }, new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = null }]) { Origin = null },
             };
         });
+        yield return new("constructor_default_left_zeroed", () =>
+        {
+            var self = b.Local("self", counter);
+            return new IrFunction(new FunctionSymbol("constructor_default_left_zeroed", [], WylType.Void) { IsConstructor = true, ContainingType = counter.Symbol }, "constructor_default_left_zeroed")
+            {
+                Struct = self,
+                Body = new IrBlock([new IrLet(self, new IrZeroed(counter)) { Origin = null }, new IrReturn(IrRead.Copy(new IrPlace(self))) { Origin = null }]) { Origin = null },
+            };
+        }, Error: "field 'n' is left zeroed");
         yield return new("zeroed_outside_built", () =>
         {
             var self = b.Local("self", vec);
