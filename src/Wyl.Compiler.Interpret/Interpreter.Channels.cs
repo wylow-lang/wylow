@@ -92,12 +92,11 @@ public sealed partial class Interpreter
                         if (state.Queue.Count > 0)
                         {
                             var taken = state.Queue.Dequeue();
-                            if (state.Queue.Count == 0 && !state.Closed)
-                                state.Ready.Reset();
                             return nullable == element ? taken.Value : nullable.IsNullableValue ? new OptionalValue(taken) : taken.Value;
                         }
                         if (state.Closed)
                             return NullOf(nullable == element ? element : nullable);
+                        state.Ready.Reset();
                     }
                     WaitHandle.WaitAny([state.Ready.WaitHandle, aborted.WaitHandle]);
                     if (aborting)
