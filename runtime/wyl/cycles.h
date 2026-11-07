@@ -415,10 +415,21 @@ inline void Object::Destroy() {
     --cycles.m_Destroying;
 }
 
-inline void SharedObject::Release() {
-    if (m_SharedCount.fetch_sub(1, std::memory_order_acq_rel) != 1) return;
-    m_SharedCount.fetch_add(1, std::memory_order_relaxed);
-    ClearWeak();
+// If a weak reference has added to the count, this release is not the last one. Only a weak reference
+// could add to it now, and it does so under the guard, so a count of 1 under the guard is final. The
+// count then stays at 1 for the destructor, as Destroy() holds it, so ~Object's check applies.
+inline void SharedObject::EndShared(uint64_t state) {
+    if (state & SHARED_WEAK) {
+        WeakBlock* block = m_Weak.load(std::memory_order_acquire);
+        {
+            WeakGuard guard(*block);
+            uint64_t current = m_Side.SharedState.load(std::memory_order_acquire);
+            if (DropUnlessLast(current)) return;
+            block->Target = nullptr;
+        }
+        if (--block->Count == 0) delete block;
+    }
+    m_Side.SharedState.fetch_or(SHARED_DYING, std::memory_order_acquire);
     CycleCollector& cycles = CurrentCycles();
     ++cycles.m_Destroying;
     delete this;

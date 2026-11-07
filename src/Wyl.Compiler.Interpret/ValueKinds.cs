@@ -204,6 +204,24 @@ public sealed class ObjectRef(WylType type, Dictionary<TypeSymbol, Cell[]> field
         }
     }
 
+    /// <summary>
+    /// Drops one reference and returns how many are left. A shared object's last release clears its
+    /// weak block under the lock <see cref="WeakValue.Get"/> takes, so that call finds a count above
+    /// zero or no target, and never revives an object another thread is destroying.
+    /// </summary>
+    public long ReleasedReference()
+    {
+        if (Type.Symbol is not { IsShared: true })
+            return ReleasedOne();
+        lock (HeapSync.Lock)
+        {
+            long count = ReleasedOne();
+            if (count == 0)
+                ClearWeak();
+            return count;
+        }
+    }
+
     public override void ClearWeak()
     {
         lock (HeapSync.Lock)

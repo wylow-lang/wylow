@@ -2,13 +2,15 @@
 
 #include <atomic>
 #include <optional>
+#include <thread>
 
 #include "pools.h"
 
 namespace wyl {
 
 // Class objects derive virtually from Object, so every object has exactly one reference count
-// however many interfaces it implements. The count is non-atomic: objects are thread-confined.
+// however many interfaces it implements. A normal object's count is non-atomic, because the object is
+// thread-confined. A shared object's count is atomic.
 
 class Object;
 
@@ -20,9 +22,27 @@ struct WeakBlock {
     // The object's buffer slot and creation number, which the block takes over from the object's header.
     uint32_t Slot;
     uint32_t Created;
+    // A shared object's block: Target changes under Guard, and a reader takes its strong reference
+    // under Guard, so the object cannot be destroyed between the read and the count.
+    bool Shared;
+    std::atomic_flag Guard;
 
-    WeakBlock(Object* target, uintptr_t count, uint32_t slot, uint32_t created)
-        : Target(target), Count(count), Slot(slot), Created(created) {}
+    WeakBlock(Object* target, uintptr_t count, uint32_t slot, uint32_t created, bool shared = false)
+        : Target(target), Count(count), Slot(slot), Created(created), Shared(shared) {}
+};
+
+// A spin lock rather than a mutex: the section is a few instructions, and unlocking touches nothing
+// after its one store, so the next holder may free the block.
+class WeakGuard {
+    WeakBlock& m_Block;
+
+public:
+    explicit WeakGuard(WeakBlock& block) : m_Block(block) {
+        while (m_Block.Guard.test_and_set(std::memory_order_acquire)) std::this_thread::yield();
+    }
+    WeakGuard(const WeakGuard&) = delete;
+    WeakGuard& operator=(const WeakGuard&) = delete;
+    ~WeakGuard() { m_Block.Guard.clear(std::memory_order_release); }
 };
 
 template <class R>
@@ -54,18 +74,22 @@ class Object {
     // The flags below in the low bits and the reference count above them, so that the header is
     // the vtable pointer and two words. The count starts at 1 for the `new` expression that creates
     // the object, so a constructor can hand out and drop references to `this` without it reaching 0.
-    static constexpr int FLAG_BITS = 7;
+    // A shared object's state is SHARED alone and never changes once its constructor has run, so any
+    // thread may read it; its count is in `m_Side`.
+    static constexpr int FLAG_BITS = 8;
     static constexpr uint64_t ONE_REF = uint64_t{1} << FLAG_BITS;
     uint64_t m_State = ONE_REF;
     // The weak block once the object has one; otherwise, while buffered, one more than the
     // object's index in the cycle buffer, so that it can leave the buffer when destroyed, and the
-    // object's creation number, which orders a collected cycle's destructors.
+    // object's creation number, which orders a collected cycle's destructors. A shared object's
+    // holds its atomic count, above the SHARED_ flags.
     union {
         WeakBlock* WeakPointer;
         struct {
             uint32_t Slot;
             uint32_t Created;
         } Own;
+        std::atomic<uint64_t> SharedState;
     } m_Side{.Own = {0, s_ObjectsCreated++}};
 
     inline static thread_local uint32_t s_ObjectsCreated = 0;
@@ -83,11 +107,20 @@ class Object {
     static constexpr uint64_t FINALIZED = 32;
     // `m_Side` holds the weak block, which holds the buffer slot.
     static constexpr uint64_t HAS_WEAK = 64;
+    // The count is `m_Side.SharedState`, and this object is a SharedObject.
+    static constexpr uint64_t SHARED = 128;
     static constexpr uint64_t FLAG_MASK = ONE_REF - 1;
+
+    // The object has a weak block, so a weak reference may add to the count during its last release.
+    static constexpr uint64_t SHARED_WEAK = 1;
+    // The last release has begun, so weak references taken by the destructor read null.
+    static constexpr uint64_t SHARED_DYING = 2;
+    static constexpr uint64_t SHARED_ONE_REF = 4;
 
     template <class>
     friend class Weak;
     friend class CycleCollector;
+    friend class SharedObject;
     template <class>
     friend class StackSlot;
 
@@ -96,7 +129,9 @@ class Object {
     void LeaveCollector();
     void DestroyInSlot(bool inPlace);
 
-    uint64_t Refs() const { return m_State >> FLAG_BITS; }
+    uint64_t Refs() const {
+        return (m_State & SHARED) ? m_Side.SharedState.load(std::memory_order_relaxed) / SHARED_ONE_REF : m_State >> FLAG_BITS;
+    }
     // Only for the collector, which balances every one of these.
     void Unretain() { m_State -= ONE_REF; }
 
@@ -122,8 +157,25 @@ class Object {
         return m_Side.WeakPointer;
     }
 
+    // Ends a shared object, given the state in which its last release found it. Only a SharedObject
+    // has a shared state, and this virtual call is how the release reaches its weak block.
+    virtual void EndShared(uint64_t) {}
+
+    // One atomic step, so that two releases cannot each see the other's reference and both drop theirs.
+    bool DropUnlessLast(uint64_t& state) {
+        while (state / SHARED_ONE_REF > 1) {
+            if (m_Side.SharedState.compare_exchange_weak(state, state - SHARED_ONE_REF, std::memory_order_acq_rel, std::memory_order_acquire)) return true;
+        }
+        return false;
+    }
+
+    void ReleaseShared() {
+        uint64_t state = m_Side.SharedState.load(std::memory_order_acquire);
+        if (!DropUnlessLast(state)) EndShared(state);
+    }
+
     // Leaves the slot behind in the header, for an object still to leave the buffer.
-    virtual void ClearWeak() {
+    void ClearWeak() {
         m_State |= DYING;
         if (!(m_State & HAS_WEAK)) return;
         WeakBlock* weak = m_Side.WeakPointer;
@@ -166,12 +218,22 @@ public:
     void SetCyclic(bool value) { m_State = value ? m_State | CYCLIC : m_State & ~CYCLIC; }
     bool Finalized() const { return (m_State & FINALIZED) != 0; }
 
-    // 57 bits of count cannot overflow: the references alone would fill more than any address space.
-    virtual void Retain() { m_State += ONE_REF; }
+    // 56 bits of count cannot overflow: the references alone would fill more than any address space.
+    void Retain() {
+        if (m_State & SHARED) [[unlikely]] {
+            m_Side.SharedState.fetch_add(SHARED_ONE_REF, std::memory_order_relaxed);
+            return;
+        }
+        m_State += ONE_REF;
+    }
 
     // A release that leaves a cyclic object's count above zero may have left it in an unreachable
     // cycle, so it is buffered for the collector, once until the next collection.
-    virtual void Release() {
+    void Release() {
+        if (m_State & SHARED) [[unlikely]] {
+            ReleaseShared();
+            return;
+        }
         m_State -= ONE_REF;
         if (m_State < ONE_REF) {
             Destroy();
@@ -182,48 +244,37 @@ public:
 };
 
 class SharedObject : public virtual Object {
-    std::atomic<uint64_t> m_SharedCount{1};
-    std::atomic<bool> m_IsDying{false};
-    std::atomic<WeakBlock*> m_WeakPtr{nullptr};
+    std::atomic<WeakBlock*> m_Weak{nullptr};
 
+    // The caller holds a strong reference, so no last release runs during this, and the last release
+    // sees SHARED_WEAK because it happens after the caller lets go.
     WeakBlock* GetWeakBlock() override {
-        if (m_IsDying.load(std::memory_order_acquire)) return nullptr;
-        if (WeakBlock* block = m_WeakPtr.load(std::memory_order_acquire)) return block;
-        WeakBlock* made = new WeakBlock{this, 1, 0, 0};
+        if (m_Side.SharedState.load(std::memory_order_acquire) & SHARED_DYING) return nullptr;
+        if (WeakBlock* block = m_Weak.load(std::memory_order_acquire)) return block;
+        WeakBlock* made = new WeakBlock{this, 1, 0, 0, true};
         WeakBlock* expected = nullptr;
-        if (!m_WeakPtr.compare_exchange_strong(expected, made, std::memory_order_acq_rel)) {
+        if (!m_Weak.compare_exchange_strong(expected, made, std::memory_order_acq_rel)) {
             delete made;
             return expected;
         }
+        m_Side.SharedState.fetch_or(SHARED_WEAK, std::memory_order_acq_rel);
         return made;
     }
 
-    void ClearWeak() override {
-        m_IsDying.store(true, std::memory_order_release);
-        WeakBlock* block = m_WeakPtr.exchange(nullptr, std::memory_order_acq_rel);
-        if (block == nullptr) return;
-        block->Target = nullptr;
-        if (--block->Count == 0) delete block;
-    }
+    void EndShared(uint64_t state) override;
 
 public:
-    SharedObject() = default;
+    SharedObject() {
+        m_State |= SHARED;
+        ::new (static_cast<void*>(&m_Side.SharedState)) std::atomic<uint64_t>(SHARED_ONE_REF);
+    }
     SharedObject(const SharedObject&) = delete;
     SharedObject& operator=(const SharedObject&) = delete;
-
-    ~SharedObject() override {
-        if (m_SharedCount.load(std::memory_order_relaxed) != 1)
-            RaisePanic("an object's destructor kept a reference to the object", "<destructor>");
-    }
 
     static void* operator new(size_t size) { return ::operator new(size); }
     static void* operator new(size_t size, std::align_val_t align) { return ::operator new(size, align); }
     static void operator delete(void* object, size_t size) { ::operator delete(object, size); }
     static void operator delete(void* object, size_t size, std::align_val_t align) { ::operator delete(object, size, align); }
-
-    void Retain() override { m_SharedCount.fetch_add(1, std::memory_order_relaxed); }
-
-    void Release() override;
 };
 
 static_assert(sizeof(void*) != 8 || sizeof(Object) == 24);
@@ -348,7 +399,12 @@ public:
         if (m_Block != nullptr && --m_Block->Count == 0) delete m_Block;
     }
 
-    Ref<T> get() const { return m_Block != nullptr && m_Block->Target != nullptr ? Ref<T>(m_Ptr) : Ref<T>(); }
+    Ref<T> get() const {
+        if (m_Block == nullptr) return Ref<T>();
+        if (!m_Block->Shared) return m_Block->Target != nullptr ? Ref<T>(m_Ptr) : Ref<T>();
+        WeakGuard guard(*m_Block);
+        return m_Block->Target != nullptr ? Ref<T>(m_Ptr) : Ref<T>();
+    }
 };
 
 template <class T>

@@ -76,10 +76,15 @@ and each count change a lookup of the base's offset. References are
 starts at 1, owned by the `new` expression, so a constructor that hands out and drops references to
 `this` cannot destroy the object early.
 
-An object of a shared class derives from `wyl::SharedObject`, which holds an atomic count and an
-atomic weak block pointer and allocates from the global heap. `Retain` and `Release` are virtual, so
-a reference to an interface implemented by a shared class counts the object the shared way. A shared
-object has no place in the collector's buffer and no collector flags (spec `memory.cycles`).
+An object of a shared class derives from `wyl::SharedObject`, which holds an atomic weak block pointer
+and allocates from the global heap. The object's state word holds only the `SHARED` flag, which the
+`SharedObject` constructor sets and nothing changes afterward, so any thread may read the word. The
+object's other header word holds its atomic count. `Retain` and `Release` are not virtual: each tests
+`SHARED` on an unlikely branch, so a reference to an interface implemented by a shared class counts
+the object the shared way, and a normal object's count stays non-atomic. The emitter does not call
+`SetCyclic` in a shared class's constructor, because a base constructor may already have handed `this`
+to another thread. A shared object has no place in the collector's buffer and no collector flags (spec
+`memory.cycles`).
 
 ## Allocation
 
@@ -145,10 +150,13 @@ to the block's count. `Weak<T>` is an `extern struct`
 ([Extern structs](../spec/21-interop.md#interop.extern.extern-structs)) implemented
 by `wyl::Weak` in the runtime. A weak block's count is atomic and the block comes from the global
 heap, since a shared object's weak references may live on several threads. A shared object's block is
-made with an atomic exchange, so two threads referring to it weakly at once agree on one; its `get()`
-takes a strong reference only while the target's count is above zero, so it never revives an object
-another thread has just released. When the target's count reaches zero, the block's target is
-set to null; the block itself is freed when the target and the last `Weak` to it are gone.
+made with an atomic exchange, so two threads referring to it weakly at once agree on one. The block
+of a shared object has a small guard, a spin lock. `get()` reads the target and adds to the count under
+the guard. A release that finds itself the last one takes the guard, checks the count again, and clears
+the target. If `get()` added to the count first, that release is no longer the last one and only drops
+its reference. So `get()` returns a live object or null, and it never revives an object that another
+thread is destroying. When an object is destroyed, the block's target is set to null. The block itself
+is freed when the target and the last `Weak` to it are gone.
 
 ## Cycle collector
 

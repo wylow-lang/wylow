@@ -55,7 +55,7 @@ public static class Values
         switch (value)
         {
             case ObjectRef obj:
-                lifetime.Released(obj, obj.ReleasedOne());
+                lifetime.Released(obj, obj.ReleasedReference());
                 break;
             case FunctionValue function when type.NonNull.IsEscaping && function.Closure is { } closure:
                 lifetime.Released(closure, closure.ReleasedOne());

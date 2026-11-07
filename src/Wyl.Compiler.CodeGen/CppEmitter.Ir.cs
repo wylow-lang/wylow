@@ -66,7 +66,7 @@ public sealed partial class CppEmitter
             Line("if ((wyl_flags_ & wyl::ENGAGED) == 0) return;");
             Line("if (GetInUse()) wyl::RaisePanic(\"cannot release a value that is in use\", \"<runtime>\");");
         }
-        if (function.Symbol.IsConstructor && function.This is { } self && !function.Chains)
+        if (function.Symbol.IsConstructor && function.This is { } self && !function.Chains && self.Type.Symbol is { IsShared: false })
             Line($"this->SetCyclic({CyclicFlag(self.Type.Symbol!)});");
         IrStatements(function.Body);
         indent--;

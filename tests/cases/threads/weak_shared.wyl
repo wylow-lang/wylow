@@ -1,0 +1,62 @@
+// A thread may ask a weak reference for its target while another thread releases the target's last
+// strong reference. The answer is the live target or null, and the target is destroyed exactly once,
+// on whichever thread lets go of it last.
+
+import std::{Weak, print};
+import std::channel::{Channel, Sender};
+import std::thread::spawn;
+
+shared class Target {
+    pub int value;
+    Sender<int> destroyed;
+
+    pub Target(int value, Sender<int> destroyed) {
+        this.value = value;
+        this.destroyed = destroyed;
+    }
+
+    ~Target() {
+        destroyed.send(value);
+    }
+}
+
+void main() {
+    var work = new Channel<Weak<Target>>();
+    var receiver = work.receiver();
+    var reader = spawn(() -> {
+        mut int wrong = 0;
+        loop {
+            var weak = receiver.receive();
+            if (weak == null) {
+                return wrong;
+            }
+            var target = weak!.get();
+            if (target != null && target!.value != 1) {
+                wrong += 1;
+            }
+        }
+    });
+    var ended = new Channel<int>();
+    var endedReceiver = ended.receiver();
+    {
+        var sender = work.sender();
+        var destroyed = ended.sender();
+        mut int count = 0;
+        while (count < 2000) {
+            Target target = new Target(1, destroyed);
+            Weak<Target> weak = target;
+            sender.send(weak);
+            count += 1;
+        }
+    }
+    print(reader.join());
+    // output: 0
+    mut int total = 0;
+    while (endedReceiver.receive() != null) {
+        total += 1;
+    }
+    print(total);
+    // output: 2000
+}
+
+// tsan
