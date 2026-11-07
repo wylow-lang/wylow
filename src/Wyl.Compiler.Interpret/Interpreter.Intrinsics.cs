@@ -49,6 +49,9 @@ public sealed partial class Interpreter
             ["wyl::channel::detachReceiver"] = (i, call, location, caller) => i.ChannelIntrinsic("detachReceiver", call, caller, location),
             ["wyl::channel::sendValue"] = (i, call, location, caller) => i.ChannelIntrinsic("sendValue", call, caller, location),
             ["wyl::channel::receiveValue"] = (i, call, location, caller) => i.ChannelIntrinsic("receiveValue", call, caller, location),
+            ["wyl::isolated::buildIsolated"] = (i, call, location, caller) => i.IsolatedIntrinsic("buildIsolated", call, caller, location),
+            ["wyl::isolated::openIsolated"] = (i, call, location, caller) => i.IsolatedIntrinsic("openIsolated", call, caller, location),
+            ["wyl::isolated::takeValue"] = (i, call, location, caller) => i.IsolatedIntrinsic("takeValue", call, caller, location),
         };
         foreach (var name in MemoryNames)
             table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);

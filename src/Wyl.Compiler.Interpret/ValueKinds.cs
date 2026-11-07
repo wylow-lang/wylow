@@ -339,6 +339,22 @@ public sealed class SyncStateValue(ChannelState? state) : Value
     public override string ToString() => "sync state";
 }
 
+/// <summary>The cycle buffer of one isolated graph, which travels inside its box.</summary>
+public sealed class GraphBuffer
+{
+    public List<HeapObject?> Buffer = [];
+    public int Capacity;
+    public int Holes;
+}
+
+/// <summary>An isolated graph's state: the buffer its box releases on the thread that drops the box.</summary>
+public sealed class IsolatedStateValue(GraphBuffer buffer) : Value
+{
+    public GraphBuffer Buffer { get; } = buffer;
+
+    public override string ToString() => "isolated state";
+}
+
 /// <summary>A pointer: a buffer and the element it points at, which may be one past the end. Null is <see cref="NullValue"/>.</summary>
 public sealed class PointerValue(Buffer buffer, int index) : Value
 {
@@ -500,4 +516,10 @@ public interface IObjectLifetime
     /// before its fields are released.
     /// </summary>
     void ReleasingStruct(StructValue value);
+
+    /// <summary>
+    /// An isolated graph's state is released: its buffer joins the releasing thread's, and then the
+    /// graph's value is released on that thread.
+    /// </summary>
+    void ReleasingIsolated(IsolatedStateValue state);
 }

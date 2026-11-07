@@ -472,6 +472,8 @@ public sealed partial class Interpreter
         var from = frame.Type(conversion.Operand.Type);
         var to = frame.Type(conversion.Type);
         var operand = EvalOperand(conversion.Operand, frame);
+        if (program.Bound.Stdlib.IsIsolated(to))
+            return Isolate(to, operand, frame);
         // A weak reference watches the object but does not keep it: the conversion takes no count,
         // and lets go of the strong one its operand held, as the runtime's temporary does.
         if (program.Bound.Stdlib.IsWeak(to))
@@ -489,6 +491,20 @@ public sealed partial class Interpreter
             return weak;
         }
         return RuntimeArithmetic.Convert(from, to, operand, conversion.Loc is { } loc ? Required(loc, frame) : null);
+    }
+
+    /// <summary>Moves a sendable value into an isolated box, which the box's content constructor makes.</summary>
+    Value Isolate(WylType type, Value value, Frame frame)
+    {
+        var constructor = program.Bound.Stdlib.IsolatedContentConstructor
+            ?? throw new InterpreterException("the standard library's 'Isolated' declares no content constructor");
+        var function = program.Functions.Single(constructor)
+            ?? throw new UnsupportedFeature($"no lowered function for '{constructor.Signature}'");
+        if (function.Parameters is not [var parameter])
+            throw new InterpreterException($"'{constructor.Signature}' takes {function.Parameters.Count} parameters");
+        var body = CalleeFrame(frame, TypeMap.For(type));
+        body.Locals[parameter] = new OwnedStorage(new Cell(body.Type(parameter.Type), value));
+        return Engaged(Invoke(function, body) ?? throw new InterpreterException($"'{constructor.Signature}' returned nothing"));
     }
 
     Value Hold(IrHold hold, Frame frame)

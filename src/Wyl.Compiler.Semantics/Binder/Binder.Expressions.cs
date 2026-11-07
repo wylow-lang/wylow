@@ -644,6 +644,13 @@ public sealed partial class Binder
             ReportNotEscaping(expression);
             return new BoundErrorExpression(expression.Location);
         }
+        if (stdlib.IsIsolated(to) && !expression.Type.IsSendable)
+        {
+            var field = expression.Type.FindNonSendableField();
+            return ErrorExpression(Catalog.IsolatedNotSendable(expression.Location, expression.Type.ToString(),
+                field?.Name, field?.Declaration.NameLocation ?? expression.Location,
+                field is null ? null : TypeMap.For(expression.Type).Apply(field.Type).ToString()));
+        }
         var (help, nullable) = Conversions.IsExplicit(expression.Type, to) ? (ConversionHelp.Cast, null)
             : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to) ? (ConversionHelp.NullCheck, null)
             : SpanConversionHelp(expression, to);

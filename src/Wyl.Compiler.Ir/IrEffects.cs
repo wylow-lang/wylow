@@ -137,7 +137,8 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
 
         public IrEffects Unary(IrUnary value) => new([], [], value.Loc is not null);
         public IrEffects Binary(IrBinary value) => new([], [], value.Loc is not null);
-        public IrEffects Convert(IrConvert value) => new([], [], value.Loc is not null);
+        public IrEffects Convert(IrConvert value) =>
+            value.Type.Symbol is { IsIsolated: true } && value.Type.DefaultRunsCode ? new([], [new IrRunDefault(value.Type)], true) : new([], [], value.Loc is not null);
 
         // Borrowing calls the object's beginBorrow.
         public IrEffects Hold(IrHold value) => value.Borrows ? Releasing(value.Type) : None;

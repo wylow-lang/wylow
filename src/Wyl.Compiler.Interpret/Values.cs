@@ -63,6 +63,9 @@ public static class Values
             case WeakValue weak:
                 weak.Release();
                 break;
+            case IsolatedStateValue state:
+                lifetime.ReleasingIsolated(state);
+                break;
             case ChoiceValue choice:
                 ReleaseHeld(choice.Options, lifetime);
                 break;
@@ -108,6 +111,8 @@ public static class Values
     {
         if (stdlib.IsSyncState(type))
             return new SyncStateValue(null);
+        if (stdlib.IsIsolatedState(type))
+            return new IsolatedStateValue(new GraphBuffer());
         if (stdlib.IsWeak(type))
             return new WeakValue(null, null);
         if (type.IsNullableValue)

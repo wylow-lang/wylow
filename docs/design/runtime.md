@@ -289,6 +289,12 @@ collector's `EndThread` first, then the pools' destructor.
 - A unique value now crosses threads through a channel as well as through a thread's result, so the
   remote free list and the adoption of an ownerless chunk are reachable from a program:
   `channels/unique_value` sends an object made in one thread's pool and frees it in another's.
+- `std::isolated`'s `Isolated<T>` is a unique struct holding the value and a `wyl::IsolatedState`,
+  which owns a `wyl::CycleBuffer` (`runtime/wyl/isolated.h`). `CycleCollector::SwapBuffer` makes a
+  graph's buffer the thread's while the standard library runs the constructor's or `open`'s lambda,
+  and `MergeBuffer` adds a graph's objects to the thread's buffer when the box is destroyed, so a
+  box dropped or taken returns the graph's objects to the thread that released it. The value moves
+  out through `takeValue`, whose C++ body returns `std::move(value)`.
 
 The interpreter runs each logical Wylow thread on an operating-system thread, with no schedule of
 its own (decision 0057). Each thread has its own cycle buffer, collector figures, destroying

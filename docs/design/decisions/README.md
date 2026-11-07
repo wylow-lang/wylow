@@ -87,3 +87,7 @@ history and a reason can be found without searching the spec.
 | [0057](0057-interpreter-interleaving.md) | The interpreter runs the operating system's threads |
 | [0058](0058-sendable-handle.md) | A standard library type the compiler knows is sendable |
 | [0059](0059-channel.md) | Channels: an unbounded queue, ends that count, and a close that drains |
+| [0060](0060-isolated-storage.md) | `Isolated<T>`: a value beside a runtime buffer, and `take` through an extern |
+| [0061](0061-isolated-cycle-buffer.md) | An isolated graph's cycle buffer |
+| [0062](0062-isolated-api.md) | The `Isolated<T>` API: one `open`, `Unit` for nothing, and a by-value `take` |
+| [0063](0063-isolated-conversion.md) | A sendable value converts to a box, and a box is sendable for any `T` |

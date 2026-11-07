@@ -398,6 +398,12 @@ public sealed class TypeSymbol
 
     internal bool IsSendableHandle { get; set; }
 
+    /// <summary>An isolated graph's box, which is sendable for any type argument (spec <c>concurrency.sendable</c>).</summary>
+    public bool IsIsolated { get; internal set; }
+
+    /// <summary>An isolated graph's cycle buffer, which its box releases on the thread that drops the box.</summary>
+    internal bool IsIsolatedState { get; set; }
+
     /// <summary>A class declared <c>@Acyclic</c>, whose objects the cycle collector never looks at.</summary>
     public bool IsAcyclic => Declaration.Annotations.Any(a => a.Name == "Acyclic");
 

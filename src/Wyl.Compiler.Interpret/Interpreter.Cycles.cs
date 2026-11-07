@@ -113,6 +113,35 @@ public sealed partial class Interpreter
         holes = 0;
     }
 
+    /// <summary>
+    /// Makes the graph's buffer this thread's while the graph's code runs, and takes the thread's
+    /// buffer back when the code stops. The objects keep their slots, which number places in the
+    /// buffer that is current.
+    /// </summary>
+    void SwapGraph(GraphBuffer graph)
+    {
+        var thread = current.Value!;
+        (thread.Buffer, graph.Buffer) = (graph.Buffer, thread.Buffer);
+        (thread.Capacity, graph.Capacity) = (graph.Capacity, thread.Capacity);
+        (thread.Holes, graph.Holes) = (graph.Holes, thread.Holes);
+    }
+
+    /// <summary>Adds a graph's buffered objects to this thread's buffer, renumbering their slots.</summary>
+    void MergeGraph(GraphBuffer graph)
+    {
+        foreach (var heap in graph.Buffer)
+        {
+            if (heap is { } present)
+                Add(present);
+        }
+        graph.Buffer = [];
+        graph.Capacity = 0;
+        graph.Holes = 0;
+    }
+
+    /// <summary>Releases a graph's state: its buffer joins the releasing thread's.</summary>
+    public void ReleasingIsolated(IsolatedStateValue state) => MergeGraph(state.Buffer);
+
     // ---------------------------------------------------------------------------------------------
     // Trial deletion
     // ---------------------------------------------------------------------------------------------

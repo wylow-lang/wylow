@@ -1,0 +1,63 @@
+// A sendable value converts to an isolated box by moving in, and a box dropped without take releases
+// its graph on the current thread.
+
+import std::isolated::Isolated;
+import std::print;
+
+struct Point {
+    pub int x;
+    pub int y;
+}
+
+class Node {
+    pub int value;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() { print($"node {value}"); }
+}
+
+class Graph {
+    mut Node? head;
+
+    pub Graph(int value) {
+        head = new Node(value);
+    }
+
+    pub int value() {
+        return head!.value;
+    }
+}
+
+void main() {
+    var point = Point(1, 2);
+    mut Isolated<Point> box = point;
+    print(point.x);
+    // output: 1
+    print(box.open(p -> p.x + p.y));
+    // output: 3
+    print(box.open(p -> { p.x = 10; return p.x; }));
+    // output: 10
+    var taken = box.take();
+    print(taken.x);
+    // output: 10
+
+    var name = "alpha";
+    mut Isolated<String> text = name;
+    print(name);
+    // output: alpha
+    print(text.open(s -> s.byteLength()));
+    // output: 5
+    var released = text.take();
+    print(released);
+    // output: alpha
+
+    {
+        mut Isolated<Graph> dropped = Isolated<Graph>(() -> new Graph(7));
+        print(dropped.open(g -> g.value()));
+    }
+    // output: 7
+    // output: node 7
+}

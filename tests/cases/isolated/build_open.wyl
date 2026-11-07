@@ -1,0 +1,56 @@
+// A box builds its graph on the current thread, and open changes the graph in place and returns a
+// sendable value.
+
+import std::isolated::Isolated;
+import std::{List, print};
+
+class Entry {
+    pub String name;
+    pub int value;
+
+    pub Entry(String name, int value) {
+        this.name = name;
+        this.value = value;
+    }
+
+    ~Entry() { print($"entry {name}"); }
+}
+
+class Index {
+    mut List<Entry> entries;
+
+    pub Index() {
+        entries = new List<Entry>();
+    }
+
+    pub int add(String name, int value) {
+        entries.add(new Entry(name, value));
+        return entries.count();
+    }
+
+    pub int total() {
+        mut int sum = 0;
+        for (Entry entry : entries) {
+            sum = sum + entry.value;
+        }
+        return sum;
+    }
+
+    ~Index() { print("index"); }
+}
+
+void main() {
+    mut Isolated<Index> index = Isolated<Index>(() -> new Index());
+    print(index.open(i -> i.add("alpha", 7)));
+    // output: 1
+    var name = "beta";
+    index.open(i -> i.add(name, 5));
+    print(index.open(i -> i.total()));
+    // output: 12
+    var taken = index.take();
+    print(taken.total());
+    // output: 12
+    // output: index
+    // output: entry beta
+    // output: entry alpha
+}

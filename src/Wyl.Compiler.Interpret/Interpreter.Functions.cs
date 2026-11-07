@@ -64,15 +64,25 @@ public sealed partial class Interpreter
     /// Calls a function value as <c>wyl::Function::operator()</c> does: a choice runs the option it
     /// selected, and a lambda runs with the frame it reads or the captures its closure holds.
     /// </summary>
-    Value? CallFunctionValue(IrInvoke invoke, Frame caller)
+    Value? CallFunctionValue(IrInvoke invoke, Frame caller) =>
+        InvokeCallable(EvalOperandInPlace(invoke.Callee, caller), invoke.Arguments, caller);
+
+    /// <summary>Calls a function value, or a choice of them, with the arguments a call gives.</summary>
+    Value? InvokeCallable(Value callee, IReadOnlyList<IrArgument> arguments, Frame caller)
     {
-        // The callee is called where it is: no copy of a function value or a choice is made, which
-        // would hold counts C++ never takes.
-        var callee = EvalOperandInPlace(invoke.Callee, caller);
-        // A choice's option may be a choice, which C++ calls through its own operator(): a chosen
-        // function value is one like any other, so `?:` around it makes a choice of choices. An
-        // option that is a nullable function is still optional, as `wyl::MakeNarrowed` holds one: only
-        // the option the choice selected was checked by the `!` that made it.
+        var value = Callable(callee);
+        var frame = CallFrame(value);
+        BindArguments(arguments, value.Function.Parameters, frame, caller);
+        return Invoke(value.Function, frame);
+    }
+
+    /// <summary>
+    /// The function value a callee runs: a choice's selected option, which may be a choice itself, or
+    /// the value a reference or nullable holds. The callee is called where it is: no copy is made,
+    /// which would hold counts C++ never takes.
+    /// </summary>
+    static FunctionValue Callable(Value callee)
+    {
         while (callee is ChoiceValue or OptionalValue or RefValue)
         {
             callee = callee switch
@@ -83,7 +93,7 @@ public sealed partial class Interpreter
                 _ => throw new InterpreterException("a null nullable value was used as narrowed"),
             };
         }
-        var value = callee switch
+        return callee switch
         {
             FunctionValue called => called,
             // The runtime's debug check. In a release build it would call a null pointer, which
@@ -91,9 +101,6 @@ public sealed partial class Interpreter
             NullValue => throw new WylPanic("internal compiler error: null function called", "<runtime>"),
             _ => throw new InterpreterException($"called a {callee.GetType().Name}"),
         };
-        var frame = CallFrame(value);
-        BindArguments(invoke.Arguments, value.Function.Parameters, frame, caller);
-        return Invoke(value.Function, frame);
     }
 
     Frame CallFrame(FunctionValue value)

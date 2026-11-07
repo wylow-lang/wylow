@@ -1,0 +1,42 @@
+/// The cycle buffer of one isolated graph, which travels inside its box (spec `concurrency.isolated`).
+package extern struct IsolatedState {
+}
+
+/// A value and everything it refers to, which travel to another thread as one graph (spec
+/// `concurrency.isolated`).
+///
+/// Nothing outside a box refers to the normal objects it holds, so a box is sendable for any `T`.
+/// A box's graph has a cycle buffer of its own, which is the thread's while the code given to the
+/// constructor or to `open` runs.
+pub unique struct Isolated<T> {
+    package T value;
+    package IsolatedState state;
+
+    /// Returns a box that holds what `build` returns and the graph that result is.
+    pub Isolated(shared fn() -> T build) {
+        value = buildIsolated<T>(ref state, build);
+    }
+
+    package Isolated(T content) {
+        value = content;
+    }
+
+    /// Returns what `body` returns, after running `body` on the value. The graph stays the box's,
+    /// since what `body` returns is sendable, and a lambda that only changes the graph returns
+    /// `Unit`.
+    pub mut R open<R extends sendable>(shared fn(ref T) -> R body) {
+        return openIsolated<T, R>(ref state, ref value, body);
+    }
+
+    /// Returns the value and ends the box, and the graph joins the current thread's objects.
+    pub T take(this Isolated<T> box) {
+        mut Isolated<T> held = box;
+        return takeValue<T>(ref held.value);
+    }
+}
+
+extern T buildIsolated<T>(ref IsolatedState state, shared fn() -> T build);
+
+extern R openIsolated<T, R>(ref IsolatedState state, ref T value, shared fn(ref T) -> R body);
+
+extern T takeValue<T>(ref T value);

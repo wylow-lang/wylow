@@ -7,7 +7,7 @@ public static class TypeSendable
         public bool IsSendable => type.IsSendableIn(null);
 
         public bool IsSendableIn(FunctionSymbol? function) =>
-            type.InlineTypes().All(t => t.IsSendablePartIn(function));
+            type.Symbol is { IsIsolated: true } || type.InlineTypes().All(t => t.IsSendablePartIn(function));
 
         bool IsSendablePartIn(FunctionSymbol? function) => type switch
         {
@@ -28,5 +28,24 @@ public static class TypeSendable
             type.Symbol is { IsWeak: true }
             && type.TypeArguments is [{ IsReference: true } target]
             && target.Symbol is { IsShared: true };
+
+        /// <summary>The first field, or variant field, whose type is not sendable.</summary>
+        public FieldSymbol? FindNonSendableField() => FindNonSendableField(type, []);
+    }
+
+    static FieldSymbol? FindNonSendableField(WylType type, HashSet<WylType> visiting)
+    {
+        if (type.Symbol is { IsIsolated: true } || !type.IsStructOrEnum || !visiting.Add(type))
+            return null;
+        var map = TypeMap.For(type);
+        foreach (var field in type.Symbol!.ValueFields)
+        {
+            var fieldType = map.Apply(field.Type);
+            if (!fieldType.IsSendable)
+                return field;
+            if (FindNonSendableField(fieldType, visiting) is { } nested)
+                return nested;
+        }
+        return null;
     }
 }

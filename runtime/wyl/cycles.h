@@ -46,6 +46,11 @@ struct CycleStats {
     size_t Freed = 0;
 };
 
+struct CycleBuffer {
+    std::vector<Object*> Objects;
+    size_t Holes = 0;
+};
+
 class CycleCollector {
     // Objects whose count dropped without reaching zero since the last collection. An entry is
     // null where its object was destroyed meanwhile.
@@ -330,6 +335,19 @@ class CycleCollector {
     }
 
 public:
+    void SwapBuffer(CycleBuffer& buffer) noexcept {
+        std::swap(m_Buffer, buffer.Objects);
+        std::swap(m_Holes, buffer.Holes);
+    }
+
+    void MergeBuffer(CycleBuffer& buffer) {
+        for (Object* object : buffer.Objects) {
+            if (object != nullptr) Add(object);
+        }
+        buffer.Objects.clear();
+        buffer.Holes = 0;
+    }
+
     void Collect(size_t budget, const char* location) {
         if (m_Destroying > 0) RaisePanic("memory::collectCycles cannot be called from a destructor", location);
         ++m_Destroying;

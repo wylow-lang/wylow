@@ -1,0 +1,41 @@
+// take moves the value out and ends the box, and the graph's buffer becomes the thread's: a later
+// collection frees a cycle that was in the graph.
+
+import std::isolated::Isolated;
+import std::{memory, print, Unit};
+
+class Node {
+    pub int value;
+    mut Node? next;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() { print($"node {value}"); }
+}
+
+class Graph {
+    pub Unit makeCycle() {
+        var first = new Node(1);
+        var second = new Node(2);
+        first.next = second;
+        second.next = first;
+        return Unit();
+    }
+}
+
+void main() {
+    mut Isolated<Graph> box = Isolated<Graph>(() -> new Graph());
+    box.open(g -> g.makeCycle());
+    print("built");
+    // output: built
+    var graph = box.take();
+    print("taken");
+    // output: taken
+    memory::collectCycles();
+    print("collected");
+    // output: node 1
+    // output: node 2
+    // output: collected
+}

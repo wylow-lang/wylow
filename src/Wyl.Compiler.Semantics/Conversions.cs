@@ -15,6 +15,7 @@ public static class Conversions
         from == to
         || from == WylType.Error
         || to == WylType.Error
+        || (to.Symbol is { IsIsolated: true } && to.TypeArguments is [var content] && from.IsSendable && IsImplicit(from, content))
         || (from is FunctionType function && to is FunctionType target && IsFunctionConversion(function, target))
         || IsNumericWidening(from, to)
         || (from == WylType.Null && (to.IsNullable || to.IsPointer || to.IsNullableReference))

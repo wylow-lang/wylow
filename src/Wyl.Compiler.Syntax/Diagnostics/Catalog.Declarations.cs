@@ -46,6 +46,12 @@ public static partial class Catalog
     public static Diagnostic SharedClassFieldTypeNotAllowed(Location at, string field, string type, string property, string detail, Location? detailAt) =>
         Make(at, $"the type of field '{field}' of shared class '{type}' is not {property}").Note(detailAt, detail);
 
+    [Error(478, "concurrency.isolated")]
+    public static Diagnostic IsolatedNotSendable(Location at, string type, string? field, Location fieldAt, string? fieldType) =>
+        field is null
+            ? Make(at, $"'{type}' is not 'sendable'")
+            : Make(at, $"'{type}' is not 'sendable'").Note(fieldAt, $"field '{field}' has type '{fieldType}', which is not sendable");
+
     [Error(89, "variables.references")]
     public static Diagnostic MutReference(Location at, string keyword, string what) =>
         Make(at, $"'{keyword}' {what} cannot be 'mut'").Note("it refers to the same place for its whole scope");

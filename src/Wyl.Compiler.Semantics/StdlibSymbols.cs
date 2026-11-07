@@ -37,6 +37,11 @@ public sealed class StdlibSymbols
 
     public TypeSymbol? SyncState { get; private set; }
 
+    /// <summary>The box an isolated graph travels in, which is sendable for any type argument.</summary>
+    public TypeSymbol? Isolated { get; private set; }
+
+    public TypeSymbol? IsolatedState { get; private set; }
+
     /// <summary>Types string interpolation writes through <c>toString</c>.</summary>
     public TypeSymbol? Printable { get; private set; }
 
@@ -109,6 +114,8 @@ public sealed class StdlibSymbols
             case "Borrowable": Borrowable = symbol; break;
             case "Weak": Weak = symbol; symbol.IsWeak = true; break;
             case "SyncState": SyncState = symbol; symbol.IsSendableHandle = true; break;
+            case "Isolated": Isolated = symbol; symbol.IsIsolated = true; break;
+            case "IsolatedState": IsolatedState = symbol; symbol.IsIsolatedState = true; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
         }
@@ -128,6 +135,14 @@ public sealed class StdlibSymbols
     public bool IsWeak(WylType type) => type.Symbol is { } s && s == Weak;
 
     public bool IsSyncState(WylType type) => type.Symbol is { } s && s == SyncState;
+
+    public bool IsIsolated(WylType type) => type.Symbol is { } s && s == Isolated;
+
+    public bool IsIsolatedState(WylType type) => type.Symbol is { } s && s == IsolatedState;
+
+    /// <summary>The constructor that moves a sendable value into a box, which a conversion to <see cref="Isolated"/> calls.</summary>
+    public FunctionSymbol? IsolatedContentConstructor =>
+        Isolated?.Constructors.FirstOrDefault(c => c.Parameters.Count == 1 && c.Parameters[0].Type is not FunctionType);
 
     /// <summary>
     /// The element type of a standard library container: a class implementing <see cref="ReadOnlySpannable"/>,

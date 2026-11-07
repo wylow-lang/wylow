@@ -146,10 +146,12 @@ reach those objects.
 - Making one runs a non-escaping `shared fn() -> T` immediately, on the current thread. Its
   result is isolated. A sendable value is isolated already, and converts to `Isolated<T>` by being
   moved in.
-- `open` runs a non-escaping `shared fn(ref T) -> R` on the value, where `R` is sendable or `void`,
-  and returns its result. The lambda's captures are sendable and copyable, so nothing of the
-  thread's can get in, and its result is sendable, so nothing inside can get out; the graph is still
-  isolated afterwards. `open` needs a mutable place, since it changes what the box holds.
+- `open` runs a non-escaping `shared fn(ref T) -> R` on the value, where `R` is sendable, and
+  returns its result. The lambda's captures are sendable and copyable, so nothing of the thread's
+  can get in, and its result is sendable, so nothing inside can get out; the graph is still
+  isolated afterwards. `open` needs a mutable place, since it changes what the box holds. A lambda
+  that only changes the graph returns `Unit`: a lambda that returns nothing cannot give `R` a type
+  ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
 - `take` moves the value out and ends the box: the graph joins the current thread's objects.
 - A mutex holds one, and its `lock` is `open` while holding the lock.
 
@@ -158,7 +160,7 @@ Isolated<Index> built = Isolated<Index>(() -> Index.build(entries));  // 'entrie
 channel.send(built);                                     // moves the box and the graph
 
 mut Isolated<Index> index = fromLoader.receive()!;
-index.open(i -> i.addEntry(7, "alpha"));                  // changes it in place, still isolated
+index.open(i -> i.addEntry(7, "alpha"));                 // 'addEntry' returns 'Unit'; still isolated
 int count = index.open(i -> i.count());
 Index graph = index.take();                               // ends the box; the graph is this thread's now
 ```

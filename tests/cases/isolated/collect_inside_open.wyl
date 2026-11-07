@@ -1,0 +1,51 @@
+// A collection inside open reaches the graph's objects and leaves the thread's own objects alone.
+
+import std::isolated::Isolated;
+import std::{memory, print, Unit};
+
+class Node {
+    pub int value;
+    mut Node? next;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() { print($"node {value}"); }
+}
+
+class Graph {
+    pub Unit makeCycle() {
+        var first = new Node(1);
+        var second = new Node(2);
+        first.next = second;
+        second.next = first;
+        return Unit();
+    }
+}
+
+Unit threadCycle() {
+    var first = new Node(3);
+    var second = new Node(4);
+    first.next = second;
+    second.next = first;
+    return Unit();
+}
+
+void main() {
+    threadCycle();
+    mut Isolated<Graph> box = Isolated<Graph>(() -> new Graph());
+    box.open(g -> g.makeCycle());
+    print("graph cycle made");
+    // output: graph cycle made
+    box.open(g -> { memory::collectCycles(); return Unit(); });
+    print("graph collected");
+    // output: node 1
+    // output: node 2
+    // output: graph collected
+    memory::collectCycles();
+    print("thread collected");
+    // output: node 3
+    // output: node 4
+    // output: thread collected
+}

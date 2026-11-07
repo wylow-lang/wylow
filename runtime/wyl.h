@@ -13,6 +13,7 @@
 #include "wyl/functions.h"
 #include "wyl/threads.h"
 #include "wyl/channels.h"
+#include "wyl/isolated.h"
 #include "wyl/strings.h"
 #include "wyl/compare.h"
 #include "wyl/intrinsics.h"

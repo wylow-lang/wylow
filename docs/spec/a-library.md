@@ -18,7 +18,7 @@ these of its declarations, and on nothing else in it:
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
-| `Isolated<T>` | Isolated object graphs ([Isolated object graphs](19-concurrency.md#concurrency.isolated)) |
+| `Isolated<T>` | Isolated object graphs ([`std::isolated`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([`std::thread`](#library.thread)) |
@@ -223,3 +223,27 @@ pub shared class Receiver<T extends sendable> {
   ([Cycles](17-memory.md#memory.cycles)).
 - `send` panics if something the value owns is borrowed
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
+
+<a id="library.isolated"></a>
+## A.10 `std::isolated`
+
+The module `std::isolated` declares the box an isolated object graph travels in
+([Isolated object graphs](19-concurrency.md#concurrency.isolated)):
+
+```java unchecked
+pub unique struct Isolated<T> {
+    pub Isolated(shared fn() -> T build);
+    pub mut R open<R extends sendable>(shared fn(ref T) -> R body);
+    pub T take(this Isolated<T> box);
+}
+```
+
+- The constructor runs `build` immediately on the current thread, and the box holds what `build`
+  returns and the graph that result is.
+- `open` runs `body` on the value and returns its result. The box must be a mutable place, since
+  `body` may change the value.
+- What `body` returns is sendable. A lambda that only changes the graph returns `Unit`.
+- `take` returns the value and ends the box. The graph's objects then belong to the current thread,
+  and its cycle buffer joins the current thread's.
+- A box is sendable for any `T`, and a sendable value converts to one by moving in.
+- Releasing a box without calling `take` releases the graph on the thread that releases the box.
