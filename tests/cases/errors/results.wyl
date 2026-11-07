@@ -30,7 +30,7 @@ struct Holder {
 }
 
 class Box {
-    Result<int, IoError> result;        // error[WYL0143]: field 'result' of type 'Result<int, IoError>' has no default value
+    Result<int, IoError> result;        // error[WYL0143]: field 'result' of type 'Result<int, IoError>' has no initial value
 }
 
 Result<int, IoError> uses() {

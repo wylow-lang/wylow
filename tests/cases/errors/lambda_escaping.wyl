@@ -4,7 +4,7 @@
 import std::List;
 
 class Button {
-    fn(int) -> void onClick;                          // error[WYL0143]: field 'onClick' of type 'fn(int) -> void' has no default value
+    fn(int) -> void onClick;                          // error[WYL0143]: field 'onClick' of type 'fn(int) -> void' has no initial value
     mut fn() -> void stored = () -> {};
 
     void set(fn() -> void f) {

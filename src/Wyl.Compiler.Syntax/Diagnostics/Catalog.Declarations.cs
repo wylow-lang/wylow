@@ -441,7 +441,7 @@ public static partial class Catalog
 
     [Error(143, "classes.construction")]
     public static Diagnostic FieldWithoutDefault(Location at, string field, string type) =>
-        Make(at, $"field '{field}' of type '{type}' has no default value").Help("give it an initializer or assign it in a constructor");
+        Make(at, $"field '{field}' of type '{type}' has no initial value").Help("give it an initializer or assign it in a constructor");
 
     [Error(102, "structs.constructors.default")]
     public static Diagnostic NoDefaultValue(Location at, string type, string field, string fieldType) =>

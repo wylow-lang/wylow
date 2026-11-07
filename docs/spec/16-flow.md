@@ -180,7 +180,7 @@ void main() {
 <a id="flow.constructors"></a>
 ## 16.5 Fields in constructors
 
-A field **needs a value** if it has no initializer and its type has no default value
+A field **needs a value** if it has no initializer and its type has no initial value
 ([Order of construction](08-classes.md#classes.construction)). In a constructor, before every such
 field is assigned:
 

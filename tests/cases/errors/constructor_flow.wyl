@@ -1,8 +1,21 @@
-// A constructor assigns every field without a default before it uses 'this' or returns.
+// A constructor assigns every field without an initial value before it uses 'this' or returns.
 
 import std::print;
 
 class Item { }
+
+unique struct Token {
+    int id;
+
+    ~Token() { }
+}
+
+unique struct HoldsToken {
+    Token token;
+
+    HoldsToken(int id) {
+    }                                   // error[WYL0398]: field 'token' must be assigned before the constructor returns
+}
 
 class Partial {
     Item item;

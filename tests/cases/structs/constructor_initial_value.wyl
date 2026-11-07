@@ -1,0 +1,64 @@
+// A constructor starts from empty storage, so a field whose type runs a destructor has no initial
+// value and every constructor assigns it. A field whose type has an initial value holds it, and an
+// initializer still runs.
+
+import std::print;
+
+unique struct Token {
+    pub int id;
+
+    pub Token(int id) {
+        this.id = id;
+    }
+
+    ~Token() { print($"token {id}"); }
+}
+
+struct Holder<T> {
+    T value;
+
+    pub Holder(T value) {
+        this.value = value;
+    }
+}
+
+class Box {
+    mut Holder<Token> holder;
+
+    pub Box(Holder<Token> holder) {
+        this.holder = holder;
+    }
+}
+
+unique struct Pair {
+    pub Token token;
+}
+
+struct Sized {
+    pub int width = 4;
+    pub int height;
+
+    pub Sized(int height) {
+        this.height = height;
+    }
+}
+
+void main() {
+    var token = Token(7);
+    var holder = Holder<Token>(token);
+    print(holder.value.id);
+    // output: 7
+    var box = new Box(holder);
+    print(box.holder.value.id);
+    // output: 7
+    var sized = Sized(2);
+    print(sized.width);
+    // output: 4
+    print(sized.height);
+    // output: 2
+    var pair = Pair();
+    print(pair.token.id);
+    // output: 0
+    // output: token 0
+    // output: token 7
+}

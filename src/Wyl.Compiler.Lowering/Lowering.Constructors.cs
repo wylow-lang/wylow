@@ -8,9 +8,9 @@ public sealed partial class IrLowering
 {
     /// <summary>
     /// Lowers what a constructor runs before its body (docs/design/ir.md, §5.11), and returns the
-    /// body's statements left to lower. A class constructor calls its base's, then runs the field
-    /// initializers; a struct constructor starts from the struct's default value, which runs them.
-    /// A constructor that chains starts from the constructor it calls, which runs them instead.
+    /// body's statements left to lower. A constructor starts from empty storage, where a field whose
+    /// type has an initial value already holds it, and runs the field initializers. A constructor that
+    /// chains starts from the constructor it calls, which runs them instead.
     /// </summary>
     IReadOnlyList<BoundStatement> ConstructorStart(IReadOnlyList<BoundStatement> statements)
     {
@@ -22,33 +22,37 @@ public sealed partial class IrLowering
         {
             function.This = null;
             self = function.Struct = new IrLocal("self", owner.Type, IrLocalKind.Value, IrLocalRole.Variable);
-            if (call is null)
-                Add(LetOf(self, new IrDefault(owner.Type)));
-            else
+            if (call is not null)
             {
                 var enclosing = at;
                 at = call.Location;
                 Define(self, new BoundConstruction(call.Location, owner.Type, call.Constructor, call.Arguments));
                 at = enclosing;
+                return statements;
             }
+            Add(LetOf(self, new IrZeroed(owner.Type)));
+            RunInitializers(owner);
             return statements;
         }
         if (call is not null)
             LowerConstructorCall(call);
         if (call is { Chains: true })
             return statements;
-        foreach (var field in owner.Fields)
-        {
-            // A new object's fields start zeroed; a field of a type parameter is assigned by the constructor.
-            if (field.Initializer is { } initializer)
-            {
-                var location = initializer.Location;
-                Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), initializer));
-            }
-            else if (field.Type.HasDefaultCode && !field.Type.IsTypeParameter)
-                Add(new IrStore(IrPlace.Deref(self!).Field(field), IrRead.Move(new IrPlace(Let(new IrDefault(field.Type))))) { Origin = at });
-        }
+        RunInitializers(owner);
         return statements;
+    }
+
+    /// <summary>
+    /// The field initializers a constructor runs before its body, in declaration order. Every other
+    /// field holds its type's initial value, or is one a constructor has to assign.
+    /// </summary>
+    void RunInitializers(TypeSymbol owner)
+    {
+        foreach (var field in owner.Fields.Where(f => f.Initializer is not null))
+        {
+            var location = field.Initializer!.Location;
+            Statement(new BoundAssignment(location, new BoundFieldAccess(location, new BoundThis(location, owner.Type), field, field.Type), field.Initializer));
+        }
     }
 
     /// <summary>

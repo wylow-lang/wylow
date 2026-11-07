@@ -91,3 +91,4 @@ history and a reason can be found without searching the spec.
 | [0061](0061-isolated-cycle-buffer.md) | An isolated graph's cycle buffer |
 | [0062](0062-isolated-api.md) | The `Isolated<T>` API: one `open`, `Unit` for nothing, and a by-value `take` |
 | [0063](0063-isolated-conversion.md) | A sendable value converts to a box, and a box is sendable for any `T` |
+| [0064](0064-constructors-start-from-storage.md) | A constructor starts from empty storage, so a field with a destructor must be assigned |

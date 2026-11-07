@@ -801,8 +801,8 @@ public sealed partial class IrVerifier
             case IrDefault:
                 break;
             case IrZeroed:
-                if (function.Builds is null || defined != function.Struct)
-                    Error("only a built struct starts as zeroed storage");
+                if (defined != function.Struct || (function.Builds is null && !function.Symbol.IsConstructor))
+                    Error("only a struct being built starts as zeroed storage");
                 break;
             case IrClosure closure:
             {

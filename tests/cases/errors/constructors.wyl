@@ -117,7 +117,17 @@ class ViewDerived extends ViewBase {
 }
 
 class Unassigned {
-    Item item;                          // error[WYL0143]: field 'item' of type 'Item' has no default value
+    Item item;                          // error[WYL0143]: field 'item' of type 'Item' has no initial value
+}
+
+unique struct Token {
+    int id;
+
+    ~Token() { }
+}
+
+class UnassignedToken {
+    Token token;                        // error[WYL0143]: field 'token' of type 'Token' has no initial value
 }
 
 struct Holder {

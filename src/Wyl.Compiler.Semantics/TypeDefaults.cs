@@ -16,12 +16,20 @@ public static class TypeDefaults
         public FieldSymbol? FindNonDefaultableField() => FindNonDefaultableField(type, []);
 
         /// <summary>
-        /// Whether the type's default value is more than zeroed storage. A generic struct's always is,
+        /// Whether empty storage makes a value of the type, so a field with no initializer may start as
+        /// that value. Empty storage makes none for a value that runs a destructor, nor for a struct or
+        /// array containing one; a nullable value's is null.
+        /// </summary>
+        public bool HasInitialValue => HasInitialValue(type, []);
+
+        /// <summary>
+        /// Whether the type's default value is more than empty storage. A generic struct's always is,
         /// since its type arguments' may be.
         /// </summary>
         public bool HasDefaultCode =>
             type is FixedArrayType array ? array.Element.HasDefaultCode
-            : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsExtern && (type.Symbol.IsGeneric || type.Symbol.Fields.Any(f => f.Initializer is not null || f.Type.HasDefaultCode)));
+            : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsExtern
+                && (type.Symbol.IsGeneric || type.Symbol.Fields.Any(f => f.Initializer is not null || f.Type.HasDefaultCode) || !type.HasInitialValue));
 
         /// <summary>
         /// Whether making the type's default value may run code: a struct's field initializers can
@@ -39,9 +47,9 @@ public static class TypeDefaults
     {
         /// <summary>
         /// Whether a construction may leave the field out: it has an initializer, or its type, with
-        /// <paramref name="map"/> applied, has a default value.
+        /// <paramref name="map"/> applied, has a default value that empty storage makes.
         /// </summary>
-        public bool HasDefault(TypeMap map) => HasDefault(field, map, []);
+        public bool HasDefault(TypeMap map) => MayBeLeftOut(field, map, []);
     }
 
     static bool IsDefaultable(WylType type, HashSet<WylType> visiting) =>
@@ -57,10 +65,31 @@ public static class TypeDefaults
         if (!visiting.Add(structType))
             return null;
         var map = TypeMap.For(structType);
-        return structType.Symbol!.Fields.FirstOrDefault(f => !HasDefault(f, map, visiting));
+        return structType.Symbol!.Fields.FirstOrDefault(f => !HasDefaultValue(f, map, visiting));
     }
 
     // The declared initializer, since binding may not have reached the bound one.
-    static bool HasDefault(FieldSymbol field, TypeMap map, HashSet<WylType> visiting) =>
+    static bool HasDefaultValue(FieldSymbol field, TypeMap map, HashSet<WylType> visiting) =>
         field.Declaration.Initializer is not null || IsDefaultable(map.Apply(field.Type), visiting);
+
+    static bool MayBeLeftOut(FieldSymbol field, TypeMap map, HashSet<WylType> visiting)
+    {
+        var type = map.Apply(field.Type);
+        return field.Declaration.Initializer is not null || (IsDefaultable(type, visiting) && type.HasInitialValue);
+    }
+
+    static bool HasInitialValue(WylType type, HashSet<WylType> visiting)
+    {
+        if (type.IsNullableValue)
+            return true;
+        if (type is FixedArrayType array)
+            return HasInitialValue(array.Element, visiting);
+        if (!type.IsStructOrEnum || type.Symbol!.IsExtern || !visiting.Add(type))
+            return true;
+        if (type.Symbol.Destructor is not null)
+            return false;
+        var map = TypeMap.For(type);
+        var fields = type.IsEnum ? type.Symbol.Variants.FirstOrDefault()?.Fields ?? [] : type.Symbol.Fields;
+        return fields.All(field => HasInitialValue(map.Apply(field.Type), visiting));
+    }
 }

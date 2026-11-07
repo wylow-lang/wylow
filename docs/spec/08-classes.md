@@ -227,9 +227,9 @@ class Square extends Shape {
 3. The initializers of the fields of `C` run, in declaration order.
 4. The body of the constructor runs.
 
-A field **needs a value** if it has no initializer and its type has no default value
-([Default values](04-types.md#types.defaults)): a non-null reference, a type parameter, or a struct that
-has no default value. Until every field of the class that needs a value is assigned, `this` is used only to
+A field **needs a value** if it has no initializer and its type has no initial value
+([Constructors](07-structs.md#structs.constructors)): a non-null reference, a type parameter, a type
+with no default value, or a type that runs a destructor. Until every field of the class that needs a value is assigned, `this` is used only to
 assign fields and to read fields that are assigned: no method is called on it, and it is not passed.
 
 - It is a compile-time error if a field that needs a value is not assigned in a constructor on every path

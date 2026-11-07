@@ -51,8 +51,8 @@ struct Marker extends Point { }         // error[WYL0095]
 StructField = { Annotation } [ Visibility ] Type Identifier { "," Identifier } [ "=" Expression ] ";" .
 ```
 
-A field has a type and optionally an initializer, an expression evaluated each time the field is given
-its initial value ([The memberwise constructor](#structs.constructors.memberwise)). A field declared
+A field has a type and optionally an initializer, an expression that runs at the start of each
+construction ([The memberwise constructor](#structs.constructors.memberwise)). A field declared
 with a list of names declares one field for each.
 
 - It is a compile-time error if two fields of a struct have the same name.
@@ -87,17 +87,19 @@ without `new`. A generic struct is written with its type arguments:
 constructor call are evaluated in the order written
 ([Evaluation order](13-expressions.md#expressions.order)).
 
-A constructor declared in a struct starts from the struct's default value
-([The default value](#structs.constructors.default)): its fields hold their initializers, or their
-types' defaults, when the body begins. In the body, `this` is the value being built. A `return;` ends
-the construction, and the value is what `this` holds then.
+A constructor declared in a struct starts from empty storage: the field initializers run, and then
+the body runs with `this` as the value being built. A `return;` ends the construction, and the value
+is what `this` holds then. A field's **initial value** is the value empty storage holds for its type:
+a nullable value's initial value is null, and any other type with a default value has that value as
+its initial value. A type that runs a destructor has no initial value, and neither does a struct or
+fixed array that contains such a type.
 
 - A constructor whose first statement is `this(...)` calls another constructor of the struct and starts
   from the value that constructor made. It is a compile-time error if the arguments of `this(...)` use
   `this`. It is a compile-time error if a chain of `this(...)` calls comes back to a constructor that
   is already in it.
 - `this` may be assigned as a whole: `this = Point(a, a);`.
-- A field of the struct whose type has no default value, and which has no initializer, is assigned in
+- A field of the struct that has no initializer and whose type has no initial value is assigned in
   every constructor that does not start with `this(...)`, before `this` is used
   ([Constructor flow](16-flow.md#flow.constructors)).
 
@@ -120,13 +122,13 @@ struct Range {
 
 A struct that declares no constructor has a **memberwise constructor**: it takes one parameter for each
 field, in declaration order, with the field's name and type. A parameter that has an argument is
-set to it; a parameter without one takes the field's initializer, or else the default value of the
-field's type. A call may name its arguments and leave out the ones that have defaults
+set to it; a parameter without one takes the field's initializer, or else the field's initial value.
+A call may name its arguments and leave out the ones that have defaults
 ([Named arguments](12-functions.md#functions.arguments)).
 
-- A field with no initializer whose type has no default value (a class or interface type, a type
-  parameter, or a struct that has no default value) is a required argument. It is a compile-time error
-  if a call to the memberwise constructor gives no argument for one.
+- A field with no initializer whose type has no initial value (a class or interface type, a type
+  parameter, a type with no default value, or a type that runs a destructor) is a required argument.
+  It is a compile-time error if a call to the memberwise constructor gives no argument for one.
 - After the arguments are evaluated, the fields are set in declaration order. Initializers are
   evaluated at that point, for the fields that need them.
 - The memberwise constructor is as visible as the least visible field of the struct
