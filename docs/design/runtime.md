@@ -108,9 +108,9 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
   ([Thread confinement](../spec/19-concurrency.md#concurrency.confinement)) and be freed there: freeing a slot
   of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list. The owner
   takes the list back when the chunk is current and its own free list runs out. Before the owner maps
-  a new chunk, it also scans its other chunks' remote lists, because a full chunk is in no bin and
-  nothing else would find it. A scan runs once per a quarter as many new chunks as the owner holds, so
-  its cost per chunk stays constant. This is the separate list for concurrent
+  a new chunk, it also checks the remote lists of the next four of its other chunks, because a full
+  chunk is in no bin and nothing else would find it. The owner keeps its chunks in a linked list and
+  remembers where it stopped, so no allocation pauses for longer as the heap grows. This is the separate list for concurrent
   frees that [mimalloc](https://github.com/microsoft/mimalloc) keeps per page ("free list
   multi-sharding"; [technical report](https://www.microsoft.com/en-us/research/publication/mimalloc-free-list-sharding-in-action/)).
   Every free compares the chunk's owner with the current thread. A thread that ends takes back its

@@ -112,6 +112,16 @@ void FreesBeforeAndAfterOwnerEnds() {
     Expect(Pools::MappedChunks() == before, "every chunk goes back");
 }
 
+// A chunk unmapped while a scan is due to check it next does not stop the scan.
+void ScanSurvivesUnmappedChunks() {
+    Pools owner;
+    for (int round = 0; round < 4; ++round) {
+        auto slots = AllocateAll(owner);
+        FreeAll(owner, slots);
+    }
+    Expect(owner.ChunkCount() <= 2, "a pool keeps only its current chunk and its spare once its slots are freed");
+}
+
 // Taking back a remote list leaves the slots still in use alone.
 void LiveSlotsSurviveReuse() {
     Pools owner;
@@ -174,6 +184,7 @@ int main() {
         EndingOwnerUnmapsFreedChunks();
         OrphanedChunksAreAdopted();
         FreesBeforeAndAfterOwnerEnds();
+        ScanSurvivesUnmappedChunks();
         LiveSlotsSurviveReuse();
         ThreadsFreeConcurrently();
     }

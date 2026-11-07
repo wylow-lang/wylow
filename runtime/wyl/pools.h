@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <vector>
 
 #include "core.h"
 
@@ -42,9 +41,10 @@ namespace wyl {
 // a chunk each time. Larger objects use the global heap.
 //
 // A slot freed by another pool goes on its chunk's remote list, and nothing tells the owner. The
-// owner finds such a list on its current chunk when that runs out, and on its other chunks by a scan
-// before it maps a new chunk. Mapping a quarter as many chunks as it holds between scans keeps the
-// scan's cost per chunk constant, and keeps memory that waits on a remote list within that quarter.
+// owner finds such a list on its current chunk when that runs out. Before it maps a new chunk, it
+// also checks the next SCAN_CHUNKS of its other chunks, so that no allocation pauses to visit them all.
+// Memory that waits on a remote list stays within a quarter of the pool's chunks, since a full pass
+// takes that many new chunks.
 class Pools {
 public:
     static constexpr size_t MAX_SIZE = 512;
@@ -56,7 +56,7 @@ private:
     // Chunks that are neither current nor full are listed by how full they are, in bins of equal width.
     static constexpr uint32_t BIN_COUNT = 8;
     static constexpr uint8_t UNLISTED = BIN_COUNT;
-    static constexpr size_t SCAN_FRACTION = 4;
+    static constexpr size_t SCAN_CHUNKS = 4;
 
     struct Slot {
         Slot* Next;
@@ -68,6 +68,9 @@ private:
         char* End = nullptr;
         Chunk* Prev = nullptr;
         Chunk* Next = nullptr;
+        // Links in the list of every chunk the pool owns. Prev and Next link only the chunks of one bin.
+        Chunk* AllPrev = nullptr;
+        Chunk* AllNext = nullptr;
         uint32_t Live = 0;
         // A free that leaves fewer live slots than this has the chunk change bins: 0 for the
         // current chunk, which is in none, and the capacity for a full one, which isn't listed yet.
@@ -96,8 +99,10 @@ private:
     };
 
     SizeClass m_Classes[CLASS_COUNT];
-    std::vector<Chunk*> m_AllChunks;
-    size_t m_NewChunksBeforeScan = 0;
+    Chunk* m_AllChunks = nullptr;
+    // The next chunk a scan checks, or null to start again from the list's head.
+    Chunk* m_ScanNext = nullptr;
+    size_t m_ChunkCount = 0;
 
     inline static std::atomic<size_t> s_MappedChunks{0};
 
@@ -138,17 +143,27 @@ private:
         chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
         Reset(chunk);
         chunk->Owner.store(this, std::memory_order_relaxed);
-        m_AllChunks.push_back(chunk);
+        Remember(chunk);
         return chunk;
     }
 
+    void Remember(Chunk* chunk) {
+        chunk->AllPrev = nullptr;
+        chunk->AllNext = m_AllChunks;
+        if (m_AllChunks != nullptr) m_AllChunks->AllPrev = chunk;
+        m_AllChunks = chunk;
+        ++m_ChunkCount;
+    }
+
     void Forget(Chunk* chunk) {
-        for (size_t i = 0; i < m_AllChunks.size(); ++i) {
-            if (m_AllChunks[i] != chunk) continue;
-            m_AllChunks[i] = m_AllChunks.back();
-            m_AllChunks.pop_back();
-            return;
+        if (m_ScanNext == chunk) m_ScanNext = chunk->AllNext;
+        if (chunk->AllPrev != nullptr) {
+            chunk->AllPrev->AllNext = chunk->AllNext;
+        } else {
+            m_AllChunks = chunk->AllNext;
         }
+        if (chunk->AllNext != nullptr) chunk->AllNext->AllPrev = chunk->AllPrev;
+        --m_ChunkCount;
     }
 
     void Link(SizeClass& c, Chunk* chunk) {
@@ -182,13 +197,12 @@ private:
         return std::exchange(c.Spare, nullptr);
     }
 
-    // A chunk that is full is in no bin, so only this scan finds what other pools freed from it. Rebin
-    // may remove the chunk from the list by moving the last one over it, which is already scanned.
-    void ScanRemoteLists() {
-        for (size_t i = m_AllChunks.size(); i-- > 0;) {
-            Chunk* chunk = m_AllChunks[i];
-            if (chunk != m_Classes[chunk->SizeClass].Current && DrainRemote(chunk)) Rebin(chunk);
-        }
+    // A chunk that is full is in no bin, so only this scan finds what other pools freed from it.
+    void ScanNextChunk() {
+        Chunk* chunk = m_ScanNext != nullptr ? m_ScanNext : m_AllChunks;
+        if (chunk == nullptr) return;
+        m_ScanNext = chunk->AllNext;
+        if (chunk != m_Classes[chunk->SizeClass].Current && DrainRemote(chunk)) Rebin(chunk);
     }
 
     void* Refill(size_t index) {
@@ -196,14 +210,9 @@ private:
         if (c.Current != &s_NoChunk) c.Current->Floor = c.Current->Capacity;
         c.Current = &s_NoChunk;
         Chunk* chunk = TakeHeldChunk(c);
-        if (chunk == nullptr) {
-            if (m_NewChunksBeforeScan == 0) {
-                ScanRemoteLists();
-                m_NewChunksBeforeScan = m_AllChunks.size() / SCAN_FRACTION;
-                chunk = TakeHeldChunk(c);
-            } else {
-                --m_NewChunksBeforeScan;
-            }
+        for (size_t i = 0; i < SCAN_CHUNKS && chunk == nullptr; ++i) {
+            ScanNextChunk();
+            chunk = TakeHeldChunk(c);
         }
         if (chunk == nullptr) chunk = NewChunk(index);
         chunk->Floor = 0;
@@ -265,7 +274,7 @@ private:
         chunk->Bin = UNLISTED;
         chunk->Free = ::new (slot) Slot{chunk->Free};
         --chunk->Live;
-        m_AllChunks.push_back(chunk);
+        Remember(chunk);
         Rebin(chunk);
     }
 
@@ -277,7 +286,9 @@ public:
     // Publishing Orphaned() gives the chunk away, so nothing touches it afterward. It succeeds only on
     // an empty list, so that no slot freed before the owner ended is left where nobody looks.
     ~Pools() {
-        for (Chunk* chunk : m_AllChunks) {
+        for (Chunk* next = m_AllChunks; next != nullptr;) {
+            Chunk* chunk = next;
+            next = chunk->AllNext;
             chunk->Owner.store(nullptr, std::memory_order_relaxed);
             while (true) {
                 DrainRemote(chunk);
@@ -291,7 +302,7 @@ public:
         }
     }
 
-    size_t ChunkCount() const { return m_AllChunks.size(); }
+    size_t ChunkCount() const { return m_ChunkCount; }
 
     static size_t MappedChunks() { return s_MappedChunks.load(std::memory_order_relaxed); }
 
