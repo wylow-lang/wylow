@@ -115,7 +115,7 @@ public sealed class StdlibSymbols
             case "Weak": Weak = symbol; symbol.IsWeak = true; break;
             case "SyncState": SyncState = symbol; symbol.IsSendableHandle = true; break;
             case "Isolated": Isolated = symbol; symbol.IsIsolated = true; break;
-            case "IsolatedState": IsolatedState = symbol; symbol.IsIsolatedState = true; break;
+            case "IsolatedState": IsolatedState = symbol; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
         }
@@ -135,8 +135,6 @@ public sealed class StdlibSymbols
     public bool IsWeak(WylType type) => type.Symbol is { } s && s == Weak;
 
     public bool IsSyncState(WylType type) => type.Symbol is { } s && s == SyncState;
-
-    public bool IsIsolated(WylType type) => type.Symbol is { } s && s == Isolated;
 
     public bool IsIsolatedState(WylType type) => type.Symbol is { } s && s == IsolatedState;
 

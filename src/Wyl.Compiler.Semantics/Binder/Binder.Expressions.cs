@@ -644,7 +644,7 @@ public sealed partial class Binder
             ReportNotEscaping(expression);
             return new BoundErrorExpression(expression.Location);
         }
-        if (stdlib.IsIsolated(to) && !expression.Type.IsSendable)
+        if (to.Symbol is { IsIsolated: true } && !expression.Type.IsSendable)
         {
             var field = expression.Type.FindNonSendableField();
             return ErrorExpression(Catalog.IsolatedNotSendable(expression.Location, expression.Type.ToString(),

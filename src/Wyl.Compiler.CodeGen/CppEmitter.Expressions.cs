@@ -94,7 +94,7 @@ public sealed partial class CppEmitter
     /// <summary>A conversion of a value.</summary>
     string ConversionText(WylType from, WylType to, string operand, string? location)
     {
-        if (stdlib.IsIsolated(to))
+        if (to.Symbol is { IsIsolated: true })
             return $"{CppType(to)}::make({operand})";
         if (location is not null)
             return to.IsEnum ? $"{ObjectType(to)}::from_value({operand}, {location})" : $"wyl::ToChar({operand}, {location})";

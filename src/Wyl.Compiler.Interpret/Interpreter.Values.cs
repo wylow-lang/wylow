@@ -472,7 +472,7 @@ public sealed partial class Interpreter
         var from = frame.Type(conversion.Operand.Type);
         var to = frame.Type(conversion.Type);
         var operand = EvalOperand(conversion.Operand, frame);
-        if (program.Bound.Stdlib.IsIsolated(to))
+        if (to.Symbol is { IsIsolated: true })
             return Isolate(to, operand, frame);
         // A weak reference watches the object but does not keep it: the conversion takes no count,
         // and lets go of the strong one its operand held, as the runtime's temporary does.
