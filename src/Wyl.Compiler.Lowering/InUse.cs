@@ -63,7 +63,8 @@ static class InUse
         var endsAfter = new Dictionary<int, List<IrLocal>>();
         foreach (var (statement, index) in statements.Select((s, i) => (s, i)))
         {
-            ProcessNested(statement, function, declaredIn);
+            foreach (var inner in InnerBlocks(statement))
+                Process(inner, function, declaredIn);
             if (statement is IrLet { Value: IrRef reference } declared)
                 places[declared.Local] = reference.Place;
             else if (statement is IrLet { Value: IrAddr address } addressed)
@@ -84,7 +85,10 @@ static class InUse
             }
             if (Reference(statement, places) is { } referenced)
             {
-                IrBlock? scope = ReferenceIsStored(statement) && declaredIn.TryGetValue(referenced.Local, out var declaredInBlock) && declaredInBlock != block
+                // A store makes a reference into a local declared without a value, as a pattern
+                // binding is.
+                bool stored = statement is IrStore;
+                IrBlock? scope = stored && declaredIn.TryGetValue(referenced.Local, out var declaredInBlock) && declaredInBlock != block
                     ? declaredInBlock
                     : null;
                 foreach (var place in Guards(referenced.Place, function, forCall: false))
@@ -93,7 +97,7 @@ static class InUse
                     block.Statements.Add(guard);
                     if (scope is not null)
                         scope.Statements.Add(new IrDeclare(guard.Local) { Origin = statement.Origin });
-                    else if (ReferenceIsStored(statement) && LastRead(statements, index, referenced.Local) is { } last)
+                    else if (stored && LastRead(statements, index, referenced.Local) is { } last)
                         (endsAfter.TryGetValue(last, out var list) ? list : endsAfter[last] = []).Add(guard.Local);
                 }
             }
@@ -104,9 +108,6 @@ static class InUse
             }
         }
     }
-
-    /// <summary>Whether a reference local is made by a store into one declared without a value, as a pattern binding is.</summary>
-    static bool ReferenceIsStored(IrStatement statement) => statement is IrStore;
 
     static int? LastRead(List<IrStatement> statements, int index, IrLocal local)
     {
@@ -138,26 +139,6 @@ static class InUse
             .SelectMany(IrWalk.Operands)
             .SelectMany(IrWalk.Places)
             .Any(place => place.Local == local);
-
-    static void ProcessNested(IrStatement statement, FunctionSymbol function, Dictionary<IrLocal, IrBlock> declaredIn)
-    {
-        switch (statement)
-        {
-            case IrBlock block:
-                Process(block, function, declaredIn);
-                break;
-            case IrIf conditional:
-                Process(conditional.Then, function, declaredIn);
-                if (conditional.Else is { } otherwise)
-                    Process(otherwise, function, declaredIn);
-                break;
-            case IrLoop loop:
-                Process(loop.Body, function, declaredIn);
-                if (loop.Continue is { } next)
-                    Process(next, function, declaredIn);
-                break;
-        }
-    }
 
     static IrLet GuardLet(IrPlace place, IrStatement origin) =>
         new(new IrLocal("inuse", WylType.Bool, IrLocalKind.InUse, IrLocalRole.Temporary), new IrInUse(place)) { Origin = origin.Origin };
@@ -201,14 +182,14 @@ static class InUse
     /// <summary>The reference local a statement makes, and the place it refers to.</summary>
     static (IrPlace Place, IrLocal Local)? Reference(IrStatement statement, Dictionary<IrLocal, IrPlace> places) => statement switch
     {
-        IrLet { Local.Kind: IrLocalKind.Reference, Local.Symbol: not null, Value: var value } let when Referent(value, places) is { } place =>
+        IrLet { Local.Kind: IrLocalKind.Reference, Local.Symbol: not null, Value: var value } let when Referent(value) is { } place =>
             (place, let.Local),
         IrStore { Target: { IsDeref: false, Projections.Count: 0, Local: var reference, Local.Kind: IrLocalKind.Reference, Local.Symbol: not null }, Value: var value }
             when Referent(value, places) is { } place => (place, reference),
         _ => null,
     };
 
-    static IrPlace? Referent(IrRvalue value, Dictionary<IrLocal, IrPlace> places) => value switch
+    static IrPlace? Referent(IrRvalue value) => value switch
     {
         IrRef reference => reference.Place,
         IrAddr address => address.Place,
