@@ -40,6 +40,11 @@ namespace wyl {
 // fill few chunks while the others drain. A chunk left empty goes back to the OS, except one kept
 // per size class, so that a count of objects hovering at a chunk's edge doesn't allocate and free
 // a chunk each time. Larger objects use the global heap.
+//
+// A slot freed by another pool goes on its chunk's remote list, and nothing tells the owner. The
+// owner finds such a list on its current chunk when that runs out, and on its other chunks by a scan
+// before it maps a new chunk. Mapping a quarter as many chunks as it holds between scans keeps the
+// scan's cost per chunk constant, and keeps memory that waits on a remote list within that quarter.
 class Pools {
 public:
     static constexpr size_t MAX_SIZE = 512;
@@ -51,6 +56,7 @@ private:
     // Chunks that are neither current nor full are listed by how full they are, in bins of equal width.
     static constexpr uint32_t BIN_COUNT = 8;
     static constexpr uint8_t UNLISTED = BIN_COUNT;
+    static constexpr size_t SCAN_FRACTION = 4;
 
     struct Slot {
         Slot* Next;
@@ -69,9 +75,13 @@ private:
         uint32_t Capacity = 0;
         uint8_t SizeClass = 0;
         uint8_t Bin = UNLISTED;
+        // Slots other pools freed, or Orphaned() once the owner has ended. One word holds both, so a
+        // free either reaches a list that an owner will take back or finds that it must adopt the chunk.
         std::atomic<Slot*> Remote{nullptr};
         std::atomic<Pools*> Owner{nullptr};
     };
+
+    static Slot* Orphaned() { return reinterpret_cast<Slot*>(uintptr_t{1}); }
 
     // Slots start 16-aligned, so over-aligned classes use the global heap instead.
     static constexpr size_t HEADER_SIZE = (sizeof(Chunk) + GRANULE - 1) / GRANULE * GRANULE;
@@ -87,6 +97,9 @@ private:
 
     SizeClass m_Classes[CLASS_COUNT];
     std::vector<Chunk*> m_AllChunks;
+    size_t m_NewChunksBeforeScan = 0;
+
+    inline static std::atomic<size_t> s_MappedChunks{0};
 
     static Chunk* ChunkOf(void* slot) {
         return reinterpret_cast<Chunk*>(reinterpret_cast<uintptr_t>(slot) & ~uintptr_t{CHUNK_SIZE - 1});
@@ -102,6 +115,7 @@ private:
     }
 
     static void UnmapChunk(Chunk* chunk) {
+        s_MappedChunks.fetch_sub(1, std::memory_order_relaxed);
 #if defined(_WIN32)
         VirtualFree(chunk, 0, 0x8000);   // MEM_RELEASE
 #else
@@ -118,6 +132,7 @@ private:
     Chunk* NewChunk(size_t index) {
         void* memory = MapChunk();
         if (memory == nullptr) RaisePanic("out of memory", "<runtime>");
+        s_MappedChunks.fetch_add(1, std::memory_order_relaxed);
         Chunk* chunk = ::new (memory) Chunk{};
         chunk->SizeClass = static_cast<uint8_t>(index);
         chunk->Capacity = static_cast<uint32_t>((CHUNK_SIZE - HEADER_SIZE) / (index * GRANULE));
@@ -157,16 +172,40 @@ private:
         chunk->Bin = UNLISTED;
     }
 
-    void* Refill(size_t index) {
-        SizeClass& c = m_Classes[index];
-        if (c.Current != &s_NoChunk) c.Current->Floor = c.Current->Capacity;
+    Chunk* TakeHeldChunk(SizeClass& c) {
         Chunk* chunk = nullptr;
         for (uint32_t bin = BIN_COUNT; bin-- > 0 && chunk == nullptr;) chunk = c.Bins[bin];
         if (chunk != nullptr) {
             Unlink(c, chunk);
-        } else {
-            chunk = c.Spare != nullptr ? std::exchange(c.Spare, nullptr) : NewChunk(index);
+            return chunk;
         }
+        return std::exchange(c.Spare, nullptr);
+    }
+
+    // A chunk that is full is in no bin, so only this scan finds what other pools freed from it. Rebin
+    // may remove the chunk from the list by moving the last one over it, which is already scanned.
+    void ScanRemoteLists() {
+        for (size_t i = m_AllChunks.size(); i-- > 0;) {
+            Chunk* chunk = m_AllChunks[i];
+            if (chunk != m_Classes[chunk->SizeClass].Current && DrainRemote(chunk)) Rebin(chunk);
+        }
+    }
+
+    void* Refill(size_t index) {
+        SizeClass& c = m_Classes[index];
+        if (c.Current != &s_NoChunk) c.Current->Floor = c.Current->Capacity;
+        c.Current = &s_NoChunk;
+        Chunk* chunk = TakeHeldChunk(c);
+        if (chunk == nullptr) {
+            if (m_NewChunksBeforeScan == 0) {
+                ScanRemoteLists();
+                m_NewChunksBeforeScan = m_AllChunks.size() / SCAN_FRACTION;
+                chunk = TakeHeldChunk(c);
+            } else {
+                --m_NewChunksBeforeScan;
+            }
+        }
+        if (chunk == nullptr) chunk = NewChunk(index);
         chunk->Floor = 0;
         c.Current = chunk;
         return Allocate(index * GRANULE);
@@ -186,9 +225,9 @@ private:
         }
     }
 
-    Slot* DrainRemote(Chunk* chunk) {
+    bool DrainRemote(Chunk* chunk) {
+        if (chunk->Remote.load(std::memory_order_relaxed) == nullptr) return false;
         Slot* list = chunk->Remote.exchange(nullptr, std::memory_order_acquire);
-        if (list == nullptr) return nullptr;
         uint32_t count = 1;
         Slot* tail = list;
         while (tail->Next != nullptr) {
@@ -198,23 +237,29 @@ private:
         tail->Next = chunk->Free;
         chunk->Free = list;
         chunk->Live -= count;
-        return list;
+        return true;
     }
 
+    // Nothing touches the chunk after the push, since the owner may unmap it as soon as the slot is on
+    // the list.
     void FreeRemotely(Chunk* chunk, void* slot) {
-        Slot* node = ::new (slot) Slot{nullptr};
         Slot* head = chunk->Remote.load(std::memory_order_relaxed);
-        while (!chunk->Remote.compare_exchange_weak(head, node, std::memory_order_release, std::memory_order_relaxed)) {
+        Slot* node = ::new (slot) Slot{nullptr};
+        while (true) {
+            if (head == Orphaned()) {
+                if (chunk->Remote.compare_exchange_weak(head, nullptr, std::memory_order_acquire, std::memory_order_relaxed)) {
+                    Adopt(chunk, slot);
+                    return;
+                }
+                continue;
+            }
             node->Next = head;
+            if (chunk->Remote.compare_exchange_weak(head, node, std::memory_order_release, std::memory_order_relaxed)) return;
         }
     }
 
     void Adopt(Chunk* chunk, void* slot) {
-        Pools* expected = nullptr;
-        if (!chunk->Owner.compare_exchange_strong(expected, this, std::memory_order_acq_rel, std::memory_order_acquire)) {
-            FreeRemotely(chunk, slot);
-            return;
-        }
+        chunk->Owner.store(this, std::memory_order_relaxed);
         chunk->Prev = nullptr;
         chunk->Next = nullptr;
         chunk->Bin = UNLISTED;
@@ -229,15 +274,26 @@ public:
     Pools(const Pools&) = delete;
     Pools& operator=(const Pools&) = delete;
 
+    // Publishing Orphaned() gives the chunk away, so nothing touches it afterward. It succeeds only on
+    // an empty list, so that no slot freed before the owner ended is left where nobody looks.
     ~Pools() {
         for (Chunk* chunk : m_AllChunks) {
-            if (chunk->Live == 0) {
-                UnmapChunk(chunk);
-            } else {
-                chunk->Owner.store(nullptr, std::memory_order_release);
+            chunk->Owner.store(nullptr, std::memory_order_relaxed);
+            while (true) {
+                DrainRemote(chunk);
+                if (chunk->Live == 0) {
+                    UnmapChunk(chunk);
+                    break;
+                }
+                Slot* expected = nullptr;
+                if (chunk->Remote.compare_exchange_strong(expected, Orphaned(), std::memory_order_release, std::memory_order_relaxed)) break;
             }
         }
     }
+
+    size_t ChunkCount() const { return m_AllChunks.size(); }
+
+    static size_t MappedChunks() { return s_MappedChunks.load(std::memory_order_relaxed); }
 
     void* Allocate(size_t size) {
         if constexpr (WYL_POOLS == 0) {
@@ -251,7 +307,7 @@ public:
                 ++chunk->Live;
                 return slot;
             }
-            if (chunk->Remote.load(std::memory_order_relaxed) != nullptr && DrainRemote(chunk) != nullptr) {
+            if (DrainRemote(chunk)) {
                 Slot* slot = chunk->Free;
                 chunk->Free = slot->Next;
                 ++chunk->Live;
@@ -273,12 +329,9 @@ public:
             return;
         }
         Chunk* chunk = ChunkOf(slot);
-        Pools* owner = chunk->Owner.load(std::memory_order_acquire);
-        if (owner == this) {
+        if (chunk->Owner.load(std::memory_order_relaxed) == this) {
             chunk->Free = ::new (slot) Slot{chunk->Free};
             if (--chunk->Live < chunk->Floor) Rebin(chunk);
-        } else if (owner == nullptr) {
-            Adopt(chunk, slot);
         } else {
             FreeRemotely(chunk, slot);
         }

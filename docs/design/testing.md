@@ -44,6 +44,11 @@ with nothing, like a timeout: a stack overflow aborts (spec `introduction.aborts
 same overflow as an access violation or not at all. Any further exception must be decided in the spec
 and named in the comparison rule, never added quietly.
 
+The pools hold memory that no program can observe, so `runtime/pools` (`tests/runtime/pools.cpp`, in every
+native mode) tests them in C++. Ownership follows a `Pools` object and not a thread, so the test drives two
+of them from one thread and counts the chunks that stay mapped, which makes its result deterministic. Its
+last scenario uses real threads for the TSan mode.
+
 ## Running the tools
 
 Commands (`CLAUDE.md` has the everyday ones):

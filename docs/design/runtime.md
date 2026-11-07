@@ -106,12 +106,18 @@ slots of one size, in multiples of 16 bytes, carved from 64 KiB chunks aligned t
 - **Pools are per thread, with no synchronization on the usual path.** Most objects are freed on
   the thread that made them. An object can move to another thread inside a unique value
   ([Thread confinement](../spec/19-concurrency.md#concurrency.confinement)) and be freed there: freeing a slot
-  of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list, which
-  the owner takes back when its own free list runs out. This is the separate list for concurrent
+  of a chunk another thread owns pushes it, atomically, onto that chunk's remote free list. The owner
+  takes the list back when the chunk is current and its own free list runs out. Before the owner maps
+  a new chunk, it also scans its other chunks' remote lists, because a full chunk is in no bin and
+  nothing else would find it. A scan runs once per a quarter as many new chunks as the owner holds, so
+  its cost per chunk stays constant. This is the separate list for concurrent
   frees that [mimalloc](https://github.com/microsoft/mimalloc) keeps per page ("free list
   multi-sharding"; [technical report](https://www.microsoft.com/en-us/research/publication/mimalloc-free-list-sharding-in-action/)).
-  Every free compares the chunk's owner with the current thread. A thread that ends leaves its
-  chunks with live objects to be adopted by the threads that free them.
+  Every free compares the chunk's owner with the current thread. A thread that ends takes back its
+  chunks' remote lists, unmaps each chunk with no live object, and marks every other chunk's remote
+  list as orphaned. The next thread to free a slot of an orphaned chunk finds the mark in place of a
+  list and adopts the chunk. One atomic word holds both the list and the mark, so a free cannot leave
+  its slot on the list of a chunk that no longer has an owner.
   `shared class` objects, which may be freed on any thread at any time, use the global heap.
 - Under AddressSanitizer every object uses the global heap, so that ASan can still catch a use
   after free.

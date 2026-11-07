@@ -117,6 +117,8 @@ results.AddRange(FuzzSelfTests.Run(casesDirectory)
 // interpret mode supplies without one.
 if (!interpret)
     results.AddRange(BuildCacheSelfTests.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+if (!interpret && (filter is null || RuntimeSelfTests.PoolsName.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+    results.Add(RuntimeSelfTests.Pools(root, outputDirectory, toolchain));
 results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism, interpret));
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
