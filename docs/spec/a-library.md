@@ -186,7 +186,8 @@ pub T join(this Thread<T> thread);
   ([Sendable types](19-concurrency.md#concurrency.sendable)).
 - A panic in the body ends the program ([Panics on threads](19-concurrency.md#concurrency.panics)).
 - `spawn` panics if the program calls it before `main` begins
-  ([Statics](06-variables.md#variables.statics)).
+  ([Statics](06-variables.md#variables.statics)). `spawn` also panics if the system cannot start
+  another thread.
 
 <a id="library.channel"></a>
 ## A.9 `std::channel`

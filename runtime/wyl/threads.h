@@ -1,5 +1,6 @@
 #pragma once
 
+#include <system_error>
 #include <thread>
 
 #include "functions.h"
@@ -28,11 +29,16 @@ inline uint8_t* spawnThread(Function<T()> body, const char* location) {
     auto* handle = new HandleOf<T>();
     // The thread destroys its closure itself, before its state ends and collects cycles, instead of
     // leaving the closure's lifetime to std::thread.
-    handle->Worker = std::thread([handle, body = std::move(body)]() mutable {
-        (void)CurrentThread();
-        Function<T()> run = std::move(body);
-        handle->Result = Optional<T>(run());
-    });
+    try {
+        handle->Worker = std::thread([handle, body = std::move(body)]() mutable {
+            (void)CurrentThread();
+            Function<T()> run = std::move(body);
+            handle->Result = Optional<T>(run());
+        });
+    } catch (const std::system_error&) {
+        delete handle;
+        RaisePanic("the system could not start a thread", location);
+    }
     return reinterpret_cast<uint8_t*>(handle);
 }
 

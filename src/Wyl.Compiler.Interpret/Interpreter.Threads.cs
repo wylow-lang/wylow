@@ -40,7 +40,7 @@ public sealed partial class Interpreter
         aborted.Set();
     }
 
-    LogicalThread SpawnLogical(WylType resultType, Func<Value?> body)
+    LogicalThread SpawnLogical(WylType resultType, Func<Value?> body, string location)
     {
         var thread = new LogicalThread(resultType);
         lock (threadLock)
@@ -48,8 +48,16 @@ public sealed partial class Interpreter
             if (aborting)
                 throw new AbortedRun();
             thread.Os = new Thread(() => RunLogical(thread, body), StackSize);
+            try
+            {
+                thread.Os.Start();
+            }
+            catch (OutOfMemoryException)
+            {
+                thread.Done.Dispose();
+                throw new WylPanic("the system could not start a thread", location);
+            }
             logicalThreads.Add(thread);
-            thread.Os.Start();
         }
         return thread;
     }
@@ -118,7 +126,7 @@ public sealed partial class Interpreter
                     ?? throw new InterpreterException("the thread's body is not a function value");
                 var bodyType = caller.Map.Apply(call.Method.ParameterType(0));
                 var resultType = caller.Map.Apply(call.Method.TypeArguments[0]);
-                var thread = SpawnLogical(resultType, () => RunThreadBody(body, bodyType));
+                var thread = SpawnLogical(resultType, () => RunThreadBody(body, bodyType), location ?? "<runtime>");
                 return new ThreadValue { Thread = thread };
             }
             case "join":
