@@ -66,11 +66,11 @@ public sealed class NativeCompiler
     public static NativeCompiler? Find(Toolchain? preferred, out string? error)
     {
         error = null;
-        if (preferred is null or Toolchain.Clang && FindClang() is { } clang)
+        if ((preferred is null or Toolchain.Clang) && FindClang() is { } clang)
             return clang;
-        if (preferred is null or Toolchain.Msvc && FindMsvc() is { } msvc)
+        if ((preferred is null or Toolchain.Msvc) && FindMsvc() is { } msvc)
             return msvc;
-        if (preferred is null or Toolchain.Gcc && FindGcc() is { } gcc)
+        if ((preferred is null or Toolchain.Gcc) && FindGcc() is { } gcc)
             return gcc;
         if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } sanitized)
             return sanitized;
@@ -150,6 +150,16 @@ public sealed class NativeCompiler
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return null;
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
         }
     }
 
@@ -281,7 +291,7 @@ public sealed class NativeCompiler
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "wyl.obj"));
         }
-        else if (Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized && environment is not null)
+        else if ((Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized) && environment is not null)
         {
             foreach (var arg in Toolchain == Toolchain.ThreadSanitized ? ThreadSanitizedClangFlags : SanitizedFlags)
                 args.Add(arg);
