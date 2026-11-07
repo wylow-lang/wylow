@@ -100,8 +100,8 @@ public sealed partial class Interpreter
     Value? RunThreadBody(FunctionValue body, WylType bodyType)
     {
         var result = Invoke(body.Function, CallFrame(body));
-        Collect(long.MaxValue, "<thread end>");
         Release(bodyType, body);
+        Collect(long.MaxValue, "<thread end>");
         return result;
     }
 

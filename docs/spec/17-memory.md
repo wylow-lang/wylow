@@ -204,7 +204,9 @@ runs only when the program calls it.
 - The collector never runs on its own: no allocation, release, or timer triggers it, and the
   program does not collect at the end of the run
   ([Running a program](03-programs.md#programs.execution)).
-- A thread other than the main one frees the cycles left in its buffer when that thread ends.
+- A thread other than the main one frees the cycles left in its buffer when that thread ends. The
+  thread releases its body's lambda before it collects, so the collection also frees a cycle that
+  the release of the lambda's captures leaves behind.
 - `memory::collectCycles()` frees every cycle that is unreachable.
   `memory::collectCycles(int maxVisits)` visits at most about `maxVisits` objects and leaves the
   rest for a later call; a negative number panics.

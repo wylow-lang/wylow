@@ -1,0 +1,55 @@
+// A thread releases its closure before the collection at its end, so a cycle that the closure's
+// last reference leaves behind is collected before join returns. The thread waits for a value from
+// main, so that main's copy of the closure is gone and the thread's reference is the last.
+
+import std::print;
+import std::thread::spawn;
+import std::channel::{Channel, Receiver};
+
+class Node {
+    pub int value;
+    pub mut Node? next;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() {
+        print($"node {value}");
+    }
+}
+
+shared class Holder {
+    ~Holder() {
+        var first = new Node(1);
+        var second = new Node(2);
+        first.next = second;
+        second.next = first;
+        print("holder");
+    }
+}
+
+shared fn() -> int makeBody(Receiver<int> start) {
+    var holder = new Holder();
+    return () -> {
+        var started = start.receive();
+        print("body");
+        return holder == holder ? started! : 1;
+    };
+}
+
+void main() {
+    var channel = new Channel<int>();
+    var sender = channel.sender();
+    var thread = spawn(makeBody(channel.receiver()));
+    sender.send(0);
+    thread.join();
+    print("joined");
+    // output: body
+    // output: holder
+    // output: node 1
+    // output: node 2
+    // output: joined
+}
+
+// tsan
