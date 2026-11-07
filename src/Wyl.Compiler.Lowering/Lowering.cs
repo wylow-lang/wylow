@@ -449,14 +449,14 @@ public sealed partial class IrLowering
         bool returnsInto = read.Method.Symbol.ReturnRefKind != RefKind.None;
         if (type.IsReference)
         {
-            var shared = IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type))));
+            var shared = IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type, symbol))));
             return (shared, shared);
         }
         var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
         if (type.SharesStorage && returnsInto)
         {
             // What the read returns points into the receiver, so it is held as a call returning into it holds it.
-            var holder = Hold(place, program.MayBeBorrowable(type));
+            var holder = Hold(place, program.MayBeBorrowable(type, symbol));
             return (IrRead.Borrow(new IrPlace(holder)),
                 write.Symbol.IsReadOnly ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder)));
         }

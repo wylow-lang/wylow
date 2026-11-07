@@ -299,7 +299,7 @@ public sealed partial class CppEmitter
         // (spec structs.unique). C++ deletes the copy operations then, rather than failing to
         // define them. A generic enum decides this for each instantiation.
         var copyable = string.Join(" && ", withData.Select(v => $"std::is_copy_constructible_v<{PayloadName(v)}>"));
-        bool copies = s.IsGeneric || s.Type.IsCopyable;
+        bool copies = s.IsGeneric || s.Type.IsCopyableIn(null);
         if (!copies)
         {
             Line($"{name}(const {name}&) = delete;");

@@ -649,7 +649,7 @@ public sealed partial class CppEmitter
 
     /// <summary>A conversion of a reference to a class it may not refer to, which a type test has checked.</summary>
     static bool IsDowncast(IrConvert conversion) =>
-        conversion.Type.IsReference && conversion.Operand.Type.NonNull.IsReference && !Conversions.IsSubtype(conversion.Operand.Type.NonNull, conversion.Type.NonNull);
+        conversion.Type.IsReference && conversion.Operand.Type.NonNull.IsReference && !Conversions.IsSubtype(conversion.Operand.Type.NonNull, conversion.Type.NonNull, function: null);
 
     string CheckText(IrCheck check)
     {

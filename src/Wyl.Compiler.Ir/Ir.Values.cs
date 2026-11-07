@@ -55,7 +55,7 @@ public sealed class IrPlace
     /// <summary>A field's type in a value of <paramref name="holder"/>, which may inherit it; <see cref="WylType.Error"/> if it has no such field.</summary>
     public static WylType FieldType(WylType holder, FieldSymbol field)
     {
-        IEnumerable<WylType> candidates = [holder.NonNull, .. Conversions.Supertypes(holder.NonNull)];
+        IEnumerable<WylType> candidates = [holder.NonNull, .. Conversions.Supertypes(holder.NonNull, function: null)];
         return candidates.FirstOrDefault(t => t.Symbol == field.Owner) is { } owner ? TypeMap.For(owner).Apply(field.Type) : WylType.Error;
     }
 }

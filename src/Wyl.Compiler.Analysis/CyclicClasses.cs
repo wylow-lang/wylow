@@ -206,13 +206,13 @@ public sealed class CyclicClasses
     }
 
     static bool IsSubtype(WylType type, WylType target) =>
-        type == target || Conversions.Supertypes(type).Any(t => t.CppIdentity == target);
+        type == target || Conversions.Supertypes(type, function: null).Any(t => t.CppIdentity == target);
 
     /// <summary>Whether a reference of the type may refer to an instantiation of a generic class that only C++ sees.</summary>
     bool MayReferToUnknown(WylType reference) =>
         reference.IsTypeParameter
         || types.Any(s => s is { Kind: TypeKind.Class, IsGeneric: true, IsAcyclic: false, IsShared: false }
-            && Conversions.Supertypes(s.Type).Any(t => t.Symbol == reference.Symbol));
+            && Conversions.Supertypes(s.Type, function: null).Any(t => t.Symbol == reference.Symbol));
 
     /// <summary>Tarjan's algorithm.</summary>
     static List<List<int>> StronglyConnectedComponents(List<int>[] edges)

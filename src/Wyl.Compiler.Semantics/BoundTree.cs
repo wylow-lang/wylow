@@ -22,15 +22,18 @@ public sealed record BoundProgram(
     IReadOnlyList<TypeSymbol>? borrowableClasses;
 
     /// <summary>Whether an object of exactly the type is a <c>Borrowable</c>.</summary>
-    public bool IsBorrowable(WylType type) => Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type);
+    public bool IsBorrowable(WylType type) => Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type, function: null);
 
-    /// <summary>Whether an object of the type may be a <c>Borrowable</c>, which some class in the program it could be implements.</summary>
-    public bool MayBeBorrowable(WylType type)
+    /// <summary>
+    /// Whether an object of the type may be a <c>Borrowable</c> in <paramref name="function"/>,
+    /// which some class in the program it could be implements.
+    /// </summary>
+    public bool MayBeBorrowable(WylType type, FunctionSymbol? function)
     {
         if (type is TypeParameterType parameter)
-            return parameter.Parameter.Bounds.Any(MayBeBorrowable);
+            return parameter.Parameter.BoundsIn(function).Any(bound => MayBeBorrowable(bound, function));
         borrowableClasses ??= [.. Types.Where(s => s.Kind == TypeKind.Class && IsBorrowable(s.Type))];
-        return borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type).Any(t => t.Symbol == type.NonNull.Symbol));
+        return borrowableClasses.Any(c => c == type.NonNull.Symbol || Conversions.Supertypes(c.Type, function: null).Any(t => t.Symbol == type.NonNull.Symbol));
     }
 }
 
@@ -421,12 +424,12 @@ public static class Patterns
         _ => [],
     };
 
-    /// <summary>Whether a pattern matches every value of its type, so it tests nothing.</summary>
-    public static bool AlwaysMatches(BoundPattern pattern) => pattern switch
+    /// <summary>Whether a pattern in <paramref name="function"/> matches every value of its type, so it tests nothing.</summary>
+    public static bool AlwaysMatches(BoundPattern pattern, FunctionSymbol? function) => pattern switch
     {
         BoundDiscardPattern or BoundBindingPattern or BoundReferencePattern => true,
-        BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target),
-        BoundStructPattern structPattern => !structPattern.Type.IsNullable && structPattern.Fields.All(AlwaysMatches),
+        BoundTypePattern test => !test.Type.IsNullable && Conversions.IsSubtype(test.Type, test.Target, function),
+        BoundStructPattern structPattern => !structPattern.Type.IsNullable && structPattern.Fields.All(field => AlwaysMatches(field, function)),
         _ => false,
     };
 }

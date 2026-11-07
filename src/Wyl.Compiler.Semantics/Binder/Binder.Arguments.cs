@@ -120,10 +120,8 @@ public sealed partial class Binder
             {
                 Error(Catalog.DefaultOnOverride(declared.DefaultSyntax!.Location, $"{function.ContainingType!.Name}.{function.Name}"));
             }
-            var undo = ApplyMemberBounds(function);
             foreach (var parameter in function.Parameters.Where(p => p.DefaultSyntax is not null))
                 DefaultOf(parameter);
-            undo();
         }
         foreach (var function in functions)
             InheritDefaults(function, []);

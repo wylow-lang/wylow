@@ -453,7 +453,7 @@ public sealed partial class Interpreter
             // two null tests ask the same question of the value, which knows its own form.
             IrTestKind.NotNull or IrTestKind.HasValue => new BoolValue(!IsNull(operand)),
             IrTestKind.Tag => new BoolValue(operand is EnumValue value && value.Variant == test.Variant),
-            IrTestKind.Class => new BoolValue(operand is ObjectRef obj && Conversions.IsSubtype(obj.Active, test.Target!.NonNull)),
+            IrTestKind.Class => new BoolValue(operand is ObjectRef obj && Conversions.IsSubtype(obj.Active, test.Target!.NonNull, function: null)),
             _ => throw new InterpreterException($"unexpected test {test.Kind}"),
         };
     }

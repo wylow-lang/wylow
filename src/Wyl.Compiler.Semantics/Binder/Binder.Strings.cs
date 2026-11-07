@@ -87,7 +87,7 @@ public sealed partial class Binder
             return value;
 
         var type = value.Type.NonNull;
-        if (!stdlib.IsPrintable(type))
+        if (!stdlib.IsPrintable(type, currentFunction))
         {
             var hasToString = type.Symbol is { } s && MethodCandidates(type, "toString").Any(c => c.Symbol.Parameters.Count == 0) ? s.Name : null;
             return ErrorExpression(Catalog.NotPrintable(location, value.Type.ToString(), hasToString));

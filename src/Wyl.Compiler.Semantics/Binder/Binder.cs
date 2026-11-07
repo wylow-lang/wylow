@@ -7,7 +7,7 @@ namespace Wyl.Compiler.Semantics;
 public sealed partial class Binder(DiagnosticBag diagnostics)
 {
     // Bounds may mention types whose own bounds are not bound yet, so satisfaction is checked last.
-    readonly List<(WylType Argument, TypeParameterSymbol Parameter, TypeMap Map, Location Location)> boundChecks = [];
+    readonly List<(WylType Argument, TypeParameterSymbol Parameter, TypeMap Map, Location Location, FunctionSymbol? Function)> boundChecks = [];
 
     readonly StdlibSymbols stdlib = new();
 

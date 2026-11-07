@@ -102,35 +102,6 @@ public sealed partial class Binder
         }
     }
 
-    /// <summary>
-    /// Gives the body a member's <c>where</c> clause to check against, and returns how to take it
-    /// away again, since the type's parameters are shared with the type's other members.
-    /// </summary>
-    static Action ApplyMemberBounds(FunctionSymbol function)
-    {
-        var added = new List<(TypeParameterSymbol Parameter, WylType Bound)>();
-        foreach (var bound in function.MemberInterfaceBounds)
-        {
-            bound.Parameter.Bounds.Add(bound.Bound);
-            added.Add((bound.Parameter, bound.Bound));
-        }
-        var madeCopyable = function.CopyableParameters.Where(p => !p.IsCopyableBound).ToList();
-        foreach (var parameter in madeCopyable)
-            parameter.IsCopyableBound = true;
-        var madeSendable = function.SendableParameters.Where(p => !p.IsSendableBound).ToList();
-        foreach (var parameter in madeSendable)
-            parameter.IsSendableBound = true;
-        return () =>
-        {
-            foreach (var (parameter, bound) in added)
-                parameter.Bounds.Remove(bound);
-            foreach (var parameter in madeCopyable)
-                parameter.IsCopyableBound = false;
-            foreach (var parameter in madeSendable)
-                parameter.IsSendableBound = false;
-        };
-    }
-
     TypeSymbol? DeclareType(TypeDecl decl)
     {
         // Only declares a built-in type's members and interfaces, so its name keeps naming the built-in type.
@@ -202,7 +173,7 @@ public sealed partial class Binder
             return;
         foreach (var (type, at) in valueTypeInterfaces)
         {
-            if (Conversions.IsSubtype(type, borrowable.Type))
+            if (Conversions.IsSubtype(type, borrowable.Type, function: null))
                 Error(Catalog.BorrowableNonClass(at));
         }
     }
@@ -398,12 +369,12 @@ public sealed partial class Binder
     /// <summary>Reports a type that other threads would share but that is not sendable, or not copyable.</summary>
     void CheckSendableAndCopyable(WylType type, Func<string, string, Location?, Diagnostic> error)
     {
-        if (!type.IsSendable)
+        if (!type.IsSendableIn(null))
         {
             var (detail, at) = SendableProblem(type);
             Error(error("sendable", detail, at));
         }
-        if (!type.IsCopyable)
+        if (!type.IsCopyableIn(null))
         {
             var (detail, at) = CopyableProblem(type);
             Error(error("copyable", detail, at));
@@ -427,11 +398,11 @@ public sealed partial class Binder
             foreach (var field in value.Symbol.ValueFields)
             {
                 var fieldType = map.Apply(field.Type);
-                if (!fieldType.IsSendable)
+                if (!fieldType.IsSendableIn(null))
                     return ($"field '{field.Name}' has type '{fieldType}', which is not sendable", field.Declaration.NameLocation);
             }
         }
-        if (value is FixedArrayType array && !array.Element.IsSendable)
+        if (value is FixedArrayType array && !array.Element.IsSendableIn(null))
             return ($"element type '{array.Element}' is not sendable", null);
         return ($"'{type}' is not sendable", null);
     }

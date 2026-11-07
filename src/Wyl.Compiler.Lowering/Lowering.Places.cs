@@ -52,7 +52,7 @@ public sealed partial class IrLowering
             case PlaceBase.Object:
             {
                 var crossing = path.Steps[0];
-                var holder = ObjectLocal(path.Root, crossing is BoundCall && program.MayBeBorrowable(path.Root.Type));
+                var holder = ObjectLocal(path.Root, crossing is BoundCall && program.MayBeBorrowable(path.Root.Type, symbol));
                 place = crossing switch
                 {
                     BoundFieldAccess field => IrPlace.Deref(holder).Field(field.Field),
@@ -135,7 +135,7 @@ public sealed partial class IrLowering
             case BoundCall call when current.Type.IsTypeParameter:
             {
                 // A generic value may be an object holding what the method hands out, so it is held itself.
-                var holder = Hold(current, program.MayBeBorrowable(current.Type));
+                var holder = Hold(current, program.MayBeBorrowable(current.Type, symbol));
                 return Returned(call, IrRead.Borrow(new IrPlace(holder)));
             }
             case BoundCall call:

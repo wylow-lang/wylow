@@ -75,8 +75,8 @@ static class TypeSelfTests
         List<string> problems = [];
         void Expect(WylType type, bool unique, bool copyable)
         {
-            if (type.IsUniqueType != unique || type.IsCopyable != copyable)
-                problems.Add($"'{type}' is {(type.IsUniqueType ? "" : "not ")}unique and {(type.IsCopyable ? "" : "not ")}copyable");
+            if (type.IsUniqueType != unique || type.IsCopyableIn(null) != copyable)
+                problems.Add($"'{type}' is {(type.IsUniqueType ? "" : "not ")}unique and {(type.IsCopyableIn(null) ? "" : "not ")}copyable");
         }
         Expect(owned, unique: true, copyable: false);
         Expect(owned.FixedArrayOf(2), unique: true, copyable: false);
@@ -114,8 +114,8 @@ static class TypeSelfTests
         List<string> problems = [];
         void Expect(WylType type, bool sendable)
         {
-            if (type.IsSendable != sendable)
-                problems.Add($"'{type}' is {(type.IsSendable ? "" : "not ")}sendable");
+            if (type.IsSendableIn(null) != sendable)
+                problems.Add($"'{type}' is {(type.IsSendableIn(null) ? "" : "not ")}sendable");
         }
         Expect(pair, sendable: true);
         Expect(holds, sendable: false);
@@ -156,13 +156,13 @@ static class TypeSelfTests
         Expect(ReferenceEquals(shared.Escaping, sharedEscaping) && ReferenceEquals(sharedEscaping.Shared, sharedEscaping), "the shared and escaping forms disagree");
         Expect(ReferenceEquals(escaping.Shared, sharedEscaping) && ReferenceEquals(sharedEscaping.NonShared, escaping), "the two ways to the shared escaping form disagree");
         Expect(ReferenceEquals(sharedEscaping.NonEscaping, shared), "dropping escaping leaves another shared form");
-        Expect(Conversions.IsImplicit(sharedEscaping, plain), "an escaping shared function does not convert to a non-escaping one");
-        Expect(Conversions.IsImplicit(sharedEscaping, escaping), "a shared function does not convert to the same type without shared");
-        Expect(Conversions.IsImplicit(sharedEscaping, shared), "an escaping shared function does not convert to a non-escaping shared one");
-        Expect(!Conversions.IsImplicit(plain, escaping), "a conversion adds escaping");
-        Expect(!Conversions.IsImplicit(plain, shared), "a conversion adds shared");
-        Expect(!Conversions.IsImplicit(escaping, sharedEscaping), "a conversion adds shared to an escaping function");
-        Expect(!Conversions.IsImplicit(shared, sharedEscaping), "a conversion adds escaping to a shared function");
+        Expect(Conversions.IsImplicit(sharedEscaping, plain, function: null), "an escaping shared function does not convert to a non-escaping one");
+        Expect(Conversions.IsImplicit(sharedEscaping, escaping, function: null), "a shared function does not convert to the same type without shared");
+        Expect(Conversions.IsImplicit(sharedEscaping, shared, function: null), "an escaping shared function does not convert to a non-escaping shared one");
+        Expect(!Conversions.IsImplicit(plain, escaping, function: null), "a conversion adds escaping");
+        Expect(!Conversions.IsImplicit(plain, shared, function: null), "a conversion adds shared");
+        Expect(!Conversions.IsImplicit(escaping, sharedEscaping, function: null), "a conversion adds shared to an escaping function");
+        Expect(!Conversions.IsImplicit(shared, sharedEscaping, function: null), "a conversion adds escaping to a shared function");
         Expect(sharedEscaping.MapParts(p => p) == sharedEscaping, "rebuilding a shared form changes it");
         Expect(sharedEscaping.CppIdentity == escaping.CppIdentity, "the C++ identity keeps shared");
         var inner = new FunctionParameterType(RefKind.None, plain);
@@ -212,10 +212,10 @@ static class TypeSelfTests
                 ? $"its C++ identity '{t.CppIdentity}' keeps '{kept}'"
             : null);
         yield return new("cpp_identity_facts", t => FactDifferences(t, t.CppIdentity) is { } differ ? $"its C++ identity '{t.CppIdentity}' differs in {differ}" : null);
-        yield return new("conversion_reflexive", t => Conversions.IsImplicit(t, t) ? null : "doesn't convert to itself");
+        yield return new("conversion_reflexive", t => Conversions.IsImplicit(t, t, function: null) ? null : "doesn't convert to itself");
         yield return new("nullable_conversion", t => !t.CanBeNullable ? null
-            : !Conversions.IsImplicit(t, t.Nullable) ? $"doesn't convert to '{t.Nullable}'"
-            : !Conversions.IsImplicit(WylType.Null, t.Nullable) ? $"null doesn't convert to '{t.Nullable}'"
+            : !Conversions.IsImplicit(t, t.Nullable, function: null) ? $"doesn't convert to '{t.Nullable}'"
+            : !Conversions.IsImplicit(WylType.Null, t.Nullable, function: null) ? $"null doesn't convert to '{t.Nullable}'"
             : null);
         yield return new("nullable_object", t => t.IsNullableObject == (t.MayBeNull && !t.IsNullableValue)
             ? null : "IsNullableObject disagrees with MayBeNull and IsNullableValue");
@@ -261,11 +261,11 @@ static class TypeSelfTests
         });
         yield return new("supertypes", t =>
         {
-            foreach (var super in Conversions.Supertypes(t))
+            foreach (var super in Conversions.Supertypes(t, function: null))
             {
-                if (!Conversions.IsSubtype(t, super))
+                if (!Conversions.IsSubtype(t, super, function: null))
                     return $"isn't a subtype of its supertype '{super}'";
-                if (t.IsReference && super.IsReference && !Conversions.IsImplicit(t, super))
+                if (t.IsReference && super.IsReference && !Conversions.IsImplicit(t, super, function: null))
                     return $"doesn't convert to its supertype '{super}'";
             }
             return null;
@@ -325,7 +325,7 @@ static class TypeSelfTests
         var pool = new HashSet<WylType>([WylType.Null, WylType.Char, WylType.Float, WylType.Double, .. WylType.Integers]);
         foreach (var t in types.Take(400))
         {
-            IEnumerable<WylType> near = [t, t.NonNull, t.Narrowed, t.Referred, .. Conversions.Supertypes(t)];
+            IEnumerable<WylType> near = [t, t.NonNull, t.Narrowed, t.Referred, .. Conversions.Supertypes(t, function: null)];
             if (t.CanBeNullable)
                 near = near.Append(t.Nullable);
             if (t.NonNull is FunctionType function)
@@ -335,9 +335,9 @@ static class TypeSelfTests
             pool.UnionWith(near);
         }
         var list = pool.ToList();
-        var converts = list.ToDictionary(a => a, a => list.Where(b => Conversions.IsImplicit(a, b)).ToHashSet());
+        var converts = list.ToDictionary(a => a, a => list.Where(b => Conversions.IsImplicit(a, b, function: null)).ToHashSet());
 
-        yield return Report("conversion_explicit", list.SelectMany(a => converts[a].Where(b => !Conversions.IsExplicit(a, b))
+        yield return Report("conversion_explicit", list.SelectMany(a => converts[a].Where(b => !Conversions.IsExplicit(a, b, function: null))
             .Select(b => $"'{a}' converts implicitly but not explicitly to '{b}'")));
         // The one exception: `char` converts to `int`, which converts to `double`, but `char` isn't a
         // number (spec 04-types.md#types.primitives.char).
@@ -397,10 +397,10 @@ static class TypeSelfTests
                 problems.Add(problem);
         }
 
-        Expect(Conversions.IsImplicit(WylType.Error, WylType.Int), "an error type converts to anything");
-        Expect(!Conversions.IsExplicit(WylType.Bool, WylType.Char), "a bool doesn't cast to a char");
+        Expect(Conversions.IsImplicit(WylType.Error, WylType.Int, function: null), "an error type converts to anything");
+        Expect(!Conversions.IsExplicit(WylType.Bool, WylType.Char, function: null), "a bool doesn't cast to a char");
         var maybe = program.Types.Single(s => s.Name == "Maybe").Construct([WylType.Int]);
-        Expect(!Conversions.IsExplicit(WylType.Int, maybe), "an integer doesn't cast to an enum whose variants carry data");
+        Expect(!Conversions.IsExplicit(WylType.Int, maybe, function: null), "an integer doesn't cast to an enum whose variants carry data");
         Expect(Conversions.IsExactlyRepresentable(1, WylType.Float), "1 is exact in a float");
         Expect(!Conversions.IsExactlyRepresentable(((Int128)1 << 24) + 1, WylType.Float), "2^24 + 1 is not exact in a float");
         Expect(Conversions.IsExactlyRepresentable(1, WylType.Double), "1 is exact in a double");
@@ -460,9 +460,9 @@ sealed class TypeGenerator(BoundProgram program, int seed)
         List<WylType> arguments = [.. symbol.TypeParameters.Select(_ => Make(Place.Storable, depth - 1))];
         var map = TypeMap.Empty.With(symbol.TypeParameters, arguments);
         bool satisfied = symbol.TypeParameters.Zip(arguments).All(pair =>
-            (!pair.First.IsSendableBound || pair.Second.IsSendable)
-            && (!pair.First.IsCopyableBound || pair.Second.IsCopyable)
-            && pair.First.Bounds.All(b => program.Stdlib.SatisfiesBound(pair.Second, map.Apply(b))));
+            (!pair.First.IsSendableBound || pair.Second.IsSendableIn(null))
+            && (!pair.First.IsCopyableBound || pair.Second.IsCopyableIn(null))
+            && pair.First.Bounds.All(b => program.Stdlib.SatisfiesBound(pair.Second, map.Apply(b), function: null)));
         return satisfied ? symbol.Construct(arguments) : null;
     }
 

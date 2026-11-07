@@ -1,0 +1,27 @@
+// A member's where clause bounds its type's parameter inside the lambdas in the member's body too.
+
+import std::print;
+
+struct Holder<T> {
+    T value;
+
+    T twice() where T extends copyable {
+        fn(T) -> T pick = given -> {
+            var first = given;
+            var second = given;
+            return first;
+        };
+        return pick(value);
+    }
+
+    String show() where T extends Printable {
+        fn() -> String text = () -> value.toString();
+        return text();
+    }
+}
+
+void main() {
+    var holder = Holder<int>(7);
+    print(holder.twice());               // output: 7
+    print(holder.show());                // output: 7
+}

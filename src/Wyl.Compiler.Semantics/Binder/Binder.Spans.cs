@@ -37,7 +37,7 @@ public sealed partial class Binder
         var hook = readOnly ? stdlib.ReadOnlySpannable : stdlib.Spannable;
         if (hook is null || from.IsNullable || !(from.IsStruct || from.IsReference))
             return null;
-        IEnumerable<WylType> candidates = [from, .. Conversions.Supertypes(from)];
+        IEnumerable<WylType> candidates = [from, .. Conversions.Supertypes(from, currentFunction)];
         return candidates.FirstOrDefault(t => t.Symbol == hook)?.TypeArguments[0];
     }
 

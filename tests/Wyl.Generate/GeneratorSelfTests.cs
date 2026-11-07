@@ -217,7 +217,7 @@ static class GeneratorSelfTests
         {
             foreach (var to in ConversionFacts.Numeric)
             {
-                if (from != to && ConversionFacts.Widens(from, to) != Conversions.IsImplicit(from, to))
+                if (from != to && ConversionFacts.Widens(from, to) != Conversions.IsImplicit(from, to, function: null))
                     return $"the spec's table says '{from.Name}' {(ConversionFacts.Widens(from, to) ? "converts" : "does not convert")} implicitly to '{to.Name}', and the compiler disagrees";
             }
         }

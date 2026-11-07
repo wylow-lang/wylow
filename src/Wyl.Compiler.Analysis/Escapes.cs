@@ -82,7 +82,7 @@ public sealed class Escapes
         if (!program.IsBorrowable(type))
             return false;
         var borrowable = program.Stdlib.Borrowable!;
-        HashSet<TypeSymbol?> classes = [type.Symbol, .. Conversions.Supertypes(type).Select(t => t.Symbol)];
+        HashSet<TypeSymbol?> classes = [type.Symbol, .. Conversions.Supertypes(type, function: null).Select(t => t.Symbol)];
         foreach (var method in borrowable.Methods.Values.SelectMany(m => m))
         {
             if (callees.Of(new IrRunMethod(new MethodReference(method, borrowable.Type, []), Direct: false)) is not { RunsExtern: false } found)

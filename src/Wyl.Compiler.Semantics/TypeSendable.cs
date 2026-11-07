@@ -4,15 +4,12 @@ public static class TypeSendable
 {
     extension(WylType type)
     {
-        public bool IsSendable => type.IsSendableIn(null);
-
         public bool IsSendableIn(FunctionSymbol? function) =>
             type.Symbol is { IsIsolated: true } || type.InlineTypes().All(t => t.IsSendablePartIn(function));
 
         bool IsSendablePartIn(FunctionSymbol? function) => type switch
         {
-            TypeParameterType { Parameter: var parameter } =>
-                parameter.IsSendableBound || function?.SendableParameters.Contains(parameter) == true,
+            TypeParameterType { Parameter: var parameter } => parameter.IsSendableIn(function),
             _ when type == WylType.Error => true,
             _ when type == WylType.String => true,
             _ when type.IsWeakOfSharedClass => true,
@@ -30,10 +27,10 @@ public static class TypeSendable
             && target.Symbol is { IsShared: true };
 
         /// <summary>The first field, or variant field, whose type is not sendable.</summary>
-        public FieldSymbol? FindNonSendableField() => FindNonSendableField(type, []);
+        public FieldSymbol? FindNonSendableField(FunctionSymbol? function) => FindNonSendableField(type, function, []);
     }
 
-    static FieldSymbol? FindNonSendableField(WylType type, HashSet<WylType> visiting)
+    static FieldSymbol? FindNonSendableField(WylType type, FunctionSymbol? function, HashSet<WylType> visiting)
     {
         if (type.Symbol is { IsIsolated: true } || !type.IsStructOrEnum || !visiting.Add(type))
             return null;
@@ -41,9 +38,9 @@ public static class TypeSendable
         foreach (var field in type.Symbol!.ValueFields)
         {
             var fieldType = map.Apply(field.Type);
-            if (!fieldType.IsSendable)
+            if (!fieldType.IsSendableIn(function))
                 return field;
-            if (FindNonSendableField(fieldType, visiting) is { } nested)
+            if (FindNonSendableField(fieldType, function, visiting) is { } nested)
                 return nested;
         }
         return null;

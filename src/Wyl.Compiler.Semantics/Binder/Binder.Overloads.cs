@@ -149,7 +149,7 @@ public sealed partial class Binder
         // The overload whose parameters all convert to every other candidate's parameters.
         bool IsMoreSpecific(MethodReference m, MethodReference n) =>
             Enumerable.Range(0, arguments.Count).All(a =>
-                Conversions.IsImplicit(m.ParameterType(Array.IndexOf(arranged[m.Symbol].ArgumentOf, a)), n.ParameterType(Array.IndexOf(arranged[n.Symbol].ArgumentOf, a))));
+                Conversions.IsImplicit(m.ParameterType(Array.IndexOf(arranged[m.Symbol].ArgumentOf, a)), n.ParameterType(Array.IndexOf(arranged[n.Symbol].ArgumentOf, a)), currentFunction));
         var mostSpecific = applicable.Where(m => applicable.All(n => n == m || IsMoreSpecific(m, n))).ToList();
         if (mostSpecific.Count > 1)
         {

@@ -319,7 +319,7 @@ public sealed partial class Binder
         // Prefer a non-null result: `a ?? b` is non-null when `b` is.
         WylType[] candidates = [left.Type.NonNull, right.Type, left.Type];
         var type = candidates.FirstOrDefault(t =>
-            t != WylType.Null && Conversions.IsImplicit(left.Type.NonNull, t) && (Conversions.IsImplicit(right.Type, t) || IsConvertibleConstant(right, t)));
+            t != WylType.Null && Conversions.IsImplicit(left.Type.NonNull, t, currentFunction) && (Conversions.IsImplicit(right.Type, t, currentFunction) || IsConvertibleConstant(right, t)));
         if (type is null)
             return ErrorExpression(Catalog.BinaryOperatorNotApplicable(e.OperatorLocation, "??", left.Type.ToString(), right.Type.ToString()));
         return new BoundCoalesce(e.Location, left, Convert(right, type), type);
@@ -426,7 +426,7 @@ public sealed partial class Binder
             // References compare by identity, and only when one could be the other.
             var (a, b) = (left.Type.NonNull, right.Type.NonNull);
             bool related = a == WylType.Null || b == WylType.Null || a.IsInterface || b.IsInterface
-                || Conversions.IsSubtype(a, b) || Conversions.IsSubtype(b, a);
+                || Conversions.IsSubtype(a, b, currentFunction) || Conversions.IsSubtype(b, a, currentFunction);
             if (!related)
                 return ErrorExpression(Mismatch());
             return new BoundBinary(location, left, op, right, WylType.Bool);
@@ -553,19 +553,19 @@ public sealed partial class Binder
             return left.Type;
         if (IsConvertibleConstant(left, right.Type))
             return right.Type;
-        if (Conversions.IsImplicit(left.Type, right.Type))
+        if (Conversions.IsImplicit(left.Type, right.Type, currentFunction))
             return right.Type;
-        if (Conversions.IsImplicit(right.Type, left.Type))
+        if (Conversions.IsImplicit(right.Type, left.Type, currentFunction))
             return left.Type;
         if (left.Type.IsInteger && right.Type.IsInteger)
-            return WylType.Integers.FirstOrDefault(t => Conversions.IsImplicit(left.Type, t) && Conversions.IsImplicit(right.Type, t));
+            return WylType.Integers.FirstOrDefault(t => Conversions.IsImplicit(left.Type, t, currentFunction) && Conversions.IsImplicit(right.Type, t, currentFunction));
         return null;
     }
 
     bool CanConvert(BoundExpression expression, WylType to) =>
         expression is BoundPendingLambda lambda ? (lambda.Inferred is { } inferred ? InferredLambdaFits(inferred, to) : LambdaFits(lambda, to))
         : expression is BoundPendingChoice choice ? to.NonNull.IsFunction && choice.Options.All(o => CanConvert(o, to))
-        : Conversions.IsImplicit(expression.Type, to) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
+        : Conversions.IsImplicit(expression.Type, to, currentFunction) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
         || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to)
         || IsPassedByIn(expression, to);
 
@@ -594,10 +594,10 @@ public sealed partial class Binder
     /// A nullable local converts to a non-null type if flow analysis proves it is not null there, and
     /// a <c>ref?</c> local to the type it refers to.
     /// </summary>
-    static bool IsNarrowable(BoundExpression expression, WylType to) =>
+    bool IsNarrowable(BoundExpression expression, WylType to) =>
         expression is BoundLocalAccess { AssumesNonNull: false, Type: var type }
         && (type.IsNullableReference ? !to.IsNullableReference : type.IsNullable && !to.IsNullable)
-        && Conversions.IsImplicit(type.Narrowed, to);
+        && Conversions.IsImplicit(type.Narrowed, to, currentFunction);
 
     BoundExpression Convert(BoundExpression expression, WylType to)
     {
@@ -632,7 +632,7 @@ public sealed partial class Binder
 
         if (IsNullableWrapping(expression, to))
             return new BoundConversion(expression.Location, to, Convert(expression, to.NonNull));
-        if (Conversions.IsImplicit(expression.Type, to) || IsWeakConversion(expression.Type, to))
+        if (Conversions.IsImplicit(expression.Type, to, currentFunction) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (IsPassedByIn(expression, to))
             return new BoundConversion(expression.Location, to, Convert(expression, to.Referred));
@@ -644,15 +644,15 @@ public sealed partial class Binder
             ReportNotEscaping(expression);
             return new BoundErrorExpression(expression.Location);
         }
-        if (to.Symbol is { IsIsolated: true } && !expression.Type.IsSendable)
+        if (to.Symbol is { IsIsolated: true } && !expression.Type.IsSendableIn(currentFunction))
         {
-            var field = expression.Type.FindNonSendableField();
+            var field = expression.Type.FindNonSendableField(currentFunction);
             return ErrorExpression(Catalog.IsolatedNotSendable(expression.Location, expression.Type.ToString(),
                 field?.Name, field?.Declaration.NameLocation ?? expression.Location,
                 field is null ? null : TypeMap.For(expression.Type).Apply(field.Type).ToString()));
         }
-        var (help, nullable) = Conversions.IsExplicit(expression.Type, to) ? (ConversionHelp.Cast, null)
-            : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to) ? (ConversionHelp.NullCheck, null)
+        var (help, nullable) = Conversions.IsExplicit(expression.Type, to, currentFunction) ? (ConversionHelp.Cast, null)
+            : expression.Type.MayBeNull && Conversions.IsImplicit(expression.Type.Narrowed, to, currentFunction) ? (ConversionHelp.NullCheck, null)
             : SpanConversionHelp(expression, to);
         return ErrorExpression(Catalog.ImplicitConversion(expression.Location, to.ToString(), expression.Type.ToString(), help, nullable));
     }
@@ -665,7 +665,7 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         if (operand.Type == type)
             return operand;
-        if (!Conversions.IsExplicit(operand.Type, type))
+        if (!Conversions.IsExplicit(operand.Type, type, currentFunction))
             return ErrorExpression(Catalog.InvalidCast(e.Location, operand.Type.ToString(), type.ToString()));
         return new BoundConversion(e.Location, type, operand);
     }
@@ -690,8 +690,8 @@ public sealed partial class Binder
         WylType? type = t == f ? t
             : IsConvertibleConstant(whenFalse, t) ? t
             : IsConvertibleConstant(whenTrue, f) ? f
-            : Conversions.IsImplicit(t, f) ? f
-            : Conversions.IsImplicit(f, t) ? t
+            : Conversions.IsImplicit(t, f, currentFunction) ? f
+            : Conversions.IsImplicit(f, t, currentFunction) ? t
             : t == WylType.Null && f.CanBeNullable ? f.Nullable
             : f == WylType.Null && t.CanBeNullable ? t.Nullable
             : null;

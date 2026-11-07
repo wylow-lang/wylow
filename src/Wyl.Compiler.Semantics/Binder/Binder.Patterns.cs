@@ -61,7 +61,7 @@ public sealed partial class Binder
         int errors = diagnostics.Count;
         var pattern = BindPattern(e.Pattern, operand.Type, canBind: true, MatchPlace.Of(this, operand));
         // A type test that always passes is allowed: it states the type, as an upcast would.
-        if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern))
+        if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern, currentFunction))
             Error(Catalog.PatternAlwaysMatches(e.Pattern.Location));
         return new BoundIs(e.Location, operand, pattern);
     }
@@ -248,7 +248,7 @@ public sealed partial class Binder
         if (type.IsReference)
         {
             var from = type.NonNull;
-            if (!target.IsReference || (from.IsClass && target.IsClass && !Conversions.IsSubtype(from, target) && !Conversions.IsSubtype(target, from)))
+            if (!target.IsReference || (from.IsClass && target.IsClass && !Conversions.IsSubtype(from, target, currentFunction) && !Conversions.IsSubtype(target, from, currentFunction)))
             {
                 Binding(WylType.Error);
                 Error(Catalog.PatternNeverMatches(typeSyntax.Location, target.ToString(), from.ToString()));
@@ -530,7 +530,7 @@ public sealed partial class Binder
         if (broken)
             return;
 
-        var space = new MatchSpace(type);
+        var space = new MatchSpace(type, currentFunction);
         for (int i = 0; i < syntax.Count; i++)
         {
             foreach (var pattern in patterns[i])

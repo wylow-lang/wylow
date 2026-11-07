@@ -149,6 +149,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>For a lambda, the function or lambda whose body creates it.</summary>
     public FunctionSymbol? Enclosing { get; init; }
 
+    /// <summary>
+    /// The member whose <c>where</c> clause bounds the type parameters in the function: the function
+    /// itself, or for a lambda, the member whose body the lambda is in.
+    /// </summary>
+    public FunctionSymbol Member => Enclosing?.Member ?? this;
+
     public string? BuiltinCppName { get; init; }
     public bool IsNoReturn { get; init; }
 
@@ -233,10 +239,24 @@ public sealed class TypeParameterSymbol
     /// <summary>Interfaces that every type argument must implement.</summary>
     public List<WylType> Bounds { get; } = [];
 
-    /// <summary>Whether a <c>copyable</c> bound says a value of it is copied (spec <c>generics.bounds</c>).</summary>
-    public bool IsCopyableBound { get; set; }
+    /// <summary>Whether the declaration's <c>copyable</c> bound says a value of it is copied (spec <c>generics.bounds</c>).</summary>
+    public bool IsCopyableBound { get; internal set; }
 
-    public bool IsSendableBound { get; set; }
+    public bool IsSendableBound { get; internal set; }
+
+    /// <summary>
+    /// The interfaces the parameter implements in <paramref name="function"/>: the declaration's
+    /// bounds, and those that the <c>where</c> clause of the function's member adds (spec
+    /// <c>generics.bounds</c>). Outside a function, only the declaration's bounds apply.
+    /// </summary>
+    public IEnumerable<WylType> BoundsIn(FunctionSymbol? function) =>
+        function is null ? Bounds : [.. Bounds, .. function.Member.MemberInterfaceBounds.Where(b => b.Parameter == this).Select(b => b.Bound)];
+
+    /// <summary>Whether a value of the parameter is copied in <paramref name="function"/>, by the declaration's bound or the member's <c>where</c> clause.</summary>
+    public bool IsCopyableIn(FunctionSymbol? function) => IsCopyableBound || function?.Member.CopyableParameters.Contains(this) == true;
+
+    /// <summary>Whether the parameter is sendable in <paramref name="function"/>, by the declaration's bound or the member's <c>where</c> clause.</summary>
+    public bool IsSendableIn(FunctionSymbol? function) => IsSendableBound || function?.Member.SendableParameters.Contains(this) == true;
 
     public override string ToString() => Name;
 }

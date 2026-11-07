@@ -60,7 +60,7 @@ public sealed partial class CppEmitter
     static bool OverridesInCpp(FunctionSymbol member) =>
         member.IsOverride
         || member.ImplementsInterface && member.Overridden.Any(o => o.ContainingType is { Kind: TypeKind.Interface } iface
-            && Conversions.Supertypes(member.ContainingType!.Type).Any(t => t.Symbol == iface));
+            && Conversions.Supertypes(member.ContainingType!.Type, function: null).Any(t => t.Symbol == iface));
 
     string DefinitionSignature(FunctionSymbol function)
     {

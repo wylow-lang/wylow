@@ -143,7 +143,7 @@ public sealed partial class Binder
 
     /// <summary>A reference, or null, converts implicitly to a weak reference to it.</summary>
     bool IsWeakConversion(WylType from, WylType to) =>
-        stdlib.IsWeak(to) && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable)));
+        stdlib.IsWeak(to) && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable, currentFunction)));
 
     /// <summary>A type argument must be storable.</summary>
     bool CheckTypeArguments(IReadOnlyList<WylType> arguments, Location location)
@@ -161,22 +161,23 @@ public sealed partial class Binder
     {
         var map = TypeMap.Empty.With(parameters, arguments);
         foreach (var (parameter, argument) in parameters.Zip(arguments))
-            boundChecks.Add((argument, parameter, map, location));
+            boundChecks.Add((argument, parameter, map, location, currentFunction));
     }
 
     void CheckBounds()
     {
-        foreach (var (argument, parameter, map, location) in boundChecks)
+        // A check runs after every body is bound, so it carries the function its type was written in.
+        foreach (var (argument, parameter, map, location, function) in boundChecks)
         {
             if (argument == WylType.Error)
                 continue;
-            if (parameter.IsCopyableBound && !argument.IsCopyable)
+            if (parameter.IsCopyableBound && !argument.IsCopyableIn(function))
                 Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "copyable", parameter.Name));
-            if (parameter.IsSendableBound && !argument.IsSendable)
+            if (parameter.IsSendableBound && !argument.IsSendableIn(function))
                 Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "sendable", parameter.Name));
             foreach (var bound in parameter.Bounds.Select(map.Apply))
             {
-                if (!stdlib.SatisfiesBound(argument, bound))
+                if (!stdlib.SatisfiesBound(argument, bound, function))
                     Error(Catalog.BoundNotSatisfied(location, argument.ToString(), bound.ToString(), parameter.Name));
             }
         }
@@ -215,7 +216,7 @@ public sealed partial class Binder
         type = stdlib.MemberHost(type);
         var result = new List<Candidate>();
         var seen = new HashSet<string>();
-        IEnumerable<WylType> searched = type.IsTypeParameter ? Conversions.Supertypes(type) : [type, .. Conversions.Supertypes(type)];
+        IEnumerable<WylType> searched = type.IsTypeParameter ? Conversions.Supertypes(type, currentFunction) : [type, .. Conversions.Supertypes(type, currentFunction)];
         foreach (var t in searched)
         {
             if (t.Symbol is null || !t.Symbol.Methods.TryGetValue(name, out var methods))

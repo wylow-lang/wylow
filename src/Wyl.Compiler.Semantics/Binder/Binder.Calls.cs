@@ -352,20 +352,20 @@ public sealed partial class Binder
         foreach (var parameter in symbol.CopyableParameters)
         {
             var argument = method.Map.Apply(parameter.Type);
-            if (argument != WylType.Error && !argument.IsCopyable)
+            if (argument != WylType.Error && !argument.IsCopyableIn(currentFunction))
                 Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), "copyable", member, property: true));
         }
         foreach (var parameter in symbol.SendableParameters)
         {
             var argument = method.Map.Apply(parameter.Type);
-            if (argument != WylType.Error && !argument.IsSendable)
+            if (argument != WylType.Error && !argument.IsSendableIn(currentFunction))
                 Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), "sendable", member, property: true));
         }
         foreach (var bound in symbol.MemberInterfaceBounds)
         {
             var argument = method.Map.Apply(bound.Parameter.Type);
             var required = method.Map.Apply(bound.Bound);
-            if (argument != WylType.Error && !stdlib.SatisfiesBound(argument, required))
+            if (argument != WylType.Error && !stdlib.SatisfiesBound(argument, required, currentFunction))
                 Error(Catalog.MemberBoundNotSatisfied(location, argument.ToString(), required.ToString(), member, property: false));
         }
     }
@@ -407,7 +407,7 @@ public sealed partial class Binder
     bool IsBorrowHook(FunctionSymbol method) =>
         stdlib.Borrowable is { } borrowable
         && method is { Name: "beginBorrow" or "endBorrow", Parameters.Count: 0, ContainingType: { } owner }
-        && Conversions.IsSubtype(owner.Type, borrowable.Type);
+        && Conversions.IsSubtype(owner.Type, borrowable.Type, function: null);
 
     bool CheckUnsafeCall(Location location, MethodReference method)
     {

@@ -218,14 +218,14 @@ public sealed partial class IrLowering
         var method = call.Method.Symbol;
         bool returnsInto = method.ReturnRefKind != RefKind.None || call.Type.IsRefStruct;
         if (receiver is BoundThis { Type.IsReference: true })
-            return returnsInto && program.MayBeBorrowable(type) ? IrRead.Borrow(new IrPlace(Hold(new IrPlace(self!), borrows: true))) : IrRead.Borrow(new IrPlace(self!));
+            return returnsInto && program.MayBeBorrowable(type, symbol) ? IrRead.Borrow(new IrPlace(Hold(new IrPlace(self!), borrows: true))) : IrRead.Borrow(new IrPlace(self!));
         if (type.IsReference)
-            return IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type))));
+            return IrRead.Borrow(new IrPlace(ObjectLocal(receiver, returnsInto && program.MayBeBorrowable(type, symbol))));
         if (type.IsTypeParameter || (type.SharesStorage && returnsInto))
         {
             var place = IsPlace(receiver) ? Place(receiver, Use.InUse) : new IrPlace(Let(Rvalue(receiver, Use.Read)));
             // A generic value may be an object, which the call holds; a struct is used in place.
-            var holder = Hold(place, returnsInto && program.MayBeBorrowable(type));
+            var holder = Hold(place, returnsInto && program.MayBeBorrowable(type, symbol));
             return method.IsReadOnly || returnsInto ? IrRead.Borrow(new IrPlace(holder)) : new IrRefArgument(RefKind.Ref, IrPlace.Deref(holder));
         }
         var kind = method.IsReadOnly ? RefKind.In : RefKind.Ref;

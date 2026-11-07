@@ -125,10 +125,10 @@ public sealed class StdlibSymbols
     public WylType MemberHost(WylType type) => hosts.TryGetValue(type, out var host) ? host.Type : type;
 
     /// <summary>Whether a type implements <see cref="Printable"/>, which a bound or interpolation may ask.</summary>
-    public bool IsPrintable(WylType type) => Printable is { } printable && SatisfiesBound(type, printable.Type);
+    public bool IsPrintable(WylType type, FunctionSymbol? function) => Printable is { } printable && SatisfiesBound(type, printable.Type, function);
 
     /// <summary>Whether a type satisfies an interface bound: implements it, itself or through its host.</summary>
-    public bool SatisfiesBound(WylType type, WylType bound) => Conversions.IsSubtype(MemberHost(type), bound);
+    public bool SatisfiesBound(WylType type, WylType bound, FunctionSymbol? function) => Conversions.IsSubtype(MemberHost(type), bound, function);
 
     public bool IsSpan(WylType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 
@@ -152,7 +152,7 @@ public sealed class StdlibSymbols
     {
         if (type.Symbol is not { Kind: TypeKind.Class } s || ReadOnlySpannable is not { } hook || !s.Declaration.Location.Source.Module.Package.IsStd)
             return null;
-        IEnumerable<WylType> candidates = [type, .. Conversions.Supertypes(type)];
+        IEnumerable<WylType> candidates = [type, .. Conversions.Supertypes(type, function: null)];
         return candidates.FirstOrDefault(t => t.Symbol == hook)?.TypeArguments[0];
     }
 }

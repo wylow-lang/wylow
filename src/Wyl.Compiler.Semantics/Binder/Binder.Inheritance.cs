@@ -17,7 +17,7 @@ public sealed partial class Binder
             foreach (var method in methods)
             {
                 var key = MethodKey(method, TypeMap.Empty);
-                var inherited = Conversions.Supertypes(self).Select(t => FindMethod(t, key)).FirstOrDefault(m => m is not null);
+                var inherited = Conversions.Supertypes(self, function: null).Select(t => FindMethod(t, key)).FirstOrDefault(m => m is not null);
                 if (inherited is not null)
                     Error(Catalog.RedeclaredInterfaceMethod(method.Declaration!.NameLocation, method.Signature, inherited.Owner!.ToString()));
             }
@@ -50,8 +50,8 @@ public sealed partial class Binder
             }
         }
 
-        var inheritedInterfaces = self.BaseType is { } b ? Conversions.Supertypes(b).ToHashSet() : [];
-        foreach (var iface in Conversions.Supertypes(self).Where(t => t.IsInterface))
+        var inheritedInterfaces = self.BaseType is { } b ? Conversions.Supertypes(b, function: null).ToHashSet() : [];
+        foreach (var iface in Conversions.Supertypes(self, function: null).Where(t => t.IsInterface))
         {
             foreach (var method in iface.Symbol!.Methods.Values.SelectMany(m => m))
             {
@@ -89,7 +89,7 @@ public sealed partial class Binder
                     {
                         implementation.Symbol.ImplementsInterface = true;
                         if (implementation.Owner!.Symbol != s
-                            && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface)
+                            && !inheritedInterfaces.Contains(iface) && !Conversions.IsSubtype(implementation.Owner, iface, function: null)
                             && !s.InheritedImplementations.Any(m => m.Symbol == implementation.Symbol))
                             s.InheritedImplementations.Add(implementation);
                     }

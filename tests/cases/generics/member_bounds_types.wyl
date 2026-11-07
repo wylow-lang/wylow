@@ -1,0 +1,37 @@
+// A type written in a member's body takes the type's parameter as an argument when the member's
+// where clause gives the parameter the bound that the argument needs.
+
+import std::print;
+
+struct Pair<U extends copyable> {
+    U first;
+    U second;
+}
+
+struct Shown<U extends Printable> {
+    U value;
+
+    String text() {
+        return value.toString();
+    }
+}
+
+struct Holder<T> {
+    T value;
+
+    T copy() where T extends copyable {
+        Pair<T> pair = Pair<T>(value, value);
+        return pair.second;
+    }
+
+    String show() where T extends Printable & copyable {
+        Shown<T> shown = Shown<T>(value);
+        return shown.text();
+    }
+}
+
+void main() {
+    var holder = Holder<int>(7);
+    print(holder.copy());                // output: 7
+    print(holder.show());                // output: 7
+}

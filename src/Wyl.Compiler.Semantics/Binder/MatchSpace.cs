@@ -11,7 +11,7 @@ namespace Wyl.Compiler.Semantics;
 /// A nullable type has two constructors, null and a value of its non-null type, so a missing value
 /// can be null, as in <c>Moved(null)</c>.
 /// </remarks>
-public sealed class MatchSpace(WylType type)
+public sealed class MatchSpace(WylType type, FunctionSymbol? function)
 {
     abstract record Pattern;
 
@@ -61,12 +61,12 @@ public sealed class MatchSpace(WylType type)
     /// <summary>An unmatched value written as a pattern, or null if every value is matched.</summary>
     public string? Missing() => Useful(rows, [Wildcard.Instance], [type]) is { } witness ? Format(witness[0]) : null;
 
-    static Pattern Simplify(BoundPattern pattern) => pattern switch
+    Pattern Simplify(BoundPattern pattern) => pattern switch
     {
-        _ when Patterns.AlwaysMatches(pattern) => Wildcard.Instance,
+        _ when Patterns.AlwaysMatches(pattern, function) => Wildcard.Instance,
         BoundNullPattern => new Constructor(Null, []),
         // A test of a nullable value's type is first a test that it isn't null.
-        BoundTypePattern { Type.IsNullable: true } test => ValueOf(Conversions.IsSubtype(test.Type.NonNull, test.Target) ? Wildcard.Instance : Opaque.Instance),
+        BoundTypePattern { Type.IsNullable: true } test => ValueOf(Conversions.IsSubtype(test.Type.NonNull, test.Target, function) ? Wildcard.Instance : Opaque.Instance),
         BoundTypePattern => Opaque.Instance,
         BoundVariantPattern variant => new Constructor(variant.Variant, [.. variant.Fields.Select(Simplify)]),
         BoundStructPattern { Type.IsNullable: true } structPattern => ValueOf(Struct(structPattern)),
@@ -77,7 +77,7 @@ public sealed class MatchSpace(WylType type)
         _ => throw new InvalidOperationException($"unexpected pattern {pattern.GetType().Name}"),
     };
 
-    static Constructor Struct(BoundStructPattern pattern) => new(pattern.Type.NonNull.Symbol!, [.. pattern.Fields.Select(Simplify)]);
+    Constructor Struct(BoundStructPattern pattern) => new(pattern.Type.NonNull.Symbol!, [.. pattern.Fields.Select(Simplify)]);
 
     /// <summary>Every constructor of a type with finitely many, or null.</summary>
     static IReadOnlyList<object>? Constructors(WylType type) =>

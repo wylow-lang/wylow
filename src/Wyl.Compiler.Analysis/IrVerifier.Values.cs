@@ -323,7 +323,7 @@ public sealed partial class IrVerifier
         IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], IrAccess.Unknown, false, false),
         IrRefArgument reference => Into(reference.Place, alias: false),
         IrRead { Place: var holder } => new([(holder.Local, true)], IrAccess.Unknown, false,
-            NeedsBorrow: program.Bound.MayBeBorrowable(holder.Type) && !borrowingHolds.Contains(holder.Local)),
+            NeedsBorrow: program.Bound.MayBeBorrowable(holder.Type, function.Symbol) && !borrowingHolds.Contains(holder.Local)),
         _ => new([], IrAccess.Unknown, false, false),
     };
 

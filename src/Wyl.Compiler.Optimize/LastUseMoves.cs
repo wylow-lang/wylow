@@ -155,7 +155,7 @@ sealed class LastUseMoves
         if (callees.Cycles.Destroyable(type) is not { } destroyed)
             return true;
         return destroyed.Any(c => weakTargets.Any(target =>
-            target.IsTypeParameter || target.Symbol == c.Symbol || Conversions.Supertypes(c).Any(super => super.Symbol == target.Symbol)));
+            target.IsTypeParameter || target.Symbol == c.Symbol || Conversions.Supertypes(c, function: null).Any(super => super.Symbol == target.Symbol)));
     }
 
     /// <summary>Whether the instruction takes ownership of the value it reads, rather than only looking at it.</summary>

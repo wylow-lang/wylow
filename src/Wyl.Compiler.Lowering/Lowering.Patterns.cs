@@ -161,7 +161,7 @@ public sealed partial class IrLowering
             case BoundTypePattern test:
             {
                 // A value whose type is already a `Target` needs only to be non-null.
-                bool upcast = Conversions.IsSubtype(test.Type.NonNull, test.Target);
+                bool upcast = Conversions.IsSubtype(test.Type.NonNull, test.Target, symbol);
                 if (!upcast)
                     tests.Add(() => Tested(new IrTest(IrTestKind.Class, IrRead.Borrow(value())) { Target = test.Target }));
                 else if (test.Type.IsNullable)

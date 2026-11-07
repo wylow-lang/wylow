@@ -24,11 +24,9 @@ public sealed partial class Binder
             scope.Add(parameter);
         }
 
-        var undo = ApplyMemberBounds(function);
         var body = function.IsConstructor
             ? BindConstructorBody(function)
             : BindBlock(function.Body!);
-        undo();
         CheckCaptures(body);
 
         currentFunction = null;
