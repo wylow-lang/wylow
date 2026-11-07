@@ -113,49 +113,45 @@ public sealed partial class Interpreter
         return result;
     }
 
-    Value? ThreadIntrinsic(string name, IrCall call, Frame caller, string? location)
+    ThreadValue SpawnThread(IrCall call, Frame caller, string? location)
     {
         var arguments = ArgumentsOf(call, caller);
-        switch (name)
+        if (!mainStarted)
+            throw new WylPanic("cannot start a thread before main begins", location ?? "<runtime>");
+        var body = arguments[0] as FunctionValue
+            ?? throw new InterpreterException("the thread's body is not a function value");
+        var bodyType = caller.Map.Apply(call.Method.ParameterType(0));
+        var resultType = caller.Map.Apply(call.Method.TypeArguments[0]);
+        var thread = SpawnLogical(resultType, () => RunThreadBody(body, bodyType), location ?? "<runtime>");
+        return new ThreadValue { Thread = thread };
+    }
+
+    Value JoinThread(IrCall call, Frame caller, string? location)
+    {
+        var arguments = ArgumentsOf(call, caller);
+        if (arguments[0] is NullValue)
+            throw new WylPanic("cannot join a thread that was never started", location ?? "<runtime>");
+        var thread = (arguments[0] as ThreadValue)?.Thread
+            ?? throw new InterpreterException("joined something that is not a thread");
+        WaitFor(thread);
+        var result = thread.Result ?? throw new InterpreterException("joined a thread that has no result");
+        thread.Result = null;
+        return result.Value;
+    }
+
+    Value? ReleaseThread(IrCall call, Frame caller)
+    {
+        var arguments = ArgumentsOf(call, caller);
+        if (arguments[0] is ThreadValue { Thread: { } thread })
         {
-            case "spawn":
+            WaitFor(thread);
+            if (thread.Result is { } result)
             {
-                if (!mainStarted)
-                    throw new WylPanic("cannot start a thread before main begins", location ?? "<runtime>");
-                var body = arguments[0] as FunctionValue
-                    ?? throw new InterpreterException("the thread's body is not a function value");
-                var bodyType = caller.Map.Apply(call.Method.ParameterType(0));
-                var resultType = caller.Map.Apply(call.Method.TypeArguments[0]);
-                var thread = SpawnLogical(resultType, () => RunThreadBody(body, bodyType), location ?? "<runtime>");
-                return new ThreadValue { Thread = thread };
-            }
-            case "join":
-            {
-                if (arguments[0] is NullValue)
-                    throw new WylPanic("cannot join a thread that was never started", location ?? "<runtime>");
-                var thread = (arguments[0] as ThreadValue)?.Thread
-                    ?? throw new InterpreterException("joined something that is not a thread");
-                WaitFor(thread);
-                var result = thread.Result ?? throw new InterpreterException("joined a thread that has no result");
                 thread.Result = null;
-                return result.Value;
+                Release(result);
             }
-            case "release":
-            {
-                if (arguments[0] is ThreadValue { Thread: { } thread })
-                {
-                    WaitFor(thread);
-                    if (thread.Result is { } result)
-                    {
-                        thread.Result = null;
-                        Release(result);
-                    }
-                }
-                return null;
-            }
-            default:
-                throw new UnsupportedFeature($"the intrinsic 'wyl::thread::{name}'");
         }
+        return null;
     }
 
     void ThrowFailure()

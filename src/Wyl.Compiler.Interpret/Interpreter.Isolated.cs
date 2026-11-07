@@ -5,43 +5,41 @@ namespace Wyl.Compiler.Interpret;
 
 public sealed partial class Interpreter
 {
-    Value? IsolatedIntrinsic(string name, IrCall call, Frame caller, string? location)
+    Value? BuildIsolated(IrCall call, Frame caller)
     {
         var arguments = ArgumentsOf(call, caller);
-        switch (name)
+        var graph = GraphOf(RefArgumentCell(call, 0, caller));
+        SwapGraph(graph);
+        try
         {
-            case "buildIsolated":
-            {
-                var graph = GraphOf(RefArgumentCell(call, 0, caller));
-                SwapGraph(graph);
-                try
-                {
-                    return InvokeCallable(arguments[1], [], caller);
-                }
-                finally
-                {
-                    SwapGraph(graph);
-                }
-            }
-            case "openIsolated":
-            {
-                var graph = GraphOf(RefArgumentCell(call, 0, caller));
-                var content = RefArgumentCell(call, 1, caller);
-                SwapGraph(graph);
-                try
-                {
-                    return InvokeCallableOn(arguments[2], content, caller);
-                }
-                finally
-                {
-                    SwapGraph(graph);
-                }
-            }
-            case "takeValue":
-                return Take(RefArgumentCell(call, 0, caller));
-            default:
-                throw new UnsupportedFeature($"the intrinsic 'wyl::isolated::{name}'");
+            return InvokeCallable(arguments[1], [], caller);
         }
+        finally
+        {
+            SwapGraph(graph);
+        }
+    }
+
+    Value? OpenIsolated(IrCall call, Frame caller)
+    {
+        var arguments = ArgumentsOf(call, caller);
+        var graph = GraphOf(RefArgumentCell(call, 0, caller));
+        var content = RefArgumentCell(call, 1, caller);
+        SwapGraph(graph);
+        try
+        {
+            return InvokeCallableOn(arguments[2], content, caller);
+        }
+        finally
+        {
+            SwapGraph(graph);
+        }
+    }
+
+    Value? TakeIsolatedValue(IrCall call, Frame caller)
+    {
+        _ = ArgumentsOf(call, caller);
+        return Take(RefArgumentCell(call, 0, caller));
     }
 
     static GraphBuffer GraphOf(Cell cell) => cell.Value is IsolatedStateValue state
