@@ -157,6 +157,8 @@ public sealed class FunctionType : WylType
                 slot = ref escaping;
             else if (isShared)
                 slot = ref shared;
+            if (Volatile.Read(ref slot) is { } existing)
+                return existing;
             var created = new FunctionType(this, isEscaping, isShared);
             return Interlocked.CompareExchange(ref slot, created, null) ?? created;
         }
