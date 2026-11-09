@@ -48,8 +48,10 @@ inline SyncState<T> createState() {
 
 template <class T>
 inline void dropQueued(std::deque<T>& queue) {
+    // Each value is released at the end of its iteration, before the next leaves the queue, so the
+    // values are dropped in the order they were sent.
     while (!queue.empty()) {
-        T value = std::move(queue.front());
+        [[maybe_unused]] T value = std::move(queue.front());
         queue.pop_front();
     }
 }
