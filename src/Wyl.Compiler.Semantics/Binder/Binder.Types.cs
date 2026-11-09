@@ -118,7 +118,7 @@ public sealed partial class Binder
             return WylType.Error;
         if (arguments.Count == s.TypeParameters.Count)
         {
-            if (s == stdlib.Weak && !CheckWeakTarget(arguments[0], location))
+            if (s.IsWeak && !CheckWeakTarget(arguments[0], location))
                 return WylType.Error;
             QueueBoundChecks(s.TypeParameters, arguments, location);
             return s.Construct(arguments);
@@ -143,7 +143,7 @@ public sealed partial class Binder
 
     /// <summary>A reference, or null, converts implicitly to a weak reference to it.</summary>
     bool IsWeakConversion(WylType from, WylType to) =>
-        stdlib.IsWeak(to) && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable, currentFunction)));
+        to.Symbol is { IsWeak: true } && (from == WylType.Null || (from.IsReference && Conversions.IsImplicit(from, to.TypeArguments[0].Nullable, currentFunction)));
 
     /// <summary>A type argument must be storable.</summary>
     bool CheckTypeArguments(IReadOnlyList<WylType> arguments, Location location)

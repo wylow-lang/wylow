@@ -476,7 +476,7 @@ public sealed partial class Interpreter
             return Isolate(to, operand, frame);
         // A weak reference watches the object but does not keep it: the conversion takes no count,
         // and lets go of the strong one its operand held, as the runtime's temporary does.
-        if (program.Bound.Stdlib.IsWeak(to))
+        if (to.Symbol is { IsWeak: true })
         {
             var weak = WeakValue.Of(operand switch
             {

@@ -132,8 +132,6 @@ public sealed class StdlibSymbols
 
     public bool IsSpan(WylType type) => type.Symbol is { } s && (s == Span || s == ReadOnlySpan);
 
-    public bool IsWeak(WylType type) => type.Symbol is { } s && s == Weak;
-
     public bool IsSyncState(WylType type) => type.Symbol is { } s && s == SyncState;
 
     public bool IsIsolatedState(WylType type) => type.Symbol is { } s && s == IsolatedState;

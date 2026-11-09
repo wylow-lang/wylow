@@ -29,7 +29,7 @@ sealed class LastUseMoves
         var stdlib = program.Bound.Stdlib;
         weakTargets = [.. program.Functions
             .SelectMany(f => IrWalk.Descendants(f.Body, intoLambdas: false).OfType<IrLet>().Select(l => l.Local).Concat(f.Parameters))
-            .Select(l => l.Type.NonNull).Where(stdlib.IsWeak).Select(t => t.TypeArguments[0].NonNull).Distinct()];
+            .Select(l => l.Type.NonNull).Where(t => t.Symbol is { IsWeak: true }).Select(t => t.TypeArguments[0].NonNull).Distinct()];
     }
 
     public static LastUseMoves Apply(IrProgram program, Callees callees, LambdaWrites lambdas)

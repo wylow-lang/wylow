@@ -113,7 +113,7 @@ public static class Values
             return new SyncStateValue(null);
         if (stdlib.IsIsolatedState(type))
             return new IsolatedStateValue(new GraphBuffer());
-        if (stdlib.IsWeak(type))
+        if (type.Symbol is { IsWeak: true })
             return new WeakValue(null, null);
         if (type.IsNullableValue)
             return new OptionalValue(null);

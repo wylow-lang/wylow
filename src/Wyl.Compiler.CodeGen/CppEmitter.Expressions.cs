@@ -102,7 +102,7 @@ public sealed partial class CppEmitter
             return $"{CppType(to)}({operand})";
         if (to.IsReference)
             return IsPassThrough(from, to) ? operand : $"{CppType(to)}({operand})";
-        if (stdlib.IsWeak(to))
+        if (to.Symbol is { IsWeak: true })
             return $"{CppType(to)}({operand})";
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";

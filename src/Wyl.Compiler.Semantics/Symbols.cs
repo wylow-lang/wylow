@@ -414,7 +414,8 @@ public sealed class TypeSymbol
 
     public bool IsShared { get; internal set; }
 
-    internal bool IsWeak { get; set; }
+    /// <summary>The standard library's weak reference.</summary>
+    public bool IsWeak { get; internal set; }
 
     internal bool IsSendableHandle { get; set; }
 
