@@ -174,7 +174,8 @@ public sealed partial class CppEmitter
     abstract record Nestable;
     /// <param name="TakesPlace">Whether the instruction needs the very object the temporary names rather than a value made from it.</param>
     /// <param name="CopiesOwner">Whether the instruction copies the temporary as an argument of a type whose release may run code, which prints as a <c>wyl::Keep</c> temporary of its own.</param>
-    sealed record TemporaryUse(IrLocal Local, bool TakesPlace, bool CopiesOwner) : Nestable;
+    /// <param name="ReadsPart">Whether the instruction reads through the temporary, a field, an element, or what it refers to, rather than taking its whole value.</param>
+    sealed record TemporaryUse(IrLocal Local, bool TakesPlace, bool CopiesOwner, bool ReadsPart) : Nestable;
     sealed record CheckedElement(IrElement Element, IrLocal Index) : Nestable;
 
     static IEnumerable<Nestable> Nestables(IrStatement statement)
@@ -190,7 +191,7 @@ public sealed partial class CppEmitter
             foreach (var place in IrWalk.Places(argument))
             {
                 if (place.Local.IsTemporary)
-                    yield return new TemporaryUse(place.Local, takesPlace, argument is IrRead read && KeptCopy(read, place));
+                    yield return new TemporaryUse(place.Local, takesPlace, argument is IrRead read && KeptCopy(read, place), place.IsDeref || place.Projections.Count > 0);
                 foreach (var element in place.Projections.OfType<IrElement>())
                 {
                     if (element.Index is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: var index } })
@@ -268,8 +269,13 @@ public sealed partial class CppEmitter
             bool candidateOutlives = false;
             switch (nestable)
             {
-                case TemporaryUse { Local: var local }:
+                case TemporaryUse { Local: var local } use:
                     if (!Defines(candidate, local) || plan.Uses.GetValueOrDefault(local) != 1 || local.Kind is IrLocalKind.Hold or IrLocalKind.Slot)
+                        continue;
+                    // A temporary defined by a copy or a move prints as the place it came from. A use
+                    // that reads through it takes no value of its own, so the C++ would move nothing out
+                    // of that place and never release the temporary.
+                    if (use.ReadsPart && candidate is IrLet { Value: IrUse } or IrBlock or IrIf && IrEffects.ReleaseMayRunCode(local))
                         continue;
                     // What outlives the statement may point through the temporary, but not into it.
                     candidateOutlives = outlives && RefersInto(statement, local);
