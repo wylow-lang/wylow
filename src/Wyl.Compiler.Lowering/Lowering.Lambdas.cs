@@ -97,7 +97,11 @@ public sealed partial class IrLowering
     IrChoose Choice(BoundExpression choice)
     {
         static bool IsHeld(BoundExpression option) => option is BoundConversion { Operand.Type.IsEscaping: true };
-        var leaves = BoundTree.FunctionOptions(choice).ToList();
+        // A conversion between non-escaping functions only drops `shared`, which changes nothing the
+        // function holds, so the option is what it converts.
+        static BoundExpression Unshared(BoundExpression option) =>
+            option is BoundConversion { Operand: { Type.IsNonEscapingFunction: true } operand } ? operand : option;
+        var leaves = BoundTree.FunctionOptions(choice).Select(Unshared).ToList();
         var made = leaves.Where(l => !IsHeld(l)).ToList();
         IrLocal? held = null;
         if (leaves.Any(IsHeld))
@@ -108,6 +112,7 @@ public sealed partial class IrLowering
 
         IrOperand Index(BoundExpression option)
         {
+            option = Unshared(option);
             switch (option)
             {
                 case BoundConditional conditional:

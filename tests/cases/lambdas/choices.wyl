@@ -23,6 +23,10 @@ int pick(bool first, fn(int) -> int a, fn(int) -> int b) {
     return chosen(10);
 }
 
+int chosenShared(bool first, (shared fn(int) -> int)? f) {
+    return (first ? f! : x -> x + 1)(5);
+}
+
 bool note(String what, bool value) {
     print(what);
     return value;
@@ -136,4 +140,17 @@ void main() {
         case false -> x -> 2;
     } : x -> 3;
     print(nested(0));                                       // output: 3
+
+    // A shared function is chosen as its form without shared, and its check runs only if it is chosen.
+    shared fn(int) -> int sharedAdd = x -> x + base;
+    bool chooseShared = true;
+    fn(int) -> int fromShared = chooseShared ? sharedAdd : x -> x * 2;
+    print(fromShared(1));                                   // output: 101
+    fn(int) -> int sharedSwitch = switch (chooseShared) {
+        case true -> sharedAdd;
+        case false -> x -> 0;
+    };
+    print(sharedSwitch(2));                                 // output: 102
+    print(chosenShared(true, sharedAdd));                   // output: 105
+    print(chosenShared(false, null));                       // output: 6
 }
