@@ -425,14 +425,8 @@ public sealed partial class Interpreter
     Value DefaultValue(WylType type, Frame frame)
     {
         type = frame.Type(type);
-        if (program.Bound.Stdlib.IsSyncState(type))
-            return new SyncStateValue(null);
-        if (program.Bound.Stdlib.IsMutexState(type))
-            return new MutexStateValue(null);
-        if (program.Bound.Stdlib.IsAtomicState(type))
-            return new AtomicStateValue(null);
-        if (type.Symbol is { IsWeak: true })
-            return new WeakValue(null, null);
+        if (Values.Handle(type, program.Bound.Stdlib) is { } handle)
+            return handle;
         if (type.IsNullableValue)
             return new OptionalValue(null);
         // Each element's default is made by its own type's rule, which may run its initializers.

@@ -109,16 +109,8 @@ public static class Values
     /// </summary>
     public static Value Zeroed(WylType type, StdlibSymbols stdlib, bool engaged = false)
     {
-        if (stdlib.IsSyncState(type))
-            return new SyncStateValue(null);
-        if (stdlib.IsMutexState(type))
-            return new MutexStateValue(null);
-        if (stdlib.IsAtomicState(type))
-            return new AtomicStateValue(null);
-        if (stdlib.IsIsolatedState(type))
-            return new IsolatedStateValue(new GraphBuffer());
-        if (type.Symbol is { IsWeak: true })
-            return new WeakValue(null, null);
+        if (Handle(type, stdlib) is { } handle)
+            return handle;
         if (type.IsNullableValue)
             return new OptionalValue(null);
         if (type is FixedArrayType array)
@@ -139,6 +131,18 @@ public static class Values
             : type.IsTypeParameter ? throw new InterpreterException($"the type parameter '{type}' has no type argument")
             : throw new InterpreterException($"a default {type}");
     }
+
+    /// <summary>
+    /// The empty value of a standard library type whose storage the interpreter holds itself, or
+    /// null for any other type. A default value and zeroed storage are the same for these types.
+    /// </summary>
+    public static Value? Handle(WylType type, StdlibSymbols stdlib) =>
+        stdlib.IsSyncState(type) ? new SyncStateValue(null)
+        : stdlib.IsMutexState(type) ? new MutexStateValue(null)
+        : stdlib.IsAtomicState(type) ? new AtomicStateValue(null)
+        : stdlib.IsIsolatedState(type) ? new IsolatedStateValue(new GraphBuffer())
+        : type.Symbol is { IsWeak: true } ? new WeakValue(null, null)
+        : null;
 
     /// <summary>The fields of a struct type, with its type arguments applied, in declaration order.</summary>
     public static IReadOnlyList<(FieldSymbol Field, WylType Type)> Fields(WylType type)
