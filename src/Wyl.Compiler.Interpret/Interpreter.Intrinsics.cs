@@ -11,12 +11,6 @@ public sealed partial class Interpreter
 
     delegate Value? IntrinsicHandler(Interpreter interpreter, IrCall call, string? location, Frame caller);
 
-    static readonly string[] MemoryNames =
-        ["collectCycles", "takeCycleStats", "allocate", "free", "initialize", "initializeDefault", "drop", "moveTo", "moveOut"];
-
-    static readonly string[] StringNames =
-        ["byteLength", "isEmpty", "bytes", "charCount", "startsWith", "endsWith", "contains", "indexOf", "slice", "compareTo", "toString", "charAt", "nextChar"];
-
     /// <summary>
     /// Every intrinsic the interpreter runs, keyed by <see cref="RuntimeKey"/>. The table is both the
     /// dispatch and the answer the registry self-test asks, so a key cannot be known and unhandled.
@@ -52,11 +46,30 @@ public sealed partial class Interpreter
             ["wyl::isolated::buildIsolated"] = (i, call, location, caller) => i.BuildIsolated(call, caller),
             ["wyl::isolated::openIsolated"] = (i, call, location, caller) => i.OpenIsolated(call, caller),
             ["wyl::isolated::takeValue"] = (i, call, location, caller) => i.TakeIsolatedValue(call, caller),
+            // The collector takes no owned value, and its `ref` arguments are cells.
+            ["wyl::memory::collectCycles"] = (i, call, location, caller) => i.CollectCycles(call, caller, location ?? "<unknown>"),
+            ["wyl::memory::takeCycleStats"] = (i, call, location, caller) => i.TakeCycleStats(call, caller),
+            ["wyl::memory::allocate"] = (i, call, location, caller) => i.MemoryAllocate(i.ArgumentsOf(call, caller), location),
+            ["wyl::memory::free"] = (i, call, location, caller) => MemoryFree(i.ArgumentsOf(call, caller)),
+            ["wyl::memory::initialize"] = (i, call, location, caller) => i.MemoryInitialize(call, caller),
+            ["wyl::memory::initializeDefault"] = (i, call, location, caller) => i.MemoryInitializeDefault(call, caller),
+            ["wyl::memory::drop"] = (i, call, location, caller) => i.MemoryDrop(i.ArgumentsOf(call, caller)),
+            ["wyl::memory::moveOut"] = (i, call, location, caller) => MemoryMoveOut(i.ArgumentsOf(call, caller)),
+            ["wyl::memory::moveTo"] = (i, call, location, caller) => MemoryMoveTo(i.ArgumentsOf(call, caller)),
+            ["String::byteLength"] = StringMethod(s => new IntValue(s.Bytes.Length)),
+            ["String::isEmpty"] = StringMethod(s => new BoolValue(s.Bytes.Length == 0)),
+            ["String::bytes"] = StringMethod(s => s.Interpreter.StringBytes(s.Bytes, s.Caller)),
+            ["String::charCount"] = StringMethod(s => new IntValue(CharCount(s.Bytes))),
+            ["String::startsWith"] = StringMethod(s => new BoolValue(Starts(s.Bytes, s.Text(0)))),
+            ["String::endsWith"] = StringMethod(s => new BoolValue(Ends(s.Bytes, s.Text(0)))),
+            ["String::contains"] = StringMethod(s => new BoolValue(IndexOf(s.Bytes, s.Text(0)) is not null)),
+            ["String::indexOf"] = StringMethod(s => new OptionalValue(IndexOf(s.Bytes, s.Text(0)) is { } at ? new Cell(WylType.Int, new IntValue(at)) : null)),
+            ["String::slice"] = StringMethod(s => Slice(s.Bytes, s.Int(0), s.Int(1), s.Location)),
+            ["String::compareTo"] = StringMethod(s => new IntValue(RuntimeText.CompareBytes(s.Bytes, s.Text(0)))),
+            ["String::toString"] = StringMethod(s => s.Receiver),
+            ["String::charAt"] = StringMethod(s => new CharValue(Decode(s.Bytes, s.Int(0)))),
+            ["String::nextChar"] = StringMethod(s => new IntValue(s.Int(0) + LeadLength(s.Bytes[s.Int(0)]))),
         };
-        foreach (var name in MemoryNames)
-            table["wyl::memory::" + name] = (i, call, location, caller) => i.MemoryIntrinsic(name, call, caller, location);
-        foreach (var name in StringNames)
-            table["String::" + name] = (i, call, location, caller) => i.StringMethod(name, i.ReceiverOf(call, caller), i.ArgumentsOf(call, caller), location, caller);
         foreach (var type in StdlibSymbols.HostedPrimitives)
         {
             table[$"{type.Name}::toString"] = (i, call, location, caller) => new StringValue(RuntimeText.Format(type, i.ReceiverOf(call, caller)!));
@@ -243,47 +256,25 @@ public sealed partial class Interpreter
         return null;
     }
 
-    /// <summary>The members of <c>String</c>, over its UTF-8 bytes, as <c>runtime/wyl/core.h</c> and <c>strings.h</c> write them.</summary>
-    Value? StringMethod(string name, Value? receiver, IReadOnlyList<Value> arguments, string? location, Frame caller)
+    /// <summary>
+    /// A call to a member of <c>String</c>, which works over the receiver's UTF-8 bytes as
+    /// <c>runtime/wyl/core.h</c> and <c>strings.h</c> do.
+    /// </summary>
+    readonly record struct StringCall(Interpreter Interpreter, StringValue Receiver, IReadOnlyList<Value> Arguments, string? Location, Frame Caller)
     {
-        var bytes = (receiver as StringValue ?? throw new InterpreterException($"'{name}' was called on something that is not a String")).Bytes;
-        switch (name)
-        {
-            case "byteLength":
-                return new IntValue(bytes.Length);
-            case "isEmpty":
-                return new BoolValue(bytes.Length == 0);
-            case "bytes":
-                return StringBytes(bytes, caller);
-            case "charCount":
-                return new IntValue(CharCount(bytes));
-            case "startsWith":
-                return new BoolValue(Starts(bytes, Text(arguments[0])));
-            case "endsWith":
-                return new BoolValue(Ends(bytes, Text(arguments[0])));
-            case "contains":
-                return new BoolValue(IndexOf(bytes, Text(arguments[0])) is not null);
-            case "indexOf":
-                return new OptionalValue(IndexOf(bytes, Text(arguments[0])) is { } at ? new Cell(WylType.Int, new IntValue(at)) : null);
-            case "slice":
-                return Slice(bytes, (int)Integer(arguments[0]), (int)Integer(arguments[1]), location);
-            case "compareTo":
-                return new IntValue(RuntimeText.CompareBytes(bytes, Text(arguments[0])));
-            case "toString":
-                return receiver;
-            case "charAt":
-                return new CharValue(Decode(bytes, (int)Integer(arguments[0])));
-            case "nextChar":
-            {
-                int offset = (int)Integer(arguments[0]);
-                return new IntValue(offset + LeadLength(bytes[offset]));
-            }
-            default:
-                throw new UnsupportedFeature($"String.{name}");
-        }
+        public byte[] Bytes => Receiver.Bytes;
+
+        public byte[] Text(int index) => (Arguments[index] as StringValue ?? throw new InterpreterException("a String argument is not one")).Bytes;
+
+        public int Int(int index) => (int)Integer(Arguments[index]);
     }
 
-    static byte[] Text(Value value) => (value as StringValue ?? throw new InterpreterException("a String argument is not one")).Bytes;
+    static IntrinsicHandler StringMethod(Func<StringCall, Value?> body) => (i, call, location, caller) =>
+    {
+        var receiver = i.ReceiverOf(call, caller) as StringValue
+            ?? throw new InterpreterException($"'{call.Method.Symbol.Name}' was called on something that is not a String");
+        return body(new StringCall(i, receiver, i.ArgumentsOf(call, caller), location, caller));
+    };
 
     /// <summary>
     /// The bytes as a <c>ReadOnlySpan&lt;byte&gt;</c> over a buffer of them, made by the span's own

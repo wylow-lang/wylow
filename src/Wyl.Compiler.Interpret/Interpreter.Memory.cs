@@ -20,101 +20,102 @@ public sealed partial class Interpreter
         return Buffer.Allocate(count);
     }
 
-    Value? MemoryIntrinsic(string name, IrCall call, Frame caller, string? location)
+    /// <summary>The element type of a generic method's <c>T*</c> parameter, with the caller's and the method's type arguments applied.</summary>
+    static WylType PointedType(IrCall call, Frame caller, int parameter) =>
+        ((PointerType)caller.Map.Compose(call.Method.Map).Apply(call.Method.Symbol.Parameters[parameter].Type)).Element;
+
+    Value MemoryAllocate(IReadOnlyList<Value> arguments, string? location)
     {
-        // The collector returns nothing and takes no owned value; its `ref` arguments are cells.
-        if (name is "collectCycles" or "takeCycleStats")
-            return CollectorIntrinsic(name, call, caller, location ?? "<unknown>");
-        var arguments = call.Arguments.Where(a => a is not IrFieldDefault).Select(a => ArgumentValue(a, caller)).ToList();
-        var map = caller.Map.Compose(call.Method.Map);
-        // A generic method's `T*` parameter, with the caller's and the method's type arguments applied.
-        WylType Pointed(int parameter) => ((PointerType)map.Apply(call.Method.Symbol.Parameters[parameter].Type)).Element;
-        switch (name)
-        {
-            case "allocate":
-            {
-                int count = (int)(long)Integer(arguments[0]);
-                if (count < 0)
-                    throw new WylPanic("cannot allocate a negative number of elements", location ?? "<unknown>");
-                // The runtime's size check can't trigger for a 32-bit count on a 64-bit target: no
-                // type is 2^33 bytes, so SIZE_MAX / sizeof(T) always exceeds the largest count.
-                return new PointerValue(AllocateBuffer(count), 0);
-            }
-            case "free":
-                switch (arguments[0])
-                {
-                    case PointerValue storage:
-                        storage.Buffer.Free();
-                        break;
-                    // As C++, which frees a null pointer as a no-op.
-                    case NullValue:
-                        break;
-                    default:
-                        throw new InterpreterException("memory::free was given something that is not a pointer");
-                }
-                return null;
-            case "initialize":
-            {
-                var place = PointerAt(arguments[0]);
-                place.Buffer.Write(place.Index, new Cell(Pointed(0), arguments[1]));
-                return null;
-            }
-            case "initializeDefault":
-            {
-                var data = PointerAt(arguments[0]);
-                int count = (int)(long)Integer(arguments[1]);
-                var element = Pointed(0);
-                for (int i = 0; i < count; i++)
-                    data.Buffer.Write(data.Index + i, new Cell(element, DefaultValue(element, caller)));
-                return null;
-            }
-            case "drop":
-            {
-                var place = PointerAt(arguments[0]);
-                var cell = place.Buffer.Read(place.Index) ?? throw new UndefinedBehavior("dropped storage that was never initialized");
-                place.Buffer.Write(place.Index, null);
-                Release(cell);
-                return null;
-            }
-            case "moveOut":
-            {
-                var place = PointerAt(arguments[0]);
-                var cell = place.Buffer.Read(place.Index) ?? throw new UndefinedBehavior("moved storage that was never initialized");
-                place.Buffer.Write(place.Index, null);
-                return cell.Value;
-            }
-            case "moveTo":
-            {
-                int count = (int)(long)Integer(arguments[2]);
-                // Moving nothing touches no storage, so a list that has allocated none moves from null.
-                if (count == 0)
-                    return null;
-                MoveTo(PointerAt(arguments[0]), PointerAt(arguments[1]), count);
-                return null;
-            }
-            default:
-                throw new UnsupportedFeature($"the intrinsic 'wyl::memory::{name}'");
-        }
+        int count = (int)(long)Integer(arguments[0]);
+        if (count < 0)
+            throw new WylPanic("cannot allocate a negative number of elements", location ?? "<unknown>");
+        // The runtime's size check can't trigger for a 32-bit count on a 64-bit target: no
+        // type is 2^33 bytes, so SIZE_MAX / sizeof(T) always exceeds the largest count.
+        return new PointerValue(AllocateBuffer(count), 0);
     }
 
-    /// <summary><c>memory::collectCycles</c> and <c>memory::cycleStats</c>, as <c>wyl::memory</c> has them.</summary>
-    Value? CollectorIntrinsic(string name, IrCall call, Frame caller, string location)
+    static Value? MemoryFree(IReadOnlyList<Value> arguments)
+    {
+        switch (arguments[0])
+        {
+            case PointerValue storage:
+                storage.Buffer.Free();
+                break;
+            // As C++, which frees a null pointer as a no-op.
+            case NullValue:
+                break;
+            default:
+                throw new InterpreterException("memory::free was given something that is not a pointer");
+        }
+        return null;
+    }
+
+    Value? MemoryInitialize(IrCall call, Frame caller)
+    {
+        var arguments = ArgumentsOf(call, caller);
+        var place = PointerAt(arguments[0]);
+        place.Buffer.Write(place.Index, new Cell(PointedType(call, caller, 0), arguments[1]));
+        return null;
+    }
+
+    Value? MemoryInitializeDefault(IrCall call, Frame caller)
+    {
+        var arguments = ArgumentsOf(call, caller);
+        var data = PointerAt(arguments[0]);
+        int count = (int)(long)Integer(arguments[1]);
+        var element = PointedType(call, caller, 0);
+        for (int i = 0; i < count; i++)
+            data.Buffer.Write(data.Index + i, new Cell(element, DefaultValue(element, caller)));
+        return null;
+    }
+
+    Value? MemoryDrop(IReadOnlyList<Value> arguments)
+    {
+        var place = PointerAt(arguments[0]);
+        var cell = place.Buffer.Read(place.Index) ?? throw new UndefinedBehavior("dropped storage that was never initialized");
+        place.Buffer.Write(place.Index, null);
+        Release(cell);
+        return null;
+    }
+
+    static Value MemoryMoveOut(IReadOnlyList<Value> arguments)
+    {
+        var place = PointerAt(arguments[0]);
+        var cell = place.Buffer.Read(place.Index) ?? throw new UndefinedBehavior("moved storage that was never initialized");
+        place.Buffer.Write(place.Index, null);
+        return cell.Value;
+    }
+
+    static Value? MemoryMoveTo(IReadOnlyList<Value> arguments)
+    {
+        int count = (int)(long)Integer(arguments[2]);
+        // Moving nothing touches no storage, so a list that has allocated none moves from null.
+        if (count == 0)
+            return null;
+        MoveTo(PointerAt(arguments[0]), PointerAt(arguments[1]), count);
+        return null;
+    }
+
+    /// <summary><c>memory::collectCycles</c>, with or without a limit on the objects it visits.</summary>
+    Value? CollectCycles(IrCall call, Frame caller, string location)
     {
         var given = call.Arguments.Where(a => a is not IrFieldDefault).ToList();
-        if (name == "collectCycles")
+        if (given.Count == 0)
         {
-            if (given.Count == 0)
-            {
-                Collect(long.MaxValue, location);
-                return null;
-            }
-            var visits = Integer(ArgumentValue(given[0], caller));
-            if (visits < 0)
-                throw new WylPanic("cannot visit a negative number of objects", location);
-            Collect((long)visits, location);
+            Collect(long.MaxValue, location);
             return null;
         }
+        var visits = Integer(ArgumentValue(given[0], caller));
+        if (visits < 0)
+            throw new WylPanic("cannot visit a negative number of objects", location);
+        Collect((long)visits, location);
+        return null;
+    }
 
+    /// <summary><c>memory::cycleStats</c>, which stores the counts in its <c>ref</c> arguments.</summary>
+    Value? TakeCycleStats(IrCall call, Frame caller)
+    {
+        var given = call.Arguments.Where(a => a is not IrFieldDefault).ToList();
         var stats = TakeStats();
         var values = new[] { stats.Buffered, stats.Visited, stats.Freed };
         for (int i = 0; i < values.Length; i++)
