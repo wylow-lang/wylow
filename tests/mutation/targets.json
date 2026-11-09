@@ -255,6 +255,14 @@
     "note": "The port of runtime/wyl/cycles.h, down to its stats and debug diagnostics. Cycle tests pin the order and the messages."
   },
   {
+    "id": "interpreter-cycle-diagnostics",
+    "title": "Interpreter: cycle diagnostics",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.CycleDiagnostics.cs",
+    "filters": ["cycles"],
+    "arguments": ["--interpret"],
+    "note": "The debug build's report of cycles never freed and its performance warnings, as runtime/wyl/cycles.h keeps them."
+  },
+  {
     "id": "interpreter-threads",
     "title": "Interpreter: threads",
     "path": "src/Wyl.Compiler.Interpret/Interpreter.Threads.cs",
