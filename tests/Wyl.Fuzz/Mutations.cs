@@ -128,6 +128,7 @@ static class Mutations
         new("statement-loop", SiteKind.Statement, _ => true, StatementLoopBuild),
         new("statement-array-loop", SiteKind.Statement, _ => true, StatementArrayLoopBuild),
         new("statement-lambda", SiteKind.Statement, _ => true, StatementLambdaBuild),
+        new("statement-lock", SiteKind.Statement, _ => true, StatementLockBuild),
         new("expression-conditional", SiteKind.Expression, Wrappable, ConditionalBuild),
         new("expression-switch", SiteKind.Expression, Wrappable, SwitchBuild),
         new("expression-array", SiteKind.Expression, Wrappable, ExpressionArrayBuild),
@@ -404,6 +405,25 @@ static class Mutations
         [
             new Edit(site.Span.Start, site.Span.End, "{ " + name + "(() -> {\n" + context.Slice(site.Span) + "\n}); }"),
             MutationContext.Append(helper, context.Text),
+        ]);
+    }
+
+    /// <summary>
+    /// Runs a statement inside a mutex's lock, where the thread holds a lock and the graph's cycle
+    /// buffer is the thread's. The import has an alias of its own, since a second plain
+    /// <c>import std;</c> is an error, and it shares the first line so every line keeps its number.
+    /// </summary>
+    static Candidate? StatementLockBuild(MutationContext context, Site site)
+    {
+        var std = context.UniqueName("wylstd");
+        var parameter = context.UniqueName("wylu");
+        var unit = std + "::Unit()";
+        return new Candidate("statement-lock",
+        [
+            new Edit(0, 0, "import std as " + std + "; "),
+            new Edit(site.Span.Start, site.Span.End,
+                "{ new " + std + "::threading::Mutex<" + std + "::Unit>(" + unit + ").lock(" + parameter + " -> {\n"
+                + context.Slice(site.Span) + "\nreturn " + unit + ";\n}); }"),
         ]);
     }
 
