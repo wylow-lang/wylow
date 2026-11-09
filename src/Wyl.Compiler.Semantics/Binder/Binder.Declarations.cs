@@ -27,30 +27,38 @@ public sealed partial class Binder
     {
         for (int i = 0; i < syntax.Count; i++)
         {
+            var parameter = symbols[i];
             foreach (var boundSyntax in syntax[i].Bounds)
-            {
-                switch (PropertyBound(boundSyntax))
-                {
-                    case "copyable":
-                        symbols[i].IsCopyableBound = true;
-                        continue;
-                    case "sendable":
-                        symbols[i].IsSendableBound = true;
-                        continue;
-                }
-                var bound = BindType(boundSyntax, allowVoid: false);
-                if (bound == WylType.Error)
-                    continue;
-                if (!bound.IsInterface || bound.IsNullable)
-                    Error(Catalog.NonInterfaceBound(boundSyntax.Location, bound.ToString()));
-                else
-                    symbols[i].Bounds.Add(bound);
-            }
+                BindBound(boundSyntax, () => parameter.IsCopyableBound = true, () => parameter.IsSendableBound = true, parameter.Bounds.Add);
         }
     }
 
-    static string? PropertyBound(TypeSyntax bound) =>
-        bound is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false, Name: "copyable" or "sendable" } ? bound.Name : null;
+    /// <summary>
+    /// Binds one bound of a type parameter: the property <c>copyable</c> or <c>sendable</c>, or an
+    /// interface. A bound that is neither is reported.
+    /// </summary>
+    void BindBound(TypeSyntax syntax, Action copyable, Action sendable, Action<WylType> implements)
+    {
+        if (syntax is { Shape: TypeShape.Named, Modules.Count: 0, TypeArguments.Count: 0, IsNullable: false })
+        {
+            switch (syntax.Name)
+            {
+                case "copyable":
+                    copyable();
+                    return;
+                case "sendable":
+                    sendable();
+                    return;
+            }
+        }
+        var bound = BindType(syntax, allowVoid: false);
+        if (bound == WylType.Error)
+            return;
+        if (!bound.IsInterface || bound.IsNullable)
+            Error(Catalog.NonInterfaceBound(syntax.Location, bound.ToString()));
+        else
+            implements(bound);
+    }
 
     /// <summary>
     /// Binds a member's <c>where</c> clauses, which bound its type's type parameters for this
@@ -82,22 +90,8 @@ public sealed partial class Binder
             }
             foreach (var boundSyntax in clause.Bounds)
             {
-                switch (PropertyBound(boundSyntax))
-                {
-                    case "copyable":
-                        function.CopyableParameters.Add(parameter);
-                        continue;
-                    case "sendable":
-                        function.SendableParameters.Add(parameter);
-                        continue;
-                }
-                var bound = BindType(boundSyntax, allowVoid: false);
-                if (bound == WylType.Error)
-                    continue;
-                if (!bound.IsInterface || bound.IsNullable)
-                    Error(Catalog.NonInterfaceBound(boundSyntax.Location, bound.ToString()));
-                else
-                    function.MemberInterfaceBounds.Add(new MemberInterfaceBound(parameter, bound));
+                BindBound(boundSyntax, () => function.CopyableParameters.Add(parameter), () => function.SendableParameters.Add(parameter),
+                    bound => function.MemberInterfaceBounds.Add(new MemberInterfaceBound(parameter, bound)));
             }
         }
     }
