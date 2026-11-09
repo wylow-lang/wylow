@@ -52,6 +52,12 @@ public static partial class Catalog
             ? Make(at, $"'{type}' is not 'sendable'")
             : Make(at, $"'{type}' is not 'sendable'").Note(fieldAt, $"field '{field}' has type '{fieldType}', which is not sendable");
 
+    [Error(479, "concurrency.atomic")]
+    public static Diagnostic AtomicOfNonInteger(Location at, string argument) =>
+        argument == "bool"
+            ? Make(at, $"'Atomic' type argument: expected an integer type, found '{argument}'").Help("write 'AtomicBool'")
+            : Make(at, $"'Atomic' type argument: expected an integer type, found '{argument}'");
+
     [Error(89, "variables.references")]
     public static Diagnostic MutReference(Location at, string keyword, string what) =>
         Make(at, $"'{keyword}' {what} cannot be 'mut'").Note("it refers to the same place for its whole scope");

@@ -1,0 +1,114 @@
+/// The runtime's storage for one atomic value.
+package extern struct AtomicState<T> {
+}
+
+/// An integer that several threads read and change without a lock (spec `concurrency.atomic`).
+///
+/// Every operation is sequentially consistent: all threads observe the operations on every atomic
+/// in one order, which agrees with the order of each thread's own code. `T` is an integer type.
+pub shared class Atomic<T> {
+    package AtomicState<T> state;
+
+    /// Returns an atomic that holds `value`.
+    pub Atomic(T value) {
+        state = createAtomic<T>(value);
+    }
+
+    ~Atomic() {
+        releaseAtomic<T>(state);
+    }
+
+    /// Returns the value.
+    pub T get() {
+        return atomicGet<T>(state);
+    }
+
+    /// Stores `value`.
+    pub void set(T value) {
+        atomicSet<T>(state, value);
+    }
+
+    /// Stores `value` and returns the value it replaced.
+    pub T exchange(T value) {
+        return atomicExchange<T>(state, value);
+    }
+
+    /// Returns the value the atomic held, and stores `value` if that value equals `expected`.
+    pub T compareExchange(T expected, T value) {
+        return atomicCompareExchange<T>(state, expected, value);
+    }
+
+    /// Adds `delta` to the value and returns the value before the addition.
+    ///
+    /// # Panics
+    ///
+    /// If the sum overflows, in a debug build. A release build wraps it.
+    @CallerLocation
+    pub T add(T delta) {
+        return atomicAdd<T>(state, delta);
+    }
+
+    /// Subtracts `delta` from the value and returns the value before the subtraction.
+    ///
+    /// # Panics
+    ///
+    /// If the difference overflows, in a debug build. A release build wraps it.
+    @CallerLocation
+    pub T subtract(T delta) {
+        return atomicSubtract<T>(state, delta);
+    }
+}
+
+/// A `bool` that several threads read and change without a lock (spec `concurrency.atomic`).
+///
+/// Every operation is sequentially consistent, as an `Atomic<T>`'s operations are.
+pub shared class AtomicBool {
+    package AtomicState<bool> state;
+
+    /// Returns an atomic that holds `value`.
+    pub AtomicBool(bool value) {
+        state = createAtomic<bool>(value);
+    }
+
+    ~AtomicBool() {
+        releaseAtomic<bool>(state);
+    }
+
+    /// Returns the value.
+    pub bool get() {
+        return atomicGet<bool>(state);
+    }
+
+    /// Stores `value`.
+    pub void set(bool value) {
+        atomicSet<bool>(state, value);
+    }
+
+    /// Stores `value` and returns the value it replaced.
+    pub bool exchange(bool value) {
+        return atomicExchange<bool>(state, value);
+    }
+
+    /// Returns the value the atomic held, and stores `value` if that value equals `expected`.
+    pub bool compareExchange(bool expected, bool value) {
+        return atomicCompareExchange<bool>(state, expected, value);
+    }
+}
+
+extern AtomicState<T> createAtomic<T>(T value);
+
+extern void releaseAtomic<T>(AtomicState<T> state);
+
+extern T atomicGet<T>(AtomicState<T> state);
+
+extern void atomicSet<T>(AtomicState<T> state, T value);
+
+extern T atomicExchange<T>(AtomicState<T> state, T value);
+
+extern T atomicCompareExchange<T>(AtomicState<T> state, T expected, T value);
+
+@CallerLocation
+extern T atomicAdd<T>(AtomicState<T> state, T delta);
+
+@CallerLocation
+extern T atomicSubtract<T>(AtomicState<T> state, T delta);

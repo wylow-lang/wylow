@@ -279,6 +279,14 @@
     "note": "The mutex's storage, its lock, and the one-lock check, as runtime/wyl/mutex.h implements them."
   },
   {
+    "id": "interpreter-atomic",
+    "title": "Interpreter: atomic",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Atomic.cs",
+    "filters": ["atomic"],
+    "arguments": ["--interpret"],
+    "note": "An atomic's operations, the comparison in compareExchange, and add's overflow check, as runtime/wyl/atomic.h implements them."
+  },
+  {
     "id": "interpreter-text",
     "title": "Interpreter: text",
     "path": "src/Wyl.Compiler.Interpret/RuntimeText.cs",

@@ -1,0 +1,37 @@
+// An atomic's operations on one thread: get, set, exchange and compareExchange return what the
+// atomic held, and add and subtract return the value before they change it.
+
+import std::threading::{Atomic, AtomicBool};
+import std::print;
+
+void main() {
+    var count = new Atomic<int>(5);
+    print(count.get());                       // output: 5
+    count.set(7);
+    print(count.exchange(9));                 // output: 7
+    print(count.get());                       // output: 9
+    print(count.compareExchange(4, 1));       // output: 9
+    print(count.get());                       // output: 9
+    print(count.compareExchange(9, 1));       // output: 9
+    print(count.get());                       // output: 1
+    print(count.add(10));                     // output: 1
+    print(count.subtract(3));                 // output: 11
+    print(count.get());                       // output: 8
+
+    var small = new Atomic<byte>(250);
+    print(small.add(5));                      // output: 250
+    print(small.get());                       // output: 255
+    var wide = new Atomic<long>(-1L);
+    print(wide.subtract(9223372036854775807L)); // output: -1
+    print(wide.get());                        // output: -9223372036854775808
+
+    var flag = new AtomicBool(false);
+    print(flag.get());                        // output: false
+    print(flag.exchange(true));               // output: false
+    print(flag.compareExchange(false, false)); // output: true
+    print(flag.get());                        // output: true
+    print(flag.compareExchange(true, false)); // output: true
+    print(flag.get());                        // output: false
+    flag.set(true);
+    print(flag.get());                        // output: true
+}

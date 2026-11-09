@@ -96,3 +96,4 @@ history and a reason can be found without searching the spec.
 | [0066](0066-threading-module.md) | One module, `std::threading`, for the types threads use |
 | [0067](0067-mutex.md) | `Mutex<T>`: an isolated graph behind a lock |
 | [0068](0068-one-lock-check.md) | The lock rule is one flag per thread, which every wait reads |
+| [0069](0069-atomic.md) | `Atomic<T>` for integers, `AtomicBool`, and one memory order |

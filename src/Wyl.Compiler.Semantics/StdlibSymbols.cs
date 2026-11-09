@@ -37,6 +37,7 @@ public sealed class StdlibSymbols
 
     public TypeSymbol? SyncState { get; private set; }
     public TypeSymbol? MutexState { get; private set; }
+    public TypeSymbol? AtomicState { get; private set; }
 
     /// <summary>The box an isolated graph travels in, which is sendable for any type argument.</summary>
     public TypeSymbol? Isolated { get; private set; }
@@ -116,6 +117,8 @@ public sealed class StdlibSymbols
             case "Weak": Weak = symbol; symbol.IsWeak = true; break;
             case "SyncState": SyncState = symbol; symbol.IsSendableHandle = true; break;
             case "MutexState": MutexState = symbol; symbol.IsSendableHandle = true; break;
+            case "AtomicState": AtomicState = symbol; symbol.IsSendableHandle = true; break;
+            case "Atomic": symbol.IsAtomic = true; break;
             case "Isolated": Isolated = symbol; symbol.IsIsolated = true; break;
             case "IsolatedState": IsolatedState = symbol; break;
             case "Printable": Printable = symbol; break;
@@ -137,6 +140,8 @@ public sealed class StdlibSymbols
     public bool IsSyncState(WylType type) => type.Symbol is { } s && s == SyncState;
 
     public bool IsMutexState(WylType type) => type.Symbol is { } s && s == MutexState;
+
+    public bool IsAtomicState(WylType type) => type.Symbol is { } s && s == AtomicState;
 
     public bool IsIsolatedState(WylType type) => type.Symbol is { } s && s == IsolatedState;
 

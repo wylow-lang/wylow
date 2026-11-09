@@ -24,6 +24,7 @@ these of its declarations, and on nothing else in it:
 | `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
+| `Atomic<T>`, `AtomicBool` | Atomics ([`Atomic<T>` and `AtomicBool`](#library.atomic)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -282,3 +283,37 @@ pub shared class Mutex<T> {
 - What `body` returns is sendable. A lambda that only changes the value returns `Unit`.
 - `lock` panics if the current thread already holds a lock, before it waits.
 - Releasing the last reference to a mutex releases its graph on the thread that releases it.
+
+<a id="library.atomic"></a>
+### A.8.5 `Atomic<T>` and `AtomicBool`
+
+The module declares the values that threads read and change without a lock
+([Atomics](19-concurrency.md#concurrency.atomic)):
+
+```java unchecked
+pub shared class Atomic<T> {
+    pub Atomic(T value);
+    pub T get();
+    pub void set(T value);
+    pub T exchange(T value);
+    pub T compareExchange(T expected, T value);
+    pub T add(T delta);
+    pub T subtract(T delta);
+}
+pub shared class AtomicBool {
+    pub AtomicBool(bool value);
+    pub bool get();
+    pub void set(bool value);
+    pub bool exchange(bool value);
+    pub bool compareExchange(bool expected, bool value);
+}
+```
+
+- `T` is an integer type.
+- `get` returns the value, and `set` stores `value`.
+- `exchange` stores `value` and returns the value it replaced.
+- `compareExchange` returns the value the atomic held, and stores `value` only if that value equals
+  `expected`. The program tells whether it stored by comparing the result with `expected`.
+- `add` and `subtract` return the value before they change it. They panic on overflow in a debug
+  build, before they change the value, and wrap in a release build.
+- Every operation is sequentially consistent.

@@ -419,6 +419,9 @@ public sealed class TypeSymbol
 
     internal bool IsSendableHandle { get; set; }
 
+    /// <summary>The standard library's <c>Atomic</c>, whose type argument is an integer type (spec <c>concurrency.atomic</c>).</summary>
+    public bool IsAtomic { get; internal set; }
+
     /// <summary>An isolated graph's box, which is sendable for any type argument (spec <c>concurrency.sendable</c>).</summary>
     public bool IsIsolated { get; internal set; }
 

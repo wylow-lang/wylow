@@ -3,7 +3,8 @@
 
 A program's threads share its code and its statics, and each thread has its own call stack. This
 chapter gives what a thread may reach, which values may reach another thread, what a shared class
-and a shared function are, how an isolated object graph moves, and how a mutex guards one.
+and a shared function are, how an isolated object graph moves, how a mutex guards one, and what an
+atomic is.
 
 <a id="concurrency.confinement"></a>
 ## 19.1 Thread confinement
@@ -215,15 +216,53 @@ The **lock rule**: a thread holds at most one lock, and waits for nothing while 
   panics, since each of them waits for another thread.
 - The checks give the same answer in every build mode.
 
+<a id="concurrency.atomic"></a>
+## 19.7 Atomics
+
+`Atomic<T>` and `AtomicBool` ([`Atomic<T>` and `AtomicBool`](a-library.md#library.atomic)) are
+shared classes that hold one value. Any thread that refers to an atomic may read and change its
+value without a lock.
+
+- `T` is an integer type ([Integer types](04-types.md#types.primitives.integers)). It is a
+  compile-time error if a type argument of `Atomic` is another type, or a type parameter, whatever
+  its bounds. An `AtomicBool` holds a `bool`.
+- Each operation on an atomic is indivisible: no thread observes a value that an operation has only
+  partly changed.
+- Every operation is **sequentially consistent**. The operations of all threads on all atomics take
+  place in one order, and that order agrees with the order of each thread's own code. If a thread
+  reads a value that another thread's operation stored, everything the storing thread did before that
+  operation happens before everything the reading thread does after its read.
+- `add` and `subtract` follow the language's integer arithmetic
+  ([Overflow and division](13-expressions.md#expressions.arithmetic.overflow)). In a debug build an
+  overflow panics and leaves the value unchanged, and in a release build the result wraps.
+- An atomic never waits, so the lock rule does not restrict it
+  ([Mutexes and the lock rule](#concurrency.mutex)).
+
+```java unchecked
+class Requests {
+    static Atomic<long> SERVED = new Atomic<long>(0L);
+}
+
+var stop = new AtomicBool(false);
+var worker = spawn(() -> {
+    while (!stop.get()) {
+        Requests.SERVED.add(1L);
+    }
+    return Requests.SERVED.get();
+});
+stop.set(true);
+long served = worker.join();
+```
+
 <a id="concurrency.panics"></a>
-## 19.7 Panics on threads
+## 19.8 Panics on threads
 
 A panic on any thread ends the program ([Panics](18-errors.md#errors.panics)). No thread continues
 after another panics, so nothing observes state that a panicking thread left half-changed, and a
 lock needs no poisoning.
 
 <a id="concurrency.interleaving"></a>
-## 19.8 Interleaving
+## 19.9 Interleaving
 
 A program with threads may write its output in a different order from run to run, as threads are
 scheduled. That is the only way threads make a program's behavior vary between runs: everything a

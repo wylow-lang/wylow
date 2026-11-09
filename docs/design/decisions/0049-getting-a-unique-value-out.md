@@ -122,7 +122,9 @@ check. Where a value can't be proven stable, the check is the deterministic pani
 ## Open
 
 - Recheck "in use" against `shared class` and `Mutex` when threads are designed: it assumes a unique
-  value has one owner at a time, so the bit is not atomic.
+  value has one owner at a time, so the bit is not atomic. Settled: a mutex's lock orders the bit
+  ([0067](0067-mutex.md)), and an atomic holds only values that never carry it
+  ([0069](0069-atomic.md)).
 - A function given `ref Handle` cannot replace it, under 0028: `h = x` panics for a type with a
   destructor, so generic code behaves differently for `Handle` and `Buffer`. Left as it is, until
   there is code using destructors to judge it by.

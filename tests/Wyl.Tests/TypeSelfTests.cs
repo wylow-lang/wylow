@@ -457,6 +457,8 @@ sealed class TypeGenerator(BoundProgram program, int seed)
             return symbol.Type;
         if (symbol == program.Stdlib.Weak)
             return WeakTarget(depth) is { } target ? symbol.Construct([target]) : null;
+        if (symbol.IsAtomic)
+            return AtomicTarget(depth) is { } integer ? symbol.Construct([integer]) : null;
         List<WylType> arguments = [.. symbol.TypeParameters.Select(_ => Make(Place.Storable, depth - 1))];
         var map = TypeMap.Empty.With(symbol.TypeParameters, arguments);
         bool satisfied = symbol.TypeParameters.Zip(arguments).All(pair =>
@@ -472,6 +474,16 @@ sealed class TypeGenerator(BoundProgram program, int seed)
         {
             if (Make(Place.Storable, depth - 1) is { IsReference: true, IsNullable: false } target)
                 return target;
+        }
+        return null;
+    }
+
+    WylType? AtomicTarget(int depth)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            if (Make(Place.Storable, depth - 1) is { IsInteger: true } integer)
+                return integer;
         }
         return null;
     }

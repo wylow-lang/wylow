@@ -120,6 +120,11 @@ public sealed partial class Binder
         {
             if (s.IsWeak && !CheckWeakTarget(arguments[0], location))
                 return WylType.Error;
+            if (s.IsAtomic && !arguments[0].IsInteger)
+            {
+                Error(Catalog.AtomicOfNonInteger(location, arguments[0].ToString()));
+                return WylType.Error;
+            }
             QueueBoundChecks(s.TypeParameters, arguments, location);
             return s.Construct(arguments);
         }

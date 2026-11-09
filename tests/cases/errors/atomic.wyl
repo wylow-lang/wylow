@@ -1,0 +1,16 @@
+// An atomic holds an integer type; a flag is an AtomicBool, and AtomicBool has no arithmetic.
+
+import std::threading::{Atomic, AtomicBool};
+
+void count<T>(T value) {
+    var held = new Atomic<T>(value);              // error[WYL0479]: 'Atomic' type argument: expected an integer type, found 'T'
+}
+
+void main() {
+    var flag = new Atomic<bool>(true);            // error[WYL0479]: 'Atomic' type argument: expected an integer type, found 'bool'
+    var ratio = new Atomic<double>(0.5);          // error[WYL0479]: 'Atomic' type argument: expected an integer type, found 'double'
+    var letter = new Atomic<char>('a');           // error[WYL0479]: 'Atomic' type argument: expected an integer type, found 'char'
+    var name = new Atomic<String>("a");           // error[WYL0479]: 'Atomic' type argument: expected an integer type, found 'String'
+    var done = new AtomicBool(false);
+    done.add(true);                               // error[WYL0300]: cannot find method 'add' in 'AtomicBool'
+}

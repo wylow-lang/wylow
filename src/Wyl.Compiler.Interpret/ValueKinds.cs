@@ -375,6 +375,19 @@ public sealed class MutexStateValue(MutexData? data) : Value
     public override string ToString() => "mutex state";
 }
 
+/// <summary>An atomic's storage. The interpreter changes the value under the object's lock, which orders every operation as sequential consistency does.</summary>
+public sealed class AtomicData(Value value)
+{
+    public Value Value { get; set; } = value;
+}
+
+public sealed class AtomicStateValue(AtomicData? data) : Value
+{
+    public AtomicData? Data { get; } = data;
+
+    public override string ToString() => "atomic state";
+}
+
 /// <summary>The cycle buffer of one isolated graph, which travels inside its box.</summary>
 public sealed class GraphBuffer
 {

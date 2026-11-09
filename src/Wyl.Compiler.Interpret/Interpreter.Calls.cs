@@ -429,6 +429,8 @@ public sealed partial class Interpreter
             return new SyncStateValue(null);
         if (program.Bound.Stdlib.IsMutexState(type))
             return new MutexStateValue(null);
+        if (program.Bound.Stdlib.IsAtomicState(type))
+            return new AtomicStateValue(null);
         if (type.Symbol is { IsWeak: true })
             return new WeakValue(null, null);
         if (type.IsNullableValue)

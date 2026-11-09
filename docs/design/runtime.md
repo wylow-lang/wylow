@@ -324,6 +324,13 @@ creation counter after that counter had been reset.
   first, and its buffer joins the releasing thread's before the value is released. `lockMutex` takes
   the `std::mutex`, sets the thread's `HoldsLock` flag, and swaps the graph's buffer in while the
   lambda runs.
+- `std::threading`'s `Atomic<T>` and `AtomicBool` hold a `wyl::AtomicState<T>`, a pointer to a
+  `wyl::threading::AtomicData<T>` on the global heap, which holds a `std::atomic<T>`
+  (`runtime/wyl/atomic.h`). The atomic object owns the data, and its destructor calls
+  `releaseAtomic`, which deletes it. Every operation uses `std::atomic`'s default order,
+  `memory_order_seq_cst`. A debug build's `atomicAdd` and `atomicSubtract` loop on
+  `compare_exchange_weak` around the checked `wyl::Add` and `wyl::Sub`, so an overflow panics before
+  anything is stored. In a release build, they call `fetch_add` and `fetch_sub`.
 - `wyl::ThreadState` holds `HoldsLock`, which says whether the thread holds a mutex's lock. `lockMutex`
   panics when the flag is set, and `receiveValue`, `joinThread`, and `releaseThread` call
   `RefuseWaitWhileLocked`, which panics when it is set. A thread holds at most one lock and waits for

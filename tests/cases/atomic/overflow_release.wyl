@@ -1,0 +1,14 @@
+// mode: release
+// In a release build an atomic's add and subtract wrap, as the language's arithmetic does.
+
+import std::threading::Atomic;
+import std::print;
+
+void main() {
+    var count = new Atomic<int>(2147483647);
+    print(count.add(1));                      // output: 2147483647
+    print(count.get());                       // output: -2147483648
+    var small = new Atomic<byte>(0);
+    print(small.subtract(1));                 // output: 0
+    print(small.get());                       // output: 255
+}
