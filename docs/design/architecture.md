@@ -89,7 +89,8 @@ past ~600 lines is split.
   ([stack-objects.md](stack-objects.md); tests mark lines `// stack: <n>`), and `StaticEnsures.cs`.
   A test observing an optimization through diagnostics is `// mode: optimized`.
 - **CodeGen**: `CppEmitter*.cs`: declarations from the bound program, bodies from the IR
-  (`CppEmitter.Ir.cs`), and nesting (`CppEmitter.IrNesting.cs`).
+  (`CppEmitter.Ir.cs` for statements, `CppEmitter.IrValues.cs` for the values in them), and
+  nesting (`CppEmitter.IrNesting.cs`).
 - **Interpret**: `Interpreter*.cs`, a second executor of the IR ([ir.md](ir.md) §9.11): one visitor
   rule per statement and rvalue kind, one `Values` definition of copy, release, default, and
   equality, `RuntimeText`/`RuntimeArithmetic` reproducing `runtime/wyl/*.h`, intrinsics keyed on

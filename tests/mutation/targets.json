@@ -135,7 +135,16 @@
       { "kind": "condition", "original": "local.Type.IsTypeParameter", "replacement": "!(local.Type.IsTypeParameter)", "context": "IrLocalKind.Hold => $\"{(local.Type.IsTypeParameter ? \"auto&&\" : \"auto\")} {name} = {value};\"", "reason": "A type parameter's pin or borrow is a value or a reference to the place, and copying it holds the same value alive." },
       { "kind": "literal", "original": "false", "replacement": "true", "context": "if (rvalue is not IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } }) return null;", "reason": "Requiring a deref only sends a read back to the copy branch, which holds the same callable." },
       { "kind": "literal", "original": "0", "replacement": "1", "context": "if (rvalue is not IrUse { Operand: IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } }) return null;", "reason": "Requiring a projection only sends a plain read back to the copy branch, which holds the same callable." },
-      { "kind": "condition", "original": "place.Local.IsTemporary", "replacement": "!(place.Local.IsTemporary)", "context": "if (place.Local.IsTemporary) return null;", "reason": "Binding a const reference extends a temporary callable's lifetime to the declaration's scope, which the copy it replaces does too." },
+      { "kind": "condition", "original": "place.Local.IsTemporary", "replacement": "!(place.Local.IsTemporary)", "context": "if (place.Local.IsTemporary) return null;", "reason": "Binding a const reference extends a temporary callable's lifetime to the declaration's scope, which the copy it replaces does too." }
+    ]
+  },
+  {
+    "id": "emitter-ir-values",
+    "title": "Emitter: values in bodies",
+    "path": "src/Wyl.Compiler.CodeGen/CppEmitter.IrValues.cs",
+    "filters": ["basics", "lambdas", "containers", "values", "initializer_binding", "closures", "store_order", "inheritance"],
+    "note": "How a lowered body's operands, places, calls, and other values print.",
+    "equivalent": [
       { "kind": "operator", "original": "*", "replacement": "/", "context": "return $\"[&]() -> {type} {{\\n{body}{new string(' ', indent * 4)}}}()\";", "reason": "Indentation is not behavior." },
       { "kind": "literal", "original": "4", "replacement": "0", "context": "return $\"[&]() -> {type} {{\\n{body}{new string(' ', indent * 4)}}}()\";", "reason": "Indentation is not behavior." },
       { "kind": "statement", "original": "indent = enclosingIndent + 1;", "replacement": "", "context": "indent = enclosingIndent + 1;", "reason": "Indentation is not behavior." },
