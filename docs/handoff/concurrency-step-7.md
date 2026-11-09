@@ -1,7 +1,5 @@
 # Next: `Mutex` and the one-lock check
 
-Do `before-mutex.md` first. This work starts when that handoff is done and deleted.
-
 Repo `E:\Repos\Wylow\wylow`, branch `dev`. Threads (0056), an interpreter that interleaves (0057),
 the sendable floor (0058), channels (0059), and `Isolated<T>` (0060–0063) are done, and so is the
 constructor-start rule (0064). Read decisions 0016, 0049, 0054, 0057, 0059, 0060, 0061, 0062, and
@@ -13,6 +11,16 @@ constructor-start rule (0064). Read decisions 0016, 0049, 0054, 0057, 0059, 0060
 `Mutex` is the type through which the one-lock rule (0016) becomes observable: a thread holds at most
 one lock and waits for nothing while holding it.
 
+## Before you start
+
+- Ask the user whether CI passed on the commits from `7563d82` to `f7b04b4`, and fix any failure
+  first. Those commits fix what CI and the fuzzer found, fix two holes in the flow analysis that the
+  review found, and split every source file that was past 600 lines.
+- Issue #6, the roadmap, still lists `Isolated<T>` as next. Update it to say that `Isolated<T>` is
+  done (0060–0063) and that `Mutex` is next, with this handoff.
+- The user has deferred triaging the mutation run's survivors. Each split file has a mutation
+  target of its own, so the weekly run measures it.
+
 ## What is done
 
 - `shared class` (0054) and `shared fn` (0055): a shared class's fields are sendable and copyable
@@ -22,6 +30,11 @@ one lock and waits for nothing while holding it.
 - `std::channel` (0059) and `std::isolated` (0060–0063): `Isolated<T>` is a unique struct holding
   the value and a runtime-shaped `IsolatedState`, sendable for any `T`, with `open`, `take`, and a
   graph buffer that is the thread's while the lambda runs.
+- The runtime reaches a thread's `wyl::ThreadState` through a `thread_local` pointer, not a
+  `thread_local` object. A spawned thread makes its state first and ends it before its function
+  returns, because MinGW's emulated thread-local storage tears down every `thread_local` before it
+  runs their destructors. The main thread's state is a static. A field added to `ThreadState`, such
+  as the lock flag, is therefore alive for the whole of a thread's code, its last collection included.
 
 ## Step 1: what a mutex holds
 
@@ -119,5 +132,8 @@ with the mutex's value as the lambda's argument. Decide and record:
   another thread releases.
 - The lifetime gaps: a destructor that spawns a thread capturing `this`; releasing a `Thread` whose
   body waits forever; static initialization across threads; a `Sender` that stays inside a cycle.
+- A thread that a foreign library started ends its state through a `thread_local` guard. On MinGW
+  that guard runs after thread-local storage is torn down, so the state leaks there. Callbacks from
+  foreign threads arrive with interop.
 - The cross-thread free coverage: a graph that moves whole now runs its destructor on the receiver
   (`isolated/channel_move`); extend it to a value that leaves a mutex.
