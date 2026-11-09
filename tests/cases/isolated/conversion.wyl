@@ -1,5 +1,5 @@
-// A sendable value converts to an isolated box by moving in, and a box dropped without take releases
-// its graph on the current thread.
+// A sendable value converts to an isolated box by moving in, after it converts to the box's content
+// type, and a box dropped without take releases its graph on the current thread.
 
 import std::threading::Isolated;
 import std::print;
@@ -53,6 +53,13 @@ void main() {
     var released = text.take();
     print(released);
     // output: alpha
+
+    mut Isolated<String?> nothing = null;
+    print(nothing.open(s -> s == null));
+    // output: true
+    mut Isolated<long> wide = 5;
+    print(wide.open(n -> n * 2));
+    // output: 10
 
     {
         mut Isolated<Graph> dropped = Isolated<Graph>(() -> new Graph(7));

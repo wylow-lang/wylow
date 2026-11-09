@@ -11,7 +11,7 @@ public sealed partial class Binder
         : expression is BoundPendingChoice choice ? to.NonNull.IsFunction && choice.Options.All(o => CanConvert(o, to))
         : Conversions.IsImplicit(expression.Type, to, currentFunction) || IsConvertibleConstant(expression, to) || IsNarrowable(expression, to)
         || IsWeakConversion(expression.Type, to) || SpanConversion(expression, to) is not null || IsNullableWrapping(expression, to)
-        || IsPassedByIn(expression, to);
+        || IsPassedByIn(expression, to) || IsBoxing(expression, to);
 
     /// <summary>
     /// An <c>in? T</c> parameter takes what an <c>in T</c> one would, which may be a temporary value:
@@ -23,6 +23,14 @@ public sealed partial class Binder
     /// <summary>A value converts to a nullable of any type it converts to, including by conversions only some values have.</summary>
     bool IsNullableWrapping(BoundExpression expression, WylType to) =>
         to.IsNullableValue && !expression.Type.IsNullable && expression.Type != WylType.Null && CanConvert(expression, to.NonNull);
+
+    /// <summary>
+    /// A sendable value converts to a box of any type it converts to: it converts to the box's
+    /// content type first, so the box holds a value of that type.
+    /// </summary>
+    bool IsBoxing(BoundExpression expression, WylType to) =>
+        to.Symbol is { IsIsolated: true } && to.TypeArguments is [var content]
+        && expression.Type.IsSendableIn(currentFunction) && CanConvert(expression, content);
 
     /// <summary>
     /// Unsuffixed integer literals convert implicitly to any integer type that holds them on every
@@ -76,6 +84,8 @@ public sealed partial class Binder
 
         if (IsNullableWrapping(expression, to))
             return new BoundConversion(expression.Location, to, Convert(expression, to.NonNull));
+        if (IsBoxing(expression, to))
+            return new BoundConversion(expression.Location, to, Convert(expression, to.TypeArguments[0]));
         if (Conversions.IsImplicit(expression.Type, to, currentFunction) || IsWeakConversion(expression.Type, to))
             return new BoundConversion(expression.Location, to, expression);
         if (IsPassedByIn(expression, to))
