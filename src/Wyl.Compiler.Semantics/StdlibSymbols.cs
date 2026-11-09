@@ -118,6 +118,8 @@ public sealed class StdlibSymbols
             case "SyncState": SyncState = symbol; symbol.IsSendableHandle = true; break;
             case "MutexState": MutexState = symbol; symbol.IsSendableHandle = true; break;
             case "AtomicState": AtomicState = symbol; symbol.IsSendableHandle = true; break;
+            // A frozen list's buffer, which no code changes once a Frozen holds it.
+            case "FrozenStorage": symbol.IsSendableHandle = true; break;
             case "Atomic": symbol.IsAtomic = true; break;
             case "Isolated": Isolated = symbol; symbol.IsIsolated = true; break;
             case "IsolatedState": IsolatedState = symbol; break;

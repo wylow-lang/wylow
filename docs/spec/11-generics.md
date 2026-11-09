@@ -154,8 +154,9 @@ struct Box<T> {
 
 - A clause names a type parameter of the type the member belongs to. It is written like a type
   parameter's own bounds.
-- Inside the member, the parameter has the bounds: `copyable` makes its values copyable, and an
-  interface among them provides its methods.
+- In the member's signature and body, the parameter has the bounds: `copyable` makes its values
+  copyable, and an interface among them provides its methods. A type written in the signature, such
+  as the return type, may therefore take the parameter as an argument that needs the bounds.
 - At every use, the type's type arguments must satisfy the member's clause. It is a compile-time
   error if they do not.
 - It is a compile-time error to write a `where` clause on a free function, on a method of an

@@ -1,0 +1,34 @@
+// A static holds a frozen table, computed once before main, and two threads read it at once.
+
+import std::threading::{Frozen, spawn};
+import std::{List, print};
+
+class Tables {
+    static Frozen<int> SQUARES = makeSquares();
+
+    static Frozen<int> makeSquares() {
+        var squares = new List<int>();
+        for (mut int i = 0; i < 100; i++) {
+            squares.add(i * i);
+        }
+        return squares.freeze();
+    }
+}
+
+int sum() {
+    mut int total = 0;
+    for (int square : Tables.SQUARES) {
+        total += square;
+    }
+    return total;
+}
+
+void main() {
+    var first = spawn(() -> sum());
+    var second = spawn(() -> sum());
+    print(first.join());                      // output: 328350
+    print(second.join());                     // output: 328350
+    print(Tables.SQUARES[99]);                // output: 9801
+}
+
+// tsan

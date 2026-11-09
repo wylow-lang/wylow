@@ -5,7 +5,7 @@ public static class TypeSendable
     extension(WylType type)
     {
         public bool IsSendableIn(FunctionSymbol? function) =>
-            type.Symbol is { IsIsolated: true } || type.InlineTypes().All(t => t.IsSendablePartIn(function));
+            type.Symbol is { IsIsolated: true } or { IsSendableHandle: true } || type.InlineTypes().All(t => t.IsSendablePartIn(function));
 
         bool IsSendablePartIn(FunctionSymbol? function) => type switch
         {
@@ -32,7 +32,7 @@ public static class TypeSendable
 
     static FieldSymbol? FindNonSendableField(WylType type, FunctionSymbol? function, HashSet<WylType> visiting)
     {
-        if (type.Symbol is { IsIsolated: true } || !type.IsStructOrEnum || !visiting.Add(type))
+        if (type.Symbol is { IsIsolated: true } or { IsSendableHandle: true } || !type.IsStructOrEnum || !visiting.Add(type))
             return null;
         var map = TypeMap.For(type);
         foreach (var field in type.Symbol!.ValueFields)

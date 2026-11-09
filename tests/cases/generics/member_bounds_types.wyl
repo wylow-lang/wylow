@@ -1,5 +1,5 @@
-// A type written in a member's body takes the type's parameter as an argument when the member's
-// where clause gives the parameter the bound that the argument needs.
+// A type written in a member's signature or body takes the type's parameter as an argument when the
+// member's where clause gives the parameter the bound that the argument needs.
 
 import std::print;
 
@@ -24,6 +24,10 @@ struct Holder<T> {
         return pair.second;
     }
 
+    Pair<T> pair(Pair<T> other) where T extends copyable {
+        return Pair<T>(value, other.second);
+    }
+
     String show() where T extends Printable & copyable {
         Shown<T> shown = Shown<T>(value);
         return shown.text();
@@ -34,4 +38,5 @@ void main() {
     var holder = Holder<int>(7);
     print(holder.copy());                // output: 7
     print(holder.show());                // output: 7
+    print(holder.pair(Pair<int>(1, 2)).second); // output: 2
 }

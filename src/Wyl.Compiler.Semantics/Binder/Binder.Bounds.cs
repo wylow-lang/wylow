@@ -61,6 +61,16 @@ public sealed partial class Binder
     }
 
     /// <summary>
+    /// Makes the bound checks queued while a member's signature was bound use the member's own
+    /// bounds, since its <c>where</c> clause covers its signature as well as its body.
+    /// </summary>
+    void CheckSignatureIn(FunctionSymbol member, int firstCheck)
+    {
+        for (int i = firstCheck; i < boundChecks.Count; i++)
+            boundChecks[i] = boundChecks[i] with { Function = member };
+    }
+
+    /// <summary>
     /// Binds a member's <c>where</c> clauses, which bound its type's type parameters for this
     /// member alone (spec <c>generics.bounds</c>).
     /// </summary>

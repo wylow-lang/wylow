@@ -26,7 +26,7 @@ and what to expect coming from other languages in [the guide](../guide/README.md
 | [16](16-flow.md) | `flow` | Definite assignment, single assignment, narrowing, use after move, fields in constructors, reachability, lambdas |
 | [17](17-memory.md) | `memory` | Kinds of storage, moves, objects, releases, weak references, cycles, references, holds, borrows, second-class values |
 | [18](18-errors.md) | `errors` | Panics, `Result` |
-| [19](19-concurrency.md) | `concurrency` | Thread confinement, sendable types, shared classes and functions, isolated graphs, mutexes, atomics |
+| [19](19-concurrency.md) | `concurrency` | Thread confinement, sendable types, shared classes and functions, isolated graphs, mutexes, atomics, frozen lists |
 | [20](20-unsafe.md) | `unsafe` | Unsafe code, pointers, undefined behavior |
 | [21](21-interop.md) | `interop` | Extern declarations, blittable types, callbacks, exports |
 | [22](22-annotations.md) | `annotations` | Annotation syntax and the annotations |

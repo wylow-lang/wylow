@@ -201,6 +201,24 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         borrows--;
     }
 
+    /// Returns a frozen list that takes this list's elements without copying them, and leaves this
+    /// list with no elements and no capacity.
+    ///
+    /// # Panics
+    ///
+    /// If the list is borrowed.
+    @CallerLocation
+    pub threading::Frozen<T> freeze() where T extends sendable & copyable {
+        checkNotBorrowed();
+        unsafe {
+            var frozen = new threading::Frozen<T>(threading::FrozenStorage<T>(data, size));
+            data = null;
+            size = 0;
+            space = 0;
+            return frozen;
+        }
+    }
+
     /// Returns a span of the elements.
     pub Span<T> asSpan() {
         unsafe {

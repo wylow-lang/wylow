@@ -289,6 +289,7 @@ public sealed partial class Binder
             var ownTypeParameters = DeclareTypeParameters(decl.TypeParameters, s.TypeParameters);
             typeParameters = [.. s.TypeParameters, .. ownTypeParameters];
             BindBounds(decl.TypeParameters, ownTypeParameters);
+            int signatureChecks = boundChecks.Count;
             var parameters = BindParameters(decl.Parameters, out var receiver);
             var receiverSyntax = decl.Parameters.FirstOrDefault(p => p.IsReceiver);
             var modifiers = decl.Modifiers;
@@ -322,6 +323,7 @@ public sealed partial class Binder
                     PassesLocation = HasCallerLocation(decl),
                 };
                 BindWhere(decl, constructor, s);
+                CheckSignatureIn(constructor, signatureChecks);
                 if (FindSameSignature(s.Constructors, constructor) is { } existingConstructor)
                 {
                     Error(Catalog.DuplicateFunction(decl.NameLocation, "constructor", constructor.Signature, existingConstructor.Declaration?.NameLocation, DiffersOnlyInEscaping(constructor, existingConstructor) ? existingConstructor.Signature : null));
@@ -354,6 +356,7 @@ public sealed partial class Binder
                 IsPure = IsPure(decl),
             };
             BindWhere(decl, method, s);
+            CheckSignatureIn(method, signatureChecks);
             if (receiver is not null)
                 CheckReceiver(method, s, receiverSyntax!, receiver);
             else

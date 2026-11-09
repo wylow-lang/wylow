@@ -25,6 +25,7 @@ these of its declarations, and on nothing else in it:
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
 | `Atomic<T>`, `AtomicBool` | Atomics ([`Atomic<T>` and `AtomicBool`](#library.atomic)) |
+| `Frozen<T>`, `List.freeze` | Frozen lists ([`Frozen<T>`](#library.frozen)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -317,3 +318,32 @@ pub shared class AtomicBool {
 - `add` and `subtract` return the value before they change it. They panic on overflow in a debug
   build, before they change the value, and wrap in a release build.
 - Every operation is sequentially consistent.
+
+<a id="library.frozen"></a>
+### A.8.6 `Frozen<T>`
+
+The module declares a list that never changes, which every thread may read
+([Frozen lists](19-concurrency.md#concurrency.frozen)), and `List<T>` declares the method that makes
+one:
+
+```java unchecked
+pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpannable<T> {
+    pub static Frozen<T> copyOf(ReadOnlySpan<T> items);
+    pub int length();
+    pub in T operator [](int index);
+    pub in? T get(int index);
+    pub ReadOnlySpan<T> asReadOnlySpan();
+}
+// in List<T>
+pub Frozen<T> freeze() where T extends sendable & copyable;
+```
+
+- `freeze` returns a frozen list that holds the list's elements, and leaves the list with no
+  elements and no capacity. It copies no element.
+- `freeze` panics if the list is borrowed.
+- `copyOf` returns a frozen list that holds a copy of each element `items` views.
+- The indexer returns a read-only reference to an element, and panics if `index` is out of bounds.
+  `get` returns null instead.
+- A frozen list converts to a `ReadOnlySpan<T>`, so a for-each loop iterates its elements
+  ([`Spannable` and `ReadOnlySpannable`](#library.spannable)).
+- Releasing the last reference to a frozen list releases its elements last to first.

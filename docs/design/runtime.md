@@ -331,6 +331,10 @@ creation counter after that counter had been reset.
   `memory_order_seq_cst`. A debug build's `atomicAdd` and `atomicSubtract` loop on
   `compare_exchange_weak` around the checked `wyl::Add` and `wyl::Sub`, so an overflow panics before
   anything is stored. In a release build, they call `fetch_add` and `fetch_sub`.
+- `std::threading`'s `Frozen<T>` has no part in the runtime. It holds the pointer and the length of a
+  buffer that `memory::allocate` took from the global heap, and its members are `unsafe` Wylow, as
+  `List`'s are. `List.freeze` hands the list's buffer over, so any thread may release the last
+  reference and free it.
 - `wyl::ThreadState` holds `HoldsLock`, which says whether the thread holds a mutex's lock. `lockMutex`
   panics when the flag is set, and `receiveValue`, `joinThread`, and `releaseThread` call
   `RefuseWaitWhileLocked`, which panics when it is set. A thread holds at most one lock and waits for

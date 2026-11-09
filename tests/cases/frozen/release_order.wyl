@@ -1,0 +1,31 @@
+// Releasing the last reference to a frozen list releases its elements last to first, as a list's
+// release does.
+
+import std::threading::Frozen;
+import std::{List, print};
+
+shared class Item {
+    pub int id;
+
+    pub Item(int id) {
+        this.id = id;
+    }
+
+    ~Item() {
+        print(id);
+    }
+}
+
+void main() {
+    var items = new List<Item>();
+    items.add(new Item(1));
+    items.add(new Item(2));
+    items.add(new Item(3));
+    mut Frozen<Item> frozen = items.freeze();
+    print(frozen[0].id + frozen[2].id);       // output: 4
+    frozen = Frozen<Item>.copyOf(new List<Item>());
+    // output: 3
+    // output: 2
+    // output: 1
+    print(frozen.length());                   // output: 0
+}

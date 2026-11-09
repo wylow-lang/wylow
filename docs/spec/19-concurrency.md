@@ -3,8 +3,8 @@
 
 A program's threads share its code and its statics, and each thread has its own call stack. This
 chapter gives what a thread may reach, which values may reach another thread, what a shared class
-and a shared function are, how an isolated object graph moves, how a mutex guards one, and what an
-atomic is.
+and a shared function are, how an isolated object graph moves, how a mutex guards one, what an atomic
+is, and how a list is frozen for every thread to read.
 
 <a id="concurrency.confinement"></a>
 ## 19.1 Thread confinement
@@ -254,15 +254,51 @@ stop.set(true);
 long served = worker.join();
 ```
 
+<a id="concurrency.frozen"></a>
+## 19.8 Frozen lists
+
+`Frozen<T>` ([`Frozen<T>`](a-library.md#library.frozen)) is a shared class that holds a list of
+elements that never change. Any thread that refers to a frozen list may read its elements without a
+lock.
+
+- `T` is sendable and copyable ([Moving and sharing](#concurrency.sendable.moving)), so a thread that
+  reads an element reaches nothing that belongs to another thread.
+- Nothing changes a frozen list's elements or its length after it is made.
+- `list.freeze()` moves a `List<T>`'s elements into a new frozen list without copying them. The list
+  is left with no elements and no capacity, whatever other references to it exist.
+- `freeze` panics if the list is borrowed ([Borrows](17-memory.md#memory.borrows)), as `clear`
+  does, since a loop or a span could still be reading the elements.
+- `Frozen.copyOf` copies the elements that a span views, such as an array's, which cannot be
+  emptied.
+- Releasing the last reference to a frozen list releases its elements on that thread, last to first.
+- A static may hold a frozen list, so a table computed before `main` is read by every thread
+  ([Statics](06-variables.md#variables.statics)).
+
+```java unchecked
+class Tables {
+    static Frozen<int> SQUARES = makeSquares();
+
+    static Frozen<int> makeSquares() {
+        var squares = new List<int>();
+        for (mut int i = 0; i < 100; i++) {
+            squares.add(i * i);
+        }
+        return squares.freeze();    // moves the elements; 'squares' is now empty
+    }
+}
+
+var reader = spawn(() -> Tables.SQUARES[9]);
+```
+
 <a id="concurrency.panics"></a>
-## 19.8 Panics on threads
+## 19.9 Panics on threads
 
 A panic on any thread ends the program ([Panics](18-errors.md#errors.panics)). No thread continues
 after another panics, so nothing observes state that a panicking thread left half-changed, and a
 lock needs no poisoning.
 
 <a id="concurrency.interleaving"></a>
-## 19.9 Interleaving
+## 19.10 Interleaving
 
 A program with threads may write its output in a different order from run to run, as threads are
 scheduled. That is the only way threads make a program's behavior vary between runs: everything a

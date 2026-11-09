@@ -1,0 +1,12 @@
+// A frozen list's indexer checks the index, as a list's does.
+
+import std::threading::Frozen;
+import std::{List, print};
+
+void main() {
+    var values = new List<int>();
+    values.add(4);
+    var frozen = values.freeze();
+    print(frozen[0]);                         // output: 4
+    print(frozen[1]);                         // panic-here: index 1 is out of bounds for length 1
+}

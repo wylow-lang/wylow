@@ -23,6 +23,13 @@ struct Box<T extends copyable> {
     T value;
 }
 
+struct Wrapper<T> {
+    T value;
+
+    void keep(Box<T> other) {                        // error[WYL0453]: 'T' is not 'copyable'
+    }
+}
+
 void main() {
     var buffer = Buffer(2);
     var copy = firstCopy(buffer);                    // error[WYL0453]: 'Buffer' is not 'copyable'

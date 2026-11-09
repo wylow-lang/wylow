@@ -1,0 +1,88 @@
+import std::{memory, panic};
+
+/// The elements of a frozen list: a buffer that no code changes once a `Frozen` holds it.
+package struct FrozenStorage<T> {
+    package T* data;
+    package int length;
+
+    package FrozenStorage(T* data, int length) {
+        this.data = data;
+        this.length = length;
+    }
+}
+
+/// An immutable list that every thread may read (spec `concurrency.frozen`).
+///
+/// Its elements are sendable and copyable, and nothing changes them, so threads read them without a
+/// lock. `List.freeze` moves a list's elements into one without copying them, and `copyOf` copies
+/// the elements of a span.
+pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpannable<T> {
+    package FrozenStorage<T> storage;
+
+    package Frozen(FrozenStorage<T> elements) {
+        storage = elements;
+    }
+
+    /// Returns a frozen list that holds a copy of each element of `items`.
+    pub static Frozen<T> copyOf(ReadOnlySpan<T> items) {
+        int length = items.length();
+        unsafe {
+            mut T* data = null;
+            if (length > 0) {
+                data = memory::allocate<T>(length);
+                mut int i = 0;
+                while (i < length) {
+                    memory::initialize(data + i, items[i]);
+                    i++;
+                }
+            }
+            return new Frozen<T>(FrozenStorage<T>(data, length));
+        }
+    }
+
+    /// Returns the number of elements.
+    pub int length() {
+        return storage.length;
+    }
+
+    /// Returns a reference to the element at `index`.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
+    @CallerLocation
+    pub in T operator [](int index) {
+        panic::checkIndex(index, storage.length);
+        unsafe {
+            return ref storage.data[index];
+        }
+    }
+
+    /// Returns a reference to the element at `index`, or null if `index` is out of bounds.
+    pub in? T get(int index) {
+        if (index < 0 || index >= storage.length) {
+            return null;
+        }
+        unsafe {
+            return ref storage.data[index];
+        }
+    }
+
+    /// Returns a read-only span of the elements.
+    pub ReadOnlySpan<T> asReadOnlySpan() {
+        unsafe {
+            return ReadOnlySpan<T>(storage.data, storage.length);
+        }
+    }
+
+    ~Frozen() {
+        unsafe {
+            mut int i = storage.length;
+            while (i > 0) {
+                i--;
+                memory::drop(storage.data + i);
+            }
+            memory::free(storage.data);
+        }
+    }
+}

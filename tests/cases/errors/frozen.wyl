@@ -1,0 +1,16 @@
+// A frozen list's elements are sendable and copyable, and nothing changes them.
+
+import std::threading::{Frozen, Isolated};
+import std::List;
+
+class Node {
+}
+
+void main() {
+    var nodes = new List<Node>();
+    var frozenNodes = nodes.freeze();             // error[WYL0456]: 'Node' is not 'sendable'
+    Frozen<Isolated<int>>? boxes = null;          // error[WYL0453]: 'Isolated<int>' is not 'copyable'
+    var values = new List<int>();
+    var frozen = values.freeze();
+    frozen[0] = 1;                                // error[WYL0351]: cannot assign to 'frozen[0]'
+}

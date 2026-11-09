@@ -1,0 +1,32 @@
+// freeze moves a list's elements into a frozen list without copying them, and leaves the list with
+// no elements and no capacity. Another reference to the list sees it empty, and the list can grow
+// again.
+
+import std::threading::Frozen;
+import std::{List, print};
+
+void main() {
+    var names = new List<String>();
+    names.add("alpha");
+    names.add("beta");
+    names.add("gamma");
+    var sameList = names;
+    Frozen<String> frozen = names.freeze();
+    print(sameList.count());                  // output: 0
+    print(sameList.capacity());               // output: 0
+    print(frozen.length());                   // output: 3
+    print(frozen[1]);                         // output: beta
+    print(frozen.get(2)!);                    // output: gamma
+    print(frozen.get(3) == null);             // output: true
+    for (String name : frozen) {
+        print(name);
+    }
+    // output: alpha
+    // output: beta
+    // output: gamma
+    names.add("delta");
+    print(names.count());                     // output: 1
+    print(frozen.length());                   // output: 3
+    var empty = new List<int>().freeze();
+    print(empty.length());                    // output: 0
+}
