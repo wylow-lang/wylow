@@ -3,7 +3,7 @@
 
 A program's threads share its code and its statics, and each thread has its own call stack. This
 chapter gives what a thread may reach, which values may reach another thread, what a shared class
-and a shared function are, and how an isolated object graph moves.
+and a shared function are, how an isolated object graph moves, and how a mutex guards one.
 
 <a id="concurrency.confinement"></a>
 ## 19.1 Thread confinement
@@ -17,6 +17,8 @@ A normal class object belongs to one thread at a time, and no other thread can r
   read from a static ([Statics](06-variables.md#variables.statics)), or by moving through a
   standard library type that carries a value to another thread, such as a channel, a mutex, or a
   thread's argument and result. Each accepts only sendable values ([Sendable types](#concurrency.sendable)).
+  A mutex takes its value as an `Isolated<T>`, which is sendable for any `T`
+  ([Mutexes and the lock rule](#concurrency.mutex)).
 - Code itself is not confined: a function running on another thread may call any function, create
   and release objects, and use any type. The objects it makes stay on its thread.
 
@@ -26,7 +28,7 @@ A normal class object belongs to one thread at a time, and no other thread can r
 A type is **sendable** if no part of a value of it belongs to one thread, so the value may be used
 on another. Whether a type is sendable follows from its declaration and from its fields, elements,
 and type arguments; no declaration states it. A bound asks for it with `sendable`, as in
-`Mutex<T extends sendable>` ([Bounds](11-generics.md#generics.bounds)).
+`Channel<T extends sendable>` ([Bounds](11-generics.md#generics.bounds)).
 
 | Type | Sendable |
 |---|---|
@@ -153,7 +155,8 @@ reach those objects.
   that only changes the graph returns `Unit`: a lambda that returns nothing cannot give `R` a type
   ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
 - `take` moves the value out and ends the box: the graph joins the current thread's objects.
-- A mutex holds one, and its `lock` is `open` while holding the lock.
+- A mutex holds one, and its `lock` opens the graph while the thread holds the mutex's lock
+  ([Mutexes and the lock rule](#concurrency.mutex)).
 
 ```java unchecked
 Isolated<Index> built = Isolated<Index>(() -> Index.build(entries));  // 'entries' is sendable
@@ -174,15 +177,53 @@ thread's, so everything it buffers belongs to the graph or was made during the c
 Code inside `open` cannot read the thread's own objects. Data built from the thread's objects is
 assembled in ordinary code and moved in as a sendable value.
 
+<a id="concurrency.mutex"></a>
+## 19.6 Mutexes and the lock rule
+
+`Mutex<T>` ([`Mutex<T>`](a-library.md#library.mutex)) is a shared class that holds an isolated
+graph and a lock. Any thread that refers to the mutex may reach the graph, and only while that
+thread holds the lock.
+
+- The constructor takes an `Isolated<T>`, so the mutex starts with an isolated graph. A sendable
+  value converts to one ([Isolated object graphs](#concurrency.isolated)).
+- `lock` takes the lock, runs a non-escaping `shared fn(ref T) -> R` on the value, releases the
+  lock, and returns the lambda's result. `R` is sendable, so nothing inside the graph gets out, and
+  the lambda's captures are sendable and copyable, so nothing of the thread's gets in. A lambda that
+  only changes the value returns `Unit`.
+- One thread at a time holds a mutex's lock. A `lock` called while another thread holds the lock
+  waits until that thread releases it.
+- Everything one thread's lambda did to the graph is visible to the lambda of the next thread that
+  takes the lock.
+- While a thread holds the lock, the graph's cycle buffer is the thread's
+  ([Isolated object graphs](#concurrency.isolated)), so `memory::collectCycles()` inside the lambda
+  collects the graph only.
+- Releasing the last reference to a mutex releases the graph on that thread. The graph's cycle
+  buffer joins the thread's first, and then the value is released.
+
+```java unchecked
+var index = new Mutex<Index>(Isolated<Index>(() -> new Index()));
+var worker = spawn(() -> index.lock(i -> i.addEntry(7, "alpha")));  // 'addEntry' returns 'Unit'
+worker.join();
+int count = index.lock(i -> i.count());
+```
+
+The **lock rule**: a thread holds at most one lock, and waits for nothing while it holds one.
+
+- Calling `lock` while the thread holds a lock panics, whether the mutex is the same one or
+  another.
+- While the thread holds a lock, a `receive` panics, a `join` panics, and releasing a `Thread`
+  panics, since each of them waits for another thread.
+- The checks give the same answer in every build mode.
+
 <a id="concurrency.panics"></a>
-## 19.6 Panics on threads
+## 19.7 Panics on threads
 
 A panic on any thread ends the program ([Panics](18-errors.md#errors.panics)). No thread continues
 after another panics, so nothing observes state that a panicking thread left half-changed, and a
 lock needs no poisoning.
 
 <a id="concurrency.interleaving"></a>
-## 19.7 Interleaving
+## 19.8 Interleaving
 
 A program with threads may write its output in a different order from run to run, as threads are
 scheduled. That is the only way threads make a program's behavior vary between runs: everything a

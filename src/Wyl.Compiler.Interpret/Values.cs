@@ -17,7 +17,7 @@ public static class Values
     /// </summary>
     public static Value Copy(WylType type, Value value) => value switch
     {
-        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue or ThreadValue or SyncStateValue => value,
+        IntValue or FloatValue or BoolValue or CharValue or StringValue or NullValue or RefValue or FormattedValue or PointerValue or ThreadValue or SyncStateValue or MutexStateValue => value,
         ObjectRef obj => Retain(obj),
         // A choice copies every callable it holds, as a tuple of them does.
         ChoiceValue choice => new ChoiceValue(choice.Index, [.. choice.Options.Select(CopyCell)]),
@@ -111,6 +111,8 @@ public static class Values
     {
         if (stdlib.IsSyncState(type))
             return new SyncStateValue(null);
+        if (stdlib.IsMutexState(type))
+            return new MutexStateValue(null);
         if (stdlib.IsIsolatedState(type))
             return new IsolatedStateValue(new GraphBuffer());
         if (type.Symbol is { IsWeak: true })

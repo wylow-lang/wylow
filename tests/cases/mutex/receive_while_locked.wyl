@@ -1,0 +1,11 @@
+// A thread that holds a lock waits for nothing, so a receive inside lock panics.
+
+import std::threading::{Channel, Mutex};
+import std::Unit;
+
+void main() {
+    var channel = new Channel<int>();
+    var receiver = channel.receiver();
+    var counter = new Mutex<int>(1);
+    counter.lock(n -> receiver.receive() ?? 0);    // panic-here: cannot receive from a channel while this thread holds a lock
+}

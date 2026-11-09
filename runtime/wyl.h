@@ -14,6 +14,7 @@
 #include "wyl/threads.h"
 #include "wyl/channels.h"
 #include "wyl/isolated.h"
+#include "wyl/mutex.h"
 #include "wyl/strings.h"
 #include "wyl/compare.h"
 #include "wyl/intrinsics.h"

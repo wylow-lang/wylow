@@ -1,0 +1,9 @@
+// A thread that holds a lock cannot take another, so locking the same mutex again panics instead of
+// waiting forever.
+
+import std::threading::Mutex;
+
+void main() {
+    var counter = new Mutex<int>(1);
+    counter.lock(n -> counter.lock(m -> m));    // panic-here: cannot lock a mutex while this thread holds a lock
+}

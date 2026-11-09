@@ -1,10 +1,8 @@
-// panic: cannot join a thread that was never started
-
 import std::threading::Thread;
 
 void main() {
     var thread = Thread<int>();
-    thread.join();
+    thread.join();    // panic-here: cannot join a thread that was never started
 }
 
 // tsan

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "optional.h"
+#include "threads.h"
 
 namespace wyl {
 
@@ -107,7 +108,8 @@ inline void sendValue(SyncState<T> state, T value, const char* location) {
 }
 
 template <class T>
-inline Nullable<T> receiveValue(SyncState<T> state) {
+inline Nullable<T> receiveValue(SyncState<T> state, const char* location) {
+    RefuseWaitWhileLocked("cannot receive from a channel while this thread holds a lock", location);
     ChannelState<T>& shared = state.Get();
     std::unique_lock lock(shared.Mutex);
     shared.Ready.wait(lock, [&shared] { return !shared.Queue.empty() || shared.Closed; });

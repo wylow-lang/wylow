@@ -357,6 +357,24 @@ public sealed class SyncStateValue(ChannelState? state) : Value
     public override string ToString() => "sync state";
 }
 
+/// <summary>
+/// A mutex's storage: the lock, the value, and the value's graph. A semaphore is the lock, since a
+/// thread waiting for it must also wake when the run ends.
+/// </summary>
+public sealed class MutexData(Cell content, GraphBuffer graph)
+{
+    public readonly Semaphore Gate = new(1, 1);
+    public Cell Content { get; } = content;
+    public GraphBuffer Graph { get; } = graph;
+}
+
+public sealed class MutexStateValue(MutexData? data) : Value
+{
+    public MutexData? Data { get; } = data;
+
+    public override string ToString() => "mutex state";
+}
+
 /// <summary>The cycle buffer of one isolated graph, which travels inside its box.</summary>
 public sealed class GraphBuffer
 {

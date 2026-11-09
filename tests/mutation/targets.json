@@ -271,6 +271,14 @@
     "note": "The deterministic spawn model, the join and release intrinsics, and the nested cycle buffer, as std::threading's thread handle and runtime/wyl/threads.h implement them."
   },
   {
+    "id": "interpreter-mutex",
+    "title": "Interpreter: mutex",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Mutex.cs",
+    "filters": ["mutex"],
+    "arguments": ["--interpret"],
+    "note": "The mutex's storage, its lock, and the one-lock check, as runtime/wyl/mutex.h implements them."
+  },
+  {
     "id": "interpreter-text",
     "title": "Interpreter: text",
     "path": "src/Wyl.Compiler.Interpret/RuntimeText.cs",

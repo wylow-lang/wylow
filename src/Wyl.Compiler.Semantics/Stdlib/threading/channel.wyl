@@ -68,6 +68,11 @@ pub shared class Receiver<T extends sendable> {
 
     /// Returns the next value, waiting until one arrives, or null once the channel is closed and
     /// every queued value is taken.
+    ///
+    /// # Panics
+    ///
+    /// If this thread holds a lock.
+    @CallerLocation
     pub T? receive() {
         return receiveValue<T>(state);
     }
@@ -87,4 +92,5 @@ extern void detachReceiver<T extends sendable>(SyncState<T> state);
 @CallerLocation
 extern void sendValue<T extends sendable>(SyncState<T> state, T value);
 
+@CallerLocation
 extern T? receiveValue<T extends sendable>(SyncState<T> state);

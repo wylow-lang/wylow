@@ -39,4 +39,4 @@ extern T buildIsolated<T>(ref IsolatedState state, shared fn() -> T build);
 
 extern R openIsolated<T, R>(ref IsolatedState state, ref T value, shared fn(ref T) -> R body);
 
-extern T takeValue<T>(ref T value);
+package extern T takeValue<T>(ref T value);

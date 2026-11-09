@@ -90,9 +90,10 @@ public sealed partial class Interpreter
         return null;
     }
 
-    Value ReceiveValue(IrCall call, Frame caller)
+    Value ReceiveValue(IrCall call, Frame caller, string? location)
     {
         var arguments = ArgumentsOf(call, caller);
+        RefuseWaitWhileLocked("cannot receive from a channel while this thread holds a lock", location);
         var map = caller.Map.Compose(call.Method.Map);
         var element = map.Apply(call.Method.TypeArguments[0]);
         var nullable = map.Apply(call.Method.ReturnType);

@@ -46,9 +46,14 @@ inline uint8_t* spawnThread(Function<T()> body, const char* location) {
     return reinterpret_cast<uint8_t*>(handle);
 }
 
+inline void RefuseWaitWhileLocked(const char* message, const char* location) {
+    if (CurrentThread().HoldsLock) RaisePanic(message, location);
+}
+
 template <class T>
-inline T joinThread(uint8_t* data) {
-    if (data == nullptr) RaisePanic("cannot join a thread that was never started", "<runtime>");
+inline T joinThread(uint8_t* data, const char* location) {
+    if (data == nullptr) RaisePanic("cannot join a thread that was never started", location);
+    RefuseWaitWhileLocked("cannot wait for a thread while this thread holds a lock", location);
     auto* handle = reinterpret_cast<HandleOf<T>*>(data);
     handle->Join();
     T value = std::move(handle->Result.Assumed());
@@ -59,6 +64,7 @@ inline T joinThread(uint8_t* data) {
 template <class T>
 inline void releaseThread(uint8_t* data) {
     if (data == nullptr) return;
+    RefuseWaitWhileLocked("cannot wait for a thread while this thread holds a lock", "<runtime>");
     auto* handle = reinterpret_cast<HandleOf<T>*>(data);
     handle->Join();
     delete handle;

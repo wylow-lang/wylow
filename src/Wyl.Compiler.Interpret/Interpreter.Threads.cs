@@ -131,6 +131,7 @@ public sealed partial class Interpreter
         var arguments = ArgumentsOf(call, caller);
         if (arguments[0] is NullValue)
             throw new WylPanic("cannot join a thread that was never started", location ?? "<runtime>");
+        RefuseWaitWhileLocked("cannot wait for a thread while this thread holds a lock", location);
         var thread = (arguments[0] as ThreadValue)?.Thread
             ?? throw new InterpreterException("joined something that is not a thread");
         WaitFor(thread);
@@ -144,6 +145,7 @@ public sealed partial class Interpreter
         var arguments = ArgumentsOf(call, caller);
         if (arguments[0] is ThreadValue { Thread: { } thread })
         {
+            RefuseWaitWhileLocked("cannot wait for a thread while this thread holds a lock", null);
             WaitFor(thread);
             if (thread.Result is { } result)
             {

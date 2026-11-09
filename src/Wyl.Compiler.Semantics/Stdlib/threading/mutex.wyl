@@ -1,0 +1,47 @@
+/// The runtime's storage for one mutex: the lock, the value, and the value's graph and its cycle
+/// buffer.
+package extern struct MutexState<T> {
+}
+
+/// A lock that guards a value and the isolated graph the value is (spec `concurrency.mutex`).
+///
+/// A thread holds at most one lock, and waits for nothing while it holds one. A mutex is sendable
+/// for any `T`, since only the thread that holds the lock reaches the graph.
+pub shared class Mutex<T> {
+    package MutexState<T> state;
+
+    /// Returns a mutex that holds `value` and its graph. A sendable value converts to an
+    /// `Isolated<T>`.
+    ///
+    /// # Panics
+    ///
+    /// If something the value owns is borrowed.
+    @CallerLocation
+    pub Mutex(Isolated<T> value) {
+        mut Isolated<T> held = value;
+        state = createMutex<T>(takeValue<T>(ref held.value), ref held.state);
+    }
+
+    ~Mutex() {
+        releaseMutex<T>(state);
+    }
+
+    /// Returns what `body` returns, after running `body` on the value while this thread holds the
+    /// lock. A lambda that only changes the value returns `Unit`.
+    ///
+    /// # Panics
+    ///
+    /// If this thread already holds a lock.
+    @CallerLocation
+    pub R lock<R extends sendable>(shared fn(ref T) -> R body) {
+        return lockMutex<T, R>(state, body);
+    }
+}
+
+@CallerLocation
+extern MutexState<T> createMutex<T>(T value, ref IsolatedState graph);
+
+extern void releaseMutex<T>(MutexState<T> state);
+
+@CallerLocation
+extern R lockMutex<T, R>(MutexState<T> state, shared fn(ref T) -> R body);

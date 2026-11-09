@@ -1,6 +1,7 @@
 /// A thread that runs a function (spec `concurrency`).
 ///
-/// Releasing a thread without joining it waits for its body to finish and releases its result.
+/// Releasing a thread without joining it waits for its body to finish and releases its result, and
+/// panics if the releasing thread holds a lock.
 pub unique struct Thread<T> {
     byte* handle;
 
@@ -14,7 +15,8 @@ pub unique struct Thread<T> {
     ///
     /// # Panics
     ///
-    /// If the thread was never started.
+    /// If the thread was never started, or if this thread holds a lock.
+    @CallerLocation
     pub T join(this Thread<T> thread) {
         unsafe {
             mut T result = joinThread<T>(thread.handle);
@@ -39,6 +41,7 @@ pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body) {
 @CallerLocation
 extern byte* spawnThread<T>(escaping shared fn() -> T body);
 
+@CallerLocation
 extern T joinThread<T>(byte* handle);
 
 extern void releaseThread<T>(byte* handle);

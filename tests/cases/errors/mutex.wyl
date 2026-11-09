@@ -1,0 +1,16 @@
+// What lock returns must be sendable, and its lambda captures only sendable, copyable values and
+// cannot change them.
+
+import std::threading::Mutex;
+
+class Node {
+    pub int count;
+    pub Node(int count) { this.count = count; }
+}
+
+void main() {
+    var node = new Node(1);
+    var counter = new Mutex<int>(1);
+    counter.lock(n -> new Node(n));               // error[WYL0453]: 'Node' is not 'sendable'
+    counter.lock(n -> node.count + n);            // error[WYL0472]: shared lambda cannot capture 'node'
+}

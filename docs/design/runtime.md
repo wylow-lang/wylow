@@ -317,6 +317,17 @@ creation counter after that counter had been reset.
   and `MergeBuffer` adds a graph's objects to the thread's buffer when the box is destroyed, so a
   box dropped or taken returns the graph's objects to the thread that released it. The value moves
   out through `takeValue`, whose C++ body returns `std::move(value)`.
+- `std::threading`'s `Mutex<T>` holds a `wyl::MutexState<T>`, a pointer to a
+  `wyl::threading::MutexData<T>` on the global heap: a `std::mutex`, the value, and the graph's
+  `IsolatedState` (`runtime/wyl/mutex.h`). The `Mutex` object owns the data, and its destructor
+  calls `releaseMutex`, which deletes it. The graph's state is the last member, so it is destroyed
+  first, and its buffer joins the releasing thread's before the value is released. `lockMutex` takes
+  the `std::mutex`, sets the thread's `HoldsLock` flag, and swaps the graph's buffer in while the
+  lambda runs.
+- `wyl::ThreadState` holds `HoldsLock`, which says whether the thread holds a mutex's lock. `lockMutex`
+  panics when the flag is set, and `receiveValue`, `joinThread`, and `releaseThread` call
+  `RefuseWaitWhileLocked`, which panics when it is set. A thread holds at most one lock and waits for
+  nothing while it holds it, so one flag is the whole state of the rule.
 
 The interpreter runs each logical Wylow thread on an operating-system thread, with no schedule of
 its own (decision 0057). Each thread has its own cycle buffer, collector figures, destroying

@@ -427,6 +427,8 @@ public sealed partial class Interpreter
         type = frame.Type(type);
         if (program.Bound.Stdlib.IsSyncState(type))
             return new SyncStateValue(null);
+        if (program.Bound.Stdlib.IsMutexState(type))
+            return new MutexStateValue(null);
         if (type.Symbol is { IsWeak: true })
             return new WeakValue(null, null);
         if (type.IsNullableValue)

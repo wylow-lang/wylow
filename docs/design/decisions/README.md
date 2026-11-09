@@ -94,3 +94,5 @@ history and a reason can be found without searching the spec.
 | [0064](0064-constructors-start-from-storage.md) | A constructor starts from empty storage, so a field with a destructor must be assigned |
 | [0065](0065-initial-value-is-the-default.md) | A field's initial value is its type's default value, which a constructor stores when it is more than empty storage |
 | [0066](0066-threading-module.md) | One module, `std::threading`, for the types threads use |
+| [0067](0067-mutex.md) | `Mutex<T>`: an isolated graph behind a lock |
+| [0068](0068-one-lock-check.md) | The lock rule is one flag per thread, which every wait reads |

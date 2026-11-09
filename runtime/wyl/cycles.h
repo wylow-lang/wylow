@@ -471,6 +471,9 @@ inline void Object::DestroyInSlot(bool inPlace) {
 struct ThreadState {
     Pools PoolState;
     CycleCollector CycleState;
+    // A thread holds at most one lock and waits for nothing while it holds it, so one flag answers
+    // every check.
+    bool HoldsLock = false;
 };
 
 // A thread's state is reached through a plain pointer, because MinGW's emulated thread-local storage

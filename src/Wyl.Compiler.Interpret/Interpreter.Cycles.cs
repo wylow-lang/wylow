@@ -33,6 +33,8 @@ public sealed partial class Interpreter
         public int GrowingCalls;
         public bool WarnedGrowing;
         public List<(string Name, int Count)> FreedClasses = [];
+        // A thread holds at most one lock and waits for nothing while it holds it.
+        public bool HoldsLock;
     }
 
     List<HeapObject?> buffer { get => current.Value!.Buffer; set => current.Value!.Buffer = value; }

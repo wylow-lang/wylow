@@ -23,6 +23,7 @@ these of its declarations, and on nothing else in it:
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
+| `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -184,6 +185,8 @@ pub T join(this Thread<T> thread);
 - `join` waits for the body to return and returns its result. It takes its receiver by value, so a
   thread is joined at most once ([By-value receivers](07-structs.md#structs.methods.by-value)).
 - `join` panics if the thread was never started. The default value of `Thread<T>` is such a thread.
+- `join` panics, and releasing a `Thread` panics, if the current thread holds a lock
+  ([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)).
 - Releasing a `Thread` without calling `join` waits for the body to return, then releases the
   result. A `Thread` that `main` still holds is therefore joined when it is released
   ([Running a program](03-programs.md#programs.execution)).
@@ -219,6 +222,8 @@ pub shared class Receiver<T extends sendable> {
   `sender()` on a closed channel panics.
 - `receive` waits until a value is queued or the channel closes. After the close, `receive` returns
   the values still queued, in the order they were sent, and then null.
+- `receive` panics if the current thread holds a lock
+  ([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)).
 - If no `Receiver` is left when the channel closes, the close drops the values still queued. If the
   last `Receiver` is released after the channel closes, the release drops the values still queued.
   The channel drops the values in the order they were sent.
@@ -254,3 +259,26 @@ pub unique struct Isolated<T> {
   and its cycle buffer joins the current thread's.
 - A box is sendable for any `T`, and a sendable value converts to one by moving in.
 - Releasing a box without calling `take` releases the graph on the thread that releases the box.
+
+<a id="library.mutex"></a>
+### A.8.4 `Mutex<T>`
+
+The module declares a lock that guards an isolated graph
+([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)):
+
+```java unchecked
+pub shared class Mutex<T> {
+    pub Mutex(Isolated<T> value);
+    pub R lock<R extends sendable>(shared fn(ref T) -> R body);
+}
+```
+
+- The constructor moves the box's value and graph into the mutex. A sendable value converts to an
+  `Isolated<T>`.
+- The constructor panics if something the value owns is borrowed
+  ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
+- `lock` waits until no other thread holds the lock, takes it, runs `body` on the value, releases
+  it, and returns what `body` returns.
+- What `body` returns is sendable. A lambda that only changes the value returns `Unit`.
+- `lock` panics if the current thread already holds a lock, before it waits.
+- Releasing the last reference to a mutex releases its graph on the thread that releases it.
