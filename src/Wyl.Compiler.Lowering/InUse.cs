@@ -174,10 +174,12 @@ static class InUse
 
     /// <summary>
     /// <c>replace</c>, <c>swap</c>, and <c>take</c> take a value out of a place, and their own
-    /// <c>ref</c> arguments do not make it in use (spec <c>library.replace</c>).
+    /// <c>ref</c> arguments do not make it in use (spec <c>library.replace</c>). The standard
+    /// library's <c>takeValue</c> moves an isolated box's value out the same way, and a mark set on
+    /// that value would leave with it.
     /// </summary>
     static bool TakesOut(FunctionSymbol symbol) =>
-        symbol.BuiltinCppName is "wyl::replace" or "wyl::swap" or "wyl::take";
+        symbol.BuiltinCppName is "wyl::replace" or "wyl::swap" or "wyl::take" or "wyl::threading::takeValue";
 
     /// <summary>The reference local a statement makes, and the place it refers to.</summary>
     static (IrPlace Place, IrLocal Local)? Reference(IrStatement statement, Dictionary<IrLocal, IrPlace> places) => statement switch

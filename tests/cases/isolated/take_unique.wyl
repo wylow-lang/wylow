@@ -1,0 +1,23 @@
+// A value that take moves out of a box is not in use, so it can be taken out of a place again.
+
+import std::threading::Isolated;
+import std::{print, take};
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() { print($"buffer {length}"); }
+}
+
+void main() {
+    Isolated<Buffer?> box = Buffer(7);
+    mut Buffer? held = box.take();
+    Buffer? taken = take(ref held);
+    print($"took {taken!.length}");
+    // output: took 7
+    // output: buffer 7
+}
