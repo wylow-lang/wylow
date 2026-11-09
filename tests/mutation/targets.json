@@ -184,11 +184,27 @@
   },
   {
     "id": "interpreter-core",
-    "title": "Interpreter: frames and control flow",
+    "title": "Interpreter: running a program",
     "path": "src/Wyl.Compiler.Interpret/Interpreter.cs",
     "filters": [""],
     "arguments": ["--interpret"],
-    "note": "Frames, locals, calls, returns, blocks and their release order. Every program has frames and control flow, so the whole suite is the covering set."
+    "note": "Running a program: main, statics, and the step budget. Every program runs here, so the whole suite is the covering set."
+  },
+  {
+    "id": "interpreter-frames",
+    "title": "Interpreter: frames",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Frames.cs",
+    "filters": [""],
+    "arguments": ["--interpret"],
+    "note": "Frames, the storage of locals, their release at a block's end, and the in-use bit."
+  },
+  {
+    "id": "interpreter-statements",
+    "title": "Interpreter: statements",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Statements.cs",
+    "filters": [""],
+    "arguments": ["--interpret"],
+    "note": "Running a block's statements: declarations, lets, checks, and loops."
   },
   {
     "id": "interpreter-executor",
