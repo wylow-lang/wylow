@@ -276,9 +276,16 @@ thread's pools.
   counts instead, which no program can observe; that is an optimization for later.
 - The threads themselves are the operating system's.
 
-A thread's pools and buffer are two members of one `wyl::ThreadState`, which `wyl::CurrentThread`
-makes on first use in that thread and destroys when the thread ends. The destruction runs the
-collector's `EndThread` first, then the pools' destructor.
+A thread's pools and buffer are two members of one `wyl::ThreadState`, which the thread reaches
+through a `thread_local` pointer. The main thread's state is a function-local static that `wyl::Init`
+makes current, and it lives until exit. A spawned thread makes its state as its first act and ends
+it as its last, before the thread function returns. Ending a state runs the collector's `EndThread`
+first and then frees the state, which runs the pools' destructor. A thread that a foreign library
+created makes its state on first use, and a `thread_local` guard ends that state when the thread
+ends. The state is not itself a `thread_local` object, because MinGW's emulated thread-local storage
+frees every `thread_local` before it runs their destructors. If the state were one, the collection
+at a thread's end would make a second state for the destructors it runs, and it would read the
+creation counter after that counter had been reset.
 
 - A thread other than the main one collects its buffer when it ends, as `EndThread` does. The
   thread's chunks with live slots are made ownerless, and the next thread that frees into one adopts
@@ -288,7 +295,7 @@ collector's `EndThread` first, then the pools' destructor.
   every static is initialized. `spawn` panics before that mark.
 - `std::thread`'s `Thread<T>` holds a `byte*` to a `wyl::thread::HandleOf<T>`, which the global heap
   holds: the operating-system thread, and an `Optional<T>` for its result. `spawnThread` moves the
-  body, a `wyl::Function<T()>`, into a new thread whose first act is to make the thread's state.
+  body, a `wyl::Function<T()>`, into a new thread, which makes the thread's state first and ends it last.
   `joinThread` joins and moves the result out, and panics on a null handle, which a thread that was
   never started has. `releaseThread` joins and destroys the handle, and does nothing for a null
   handle.

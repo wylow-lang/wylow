@@ -471,16 +471,49 @@ inline void Object::DestroyInSlot(bool inPlace) {
 struct ThreadState {
     Pools PoolState;
     CycleCollector CycleState;
-    bool IsMain = false;
-
-    ~ThreadState() {
-        if (!IsMain) CycleState.EndThread();
-    }
 };
 
-inline ThreadState& CurrentThread() {
-    thread_local ThreadState state;
+// A thread's state is reached through a plain pointer, because MinGW's emulated thread-local storage
+// tears down every thread_local before it runs their destructors: a destructor that reached the
+// state through a thread_local object would make a second state and run on freed memory.
+inline thread_local ThreadState* s_CurrentThread = nullptr;
+
+// The main thread's state lives until exit, when its collector reports the cycles it never freed.
+inline ThreadState& MainThreadState() {
+    static ThreadState state;
     return state;
+}
+
+// Collects the thread's buffer and frees its state. The state stays current while the collection
+// runs, since the destructors it runs allocate and release.
+inline void EndCurrentThread() {
+    ThreadState* state = s_CurrentThread;
+    if (state == nullptr || state == &MainThreadState()) return;
+    state->CycleState.EndThread();
+    delete state;
+    s_CurrentThread = nullptr;
+}
+
+inline ThreadState& BeginThread() {
+    s_CurrentThread = new ThreadState();
+    return *s_CurrentThread;
+}
+
+// Ends the state of a thread that a foreign library started. A spawned thread ends its own state
+// before it returns, so it never registers this guard.
+struct ForeignThreadGuard {
+    ~ForeignThreadGuard() { EndCurrentThread(); }
+};
+
+inline ThreadState& BeginForeignThread() {
+    thread_local ForeignThreadGuard guard;
+    (void)guard;
+    return BeginThread();
+}
+
+inline ThreadState& CurrentThread() {
+    ThreadState* state = s_CurrentThread;
+    return state != nullptr ? *state : BeginForeignThread();
 }
 
 inline Pools& CurrentPools() { return CurrentThread().PoolState; }
@@ -491,6 +524,6 @@ inline std::atomic<bool> s_MainStarted{false};
 
 inline void BeginMain() { s_MainStarted.store(true, std::memory_order_release); }
 
-inline void MarkMainThread() { CurrentThread().IsMain = true; }
+inline void MarkMainThread() { s_CurrentThread = &MainThreadState(); }
 
 }  // namespace wyl

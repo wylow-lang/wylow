@@ -28,12 +28,16 @@ inline uint8_t* spawnThread(Function<T()> body, const char* location) {
         RaisePanic("cannot start a thread before main begins", location);
     auto* handle = new HandleOf<T>();
     // The thread destroys its closure itself, before its state ends and collects cycles, instead of
-    // leaving the closure's lifetime to std::thread.
+    // leaving the closure's lifetime to std::thread. The state ends before the thread function
+    // returns, while the C++ runtime's thread-local storage is still intact.
     try {
         handle->Worker = std::thread([handle, body = std::move(body)]() mutable {
-            (void)CurrentThread();
-            Function<T()> run = std::move(body);
-            handle->Result = Optional<T>(run());
+            BeginThread();
+            {
+                Function<T()> run = std::move(body);
+                handle->Result = Optional<T>(run());
+            }
+            EndCurrentThread();
         });
     } catch (const std::system_error&) {
         delete handle;

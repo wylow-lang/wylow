@@ -1,25 +1,33 @@
+// A thread frees the cycles left in its buffer when it ends, and the destructors run oldest first,
+// as they do on the main thread.
+
 import std::print;
 import std::thread::spawn;
 
 class Node {
+    pub int value;
     pub mut Node? next;
 
+    pub Node(int value) {
+        this.value = value;
+    }
+
     ~Node() {
-        print("node");
+        print($"node {value}");
     }
 }
 
 void main() {
     var thread = spawn(() -> {
-        var first = new Node();
-        var second = new Node();
+        var first = new Node(1);
+        var second = new Node(2);
         first.next = second;
         second.next = first;
         return 0;
     });
     thread.join();
-    // output: node
-    // output: node
+    // output: node 1
+    // output: node 2
 }
 
 // tsan
