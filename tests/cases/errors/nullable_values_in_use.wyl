@@ -37,6 +37,10 @@ void call(fn() -> void f) {
     f();
 }
 
+int take(escaping fn() -> int f) {
+    return f();
+}
+
 void main() {
     mut Vec? v = Vec(x: 1);
     if (v != null) {
@@ -56,6 +60,10 @@ void main() {
     }
     if (v != null) {
         print(v.pair[clear(ref v)]);    // error[WYL0411]: 'v' might be set to null while its value is in use
+    }
+    // A closure made later in the statement does not hide the write before it.
+    if (v != null) {
+        v.x = clear(ref v) + take(() -> 1);     // error[WYL0411]: 'v' might be set to null while its value is in use
     }
     // A lambda made during the operation can run while the place is used.
     if (v != null) {

@@ -161,12 +161,13 @@ public sealed partial class IrVerifier
         root = printedIn;
         function = verified;
         scopes = [[]];
-        nullableWrites.Clear();
         loops = [];
         loopDepth = 0;
         // A closure made in a constructor captures what it is made from, which is checked where it is made.
+        // A closure is verified in the middle of the statement that makes it, whose earlier writes still count.
         if (!verified.IsLambda)
         {
+            nullableWrites.Clear();
             narrowedOutside = [];
             requiredFields = verified.Symbol is { IsConstructor: true, IsImplicit: false, ContainingType: { } owner } && verified.Builds is null
                 ? [.. owner.Fields.Where(f => f.RequiresAssignment)]
