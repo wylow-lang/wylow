@@ -371,6 +371,54 @@
     "note": "Places, references, and values in the flow analysis."
   },
   {
+    "id": "verifier-state",
+    "title": "IR verifier: state",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.State.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "What the flow analysis knows at a point, and how two paths' knowledge merges."
+  },
+  {
+    "id": "verifier-dependencies",
+    "title": "IR verifier: dependencies",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.Dependencies.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "What a reference, view, or borrowed local depends on, and what invalidates it."
+  },
+  {
+    "id": "verifier-narrowing",
+    "title": "IR verifier: narrowing",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.Narrowing.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "Null checks that narrow a local, and a narrowed nullable value set to null while it is in use."
+  },
+  {
+    "id": "verifier-lambdas",
+    "title": "IR verifier: lambdas",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.Lambdas.cs",
+    "filters": ["ir/", "errors", "lambdas", "nullable"],
+    "arguments": ["--interpret"],
+    "note": "A lambda's body, verified where it is made."
+  },
+  {
+    "id": "verifier-constructors",
+    "title": "IR verifier: constructors",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.Constructors.cs",
+    "filters": ["ir/", "errors", "classes", "structs"],
+    "arguments": ["--interpret"],
+    "note": "The fields a constructor must assign, and the storage it starts from."
+  },
+  {
+    "id": "verifier-control-flow",
+    "title": "IR verifier: control flow",
+    "path": "src/Wyl.Compiler.Analysis/IrVerifier.ControlFlow.cs",
+    "filters": ["ir/", "errors", "classes", "references", "structs", "lambdas", "nullable", "statics"],
+    "arguments": ["--interpret"],
+    "note": "Branches, loops followed until they settle, returns, and the end of a hold."
+  },
+  {
     "id": "borrows",
     "title": "Borrows",
     "path": "src/Wyl.Compiler.Lowering/Borrows.cs",
