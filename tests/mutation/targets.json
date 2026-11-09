@@ -271,6 +271,22 @@
     "note": "The deterministic spawn model, the join and release intrinsics, and the nested cycle buffer, as std::threading's thread handle and runtime/wyl/threads.h implement them."
   },
   {
+    "id": "interpreter-channels",
+    "title": "Interpreter: channels",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Channels.cs",
+    "filters": ["channels", "receive_while_locked"],
+    "arguments": ["--interpret"],
+    "note": "A channel's ends, the close at the last sender, the drain and the drop, and the borrow check on a sent value, as runtime/wyl/channels.h implements them."
+  },
+  {
+    "id": "interpreter-isolated",
+    "title": "Interpreter: isolated boxes",
+    "path": "src/Wyl.Compiler.Interpret/Interpreter.Isolated.cs",
+    "filters": ["isolated", "mutex"],
+    "arguments": ["--interpret"],
+    "note": "Building, opening, and taking a box, the graph's buffer swapped in while a lambda runs, and a lambda bound to a cell, as runtime/wyl/isolated.h implements them."
+  },
+  {
     "id": "interpreter-mutex",
     "title": "Interpreter: mutex",
     "path": "src/Wyl.Compiler.Interpret/Interpreter.Mutex.cs",
