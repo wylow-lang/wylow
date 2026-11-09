@@ -24,7 +24,7 @@ struct IsolatedState {
     ~IsolatedState() { CurrentCycles().MergeBuffer(Buffer); }
 };
 
-namespace isolated {
+namespace threading {
 
 template <class T, class Build>
 inline T buildIsolated(IsolatedState& state, const Build& build) {
@@ -49,6 +49,6 @@ inline T takeValue(T& value) {
     return std::move(value);
 }
 
-}  // namespace isolated
+}  // namespace threading
 
 }  // namespace wyl

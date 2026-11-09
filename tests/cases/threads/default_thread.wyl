@@ -1,6 +1,6 @@
 // panic: cannot join a thread that was never started
 
-import std::thread::Thread;
+import std::threading::Thread;
 
 void main() {
     var thread = Thread<int>();

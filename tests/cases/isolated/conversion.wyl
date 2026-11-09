@@ -1,7 +1,7 @@
 // A sendable value converts to an isolated box by moving in, and a box dropped without take releases
 // its graph on the current thread.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 import std::print;
 
 struct Point {

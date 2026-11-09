@@ -1,10 +1,10 @@
 // A box moves through a channel, another thread opens it, and the graph's objects are destroyed on
 // the thread that drops the box.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 import std::print;
-import std::thread::spawn;
-import std::channel::Channel;
+import std::threading::spawn;
+import std::threading::Channel;
 
 class Node {
     pub int value;

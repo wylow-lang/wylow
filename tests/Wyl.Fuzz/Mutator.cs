@@ -111,6 +111,7 @@ sealed partial class Mutator
     [GeneratedRegex(@"//\s*error(?:\[WYL\d{4}\])?:")]
     private static partial Regex ErrorDirective();
 
+    // A test that starts a thread is marked for the TSan mode, and its output may interleave.
     static bool IsConcurrent(string text) =>
-        text.Contains("std::thread", StringComparison.Ordinal) || text.Contains("std::channel", StringComparison.Ordinal);
+        text.Contains("// tsan", StringComparison.Ordinal);
 }

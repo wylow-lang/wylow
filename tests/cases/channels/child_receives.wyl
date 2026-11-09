@@ -1,6 +1,6 @@
 import std::print;
-import std::thread::spawn;
-import std::channel::Channel;
+import std::threading::spawn;
+import std::threading::Channel;
 
 void main() {
     var channel = new Channel<int>();

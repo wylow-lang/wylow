@@ -268,7 +268,7 @@
     "path": "src/Wyl.Compiler.Interpret/Interpreter.Threads.cs",
     "filters": ["threads"],
     "arguments": ["--interpret"],
-    "note": "The deterministic spawn model, the join and release intrinsics, and the nested cycle buffer, as std::thread's handle and runtime/wyl/threads.h implement them."
+    "note": "The deterministic spawn model, the join and release intrinsics, and the nested cycle buffer, as std::threading's thread handle and runtime/wyl/threads.h implement them."
   },
   {
     "id": "interpreter-text",

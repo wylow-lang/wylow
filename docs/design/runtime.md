@@ -293,13 +293,13 @@ creation counter after that counter had been reset.
   reports the cycles it never freed instead.
 - `wyl::Init` marks the main thread's state, and `wyl::BeginMain` marks that `main` has begun after
   every static is initialized. `spawn` panics before that mark.
-- `std::thread`'s `Thread<T>` holds a `byte*` to a `wyl::thread::HandleOf<T>`, which the global heap
+- `std::threading`'s `Thread<T>` holds a `byte*` to a `wyl::threading::HandleOf<T>`, which the global heap
   holds: the operating-system thread, and an `Optional<T>` for its result. `spawnThread` moves the
   body, a `wyl::Function<T()>`, into a new thread, which makes the thread's state first and ends it last.
   `joinThread` joins and moves the result out, and panics on a null handle, which a thread that was
   never started has. `releaseThread` joins and destroys the handle, and does nothing for a null
   handle.
-- `std::channel`'s `SyncState<T>` is a `std::shared_ptr` to a `wyl::channel::State<T>` on the global
+- `std::threading`'s `SyncState<T>` is a `std::shared_ptr` to a `wyl::threading::ChannelState<T>` on the global
   heap: a mutex, a condition variable, a `std::deque<T>`, and counts of the senders and receivers
   (`runtime/wyl/channels.h`). A copy of the handle shares the state, and the last handle frees it.
   `send` moves the value into the queue under the mutex and notifies one waiter. `receive` waits on
@@ -311,7 +311,7 @@ creation counter after that counter had been reset.
 - A unique value now crosses threads through a channel as well as through a thread's result, so the
   remote free list and the adoption of an ownerless chunk are reachable from a program:
   `channels/unique_value` sends an object made in one thread's pool and frees it in another's.
-- `std::isolated`'s `Isolated<T>` is a unique struct holding the value and a `wyl::IsolatedState`,
+- `std::threading`'s `Isolated<T>` is a unique struct holding the value and a `wyl::IsolatedState`,
   which owns a `wyl::CycleBuffer` (`runtime/wyl/isolated.h`). `CycleCollector::SwapBuffer` makes a
   graph's buffer the thread's while the standard library runs the constructor's or `open`'s lambda,
   and `MergeBuffer` adds a graph's objects to the thread's buffer when the box is destroyed, so a

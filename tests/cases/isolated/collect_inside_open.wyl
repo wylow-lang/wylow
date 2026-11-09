@@ -1,6 +1,6 @@
 // A collection inside open reaches the graph's objects and leaves the thread's own objects alone.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 import std::{memory, print, Unit};
 
 class Node {

@@ -1,7 +1,7 @@
 // A value moves into an isolated box only if it is sendable, and the lambda that builds a graph
 // captures only sendable values.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 
 class Node {
     pub int count;

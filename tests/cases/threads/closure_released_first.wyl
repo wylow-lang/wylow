@@ -3,8 +3,8 @@
 // main, so that main's copy of the closure is gone and the thread's reference is the last.
 
 import std::print;
-import std::thread::spawn;
-import std::channel::{Channel, Receiver};
+import std::threading::spawn;
+import std::threading::{Channel, Receiver};
 
 class Node {
     pub int value;

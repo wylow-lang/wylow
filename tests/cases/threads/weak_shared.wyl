@@ -3,8 +3,8 @@
 // on whichever thread lets go of it last.
 
 import std::{Weak, print};
-import std::channel::{Channel, Sender};
-import std::thread::spawn;
+import std::threading::{Channel, Sender};
+import std::threading::spawn;
 
 shared class Target {
     pub int value;

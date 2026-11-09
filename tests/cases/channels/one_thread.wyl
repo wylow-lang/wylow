@@ -1,5 +1,5 @@
 import std::print;
-import std::channel::Channel;
+import std::threading::Channel;
 
 void main() {
     var channel = new Channel<int>();

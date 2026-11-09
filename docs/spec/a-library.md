@@ -18,11 +18,11 @@ these of its declarations, and on nothing else in it:
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
-| `Isolated<T>` | Isolated object graphs ([`std::isolated`](#library.isolated)) |
+| `Isolated<T>` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
-| `Thread<T>`, `spawn`, `join` | Threads ([`std::thread`](#library.thread)) |
-| `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([`std::channel`](#library.channel)) |
+| `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
+| `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -163,11 +163,16 @@ pub T? take<T>(ref T? place);
   they change anything ([Holds](17-memory.md#memory.holds)). Their own `ref` arguments do not make a
   value in use.
 
-<a id="library.thread"></a>
-## A.8 `std::thread`
+<a id="library.threading"></a>
+## A.8 `std::threading`
 
-The module `std::thread` declares the type that a running thread is and the functions that start
-and join one ([Concurrency](19-concurrency.md#concurrency)):
+The module `std::threading` declares the types through which threads start, communicate, and share
+data ([Concurrency](19-concurrency.md#concurrency)).
+
+<a id="library.thread"></a>
+### A.8.1 Threads
+
+The module declares the type that a running thread is and the functions that start and join one:
 
 ```java unchecked
 pub unique struct Thread<T> { ... }
@@ -190,10 +195,9 @@ pub T join(this Thread<T> thread);
   another thread.
 
 <a id="library.channel"></a>
-## A.9 `std::channel`
+### A.8.2 Channels
 
-The module `std::channel` declares a channel, through which one thread sends values that another
-receives ([Interleaving](19-concurrency.md#concurrency.interleaving)):
+The module declares a channel, through which one thread sends values that another receives ([Interleaving](19-concurrency.md#concurrency.interleaving)):
 
 ```java unchecked
 pub shared class Channel<T extends sendable> {
@@ -228,9 +232,9 @@ pub shared class Receiver<T extends sendable> {
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
 
 <a id="library.isolated"></a>
-## A.10 `std::isolated`
+### A.8.3 `Isolated<T>`
 
-The module `std::isolated` declares the box an isolated object graph travels in
+The module declares the box an isolated object graph travels in
 ([Isolated object graphs](19-concurrency.md#concurrency.isolated)):
 
 ```java unchecked

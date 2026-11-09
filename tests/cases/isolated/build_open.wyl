@@ -1,7 +1,7 @@
 // A box builds its graph on the current thread, and open changes the graph in place and returns a
 // sendable value.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 import std::{List, print};
 
 class Entry {

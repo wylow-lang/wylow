@@ -1,4 +1,4 @@
-import std::channel::Channel;
+import std::threading::Channel;
 
 class Node {
 }

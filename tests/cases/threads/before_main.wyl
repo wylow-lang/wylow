@@ -1,6 +1,6 @@
 // panic: cannot start a thread before main begins
 
-import std::thread::spawn;
+import std::threading::spawn;
 
 class Early {
     static int VALUE = start();

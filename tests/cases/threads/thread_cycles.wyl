@@ -2,7 +2,7 @@
 // as they do on the main thread.
 
 import std::print;
-import std::thread::spawn;
+import std::threading::spawn;
 
 class Node {
     pub int value;

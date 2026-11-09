@@ -7,7 +7,7 @@
 
 namespace wyl {
 
-namespace thread {
+namespace threading {
 
 struct Handle {
     std::thread Worker;
@@ -64,6 +64,6 @@ inline void releaseThread(uint8_t* data) {
     delete handle;
 }
 
-}  // namespace thread
+}  // namespace threading
 
 }  // namespace wyl

@@ -1,5 +1,5 @@
 import std::print;
-import std::thread::spawn;
+import std::threading::spawn;
 
 void main() {
     var name = "thread";

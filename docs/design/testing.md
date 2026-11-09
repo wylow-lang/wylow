@@ -89,8 +89,8 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
 - **Threads.** The interpreter runs each logical thread on an operating-system thread, so two runs
   of one program may interleave differently (decision 0057). A test of threads or channels
   synchronizes before each line it prints, with a `join` or a `receive`, and expects a property of
-  the run rather than an order. The fuzzer's corpus leaves out every file that imports
-  `std::thread` or `std::channel`, because a mutant's output is then not stable enough to compare.
+  the run rather than an order. The fuzzer's corpus leaves out every test marked `// tsan`, which
+  is every test that starts a thread, because a mutant's output is then not stable enough to compare.
 - **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
   checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
   free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is

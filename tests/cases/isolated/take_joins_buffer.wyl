@@ -1,7 +1,7 @@
 // take moves the value out and ends the box, and the graph's buffer becomes the thread's: a later
 // collection frees a cycle that was in the graph.
 
-import std::isolated::Isolated;
+import std::threading::Isolated;
 import std::{memory, print, Unit};
 
 class Node {

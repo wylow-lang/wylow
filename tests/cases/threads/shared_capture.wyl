@@ -1,5 +1,5 @@
 import std::print;
-import std::thread::spawn;
+import std::threading::spawn;
 
 shared class Name {
     pub String text;
