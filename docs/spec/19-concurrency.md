@@ -69,9 +69,8 @@ copyable ([Copyable types](04-types.md#types.copyable)).
   mutex, and a thread's argument and result move values, so they accept unique values too.
 - Moving a value to another thread panics if anything it owns is borrowed
   ([Borrows](17-memory.md#memory.borrows)): sending it over a channel, storing it in a mutex, or
-  giving it to a new thread. A loop or a reference on this thread could still be using that storage,
-  as when a loop's body replaces the field it loops over and sends the old value. The check gives
-  the same answer in every build mode. Moving a value within a thread needs no check: what the loop
+  giving it to a new thread. A loop or a reference on this thread could still be using that storage.
+  The check gives the same answer in every build mode. Moving a value within a thread needs no check: what the loop
   refers into stays alive, and the new owner cannot change its length while it is borrowed.
 
 <a id="concurrency.shared-classes"></a>
