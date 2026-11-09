@@ -11,6 +11,12 @@ cleanups. The fix for member bounds also fixed two bugs that the review did not 
 clause did not apply inside a lambda, and it did not apply to a type written in the member's body.
 Issue #35 records the allocator and cycle collector optimizations, which wait until later.
 
+The commits from `7563d82` to `8b3125d` fix what CI then found. A thread now ends its state before
+MinGW tears down thread-local storage, which the gcc job caught. The emitter no longer loses a move
+when a field of the moved temporary is read, and a choice between functions accepts a shared
+function, both of which the fuzzer found. The mutation targets' equivalent entries match the code
+again. The mutation survivors stay untriaged until the user asks for them.
+
 ## How to work
 
 - Ask the user whether CI passed on the commits above, and fix any failure first.
