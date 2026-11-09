@@ -478,7 +478,11 @@ field, parameter, return type, or argument of a call.
   given a different type by another lambda's result.
 - Inferring from a lambda's body needs the parameter types of the overload being called, so it
   happens only when one overload is left after the other arguments are checked. A lambda returning
-  nothing infers nothing.
+  nothing infers `Unit` for a type parameter that is its whole result type, and nothing otherwise
+  ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
+- A lambda whose function type returns `Unit` may leave out its return: an expression body with no
+  value is a statement, and `return;` and the end of the body return `Unit()`
+  ([`return`](14-statements.md#statements.return)).
 - It is a compile-time error to use `try` in a lambda whose return type is being inferred.
 - A lambda can use a local only if it is definitely assigned where the lambda is created. A null
   check outside a lambda does not narrow inside it. A local that any lambda assigns is never

@@ -68,10 +68,21 @@ public sealed partial class Binder
         }
 
         var function = LambdaFunction(e, type, declared ?? BindDeclaredParameters(e), type.ReturnType);
+        if (e.Body is null && stdlib.IsUnit(function.ReturnType))
+            return new BoundLambda(e.Location, type, function, EndWithUnit(BindLambdaBody(e, function, () => BindUnitExpressionBody(e.Value!)), function));
         var body = e.Body ?? new BlockStmt(e.Value!.Location, [function.ReturnType == WylType.Void
             ? new ExprStmt(e.Value.Location, e.Value)
             : new ReturnStmt(e.Value.Location, e.Value)]);
-        return new BoundLambda(e.Location, type, function, BindLambdaBody(e, function, () => BindBlock(body)));
+        return new BoundLambda(e.Location, type, function, EndWithUnit(BindLambdaBody(e, function, () => BindBlock(body)), function));
+    }
+
+    /// <summary>The expression body of a lambda that returns <c>Unit</c>: an expression with no value is a statement.</summary>
+    BoundBlock BindUnitExpressionBody(Expr value)
+    {
+        var bound = BindValue(value, currentFunction!.ReturnType);
+        if (bound.Type == WylType.Void)
+            return new BoundBlock(value.Location, [new BoundExpressionStatement(value.Location, bound)]);
+        return new BoundBlock(value.Location, [new BoundReturn(value.Location, Convert(bound, currentFunction.ReturnType))]);
     }
 
     FunctionSymbol LambdaFunction(LambdaExpr e, FunctionType type, IReadOnlyList<FunctionParameterType>? declared, WylType returnType)
@@ -162,8 +173,8 @@ public sealed partial class Binder
     bool InferredLambdaFits(InferredLambda lambda, WylType to) =>
         to.NonNull is FunctionType function
         && function.Parameters.SequenceEqual(lambda.Function.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type)))
-        && (function.ReturnType == WylType.Void
-            ? lambda.Values.Count == 0
+        && (function.ReturnType == WylType.Void ? lambda.Values.Count == 0
+            : stdlib.IsUnit(function.ReturnType) ? lambda.Values.All(v => CanConvert(v, function.ReturnType))
             : lambda.Values.Count > 0 && lambda.Values.All(v => CanConvert(v, function.ReturnType)));
 
     /// <summary>Gives an inferred lambda its function type, converting what it returns. Overload resolution has checked that it fits.</summary>
@@ -173,11 +184,12 @@ public sealed partial class Binder
             throw new InvalidOperationException($"an inferred lambda was converted to '{type}', which it doesn't fit");
         // The body's locals and lambdas refer to this symbol, so it keeps being the lambda's.
         lambda.Function.InferReturnType(type.ReturnType);
-        return new BoundLambda(pending.Location, type, lambda.Function, (BoundBlock)ConvertReturns(lambda.Body, lambda.Function));
+        return new BoundLambda(pending.Location, type, lambda.Function, EndWithUnit((BoundBlock)ConvertReturns(lambda.Body, lambda.Function), lambda.Function));
     }
 
     BoundStatement ConvertReturns(BoundStatement statement, FunctionSymbol function) => statement switch
     {
+        BoundReturn { Value: null } r when stdlib.IsUnit(function.ReturnType) => new BoundReturn(r.Location, UnitValue(r.Location)),
         BoundReturn { Value: null } r when function.ReturnType != WylType.Void => ReportedReturn(r, Catalog.MissingReturnValue(r.Location, null, function.ReturnType.ToString())),
         BoundReturn { Value: { } value } r => new BoundReturn(r.Location, Convert(value, function.ReturnType)),
         BoundBlock block => new BoundBlock(block.Location, [.. block.Statements.Select(s => ConvertReturns(s, function))]),
@@ -190,6 +202,25 @@ public sealed partial class Binder
         _ when BoundTree.InnerStatements(statement).Any() => throw new InvalidOperationException($"returns in a {statement.GetType().Name} are not converted"),
         _ => statement,
     };
+
+    /// <summary><c>Unit()</c>, which a <c>return;</c> or the end of a body returns from a function that returns <c>Unit</c>.</summary>
+    BoundConstruction UnitValue(Location location)
+    {
+        var unit = stdlib.Unit!.Type;
+        return new BoundConstruction(location, unit, new MethodReference(stdlib.Unit.DefaultConstructor, unit, []), []);
+    }
+
+    /// <summary>
+    /// A body that returns <c>Unit()</c> at its end, if its function returns <c>Unit</c>. If the end
+    /// is unreachable, the added return is too.
+    /// </summary>
+    BoundBlock EndWithUnit(BoundBlock body, FunctionSymbol function)
+    {
+        if (function.ReturnRefKind != RefKind.None || !stdlib.IsUnit(function.ReturnType))
+            return body;
+        var end = new Location(body.Location.Source, new TextSpan(Math.Max(body.Location.Span.End - 1, body.Location.Span.Start), 0));
+        return new BoundBlock(body.Location, [.. body.Statements, new BoundReturn(end, UnitValue(end))]);
+    }
 
     BoundReturn ReportedReturn(BoundReturn r, Diagnostic diagnostic)
     {

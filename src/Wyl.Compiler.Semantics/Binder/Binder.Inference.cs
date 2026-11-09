@@ -220,6 +220,12 @@ public sealed partial class Binder
                         var inferred = lambda.Inferred = binder.BindLambdaInferringReturn(lambda, parameters, target.IsEscaping, target.IsShared);
                         if (inferred.Values.Any(v => v.Type == WylType.Error))
                             return null;
+                        if (inferred.Values.Count == 0 && target.ReturnType is TypeParameterType && binder.stdlib.Unit is { } unit)
+                        {
+                            Unify(target.ReturnType, null, unit.Type);
+                            progress = true;
+                            continue;
+                        }
                         if (inferred.Values.Count == 0)
                         {
                             binder.Error(Catalog.InferFromVoidLambda(lambda.Location, target.ReturnType.ContainedTypeParameters.First(inferable.Contains).Name, function.Name));

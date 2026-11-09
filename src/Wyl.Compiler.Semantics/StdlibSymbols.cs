@@ -12,6 +12,12 @@ public sealed class StdlibSymbols
     /// <summary><c>try</c> and the unused-result error.</summary>
     public TypeSymbol? Result { get; private set; }
 
+    /// <summary>The empty struct a function or lambda returns when it has no value to give, which it may leave out (spec statements.return).</summary>
+    public TypeSymbol? Unit { get; private set; }
+
+    /// <summary>Whether a type is <see cref="Unit"/>, whose value a <c>return</c> and the end of a body give without writing it.</summary>
+    public bool IsUnit(WylType type) => !type.IsNullable && type.Symbol is { } s && s == Unit;
+
     /// <summary>The class that <c>T[]</c> stands for.</summary>
     public TypeSymbol? Array { get; private set; }
 
@@ -107,6 +113,7 @@ public sealed class StdlibSymbols
         switch (symbol.Name)
         {
             case "Result": Result = symbol; break;
+            case "Unit": Unit = symbol; break;
             case "Array": Array = symbol; break;
             case "Span": Span = symbol; break;
             // The runtime's String::bytes returns one (runtime/wyl/core.h).

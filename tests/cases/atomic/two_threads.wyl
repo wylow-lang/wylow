@@ -13,7 +13,6 @@ Unit addMany(Atomic<int> total, int times) {
         total.add(1);
         Counters.CALLS.add(1L);
     }
-    return Unit();
 }
 
 void main() {

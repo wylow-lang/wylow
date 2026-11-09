@@ -1,0 +1,34 @@
+// A function that returns Unit may leave its return out: `return;` and the end of the body both
+// return Unit().
+
+import std::{Unit, print};
+
+Unit log(String text) {
+    if (text == "") {
+        return;
+    }
+    print(text);
+}
+
+Unit explicit() {
+    return Unit();
+}
+
+class Counter {
+    pub mut int count;
+
+    pub Unit add(int n) {
+        count = count + n;
+    }
+}
+
+void main() {
+    log("");
+    log("first");                       // output: first
+    Unit u = log("second");             // output: second
+    explicit();
+    var counter = new Counter();
+    counter.add(2);
+    counter.add(3);
+    print(counter.count);               // output: 5
+}

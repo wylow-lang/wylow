@@ -1,0 +1,16 @@
+// Only a function or lambda that returns Unit itself may leave out its return value.
+
+import std::Unit;
+
+Unit? maybe() {
+    return;                             // error[WYL0372]: 'maybe' must return a value of type 'Unit?'
+}
+
+T[] many<T>(fn() -> T[] f) {
+    return f();
+}
+
+void main() {
+    maybe();
+    many(() -> { });                    // error[WYL0205]: cannot infer type argument 'T' of 'many' from a lambda that returns no value
+}

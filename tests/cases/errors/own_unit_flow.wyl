@@ -1,0 +1,10 @@
+// Only std's Unit is returned without being written: a program's own type named Unit is not.
+
+struct Unit { }
+
+Unit make() {
+}                                       // error[WYL0401]: 'make' must return a value on every path
+
+void main() {
+    make();
+}

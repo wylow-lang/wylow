@@ -20,7 +20,6 @@ class Graph {
         var second = new Node(2);
         first.next = second;
         second.next = first;
-        return Unit();
     }
 }
 
@@ -29,7 +28,6 @@ Unit threadCycle() {
     var second = new Node(4);
     first.next = second;
     second.next = first;
-    return Unit();
 }
 
 void main() {
@@ -38,7 +36,7 @@ void main() {
     box.open(g -> g.makeCycle());
     print("graph cycle made");
     // output: graph cycle made
-    box.open(g -> { memory::collectCycles(); return Unit(); });
+    box.open(g -> memory::collectCycles());
     print("graph collected");
     // output: node 1
     // output: node 2

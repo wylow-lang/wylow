@@ -152,7 +152,7 @@ reach those objects.
   returns its result. The lambda's captures are sendable and copyable, so nothing of the thread's
   can get in, and its result is sendable, so nothing inside can get out; the graph is still
   isolated afterwards. `open` needs a mutable place, since it changes what the box holds. A lambda
-  that only changes the graph returns `Unit`: a lambda that returns nothing cannot give `R` a type
+  that only changes the graph returns nothing, and `R` is then `Unit`
   ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
 - `take` moves the value out and ends the box: the graph joins the current thread's objects.
 - A mutex holds one, and its `lock` opens the graph while the thread holds the mutex's lock
@@ -163,7 +163,7 @@ Isolated<Index> built = Isolated<Index>(() -> Index.build(entries));  // 'entrie
 channel.send(built);                                     // moves the box and the graph
 
 mut Isolated<Index> index = fromLoader.receive()!;
-index.open(i -> i.addEntry(7, "alpha"));                 // 'addEntry' returns 'Unit'; still isolated
+index.open(i -> i.addEntry(7, "alpha"));                 // 'R' is 'Unit'; still isolated
 int count = index.open(i -> i.count());
 Index graph = index.take();                               // ends the box; the graph is this thread's now
 ```
@@ -189,7 +189,7 @@ thread holds the lock.
 - `lock` takes the lock, runs a non-escaping `shared fn(ref T) -> R` on the value, releases the
   lock, and returns the lambda's result. `R` is sendable, so nothing inside the graph gets out, and
   the lambda's captures are sendable and copyable, so nothing of the thread's gets in. A lambda that
-  only changes the value returns `Unit`.
+  only changes the value returns nothing, and `R` is then `Unit`.
 - One thread at a time holds a mutex's lock. A `lock` called while another thread holds the lock
   waits until that thread releases it.
 - Everything one thread's lambda did to the graph is visible to the lambda of the next thread that
@@ -202,7 +202,7 @@ thread holds the lock.
 
 ```java unchecked
 var index = new Mutex<Index>(Isolated<Index>(() -> new Index()));
-var worker = spawn(() -> index.lock(i -> i.addEntry(7, "alpha")));  // 'addEntry' returns 'Unit'
+var worker = spawn(() -> index.lock(i -> i.addEntry(7, "alpha")));  // 'lock' returns 'Unit'
 worker.join();
 int count = index.lock(i -> i.count());
 ```

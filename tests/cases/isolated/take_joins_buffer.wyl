@@ -21,7 +21,6 @@ class Graph {
         var second = new Node(2);
         first.next = second;
         second.next = first;
-        return Unit();
     }
 }
 

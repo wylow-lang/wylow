@@ -258,7 +258,8 @@ pub unique struct Isolated<T> {
   returns and the graph that result is.
 - `open` runs `body` on the value and returns its result. The box must be a mutable place, since
   `body` may change the value.
-- What `body` returns is sendable. A lambda that only changes the graph returns `Unit`.
+- What `body` returns is sendable. A lambda that only changes the graph returns nothing, and `R` is
+  then `Unit`.
 - `take` returns the value and ends the box. The graph's objects then belong to the current thread,
   and its cycle buffer joins the current thread's.
 - A box is sendable for any `T`, and a sendable value converts to one by moving in.
@@ -283,7 +284,8 @@ pub shared class Mutex<T> {
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
 - `lock` waits until no other thread holds the lock, takes it, runs `body` on the value, releases
   it, and returns what `body` returns.
-- What `body` returns is sendable. A lambda that only changes the value returns `Unit`.
+- What `body` returns is sendable. A lambda that only changes the value returns nothing, and `R` is
+  then `Unit`.
 - `lock` panics if the current thread already holds a lock, before it waits.
 - Releasing the last reference to a mutex releases its graph on the thread that releases it.
 

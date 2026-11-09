@@ -401,6 +401,9 @@ function's return type. `return ref place;` returns a reference
 - It is a compile-time error to return a value from a constructor or a destructor.
 - It is a compile-time error to return no value from a function that returns a value, or to return
   a value of a type that does not convert to the return type.
+- If a function, method, or lambda returns `std`'s empty struct `Unit`, `return;` returns `Unit()`,
+  and reaching the end of the body returns `Unit()`. The rule applies to `Unit` itself, not to
+  `Unit?` or to another type named `Unit`.
 - A `return` in a lambda returns from the lambda ([Lambdas](12-functions.md#functions.lambdas)).
 - What a `return` releases is in [Release](17-memory.md#memory.release).
 
@@ -412,6 +415,17 @@ void log(String text) { return text; }      // error[WYL0374]
 int value() {
     return;                                 // error[WYL0372]
 }
+```
+
+```java
+import std::{Unit, print};
+
+Unit report(int count) {
+    if (count == 0) {
+        return;                             // returns Unit()
+    }
+    print(count);
+}                                           // returns Unit()
 ```
 
 <a id="statements.defer"></a>

@@ -2,7 +2,7 @@
 // releases it.
 
 import std::threading::{Mutex, spawn};
-import std::{print, take, Unit};
+import std::{print, take};
 
 unique struct Buffer {
     pub int length;
@@ -21,7 +21,6 @@ void main() {
     var worker = spawn(() -> {
         Buffer? taken = slot.lock(b -> take(ref b));
         print($"child took {taken!.length}");
-        return Unit();
     });
     worker.join();
     // output: child took 7

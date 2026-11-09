@@ -1,0 +1,13 @@
+// The end of a body returns nothing when the function returns Unit? or a type of its own named Unit.
+
+import std::Unit;
+
+Unit? maybe(bool b) {
+    if (b) {
+        return Unit();
+    }
+}                                       // error[WYL0401]: 'maybe' must return a value on every path
+
+void main() {
+    maybe(true);
+}

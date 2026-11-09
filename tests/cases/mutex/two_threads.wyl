@@ -13,7 +13,6 @@ class Log {
 
     pub Unit add(int value) {
         values.add(value);
-        return Unit();
     }
 
     pub int count() {

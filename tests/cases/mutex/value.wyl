@@ -2,20 +2,18 @@
 // sendable result.
 
 import std::threading::Mutex;
-import std::{print, Unit};
+import std::print;
 
 void main() {
     var counter = new Mutex<int>(5);
     counter.lock(n -> {
         n = n + 2;
-        return Unit();
     });
     print(counter.lock(n -> n));
     // output: 7
     var name = new Mutex<String?>(null);
     name.lock(s -> {
         s = "alpha";
-        return Unit();
     });
     print(name.lock(s -> s ?? "none"));
     // output: alpha

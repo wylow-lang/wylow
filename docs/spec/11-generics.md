@@ -92,8 +92,11 @@ A call of a generic function or method that gives no type arguments **infers** t
   Within type arguments there are no conversions.
 - When a generic and a non-generic overload are equally good, the non-generic one is chosen
   ([Overload resolution](12-functions.md#functions.overloading.resolution)).
+- A lambda that returns no value determines `Unit` for a type parameter that is its whole result type:
+  with `T run<T>(fn() -> T f)`, `run(() -> { })` infers `Unit`.
 - It is a compile-time error if a type argument is determined by no argument, or by a call that returns no
-  value, or by `null`, or by a lambda that returns no value.
+  value, or by `null`, or by a lambda that returns no value where the lambda's result type is not the type
+  parameter itself.
 - It is a compile-time error if the arguments determine two types for a type argument and neither converts to
   the other.
 - It is a compile-time error if the lambda's result type determines the type argument and more than one

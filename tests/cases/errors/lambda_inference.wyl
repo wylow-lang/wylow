@@ -8,6 +8,10 @@ U run<U>(fn() -> U f) {
     return f();
 }
 
+U? runMaybe<U>(fn() -> U? f) {
+    return f();
+}
+
 void make<T, U>(fn(T) -> U f) {
 }
 
@@ -40,7 +44,7 @@ void main() {
     make(x -> 1);                                   // error[WYL0201]: cannot infer type argument 'T' of 'make'
     print(pick(true, () -> 1, () -> "a"));          // error[WYL0204]: cannot infer type argument 'U' of 'pick'
     print(chain(() -> 1, x -> 2L));                 // error[WYL0204]: cannot infer type argument 'U' of 'chain'
-    run(() -> print(1));                            // error[WYL0205]: cannot infer type argument 'U' of 'run' from a lambda that returns no value
+    runMaybe(() -> print(1));                       // error[WYL0205]: cannot infer type argument 'U' of 'runMaybe' from a lambda that returns no value
     each(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'each' from a lambda
     both(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'both' from a lambda
     print(run(() -> x -> x));                       // error[WYL0260]: lambda has no function type to take

@@ -26,7 +26,7 @@ public sealed partial class Binder
 
         var body = function.IsConstructor
             ? BindConstructorBody(function)
-            : BindBlock(function.Body!);
+            : EndWithUnit(BindBlock(function.Body!), function);
         CheckCaptures(body);
 
         currentFunction = null;
@@ -303,6 +303,8 @@ public sealed partial class Binder
         var function = currentFunction!;
         if (s.Value is null)
         {
+            if (function.ReturnRefKind == RefKind.None && stdlib.IsUnit(function.ReturnType))
+                return new BoundReturn(s.Location, UnitValue(s.Location));
             if (function.ReturnType != WylType.Void && function.ReturnType != WylType.Error)
                 Error(Catalog.MissingReturnValue(s.Location, function.IsLambda ? null : function.Name, function.ReturnType.ToString()));
             return new BoundReturn(s.Location, null);
