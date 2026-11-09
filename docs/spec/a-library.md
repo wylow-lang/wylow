@@ -191,7 +191,8 @@ pub T join(this Thread<T> thread);
   ([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)).
 - Releasing a `Thread` without calling `join` waits for the body to return, then releases the
   result. A `Thread` that `main` still holds is therefore joined when it is released
-  ([Running a program](03-programs.md#programs.execution)).
+  ([Running a program](03-programs.md#programs.execution)). If the body never returns, the release
+  waits forever ([Waiting forever](19-concurrency.md#concurrency.waiting)).
 - The result's type must be sendable, since the value leaves the thread
   ([Sendable types](19-concurrency.md#concurrency.sendable)).
 - A panic in the body ends the program ([Panics on threads](19-concurrency.md#concurrency.panics)).
@@ -234,7 +235,8 @@ pub shared class Receiver<T extends sendable> {
   which stays open while a `Sender` lives.
 - A channel is not cycle-collected: a value that refers back to a shared object holding the
   channel's end needs a `Weak<T>`, as a cycle among shared objects does
-  ([Cycles](17-memory.md#memory.cycles)).
+  ([Cycles](17-memory.md#memory.cycles)). A `Sender` that such a cycle holds is never released, so
+  its channel never closes ([Waiting forever](19-concurrency.md#concurrency.waiting)).
 - `send` panics if something the value owns is borrowed
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
 

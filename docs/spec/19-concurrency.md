@@ -215,6 +215,20 @@ The **lock rule**: a thread holds at most one lock, and waits for nothing while 
   panics, since each of them waits for another thread.
 - The checks give the same answer in every build mode.
 
+<a id="concurrency.waiting"></a>
+### 19.6.1 Waiting forever
+
+The lock rule makes a deadlock between locks impossible. A program can still wait forever on a
+channel or a thread, and the language does not detect it, as it does not detect an infinite loop:
+
+- Two threads each wait to receive from the other.
+- A thread waits to receive from a channel while it holds one of that channel's `Sender`s itself, so
+  the channel never closes.
+- A cycle among shared objects holds a channel's `Sender`, so the `Sender` is never released and the
+  channel never closes ([Shared classes](#concurrency.shared-classes)).
+- A thread releases or joins a `Thread` whose body waits in one of these ways, since the release
+  waits for the body to return.
+
 <a id="concurrency.atomic"></a>
 ## 19.7 Atomics
 
