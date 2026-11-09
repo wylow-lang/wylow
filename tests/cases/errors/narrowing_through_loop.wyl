@@ -1,0 +1,45 @@
+// A value that may be null can reach a narrowed use only after many iterations, one copy per
+// iteration. Flow analysis follows the loop until nothing more changes, however many passes that
+// takes, so the use is still an error.
+
+class Node {
+    pub int value;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+}
+
+Node? maybe(int i) {
+    return i > 2 ? null : new Node(i);
+}
+
+void main() {
+    mut Node? a1 = new Node(1);
+    mut Node? a2 = new Node(2);
+    mut Node? a3 = new Node(3);
+    mut Node? a4 = new Node(4);
+    mut Node? a5 = new Node(5);
+    mut Node? a6 = new Node(6);
+    mut Node? a7 = new Node(7);
+    mut Node? a8 = new Node(8);
+    mut Node? a9 = new Node(9);
+    mut Node? a10 = new Node(10);
+    mut Node? a11 = new Node(11);
+    mut Node? a12 = new Node(12);
+    for (mut int i = 0; i < 20; i++) {
+        _ = a1.value;                   // error[WYL0397]: 'a1' might be null
+        a1 = a2;
+        a2 = a3;
+        a3 = a4;
+        a4 = a5;
+        a5 = a6;
+        a6 = a7;
+        a7 = a8;
+        a8 = a9;
+        a9 = a10;
+        a10 = a11;
+        a11 = a12;
+        a12 = maybe(i);
+    }
+}

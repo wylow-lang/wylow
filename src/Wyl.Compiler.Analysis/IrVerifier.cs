@@ -605,6 +605,8 @@ public sealed partial class IrVerifier
         return State.Merge(then, otherwise);
     }
 
+    const int MaxLoopPasses = 1000;
+
     /// <summary>Runs the body until what holds at its start stops changing, so that what a later iteration sees is checked too.</summary>
     State Loop(IrLoop loop, State state)
     {
@@ -631,8 +633,15 @@ public sealed partial class IrVerifier
                 context.InContinue = false;
             }
             var merged = State.Merge(entry.Clone(), end);
-            if (merged.SameAs(entry) || pass > 8)
+            if (merged.SameAs(entry))
                 break;
+            // Each pass only adds what may hold and removes what holds on every path, so the
+            // passes settle. A fact may need a pass for each local it is copied through.
+            if (pass >= MaxLoopPasses)
+            {
+                Error("the loop's flow does not settle");
+                break;
+            }
             entry = merged;
         }
         loopDepth--;
