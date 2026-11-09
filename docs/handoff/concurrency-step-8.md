@@ -10,10 +10,6 @@ the sendable floor (0058), channels (0059), `Isolated<T>` (0060–0063), the `st
 
 ## Before you start
 
-- Ask the user whether CI passed on the commits from `8496b4e` to the handoff's commit, and fix any
-  failure first. The TSan mode, GCC, and MSVC did not run locally. The TSan mode runs
-  `mutex/two_threads`, `mutex/join_while_locked`, `mutex/release_while_locked`, and
-  `mutex/unique_value` for the first time.
 - `Mutex` has no fuzzer mutation. Decide whether one can cross it, for example a mutation that moves
   a `receive` or a `join` into a `lock` lambda, and add it or say why none can.
 
