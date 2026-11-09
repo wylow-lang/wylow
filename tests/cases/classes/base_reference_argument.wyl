@@ -1,7 +1,5 @@
 // A 'ref?' parameter of a base constructor takes a place as a 'ref' argument.
 
-import std::print;
-
 class Base {
     int n;
 
@@ -21,5 +19,5 @@ class Derived extends Base {
 void main() {
     mut int mine = 5;
     var made = new Derived(ref mine);
-    print(made.n);      // output: 5
+    std::print(made.n); // output: 5
 }

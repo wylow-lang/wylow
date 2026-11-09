@@ -1,8 +1,6 @@
 // A nullable type whose value type is unique is a unique type: assigning it moves it, and the
 // variable holds nothing until it is assigned again.
 
-import std::print;
-
 unique struct Buffer {
     pub int length;
 }
@@ -10,9 +8,9 @@ unique struct Buffer {
 void main() {
     mut Buffer? maybe = Buffer(1);
     var taken = maybe;
-    print(taken != null);
+    std::print(taken != null);
     // output: true
     maybe = Buffer(2);
-    print(maybe != null);
+    std::print(maybe != null);
     // output: true
 }

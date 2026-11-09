@@ -1,7 +1,5 @@
-import std::print;
-
 int next(String label, int value) {
-    print(label);
+    std::print(label);
     return value;
 }
 
@@ -19,34 +17,34 @@ struct Account {
 
 void main() {
     var s = Stats();
-    print(s.balance);       // output: 100
-    print(s.margin);        // output: 0
-    print(s.speed);        // output: 2.5
+    std::print(s.balance);  // output: 100
+    std::print(s.margin);   // output: 0
+    std::print(s.speed);   // output: 2.5
 
     mut var e = Account(alive: false);
     // output: id initializer
-    print(e.stats.balance); // output: 100
-    print(e.id);           // output: 7
-    print(e.alive);        // output: false
+    std::print(e.stats.balance); // output: 100
+    std::print(e.id);      // output: 7
+    std::print(e.alive);   // output: false
 
     e.stats.margin = 5;
     e.stats.balance -= 30;
-    print(e.stats.margin);  // output: 5
-    print(e.stats.balance); // output: 70
+    std::print(e.stats.margin); // output: 5
+    std::print(e.stats.balance); // output: 70
 
     var ordered = Account(id: next("first", 1), alive: next("second", 2) > 1);
     // output: first
     // output: second
-    print(ordered.id);     // output: 1
+    std::print(ordered.id); // output: 1
 
     // A local declared without a value has none until assigned, so no initializer runs for it.
     Account later;
     later = Account(id: 3);
-    print(later.id);       // output: 3
+    std::print(later.id);  // output: 3
 
     // A fixed array holds its elements' defaults from the start.
     Account[2] pair;
     // output: id initializer
     // output: id initializer
-    print(pair[1].id);     // output: 7
+    std::print(pair[1].id); // output: 7
 }

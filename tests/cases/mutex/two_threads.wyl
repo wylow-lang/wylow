@@ -1,8 +1,9 @@
 // Two threads add to one graph through a mutex. The thread that finishes last sees every addition
 // of both, so the larger of the counts they saw is the total.
 
-import std::threading::{Isolated, Mutex, spawn};
-import std::{List, print, Unit};
+import std::threading;
+import std::threading::{Isolated, Mutex};
+import std::{List, Unit};
 
 class Log {
     mut List<int> values;
@@ -22,13 +23,13 @@ class Log {
 
 void main() {
     var log = new Mutex<Log>(Isolated<Log>(() -> new Log()));
-    var first = spawn(() -> {
+    var first = threading::spawn(() -> {
         for (mut int i = 0; i < 100; i++) {
             log.lock(l -> l.add(1));
         }
         return log.lock(l -> l.count());
     });
-    var second = spawn(() -> {
+    var second = threading::spawn(() -> {
         for (mut int i = 0; i < 100; i++) {
             log.lock(l -> l.add(2));
         }
@@ -36,9 +37,9 @@ void main() {
     });
     int seenByFirst = first.join();
     int seenBySecond = second.join();
-    print(seenByFirst > seenBySecond ? seenByFirst : seenBySecond);
+    std::print(seenByFirst > seenBySecond ? seenByFirst : seenBySecond);
     // output: 200
-    print(log.lock(l -> l.count()));
+    std::print(log.lock(l -> l.count()));
     // output: 200
 }
 

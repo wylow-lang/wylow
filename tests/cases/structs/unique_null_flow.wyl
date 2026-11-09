@@ -1,8 +1,6 @@
 // '!' and '??' move a unique operand, so it is used after being moved; '?.' and a member that
 // does not take its receiver by value use it in place.
 
-import std::print;
-
 unique struct Buffer {
     pub int length;
 }
@@ -13,12 +11,12 @@ unique struct Holder {
 
 void forced(Buffer? maybe) {
     var value = maybe!;
-    print(maybe!.length);                   // error[WYL0440]: 'maybe' is used after being moved
+    std::print(maybe!.length);              // error[WYL0440]: 'maybe' is used after being moved
 }
 
 void coalesced(Buffer? maybe) {
     var value = maybe ?? Buffer(0);
-    print(maybe!.length);                   // error[WYL0440]: 'maybe' is used after being moved
+    std::print(maybe!.length);              // error[WYL0440]: 'maybe' is used after being moved
 }
 
 void field(Holder holder) {

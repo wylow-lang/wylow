@@ -3,7 +3,6 @@
 // returns.
 
 import std::threading::{Channel, Sender};
-import std::print;
 
 shared class Worker {
     pub int id;
@@ -24,8 +23,8 @@ void main() {
     var receiver = channel.receiver();
     {
         var worker = new Worker(7, channel.sender());
-        print(worker.id);                         // output: 7
+        std::print(worker.id);                    // output: 7
     }
     // panic: an object's destructor kept a reference to the object
-    print(receiver.receive()!.id);
+    std::print(receiver.receive()!.id);
 }

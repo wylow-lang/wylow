@@ -1,6 +1,6 @@
 // Type arguments inferred from what lambdas return.
 
-import std::{List, print};
+import std::List;
 
 U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);
@@ -57,15 +57,15 @@ Result<Task, String> find(bool ok) {
 
 void main() {
     Task orc = Task("orc", 5);
-    print(apply(orc, m -> m.name));                     // output: orc
-    print(apply(3, x -> x * 2L));                       // output: 6
-    print(apply(3, (int x) -> x > 2));                  // output: true
+    std::print(apply(orc, m -> m.name));                // output: orc
+    std::print(apply(3, x -> x * 2L));                  // output: 6
+    std::print(apply(3, (int x) -> x > 2));             // output: true
     fn(int) -> String describe = x -> "number";
-    print(apply(3, describe));                          // output: number
+    std::print(apply(3, describe));                     // output: number
 
     // Lambdas that disagree take a type both convert to.
-    print(pick(false, () -> 1, () -> 2L));              // output: 2
-    print(run(() -> {
+    std::print(pick(false, () -> 1, () -> 2L));         // output: 2
+    std::print(run(() -> {
         if (orc.balance > 3) {
             return 1;
         }
@@ -73,30 +73,30 @@ void main() {
     }));                                                // output: 1.0
 
     // Each lambda's parameters come from the lambdas before it.
-    print(compose(2, x -> x + 0.5d, y -> y * 2d));      // output: 5.0
-    print(compose(orc, m -> m.balance, h -> h > 3));     // output: true
+    std::print(compose(2, x -> x + 0.5d, y -> y * 2d)); // output: 5.0
+    std::print(compose(orc, m -> m.balance, h -> h > 3)); // output: true
 
     mut int calls = 0;
-    print(run(() -> {
+    std::print(run(() -> {
         calls++;
         return calls * 10;
     }));                                                // output: 10
-    print(calls);                                       // output: 1
+    std::print(calls);                                  // output: 1
 
     int? half = whenPositive(4, x -> x / 2);
-    print(half ?? -1);                                  // output: 2
+    std::print(half ?? -1);                             // output: 2
 
     Bag<Task> bag = new Bag<Task>();
     bag.add(orc);
     bag.add(Task("elf", 9));
     List<int> balances = bag.map(m -> m.balance);
-    print(balances[1]);                                  // output: 9
-    print(bag.names()[0]);                              // output: item
+    std::print(balances[1]);                             // output: 9
+    std::print(bag.names()[0]);                         // output: item
 
     Result<String, String> name = find(true).map(m -> m.name);
-    print(name.orElse("?"));                            // output: orc
-    print(find(false).map(m -> m.balance).orElse(-1));   // output: -1
-    print(find(false).mapErr(e -> 404) is Err);        // output: true
+    std::print(name.orElse("?"));                       // output: orc
+    std::print(find(false).map(m -> m.balance).orElse(-1)); // output: -1
+    std::print(find(false).mapErr(e -> 404) is Err);   // output: true
     var total = find(true).map(m -> find(false).map(n -> n.balance + m.balance).orElse(m.balance * 10));
-    print(total.orElse(0));                             // output: 50
+    std::print(total.orElse(0));                        // output: 50
 }

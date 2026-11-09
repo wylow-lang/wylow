@@ -2,8 +2,6 @@
 // value and every constructor assigns it. A field whose type has an initial value holds it, and an
 // initializer still runs.
 
-import std::print;
-
 unique struct Token {
     pub int id;
 
@@ -11,7 +9,7 @@ unique struct Token {
         this.id = id;
     }
 
-    ~Token() { print($"token {id}"); }
+    ~Token() { std::print($"token {id}"); }
 }
 
 struct Holder<T> {
@@ -46,18 +44,18 @@ struct Sized {
 void main() {
     var token = Token(7);
     var holder = Holder<Token>(token);
-    print(holder.value.id);
+    std::print(holder.value.id);
     // output: 7
     var box = new Box(holder);
-    print(box.holder.value.id);
+    std::print(box.holder.value.id);
     // output: 7
     var sized = Sized(2);
-    print(sized.width);
+    std::print(sized.width);
     // output: 4
-    print(sized.height);
+    std::print(sized.height);
     // output: 2
     var pair = Pair();
-    print(pair.token.id);
+    std::print(pair.token.id);
     // output: 0
     // output: token 0
     // output: token 7

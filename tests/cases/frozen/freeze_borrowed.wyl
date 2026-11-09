@@ -1,6 +1,6 @@
 // A loop over a list borrows it, so freezing the list inside the loop panics, as clearing it does.
 
-import std::{List, print};
+import std::List;
 
 void main() {
     var values = new List<int>();
@@ -8,6 +8,6 @@ void main() {
     values.add(2);
     for (int value : values) {
         var frozen = values.freeze();         // panic-here: cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop
-        print(frozen.length());
+        std::print(frozen.length());
     }
 }

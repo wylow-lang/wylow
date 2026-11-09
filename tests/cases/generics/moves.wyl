@@ -1,7 +1,5 @@
 // An unbounded type parameter moves, so generic code works for a unique type argument.
 
-import std::print;
-
 unique struct Buffer {
     pub int length;
 }
@@ -17,7 +15,7 @@ T take<T>(T value) {
 
 void main() {
     var buffer = take(Buffer(3));
-    print(buffer.length);            // output: 3
-    print(identity(4));              // output: 4
-    print(identity("text"));         // output: text
+    std::print(buffer.length);       // output: 3
+    std::print(identity(4));         // output: 4
+    std::print(identity("text"));    // output: text
 }

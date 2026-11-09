@@ -1,5 +1,3 @@
-import std::print;
-
 unique struct Box {
     int value;
 
@@ -16,8 +14,8 @@ Result<T, String> first<T>(Result<T, String> a, Result<T, String> b) {
 
 void report(Result<int, String> r) {
     switch (r) {
-        case Ok(var value) -> print(value);
-        case Err(var error) -> print(error);
+        case Ok(var value) -> std::print(value);
+        case Err(var error) -> std::print(error);
     }
 }
 
@@ -25,7 +23,7 @@ void main() {
     Box box = Box(1);
     _ = box;
     _ = box.value;
-    print(box.value);                                                         // output: 1
+    std::print(box.value);                                                    // output: 1
     report(first(Result<int, String>.Ok(2), Result<int, String>.Ok(3)));      // output: 2
     report(first(Result<int, String>.Ok(2), Result<int, String>.Err("no")));  // output: no
 }

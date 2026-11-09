@@ -1,7 +1,5 @@
 // '?:' and switch expressions choose between functions: lambdas, function-typed locals, and parameters.
 
-import std::{panic, print};
-
 enum Op {
     Add(int amount),
     Double,
@@ -28,7 +26,7 @@ int chosenShared(bool first, (shared fn(int) -> int)? f) {
 }
 
 bool note(String what, bool value) {
-    print(what);
+    std::print(what);
     return value;
 }
 
@@ -39,65 +37,65 @@ void main() {
 
     // A choice between function locals copies the one chosen.
     fn(int) -> int localChoice = flag ? add : add;
-    print(localChoice(1));                                  // output: 101
+    std::print(localChoice(1));                             // output: 101
 
     // An escaping local chosen by ?: is copied, like a non-escaping one.
     escaping fn(int) -> int first = x -> x + 1;
     escaping fn(int) -> int second = x -> x + 2;
     escaping fn(int) -> int picked = flag ? first : second;
-    print(picked(1));                                       // output: 2
+    std::print(picked(1));                                  // output: 2
 
     // A choice between lambdas that capture a local needs that local while it is used.
     int offset = base * 2;
     fn(int) -> int captured = flag ? x -> x + offset : x -> x - offset;
-    print(captured(1));                                     // output: 201
+    std::print(captured(1));                                // output: 201
 
     // A captured reference is what the lambdas need, not the local holding it.
     mut int[2] cells = [4, 5];
     ref int cell = cells[0];
     fn(int) -> int reads = flag ? x -> x + cell : x -> x - cell;
-    print(reads(1));                                        // output: 5
+    std::print(reads(1));                                   // output: 5
 
     // The choice is made once, where the local is declared.
     fn(int) -> int f = flag ? add : x -> x * 2;
-    print(f(1));                                            // output: 101
+    std::print(f(1));                                       // output: 101
     flag = false;
-    print(f(1));                                            // output: 101
+    std::print(f(1));                                       // output: 101
 
     // As an argument, to a template parameter and to a FunctionRef one.
-    print(apply(flag ? add : x -> x * 2, 5));               // output: 10
-    print(new Runner().run(flag ? x -> x + 7 : add));       // output: 101
+    std::print(apply(flag ? add : x -> x * 2, 5));          // output: 10
+    std::print(new Runner().run(flag ? x -> x + 7 : add));  // output: 101
 
-    print(pick(true, x -> x + 1, x -> x - 1));              // output: 11
-    print(pick(false, x -> x + 1, x -> x - 1));             // output: 9
+    std::print(pick(true, x -> x + 1, x -> x - 1));         // output: 11
+    std::print(pick(false, x -> x + 1, x -> x - 1));        // output: 9
 
     // Only the conditions on the chosen path are evaluated, in order.
     int n = 2;
     fn(int) -> int g = note("a", n > 1) ? (note("b", n > 5) ? x -> 1 : x -> 2) : x -> 3;
     // output: a
     // output: b
-    print(g(0));                                            // output: 2
+    std::print(g(0));                                       // output: 2
     fn(int) -> int h = note("c", n > 5) ? (note("d", true) ? x -> 1 : x -> 2) : x -> 3;
     // output: c
-    print(h(0));                                            // output: 3
+    std::print(h(0));                                       // output: 3
 
     // The chosen lambda still captures by reference.
     mut int total = 0;
     fn(int) -> void sink = flag ? x -> { total += x; } : x -> { total -= x; };
     sink(5);
-    print(total);                                           // output: -5
+    std::print(total);                                      // output: -5
 
     // A lambda takes its type from the other branch.
     var k = flag ? add : x -> x + 1000;
-    print(k(1));                                            // output: 1001
+    std::print(k(1));                                       // output: 1001
 
-    print((flag ? add : x -> 0)(1));                        // output: 0
+    std::print((flag ? add : x -> 0)(1));                   // output: 0
 
     fn(ref int) -> void bump = n > 1 ? v -> { v += 1; } : v -> { v += 2; };
     mut int z = 0;
     bump(ref z);
     bump(ref z);
-    print(z);                                               // output: 2
+    std::print(z);                                          // output: 2
 
     // A switch expression runs only the matching case, which may use what it declares outside lambdas.
     Op op = Op.Add(3);
@@ -107,29 +105,29 @@ void main() {
         case Double -> x -> x * 2;
         case Stop -> add;
     };
-    print(step(10));                                        // output: 13
+    std::print(step(10));                                   // output: 13
 
     // A function value that is itself a choice can be chosen again, from either side.
     fn(int) -> int either = n > 1 ? x -> x + 1 : x -> x + 2;
     fn(int) -> int again = n > 1 ? either : x -> 0;
-    print(again(10));                                       // output: 11
-    print((n > 5 ? either : x -> 0)(10));                   // output: 0
+    std::print(again(10));                                  // output: 11
+    std::print((n > 5 ? either : x -> 0)(10));              // output: 0
 
     fn(int) -> int twice = switch (Op.Double) {
         case Add(_) -> add;
         // A lambda may declare names inside itself.
         case Double -> x -> op is Add(var factor) ? x * factor : x * 2;
-        case Stop -> panic("stopped");
+        case Stop -> std::panic("stopped");
     };
-    print(twice(7));                                        // output: 21
+    std::print(twice(7));                                   // output: 21
 
     var w = switch (n) {
         case 1 -> add;
         default -> x -> -x;
     };
-    print(w(4));                                            // output: -4
+    std::print(w(4));                                       // output: -4
 
-    print(apply(switch (op) {
+    std::print(apply(switch (op) {
         case Add(_) -> x -> x + 100;
         default -> add;
     }, 1));                                                 // output: 101
@@ -139,18 +137,18 @@ void main() {
         case true -> x -> 1;
         case false -> x -> 2;
     } : x -> 3;
-    print(nested(0));                                       // output: 3
+    std::print(nested(0));                                  // output: 3
 
     // A shared function is chosen as its form without shared, and its check runs only if it is chosen.
     shared fn(int) -> int sharedAdd = x -> x + base;
     bool chooseShared = true;
     fn(int) -> int fromShared = chooseShared ? sharedAdd : x -> x * 2;
-    print(fromShared(1));                                   // output: 101
+    std::print(fromShared(1));                              // output: 101
     fn(int) -> int sharedSwitch = switch (chooseShared) {
         case true -> sharedAdd;
         case false -> x -> 0;
     };
-    print(sharedSwitch(2));                                 // output: 102
-    print(chosenShared(true, sharedAdd));                   // output: 105
-    print(chosenShared(false, null));                       // output: 6
+    std::print(sharedSwitch(2));                            // output: 102
+    std::print(chosenShared(true, sharedAdd));              // output: 105
+    std::print(chosenShared(false, null));                  // output: 6
 }

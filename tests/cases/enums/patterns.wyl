@@ -1,5 +1,3 @@
-import std::print;
-
 interface Named {
     String name();
 }
@@ -88,42 +86,42 @@ String kind(Animal a) {
 }
 
 void main() {
-    print(score(Card.Joker));                               // output: joker
-    print(score(Card.Number(Suit.Hearts, 1)));              // output: ace of hearts
-    print(score(Card.Number(Suit.Spades, 1)));              // output: an ace
-    print(score(Card.Number(Suit.Spades, 12)));             // output: court
-    print(score(Card.Number(Suit.Hearts, 5)));              // output: red
-    print(score(Card.Number(Suit.Spades, 5)));              // output: black
+    std::print(score(Card.Joker));                          // output: joker
+    std::print(score(Card.Number(Suit.Hearts, 1)));         // output: ace of hearts
+    std::print(score(Card.Number(Suit.Spades, 1)));         // output: an ace
+    std::print(score(Card.Number(Suit.Spades, 12)));        // output: court
+    std::print(score(Card.Number(Suit.Hearts, 5)));         // output: red
+    std::print(score(Card.Number(Suit.Spades, 5)));         // output: black
 
-    print(rank(1));                                         // output: one
-    print(rank(3));                                         // output: few
-    print(rank(-1));                                        // output: minus one
-    print(rank(9));                                         // output: many
+    std::print(rank(1));                                    // output: one
+    std::print(rank(3));                                    // output: few
+    std::print(rank(-1));                                   // output: minus one
+    std::print(rank(9));                                    // output: many
 
-    print(depth(Tree.Leaf(0)));                             // output: 0
-    print(depth(Tree.Leaf(4)));                             // output: 1
-    print(depth(Tree.Node(Card.Joker, Card.Joker)));        // output: 2
-    print(depth(Tree.Node(Card.Joker, Card.Number(Suit.Hearts, 7)))); // output: 7
-    print(depth(Tree.Node(Card.Number(Suit.Hearts, 7), Card.Joker))); // output: -7
+    std::print(depth(Tree.Leaf(0)));                        // output: 0
+    std::print(depth(Tree.Leaf(4)));                        // output: 1
+    std::print(depth(Tree.Node(Card.Joker, Card.Joker)));   // output: 2
+    std::print(depth(Tree.Node(Card.Joker, Card.Number(Suit.Hearts, 7)))); // output: 7
+    std::print(depth(Tree.Node(Card.Number(Suit.Hearts, 7), Card.Joker))); // output: -7
 
-    print(kind(new Dog()));                                 // output: clever dog
-    print(kind(new Animal()));                              // output: animal
+    std::print(kind(new Dog()));                            // output: clever dog
+    std::print(kind(new Animal()));                         // output: animal
 
     // Enum methods, static methods, and interfaces as generic bounds.
-    print(Suit.Hearts.isRed());                             // output: true
-    print(Suit.fromRed(false).name());                      // output: spades
-    print(label(Suit.Hearts));                              // output: hearts
+    std::print(Suit.Hearts.isRed());                        // output: true
+    std::print(Suit.fromRed(false).name());                 // output: spades
+    std::print(label(Suit.Hearts));                         // output: hearts
 
     // Enums without data convert to and from integers.
-    print((int)Suit.Spades);                                // output: 1
-    print((int)Format.Bgra);                                // output: 38
-    print((long)Format.Rgba);                               // output: 37
+    std::print((int)Suit.Spades);                           // output: 1
+    std::print((int)Format.Bgra);                           // output: 38
+    std::print((long)Format.Rgba);                          // output: 37
     var format = (Format)37;
-    print(format == Format.Rgba);                           // output: true
+    std::print(format == Format.Rgba);                      // output: true
 
     // Bools and nested switches.
     bool flag = true;
-    print(switch (flag) {
+    std::print(switch (flag) {
         case true -> switch (Suit.Spades) {
             case Hearts -> 1;
             case Spades -> 2;
@@ -136,7 +134,7 @@ void main() {
         switch (i) {
             case 1 -> { continue; }
             case 3 -> { break; }
-            default -> print(i);
+            default -> std::print(i);
         }
     }                                                       // output: 0
                                                             // output: 2
@@ -146,13 +144,13 @@ void main() {
     if (!(card is Number(_, var r))) {
         return;
     } else {
-        print(r);                                           // output: 9
+        std::print(r);                                      // output: 9
     }
 
     // A loop condition can bind a new value each time.
     mut var tree = Tree.Node(Card.Number(Suit.Hearts, 2), Card.Joker);
     while (tree is Node(Number(_, var n), _)) {
-        print(n);                                           // output: 2
+        std::print(n);                                      // output: 2
         tree = Tree.Leaf(n);
     }
 
@@ -161,5 +159,5 @@ void main() {
         case Leaf(var v) -> v is 2 ? 10 : 0;
         case Node(var v, _) -> v is Joker ? 1 : 0;
     };
-    print(total);                                           // output: 10
+    std::print(total);                                      // output: 10
 }

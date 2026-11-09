@@ -1,5 +1,4 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 import std::threading::Channel;
 
 unique struct Buffer {
@@ -10,7 +9,7 @@ unique struct Buffer {
     }
 
     ~Buffer() {
-        print($"buffer {length}");
+        std::print($"buffer {length}");
     }
 }
 
@@ -18,18 +17,18 @@ void main() {
     var channel = new Channel<Buffer>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = spawn(() -> {
+    var worker = threading::spawn(() -> {
         mut var value = receiver.receive();
         if (value != null) {
             var buffer = value!;
-            print($"got {buffer.length}");
+            std::print($"got {buffer.length}");
         }
-        print("child done");
+        std::print("child done");
         return 0;
     });
     sender.send(Buffer(7));
     worker.join();
-    print("parent done");
+    std::print("parent done");
     // output: got 7
     // output: buffer 7
     // output: child done

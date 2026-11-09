@@ -1,5 +1,3 @@
-import std::print;
-
 class Holder {
     mut String text = "held";
 }
@@ -18,45 +16,45 @@ int sum(ReadOnlySpan<byte> bytes) {
 
 void main() {
     String word = "hé";
-    print(word.bytes().length());       // output: 3
-    print("hé".bytes().length());       // output: 3
-    print(word.bytes()[0]);             // output: 104
+    std::print(word.bytes().length());  // output: 3
+    std::print("hé".bytes().length());  // output: 3
+    std::print(word.bytes()[0]);        // output: 104
     for (byte b : word.bytes()) {
-        print(b);
+        std::print(b);
         // output: 104
         // output: 195
         // output: 169
     }
-    print(sum(word.bytes()));           // output: 468
-    print(word.bytes().slice(1, 2)[1]);   // output: 169
-    print("".bytes().length());         // output: 0
+    std::print(sum(word.bytes()));      // output: 468
+    std::print(word.bytes().slice(1, 2)[1]); // output: 169
+    std::print("".bytes().length());    // output: 0
 
     // A view holds the string it was taken from, even once nothing else does.
     int n = 7;
     mut String s = $"built {n}";
     ReadOnlySpan<byte> view = s.bytes();
     s = "other";
-    print(view.length());               // output: 7
-    print(view[6]);                     // output: 55
+    std::print(view.length());          // output: 7
+    std::print(view[6]);                // output: 55
 
     ReadOnlySpan<byte> temporary = make(3).bytes();
-    print(temporary[5]);                // output: 51
+    std::print(temporary[5]);           // output: 51
 
     var holder = new Holder();
     holder.text = make(4);
     ReadOnlySpan<byte> field = holder.text.bytes();
     holder.text = "x";
-    print(field[5]);                    // output: 52
+    std::print(field[5]);               // output: 52
 
     mut String? maybe = make(5);
     if (maybe != null) {
         ReadOnlySpan<byte> inside = maybe.bytes();
         maybe = null;
-        print(inside[5]);               // output: 53
+        std::print(inside[5]);          // output: 53
     }
 
     // A narrowed or asserted nullable string shares its bytes, as a string does.
     mut String? narrowed = "héllo";
-    print(narrowed.bytes()[0]);         // output: 104
-    print(narrowed!.bytes()[0]);        // output: 104
+    std::print(narrowed.bytes()[0]);    // output: 104
+    std::print(narrowed!.bytes()[0]);   // output: 104
 }

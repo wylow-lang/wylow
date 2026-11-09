@@ -2,7 +2,7 @@
 // it is destroyed exactly where it would have been released. `stack:` counts the objects of a line
 // that are; every other object made in the program is on the heap.
 
-import std::{List, Weak, memory, print};
+import std::{List, Weak, memory};
 
 class Noisy {
     String name;
@@ -21,7 +21,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -41,7 +41,7 @@ interface Visitor {
 
 class Reader implements Visitor {
     void visit(Noisy n) {
-        print(n.label());
+        std::print(n.label());
     }
 }
 
@@ -56,7 +56,7 @@ class Storer implements Visitor {
 // Only the methods a call may dispatch to count: Bin.put keeps its argument, but no Shelf is a Bin.
 class Shelf {
     virtual void put(Noisy n) {
-        print(n.label());
+        std::print(n.label());
     }
 }
 
@@ -139,7 +139,7 @@ Noisy give(fn() -> Noisy f) {
 void returnedBriefly() {
     var n = new Noisy("brief"); // stack: 1
     var same = n.self();
-    print(pass(same).label());
+    std::print(pass(same).label());
 }
 
 Noisy passedOn() {
@@ -159,9 +159,9 @@ void lend(Keeper keeper) {
 void scope() {
     var a = new Noisy("a"); // stack: 1
     var b = new Noisy("b"); // stack: 1
-    print(read(a));
-    print(b.label());
-    print("end of scope");
+    std::print(read(a));
+    std::print(b.label());
+    std::print("end of scope");
 }
 
 Noisy returned() {
@@ -183,21 +183,21 @@ void main() {
     // output: a
 
     // A temporary is destroyed at the end of its statement.
-    print(new Noisy("t").label()); // stack: 1
+    std::print(new Noisy("t").label()); // stack: 1
     // output: t
     // output: t
-    print(depth(new Noisy("u"), 1)); // stack: 1
+    std::print(depth(new Noisy("u"), 1)); // stack: 1
     // output: 1
     // output: u
     var length = new Noisy("v").label(); // stack: 1
     // output: v
-    print(length);
+    std::print(length);
     // output: v
 
     // One object per iteration, each destroyed at the end of its iteration.
     for (int i : 0..2) {
         var item = new Noisy("item"); // stack: 1
-        print(depth(item, 3));
+        std::print(depth(item, 3));
     }
     // output: 3
     // output: item
@@ -210,19 +210,19 @@ void main() {
         var y = x;
         Noisy? z = x;
         if (z is Noisy w) {
-            print(w.label());
+            std::print(w.label());
         }
-        run(() -> print(y.label()));
+        run(() -> std::print(y.label()));
     }
     // output: x
     // output: x
     // output: x
 
     // A function's result that is only used briefly, even when it is the object itself.
-    print(pass(new Noisy("passed")).name); // stack: 1
+    std::print(pass(new Noisy("passed")).name); // stack: 1
     // output: passed
     // output: passed
-    print(new Noisy("self").self().name); // stack: 1
+    std::print(new Noisy("self").self().name); // stack: 1
     // output: self
     // output: self
     returnedBriefly();
@@ -230,10 +230,10 @@ void main() {
     // output: brief
 
     // Escapes: returned, stored, given to code that stores it, or returned to code that does.
-    print(returned().name);
+    std::print(returned().name);
     // output: returned
     // output: returned
-    print(passedOn().name);
+    std::print(passedOn().name);
     // output: passed on
     // output: passed on
     storeResult(new Keeper()); // stack: 1
@@ -285,11 +285,11 @@ void main() {
 
     // Generic classes, and objects too large for the stack, which stay on the heap at run time.
     var box = new Box<Noisy>(new Noisy("boxed")); // stack: 1
-    print(box.value.name);
+    std::print(box.value.name);
     // output: boxed
     var big = new Big(); // stack: 1
     big.values[3] = 4;
-    print(big.values[3]);
+    std::print(big.values[3]);
     // output: 4
 
     // Changing what an object holds, even through a 'ref' or a span, doesn't change the variable.
@@ -299,22 +299,22 @@ void main() {
     }
     Span<int> view = counts;
     view[0] = 5;
-    print(counts[0] + counts[1]);
+    std::print(counts[0] + counts[1]);
     // output: 7
 
     // A cyclic class on the stack is never buffered: collecting finds nothing.
     {
         var node = new Noisy("node"); // stack: 1
         node.other = new Noisy("next"); // stack: 0
-        print(read(node));
+        std::print(read(node));
         memory::collectCycles();
-        print(memory::cycleStats().freed);
+        std::print(memory::cycleStats().freed);
     }
     // output: node
     // output: 0
     // output: node
     // output: next
-    print("end");
+    std::print("end");
     // output: end
 }
 // output: boxed

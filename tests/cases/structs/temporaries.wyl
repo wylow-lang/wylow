@@ -1,7 +1,7 @@
 // A temporary struct can't be written to (spec structs.methods.mut), but it can be read, and a
 // write that reaches an object through it, or through a temporary reference, is kept.
 
-import std::{List, print};
+import std::List;
 
 struct Counter {
     int count;
@@ -57,23 +57,23 @@ int[3] numbers() {
 }
 
 void main() {
-    print(counter(4).peek());           // output: 4
+    std::print(counter(4).peek());      // output: 4
     mut Counter kept = counter(4);
     kept.add();
-    print(kept.count);                  // output: 5
+    std::print(kept.count);             // output: 5
 
     var bits = new Bits();
     BitView(bits)[2] = true;
     BitView(bits)[0] = true;
-    print(bits.word);                   // output: 5
+    std::print(bits.word);              // output: 5
 
     var grid = new Grid();
     same(grid)[1] = 7;
     same(grid)[1] += 1;
-    print(grid.cells[1]);               // output: 8
+    std::print(grid.cells[1]);          // output: 8
 
     for (in int n : numbers()) {
-        print(n);
+        std::print(n);
     }
     // output: 1
     // output: 2
@@ -84,5 +84,5 @@ void main() {
     for (ref int n : rows[0]) {
         n *= 10;
     }
-    print(rows[0][2]);                  // output: 30
+    std::print(rows[0][2]);             // output: 30
 }

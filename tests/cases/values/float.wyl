@@ -1,44 +1,42 @@
 // The `float` kind at its edges: IEEE 754 single precision. print writes the shortest text that
 // reads back as the same float, and non-finite values are `inf`, `-inf`, and `nan` (§2.4).
 
-import std::print;
-
 void main() {
     float value = 1.5f;
 
-    print(value);                 // output: 1.5
-    print(value + 0.5f);           // output: 2.0
-    print(value * 3);             // output: 4.5
-    print(value / 2);             // output: 0.75
-    print(value % 1);             // output: 0.5
-    print(-value);                // output: -1.5
-    print(1.0f / 3);               // output: 0.33333334
-    print((double)(1.0f / 3));     // output: 0.3333333432674408
-    print(16777216.0f + 1.0f);      // output: 16777216.0
-    print(1e20f);                  // output: 1e+20
-    print(0.0f / 0.0f);             // output: nan
-    print(1.0f / 0.0f);             // output: inf
-    print(-1.0f / 0.0f);            // output: -inf
-    print(value < 2.0f);           // output: true
-    print(value == 1.5f);          // output: true
+    std::print(value);            // output: 1.5
+    std::print(value + 0.5f);      // output: 2.0
+    std::print(value * 3);        // output: 4.5
+    std::print(value / 2);        // output: 0.75
+    std::print(value % 1);        // output: 0.5
+    std::print(-value);           // output: -1.5
+    std::print(1.0f / 3);          // output: 0.33333334
+    std::print((double)(1.0f / 3)); // output: 0.3333333432674408
+    std::print(16777216.0f + 1.0f); // output: 16777216.0
+    std::print(1e20f);             // output: 1e+20
+    std::print(0.0f / 0.0f);        // output: nan
+    std::print(1.0f / 0.0f);        // output: inf
+    std::print(-1.0f / 0.0f);       // output: -inf
+    std::print(value < 2.0f);      // output: true
+    std::print(value == 1.5f);     // output: true
 
-    print((int)value);            // output: 1
-    print((int)-1.5f);             // output: -1
-    print((int)1e20f);             // output: 2147483647
-    print((long)1e10f);            // output: 10000000000
-    print((double)value);         // output: 1.5
+    std::print((int)value);       // output: 1
+    std::print((int)-1.5f);        // output: -1
+    std::print((int)1e20f);        // output: 2147483647
+    std::print((long)1e10f);       // output: 10000000000
+    std::print((double)value);    // output: 1.5
 
-    print(value.toString());      // output: 1.5
-    print($"{value:F2}");         // output: 1.50
-    print($"{value:E2}");         // output: 1.50E+000
-    print($"[{value,6}]");        // output: [   1.5]
+    std::print(value.toString()); // output: 1.5
+    std::print($"{value:F2}");    // output: 1.50
+    std::print($"{value:E2}");    // output: 1.50E+000
+    std::print($"[{value,6}]");   // output: [   1.5]
 
     // More comparisons, conversions, and formatting.
-    print(value >= 1.5f);          // output: true
-    print(value != 1.6f);          // output: true
-    print((float)(1.0f / 3));      // output: 0.33333334
-    print((short)value);          // output: 1
-    print(1.5f % 1.0f);             // output: 0.5
-    print(2.0f * 0.5f);             // output: 1.0
-    print($"{0.1f:F3}");           // output: 0.100
+    std::print(value >= 1.5f);     // output: true
+    std::print(value != 1.6f);     // output: true
+    std::print((float)(1.0f / 3)); // output: 0.33333334
+    std::print((short)value);     // output: 1
+    std::print(1.5f % 1.0f);        // output: 0.5
+    std::print(2.0f * 0.5f);        // output: 1.0
+    std::print($"{0.1f:F3}");      // output: 0.100
 }

@@ -1,5 +1,3 @@
-import std::print;
-
 class Node { }
 
 class Box<T> {
@@ -30,5 +28,5 @@ class Settings {
 void main() {
     Settings.NODE = new Node();                   // error[WYL0465]: cannot assign to static 'Settings.NODE'
     var settings = new Settings();
-    print(settings.NODE);                         // error[WYL0467]: static field 'NODE' cannot be read through a value
+    std::print(settings.NODE);                    // error[WYL0467]: static field 'NODE' cannot be read through a value
 }

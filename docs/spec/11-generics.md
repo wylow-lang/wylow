@@ -255,7 +255,7 @@ may be replaced ([Reference bindings](15-patterns.md#patterns.references)).
 interface Named { String name(); }
 
 void show<T>(T value) {
-    print(value.name());                // error[WYL0300]: cannot find method 'name' in 'T'
+    std::print(value.name());           // error[WYL0300]: cannot find method 'name' in 'T'
 }
 ```
 

@@ -39,7 +39,8 @@ erroring line; list every error, with its code and exact message), `// panic:` o
 `// mode: release` comments, and `// tsan` on a test that starts a thread, which is the only kind
 `--cc tsan` runs. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
-binds). A test imports the `std` names it uses (`import std::{List, print};`). A directory with a
+binds). A test imports the types it uses and calls functions through their module (decision 0072):
+`import std::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A directory with a
 `package.wylcfg` (`tests/cases/packages/`) is one test of all its files.
 
 ## Rules

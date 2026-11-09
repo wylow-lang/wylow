@@ -1,8 +1,6 @@
 // A reference binding into an enum's variant keeps the enum in use while a lambda made in the
 // binding's scope runs, so replacing the enum inside the lambda panics.
 
-import std::{print, replace};
-
 unique struct Buffer {
     pub int id;
 
@@ -23,9 +21,9 @@ void main() {
     switch (maybe) {
         case Some(in var buffer) -> {
             run(() -> {
-                var previous = replace(ref maybe, Maybe.None);
+                var previous = std::replace(ref maybe, Maybe.None);
                 // panic: cannot replace a value that is in use
-                print(buffer.id);
+                std::print(buffer.id);
             });
         }
         case None -> { }

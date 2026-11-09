@@ -1,8 +1,6 @@
 // The null operators take a unique value by value where the language says they do: '!' and '??'
 // move it, and '?.' uses it in place unless the member takes its receiver by value.
 
-import std::print;
-
 unique struct Buffer {
     pub int length;
 
@@ -14,23 +12,23 @@ unique struct Buffer {
 void main() {
     mut Buffer? maybe = Buffer(1);
     var taken = maybe!;
-    print(taken.length);
+    std::print(taken.length);
     // output: 1
 
     maybe = Buffer(2);
-    print(maybe?.length ?? 0);
+    std::print(maybe?.length ?? 0);
     // output: 2
     // '?.' reached the value in place, so 'maybe' still holds it.
-    print(maybe!.twice());
+    std::print(maybe!.twice());
     // output: 4
 
     mut Buffer? full = Buffer(3);
     var value = full ?? Buffer(0);
-    print(value.length);
+    std::print(value.length);
     // output: 3
 
     Buffer? empty = null;
     var fallback = empty ?? Buffer(9);
-    print(fallback.length);
+    std::print(fallback.length);
     // output: 9
 }

@@ -1,5 +1,3 @@
-import std::print;
-
 abstract class Product {
     abstract void fire();
     virtual int stock() { return 0; }
@@ -65,6 +63,6 @@ void main() {
     var g = Gun();                      // error[WYL0287]: class 'Gun' cannot be created without 'new'
     var s = new Secretive();
     Point pt = Point(x: 1);
-    print(s == pt);                     // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Point'
-    print(s == new Field());            // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Field'
+    std::print(s == pt);                // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Point'
+    std::print(s == new Field());       // error[WYL0308]: operator '==' cannot be applied to 'Secretive' and 'Field'
 }

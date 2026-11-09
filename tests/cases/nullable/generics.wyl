@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Score implements Comparable<Score> {
     int points;
@@ -55,36 +55,36 @@ struct Slot<T> {
 
 void main() {
     var numbers = new List<int>();
-    print(first(numbers));                  // output: null
+    std::print(first(numbers));             // output: null
     numbers.add(7);
     numbers.add(9);
-    print(first(numbers));                  // output: 7
-    print(orElse(first(new List<int>()), 3));   // output: 3
-    print(orElse<int>(5, 3));               // output: 5
+    std::print(first(numbers));             // output: 7
+    std::print(orElse(first(new List<int>()), 3)); // output: 3
+    std::print(orElse<int>(5, 3));          // output: 5
 
     var nodes = new List<Node>();
-    print(first(nodes) == null);            // output: true
+    std::print(first(nodes) == null);       // output: true
     nodes.add(new Node(4));
-    print(first(nodes)?.value);             // output: 4
-    print(orElse(first(nodes), new Node(0)).value);  // output: 4
+    std::print(first(nodes)?.value);        // output: 4
+    std::print(orElse(first(nodes), new Node(0)).value); // output: 4
 
     // A nullable type argument: `T?` is then the same type as `T`.
     var maybes = new List<int?>();
     maybes.add(null);
-    print(first(maybes));                   // output: null
-    print(orElse<int?>(null, 2));           // output: 2
+    std::print(first(maybes));              // output: null
+    std::print(orElse<int?>(null, 2));      // output: 2
 
     var scores = new List<Score>();
-    print(largest(scores) == null);         // output: true
+    std::print(largest(scores) == null);    // output: true
     scores.add(Score(3));
     scores.add(Score(8));
     scores.add(Score(5));
-    print(largest(scores)?.points);         // output: 8
+    std::print(largest(scores)?.points);    // output: 8
 
     mut Slot<int> slot = Slot<int>();
-    print(slot.isEmpty());                  // output: true
+    std::print(slot.isEmpty());             // output: true
     slot.value = 1;
-    print(slot.isEmpty());                  // output: false
+    std::print(slot.isEmpty());             // output: false
     Slot<Node> nodeSlot = Slot<Node>();
-    print(nodeSlot.isEmpty());              // output: true
+    std::print(nodeSlot.isEmpty());         // output: true
 }

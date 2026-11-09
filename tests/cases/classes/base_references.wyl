@@ -1,7 +1,5 @@
 // A base constructor's reference and view parameters take what the derived constructor was given.
 
-import std::print;
-
 struct Pair { int x; int y; }
 
 class Base {
@@ -25,11 +23,11 @@ void main() {
     mut int r = 0;
     mut int m = 0;
     Derived d = new Derived(Pair(1, 2), ref r, ref m, a);
-    print(d.v);                         // output: 5
-    print(r);                           // output: 7
-    print(m);                           // output: 9
+    std::print(d.v);                    // output: 5
+    std::print(r);                      // output: 7
+    std::print(m);                      // output: 9
     mut int q = 3;
     Derived e = new Derived(ref q, a);
-    print(e.v);                         // output: 6
-    print(q);                           // output: 7
+    std::print(e.v);                    // output: 6
+    std::print(q);                      // output: 7
 }

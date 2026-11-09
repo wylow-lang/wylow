@@ -1,5 +1,3 @@
-import std::print;
-
 struct Vec3 {
     float x, y, z;
 
@@ -37,6 +35,6 @@ void main() {
     for (mut int i = 0; i < 50; i++) {
         step(ref p, 0.1);
     }
-    print(p.bounces);
-    print(p.position.dot(Vec3(0, 1, 0)));
+    std::print(p.bounces);
+    std::print(p.position.dot(Vec3(0, 1, 0)));
 }

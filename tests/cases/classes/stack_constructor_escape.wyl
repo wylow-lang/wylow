@@ -1,7 +1,7 @@
 // A base or chained constructor runs on the object being made, so where it lets 'this' go, the
 // object goes: an object whose base constructor or this(...) stores it is never on the stack.
 
-import std::{List, print};
+import std::List;
 
 class Base {
     String name;
@@ -12,7 +12,7 @@ class Base {
     }
 
     ~Base() {
-        print($"release {name}");
+        std::print($"release {name}");
     }
 }
 
@@ -35,7 +35,7 @@ class Chained {
     }
 
     ~Chained() {
-        print($"release {name}");
+        std::print($"release {name}");
     }
 }
 
@@ -56,7 +56,7 @@ void make(List<Base> all, List<Chained> chained) {
     var d = new Derived("derived", all); // stack: 0
     var c = new Chained(chained); // stack: 0
     var l = new Local(); // stack: 1
-    print($"end of make {l.n}");
+    std::print($"end of make {l.n}");
 }
 
 void main() {
@@ -64,7 +64,7 @@ void main() {
     mut var chained = new List<Chained>(); // stack: 1
     make(all, chained);
     // output: end of make 5
-    print($"{all.count()} {chained.count()} {all[0].name} {chained[0].name}");
+    std::print($"{all.count()} {chained.count()} {all[0].name} {chained[0].name}");
     // output: 1 1 derived chained
 }
 // output: release chained

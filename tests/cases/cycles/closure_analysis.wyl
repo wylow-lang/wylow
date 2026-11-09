@@ -2,7 +2,7 @@
 // is cyclic only if a lambda of that type captures something that can lead back to it. Each `drop`
 // below makes one release that leaves the count above zero.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 class Leaf {
     int value;
@@ -51,8 +51,8 @@ T onHeap<T>(T value) {
 
 void report(String name) {
     var stats = memory::cycleStats();
-    print(name);
-    print(stats.buffered);
+    std::print(name);
+    std::print(stats.buffered);
 }
 
 void main() {
@@ -81,6 +81,6 @@ void main() {
     report("generic lambda");           // output: generic lambda
     // output: 2
 
-    print(button.onClick() + button.extra[0]() + button.extra[1]() + read() + cell.get(0));  // output: 16
+    std::print(button.onClick() + button.extra[0]() + button.extra[1]() + read() + cell.get(0)); // output: 16
     widget.check = null;
 }

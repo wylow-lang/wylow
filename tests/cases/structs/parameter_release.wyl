@@ -1,19 +1,17 @@
-import std::print;
-
 unique struct Tracked {
     int id;
 
-    ~Tracked() { print($"release {id}"); }
+    ~Tracked() { std::print($"release {id}"); }
 }
 
 String show(Tracked value) {
-    print($"show {value.id}");
+    std::print($"show {value.id}");
     return "result";
 }
 
 void main() {
     var value = Tracked(id: 1);
-    print(show(value));
+    std::print(show(value));
     // output: show 1
     // output: release 1
     // output: result

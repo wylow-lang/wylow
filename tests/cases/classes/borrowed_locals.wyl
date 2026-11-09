@@ -1,8 +1,6 @@
 // A local copied from a place keeps its object alive until its scope ends, whether or not the
 // compiler borrows the place instead of copying it: destructors run at the same points either way.
 
-import std::print;
-
 class Noisy {
     String name;
 
@@ -11,7 +9,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print($"~{name}");
+        std::print($"~{name}");
     }
 }
 
@@ -29,21 +27,21 @@ class Holder {
 
 void quiet(Holder holder) {
     var seen = holder.item;
-    print(seen.name);
+    std::print(seen.name);
 }
 
 void replacedAfterLastUse(Holder holder) {
     var seen = holder.item;
-    print(seen.name);
+    std::print(seen.name);
     holder.item = new Noisy("b");
-    print("replaced");
+    std::print("replaced");
 }
 
 void replacedByCall(Holder holder) {
     var seen = holder.item;
     holder.replace("c");
-    print("called");
-    print(seen.name);
+    std::print("called");
+    std::print(seen.name);
 }
 
 void main() {

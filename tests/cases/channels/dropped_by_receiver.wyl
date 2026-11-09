@@ -1,4 +1,3 @@
-import std::print;
 import std::threading::Channel;
 
 unique struct Buffer {
@@ -9,7 +8,7 @@ unique struct Buffer {
     }
 
     ~Buffer() {
-        print($"buffer {length}");
+        std::print($"buffer {length}");
     }
 }
 
@@ -23,10 +22,10 @@ void main() {
             sender.send(Buffer(2));
             sender.send(Buffer(3));
         }
-        print("closed");
+        std::print("closed");
         // output: closed
     }
-    print("released");
+    std::print("released");
     // output: buffer 1
     // output: buffer 2
     // output: buffer 3

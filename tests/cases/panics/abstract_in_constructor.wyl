@@ -1,8 +1,6 @@
-import std::print;
-
 abstract class Shape {
     Shape() {
-        print(area());
+        std::print(area());
     }
 
     abstract int area();

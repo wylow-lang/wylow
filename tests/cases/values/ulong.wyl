@@ -1,51 +1,49 @@
 // The `ulong` kind at its edges: past INT64_MAX, logical shifts, and reinterpretation as signed
 // (§2.3, §2.4).
 
-import std::print;
-
 void main() {
     ulong max = 18446744073709551615uL;
 
-    print(max - 1uL);               // output: 18446744073709551614
-    print(max / 2uL);               // output: 9223372036854775807
-    print(max % 10uL);              // output: 5
-    print(max >> 63);               // output: 1
-    print(max << 1);                // output: 18446744073709551614
-    print(max & 0xFFuL);            // output: 255
-    print(~max);                    // output: 0
-    print(1uL << 63);               // output: 9223372036854775808
-    print(max > 0uL);               // output: true
+    std::print(max - 1uL);          // output: 18446744073709551614
+    std::print(max / 2uL);          // output: 9223372036854775807
+    std::print(max % 10uL);         // output: 5
+    std::print(max >> 63);          // output: 1
+    std::print(max << 1);           // output: 18446744073709551614
+    std::print(max & 0xFFuL);       // output: 255
+    std::print(~max);               // output: 0
+    std::print(1uL << 63);          // output: 9223372036854775808
+    std::print(max > 0uL);          // output: true
 
-    print((long)max);               // output: -1
-    print((int)max);                // output: -1
-    print((uint)max);               // output: 4294967295
-    print((double)(1uL << 63));     // output: 9223372036854775808.0
-    print((float)max);              // output: 1.8446744e+19
+    std::print((long)max);          // output: -1
+    std::print((int)max);           // output: -1
+    std::print((uint)max);          // output: 4294967295
+    std::print((double)(1uL << 63)); // output: 9223372036854775808.0
+    std::print((float)max);         // output: 1.8446744e+19
     // 2^63 + 2^39 + 1 rounds once, up to 2^63 + 2^40; through a double it would tie down to 2^63.
-    print((float)9223372586610589697uL); // output: 9.223373e+18
-    print((float)9223372586610589697uL == (float)9223373136366403584uL); // output: true
-    print((double)9223372036854776833uL); // output: 9223372036854777856.0
+    std::print((float)9223372586610589697uL); // output: 9.223373e+18
+    std::print((float)9223372586610589697uL == (float)9223373136366403584uL); // output: true
+    std::print((double)9223372036854776833uL); // output: 9223372036854777856.0
 
-    print($"{max:X16}");            // output: FFFFFFFFFFFFFFFF
-    print($"{max:D21}");            // output: 018446744073709551615
-    print($"{max:B64}");            // output: 1111111111111111111111111111111111111111111111111111111111111111
-    print($"[{max,22}]");           // output: [  18446744073709551615]
+    std::print($"{max:X16}");       // output: FFFFFFFFFFFFFFFF
+    std::print($"{max:D21}");       // output: 018446744073709551615
+    std::print($"{max:B64}");       // output: 1111111111111111111111111111111111111111111111111111111111111111
+    std::print($"[{max,22}]");      // output: [  18446744073709551615]
 
-    print(max.toString());          // output: 18446744073709551615
+    std::print(max.toString());     // output: 18446744073709551615
 
     // More operators, conversions, and formatting.
-    print(max + 0uL);           // output: 18446744073709551615
-    print(max ^ 0uL);           // output: 18446744073709551615
-    print(max >= 1uL);          // output: true
-    print(max != 0uL);          // output: true
-    print(max == 18446744073709551615uL); // output: true
-    print((ushort)max);         // output: 65535
-    print((byte)max);           // output: 255
-    print((sbyte)max);          // output: -1
-    print($"{max:D}");          // output: 18446744073709551615
-    print($"{0uL:X4}");         // output: 0000
-    print($"[{max,-22}]");      // output: [18446744073709551615  ]
-    print(switch (max) {
+    std::print(max + 0uL);      // output: 18446744073709551615
+    std::print(max ^ 0uL);      // output: 18446744073709551615
+    std::print(max >= 1uL);     // output: true
+    std::print(max != 0uL);     // output: true
+    std::print(max == 18446744073709551615uL); // output: true
+    std::print((ushort)max);    // output: 65535
+    std::print((byte)max);      // output: 255
+    std::print((sbyte)max);     // output: -1
+    std::print($"{max:D}");     // output: 18446744073709551615
+    std::print($"{0uL:X4}");    // output: 0000
+    std::print($"[{max,-22}]"); // output: [18446744073709551615  ]
+    std::print(switch (max) {
         case 18446744073709551615uL -> "max";
         default -> "other";
     });                         // output: max

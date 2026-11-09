@@ -539,7 +539,7 @@ void onEvent(List<fn() -> void> handlers, escaping fn() -> void handler) { handl
 
 fn() -> void make() {
     mut int count = 0;
-    return () -> print(count);          // error[WYL0273]: 'count' is 'mut'
+    return () -> std::print(count);     // error[WYL0273]: 'count' is 'mut'
 }
 ```
 

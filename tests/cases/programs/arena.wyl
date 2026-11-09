@@ -1,7 +1,7 @@
 // A small turn-based arena: entities move on a grid, fight, and drop loot.
 // Written to exercise the language as a whole rather than one feature at a time.
 
-import std::{List, print};
+import std::List;
 
 struct Vec2 {
     int x, y;
@@ -278,24 +278,24 @@ void main() {
         world.removeDead();
     }
 
-    print(member.alive());                    // output: true
-    print(member.gold);                     // output: 5
-    print(world.entities.count());          // output: 2
-    print(world.log.written);             // output: 16
-    print(world.amountDealt);             // output: 50
-    print(world.deaths);                  // output: 2
-    print(world.goldFound);               // output: 5
-    print(world.potionsFound);            // output: 0
+    std::print(member.alive());               // output: true
+    std::print(member.gold);                // output: 5
+    std::print(world.entities.count());     // output: 2
+    std::print(world.log.written);        // output: 16
+    std::print(world.amountDealt);        // output: 50
+    std::print(world.deaths);             // output: 2
+    std::print(world.goldFound);          // output: 5
+    std::print(world.potionsFound);       // output: 0
 
     int[5] scores = [3, 1, 4, 1, 5];
-    print(sum(scores));                   // output: 14
+    std::print(sum(scores));              // output: 14
 
     var balances = new int[world.entities.count()];
     for (int i, Entity e : world.entities) {
         balances[i] = e.balance;
     }
-    print(sum(balances));                  // output: 31
+    std::print(sum(balances));             // output: 31
 
-    print(parseDigit(55).orElse(-1));     // output: 7
-    print(parseDigit(65) is Err);        // output: true
+    std::print(parseDigit(55).orElse(-1)); // output: 7
+    std::print(parseDigit(65) is Err);   // output: true
 }

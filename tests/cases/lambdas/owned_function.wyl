@@ -1,8 +1,6 @@
 // A non-escaping local owns the function value it is made with, so a closure it is given lives
 // until the local's scope ends and is released once, however it is called or chosen.
 
-import std::print;
-
 class Token {
     int id;
 
@@ -11,7 +9,7 @@ class Token {
     }
 
     ~Token() {
-        print($"free {id}");
+        std::print($"free {id}");
     }
 }
 
@@ -27,22 +25,22 @@ void main() {
     {
         // Made from an escaping value, and called after the statement that made it.
         fn(int) -> int f = make(new Token(1));
-        print(f(1));                                // output: 2
+        std::print(f(1));                           // output: 2
         // Another non-escaping local made from it shares the closure.
         fn(int) -> int g = f;
-        print(g(2));                                // output: 3
+        std::print(g(2));                           // output: 3
         // A choice over it, and a choice of choices called where it is made.
         fn(int) -> int h = choose(false) ? (x -> x) : f;
-        print(h(3));                                // output: 4
-        print((choose(true) ? h : h)(4));           // output: 5
-        print("end of scope");                      // output: end of scope
+        std::print(h(3));                           // output: 4
+        std::print((choose(true) ? h : h)(4));      // output: 5
+        std::print("end of scope");                 // output: end of scope
     }
     // output: free 1
     {
         var token = new Token(2);
         fn(int) -> int f = choose(false) ? (x -> x) : make(token);
-        print((true ? f : f)(1));                   // output: 3
+        std::print((true ? f : f)(1));              // output: 3
     }
     // output: free 2
-    print("done");                                  // output: done
+    std::print("done");                             // output: done
 }

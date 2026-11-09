@@ -1,11 +1,9 @@
 // Releasing a value that something refers into panics, including by assigning over it.
 
-import std::print;
-
 unique struct Handle {
     pub int id;
 
-    ~Handle() { print($"release {id}"); }
+    ~Handle() { std::print($"release {id}"); }
 }
 
 void main() {

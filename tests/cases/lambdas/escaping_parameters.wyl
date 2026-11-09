@@ -1,7 +1,7 @@
 // A function type's parameter declared 'escaping' is escaping in the lambdas of that type, so they
 // can store what they are passed.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 class Bus {
     List<fn() -> void> handlers = new List<fn() -> void>();
@@ -35,9 +35,9 @@ int apply((fn(int) -> int)? f, int value) {
 
 void subscribed() {
     var bus = new Bus();
-    bus.subscribe(() -> print(1));
+    bus.subscribe(() -> std::print(1));
     int two = 2;
-    bus.subscribe(() -> print(two));
+    bus.subscribe(() -> std::print(two));
     bus.fire();
 }
 
@@ -52,23 +52,23 @@ void main() {
     Registry registry = new Doubler();
     registry.each((escaping fn(int) -> int f) -> kept.add(f));
     for (fn(int) -> int f : kept) {
-        print(f(5));                                // output: 10
+        std::print(f(5));                           // output: 10
                                                     // output: 15
     }
 
     // A nullable parameter of a function type is non-escaping unless declared 'escaping'.
     fn((fn(int) -> int)?, int) -> int borrowed = apply;
-    print(borrowed(x -> x + 1, 1));                 // output: 2
-    print(borrowed(null, 1));                       // output: 1
+    std::print(borrowed(x -> x + 1, 1));            // output: 2
+    std::print(borrowed(null, 1));                  // output: 1
     var maybes = new List<(fn(int) -> int)?>();
     fn(escaping (fn(int) -> int)?) -> void store = m -> maybes.add(m);
     store(x -> x * 4);
     store(null);
-    print(apply(maybes[0], 2));                     // output: 8
-    print(apply(maybes[1], 2));                     // output: 2
+    std::print(apply(maybes[0], 2));                // output: 8
+    std::print(apply(maybes[1], 2));                // output: 2
 
     // An escaping value passed where a function type's parameter is non-escaping.
     fn(fn() -> void) -> void call = h -> h();
-    escaping fn() -> void stored = () -> print(9);
+    escaping fn() -> void stored = () -> std::print(9);
     call(stored);                                   // output: 9
 }

@@ -1,6 +1,6 @@
 // A nullable local is used as its non-null type only where a null check narrows it (spec flow.narrowing).
 
-import std::{List, print};
+import std::List;
 
 class Node {
     int value;
@@ -15,13 +15,13 @@ String? maybeString() {
 
 void throughRef(ref int? count) {
     if (count != null) {
-        print(count + 1);               // error[WYL0397]: 'count' might be null
+        std::print(count + 1);          // error[WYL0397]: 'count' might be null
     }
 }
 
 void main() {
     Node? maybe = null;
-    print(maybe.value);                 // error[WYL0397]: 'maybe' might be null
+    std::print(maybe.value);            // error[WYL0397]: 'maybe' might be null
     take(maybe);                        // error[WYL0397]: 'maybe' might be null
     var n = new Node();
 
@@ -33,23 +33,23 @@ void main() {
     mut Node? walk = n;
     if (walk != null) {
         while (true) {
-            print(walk.value);          // error[WYL0397]: 'walk' might be null
+            std::print(walk.value);     // error[WYL0397]: 'walk' might be null
             walk = walk.next;           // error[WYL0397]: 'walk' might be null
         }
     }
     if (maybe != null || maybe.value == 1) { }  // error[WYL0397]: 'maybe' might be null
     bool some = n.value > 0;
     if (some ? maybe != null : true) {
-        print(maybe.value);             // error[WYL0397]: 'maybe' might be null
+        std::print(maybe.value);        // error[WYL0397]: 'maybe' might be null
     }
     // Only a condition narrows, not a variable holding what one found.
     bool found = maybe != null;
     if (found) {
-        print(maybe.value);             // error[WYL0397]: 'maybe' might be null
+        std::print(maybe.value);        // error[WYL0397]: 'maybe' might be null
     }
 
     int? maybeInt = null;
-    print(maybeInt.toString());         // error[WYL0397]: 'maybeInt' might be null
+    std::print(maybeInt.toString());    // error[WYL0397]: 'maybeInt' might be null
     String? unchecked = maybeString();
     for (char c : unchecked) {          // error[WYL0397]: 'unchecked' might be null
     }

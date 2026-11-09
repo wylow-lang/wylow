@@ -1,5 +1,3 @@
-import std::print;
-
 @Repr(byte)
 enum TooBig {
     A = 256,                      // error[WYL0173]: value does not fit in the enum's integer type 'byte'
@@ -55,10 +53,10 @@ void main() {
     char next = d + 1;            // error[WYL0079]: expected 'char', found 'int'
     d++;                          // error[WYL0347]: '++' can only be applied to a numeric variable
     var negatedChar = -d;           // error[WYL0307]: operator '-' cannot be applied to 'char'
-    print(d == 65);               // error[WYL0308]: operator '==' cannot be applied to 'char' and 'int'
+    std::print(d == 65);          // error[WYL0308]: operator '==' cannot be applied to 'char' and 'int'
     switch (d) {
-        case 1 -> print(1);       // error[WYL0380]: pattern '1' can never match a value of type 'char'
-        default -> print(2);
+        case 1 -> std::print(1);  // error[WYL0380]: pattern '1' can never match a value of type 'char'
+        default -> std::print(2);
     }
     float f = (float)d;           // error[WYL0083]: cannot cast 'char' to 'float'
     bool flag = (bool)d;          // error[WYL0083]: cannot cast 'char' to 'bool'

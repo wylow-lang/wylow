@@ -2,14 +2,12 @@
 // local declared outside it when the next iteration begins with a value, and an escaping lambda
 // moves what it captures.
 
-import std::print;
-
 unique struct Counter {
     pub int value;
 }
 
 void use(Counter counter) {
-    print(counter.value);
+    std::print(counter.value);
 }
 
 Counter make(int value) {
@@ -27,7 +25,7 @@ void main() {
         use(counter);
         counter = make(3);
     }
-    print(counter.value);
+    std::print(counter.value);
     // output: 2
 
     for (mut int i = 0; i < 2; i++) {
@@ -42,6 +40,6 @@ void main() {
 
     var captured = make(7);
     escaping fn() -> int read = () -> captured.value;
-    print(read());
+    std::print(read());
     // output: 7
 }

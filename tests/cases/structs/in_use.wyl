@@ -1,12 +1,10 @@
 // A reference into a unique struct makes it in use for the reference's scope. Replacing it after
 // the reference's scope ends is allowed.
 
-import std::{print, replace};
-
 unique struct Handle {
     pub int id;
 
-    ~Handle() { print($"release {id}"); }
+    ~Handle() { std::print($"release {id}"); }
 }
 
 void main() {
@@ -15,10 +13,10 @@ void main() {
         ref int id = handle.id;
         id = 5;
     }
-    var previous = replace(ref handle, Handle(id: 2));
-    print(previous.id);
+    var previous = std::replace(ref handle, Handle(id: 2));
+    std::print(previous.id);
     // output: 5
-    print(handle.id);
+    std::print(handle.id);
     // output: 2
     // output: release 5
     // output: release 2

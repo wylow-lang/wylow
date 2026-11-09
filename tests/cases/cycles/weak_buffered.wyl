@@ -1,7 +1,7 @@
 // An object's weak block and its place in the cycle buffer share one word of its header: an object
 // with both still leaves the buffer when destroyed, and the collector still finds it.
 
-import std::{Weak, memory, print};
+import std::{Weak, memory};
 
 class Node {
     int id;
@@ -12,7 +12,7 @@ class Node {
     }
 
     ~Node() {
-        print(id);
+        std::print(id);
     }
 }
 
@@ -23,7 +23,7 @@ void main() {
     b = new Node(2);
     Weak<Node> first = a;
     a = b;                              // output: 1
-    print(first.get() == null);         // output: true
+    std::print(first.get() == null);    // output: true
 
     // Weakly referenced, then buffered, then destroyed by its count.
     mut var c = new Node(3);
@@ -31,7 +31,7 @@ void main() {
     mut var d = c;
     d = new Node(4);
     c = d;                              // output: 3
-    print(second.get() == null);        // output: true
+    std::print(second.get() == null);   // output: true
 
     // Put back in the buffer by a collection out of budget, then destroyed by its count.
     mut var e = new Node(5);
@@ -40,7 +40,7 @@ void main() {
     Weak<Node> third = e;
     memory::collectCycles(0);
     e = f;                              // output: 5
-    print(third.get() == null);         // output: true
+    std::print(third.get() == null);    // output: true
 
     // Weakly referenced, then buffered, then collected.
     mut Weak<Node> fourth = null;
@@ -49,9 +49,9 @@ void main() {
         fourth = g;
         g.next = g;
     }
-    print(fourth.get() != null);        // output: true
+    std::print(fourth.get() != null);   // output: true
     memory::collectCycles();             // output: 7
-    print(fourth.get() == null);        // output: true
+    std::print(fourth.get() == null);   // output: true
 }
 // output: 6
 // output: 4

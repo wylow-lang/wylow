@@ -1,9 +1,8 @@
 // A box moves through a channel, another thread opens it, and the graph's objects are destroyed on
 // the thread that drops the box.
 
+import std::threading;
 import std::threading::Isolated;
-import std::print;
-import std::threading::spawn;
 import std::threading::Channel;
 
 class Node {
@@ -13,7 +12,7 @@ class Node {
         this.value = value;
     }
 
-    ~Node() { print($"node {value}"); }
+    ~Node() { std::print($"node {value}"); }
 }
 
 class Graph {
@@ -32,17 +31,17 @@ void main() {
     var channel = new Channel<Isolated<Graph>>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = spawn(() -> {
+    var worker = threading::spawn(() -> {
         mut var box = receiver.receive();
         if (box != null) {
             mut var received = box!;
-            print($"got {received.open(g -> g.value())}");
+            std::print($"got {received.open(g -> g.value())}");
         }
         return 0;
     });
     sender.send(Isolated<Graph>(() -> new Graph()));
     worker.join();
-    print("parent done");
+    std::print("parent done");
     // output: got 7
     // output: node 7
     // output: parent done

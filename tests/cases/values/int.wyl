@@ -1,8 +1,6 @@
 // The `int` kind at its edges: every operator, conversion, and formatting, on computed values.
 // Arithmetic keeps the operands' type, division truncates toward zero, and casts wrap (§2.3, §2.4).
 
-import std::print;
-
 struct Holder {
     int value;
 }
@@ -12,64 +10,64 @@ void main() {
     int min = -2147483648;
 
     // + - * / % at the ends of the range, and the sign rules of truncating division.
-    print(max - 1);                 // output: 2147483646
-    print(min + 1);                 // output: -2147483647
-    print(max / 2);                 // output: 1073741823
-    print(min / 2);                 // output: -1073741824
-    print(max % 10);                // output: 7
-    print(min % 10);                // output: -8
-    print(-7 / 2);                  // output: -3
-    print(-7 % 2);                  // output: -1
-    print(7 * -3);                  // output: -21
-    print(min * 0);                 // output: 0
-    print(max / 4 * 2);             // output: 1073741822
+    std::print(max - 1);            // output: 2147483646
+    std::print(min + 1);            // output: -2147483647
+    std::print(max / 2);            // output: 1073741823
+    std::print(min / 2);            // output: -1073741824
+    std::print(max % 10);           // output: 7
+    std::print(min % 10);           // output: -8
+    std::print(-7 / 2);             // output: -3
+    std::print(-7 % 2);             // output: -1
+    std::print(7 * -3);             // output: -21
+    std::print(min * 0);            // output: 0
+    std::print(max / 4 * 2);        // output: 1073741822
 
     // Shifts, which mask the count and never panic.
-    print(1 << 31);                 // output: -2147483648
-    print(max << 1);                // output: -2
-    print(min >> 31);               // output: -1
-    print(-1 >> 1);                 // output: -1
-    print(0x7FFFFFFF >> 16);        // output: 32767
-    print(1 << 0);                  // output: 1
+    std::print(1 << 31);            // output: -2147483648
+    std::print(max << 1);           // output: -2
+    std::print(min >> 31);          // output: -1
+    std::print(-1 >> 1);            // output: -1
+    std::print(0x7FFFFFFF >> 16);   // output: 32767
+    std::print(1 << 0);             // output: 1
 
     // Bitwise operators.
-    print(max & 0x0F);              // output: 15
-    print(-5 & 0x0F);               // output: 11
-    print(0x0F | 0xF0);             // output: 255
-    print(max ^ -1);                // output: -2147483648
-    print(~max);                    // output: -2147483648
-    print(~0);                      // output: -1
-    print(~-1);                     // output: 0
+    std::print(max & 0x0F);         // output: 15
+    std::print(-5 & 0x0F);          // output: 11
+    std::print(0x0F | 0xF0);        // output: 255
+    std::print(max ^ -1);           // output: -2147483648
+    std::print(~max);               // output: -2147483648
+    std::print(~0);                 // output: -1
+    std::print(~-1);                // output: 0
 
     // Comparisons.
-    print(max > min);               // output: true
-    print(max == 2147483647);       // output: true
-    print(min < 0);                 // output: true
-    print(min != max);              // output: true
-    print(min >= max);              // output: false
+    std::print(max > min);          // output: true
+    std::print(max == 2147483647);  // output: true
+    std::print(min < 0);            // output: true
+    std::print(min != max);         // output: true
+    std::print(min >= max);         // output: false
 
     // Conversions: widening, reinterpretation, and narrowing, which wraps.
-    print((long)max);               // output: 2147483647
-    print((long)min);               // output: -2147483648
-    print((double)max);             // output: 2147483647.0
-    print((float)max);              // output: 2147483648.0
-    print((uint)min);               // output: 2147483648
-    print((short)max);              // output: -1
-    print((byte)min);               // output: 0
-    print((sbyte)max);              // output: -1
+    std::print((long)max);          // output: 2147483647
+    std::print((long)min);          // output: -2147483648
+    std::print((double)max);        // output: 2147483647.0
+    std::print((float)max);         // output: 2147483648.0
+    std::print((uint)min);          // output: 2147483648
+    std::print((short)max);         // output: -1
+    std::print((byte)min);          // output: 0
+    std::print((sbyte)max);         // output: -1
 
     // Formatting: decimal, hex, binary, and alignment.
-    print($"{min:D11}");            // output: -02147483648
-    print($"{max:D11}");            // output: 02147483647
-    print($"{min:X}");              // output: 80000000
-    print($"{max:x}");              // output: 7fffffff
-    print($"{255:X4}");             // output: 00FF
-    print($"{5:B8}");               // output: 00000101
-    print($"[{max,12}]");           // output: [  2147483647]
-    print($"[{max,-12}]");          // output: [2147483647  ]
+    std::print($"{min:D11}");       // output: -02147483648
+    std::print($"{max:D11}");       // output: 02147483647
+    std::print($"{min:X}");         // output: 80000000
+    std::print($"{max:x}");         // output: 7fffffff
+    std::print($"{255:X4}");        // output: 00FF
+    std::print($"{5:B8}");          // output: 00000101
+    std::print($"[{max,12}]");      // output: [  2147483647]
+    std::print($"[{max,-12}]");     // output: [2147483647  ]
 
     // toString writes what print writes, and a field's default is zero.
-    print(max.toString());          // output: 2147483647
-    print(min.toString());          // output: -2147483648
-    print(Holder().value);          // output: 0
+    std::print(max.toString());     // output: 2147483647
+    std::print(min.toString());     // output: -2147483648
+    std::print(Holder().value);     // output: 0
 }

@@ -1,5 +1,3 @@
-import std::print;
-
 struct Holder {
     Span<int> held;                         // error[WYL0418]: 'Span<int>' cannot be the type of a field
 }
@@ -77,6 +75,6 @@ void main() {
     Result<Span<int>, int> r;               // error[WYL0418]: 'Span<int>' cannot be a type argument
     Span<long> wide = a;                    // error[WYL0079]: expected 'Span<long>', found 'int[2]'
     switch (s) {                            // error[WYL0381]: cannot match a value of type 'Span<int>' against patterns
-        default -> print(1);
+        default -> std::print(1);
     }
 }

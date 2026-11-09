@@ -1,8 +1,6 @@
 // The files of a module see each other's names without importing them, and each may keep a
 // private declaration of a name another file also uses privately.
 
-import std::print;
-
 struct Node {
     String name;
 }
@@ -21,16 +19,16 @@ String describe(int count) {
 }
 
 void main() {
-    print(greeting());                      // output: hello from greeting.wyl
-    print(describe(Point(x: 1, y: 2)));     // output: (1, 2)
-    print(helper());                        // output: main's helper
-    print(otherHelper());                   // output: greeting's helper
+    std::print(greeting());                 // output: hello from greeting.wyl
+    std::print(describe(Point(x: 1, y: 2))); // output: (1, 2)
+    std::print(helper());                   // output: main's helper
+    std::print(otherHelper());              // output: greeting's helper
     var node = Node(name: "main's node");
-    print(node.name);                       // output: main's node
-    print(otherNode());                     // output: 7
+    std::print(node.name);                  // output: main's node
+    std::print(otherNode());                // output: 7
     var shape = Shape.Square;
-    print(sides(shape));                    // output: 4
-    print(describe(shape));                 // output: a shape with 4 sides
-    print(describe(3));                     // output: 3 things
-    print(describeFromGreeting());          // output: a shape with 3 sides
+    std::print(sides(shape));               // output: 4
+    std::print(describe(shape));            // output: a shape with 4 sides
+    std::print(describe(3));                // output: 3 things
+    std::print(describeFromGreeting());     // output: a shape with 3 sides
 }

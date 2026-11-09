@@ -1,4 +1,4 @@
-import std::{Weak, print};
+import std::Weak;
 
 shared class Token {
     String name;
@@ -14,7 +14,7 @@ shared class Token {
     }
 
     ~Token() {
-        print($"released {name}");
+        std::print($"released {name}");
     }
 }
 
@@ -49,26 +49,26 @@ shared class Label implements Labeled {
 
 void main() {
     mut var token = new Token("one", 2);
-    print(token.doubled());                 // output: 4
+    std::print(token.doubled());            // output: 4
     mut var copy = token;
     Weak<Token> weak = token;
-    print(weak.get() != null);              // output: true
+    std::print(weak.get() != null);         // output: true
     token = new Token("two", 3);
-    print(weak.get() != null);              // output: true
+    std::print(weak.get() != null);         // output: true
     copy = token;
     // output: released one
-    print(weak.get() == null);              // output: true
+    std::print(weak.get() == null);         // output: true
 
     {
         var special = new Special("special", 4, 5);
-        print(special.sum());               // output: 13
-        print(special is Token);            // output: true
+        std::print(special.sum());          // output: 13
+        std::print(special is Token);       // output: true
     }
     // output: released special
 
     Labeled labeled = new Label("interface");
-    print(labeled.label());                 // output: interface
+    std::print(labeled.label());            // output: interface
 
-    print(token.doubled());                 // output: 6
+    std::print(token.doubled());            // output: 6
 }
 // output: released two

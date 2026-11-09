@@ -1,13 +1,13 @@
-import std::{Unit, print};
-import std::threading::spawn;
+import std::threading;
+import std::Unit;
 
 void main() {
-    var thread = spawn(() -> {
-        print("body");
+    var thread = threading::spawn(() -> {
+        std::print("body");
         return Unit();
     });
     thread.join();
-    print("main");
+    std::print("main");
     // output: body
     // output: main
 }

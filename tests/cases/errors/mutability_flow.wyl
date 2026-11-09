@@ -1,7 +1,5 @@
 // A variable declared without a value can be assigned once.
 
-import std::print;
-
 void deferred(bool c) {
     int once;
     once = 1;
@@ -22,7 +20,7 @@ void deferred(bool c) {
     while (c) {
         int fresh;
         fresh = 1;
-        print(fresh);
+        std::print(fresh);
     }
 }
 

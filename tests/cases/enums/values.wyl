@@ -1,5 +1,3 @@
-import std::print;
-
 @Repr(int)
 enum Mode { Off = 5, On = 9 }
 
@@ -48,28 +46,28 @@ T orDefault<T>(Option<T> option, T fallback) {
 
 void main() {
     mut var s = Settings();
-    print((int)s.mode);                         // output: 5
-    print(s.item is None);                      // output: true
-    print(orDefault(s.count, 0));               // output: 1
+    std::print((int)s.mode);                    // output: 5
+    std::print(s.item is None);                 // output: true
+    std::print(orDefault(s.count, 0));          // output: 1
 
     toggle(ref s.mode);
-    print(s.mode == Mode.On);                   // output: true
+    std::print(s.mode == Mode.On);              // output: true
 
     var m = new Machine();
-    print((int)m.mode);                         // output: 5
+    std::print((int)m.mode);                    // output: 5
     toggle(ref m.mode);
     toggle(ref m.settings.mode);
-    print((int)m.mode + (int)m.settings.mode);  // output: 18
+    std::print((int)m.mode + (int)m.settings.mode); // output: 18
     fill(ref m.settings.item);
     if (m.settings.item is Some(var item)) {
-        print(item.id);                         // output: 3
+        std::print(item.id);                    // output: 3
     }
 
     // Structs holding enums compare them memberwise.
     var t = Settings(mode: Mode.On, count: Option<int>.Some(1));
-    print(s.mode == t.mode && s.count == t.count);  // output: true
-    print(orDefault(Option<long>.None, 7L));    // output: 7
+    std::print(s.mode == t.mode && s.count == t.count); // output: true
+    std::print(orDefault(Option<long>.None, 7L)); // output: 7
 
     var single = Single();
-    print(single.only == Only.Value);           // output: true
+    std::print(single.only == Only.Value);      // output: true
 }

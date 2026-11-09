@@ -1,14 +1,13 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 import std::threading::Channel;
 
 void main() {
     var channel = new Channel<int>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = spawn(() -> {
+    var worker = threading::spawn(() -> {
         var value = receiver.receive();
-        print($"child {value!}");
+        std::print($"child {value!}");
         return 0;
     });
     sender.send(5);

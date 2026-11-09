@@ -1,5 +1,3 @@
-import std::print;
-
 struct Pair<A extends copyable, B extends copyable> {
     A first;
     B second;
@@ -46,27 +44,27 @@ Pair<B, A> flip<A extends copyable, B extends copyable>(Pair<A, B> p) {
 
 void main() {
     var p = Pair<int, float>(1, 2.5f);
-    print(p.first);              // output: 1
-    print(p.second);             // output: 2.5
+    std::print(p.first);         // output: 1
+    std::print(p.second);        // output: 2.5
     var q = p.swapped();
-    print(q.first);              // output: 2.5
+    std::print(q.first);         // output: 2.5
     var r = flip(q);
-    print(r == p);               // output: true
+    std::print(r == p);          // output: true
 
     var s = Pair<String, bool>.of("hi", true);
-    print(s.first);              // output: hi
+    std::print(s.first);         // output: hi
 
     mut var b = Box<Box<int>>(value: Box<int>(value: 7));
     mut var inner = b.get();
-    print(inner.get());          // output: 7
-    print(b.reads);              // output: 1
-    print(b.convert<long>(9));   // output: 9
-    print(b.convert(true));      // output: true
+    std::print(inner.get());     // output: 7
+    std::print(b.reads);         // output: 1
+    std::print(b.convert<long>(9)); // output: 9
+    std::print(b.convert(true)); // output: true
 
     var h = Holder();
-    print(h.pair.second.balance); // output: 100
-    print(h.pair.first);         // output: 0
+    std::print(h.pair.second.balance); // output: 100
+    std::print(h.pair.first);    // output: 0
 
     var d = Pair<int, int>();
-    print(d.first + d.second);   // output: 0
+    std::print(d.first + d.second); // output: 0
 }

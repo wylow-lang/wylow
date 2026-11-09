@@ -2,10 +2,10 @@
 // place it came from is replaced meanwhile. Each closure reads a capture after its place is
 // replaced, which AddressSanitizer reports if the closure was freed.
 
-import std::{List, print};
+import std::List;
 
 class Holder {
-    mut fn() -> void action = () -> print(0);
+    mut fn() -> void action = () -> std::print(0);
     mut fn(int) -> int f = x -> x;
 }
 
@@ -27,8 +27,8 @@ void main() {
     // The closure replaces itself, then still reads its own captures.
     String text = "still here";
     holder.action = () -> {
-        holder.action = () -> print(1);
-        print(text);
+        holder.action = () -> std::print(1);
+        std::print(text);
     };
     holder.action();                                // output: still here
     holder.action();                                // output: 1
@@ -36,8 +36,8 @@ void main() {
     // A conditional's copy of the place keeps the closure alive while it runs, though its body
     // replaces the place it came from.
     holder.action = () -> {
-        holder.action = () -> print(2);
-        print(text);
+        holder.action = () -> std::print(2);
+        std::print(text);
     };
     (true ? holder.action : holder.action)();       // output: still here
     holder.action();                                // output: 2
@@ -47,24 +47,24 @@ void main() {
     String other = "cleared";
     handlers.add(() -> {
         handlers.clear();
-        print(other);
+        std::print(other);
     });
     handlers[0]();                                  // output: cleared
-    print(handlers.count());                        // output: 0
+    std::print(handlers.count());                   // output: 0
 
     // A non-escaping parameter given a field, which the callee replaces before calling it: a
     // template parameter, and a FunctionRef.
     int offset = 3;
     holder.f = x -> x + offset;
-    print(viaTemplate(holder, holder.f));           // output: 4
+    std::print(viaTemplate(holder, holder.f));      // output: 4
     holder.f = x -> x + offset;
-    print(new Visitor().visit(holder, holder.f));   // output: 4
-    print(holder.f(1));                             // output: -1
+    std::print(new Visitor().visit(holder, holder.f)); // output: 4
+    std::print(holder.f(1));                        // output: -1
 
     // A choice holds what it chose, though the field changes.
     holder.f = x -> x + offset * 2;
     bool flag = offset == 3;
     fn(int) -> int chosen = flag ? holder.f : x -> 0;
     holder.f = x -> -x;
-    print(chosen(1));                               // output: 7
+    std::print(chosen(1));                          // output: 7
 }

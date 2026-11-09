@@ -1,10 +1,8 @@
 // A constructor that starts with this(...) runs the constructor it calls, which calls the base
 // constructor and runs the field initializers once, then its own body.
 
-import std::print;
-
 int trace(String s, int value) {
-    print(s);
+    std::print(s);
     return value;
 }
 
@@ -12,7 +10,7 @@ class Base {
     int base = trace("base field", 1);
 
     Base(int x) {
-        print($"base body {x}");
+        std::print($"base body {x}");
     }
 
     virtual String name() { return "base"; }
@@ -23,7 +21,7 @@ class Item {
 
     Item(String label) { this.label = label; }
 
-    ~Item() { print($"release {label}"); }
+    ~Item() { std::print($"release {label}"); }
 }
 
 class Derived extends Base {
@@ -33,19 +31,19 @@ class Derived extends Base {
     Derived(int x, String label = "default", int scale = 1) {
         super(x * scale);
         item = new Item(label);
-        print($"derived body {x} {label} {scale}");
+        std::print($"derived body {x} {label} {scale}");
     }
 
     // Two levels, with a default and a named argument.
     Derived(String label) {
         this(10, label: label, scale: 3);
-        print($"named body {item.label}");
+        std::print($"named body {item.label}");
     }
 
     Derived() {
         this("chained");
         // Every field is assigned once this(...) returns, so 'this' is usable straight away.
-        print($"outer body {describe()} {own} {base}");
+        std::print($"outer body {describe()} {own} {base}");
     }
 
     override String name() { return "derived"; }
@@ -61,19 +59,19 @@ class Pair {
     Pair(int a, int b) {
         first = a;
         second = b;
-        print($"pair {a} {b}");
+        std::print($"pair {a} {b}");
     }
 
     Pair(int n) {
         this(trace("left", n), new Item("right").label == "right" ? trace("right", n + 1) : 0);
-        print("pair chained");
+        std::print("pair chained");
     }
 
     // A call that takes a function value leaves the ternary condition's temporary to the end of the
     // argument it is computed in.
     Pair(int n, String label) {
         this(trace("left", n), new Item(label).label == label ? trace(apply(() -> "right"), n + 1) : 0);
-        print("pair chained");
+        std::print("pair chained");
     }
 }
 
@@ -128,13 +126,13 @@ class Named {
 
     Named(int id, in String name) {
         this(Tag(), id, name);
-        print($"chained {id} {this.name}");
+        std::print($"chained {id} {this.name}");
     }
 
     Named(Tag tag, int id, in String name) {
         this.id = id;
         this.name = name;
-        print($"direct {id} {name}");
+        std::print($"direct {id} {name}");
     }
 }
 
@@ -149,7 +147,7 @@ struct Tagged {
 
     Tagged(String label) {
         this(new Item(label), 5);
-        print($"tagged {item.label} {n}");
+        std::print($"tagged {item.label} {n}");
     }
 
     // Arguments that are only parameters make the struct in one step once optimized, which
@@ -193,20 +191,20 @@ void main() {
     // output: pair chained
     var box = new Box<String>("boxed");
     // output: box field
-    print($"{box.get()} {box.count}");
+    std::print($"{box.get()} {box.count}");
     // output: boxed 1
     var p = Point(3);
-    print($"{p.x} {p.y}");
+    std::print($"{p.x} {p.y}");
     // output: 4 6
     var q = Point(true);
-    print($"{q.x} {q.y}");
+    std::print($"{q.x} {q.y}");
     // output: 1 7
     var t = Tagged("tag");
     // output: tagged tag 5
     var direct = Tagged(new Item("direct"), "note");
-    print($"{direct.item.label} {direct.n}");
+    std::print($"{direct.item.label} {direct.n}");
     // output: direct 9
-    print($"{a.name()} {b.item.label} {pair.first} {pair.second}");
+    std::print($"{a.name()} {b.item.label} {pair.first} {pair.second}");
     // output: derived default 5 6
 }
 // output: release direct

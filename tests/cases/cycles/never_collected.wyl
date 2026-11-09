@@ -1,8 +1,6 @@
 // Without a call to memory::collectCycles, a cycle is never freed, not even at exit, while
 // everything else is still freed as soon as nothing refers to it.
 
-import std::print;
-
 class Node {
     int id;
     mut Node? next;
@@ -13,7 +11,7 @@ class Node {
     }
 
     ~Node() {
-        print(id);
+        std::print(id);
     }
 }
 
@@ -34,4 +32,4 @@ void main() {
     // output: 2
 }
 // output: 3
-// warning: at exit, 2002 objects in cycles were never freed: 2001 Node, 1 lambda at never_collected.wyl:29:23.
+// warning: at exit, 2002 objects in cycles were never freed: 2001 Node, 1 lambda at never_collected.wyl:27:23.

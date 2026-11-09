@@ -1,8 +1,8 @@
 // A unique value moves into a mutex and out of it again, and its destructor runs on the thread that
 // releases it.
 
-import std::threading::{Mutex, spawn};
-import std::{print, take};
+import std::threading;
+import std::threading::Mutex;
 
 unique struct Buffer {
     pub int length;
@@ -12,23 +12,23 @@ unique struct Buffer {
     }
 
     ~Buffer() {
-        print($"buffer {length}");
+        std::print($"buffer {length}");
     }
 }
 
 void main() {
     var slot = new Mutex<Buffer?>(Buffer(7));
-    var worker = spawn(() -> {
-        Buffer? taken = slot.lock(b -> take(ref b));
-        print($"child took {taken!.length}");
+    var worker = threading::spawn(() -> {
+        Buffer? taken = slot.lock(b -> std::take(ref b));
+        std::print($"child took {taken!.length}");
     });
     worker.join();
     // output: child took 7
     // output: buffer 7
-    print(slot.lock(b -> b == null));
+    std::print(slot.lock(b -> b == null));
     // output: true
     var kept = new Mutex<Buffer>(Buffer(3));
-    print("parent done");
+    std::print("parent done");
     // output: parent done
     // output: buffer 3
 }

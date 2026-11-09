@@ -1,10 +1,8 @@
-import std::print;
-
 module class Early {
     pub static int VALUE = early();
 }
 
 module int early() {
-    print("early");
+    std::print("early");
     return 1;
 }

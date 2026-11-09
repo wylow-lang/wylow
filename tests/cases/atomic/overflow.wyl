@@ -2,11 +2,10 @@
 // value is left as it was.
 
 import std::threading::Atomic;
-import std::print;
 
 void main() {
     var count = new Atomic<byte>(255);
-    print(count.subtract(255));               // output: 255
-    print(count.get());                       // output: 0
+    std::print(count.subtract(255));          // output: 255
+    std::print(count.get());                  // output: 0
     count.subtract(1);                        // panic-here: integer overflow
 }

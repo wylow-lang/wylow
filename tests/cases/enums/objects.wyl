@@ -1,7 +1,5 @@
 // Items print their name when freed.
 
-import std::print;
-
 class Item {
     int id;
     String name;
@@ -12,7 +10,7 @@ class Item {
     }
 
     ~Item() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -48,37 +46,37 @@ void main() {
     mut var a = Slot.Holding(new Item(1, "free a"));
     mut var b = a;
     a = Slot.Empty;
-    print(describe(b));                     // output: 1
+    std::print(describe(b));                // output: 1
     b = Slot.Empty;                         // output: free a
-    print("after a");                       // output: after a
+    std::print("after a");                  // output: after a
 
     // Replacing a variant frees what it held, after the new value is stored.
     var h = new Holder();
     h.slot = Slot.Pair(new Item(2, "free x"), new Item(3, "free y"));
     h.slot = Slot.Holding(new Item(4, "free z"));   // output: free y
                                                     // output: free x
-    print(describe(h.slot));                // output: 4
+    std::print(describe(h.slot));           // output: 4
 
     // A bound name keeps its object alive after the enum lets go of it.
     if (h.slot is Holding(var held)) {
         h.slot = Slot.Empty;
-        print(held.id);                     // output: 4
+        std::print(held.id);                // output: 4
     }                                       // output: free z
-    print("after z");                       // output: after z
+    std::print("after z");                  // output: after z
 
     // Generic enums hold any type, and infer their type arguments.
     Option<Item> none = None;
     var some = wrap(new Item(5, "free g"));
-    print(none is None);                    // output: true
+    std::print(none is None);               // output: true
     switch (some) {
-        case None -> print(0);
-        case Some(var item) -> print(item.id);  // output: 5
+        case None -> std::print(0);
+        case Some(var item) -> std::print(item.id); // output: 5
     }
     var number = Option.Some(42);
     if (number is Some(var n)) {
-        print(n + 1);                       // output: 43
+        std::print(n + 1);                  // output: 43
     }
-    print(number == Option<int>.Some(42));  // output: true
-    print(number == Option<int>.None);      // output: false
-    print("end");                           // output: end
+    std::print(number == Option<int>.Some(42)); // output: true
+    std::print(number == Option<int>.None); // output: false
+    std::print("end");                      // output: end
 }                                           // output: free g

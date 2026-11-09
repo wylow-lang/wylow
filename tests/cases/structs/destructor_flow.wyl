@@ -1,8 +1,6 @@
 // A destructor cannot move out of 'this', and a discarded parameter is moved, so a later use of the
 // parameter is a use after being moved.
 
-import std::print;
-
 unique struct Inner {
     pub int value;
 }
@@ -26,7 +24,7 @@ unique struct Wrapper {
 
 void close(Handle handle) {
     discard handle;
-    print(handle.id);                   // error[WYL0440]: 'handle' is used after being moved
+    std::print(handle.id);              // error[WYL0440]: 'handle' is used after being moved
 }
 
 void main() { }

@@ -1,7 +1,7 @@
 // Handing a local to its last use must not release its object earlier than its scope's end when
 // that can be seen: here a destructor runs, so the local keeps the object alive.
 
-import std::{List, Weak, print};
+import std::{List, Weak};
 
 class Noisy {
     String name;
@@ -11,7 +11,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print($"~{name}");
+        std::print($"~{name}");
     }
 }
 
@@ -27,9 +27,9 @@ void main() {
     var item = new Noisy("a");
     {
         var box = new Box(item);
-        print("boxed");
+        std::print("boxed");
     }
-    print("scope ended");
+    std::print("scope ended");
     weak();
     // output: boxed
     // output: scope ended
@@ -71,11 +71,11 @@ void weak() {
     Weak<Target> seen = target;
     {
         var keeper = new Keeper(target);
-        print(seen.get() is Target);
+        std::print(seen.get() is Target);
     }
-    print(seen.get() is Target);
+    std::print(seen.get() is Target);
     var other = new Other(2);
     var list = new List<Other>();
     list.add(other);
-    print(list.count());
+    std::print(list.count());
 }

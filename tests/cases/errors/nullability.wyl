@@ -1,5 +1,3 @@
-import std::print;
-
 class Node {
     int value;
     Node? next;
@@ -16,14 +14,14 @@ void takeRef(ref Node n) { }
 
 void main() {
     var n = new Node();
-    print(n.next.value);                // error[WYL0065]: 'n.next' might be null
+    std::print(n.next.value);           // error[WYL0065]: 'n.next' might be null
     Node definite = n.next;             // error[WYL0079]: expected 'Node', found 'Node?'
-    print(n!.value);                    // error[WYL0312]: '!' is used on a value of non-nullable type 'Node'
-    print(n?.value);                    // error[WYL0316]: '?.' is used on a value of non-nullable type 'Node'
+    std::print(n!.value);               // error[WYL0312]: '!' is used on a value of non-nullable type 'Node'
+    std::print(n?.value);               // error[WYL0316]: '?.' is used on a value of non-nullable type 'Node'
     var x = null;                       // error[WYL0087]: cannot infer a type from 'null'
     Node m = null;                      // error[WYL0079]: expected 'Node', found 'null'
     var k = n ?? n;                     // error[WYL0314]: '??' is used on a value of non-nullable type 'Node'
-    print(1 == null);                   // error[WYL0308]: operator '==' cannot be applied to 'int' and 'null'
+    std::print(1 == null);              // error[WYL0308]: operator '==' cannot be applied to 'int' and 'null'
     Animal a = new Dog();
     if (a is Car c) { }                 // error[WYL0380]: pattern 'Car' can never match a value of type 'Animal'
     if (1 is Node q) { }                // error[WYL0330]: 'is' cannot test the type of a value of type 'int'

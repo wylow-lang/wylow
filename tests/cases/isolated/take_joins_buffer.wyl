@@ -2,7 +2,7 @@
 // collection frees a cycle that was in the graph.
 
 import std::threading::Isolated;
-import std::{memory, print, Unit};
+import std::{memory, Unit};
 
 class Node {
     pub int value;
@@ -12,7 +12,7 @@ class Node {
         this.value = value;
     }
 
-    ~Node() { print($"node {value}"); }
+    ~Node() { std::print($"node {value}"); }
 }
 
 class Graph {
@@ -27,13 +27,13 @@ class Graph {
 void main() {
     mut Isolated<Graph> box = Isolated<Graph>(() -> new Graph());
     box.open(g -> g.makeCycle());
-    print("built");
+    std::print("built");
     // output: built
     var graph = box.take();
-    print("taken");
+    std::print("taken");
     // output: taken
     memory::collectCycles();
-    print("collected");
+    std::print("collected");
     // output: node 1
     // output: node 2
     // output: collected

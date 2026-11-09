@@ -1,10 +1,10 @@
 // A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 class Account {
     int id;
-    mut fn() -> void onEvent = () -> print(0);
+    mut fn() -> void onEvent = () -> std::print(0);
 
     Account(int id) {
         this.id = id;
@@ -15,19 +15,19 @@ class Account {
     }
 
     ~Account() {
-        print(id);
+        std::print(id);
     }
 }
 
 void react(Account account) {
-    print(account.id * 10);
+    std::print(account.id * 10);
 }
 
 class Bus {
     List<fn() -> void> handlers = new List<fn() -> void>();
 
     ~Bus() {
-        print(-1);
+        std::print(-1);
     }
 }
 
@@ -40,11 +40,11 @@ class Listener {
         this.bus = bus;
         // Through a captured local rather than `this`: bus -> closure -> listener -> bus.
         var self = this;
-        bus.handlers.add(() -> print(self.id));
+        bus.handlers.add(() -> std::print(self.id));
     }
 
     ~Listener() {
-        print(id * 100);
+        std::print(id * 100);
     }
 }
 
@@ -52,7 +52,7 @@ class Box {
     mut (fn(int) -> int)? f = null;
 
     ~Box() {
-        print(-2);
+        std::print(-2);
     }
 }
 
@@ -63,7 +63,7 @@ void main() {
         account.arm();
         account.onEvent();                              // output: 10
     }
-    print(-9);                                      // output: -9
+    std::print(-9);                                 // output: -9
     memory::collectCycles();                         // output: 1
 
     // A cycle through a list of closures.
@@ -85,19 +85,19 @@ void main() {
         var box = new Box();
         var held = box;
         box.f = x -> x + (held.f != null ? 1 : 0);
-        print(box.f!(1));                           // output: 2
+        std::print(box.f!(1));                      // output: 2
     }
     memory::collectCycles();                         // output: -2
 
     // Breaking the cycle by hand frees it without the collector.
     mut var account = new Account(4);
     account.arm();
-    account.onEvent = () -> print(5);
-    print(-9);                                      // output: -9
+    account.onEvent = () -> std::print(5);
+    std::print(-9);                                 // output: -9
     account = new Account(6);                           // output: 4
 
     _ = memory::cycleStats();
     memory::collectCycles();
-    print(memory::cycleStats().freed);               // output: 0
+    std::print(memory::cycleStats().freed);          // output: 0
 }
 // output: 6

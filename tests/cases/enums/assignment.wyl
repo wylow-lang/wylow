@@ -1,7 +1,5 @@
 // Copy assignment copies the value; the source stays usable.
 
-import std::print;
-
 class Item {
     int id;
 
@@ -10,7 +8,7 @@ class Item {
     }
 
     ~Item() {
-        print("free");
+        std::print("free");
     }
 }
 
@@ -30,9 +28,9 @@ void main() {
     mut var a = Slot.Holding(new Item(1));
     mut var b = Slot.Empty;
     b = a;                          // a is read again, so this copies rather than moves
-    print(describe(a));             // output: 1
-    print(describe(b));             // output: 1
+    std::print(describe(a));        // output: 1
+    std::print(describe(b));        // output: 1
     a = Slot.Empty;
     b = Slot.Empty;                 // output: free
-    print("done");                  // output: done
+    std::print("done");             // output: done
 }

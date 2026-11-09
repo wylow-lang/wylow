@@ -1,5 +1,3 @@
-import std::print;
-
 U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);
 }
@@ -40,21 +38,21 @@ Result<int, String> parse() {
 }
 
 void main() {
-    print(apply(3, x -> x.name));                   // error[WYL0296]: cannot find member 'name' in 'int'
+    std::print(apply(3, x -> x.name));              // error[WYL0296]: cannot find member 'name' in 'int'
     make(x -> 1);                                   // error[WYL0201]: cannot infer type argument 'T' of 'make'
-    print(pick(true, () -> 1, () -> "a"));          // error[WYL0204]: cannot infer type argument 'U' of 'pick'
-    print(chain(() -> 1, x -> 2L));                 // error[WYL0204]: cannot infer type argument 'U' of 'chain'
-    runMaybe(() -> print(1));                       // error[WYL0205]: cannot infer type argument 'U' of 'runMaybe' from a lambda that returns no value
+    std::print(pick(true, () -> 1, () -> "a"));     // error[WYL0204]: cannot infer type argument 'U' of 'pick'
+    std::print(chain(() -> 1, x -> 2L));            // error[WYL0204]: cannot infer type argument 'U' of 'chain'
+    runMaybe(() -> std::print(1));                  // error[WYL0205]: cannot infer type argument 'U' of 'runMaybe' from a lambda that returns no value
     each(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'each' from a lambda
     both(x -> 1);                                   // error[WYL0206]: cannot infer type argument 'U' of 'both' from a lambda
-    print(run(() -> x -> x));                       // error[WYL0260]: lambda has no function type to take
-    print(run(() -> try parse()));                  // error[WYL0333]: 'try' cannot be used in a lambda whose return type is inferred
-    print(run(() -> null));                         // error[WYL0203]: cannot infer type argument 'U' of 'run' from 'null'
-    print(run(() -> {
+    std::print(run(() -> x -> x));                  // error[WYL0260]: lambda has no function type to take
+    std::print(run(() -> try parse()));             // error[WYL0333]: 'try' cannot be used in a lambda whose return type is inferred
+    std::print(run(() -> null));                    // error[WYL0203]: cannot infer type argument 'U' of 'run' from 'null'
+    std::print(run(() -> {
         if (true) {
             return;                                 // error[WYL0372]: lambda must return a value of type 'int'
         }
         return 1;
     }));
-    print(run<long>(() -> "a"));                    // error[WYL0079]: expected 'long', found 'String'
+    std::print(run<long>(() -> "a"));               // error[WYL0079]: expected 'long', found 'String'
 }

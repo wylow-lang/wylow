@@ -1,25 +1,23 @@
-import std::print;
-
 void main() {
-    print((int)3);             // output: 3
-    print((int)3.9f);           // output: 3
-    print((int)-3.9f);          // output: -3
-    print((int)1e20f);          // output: 2147483647
-    print((int)-1e20f);         // output: -2147483648
-    print((long)1e30d);        // output: 9223372036854775807
-    print((int)3000000000L);   // output: -1294967296
-    print((float)16777217);    // output: 16777216.0
-    print((float)1e300d);      // output: inf
+    std::print((int)3);        // output: 3
+    std::print((int)3.9f);      // output: 3
+    std::print((int)-3.9f);     // output: -3
+    std::print((int)1e20f);     // output: 2147483647
+    std::print((int)-1e20f);    // output: -2147483648
+    std::print((long)1e30d);   // output: 9223372036854775807
+    std::print((int)3000000000L); // output: -1294967296
+    std::print((float)16777217); // output: 16777216.0
+    std::print((float)1e300d); // output: inf
 
     float zero = 0.0f;
     float nan = zero / zero;
-    print((int)nan);           // output: 0
+    std::print((int)nan);      // output: 0
 
     float f = 3;
-    print(f);                  // output: 3.0
+    std::print(f);             // output: 3.0
     double d = f;
-    print(d);                  // output: 3.0
+    std::print(d);             // output: 3.0
     long l = 5;
-    print(l * 2);              // output: 10
-    print(f * 2);              // output: 6.0
+    std::print(l * 2);         // output: 10
+    std::print(f * 2);         // output: 6.0
 }

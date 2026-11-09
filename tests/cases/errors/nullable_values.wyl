@@ -1,5 +1,3 @@
-import std::print;
-
 struct Vec {
     int x;
     int[2] pair;
@@ -65,15 +63,15 @@ bool same<T>(T? a, T? b) {
 
 void main() {
     int? x = maybe();
-    print(maybe() + 1);                 // error[WYL0308]: operator '+' cannot be applied to 'int?' and 'int'
-    print(-maybe());                    // error[WYL0307]: operator '-' cannot be applied to 'int?'
+    std::print(maybe() + 1);            // error[WYL0308]: operator '+' cannot be applied to 'int?' and 'int'
+    std::print(-maybe());               // error[WYL0307]: operator '-' cannot be applied to 'int?'
     if (x is long n) { }                // error[WYL0380]: pattern 'long' can never match a value of type 'int?'
     switch (heading()) {                // error[WYL0390]: cannot switch on a value of nullable type 'Direction?' without a 'case null'
-        case North -> print(0);
-        case East -> print(1);
+        case North -> std::print(0);
+        case East -> std::print(1);
     }
     escaping (fn() -> int)? f = null;
-    print(f == f);                      // error[WYL0311]: operator '==' cannot be applied to '(fn() -> int)?' and '(fn() -> int)?'
+    std::print(f == f);                 // error[WYL0311]: operator '==' cannot be applied to '(fn() -> int)?' and '(fn() -> int)?'
     var none = 1 == 2 ? null : null;    // error[WYL0319]: branches of '?:' have incompatible types 'null' and 'null'
 
     ref int? alias = x;                 // error[WYL0410]: 'ref' variable cannot refer to nullable variable 'x'
@@ -99,6 +97,6 @@ void main() {
         ref? long w = b.first();        // error[WYL0405]: 'ref?' variable of type 'long' cannot refer to a 'int'
     }
     v?.move(1);                         // error[WYL0317]: '?.' would call 'mut' method 'move' on a copy of 'v'
-    print(v!.x);
+    std::print(v!.x);
     v!.x = 2;                           // error[WYL0348]: cannot assign to a field of a temporary value
 }

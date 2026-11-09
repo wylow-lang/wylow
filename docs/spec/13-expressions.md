@@ -14,8 +14,8 @@ of a call, the elements of an array literal, and the parts of an interpolated st
 ([String interpolation](#expressions.interpolation)).
 
 ```java
-int a() { print("a"); return 1; }
-int b() { print("b"); return 2; }
+int a() { std::print("a"); return 1; }
+int b() { std::print("b"); return 2; }
 
 void main() {
     int sum = a() + b();            // prints "a", then "b"
@@ -75,8 +75,8 @@ type arguments is read as type arguments when the matching `>` is followed by `(
 ```java
 void main() {
     var p = Point;                  // error[WYL0279]
-    print(undefined);               // error[WYL0281]
-    print(this);                    // error[WYL0283]
+    std::print(undefined);          // error[WYL0281]
+    std::print(this);               // error[WYL0283]
 }
 ```
 
@@ -152,8 +152,8 @@ struct Point { pub int x; }
 
 void main() {
     var p = Point(1);
-    print(p.y);                     // error[WYL0297]
-    print(p.x());                   // error[WYL0301]
+    std::print(p.y);                // error[WYL0297]
+    std::print(p.x());              // error[WYL0301]
 }
 ```
 
@@ -222,8 +222,8 @@ may be indexed through its indexers ([Indexers](12-functions.md#functions.indexe
 ```java
 void main() {
     int[3] values = [1, 2, 3];
-    print(values[1, 2]);            // error[WYL0305]
-    print(1[0]);                    // error[WYL0306]
+    std::print(values[1, 2]);       // error[WYL0305]
+    std::print(1[0]);               // error[WYL0306]
 }
 ```
 
@@ -344,8 +344,8 @@ struct Callback { (fn() -> int)? run; }
 
 void main() {
     var c = Callback(null);
-    print(c == c);                  // error[WYL0310]
-    print(true < false);            // error[WYL0308]
+    std::print(c == c);             // error[WYL0310]
+    std::print(true < false);       // error[WYL0308]
 }
 ```
 
@@ -406,12 +406,12 @@ class Node { pub int value; }
 
 void main() {
     Node? node = null;
-    print(node.value);              // error[WYL0397], reached with '?.' or '!'
-    print(node?.value ?? 0);
-    print(node!.value);             // panics
-    print((node ?? new Node()).value);  // valid
+    std::print(node.value);         // error[WYL0397], reached with '?.' or '!'
+    std::print(node?.value ?? 0);
+    std::print(node!.value);        // panics
+    std::print((node ?? new Node()).value); // valid
     int n = 1;
-    print(n!);                      // error[WYL0312]
+    std::print(n!);                 // error[WYL0312]
 }
 ```
 
@@ -483,7 +483,7 @@ enum State { Idle, Done }
 
 String name(State state) {
     return switch (state) {
-        case Idle -> { print(1); }  // error[WYL0322]
+        case Idle -> { std::print(1); } // error[WYL0322]
         case Done -> "done";
     };
 }
@@ -634,8 +634,8 @@ struct Point { pub int x; pub int y; }
 
 void main() {
     var p = Point(1, 2);
-    print($"{p}");                  // error[WYL0336]
-    print($"{p.x},{p.y}");
+    std::print($"{p}");             // error[WYL0336]
+    std::print($"{p.x},{p.y}");
 }
 ```
 
@@ -674,9 +674,9 @@ A hole is `{value,alignment:format}`, and both parts may be left out:
 void main() {
     var a = 1;
     var b = 2.5;
-    print($"{a:F2}");               // error[WYL0340]
-    print($"{b:D3}");               // error[WYL0340]
-    print($"{a:F123}");             // error[WYL0338]
+    std::print($"{a:F2}");          // error[WYL0340]
+    std::print($"{b:D3}");          // error[WYL0340]
+    std::print($"{a:F123}");        // error[WYL0338]
 }
 ```
 

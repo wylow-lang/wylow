@@ -1,12 +1,13 @@
 // panic: cannot wait for a thread while this thread holds a lock
 // Releasing a thread waits for its body, so releasing one inside lock panics.
 
-import std::threading::{Mutex, spawn};
+import std::threading;
+import std::threading::Mutex;
 
 void main() {
     var counter = new Mutex<int>(1);
     counter.lock(n -> {
-        var worker = spawn(() -> 2);
+        var worker = threading::spawn(() -> 2);
     });
 }
 

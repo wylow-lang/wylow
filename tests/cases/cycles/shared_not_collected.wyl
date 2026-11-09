@@ -1,4 +1,4 @@
-import std::{memory, print};
+import std::memory;
 
 shared class Kept {
     int id;
@@ -8,7 +8,7 @@ shared class Kept {
     }
 
     ~Kept() {
-        print($"released {id}");
+        std::print($"released {id}");
     }
 }
 
@@ -18,10 +18,10 @@ void main() {
     kept = new Kept(2);
     memory::collectCycles();
     var stats = memory::cycleStats();
-    print(stats.buffered);                  // output: 0
-    print(stats.visited);                   // output: 0
+    std::print(stats.buffered);             // output: 0
+    std::print(stats.visited);              // output: 0
     other = kept;
     // output: released 1
-    print(1);                               // output: 1
+    std::print(1);                          // output: 1
 }
 // output: released 2

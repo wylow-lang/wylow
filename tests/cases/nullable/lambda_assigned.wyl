@@ -1,14 +1,12 @@
 // A lambda that assigns a variable can only run once it is made, so before then the variable's
 // narrowed value can be used while an operation runs, as any other's can.
 
-import std::print;
-
 struct Vec {
     int x;
 }
 
 void show(in int a) {
-    print(a);
+    std::print(a);
 }
 
 void run(fn() -> void f) {
@@ -21,5 +19,5 @@ void main() {
         show(v.x);                          // output: 1
     }
     run(() -> { v = null; });
-    print(v == null ? "cleared" : "kept");  // output: cleared
+    std::print(v == null ? "cleared" : "kept"); // output: cleared
 }

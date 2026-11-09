@@ -1,32 +1,30 @@
-import std::print;
-
 void main() {
-    print(7 / 2);            // output: 3
-    print(-7 / 2);           // output: -3
-    print(-7 % 3);           // output: -1
-    print(7.0f / 2);          // output: 3.5
-    print(7.5f % 2);          // output: 1.5
+    std::print(7 / 2);       // output: 3
+    std::print(-7 / 2);      // output: -3
+    std::print(-7 % 3);      // output: -1
+    std::print(7.0f / 2);     // output: 3.5
+    std::print(7.5f % 2);     // output: 1.5
     int count = 33;
-    print(1 << count);       // output: 2
-    print(-16 >> 2);         // output: -4
-    print(5 & 3);            // output: 1
-    print(5 | 3);            // output: 7
-    print(5 ^ 3);            // output: 6
-    print(~0);               // output: -1
-    print(1_000_000 * 3);    // output: 3000000
-    print(0xFF__FF + 0b1_0); // output: 65537
-    print(2.5e0_1d);         // output: 25.0
-    print(0xFF + 0b101);     // output: 260
-    print(10L * 1000000000); // output: 10000000000
-    print(2.5d * 2);         // output: 5.0
-    print(1.0f / 3);          // output: 0.33333334
-    print(1.0d / 3);         // output: 0.3333333333333333
-    print(true & false);     // output: false
-    print(true ^ true);      // output: false
-    print(-2147483648);      // output: -2147483648
-    print(-9223372036854775808L); // output: -9223372036854775808
+    std::print(1 << count);  // output: 2
+    std::print(-16 >> 2);    // output: -4
+    std::print(5 & 3);       // output: 1
+    std::print(5 | 3);       // output: 7
+    std::print(5 ^ 3);       // output: 6
+    std::print(~0);          // output: -1
+    std::print(1_000_000 * 3); // output: 3000000
+    std::print(0xFF__FF + 0b1_0); // output: 65537
+    std::print(2.5e0_1d);    // output: 25.0
+    std::print(0xFF + 0b101); // output: 260
+    std::print(10L * 1000000000); // output: 10000000000
+    std::print(2.5d * 2);    // output: 5.0
+    std::print(1.0f / 3);     // output: 0.33333334
+    std::print(1.0d / 3);    // output: 0.3333333333333333
+    std::print(true & false); // output: false
+    std::print(true ^ true); // output: false
+    std::print(-2147483648); // output: -2147483648
+    std::print(-9223372036854775808L); // output: -9223372036854775808
 
     int min = -2147483648;
     int minusOne = -1;
-    print(min % minusOne);   // output: 0
+    std::print(min % minusOne); // output: 0
 }

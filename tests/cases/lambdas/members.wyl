@@ -1,6 +1,6 @@
 // Lambdas in members use `this` and its fields as the member itself does.
 
-import std::{List, print};
+import std::List;
 
 struct Accumulator {
     int total;
@@ -66,17 +66,17 @@ void each(int[3] values, fn(int) -> void action) {
 
 void main() {
     mut Accumulator accumulator = Accumulator([1, 2, 3]);
-    print(accumulator.total);                       // output: 6
+    std::print(accumulator.total);                  // output: 6
     accumulator.addAll([10, 20, 30]);
-    print(accumulator.total);                       // output: 66
-    print(accumulator.with(t -> t * 2));            // output: 132
+    std::print(accumulator.total);                  // output: 66
+    std::print(accumulator.with(t -> t * 2));       // output: 132
 
     Stack<int> numbers = new Stack<int>();
     numbers.push(1);
     numbers.push(22);
     numbers.push(1);
-    numbers.forEach(n -> print(n));                 // output: 1
+    numbers.forEach(n -> std::print(n));            // output: 1
                                                     // output: 22
                                                     // output: 1
-    print(numbers.count(n -> n == 1));              // output: 2
+    std::print(numbers.count(n -> n == 1));         // output: 2
 }

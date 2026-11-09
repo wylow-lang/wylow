@@ -1,7 +1,5 @@
 // `switch (this)` matches the object a method is called on.
 
-import std::print;
-
 class Shape {
     virtual String describe() {
         return "shape";
@@ -28,6 +26,6 @@ class Circle extends Shape {
 void main() {
     Shape shape = new Shape();
     Shape circle = new Circle();
-    print(shape.kind());    // output: shape
-    print(circle.kind());   // output: circle
+    std::print(shape.kind()); // output: shape
+    std::print(circle.kind()); // output: circle
 }

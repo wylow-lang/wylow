@@ -1,6 +1,6 @@
 // Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
 
-import std::{List, print};
+import std::List;
 
 interface Visitor<T> {
     void visit(fn(T) -> void f);
@@ -53,13 +53,13 @@ int sumAll(Visitor<int> v) {
 
 void main() {
     Bag<int> bag = Bag<int>.of(3, 4);
-    print(total(bag));                              // output: 7
-    print(sumAll(bag));                             // output: 7
-    print(bag.fold(10, (acc, x) -> acc + x));       // output: 17
-    print(bag.fold(1L, (acc, x) -> acc * x));       // output: 12
+    std::print(total(bag));                         // output: 7
+    std::print(sumAll(bag));                        // output: 7
+    std::print(bag.fold(10, (acc, x) -> acc + x));  // output: 17
+    std::print(bag.fold(1L, (acc, x) -> acc * x));  // output: 12
     Bag<int>? none = null;
-    none?.visit(x -> print(x));
+    none?.visit(x -> std::print(x));
     Bag<int>? some = bag;
-    some?.visit(x -> print(x));                     // output: 3
+    some?.visit(x -> std::print(x));                // output: 3
                                                     // output: 4
 }

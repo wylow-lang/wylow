@@ -1,7 +1,5 @@
-import std::print;
-
 void takesLong(long value) {
-    print(value);
+    std::print(value);
 }
 
 T first<T>(T a, T b) {
@@ -10,102 +8,102 @@ T first<T>(T a, T b) {
 
 void main() {
     byte b = 200;
-    print(b);                     // output: 200
+    std::print(b);                // output: 200
 
     // Arithmetic keeps the operands' type, and literals take the other side's type.
     mut byte light = 15;
     light = light - 1;
-    print(light);                 // output: 14
+    std::print(light);            // output: 14
     light -= 4;
-    print(light);                 // output: 10
+    std::print(light);            // output: 10
     light++;
-    print(light);                 // output: 11
+    std::print(light);            // output: 11
     var sum = light + light;
     byte stillByte = sum;
-    print(stillByte);             // output: 22
+    std::print(stillByte);        // output: 22
     int wide = light + 1000;
-    print(wide);                  // output: 1011
+    std::print(wide);             // output: 1011
     byte chosen = true ? light : 0;
-    print(chosen);                // output: 11
+    std::print(chosen);           // output: 11
 
     sbyte s = -128;
-    print(s);                     // output: -128
+    std::print(s);                // output: -128
     short sh = -30000;
-    print(sh + 1);                // output: -29999
+    std::print(sh + 1);           // output: -29999
     ushort us = 60000;
-    print(us / 7);                // output: 8571
-    print(us % 7);                // output: 3
+    std::print(us / 7);           // output: 8571
+    std::print(us % 7);           // output: 3
 
     uint u = 4000000000u;
-    print(u);                     // output: 4000000000
-    print(u / 3);                 // output: 1333333333
-    print(1 + 2u);                // output: 3
+    std::print(u);                // output: 4000000000
+    std::print(u / 3);            // output: 1333333333
+    std::print(1 + 2u);           // output: 3
     uint zero = 0u;
-    print(zero / u);              // output: 0
+    std::print(zero / u);         // output: 0
     ulong ul = 18446744073709551615uL;
-    print(ul);                    // output: 18446744073709551615
-    print(ul >> 60);              // output: 15
-    print(ul / 2);                // output: 9223372036854775807
+    std::print(ul);               // output: 18446744073709551615
+    std::print(ul >> 60);         // output: 15
+    std::print(ul / 2);           // output: 9223372036854775807
 
     // Integer types that don't convert to each other meet in the smallest that holds both.
     int i = -5;
     var mixed = i + u;
     long m = mixed;
-    print(m);                     // output: 3999999995
-    print(u > i);                 // output: true
+    std::print(m);                // output: 3999999995
+    std::print(u > i);            // output: true
     sbyte sb = -1;
     var both = sb + b;
     short bothShort = both;
-    print(bothShort);             // output: 199
+    std::print(bothShort);        // output: 199
 
-    print(~b);                    // output: 55
-    print(b >> 4);                // output: 12
-    print(b << 1);                // output: 144
-    print((int)b << 4);           // output: 3200
-    print(b & 0x0F);              // output: 8
-    print(b == 200);              // output: true
+    std::print(~b);               // output: 55
+    std::print(b >> 4);           // output: 12
+    std::print(b << 1);           // output: 144
+    std::print((int)b << 4);      // output: 3200
+    std::print(b & 0x0F);         // output: 8
+    std::print(b == 200);         // output: true
     int shift = 9;
-    print(b << shift);            // output: 144
+    std::print(b << shift);       // output: 144
 
     takesLong(b);                 // output: 200
     takesLong(u);                 // output: 4000000000
     float f = b;
-    print(f);                     // output: 200.0
+    std::print(f);                // output: 200.0
     double d = (uint)300;
-    print(d);                     // output: 300.0
+    std::print(d);                // output: 300.0
 
     nint n = 5;
     nint fromInt = i;
-    print(n + fromInt);           // output: 0
+    std::print(n + fromInt);      // output: 0
     long fromNint = n;
-    print(fromNint);              // output: 5
+    std::print(fromNint);         // output: 5
     nuint nu = 7u;
     ulong fromNuint = nu;
-    print(fromNuint);             // output: 7
+    std::print(fromNuint);        // output: 7
 
     byte inferred = first(b, 1);
-    print(inferred);              // output: 200
+    std::print(inferred);         // output: 200
     byte inferredFirst = first(1, b);
-    print(inferredFirst);         // output: 1
+    std::print(inferredFirst);    // output: 1
     var widened = first(1, 2L);
     long checkLong = widened;
-    print(checkLong);             // output: 1
+    std::print(checkLong);        // output: 1
 
     mut int total = 0;
     for (byte v : 250..=255) {
         total += v;
     }
-    print(total);                 // output: 1515
+    std::print(total);            // output: 1515
     byte limit = 2;
     for (var v : 0..limit) {
         byte isByte = v;
-        print(isByte);
+        std::print(isByte);
     }
     // output: 0
     // output: 1
 
     mut byte? maybe = null;
-    print(maybe ?? 9);            // output: 9
+    std::print(maybe ?? 9);       // output: 9
     maybe = 3;
-    print(maybe);                 // output: 3
+    std::print(maybe);            // output: 3
 }

@@ -1,8 +1,6 @@
 // A type written in a member's signature or body takes the type's parameter as an argument when the
 // member's where clause gives the parameter the bound that the argument needs.
 
-import std::print;
-
 struct Pair<U extends copyable> {
     U first;
     U second;
@@ -36,7 +34,7 @@ struct Holder<T> {
 
 void main() {
     var holder = Holder<int>(7);
-    print(holder.copy());                // output: 7
-    print(holder.show());                // output: 7
-    print(holder.pair(Pair<int>(1, 2)).second); // output: 2
+    std::print(holder.copy());           // output: 7
+    std::print(holder.show());           // output: 7
+    std::print(holder.pair(Pair<int>(1, 2)).second); // output: 2
 }

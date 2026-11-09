@@ -1,7 +1,5 @@
-import std::print;
-
 void main() {
     String s = "abc";
-    print(s.slice(1, 2));       // output: bc
-    print(s.slice(2, 2));       // panic-here: byte range of 2 from 2 is out of bounds for length 3
+    std::print(s.slice(1, 2));  // output: bc
+    std::print(s.slice(2, 2));  // panic-here: byte range of 2 from 2 is out of bounds for length 3
 }

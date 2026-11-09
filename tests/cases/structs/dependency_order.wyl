@@ -1,7 +1,5 @@
 // A definition comes after every type it holds by value, including a fixed array's element.
 
-import std::print;
-
 struct Holder {
     Account[2] accounts;
 }
@@ -12,6 +10,6 @@ struct Account {
 
 void main() {
     var h = Holder();
-    print(h.accounts[0].id);   // output: 5
-    print(h.accounts[1].id);   // output: 5
+    std::print(h.accounts[0].id); // output: 5
+    std::print(h.accounts[1].id); // output: 5
 }

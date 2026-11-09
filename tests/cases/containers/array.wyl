@@ -1,5 +1,3 @@
-import std::print;
-
 class Tag {
     String name;
 
@@ -8,7 +6,7 @@ class Tag {
     }
 
     ~Tag() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -23,7 +21,7 @@ int total(ReadOnlySpan<int> values) {
 void tags() {
     Tag[] tags = new Array<Tag>(2, new Tag("shared"));
     tags[1] = new Tag("own");
-    print(tags[0].name);
+    std::print(tags[0].name);
 }
 
 void main() {
@@ -31,28 +29,28 @@ void main() {
     for (int i : 0..squares.length) {
         squares[i] = i * i;
     }
-    print(total(squares));      // output: 14
+    std::print(total(squares)); // output: 14
     for (ref int s : squares) {
         s += 1;
     }
-    print(squares[3]);          // output: 10
+    std::print(squares[3]);     // output: 10
 
     String[] names = new Array<String>(2, "x");
-    print(names[1]);            // output: x
+    std::print(names[1]);       // output: x
     Tag?[] maybe = new Tag?[3];
-    print(maybe[2] == null);    // output: true
+    std::print(maybe[2] == null); // output: true
 
     // Arrays are objects: copying one shares it.
     int[] alias = squares;
     alias[0] = 42;
-    print(squares[0]);          // output: 42
+    std::print(squares[0]);     // output: 42
 
     // `get` refers to an element, or to nothing when the index is out of bounds.
     if (squares.get(1) is ref int second) {
         second = 7;
     }
-    print(squares[1]);          // output: 7
-    print(squares.get(squares.length) == null); // output: true
+    std::print(squares[1]);     // output: 7
+    std::print(squares.get(squares.length) == null); // output: true
 
     // Destroying the array releases its elements last to first.
     tags();

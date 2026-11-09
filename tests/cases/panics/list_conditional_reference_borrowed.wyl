@@ -1,6 +1,6 @@
 // A call through 'list.get(i)?.' borrows the list until it returns, since it runs in the element.
 
-import std::{List, print};
+import std::List;
 
 struct Counter {
     int count;
@@ -15,7 +15,7 @@ void main() {
     var counters = new List<Counter>();
     counters.add(Counter());
     counters.get(0)?.run(() -> {
-        print(counters.count());  // output: 1
+        std::print(counters.count()); // output: 1
         counters.add(Counter()); // panic-here: cannot change the length or capacity of a list while it is borrowed
     });
 }

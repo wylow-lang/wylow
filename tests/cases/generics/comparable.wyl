@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Version implements Comparable<Version> {
     int major;
@@ -40,45 +40,45 @@ void sort<T extends Comparable<T> & copyable>(Span<T> items) {
 
 void main() {
     // The integers and char compare as numbers, without implementing Comparable.
-    print(5.compareTo(3));                  // output: 1
-    print(3.compareTo(5));                  // output: -1
-    print(4.compareTo(4));                  // output: 0
-    print((-1).compareTo(1));               // output: -1
-    print(0xFFFFFFFFu.compareTo(1u));       // output: 1
+    std::print(5.compareTo(3));             // output: 1
+    std::print(3.compareTo(5));             // output: -1
+    std::print(4.compareTo(4));             // output: 0
+    std::print((-1).compareTo(1));          // output: -1
+    std::print(0xFFFFFFFFu.compareTo(1u));  // output: 1
     byte small = 200;
-    print(small.compareTo(100));            // output: 1
-    print('a'.compareTo('b'));              // output: -1
-    print(5.compareTo(other: 6));           // output: -1
+    std::print(small.compareTo(100));       // output: 1
+    std::print('a'.compareTo('b'));         // output: -1
+    std::print(5.compareTo(other: 6));      // output: -1
 
     // Floating-point numbers are in a total order, as in Java: -0 before 0, and NaN last.
     float zero = 0.0f;
     float negativeZero = -zero;
     float nan = zero / zero;
     float infinity = 1.0f / zero;
-    print(1.5.compareTo(2.5f));              // output: -1
-    print(2.5d.compareTo(2.5d));            // output: 0
-    print(negativeZero.compareTo(zero));    // output: -1
-    print(zero.compareTo(negativeZero));    // output: 1
-    print(negativeZero.compareTo(-zero));   // output: 0
-    print(nan.compareTo(infinity));         // output: 1
-    print(infinity.compareTo(nan));         // output: -1
-    print(nan.compareTo(nan));              // output: 0
-    print(((double)nan).compareTo(-1.0d));  // output: 1
-    print(maxOf(nan, infinity));            // output: nan
-    print($"{nan:F2} {-nan:E1}");           // output: nan nan
+    std::print(1.5.compareTo(2.5f));         // output: -1
+    std::print(2.5d.compareTo(2.5d));       // output: 0
+    std::print(negativeZero.compareTo(zero)); // output: -1
+    std::print(zero.compareTo(negativeZero)); // output: 1
+    std::print(negativeZero.compareTo(-zero)); // output: 0
+    std::print(nan.compareTo(infinity));    // output: 1
+    std::print(infinity.compareTo(nan));    // output: -1
+    std::print(nan.compareTo(nan));         // output: 0
+    std::print(((double)nan).compareTo(-1.0d)); // output: 1
+    std::print(maxOf(nan, infinity));       // output: nan
+    std::print($"{nan:F2} {-nan:E1}");      // output: nan nan
 
-    print(maxOf(3, 7));                     // output: 7
-    print(maxOf(-2L, -9L));                 // output: -2
-    print(maxOf('x', 'q'));                 // output: x
-    print(maxOf("pear", "apple"));          // output: pear
+    std::print(maxOf(3, 7));                // output: 7
+    std::print(maxOf(-2L, -9L));            // output: -2
+    std::print(maxOf('x', 'q'));            // output: x
+    std::print(maxOf("pear", "apple"));     // output: pear
     var newest = maxOf(Version(1, 10), Version(1, 2));
-    print(newest.minor);                    // output: 10
-    print(maxOf(new Score(4), new Score(9)).points); // output: 9
+    std::print(newest.minor);               // output: 10
+    std::print(maxOf(new Score(4), new Score(9)).points); // output: 9
 
     mut int[5] numbers = [4, 1, 5, 2, 3];
     sort<int>(numbers);
     for (int n : numbers) {
-        print(n);
+        std::print(n);
         // output: 1
         // output: 2
         // output: 3
@@ -96,7 +96,7 @@ void main() {
     mut float[5] samples = [2.5f, nan, -1.0f, negativeZero, zero];
     sort<float>(samples);
     for (float sample : samples) {
-        print(sample);
+        std::print(sample);
         // output: -1.0
         // output: -0.0
         // output: 0.0
@@ -104,7 +104,7 @@ void main() {
         // output: nan
     }
     for (String word : words) {
-        print(word);
+        std::print(word);
         // output: Zebra
         // output: apple
         // output: fig
@@ -113,5 +113,5 @@ void main() {
 
     mut Version[3] versions =[Version(2, 0), Version(1, 5), Version(1, 1)];
     sort<Version>(versions);
-    print($"{versions[0].major}.{versions[0].minor} {versions[2].major}.{versions[2].minor}"); // output: 1.1 2.0
+    std::print($"{versions[0].major}.{versions[0].minor} {versions[2].major}.{versions[2].minor}"); // output: 1.1 2.0
 }

@@ -1,5 +1,4 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 
 unique struct Buffer {
     pub int length;
@@ -9,14 +8,14 @@ unique struct Buffer {
     }
 
     ~Buffer() {
-        print($"buffer {length}");
+        std::print($"buffer {length}");
     }
 }
 
 void main() {
-    var thread = spawn(() -> Buffer(7));
+    var thread = threading::spawn(() -> Buffer(7));
     var buffer = thread.join();
-    print(buffer.length);
+    std::print(buffer.length);
     // output: 7
     // output: buffer 7
 }

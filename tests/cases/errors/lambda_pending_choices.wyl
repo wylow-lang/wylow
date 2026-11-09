@@ -1,5 +1,3 @@
-import std::print;
-
 enum Op {
     Add(int amount),
     Stop;
@@ -23,13 +21,13 @@ void main() {
     fn(int) -> int inc = x -> x + 1;
 
     // A choice waits for its type, but the rules for choices still hold.
-    print(apply(1, switch (op) {
+    std::print(apply(1, switch (op) {
         case Add(var n) -> x -> x + n;              // error[WYL0278]: lambda chosen by a switch expression cannot use 'n'
         case Stop -> inc;
     }));
-    print(run(up ? x -> 1 : y -> 2));               // error[WYL0237]: call to 'run' is ambiguous
-    print(apply(1, up ? x -> 1 : x -> "a"));        // error[WYL0204]: cannot infer type argument 'U' of 'apply'
-    print(apply(1, up ? inc : x -> "a"));           // error[WYL0079]: expected 'int', found 'String'
-    print(up ? x -> x : y -> y);                    // error[WYL0236]: no overload of 'print' accepts (choice of lambdas)
-    print(apply(1, up ? x -> x.name : inc));        // error[WYL0296]: cannot find member 'name' in 'int'
+    std::print(run(up ? x -> 1 : y -> 2));          // error[WYL0237]: call to 'run' is ambiguous
+    std::print(apply(1, up ? x -> 1 : x -> "a"));   // error[WYL0204]: cannot infer type argument 'U' of 'apply'
+    std::print(apply(1, up ? inc : x -> "a"));      // error[WYL0079]: expected 'int', found 'String'
+    std::print(up ? x -> x : y -> y);               // error[WYL0236]: no overload of 'print' accepts (choice of lambdas)
+    std::print(apply(1, up ? x -> x.name : inc));   // error[WYL0296]: cannot find member 'name' in 'int'
 }

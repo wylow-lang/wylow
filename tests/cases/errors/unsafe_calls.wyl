@@ -2,8 +2,6 @@
 // call that needs no unsafe code can reach one: an override or interface implementation can't
 // be 'unsafe' unless what it overrides is (spec unsafe.blocks).
 
-import std::print;
-
 unsafe int danger(int x) { return x; }
 
 class Base {
@@ -50,24 +48,24 @@ unsafe int alreadyUnsafe() {
 }
 
 void main() {
-    print(danger(1));                   // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
-    print(Base.raw());                  // error[WYL0304]: 'raw' is unsafe and can only be called in 'unsafe' code
+    std::print(danger(1));              // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
+    std::print(Base.raw());             // error[WYL0304]: 'raw' is unsafe and can only be called in 'unsafe' code
     Base b = new Derived();
-    print(b.risky());                   // error[WYL0304]: 'risky' is unsafe and can only be called in 'unsafe' code
+    std::print(b.risky());              // error[WYL0304]: 'risky' is unsafe and can only be called in 'unsafe' code
     Derived d = new Derived();
-    print(d.risky());
+    std::print(d.risky());
     fn() -> int f = () -> danger(2);    // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
     fn(int) -> int g = danger;          // error[WYL0304]: 'danger' is unsafe and can only be called in 'unsafe' code
     mut var grid = Grid();
-    print(grid[0]);                     // error[WYL0304]: 'operator []' is unsafe and can only be called in 'unsafe' code
-    print(grid["a"]);
+    std::print(grid[0]);                // error[WYL0304]: 'operator []' is unsafe and can only be called in 'unsafe' code
+    std::print(grid["a"]);
     grid["a"] = 1;                      // error[WYL0304]: 'operator []=' is unsafe and can only be called in 'unsafe' code
     unsafe {
-        print(danger(3) + Base.raw() + b.risky() + grid[0]);
+        std::print(danger(3) + Base.raw() + b.risky() + grid[0]);
         grid["a"] = 2;
         unsafe {
             fn() -> int h = () -> danger(4);
-            print(h());
+            std::print(h());
         }
     }
 }

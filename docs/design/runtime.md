@@ -131,8 +131,8 @@ when no reference to it can outlive that scope:
 
 ```java
 var hit = new RayHit(origin, dir);      // only used here: may be on the stack
-if (raycast(world, hit)) { print(hit.distance); }
-print(new Path(a, b).length());         // a temporary: may be on the stack
+if (raycast(world, hit)) { std::print(hit.distance); }
+std::print(new Path(a, b).length());    // a temporary: may be on the stack
 ```
 
 No program can tell the difference, which is what allows it. An object is destroyed when its last

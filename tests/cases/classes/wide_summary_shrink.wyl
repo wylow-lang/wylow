@@ -1,5 +1,3 @@
-import std::print;
-
 class Wide {
     mut int f0;
     mut int f1;
@@ -140,9 +138,9 @@ class Wide {
 void main() {
     var wide = new Wide();
     wide.fill();
-    print(wide.f10);
+    std::print(wide.f10);
     // output: 5
-    print(wide.f64);
+    std::print(wide.f64);
     // output: 64
 }
 

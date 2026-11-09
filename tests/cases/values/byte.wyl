@@ -1,47 +1,45 @@
 // The `byte` kind at its edges: arithmetic keeps the operands' type (no promotion to `int`), so a
 // result that does not fit panics in debug builds; shifts mask and never panic; casts wrap (§2.4).
 
-import std::print;
-
 void main() {
     byte b = 200;
 
-    print(b + 40);              // output: 240
-    print(b - 199);             // output: 1
-    print(b * 1);               // output: 200
-    print(b / 3);               // output: 66
-    print(b % 7);               // output: 4
-    print(b >> 3);              // output: 25
-    print(b << 1);              // output: 144
-    print(b & 0x0F);            // output: 8
-    print(b | 0x0F);            // output: 207
-    print(b ^ 0xFF);            // output: 55
-    print(~b);                  // output: 55
-    print(b == 200);            // output: true
-    print(b < 201);             // output: true
+    std::print(b + 40);         // output: 240
+    std::print(b - 199);        // output: 1
+    std::print(b * 1);          // output: 200
+    std::print(b / 3);          // output: 66
+    std::print(b % 7);          // output: 4
+    std::print(b >> 3);         // output: 25
+    std::print(b << 1);         // output: 144
+    std::print(b & 0x0F);       // output: 8
+    std::print(b | 0x0F);       // output: 207
+    std::print(b ^ 0xFF);       // output: 55
+    std::print(~b);             // output: 55
+    std::print(b == 200);       // output: true
+    std::print(b < 201);        // output: true
 
-    print((int)b);              // output: 200
-    print((long)b);             // output: 200
-    print((float)b);            // output: 200.0
-    print((sbyte)b);            // output: -56
-    print((byte)300);           // output: 44
-    print((sbyte)200);          // output: -56
+    std::print((int)b);         // output: 200
+    std::print((long)b);        // output: 200
+    std::print((float)b);       // output: 200.0
+    std::print((sbyte)b);       // output: -56
+    std::print((byte)300);      // output: 44
+    std::print((sbyte)200);     // output: -56
 
-    print($"{b:D5}");           // output: 00200
-    print($"{b:X2}");           // output: C8
-    print($"{b:B8}");           // output: 11001000
-    print($"[{b,5}]");          // output: [  200]
+    std::print($"{b:D5}");      // output: 00200
+    std::print($"{b:X2}");      // output: C8
+    std::print($"{b:B8}");      // output: 11001000
+    std::print($"[{b,5}]");     // output: [  200]
 
-    print(b.toString());        // output: 200
+    std::print(b.toString());   // output: 200
 
     // More conversions and the remaining operators.
-    print(b / 200);             // output: 1
-    print((ushort)b);           // output: 200
-    print((short)b);            // output: 200
-    print((double)b);           // output: 200.0
-    print($"{b}");              // output: 200
-    print(b != 0);              // output: true
-    print(switch (b) {
+    std::print(b / 200);        // output: 1
+    std::print((ushort)b);      // output: 200
+    std::print((short)b);       // output: 200
+    std::print((double)b);      // output: 200.0
+    std::print($"{b}");         // output: 200
+    std::print(b != 0);         // output: true
+    std::print(switch (b) {
         case 200 -> "two hundred";
         default -> "other";
     });                         // output: two hundred

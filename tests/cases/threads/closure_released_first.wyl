@@ -2,8 +2,7 @@
 // last reference leaves behind is collected before join returns. The thread waits for a value from
 // main, so that main's copy of the closure is gone and the thread's reference is the last.
 
-import std::print;
-import std::threading::spawn;
+import std::threading;
 import std::threading::{Channel, Receiver};
 
 class Node {
@@ -15,7 +14,7 @@ class Node {
     }
 
     ~Node() {
-        print($"node {value}");
+        std::print($"node {value}");
     }
 }
 
@@ -25,7 +24,7 @@ shared class Holder {
         var second = new Node(2);
         first.next = second;
         second.next = first;
-        print("holder");
+        std::print("holder");
     }
 }
 
@@ -33,7 +32,7 @@ shared fn() -> int makeBody(Receiver<int> start) {
     var holder = new Holder();
     return () -> {
         var started = start.receive();
-        print("body");
+        std::print("body");
         return holder == holder ? started! : 1;
     };
 }
@@ -41,10 +40,10 @@ shared fn() -> int makeBody(Receiver<int> start) {
 void main() {
     var channel = new Channel<int>();
     var sender = channel.sender();
-    var thread = spawn(makeBody(channel.receiver()));
+    var thread = threading::spawn(makeBody(channel.receiver()));
     sender.send(0);
     thread.join();
-    print("joined");
+    std::print("joined");
     // output: body
     // output: holder
     // output: node 1

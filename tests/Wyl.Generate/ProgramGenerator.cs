@@ -29,9 +29,6 @@ sealed class ProgramGenerator(GenerateOptions options)
         }
 
         var writer = new SourceWriter();
-        // Its programs only print, of the standard library's names (spec 03-programs.md#programs.builtin-names).
-        writer.Line("import std::print;");
-        writer.Line("");
         var budget = new PrintBudget(options.PrintLines);
         for (int i = 0; i < helpers.Count; i++)
         {

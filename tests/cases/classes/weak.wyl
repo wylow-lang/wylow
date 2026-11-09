@@ -1,4 +1,4 @@
-import std::{List, Weak, print};
+import std::{List, Weak};
 
 class Parent {
     String name;
@@ -9,7 +9,7 @@ class Parent {
     }
 
     ~Parent() {
-        print("parent destroyed");
+        std::print("parent destroyed");
     }
 }
 
@@ -18,14 +18,14 @@ class Child {
 
     void greet() {
         if (parent.get() is Parent p) {
-            print(p.name);
+            std::print(p.name);
         } else {
-            print("orphan");
+            std::print("orphan");
         }
     }
 
     ~Child() {
-        print("child destroyed");
+        std::print("child destroyed");
     }
 }
 
@@ -45,7 +45,7 @@ class Account implements Identified {
     }
 
     ~Account() {
-        print(id);
+        std::print(id);
     }
 }
 
@@ -63,9 +63,9 @@ enum Watch {
 
 void describe(Weak<Identified> weak) {
     if (weak.get() is Identified n) {
-        print(n.key());
+        std::print(n.key());
     } else {
-        print("gone");
+        std::print("gone");
     }
 }
 
@@ -79,7 +79,7 @@ class SelfWatcher {
     // A weak reference taken while being destroyed reads as null too.
     ~SelfWatcher() {
         self = this;
-        print(self.get() == null);
+        std::print(self.get() == null);
     }
 }
 
@@ -94,7 +94,7 @@ void main() {
     // The weak reference did not keep the parent alive, and became null.
     // output: parent destroyed
     child.greet();              // output: orphan
-    print(child.parent.get() == null);  // output: true
+    std::print(child.parent.get() == null); // output: true
 
     // A cycle through a weak reference is freed.
     mut var p = new Parent("dad");
@@ -149,9 +149,9 @@ void main() {
             alive++;
         }
     }
-    print(alive);               // output: 9
-    print(watched[3].get() == null);    // output: true
-    print(watched[9].get()!.id);        // output: 19
+    std::print(alive);          // output: 9
+    std::print(watched[3].get() == null); // output: true
+    std::print(watched[9].get()!.id);   // output: 19
 
     _ = new SelfWatcher();
     // output: true

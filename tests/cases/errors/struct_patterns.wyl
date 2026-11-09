@@ -1,6 +1,5 @@
 // Struct patterns that are wrong, that always match after 'is', and switches over structs that
 // miss a value or have a case that can never match.
-import std::print;
 
 struct Vec3 {
     int x;
@@ -26,34 +25,34 @@ struct Pair<A, B> {
 void main() {
     Vec3 p = Vec3(1, 2, 3);
     Vec3? maybe = p;
-    print(p is Vec3(1, 2));                         // error[WYL0379]: fields of 'Vec3': expected 3, found 2
-    print(p is Flags(true, _));                     // error[WYL0380]: pattern 'Flags' can never match a value of type 'Vec3'
-    print(p is Vec3(var x, _, _));                  // error[WYL0331]: pattern always matches
-    print(maybe is Vec3(var mx, _, _));
+    std::print(p is Vec3(1, 2));                    // error[WYL0379]: fields of 'Vec3': expected 3, found 2
+    std::print(p is Flags(true, _));                // error[WYL0380]: pattern 'Flags' can never match a value of type 'Vec3'
+    std::print(p is Vec3(var x, _, _));             // error[WYL0331]: pattern always matches
+    std::print(maybe is Vec3(var mx, _, _));
     Segment s = Segment(p, p);
-    print(s is Segment(Vec3(_, _, _), var to));     // error[WYL0331]: pattern always matches
-    print(s is Segment(Vec3(0, _, _), _));
+    std::print(s is Segment(Vec3(_, _, _), var to)); // error[WYL0331]: pattern always matches
+    std::print(s is Segment(Vec3(0, _, _), _));
     int n = 4;
-    print(n is Vec3(_, _, _));                      // error[WYL0380]: pattern 'Vec3' can never match a value of type 'int'
+    std::print(n is Vec3(_, _, _));                 // error[WYL0380]: pattern 'Vec3' can never match a value of type 'int'
     Pair<int, String> pair = Pair<int, String>(1, "one");
-    print(pair is Pair<int, int>(1, _));            // error[WYL0380]: pattern 'Pair<int, int>' can never match a value of type 'Pair<int, String>'
+    std::print(pair is Pair<int, int>(1, _));       // error[WYL0380]: pattern 'Pair<int, int>' can never match a value of type 'Pair<int, String>'
 
     Flags f = Flags(true, false);
     switch (f) {                                    // error[WYL0393]: switch does not handle every value of type 'Flags'
-        case Flags(true, _) -> print(1);
+        case Flags(true, _) -> std::print(1);
     }
     switch (f) {
-        case Flags(_, _) -> print(1);
-        case Flags(true, true) -> print(2);         // error[WYL0391]: case can never be reached
+        case Flags(_, _) -> std::print(1);
+        case Flags(true, true) -> std::print(2);    // error[WYL0391]: case can never be reached
     }
     switch (p) {                                    // error[WYL0393]: switch does not handle every value of type 'Vec3'
-        case Vec3(0, _, _) -> print(1);
+        case Vec3(0, _, _) -> std::print(1);
     }
     switch (s) {
-        case Segment(Vec3(var ax, _, _), _) -> print(ax);
-        default -> print(0);                        // error[WYL0392]: 'default' can never be reached
+        case Segment(Vec3(var ax, _, _), _) -> std::print(ax);
+        default -> std::print(0);                   // error[WYL0392]: 'default' can never be reached
     }
     switch (f) {
-        case Flags(var a, true), Flags(var b, false) -> print(1);    // error[WYL0382]: case with several patterns cannot bind names // error[WYL0382]: case with several patterns cannot bind names
+        case Flags(var a, true), Flags(var b, false) -> std::print(1); // error[WYL0382]: case with several patterns cannot bind names // error[WYL0382]: case with several patterns cannot bind names
     }
 }

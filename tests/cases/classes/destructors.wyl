@@ -1,17 +1,15 @@
-import std::print;
-
 class Noisy {
     String name;
 
     Noisy(String name) {
         this.name = name;
-        print("create");
-        print(name);
+        std::print("create");
+        std::print(name);
     }
 
     ~Noisy() {
-        print("destroy");
-        print(name);
+        std::print("destroy");
+        std::print(name);
     }
 }
 
@@ -23,7 +21,7 @@ class Holder {
     }
 
     ~Holder() {
-        print("destroy holder");
+        std::print("destroy holder");
     }
 }
 
@@ -33,7 +31,7 @@ Noisy make(String name) {
 
 void scope() {
     var a = new Noisy("a");
-    print("end of scope");
+    std::print("end of scope");
 }
 
 void main() {
@@ -54,7 +52,7 @@ void main() {
     // output: b
 
     // A temporary dies at the end of the statement.
-    print(make("t").name);
+    std::print(make("t").name);
     // output: create
     // output: t
     // output: t
@@ -69,7 +67,7 @@ void main() {
     // output: destroy holder
     // output: destroy
     // output: held
-    print("end");
+    std::print("end");
     // output: end
 }
 // output: destroy holder

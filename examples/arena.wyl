@@ -1,7 +1,7 @@
 // A small turn-based arena: entities move on a grid, fight, and drop loot.
 // Written to exercise the language as a whole rather than one feature at a time.
 
-import std::{List, print};
+import std::List;
 
 struct Vec2 {
     int x, y;
@@ -278,24 +278,24 @@ void main() {
         world.removeDead();
     }
 
-    print(hero.alive());
-    print(hero.gold);
-    print(world.entities.count());
-    print(world.log.written);
-    print(world.damageDealt);
-    print(world.deaths);
-    print(world.goldFound);
-    print(world.potionsFound);
+    std::print(hero.alive());
+    std::print(hero.gold);
+    std::print(world.entities.count());
+    std::print(world.log.written);
+    std::print(world.damageDealt);
+    std::print(world.deaths);
+    std::print(world.goldFound);
+    std::print(world.potionsFound);
 
     int[5] scores = [3, 1, 4, 1, 5];
-    print(sum(scores));
+    std::print(sum(scores));
 
     var healths = new int[world.entities.count()];
     for (int i, Entity e : world.entities) {
         healths[i] = e.health;
     }
-    print(sum(healths));
+    std::print(sum(healths));
 
-    print(parseDigit(55).orElse(-1));
-    print(parseDigit(65) is Err);
+    std::print(parseDigit(55).orElse(-1));
+    std::print(parseDigit(65) is Err);
 }

@@ -1,12 +1,10 @@
 // 'replace', 'swap', and 'take' move a value out of a place that cannot be moved from. Nothing is
 // released, so no destructor runs until the value's scope ends.
 
-import std::{print, replace, swap, take};
-
 unique struct Buffer {
     pub int length;
 
-    ~Buffer() { print($"release {length}"); }
+    ~Buffer() { std::print($"release {length}"); }
 }
 
 struct Point {
@@ -16,45 +14,45 @@ struct Point {
 
 void main() {
     mut var buffer = Buffer(length: 1);
-    var old = replace(ref buffer, Buffer(length: 2));
-    print(old.length);
+    var old = std::replace(ref buffer, Buffer(length: 2));
+    std::print(old.length);
     // output: 1
-    print(buffer.length);
+    std::print(buffer.length);
     // output: 2
 
     mut var a = Buffer(length: 3);
     mut var b = Buffer(length: 4);
-    swap(ref a, ref b);
-    print(a.length);
+    std::swap(ref a, ref b);
+    std::print(a.length);
     // output: 4
-    print(b.length);
+    std::print(b.length);
     // output: 3
-    swap(ref a, ref a);
-    print(a.length);
+    std::swap(ref a, ref a);
+    std::print(a.length);
     // output: 4
 
     mut Buffer? maybe = Buffer(length: 5);
-    var taken = take(ref maybe);
-    print(taken != null);
+    var taken = std::take(ref maybe);
+    std::print(taken != null);
     // output: true
-    print(maybe != null);
+    std::print(maybe != null);
     // output: false
 
     mut var point = Point(x: 1, y: 2);
-    var previous = replace(ref point, Point(x: 3, y: 4));
-    print(previous.x);
+    var previous = std::replace(ref point, Point(x: 3, y: 4));
+    std::print(previous.x);
     // output: 1
-    print(point.x);
+    std::print(point.x);
     // output: 3
 
     mut int? count = 6;
-    var number = take(ref count);
-    print(number != null);
+    var number = std::take(ref count);
+    std::print(number != null);
     // output: true
-    print(count != null);
+    std::print(count != null);
     // output: false
 
-    print("end");
+    std::print("end");
     // output: end
     // output: release 5
     // output: release 3

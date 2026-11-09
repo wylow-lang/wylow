@@ -1,8 +1,6 @@
-import std::print;
-
 void main() {
     byte a = 200;
     byte b = 100;
-    print(a - b);   // output: 100
-    print((a + b) / 2);   // panic-here: integer overflow
+    std::print(a - b); // output: 100
+    std::print((a + b) / 2); // panic-here: integer overflow
 }

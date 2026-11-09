@@ -1,10 +1,8 @@
 // A field with no initializer holds its type's default value, however the object or struct holding it
 // is made. A default runs once, in declaration order, and a constructor's body assigns over it.
 
-import std::print;
-
 int traced(int value) {
-    print($"traced {value}");
+    std::print($"traced {value}");
     return value;
 }
 
@@ -45,7 +43,7 @@ class Assigned {
     pub Point point;
 
     pub Assigned() {
-        print(point.x);
+        std::print(point.x);
         point = Point(x: 6);
     }
 }
@@ -87,50 +85,50 @@ struct Memberwise {
 
 void main() {
     var plain = new Plain();
-    print(plain.point.x);
+    std::print(plain.point.x);
     // output: 5
-    print(plain.point.name);
+    std::print(plain.point.name);
     // output: origin
-    print(plain.line.start.x);
+    std::print(plain.line.start.x);
     // output: 5
-    print(plain.line.others[1].x);
+    std::print(plain.line.others[1].x);
     // output: 5
-    print(plain.generic.size);
+    std::print(plain.generic.size);
     // output: 3
 
     var declared = new Declared();
     // output: traced 1
     // output: traced 7
     // output: traced 2
-    print(declared.item.value);
+    std::print(declared.item.value);
     // output: 7
 
     var assigned = new Assigned();
     // output: 5
-    print(assigned.point.x);
+    std::print(assigned.point.x);
     // output: 6
 
     var derived = new Derived();
-    print(derived.base.x + derived.own.x);
+    std::print(derived.base.x + derived.own.x);
     // output: 10
 
     var chained = new Chained();
     // output: traced 7
-    print(chained.item.value);
+    std::print(chained.item.value);
     // output: 7
 
-    print(new Holder<String>().generic.size);
+    std::print(new Holder<String>().generic.size);
     // output: 3
 
     var declaring = Declaring(0);
     // output: traced 7
-    print(declaring.point.x);
+    std::print(declaring.point.x);
     // output: 5
-    print(declaring.point.name);
+    std::print(declaring.point.name);
     // output: origin
 
-    print(Memberwise().point.x);
+    std::print(Memberwise().point.x);
     // output: 5
-    print(Point().x);
+    std::print(Point().x);
     // output: 5
 }

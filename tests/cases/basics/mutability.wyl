@@ -1,6 +1,6 @@
 // Variables, parameters, and class fields are immutable unless declared 'mut'.
 
-import std::{List, print};
+import std::List;
 
 struct Vec {
     float x;
@@ -58,16 +58,16 @@ void call(escaping fn() -> void f) {
 void main() {
     var body = new Body("crate");
     body.move();
-    print(body.name);                       // output: crate
-    print(body.position.x);                 // output: 22.0
-    print(body.moves);                      // output: 1
+    std::print(body.name);                  // output: crate
+    std::print(body.position.x);            // output: 22.0
+    std::print(body.moves);                 // output: 1
 
     // The variable can't be reassigned, but the object it refers to can change.
     List<int> list = new List<int>();
     list.add(4);
-    print(list.count());                    // output: 1
+    std::print(list.count());               // output: 1
 
-    print(countDown(3));                    // output: 3
+    std::print(countDown(3));               // output: 3
 
     // Every compound assignment, and a prefix increment or decrement as a statement.
     mut int n = 100;
@@ -76,17 +76,17 @@ void main() {
     n &= 5;
     n |= 8;
     n >>= 1;
-    print(n);                               // output: 6
+    std::print(n);                          // output: 6
     ++n;
     --n;
     ++n;
-    print(n);                               // output: 7
-    print(describe(-2));                    // output: negative
-    print(describe(5));                     // output: positive
+    std::print(n);                          // output: 7
+    std::print(describe(-2));               // output: negative
+    std::print(describe(5));                // output: positive
 
     mut Vec v = Vec(1, 1);
     v.scale(3);
-    print(v.y);                             // output: 3.0
+    std::print(v.y);                        // output: 3.0
 
     mut int[3] values = [1, 2, 3];
     for (ref int value : values) {
@@ -94,16 +94,16 @@ void main() {
     }
     for (mut int value : values) {
         value++;
-        print(value);                       // output: 3
+        std::print(value);                  // output: 3
                                             // output: 5
                                             // output: 7
     }
-    print(values[0]);                       // output: 2
+    std::print(values[0]);                  // output: 2
 
     // A variable assigned once after its declaration can be captured.
     int late;
     late = 7;
-    call(() -> print(late));                // output: 7
+    call(() -> std::print(late));           // output: 7
 
     fn(int) -> int clamp = (mut x) -> {
         if (x > 10) {
@@ -111,5 +111,5 @@ void main() {
         }
         return x;
     };
-    print(clamp(50));                       // output: 10
+    std::print(clamp(50));                  // output: 10
 }

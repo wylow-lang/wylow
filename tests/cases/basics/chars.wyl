@@ -1,5 +1,3 @@
-import std::print;
-
 String describe(char c) {
     return switch (c) {
         case 'a' -> "first";
@@ -11,36 +9,36 @@ String describe(char c) {
 
 void main() {
     char a = 'a';
-    print(a);                       // output: a
-    print('\'');                    // output: '
-    print('\\');                    // output: \
-    print('\u{41}');                // output: A
-    print('\u{e9}' == 'é');         // output: true
-    print('😀' == '\u{1F600}');     // output: true
+    std::print(a);                  // output: a
+    std::print('\'');               // output: '
+    std::print('\\');               // output: \
+    std::print('\u{41}');           // output: A
+    std::print('\u{e9}' == 'é');    // output: true
+    std::print('😀' == '\u{1F600}'); // output: true
 
     // Characters compare by code point, and convert to integers of 32 bits or more.
-    print(1 + 'a');                 // output: 98
-    print('a' < 'b');               // output: true
-    print('z' >= 'a');              // output: true
+    std::print(1 + 'a');            // output: 98
+    std::print('a' < 'b');          // output: true
+    std::print('z' >= 'a');         // output: true
     int code = 'a';
-    print(code);                    // output: 97
+    std::print(code);               // output: 97
     long wide = '\u{10FFFF}';
-    print(wide);                    // output: 1114111
-    print((byte)'a');               // output: 97
+    std::print(wide);               // output: 1114111
+    std::print((byte)'a');          // output: 97
     char next = (char)('a' + 1);
-    print(next);                    // output: b
+    std::print(next);               // output: b
 
-    print(describe('a'));           // output: first
-    print(describe('\n'));          // output: newline
-    print(describe('😀'));          // output: grin
-    print(describe('x'));           // output: other
+    std::print(describe('a'));      // output: first
+    std::print(describe('\n'));     // output: newline
+    std::print(describe('😀'));     // output: grin
+    std::print(describe('x'));      // output: other
 
     char? none = null;
-    print(none ?? '-');             // output: -
+    std::print(none ?? '-');        // output: -
     char[3] letters = ['x', 'y', 'z'];
-    print(letters[2]);              // output: z
+    std::print(letters[2]);         // output: z
 
-    print("tab\there");             // output: tab	here
-    print("\u{48}i \u{1F600}");     // output: Hi 😀
-    print("caf\u{e9}");             // output: café
+    std::print("tab\there");        // output: tab	here
+    std::print("\u{48}i \u{1F600}"); // output: Hi 😀
+    std::print("caf\u{e9}");        // output: café
 }

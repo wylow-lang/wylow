@@ -1,4 +1,4 @@
-import std::{Weak, print};
+import std::Weak;
 
 enum Direction { North, East, South, West }
 
@@ -72,13 +72,13 @@ void main() {
     var explicit = Option<int>.Some("s"); // error[WYL0236]: no variant 'Option.Some' accepts (String)
     var typed = Option.Some<int>(1);    // error[WYL0197]: type arguments belong to the enum, not its variant
     var label = Named.Label("a");
-    print(label.text);                  // error[WYL0295]: fields of a variant can only be read with a pattern
+    std::print(label.text);             // error[WYL0295]: fields of a variant can only be read with a pattern
     var watched = Watched.On(null);
-    print(watched == watched);          // error[WYL0310]: operator '==' cannot be applied to 'Watched'
-    print(Direction.East == 1);         // error[WYL0308]: operator '==' cannot be applied to 'Direction' and 'int'
-    print(Direction.North < Direction.East); // error[WYL0308]: operator '<' cannot be applied to 'Direction' and 'Direction'
-    print((int)label);                  // error[WYL0083]: cannot cast 'Named' to 'int'
-    print((Direction)1.5f);              // error[WYL0083]: cannot cast 'float' to 'Direction'
+    std::print(watched == watched);     // error[WYL0310]: operator '==' cannot be applied to 'Watched'
+    std::print(Direction.East == 1);    // error[WYL0308]: operator '==' cannot be applied to 'Direction' and 'int'
+    std::print(Direction.North < Direction.East); // error[WYL0308]: operator '<' cannot be applied to 'Direction' and 'Direction'
+    std::print((int)label);             // error[WYL0083]: cannot cast 'Named' to 'int'
+    std::print((Direction)1.5f);         // error[WYL0083]: cannot cast 'float' to 'Direction'
     Option<int> o = Some(1);
     Option<Thing> t = Some(1);          // error[WYL0236]: no variant 'Option.Some' accepts (int)
     mut Direction q = Direction.North;

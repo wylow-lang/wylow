@@ -1,7 +1,7 @@
 // Recursive functions that only pass their function parameters on are templates, as others are;
 // one that passes itself a new lambda on some cycle would instantiate without end, so it isn't.
 
-import std::{List, print};
+import std::List;
 
 class Node {
     int value;
@@ -77,15 +77,15 @@ void main() {
     walk(root, n -> {
         total += n.value;
     });
-    print(total);                                   // output: 10
+    std::print(total);                              // output: 10
 
-    print(even(4, x -> x + 10));                    // output: 14
-    print(even(3, x -> x + 10));                    // output: 14
+    std::print(even(4, x -> x + 10));               // output: 14
+    std::print(even(3, x -> x + 10));               // output: 14
 
     escaping fn(int) -> int doubled = x -> x * 2;
-    print(depth(2, x -> x + 100, doubled));         // output: 104
+    std::print(depth(2, x -> x + 100, doubled));    // output: 104
 
-    print(sumDown(2, x -> x * 3));                  // output: 35
+    std::print(sumDown(2, x -> x * 3));             // output: 35
 
-    print(ping(2, x -> x + 1));                     // output: 12
+    std::print(ping(2, x -> x + 1));                // output: 12
 }

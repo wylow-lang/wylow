@@ -1,6 +1,6 @@
 // A fallible function with nothing to return gives its Result the type Unit.
 
-import std::{Unit, print};
+import std::Unit;
 
 enum CloseError { Busy }
 
@@ -17,6 +17,6 @@ Result<Unit, CloseError> closeTwice() {
 }
 
 void main() {
-    print(close(false) is Ok);          // output: true
-    print(closeTwice() is Err);         // output: true
+    std::print(close(false) is Ok);     // output: true
+    std::print(closeTwice() is Err);    // output: true
 }

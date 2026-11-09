@@ -1,7 +1,5 @@
 // Operators applied to types that don't combine, and to values that need checking for null first.
 
-import std::print;
-
 class Holder {
     String? name;
 }
@@ -16,17 +14,17 @@ struct Bag {
 
 unsafe void main() {
     int? maybe = 1;
-    print(maybe ?? true);               // error[WYL0308]: operator '??' cannot be applied to 'int?' and 'bool'
-    print(1.5f << 2);                    // error[WYL0308]: operator '<<' cannot be applied to 'float' and 'int'
+    std::print(maybe ?? true);          // error[WYL0308]: operator '??' cannot be applied to 'int?' and 'bool'
+    std::print(1.5f << 2);               // error[WYL0308]: operator '<<' cannot be applied to 'float' and 'int'
     Holder holder = new Holder();
-    print(holder.name + 1);             // error[WYL0308]: operator '+' cannot be applied to 'String?' and 'int'
-    print(maybe == "x");                // error[WYL0308]: operator '==' cannot be applied to 'int?' and 'String'
+    std::print(holder.name + 1);        // error[WYL0308]: operator '+' cannot be applied to 'String?' and 'int'
+    std::print(maybe == "x");           // error[WYL0308]: operator '==' cannot be applied to 'int?' and 'String'
     mut Bag bag = Bag();
-    print(bag.at(0) + 1);               // error[WYL0308]: operator '+' cannot be applied to 'ref? int' and 'int'
+    std::print(bag.at(0) + 1);          // error[WYL0308]: operator '+' cannot be applied to 'ref? int' and 'int'
     int* left = null;
     float* right = null;
-    print(left == right);               // error[WYL0308]: operator '==' cannot be applied to 'int*' and 'float*'
-    print(~true);                       // error[WYL0307]: operator '~' cannot be applied to 'bool'
-    print(!1);                          // error[WYL0307]: operator '!' cannot be applied to 'int'
-    print((int)"x");                    // error[WYL0083]: cannot cast 'String' to 'int'
+    std::print(left == right);          // error[WYL0308]: operator '==' cannot be applied to 'int*' and 'float*'
+    std::print(~true);                  // error[WYL0307]: operator '~' cannot be applied to 'bool'
+    std::print(!1);                     // error[WYL0307]: operator '!' cannot be applied to 'int'
+    std::print((int)"x");               // error[WYL0083]: cannot cast 'String' to 'int'
 }

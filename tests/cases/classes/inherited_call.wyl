@@ -1,7 +1,5 @@
 // A class calls a method it inherits, without naming the base it comes from.
 
-import std::print;
-
 class Base {
     int value() {
         return 7;
@@ -15,5 +13,5 @@ class Derived extends Base {
 }
 
 void main() {
-    print(new Derived().twice());   // output: 14
+    std::print(new Derived().twice()); // output: 14
 }

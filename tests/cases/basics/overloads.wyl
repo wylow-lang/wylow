@@ -1,28 +1,26 @@
-import std::print;
-
 void show(int x) {
-    print("int");
+    std::print("int");
 }
 
 void show(long x) {
-    print("long");
+    std::print("long");
 }
 
 void show(float x) {
-    print("float");
+    std::print("float");
 }
 
 void show(double x) {
-    print("double");
+    std::print("double");
 }
 
 // Overloads that differ only in trailing defaults are equally specific; the one with fewer defaults wins.
 void pick(long a, int b = 0) {
-    print($"two {a} {b}");
+    std::print($"two {a} {b}");
 }
 
 void pick(long a, int b = 0, int c = 0) {
-    print($"three {a} {b} {c}");
+    std::print($"three {a} {b} {c}");
 }
 
 void main() {

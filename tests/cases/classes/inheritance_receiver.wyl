@@ -1,8 +1,6 @@
 // A call's receiver is the place it is written on: a field's object or another class's method,
 // never `this`.
 
-import std::print;
-
 class Inner {
     int value = 3;
 
@@ -32,6 +30,6 @@ class Derived extends Base {
 }
 
 void main() {
-    print(new Outer().throughField());  // output: 3
-    print(new Derived().pick());        // output: 2
+    std::print(new Outer().throughField()); // output: 3
+    std::print(new Derived().pick());   // output: 2
 }

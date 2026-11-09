@@ -2,7 +2,7 @@
 // matched value, so a destructor run by releasing a name's old value can't change what the later
 // names get.
 
-import std::{Weak, print};
+import std::Weak;
 
 class Item {
     int id;
@@ -13,9 +13,9 @@ class Item {
     }
 
     ~Item() {
-        print($"free {id}");
+        std::print($"free {id}");
         if (clears.get() is Holder h) {
-            print(h.pair is Two ? "sees a pair" : "sees null");
+            std::print(h.pair is Two ? "sees a pair" : "sees null");
             h.pair = null;
         }
     }
@@ -38,7 +38,7 @@ void main() {
     a1 = new Item(0);
     mut int round = 0;
     while (h.pair is Two(var a, var b)) {
-        print($"round {round}: {a.id} {b.id}");
+        std::print($"round {round}: {a.id} {b.id}");
         if (round == 0) {
             h.pair = Two(new Item(21), new Item(22));
         } else {
@@ -53,5 +53,5 @@ void main() {
     // output: round 1: 21 22
     // output: free 22
     // output: free 21
-    print("done");                                  // output: done
+    std::print("done");                             // output: done
 }                                                   // output: free 0

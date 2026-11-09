@@ -1,6 +1,6 @@
 // Each case would read freed memory without pinning; the output order shows when objects die.
 
-import std::{Weak, print};
+import std::Weak;
 
 struct Stats {
     int total;
@@ -25,7 +25,7 @@ class Customer {
     }
 
     ~Customer() {
-        print("customer destroyed");
+        std::print("customer destroyed");
     }
 }
 
@@ -43,7 +43,7 @@ class Product {
         if (owner.get() is Customer p) {
             p.product = new Product("new");
         }
-        print(name);
+        std::print(name);
     }
 
     // Replaces the owner's spare, which is `this`, through a reference to the struct holding it.
@@ -51,11 +51,11 @@ class Product {
         if (owner.get() is Customer p) {
             restock(ref p.gear);
         }
-        print(name);
+        std::print(name);
     }
 
     ~Product() {
-        print("product destroyed");
+        std::print("product destroyed");
     }
 }
 
@@ -76,13 +76,13 @@ class Team {
         ref Stats s = leader.stats;
         leader = new Customer("y");
         s.total = 3;
-        print(s.total);
+        std::print(s.total);
     }
 
     // Elsewhere it is never replaced, so nothing holds it while `heal` runs.
     void rally(World world) {
         heal(ref leader.stats, world);
-        print(leader.name);
+        std::print(leader.name);
     }
 }
 
@@ -94,7 +94,7 @@ void restock(ref Gear gear) {
 void heal(ref Stats s, World world) {
     world.customer = new Customer("b");
     s.total += 5;
-    print(s.total);
+    std::print(s.total);
 }
 
 void main() {
@@ -117,7 +117,7 @@ void main() {
     // output: customer destroyed
     // output: product destroyed
     // output: product destroyed
-    print(world.customer.stats.total);       // output: 0
+    std::print(world.customer.stats.total);  // output: 0
 
     {
         var team = new Team();

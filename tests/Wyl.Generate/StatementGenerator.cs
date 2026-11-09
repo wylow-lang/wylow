@@ -271,6 +271,6 @@ sealed class StatementGenerator(
         if (!budget.TryText())
             return;
         budget.Ran(count);
-        writer.Line($"print({text});");
+        writer.Line($"std::print({text});");
     }
 }

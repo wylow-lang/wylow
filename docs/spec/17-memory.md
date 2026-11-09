@@ -125,13 +125,13 @@ created it completes, not at its last use. Within a statement:
 ```java
 class Token {
     String word() { return "token"; }
-    ~Token() { print("released"); }
+    ~Token() { std::print("released"); }
 }
 
 Token make() { return new Token(); }
 
 void main() {
-    print(make().word());           // prints "token", and then "released"
+    std::print(make().word());      // prints "token", and then "released"
 }
 ```
 
@@ -178,7 +178,7 @@ library, so it can be a field, a local, a parameter, or an element.
 **Example:**
 
 ```java
-import std::{Weak, print};
+import std::Weak;
 
 class Node {
     pub mut Weak<Node> parent;
@@ -189,7 +189,7 @@ void main() {
     var parent = new Node();
     child.parent = parent;
     if (child.parent.get() is Node node) {
-        print("alive");
+        std::print("alive");
     }
 }
 ```
@@ -315,7 +315,7 @@ void main() {
     mut Point point = Point(1);
     ref int x = point.x;
     x = 2;
-    print(point.x);
+    std::print(point.x);
     mut Point? maybe = point;
     if (maybe != null) {
         ref int y = maybe.x;            // error[WYL0406]
@@ -367,7 +367,7 @@ local null meanwhile would destroy that place, so it is a compile-time error to 
 
 ```java
 void bump(ref? int value) {
-    print(value + 1);               // error[WYL0412]
+    std::print(value + 1);          // error[WYL0412]
     if (value != null) {
         value += 1;
     }
@@ -447,7 +447,7 @@ void main() {
     ref int count = order.quantity;
     order = new Order();
     count = 5;
-    print(order.quantity);          // 0: 'count' refers into the first order
+    std::print(order.quantity);     // 0: 'count' refers into the first order
 }
 ```
 

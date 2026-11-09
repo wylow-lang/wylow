@@ -67,14 +67,14 @@ library uses it so that a failed `list[i]` reports the program's line rather tha
 @CallerLocation
 int at(int[] values, int index) {
     if (index < 0 || index >= values.length) {
-        panic("index out of bounds");
+        std::panic("index out of bounds");
     }
     return values[index];
 }
 
 void main() {
     var values = new int[2];
-    print(at(values, 3));          // a panic here names this line
+    std::print(at(values, 3));     // a panic here names this line
 }
 ```
 

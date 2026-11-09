@@ -29,8 +29,8 @@ the same name in an outer one ([Local variables](06-variables.md#variables.local
 
 ```java
 void main() {
-    if (true) print("one");         // error[WYL0341]
-    if (true) { print("one"); }
+    if (true) std::print("one");    // error[WYL0341]
+    if (true) { std::print("one"); }
 }
 ```
 
@@ -189,7 +189,7 @@ void main() {
         i++;
     }
     for (mut int j = 0; j < 3; j++) {
-        print(j);
+        std::print(j);
     }
 }
 ```
@@ -321,8 +321,8 @@ void report(State state) {
     switch (state) {
         case Idle -> log("idle");
         case Running(var count) -> {
-            print(count);
-            print(count + 1);
+            std::print(count);
+            std::print(count + 1);
         }
         case Done -> { }
     }
@@ -418,13 +418,13 @@ int value() {
 ```
 
 ```java
-import std::{Unit, print};
+import std::Unit;
 
 Unit report(int count) {
     if (count == 0) {
         return;                             // returns Unit()
     }
-    print(count);
+    std::print(count);
 }                                           // returns Unit()
 ```
 

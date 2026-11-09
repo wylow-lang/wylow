@@ -1,12 +1,10 @@
 // A reference binding into an enum's variant makes the enum in use for the binding's scope, so
 // replacing the enum then panics.
 
-import std::{print, replace};
-
 unique struct Buffer {
     pub int id;
 
-    ~Buffer() { print($"release {id}"); }
+    ~Buffer() { std::print($"release {id}"); }
 }
 
 unique enum Maybe {
@@ -18,9 +16,9 @@ void main() {
     mut var maybe = Maybe.Some(Buffer(id: 1));
     switch (maybe) {
         case Some(in var buffer) -> {
-            var previous = replace(ref maybe, Maybe.None);
+            var previous = std::replace(ref maybe, Maybe.None);
             // panic: cannot replace a value that is in use
-            print(buffer.id);
+            std::print(buffer.id);
         }
         case None -> { }
     }

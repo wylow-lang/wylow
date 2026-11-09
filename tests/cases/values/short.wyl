@@ -1,46 +1,44 @@
 // The `short` kind at its edges: a signed 16-bit type whose arithmetic keeps its type.
 
-import std::print;
-
 void main() {
     short min = -32768;
     short max = 32767;
 
-    print(min + 1);             // output: -32767
-    print(max - 1);             // output: 32766
-    print(min / 3);             // output: -10922
-    print(min % 3);             // output: -2
-    print(max / 7);             // output: 4681
-    print(max % 7);             // output: 0
-    print(min >> 2);            // output: -8192
-    print(min << 1);            // output: 0
-    print(~min);                // output: 32767
-    print(min < 0);             // output: true
+    std::print(min + 1);        // output: -32767
+    std::print(max - 1);        // output: 32766
+    std::print(min / 3);        // output: -10922
+    std::print(min % 3);        // output: -2
+    std::print(max / 7);        // output: 4681
+    std::print(max % 7);        // output: 0
+    std::print(min >> 2);       // output: -8192
+    std::print(min << 1);       // output: 0
+    std::print(~min);           // output: 32767
+    std::print(min < 0);        // output: true
 
-    print((ushort)min);         // output: 32768
-    print((int)min);            // output: -32768
-    print((long)min);           // output: -32768
-    print((short)65535);        // output: -1
+    std::print((ushort)min);    // output: 32768
+    std::print((int)min);       // output: -32768
+    std::print((long)min);      // output: -32768
+    std::print((short)65535);   // output: -1
 
-    print($"{min:X4}");         // output: 8000
-    print($"{min:B16}");        // output: 1000000000000000
-    print($"{min:D6}");         // output: -032768
-    print($"[{max,6}]");        // output: [ 32767]
+    std::print($"{min:X4}");    // output: 8000
+    std::print($"{min:B16}");   // output: 1000000000000000
+    std::print($"{min:D6}");    // output: -032768
+    std::print($"[{max,6}]");   // output: [ 32767]
 
-    print(min.toString());      // output: -32768
+    std::print(min.toString()); // output: -32768
 
     // More operators, conversions, and formatting.
-    print(max * 1);             // output: 32767
-    print(min + 32767);         // output: -1
-    print(max & 0x0F);          // output: 15
-    print(max ^ -1);            // output: -32768
-    print((byte)min);           // output: 0
-    print((ushort)max);         // output: 32767
-    print((double)min);         // output: -32768.0
-    print($"{max:D5}");         // output: 32767
-    print($"[{min,7}]");        // output: [ -32768]
-    print(max > min);           // output: true
-    print(switch (min) {
+    std::print(max * 1);        // output: 32767
+    std::print(min + 32767);    // output: -1
+    std::print(max & 0x0F);     // output: 15
+    std::print(max ^ -1);       // output: -32768
+    std::print((byte)min);      // output: 0
+    std::print((ushort)max);    // output: 32767
+    std::print((double)min);    // output: -32768.0
+    std::print($"{max:D5}");    // output: 32767
+    std::print($"[{min,7}]");   // output: [ -32768]
+    std::print(max > min);      // output: true
+    std::print(switch (min) {
         case -32768 -> "min";
         default -> "other";
     });                         // output: min

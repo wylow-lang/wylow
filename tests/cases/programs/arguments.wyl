@@ -3,11 +3,9 @@
 // args: alpha beta café
 // exit: 3
 
-import std::print;
-
 int main(String[] args) {
-    print(args[0]);                         // output: alpha
-    print(args[2]);                         // output: café
-    print(args[2].byteLength());            // output: 5
+    std::print(args[0]);                    // output: alpha
+    std::print(args[2]);                    // output: café
+    std::print(args[2].byteLength());       // output: 5
     return args.length;
 }

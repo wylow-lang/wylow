@@ -1,5 +1,3 @@
-import std::print;
-
 struct Vec3 {
     float x, y, z;
 
@@ -26,23 +24,23 @@ struct Vec3 {
 
 void main() {
     Vec3 zero = Vec3();
-    print(zero.x);                    // output: 0.0
+    std::print(zero.x);               // output: 0.0
 
     mut var v = Vec3(1, 2, 3);
-    print(v.lengthSquared());         // output: 14.0
+    std::print(v.lengthSquared());    // output: 14.0
 
     mut var copy = v;
     copy.x = 10;
-    print(v.x);                       // output: 1.0
-    print(copy.x);                    // output: 10.0
+    std::print(v.x);                  // output: 1.0
+    std::print(copy.x);               // output: 10.0
 
     v.scale(2);
-    print(v.z);                       // output: 6.0
+    std::print(v.z);                  // output: 6.0
 
     var sum = Vec3.add(v, Vec3(1, 0, 0));
-    print(sum.x);                     // output: 3.0
-    print(sum.y);                     // output: 4.0
+    std::print(sum.x);                // output: 3.0
+    std::print(sum.y);                // output: 4.0
 
-    print(v == Vec3(2, 4, 6));        // output: true
-    print(v != copy);                 // output: true
+    std::print(v == Vec3(2, 4, 6));   // output: true
+    std::print(v != copy);            // output: true
 }

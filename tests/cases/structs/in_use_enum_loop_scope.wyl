@@ -1,8 +1,6 @@
 // A reference binding in a while condition binds each iteration, and the value is in use for that
 // iteration's body only, so replacing the enum after the loop does not panic.
 
-import std::{print, replace};
-
 unique struct Handle {
     pub int id;
 
@@ -18,14 +16,14 @@ void main() {
     mut var maybe = Maybe.Some(Handle(id: 1));
     mut int count = 0;
     while (maybe is Maybe.Some(in var h) && count < 2) {
-        print(h.id);
+        std::print(h.id);
         // output: 1
         // output: 1
         count += 1;
     }
-    var previous = replace(ref maybe, Maybe.None);
+    var previous = std::replace(ref maybe, Maybe.None);
     switch (previous) {
-        case Some(in var old) -> print(old.id);     // output: 1
-        case None -> print("none");
+        case Some(in var old) -> std::print(old.id); // output: 1
+        case None -> std::print("none");
     }
 }

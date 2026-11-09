@@ -1,5 +1,3 @@
-import std::print;
-
 class Box {
     mut int x = 1;
 }
@@ -26,16 +24,16 @@ Box replace(Holder h) {
 void main() {
     // Any call may write any object, so the field is read before the call.
     var b = new Box();
-    print(b.x + bump(b));           // output: 2
+    std::print(b.x + bump(b));      // output: 2
     b.x = 1;
-    print(sum(b.x, bump(b)));       // output: 2
+    std::print(sum(b.x, bump(b)));  // output: 2
     b.x = 1;
-    print(bump(b) + b.x);           // output: 11
+    std::print(bump(b) + b.x);      // output: 11
 
     // The assignment target's object is evaluated before the value.
     var h = new Holder();
     var old = h.box;
     h.box.x = replace(h).x + 1;
-    print(old.x);                   // output: 51
-    print(h.box.x);                 // output: 50
+    std::print(old.x);              // output: 51
+    std::print(h.box.x);            // output: 50
 }

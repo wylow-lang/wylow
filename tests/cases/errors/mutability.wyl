@@ -1,6 +1,6 @@
 // Only what is declared 'mut' can be reassigned or changed in place.
 
-import std::{List, print};
+import std::List;
 
 struct Vec {
     float x;
@@ -71,7 +71,7 @@ void locals() {
     Vec v = Vec();
     v.x = 1;                                // error[WYL0351]: cannot assign to 'v.x'
     v.grow();                               // error[WYL0105]: cannot call 'mut' method 'grow' on 'v'
-    print(v.get());
+    std::print(v.get());
     bump(ref v.x);                          // error[WYL0223]: cannot pass 'v.x' by 'ref'
     ref Vec r = v;                          // error[WYL0408]: cannot bind 'ref' to read-only 'v'
     in Vec i = v;

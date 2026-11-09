@@ -1,6 +1,5 @@
 // Imports and paths across modules (spec programs.imports, programs.paths).
 
-import std::print;
 import world::Chunk;                        // one name
 import world::{Block, Kind as BlockKind};   // several, one renamed
 import world::gen;                          // a module itself
@@ -8,25 +7,25 @@ import world::gen::*;                       // every name of 'world::gen' visibl
 
 void main() {
     var c = Chunk.make(3);
-    print(c.x);                             // output: 3
-    print(world::describe(c));              // output: chunk 3
-    print(gen::seed());                     // output: 42
-    print(noise(2));                        // output: 20
+    std::print(c.x);                        // output: 3
+    std::print(world::describe(c));         // output: chunk 3
+    std::print(gen::seed());                // output: 42
+    std::print(noise(2));                   // output: 20
     var b = Block(id: 7);
-    print(b.id);                            // output: 7
+    std::print(b.id);                       // output: 7
     BlockKind kind = BlockKind.Dirt;
-    print(world::name(kind));               // output: dirt
+    std::print(world::name(kind));          // output: dirt
     world::Chunk other = world::Chunk.make(5);
-    print(other.x);                         // output: 5
-    print(origin().x);                      // output: 0
-    print(world::worldSeed());              // output: 42
+    std::print(other.x);                    // output: 5
+    std::print(origin().x);                 // output: 0
+    std::print(world::worldSeed());         // output: 42
     // The int overload is visible only in 'world', so it never wins here.
-    print(world::pick(1));                  // output: long
-    print(world::pickHere());               // output: int
+    std::print(world::pick(1));             // output: long
+    std::print(world::pickHere());          // output: int
     fn(int) -> int f = gen::noise;
-    print(f(4));                            // output: 40
+    std::print(f(4));                       // output: 40
     bool isBlock = describeAny(b);
-    print(isBlock);                         // output: true
+    std::print(isBlock);                    // output: true
 }
 
 bool describeAny(Block b) {

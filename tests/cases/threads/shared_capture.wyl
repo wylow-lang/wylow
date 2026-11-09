@@ -1,5 +1,4 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 
 shared class Name {
     pub String text;
@@ -15,8 +14,8 @@ int length(Name name) {
 
 void main() {
     var name = new Name("worker");
-    var thread = spawn(() -> length(name));
-    print(thread.join());
+    var thread = threading::spawn(() -> length(name));
+    std::print(thread.join());
     // output: 6
 }
 

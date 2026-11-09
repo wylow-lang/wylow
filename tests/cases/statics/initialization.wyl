@@ -1,5 +1,3 @@
-import std::print;
-
 class First {
     static int A = first();
     static int B = A + 1;
@@ -11,12 +9,12 @@ class Second {
 }
 
 int first() {
-    print("first");                     // output: first
+    std::print("first");                // output: first
     return 1;
 }
 
 int second() {
-    print("second");                    // output: second
+    std::print("second");               // output: second
     return 4;
 }
 
@@ -25,12 +23,12 @@ class Unused {
 }
 
 int announce() {
-    print("unused");                    // output: unused
+    std::print("unused");               // output: unused
     return 3;
 }
 
 void main() {
-    print(Second.C);                    // output: 3
-    print(First.B);                     // output: 2
-    print(Unused.VALUE);                // output: 3
+    std::print(Second.C);               // output: 3
+    std::print(First.B);                // output: 2
+    std::print(Unused.VALUE);           // output: 3
 }

@@ -1,5 +1,3 @@
-import std::print;
-
 interface Shape {
     mut float area();
 }
@@ -47,15 +45,15 @@ interface Generic {
 }
 
 void describe<T extends Named>(T value) {
-    print(value.name());
+    std::print(value.name());
 }
 
 void area<T extends Shape>(T value) {
-    print(value.name());                // error[WYL0300]: cannot find method 'name' in 'T'
+    std::print(value.name());           // error[WYL0300]: cannot find method 'name' in 'T'
 }
 
 void unbounded<T>(T value) {
-    print(value.name());                // error[WYL0300]: cannot find method 'name' in 'T'
+    std::print(value.name());           // error[WYL0300]: cannot find method 'name' in 'T'
 }
 
 void badBound<T extends Point>(T value) { }   // error[WYL0207]: 'Point' cannot be a bound

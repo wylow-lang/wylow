@@ -1,6 +1,6 @@
 // Breadth-first and best-first search on a grid, with a user-written generic heap.
 
-import std::{List, print};
+import std::List;
 
 interface Ordered<T> {
     mut bool lessThan(in T other);
@@ -162,11 +162,11 @@ void main() {
 
     var start = Point(0, 0);
     var goal = Point(7, 0);
-    print(bfs(grid, start, goal));       // 7 down, through the gap, 7 up
-    print(greedy(grid, start, goal) > 0);
+    std::print(bfs(grid, start, goal));  // 7 down, through the gap, 7 up
+    std::print(greedy(grid, start, goal) > 0);
 
     grid.walls[7][4] = true;
-    print(bfs(grid, start, goal));
+    std::print(bfs(grid, start, goal));
 
     var heap = new Heap<Point>();
     heap.push(Point(5, 5));
@@ -175,6 +175,6 @@ void main() {
     heap.push(Point(0, 0));
     while (heap.count() > 0) {
         var p = heap.pop();
-        print(p.x + p.y);
+        std::print(p.x + p.y);
     }
 }

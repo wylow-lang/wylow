@@ -1,8 +1,6 @@
 // A struct local copied from a place is a copy, whether or not the compiler refers to the place
 // instead: a later write into a part of the place, directly or by a call, doesn't change it.
 
-import std::print;
-
 struct Vec {
     int x;
 }
@@ -28,19 +26,19 @@ void main() {
 
     {
         Vec quiet = holder.v;
-        print(quiet.x);     // output: 1
+        std::print(quiet.x); // output: 1
     }
 
     Vec stored = holder.v;
     holder.v.x = 5;
-    print(stored.x);        // output: 1
+    std::print(stored.x);   // output: 1
 
     Vec referred = holder.v;
     bump(ref holder.v.x);
-    print(referred.x);      // output: 5
+    std::print(referred.x); // output: 5
 
     Vec called = holder.v;
     holder.bumpX();
-    print(called.x);        // output: 6
-    print(holder.v.x);      // output: 7
+    std::print(called.x);   // output: 6
+    std::print(holder.v.x); // output: 7
 }

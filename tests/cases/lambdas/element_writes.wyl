@@ -3,7 +3,7 @@
 // one would print the replacing element, or read a freed one, if its element referred to the list
 // in place.
 
-import std::{List, print};
+import std::List;
 
 class Account {
     int total;
@@ -13,7 +13,7 @@ class Account {
     }
 
     ~Account() {
-        print(-total);
+        std::print(-total);
     }
 }
 
@@ -51,7 +51,7 @@ void main() {
     var store = storer(accounts, new Account(7));
     for (Account e : accounts) {
         store(e);
-        print(e.total);
+        std::print(e.total);
     }
     // output: 1
     // output: -1
@@ -63,7 +63,7 @@ void main() {
     });
     for (Account e : accounts) {
         tick(hooks.onTick);
-        print(e.total);
+        std::print(e.total);
     }
     // output: -2
     // output: 7
@@ -72,7 +72,7 @@ void main() {
 
     for (Account e : accounts) { // in-place: 1
         var unused = replacer(accounts);
-        print(e.total);
+        std::print(e.total);
     }
     // output: 7
     // output: 50

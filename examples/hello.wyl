@@ -1,5 +1,3 @@
-import std::print;
-
 int fib(int n) {
     if (n < 2) {
         return n;
@@ -8,8 +6,8 @@ int fib(int n) {
 }
 
 void main() {
-    print("Hello, Wylow!");
+    std::print("Hello, Wylow!");
     for (mut int i = 0; i < 10; i++) {
-        print(fib(i));
+        std::print(fib(i));
     }
 }

@@ -1,7 +1,5 @@
 // A lambda made in an @CallerLocation function reports its own location, even after the call returns.
 
-import std::print;
-
 @CallerLocation
 fn() -> int divider(int x) {
     return () -> 10 / x;        // panic-here: division by zero
@@ -9,5 +7,5 @@ fn() -> int divider(int x) {
 
 void main() {
     var f = divider(0);
-    print(f());
+    std::print(f());
 }

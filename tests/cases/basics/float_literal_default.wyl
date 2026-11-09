@@ -1,16 +1,14 @@
 // A floating-point literal with no suffix is a double; only `f` makes a float.
 
-import std::print;
-
 void main() {
     var d = 0.1 + 0.2;
-    print(d);                           // output: 0.30000000000000004
+    std::print(d);                      // output: 0.30000000000000004
     double same = 0.1d + 0.2d;
-    print(d == same);                   // output: true
+    std::print(d == same);              // output: true
     var f = 0.1f + 0.2f;
     float single = f;
-    print(single);                      // output: 0.3
-    print(1e39);                        // output: 1e+39
-    print(1d);                          // output: 1.0
-    print(1f);                          // output: 1.0
+    std::print(single);                 // output: 0.3
+    std::print(1e39);                   // output: 1e+39
+    std::print(1d);                     // output: 1.0
+    std::print(1f);                     // output: 1.0
 }

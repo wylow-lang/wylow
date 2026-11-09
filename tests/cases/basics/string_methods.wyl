@@ -1,73 +1,71 @@
-import std::print;
-
 class Holder {
     mut String text = "held";
 }
 
 String echo(String s) {
-    print(s);
+    std::print(s);
     return s;
 }
 
 void main() {
     String word = "héllo";
-    print(word.byteLength());           // output: 6
-    print(word.charCount());            // output: 5
-    print("".byteLength());             // output: 0
-    print("".isEmpty());                // output: true
-    print(word.isEmpty());              // output: false
-    print("😀".byteLength());            // output: 4
-    print("😀".charCount());             // output: 1
+    std::print(word.byteLength());      // output: 6
+    std::print(word.charCount());       // output: 5
+    std::print("".byteLength());        // output: 0
+    std::print("".isEmpty());           // output: true
+    std::print(word.isEmpty());         // output: false
+    std::print("😀".byteLength());       // output: 4
+    std::print("😀".charCount());        // output: 1
 
-    print(word.startsWith("hé"));       // output: true
-    print(word.startsWith("hello"));    // output: false
-    print(word.startsWith(""));         // output: true
-    print(word.endsWith("llo"));        // output: true
-    print(word.endsWith("héllo!"));     // output: false
-    print(word.contains("éll"));        // output: true
-    print(word.contains("x"));          // output: false
-    print("".contains(""));             // output: true
+    std::print(word.startsWith("hé"));  // output: true
+    std::print(word.startsWith("hello")); // output: false
+    std::print(word.startsWith(""));    // output: true
+    std::print(word.endsWith("llo"));   // output: true
+    std::print(word.endsWith("héllo!")); // output: false
+    std::print(word.contains("éll"));   // output: true
+    std::print(word.contains("x"));     // output: false
+    std::print("".contains(""));        // output: true
 
-    print(word.indexOf("l"));           // output: 3
-    print(word.indexOf("lo"));          // output: 4
-    print(word.indexOf("lx"));          // output: null
-    print(word.indexOf(""));            // output: 0
-    print("aaab".indexOf("aab"));       // output: 1
+    std::print(word.indexOf("l"));      // output: 3
+    std::print(word.indexOf("lo"));     // output: 4
+    std::print(word.indexOf("lx"));     // output: null
+    std::print(word.indexOf(""));       // output: 0
+    std::print("aaab".indexOf("aab"));  // output: 1
     if (word.indexOf("é") is int at) {
-        print(at);                      // output: 1
-        print(word.slice(at, 2));       // output: é
+        std::print(at);                 // output: 1
+        std::print(word.slice(at, 2));  // output: é
     }
 
-    print(word.slice(0, 1));            // output: h
-    print(word.slice(3, 3));            // output: llo
-    print(word.slice(0, 6) == word);    // output: true
-    print(word.slice(6, 0).isEmpty());  // output: true
+    std::print(word.slice(0, 1));       // output: h
+    std::print(word.slice(3, 3));       // output: llo
+    std::print(word.slice(0, 6) == word); // output: true
+    std::print(word.slice(6, 0).isEmpty()); // output: true
     int n = 42;
     String built = $"n = {n}!";
-    print(built.slice(4, 2));           // output: 42
-    print(built.slice(4, 2).byteLength()); // output: 2
+    std::print(built.slice(4, 2));      // output: 42
+    std::print(built.slice(4, 2).byteLength()); // output: 2
 
-    print("a".compareTo("b"));          // output: -1
-    print("b".compareTo("a"));          // output: 1
-    print("ab".compareTo("ab"));        // output: 0
-    print("ab".compareTo("abc"));       // output: -1
-    print("abc".compareTo("ab"));       // output: 1
-    print("".compareTo("a"));           // output: -1
+    std::print("a".compareTo("b"));     // output: -1
+    std::print("b".compareTo("a"));     // output: 1
+    std::print("ab".compareTo("ab"));   // output: 0
+    std::print("ab".compareTo("abc"));  // output: -1
+    std::print("abc".compareTo("ab"));  // output: 1
+    std::print("".compareTo("a"));      // output: -1
     // By code point: 'é' (U+E9) sorts after 'z' (U+7A).
-    print("é".compareTo("z"));          // output: 1
+    std::print("é".compareTo("z"));     // output: 1
 
     // Members of a field, of a nullable once checked, and of a call's result.
     var holder = new Holder();
-    print(holder.text.byteLength());    // output: 4
+    std::print(holder.text.byteLength()); // output: 4
     String? maybe = holder.text;
     if (maybe != null) {
-        print(maybe.startsWith("he"));  // output: true
+        std::print(maybe.startsWith("he")); // output: true
     }
-    print(echo("abc").byteLength());
+    std::print(echo("abc").byteLength());
     // output: abc
     // output: 3
     // Each operand is evaluated in order, though the members themselves have no effects.
-    print(echo("ab").byteLength() + echo("cde").byteLength());
+    std::print(echo("ab").byteLength() + echo("cde").byteLength());
     // output: ab
     // output: cde
     // output: 5

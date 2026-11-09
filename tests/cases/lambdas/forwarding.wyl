@@ -1,7 +1,5 @@
 // Function values passed on between template parameters and FunctionRefs, and nested lambdas.
 
-import std::print;
-
 abstract class Base {
     abstract int run(fn(int) -> int f);
 }
@@ -56,12 +54,12 @@ class Tripled extends Scaled {
 
 void main() {
     Impl impl = new Impl();
-    print(viaVirtual(impl, x -> x * 3));            // output: 9
-    print(recurse(2, x -> x + 1));                  // output: 8
-    print(nested(x -> x * 10));                     // output: 144
-    print(curried(1));                              // output: 17
+    std::print(viaVirtual(impl, x -> x * 3));       // output: 9
+    std::print(recurse(2, x -> x + 1));             // output: 8
+    std::print(nested(x -> x * 10));                // output: 144
+    std::print(curried(1));                         // output: 17
     fn(int) -> int square = x -> x * x;
-    print(twice(x -> square(x) + 1, 2));            // output: 26
-    print(viaVirtual(impl, square));                // output: 1
-    print(new Tripled(5).seed);                     // output: 10
+    std::print(twice(x -> square(x) + 1, 2));       // output: 26
+    std::print(viaVirtual(impl, square));           // output: 1
+    std::print(new Tripled(5).seed);                // output: 10
 }

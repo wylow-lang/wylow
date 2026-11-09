@@ -1,17 +1,16 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 
 unique struct Marker {
     pub int id;
 
     ~Marker() {
-        print($"marker {id}");
+        std::print($"marker {id}");
     }
 }
 
 void main() {
-    var thread = spawn(() -> Marker(9));
-    print("main");
+    var thread = threading::spawn(() -> Marker(9));
+    std::print("main");
     // output: main
     // output: marker 9
 }

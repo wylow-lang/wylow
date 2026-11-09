@@ -1,5 +1,3 @@
-import std::print;
-
 class Tag {
     mut String name;
 
@@ -8,7 +6,7 @@ class Tag {
     }
 
     ~Tag() {
-        print("tag destroyed");
+        std::print("tag destroyed");
     }
 }
 
@@ -33,7 +31,7 @@ abstract class Registry implements Greeter {
 
 class Club extends Registry {
     void greet() {
-        print("welcome");
+        std::print("welcome");
     }
 }
 
@@ -50,24 +48,24 @@ void main() {
     mut var a = Labeled(tag: new Tag("x"), count: 1);
     mut var b = a;
     b.count = 2;
-    print(a == b);                          // output: false
+    std::print(a == b);                     // output: false
     b.count = 1;
-    print(a == b);                          // output: true
+    std::print(a == b);                     // output: true
     b.tag.name = "shared";
-    print(a.tag.name);                      // output: shared
+    std::print(a.tag.name);                 // output: shared
     b.tag = new Tag("y");
-    print(a == b);                          // output: false
+    std::print(a == b);                     // output: false
     a = b;
     // output: tag destroyed
 
     var club = new Club();
     var m = new Member();
     club.add(m);                            // output: welcome
-    print(club.size);                       // output: 1
+    std::print(club.size);                  // output: 1
     m.club?.greet();                        // output: welcome
     Member? none = null;
     none?.joined(club);
     Registry? r = none?.club ?? m.club ?? club;
-    print(r == club);                       // output: true
+    std::print(r == club);                  // output: true
 }
 // output: tag destroyed

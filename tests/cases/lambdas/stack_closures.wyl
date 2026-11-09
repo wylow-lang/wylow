@@ -2,7 +2,7 @@
 // reference to it can outlive its scope, as an object made by `new` is; `stack:` counts closures
 // too. What it captures then only has to outlive the closure, so that can be on the stack as well.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 class Noisy {
     String name;
@@ -17,7 +17,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -35,13 +35,13 @@ class Greeter {
 
     // The closure captures 'this' without letting it escape.
     void greet() {
-        escaping fn() -> void say = () -> print(greeting); // stack: 1
+        escaping fn() -> void say = () -> std::print(greeting); // stack: 1
         say();
     }
 
     // The closure is stored in a field of the object it captures: a cycle.
     void remember(Keeper keeper) {
-        keeper.stored = () -> print(greeting);
+        keeper.stored = () -> std::print(greeting);
     }
 }
 
@@ -58,7 +58,7 @@ void keep(Keeper keeper, escaping fn() -> void f) {
 }
 
 fn() -> void made(Noisy n) {
-    return () -> print(n.label());
+    return () -> std::print(n.label());
 }
 
 void run(fn() -> void f) {
@@ -70,17 +70,17 @@ void run(fn() -> void f) {
 void called() {
     var n = new Noisy("captured"); // stack: 1
     escaping fn() -> String f = () -> n.label(); // stack: 1
-    print(f());
-    later(() -> print(n.label())); // stack: 1
-    later(same(() -> { print("handed back"); print(n.label()); })); // stack: 1
-    escaping (fn() -> void)? maybe = () -> { print("maybe"); print(n.label()); }; // stack: 1
+    std::print(f());
+    later(() -> std::print(n.label())); // stack: 1
+    later(same(() -> { std::print("handed back"); std::print(n.label()); })); // stack: 1
+    escaping (fn() -> void)? maybe = () -> { std::print("maybe"); std::print(n.label()); }; // stack: 1
     maybe!();
 }
 
 // A closure capturing a closure holds a copy of the function value.
 void nested() {
     var n = new Noisy("nested"); // stack: 1
-    escaping fn() -> void inner = () -> print(n.label()); // stack: 1
+    escaping fn() -> void inner = () -> std::print(n.label()); // stack: 1
     escaping fn() -> void outer = () -> inner(); // stack: 1
     outer();
 }
@@ -91,18 +91,18 @@ void ordered() {
     var first = new Noisy("declared first"); // stack: 1
     mut escaping (fn() -> void)? held = null;
     var last = new Noisy("declared last"); // stack: 0
-    held = () -> print(last.label()); // stack: 1
+    held = () -> std::print(last.label()); // stack: 1
     held!();
-    print(first.label());
+    std::print(first.label());
 }
 
 // Each closure a reassigned local holds has its own slot, ended where the local is reassigned.
 void reassigned() {
     var a = new Noisy("a"); // stack: 1
     var b = new Noisy("b"); // stack: 1
-    mut escaping fn() -> void h = () -> print(a.label()); // stack: 1
+    mut escaping fn() -> void h = () -> std::print(a.label()); // stack: 1
     h();
-    h = () -> print(b.label()); // stack: 1
+    h = () -> std::print(b.label()); // stack: 1
     h();
 }
 
@@ -117,50 +117,50 @@ T twiceCalled<T extends copyable>(T value) {
 void chosen(bool yes) {
     var a = new Noisy("chosen a"); // stack: 1
     var b = new Noisy("chosen b"); // stack: 1
-    later(yes ? () -> print(a.label()) : () -> print(b.label())); // stack: 2
+    later(yes ? () -> std::print(a.label()) : () -> std::print(b.label())); // stack: 2
 }
 
 // Each iteration has its own closure.
 void looped() {
     for (int i : 0..3) {
         escaping fn() -> int f = () -> i * 10; // stack: 1
-        print(f());
+        std::print(f());
     }
 }
 
 // The collector never sees a closure on the stack, even one capturing an object of a cyclic class.
 void collected() {
     var node = new Noisy("node"); // stack: 1
-    escaping fn() -> void f = () -> print(node.label()); // stack: 1
+    escaping fn() -> void f = () -> std::print(node.label()); // stack: 1
     f();
     memory::collectCycles();
-    print(memory::cycleStats().freed);
+    std::print(memory::cycleStats().freed);
 }
 
 // Each way a closure, or what it captures, can still be referred to after its scope.
 void escapes(Keeper keeper) {
     var n = new Noisy("escapes"); // stack: 0
     // Stored in a field, in a list, or returned.
-    keeper.stored = () -> print(n.label()); // stack: 0
+    keeper.stored = () -> std::print(n.label()); // stack: 0
     var list = new List<fn() -> void>(); // stack: 1
-    list.add(() -> print(n.label())); // stack: 0
+    list.add(() -> std::print(n.label())); // stack: 0
     escaping fn() -> void returned = made(n); // stack: 0
 
     // Given to a parameter that stores it.
     var m = new Noisy("given"); // stack: 0
-    keep(keeper, () -> print(m.label())); // stack: 0
+    keep(keeper, () -> std::print(m.label())); // stack: 0
 
     // Aliased before the local holding it is reassigned.
     var o = new Noisy("aliased"); // stack: 1
-    mut escaping fn() -> void first = () -> print(o.label()); // stack: 0
+    mut escaping fn() -> void first = () -> std::print(o.label()); // stack: 0
     escaping fn() -> void copy = first;
-    first = () -> { print("replacement"); print(o.label()); }; // stack: 1
+    first = () -> { std::print("replacement"); std::print(o.label()); }; // stack: 1
     copy();
     first();
 
     // Captured by another escaping lambda that escapes.
     var p = new Noisy("captured twice"); // stack: 0
-    escaping fn() -> void inner = () -> print(p.label()); // stack: 0
+    escaping fn() -> void inner = () -> std::print(p.label()); // stack: 0
     keeper.stored = () -> inner(); // stack: 0
 
     // A closure whose body lets what it captures escape, or returns it, when called.
@@ -173,11 +173,11 @@ void escapes(Keeper keeper) {
 
     // Held by a local that a lambda assigns, which keeps the closure alive while it is called.
     var s = new Noisy("replaced while called"); // stack: 1
-    mut escaping fn() -> void replaceable = () -> print(s.label()); // stack: 0
+    mut escaping fn() -> void replaceable = () -> std::print(s.label()); // stack: 0
     run(() -> replaceable());
-    run(() -> { replaceable = () -> print("replacement"); });
+    run(() -> { replaceable = () -> std::print("replacement"); });
     replaceable();
-    print("end of escapes");
+    std::print("end of escapes");
 }
 
 void main() {
@@ -211,7 +211,7 @@ void main() {
     // output: 10
     // output: 20
 
-    print(twiceCalled(5));
+    std::print(twiceCalled(5));
     // output: 5
     chosen(false);
     // output: chosen b

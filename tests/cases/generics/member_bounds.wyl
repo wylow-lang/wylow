@@ -1,7 +1,5 @@
 // A member's where clause bounds its type's parameter for that member alone.
 
-import std::print;
-
 struct Holder<T> {
     T value;
 
@@ -16,6 +14,6 @@ struct Holder<T> {
 
 void main() {
     var holder = Holder<int>(7);
-    print(holder.show());                // output: 7
-    print(holder.copy());                // output: 7
+    std::print(holder.show());           // output: 7
+    std::print(holder.copy());           // output: 7
 }

@@ -1,7 +1,5 @@
 // A generic class that inherits an interface implementation from its base gets a forwarder.
 
-import std::print;
-
 interface Named {
     String name();
 }
@@ -22,7 +20,7 @@ class Generic<T> extends Base {
 
 void main() {
     var g = new Generic<int>();
-    print(g.name());          // output: base
-    print(g.value);           // output: 3
-    print(g.echo(7));         // output: 7
+    std::print(g.name());     // output: base
+    std::print(g.value);      // output: 3
+    std::print(g.echo(7));    // output: 7
 }

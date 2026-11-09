@@ -1,11 +1,9 @@
 // A base constructor that takes the caller's location gets it after its computed arguments.
 
-import std::print;
-
 class Base {
     @CallerLocation
     Base(int a, int b) {
-        print($"{a} {b}");
+        std::print($"{a} {b}");
     }
 }
 
@@ -16,12 +14,12 @@ class Derived extends Base {
 }
 
 int one() {
-    print("one");
+    std::print("one");
     return 1;
 }
 
 int two() {
-    print("two");
+    std::print("two");
     return 2;
 }
 
@@ -30,5 +28,5 @@ void main() {
     // output: one
     // output: two
     // output: 1 2
-    print("made");      // output: made
+    std::print("made"); // output: made
 }

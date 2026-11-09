@@ -2,8 +2,6 @@
 // arithmetic operator converts it to its code point as an `int`, and a cast back checks that the
 // value is a Unicode scalar value (spec lexical.literals.escapes, types.primitives.char).
 
-import std::print;
-
 struct CharHolder {
     char c;
 }
@@ -13,49 +11,49 @@ void main() {
     char e = 'é';
     char zero = '\0';
 
-    print(a);                     // output: a
-    print(e);                     // output: é
-    print((int)a);                // output: 97
-    print((int)e);                // output: 233
-    print(a + 1);                 // output: 98
-    print((char)(a + 1));         // output: b
-    print(e - 'a');               // output: 136
-    print(a < 'b');               // output: true
-    print(e > 'z');               // output: true
-    print(a == 'a');              // output: true
-    print(a != 'b');              // output: true
-    print(zero == '\0');          // output: true
-    print((int)zero);             // output: 0
+    std::print(a);                // output: a
+    std::print(e);                // output: é
+    std::print((int)a);           // output: 97
+    std::print((int)e);           // output: 233
+    std::print(a + 1);            // output: 98
+    std::print((char)(a + 1));    // output: b
+    std::print(e - 'a');          // output: 136
+    std::print(a < 'b');          // output: true
+    std::print(e > 'z');          // output: true
+    std::print(a == 'a');         // output: true
+    std::print(a != 'b');         // output: true
+    std::print(zero == '\0');     // output: true
+    std::print((int)zero);        // output: 0
 
     // Escapes are code points, whatever their size.
-    print('\t' == '\u{9}');       // output: true
-    print('\n' == '\u{A}');       // output: true
-    print((int)'\r');             // output: 13
-    print((int)'\\');             // output: 92
-    print((int)'\'');             // output: 39
-    print((int)'\u{1F600}');      // output: 128512
+    std::print('\t' == '\u{9}');  // output: true
+    std::print('\n' == '\u{A}');  // output: true
+    std::print((int)'\r');        // output: 13
+    std::print((int)'\\');        // output: 92
+    std::print((int)'\'');        // output: 39
+    std::print((int)'\u{1F600}'); // output: 128512
 
-    print((char)65);              // output: A
-    print((int)(char)0x10FFFF);   // output: 1114111
-    print((long)e);               // output: 233
+    std::print((char)65);         // output: A
+    std::print((int)(char)0x10FFFF); // output: 1114111
+    std::print((long)e);          // output: 233
 
-    print($"{e}");                // output: é
-    print($"[{e,3}]");            // output: [  é]
-    print(e.toString());          // output: é
-    print(switch (e) {
+    std::print($"{e}");           // output: é
+    std::print($"[{e,3}]");       // output: [  é]
+    std::print(e.toString());     // output: é
+    std::print(switch (e) {
         case 'a' -> "a";
         case 'é' -> "acute";
         default -> "other";
     });                           // output: acute
 
     // More conversions and formatting.
-    print(e < '\u{1F600}');       // output: true
-    print((uint)e);                // output: 233
-    print((short)e);               // output: 233
-    print((char)97);               // output: a
-    print('A' + 1);                // output: 66
-    print($"{a,-3}|");             // output: a  |
+    std::print(e < '\u{1F600}');  // output: true
+    std::print((uint)e);           // output: 233
+    std::print((short)e);          // output: 233
+    std::print((char)97);          // output: a
+    std::print('A' + 1);           // output: 66
+    std::print($"{a,-3}|");        // output: a  |
 
     // A struct's default zeroes its fields, so a default char is the code point zero.
-    print((int)CharHolder().c);    // output: 0
+    std::print((int)CharHolder().c); // output: 0
 }

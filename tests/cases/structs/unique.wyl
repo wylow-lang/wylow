@@ -1,14 +1,12 @@
 // A unique struct is moved where a copyable one is copied: into a local, an argument, and back out
 // of a return. The value the source held is not released when the source goes out of scope.
 
-import std::print;
-
 class Item {
     String name;
 
     Item(String name) { this.name = name; }
 
-    ~Item() { print($"release {name}"); }
+    ~Item() { std::print($"release {name}"); }
 }
 
 unique struct Buffer {
@@ -34,18 +32,18 @@ class Box {
 
 void main() {
     var first = make("first");
-    print("made first");
+    std::print("made first");
     // output: made first
     var second = first;
-    print("moved first");
+    std::print("moved first");
     // output: moved first
     var item = take(second);
-    print(item.name);
+    std::print(item.name);
     // output: first
 
     // A class may hold a unique value; the object releases it when it is destroyed.
     var box = new Box(make("box"));
-    print("end");
+    std::print("end");
     // output: end
     // output: release box
     // output: release first

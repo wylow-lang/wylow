@@ -1,8 +1,8 @@
 // A file imports what it uses, except the types the language is built on (spec programs.imports,
 // programs.builtin-names), and a name has one meaning in a file.
 
-import std::{List, print};
-import std::print;                  // error[WYL0040]: 'print' is already imported
+import std::List;
+import std::List;                   // error[WYL0040]: 'List' is already imported
 import std::Nothing;                // error[WYL0043]: cannot find 'Nothing' in the root module of 'std'
 import nowhere::Thing;              // error[WYL0038]: cannot find top-level module or package 'nowhere'
 import std::nowhere::Thing;         // error[WYL0039]: cannot find module 'nowhere' in the root module of 'std'
@@ -26,7 +26,7 @@ void main() {
     Shared<Animal> weak = animal;
     Result<int, String> fine = Result<int, String>.Ok(1);
     Weak<Animal> unnamed = weak;    // error[WYL0063]: cannot find type 'Weak'
-    std::memory::collectCycles();    // error[WYL0046]: module 'std' is not imported here
+    std::memory::collectCycles();
     int n = nowhere::count();       // error[WYL0047]: cannot find module 'nowhere' in this scope
     var stats = cycleStats();       // error[WYL0281]: cannot find function 'cycleStats' in this scope
     unsafe {

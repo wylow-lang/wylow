@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Vec3 implements Printable {
     float x;
@@ -68,68 +68,68 @@ void main() {
     // Primitives are written as print writes them.
     byte b = 255;
     long big = -9000000000L;
-    print($"{1} {b} {big} {2u} {1.5f} {3.0f} {0.1d} {true} {'x'} {'é'}");  // output: 1 255 -9000000000 2 1.5 3.0 0.1 true x é
-    print($"{"inner"} and {$"nested {1 + 1}"}");                        // output: inner and nested 2
+    std::print($"{1} {b} {big} {2u} {1.5f} {3.0f} {0.1d} {true} {'x'} {'é'}"); // output: 1 255 -9000000000 2 1.5 3.0 0.1 true x é
+    std::print($"{"inner"} and {$"nested {1 + 1}"}");                   // output: inner and nested 2
 
     // Braces, escapes, and empty texts.
-    print($"{{literal}} \"quoted\" {1}{2}");                            // output: {literal} "quoted" 12
-    print($"no holes {{}}");                                             // output: no holes {}
-    print($"");                                                          // output:
+    std::print($"{{literal}} \"quoted\" {1}{2}");                       // output: {literal} "quoted" 12
+    std::print($"no holes {{}}");                                        // output: no holes {}
+    std::print($"");                                                     // output:
 
     // Nullable values are written as their value or null.
     int? none = null;
     int? some = 4;
     String? noText = null;
-    print($"{none} {some} {noText}");                                    // output: null 4 null
+    std::print($"{none} {some} {noText}");                               // output: null 4 null
 
     // A Printable value is written by its toString(): structs, classes (dispatched), enums, interfaces, and type parameters.
     var v = Vec3(1, 2.5f, -3);
-    print($"at {v}");                                                    // output: at (1.0, 2.5, -3.0)
+    std::print($"at {v}");                                               // output: at (1.0, 2.5, -3.0)
     Animal pet = new Dog("Rex");
-    print($"{pet} and {new Animal("Tom")}");                             // output: dog Rex and animal Tom
+    std::print($"{pet} and {new Animal("Tom")}");                        // output: dog Rex and animal Tom
     Named named = pet;
-    print($"{named}");                                                   // output: dog Rex
-    print(describe(pet));                                                // output: <dog Rex> dog Rex
-    print(describe(v));                                                  // output: <(1.0, 2.5, -3.0)> (1.0, 2.5, -3.0)
+    std::print($"{named}");                                              // output: dog Rex
+    std::print(describe(pet));                                           // output: <dog Rex> dog Rex
+    std::print(describe(v));                                             // output: <(1.0, 2.5, -3.0)> (1.0, 2.5, -3.0)
     // The primitives, String, and their methods outside generic code implement Printable in the standard library.
-    print(describe(42));                                                 // output: <42> 42
-    print(describe(-0.5d));                                              // output: <-0.5> -0.5
-    print(describe('é'));                                                // output: <é> é
-    print(describe(false));                                              // output: <false> false
-    print(describe("text"));                                             // output: <text> text
-    print($"{7.toString()} {"same".toString()}");                       // output: 7 same
-    print($"{Shape.Circle(2)}, {Shape.Square(1.5f)}");                    // output: circle of radius 2.0, square of side 1.5
+    std::print(describe(42));                                            // output: <42> 42
+    std::print(describe(-0.5d));                                         // output: <-0.5> -0.5
+    std::print(describe('é'));                                           // output: <é> é
+    std::print(describe(false));                                         // output: <false> false
+    std::print(describe("text"));                                        // output: <text> text
+    std::print($"{7.toString()} {"same".toString()}");                  // output: 7 same
+    std::print($"{Shape.Circle(2)}, {Shape.Square(1.5f)}");               // output: circle of radius 2.0, square of side 1.5
     Vec3? noVec = null;
     Vec3? someVec = Vec3(0, 0, 0);
     Animal? noAnimal = null;
-    print($"{noVec} {someVec} {noAnimal}");                              // output: null (0.0, 0.0, 0.0) null
+    std::print($"{noVec} {someVec} {noAnimal}");                         // output: null (0.0, 0.0, 0.0) null
 
     // Primitives and String have toString() too, formatted the same way.
-    print(5.toString());                                                 // output: 5
+    std::print(5.toString());                                            // output: 5
     double ratio = 0.25d;
     char letter = 'q';
-    print($"{(-7).toString()} {ratio.toString()} {2.0.toString()} {false.toString()} {letter.toString()} {"same".toString()}"); // output: -7 0.25 2.0 false q same
-    print(some?.toString());                                             // output: 4
-    print(none?.toString());                                             // output: null
+    std::print($"{(-7).toString()} {ratio.toString()} {2.0.toString()} {false.toString()} {letter.toString()} {"same".toString()}"); // output: -7 0.25 2.0 false q same
+    std::print(some?.toString());                                        // output: 4
+    std::print(none?.toString());                                        // output: null
 
     // Format specifiers and alignment, as in C#.
     int n = 42;
-    print($"{n:D5} {-n:D5} {255:X} {255:x4} {5:B8} {-1:X} {4294967295u:X} {b:X}"); // output: 00042 -00042 FF 00ff 00000101 FFFFFFFF FFFFFFFF FF
+    std::print($"{n:D5} {-n:D5} {255:X} {255:x4} {5:B8} {-1:X} {4294967295u:X} {b:X}"); // output: 00042 -00042 FF 00ff 00000101 FFFFFFFF FFFFFFFF FF
     float pi = 3.14159f;
-    print($"{pi:F2} {1234.5678d:F1} {0.1f:F} {pi:F0} {1500.0f:E2} {1500.0d:e} {0.00012f:E1}"); // output: 3.14 1234.6 0.10 3 1.50E+003 1.500000e+003 1.2E-004
-    print($"[{n,5}] [{n,-5}] [{"é",3}] [{pi,8:F3}] [{n,1}]");             // output: [   42] [42   ] [  é] [   3.142] [42]
-    print($"[{v,20}] [{none,6:D2}] [{some,-4:D2}] [{noVec,5}]");          // output: [    (1.0, 2.5, -3.0)] [  null] [04  ] [ null]
-    print($"[{Pair<int, int>(7, 8).first,3}]");                          // output: [  7]
+    std::print($"{pi:F2} {1234.5678d:F1} {0.1f:F} {pi:F0} {1500.0f:E2} {1500.0d:e} {0.00012f:E1}"); // output: 3.14 1234.6 0.10 3 1.50E+003 1.500000e+003 1.2E-004
+    std::print($"[{n,5}] [{n,-5}] [{"é",3}] [{pi,8:F3}] [{n,1}]");        // output: [   42] [42   ] [  é] [   3.142] [42]
+    std::print($"[{v,20}] [{none,6:D2}] [{some,-4:D2}] [{noVec,5}]");     // output: [    (1.0, 2.5, -3.0)] [  null] [04  ] [ null]
+    std::print($"[{Pair<int, int>(7, 8).first,3}]");                     // output: [  7]
     String padded = $"{n,4}";
-    print(padded);                                                       // output:   42
+    std::print(padded);                                                  // output:   42
 
     // A conditional must be parenthesized.
     int total = 30;
-    print($"total is {(total > 50 ? "high" : "low")}");                         // output: total is low
+    std::print($"total is {(total > 50 ? "high" : "low")}");                    // output: total is low
 
     // Parts are evaluated left to right, once each.
     var counter = new Counter();
-    print($"{counter.next()} {counter.next()} {counter.count} {counter.next()}"); // output: 1 2 2 3
+    std::print($"{counter.next()} {counter.next()} {counter.count} {counter.next()}"); // output: 1 2 2 3
 
     // Built strings outlive what made them, and copies share them.
     var labels = new List<String>();
@@ -138,11 +138,11 @@ void main() {
     }
     String first = labels[0];
     labels.clear();
-    print(first);                                                        // output: item 0
+    std::print(first);                                                   // output: item 0
     mut var message = Message.Text($"hello {first}");
     var copy = message;
     message = Message.Empty;
     if (copy is Text(var text)) {
-        print(text);                                                     // output: hello item 0
+        std::print(text);                                                // output: hello item 0
     }
 }

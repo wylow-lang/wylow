@@ -106,7 +106,7 @@ static partial class SpecExampleSelfTests
         var text = string.Join('\n', lines.Select(Elide));
         var used = string.Join('\n', lines);
         // On the first line, so a line of the program is a line of the block.
-        var head = ImportPattern().IsMatch(text) ? "" : "import std::{List, memory, panic, print}; ";
+        var head = ImportPattern().IsMatch(text) ? "" : "import std::{List, memory, panic}; ";
         var source = head + (statements ? "void main() { " : "") + text + (statements ? "\n}" : "");
         if (!statements && !MainPattern().IsMatch(text))
             source += "\nvoid main() { }";
@@ -125,5 +125,5 @@ static partial class SpecExampleSelfTests
 
     /// <summary>Code left out (introduction.notation.examples): a type with no members, or a body that can't be reached past.</summary>
     static string Elide(string line) =>
-        ElidedTypePattern().Replace(line, "$1$2{ }").Replace("...", "panic(\"\");");
+        ElidedTypePattern().Replace(line, "$1$2{ }").Replace("...", "std::panic(\"\");");
 }

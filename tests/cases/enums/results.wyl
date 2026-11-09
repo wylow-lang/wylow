@@ -1,5 +1,3 @@
-import std::print;
-
 enum ParseError {
     Empty,
     BadDigit(int position),
@@ -45,12 +43,12 @@ class Counter {
 
 void report(Result<int, ParseError> result) {
     switch (result) {
-        case Ok(var value) -> print(value);
+        case Ok(var value) -> std::print(value);
         case Err(ParseError.BadDigit(var position)) -> {
-            print("bad digit at");
-            print(position);
+            std::print("bad digit at");
+            std::print(position);
         }
-        case Err(var error) -> print(error == ParseError.Empty ? "empty" : "other");
+        case Err(var error) -> std::print(error == ParseError.Empty ? "empty" : "other");
     }
 }
 
@@ -59,13 +57,13 @@ void main() {
     report(parse(49, 120, -1));                 // output: bad digit at
                                                 // output: 1
     report(parse(-1, -1, -1));                  // output: empty
-    print(doubled(52, 50).orElse(0));           // output: 84
-    print(doubled(52, 0) is Err);              // output: true
-    print(parse(55, -1, -1) is Ok);            // output: true
+    std::print(doubled(52, 50).orElse(0));      // output: 84
+    std::print(doubled(52, 0) is Err);         // output: true
+    std::print(parse(55, -1, -1) is Ok);       // output: true
 
     var counter = new Counter();
     _ = counter.add(55);
-    print(counter.total);                       // output: 7
+    std::print(counter.total);                  // output: 7
     _ = counter.add(1);
-    print(counter.total);                       // output: 7
+    std::print(counter.total);                  // output: 7
 }

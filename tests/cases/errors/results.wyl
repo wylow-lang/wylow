@@ -1,5 +1,3 @@
-import std::print;
-
 enum IoError { Missing }
 enum ParseError { Bad }
 
@@ -37,7 +35,7 @@ Result<int, IoError> uses() {
     read();                             // error[WYL0421]: 'Result' returned by 'read' is not used
     _ = read();
     _ = 1 + 2;
-    _ = print(1);                       // error[WYL0344]: '_ =' has no value to discard
+    _ = std::print(1);                  // error[WYL0344]: '_ =' has no value to discard
     try read();
     int b = try 5;                      // error[WYL0332]: operand of 'try': expected a 'Result', found 'int'
     int c = 1 + try 5;                  // error[WYL0332]: operand of 'try': expected a 'Result', found 'int'
@@ -55,9 +53,9 @@ T unwrap<T>(Result<T, IoError> r) { return r.orPanic("none"); }
 void arguments() {
     store(Ok(1));                       // error[WYL0281]: cannot find function 'Ok' in this scope
     store(Result.Ok(1));                // error[WYL0160]: cannot infer type argument 'E' of 'Result' from 'Ok'
-    print(unwrap(Result.Ok(1)));        // error[WYL0160]: cannot infer type argument 'E' of 'Result' from 'Ok'
+    std::print(unwrap(Result.Ok(1)));   // error[WYL0160]: cannot infer type argument 'E' of 'Result' from 'Ok'
     store(Result<int, IoError>.Ok(1));
-    print(unwrap(Result<int, IoError>.Ok(2)));
+    std::print(unwrap(Result<int, IoError>.Ok(2)));
 }
 
 void main() { }

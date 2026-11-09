@@ -1,7 +1,7 @@
 // A lambda may assign the locals it captures during any call it is passed to. Each case here
 // would read freed memory or the wrong value if the compiler assumed a call can't change a local.
 
-import std::{List, print};
+import std::List;
 
 class Box {
     mut int value;
@@ -16,7 +16,7 @@ class Box {
     }
 
     ~Box() {
-        print("box freed");
+        std::print("box freed");
     }
 }
 
@@ -32,7 +32,7 @@ class Account {
     }
 
     ~Account() {
-        print("account freed");
+        std::print("account freed");
     }
 }
 
@@ -47,7 +47,7 @@ int add(int a, int b) {
 void main() {
     // The receiver is held while the argument's lambda replaces it, until the statement completes.
     mut Box box = new Box(1);
-    print(box.add(run(() -> {
+    std::print(box.add(run(() -> {
         box = new Box(100);
         return 5;
     })));
@@ -56,7 +56,7 @@ void main() {
 
     // So is one in a field the lambda replaces.
     Crate crate = new Crate();
-    print(crate.box.add(run(() -> {
+    std::print(crate.box.add(run(() -> {
         crate.box = new Box(200);
         return 3;
     })));
@@ -65,7 +65,7 @@ void main() {
 
     // Operands are evaluated left to right, though the lambda changes `x`.
     mut int x = 1;
-    print(add(x, run(() -> {
+    std::print(add(x, run(() -> {
         x = 10;
         return 0;
     })));
@@ -80,13 +80,13 @@ void main() {
     };
     for (Account e : accounts) {
         replace();
-        print(e.total);
+        std::print(e.total);
     }
     // output: 1
     // output: account freed
     // output: account freed
     // output: 2
-    print(accounts[0].total);
+    std::print(accounts[0].total);
     // output: 99
 }
 // output: account freed

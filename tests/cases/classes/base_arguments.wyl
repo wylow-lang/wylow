@@ -1,8 +1,6 @@
 // Each argument of super(...) is a statement of its own: its temporaries are released before the
 // next argument, and the arguments are evaluated left to right on every compiler.
 
-import std::print;
-
 class Probe {
     String name;
     int value;
@@ -10,16 +8,16 @@ class Probe {
     Probe(String name, int value) {
         this.name = name;
         this.value = value;
-        print($"make {name}");
+        std::print($"make {name}");
     }
 
     ~Probe() {
-        print($"release {name}");
+        std::print($"release {name}");
     }
 }
 
 int trace(String s, int value) {
-    print(s);
+    std::print(s);
     return value;
 }
 
@@ -27,7 +25,7 @@ class Pair {
     int first = trace("pair field", 0);
 
     Pair(int a, int b) {
-        print($"pair body {a} {b}");
+        std::print($"pair body {a} {b}");
     }
 }
 
@@ -36,7 +34,7 @@ class Pair {
 class Probed extends Pair {
     Probed() {
         super(new Probe("first", 1).value, new Probe("second", 2).value);
-        print("probed body");
+        std::print("probed body");
     }
 
     Probed(int n) {
@@ -48,7 +46,7 @@ class Keeper {
     int after = trace("keeper field", 0);
 
     Keeper(Probe a, Probe b) {
-        print($"keeper body {a.value} {b.value}");
+        std::print($"keeper body {a.value} {b.value}");
     }
 }
 

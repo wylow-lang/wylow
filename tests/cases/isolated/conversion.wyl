@@ -2,7 +2,6 @@
 // type, and a box dropped without take releases its graph on the current thread.
 
 import std::threading::Isolated;
-import std::print;
 
 struct Point {
     pub int x;
@@ -16,7 +15,7 @@ class Node {
         this.value = value;
     }
 
-    ~Node() { print($"node {value}"); }
+    ~Node() { std::print($"node {value}"); }
 }
 
 class Graph {
@@ -34,36 +33,36 @@ class Graph {
 void main() {
     var point = Point(1, 2);
     mut Isolated<Point> box = point;
-    print(point.x);
+    std::print(point.x);
     // output: 1
-    print(box.open(p -> p.x + p.y));
+    std::print(box.open(p -> p.x + p.y));
     // output: 3
-    print(box.open(p -> { p.x = 10; return p.x; }));
+    std::print(box.open(p -> { p.x = 10; return p.x; }));
     // output: 10
     var taken = box.take();
-    print(taken.x);
+    std::print(taken.x);
     // output: 10
 
     var name = "alpha";
     mut Isolated<String> text = name;
-    print(name);
+    std::print(name);
     // output: alpha
-    print(text.open(s -> s.byteLength()));
+    std::print(text.open(s -> s.byteLength()));
     // output: 5
     var released = text.take();
-    print(released);
+    std::print(released);
     // output: alpha
 
     mut Isolated<String?> nothing = null;
-    print(nothing.open(s -> s == null));
+    std::print(nothing.open(s -> s == null));
     // output: true
     mut Isolated<long> wide = 5;
-    print(wide.open(n -> n * 2));
+    std::print(wide.open(n -> n * 2));
     // output: 10
 
     {
         mut Isolated<Graph> dropped = Isolated<Graph>(() -> new Graph(7));
-        print(dropped.open(g -> g.value()));
+        std::print(dropped.open(g -> g.value()));
     }
     // output: 7
     // output: node 7

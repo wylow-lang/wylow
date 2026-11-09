@@ -1,5 +1,3 @@
-import std::print;
-
 extern struct String { }            // error[WYL0057]: 'String' cannot be declared
 
 @Pure                               // error[WYL0432]: '@Pure' can only be used on extern functions of the standard library
@@ -14,11 +12,11 @@ String? maybe() {
 void main() {
     String s = "abc";
     s.missing();                    // error[WYL0300]: cannot find method 'missing' in 'String'
-    print(s.size);                  // error[WYL0296]: cannot find member 'size' in 'String'
-    print(s.charCount);             // error[WYL0298]: method 'String.charCount' is used as a field
-    print(s.slice(1));              // error[WYL0233]: no overload of 'String.slice' takes 1 argument
-    print(s.indexOf(5));            // error[WYL0236]: no overload of 'String.indexOf' accepts (int)
+    std::print(s.size);             // error[WYL0296]: cannot find member 'size' in 'String'
+    std::print(s.charCount);        // error[WYL0298]: method 'String.charCount' is used as a field
+    std::print(s.slice(1));         // error[WYL0233]: no overload of 'String.slice' takes 1 argument
+    std::print(s.indexOf(5));       // error[WYL0236]: no overload of 'String.indexOf' accepts (int)
     int at = s.indexOf("b");        // error[WYL0079]: expected 'int', found 'int?'
-    print(String.byteLength);       // error[WYL0281]: cannot find 'String' in this scope
-    print(maybe().byteLength);      // error[WYL0065]: 'maybe()' might be null
+    std::print(String.byteLength);  // error[WYL0281]: cannot find 'String' in this scope
+    std::print(maybe().byteLength); // error[WYL0065]: 'maybe()' might be null
 }

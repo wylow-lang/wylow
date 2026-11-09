@@ -1,7 +1,5 @@
 // A by-value receiver is moved from its local, as a by-value argument is.
 
-import std::print;
-
 unique struct Buffer {
     pub int length;
 
@@ -23,18 +21,18 @@ unique enum Maybe {
 }
 
 void moved(Buffer buffer) {
-    print(buffer.measure());
-    print(buffer.length);           // error[WYL0440]: 'buffer' is used after being moved
+    std::print(buffer.measure());
+    std::print(buffer.length);      // error[WYL0440]: 'buffer' is used after being moved
 }
 
 void twice(Maybe maybe) {
-    print(maybe.lengthOr(0));
-    print(maybe.lengthOr(1));       // error[WYL0440]: 'maybe' is used after being moved
+    std::print(maybe.lengthOr(0));
+    std::print(maybe.lengthOr(1));  // error[WYL0440]: 'maybe' is used after being moved
 }
 
 void conditional(Maybe? maybe) {
-    print(maybe?.lengthOr(0) ?? -1);
-    print(maybe!.lengthOr(1));      // error[WYL0440]: 'maybe' is used after being moved
+    std::print(maybe?.lengthOr(0) ?? -1);
+    std::print(maybe!.lengthOr(1)); // error[WYL0440]: 'maybe' is used after being moved
 }
 
 void main() {

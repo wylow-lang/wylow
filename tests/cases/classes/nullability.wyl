@@ -1,5 +1,3 @@
-import std::print;
-
 class Node {
     int value;
     mut Node? next;
@@ -25,7 +23,7 @@ class Dog extends Animal {
     }
 
     void fetch() {
-        print("fetching");
+        std::print("fetching");
     }
 }
 
@@ -50,45 +48,45 @@ void main() {
     var head = new Node(1);
     head.next = new Node(2);
     head.next!.next = new Node(3);
-    print(sum(head));                       // output: 6
-    print(sum(null));                       // output: 0
-    print(valueOrZero(head.next));          // output: 2
-    print(valueOrZero(head.next?.next?.next));  // output: 0
+    std::print(sum(head));                  // output: 6
+    std::print(sum(null));                  // output: 0
+    std::print(valueOrZero(head.next));     // output: 2
+    std::print(valueOrZero(head.next?.next?.next)); // output: 0
 
     // `?.` gives null when the receiver is null, and skips the call.
     Node? missing = null;
-    print(missing?.after() == null);        // output: true
+    std::print(missing?.after() == null);   // output: true
     missing?.after();
-    print(head.after()?.next == null);      // output: false
+    std::print(head.after()?.next == null); // output: false
 
     // `??` falls back when the left side is null.
     Node fallback = missing ?? head;
-    print(fallback.value);                  // output: 1
-    print((head.next ?? head).value);       // output: 2
+    std::print(fallback.value);             // output: 1
+    std::print((head.next ?? head).value);  // output: 2
 
     // `is` tests, downcasts, and binds a strong reference.
     Animal a = new Dog();
-    print(a.sound());                       // output: woof
+    std::print(a.sound());                  // output: woof
     if (a is Dog d) {
         d.fetch();                          // output: fetching
     }
-    print(a is Dog);                        // output: true
+    std::print(a is Dog);                   // output: true
     Animal plain = new Animal();
     if (plain is Dog d2) {
         d2.fetch();
     } else {
-        print("not a dog");                 // output: not a dog
+        std::print("not a dog");            // output: not a dog
     }
 
     // Narrowing with && and on the else branch.
     Node? maybe = head.next;
     if (maybe != null && maybe.value == 2) {
-        print("two");                       // output: two
+        std::print("two");                  // output: two
     }
     if (maybe == null) {
-        print("none");
+        std::print("none");
     } else {
-        print(maybe.value);                 // output: 2
+        std::print(maybe.value);            // output: 2
     }
-    print(maybe != null ? maybe.value : -1);    // output: 2
+    std::print(maybe != null ? maybe.value : -1); // output: 2
 }

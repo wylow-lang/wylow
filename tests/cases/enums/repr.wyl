@@ -1,5 +1,3 @@
-import std::print;
-
 @Repr(byte)
 enum Small {
     A = 1,
@@ -26,17 +24,17 @@ enum Format {
 }
 
 void main() {
-    print((int)Small.B);              // output: 255
-    print((byte)Small.A);             // output: 1
-    print((int)Signed.Low);           // output: -128
-    print((ulong)Wide.High);          // output: 9223372036854775808
-    print((ulong)Wide.Top);           // output: 9223372036854775809
+    std::print((int)Small.B);         // output: 255
+    std::print((byte)Small.A);        // output: 1
+    std::print((int)Signed.Low);      // output: -128
+    std::print((ulong)Wide.High);     // output: 9223372036854775808
+    std::print((ulong)Wide.Top);      // output: 9223372036854775809
     ulong code = 9223372036854775808uL;
-    print((Wide)code == Wide.High);   // output: true
+    std::print((Wide)code == Wide.High); // output: true
     uint rgba = 4000000000u;
-    print((Format)rgba == Format.Rgba); // output: true
+    std::print((Format)rgba == Format.Rgba); // output: true
     byte small = 255;
-    print((Small)small == Small.B);   // output: true
+    std::print((Small)small == Small.B); // output: true
     long negative = -128L;
-    print((Signed)negative == Signed.Low); // output: true
+    std::print((Signed)negative == Signed.Low); // output: true
 }

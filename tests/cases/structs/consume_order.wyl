@@ -1,7 +1,5 @@
 // A failing try releases the statement's temporaries before the function's locals.
 
-import std::print;
-
 class Item {
     String name;
 
@@ -10,7 +8,7 @@ class Item {
     }
 
     ~Item() {
-        print($"release {name}");
+        std::print($"release {name}");
     }
 }
 
@@ -23,7 +21,7 @@ Result<int, String> parse(String text) {
 }
 
 int consume(Buffer buffer, int value) {
-    print($"consume {buffer.item.name}");
+    std::print($"consume {buffer.item.name}");
     return value;
 }
 
@@ -33,7 +31,7 @@ Result<int, String> run() {
 }
 
 void main() {
-    print(run() is Err);             // output: release temporary
+    std::print(run() is Err);        // output: release temporary
                                      // output: release local
                                      // output: true
 }

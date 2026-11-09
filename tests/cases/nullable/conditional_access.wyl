@@ -1,7 +1,7 @@
 // `?.` and `!` in functions of their own, without objects on the stack. Tokens print their name
 // when freed.
 
-import std::{List, print};
+import std::List;
 
 struct Vec {
     int x;
@@ -38,11 +38,11 @@ class Token {
     }
 
     void poke() {
-        print($"poke {name}");
+        std::print($"poke {name}");
     }
 
     ~Token() {
-        print($"free {name}");
+        std::print($"free {name}");
     }
 }
 
@@ -56,30 +56,30 @@ Token? maybe(bool present, String name) {
 
 // A nullable value's member is reached in a copy of it.
 void values(Vec? v) {
-    print(v?.sum());
-    print(v?.x);
-    print(v!.y);
+    std::print(v?.sum());
+    std::print(v?.x);
+    std::print(v!.y);
 }
 
 // A null receiver skips the member, and its arguments.
 void objects(Token? t) {
-    print(t?.name);
-    print(t?.next?.name);
+    std::print(t?.name);
+    std::print(t?.next?.name);
     t?.poke();
     t?.named(t!.name)?.poke();
 }
 
 // The member's temporaries are released when it completes; the receiver's, when the statement does.
 void temporaries() {
-    print(maybe(true, "receiver")?.greet(token("argument")));
+    std::print(maybe(true, "receiver")?.greet(token("argument")));
 }
 
 // Through a reference, the member is reached in the place itself, so a method changes it.
 void references(List<Vec> list) {
     list.get(0)?.move(10);
     list.get(5)?.move(10);
-    print(list.get(0)?.x);
-    print(list.get(5)?.x);
+    std::print(list.get(0)?.x);
+    std::print(list.get(5)?.x);
 }
 
 void main() {

@@ -1,7 +1,7 @@
 // A lambda that returns nothing gives a generic result type Unit, and a lambda converted to a
 // function type that returns Unit may leave its return out.
 
-import std::{Unit, print};
+import std::Unit;
 
 T run<T>(fn() -> T f) {
     return f();
@@ -12,22 +12,22 @@ R apply<R>(int value, fn(int) -> R f) {
 }
 
 void say(String text) {
-    print(text);
+    std::print(text);
 }
 
 void main() {
-    Unit a = run(() -> { print("block"); });            // output: block
+    Unit a = run(() -> { std::print("block"); });       // output: block
     Unit b = run(() -> say("expression"));              // output: expression
     run(() -> {
         if (true) {
-            print("early");                             // output: early
+            std::print("early");                        // output: early
             return;
         }
-        print("not reached");
+        std::print("not reached");
     });
-    apply(4, n -> print(n));                            // output: 4
+    apply(4, n -> std::print(n));                       // output: 4
     int c = run(() -> 7);
-    print(c);                                           // output: 7
+    std::print(c);                                      // output: 7
 
     fn() -> Unit typed = () -> say("typed");
     typed();                                            // output: typed
@@ -35,7 +35,7 @@ void main() {
         if (n > 1) {
             return;
         }
-        print(n);
+        std::print(n);
     };
     block(1);                                           // output: 1
     block(2);

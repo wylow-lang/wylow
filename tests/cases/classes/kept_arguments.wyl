@@ -2,8 +2,6 @@
 // where the call replaces the place it was copied from (spec memory.release). A local and an element are released at the same point, and a conditional's copy
 // of a place is itself a copy the statement keeps.
 
-import std::print;
-
 class C {
     String name;
 
@@ -12,7 +10,7 @@ class C {
     }
 
     ~C() {
-        print($"destroyed {name}");
+        std::print($"destroyed {name}");
     }
 }
 
@@ -22,12 +20,12 @@ struct S {
 
 int f(S a, ref S b) {
     b = S(new C("second"));
-    print("f returns");
+    std::print("f returns");
     return 1;
 }
 
 int g() {
-    print("g runs");
+    std::print("g runs");
     return 1;
 }
 
@@ -47,7 +45,7 @@ void main() {
     // output: f returns
     // output: g runs
     // output: destroyed fourth
-    print(n + m + k);
+    std::print(n + m + k);
     // output: 6
     // output: destroyed second
     // output: destroyed second

@@ -1,13 +1,13 @@
 // A function that returns Unit may leave its return out: `return;` and the end of the body both
 // return Unit().
 
-import std::{Unit, print};
+import std::Unit;
 
 Unit log(String text) {
     if (text == "") {
         return;
     }
-    print(text);
+    std::print(text);
 }
 
 Unit explicit() {
@@ -30,5 +30,5 @@ void main() {
     var counter = new Counter();
     counter.add(2);
     counter.add(3);
-    print(counter.count);               // output: 5
+    std::print(counter.count);          // output: 5
 }

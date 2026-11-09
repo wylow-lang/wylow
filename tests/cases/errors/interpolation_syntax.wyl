@@ -1,17 +1,15 @@
-import std::print;
-
 void main() {
     int x = 1;
     bool c = true;
-    print($"a } b");          // error[WYL0017]: '}' in an interpolated string is not doubled
-    print($"{c ? 1 : 2}");    // error[WYL0018]: conditional expression in an interpolated string is not parenthesized
-    print($"{x:5");           // error[WYL0435]: '{' in an interpolated string is not closed
-    print($"{}");             // error[WYL0001]: expected an expression
-    print($"{x x}");          // error[WYL0001]: expected '}' to end the interpolated value
-    print($"{x,}");           // error[WYL0001]: expected an integer alignment, as in '{value,8}'
-    print($"{x,1.5}");        // error[WYL0001]: expected an integer alignment, as in '{value,8}'
-    print($"{x,-}");          // error[WYL0001]: expected an integer alignment, as in '{value,8}'
-    print($"{x,9999999999}"); // error[WYL0337]: alignment is too large
-    print($"{x,2 3}");        // error[WYL0001]: expected '}' to end the interpolated value
-    print("\{x}");            // error[WYL0014]: '\{' is not an escape sequence
+    std::print($"a } b");     // error[WYL0017]: '}' in an interpolated string is not doubled
+    std::print($"{c ? 1 : 2}"); // error[WYL0018]: conditional expression in an interpolated string is not parenthesized
+    std::print($"{x:5");      // error[WYL0435]: '{' in an interpolated string is not closed
+    std::print($"{}");        // error[WYL0001]: expected an expression
+    std::print($"{x x}");     // error[WYL0001]: expected '}' to end the interpolated value
+    std::print($"{x,}");      // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    std::print($"{x,1.5}");   // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    std::print($"{x,-}");     // error[WYL0001]: expected an integer alignment, as in '{value,8}'
+    std::print($"{x,9999999999}"); // error[WYL0337]: alignment is too large
+    std::print($"{x,2 3}");   // error[WYL0001]: expected '}' to end the interpolated value
+    std::print("\{x}");       // error[WYL0014]: '\{' is not an escape sequence
 }

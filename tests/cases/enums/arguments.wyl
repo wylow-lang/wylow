@@ -1,6 +1,6 @@
 // A call argument expects its parameter's type, so variants can leave out their enum.
 
-import std::{List, print};
+import std::List;
 
 enum Direction {
     North, East, South, West;
@@ -45,27 +45,27 @@ class FailedJob extends Job {
 
 void describe(Result<int, String> result) {
     switch (result) {
-        case Ok(var value) -> print(value);
-        case Err(var error) -> print(error);
+        case Ok(var value) -> std::print(value);
+        case Err(var error) -> std::print(error);
     }
 }
 
 void run(Command command) {
     switch (command) {
-        case Draw(Circle(var r)) -> print(r);
-        case Draw(Square(var s)) -> print(s * s);
-        case Turn(var d) -> print((int)d);
-        case Stop -> print("stop");
+        case Draw(Circle(var r)) -> std::print(r);
+        case Draw(Square(var s)) -> std::print(s * s);
+        case Turn(var d) -> std::print((int)d);
+        case Stop -> std::print("stop");
     }
 }
 
 // Overloads that differ elsewhere still agree on the first parameter.
 void face(Direction d) {
-    print((int)d);
+    std::print((int)d);
 }
 
 void face(Direction d, int steps) {
-    print((int)d * steps);
+    std::print((int)d * steps);
 }
 
 Result<Result<int, String>, String> nested(int x) {
@@ -82,28 +82,28 @@ void main() {
     face(East);                                 // output: 1
     face(South, 2);                             // output: 4
 
-    print(Order(Ok(5)).amount.orElse(0));       // output: 5
+    std::print(Order(Ok(5)).amount.orElse(0));  // output: 5
     var job = new Job(Err("pending"));
     job.retry(Ok(7));
-    print(job.outcome.orElse(0));               // output: 7
+    std::print(job.outcome.orElse(0));          // output: 7
     Job? maybe = job;
     maybe?.retry(Err("again"));
-    print(job.outcome is Err);                 // output: true
-    print(new FailedJob().outcome is Err);     // output: true
+    std::print(job.outcome is Err);            // output: true
+    std::print(new FailedJob().outcome is Err); // output: true
 
     // The receiver's type arguments give the parameter its type.
     var results = new List<Result<int, String>>();
     results.add(Ok(3));
     results.add(Err("x"));
-    print(results[0].orElse(0) + results.count()); // output: 5
+    std::print(results[0].orElse(0) + results.count()); // output: 5
 
     switch (nested(4)) {
-        case Ok(Ok(var v)) -> print(v);         // output: 4
-        case Ok(Err(_)) -> print("inner");
-        case Err(var e) -> print(e);
+        case Ok(Ok(var v)) -> std::print(v);    // output: 4
+        case Ok(Err(_)) -> std::print("inner");
+        case Err(var e) -> std::print(e);
     }
 
     // A local of the same name still takes precedence.
     int East = 10;
-    print(East);                                // output: 10
+    std::print(East);                           // output: 10
 }

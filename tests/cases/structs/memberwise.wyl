@@ -1,5 +1,3 @@
-import std::print;
-
 struct Vec2 {
     float x, y;
 }
@@ -43,7 +41,7 @@ struct Account {
 }
 
 int announce(int value) {
-    print($"init {value}");
+    std::print($"init {value}");
     return value;
 }
 
@@ -53,12 +51,12 @@ struct Counted {
 }
 
 float next(float value) {
-    print(value);
+    std::print(value);
     return value;
 }
 
 String shout(String text) {
-    print(text);
+    std::print(text);
     return text;
 }
 
@@ -68,54 +66,54 @@ Pair<T, int> withFirst<T>(T x) {
 
 void main() {
     var v = Vec2(1, 2);
-    print(v.x);                       // output: 1.0
-    print(v.y);                       // output: 2.0
-    print(Vec2() == Vec2(0, 0));      // output: true
+    std::print(v.x);                  // output: 1.0
+    std::print(v.y);                  // output: 2.0
+    std::print(Vec2() == Vec2(0, 0)); // output: true
 
     var t = Transform(Vec2(3, 4), 2);
-    print(t.position.y);              // output: 4.0
-    print(t.scale);                   // output: 2.0
-    print(Transform().scale);         // output: 1.0
+    std::print(t.position.y);         // output: 4.0
+    std::print(t.scale);              // output: 2.0
+    std::print(Transform().scale);    // output: 1.0
 
     var moved = Transform(v, scale: 6);
-    print(moved.scale);               // output: 6.0
+    std::print(moved.scale);          // output: 6.0
 
     var p = Pair<int, String>(1, "one");
-    print(p.second);                  // output: one
+    std::print(p.second);             // output: one
 
     var apply = Event(new Customer("Ana"), 3);
-    print(apply.target.name);           // output: Ana
-    print(apply.amount);                // output: 3
+    std::print(apply.target.name);      // output: Ana
+    std::print(apply.amount);           // output: 3
 
     mut int[2] values = [4, 5];
     var samples = Samples(values);
     values[0] = 9;
-    print(samples.values[0]);         // output: 4
+    std::print(samples.values[0]);    // output: 4
 
-    print(Hidden.make(7).reveal());   // output: 7
+    std::print(Hidden.make(7).reveal()); // output: 7
 
     var ordered = Vec2(next(1), next(2));
     // output: 1.0
     // output: 2.0
-    print(ordered.y);                 // output: 2.0
+    std::print(ordered.y);            // output: 2.0
 
     // Fields left out take their initializers or their types' default values, and fields may be named.
     var idle = Account();
-    print($"{idle.balance} {idle.target?.name}");          // output: 100 null
+    std::print($"{idle.balance} {idle.target?.name}");     // output: 100 null
     var placed = Account(Vec2(1, 2));
-    print($"{placed.position.y} {placed.balance}");      // output: 2.0 100
-    print(Account(balance: 50).balance);                   // output: 50
+    std::print($"{placed.position.y} {placed.balance}"); // output: 2.0 100
+    std::print(Account(balance: 50).balance);              // output: 50
     var chasing = Account(position: v, target: new Customer("Bo"));
-    print($"{chasing.balance} {chasing.target?.name}");  // output: 100 Bo
-    print(Event(new Customer("Cy")).amount);               // output: 10
-    print(Event(target: new Customer("Di"), amount: 4).amount); // output: 4
-    print(withFirst("x").second);                      // output: 0
+    std::print($"{chasing.balance} {chasing.target?.name}"); // output: 100 Bo
+    std::print(Event(new Customer("Cy")).amount);          // output: 10
+    std::print(Event(target: new Customer("Di"), amount: 4).amount); // output: 4
+    std::print(withFirst("x").second);                 // output: 0
 
     // A field's initializer runs only when the call leaves it out, after the arguments.
     var counted = Counted(label: shout("a"));
     // output: a
     // output: init 7
-    print(counted.id);                                 // output: 7
-    print(Counted(id: 1, label: "b").id);              // output: 1
-    print($"[{Counted(2).label}]");                    // output: []
+    std::print(counted.id);                            // output: 7
+    std::print(Counted(id: 1, label: "b").id);         // output: 1
+    std::print($"[{Counted(2).label}]");               // output: []
 }

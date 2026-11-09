@@ -1,10 +1,9 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 
 void main() {
     var name = "thread";
-    var thread = spawn(() -> name.byteLength());
-    print(thread.join());
+    var thread = threading::spawn(() -> name.byteLength());
+    std::print(thread.join());
     // output: 6
 }
 

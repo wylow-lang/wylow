@@ -1,7 +1,5 @@
 // A sendable bound accepts the types a value of which may reach another thread.
 
-import std::print;
-
 struct Pair {
     int first;
     String second;
@@ -19,8 +17,8 @@ struct Box<T> {
 }
 
 void main() {
-    print(same(5));                                  // output: 5
-    print(same("text"));                             // output: text
-    print(same(Pair(first: 1, second: "two")).first);   // output: 1
+    std::print(same(5));                             // output: 5
+    std::print(same("text"));                        // output: text
+    std::print(same(Pair(first: 1, second: "two")).first); // output: 1
     Box<int>(1).nothing();
 }

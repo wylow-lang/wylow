@@ -1,8 +1,6 @@
 // Objects on the stack are destroyed exactly where they would have been released, whatever the
 // statement making them, and only objects that can't outlive their scope are on the stack.
 
-import std::print;
-
 class Noisy {
     String name;
     mut Vec pos;
@@ -16,7 +14,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -30,7 +28,7 @@ interface Visitor {
 
 class Reader implements Visitor {
     void visit(Noisy n) {
-        print(n.label());
+        std::print(n.label());
     }
 }
 
@@ -65,13 +63,13 @@ void leaves() {
         if (i == 2) {
             break;
         }
-        print("again");
+        std::print("again");
     }
-    print("left");
+    std::print("left");
 }
 
 void main() {
-    print(returnsTemporary());
+    std::print(returnsTemporary());
     // output: temporary
     // output: local
     // output: 1
@@ -84,23 +82,23 @@ void main() {
 
     // Only the chosen object is made, and it is released when its branch completes, before print runs.
     bool yes = true;
-    print(yes ? one(new Noisy("yes")) : one(new Noisy("no"))); // stack: 2
+    std::print(yes ? one(new Noisy("yes")) : one(new Noisy("no"))); // stack: 2
     // output: yes
     // output: 1
 
     // A pattern binding holds its object until the end of the block, where its slot ends too.
     bool matched = new Noisy("matched") is Noisy m && one(m) == 1; // stack: 1
-    print(matched);
+    std::print(matched);
     // output: true
 
     // Conditional access, nullable locals, and references into the object.
     Noisy? maybe = new Noisy("maybe"); // stack: 1
-    print(maybe?.label());
+    std::print(maybe?.label());
     // output: maybe
     var body = new Noisy("body"); // stack: 1
     ref Vec p = body.pos;
     p.x = 5;
-    print(body.pos.x);
+    std::print(body.pos.x);
     // output: 5
 
     // A closure's own objects can be on the stack of its call.
@@ -108,7 +106,7 @@ void main() {
         var inside = new Noisy("in closure"); // stack: 1
         return one(inside);
     };
-    print(counter());
+    std::print(counter());
     // output: in closure
     // output: 1
 
@@ -128,7 +126,7 @@ void main() {
     switch (1) {
         case 1 -> {
             var chosen = new Noisy("case"); // stack: 1
-            print(chosen.label());
+            std::print(chosen.label());
         }
         default -> {
         }

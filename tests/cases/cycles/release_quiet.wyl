@@ -1,7 +1,7 @@
 // mode: release
 // Release builds report no performance warnings.
 
-import std::{memory, print};
+import std::memory;
 
 class Node {
     mut Node? next;
@@ -15,5 +15,5 @@ void main() {
     }
     var left = new Node();
     left.next = left;
-    print(1);       // output: 1
+    std::print(1);  // output: 1
 }

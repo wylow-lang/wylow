@@ -1,7 +1,6 @@
 // A method that isn't visible can't be overridden (spec programs.visibility): a subclass's method
 // with its signature is a method of the subclass's own, which calls through the base never reach.
 
-import std::print;
 import shapes::{Shape, Circle, show, reveal};
 
 class Square extends Shape {
@@ -19,13 +18,13 @@ class Cell extends Square {
 
 void main() {
     var square = new Square();
-    print(square.describe());           // output: a square
-    print(show(square));                // output: a shape
+    std::print(square.describe());      // output: a square
+    std::print(show(square));           // output: a shape
     Square cell = new Cell();
-    print(cell.describe());             // output: a cell
-    print(show(cell));                  // output: a shape
+    std::print(cell.describe());        // output: a cell
+    std::print(show(cell));             // output: a shape
     var circle = new Circle();
-    print(circle.secretOf());           // output: a circle's secret
-    print(reveal(circle));              // output: a shape's secret
-    print(show(circle));                // output: a circle
+    std::print(circle.secretOf());      // output: a circle's secret
+    std::print(reveal(circle));         // output: a shape's secret
+    std::print(show(circle));           // output: a circle
 }

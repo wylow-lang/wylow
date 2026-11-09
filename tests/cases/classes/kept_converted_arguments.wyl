@@ -2,8 +2,6 @@
 // owns is released when the statement completes, not when the call that takes it returns
 // (spec memory.release).
 
-import std::print;
-
 class C {
     String name;
 
@@ -12,7 +10,7 @@ class C {
     }
 
     ~C() {
-        print($"destroyed {name}");
+        std::print($"destroyed {name}");
     }
 }
 
@@ -22,12 +20,12 @@ struct S {
 
 int f(S? a, ref S b) {
     b = S(new C("second"));
-    print("f returns");
+    std::print("f returns");
     return 1;
 }
 
 int g() {
-    print("g runs");
+    std::print("g runs");
     return 1;
 }
 
@@ -37,7 +35,7 @@ void main() {
     // output: f returns
     // output: g runs
     // output: destroyed first
-    print(n + 1);
+    std::print(n + 1);
     // output: 3
     // output: destroyed second
 }

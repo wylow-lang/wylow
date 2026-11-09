@@ -1,14 +1,12 @@
 // A value is in use for the body of its destructor, so replacing it there panics.
 
-import std::{print, replace};
-
 unique struct Handle {
     pub int id;
 
     ~Handle() {
-        var previous = replace(ref this, Handle(id: 9));
+        var previous = std::replace(ref this, Handle(id: 9));
         // panic: cannot replace a value that is in use
-        print(previous.id);
+        std::print(previous.id);
     }
 }
 

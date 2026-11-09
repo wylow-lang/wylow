@@ -193,7 +193,7 @@ of one name found in two of these are never overloads of each other.
 **Example:**
 
 ```java unchecked
-import std::{List, print};
+import std::{List, Weak};
 import orders::Order;
 import orders::format;                 // the module: format::text(o)
 import orders::format::text as show;
@@ -212,11 +212,12 @@ method `empty` of the type `Order` of module `orders`.
 Modules have a namespace of their own. A path's first name is looked up only among modules, so a
 module may have the name of a type, a function, or a local variable.
 
-The first name of a path is a module the file sees: a submodule of its own module, a module the
-file imports, or a module its module re-exports.
+The first name of a path is a module the file sees. A path's first name means the first of these
+that has it: a submodule of the file's module, a module that the file's module re-exports, a module
+that the file imports, and the package `std`. Every file sees the package `std` without an import.
 
 - It is a compile-time error if a path's first name is not a module the file sees, including a
-  module directly in `src/` or the package `std` that the file does not import.
+  module directly in `src/` that the file does not import.
 - It is a compile-time error if a name before a later `::` is not a module within the one before.
 
 **Example:**
@@ -229,6 +230,7 @@ import std::memory;
 pub String text(Order o) {
     int memory = 0;                    // a local and the module 'memory' don't conflict
     memory::collectCycles();
+    std::print("formatting");          // std needs no import
     return orders::describe(o);        // error[WYL0046]
 }
 ```
@@ -362,14 +364,12 @@ for each maximal ill-formed subsequence, as Unicode recommends (*The Unicode Sta
 **Example:**
 
 ```java
-import std::print;
-
 int main(String[] args) {
     if (args.length == 0) {
-        print("usage: greet <name>");
+        std::print("usage: greet <name>");
         return 2;
     }
-    print($"hello, {args[0]}");
+    std::print($"hello, {args[0]}");
     return 0;
 }
 ```

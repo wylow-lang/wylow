@@ -2,8 +2,6 @@
 // condition is true. A switch matches its value in place, with no copy of its own, so a later case
 // sees what a guard changed; 'var snapshot = value;' is how to match what it was.
 
-import std::print;
-
 class Account {
     int total;
 
@@ -38,7 +36,7 @@ class Ai {
 }
 
 bool noisy(String what, bool result) {
-    print($"guard {what}");
+    std::print($"guard {what}");
     return result;
 }
 
@@ -55,19 +53,19 @@ String size(Shape s) {
 }
 
 void main() {
-    print(size(Shape.Circle(20)));                  // output: big circle
-    print(size(Shape.Circle(5)));                   // output: circle 5
-    print(size(Shape.Rect(3, 3)));                  // output: square 3
-    print(size(Shape.Moved(Vec3(-1, 0, 0))));       // output: moved back
+    std::print(size(Shape.Circle(20)));             // output: big circle
+    std::print(size(Shape.Circle(5)));              // output: circle 5
+    std::print(size(Shape.Rect(3, 3)));             // output: square 3
+    std::print(size(Shape.Moved(Vec3(-1, 0, 0))));  // output: moved back
     // output: guard rect or moved
-    print(size(Shape.Rect(2, 3)));                  // output: other
+    std::print(size(Shape.Rect(2, 3)));             // output: other
 
     // A guard runs only where its pattern matched, in case order.
     switch (Shape.Rect(1, 2)) {
-        case Circle(_) when noisy("circle", true) -> print("circle");
-        case Rect(var w, _) when noisy("rect", w > 5) -> print("wide");
-        case Rect(_, var h) when noisy("tall", h > 1) -> print("tall");
-        default -> print("other");
+        case Circle(_) when noisy("circle", true) -> std::print("circle");
+        case Rect(var w, _) when noisy("rect", w > 5) -> std::print("wide");
+        case Rect(_, var h) when noisy("tall", h > 1) -> std::print("tall");
+        default -> std::print("other");
     }
     // output: guard rect
     // output: guard tall
@@ -78,10 +76,10 @@ void main() {
     State[3] states = [State.Chasing(new Account(4)), State.Chasing(null), State.Idle];
     for (State st : states) {
         switch (st) {
-            case Chasing(var t) when t is Account e && e.total > 3 -> print($"chasing {e.total}");
-            case Chasing(var t) when t != null -> print($"weak {t.total}");
-            case Chasing(_) -> print("chasing nothing");
-            case Idle -> print("idle");
+            case Chasing(var t) when t is Account e && e.total > 3 -> std::print($"chasing {e.total}");
+            case Chasing(var t) when t != null -> std::print($"weak {t.total}");
+            case Chasing(_) -> std::print("chasing nothing");
+            case Idle -> std::print("idle");
         }
     }
     // output: chasing 4
@@ -90,8 +88,8 @@ void main() {
 
     // 'when true' is still a guard: the switch needs a case after it.
     switch (Shape.Circle(1)) {
-        case Circle(_) when true -> print("guarded");
-        case Circle(_), Rect(_, _), Moved(_) -> print("unguarded");
+        case Circle(_) when true -> std::print("guarded");
+        case Circle(_), Rect(_, _), Moved(_) -> std::print("unguarded");
     }
     // output: guarded
 
@@ -99,31 +97,31 @@ void main() {
     var ai = new Ai();
     ai.state = State.Chasing(new Account(1));
     switch (ai.state) {
-        case Chasing(_) when ai.calm() -> print("chasing");
-        case Idle -> print("calmed down");          // output: calmed down
-        case Chasing(_) -> print("still chasing");
+        case Chasing(_) when ai.calm() -> std::print("chasing");
+        case Idle -> std::print("calmed down");     // output: calmed down
+        case Chasing(_) -> std::print("still chasing");
     }
     // A copy is how to match the value as it was.
     ai.state = State.Chasing(new Account(1));
     var snapshot = ai.state;
     switch (snapshot) {
-        case Chasing(_) when ai.calm() -> print("chasing");
-        case Idle -> print("calmed down");
-        case Chasing(_) -> print("still chasing");  // output: still chasing
+        case Chasing(_) when ai.calm() -> std::print("chasing");
+        case Idle -> std::print("calmed down");
+        case Chasing(_) -> std::print("still chasing"); // output: still chasing
     }
     // Each case tests a nullable value for null itself, so one after a guard that nulls it doesn't
     // read a value that is gone.
     ai.pos = Vec3(1, 2, 3);
     switch (ai.pos) {
-        case Vec3(var x, _, _) when ai.land() -> print($"flying {x}");
-        case Vec3(_, var y, _) -> print($"at {y}");
-        case null -> print("landed");               // output: landed
+        case Vec3(var x, _, _) when ai.land() -> std::print($"flying {x}");
+        case Vec3(_, var y, _) -> std::print($"at {y}");
+        case null -> std::print("landed");          // output: landed
     }
 
     // Nested struct patterns with a guard.
     switch (Shape.Moved(Vec3(4, 5, 6))) {
-        case Moved(Vec3(var x, var y, _)) when x + y > 100 -> print("far");
-        case Moved(Vec3(var x, var y, _)) when x + y > 5 -> print($"near {x + y}");  // output: near 9
-        default -> print("other");
+        case Moved(Vec3(var x, var y, _)) when x + y > 100 -> std::print("far");
+        case Moved(Vec3(var x, var y, _)) when x + y > 5 -> std::print($"near {x + y}"); // output: near 9
+        default -> std::print("other");
     }
 }

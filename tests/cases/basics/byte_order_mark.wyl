@@ -1,7 +1,5 @@
 ﻿// A byte order mark before the text is not part of it (spec lexical.source).
 
-import std::print;
-
 void main() {
-    print("café");                    // output: café
+    std::print("café");               // output: café
 }

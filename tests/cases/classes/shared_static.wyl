@@ -1,5 +1,3 @@
-import std::print;
-
 shared class Registry {
     int entries;
 
@@ -8,7 +6,7 @@ shared class Registry {
     }
 
     ~Registry() {
-        print("released");
+        std::print("released");
     }
 }
 
@@ -17,7 +15,7 @@ class Settings {
 }
 
 void main() {
-    print(Settings.CURRENT.entries);        // output: 3
+    std::print(Settings.CURRENT.entries);   // output: 3
     var local = Settings.CURRENT;
-    print(local.entries);                   // output: 3
+    std::print(local.entries);              // output: 3
 }

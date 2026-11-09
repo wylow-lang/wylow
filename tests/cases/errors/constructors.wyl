@@ -1,5 +1,3 @@
-import std::print;
-
 class Item { }
 
 class Base {
@@ -14,7 +12,7 @@ class Implicit extends Base { }         // error[WYL0140]: constructor must star
 
 class LateSuper extends Base {
     LateSuper() {                       // error[WYL0140]: constructor must start with 'super(...)'
-        print(1);
+        std::print(1);
         super(1);                       // error[WYL0135]: 'super(...)' must be the first statement of a constructor
     }
 }
@@ -36,7 +34,7 @@ class Chained extends Base {
     int field = 1;
     Chained(int x) { super(x); }
     Chained(String s) {                 // error[WYL0140]: constructor must start with 'super(...)'
-        print(s);
+        std::print(s);
         this(1);                        // error[WYL0137]: 'this(...)' must be the first statement of a constructor
     }
     Chained(bool b) {

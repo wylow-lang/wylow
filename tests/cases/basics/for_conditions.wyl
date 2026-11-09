@@ -1,13 +1,11 @@
 // A for loop's condition is printed in the for header, which strips the parentheses the condition
 // text came wrapped in, and a condition that is a call must be evaluated once per iteration.
 
-import std::print;
-
 // A folded for loop's condition is a bare name, which the header keeps as it is.
 void leading() {
     mut bool go = true;
     for (mut int j = 0; go; j++) {
-        print(j);
+        std::print(j);
         if (j == 2) {
             go = false;
         }
@@ -23,9 +21,9 @@ bool more(ref int step) {
 void counted() {
     mut int step = 0;
     for (mut int i = 0; more(ref step); i++) {
-        print(i);
+        std::print(i);
     }
-    print(step);
+    std::print(step);
 }
 
 // A loop whose first statement is an if is a while (true): the if's then branch is a
@@ -34,11 +32,11 @@ void guarded() {
     mut int i = 0;
     loop {
         if (i < 2) {
-            print(i);
+            std::print(i);
         } else {
             break;
         }
-        print("x");
+        std::print("x");
         i++;
     }
 }
@@ -52,12 +50,12 @@ void jumping() {
             break;
         }
         if (i == 2) {
-            print("two");
+            std::print("two");
             continue;
         }
-        print(i);
+        std::print(i);
     }
-    print(guard);
+    std::print(guard);
 }
 
 void main() {

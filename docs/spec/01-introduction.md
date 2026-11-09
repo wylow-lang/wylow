@@ -99,7 +99,7 @@ diagnostic it produces, as in `// error[WYL0397]`. An example produces exactly t
 
 ```java statements
 Node? next = null;
-print(next.value);              // error[WYL0397]
+std::print(next.value);         // error[WYL0397]
 ```
 
 <a id="introduction.terms"></a>

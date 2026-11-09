@@ -1,5 +1,3 @@
-import std::print;
-
 struct Plain {
     int x;
 }
@@ -28,25 +26,25 @@ void nothing() {
 
 void main() {
     var plain = Plain(1);
-    print($"{plain}");                  // error[WYL0336]: cannot interpolate a value of type 'Plain'
-    print($"{Unmarked()}");             // error[WYL0336]: cannot interpolate a value of type 'Unmarked'
-    print($"{null}");                   // error[WYL0336]: cannot interpolate a value of type 'null'
-    print($"{nothing()}");              // error[WYL0336]: cannot interpolate a value of type 'void'
-    print(describe(plain));             // error[WYL0208]: 'Plain' does not implement 'Printable'
+    std::print($"{plain}");             // error[WYL0336]: cannot interpolate a value of type 'Plain'
+    std::print($"{Unmarked()}");        // error[WYL0336]: cannot interpolate a value of type 'Unmarked'
+    std::print($"{null}");              // error[WYL0336]: cannot interpolate a value of type 'null'
+    std::print($"{nothing()}");         // error[WYL0336]: cannot interpolate a value of type 'void'
+    std::print(describe(plain));        // error[WYL0208]: 'Plain' does not implement 'Printable'
     Animal? maybe = null;
-    print(describe(maybe));             // error[WYL0208]: 'Animal?' does not implement 'Printable'
+    std::print(describe(maybe));        // error[WYL0208]: 'Animal?' does not implement 'Printable'
     int? count = 1;
-    print(describe(count));             // error[WYL0208]: 'int?' does not implement 'Printable'
-    print(5.toString(1));               // error[WYL0233]: no overload of 'int.toString' takes 1 argument
-    print(true.toString<int>());        // error[WYL0234]: no overload of 'bool.toString' takes 1 type argument
+    std::print(describe(count));        // error[WYL0208]: 'int?' does not implement 'Printable'
+    std::print(5.toString(1));          // error[WYL0233]: no overload of 'int.toString' takes 1 argument
+    std::print(true.toString<int>());   // error[WYL0234]: no overload of 'bool.toString' takes 1 type argument
     int x = 1;
-    print($"{x:F2}");                   // error[WYL0340]: format specifier 'F2' cannot format a value of type 'int'
-    print($"{1.5f:D}");                  // error[WYL0340]: format specifier 'D' cannot format a value of type 'float'
-    print($"{"text":X}");               // error[WYL0340]: format specifier 'X' cannot format a value of type 'String'
-    print($"{new Animal():F2}");            // error[WYL0340]: format specifier 'F2' cannot format a value of type 'Animal'
-    print($"{x:Q}");                    // error[WYL0339]: cannot find format specifier 'Q'
-    print($"{x:F123}");                 // error[WYL0338]: 'F123' is not a format specifier
-    print($"{x:}");                     // error[WYL0338]: '' is not a format specifier
-    print($"{x:D 2}");                  // error[WYL0338]: 'D 2' is not a format specifier
-    print($"{undefined}");              // error[WYL0281]: cannot find 'undefined' in this scope
+    std::print($"{x:F2}");              // error[WYL0340]: format specifier 'F2' cannot format a value of type 'int'
+    std::print($"{1.5f:D}");             // error[WYL0340]: format specifier 'D' cannot format a value of type 'float'
+    std::print($"{"text":X}");          // error[WYL0340]: format specifier 'X' cannot format a value of type 'String'
+    std::print($"{new Animal():F2}");       // error[WYL0340]: format specifier 'F2' cannot format a value of type 'Animal'
+    std::print($"{x:Q}");               // error[WYL0339]: cannot find format specifier 'Q'
+    std::print($"{x:F123}");            // error[WYL0338]: 'F123' is not a format specifier
+    std::print($"{x:}");                // error[WYL0338]: '' is not a format specifier
+    std::print($"{x:D 2}");             // error[WYL0338]: 'D 2' is not a format specifier
+    std::print($"{undefined}");         // error[WYL0281]: cannot find 'undefined' in this scope
 }

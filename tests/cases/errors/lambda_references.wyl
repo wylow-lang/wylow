@@ -1,8 +1,6 @@
 // A function used as a value needs a function type to be converted to, and can only be a free
 // function or static method.
 
-import std::print;
-
 class Task {
     int score(int x) {
         return x;
@@ -58,10 +56,10 @@ void main() {
     var f = inc;                                    // error[WYL0280]: function 'inc' is used as a value
     var r = Task.rank;                               // error[WYL0280]: method 'Task.rank' is used as a value
     int n = inc;                                    // error[WYL0280]: function 'inc' is used as a value
-    print(applyInt(name, 1));                       // error[WYL0236]: no overload of 'name' accepts (int)
+    std::print(applyInt(name, 1));                  // error[WYL0236]: no overload of 'name' accepts (int)
     fn(int, int) -> int two = inc;                    // error[WYL0233]: no overload of 'inc' takes 2 arguments
     fn(int) -> String text = inc;                     // error[WYL0079]: expected 'String', found 'int'
-    print(apply(inc, 1));                           // error[WYL0237]: call to 'apply' is ambiguous
-    print(pair(1, add));                            // error[WYL0276]: 'add' can only be used as a value where a function type is expected
+    std::print(apply(inc, 1));                      // error[WYL0237]: call to 'apply' is ambiguous
+    std::print(pair(1, add));                       // error[WYL0276]: 'add' can only be used as a value where a function type is expected
     var chosen = n > 0 ? inc : inc;                 // error[WYL0277]: function 'inc' can only be used as a value where a function type is expected
 }

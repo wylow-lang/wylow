@@ -1,8 +1,6 @@
 // Constructors, and virtual methods that nothing overrides, take lambdas as templates; constructors
 // sharing their parameter count with another, and overridden methods, call them indirectly.
 
-import std::print;
-
 class Box<T> {
     T value;
 
@@ -54,21 +52,21 @@ class Mallet extends Hammer {
 
 void main() {
     var box = new Box<long>(5L, v -> v * 2L);
-    print(box.value);                               // output: 20
+    std::print(box.value);                          // output: 20
     mut int calls = 0;
     var p = Point(1, x -> {
         calls++;
         return x * 3;
     });
-    print(p.x);                                     // output: 3
-    print(p.y);                                     // output: 9
-    print(calls);                                   // output: 2
+    std::print(p.x);                                // output: 3
+    std::print(p.y);                                // output: 9
+    std::print(calls);                              // output: 2
 
-    print(new Counted(4, n -> n * n).total);        // output: 16
-    print(new Counted("ab", s -> 2).total);         // output: 1002
+    std::print(new Counted(4, n -> n * n).total);   // output: 16
+    std::print(new Counted("ab", s -> 2).total);    // output: 1002
 
     Tool tool = new Mallet();
-    print(tool.use(x -> x + 40));                   // output: 41
-    print(tool.aim(x -> x + 40));                   // output: 430
-    print(new Hammer().aim(x -> x));                // output: 2
+    std::print(tool.use(x -> x + 40));              // output: 41
+    std::print(tool.aim(x -> x + 40));              // output: 430
+    std::print(new Hammer().aim(x -> x));           // output: 2
 }

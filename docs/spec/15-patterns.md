@@ -169,9 +169,9 @@ unique struct Pair {
 
 void use(Pair pair) {
     switch (pair) {
-        case Pair(var a, _) -> print(a.length);     // 'a' is released, and then 'second'
+        case Pair(var a, _) -> std::print(a.length); // 'a' is released, and then 'second'
     }
-    print(pair.second.length);                      // error: 'pair' is used after being moved
+    std::print(pair.second.length);                 // error: 'pair' is used after being moved
 }
 ```
 

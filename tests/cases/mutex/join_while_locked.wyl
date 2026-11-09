@@ -1,10 +1,11 @@
 // A thread that holds a lock waits for nothing, so a join inside lock panics.
 
-import std::threading::{Mutex, spawn};
+import std::threading;
+import std::threading::Mutex;
 
 void main() {
     var counter = new Mutex<int>(1);
-    counter.lock(n -> spawn(() -> 2).join());    // panic-here: cannot wait for a thread while this thread holds a lock
+    counter.lock(n -> threading::spawn(() -> 2).join()); // panic-here: cannot wait for a thread while this thread holds a lock
 }
 
 // tsan

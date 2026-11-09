@@ -177,8 +177,8 @@ and the reference types `ref? T` and `ref T?` in
 
 ```java statements
 Node root = new Node();
-print(root.next.value);         // error[WYL0065]
-print(root.next?.value);        // the value, or null
+std::print(root.next.value);    // error[WYL0065]
+std::print(root.next?.value);   // the value, or null
 int*? p;                        // error[WYL0066]
 Span<int>? view;                // error[WYL0067]
 ```
@@ -225,7 +225,7 @@ A fixed array of a type with a default value has one too: each element's default
 ```java statements
 int[4] a = [1, 2, 3, 4];
 int[2][3] grid;                 // three arrays of two ints
-print(a[4]);                    // error[WYL0068]
+std::print(a[4]);               // error[WYL0068]
 var blank = [log("x")];         // error[WYL0069], 'log' returns void
 var empty = [];                 // error[WYL0070]
 var mixed = [1, true];          // error[WYL0071]

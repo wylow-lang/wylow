@@ -1,7 +1,5 @@
 // The `bool` kind: its operators, its two values, and its default.
 
-import std::print;
-
 struct Flag {
     bool value;
 }
@@ -10,46 +8,46 @@ void main() {
     bool yes = true;
     bool no = false;
 
-    print(yes);                    // output: true
-    print(no);                     // output: false
-    print(!yes);                   // output: false
-    print(!no);                    // output: true
-    print(yes & no);               // output: false
-    print(yes | no);               // output: true
-    print(yes ^ yes);              // output: false
-    print(yes ^ no);               // output: true
-    print(yes == no);              // output: false
-    print(yes != no);              // output: true
-    print(yes && no);              // output: false
-    print(yes || no);              // output: true
-    print(!(yes && no) || no);     // output: true
+    std::print(yes);               // output: true
+    std::print(no);                // output: false
+    std::print(!yes);              // output: false
+    std::print(!no);               // output: true
+    std::print(yes & no);          // output: false
+    std::print(yes | no);          // output: true
+    std::print(yes ^ yes);         // output: false
+    std::print(yes ^ no);          // output: true
+    std::print(yes == no);         // output: false
+    std::print(yes != no);         // output: true
+    std::print(yes && no);         // output: false
+    std::print(yes || no);         // output: true
+    std::print(!(yes && no) || no); // output: true
 
-    print($"{yes}");               // output: true
-    print($"[{no,6}]");            // output: [ false]
-    print($"[{yes,-6}]");          // output: [true  ]
-    print(yes.toString());         // output: true
-    print(Flag().value);           // output: false
+    std::print($"{yes}");          // output: true
+    std::print($"[{no,6}]");       // output: [ false]
+    std::print($"[{yes,-6}]");     // output: [true  ]
+    std::print(yes.toString());    // output: true
+    std::print(Flag().value);      // output: false
 
-    print(switch (yes) {
+    std::print(switch (yes) {
         case true -> "yes";
         case false -> "no";
     });                            // output: yes
-    print(switch (no) {
+    std::print(switch (no) {
         case true -> "yes";
         case false -> "no";
     });                            // output: no
 
     // Both values through the remaining operators.
-    print(no & no);                // output: false
-    print(no | yes);               // output: true
-    print(no ^ no);                // output: false
-    print(no == no);               // output: true
-    print(yes && yes);             // output: true
-    print(no || no);               // output: false
-    print(yes != yes);             // output: false
-    print(!(yes || no));           // output: false
-    print($"{no}");                // output: false
-    print($"[{yes,6}]");           // output: [  true]
-    print(no.toString());          // output: false
-    print(Flag().value == false);  // output: true
+    std::print(no & no);           // output: false
+    std::print(no | yes);          // output: true
+    std::print(no ^ no);           // output: false
+    std::print(no == no);          // output: true
+    std::print(yes && yes);        // output: true
+    std::print(no || no);          // output: false
+    std::print(yes != yes);        // output: false
+    std::print(!(yes || no));      // output: false
+    std::print($"{no}");           // output: false
+    std::print($"[{yes,6}]");      // output: [  true]
+    std::print(no.toString());     // output: false
+    std::print(Flag().value == false); // output: true
 }

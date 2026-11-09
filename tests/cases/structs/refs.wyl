@@ -1,5 +1,3 @@
-import std::print;
-
 struct Counter {
     int value;
 
@@ -44,23 +42,23 @@ void main() {
     bump(ref c);
     bump(ref c);
     bumpCopy(c);
-    print(c.value);                 // output: 2
-    print(peek(c));                 // output: 2
+    std::print(c.value);            // output: 2
+    std::print(peek(c));            // output: 2
 
     mut int a = 1;
     mut int b = 2;
     swap(ref a, ref b);
-    print(a);                       // output: 2
-    print(b);                       // output: 1
+    std::print(a);                  // output: 2
+    std::print(b);                  // output: 1
 
     mut var h = Holder();
     bump(ref h.counter);
     h.counter.increment();
-    print(h.counter.value);         // output: 2
+    std::print(h.counter.value);    // output: 2
 
     // Left to right: the read of x happens before the call that changes it.
     mut int x = 10;
-    print(x + incremented(ref x));  // output: 21
+    std::print(x + incremented(ref x)); // output: 21
     mut int y = 10;
-    print(incremented(ref y) + y);  // output: 22
+    std::print(incremented(ref y) + y); // output: 22
 }

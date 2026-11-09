@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 class Account {
     String name;
@@ -8,7 +8,7 @@ class Account {
     }
 
     ~Account() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -35,11 +35,11 @@ void accounts() {
     list.add(new Account("b"));
     list.add(new Account("c"));
     var removed = list.removeAt(1);
-    print(removed.name);
+    std::print(removed.name);
     list.trim();
-    print(list.capacity());
+    std::print(list.capacity());
     list.clear();
-    print(list.count());
+    std::print(list.count());
 }
 
 void main() {
@@ -47,57 +47,57 @@ void main() {
     for (int i : 0..10) {
         numbers.add(i);
     }
-    print(numbers.count());     // output: 10
-    print(numbers.capacity() >= 10); // output: true
-    print(numbers[9]);          // output: 9
+    std::print(numbers.count()); // output: 10
+    std::print(numbers.capacity() >= 10); // output: true
+    std::print(numbers[9]);     // output: 9
     numbers[0] = 100;
     numbers.insert(1, 50);
-    print(numbers[1]);          // output: 50
-    print(numbers.removeAt(0)); // output: 100
-    print(numbers.tryRemoveAt(numbers.count()));  // output: null
+    std::print(numbers[1]);     // output: 50
+    std::print(numbers.removeAt(0)); // output: 100
+    std::print(numbers.tryRemoveAt(numbers.count())); // output: null
     numbers.add(7);
-    print(numbers.tryRemoveAt(numbers.count() - 1));  // output: 7
+    std::print(numbers.tryRemoveAt(numbers.count() - 1)); // output: 7
     var stack = new List<String>();
-    print(stack.removeLast());              // output: null
-    print(stack.first() == null);           // output: true
+    std::print(stack.removeLast());         // output: null
+    std::print(stack.first() == null);      // output: true
     stack.add("a");
     stack.add("b");
-    print(stack.first()!);                  // output: a
-    print(stack.last()!);                   // output: b
-    print(stack.removeLast());              // output: b
-    print(stack.removeLast());              // output: a
-    print(stack.count());                   // output: 0
+    std::print(stack.first()!);             // output: a
+    std::print(stack.last()!);              // output: b
+    std::print(stack.removeLast());         // output: b
+    std::print(stack.removeLast());         // output: a
+    std::print(stack.count());              // output: 0
     var nodes = new List<List<int>>();
-    print(nodes.last() == null);            // output: true
+    std::print(nodes.last() == null);       // output: true
     nodes.add(numbers);
-    print(nodes.last()?.count() == numbers.count());  // output: true
-    print(total(numbers));      // output: 95
+    std::print(nodes.last()?.count() == numbers.count()); // output: true
+    std::print(total(numbers)); // output: 95
     for (ref int n : numbers) {
         n *= 2;
     }
-    print(numbers[0]);          // output: 100
+    std::print(numbers[0]);     // output: 100
     for (int i, int n : numbers) {
         if (i == 9) {
-            print(n);           // output: 18
+            std::print(n);      // output: 18
         }
     }
     numbers.clear();
-    print(numbers.count());     // output: 0
+    std::print(numbers.count()); // output: 0
     numbers.reserve(100);
-    print(numbers.capacity());  // output: 100
+    std::print(numbers.capacity()); // output: 100
     numbers.trim();
-    print(numbers.capacity());  // output: 0
+    std::print(numbers.capacity()); // output: 0
     numbers.add(1);
     numbers.add(2);
     numbers.add(3);
     numbers.add(4);
     numbers.add(5);
-    print(numbers.capacity());  // output: 8
+    std::print(numbers.capacity()); // output: 8
     numbers.trim();
-    print(numbers.capacity());  // output: 5
-    print(numbers[4]);          // output: 5
+    std::print(numbers.capacity()); // output: 5
+    std::print(numbers[4]);     // output: 5
     numbers.add(6);
-    print(numbers[5]);          // output: 6
+    std::print(numbers[5]);     // output: 6
 
     accounts();
     // output: b
@@ -110,22 +110,22 @@ void main() {
     var packets = new List<Packet>();
     packets.add(Packet(x: 1));
     packets[0].x += 2;
-    print(packets[0].x);        // output: 3.0
+    std::print(packets[0].x);   // output: 3.0
     ref Packet first = packets[0];
     first.apply = true;
-    print(packets[0].apply);      // output: true
+    std::print(packets[0].apply); // output: true
 
     // A list of lists: the inner list is pinned while it is used.
     var grid = new List<List<int>>();
     grid.add(new List<int>());
     grid[0].add(7);
-    print(grid[0][0]);          // output: 7
+    std::print(grid[0][0]);     // output: 7
 
     // A nullable list can be looped over once it is known not to be null.
     List<int>? maybe = grid[0];
     if (maybe != null) {
         for (int n : maybe) {
-            print(n);           // output: 7
+            std::print(n);      // output: 7
         }
     }
 
@@ -135,27 +135,27 @@ void main() {
     if (scores.get(0) is ref int score) {
         score += 5;
     }
-    print(scores[0]);           // output: 15
+    std::print(scores[0]);      // output: 15
     if (scores.get(1) is ref int missing) {
-        print(missing);
+        std::print(missing);
     } else {
         scores.add(20);         // the failed test doesn't borrow the list
     }
-    print(scores.count());      // output: 2
+    std::print(scores.count()); // output: 2
     ref? Packet apply = packets.get(0);
     if (apply != null) {
         apply.x = 9;
     }
-    print(packets[0].x);        // output: 9.0
-    print(packets.get(-1) == null); // output: true
+    std::print(packets[0].x);   // output: 9.0
+    std::print(packets.get(-1) == null); // output: true
 
     // `?.` on a reference reaches the element itself, so a method changes it in place.
     packets.get(0)?.move(1);
     packets.get(5)?.move(1);
-    print(packets[0].x);        // output: 10.0
-    print(packets.get(0)?.x);   // output: 10.0
-    print(packets.get(5)?.x);   // output: null
+    std::print(packets[0].x);   // output: 10.0
+    std::print(packets.get(0)?.x); // output: 10.0
+    std::print(packets.get(5)?.x); // output: null
     ref? Packet maybe2 = packets.get(0);
     maybe2?.move(2);
-    print(packets[0].x);        // output: 12.0
+    std::print(packets[0].x);   // output: 12.0
 }

@@ -1,8 +1,6 @@
 // A local declared without a value is a placeholder until it is assigned. Its first variant carries
 // a value, so the placeholder must construct that value too: assigning over it destroys what it holds.
 
-import std::print;
-
 class Item {
     int id;
 
@@ -11,7 +9,7 @@ class Item {
     }
 
     ~Item() {
-        print("free");
+        std::print("free");
     }
 }
 
@@ -23,20 +21,20 @@ enum Slot {
 void main() {
     Slot slot;
     slot = Slot.Empty;
-    print("done");            // output: done
+    std::print("done");       // output: done
 
     // Assigned in branches, so the placeholder is constructed and then assigned over; the second
     // iteration's placeholder sits where the first one's item was.
     for (int i : 0..2) {
         Slot chosen;
         if (i == 0) {
-            print("holding");
+            std::print("holding");
             chosen = Slot.Holding(new Item(i));
         } else {
-            print("empty");
+            std::print("empty");
             chosen = Slot.Empty;
         }
-        print(chosen is Slot.Holding);
+        std::print(chosen is Slot.Holding);
     }
     // output: holding
     // output: true

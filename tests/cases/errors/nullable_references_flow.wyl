@@ -1,7 +1,5 @@
 // A 'ref?' is used as the place it refers to only where a null check shows it refers to one.
 
-import std::print;
-
 void bump(ref? int x) {
     x++;                                // error[WYL0412]: 'x' might refer to nothing
 }
@@ -14,12 +12,12 @@ void main() {
     mut int x = 1;
     ref? int r = x;
     ref? int maybe = null;
-    print(maybe + 1);                   // error[WYL0412]: 'maybe' might refer to nothing
+    std::print(maybe + 1);              // error[WYL0412]: 'maybe' might refer to nothing
     maybe = 5;                          // error[WYL0412]: 'maybe' might refer to nothing
     run(() -> {
         maybe = 2;                      // error[WYL0412]: 'maybe' might refer to nothing
     });
     if (!(r is ref int unbound)) {
-        print(unbound);                 // error[WYL0394]: 'unbound' might not have been assigned
+        std::print(unbound);            // error[WYL0394]: 'unbound' might not have been assigned
     }
 }

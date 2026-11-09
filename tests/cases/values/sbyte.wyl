@@ -1,47 +1,45 @@
 // The `sbyte` kind at its edges: a signed 8-bit type whose arithmetic keeps its type.
 
-import std::print;
-
 void main() {
     sbyte min = -128;
     sbyte max = 127;
 
-    print(min + 1);             // output: -127
-    print(max - 1);             // output: 126
-    print(min / 2);             // output: -64
-    print(min % 3);             // output: -2
-    print(max * 1);             // output: 127
-    print(min >> 1);            // output: -64
-    print(min << 1);            // output: 0
-    print(min & 0x0F);          // output: 0
-    print(~max);                // output: -128
-    print(min < 0);             // output: true
-    print(max == 127);          // output: true
+    std::print(min + 1);        // output: -127
+    std::print(max - 1);        // output: 126
+    std::print(min / 2);        // output: -64
+    std::print(min % 3);        // output: -2
+    std::print(max * 1);        // output: 127
+    std::print(min >> 1);       // output: -64
+    std::print(min << 1);       // output: 0
+    std::print(min & 0x0F);     // output: 0
+    std::print(~max);           // output: -128
+    std::print(min < 0);        // output: true
+    std::print(max == 127);     // output: true
 
-    print((byte)min);           // output: 128
-    print((int)min);            // output: -128
-    print((float)min);          // output: -128.0
-    print((sbyte)128);          // output: -128
+    std::print((byte)min);      // output: 128
+    std::print((int)min);       // output: -128
+    std::print((float)min);     // output: -128.0
+    std::print((sbyte)128);     // output: -128
 
-    print($"{min:X2}");         // output: 80
-    print($"{min:B8}");         // output: 10000000
-    print($"{min:D4}");         // output: -0128
-    print($"[{max,5}]");        // output: [  127]
+    std::print($"{min:X2}");    // output: 80
+    std::print($"{min:B8}");    // output: 10000000
+    std::print($"{min:D4}");    // output: -0128
+    std::print($"[{max,5}]");   // output: [  127]
 
-    print(min.toString());      // output: -128
+    std::print(min.toString()); // output: -128
 
     // More operators, conversions, and formatting.
-    print(max / -2);            // output: -63
-    print(max % 2);             // output: 1
-    print(max >> 1);            // output: 63
-    print(max ^ 0x0F);          // output: 112
-    print((short)min);          // output: -128
-    print((long)min);           // output: -128
-    print((double)min);         // output: -128.0
-    print($"{max:D3}");         // output: 127
-    print($"[{min,5}]");        // output: [ -128]
-    print(min < max);           // output: true
-    print(switch (min) {
+    std::print(max / -2);       // output: -63
+    std::print(max % 2);        // output: 1
+    std::print(max >> 1);       // output: 63
+    std::print(max ^ 0x0F);     // output: 112
+    std::print((short)min);     // output: -128
+    std::print((long)min);      // output: -128
+    std::print((double)min);    // output: -128.0
+    std::print($"{max:D3}");    // output: 127
+    std::print($"[{min,5}]");   // output: [ -128]
+    std::print(min < max);      // output: true
+    std::print(switch (min) {
         case -128 -> "min";
         default -> "other";
     });                         // output: min

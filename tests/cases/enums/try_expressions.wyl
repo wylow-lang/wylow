@@ -1,8 +1,6 @@
 // A 'try' may be anywhere in an expression: an Err returns from where it is evaluated, and the
 // rest of the expression isn't.
 
-import std::print;
-
 class Noisy {
     String name;
 
@@ -15,7 +13,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -35,7 +33,7 @@ Result<int, String> number(int n) {
 }
 
 int noted(int n) {
-    print(n);
+    std::print(n);
     return n;
 }
 
@@ -44,7 +42,7 @@ Result<int, String> sum(int a, int b) {
 }
 
 Result<int, String> printed(int n) {
-    print(try number(n));
+    std::print(try number(n));
     return Ok(0);
 }
 
@@ -129,8 +127,8 @@ Result<int, String> inLambda(int n) {
 
 void report(Result<int, String> r) {
     switch (r) {
-        case Ok(var value) -> print(value);
-        case Err(var error) -> print(error);
+        case Ok(var value) -> std::print(value);
+        case Err(var error) -> std::print(error);
     }
 }
 
@@ -159,8 +157,8 @@ void main() {
                                         // output: local
                                         // output: negative
     switch (checked(-1)) {
-        case Ok(var value) -> print(value);
-        case Err(var problem) -> print(problem.what); // output: too small
+        case Ok(var value) -> std::print(value);
+        case Err(var problem) -> std::print(problem.what); // output: too small
     }
     report(stored(Result<int, String>.Ok(4)));      // output: 5
     report(stored(Result<int, String>.Err("bad"))); // output: bad

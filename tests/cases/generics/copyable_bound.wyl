@@ -1,7 +1,5 @@
 // A copyable bound makes generic code copy a type parameter.
 
-import std::print;
-
 struct Box<T> {
     pub T value;
 }
@@ -22,7 +20,7 @@ struct Pair<A extends copyable, B> {
 }
 
 void main() {
-    print(copyTwice(5));                 // output: 5
+    std::print(copyTwice(5));            // output: 5
     var pair = Pair<int, String>(1, "two");
-    print(pair.firstCopy());             // output: 1
+    std::print(pair.firstCopy());        // output: 1
 }

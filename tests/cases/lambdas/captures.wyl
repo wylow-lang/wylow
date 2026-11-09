@@ -1,6 +1,6 @@
 // What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
 
-import std::{List, print};
+import std::List;
 
 class Counter {
     mut int count = 0;
@@ -26,7 +26,7 @@ class Counter {
     }
 
     ~Counter() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -80,9 +80,9 @@ void main() {
     }
     increment();
     increment();
-    print(read());                                  // output: 2010
+    std::print(read());                             // output: 2010
     read = () -> 0;
-    increment = () -> print(0);                     // output: counter freed
+    increment = () -> std::print(0);                // output: counter freed
 
     // Each iteration's variable is its own.
     var fs = new List<fn() -> String>();
@@ -90,7 +90,7 @@ void main() {
         fs.add(() -> s);
     }
     for (fn() -> String f : fs) {
-        print(f());                                 // output: a
+        std::print(f());                            // output: a
                                                     // output: b
     }
     var ns = new List<fn() -> int>();
@@ -99,7 +99,7 @@ void main() {
         ns.add(() -> copy);
     }
     for (fn() -> int n : ns) {
-        print(n());                                 // output: 0
+        std::print(n());                            // output: 0
                                                     // output: 3
     }
 
@@ -108,23 +108,23 @@ void main() {
     escaping fn() -> int size = () -> log.count();
     log.add(1);
     log.add(2);
-    print(size());                                  // output: 2
+    std::print(size());                             // output: 2
 
-    print(nested(1)()());                           // output: 6
+    std::print(nested(1)()());                      // output: 6
 
     var labeled = Labeled("x", () -> "described");
     var copy = labeled;
-    print(copy.describe());                         // output: described
+    std::print(copy.describe());                    // output: described
 
-    print(perform(Run(() -> 42)));                  // output: 42
-    print(perform(Skip));                           // output: -1
+    std::print(perform(Run(() -> 42)));             // output: 42
+    std::print(perform(Skip));                      // output: -1
 
     // Escaping values passed to non-escaping parameters: a template, and a FunctionRef.
     fn() -> int seven = () -> 7;
-    print(callTemplate(seven));                     // output: 7
+    std::print(callTemplate(seven));                // output: 7
     Runner runner = new TwiceRunner();
-    print(runner.run(seven));                       // output: 14
-    print(runner.run(() -> 1));                     // output: 2
+    std::print(runner.run(seven));                  // output: 14
+    std::print(runner.run(() -> 1));                // output: 2
 
     // A non-escaping lambda captures references and spans by reference: it keeps referring into
     // their storage, and what it captures must stay valid wherever the value is used.
@@ -134,12 +134,12 @@ void main() {
         into = 6;
     };
     writeThrough();
-    print(reached);                                 // output: 6
+    std::print(reached);                            // output: 6
     mut int[3] cells = [1, 2, 3];
     Span<int> view = cells;
     fn() -> void writeSpan = () -> {
         view[1] = 8;
     };
     writeSpan();
-    print(cells[1]);                                // output: 8
+    std::print(cells[1]);                           // output: 8
 }

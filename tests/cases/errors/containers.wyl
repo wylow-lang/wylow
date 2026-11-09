@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 class Account {
 }
@@ -29,7 +29,7 @@ void main() {
     list.beginBorrow();                     // error[WYL0419]: 'beginBorrow' cannot be called directly
     var numbers = new int[3];
     numbers.length = 4;                     // error[WYL0351]: cannot assign to 'numbers.length'
-    print(list.size);                       // error[WYL0054]: field 'List.size' is not visible here
+    std::print(list.size);                  // error[WYL0054]: field 'List.size' is not visible here
     Span<int> view = list;
     List<int> other = new List<int>();
     view = other;                           // error[WYL0417]: cannot reassign 'view'

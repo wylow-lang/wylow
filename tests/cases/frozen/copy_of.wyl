@@ -2,7 +2,7 @@
 // original keeps its elements.
 
 import std::threading::Frozen;
-import std::{List, print};
+import std::List;
 
 void main() {
     var squares = new Array<int>(4, 0);
@@ -11,14 +11,14 @@ void main() {
     }
     var frozen = Frozen<int>.copyOf(squares);
     squares[0] = 100;
-    print(frozen[0]);                         // output: 0
-    print(frozen[3]);                         // output: 9
+    std::print(frozen[0]);                    // output: 0
+    std::print(frozen[3]);                    // output: 9
     var list = new List<int>();
     list.add(5);
     list.add(6);
     list.add(7);
     var tail = Frozen<int>.copyOf(list.asReadOnlySpan().slice(1, 2));
-    print(tail.length());                     // output: 2
-    print(tail[0] + tail[1]);                 // output: 13
-    print(list.count());                      // output: 3
+    std::print(tail.length());                // output: 2
+    std::print(tail[0] + tail[1]);            // output: 13
+    std::print(list.count());                 // output: 3
 }

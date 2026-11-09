@@ -1,11 +1,9 @@
-import std::print;
-
 class Holder {
     mut String text = "xy";
 }
 
 String make() {
-    print("made");
+    std::print("made");
     return "mk";
 }
 
@@ -16,23 +14,23 @@ String? maybe(bool some) {
 void main() {
     // Each character is decoded from the bytes; the index is its byte offset.
     for (char c : "hé😀") {
-        print(c);
+        std::print(c);
         // output: h
         // output: é
         // output: 😀
     }
     for (int at, char c : "hé😀!") {
-        print($"{at} {c}");
+        std::print($"{at} {c}");
         // output: 0 h
         // output: 1 é
         // output: 3 😀
         // output: 7 !
     }
     for (char c : "") {
-        print(c);
+        std::print(c);
     }
     for (int code : "A€") {
-        print(code);
+        std::print(code);
         // output: 65
         // output: 8364
     }
@@ -45,13 +43,13 @@ void main() {
             lastSlash = at;
         }
     }
-    print(path.slice(lastSlash + 1, path.byteLength() - lastSlash - 1)); // output: file.txt
+    std::print(path.slice(lastSlash + 1, path.byteLength() - lastSlash - 1)); // output: file.txt
 
     // The loop reads the string it started with, even if the variable is reassigned.
     mut String s = "abc";
     for (char c : s) {
         s = "a much longer string";
-        print(c);
+        std::print(c);
         // output: a
         // output: b
         // output: c
@@ -60,13 +58,13 @@ void main() {
     var holder = new Holder();
     for (char c : holder.text) {
         holder.text = "";
-        print(c);
+        std::print(c);
         // output: x
         // output: y
     }
 
     for (char c : make()) {
-        print(c);
+        std::print(c);
         // output: made
         // output: m
         // output: k
@@ -75,7 +73,7 @@ void main() {
     String? found = maybe(true);
     if (found != null) {
         for (char c : found) {
-            print(c);
+            std::print(c);
             // output: o
             // output: k
         }
@@ -91,5 +89,5 @@ void main() {
         }
         vowels++;
     }
-    print(vowels);                      // output: 3
+    std::print(vowels);                 // output: 3
 }

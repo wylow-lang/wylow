@@ -1,10 +1,8 @@
-import std::print;
-
 class Node {
     int value = 1;
 }
 
 void main() {
     Node? n = null;
-    print(n!.value);            // panic: null value unwrapped with '!'
+    std::print(n!.value);       // panic: null value unwrapped with '!'
 }

@@ -1,20 +1,18 @@
 // mode: release
 
-import std::print;
-
 void main() {
     int x = 2147483647;
-    print(x + 1);     // output: -2147483648
+    std::print(x + 1); // output: -2147483648
     long y = -9223372036854775808L;
-    print(-y);        // output: -9223372036854775808
+    std::print(-y);   // output: -9223372036854775808
     int big = 65536;
-    print(big * big); // output: 0
+    std::print(big * big); // output: 0
     byte b = 255;
-    print(b + 1);     // output: 0
+    std::print(b + 1); // output: 0
     uint zero = 0u;
-    print(zero - 1);  // output: 4294967295
+    std::print(zero - 1); // output: 4294967295
     ushort us = 300;
-    print(us * us);   // output: 24464
+    std::print(us * us); // output: 24464
     sbyte s = -128;
-    print(-s);        // output: -128
+    std::print(-s);   // output: -128
 }

@@ -1,16 +1,15 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 import std::threading::Channel;
 
 void main() {
     var channel = new Channel<int>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = spawn(() -> {
+    var worker = threading::spawn(() -> {
         sender.send(6);
         return 0;
     });
-    print($"parent {receiver.receive()!}");
+    std::print($"parent {receiver.receive()!}");
     worker.join();
     // output: parent 6
     // tsan

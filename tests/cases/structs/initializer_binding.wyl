@@ -2,8 +2,6 @@
 // binds must not clash with any form's parameters: here the name is another field's, which a form
 // passing that field takes as a parameter.
 
-import std::print;
-
 int? maybe() {
     return 6;
 }
@@ -15,9 +13,9 @@ struct Box {
 
 void main() {
     var passed = Box(width: 9);
-    print(passed.width);        // output: 9
-    print(passed.height);       // output: 6
+    std::print(passed.width);   // output: 9
+    std::print(passed.height);  // output: 6
     var defaulted = Box();
-    print(defaulted.width);     // output: 4
-    print(defaulted.height);    // output: 6
+    std::print(defaulted.width); // output: 4
+    std::print(defaulted.height); // output: 6
 }

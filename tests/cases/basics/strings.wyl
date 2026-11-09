@@ -1,5 +1,3 @@
-import std::print;
-
 /* A block comment, which ends at the closing marker. */
 
 struct Named {
@@ -11,35 +9,35 @@ enum Label { Text(String value), Blank }
 
 void main() {
     String s = "quote \" and backslash \\";
-    print(s);              // output: quote " and backslash \
-    print("héllo wörld");  // output: héllo wörld
-    print("a\nb");
+    std::print(s);         // output: quote " and backslash \
+    std::print("héllo wörld"); // output: héllo wörld
+    std::print("a\nb");
     // output: a
     // output: b
-    print("a\rb".bytes().length());    // output: 3
-    print("a\0b".bytes().length());    // output: 3
+    std::print("a\rb".bytes().length()); // output: 3
+    std::print("a\0b".bytes().length()); // output: 3
 
     // Equality compares contents, so a literal equals a string built at run time.
     int n = 5;
     String built = $"n{n}";
-    print(built == "n5");  // output: true
-    print(built != "n5");  // output: false
-    print(built == "n6");  // output: false
-    print(built == "n");   // output: false
-    print("" == $"");      // output: true
-    print("é" == "\u{E9}"); // output: true
+    std::print(built == "n5"); // output: true
+    std::print(built != "n5"); // output: false
+    std::print(built == "n6"); // output: false
+    std::print(built == "n"); // output: false
+    std::print("" == $""); // output: true
+    std::print("é" == "\u{E9}"); // output: true
 
     mut String? maybe = null;
-    print(maybe == null);  // output: true
-    print(maybe == "n5");  // output: false
+    std::print(maybe == null); // output: true
+    std::print(maybe == "n5"); // output: false
     maybe = built;
-    print(maybe == "n5");  // output: true
-    print("n5" == maybe);  // output: true
+    std::print(maybe == "n5"); // output: true
+    std::print("n5" == maybe); // output: true
 
-    print(Named("a", 1) == Named($"{"a"}", 1)); // output: true
-    print(Named("a", 1) == Named("b", 1));      // output: false
-    print(Label.Text("x") == Label.Text("x"));  // output: true
-    print(Label.Text("x") == Label.Blank);      // output: false
+    std::print(Named("a", 1) == Named($"{"a"}", 1)); // output: true
+    std::print(Named("a", 1) == Named("b", 1)); // output: false
+    std::print(Label.Text("x") == Label.Text("x")); // output: true
+    std::print(Label.Text("x") == Label.Blank); // output: false
     String[2] pair = ["a", "b"];
-    print(pair == ["a", $"b"]);                 // output: true
+    std::print(pair == ["a", $"b"]);            // output: true
 }

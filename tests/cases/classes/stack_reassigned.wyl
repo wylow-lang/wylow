@@ -2,8 +2,6 @@
 // once the local is reassigned: the assignment releases it, which destroys it there, as it would
 // on the heap. Each object made for the local has a slot of its own, so `stack:` counts each.
 
-import std::print;
-
 class Noisy {
     String name;
     mut Vec pos;
@@ -17,7 +15,7 @@ class Noisy {
     }
 
     ~Noisy() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -32,12 +30,12 @@ class Keeper {
 // Reads the object it replaces, which is still alive while it is made.
 class Successor {
     Successor(Noisy before) {
-        print("after");
-        print(before.label());
+        std::print("after");
+        std::print(before.label());
     }
 
     ~Successor() {
-        print("successor");
+        std::print("successor");
     }
 }
 
@@ -61,19 +59,19 @@ Result<int, String> three() {
 // Each object is destroyed where the local is next assigned, and the last where its block ends.
 void replaced() {
     mut var a = new Noisy("a1"); // stack: 1
-    print(a.label());
+    std::print(a.label());
     a = new Noisy("a2"); // stack: 1
-    print("between");
+    std::print("between");
     a = new Noisy("a3"); // stack: 1
-    print(a.label());
+    std::print(a.label());
 }
 
 // A local declared without a value is given its object by its first assignment.
 void deferred() {
     Noisy d;
-    print("before");
+    std::print("before");
     d = new Noisy("deferred"); // stack: 1
-    print(d.label());
+    std::print(d.label());
 }
 
 // Copies of the reference that are gone before the next assignment don't make the object escape.
@@ -81,14 +79,14 @@ void briefCopies(bool yes) {
     mut Noisy? b = new Noisy("b1"); // stack: 1
     {
         var copy = b;
-        print(copy!.label());
+        std::print(copy!.label());
     }
     if (b is Noisy n) {
-        print(n.label());
+        std::print(n.label());
     }
-    run(() -> print(b!.label()));
+    run(() -> std::print(b!.label()));
     b = null;
-    print("cleared");
+    std::print("cleared");
 }
 
 // An assignment in a nested statement may or may not run; it destroys the object if it does.
@@ -96,9 +94,9 @@ void conditional(bool yes) {
     mut Noisy? c = new Noisy("c"); // stack: 1
     if (yes) {
         c = null;
-        print("in branch");
+        std::print("in branch");
     }
-    print("after branch");
+    std::print("after branch");
 }
 
 void inLoop() {
@@ -106,7 +104,7 @@ void inLoop() {
     mut int i = 0;
     while (i < 3) {
         w = null;
-        print(i);
+        std::print(i);
         i += 1;
     }
 }
@@ -116,13 +114,13 @@ void inSwitch(int which) {
     switch (which) {
         case 1 -> {
             s = null;
-            print("one");
+            std::print("one");
         }
         default -> {
-            print("other");
+            std::print("other");
         }
     }
-    print("after switch");
+    std::print("after switch");
 }
 
 // The new object is made before the old one is released, so it can read it.
@@ -130,7 +128,7 @@ void successor() {
     mut var before = new Noisy("before"); // stack: 1
     _ = new Successor(before); // stack: 1
     before = new Noisy("next"); // stack: 1
-    print("made");
+    std::print("made");
 }
 
 // Each iteration has its own objects, the first destroyed by the reassignment.
@@ -141,7 +139,7 @@ void loopBody() {
         if (i == 0) {
             continue;
         }
-        print(x.label());
+        std::print(x.label());
         break;
     }
 }
@@ -159,7 +157,7 @@ void early(bool leave) {
 Result<int, String> tried() {
     mut var t = new Noisy("tried"); // stack: 1
     t.pos.x = try three();
-    print(t.pos.x);
+    std::print(t.pos.x);
     t = new Noisy("tried again"); // stack: 1
     return Ok(0);
 }
@@ -170,21 +168,21 @@ void escapes(Keeper keeper, bool yes) {
     mut var aliased = new Noisy("aliased"); // stack: 0
     var copy = aliased;
     aliased = new Noisy("replacement"); // stack: 1
-    print(copy.label());
+    std::print(copy.label());
 
     // A copy made in the statement that reassigns.
     mut Noisy? nested = new Noisy("nested"); // stack: 0
     if (yes) {
         var inner = nested;
         nested = null;
-        print(inner!.label());
+        std::print(inner!.label());
     }
 
     // A pattern binding, which lasts until the end of the block.
     mut Noisy? bound = new Noisy("bound"); // stack: 0
     bool matched = bound is Noisy m;
     bound = null;
-    print(matched);
+    std::print(matched);
 
     // A value the local is given back.
     mut var back = new Noisy("back"); // stack: 0
@@ -195,7 +193,7 @@ void escapes(Keeper keeper, bool yes) {
     switch (pass(switched!)) {
         default -> {
             switched = null;
-            print("switched away");
+            std::print("switched away");
         }
     }
 
@@ -203,7 +201,7 @@ void escapes(Keeper keeper, bool yes) {
     mut var viewed = new Noisy("viewed"); // stack: 0
     ref Vec p = viewed.pos;
     viewed = new Noisy("view replacement"); // stack: 1
-    print(p.x);
+    std::print(p.x);
 
     // Stored where it outlives the local.
     mut var stored = new Noisy("stored"); // stack: 0
@@ -230,7 +228,7 @@ void escapes(Keeper keeper, bool yes) {
     for (int i : 0..2) {
         looped = new Noisy("looped"); // stack: 0
     }
-    print("end of escapes");
+    std::print("end of escapes");
 }
 
 void main() {

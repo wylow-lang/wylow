@@ -1,5 +1,4 @@
 // A 'case null' on a local the flow analysis knows isn't null could never match.
-import std::print;
 
 class Account { }
 
@@ -10,32 +9,32 @@ int? number() {
 void use(int? given, ref int? alias) {
     int? n = 1;
     switch (n) {
-        case null -> print(0);                  // error[WYL0396]: 'case null' can never match
-        default -> print(1);
+        case null -> std::print(0);             // error[WYL0396]: 'case null' can never match
+        default -> std::print(1);
     }
     Account? e = number() == null ? new Account() : null;
     if (e != null) {
         switch (e) {
-            case null, default -> print(0);     // error[WYL0396]: 'case null' can never match
+            case null, default -> std::print(0); // error[WYL0396]: 'case null' can never match
         }
     }
     switch (e) {
-        case null -> print(0);
-        default -> print(1);
+        case null -> std::print(0);
+        default -> std::print(1);
     }
     if (given == null) {
         return;
     }
     switch (given) {
-        case 1 -> print(1);
-        case null -> print(0);                  // error[WYL0396]: 'case null' can never match
-        default -> print(2);
+        case 1 -> std::print(1);
+        case null -> std::print(0);             // error[WYL0396]: 'case null' can never match
+        default -> std::print(2);
     }
     // A 'ref' parameter isn't narrowed, since another reference could change it.
     if (alias != null) {
         switch (alias) {
-            case null -> print(0);
-            default -> print(1);
+            case null -> std::print(0);
+            default -> std::print(1);
         }
     }
 }

@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Mat2 {
     float[4] m;
@@ -70,7 +70,7 @@ int sum(in? int a, in? int b) {
 }
 
 int order(int value) {
-    print(value);
+    std::print(value);
     return value;
 }
 
@@ -98,46 +98,46 @@ void main() {
     if (a != null) {
         a = 2.5f;
     }
-    print(m.m[1]);                  // output: 2.5
+    std::print(m.m[1]);             // output: 2.5
     ref? float none = m.at(9);
-    print(none == null);            // output: true
-    print(a == null);               // output: false
+    std::print(none == null);       // output: true
+    std::print(a == null);          // output: false
 
     m.at(2)! = 4;
-    print(m.m[2]);                  // output: 4.0
+    std::print(m.m[2]);             // output: 4.0
     m.at(3)! += 1;
-    print(m.m[3]);                  // output: 1.0
-    print(m.peek(2)!);              // output: 4.0
+    std::print(m.m[3]);             // output: 1.0
+    std::print(m.peek(2)!);         // output: 4.0
     ref float r = m.at(0)!;
     r = 7;
-    print(m.m[0]);                  // output: 7.0
+    std::print(m.m[0]);             // output: 7.0
     ref? float f = m.first();
-    print(f!);                      // output: 7.0
+    std::print(f!);                 // output: 7.0
     m.last() = 9;
-    print(m.m[3]);                  // output: 9.0
+    std::print(m.m[3]);             // output: 9.0
 
     mut int x = 1;
     bump(ref x);
-    print(x);                       // output: 2
+    std::print(x);                  // output: 2
     bump(null);
     ref? int rx = x;
     bump(ref rx);
-    print(x);                       // output: 3
-    print(read(x));                 // output: 3
-    print(read(null, 5));           // output: 5
-    print(read(40 + 2));            // output: 42
-    print(read(rx));                // output: 3
-    print(readOrMinus());           // output: -1
+    std::print(x);                  // output: 3
+    std::print(read(x));            // output: 3
+    std::print(read(null, 5));      // output: 5
+    std::print(read(40 + 2));       // output: 42
+    std::print(read(rx));           // output: 3
+    std::print(readOrMinus());      // output: -1
     if (rx != null) {
         rx += 10;
-        print(rx + 1);              // output: 14
+        std::print(rx + 1);         // output: 14
         int copy = rx;
-        print(copy);                // output: 13
+        std::print(copy);           // output: 13
         set(ref rx, 20);
     }
-    print(x);                       // output: 20
+    std::print(x);                  // output: 20
     ref? int nothing = null;
-    print(nothing == null);         // output: true
+    std::print(nothing == null);    // output: true
 
     // A reference holds the object it points into, even after the variable is reassigned.
     mut var bag = new Bag();
@@ -146,16 +146,16 @@ void main() {
     bag = new Bag();
     if (slot != null) {
         slot = 5;
-        print(slot);                // output: 5
+        std::print(slot);           // output: 5
     }
-    print(past == null);            // output: true
+    std::print(past == null);       // output: true
 
     // Arguments are evaluated left to right, and a temporary lives until the call returns.
-    print(sum(order(1) + 1, order(2)));
+    std::print(sum(order(1) + 1, order(2)));
     // output: 1
     // output: 2
     // output: 4
-    print(sum(null, m.at(order(1))! == 2.5f ? order(5) : 0));
+    std::print(sum(null, m.at(order(1))! == 2.5f ? order(5) : 0));
     // output: 1
     // output: 5
     // output: 5
@@ -163,15 +163,15 @@ void main() {
     mut Slots<int> slots = Slots<int>();
     slots.find(1)! = 8;
     ref? int found = slots.find(1);
-    print(orDefault(found, 0));     // output: 8
-    print(orDefault(slots.find(2), 3)); // output: 3
+    std::print(orDefault(found, 0)); // output: 8
+    std::print(orDefault(slots.find(2), 3)); // output: 3
 
     in? int view = found;
-    print(view!);                   // output: 8
+    std::print(view!);              // output: 8
     ref? var inferred = slots.find(0);
     ref? var place = x;
     inferred! = place!;
-    print(slots.items[0]);          // output: 20
+    std::print(slots.items[0]);     // output: 20
 
     fn(ref? int) -> void clear = (ref? int p) -> {
         if (p != null) {
@@ -180,7 +180,7 @@ void main() {
     };
     clear(ref found);
     clear(null);
-    print(slots.items[1]);          // output: 0
+    std::print(slots.items[1]);     // output: 0
 
     // A reference can't be made to refer elsewhere, so a null check narrows it inside lambdas too.
     if (found != null) {
@@ -188,17 +188,17 @@ void main() {
             found += 2;
         });
     }
-    print(slots.items[1]);          // output: 6
+    std::print(slots.items[1]);     // output: 6
 
     // A span's `get` refers to an element, or to nothing when the index is out of bounds.
     Span<int> view2 = slots.items;
     if (view2.get(0) is ref int head) {
         head = 1;
     }
-    print(slots.items[0]);          // output: 1
-    print(view2.get(2) == null);    // output: true
+    std::print(slots.items[0]);     // output: 1
+    std::print(view2.get(2) == null); // output: true
     ReadOnlySpan<int> frozen = slots.items;
-    print(frozen.get(1)!);          // output: 6
+    std::print(frozen.get(1)!);     // output: 6
 
     // A narrowed nullable reference, or a 'ref?' place, converts to a span of what it refers to.
     List<int>? maybe = new List<int>();
@@ -206,13 +206,13 @@ void main() {
     if (maybe != null) {
         Span<int> items = maybe;
         items[0] = 7;
-        print(maybe[0]);            // output: 7
+        std::print(maybe[0]);       // output: 7
     }
     mut int[3] numbers = [4, 5, 6];
     ref? int[3] cells = numbers;
     if (cells != null) {
         Span<int> view3 = cells;
-        print(view3[1]);            // output: 5
+        std::print(view3[1]);       // output: 5
     }
 }
 

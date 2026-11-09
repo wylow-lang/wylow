@@ -1,8 +1,9 @@
 // Two threads add to one atomic at once, and no addition is lost. A static holds a second atomic,
 // which every thread reaches without being given it.
 
-import std::threading::{Atomic, AtomicBool, spawn};
-import std::{print, Unit};
+import std::threading;
+import std::threading::{Atomic, AtomicBool};
+import std::Unit;
 
 class Counters {
     static Atomic<long> CALLS = new Atomic<long>(0L);
@@ -18,16 +19,16 @@ Unit addMany(Atomic<int> total, int times) {
 void main() {
     var total = new Atomic<int>(0);
     var done = new AtomicBool(false);
-    var first = spawn(() -> addMany(total, 1000));
-    var second = spawn(() -> {
+    var first = threading::spawn(() -> addMany(total, 1000));
+    var second = threading::spawn(() -> {
         addMany(total, 1000);
         return done.exchange(true);
     });
     first.join();
-    print(second.join());                     // output: false
-    print(total.get());                       // output: 2000
-    print(Counters.CALLS.get());              // output: 2000
-    print(done.get());                        // output: true
+    std::print(second.join());                // output: false
+    std::print(total.get());                  // output: 2000
+    std::print(Counters.CALLS.get());         // output: 2000
+    std::print(done.get());                   // output: true
 }
 
 // tsan

@@ -1,4 +1,4 @@
-import std::{memory, panic, print};
+import std::{memory, panic};
 
 class Tracked {
     int id;
@@ -8,7 +8,7 @@ class Tracked {
     }
 
     ~Tracked() {
-        print(id * -1);
+        std::print(id * -1);
     }
 }
 
@@ -83,21 +83,21 @@ void main() {
     for (int i : 0..5) {
         numbers.push(i * i);
     }
-    print(numbers[4]);          // output: 16
+    std::print(numbers[4]);     // output: 16
     numbers[0] = 7;
-    print(numbers[0]);          // output: 7
-    print(numbers.capacity);    // output: 8
+    std::print(numbers[0]);     // output: 7
+    std::print(numbers.capacity); // output: 8
     unsafe {
-        print(third(numbers.data)); // output: 4
-        print(thirdIn(numbers.data)); // output: 4
-        print(thirdRef(ref numbers.data)); // output: 4
+        std::print(third(numbers.data)); // output: 4
+        std::print(thirdIn(numbers.data)); // output: 4
+        std::print(thirdRef(ref numbers.data)); // output: 4
         setThird(numbers.data, 6);
-        print(numbers.data[2]);     // output: 6
-        print(numbers.data == null); // output: false
+        std::print(numbers.data[2]); // output: 6
+        std::print(numbers.data == null); // output: false
     }
 
     int* nothing = null;
-    print(nothing == null);     // output: true
+    std::print(nothing == null); // output: true
 
     // A pointer local assigned twice may point into either object.
     unsafe {
@@ -107,7 +107,7 @@ void main() {
         memory::initialize(second, 9);
         mut int* chosen = first;
         chosen = second;
-        print(chosen[0]);       // output: 9
+        std::print(chosen[0]);  // output: 9
         memory::free(first);
         memory::free(second);
     }
@@ -116,15 +116,15 @@ void main() {
     objects.push(new Tracked(1));
     objects.push(new Tracked(2));
     objects.push(new Tracked(3));
-    print(objects[2].id);       // output: 3
+    std::print(objects[2].id);  // output: 3
     objects.shiftRight();
     // output: -3
-    print(objects[0].id);       // output: 2
-    print(objects[1].id);       // output: 1
-    print(objects[2].id);       // output: 2
+    std::print(objects[0].id);  // output: 2
+    std::print(objects[1].id);  // output: 1
+    std::print(objects[2].id);  // output: 2
     // Elements 0 and 2 share one object, so the stack releases 1 before 2.
     objects = new Stack<Tracked>();
     // output: -1
     // output: -2
-    print(0);                   // output: 0
+    std::print(0);              // output: 0
 }

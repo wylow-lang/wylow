@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Pair {
     int[2] items;
@@ -34,7 +34,7 @@ class Bag {
     }
 
     ~Bag() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -43,22 +43,22 @@ void main() {
     if (p.at(0) is ref int first) {
         first = 3;
     }
-    print(p.items[0]);              // output: 3
+    std::print(p.items[0]);         // output: 3
     if (p.at(5) is ref int missing) {
-        print(missing);
+        std::print(missing);
     } else {
-        print("none");              // output: none
+        std::print("none");         // output: none
     }
     if (p.peek(0) is in int seen) {
-        print(seen);                // output: 3
+        std::print(seen);           // output: 3
     }
     if (p.at(1) is ref var inferred) {
         inferred += 4;
     }
-    print(p.items[1]);              // output: 4
+    std::print(p.items[1]);         // output: 4
     ref? int r = p.at(1);
     if (r is in int viewed) {
-        print(viewed + r);          // output: 8
+        std::print(viewed + r);     // output: 8
     }
 
     // The object a name points into is held while the name is in scope.
@@ -66,14 +66,14 @@ void main() {
     if (bag.get(2) is ref int slot) {
         bag = new Bag("second");
         slot = 9;
-        print(slot);                // output: 9
+        std::print(slot);           // output: 9
     }                               // output: first
     // A failed test lets go of the object at once.
     if (bag.get(5) is ref int outside) {
-        print(outside);
+        std::print(outside);
     } else {
         bag = new Bag("third");     // output: second
-        print("replaced");          // output: replaced
+        std::print("replaced");     // output: replaced
     }
 
     mut int i = 0;
@@ -81,8 +81,8 @@ void main() {
         each *= 10;
         i++;
     }
-    print(p.items[0]);              // output: 30
-    print(p.items[1]);              // output: 40
+    std::print(p.items[0]);         // output: 30
+    std::print(p.items[1]);         // output: 40
 
     // Each test borrows the list again, and the last, failing one lets go of it.
     var list = new List<int>();
@@ -94,14 +94,14 @@ void main() {
         j++;
     }
     list.add(3);
-    print(list[1]);                 // output: 102
-    print(list.count());            // output: 3
+    std::print(list[1]);            // output: 102
+    std::print(list.count());       // output: 3
     if (p.at(0) is ref int a && p.at(1) is ref int b) {
-        print(a + b);               // output: 70
+        std::print(a + b);          // output: 70
     }
     int n = switch (i) {
         case 2 -> p.at(0) is ref int z ? z : 0;
         default -> 0;
     };
-    print(n);                       // output: 30
+    std::print(n);                  // output: 30
 }                                   // output: third

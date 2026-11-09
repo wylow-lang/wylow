@@ -1,6 +1,6 @@
 // Pointers compare by address: the same element of the same storage, not the same type.
 
-import std::{memory, print};
+import std::memory;
 
 void main() {
     unsafe {
@@ -9,9 +9,9 @@ void main() {
         memory::initialize(first + 1, 9);
         int* alias = first;
         int* second = first + 1;
-        print(alias == first);      // output: true
-        print(alias == second);     // output: false
-        print(first != second);     // output: true
+        std::print(alias == first); // output: true
+        std::print(alias == second); // output: false
+        std::print(first != second); // output: true
         memory::free(first);
     }
 }

@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 struct Vec {
     int x;
@@ -26,7 +26,7 @@ class Token {
     }
 
     ~Token() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -69,40 +69,40 @@ Vec? offset(bool some) {
 
 void main() {
     mut Vec? v = Vec(3, 4);
-    print(v?.x);                            // output: 3
-    print(v?.sum());                        // output: 7
-    print(v!.y);                            // output: 4
+    std::print(v?.x);                       // output: 3
+    std::print(v?.sum());                   // output: 7
+    std::print(v!.y);                       // output: 4
 
     // A narrowed local is changed in place.
     if (v != null) {
         v.x = 10;
         v.move(5);
-        print(v.x);                         // output: 15
+        std::print(v.x);                    // output: 15
     }
-    print(v?.x);                            // output: 15
+    std::print(v?.x);                       // output: 15
 
     Vec? none = null;
-    print(none?.x);                         // output: null
-    print(none?.sum() ?? -1);               // output: -1
-    print(offset(true)?.y);                 // output: 2
-    print(offset(false) == null);           // output: true
-    print(v == Vec(15, 4));                 // output: true
-    print(v == none);                       // output: false
+    std::print(none?.x);                    // output: null
+    std::print(none?.sum() ?? -1);          // output: -1
+    std::print(offset(true)?.y);            // output: 2
+    std::print(offset(false) == null);      // output: true
+    std::print(v == Vec(15, 4));            // output: true
+    std::print(v == none);                  // output: false
 
     // Fields of nullable type default to null.
     mut var body = new Body();
-    print(body.rate == null);           // output: true
+    std::print(body.rate == null);      // output: true
     body.rate = Vec(1, 1);
-    print(body.rate?.sum());            // output: 2
+    std::print(body.rate?.sum());       // output: 2
 
     // Assigning null destroys the value inside, releasing what it holds.
     mut Holder? holder = Holder(new Token("first"), null);
-    print(holder?.count);                   // output: null
+    std::print(holder?.count);              // output: null
     holder = Holder(new Token("second"), 2);    // output: first
-    print(holder?.token?.name);             // output: second
-    print(holder?.count);                   // output: 2
+    std::print(holder?.token?.name);        // output: second
+    std::print(holder?.count);              // output: 2
     holder = null;                          // output: second
-    print(holder == null);                  // output: true
+    std::print(holder == null);             // output: true
 
     // A narrowed local that isn't 'mut' is never set to null, so it can be referred into.
     Grid? grid = Grid(cells: [1, 2, 3]);
@@ -114,7 +114,7 @@ void main() {
         for (int c : grid.cells) {
             sum += c;
         }
-        print(first + cells[1] + view[2] + sum + total(grid.cells));   // output: 18
+        std::print(first + cells[1] + view[2] + sum + total(grid.cells)); // output: 18
     }
 
     // The value itself, not only a field of it, can be referred into when it can't be reassigned.
@@ -122,7 +122,7 @@ void main() {
     if (numbers != null) {
         in int[3] whole = numbers;
         ReadOnlySpan<int> all = numbers;
-        print(whole[0] + all[2] + total(numbers));  // output: 25
+        std::print(whole[0] + all[2] + total(numbers)); // output: 25
     }
 
     body.held = Holder(new Token("field"), 1);
@@ -137,26 +137,26 @@ void main() {
     for (int? item : list) {
         total += item ?? 100;
     }
-    print(total);                           // output: 306
+    std::print(total);                      // output: 306
     int?[] slots = new int?[3];
-    print(slots[1]);                        // output: null
+    std::print(slots[1]);                   // output: null
     slots[1] = 5;
-    print(slots[1]);                        // output: 5
+    std::print(slots[1]);                   // output: 5
 
     mut Shape shape = Shape.Point(null);
     if (shape is Point(var at)) {
-        print(at == null);                  // output: true
+        std::print(at == null);             // output: true
     }
     shape = Shape.Point(Vec(2, 2));
     if (shape is Point(Vec at)) {
-        print(at.sum());                    // output: 4
+        std::print(at.sum());               // output: 4
     }
 
     mut Slot slot = Slot.Taken(Holder(new Token("slot"), null));
     mut Slot copy = slot;
     slot = Slot.Free;
-    print(copy is Taken(Holder held));      // output: true
+    std::print(copy is Taken(Holder held)); // output: true
     copy = Slot.Taken(null);
-    print(copy is Taken(Holder h2));        // output: false
+    std::print(copy is Taken(Holder h2));   // output: false
 }
 // output: slot

@@ -1,4 +1,4 @@
-import std::{Weak, print};
+import std::Weak;
 
 class Node {
     Weak<Node> parent;
@@ -20,7 +20,7 @@ void main() {
     Node strong = w;                    // error[WYL0079]: expected 'Node', found 'Weak<Node>'
     Node? read = n.parent;              // error[WYL0079]: expected 'Node?', found 'Weak<Node>'
     Weak<Vec> v;                        // error[WYL0403]: 'Weak' type argument: expected a class or interface type, found 'Vec'
-    print(w == n.parent);               // error[WYL0311]: operator '==' cannot be applied to 'Weak<Node>' and 'Weak<Node>'
+    std::print(w == n.parent);          // error[WYL0311]: operator '==' cannot be applied to 'Weak<Node>' and 'Weak<Node>'
     w = 5;                              // error[WYL0079]: expected 'Weak<Node>', found 'int'
-    print(w.get().parent);              // error[WYL0065]: 'w.get()' might be null
+    std::print(w.get().parent);         // error[WYL0065]: 'w.get()' might be null
 }

@@ -1,16 +1,16 @@
 // A 'when' guard's 'is ref' test that succeeded keeps the list borrowed until the switch ends, in
 // the cases after it too when the rest of the guard is false.
 
-import std::{List, print};
+import std::List;
 
 void main() {
     var numbers = new List<int>();
     numbers.add(1);
     int key = 0;
     switch (key) {
-        case 0 when numbers.get(0) is ref int first && first > 5 -> print(first);
+        case 0 when numbers.get(0) is ref int first && first > 5 -> std::print(first);
         default -> {
-            print("default");   // output: default
+            std::print("default"); // output: default
             numbers.add(2);     // panic-here: cannot change the length or capacity of a list while it is borrowed
         }
     }

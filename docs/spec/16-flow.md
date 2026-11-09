@@ -40,14 +40,14 @@ void report(bool found) {
     if (found) {
         count = 1;
     }
-    print(count);                   // error[WYL0394]
+    std::print(count);              // error[WYL0394]
     int total;
     if (found) {
         total = 1;
     } else {
         total = 2;
     }
-    print(total);
+    std::print(total);
 }
 ```
 
@@ -126,17 +126,17 @@ never changes, so a reference into its value may be kept.
 class Node { pub int value; }
 
 void show(Node? node, int? count) {
-    print(node.value);              // error[WYL0397]
+    std::print(node.value);         // error[WYL0397]
     if (node != null) {
-        print(node.value);
+        std::print(node.value);
     }
     if (count != null) {
-        print(count + 1);
+        std::print(count + 1);
     }
     if (node == null) {
         return;
     }
-    print(node.value);
+    std::print(node.value);
 }
 ```
 
@@ -171,9 +171,9 @@ unique struct Buffer {
 void main() {
     mut Buffer data = Buffer(4);
     Buffer kept = data;             // 'data' is moved into 'kept'
-    print(data.length);             // error[WYL0440]: 'data' is used after being moved
+    std::print(data.length);        // error[WYL0440]: 'data' is used after being moved
     data = Buffer(8);
-    print(data.length);
+    std::print(data.length);
 }
 ```
 
@@ -205,7 +205,7 @@ class Link {
     Node next;
 
     Link(bool found) {
-        print(next == null);        // error[WYL0399]
+        std::print(next == null);   // error[WYL0399]
         use(this);                  // error[WYL0400]
         if (found) {
             next = new Node();
@@ -244,8 +244,8 @@ int pick(bool found) {
 }                                   // error[WYL0401]
 
 void stop() {
-    panic("stop");
-    print("unreachable");           // allowed, and does nothing
+    std::panic("stop");
+    std::print("unreachable");      // allowed, and does nothing
 }
 ```
 
@@ -274,15 +274,15 @@ void call(fn() -> void f) { f(); }
 
 void run() {
     int count;
-    call(() -> print(count));       // error[WYL0394]
+    call(() -> std::print(count));  // error[WYL0394]
     int? maybe = 5;
     if (maybe != null) {
-        call(() -> print(maybe + 1));   // error[WYL0397]
+        call(() -> std::print(maybe + 1)); // error[WYL0397]
     }
     mut int? later = 5;
     call(() -> { later = null; });
     if (later != null) {
-        print(later + 1);           // error[WYL0397]
+        std::print(later + 1);      // error[WYL0397]
     }
 }
 ```

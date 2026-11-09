@@ -1,7 +1,5 @@
 // `null` for a `ref?` parameter says nothing about its type parameter, which a lambda can still give.
 
-import std::print;
-
 T pick<T extends copyable>(ref? T r, fn() -> T make) {
     if (r is ref T value) {
         return value;
@@ -10,7 +8,7 @@ T pick<T extends copyable>(ref? T r, fn() -> T make) {
 }
 
 void main() {
-    print(pick(null, () -> 5));     // output: 5
+    std::print(pick(null, () -> 5)); // output: 5
     mut int x = 7;
-    print(pick(ref x, () -> 5));    // output: 7
+    std::print(pick(ref x, () -> 5)); // output: 7
 }

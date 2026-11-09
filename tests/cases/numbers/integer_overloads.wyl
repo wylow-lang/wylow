@@ -1,40 +1,38 @@
 // nint and long are the same C++ type on 64-bit targets, so these overloads need distinct names.
 
-import std::print;
-
 void show(nint value) {
-    print(1);
+    std::print(1);
 }
 
 void show(long value) {
-    print(2);
+    std::print(2);
 }
 
 void pick(byte value) {
-    print(3);
+    std::print(3);
 }
 
 void pick(int value) {
-    print(4);
+    std::print(4);
 }
 
 // So do overloads that differ only so inside function types, wherever those appear.
 class Holder<T> {}
 
 void run((fn(nint) -> void)? f) {
-    print(5);
+    std::print(5);
 }
 
 void run((fn(long) -> void)? f) {
-    print(6);
+    std::print(6);
 }
 
 void hold(Holder<fn(nint) -> void>? h) {
-    print(7);
+    std::print(7);
 }
 
 void hold(Holder<fn(long) -> void>? h) {
-    print(8);
+    std::print(8);
 }
 
 void main() {
@@ -58,5 +56,5 @@ void main() {
     // One C++ class on 64-bit targets, whose traits are emitted once.
     Holder<nint> n1 = new Holder<nint>();
     Holder<long> n2 = new Holder<long>();
-    print(9);      // output: 9
+    std::print(9); // output: 9
 }

@@ -1,6 +1,6 @@
 // Lambdas meeting patterns, nullables, loops, evaluation order, refs, and spans.
 
-import std::{List, print};
+import std::List;
 
 class Task {
     int total;
@@ -55,33 +55,33 @@ void main() {
     mobs.add(new Task(5));
     mobs.add(new Task(50));
     int limit = 10;
-    print(count(mobs, m -> m.total < limit));                  // output: 1
+    std::print(count(mobs, m -> m.total < limit));             // output: 1
 
     // Names declared by patterns and loops are captured like any local.
     Shape s = Shape.Circle(2.0f);
     if (s is Circle(var r)) {
-        call(() -> print(r * 2.0f));                         // output: 4.0
+        call(() -> std::print(r * 2.0f));                    // output: 4.0
     }
     switch (s) {
-        case Circle(var r) -> call(() -> print(r));          // output: 2.0
-        case Square(_) -> call(() -> print("square"));
+        case Circle(var r) -> call(() -> std::print(r));     // output: 2.0
+        case Square(_) -> call(() -> std::print("square"));
     }
     for (mut int i = 0; i < 2; i++) {
-        call(() -> print(i));                               // output: 0
+        call(() -> std::print(i));                          // output: 0
                                                             // output: 1
     }
     mut int j = 0;
     while (run(() -> j) < 2) {
         j++;
     }
-    print(j);                                               // output: 2
+    std::print(j);                                          // output: 2
 
     int? n = 3;
     if (n != null) {
-        call(() -> print(n! + 1));                          // output: 4
+        call(() -> std::print(n! + 1));                     // output: 4
     }
     // A lambda's own locals and parameters are narrowed in it, however it assigns them.
-    print(run(() -> {
+    std::print(run(() -> {
         mut int? best = null;
         best = 5;
         if (best != null) {
@@ -95,16 +95,16 @@ void main() {
         }
         return x;
     };
-    print(orZero(null));                                    // output: 0
+    std::print(orZero(null));                               // output: 0
 
     // Operands are evaluated left to right around a lambda that writes them.
     mut int[3] arr = [1, 2, 3];
     mut int i = 0;
-    print(arr[i] + run(() -> {
+    std::print(arr[i] + run(() -> {
         arr[0] = 100;
         return 0;
     }));                                                    // output: 1
-    print(arr[run(() -> {
+    std::print(arr[run(() -> {
         i = 2;
         return i;
     })] + i);                                               // output: 5
@@ -112,7 +112,7 @@ void main() {
     bool flag = true;
     fn(int) -> int f = x -> x + 1;
     mut int y = 1;
-    print(add(y, (flag ? f : x -> x)(run(() -> {
+    std::print(add(y, (flag ? f : x -> x)(run(() -> {
         y = 50;
         return 1;
     }))));                                                  // output: 3
@@ -122,7 +122,7 @@ void main() {
     edit(ref vs[1], v -> {
         v.x *= 10;
     });
-    print(vs[1].x);                                         // output: 20
+    std::print(vs[1].x);                                    // output: 20
 
     List<int> list = new List<int>();
     list.add(1);
@@ -130,11 +130,11 @@ void main() {
     call(() -> {
         span[0] = 42;
     });
-    print(list[0]);                                         // output: 42
+    std::print(list[0]);                                    // output: 42
 
     mut int a = 1;
     bump(ref a, () -> {
         a = 10;
     });
-    print(a);                                               // output: 11
+    std::print(a);                                          // output: 11
 }

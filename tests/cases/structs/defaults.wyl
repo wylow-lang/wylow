@@ -1,8 +1,6 @@
 // 'T()' builds a struct whose fields each take their default value, and a struct's own
 // 'make_default' makes the values a field of that type starts with.
 
-import std::print;
-
 struct Empty { }
 
 struct Inner {
@@ -18,10 +16,10 @@ struct Wide {
 
 void main() {
     var w = Wide();
-    print(w.n);                             // output: 0
-    print(w.label == "");                   // output: true
-    print(w.inner.x);                       // output: 0
-    print(w.inner.label == "");             // output: true
+    std::print(w.n);                        // output: 0
+    std::print(w.label == "");              // output: true
+    std::print(w.inner.x);                  // output: 0
+    std::print(w.inner.label == "");        // output: true
     var e = Empty();
-    print(e == Empty());                    // output: true
+    std::print(e == Empty());               // output: true
 }

@@ -68,10 +68,10 @@ unsafe {
     int[4] values = [10, 20, 30, 40];
     int* first = &values[0];
     int* third = first + 2;
-    print(third[0]);                    // 30
+    std::print(third[0]);               // 30
     third[0] = 35;
-    print(values[2]);                   // 35
-    print(first == third);              // false
+    std::print(values[2]);              // 35
+    std::print(first == third);         // false
 }
 ```
 

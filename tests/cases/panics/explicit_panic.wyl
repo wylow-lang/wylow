@@ -1,15 +1,13 @@
 // panic: n must be positive
 
-import std::{panic, print};
-
 int checked(int n) {
     if (n > 0) {
         return n;
     }
-    panic("n must be positive");
+    std::panic("n must be positive");
 }
 
 void main() {
-    print(checked(3)); // output: 3
-    print(checked(-1));
+    std::print(checked(3)); // output: 3
+    std::print(checked(-1));
 }

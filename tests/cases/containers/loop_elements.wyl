@@ -1,7 +1,7 @@
 // A loop element refers to the element in place unless something the loop runs may store over an
 // element of its type; then it holds its own reference, so the object it refers to stays the same.
 
-import std::{List, print};
+import std::List;
 
 class Account {
     String name;
@@ -20,7 +20,7 @@ class Account {
     }
 
     ~Account() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -51,7 +51,7 @@ void main() {
     // Getters and setters of fields never store over an element.
     for (Account e : list) { // in-place: 1
         e.aim(e);
-        print(e.label());
+        std::print(e.label());
         e.target = null;
     }
     // output: a
@@ -59,7 +59,7 @@ void main() {
 
     for (Account e : list) {
         replaceFirst(list);
-        print(e.name);
+        std::print(e.name);
     }
     // output: a
     // output: a
@@ -69,7 +69,7 @@ void main() {
     Visitor visitor = new Replacer();
     for (Account e : list) {
         visitor.visit(list);
-        print(e.name);
+        std::print(e.name);
     }
     // output: new
     // output: new
@@ -78,7 +78,7 @@ void main() {
 
     for (Account e : list) {
         setFirst(list, new Account("g"));
-        print(e.name);
+        std::print(e.name);
     }
     // output: x
     // output: x
@@ -88,7 +88,7 @@ void main() {
     mut Account[2] pair = [new Account("p"), new Account("q")];
     for (Account e : pair) {
         pair[0] = e;
-        print(e.name);
+        std::print(e.name);
     }
     // output: p
     // output: p
@@ -98,7 +98,7 @@ void main() {
     var other = new Account("o");
     for (mut Account e : list) {
         e = other;
-        print(e.name);
+        std::print(e.name);
     }
     // output: o
     // output: o

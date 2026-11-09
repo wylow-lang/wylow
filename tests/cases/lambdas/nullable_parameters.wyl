@@ -1,8 +1,6 @@
 // A nullable function parameter is non-escaping unless declared 'escaping': it is passed a lambda,
 // a function value, or null without allocating, and is narrowed by null checks like other values.
 
-import std::print;
-
 class Holder {
     mut fn(int) -> int f = x -> x * 10;
     mut (fn(int) -> int)? maybe = null;
@@ -75,59 +73,59 @@ class Visitor {
 void main() {
     // A lambda, null, and passing on.
     mut int total = 0;
-    print(run(1, null));                            // output: 1
-    print(run(1, x -> x + 1));                      // output: 2
-    print(run(2, x -> {
+    std::print(run(1, null));                       // output: 1
+    std::print(run(1, x -> x + 1));                 // output: 2
+    std::print(run(2, x -> {
         total += x;
         return total;
     }));                                            // output: 2
-    print(forward(3, x -> x * 2));                  // output: 7
-    print(forward(3, null));                        // output: 4
-    print(unwrapped(x -> x * 3));                   // output: 9
-    print(narrowed(x -> x + 2));                    // output: 5
-    print(narrowed(null));                          // output: -1
-    print(new Visitor().visit(x -> x * 7));         // output: 14
+    std::print(forward(3, x -> x * 2));             // output: 7
+    std::print(forward(3, null));                   // output: 4
+    std::print(unwrapped(x -> x * 3));              // output: 9
+    std::print(narrowed(x -> x + 2));               // output: 5
+    std::print(narrowed(null));                     // output: -1
+    std::print(new Visitor().visit(x -> x * 7));    // output: 14
 
     // Escaping values: a field, a nullable field, and a non-escaping local.
     var holder = new Holder();
-    print(run(4, holder.f));                        // output: 40
-    print(run(4, holder.maybe));                    // output: 4
+    std::print(run(4, holder.f));                   // output: 40
+    std::print(run(4, holder.maybe));               // output: 4
     holder.maybe = x -> -x;
-    print(run(4, holder.maybe));                    // output: -4
+    std::print(run(4, holder.maybe));               // output: -4
     fn(int) -> int local = x -> x + 100;
-    print(run(1, local));                           // output: 101
+    std::print(run(1, local));                      // output: 101
 
     // The function passed stays alive when the place it came from is replaced during the call.
     holder.maybe = x -> x + holder.calls;
-    print(replacing(holder, holder.maybe));         // output: 1
+    std::print(replacing(holder, holder.maybe));    // output: 1
     holder.f = x -> x * 10;
-    print(replacing(holder, holder.f));             // output: 10
+    std::print(replacing(holder, holder.f));        // output: 10
 
     // Arguments evaluated in order, each into its own temporary, the lambda included.
-    print(three(holder.next(), x -> x + 1, holder.next()));    // output: 22
+    std::print(three(holder.next(), x -> x + 1, holder.next())); // output: 22
 
     // A choice of nullable function type is escaping, so its lambda is a closure.
     bool flag = holder.calls == 2;
-    print(run(1, flag ? x -> x + 1 : null));        // output: 2
-    print(run(1, !flag ? x -> x + 1 : null));       // output: 1
+    std::print(run(1, flag ? x -> x + 1 : null));   // output: 2
+    std::print(run(1, !flag ? x -> x + 1 : null));  // output: 1
 
     // A '!' in a choice checks only where its option is chosen, so a null option that isn't
     // chosen does not panic.
-    print(chosen(3, x -> x * 3, x -> x + 1, true));         // output: 9
-    print(chosen(3, x -> x * 3, x -> x + 1, false));        // output: 4
-    print(chosen(3, null, x -> x + 1, false));              // output: 4
-    print(chosenMixed(3, x -> x * 3, true));                // output: 9
-    print(chosenMixed(3, x -> x * 3, false));               // output: 2
-    print(chosenMixed(3, null, false));                     // output: 2
-    print(chosenSwitch(x -> x * 3, 0));                     // output: 9
-    print(chosenSwitch(null, 1));                           // output: 30
-    print(chosenSwitch(null, 2));                           // output: 103
+    std::print(chosen(3, x -> x * 3, x -> x + 1, true));    // output: 9
+    std::print(chosen(3, x -> x * 3, x -> x + 1, false));   // output: 4
+    std::print(chosen(3, null, x -> x + 1, false));         // output: 4
+    std::print(chosenMixed(3, x -> x * 3, true));           // output: 9
+    std::print(chosenMixed(3, x -> x * 3, false));          // output: 2
+    std::print(chosenMixed(3, null, false));                // output: 2
+    std::print(chosenSwitch(x -> x * 3, 0));                // output: 9
+    std::print(chosenSwitch(null, 1));                      // output: 30
+    std::print(chosenSwitch(null, 2));                      // output: 103
 
     // A function type's nullable parameters are non-escaping too.
     fn((fn(int) -> int)?) -> int g = h -> h == null ? 7 : h(1);
-    print(g(null));                                 // output: 7
-    print(g(x -> x + 8));                           // output: 9
+    std::print(g(null));                            // output: 7
+    std::print(g(x -> x + 8));                      // output: 9
 
     // The option the choice selects is checked, where the choice is made.
-    print(chosen(3, null, x -> x + 1, true));       // panic: null value unwrapped with '!'
+    std::print(chosen(3, null, x -> x + 1, true));  // panic: null value unwrapped with '!'
 }

@@ -2,8 +2,6 @@
 // to null meanwhile would destroy it. These are found on the IR, so they are reported only once
 // nothing else is wrong with the program (see nullable_values.wyl for the rest).
 
-import std::print;
-
 struct Vec {
     int x;
     int[2] pair;
@@ -59,7 +57,7 @@ void main() {
         bump(ref v.x, clear(ref v));    // error[WYL0411]: 'v' might be set to null while its value is in use
     }
     if (v != null) {
-        print(v.pair[clear(ref v)]);    // error[WYL0411]: 'v' might be set to null while its value is in use
+        std::print(v.pair[clear(ref v)]); // error[WYL0411]: 'v' might be set to null while its value is in use
     }
     // A closure made later in the statement does not hide the write before it.
     if (v != null) {

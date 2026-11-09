@@ -1,8 +1,6 @@
 // A choice owns the callable it may select, and releases it when the choice is released, so what
 // the unchosen call never made is still let go.
 
-import std::print;
-
 class Token {
     int id;
 
@@ -11,7 +9,7 @@ class Token {
     }
 
     ~Token() {
-        print($"free {id}");
+        std::print($"free {id}");
     }
 }
 
@@ -29,8 +27,8 @@ void main() {
     {
         // The target is non-escaping, so the call is deferred into the choice.
         fn(int) -> int f = choose(false) ? (x -> x + 0) : make(token);
-        print(f(1));            // output: 2
+        std::print(f(1));       // output: 2
     }
-    print("done");              // output: done
+    std::print("done");         // output: done
 }
 // output: free 1

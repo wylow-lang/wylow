@@ -1,4 +1,3 @@
-import std::print;
 import std::threading::Channel;
 
 void main() {
@@ -9,9 +8,9 @@ void main() {
         sender.send(1);
         sender.send(2);
     }
-    print(receiver.receive()!);
-    print(receiver.receive()!);
-    print(receiver.receive() == null);
+    std::print(receiver.receive()!);
+    std::print(receiver.receive()!);
+    std::print(receiver.receive() == null);
     // output: 1
     // output: 2
     // output: true

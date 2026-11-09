@@ -1,8 +1,6 @@
 // Within one file everything is visible, whatever its visibility, and a member is visible only as
 // far as its type (spec programs.visibility).
 
-import std::print;
-
 module class Counter {
     mut int count;                          // file-private, yet the rest of this file sees it
     pub fn(int) -> int step;                  // a public field of function type
@@ -55,17 +53,17 @@ void main() {
     var c = new Counter(x -> x + 1, x -> x * 3);
     c.bump();
     c.bump();
-    print(c.count);                         // output: 12
+    std::print(c.count);                    // output: 12
     c.count = 0;
-    print(c.count);                         // output: 0
+    std::print(c.count);                    // output: 0
 
     Shape s = new Square();
-    print(s.name());                        // output: square
-    print(s.sides());                       // output: 4
+    std::print(s.name());                   // output: square
+    std::print(s.sides());                  // output: 4
 
     var b = Plain().make();
-    print(b.width);                         // output: 2
-    print(b.size());                        // output: 6
-    print($"{b}");                          // output: box 2x3
-    print(twice(21));                       // output: 42
+    std::print(b.width);                    // output: 2
+    std::print(b.size());                   // output: 6
+    std::print($"{b}");                     // output: box 2x3
+    std::print(twice(21));                  // output: 42
 }

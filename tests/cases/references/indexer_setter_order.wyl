@@ -2,18 +2,16 @@
 // expressions.order): the receiver, then the indices, each once,
 // then for a compound assignment the read through 'operator []', then the value, then the write.
 
-import std::print;
-
 class Grid {
     mut int[4] cells;
 
     int operator [](int row, int col) {
-        print($"read {row},{col}");
+        std::print($"read {row},{col}");
         return cells[row * 2 + col];
     }
 
     void operator []=(int row, int col, int value) {
-        print($"write {row},{col} = {value}");
+        std::print($"write {row},{col} = {value}");
         cells[row * 2 + col] = value;
     }
 }
@@ -22,28 +20,28 @@ struct Pair {
     int[2] items;
 
     int operator [](int i) {
-        print($"read {i}");
+        std::print($"read {i}");
         return items[i];
     }
 
     mut void operator []=(int i, int value) {
-        print($"write {i} = {value}");
+        std::print($"write {i} = {value}");
         items[i] = value;
     }
 }
 
 Grid grid(Grid g) {
-    print("receiver");
+    std::print("receiver");
     return g;
 }
 
 int at(int i) {
-    print($"index {i}");
+    std::print($"index {i}");
     return i;
 }
 
 int value(int v) {
-    print($"value {v}");
+    std::print($"value {v}");
     return v;
 }
 
@@ -98,6 +96,6 @@ void main() {
     pairs[0][i] += bump(ref i);
     // output: read 0
     // output: write 0 = 1
-    print(i);                           // output: 1
-    print(pairs[0].items[1]);           // output: 0
+    std::print(i);                      // output: 1
+    std::print(pairs[0].items[1]);      // output: 0
 }

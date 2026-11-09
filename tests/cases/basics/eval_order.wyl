@@ -1,12 +1,10 @@
-import std::print;
-
 int a() {
-    print("a");
+    std::print("a");
     return 1;
 }
 
 int b() {
-    print("b");
+    std::print("b");
     return 2;
 }
 
@@ -15,15 +13,15 @@ int add(int x, int y) {
 }
 
 void main() {
-    print(a() + b());
+    std::print(a() + b());
     // output: a
     // output: b
     // output: 3
-    print(add(b(), a()));
+    std::print(add(b(), a()));
     // output: b
     // output: a
     // output: 3
-    print(a() < b());
+    std::print(a() < b());
     // output: a
     // output: b
     // output: true

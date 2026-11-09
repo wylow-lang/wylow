@@ -1,5 +1,3 @@
-import std::print;
-
 class First {
     static int A = Helper.read();
 }
@@ -15,5 +13,5 @@ class Second {
 }
 
 void main() {
-    print("main");
+    std::print("main");
 }

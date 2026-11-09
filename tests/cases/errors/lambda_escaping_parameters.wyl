@@ -1,7 +1,7 @@
 // A function type's own parameters are non-escaping unless declared 'escaping', which is part of
 // the type: a lambda of the type may store such a parameter, and must be passed an escaping value.
 
-import std::{List, print};
+import std::List;
 
 class Bus {
     List<fn() -> void> handlers = new List<fn() -> void>();
@@ -11,11 +11,11 @@ void main() {
     var bus = new Bus();
     fn(fn() -> void) -> void plain = h -> bus.handlers.add(h);              // error[WYL0271]: non-escaping parameter 'h' cannot be stored or returned
     fn(escaping fn() -> void) -> void keeper = h -> h();
-    fn() -> void local = () -> print(1);
+    fn() -> void local = () -> std::print(1);
     keeper(local);                                                      // error[WYL0271]: non-escaping variable 'local' cannot be stored or returned
     fn(escaping fn() -> void) -> void typed = (fn() -> void f) -> f();       // error[WYL0263]: type of parameter 'f': expected 'escaping fn() -> void', found 'fn() -> void'
     fn(escaping fn() -> void) -> void untyped = (escaping f) -> f();      // error[WYL0262]: untyped lambda parameter cannot be declared 'escaping'
-    fn(escaping int) -> void number = x -> print(x);                     // error[WYL0270]: 'escaping' cannot be declared on a parameter of non-function type 'int'
-    fn(@Fast int) -> void fast = x -> print(x);                           // error[WYL0433]: cannot find annotation '@Fast'
+    fn(escaping int) -> void number = x -> std::print(x);                // error[WYL0270]: 'escaping' cannot be declared on a parameter of non-function type 'int'
+    fn(@Fast int) -> void fast = x -> std::print(x);                      // error[WYL0433]: cannot find annotation '@Fast'
     fn(fn() -> void) -> void converted = keeper;                            // error[WYL0079]: expected 'fn(fn() -> void) -> void', found 'fn(escaping fn() -> void) -> void'
 }

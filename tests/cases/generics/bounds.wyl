@@ -1,5 +1,3 @@
-import std::print;
-
 struct Score implements Comparable<Score> {
     int points;
 
@@ -82,18 +80,18 @@ class Labeled<T extends copyable> extends Box<T> {
 }
 
 void main() {
-    print(max(Score(points: 3), Score(points: 7)).points);// output: 7
-    print(max(new Version(4), new Version(2)).number);            // output: 4
+    std::print(max(Score(points: 3), Score(points: 7)).points);// output: 7
+    std::print(max(new Version(4), new Version(2)).number);       // output: 4
 
     mut var pair = Pair<Square, Circle>(Square(side: 2), new Circle());
-    print(pair.total());                                          // output: 7.0
+    std::print(pair.total());                                     // output: 7.0
 
     var box = new Box<int>(5);
     box.next = new Box<int>(6);
-    print(box.get() + box.next!.get());                           // output: 11
+    std::print(box.get() + box.next!.get());                      // output: 11
 
     var labeled = new Labeled<Circle>("c", new Circle());
     Box<Circle> asBox = labeled;
-    print(asBox.get().area());                                    // output: 3.0
-    print(labeled.label);                                         // output: c
+    std::print(asBox.get().area());                               // output: 3.0
+    std::print(labeled.label);                                    // output: c
 }

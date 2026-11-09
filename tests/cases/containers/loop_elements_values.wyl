@@ -3,7 +3,7 @@
 // is never another's (spec unsafe.aliasing), so a write of an unrelated type doesn't
 // count.
 
-import std::{List, print};
+import std::List;
 
 struct Vec {
     int x;
@@ -29,7 +29,7 @@ void main() {
     vecs.add(Vec(2));
 
     for (Vec v : vecs) { // in-place: 1
-        print(v.x);
+        std::print(v.x);
     }
     // output: 1
     // output: 2
@@ -37,7 +37,7 @@ void main() {
     // A store into a field of an element changes an element.
     for (Vec v : vecs) {
         vecs[0].x = 9;
-        print(v.x);
+        std::print(v.x);
     }
     // output: 1
     // output: 2
@@ -45,7 +45,7 @@ void main() {
     // So does one through a reference that a call is given.
     for (Vec v : vecs) {
         bump(ref vecs[1].x);
-        print(v.x);
+        std::print(v.x);
     }
     // output: 9
     // output: 3
@@ -54,11 +54,11 @@ void main() {
     mut float total = 1.0f;
     for (Vec v : vecs) { // in-place: 1
         scale(ref total);
-        print(v.x);
+        std::print(v.x);
     }
     // output: 9
     // output: 4
-    print(total);
+    std::print(total);
     // output: 4.0
 
     // Nor is a field of an object, which lies in nothing else.
@@ -66,14 +66,14 @@ void main() {
     for (Vec v : vecs) { // in-place: 1
         tally.sum = tally.sum + v.x;
     }
-    print(tally.sum);
+    std::print(tally.sum);
     // output: 13
 
     var names = new List<String>();
     names.add("a");
     names.add("b");
     for (String name : names) { // in-place: 1
-        print(name);
+        std::print(name);
     }
     // output: a
     // output: b
@@ -83,6 +83,6 @@ void main() {
     for (String name : names) { // in-place: 1
         last = name;
     }
-    print(last);
+    std::print(last);
     // output: b
 }

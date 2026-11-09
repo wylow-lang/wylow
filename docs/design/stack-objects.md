@@ -29,7 +29,7 @@ store makes the value escape. So a value read from a field or an element is neve
 tracked values, and neither is what a reference into one, or a hold of what is in one, refers to:
 whatever is in a field escaped when it was stored there, and a reference can't be stored. A
 function that returns its argument (or its `this`) hands the object back as the call's value,
-which escapes only if the caller lets it: `print(pass(new Path(a, b)).length())` can keep the object
+which escapes only if the caller lets it: `std::print(pass(new Path(a, b)).length())` can keep the object
 on the stack. What a lambda returns escapes, since whatever calls the lambda may keep it.
 Destructors aren't summarized: one that keeps a reference to its object panics, on the stack as on
 the heap. A `Borrowable` object escapes if its class's `beginBorrow` or `endBorrow`, its own or

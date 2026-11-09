@@ -1,9 +1,7 @@
-import std::print;
-
 unique struct Tracked {
     int id;
 
-    ~Tracked() { print($"release {id}"); }
+    ~Tracked() { std::print($"release {id}"); }
 }
 
 Tracked pass(Tracked value) {
@@ -13,7 +11,7 @@ Tracked pass(Tracked value) {
 void main() {
     var first = Tracked(id: 1);
     var second = pass(first);
-    print($"got {second.id}");
+    std::print($"got {second.id}");
     // output: got 1
     // output: release 1
 }

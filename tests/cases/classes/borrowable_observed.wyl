@@ -1,12 +1,10 @@
 // Each row of the spec's table of how long a borrow lasts (spec memory.borrows), observed through a Borrowable of the test's own, so that every mode agrees.
 
-import std::print;
-
 struct Counter {
     int n;
 
     mut void tick() {
-        print("tick");
+        std::print("tick");
         n++;
     }
 }
@@ -16,11 +14,11 @@ class Box implements Borrowable {
     mut Counter[2] counters;
 
     pub void beginBorrow() {
-        print("begin");
+        std::print("begin");
     }
 
     pub void endBorrow() {
-        print("end");
+        std::print("end");
     }
 
     ref int operator [](int index) {
@@ -33,12 +31,12 @@ class Box implements Borrowable {
 }
 
 int five() {
-    print("five");
+    std::print("five");
     return 5;
 }
 
 void bump(ref int n) {
-    print("bump");
+    std::print("bump");
     n++;
 }
 
@@ -47,35 +45,35 @@ void main() {
 
     // A read by value needs no borrow.
     int read = box[1];
-    print(read);                    // output: 0
+    std::print(read);               // output: 0
 
     // Nor does a store of a value that runs no code.
     box[1] = 5;
-    print(box.items[1]);            // output: 5
+    std::print(box.items[1]);       // output: 5
 
     // A store of a call's value is borrowed for the assignment.
     box[1] = five();                // output: begin
                                     // output: five
                                     // output: end
-    print(box.items[1]);            // output: 5
+    std::print(box.items[1]);       // output: 5
 
     // A ref variable is borrowed until its scope ends.
     {
         ref int r = box[0];         // output: begin
         r = 3;
-        print("in scope");          // output: in scope
+        std::print("in scope");     // output: in scope
     }                               // output: end
-    print(box.items[0]);            // output: 3
+    std::print(box.items[0]);       // output: 3
 
     // A ref argument is borrowed until the statement ends.
     bump(ref box[0]);               // output: begin
                                     // output: bump
                                     // output: end
-    print(box.items[0]);            // output: 4
+    std::print(box.items[0]);       // output: 4
 
     // So is a struct method's receiver.
     box.counter(1).tick();          // output: begin
                                     // output: tick
                                     // output: end
-    print(box.counters[1].n);       // output: 1
+    std::print(box.counters[1].n);  // output: 1
 }

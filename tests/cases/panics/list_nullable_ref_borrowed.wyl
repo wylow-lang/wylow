@@ -1,11 +1,11 @@
 // A 'ref?' variable into a list borrows it for its whole scope, even when it refers to nothing.
 
-import std::{List, print};
+import std::List;
 
 void main() {
     var numbers = new List<int>();
     numbers.add(1);
     ref? int past = numbers.get(5);
-    print(past == null);        // output: true
+    std::print(past == null);   // output: true
     numbers.add(2);             // panic-here: cannot change the length or capacity of a list while it is borrowed
 }

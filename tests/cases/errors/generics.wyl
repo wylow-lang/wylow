@@ -1,5 +1,3 @@
-import std::print;
-
 struct Plain {
     int x;
 }
@@ -39,7 +37,7 @@ bool same<T>(T a, T b) {
 }
 
 void show<T>(T value) {
-    print(value);                 // error[WYL0236]: no overload of 'print' accepts (T)
+    std::print(value);            // error[WYL0236]: no overload of 'print' accepts (T)
 }
 
 Pair<T, int> half<T>(T x) {
@@ -59,9 +57,9 @@ void main() {
     Pair<int> q;                  // error[WYL0200]: type arguments of 'Pair': expected 2, found 1
     int<bool> r;                  // error[WYL0199]: type 'int' takes no type arguments
     Plain<int> plain;             // error[WYL0199]: type 'Plain' takes no type arguments
-    print(make());                // error[WYL0201]: cannot infer type argument 'T' of 'make'
+    std::print(make());           // error[WYL0201]: cannot infer type argument 'T' of 'make'
     var w = Wrap<int>();
-    print(w.value.first);         // error[WYL0296]: cannot find member 'first' in 'int'
+    std::print(w.value.first);    // error[WYL0296]: cannot find member 'first' in 'int'
     var pp = Pair<int, int>(1, 2, 3); // error[WYL0233]: no constructor of 'Pair<int, int>' takes 3 arguments
     var conflict = full<int, int>(1); // error[WYL0234]: no overload of 'full' takes 2 type arguments
     var mixed = choose(x -> {     // error[WYL0204]: cannot infer type argument 'T' of 'choose'
@@ -72,6 +70,6 @@ void main() {
         return 0.5f;
     });
     var bad = Pair<(fn() -> int)?, int>();
-    print(bad == bad);            // error[WYL0310]: operator '==' cannot be applied to 'Pair<(fn() -> int)?, int>'
-    same(print(1), print(2));     // error[WYL0202]: cannot infer type argument 'T' of 'same' from a 'void' value
+    std::print(bad == bad);       // error[WYL0310]: operator '==' cannot be applied to 'Pair<(fn() -> int)?, int>'
+    same(std::print(1), std::print(2)); // error[WYL0202]: cannot infer type argument 'T' of 'same' from a 'void' value
 }

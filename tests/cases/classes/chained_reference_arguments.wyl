@@ -1,8 +1,6 @@
 // A constructor that chains gives the constructor it calls the place a 'ref' parameter names, not
 // a copy, even when the chain's arguments are computed by an arguments constructor.
 
-import std::print;
-
 struct Tag { }
 
 class Box {
@@ -43,9 +41,9 @@ void main() {
     mut int counter = 4;
     mut int maybe = 10;
     var box = new Box(5, ref counter, ref maybe, items);
-    print($"{box.value} {box.length} {counter} {maybe} {box.maybe}");
+    std::print($"{box.value} {box.length} {counter} {maybe} {box.maybe}");
     // output: 5 3 5 12 12
     var window = new Window(ref counter, items);
-    print($"{window.value} {window.length} {window.fixed} {counter} {window.maybe}");
+    std::print($"{window.value} {window.length} {window.fixed} {counter} {window.maybe}");
     // output: 5 3 1 6 0
 }

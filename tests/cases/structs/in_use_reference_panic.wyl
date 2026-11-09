@@ -1,7 +1,5 @@
 // Replacing a value that a 'ref' variable refers into panics.
 
-import std::replace;
-
 unique struct Handle {
     pub int id;
 
@@ -11,7 +9,7 @@ unique struct Handle {
 void main() {
     mut var handle = Handle(id: 1);
     ref int id = handle.id;
-    var previous = replace(ref handle, Handle(id: 2));
+    var previous = std::replace(ref handle, Handle(id: 2));
     // panic: cannot replace a value that is in use
     id = 3;
 }

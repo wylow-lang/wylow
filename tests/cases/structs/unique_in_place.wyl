@@ -1,8 +1,6 @@
 // A unique operand used in place is not moved: passed to an 'in' parameter, or used as the
 // receiver of a method that does not take it by value.
 
-import std::print;
-
 unique struct Counter {
     pub int value;
 
@@ -12,7 +10,7 @@ unique struct Counter {
 }
 
 void peek(in Counter counter) {
-    print(counter.value);
+    std::print(counter.value);
 }
 
 void main() {
@@ -20,7 +18,7 @@ void main() {
     peek(counter);
     // output: 1
     counter.bump();
-    print(counter.value);
+    std::print(counter.value);
     // output: 2
     peek(counter);
     // output: 2

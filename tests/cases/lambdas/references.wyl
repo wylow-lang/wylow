@@ -1,7 +1,7 @@
 // A function or static method used as a value is the lambda that calls it, so the function type it
 // is converted to picks the overload, and it can be passed, stored, chosen, and inferred from.
 
-import std::{List, print};
+import std::List;
 
 class Task {
     int depth;
@@ -98,51 +98,51 @@ fn(int) -> int pick(bool up) {
 
 void main() {
     // Non-escaping: a template parameter, a FunctionRef, and a local.
-    print(apply(inc, 1));                           // output: 2
-    print(new Direct().run(inc, 2));                // output: 3
+    std::print(apply(inc, 1));                      // output: 2
+    std::print(new Direct().run(inc, 2));           // output: 3
     fn(int) -> int local = inc;
-    print(local(3));                                // output: 4
+    std::print(local(3));                           // output: 4
 
     // The function type picks the overload.
     fn(int) -> int intTwice = twice;
     fn(long) -> long longTwice = twice;
-    print(intTwice(5));                             // output: 10
-    print(longTwice(5L));                           // output: 15
+    std::print(intTwice(5));                        // output: 10
+    std::print(longTwice(5L));                      // output: 15
 
     // Static methods, `in` and `ref` parameters, and a generic function.
     fn(Task, Task) -> int compare = Task.byDepth;
-    print(compare(new Task(5), new Task(2)));         // output: 3
-    print(new Task(1).scaledTwice());                // output: 25
+    std::print(compare(new Task(5), new Task(2)));    // output: 3
+    std::print(new Task(1).scaledTwice());           // output: 25
     fn(in Vec) -> int read = Vec.read;
-    print(read(Vec(7)));                            // output: 7
-    print(callRef(bump));                           // output: 11
+    std::print(read(Vec(7)));                       // output: 7
+    std::print(callRef(bump));                      // output: 11
     fn(String) -> String echo = same;
-    print(echo("echo"));                            // output: echo
-    print(fact(5));                                 // output: 120
+    std::print(echo("echo"));                       // output: echo
+    std::print(fact(5));                            // output: 120
 
     // Generic inference from what the function returns.
-    print(map(new Task(4), describe));               // output: deep task
-    print(map(3, inc) + 1);                         // output: 5
+    std::print(map(new Task(4), describe));          // output: deep task
+    std::print(map(3, inc) + 1);                    // output: 5
 
     // Escaping: fields, returns, containers, and parameters.
     var holder = new Holder();
-    print(holder.f(1));                             // output: 2
+    std::print(holder.f(1));                        // output: 2
     holder.f = twice;
-    print(holder.f(1));                             // output: 2
-    print(pick(true)(1));                           // output: 2
-    print(pick(false)(4));                          // output: 8
+    std::print(holder.f(1));                        // output: 2
+    std::print(pick(true)(1));                      // output: 2
+    std::print(pick(false)(4));                     // output: 8
     var handlers = new List<fn(int) -> int>();
     handlers.add(inc);
     keep(handlers, twice);
     for (fn(int) -> int h : handlers) {
-        print(h(10));                               // output: 11
+        std::print(h(10));                          // output: 11
                                                     // output: 20
     }
 
     // Choices, and a builtin with a result discarded.
     bool up = handlers.count() == 2;
-    print(apply(up ? inc : twice, 3));              // output: 4
-    fn(int) -> void show = print;
+    std::print(apply(up ? inc : twice, 3));         // output: 4
+    fn(int) -> void show = std::print;
     show(42);                                       // output: 42
     fn(int) -> void ignore = inc;
     ignore(1);

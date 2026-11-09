@@ -1,5 +1,3 @@
-import std::{panic, print};
-
 enum Direction { North, East, South, West }
 
 enum Color { Red, Green }
@@ -15,18 +13,18 @@ class Dog extends Animal { }
 
 void use(Shape s, Direction d, int n, bool b, Animal a) {
     switch (d) {                                // error[WYL0393]: switch does not handle every value of type 'Direction'
-        case North, East -> print(1);
-        case South -> print(2);
+        case North, East -> std::print(1);
+        case South -> std::print(2);
     }
     switch (s) {                                // error[WYL0393]: switch does not handle every value of type 'Shape'
-        case Point, Circle -> print(1);
-        case Pair(North, _), Pair(East, _) -> print(2);
-        case Pair(_, North) -> print(3);
-        case Pair(West, _) -> print(4);
+        case Point, Circle -> std::print(1);
+        case Pair(North, _), Pair(East, _) -> std::print(2);
+        case Pair(_, North) -> std::print(3);
+        case Pair(West, _) -> std::print(4);
     }
     switch (n) {                                // error[WYL0393]: switch does not handle every value of type 'int'
-        case 1 -> print(1);
-        case 2 -> print(2);
+        case 1 -> std::print(1);
+        case 2 -> std::print(2);
     }
     var flag = switch (b) {
         case true -> 1;
@@ -36,58 +34,58 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
         case true -> 1;
     };
     switch (a) {                                // error[WYL0393]: switch does not handle every value of type 'Animal'
-        case Dog dog -> print(1);
+        case Dog dog -> std::print(1);
     }
     switch (a) {
-        case Dog dog -> print(1);
-        case Animal other -> print(2);
-        case Dog again -> print(3);             // error[WYL0391]: case can never be reached
+        case Dog dog -> std::print(1);
+        case Animal other -> std::print(2);
+        case Dog again -> std::print(3);        // error[WYL0391]: case can never be reached
     }
     switch (d) {
-        case North -> print(1);
-        case North -> print(2);                 // error[WYL0391]: case can never be reached
-        default -> print(3);
+        case North -> std::print(1);
+        case North -> std::print(2);            // error[WYL0391]: case can never be reached
+        default -> std::print(3);
     }
     switch (d) {
-        case North, East, South, West -> print(1);
-        default -> print(2);                    // error[WYL0392]: 'default' can never be reached
+        case North, East, South, West -> std::print(1);
+        default -> std::print(2);               // error[WYL0392]: 'default' can never be reached
     }
     switch (n) {
-        default -> print(1);                    // error[WYL0370]: 'default' must be the last case
-        case 1 -> print(2);                     // error[WYL0391]: case can never be reached
+        default -> std::print(1);               // error[WYL0370]: 'default' must be the last case
+        case 1 -> std::print(2);                // error[WYL0391]: case can never be reached
     }
     switch (s) {
-        case Circle(var r), Point -> print(1);  // error[WYL0382]: case with several patterns cannot bind names
-        default -> print(2);
+        case Circle(var r), Point -> std::print(1); // error[WYL0382]: case with several patterns cannot bind names
+        default -> std::print(2);
     }
 
     // Patterns must fit the value's type.
     switch (s) {
-        case Red -> print(1);                   // error[WYL0377]: cannot find variant 'Red' in enum 'Shape'
-        case Color.Red -> print(1);             // error[WYL0380]: pattern 'Color.Red' can never match a value of type 'Shape'
-        case Circle(1, 2) -> print(1);          // error[WYL0379]: fields of 'Circle': expected 1, found 2
-        case Point() -> print(1);               // error[WYL0378]: variant 'Point' carries no data
-        case Circle(1.5f) -> print(1);           // error[WYL0376]: only integer, character, and 'bool' literals can be patterns
-        case Circle(int r) -> print(1);         // error[WYL0380]: pattern 'int' can never match a value of type 'float'
-        case Pair(1, _) -> print(1);            // error[WYL0380]: pattern '1' can never match a value of type 'Direction'
-        default -> print(2);
+        case Red -> std::print(1);              // error[WYL0377]: cannot find variant 'Red' in enum 'Shape'
+        case Color.Red -> std::print(1);        // error[WYL0380]: pattern 'Color.Red' can never match a value of type 'Shape'
+        case Circle(1, 2) -> std::print(1);     // error[WYL0379]: fields of 'Circle': expected 1, found 2
+        case Point() -> std::print(1);          // error[WYL0378]: variant 'Point' carries no data
+        case Circle(1.5f) -> std::print(1);      // error[WYL0376]: only integer, character, and 'bool' literals can be patterns
+        case Circle(int r) -> std::print(1);    // error[WYL0380]: pattern 'int' can never match a value of type 'float'
+        case Pair(1, _) -> std::print(1);       // error[WYL0380]: pattern '1' can never match a value of type 'Direction'
+        default -> std::print(2);
     }
     switch (n) {
-        case North -> print(1);                 // error[WYL0063]: cannot find type 'North'
-        case Circle(_) -> print(1);             // error[WYL0380]: pattern 'Circle' can never match a value of type 'int'
-        case null -> print(1);                  // error[WYL0388]: pattern 'null' can never match a value of non-nullable type 'int'
-        case true -> print(1);                  // error[WYL0380]: pattern 'true' can never match a value of type 'int'
-        default -> print(2);
+        case North -> std::print(1);            // error[WYL0063]: cannot find type 'North'
+        case Circle(_) -> std::print(1);        // error[WYL0380]: pattern 'Circle' can never match a value of type 'int'
+        case null -> std::print(1);             // error[WYL0388]: pattern 'null' can never match a value of non-nullable type 'int'
+        case true -> std::print(1);             // error[WYL0380]: pattern 'true' can never match a value of type 'int'
+        default -> std::print(2);
     }
     switch (a) {
-        case Shape sh -> print(1);              // error[WYL0380]: pattern 'Shape' can never match a value of type 'Animal'
-        default -> print(2);
+        case Shape sh -> std::print(1);         // error[WYL0380]: pattern 'Shape' can never match a value of type 'Animal'
+        default -> std::print(2);
     }
     switch (use(s, d, n, b, a)) {               // error[WYL0367]: cannot switch on a 'void' value
-        default -> print(1);
+        default -> std::print(1);
     }
     switch (null) {                             // error[WYL0368]: cannot switch on 'null'
-        default -> print(1);
+        default -> std::print(1);
     }
 
     var mixed = switch (d) {                    // error[WYL0325]: cases of the switch expression have incompatible types 'int', 'String'
@@ -95,19 +93,19 @@ void use(Shape s, Direction d, int n, bool b, Animal a) {
         default -> "other";
     };
     var nothing = switch (d) {
-        case North -> print(1);                 // error[WYL0323]: case of a switch expression must produce a value
+        case North -> std::print(1);            // error[WYL0323]: case of a switch expression must produce a value
         default -> 2;
     };
     var never = switch (d) {                    // error[WYL0324]: switch expression has no case that produces a value
-        default -> panic("no");
+        default -> std::panic("no");
     };
 
     // `is` needs a pattern that can fail.
-    print(d is var all);                        // error[WYL0331]: pattern always matches
-    print(d is _);                              // error[WYL0331]: pattern always matches
-    print(n is Dog);                            // error[WYL0330]: 'is' cannot test the type of a value of type 'int'
-    print(d is Direction);                      // error[WYL0377]: cannot find variant 'Direction' in enum 'Direction'
-    print(s is Circle(var r) && r > 1);
+    std::print(d is var all);                   // error[WYL0331]: pattern always matches
+    std::print(d is _);                         // error[WYL0331]: pattern always matches
+    std::print(n is Dog);                       // error[WYL0330]: 'is' cannot test the type of a value of type 'int'
+    std::print(d is Direction);                 // error[WYL0377]: cannot find variant 'Direction' in enum 'Direction'
+    std::print(s is Circle(var r) && r > 1);
 }
 
 void main() { }

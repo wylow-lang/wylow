@@ -1,5 +1,3 @@
-import std::print;
-
 abstract class Product {
     mut int shots = 0;
     String name;
@@ -17,12 +15,12 @@ abstract class Product {
     // Non-virtual, but calls virtual methods.
     void fire() {
         shots++;
-        print(name);
-        print(amount());
+        std::print(name);
+        std::print(amount());
     }
 
     ~Product() {
-        print("product destroyed");
+        std::print("product destroyed");
     }
 }
 
@@ -53,7 +51,7 @@ class Shotgun extends Product {
     }
 
     ~Shotgun() {
-        print("shotgun destroyed");
+        std::print("shotgun destroyed");
     }
 }
 
@@ -88,26 +86,26 @@ void main() {
     w.fire();
     // output: pistol
     // output: 10
-    print(w.cooldown());          // output: 0.5
+    std::print(w.cooldown());     // output: 0.5
 
     w = new Shotgun(3);
     // output: product destroyed
     w.fire();
     // output: shotgun
     // output: 15
-    print(w.cooldown());          // output: 1.0
-    print(w.shots);               // output: 1
+    std::print(w.cooldown());     // output: 1.0
+    std::print(w.shots);          // output: 1
 
-    print(total(new DoubleShotgun()));
+    std::print(total(new DoubleShotgun()));
     // output: 80
     // output: shotgun destroyed
     // output: product destroyed
 
     var d = new Derived();
-    print(d.sum());               // output: 3
+    std::print(d.sum());          // output: 3
     Base b = d;
-    print(b.value);               // output: 1
-    print(b == d);                // output: true
+    std::print(b.value);          // output: 1
+    std::print(b == d);           // output: true
 }
 // output: shotgun destroyed
 // output: product destroyed

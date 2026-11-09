@@ -2,7 +2,7 @@
 // objects on the stack. Items print their name when freed, and may empty their holder's slot
 // when freed, which changes an enum while it is being matched.
 
-import std::{Weak, print};
+import std::Weak;
 
 class Item {
     int id;
@@ -15,9 +15,9 @@ class Item {
     }
 
     ~Item() {
-        print(name);
+        std::print(name);
         if (clears.get() is Holder h) {
-            print(h.slot is Holding ? "sees old value" : "sees new value");
+            std::print(h.slot is Holding ? "sees old value" : "sees new value");
             h.slot = Slot.Empty;
         }
     }
@@ -38,7 +38,7 @@ class Holder {
     mut Slot slot = Slot.Empty;
 
     ~Holder() {
-        print("free holder");
+        std::print("free holder");
     }
 }
 
@@ -65,7 +65,7 @@ void rebind(Holder h) {
     a1 = item(0, "free 0");
     mut int round = 0;
     while (h.slot is Pair(Has(var a), Has(var b))) {
-        print(round);
+        std::print(round);
         if (round == 0) {
             h.slot = Slot.Pair(Box.Has(item(21, "free a2")), Box.Has(item(22, "free b2")));
         } else {
@@ -79,17 +79,17 @@ void rebind(Holder h) {
 // statement ends.
 void temporaryInCondition() {
     if (holding(7, "free item 7").slot is Holding(var item)) {
-        print(item.id);
+        std::print(item.id);
     }
 }
 
 // A switch keeps a temporary value until it ends, after the case's names are released.
 void temporaryInSwitch() {
     switch (holding(8, "free item 8").slot) {
-        case Holding(var item) -> print(item.id);
-        default -> print(0);
+        case Holding(var item) -> std::print(item.id);
+        default -> std::print(0);
     }
-    print("after switch");
+    std::print("after switch");
 }
 
 // A switch expression keeps it until its value is produced.
@@ -98,7 +98,7 @@ void temporaryInSwitchExpression() {
         case Holding(var item) -> item.id;
         default -> 0;
     };
-    print(id);
+    std::print(id);
 }
 
 // A case's names are copies, so it may change the value it matched.
@@ -106,11 +106,11 @@ void changeMatched(Holder h) {
     switch (h.slot) {
         case Holding(var item) -> {
             h.slot = Slot.Empty;
-            print(item.id);
+            std::print(item.id);
         }
-        default -> print(0);
+        default -> std::print(0);
     }
-    print(h.slot is Empty);
+    std::print(h.slot is Empty);
 }
 
 // A test of a nullable reference only checks that it isn't null when the type already matches.
@@ -161,12 +161,12 @@ void main() {
     // output: true
     // output: free holder
     var kept = item(4, "item 4");
-    print(describe(kept));                                  // output: item 4
-    print(describe(null));                                  // output: none
-    print(depth(Slot.Pair(Box.Has(kept), Box.Has(kept))));  // output: two: 4, 4
-    print(depth(Slot.Pair(Box.Nothing, Box.Has(kept))));    // output: one
-    print(depth(Slot.Pair(Box.Nothing, Box.Nothing)));      // output: none
-    print(depth(Slot.Empty));                               // output: empty
+    std::print(describe(kept));                             // output: item 4
+    std::print(describe(null));                             // output: none
+    std::print(depth(Slot.Pair(Box.Has(kept), Box.Has(kept)))); // output: two: 4, 4
+    std::print(depth(Slot.Pair(Box.Nothing, Box.Has(kept)))); // output: one
+    std::print(depth(Slot.Pair(Box.Nothing, Box.Nothing))); // output: none
+    std::print(depth(Slot.Empty));                          // output: empty
 }
 // output: item 4
 // output: free holder

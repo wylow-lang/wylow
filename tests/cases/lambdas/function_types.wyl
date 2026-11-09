@@ -1,4 +1,4 @@
-import std::{List, print};
+import std::List;
 
 // Every way §6.7 writes a function type, in each place a type can be.
 
@@ -34,7 +34,7 @@ int run(escaping (fn(int) -> int)? callback, int value) {
 }
 
 void twice(fn(escaping fn() -> void) -> void register, Scheduler scheduler) {
-    register(() -> print("registered"));
+    register(() -> std::print("registered"));
     if (scheduler.pending != null) {
         scheduler.pending!();
     }
@@ -42,31 +42,31 @@ void twice(fn(escaping fn() -> void) -> void register, Scheduler scheduler) {
 
 void main() {
     fn(int, int) -> int add = (a, b) -> a + b;
-    print(add(2, 3));                                   // output: 5
+    std::print(add(2, 3));                              // output: 5
 
     fn(ref Vec3) -> void scale = v -> { v.x = v.x * 2; };
     mut Vec3 v = Vec3(4);
     scale(ref v);
-    print(v.x);                                         // output: 8
+    std::print(v.x);                                    // output: 8
 
-    print(adder()(10)(5));                              // output: 15
-    print(halver()(6) ?? 0);                            // output: 3
-    print(halver()(7) ?? 0);                            // output: 0
+    std::print(adder()(10)(5));                         // output: 15
+    std::print(halver()(6) ?? 0);                       // output: 3
+    std::print(halver()(7) ?? 0);                       // output: 0
 
-    print(run(x -> x * 3, 4));                          // output: 12
-    print(run(null, 4));                                // output: -1
+    std::print(run(x -> x * 3, 4));                     // output: 12
+    std::print(run(null, 4));                           // output: -1
 
     Scheduler scheduler = new Scheduler();
     twice(task -> scheduler.schedule(task), scheduler); // output: registered
 
     mut escaping (fn(int) -> int)? maybe = null;
-    print(maybe == null);                               // output: true
+    std::print(maybe == null);                          // output: true
     maybe = x -> x + 1;
-    print(maybe!(1));                                   // output: 2
+    std::print(maybe!(1));                              // output: 2
 
     (fn(int) -> int)[2] pair = [x -> x, x -> -x];
-    print(pair[1](9));                                  // output: -9
+    std::print(pair[1](9));                             // output: -9
 
     scheduler.formats.add(n -> $"#{n}");
-    print(scheduler.formats[0](4));                     // output: #4
+    std::print(scheduler.formats[0](4));                // output: #4
 }

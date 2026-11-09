@@ -1,7 +1,5 @@
 // `loop` repeats until a jump ends it, and code after a loop with no `break` is unreachable.
 
-import std::print;
-
 int firstAbove(int limit) {
     mut int i = 0;
     loop {
@@ -9,7 +7,7 @@ int firstAbove(int limit) {
         if (i == 2) {
             continue;
         }
-        print(i);
+        std::print(i);
         if (i > limit) {
             return i;
         }
@@ -24,11 +22,11 @@ void main() {
             break;
         }
     }
-    print(n);                           // output: 3
-    print(firstAbove(2));
+    std::print(n);                      // output: 3
+    std::print(firstAbove(2));
     // output: 1
     // output: 3
     // output: 3
     int do = 4;                         // an ordinary name
-    print(do);                          // output: 4
+    std::print(do);                     // output: 4
 }

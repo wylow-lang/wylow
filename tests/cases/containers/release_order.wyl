@@ -1,7 +1,7 @@
 // Every container releases its elements last to first, as locals and fields are released in the
 // reverse of the order they were created.
 
-import std::{List, print};
+import std::List;
 
 class Tag {
     String name;
@@ -11,7 +11,7 @@ class Tag {
     }
 
     ~Tag() {
-        print(name);
+        std::print(name);
     }
 }
 
@@ -27,7 +27,7 @@ void cleared() {
     tags.add(new Tag("c1"));
     tags.add(new Tag("c2"));
     tags.clear();
-    print("cleared");
+    std::print("cleared");
 }
 
 void heapArray() {

@@ -1,11 +1,10 @@
-import std::print;
-import std::threading::spawn;
+import std::threading;
 import std::threading::Channel;
 
 void main() {
     var channel = new Channel<int>();
     var receiver = channel.receiver();
-    var worker = spawn(() -> {
+    var worker = threading::spawn(() -> {
         var first = channel.sender();
         var second = channel.sender();
         first.send(1);
@@ -20,7 +19,7 @@ void main() {
         total += value!;
         value = receiver.receive();
     }
-    print(total);
+    std::print(total);
     // output: 6
     // tsan
 }

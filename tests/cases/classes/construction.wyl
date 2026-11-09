@@ -1,7 +1,5 @@
-import std::print;
-
 int trace(String s, int value) {
-    print(s);
+    std::print(s);
     return value;
 }
 
@@ -9,12 +7,12 @@ class Base {
     int a = trace("base field", 1);
 
     Base(int x) {
-        print("base body");
+        std::print("base body");
         describe();
     }
 
     virtual void describe() {
-        print("as base");
+        std::print("as base");
     }
 }
 
@@ -24,14 +22,14 @@ class Derived extends Base {
 
     Derived() {
         super(trace("super argument", 0));
-        print("derived body");
+        std::print("derived body");
         other = new Base(1);
         // Every field is assigned, so `this` may be used.
         describe();
     }
 
     override void describe() {
-        print("as derived");
+        std::print("as derived");
     }
 }
 
@@ -42,11 +40,11 @@ class Probe {
     Probe(String name, int value) {
         this.name = name;
         this.value = value;
-        print($"make {name}");
+        std::print($"make {name}");
     }
 
     ~Probe() {
-        print($"release {name}");
+        std::print($"release {name}");
     }
 }
 
@@ -54,7 +52,7 @@ class Pair {
     int first = trace("pair field", 0);
 
     Pair(int a, int b) {
-        print($"pair body {a} {b}");
+        std::print($"pair body {a} {b}");
     }
 }
 
@@ -67,7 +65,7 @@ class Picked extends Pair {
 
 class Keeper {
     Keeper(Probe passed) {
-        print($"keeper body {passed.value}");
+        std::print($"keeper body {passed.value}");
     }
 }
 
@@ -122,15 +120,15 @@ void main() {
     // output: release passed
     // output: kept field
 
-    print(Clamped(-1).value);
+    std::print(Clamped(-1).value);
     // output: clamped field
     // output: 7
-    print(Clamped(3).value);
+    std::print(Clamped(3).value);
     // output: clamped field
     // output: 3
 
     var defaults = new Defaults();
-    print(defaults.count);                  // output: 0
-    print(defaults.maybe == null);          // output: true
-    print(defaults.name);                   // output: defaults
+    std::print(defaults.count);             // output: 0
+    std::print(defaults.maybe == null);     // output: true
+    std::print(defaults.name);              // output: defaults
 }

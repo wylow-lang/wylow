@@ -1,4 +1,4 @@
-import std::{panic, print};
+import std::panic;
 
 struct Pair {
     int[2] values;
@@ -12,6 +12,6 @@ struct Pair {
 
 void main() {
     mut Pair p = Pair();
-    print(p.get(1));            // output: 0
-    print(p.get(2));            // panic-here: index 2 is out of bounds for length 2
+    std::print(p.get(1));       // output: 0
+    std::print(p.get(2));       // panic-here: index 2 is out of bounds for length 2
 }

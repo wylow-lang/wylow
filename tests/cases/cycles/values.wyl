@@ -1,7 +1,7 @@
 // The collector follows references inside structs, enums, fixed arrays, and list elements, and
 // through interface types. A destructor may change its cycle or let go of other objects.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 interface Part {
     mut int id();
@@ -30,7 +30,7 @@ class Joint implements Part {
     }
 
     ~Joint() {
-        print(number);
+        std::print(number);
     }
 }
 
@@ -50,7 +50,7 @@ class Bag implements Part {
 
     // Breaks the cycle and releases its own objects, which the collection must allow.
     ~Bag() {
-        print(number);
+        std::print(number);
         edges.clear();
         leaf = new Leaf(0);
     }
@@ -64,7 +64,7 @@ class Leaf {
     }
 
     ~Leaf() {
-        print(number);
+        std::print(number);
     }
 }
 
@@ -89,7 +89,7 @@ void main() {
     a = new Joint(3);
     b = a;
     bag = new Bag(20);
-    print(0);                           // output: 0
+    std::print(0);                      // output: 0
     memory::collectCycles();
     // output: 1
     // output: 2
@@ -110,7 +110,7 @@ void main() {
     head = tail;
     _ = memory::cycleStats();
     memory::collectCycles();
-    print(memory::cycleStats().freed);   // output: 100001
+    std::print(memory::cycleStats().freed); // output: 100001
 }
 // output: 20
 // output: 21

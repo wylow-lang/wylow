@@ -1,7 +1,7 @@
 // A cycle through a nullable struct is found only when the value is there, and a class holding
 // only nullable numbers is never buffered.
 
-import std::{List, memory, print};
+import std::{List, memory};
 
 class Room {
     int number;
@@ -12,7 +12,7 @@ class Room {
     }
 
     ~Room() {
-        print(number);
+        std::print(number);
     }
 }
 
@@ -37,17 +37,17 @@ void main() {
     b.door = Door(a);
     a = new Room(3);
     b = a;
-    print(0);                           // output: 0
+    std::print(0);                      // output: 0
     memory::collectCycles();
     // output: 1
     // output: 2
-    print(memory::cycleStats().freed);   // output: 2
+    std::print(memory::cycleStats().freed); // output: 2
 
     mut var c = new Counter();
     c.history.add(1);
     mut var d = c;
     d = new Counter();
     c = d;
-    print(memory::cycleStats().buffered);    // output: 0
+    std::print(memory::cycleStats().buffered); // output: 0
 }
 // output: 3

@@ -1,7 +1,5 @@
 // A class definition comes after every interface it implements, wherever it is declared.
 
-import std::print;
-
 class Crate implements Adjustable {
     mut int total = 3;
 
@@ -22,5 +20,5 @@ interface Adjustable {
 void main() {
     var c = new Crate();
     c.amount(1);
-    print(c.balance());        // output: 2
+    std::print(c.balance());   // output: 2
 }

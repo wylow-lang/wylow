@@ -1,8 +1,8 @@
 // A language name may be imported as the declaration it already names (spec programs.builtin-names).
 
-import std::{Result, print};
+import std::Result;
 
 void main() {
     Result<int, String> ok = Result<int, String>.Ok(1);
-    print(ok is Ok(1));                     // output: true
+    std::print(ok is Ok(1));                // output: true
 }

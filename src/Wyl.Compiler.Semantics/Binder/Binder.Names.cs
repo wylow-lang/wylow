@@ -84,7 +84,10 @@ public sealed partial class Binder
         return new Entry(stdlib.LanguageType(name), null, null);
     }
 
-    /// <summary>The module a path's first name means where it is used: a submodule of the file's module, or one it imported.</summary>
+    /// <summary>
+    /// The module a path's first name means where it is used: a submodule of the file's module, one
+    /// its module re-exports, one the file imports, or else the package <c>std</c>, which every file sees.
+    /// </summary>
     Module? ResolveModule(string name, Location use)
     {
         var from = use.Source;
@@ -92,11 +95,14 @@ public sealed partial class Binder
             return child;
         if (ReExported(from.Module, name, from) is { Module: { } reExported })
             return reExported;
-        if (!fileImports.TryGetValue(from, out var imports))
-            return null;
-        if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { Module: { } module })
-            return module;
-        return FromAll(imports, name, from, use, modules: true)?.Module;
+        if (fileImports.TryGetValue(from, out var imports))
+        {
+            if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { Module: { } module })
+                return module;
+            if (FromAll(imports, name, from, use, modules: true)?.Module is { } all)
+                return all;
+        }
+        return name == Package.Std.Name ? Package.Std.Root : null;
     }
 
     /// <summary>

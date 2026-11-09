@@ -2,14 +2,12 @@
 // assigned over, and when it is a field of a value that is released. A moved-from value is not
 // released. 'discard' releases a parameter's fields without running its destructor's body.
 
-import std::print;
-
 class Item {
     pub String name;
 
     pub Item(String name) { this.name = name; }
 
-    ~Item() { print($"item {name}"); }
+    ~Item() { std::print($"item {name}"); }
 }
 
 unique struct Handle {
@@ -18,7 +16,7 @@ unique struct Handle {
 
     pub Handle(int id, Item item) { this.id = id; this.item = item; }
 
-    ~Handle() { print($"handle {id}"); }
+    ~Handle() { std::print($"handle {id}"); }
 }
 
 unique struct Pair {
@@ -32,7 +30,7 @@ Handle make(int id, String name) { return Handle(id, new Item(name)); }
 
 void close(Handle h) {
     discard h;
-    print("closed");
+    std::print("closed");
 }
 
 void closeIf(Handle h, bool ok) {
@@ -45,7 +43,7 @@ void closeIf(Handle h, bool ok) {
 void main() {
     var moved = make(1, "moved");
     var owner = moved;
-    print("moved");
+    std::print("moved");
     // output: moved
 
     mut var replaced = make(2, "old");
@@ -61,7 +59,7 @@ void main() {
     // output: item kept
 
     var pair = Pair(make(5, "first"), make(6, "second"));
-    print("built");
+    std::print("built");
     // output: built
     // output: handle 6
     // output: item second

@@ -1,7 +1,5 @@
 // A constructor assigns every field without an initial value before it uses 'this' or returns.
 
-import std::print;
-
 class Item { }
 
 unique struct Token {
@@ -23,9 +21,9 @@ class Partial {
     int count;
 
     Partial(bool flag) {
-        print(count);
+        std::print(count);
         use(this);                      // error[WYL0400]: 'this' cannot be used until every field is assigned
-        print(item == null);            // error[WYL0399]: field 'item' might not have been assigned
+        std::print(item == null);       // error[WYL0399]: field 'item' might not have been assigned
         item = new Item();
         if (flag) {
             other = item;
@@ -68,7 +66,7 @@ class Chain {
     Chain(Item item) {
         this(item, true);
         useChain(this);
-        print(this.item == null);
+        std::print(this.item == null);
     }
 }
 

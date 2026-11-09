@@ -1,7 +1,7 @@
 // Assigning a reference stores the new value before releasing the old one, so a destructor that
 // reads the assigned field sees the new value.
 
-import std::{Weak, print};
+import std::Weak;
 
 class Holder {
     mut Item item;
@@ -24,8 +24,8 @@ class Item {
 
     ~Item() {
         if (holder.get() is Holder h) {
-            print(h.item.name);
-            print(h.pair.second.name);
+            std::print(h.item.name);
+            std::print(h.pair.second.name);
         }
     }
 }

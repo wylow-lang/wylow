@@ -1,8 +1,6 @@
 // A switch with a 'case null' takes a nullable value as it is. 'null' matches only null, 'default'
 // every value but null, and the other patterns the non-null value, wherever 'case null' is written.
 
-import std::print;
-
 class Account {
     int total;
 
@@ -56,26 +54,26 @@ void main() {
     for (int i : 0..3) {
         // On an object, after the cases that test it.
         switch (find(i)) {
-            case Manager b -> print($"manager {b.total}");
-            case null -> print("no account");
-            case var e -> print($"account {e.total}");
+            case Manager b -> std::print($"manager {b.total}");
+            case null -> std::print("no account");
+            case var e -> std::print($"account {e.total}");
         }
         // On a value, first, with a constant and 'default'.
         switch (number(i)) {
-            case null -> print("no number");
-            case 1 -> print("one");
-            default -> print("more");
+            case null -> std::print("no number");
+            case 1 -> std::print("one");
+            default -> std::print("more");
         }
         // 'case null, default' covers both.
         switch (number(i)) {
-            case 2 -> print("two");
-            case null, default -> print("not two");
+            case 2 -> std::print("two");
+            case null, default -> std::print("not two");
         }
         // A struct pattern matches the non-null struct.
         switch (spot(i)) {
-            case Vec3(1, var y, _) -> print($"y {y}");
-            case Vec3(_, _, var z) -> print($"z {z}");
-            case null -> print("nowhere");
+            case Vec3(1, var y, _) -> std::print($"y {y}");
+            case Vec3(_, _, var z) -> std::print($"z {z}");
+            case null -> std::print("nowhere");
         }
     }
     // output: no account
@@ -94,43 +92,43 @@ void main() {
     // 'var v' binds the non-null value.
     int? n = number(4);
     switch (n) {
-        case null -> print("none");
-        case var v -> print(v + 1);                     // output: 5
+        case null -> std::print("none");
+        case var v -> std::print(v + 1);                // output: 5
     }
 
     // A case's test narrows the local, as in an 'if'.
     Account? target = find(1);
     switch (target) {
-        case Account e -> print(target.total);               // output: 3
-        case null -> print("none");
+        case Account e -> std::print(target.total);          // output: 3
+        case null -> std::print("none");
     }
 
     // A field may be switched on with 'case null', which narrowing couldn't do.
     Ship ship = Ship(pos: Vec3(1, 2, 3), state: null);
     switch (ship.pos) {
-        case null -> print("docked");
-        case Vec3(var x, _, _) -> print($"at {x}");     // output: at 1
+        case null -> std::print("docked");
+        case Vec3(var x, _, _) -> std::print($"at {x}"); // output: at 1
     }
     switch (ship.state) {
-        case Idle, null -> print("idle or none");       // output: idle or none
-        case Chasing(var t) -> print(t.total);
-        case Moved(_) -> print("moved");
+        case Idle, null -> std::print("idle or none");  // output: idle or none
+        case Chasing(var t) -> std::print(t.total);
+        case Moved(_) -> std::print("moved");
     }
 
     // 'null' nested in a pattern matches a nullable field.
     State[3] states = [State.Moved(null), State.Moved(Vec3(7, 8, 9)), State.Chasing(new Account(1))];
     for (State s : states) {
         switch (s) {
-            case Moved(null) -> print("moved nowhere");
-            case Moved(Vec3(var x, _, _)) -> print($"moved to {x}");
-            default -> print("other");
+            case Moved(null) -> std::print("moved nowhere");
+            case Moved(Vec3(var x, _, _)) -> std::print($"moved to {x}");
+            default -> std::print("other");
         }
     }
     // output: moved nowhere
     // output: moved to 7
     // output: other
-    print(states[0] is Moved(null));                    // output: true
-    print(states[1] is Moved(null));                    // output: false
+    std::print(states[0] is Moved(null));               // output: true
+    std::print(states[1] is Moved(null));               // output: false
 
     // A switch expression with a case that produces null has a nullable type, with or without an
     // expected one.
@@ -138,15 +136,15 @@ void main() {
         case null -> null;
         case var v -> v * 2;
     };
-    print(doubled ?? -1);                               // output: -1
+    std::print(doubled ?? -1);                          // output: -1
     String? named = switch (number(1)) {
         case null -> null;
         case 1 -> "one";
         default -> "many";
     };
-    print(named ?? "unnamed");                          // output: one
+    std::print(named ?? "unnamed");                     // output: one
 
     // A generic value's null.
-    print(describe<int>(null));                         // output: nothing
-    print(describe<Account>(new Account(2)));               // output: something
+    std::print(describe<int>(null));                    // output: nothing
+    std::print(describe<Account>(new Account(2)));          // output: something
 }

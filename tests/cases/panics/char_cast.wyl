@@ -1,8 +1,6 @@
-import std::print;
-
 void main() {
     int code = 0xD800;
-    print((char)0x10FFFF == (char)1114111);   // output: true
+    std::print((char)0x10FFFF == (char)1114111); // output: true
     var c = (char)code;                        // panic-here: integer is not a Unicode scalar value
-    print(c);
+    std::print(c);
 }

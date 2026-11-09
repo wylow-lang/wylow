@@ -1,5 +1,3 @@
-import std::print;
-
 struct Config {
     int limit;
     String name;
@@ -31,20 +29,20 @@ class Tables {
 }
 
 void main() {
-    print(Settings.RATE);                    // output: 10
-    print(Settings.LIMITS.limit);            // output: 5
-    print(Settings.DOUBLED);                 // output: 20
-    print(Settings.rate());                  // output: 10
-    print(Settings.ZERO);                    // output: 0
-    print(Settings.EMPTY);                   // output:
+    std::print(Settings.RATE);               // output: 10
+    std::print(Settings.LIMITS.limit);       // output: 5
+    std::print(Settings.DOUBLED);            // output: 20
+    std::print(Settings.rate());             // output: 10
+    std::print(Settings.ZERO);               // output: 0
+    std::print(Settings.EMPTY);              // output:
     var settings = new Settings();
-    print(settings.limitPlus());             // output: 15
-    print(Tables.VALUES[2]);                 // output: 5
-    print(Tables.CONFIG.name);               // output: table
-    print(Tables.middle());                  // output: 4
-    print(Settings.RATE + Settings.LIMITS.limit);   // output: 15
+    std::print(settings.limitPlus());        // output: 15
+    std::print(Tables.VALUES[2]);            // output: 5
+    std::print(Tables.CONFIG.name);          // output: table
+    std::print(Tables.middle());             // output: 4
+    std::print(Settings.RATE + Settings.LIMITS.limit); // output: 15
     in int rate = Settings.RATE;
-    print(rate);                             // output: 10
+    std::print(rate);                        // output: 10
     escaping fn() -> int read = () -> Tables.VALUES[0];
-    print(read());                           // output: 3
+    std::print(read());                      // output: 3
 }

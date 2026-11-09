@@ -2,7 +2,7 @@
 // release does.
 
 import std::threading::Frozen;
-import std::{List, print};
+import std::List;
 
 shared class Item {
     pub int id;
@@ -12,7 +12,7 @@ shared class Item {
     }
 
     ~Item() {
-        print(id);
+        std::print(id);
     }
 }
 
@@ -22,10 +22,10 @@ void main() {
     items.add(new Item(2));
     items.add(new Item(3));
     mut Frozen<Item> frozen = items.freeze();
-    print(frozen[0].id + frozen[2].id);       // output: 4
+    std::print(frozen[0].id + frozen[2].id);  // output: 4
     frozen = Frozen<Item>.copyOf(new List<Item>());
     // output: 3
     // output: 2
     // output: 1
-    print(frozen.length());                   // output: 0
+    std::print(frozen.length());              // output: 0
 }

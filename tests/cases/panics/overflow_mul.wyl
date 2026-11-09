@@ -1,8 +1,6 @@
 // panic: integer overflow
 
-import std::print;
-
 void main() {
     int big = 65536;
-    print(big * big);
+    std::print(big * big);
 }

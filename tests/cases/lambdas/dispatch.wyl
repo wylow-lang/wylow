@@ -1,7 +1,5 @@
 // Functions that can't be C++ templates take their function arguments as wyl::FunctionRef.
 
-import std::print;
-
 interface Visitor {
     void visit(fn(int) -> void action);
 }
@@ -10,8 +8,8 @@ abstract class Shape {
     abstract int measure(fn(int) -> int scale);
 
     virtual void describe(fn() -> String name) {
-        print("shape");
-        print(name());
+        std::print("shape");
+        std::print(name());
     }
 }
 
@@ -27,8 +25,8 @@ class Square extends Shape implements Visitor {
     }
 
     override void describe(fn() -> String name) {
-        print("square");
-        print(name());
+        std::print("square");
+        std::print(name());
     }
 
     void visit(fn(int) -> void action) {
@@ -37,7 +35,7 @@ class Square extends Shape implements Visitor {
 
     // Shares a name with Visitor.visit without implementing it, so it can be a template.
     void visit(fn() -> int size) {
-        print(size() + side);
+        std::print(size() + side);
     }
 }
 
@@ -97,7 +95,7 @@ int applyTwice(fn(fn(int) -> int) -> int run) {
 void main() {
     Square square = new Square(3);
     Shape shape = square;
-    print(shape.measure(x -> x * 2));                // output: 36
+    std::print(shape.measure(x -> x * 2));           // output: 36
     shape.describe(() -> "named");                   // output: square
                                                      // output: named
     mut Visitor visitor = square;
@@ -105,23 +103,23 @@ void main() {
     visitor.visit(side -> {
         seen = side;
     });
-    print(seen);                                     // output: 3
+    std::print(seen);                                // output: 3
     square.visit(() -> 10);                          // output: 13
 
     Floor floor = new Floor();
     visitor = floor;
-    visitor.visit(n -> print(n));                    // output: 7
-    floor.visit(n -> print(n + 1));                  // output: 8
-    print(deepest(Stack(4)));                    // output: 4
-    print(deepest(floor));                           // output: 7
+    visitor.visit(n -> std::print(n));               // output: 7
+    floor.visit(n -> std::print(n + 1));             // output: 8
+    std::print(deepest(Stack(4)));               // output: 4
+    std::print(deepest(floor));                      // output: 7
 
-    print(new Logger((int i) -> i + 1).lines);       // output: 2
-    print(new Logger((String s) -> 5).lines);        // output: 105
+    std::print(new Logger((int i) -> i + 1).lines);  // output: 2
+    std::print(new Logger((String s) -> 5).lines);   // output: 105
 
-    print(countDown(3, x -> print(x)));              // output: 3
+    std::print(countDown(3, x -> std::print(x)));    // output: 3
                                                      // output: 20
                                                      // output: 100
                                                      // output: 3
 
-    print(applyTwice(f -> f(10)));                   // output: 23
+    std::print(applyTwice(f -> f(10)));              // output: 23
 }

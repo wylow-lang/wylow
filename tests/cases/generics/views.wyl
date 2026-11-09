@@ -1,7 +1,5 @@
 // A view a method of a type parameter returns views what that value holds.
 
-import std::print;
-
 interface Viewable {
     ReadOnlySpan<int> view();
 }
@@ -15,7 +13,7 @@ struct Bag implements Viewable {
 }
 
 void first<T extends Viewable>(T value) {
-    print(value.view()[0]);
+    std::print(value.view()[0]);
 }
 
 void main() {

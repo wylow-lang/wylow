@@ -2,27 +2,25 @@
 // when only a field of the result is read. The result is a temporary of the statement, so it is
 // released when the statement ends, and the local it was moved from is not released again.
 
-import std::print;
-
 unique struct Handle {
     pub int id;
 
-    ~Handle() { print($"release {id}"); }
+    ~Handle() { std::print($"release {id}"); }
 }
 
 void main() {
     var first = Handle(id: 1);
-    print((switch (first) { default -> first; }).id);
+    std::print((switch (first) { default -> first; }).id);
     // output: 1
     // output: release 1
 
     bool flag = true;
     var second = Handle(id: 2);
     var third = Handle(id: 3);
-    print((flag ? second : third).id);
+    std::print((flag ? second : third).id);
     // output: 2
     // output: release 2
-    print("end");
+    std::print("end");
     // output: end
     // output: release 3
 }

@@ -1,12 +1,12 @@
 // panic: cannot start a thread before main begins
 
-import std::threading::spawn;
+import std::threading;
 
 class Early {
     static int VALUE = start();
 
     static int start() {
-        var thread = spawn(() -> 1);
+        var thread = threading::spawn(() -> 1);
         return thread.join();
     }
 }
