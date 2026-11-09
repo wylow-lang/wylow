@@ -16,9 +16,9 @@ A declaration may have annotations before its visibility and its other modifiers
 annotation is `@Name` or `@Name(arguments)`. An argument is a type, as in `@Repr(uint)`, or a
 literal, as in `@Align(16)`.
 
-Parentheses right after an annotation are its arguments, unless they begin with `fn`, in which
-case they are the parentheses around the annotated declaration's function type, as in
-`@AllowLargeStack (fn(int) -> int)? handler;`.
+Parentheses right after an annotation are its arguments, unless they begin with `fn` or
+`shared fn`. In that case they are the parentheses around the annotated declaration's function
+type, as in `@AllowLargeStack (fn(int) -> int)? handler;`.
 
 - It is a compile-time error to give an annotation arguments it does not take.
 - **An annotation never changes a type**: what can be assigned, converted, or captured. Whatever is
