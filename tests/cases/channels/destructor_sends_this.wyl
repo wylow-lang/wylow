@@ -1,0 +1,31 @@
+// A destructor that sends its own object over a channel leaves a reference to the object behind,
+// which another thread could receive after the object is destroyed, so the destructor panics when it
+// returns.
+
+import std::threading::{Channel, Sender};
+import std::print;
+
+shared class Worker {
+    pub int id;
+    pub Sender<Worker> out;
+
+    pub Worker(int id, Sender<Worker> out) {
+        this.id = id;
+        this.out = out;
+    }
+
+    ~Worker() {
+        out.send(this);
+    }
+}
+
+void main() {
+    var channel = new Channel<Worker>();
+    var receiver = channel.receiver();
+    {
+        var worker = new Worker(7, channel.sender());
+        print(worker.id);                         // output: 7
+    }
+    // panic: an object's destructor kept a reference to the object
+    print(receiver.receive()!.id);
+}

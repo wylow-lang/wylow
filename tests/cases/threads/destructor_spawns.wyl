@@ -1,0 +1,28 @@
+// A shared class's destructor may start a thread whose body captures 'this'. Releasing the thread
+// joins it before the destructor returns, so no reference to the object outlives the destructor.
+
+import std::threading::spawn;
+import std::print;
+
+shared class Worker {
+    pub int id;
+
+    pub Worker(int id) {
+        this.id = id;
+    }
+
+    ~Worker() {
+        var joined = spawn(() -> this.id * 2);
+        print(joined.join());
+        var released = spawn(() -> this.id * 3);
+    }
+}
+
+void main() {
+    var worker = new Worker(7);
+    print(worker.id);
+    // output: 7
+    // output: 14
+}
+
+// tsan
