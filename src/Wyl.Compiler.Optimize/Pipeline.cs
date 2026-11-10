@@ -27,6 +27,13 @@ public static class Pipeline
     /// </summary>
     public static Optimized? Run(IrProgram ir, DiagnosticBag diagnostics, bool optimize)
     {
+        // The functions of std that the program can't reach are dropped before any pass, so their
+        // cost isn't paid by every program. std's own tests reach and check them.
+        if (Reached.Find(ir) is { } reached)
+        {
+            ir.Functions.RemoveAll(f => !reached.Contains(f));
+            ir.Changed();
+        }
         // A program with the user's errors in it may break other rules too, so the verifier speaks
         // only once they have all run, and each must accept any lowered program.
         foreach (var pass in IrLowering.Passes)

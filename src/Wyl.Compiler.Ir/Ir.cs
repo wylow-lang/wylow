@@ -63,6 +63,13 @@ public sealed class IrFunctions : IReadOnlyList<IrFunction>
         defaults = null;
     }
 
+    public void RemoveAll(Predicate<IrFunction> match)
+    {
+        functions.RemoveAll(match);
+        bySymbol = null;
+        defaults = null;
+    }
+
     /// <summary>The functions under the symbol: one, or a memberwise constructor's forms.</summary>
     public IReadOnlyList<IrFunction> Of(FunctionSymbol symbol)
     {

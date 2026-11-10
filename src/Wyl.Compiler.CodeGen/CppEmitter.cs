@@ -116,7 +116,8 @@ public sealed partial class CppEmitter
 
         EmitStatics(ir);
 
-        foreach (var function in program.Functions)
+        // A function of std that the program can't reach has no IR, and nothing calls it.
+        foreach (var function in program.Functions.Where(f => f.Symbol.IsMemberwise || functions.Contains(f.Symbol)))
         {
             if (function.Symbol.IsMemberwise)
             {
