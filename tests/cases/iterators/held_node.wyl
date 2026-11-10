@@ -1,6 +1,6 @@
 // A loop variable that refers into a node holds the node until the iteration ends, so a node that
 // is unlinked from its list, and that the iterator lets go of, stays alive while the variable is used.
-import std::RefIterator;
+import std::iteration::RefIterator;
 
 class Node {
     pub mut int value;

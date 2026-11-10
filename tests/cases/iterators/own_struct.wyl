@@ -1,5 +1,5 @@
 // A loop copies an iterator that is not unique, so the variable keeps its position.
-import std::Iterator;
+import std::iteration::Iterator;
 
 struct Steps implements Iterator<int> {
     int at;

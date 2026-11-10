@@ -1,6 +1,6 @@
-import std::InIterator;
-import std::Iterator;
-import std::RefIterator;
+import std::iteration::InIterator;
+import std::iteration::Iterator;
+import std::iteration::RefIterator;
 import std::List;
 import std::Borrow;
 

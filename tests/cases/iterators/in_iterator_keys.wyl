@@ -1,6 +1,6 @@
 // A map's keys decide where its entries are, so the map gives them through an 'InIterator': a loop
 // reads each key in place, which works for keys that cannot be copied.
-import std::InIterator;
+import std::iteration::InIterator;
 import std::List;
 
 unique struct Key {

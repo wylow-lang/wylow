@@ -1,3 +1,5 @@
+import std::iteration::Iterator;
+
 /// A growable array on the heap.
 ///
 /// Adding or removing elements may move the others, so while a reference, span, or loop into the

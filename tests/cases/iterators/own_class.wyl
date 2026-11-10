@@ -1,5 +1,5 @@
 // A class iterator is looped over through its reference, and an interface variable through dispatch.
-import std::Iterator;
+import std::iteration::Iterator;
 
 class Node {
     pub int value;

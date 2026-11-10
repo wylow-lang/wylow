@@ -1,5 +1,5 @@
 // A generic function takes any iterator through a bound, and calls it without dispatch.
-import std::Iterator;
+import std::iteration::Iterator;
 import std::List;
 
 struct Repeat implements Iterator<String> {

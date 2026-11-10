@@ -1,7 +1,7 @@
 // Generic code loops over any 'RefIterator' by reference, and a generic wrapper passes on the
 // reference its inner iterator returns, whether the inner iterator is a struct or an object.
 import std::List;
-import std::RefIterator;
+import std::iteration::RefIterator;
 
 class Node {
     pub mut int value;

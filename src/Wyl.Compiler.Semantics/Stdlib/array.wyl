@@ -1,3 +1,5 @@
+import std::iteration::Iterator;
+
 /// A fixed-length array on the heap, written `T[]` and created with `new T[length]`.
 ///
 /// It never moves its elements, so a reference into it only keeps it alive and needs no borrow.

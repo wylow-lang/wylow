@@ -13,5 +13,6 @@ public static class TestPrograms
     /// </summary>
     public static string WithStd(string program) =>
         "@SuppressWarnings(\"unqualified-call\") import std::*; @SuppressWarnings(\"unqualified-call\") import std::memory::*; "
-        + "@SuppressWarnings(\"unqualified-call\") import std::panic::*; @SuppressWarnings(\"unqualified-call\") import std::threading::*; " + program;
+        + "@SuppressWarnings(\"unqualified-call\") import std::panic::*; @SuppressWarnings(\"unqualified-call\") import std::threading::*; "
+        + "@SuppressWarnings(\"unqualified-call\") import std::iteration::*; " + program;
 }

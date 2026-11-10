@@ -1,6 +1,6 @@
 // A loop variable that refers to a unique element puts the element in use, so replacing the
 // element during the iteration panics.
-import std::RefIterator;
+import std::iteration::RefIterator;
 
 unique struct Resource {
     pub int id;

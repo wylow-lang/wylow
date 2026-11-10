@@ -409,7 +409,7 @@ exit 0
 === empty-array-iterator/iteration
 out false
 err panic: cannot read the current element of an iterator before 'moveNext' or after the last element
-err     at array.wyl:138:13
+err     at array.wyl:140:13
 exit 3
 
 === empty-ref-iterator/iteration

@@ -1,7 +1,7 @@
 // A program's own iterator holds a 'Borrow' of the list inside its container, so changing the
 // list's length while the iterator exists panics, and releasing the iterator ends the borrow.
 import std::Borrow;
-import std::Iterator;
+import std::iteration::Iterator;
 import std::List;
 
 class Queue {
