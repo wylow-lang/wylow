@@ -213,8 +213,9 @@ for (in Point point : points) { ... }
 
 - A for-each loops over a range ([Ranges](#statements.for-each.ranges)), a fixed array, a span, a
   value that converts to a span, such as an `Array` or a `List`
-  ([Span conversions](05-conversions.md#conversions.spans)), or the characters of a `String`, whose
-  index is a byte offset ([`String`](04-types.md#types.string)).
+  ([Span conversions](05-conversions.md#conversions.spans)), the characters of a `String`, whose
+  index is a byte offset ([`String`](04-types.md#types.string)), or an iterator
+  ([Iterators](#statements.for-each.iterators)).
 - `T x` copies each element, `ref T x` refers to it, and `in T x` refers to it read-only. `var x`
   copies with the element's type.
 - It is a compile-time error to loop `ref` over a read-only value: an `in` parameter, a variable or
@@ -228,7 +229,7 @@ for (in Point point : points) { ... }
   temporary.
 - A loop over a value that converts to a span iterates a `ReadOnlySpan` unless its variable is `ref`,
   so a read-only loop works on a read-only source.
-- It is a compile-time error to loop over the elements of a temporary value.
+- It is a compile-time error to loop over the elements of a temporary value, other than an iterator.
 - It is a compile-time error to loop over elements inside a nullable value: narrow it first.
 - It is a compile-time error to loop over a value of a type that is not one of these.
 
@@ -279,8 +280,34 @@ void main() {
 }
 ```
 
+<a id="statements.for-each.iterators"></a>
+### 14.7.2 Iterators
+
+A for-each loops over an **iterator**: a value whose type implements `Iterator<T>`
+([`Iterator`](a-library.md#library.iterator)). Each iteration calls the iterator's `moveNext`, and
+ends the loop if it returns `false`. Otherwise the iteration calls `current` once and binds the
+loop variable to its result:
+
+```java unchecked
+for (Order order : orders.iterator()) { ... }
+for (var key : index.keys()) { ... }
+```
+
+- The loop variable has type `T`, or its declared type, to which `T` converts. It is a copy of the
+  result of `current`.
+- The loop takes the iterator by value: a unique iterator is moved into the loop, and any other
+  iterator is copied ([Moves](17-memory.md#memory.moves)). The loop releases the iterator when the
+  loop ends, whether by `break`, by `return`, or by `moveNext` returning `false`.
+- The loop calls the methods of a struct or enum iterator without dispatch, as a call through a
+  bound does ([Interfaces of structs and enums](10-interfaces.md#interfaces.structs)). The loop calls
+  the methods of a class or interface iterator as it calls any object's methods.
+- A temporary iterator may be looped over, unlike the elements of other temporary values.
+- It is a compile-time error to declare the loop variable `ref` or `in` in a loop over an iterator.
+- It is a compile-time error to loop over a value whose type implements `Iterator` with more than
+  one type argument, or that both implements `Iterator` and converts to a span.
+
 <a id="statements.for-each.indices"></a>
-### 14.7.2 Indices and keys
+### 14.7.3 Indices and keys
 
 A for-each may declare two variables: the first is the element's index, and the second is the
 element itself.
@@ -290,7 +317,8 @@ var points = new List<Point>();
 for (int i, ref Point point : points) { ... }
 ```
 
-- The index is a copy of the position, of type `int`.
+- The index is a copy of the position, of type `int`. In a loop over an iterator, the index is the
+  number of earlier iterations.
 - It is a compile-time error to declare the index with a type other than `int`, or with `ref` or
   `in`.
 - The index of a for-each over a `String` is a byte offset.

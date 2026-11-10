@@ -102,3 +102,4 @@ history and a reason can be found without searching the spec.
 | [0072](0072-std-is-a-path-root.md) | Every file sees `std` as a path root, and code calls functions through their module |
 | [0073](0073-suppress-warnings.md) | A warning for a bare call of an imported function, and `@SuppressWarnings` |
 | [0074](0074-list-isolate.md) | A list moves to another thread through `isolate`, and `List<T>` stays the only growable array |
+| [0075](0075-iterators.md) | Iteration: `Iterator<T>` with `moveNext` and `current`, struct iterators through bounds, adapters as extension methods |

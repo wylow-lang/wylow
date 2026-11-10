@@ -483,5 +483,8 @@ the borrow ends, including when the object is known only through an interface.
 - It is a compile-time error for a struct or an enum to implement `Borrowable`, or an interface
   that extends it. Only a class can be `Borrowable`: a value is borrowed through whatever holds
   it.
-- It is a compile-time error to call `beginBorrow` or `endBorrow` directly: the implementation
-  calls them around every borrow.
+- It is a compile-time error to call `beginBorrow` or `endBorrow` directly outside unsafe code
+  ([Unsafe code](20-unsafe.md#unsafe.blocks)): the implementation calls them around every borrow.
+  Unsafe code may call them to borrow a container for longer than one reference or span is used, as
+  an iterator over the container does. The unsafe code must call `endBorrow` once for each call of
+  `beginBorrow`.

@@ -13,6 +13,7 @@ these of its declarations, and on nothing else in it:
 | `Array<T>` | The type `T[]` ([Arrays](04-types.md#types.arrays)) |
 | `Span<T>`, `ReadOnlySpan<T>` | Span types and their conversions ([Spans](04-types.md#types.spans)) |
 | `Spannable<T>`, `ReadOnlySpannable<T>` | Conversions to spans ([`Spannable`](#library.spannable)) |
+| `Iterator<T>` | For-each loops over iterators ([`Iterator`](#library.iterator)) |
 | `Borrowable` | Borrows ([`Borrowable`](17-memory.md#memory.borrows.borrowable)) |
 | `Printable` | String interpolation ([`Printable`](#library.printable)) |
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
@@ -32,9 +33,10 @@ A program may declare its own type with the name of any other declaration of `st
 
 The language calls the methods of some of these interfaces: `Printable`'s `toString` in string
 interpolation, `ReadOnlySpannable`'s `asReadOnlySpan` and `Spannable`'s `asSpan` in conversions to
-spans and in for-each loops, and `Borrowable`'s `beginBorrow` and `endBorrow` around borrows. A
-type takes part by implementing the interface. Each interface's section says which types may
-implement it and whether a program may call its methods.
+spans and in for-each loops, `Iterator`'s `moveNext` and `current` in for-each loops, and
+`Borrowable`'s `beginBorrow` and `endBorrow` around borrows. A type takes part by implementing the
+interface. Each interface's section says which types may implement it and whether a program may
+call its methods.
 
 <a id="library.spannable"></a>
 ## A.2 `Spannable` and `ReadOnlySpannable`
@@ -63,8 +65,32 @@ pub interface Spannable<T> extends ReadOnlySpannable<T> {
   ordinary methods, which the language calls where the interface is used and a program may call
   directly.
 
+<a id="library.iterator"></a>
+## A.3 `Iterator`
+
+`Iterator` is the interface of a value that produces elements one at a time:
+
+```java unchecked
+pub interface Iterator<T> {
+    mut bool moveNext();
+    T current();
+}
+```
+
+- `moveNext` advances the iterator to its next element. It returns `true` if the iterator has an
+  element there, and `false` if it has no more elements.
+- `current` returns the element that the last call of `moveNext` advanced to. What `current` does
+  before the first call of `moveNext`, or after `moveNext` returns `false`, is in the documentation
+  of each type that implements `Iterator`.
+- A for-each loop over an iterator calls `moveNext` before each iteration, and `current` once for
+  each iteration that `moveNext` allows
+  ([Iterators](14-statements.md#statements.for-each.iterators)).
+- A type of the program may implement `Iterator`, to be looped over and passed where an
+  `Iterator<T>` bound is required ([Bounds](11-generics.md#generics.bounds)). Its methods are
+  ordinary methods, which the language calls in for-each loops and a program may call directly.
+
 <a id="library.printable"></a>
-## A.3 `Printable`
+## A.4 `Printable`
 
 `Printable` is the interface of a type whose values string interpolation writes:
 
@@ -83,7 +109,7 @@ pub interface Printable {
   ([String interpolation](13-expressions.md#expressions.interpolation)).
 
 <a id="library.comparable"></a>
-## A.4 `Comparable`
+## A.5 `Comparable`
 
 `Comparable` is the interface of a type whose values are in an order:
 
@@ -108,7 +134,7 @@ same as, or after `other`.
   `5.compareTo(3)` calls `int`'s ([Methods of primitive types](04-types.md#types.primitives.methods)).
 
 <a id="library.panic"></a>
-## A.5 `std::panic`
+## A.6 `std::panic`
 
 The module `std::panic` holds the panics the language names:
 
@@ -124,7 +150,7 @@ of a built-in array do ([`@CallerLocation`](22-annotations.md#annotations.caller
 are safe to call from safe code.
 
 <a id="library.memory"></a>
-## A.6 `std::memory`
+## A.7 `std::memory`
 
 The module `std::memory` holds raw memory and the cycle collector. Its raw-memory functions are
 unsafe, since the compiler cannot check how the storage is used
@@ -147,7 +173,7 @@ unsafe, since the compiler cannot check how the storage is used
   buffered, visited, and freed, as `buffered`, `visited`, and `freed`.
 
 <a id="library.replace"></a>
-## A.7 `replace`, `swap`, and `take`
+## A.8 `replace`, `swap`, and `take`
 
 These functions of `std` take a value out of a place that cannot be moved from
 ([Moves](17-memory.md#memory.moves)):
@@ -167,13 +193,13 @@ pub T? take<T>(ref T? place);
   value in use.
 
 <a id="library.threading"></a>
-## A.8 `std::threading`
+## A.9 `std::threading`
 
 The module `std::threading` declares the types through which threads start, communicate, and share
 data ([Concurrency](19-concurrency.md#concurrency)).
 
 <a id="library.thread"></a>
-### A.8.1 Threads
+### A.9.1 Threads
 
 The module declares the type that a running thread is and the functions that start and join one:
 
@@ -201,7 +227,7 @@ pub T join(this Thread<T> thread);
   another thread.
 
 <a id="library.channel"></a>
-### A.8.2 Channels
+### A.9.2 Channels
 
 The module declares a channel, through which one thread sends values that another receives ([Interleaving](19-concurrency.md#concurrency.interleaving)):
 
@@ -241,7 +267,7 @@ pub shared class Receiver<T extends sendable> {
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
 
 <a id="library.isolated"></a>
-### A.8.3 `Isolated<T>`
+### A.9.3 `Isolated<T>`
 
 The module declares the box an isolated object graph travels in
 ([Isolated object graphs](19-concurrency.md#concurrency.isolated)):
@@ -271,7 +297,7 @@ pub Isolated<List<T>> isolate() where T extends sendable;
 - `isolate` panics if the list is borrowed.
 
 <a id="library.mutex"></a>
-### A.8.4 `Mutex<T>`
+### A.9.4 `Mutex<T>`
 
 The module declares a lock that guards an isolated graph
 ([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)):
@@ -295,7 +321,7 @@ pub shared class Mutex<T> {
 - Releasing the last reference to a mutex releases its graph on the thread that releases it.
 
 <a id="library.atomic"></a>
-### A.8.5 `Atomic<T>` and `AtomicBool`
+### A.9.5 `Atomic<T>` and `AtomicBool`
 
 The module declares the values that threads read and change without a lock
 ([Atomics](19-concurrency.md#concurrency.atomic)):
@@ -329,7 +355,7 @@ pub shared class AtomicBool {
 - Every operation is sequentially consistent.
 
 <a id="library.frozen"></a>
-### A.8.6 `Frozen<T>`
+### A.9.6 `Frozen<T>`
 
 The module declares a list that never changes, which every thread may read
 ([Frozen lists](19-concurrency.md#concurrency.frozen)), and `List<T>` declares the method that makes
