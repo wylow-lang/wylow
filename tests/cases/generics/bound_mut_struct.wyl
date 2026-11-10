@@ -1,0 +1,28 @@
+// A 'mut' method called through a bound changes the struct in its place, not a copy.
+interface Counter {
+    mut void bump();
+    int get();
+}
+
+struct Cell implements Counter {
+    int n;
+
+    mut void bump() {
+        n++;
+    }
+
+    int get() {
+        return n;
+    }
+}
+
+int twice<C extends Counter>(C counter) {
+    mut var local = counter;
+    local.bump();
+    local.bump();
+    return local.get();
+}
+
+void main() {
+    std::print(twice(Cell(0)));             // output: 2
+}

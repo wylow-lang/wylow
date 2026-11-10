@@ -87,6 +87,9 @@ public sealed partial class Interpreter
         value.Engaged = false;
     }
 
+    /// <summary>Whether a hold of a value of the type refers to the value's place instead of counting a copy: anything but an object, a string, or a function.</summary>
+    static bool HoldsInPlace(WylType type) => !type.NonNull.IsReference && type.NonNull != WylType.String && type.NonNull is not FunctionType;
+
     void ExecDeclare(IrLocal local, Frame frame, List<IrLocal> declared)
     {
         frame.Locals[local] = local.Kind switch
@@ -138,6 +141,14 @@ public sealed partial class Interpreter
             return;
         }
 
+        // In generic code a hold's type may be a struct, which lives in its place, so the hold refers
+        // to the place as wyl::Pin and wyl::MakeBorrow do.
+        if (let.Value is IrHold hold && !frame.Locals.ContainsKey(local) && HoldsInPlace(frame.Type(local.Type)))
+        {
+            frame.Locals[local] = new RefStorage(PlaceCell(hold.Place, frame));
+            Declare(frame, local, declared);
+            return;
+        }
         bool borrows = let.Value is IrHold { Borrows: true };
         var value = EvalRvalue(let.Value, frame) ?? throw new InterpreterException($"'{local.Name}' is defined by a value that returned nothing");
         if (frame.Locals.TryGetValue(local, out var existing))
