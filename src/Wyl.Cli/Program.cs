@@ -93,7 +93,7 @@ var source = isPackage ? PackageSources.Load(file) : PackageSources.Of(SourceTex
 if (command == "interpret")
 {
     var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release, Arguments: programArguments));
-    ReportErrors(interpreted.Diagnostics);
+    ReportDiagnostics(interpreted.Diagnostics);
     if (!interpreted.Success)
         return 1;
     var result = interpreted.Interpretation!;
@@ -103,28 +103,26 @@ if (command == "interpret")
     return result.Status is InterpretationStatus.Completed or InterpretationStatus.Panicked ? result.ExitCode : 1;
 }
 
-var compilation = Compilation.Compile(source, options);
-ReportErrors(compilation.Diagnostics);
-if (!compilation.Success)
-    return 1;
-
-switch (command)
+if (command is "check" or "emit" or "ir")
 {
-    case "check":
-        return 0;
-    case "emit":
+    var compilation = Compilation.Compile(source, options);
+    ReportDiagnostics(compilation.Diagnostics);
+    if (!compilation.Success)
+        return 1;
+    if (command == "emit")
         Console.Write(compilation.Cpp);
-        return 0;
-    case "ir":
+    else if (command == "ir")
         Console.Write(compilation.IrText());
-        return 0;
+    return 0;
 }
 
-static void ReportErrors(IReadOnlyList<Diagnostic> diagnostics)
+static void ReportDiagnostics(IReadOnlyList<Diagnostic> diagnostics) =>
+    ReportErrors(diagnostics.Select(d => d.ToString()), diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
+
+static void ReportErrors(IEnumerable<string> diagnostics, int errors)
 {
     foreach (var diagnostic in diagnostics)
         Console.Error.WriteLine(diagnostic);
-    int errors = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
     if (errors > 0)
         Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")}");
 }
@@ -134,7 +132,10 @@ var name = source.Package.Name ?? Path.GetFileNameWithoutExtension(file);
 var buildDirectory = isPackage
     ? Path.Combine(Path.GetFullPath(file), ".wyl", name)
     : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, ".wyl", name);
-var build = Driver.BuildExecutable(compilation, name, buildDirectory, new BuildOptions(release, toolchain));
+var built = Driver.Build(source, options, name, buildDirectory, new BuildOptions(release, toolchain));
+ReportErrors(built.Diagnostics, built.Errors);
+if (built.Executable is not { } build)
+    return 1;
 if (!build.Success)
 {
     Console.Error.WriteLine(build.Error);

@@ -44,6 +44,10 @@ dotnet build
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run examples/hello.wyl
 ```
 
+`wyl build` and `wyl run` keep their output in a `.wyl/` directory beside the program. When the
+sources, the options, and the compiler have not changed, they reuse the executable there instead of
+compiling the program again.
+
 | Command | |
 |---|---|
 | `wyl run <file>` | build and run |
