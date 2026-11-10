@@ -408,6 +408,9 @@ while the reference is used. A **hold** is a reference that keeps an object aliv
 - An object that `this` holds, or that a field of `this` that is not `mut` holds outside its
   class's constructors, needs no hold.
 - What an expression refers into is held until the statement ends.
+- A reference that a method returns to a place reached through its receiver holds the object that
+  the place is in, and borrows the container whose method returned the place, for as long as the
+  caller uses the reference ([Returning references](12-functions.md#functions.ref-returns)).
 - A stored function value is held during its call, so the call may replace the field or element
   that holds it.
 - An `is ref` or `is in` test that succeeds holds what the name refers into until the statement

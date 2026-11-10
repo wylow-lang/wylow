@@ -283,18 +283,26 @@ void main() {
 <a id="statements.for-each.iterators"></a>
 ### 14.7.2 Iterators
 
-A for-each loops over an **iterator**: a value whose type implements `Iterator<T>`
-([`Iterator`](a-library.md#library.iterator)). Each iteration calls the iterator's `moveNext`, and
-ends the loop if it returns `false`. Otherwise the iteration calls `current` once and binds the
-loop variable to its result:
+A for-each loops over an **iterator**: a value whose type implements `Iterator<T>`,
+`RefIterator<T>`, or `InIterator<T>` ([Iterators](a-library.md#library.iterator)). Each iteration
+calls the iterator's `moveNext`, and ends the loop if it returns `false`. Otherwise the iteration
+calls `current` once and binds the loop variable to its result:
 
 ```java unchecked
 for (Order order : orders.iterator()) { ... }
-for (var key : index.keys()) { ... }
+for (ref Order order : orders.values()) { order.total = 0; }
+for (in Connection key : connections.keys()) { ... }
 ```
 
-- The loop variable has type `T`, or its declared type, to which `T` converts. It is a copy of the
-  result of `current`.
+- An `Iterator<T>`'s `current` returns a value. The loop variable is that value, and it is a
+  compile-time error to declare the variable `ref` or `in`.
+- A `RefIterator<T>`'s `current` returns a `ref T`, and an `InIterator<T>`'s returns an `in T`.
+  `ref T x` refers to the element, `in T x` refers to it read-only, and `T x` copies it. It is a
+  compile-time error to declare the variable `ref` in a loop over an `InIterator`.
+- The loop variable has type `T`, or its declared type, to which `T` converts.
+- A reference that the loop variable binds holds and borrows what `current`'s result holds and
+  borrows until the iteration ends
+  ([Returning references](12-functions.md#functions.ref-returns)).
 - The loop takes the iterator by value: a unique iterator is moved into the loop, and any other
   iterator is copied ([Moves](17-memory.md#memory.moves)). The loop releases the iterator when the
   loop ends, whether by `break`, by `return`, or by `moveNext` returning `false`.
@@ -302,9 +310,9 @@ for (var key : index.keys()) { ... }
   bound does ([Interfaces of structs and enums](10-interfaces.md#interfaces.structs)). The loop calls
   the methods of a class or interface iterator as it calls any object's methods.
 - A temporary iterator may be looped over, unlike the elements of other temporary values.
-- It is a compile-time error to declare the loop variable `ref` or `in` in a loop over an iterator.
-- It is a compile-time error to loop over a value whose type implements `Iterator` with more than
-  one type argument, or that both implements `Iterator` and converts to a span.
+- It is a compile-time error to loop over a value whose type implements more than one of
+  `Iterator`, `RefIterator`, and `InIterator`, implements one of them with more than one type
+  argument, or both implements one of them and converts to a span.
 
 <a id="statements.for-each.indices"></a>
 ### 14.7.3 Indices and keys

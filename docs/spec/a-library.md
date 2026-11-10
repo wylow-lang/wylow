@@ -13,7 +13,7 @@ these of its declarations, and on nothing else in it:
 | `Array<T>` | The type `T[]` ([Arrays](04-types.md#types.arrays)) |
 | `Span<T>`, `ReadOnlySpan<T>` | Span types and their conversions ([Spans](04-types.md#types.spans)) |
 | `Spannable<T>`, `ReadOnlySpannable<T>` | Conversions to spans ([`Spannable`](#library.spannable)) |
-| `Iterator<T>` | For-each loops over iterators ([`Iterator`](#library.iterator)) |
+| `Iterator<T>`, `RefIterator<T>`, `InIterator<T>` | For-each loops over iterators ([Iterators](#library.iterator)) |
 | `Borrowable` | Borrows ([`Borrowable`](17-memory.md#memory.borrows.borrowable)) |
 | `Printable` | String interpolation ([`Printable`](#library.printable)) |
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
@@ -33,7 +33,7 @@ A program may declare its own type with the name of any other declaration of `st
 
 The language calls the methods of some of these interfaces: `Printable`'s `toString` in string
 interpolation, `ReadOnlySpannable`'s `asReadOnlySpan` and `Spannable`'s `asSpan` in conversions to
-spans and in for-each loops, `Iterator`'s `moveNext` and `current` in for-each loops, and
+spans and in for-each loops, the iterators' `moveNext` and `current` in for-each loops, and
 `Borrowable`'s `beginBorrow` and `endBorrow` around borrows. A type takes part by implementing the
 interface. Each interface's section says which types may implement it and whether a program may
 call its methods.
@@ -66,28 +66,44 @@ pub interface Spannable<T> extends ReadOnlySpannable<T> {
   directly.
 
 <a id="library.iterator"></a>
-## A.3 `Iterator`
+## A.3 Iterators
 
-`Iterator` is the interface of a value that produces elements one at a time:
+These are the interfaces of a value that produces elements one at a time:
 
 ```java unchecked
 pub interface Iterator<T> {
     mut bool moveNext();
     T current();
 }
+
+pub interface RefIterator<T> {
+    mut bool moveNext();
+    mut ref T current();
+}
+
+pub interface InIterator<T> {
+    mut bool moveNext();
+    in T current();
+}
 ```
 
+- An `Iterator<T>` produces values. A `RefIterator<T>` produces references to elements that the
+  loop may change, and an `InIterator<T>` produces read-only references to elements.
 - `moveNext` advances the iterator to its next element. It returns `true` if the iterator has an
   element there, and `false` if it has no more elements.
 - `current` returns the element that the last call of `moveNext` advanced to. What `current` does
   before the first call of `moveNext`, or after `moveNext` returns `false`, is in the documentation
-  of each type that implements `Iterator`.
+  of each type that implements the interface.
+- A reference that `current` returns is a returned reference
+  ([Returning references](12-functions.md#functions.ref-returns)). If the element is reached
+  through the iterator, the reference holds and borrows what the element is in for as long as the
+  caller uses it.
 - A for-each loop over an iterator calls `moveNext` before each iteration, and `current` once for
   each iteration that `moveNext` allows
   ([Iterators](14-statements.md#statements.for-each.iterators)).
-- A type of the program may implement `Iterator`, to be looped over and passed where an
-  `Iterator<T>` bound is required ([Bounds](11-generics.md#generics.bounds)). Its methods are
-  ordinary methods, which the language calls in for-each loops and a program may call directly.
+- A type of the program may implement any of the three, to be looped over and passed where a bound
+  on one of them is required ([Bounds](11-generics.md#generics.bounds)). Its methods are ordinary
+  methods, which the language calls in for-each loops and a program may call directly.
 
 <a id="library.printable"></a>
 ## A.4 `Printable`
