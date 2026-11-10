@@ -431,7 +431,7 @@ public sealed partial class CppEmitter
                 EmitArgumentsConstructor(s, index, built);
         }
         foreach (var implementation in s.InheritedImplementations)
-            Line($"{CppType(implementation.ReturnType)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
+            Line($"{ParameterType(implementation.ReturnType, implementation.Symbol.ReturnRefKind)} {MethodName(implementation.Symbol)}({Parameters(implementation)}) override;");
         DeclareCollectorMembers(s);
         // The runtime borrows any object through these hooks; the interface's methods dispatch to the
         // class that implements them, so every Borrowable gets them from the interface.
@@ -453,10 +453,11 @@ public sealed partial class CppEmitter
     /// </summary>
     void EmitAbstractStub(FunctionSymbol method)
     {
-        var parameterTypes = string.Join(", ", method.Parameters.Select(p => ParameterType(p.Type, p.RefKind)));
+        IEnumerable<string> parameters = method.Parameters.Select(p => ParameterType(p.Type, p.RefKind));
+        var parameterTypes = string.Join(", ", method.ReturnsHold ? parameters.Append("wyl::Holder&") : parameters);
         var location = SourceLocation(method.Declaration!.NameLocation);
         var message = CppStringLiteral(method.AbstractCallMessage);
-        var signature = $"{CppType(method.ReturnType)} {MethodName(method)}({parameterTypes})";
+        var signature = $"{ReturnType(method)} {MethodName(method)}({parameterTypes})";
         Line($"{(OverridesInCpp(method) ? signature + " override" : "virtual " + signature)} {{ wyl::RaisePanic({message}, {location}); }}");
     }
 
@@ -496,9 +497,10 @@ public sealed partial class CppEmitter
     {
         EmitOwnerTemplatePrefix(s);
         var method = implementation.Symbol;
-        Line($"{CppType(implementation.ReturnType)} {ObjectType(s.Type)}::{MethodName(method)}({Parameters(implementation)})");
+        Line($"{ParameterType(implementation.ReturnType, method.ReturnRefKind)} {ObjectType(s.Type)}::{MethodName(method)}({Parameters(implementation)})");
         Line("{");
-        var arguments = string.Join(", ", method.Parameters.Select(LocalName));
+        IEnumerable<string> passed = method.Parameters.Select(LocalName);
+        var arguments = string.Join(", ", method.ReturnsHold ? passed.Append(HolderParameter) : passed);
         Line($"    return this->{ObjectType(implementation.Owner!)}::{MethodName(method)}({arguments});");
         Line("}");
     }

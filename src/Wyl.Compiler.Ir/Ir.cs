@@ -204,6 +204,11 @@ public enum IrLocalKind
     Slot,
     /// <summary>A guard that marks the value at a place in use while it lives (spec <c>memory.holds</c>).</summary>
     InUse,
+    /// <summary>
+    /// <c>wyl::Holder</c>: what a returned reference holds and borrows, an object of a type the
+    /// caller doesn't know, which the call that returns the reference gives it (<see cref="IrCall.Holder"/>).
+    /// </summary>
+    Holder,
 }
 
 /// <summary>What dereferencing a local reaches.</summary>
@@ -508,6 +513,15 @@ public sealed class IrReturn(IrOperand? value = null) : IrStatement
     public override T Accept<T>(IIrStatementVisitor<T> visitor) => visitor.Return(this);
 
     public IrOperand? Value { get; set; } = value;
+
+    /// <summary>
+    /// In a method that returns a hold (<see cref="FunctionSymbol.ReturnsHold"/>), the holds and
+    /// holders that the returned reference may point into, in order, each a whole local's place so
+    /// that a pass renaming an alias renames it too. The caller's holder takes the first one that
+    /// holds an object, keeping the object and any borrow of it. If none does, the reference points
+    /// into the receiver, which the caller holds.
+    /// </summary>
+    public List<IrPlace> Holds { get; init; } = [];
 }
 
 /// <summary><c>end x</c>: ends a hold or a slot before its scope does. Ending an empty or ended slot does nothing.</summary>

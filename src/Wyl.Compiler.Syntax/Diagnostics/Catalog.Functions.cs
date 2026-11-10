@@ -177,7 +177,7 @@ public static partial class Catalog
 
     [Error(241, "functions.ref-returns")]
     public static Diagnostic ReturnedReferenceNotOfReceiver(Location at, string what) =>
-        Make(at, $"{what} must point into the method's receiver").Note("it must be a field or element of 'this'");
+        Make(at, $"{what} must point into the method's receiver").Note("it must be in 'this', or in an object that 'this' refers to");
 
     [Error(242, "functions.ref-returns")]
     public static Diagnostic ReturnedViewNotOfReceiver(Location at, string type, string? holder) =>
@@ -279,10 +279,6 @@ public static partial class Catalog
     [Error(244, "functions.ref-returns")]
     public static Diagnostic StaticReferenceReturn(Location at, string keyword) =>
         Make(at, $"static method cannot return '{keyword}'").Note("a returned reference must point into the method's receiver");
-
-    [Error(245, "functions.ref-returns")]
-    public static Diagnostic DispatchedReferenceReturn(Location at, string keyword) =>
-        Make(at, $"methods returning '{keyword}' cannot be virtual or abstract");
 
     [Error(246, "functions.ref-returns")]
     public static Diagnostic VoidReferenceReturn(Location at, string keyword) =>

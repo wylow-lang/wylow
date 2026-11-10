@@ -182,18 +182,23 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// The <c>Iterator&lt;T&gt;</c> types that a type is or implements. A loop over a value of the
-    /// type iterates it only if there is exactly one.
+    /// The <c>Iterator&lt;T&gt;</c>, <c>RefIterator&lt;T&gt;</c>, and <c>InIterator&lt;T&gt;</c> types
+    /// that a type is or implements. A loop over a value of the type iterates it only if there is
+    /// exactly one.
     /// </summary>
-    List<WylType> IteratorTypes(WylType type) => stdlib.Iterator is { } iterator
-        ? [.. ((IEnumerable<WylType>)[type, .. Conversions.Supertypes(type, currentFunction)]).Where(t => !t.IsNullable && t.Symbol == iterator)]
-        : [];
+    List<WylType> IteratorTypes(WylType type)
+    {
+        TypeSymbol?[] iterators = [stdlib.Iterator, stdlib.RefIterator, stdlib.InIterator];
+        return [.. ((IEnumerable<WylType>)[type, .. Conversions.Supertypes(type, currentFunction)])
+            .Where(t => !t.IsNullable && t.Symbol is { } symbol && iterators.Contains(symbol))];
+    }
 
     /// <summary>
     /// Loops over an iterator, which the loop takes by value into a temporary, as
     /// <c>{ var iterator = source; for (int i = 0; iterator.moveNext(); i++) { element = iterator.current(); ... } }</c>.
     /// The temporary is released when the block ends, however the loop ends. The counter exists
-    /// only for an index.
+    /// only for an index. A loop over a <c>RefIterator</c> or an <c>InIterator</c> binds the element
+    /// by the variable's own kind of reference, whose hold lasts until the iteration ends.
     /// </summary>
     BoundStatement BindIteratorLoop(ForEachStmt s, BoundExpression iterable, List<WylType> iterators)
     {
@@ -211,8 +216,16 @@ public sealed partial class Binder
             Error(error);
             return ErrorStatement(s.Location);
         }
-        if (s.Element.RefKind != RefKind.None)
+        var kind = iterators[0].Symbol;
+        var refKind = kind == stdlib.Iterator ? RefKind.None : s.Element.RefKind;
+        bool bindable = true;
+        if (kind == stdlib.Iterator && s.Element.RefKind != RefKind.None)
             Error(Catalog.IteratorValueBorrowed(s.Element.Location, FunctionSymbol.RefPrefix(s.Element.RefKind).Trim()));
+        else if (kind == stdlib.InIterator && s.Element.RefKind == RefKind.Ref)
+        {
+            Error(Catalog.InIteratorElementRef(s.Element.Location));
+            bindable = false;
+        }
 
         var iterator = new LocalSymbol("iterator", type, isParameter: false) { IsTemporary = true, IsMutable = true };
         BoundExpression Iterator() => new BoundLocalAccess(location, iterator);
@@ -223,7 +236,7 @@ public sealed partial class Binder
         var declarations = new List<BoundStatement>();
         if (counter is not null)
             declarations.Add(DeclareIndex(s.Index!, counter, location));
-        declarations.Add(DeclareElement(s.Element, current.Type == WylType.Error ? null : current, RefKind.None, loopElement: false));
+        declarations.Add(DeclareElement(s.Element, current.Type == WylType.Error || !bindable ? null : current, refKind, loopElement: false));
         var body = BindLoopBody(s.Body);
         var loop = new BoundFor(
             s.Location,

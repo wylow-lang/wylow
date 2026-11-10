@@ -1,0 +1,68 @@
+// A virtual, abstract, or interface method may return a reference. Each implementation returns a
+// place in its own receiver or reached through it, and the caller holds what the place is in.
+import std::List;
+
+class Counter {
+    pub mut int count;
+}
+
+pub interface Slot {
+    ref int slot();
+}
+
+abstract class Shape implements Slot {
+    pub mut int sides;
+
+    pub abstract in int area();
+
+    pub virtual ref int slot() {
+        return ref sides;
+    }
+}
+
+class Square extends Shape {
+    mut int size = 2;
+    Counter counter = new Counter();
+
+    pub override in int area() {
+        return ref size;
+    }
+
+    pub override ref int slot() {
+        return ref counter.count;
+    }
+}
+
+class Triangle extends Shape {
+    List<int> heights = new List<int>();
+
+    pub Triangle() {
+        heights.add(5);
+    }
+
+    pub override in int area() {
+        return ref heights[0];
+    }
+}
+
+void bump(Slot target) {
+    ref int value = target.slot();
+    value += 1;
+}
+
+void show(Shape shape) {
+    std::print(shape.area());
+    bump(shape);
+    bump(shape);
+    std::print(shape.slot());
+    std::print(shape.sides);
+}
+
+void main() {
+    show(new Square());                     // output: 2
+                                            // output: 2
+                                            // output: 0
+    show(new Triangle());                   // output: 5
+                                            // output: 2
+                                            // output: 2
+}

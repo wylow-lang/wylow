@@ -85,7 +85,7 @@ public sealed class IrPrinter
     {
         IEnumerable<string> parameters = [.. function.This is { } self ? [Declaration(self)] : Array.Empty<string>(), .. function.Parameters.Select(Declaration)];
         var result = function.Symbol.ReturnType == WylType.Void ? "" : $" -> {FunctionSymbol.RefPrefix(function.Symbol.ReturnRefKind)}{function.Symbol.ReturnType}";
-        var location = function.HasLocationParameter ? " @caller" : "";
+        var location = (function.HasLocationParameter ? " @caller" : "") + (function.Symbol.ReturnsHold ? " holder" : "");
         var captures = function.Captures.Count > 0 ? $" captures({string.Join(", ", function.Captures.Select(Declaration))})" : "";
         return $"({string.Join(", ", parameters)}){result}{location}{captures}";
     }
@@ -161,12 +161,16 @@ public sealed class IrPrinter
         IrBreak jump => $"break {Label(jump.Loop)}",
         IrContinue jump => $"continue {Label(jump.Loop)}",
         IrReturn { Value: null } => "return",
-        IrReturn ret => $"return {Operand(ret.Value!)}",
+        IrReturn ret => $"return {Operand(ret.Value!)}{Giving(ret)}",
         IrEnd end => $"end {Name(end.Local)}",
         IrDiscard discard => $"discard {Name(discard.Local)}",
         IrUnreachable unreachable => $"unreachable {Loc(unreachable.Loc)}",
         _ => throw new InvalidOperationException($"unexpected IR statement {statement.GetType().Name}"),
     };
+
+    string Giving(IrReturn ret) => ret.Holds.Count > 0 ? " giving " + string.Join(", ", ret.Holds.Select(Place)) : "";
+
+    string HolderText(IrCall call) => call.Holder is { } holder ? " holder " + Name(holder) : "";
 
     static string CheckName(IrCheckKind kind) => kind switch
     {
@@ -210,6 +214,8 @@ public sealed class IrPrinter
             IrLocalKind.Slot => "slot ",
             _ => "",
         };
+        if (local.Kind == IrLocalKind.Holder)
+            return $"{Name(local)}: holder";
         return $"{Name(local)}: {kind}{local.Type}";
     }
 
@@ -276,7 +282,7 @@ public sealed class IrPrinter
         IrUse use => Operand(use.Operand),
         IrUnary unary => WithLoc($"{UnaryName(unary.Operator)} {Operand(unary.Operand)}", unary.Loc),
         IrBinary binary => WithLoc($"{BinaryName(binary.Operator)} {Operand(binary.Left)}, {Operand(binary.Right)}", binary.Loc),
-        IrCall call => WithLoc($"call{(call.IsSuperCall ? ".super" : "")} {Callee(call.Method)}{Arguments(call.Receiver, call.Arguments)}", call.Loc),
+        IrCall call => WithLoc($"call{(call.IsSuperCall ? ".super" : "")} {Callee(call.Method)}{Arguments(call.Receiver, call.Arguments)}{HolderText(call)}", call.Loc),
         IrInvoke invoke => $"invoke {Operand(invoke.Callee)}{Arguments(null, invoke.Arguments)}",
         IrNew creation => WithLoc($"new {creation.Type}{Arguments(null, creation.Arguments)}{Slot(creation.Slot)}", creation.Loc),
         IrConstruct construction => WithLoc($"construct {construction.Type}{Arguments(null, construction.Arguments)}", construction.Loc),

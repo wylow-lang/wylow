@@ -59,6 +59,12 @@ public sealed class StdlibSymbols
     /// <summary>Values that produce elements one at a time, which a for-each loop iterates through <c>moveNext</c> and <c>current</c>.</summary>
     public TypeSymbol? Iterator { get; private set; }
 
+    /// <summary>Values that produce references to elements, which a for-each loop may change.</summary>
+    public TypeSymbol? RefIterator { get; private set; }
+
+    /// <summary>Values that produce read-only references to elements.</summary>
+    public TypeSymbol? InIterator { get; private set; }
+
     /// <summary>
     /// The built-in types whose members and interfaces the standard library declares, each in an
     /// <c>extern struct</c> of its name. That declaration is not a type of its own: its name keeps
@@ -136,6 +142,8 @@ public sealed class StdlibSymbols
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
             case "Iterator": Iterator = symbol; break;
+            case "RefIterator": RefIterator = symbol; break;
+            case "InIterator": InIterator = symbol; break;
         }
     }
 

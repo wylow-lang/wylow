@@ -51,7 +51,7 @@ class Holder {
         return ref node;                // error[WYL0408]: cannot bind 'ref' to read-only 'node'
     }
 
-    virtual ref int sizeRef() {         // error[WYL0245]: methods returning 'ref' cannot be virtual or abstract
+    virtual ref int sizeRef() {
         return ref size;
     }
 

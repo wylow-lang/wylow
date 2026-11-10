@@ -180,6 +180,15 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// </summary>
     public bool ImplementsInterface { get; set; }
 
+    /// <summary>
+    /// Whether a reference it returns may point into an object that the caller does not hold, so
+    /// that the call also gives the caller that object's hold or borrow (spec
+    /// <c>functions.ref-returns</c>). A dispatched method, a method that implements or overrides
+    /// one, and a method that returns a place reached through its receiver, or a place that such a
+    /// method returned, return a hold. The binder sets it once every body is bound.
+    /// </summary>
+    public bool ReturnsHold { get; set; }
+
     /// <summary>The methods it overrides, and the interface methods it implements for some class or struct; set by the binder.</summary>
     public List<FunctionSymbol> Overridden { get; } = [];
 

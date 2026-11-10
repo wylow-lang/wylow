@@ -459,6 +459,16 @@ public sealed partial class IrVerifier
         }
         else if (method.Symbol.ReturnRefKind != RefKind.None)
             Error("only a method returns a reference, into its receiver");
+        if (method.Symbol.ReturnsHold != call.Holder is not null)
+            Error(call.Holder is null ? $"calls '{method.Symbol.Name}', which returns a hold, without a holder" : $"gives a holder to '{method.Symbol.Name}', which returns no hold");
+        if (call.Holder is { } holder)
+        {
+            if (holder.Kind != IrLocalKind.Holder)
+                Error($"'{N(holder)}' is given as a holder, but is a {holder.Kind.ToString().ToLowerInvariant()} local");
+            else if (!Visible(holder))
+                Error($"'{N(holder)}' is used outside its scope");
+            state.Assigned.Add(holder);
+        }
         Arguments(method, call.Arguments, state);
         if (function.ChainsWith(call))
             state.AssignedFields.UnionWith(requiredFields);

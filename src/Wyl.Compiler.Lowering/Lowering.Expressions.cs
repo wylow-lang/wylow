@@ -197,7 +197,7 @@ public sealed partial class IrLowering
             receiver = Receiver(call);
         }
         arguments.AddRange(Arguments(method, call.Arguments));
-        return new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall };
+        return new IrCall(method, receiver, arguments, LocationFor(method, call)) { IsSuperCall = call.IsSuperCall, Holder = HolderFor(method) };
     }
 
     /// <summary>A by-value receiver, kept for its statement as any by-value argument is, or moved when it is unique.</summary>

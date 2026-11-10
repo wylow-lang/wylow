@@ -489,6 +489,10 @@ public static partial class Catalog
     public static Diagnostic IteratorTypeArguments(Location at, string type, string first, string second) =>
         Make(at, $"cannot loop over '{type}', which implements both '{first}' and '{second}'");
 
+    [Error(486, "statements.for-each.iterators")]
+    public static Diagnostic InIteratorElementRef(Location at) =>
+        Make(at, "elements of an 'InIterator' cannot be borrowed with 'ref'").Note("the iterator's 'current' returns an 'in' reference, which cannot change the element");
+
     [Error(485, "statements.for-each.iterators")]
     public static Diagnostic IteratorAndSpan(Location at, string type, string text) =>
         Make(at, $"cannot loop over '{type}', which is an iterator and converts to a span")

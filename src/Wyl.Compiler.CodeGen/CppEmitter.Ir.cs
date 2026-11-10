@@ -129,6 +129,9 @@ public sealed partial class CppEmitter
             case IrDeclare { Local.Kind: IrLocalKind.InUse } declare:
                 Line($"wyl::InUseMark {Name(declare.Local)};");
                 break;
+            case IrDeclare { Local.Kind: IrLocalKind.Holder } declare:
+                Line($"wyl::Holder {Name(declare.Local)};");
+                break;
             case IrDeclare declare when plan.Evaluated.TryGetValue(declare.Local, out var evaluated):
                 Line($"auto {Name(declare.Local)} = [&] {{");
                 indent++;
@@ -170,6 +173,9 @@ public sealed partial class CppEmitter
                 if (emitting is { Symbol.IsConstructor: true, Struct: { } made } && made.Type.Symbol?.Destructor is not null
                     && ret.Value is IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made)
                     Line($"{Name(made)}.Engage();");
+                // The caller's holder takes the first hold that holds an object.
+                foreach (var hold in ret.Holds)
+                    Line($"{HolderParameter}.Take({PlaceText(hold)});");
                 Line(ret.Value is { } value ? $"return {ReturnedText(value)};" : "return;");
                 break;
             case IrIf conditional:

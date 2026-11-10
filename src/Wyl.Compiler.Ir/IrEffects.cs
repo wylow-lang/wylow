@@ -46,7 +46,10 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     public static IrEffects Releasing(WylType type) => new([], [new IrRunRelease(type)], false);
 
     /// <summary>What a local's release may do, when its scope or an <see cref="IrEnd"/> ends it.</summary>
-    public static IrEffects Releasing(IrLocal local) => ReleaseMayRunCode(local) ? Releasing(local.Type) : None;
+    public static IrEffects Releasing(IrLocal local) => !ReleaseMayRunCode(local) ? None
+        // A holder's object may be of any type.
+        : local.Kind == IrLocalKind.Holder ? new([], [new IrRunRelease(null)], false)
+        : Releasing(local.Type);
 
     /// <summary>What releasing the locals a block declares, other than <paramref name="except"/>, when it ends, may do.</summary>
     public static IrEffects Ending(IrBlock block, IrLocal? except = null)
@@ -88,7 +91,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
     /// <summary>Whether a local's release when its scope or an <see cref="IrEnd"/> ends it may destroy an object.</summary>
     public static bool ReleaseMayRunCode(IrLocal local) => local.Kind switch
     {
-        IrLocalKind.Hold or IrLocalKind.Slot => true,
+        IrLocalKind.Hold or IrLocalKind.Slot or IrLocalKind.Holder => true,
         IrLocalKind.Value => local.Type.MayOwnObjects || local.Type.RunsDestructor,
         IrLocalKind.Reference or IrLocalKind.Borrowed or IrLocalKind.InUse => false,
         _ => throw new InvalidOperationException($"unexpected local kind {local.Kind}"),
@@ -111,7 +114,9 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public IrEffects Discard(IrDiscard statement) => new([new IrWrite(new IrPlace(statement.Local))], [], false);
         public IrEffects Unreachable(IrUnreachable statement) => new([], [], true);
         public IrEffects Declare(IrDeclare statement) => None;
-        public IrEffects Return(IrReturn statement) => None;
+        // The caller's holder takes its own hold of the object, and borrows it again if the hold borrows.
+        public IrEffects Return(IrReturn statement) => statement.Holds.Count == 0 ? None
+            : new([], [.. statement.Holds.Select(h => new IrRunRelease(h.Local.Kind == IrLocalKind.Holder ? null : h.Type)).Distinct()], false);
         public IrEffects Break(IrBreak statement) => None;
         public IrEffects Continue(IrContinue statement) => None;
         public IrEffects Block(IrBlock statement) => Compound();
@@ -166,6 +171,9 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
                 IrAddrArgument { Kind: RefKind.Ref } address => address.Place,
                 _ => null,
             }).OfType<IrPlace>();
+            // The callee gives the holder what the returned reference points into.
+            if (value is IrCall { Holder: { } holder })
+                written = written.Append(new IrPlace(holder));
             return new([.. written.Select(p => new IrWrite(p))], runs is null ? [] : [runs], runs is not null || passed.Method.Symbol.PassesLocation);
         }
     }

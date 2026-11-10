@@ -248,6 +248,13 @@ public sealed class IrCall(MethodReference method, IrArgument? receiver, IReadOn
     /// <summary>Calls the base class's implementation without dispatch, or a constructor on the object being made.</summary>
     public bool IsSuperCall { get; init; }
 
+    /// <summary>
+    /// For a method that returns a hold (<see cref="FunctionSymbol.ReturnsHold"/>), the holder local
+    /// the callee gives what the returned reference points into. The reference is valid while the
+    /// holder and the receiver are.
+    /// </summary>
+    public IrLocal? Holder { get; init; }
+
     public override WylType Type => Method.ReturnType;
 }
 

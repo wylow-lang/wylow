@@ -35,7 +35,8 @@ example can produce it alone: `WYL0022` (the interpolated string leaves a value 
 rejects), `WYL0029` and `WYL0030` (a `dependencies` entry is itself `WYL0031`), `WYL0425` (an
 extern method outside an extern struct is also `WYL0426`), `WYL0428`, `WYL0429`, and `WYL0430` (an
 extern struct in a program is also `WYL0427`), and `WYL0436` (it is about a file's bytes, and an
-example is text).
+example is text). A retired code keeps its page, which says that the compiler no longer emits it,
+and the catalog lists the code as retired so that no other diagnostic takes it.
 
 Write the page as prose for a reader who is learning the rule, not as notes for the implementer.
 Give every sentence a subject and a full verb, and name the thing again rather than pointing at the

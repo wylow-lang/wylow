@@ -1,4 +1,6 @@
+import std::InIterator;
 import std::Iterator;
+import std::RefIterator;
 import std::List;
 import std::Borrow;
 
@@ -31,6 +33,24 @@ struct Buffer implements Iterator<int>, ReadOnlySpannable<int> {
     }
 }
 
+struct Cells implements InIterator<int> {
+    int[2] values;
+    int at;
+
+    pub mut bool moveNext() {
+        at++;
+        return at < 2;
+    }
+
+    pub in int current() {
+        return ref values[at];
+    }
+}
+
+void mixed<I extends Iterator<int> & RefIterator<int>>(I source) {
+    for (var value : source) { }            // error[WYL0484]: cannot loop over 'I', which implements both 'Iterator<int>' and 'RefIterator<int>'
+}
+
 void both<I extends Iterator<int> & Iterator<long>>(I source) {
     for (var value : source) { }            // error[WYL0484]: cannot loop over 'I', which implements both 'Iterator<int>' and 'Iterator<long>'
 }
@@ -38,6 +58,9 @@ void both<I extends Iterator<int> & Iterator<long>>(I source) {
 void main() {
     for (ref int value : Steps(-1)) { }     // error[WYL0483]: values of an iterator cannot be borrowed with 'ref'
     for (int i, in int value : Steps(-1)) { }   // error[WYL0483]: values of an iterator cannot be borrowed with 'in'
+    for (ref int value : Cells([1, 2], -1)) { }     // error[WYL0486]: elements of an 'InIterator' cannot be borrowed with 'ref'
+    for (in int value : Cells([1, 2], -1)) { }
+    for (int value : Cells([1, 2], -1)) { }
     for (long i, int value : Steps(-1)) { } // error[WYL0364]: loop index type: expected 'int', found 'long'
     for (String text : Steps(-1)) { }       // error[WYL0079]: expected 'String', found 'int'
     var buffer = Buffer([1, 2]);

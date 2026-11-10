@@ -39,6 +39,8 @@ public sealed partial class Interpreter
         var frame = CalleeFrame(caller, callee.Map);
         if (function.HasLocationParameter)
             frame.CallerLocation = Location(call.Loc, caller);
+        if (call.Holder is { } holder)
+            frame.Holder = caller.Find(holder) as HolderStorage ?? throw new InterpreterException($"'{holder.Name}' is not a holder");
         if (function.This is not null)
             frame.Locals[function.This] = storage ?? throw new InterpreterException($"no receiver for '{function.Name}'");
         BindArguments(call.Arguments, function.Parameters, frame, caller);

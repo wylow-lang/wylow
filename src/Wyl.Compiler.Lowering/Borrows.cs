@@ -21,7 +21,8 @@ public sealed class MandatoryPass
 /// The spec's rule for how long a borrow lasts (spec memory.borrows). Lowering borrows every object that may be <c>Borrowable</c> where a place goes
 /// through what it hands out; this drops the borrow where no code runs from the first reference
 /// into it to its last use, since nothing can then change the object's length, unless a source
-/// variable or loop refers into it, whose borrow lasts for its scope.
+/// variable or loop refers into it, whose borrow lasts for its scope, or a method returns a
+/// reference into it, whose borrow the caller keeps.
 /// </summary>
 static class Borrows
 {
@@ -30,13 +31,15 @@ static class Borrows
         foreach (var function in program.Functions)
         {
             var statements = IrWalk.Descendants(function.Body, intoLambdas: false).ToList();
-            // An `is ref` name's hold is declared apart from where it is made, and named.
-            var declared = statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
+            // An `is ref` name's hold is declared apart from where it is made, and named, and a hold
+            // that a return gives belongs to the caller.
+            var kept = statements.OfType<IrDeclare>().Select(d => d.Local).ToHashSet();
+            kept.UnionWith(statements.OfType<IrReturn>().SelectMany(r => r.Holds).Select(h => h.Local));
             foreach (var block in statements.OfType<IrBlock>())
             {
                 for (int h = 0; h < block.Statements.Count; h++)
                 {
-                    if (block.Statements[h] is IrLet { Value: IrHold { Borrows: true } hold } let && !declared.Contains(let.Local)
+                    if (block.Statements[h] is IrLet { Value: IrHold { Borrows: true } hold } let && !kept.Contains(let.Local)
                         && IrExtent.Of(block.Statements, h) is { Referenced.RunsCode: false, Named: false })
                         hold.Borrows = false;
                 }

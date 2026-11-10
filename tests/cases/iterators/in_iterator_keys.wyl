@@ -1,0 +1,71 @@
+// A map's keys decide where its entries are, so the map gives them through an 'InIterator': a loop
+// reads each key in place, which works for keys that cannot be copied.
+import std::InIterator;
+import std::List;
+
+unique struct Key {
+    pub int id;
+}
+
+class Entry {
+    pub Key key;
+    pub mut int value;
+
+    pub Entry(Key key, int value) {
+        this.key = key;
+        this.value = value;
+    }
+}
+
+class Registry {
+    List<Entry> entries = new List<Entry>();
+
+    pub void put(int id, int value) {
+        entries.add(new Entry(Key(id: id), value));
+    }
+
+    pub Keys keys() {
+        return Keys(entries);
+    }
+}
+
+struct Keys implements InIterator<Key> {
+    List<Entry> entries;
+    int position;
+
+    pub Keys(List<Entry> entries) {
+        this.entries = entries;
+        position = -1;
+    }
+
+    pub mut bool moveNext() {
+        position++;
+        return position < entries.count();
+    }
+
+    pub in Key current() {
+        return ref entries[position].key;
+    }
+}
+
+void main() {
+    var registry = new Registry();
+    registry.put(3, 30);
+    registry.put(1, 10);
+    for (in Key key : registry.keys()) {
+        std::print(key.id);                 // output: 3
+                                            // output: 1
+    }
+    // Each key holds the entry it is in, so the loop may add entries, which it then reaches.
+    for (in var key : registry.keys()) {
+        if (key.id < 10) {
+            registry.put(key.id + 10, 0);
+        }
+    }
+    for (in Key key : registry.keys()) {
+        std::print(key.id);                 // output: 3
+                                            // output: 1
+                                            // output: 13
+                                            // output: 11
+    }
+}

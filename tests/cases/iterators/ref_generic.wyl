@@ -1,0 +1,107 @@
+// Generic code loops over any 'RefIterator' by reference, and a generic wrapper passes on the
+// reference its inner iterator returns, whether the inner iterator is a struct or an object.
+import std::List;
+import std::RefIterator;
+
+class Node {
+    pub mut int value;
+    pub Node? next;
+
+    pub Node(int value, Node? next) {
+        this.value = value;
+        this.next = next;
+    }
+}
+
+struct Links implements RefIterator<int> {
+    Node? upcoming;
+    Node? at;
+
+    pub Links(Node? first) {
+        upcoming = first;
+    }
+
+    pub mut bool moveNext() {
+        at = upcoming;
+        if (at is Node node) {
+            upcoming = node.next;
+        }
+        return at != null;
+    }
+
+    pub mut ref int current() {
+        return ref at!.value;
+    }
+}
+
+class Cells implements RefIterator<int> {
+    List<int> values;
+    mut int position = -1;
+
+    pub Cells(List<int> values) {
+        this.values = values;
+    }
+
+    pub bool moveNext() {
+        position++;
+        return position < values.count();
+    }
+
+    pub ref int current() {
+        return ref values[position];
+    }
+}
+
+// Skips every other element of the iterator it wraps, starting with the second.
+struct Alternate<I extends RefIterator<T>, T> implements RefIterator<T> {
+    I inner;
+    bool started;
+
+    pub Alternate(I inner) {
+        this.inner = inner;
+    }
+
+    pub mut bool moveNext() {
+        if (started && !inner.moveNext()) {
+            return false;
+        }
+        started = true;
+        return inner.moveNext();
+    }
+
+    pub mut ref T current() {
+        return ref inner.current();
+    }
+}
+
+void fill<I extends RefIterator<T>, T extends copyable>(I items, T value) {
+    for (ref T item : items) {
+        item = value;
+    }
+}
+
+void main() {
+    var first = new Node(1, new Node(2, new Node(3, null)));
+    fill(Links(first), 7);
+    std::print(first.next!.next!.value);    // output: 7
+    var values = new List<int>();
+    values.add(1);
+    values.add(2);
+    values.add(3);
+    values.add(4);
+    fill(new Cells(values), 5);
+    std::print(values[3]);                  // output: 5
+    fill(Alternate<Cells, int>(new Cells(values)), 0);
+    for (int value : values) {
+        std::print(value);                  // output: 0
+                                            // output: 5
+                                            // output: 0
+                                            // output: 5
+    }
+    fill(Alternate<Links, int>(Links(first)), 9);
+    for (int value : Links(first)) {
+        std::print(value);                  // output: 9
+                                            // output: 7
+                                            // output: 9
+    }
+}

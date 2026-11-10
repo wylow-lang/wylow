@@ -120,6 +120,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         foreach (var function in functionList.Where(f => f.Body is not null))
             bodies.Add(new BoundFunction(function, BindBody(function)));
         CheckConstructorCycles(bodies);
+        FindReturnedHolds([.. functionList, .. typeList.SelectMany(s => s.Members)]);
 
         CheckBounds();
         return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, functionList, FindMain(package), stdlib);

@@ -462,6 +462,54 @@ struct IsBorrow : std::false_type {};
 template <class T>
 struct IsBorrow<Borrow<T>> : std::true_type {};
 
+// What a returned reference points into, kept by the caller for as long as it uses the reference:
+// an object, borrowed if the hold the callee gave it borrows. The callee gives it the first hold
+// that holds an object. If none does, the reference points into the receiver, which the caller holds.
+class Holder {
+    Object* m_Object = nullptr;
+    bool m_Borrowed = false;
+
+public:
+    Holder() = default;
+    Holder(const Holder&) = delete;
+    Holder& operator=(const Holder&) = delete;
+
+    ~Holder() {
+        if (m_Object == nullptr) return;
+        if (m_Borrowed) m_Object->EndBorrow();
+        m_Object->Release();
+    }
+
+    template <class T>
+    void Take(const Ref<T>& hold) {
+        if (m_Object != nullptr || hold.Get() == nullptr) return;
+        m_Object = static_cast<Object*>(hold.Get());
+        m_Object->Retain();
+    }
+
+    template <class T>
+    void Take(const Borrow<T>& hold) {
+        if (m_Object != nullptr) return;
+        m_Object = static_cast<Object*>(hold.operator->());
+        m_Object->Retain();
+        m_Object->BeginBorrow();
+        m_Borrowed = true;
+    }
+
+    // A holder that a call gave the callee is its own to pass on, since the callee then returns.
+    void Take(Holder& other) {
+        if (m_Object != nullptr || other.m_Object == nullptr) return;
+        m_Object = other.m_Object;
+        m_Borrowed = other.m_Borrowed;
+        other.m_Object = nullptr;
+        other.m_Borrowed = false;
+    }
+
+    // In generic code a hold of a struct is the struct's place, which the receiver holds.
+    template <class T>
+    void Take(const T&) {}
+};
+
 // An 'is ref' pattern's holder keeps the object its name points into alive, and borrowed if that is
 // how its storage was handed out, for as long as the name is in scope. A failed test lets it go.
 template <class T>

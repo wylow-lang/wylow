@@ -36,6 +36,7 @@ static partial class IrSelfTests
         struct Built { int n = f(); }
         struct Nest { Vec? inner; }
         struct Cell { int v; mut ref int at() { return ref v; } }
+        struct Link { Obj node; mut ref int at() { return ref node.x; } }
         enum Shape { Circle(int r), Dot }
 
         int f() { return 1; }
@@ -451,6 +452,41 @@ static partial class IrSelfTests
             return b.Function("deref_not_at_base", [a],
                 new IrLet(t, Use(IrRead.Copy(IrPlace.Deref(a).Field(field).Field(x)))) { Origin = null });
         }, Error: "dereferences only at its base");
+
+        yield return new("returned_hold", () =>
+        {
+            var l = b.Parameter("link", b.Type("Link"));
+            var k = b.Temp(WylType.Void, IrLocalKind.Holder);
+            var r = b.Temp(WylType.Int, IrLocalKind.Reference, RefKind.Ref);
+            return b.Function("returned_hold", [l],
+                new IrDeclare(k) { Origin = null },
+                new IrLet(r, new IrCall(b.Method(b.Type("Link"), "at"), new IrRefArgument(RefKind.Ref, new IrPlace(l)), []) { Holder = k }) { Origin = null },
+                new IrStore(IrPlace.Deref(r), IrConstant.Int(1)) { Origin = null });
+        }, Printed: """
+            fn returned_hold(link: Link) {
+              declare %0: holder
+              let %1: ref int = call Link.at(ref link) holder %0
+              store *%1 = 1
+            }
+            """);
+
+        yield return new("returned_hold_without_holder", () =>
+        {
+            var l = b.Parameter("link", b.Type("Link"));
+            var r = b.Temp(WylType.Int, IrLocalKind.Reference, RefKind.Ref);
+            return b.Function("returned_hold_without_holder", [l],
+                new IrLet(r, new IrCall(b.Method(b.Type("Link"), "at"), new IrRefArgument(RefKind.Ref, new IrPlace(l)), [])) { Origin = null });
+        }, Error: "which returns a hold, without a holder");
+
+        yield return new("holder_without_returned_hold", () =>
+        {
+            var c = b.Parameter("cell", b.Type("Cell"));
+            var k = b.Temp(WylType.Void, IrLocalKind.Holder);
+            var r = b.Temp(WylType.Int, IrLocalKind.Reference, RefKind.Ref);
+            return b.Function("holder_without_returned_hold", [c],
+                new IrDeclare(k) { Origin = null },
+                new IrLet(r, new IrCall(b.Method(b.Type("Cell"), "at"), new IrRefArgument(RefKind.Ref, new IrPlace(c)), []) { Holder = k }) { Origin = null });
+        }, Error: "which returns no hold");
 
         yield return new("reference_after_hold_ends", () =>
         {

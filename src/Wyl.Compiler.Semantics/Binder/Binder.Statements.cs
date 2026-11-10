@@ -342,8 +342,9 @@ public sealed partial class Binder
 
     /// <summary>
     /// <c>return ref place;</c>, or <c>return null;</c> from a method returning <c>ref?</c>. The
-    /// caller treats the reference as borrowing the receiver, so it must point into the receiver's
-    /// own storage: <c>this</c>, its fields and elements, or, in unsafe code, a pointer's target.
+    /// place is in the receiver's own storage (<c>this</c>, its fields and elements, or, in unsafe
+    /// code, a pointer's target), which the caller holds, or in an object reached through the
+    /// receiver, which the call gives the caller to hold.
     /// </summary>
     BoundStatement BindReturnReference(ReturnStmt s, FunctionSymbol function)
     {
@@ -368,8 +369,11 @@ public sealed partial class Binder
             var reference = returnType is NullableReferenceType nullableReturn ? ConvertToNullableReference(place, nullableReturn, what)
                 : CheckReference(place, function.ReturnRefKind, returnType, what) ? place
                 : null;
-            if (reference is not null && IsThisRooted(place))
+            if (reference is not null && (IsThisRooted(place) || IsReachedThroughThis(place)))
+            {
+                RecordReturnedPlace(function, place);
                 return new BoundReturn(s.Location, reference);
+            }
             // A by-value receiver cannot return a reference, which is reported with the method.
             if (reference is not null && function.ReceiverParameter is null)
                 Error(Catalog.ReturnedReferenceNotOfReceiver(s.Value!.Location, what));
@@ -386,6 +390,58 @@ public sealed partial class Binder
         PlaceBase.Object => path.Root is BoundThis,
         _ => false,
     };
+
+    /// <summary>
+    /// Whether a place lies in an object that <c>this</c> refers to, directly or through other
+    /// objects: the object's field or element, or a place that a method of the object returned.
+    /// </summary>
+    static bool IsReachedThroughThis(BoundExpression place)
+    {
+        var path = PlacePath.Of(place);
+        if (path.Base != PlaceBase.Object || path.Root is BoundThis)
+            return false;
+        return IsThisRooted(path.Root) || IsReachedThroughThis(path.Root);
+    }
+
+    /// <summary>The methods whose bodies return a place reached through the receiver.</summary>
+    readonly HashSet<FunctionSymbol> returnsReachedPlaces = [];
+
+    /// <summary>For each method, the methods whose returned places its own returned places are in.</summary>
+    readonly Dictionary<FunctionSymbol, HashSet<FunctionSymbol>> returnedPlacesOf = [];
+
+    void RecordReturnedPlace(FunctionSymbol function, BoundExpression place)
+    {
+        if (!IsThisRooted(place))
+            returnsReachedPlaces.Add(function);
+        var path = PlacePath.Of(place);
+        foreach (var call in path.Steps.OfType<BoundCall>().Where(c => c.Method.Symbol.ReturnRefKind != RefKind.None))
+        {
+            if (!returnedPlacesOf.TryGetValue(function, out var methods))
+                returnedPlacesOf[function] = methods = [];
+            methods.Add(call.Method.Symbol);
+        }
+    }
+
+    /// <summary>
+    /// Sets <see cref="FunctionSymbol.ReturnsHold"/> once every body is bound. A method that returns
+    /// a place that a method returning a hold returned must pass that hold on, so the answer grows
+    /// until no method changes.
+    /// </summary>
+    void FindReturnedHolds(IEnumerable<FunctionSymbol> functions)
+    {
+        foreach (var function in functions.Where(f => f.ReturnRefKind != RefKind.None))
+            function.ReturnsHold = function.IsDispatched || function.Overridden.Count > 0 || returnsReachedPlaces.Contains(function);
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var (function, methods) in returnedPlacesOf)
+            {
+                if (!function.ReturnsHold && methods.Any(m => m.ReturnsHold))
+                    changed = function.ReturnsHold = true;
+            }
+        }
+    }
 
     BoundStatement BindJump(Location location, string keyword, BoundStatement jump)
     {

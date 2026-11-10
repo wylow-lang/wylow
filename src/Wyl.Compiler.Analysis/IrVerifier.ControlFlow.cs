@@ -106,6 +106,16 @@ public sealed partial class IrVerifier
         Operand(ret.Value, state);
         constructed = making;
         pendingMoves.Clear();
+        if (ret.Holds.Count > 0 && !function.Symbol.ReturnsHold)
+            Error("gives holds from a method that returns none");
+        foreach (var hold in ret.Holds)
+        {
+            // A pass may name an elided hold by the local it aliases, which holds the same object.
+            if (hold is not { IsDeref: false, Projections.Count: 0 } || hold.Local.Kind is IrLocalKind.Reference or IrLocalKind.Slot or IrLocalKind.InUse)
+                Error($"gives '{N(hold.Local)}', which is not a hold, a holder, or what a hold refers to");
+            Operand(IrRead.Borrow(hold), state);
+        }
+        pendingMoves.Clear();
         if (function.Struct is not null && !returnsMade)
             Error("a struct constructor returns its value");
         if (returnType == WylType.Void)

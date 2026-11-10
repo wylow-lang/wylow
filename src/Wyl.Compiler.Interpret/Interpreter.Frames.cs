@@ -19,6 +19,9 @@ public sealed partial class Interpreter
         /// <summary>The text an <c>@CallerLocation</c> function reports, which its caller passed.</summary>
         public string? CallerLocation { get; set; }
 
+        /// <summary>The caller's holder, which a method returning a hold gives what its returned reference points into.</summary>
+        public HolderStorage? Holder { get; set; }
+
         /// <summary>The object a constructor's frame is making, which its base constructor call runs on.</summary>
         public ObjectRef? Constructing { get; set; }
 
@@ -63,6 +66,50 @@ public sealed partial class Interpreter
     internal sealed class SlotStorage : Storage
     {
         public HeapObject? Object { get; set; }
+    }
+
+    /// <summary>
+    /// A <c>wyl::Holder</c>: the object that a returned reference points into, a counted copy, and
+    /// borrowed if the hold the callee gave it borrows. It is empty until a callee gives it a hold.
+    /// </summary>
+    internal sealed class HolderStorage : Storage
+    {
+        public Cell? Cell { get; set; }
+        public bool Borrows { get; set; }
+    }
+
+    /// <summary>
+    /// Gives the holder what a hold holds, if the holder is empty and the hold holds an object, as
+    /// <c>wyl::Holder::Take</c> does: a counted copy, borrowed again if the hold borrows. A holder's
+    /// contents move, since the function that owns it is returning. A hold of a struct in generic
+    /// code is the struct's place, which the receiver holds.
+    /// </summary>
+    void Give(HolderStorage holder, Storage hold)
+    {
+        if (holder.Cell is not null)
+            return;
+        switch (hold)
+        {
+            case HolderStorage { Cell: { } given } other:
+                (holder.Cell, holder.Borrows) = (given, other.Borrows);
+                (other.Cell, other.Borrows) = (null, false);
+                break;
+            case HoldStorage { Cell: { Value: ObjectRef obj } cell } held:
+                holder.Cell = new Cell(cell.Type, Values.Copy(cell.Type, obj));
+                if (held.Borrows)
+                {
+                    BeginBorrow(obj);
+                    holder.Borrows = true;
+                }
+                break;
+            // An elided hold refers to the object's place, or is named by the local it aliased.
+            case RefStorage { Cell: { Value: ObjectRef obj } cell }:
+                holder.Cell = new Cell(cell.Type, Values.Copy(cell.Type, obj));
+                break;
+            case OwnedStorage { Cell: { Value: ObjectRef obj } cell }:
+                holder.Cell = new Cell(cell.Type, Values.Copy(cell.Type, obj));
+                break;
+        }
     }
 
     /// <summary>A guard that marks a value in use until the local ends, restoring the state it had. A declared guard holds no value until its <c>let</c> makes it.</summary>
@@ -123,6 +170,14 @@ public sealed partial class Interpreter
                     break;
                 case HoldStorage hold:
                     EndHold(hold);
+                    break;
+                case HolderStorage { Cell: { } held } holder:
+                    holder.Cell = null;
+                    if (holder.Borrows && held.Value is ObjectRef borrowed)
+                        EndBorrow(borrowed);
+                    Release(held);
+                    break;
+                case HolderStorage:
                     break;
                 case SlotStorage slot:
                     EndSlot(slot);

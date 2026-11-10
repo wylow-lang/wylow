@@ -1,7 +1,7 @@
 // The values x operations matrix: a value at an edge crossed with what is done with it. The edges
 // are 0, 1, -1, INT_MAX, INT_MIN, a long past INT_MAX, -0.0 and an inexact double, an empty array,
 // a one-element list, the iterators of an empty list, a one-element list, a list holding a null,
-// and an empty array, the last index, the empty and multi-byte strings, the code point past ASCII,
+// and an empty array, the element iterators of an empty chain and a one-element chain, the last index, the empty and multi-byte strings, the code point past ASCII,
 // true, null as a value and as a reference, and an unequal pair. An operation is arithmetic,
 // comparison, indexing, iteration, conversion, formatting, or switch. A row only pairs with the
 // operations its value supports, so each cell is a meaningful program; a cell where the spec calls
@@ -22,7 +22,7 @@ static class MatrixValues
             {
                 if (!row.Bodies.TryGetValue(operation, out var body))
                     continue;
-                var source = $"// matrix: values x operations, cell: {row.Name}/{operation}\n\n{Fixture}\n\nvoid main() {{\n{row.Setup}\n{body}\n}}";
+                var source = $"// matrix: values x operations, cell: {row.Name}/{operation}\n\n{Fixture}\n\nvoid main() {{\n{row.Setup}\n{body}\n}}{row.Declarations}";
                 cells.Add(new MatrixCell($"{row.Name}/{operation}", source));
             }
         }
@@ -32,7 +32,8 @@ static class MatrixValues
             cells);
     }
 
-    sealed record ValueRow(string Name, string Setup, Dictionary<string, string> Bodies);
+    /// <param name="Declarations">Types only the row uses, after <c>main</c>, so that the lines of every other cell stay where they are.</param>
+    sealed record ValueRow(string Name, string Setup, Dictionary<string, string> Bodies, string Declarations = "");
 
     static IEnumerable<ValueRow> Rows()
     {
@@ -297,6 +298,56 @@ static class MatrixValues
                 print(iterator.current());
                 """,
         });
+
+        yield return new("empty-ref-iterator", "Link? first = null;", new()
+        {
+            ["iteration"] = """
+                mut int count = 0;
+                for (ref int value : Links(first)) {
+                    count++;
+                }
+                print(count);
+                mut var links = Links(first);
+                print(links.moveNext());
+                print(links.current());
+                """,
+        }, Chain);
+
+        yield return new("one-ref-iterator", "var first = new Link(4, null);", new()
+        {
+            ["iteration"] = """
+                for (int at, ref int value : Links(first)) {
+                    print(at);
+                    value += 1;
+                }
+                for (in int value : Links(first)) {
+                    print(value);
+                }
+                for (mut int value : Links(first)) {
+                    value = 0;
+                }
+                print(first.value);
+                mut var links = Links(first);
+                print(links.moveNext());
+                ref int current = links.current();
+                current = 9;
+                print(links.moveNext());
+                print(first.value);
+                """,
+        }, Chain);
+
+        yield return new("one-in-iterator", "var first = new Link(4, null);", new()
+        {
+            ["iteration"] = """
+                for (int at, in int value : ReadLinks(first)) {
+                    print(at);
+                    print(value);
+                }
+                for (int value : ReadLinks(first)) {
+                    print(value + 1);
+                }
+                """,
+        }, Chain);
 
         yield return new("last-array", "mut int[3] values = [4, 5, 6];", new()
         {
@@ -567,6 +618,63 @@ static class MatrixValues
 
             pub String toString() {
                 return $"Cell({value})";
+            }
+        }
+        """;
+
+    /// <summary>A chain of objects, and its element iterators, which return references into the objects.</summary>
+    const string Chain = """
+
+
+        final class Link {
+            pub mut int value;
+            pub Link? next;
+
+            Link(int value, Link? next) {
+                this.value = value;
+                this.next = next;
+            }
+        }
+
+        struct Links implements RefIterator<int> {
+            Link? upcoming;
+            Link? at;
+
+            Links(Link? first) {
+                upcoming = first;
+            }
+
+            pub mut bool moveNext() {
+                at = upcoming;
+                if (at is Link link) {
+                    upcoming = link.next;
+                }
+                return at != null;
+            }
+
+            pub mut ref int current() {
+                return ref at!.value;
+            }
+        }
+
+        struct ReadLinks implements InIterator<int> {
+            Link? upcoming;
+            Link? at;
+
+            ReadLinks(Link? first) {
+                upcoming = first;
+            }
+
+            pub mut bool moveNext() {
+                at = upcoming;
+                if (at is Link link) {
+                    upcoming = link.next;
+                }
+                return at != null;
+            }
+
+            pub in int current() {
+                return ref at!.value;
             }
         }
         """;

@@ -1,0 +1,73 @@
+// A tree's iterator returns a reference into each node, which the iterator reaches through the
+// stack of nodes it has yet to visit, so a 'ref' loop changes the values in place.
+import std::List;
+import std::RefIterator;
+
+class Node {
+    pub mut int value;
+    pub Node? left;
+    pub Node? right;
+
+    pub Node(int value, Node? left, Node? right) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+struct InOrder implements RefIterator<int> {
+    List<Node> pending;
+    Node? at;
+
+    pub InOrder(Node? root) {
+        pending = new List<Node>();
+        pushLeft(root);
+    }
+
+    mut void pushLeft(Node? first) {
+        mut Node? node = first;
+        while (node is Node found) {
+            pending.add(found);
+            node = found.left;
+        }
+    }
+
+    pub mut bool moveNext() {
+        at = pending.removeLast();
+        if (at is Node node) {
+            pushLeft(node.right);
+        }
+        return at != null;
+    }
+
+    pub mut ref int current() {
+        return ref at!.value;
+    }
+}
+
+int sum<I extends RefIterator<int>>(I values) {
+    mut int total = 0;
+    for (in int value : values) {
+        total += value;
+    }
+    return total;
+}
+
+void main() {
+    var tree = new Node(4, new Node(2, new Node(1, null, null), new Node(3, null, null)), new Node(6, null, null));
+    for (ref int value : InOrder(tree)) {
+        value *= 10;
+    }
+    for (int value : InOrder(tree)) {
+        std::print(value);                  // output: 10
+                                            // output: 20
+                                            // output: 30
+                                            // output: 40
+                                            // output: 60
+    }
+    for (mut int value : InOrder(tree)) {
+        value = 0;
+    }
+    std::print(tree.value);                 // output: 40
+    std::print(sum(InOrder(tree)));         // output: 160
+}

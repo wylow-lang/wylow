@@ -16,7 +16,7 @@ public sealed partial class CppEmitter
     static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
 
     string Parameters(FunctionSymbol function) =>
-        WithLocationParameter(function, DeclaredParameters(function));
+        WithHiddenParameters(function, DeclaredParameters(function));
 
     /// <summary>A function's parameters, with a by-value receiver first, as its call passes it.</summary>
     IEnumerable<string> DeclaredParameters(FunctionSymbol function) =>
@@ -25,10 +25,19 @@ public sealed partial class CppEmitter
             : function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type));
 
     string Parameters(MethodReference method) =>
-        WithLocationParameter(method.Symbol, method.Symbol.Parameters.Select((p, i) => ParameterDeclaration(method.Symbol, p, method.ParameterType(i))));
+        WithHiddenParameters(method.Symbol, method.Symbol.Parameters.Select((p, i) => ParameterDeclaration(method.Symbol, p, method.ParameterType(i))));
 
-    static string WithLocationParameter(FunctionSymbol function, IEnumerable<string> parameters) =>
-        string.Join(", ", function.PassesLocation ? parameters.Append($"const char* {CallerLocationParameter}") : parameters);
+    /// <summary>The parameters with the caller's location, if the function takes it, and the holder its returned reference's hold goes in.</summary>
+    static string WithHiddenParameters(FunctionSymbol function, IEnumerable<string> parameters)
+    {
+        if (function.PassesLocation)
+            parameters = parameters.Append($"const char* {CallerLocationParameter}");
+        if (function.ReturnsHold)
+            parameters = parameters.Append($"wyl::Holder& {HolderParameter}");
+        return string.Join(", ", parameters);
+    }
+
+    const string HolderParameter = "wyl_holder";
 
     string MemberDeclaration(FunctionSymbol member)
     {

@@ -63,7 +63,12 @@ public sealed partial class Interpreter
         public object? Loop(IrLoop statement) => Run(() => interpreter.ExecLoop(statement, frame));
         public object? Break(IrBreak statement) => throw new BreakSignal(statement.Loop);
         public object? Continue(IrContinue statement) => throw new ContinueSignal(statement.Loop);
-        public object? Return(IrReturn statement) => throw new ReturnSignal(statement.Value is { } value ? interpreter.EvalOperand(value, frame) : null);
+        public object? Return(IrReturn statement)
+        {
+            foreach (var hold in statement.Holds)
+                interpreter.Give(frame.Holder ?? throw new InterpreterException("a return gives holds, but the caller gave no holder"), frame.Find(hold.Local));
+            throw new ReturnSignal(statement.Value is { } value ? interpreter.EvalOperand(value, frame) : null);
+        }
         public object? End(IrEnd statement) => Run(() => interpreter.ReleaseLocal(frame, statement.Local));
         public object? Discard(IrDiscard statement) => Run(() => interpreter.ExecDiscard(statement, frame));
 
@@ -100,6 +105,7 @@ public sealed partial class Interpreter
             IrLocalKind.Borrowed => throw new InterpreterException($"a borrowed local '{local.Name}' is declared without an alias"),
             IrLocalKind.Slot => new SlotStorage(),
             IrLocalKind.InUse => new InUseStorage(null, false),
+            IrLocalKind.Holder => new HolderStorage(),
             _ => throw new InterpreterException($"unexpected local kind {local.Kind}"),
         };
         Declare(frame, local, declared);

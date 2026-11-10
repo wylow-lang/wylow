@@ -238,7 +238,10 @@ public sealed partial class CppEmitter
     {
         var method = call.Method;
         var function = method.Symbol;
-        var arguments = string.Join(", ", ArgumentsText(method, call.Arguments, call.Loc));
+        var texts = ArgumentsText(method, call.Arguments, call.Loc);
+        if (call.Holder is { } holder)
+            texts.Add(Name(holder));
+        var arguments = string.Join(", ", texts);
         var typeArguments = TypeArgumentList(method.TypeArguments);
         // `.template` is required for a member template of a dependent type and harmless otherwise.
         var memberName = (typeArguments.Length > 0 ? "template " : "") + MethodName(function) + typeArguments;

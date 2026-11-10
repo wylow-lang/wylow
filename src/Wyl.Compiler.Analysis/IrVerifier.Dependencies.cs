@@ -93,15 +93,23 @@ public sealed partial class IrVerifier
 
     Dependency Into(IrPlace place, bool alias) => new([(place.Local, place.IsDeref)], Target(place), alias, NeedsBorrow: false);
 
-    /// <summary>A returned reference or view points into the receiver's storage: a struct place's, or an object's, which may be a <c>Borrowable</c>.</summary>
-    Dependency Returned(IrCall call) => call.Receiver switch
+    /// <summary>
+    /// A returned reference or view points into the receiver's storage: a struct place's, or an
+    /// object's, which may be a <c>Borrowable</c>. A reference that a call gives a holder for may
+    /// point into what the holder holds instead.
+    /// </summary>
+    Dependency Returned(IrCall call)
     {
-        IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], IrAccess.Unknown, false, false),
-        IrRefArgument reference => Into(reference.Place, alias: false),
-        IrRead { Place: var holder } => new([(holder.Local, true)], IrAccess.Unknown, false,
-            NeedsBorrow: program.Bound.MayBeBorrowable(holder.Type, function.Symbol) && !borrowingHolds.Contains(holder.Local)),
-        _ => new([], IrAccess.Unknown, false, false),
-    };
+        var into = call.Receiver switch
+        {
+            IrRefArgument { Place: { Type.IsRefStruct: true } span } => new([(span.Local, true)], IrAccess.Unknown, false, false),
+            IrRefArgument reference => Into(reference.Place, alias: false),
+            IrRead { Place: var holder } => new([(holder.Local, true)], IrAccess.Unknown, false,
+                NeedsBorrow: program.Bound.MayBeBorrowable(holder.Type, function.Symbol) && !borrowingHolds.Contains(holder.Local)),
+            _ => new Dependency([], IrAccess.Unknown, false, false),
+        };
+        return call.Holder is { } given ? into with { Roots = [.. into.Roots, (given, true)], Target = IrAccess.Unknown } : into;
+    }
 
     /// <summary>The storage a place lies in, through what the references and pointers it goes through are known to refer to.</summary>
     IrAccess Target(IrPlace place) => IrAccess.Target(place, local => dependencies.GetValueOrDefault(local)?.Target);

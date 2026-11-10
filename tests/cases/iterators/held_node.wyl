@@ -1,0 +1,57 @@
+// A loop variable that refers into a node holds the node until the iteration ends, so a node that
+// is unlinked from its list, and that the iterator lets go of, stays alive while the variable is used.
+import std::RefIterator;
+
+class Node {
+    pub mut int value;
+    pub mut Node? next;
+
+    pub Node(int value, Node? next) {
+        this.value = value;
+        this.next = next;
+    }
+
+    ~Node() {
+        std::print($"released {value}");
+    }
+}
+
+class Walker implements RefIterator<int> {
+    mut Node? upcoming;
+    mut Node? at;
+
+    pub Walker(Node? first) {
+        upcoming = first;
+    }
+
+    pub bool moveNext() {
+        at = upcoming;
+        if (at is Node node) {
+            upcoming = node.next;
+        }
+        return at != null;
+    }
+
+    pub ref int current() {
+        return ref at!.value;
+    }
+
+    pub void forget() {
+        at = null;
+    }
+}
+
+void main() {
+    var head = new Node(1, new Node(2, new Node(3, null)));
+    var walker = new Walker(head);
+    for (ref int value : walker) {
+        if (value == 2) {
+            walker.forget();
+            head.next = head.next!.next;
+            value = 20;
+            std::print("changed");          // output: changed
+        }                                   // output: released 20
+    }
+    std::print(head.next!.value);           // output: 3
+}                                           // output: released 1
+                                            // output: released 3

@@ -14,3 +14,37 @@ pub interface Iterator<T> {
     /// `false`, is in the documentation of each type that implements the interface.
     T current();
 }
+
+/// A value that produces references to elements, which a loop may change (spec `library.iterator`).
+///
+/// A for-each loop over a `RefIterator` binds each element by `ref`, by `in`, or as a copy. A
+/// reference that the loop binds holds and borrows what the element is in until the iteration
+/// ends.
+pub interface RefIterator<T> {
+    /// Returns `true` after advancing to the next element, or `false` if the iterator has no more
+    /// elements.
+    mut bool moveNext();
+
+    /// Returns a reference to the element that the last call of `moveNext` advanced to.
+    ///
+    /// What `current` does before the first call of `moveNext`, or after `moveNext` returns
+    /// `false`, is in the documentation of each type that implements the interface.
+    mut ref T current();
+}
+
+/// A value that produces read-only references to elements (spec `library.iterator`).
+///
+/// A for-each loop over an `InIterator` binds each element by `in`, or as a copy. A container whose
+/// element order depends on the elements, or that may only be read, gives an `InIterator`, since
+/// changing an element in place would break the container.
+pub interface InIterator<T> {
+    /// Returns `true` after advancing to the next element, or `false` if the iterator has no more
+    /// elements.
+    mut bool moveNext();
+
+    /// Returns a read-only reference to the element that the last call of `moveNext` advanced to.
+    ///
+    /// What `current` does before the first call of `moveNext`, or after `moveNext` returns
+    /// `false`, is in the documentation of each type that implements the interface.
+    in T current();
+}

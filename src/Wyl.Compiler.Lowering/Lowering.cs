@@ -173,7 +173,54 @@ public sealed partial class IrLowering
     {
         var let = new IrLet(value) { Origin = Origin(value) };
         Add(let);
+        defined[let.Local] = value;
         return let.Local;
+    }
+
+    /// <summary>What each temporary was defined with, from which a returned reference's holds are found.</summary>
+    readonly Dictionary<IrLocal, IrRvalue> defined = [];
+
+    /// <summary>
+    /// The holder that a call of a method returning a hold gives what the returned reference points
+    /// into. It is declared before the call, in the block of the call's other temporaries, so it
+    /// lasts as long as they do, or for the scope of the variable that binds the reference.
+    /// </summary>
+    IrLocal? HolderFor(MethodReference method)
+    {
+        if (!method.Symbol.ReturnsHold)
+            return null;
+        var holder = new IrLocal("holder", WylType.Void, IrLocalKind.Holder, IrLocalRole.Variable);
+        Add(new IrDeclare(holder) { Origin = at });
+        return holder;
+    }
+
+    /// <summary>
+    /// The holds and holders that a reference made by lowering may point into, which a method
+    /// returning it gives its caller: the holder of each call that returned the place, before the
+    /// holds of the call's receiver, since the holder holds something exactly when the place is not
+    /// in the receiver. A hold of <c>this</c> is left out, since the caller holds the receiver.
+    /// </summary>
+    List<IrLocal> HoldsOf(IrPlace place)
+    {
+        var local = place.Local;
+        if (!defined.TryGetValue(local, out var value))
+            return [];
+        return value switch
+        {
+            IrHold { Place: { IsDeref: false, Projections.Count: 0 } held } when held.Local == self => [],
+            IrHold => [local],
+            IrCall call => [.. call.Holder is { } holder ? [holder] : Array.Empty<IrLocal>(), .. call.Receiver switch
+            {
+                IrRead read => HoldsOf(read.Place),
+                IrRefArgument reference => HoldsOf(reference.Place),
+                _ => [],
+            }],
+            IrRef reference => HoldsOf(reference.Place),
+            IrAddr address => HoldsOf(address.Place),
+            IrUse { Operand: IrRead read } => HoldsOf(read.Place),
+            IrConvert { Operand: IrRead read } => HoldsOf(read.Place),
+            _ => [],
+        };
     }
 
     /// <summary>Where a panic at <paramref name="location"/> is reported: in an <c>@CallerLocation</c> function, where it was called from.</summary>
@@ -389,7 +436,8 @@ public sealed partial class IrLowering
                 _ when symbol.ReturnType.IsNullableReference => IrRead.Copy(new IrPlace(Let(ReferenceValue(value, symbol.ReturnType)))),
                 _ => IrRead.Copy(new IrPlace(Let(new IrRef(symbol.ReturnRefKind, Place(value, Use.Scope))))),
             };
-            Add(new IrReturn(reference) { Origin = at });
+            List<IrPlace> holds = symbol.ReturnsHold && reference is IrRead { Place: var returned } ? [.. HoldsOf(returned).Distinct().Select(h => new IrPlace(h))] : [];
+            Add(new IrReturn(reference) { Origin = at, Holds = holds });
         }
         else
         {
@@ -430,7 +478,7 @@ public sealed partial class IrLowering
         var shared = read.Arguments.Select((argument, i) => SharedIndex(read.Method, i, argument)).ToList();
         if (BoundTree.AllExpressions(value).Any(e => ReferenceEquals(e, element)))
         {
-            var result = Let(new IrCall(read.Method, readReceiver, [.. shared.Select(index => index())], LocationFor(read.Method, read)));
+            var result = Let(new IrCall(read.Method, readReceiver, [.. shared.Select(index => index())], LocationFor(read.Method, read)) { Holder = HolderFor(read.Method) });
             located[element] = read.Method.Symbol.ReturnRefKind != RefKind.None ? IrPlace.Deref(result) : new IrPlace(result);
         }
         int last = shared.Count;

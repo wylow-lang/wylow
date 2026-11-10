@@ -119,6 +119,9 @@ static class Mutations
         // Constructs through a this(...) chain, which changes nothing a program does: a class's
         // chain is a C++ delegating constructor, with its arguments in the mem-initializer.
         new("constructor-chain", SiteKind.TypeDecl, ChainApplies, ChainBuild),
+        // Makes a class's method virtual, which changes nothing a program does. A method that
+        // returns a reference then gives its caller the hold of what the reference points into.
+        new("method-virtual", SiteKind.TypeDecl, VirtualApplies, VirtualBuild),
         new("parameter-in", SiteKind.Parameter, ParameterInApplies, ParameterInBuild),
         new("local-mut", SiteKind.Local, LocalMutApplies, LocalMutBuild),
         new("local-ref-nullable", SiteKind.Local, LocalRefNullableApplies, LocalRefNullableBuild),
@@ -295,6 +298,38 @@ static class Mutations
             new Edit(open + 1, open + 1, tag + " " + parameter + (constructor.Parameters.Count > 0 ? ", " : "")),
             MutationContext.Append("pub struct " + tag + " { }", context.Text),
         ]);
+    }
+
+    static bool Virtualizable(FunctionDecl method) =>
+        !method.IsConstructor && method.Body is not null && method.TypeParameters.Count == 0
+        && (method.Modifiers & (Modifiers.Static | Modifiers.Virtual | Modifiers.Override | Modifiers.Abstract | Modifiers.Extern)) == 0;
+
+    static bool VirtualApplies(Site site) =>
+        site.Node is TypeDecl { Kind: TypeKind.Class } declaration
+        && (declaration.Modifiers & (Modifiers.Extern | Modifiers.Final)) == 0
+        && declaration.Methods.Any(Virtualizable);
+
+    /// <summary>Puts <c>virtual</c> before the return type, choosing a method that returns a reference where there is one.</summary>
+    static Candidate? VirtualBuild(MutationContext context, Site site)
+    {
+        var methods = ((TypeDecl)site.Node).Methods.Where(Virtualizable).ToList();
+        if (methods.Where(m => m.ReturnRefKind != RefKind.None).ToList() is { Count: > 0 } references)
+            methods = references;
+        var method = methods[context.Random.Next(methods.Count)];
+        int start = method.Location.Span.Start;
+        int at = method.ReturnType!.Location.Span.Start;
+        var head = context.Text[start..at];
+        // An annotation's arguments may be any text, and a caller location can't be dispatched.
+        if (head.Contains('@'))
+            return null;
+        if (method.ReturnRefKind != RefKind.None)
+        {
+            int keyword = head.LastIndexOf(method.ReturnRefKind == RefKind.Ref ? "ref" : "in", StringComparison.Ordinal);
+            if (keyword < 0)
+                return null;
+            at = start + keyword;
+        }
+        return new("method-virtual", [new Edit(at, at, "virtual ")]);
     }
 
     static bool ParameterInApplies(Site site) =>

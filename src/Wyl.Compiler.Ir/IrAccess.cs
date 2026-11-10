@@ -338,7 +338,7 @@ public static class IrWalk
         IrDo run => Operands(run.Value),
         IrCheck check => check.Operands,
         IrIf conditional => [conditional.Condition],
-        IrReturn { Value: { } value } => [value],
+        IrReturn ret => [.. ret.Value is { } value ? [value] : Array.Empty<IrArgument>(), .. ret.Holds.Select(IrRead.Borrow)],
         _ => [],
     };
 
@@ -400,10 +400,10 @@ public static class IrWalk
     {
         IEnumerable<IrLocal> named = statement switch
         {
-            IrLet let => [let.Local, .. Slot(let.Value)],
+            IrLet let => [let.Local, .. Slot(let.Value), .. Holder(let.Value)],
             IrEnd end => [end.Local],
             IrDiscard discard => [discard.Local],
-            IrDo run => Slot(run.Value),
+            IrDo run => [.. Slot(run.Value), .. Holder(run.Value)],
             _ => Declared(statement) is { } declared ? [declared] : [],
         };
         return named.Concat(Operands(statement).SelectMany(Places).SelectMany(PlaceLocals));
@@ -415,6 +415,8 @@ public static class IrWalk
         IrClosure { Slot: { } slot } => [slot],
         _ => [],
     };
+
+    static IEnumerable<IrLocal> Holder(IrRvalue value) => value is IrCall { Holder: { } holder } ? [holder] : [];
 
     /// <summary>Every place a statement, or one inside it, names, and those its indices read.</summary>
     public static IEnumerable<IrPlace> AllPlaces(IrStatement statement) =>

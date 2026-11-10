@@ -491,7 +491,7 @@ public sealed partial class Binder
             Error(Catalog.ViewReturnFromNonInstance(function.Declaration!.NameLocation, function.ReturnType.ToString()));
     }
 
-    /// <summary>A returned reference borrows the receiver, so only instance methods that the caller calls directly may return one.</summary>
+    /// <summary>A returned reference points into the receiver or into what it reaches, so only instance methods may return one.</summary>
     void CheckReturnsReference(FunctionSymbol method)
     {
         var location = method.Declaration!.NameLocation;
@@ -499,8 +499,6 @@ public sealed partial class Binder
         var referenced = method.ReturnType.Referred;
         if (method.IsStatic)
             Error(Catalog.StaticReferenceReturn(location, keyword));
-        else if (method.IsDispatched)
-            Error(Catalog.DispatchedReferenceReturn(location, keyword));
         else if (referenced == WylType.Void)
             Error(Catalog.VoidReferenceReturn(location, keyword));
         else if (referenced.NonNull.IsFunction)

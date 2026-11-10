@@ -33,18 +33,19 @@ IrFunction  = symbol, parameters, location parameter?, captures (for lambdas), b
 Block       = statements; a local is scoped to the block that declares it
 Statement   = let x = Rvalue            declare and define a temporary or local
             | declare x                 declare a local stored later: a deferred local, a value out of
-                                        control flow, a slot, an `is ref` name's hold, or an in-use
-                                        guard whose binding's scope is an enclosing block
+                                        control flow, a slot, an `is ref` name's hold, an in-use
+                                        guard whose binding's scope is an enclosing block, or a
+                                        holder that a call fills
             | store Place = Operand     assign: store the new value, then release the old
             | do Rvalue                 evaluate for effect
             | check Condition @Loc      panic unless (bounds, null, no_match, ...)
             | if Operand Block [else Block]
             | loop L Block [continue Block]  with break L / continue L inside
-            | return Operand?
+            | return Operand? [giving x, ...]   a returned reference's holds, which the caller's holder takes
             | end x                     end a hold, a stack slot, or an in-use guard before its scope does
             | discard x                 end a by-value parameter's lifetime without its destructor's body
             | unreachable @Loc
-Rvalue      = Operand | unary/binary (checked ones carry @Loc) | call | new | construct | variant
+Rvalue      = Operand | unary/binary (checked ones carry @Loc) | call [holder x] | new | construct | variant
             | array | default T | closure | lambda | choose | ref Place | addr Place
             | data Place | test (null, tag, class, has_value) | convert | hold Place | inuse Place
 Operand     = constant | copy Place | move Place | borrow Place | borrow.element Place
@@ -59,8 +60,9 @@ Loc         = a source location constant | the function's location parameter
 Locals have a kind that the emitter maps to a C++ declaration: **value** (`T x`), **reference**
 (`T& x` for `ref`/`in`, `T* x` for `ref?`/`in?`), **borrowed** (`const T& x`, an alias of a place
 that no one writes during its life), **hold** (`wyl::Ref<T>` from `wyl::Pin`, or `wyl::Borrow<T>`
-from `wyl::MakeBorrow`), **slot** (`wyl::StackSlot<T>`), and **in-use** (`wyl::InUseMark`, which
-marks a value in use while it lives and restores the state before it). A local's **role** says
+from `wyl::MakeBorrow`), **slot** (`wyl::StackSlot<T>`), **in-use** (`wyl::InUseMark`, which
+marks a value in use while it lives and restores the state before it), and **holder**
+(`wyl::Holder`, which keeps the object that a returned reference points into, and its borrow, §5.2). A local's **role** says
 where it lives: a variable, a temporary, a parameter, `this`, a capture, or a **static**, which
 belongs to `IrProgram.Statics` rather than to a function and lasts for the whole program.
 
@@ -109,6 +111,9 @@ Some notes on the choices:
 | `loop` whose head is `if !c break` with `c` nestable | `while (c)`, or `for (;; update)` when the update nests |
 | `loop` in general | `while (true) { ... }`. A `continue` that must skip to statements in the update block is `goto` to a label after the body's block, which skips no declaration |
 | `end %h` | `wyl::Unhold(h)` / `slot.End()` |
+| `declare %k` (holder) | `wyl::Holder k;` |
+| `call m(args) holder %k` | `m(args, k)`, the callee's last parameter being `wyl::Holder& wyl_holder` |
+| `return %r giving %k, %h` | `wyl_holder.Take(k); wyl_holder.Take(h); return r;`: the first that holds an object is kept |
 | `let %g = inuse P` | `wyl::InUseMark gN(P);`, or `gN.Begin(P);` when `declare %g` made `wyl::InUseMark gN;` first |
 | `end %g` on an in-use guard | `g.End()`, which restores the state the value had |
 | `discard x` | `x.Discard()`, which keeps its fields for the scope to release |
@@ -273,6 +278,39 @@ nothing runs between taking `%r` and storing through it. That reproduces the spe
 extents ([Borrows](../spec/17-memory.md#memory.borrows)) from one lowering rule and one pass, instead of from the cases in
 `Assignment`, `LocatedAssignment`, and `ArgumentOperand`. A borrow is a language rule, so it is
 decided the same with or without optimizations (`classes/borrowable_observed.wyl`).
+
+A method may return a reference to a place reached through its receiver, such as a field of an
+object that a field of the receiver refers to
+([Returning references](../spec/12-functions.md#functions.ref-returns)). The caller holds only the
+receiver, so the call also gives the caller the hold of what the place is in. The binder marks each
+method whose call may give a hold (`FunctionSymbol.ReturnsHold`): a dispatched method,
+a method that implements or overrides one, a method that returns a place reached through its
+receiver, and a method that returns a place that such a method returned. `Cursor.current`, which
+returns `ref node.value` for a `Node node` field, lowers to:
+
+```
+fn Cursor.current(this: Cursor) -> ref int holder {
+  let %h = hold this.node
+  let %r = ref (*%h).value
+  return copy %r giving %h
+}
+```
+
+A caller declares a holder before the call and names it in the call. The reference is valid while
+both the holder and the receiver are:
+
+```
+declare %k: holder
+let %r = call Cursor.current(ref cursor) holder %k
+```
+
+`giving` lists the holders of the calls the returned place came from before the holds of their
+receivers, since a callee fills its holder exactly when the place is not in its receiver. The
+caller's holder takes its own count of the first that holds an object, and borrows the object
+again if that hold borrows. An empty holder means the place is in the receiver. The verifier
+checks that a call has a holder exactly when its method returns a hold, and makes the call's
+result depend on the holder as well as the receiver. The `Borrows` pass keeps the borrow of a hold
+that a return gives, since the borrow is the caller's.
 
 Every pin the emitter takes today is a hold of a counted value: an object (a receiver, the object
 holding a place, or an `is ref` binding's holder), a stored closure (a call of a replaceable

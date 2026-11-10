@@ -412,6 +412,28 @@ err panic: cannot read the current element of an iterator before 'moveNext' or a
 err     at array.wyl:138:13
 exit 3
 
+=== empty-ref-iterator/iteration
+out 0
+out false
+err panic: null value unwrapped with '!'
+err     at iteration.wyl:54:20
+exit 3
+
+=== one-ref-iterator/iteration
+out 0
+out 5
+out 5
+out true
+out false
+out 9
+exit 0
+
+=== one-in-iterator/iteration
+out 0
+out 4
+out 5
+exit 0
+
 === last-array/comparison
 out true
 out false

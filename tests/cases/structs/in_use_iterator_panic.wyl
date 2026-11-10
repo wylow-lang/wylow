@@ -1,0 +1,51 @@
+// A loop variable that refers to a unique element puts the element in use, so replacing the
+// element during the iteration panics.
+import std::RefIterator;
+
+unique struct Resource {
+    pub int id;
+
+    ~Resource() {
+        std::print($"released {id}");
+    }
+}
+
+class Node {
+    pub mut Resource item;
+    pub Node? next;
+
+    pub Node(Resource item, Node? next) {
+        this.item = item;
+        this.next = next;
+    }
+}
+
+class Walker implements RefIterator<Resource> {
+    mut Node? upcoming;
+    mut Node? at;
+
+    pub Walker(Node? first) {
+        upcoming = first;
+    }
+
+    pub bool moveNext() {
+        at = upcoming;
+        if (at is Node node) {
+            upcoming = node.next;
+        }
+        return at != null;
+    }
+
+    pub ref Resource current() {
+        return ref at!.item;
+    }
+}
+
+void main() {
+    var head = new Node(Resource(id: 1), null);
+    for (ref Resource resource : new Walker(head)) {
+        head.item = Resource(id: 2);
+        // panic: cannot release a value that is in use
+        std::print(resource.id);
+    }
+}
