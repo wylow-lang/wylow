@@ -70,6 +70,8 @@ public static partial class Catalog
         Make(at, "extern functions can only be declared in the standard library");
 
     [Error(434, "annotations.caller-location")]
-    public static Diagnostic CallerLocationOnDispatched(Location at) =>
-        Make(at, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods");
+    public static Diagnostic CallerLocationOnDispatched(Location at, (string Method, string Implemented)? implementation = null) =>
+        implementation is var (method, implemented)
+            ? Make(at, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods").Note($"'{method}' implements '{implemented}'")
+            : Make(at, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods");
 }

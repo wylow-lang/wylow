@@ -61,7 +61,8 @@ library uses it so that a failed `list[i]` reports the program's line rather tha
 - A lambda written in such a function reports its own locations, since it may run after the call has
   returned.
 - `@CallerLocation` applies to functions, methods, constructors, and indexers.
-- It is a compile-time error to mark a virtual, abstract, or interface method `@CallerLocation`.
+- It is a compile-time error to mark a virtual, abstract, or interface method `@CallerLocation`, or a
+  method that implements an interface method.
 
 **Example:**
 

@@ -27,6 +27,16 @@ class Base {
     }
 }
 
+interface Check {
+    void check();
+}
+
+struct Located implements Check {
+    @CallerLocation
+    void check() {                      // error[WYL0434]: '@CallerLocation' cannot be used on virtual, abstract, or interface methods
+    }
+}
+
 class RawBase {
     unsafe RawBase() { }
     unsafe RawBase(int x) { }

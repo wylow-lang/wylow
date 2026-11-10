@@ -81,6 +81,9 @@ public sealed partial class Binder
                     Error(Catalog.MutImplementation(location, implementing, description));
                 else if (LosesUnsafe(implementation.Symbol, method))
                     Error(Catalog.UnsafeImplementation(location, implementing, description));
+                // A call through the interface or a bound passes no location.
+                else if (implementation.Symbol.PassesLocation)
+                    Error(Catalog.CallerLocationOnDispatched(location, (implementing, description)));
                 else
                 {
                     if (!implementation.Symbol.Overridden.Contains(method))
