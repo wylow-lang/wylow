@@ -169,11 +169,11 @@ public sealed partial class IrVerifier
                 Invalidate(state, local, $"{reason}, by {what}");
         }
         foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))
-            DependentsOf(write.Place.Local, state, $"'{N(write.Place.Local)}' may be reassigned by {what}", throughOnly: true);
+            DependentsOf(write.Place.Local, state, () => $"'{N(write.Place.Local)}' may be reassigned by {what}", throughOnly: true);
         if (effects.RunsCode)
         {
             foreach (var local in scopes.SelectMany(s => s).Where(l => IsChangedByLambda(l, state)).ToList())
-                DependentsOf(local, state, $"a lambda may reassign '{N(local)}' during {what}", throughOnly: true);
+                DependentsOf(local, state, () => $"a lambda may reassign '{N(local)}' during {what}", throughOnly: true);
         }
     }
 
@@ -185,18 +185,18 @@ public sealed partial class IrVerifier
             return;
         if (!state.Invalid.TryAdd(local, reason))
             return;
-        DependentsOf(local, state, $"'{N(local)}' was invalidated: {reason}");
+        DependentsOf(local, state, () => $"'{N(local)}' was invalidated: {reason}");
     }
 
     /// <summary>Whether an in-use guard marks the value at the local as in use.</summary>
     bool Guarded(State state, IrLocal local) => state.Guards.Any(guard => guardTargets.GetValueOrDefault(guard) == local);
 
-    void DependentsOf(IrLocal root, State state, string reason, bool throughOnly = false, IReadOnlySet<IrLocal>? except = null)
+    void DependentsOf(IrLocal root, State state, Func<string> reason, bool throughOnly = false, IReadOnlySet<IrLocal>? except = null)
     {
         foreach (var (local, dependency) in dependencies.ToList())
         {
             if (local != root && Visible(local) && except?.Contains(local) != true && dependency.Roots.Any(r => r.Local == root && (r.Through || !throughOnly)))
-                Invalidate(state, local, reason);
+                Invalidate(state, local, reason());
         }
     }
 }

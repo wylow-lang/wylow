@@ -47,7 +47,7 @@ static class DispatchSelfTests
         var compilation = Compilation.Compile(new SourceText("dispatch_self_test.wyl", TestPrograms.WithStd(Source)));
         if (compilation.Program is not { } program)
             return [new("dispatch/fixture", string.Join('\n', compilation.Diagnostics))];
-        var overrides = new Overrides(program);
+        var overrides = Overrides.Of(program);
         var types = program.Types.ToDictionary(t => t.Name);
         WylType Type(string name) => types[name].Type;
         WylType Construct(string name, params WylType[] arguments) => types[name].Construct(arguments);

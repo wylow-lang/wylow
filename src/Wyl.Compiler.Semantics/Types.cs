@@ -264,7 +264,8 @@ public sealed class TypeMap
     }
 
     public WylType Apply(WylType type) =>
-        type is TypeParameterType p ? map.GetValueOrDefault(p.Parameter, type) : type.MapParts(Apply);
+        map.Count == 0 ? type
+        : type is TypeParameterType p ? map.GetValueOrDefault(p.Parameter, type) : type.MapParts(Apply);
 }
 
 /// <summary>A parameter of a function type, which has a mode but no name, and prints escaping since its two forms print alike.</summary>

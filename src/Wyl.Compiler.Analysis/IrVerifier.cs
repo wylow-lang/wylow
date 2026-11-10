@@ -37,6 +37,17 @@ public sealed partial class IrVerifier
     readonly HashSet<string> reported = [];
     readonly HashSet<IrFunction> verifiedLambdas = [];
 
+    /// <summary>
+    /// The lambdas in <see cref="verifiedLambdas"/> and the locals in <see cref="declarations"/>, in
+    /// the order they were added, so that a loop forgets what its body added without copying either.
+    /// Both cover the whole program, to find a lambda made twice or a local declared twice.
+    /// </summary>
+    readonly List<IrFunction> lambdaOrder = [];
+    readonly List<IrLocal> declarationOrder = [];
+
+    /// <summary>Where the declarations of the function being verified start in <see cref="declarationOrder"/>.</summary>
+    int rootDeclarations;
+
     IrFunction root = null!;
     IrFunction function = null!;
     IrStatement? current;
@@ -88,7 +99,11 @@ public sealed partial class IrVerifier
         var verifier = new IrVerifier(program, writes, diagnostics);
         // A lambda is verified where it is made.
         foreach (var function in program.Functions.Where(f => !f.IsLambda))
+        {
+            verifier.rootDeclarations = verifier.declarationOrder.Count;
+            verifier.dependencies.Clear();
             verifier.VerifyFunction(function, function);
+        }
         foreach (var lambda in program.Functions.Where(f => f.IsLambda && !verifier.verifiedLambdas.Contains(f)))
             verifier.Report(lambda, null, "the lambda is never made");
         return verifier.errors;
@@ -200,9 +215,7 @@ public sealed partial class IrVerifier
     /// <summary>What the caller holds needs no hold here, but writes through it reach the caller's storage.</summary>
     void DeclareParameter(IrLocal parameter, State state)
     {
-        if (declarations.ContainsKey(parameter))
-            Error($"'{N(parameter)}' is declared twice");
-        declarations[parameter] = new Declaration(null, 0);
+        Record(parameter, new Declaration(null, 0));
         scopes[^1].Add(parameter);
         state.Assigned.Add(parameter);
         if (parameter.Kind == IrLocalKind.Reference || parameter.Type.IsRefStruct)
@@ -240,7 +253,7 @@ public sealed partial class IrVerifier
             Apply(state, new IrEffects([], released, false), "a release at the end of a block");
         foreach (var local in ending)
         {
-            DependentsOf(local, state, $"'{N(local)}' went out of scope");
+            DependentsOf(local, state, () => $"'{N(local)}' went out of scope");
             if (local.Kind == IrLocalKind.InUse)
                 state.Guards.Remove(local);
             state.Forget(local);
@@ -329,11 +342,26 @@ public sealed partial class IrVerifier
         return context;
     }
 
-    void Declare(IrLocal local, State state, IrStatement statement)
+    void Record(IrLocal local, Declaration declaration)
     {
         if (declarations.ContainsKey(local))
             Error($"'{N(local)}' is declared twice");
-        declarations[local] = new Declaration(statement, loopDepth);
+        else
+            declarationOrder.Add(local);
+        declarations[local] = declaration;
+    }
+
+    void RecordLambda(IrFunction lambda)
+    {
+        if (verifiedLambdas.Add(lambda))
+            lambdaOrder.Add(lambda);
+        else
+            Error($"lambda '{lambda.Name}' is made twice");
+    }
+
+    void Declare(IrLocal local, State state, IrStatement statement)
+    {
+        Record(local, new Declaration(statement, loopDepth));
         scopes[^1].Add(local);
         state.Forget(local);
     }
@@ -350,14 +378,14 @@ public sealed partial class IrVerifier
     {
         if (!Visible(local))
             Error($"'{N(local)}' is used outside its scope");
-        DependentsOf(local, state, $"'{N(local)}' was made again");
+        DependentsOf(local, state, () => $"'{N(local)}' was made again");
         state.Ended.Remove(local);
     }
 
     void CheckLet(IrLet let)
     {
         var (local, value) = (let.Local, let.Value);
-        if (IrLet.Mismatch(local, value, N(local)) is { } mismatch)
+        if (IrLet.Mismatch(local, value, () => N(local)) is { } mismatch)
             Error(mismatch);
         if (local.Type != value.Type)
             Error($"'{N(local)}' is a '{local.Type}', but is defined with a '{value.Type}'");
@@ -486,7 +514,7 @@ public sealed partial class IrVerifier
         state.Ended.Add(local);
         if (local.Kind == IrLocalKind.InUse)
             state.Guards.Remove(local);
-        DependentsOf(local, state, $"'{N(local)}' was ended", except: knownNull);
+        DependentsOf(local, state, () => $"'{N(local)}' was ended", except: knownNull);
     }
 
     /// <summary><c>discard x</c> moves the parameter, so a later use is a use after being moved.</summary>

@@ -427,7 +427,7 @@ public sealed partial class IrVerifier
         foreach (var moved in pendingMoves)
         {
             state.Moved[moved] = current?.Origin;
-            DependentsOf(moved, state, $"'{N(moved)}' was moved");
+            DependentsOf(moved, state, () => $"'{N(moved)}' was moved");
         }
         pendingMoves.Clear();
     }

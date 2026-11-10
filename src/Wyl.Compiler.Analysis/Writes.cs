@@ -157,23 +157,35 @@ public sealed class Writes
 
     WriteSet Summarize(IrFunction function)
     {
-        var own = OwnLocals(function);
+        if (!effectsOf.TryGetValue(function, out var effects))
+            effectsOf[function] = effects = OwnEffects(function);
         var set = new WriteSet();
+        foreach (var write in effects.Writes)
+            set.Add(write);
+        foreach (var run in effects.Runs)
+            Add(set, run);
+        return set;
+    }
+
+    /// <summary>
+    /// What a function's own statements write outside its locals, and what they run, which stay the
+    /// same however often the solver summarizes the function again.
+    /// </summary>
+    readonly Dictionary<IrFunction, (List<IrPlace> Writes, List<IrRun> Runs)> effectsOf = new(ReferenceEqualityComparer.Instance);
+
+    static (List<IrPlace> Writes, List<IrRun> Runs) OwnEffects(IrFunction function)
+    {
+        var own = OwnLocals(function);
         // A callee releases what it is given by value when it returns.
-        foreach (var parameter in function.Parameters)
-        {
-            foreach (var run in IrEffects.Releasing(parameter).Runs)
-                Add(set, run);
-        }
+        List<IrRun> runs = [.. function.Parameters.SelectMany(p => IrEffects.Releasing(p).Runs)];
+        List<IrPlace> writes = [];
         foreach (var statement in IrWalk.Descendants(function.Body, intoLambdas: false))
         {
             var effects = IrEffects.Itself(statement);
-            foreach (var write in effects.Writes.Where(w => !IsOwn(function, own, w.Place)))
-                set.Add(write.Place);
-            foreach (var run in effects.Runs)
-                Add(set, run);
+            writes.AddRange(effects.Writes.Where(w => !IsOwn(function, own, w.Place)).Select(w => w.Place));
+            runs.AddRange(effects.Runs);
         }
-        return set;
+        return (writes, runs);
     }
     public static HashSet<IrLocal> OwnLocals(IrFunction function)
     {

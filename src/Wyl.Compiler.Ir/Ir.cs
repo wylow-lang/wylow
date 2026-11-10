@@ -358,7 +358,7 @@ public sealed class IrLet : IrStatement
 
     public IrLet(IrLocal local, IrRvalue value)
     {
-        if (Mismatch(local, value, local.Name) is { } mismatch)
+        if (Mismatch(local, value, () => local.Name) is { } mismatch)
             throw new InvalidOperationException(mismatch);
         Local = local;
         Value = value;
@@ -396,13 +396,13 @@ public sealed class IrLet : IrStatement
     }
 
     /// <summary>Why the local can't be defined by the value, if it can't.</summary>
-    public static string? Mismatch(IrLocal local, IrRvalue value, string name)
+    public static string? Mismatch(IrLocal local, IrRvalue value, Func<string> name)
     {
         var (kind, refKind) = Defines(value);
         if (local.Kind != kind)
             return $"a {local.Kind.ToString().ToLowerInvariant()} local is defined by what makes a {kind.ToString().ToLowerInvariant()} one";
         if (local.RefKind != refKind)
-            return $"'{name}' is a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' reference, but is defined with a '{FunctionSymbol.RefPrefix(refKind).Trim()}' one";
+            return $"'{name()}' is a '{FunctionSymbol.RefPrefix(local.RefKind).Trim()}' reference, but is defined with a '{FunctionSymbol.RefPrefix(refKind).Trim()}' one";
         return null;
     }
 }

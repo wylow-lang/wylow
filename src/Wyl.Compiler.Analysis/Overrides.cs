@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Wyl.Compiler.Semantics;
 
 namespace Wyl.Compiler.Analysis;
@@ -12,7 +13,12 @@ public sealed class Overrides
     readonly Dictionary<FunctionSymbol, IReadOnlyList<FunctionSymbol>> targets = [];
     readonly StdlibSymbols stdlib;
 
-    internal Overrides(BoundProgram program)
+    static readonly ConditionalWeakTable<BoundProgram, Overrides> found = new();
+
+    /// <summary>The program's overrides, found once: passes change the IR, never the bound program.</summary>
+    internal static Overrides Of(BoundProgram program) => found.GetValue(program, static p => new Overrides(p));
+
+    Overrides(BoundProgram program)
     {
         stdlib = program.Stdlib;
         overriders = program.Types.SelectMany(t => t.Methods.Values.SelectMany(m => m))

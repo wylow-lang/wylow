@@ -50,14 +50,17 @@ public sealed partial class IrVerifier
         loops.Add(context);
         loopDepth++;
         var entry = state.Clone();
-        var declaredBefore = declarations.Keys.ToHashSet();
-        var lambdasBefore = verifiedLambdas.ToHashSet();
+        int declaredBefore = declarationOrder.Count;
+        int lambdasBefore = lambdaOrder.Count;
         for (int pass = 0; ; pass++)
         {
             // A later pass declares the body's locals and makes its lambdas again.
-            foreach (var local in declarations.Keys.Where(l => !declaredBefore.Contains(l)).ToList())
+            foreach (var local in declarationOrder.Skip(declaredBefore))
                 declarations.Remove(local);
-            verifiedLambdas.IntersectWith(lambdasBefore);
+            declarationOrder.RemoveRange(declaredBefore, declarationOrder.Count - declaredBefore);
+            foreach (var lambda in lambdaOrder.Skip(lambdasBefore))
+                verifiedLambdas.Remove(lambda);
+            lambdaOrder.RemoveRange(lambdasBefore, lambdaOrder.Count - lambdasBefore);
             context.Breaks.Clear();
             context.Continues.Clear();
             var end = Block(loop.Body, entry.Clone());

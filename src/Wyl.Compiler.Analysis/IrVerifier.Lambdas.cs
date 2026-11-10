@@ -16,8 +16,7 @@ public sealed partial class IrVerifier
     /// </summary>
     void Lambda(IrFunction lambda, State state)
     {
-        if (!verifiedLambdas.Add(lambda))
-            Error($"lambda '{lambda.Name}' is made twice");
+        RecordLambda(lambda);
         var (savedFunction, savedLoops, savedCurrent, savedMoves, savedNarrowed) = (function, loops, current, pendingMoves.ToList(), narrowedOutside);
         function = lambda;
         loops = [];
@@ -26,7 +25,7 @@ public sealed partial class IrVerifier
         loopDepth++;
         scopes.Add([]);
         var savedOutside = capturedOutside;
-        capturedOutside = [.. capturedOutside, .. declarations.Keys];
+        capturedOutside = [.. capturedOutside, .. declarationOrder.Skip(rootDeclarations)];
         var inner = state.Clone();
         inner.NonNull.RemoveWhere(l => !l.Type.IsNullableReference);
         foreach (var parameter in Entry(lambda))
@@ -46,8 +45,7 @@ public sealed partial class IrVerifier
     /// <param name="capturedThis">In a constructor, the copy of what it makes, which the body may use as the constructor may where it is made.</param>
     void Closure(IrFunction lambda, State state, IrLocal? capturedThis)
     {
-        if (!verifiedLambdas.Add(lambda))
-            Error($"lambda '{lambda.Name}' is made twice");
+        RecordLambda(lambda);
         var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList(), narrowedOutside, constructed);
         narrowedOutside = NarrowedAround(state);
         constructed = capturedThis;

@@ -28,7 +28,7 @@ public sealed class Callees
     {
         Program = program;
         generation = program.Generation;
-        overrides = new Overrides(program.Bound);
+        overrides = Overrides.Of(program.Bound);
         cycles = CyclicClasses.Find(program);
         functions = program.Functions;
         foreach (var function in program.Functions)
@@ -157,8 +157,14 @@ public sealed class Callees
     }
 
     /// <summary>The methods a dispatched call may run, except abstract ones, which run nothing.</summary>
-    IEnumerable<FunctionSymbol> Targets(FunctionSymbol method) =>
-        overrides.Targets(method).Where(f => !(f.IsAbstract || f.ContainingType?.Kind == TypeKind.Interface) || functions.Contains(f));
+    IReadOnlyList<FunctionSymbol> Targets(FunctionSymbol method)
+    {
+        if (!targets.TryGetValue(method, out var found))
+            targets[method] = found = [.. overrides.Targets(method).Where(f => !(f.IsAbstract || f.ContainingType?.Kind == TypeKind.Interface) || functions.Contains(f))];
+        return found;
+    }
+
+    readonly Dictionary<FunctionSymbol, IReadOnlyList<FunctionSymbol>> targets = [];
 
     /// <summary>The <c>make_default</c>s making the type's default value may run; a type parameter's may be any struct's.</summary>
     IEnumerable<Callee> Defaults(WylType type) =>

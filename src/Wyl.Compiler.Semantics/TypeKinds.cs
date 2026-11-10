@@ -44,8 +44,14 @@ public sealed class NamedType : WylType
 
     public override IReadOnlyList<WylType> Parts => TypeArguments;
 
-    public override WylType MapParts(Func<WylType, WylType> map) =>
-        TypeArguments.Count == 0 ? this : Symbol.Construct([.. TypeArguments.Select(map)]);
+    public override WylType MapParts(Func<WylType, WylType> map)
+    {
+        if (TypeArguments.Count == 0)
+            return this;
+        WylType[] mapped = [.. TypeArguments.Select(map)];
+        // Interning looks the arguments up under a lock, so a type that maps to itself skips it.
+        return mapped.SequenceEqual(TypeArguments, ReferenceEqualityComparer.Instance) ? this : Symbol.Construct(mapped);
+    }
 
     private protected override string BuildName() =>
         TypeArguments.Count == 0 ? Symbol.DisplayName : $"{Symbol.DisplayName}<{string.Join(", ", TypeArguments)}>";
