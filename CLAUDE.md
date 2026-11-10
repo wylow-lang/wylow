@@ -26,6 +26,7 @@ dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret         # who
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs             # clang, tests whose path contains "structs"
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix --update-snapshots
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl | dir> [--release] [--cc clang|msvc|gcc|asan|tsan] [--no-nest] [--no-opt]
+dotnet publish src/Wyl.Cli -o bin/wyl                                     # Release, ahead-of-time compiled: bin/wyl/wyl.exe
 ```
 
 Other modes, the fuzzer, the generator, mutation testing, coverage, and the dashboard:

@@ -44,6 +44,8 @@ dotnet build
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run examples/hello.wyl
 ```
 
+`dotnet publish src/Wyl.Cli -o bin/wyl` makes `bin/wyl/wyl.exe`: a Release build of the compiler,
+compiled ahead of time for this machine, which starts and compiles faster than the Debug build.
 `wyl build` and `wyl run` keep their output in a `.wyl/` directory beside the program. When the
 sources, the options, and the compiler have not changed, they reuse the executable there instead of
 compiling the program again.

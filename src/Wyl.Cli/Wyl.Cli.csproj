@@ -5,6 +5,14 @@
     <AssemblyName>wyl</AssemblyName>
   </PropertyGroup>
 
+  <!-- A published wyl is compiled ahead of time for the machine that publishes it, so it starts
+       without waiting for the JIT. It still runs on the installed .NET. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Wyl.Compiler\Wyl.Compiler.csproj" />
   </ItemGroup>
