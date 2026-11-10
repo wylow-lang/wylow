@@ -1,0 +1,2 @@
+/// The value of a `Result` whose success has nothing to return.
+pub struct Unit { }

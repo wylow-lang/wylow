@@ -42,6 +42,3 @@ pub enum Result<T, E> {
         };
     }
 }
-
-/// The value of a `Result` whose success has nothing to return.
-pub struct Unit { }
