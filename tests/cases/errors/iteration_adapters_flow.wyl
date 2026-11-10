@@ -1,0 +1,15 @@
+// An adapter moves a unique source into itself, so the source cannot be used after the call (spec
+// memory.moves).
+import std::List;
+import std::iteration::*;
+
+void main() {
+    var values = new List<int>();
+    values.add(1);
+    mut var source = values.iterator();
+    var evens = source.filter(v -> v % 2 == 0);
+    source.moveNext();                      // error[WYL0440]: 'source' is used after being moved
+    var counted = values.iterator();
+    std::print(counted.count());
+    std::print(counted.count());            // error[WYL0440]: 'counted' is used after being moved
+}

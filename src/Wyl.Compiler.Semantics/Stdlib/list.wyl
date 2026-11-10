@@ -1,4 +1,4 @@
-import std::iteration::Iterator;
+import std::iteration::RefIterator;
 
 /// A growable array on the heap.
 ///
@@ -247,11 +247,11 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         }, Unit());
     }
 
-    /// Returns an iterator over copies of the elements, first to last.
+    /// Returns an iterator over references to the elements, first to last.
     ///
     /// The iterator borrows the list until the iterator is released, so changing the length or
     /// capacity of the list while the iterator exists panics.
-    pub ListIterator<T> iterator() where T extends copyable {
+    pub ListIterator<T> iterator() {
         return ListIterator<T>(this);
     }
 
@@ -311,12 +311,12 @@ pub final class List<T> implements Borrowable, Spannable<T> {
     }
 }
 
-/// An iterator over copies of the elements of a `List`, first to last, which `List.iterator()`
-/// returns.
+/// An iterator over references to the elements of a `List`, first to last, which
+/// `List.iterator()` returns.
 ///
 /// The iterator borrows the list until the iterator is released, so changing the length or capacity
 /// of the list while the iterator exists panics.
-pub unique struct ListIterator<T extends copyable> implements Iterator<T> {
+pub unique struct ListIterator<T> implements RefIterator<T> {
     List<T> list;
     Borrow borrow;
     int position;
@@ -336,15 +336,15 @@ pub unique struct ListIterator<T extends copyable> implements Iterator<T> {
         return position < list.count();
     }
 
-    /// Returns a copy of the element that the last call of `moveNext` advanced to.
+    /// Returns a reference to the element that the last call of `moveNext` advanced to.
     ///
     /// # Panics
     ///
     /// If `moveNext` has not been called yet, or its last call returned `false`.
-    pub T current() {
+    pub mut ref T current() {
         if (position < 0 || position >= list.count()) {
             panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
         }
-        return list[position];
+        return ref list[position];
     }
 }

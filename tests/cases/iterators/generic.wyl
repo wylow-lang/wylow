@@ -1,5 +1,5 @@
 // A generic function takes any iterator through a bound, and calls it without dispatch.
-import std::iteration::Iterator;
+import std::iteration::*;
 import std::List;
 
 struct Repeat implements Iterator<String> {
@@ -36,7 +36,8 @@ void main() {
     var words = new List<String>();
     words.add("a");
     words.add("b");
-    std::print(count(words.iterator()));            // output: 2
+    // A list's iterator gives references, and 'map' turns them into an 'Iterator' of values.
+    std::print(count(words.iterator().map(w -> w)));    // output: 2
     std::print(count(Repeat("x", 4)));              // output: 4
     var copies = collect(Repeat("y", 2));
     for (String word : copies) {
@@ -44,7 +45,7 @@ void main() {
                                                     // output: y
     }
     // The iterator passed to 'collect' ended its borrow, so the list can grow.
-    var again = collect(words.iterator());
+    var again = collect(words.iterator().map(w -> w));
     words.add("c");
     std::print(again.count());                      // output: 2
 }

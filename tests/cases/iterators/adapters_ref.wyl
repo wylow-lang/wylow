@@ -1,0 +1,86 @@
+// 'filter', 'take', and 'skip' on a 'RefIterator' give a 'RefIterator', so a loop over the result
+// changes the elements it reaches, and the terminal operations read the elements in place (spec
+// library.iterator).
+import std::List;
+import std::iteration::*;
+
+class Node {
+    pub mut int value;
+    pub Node? next;
+
+    pub Node(int value, Node? next) {
+        this.value = value;
+        this.next = next;
+    }
+}
+
+struct Links implements RefIterator<int> {
+    Node? upcoming;
+    Node? at;
+
+    pub Links(Node? first) {
+        upcoming = first;
+    }
+
+    pub mut bool moveNext() {
+        at = upcoming;
+        if (at is Node node) {
+            upcoming = node.next;
+        }
+        return at != null;
+    }
+
+    pub mut ref int current() {
+        return ref at!.value;
+    }
+}
+
+void show(Node first) {
+    for (int value : Links(first)) {
+        std::print(value);
+    }
+}
+
+void main() {
+    var first = new Node(1, new Node(2, new Node(3, new Node(4, new Node(5, null)))));
+
+    // A filtered 'RefIterator' that a loop changes through 'ref'.
+    for (ref int value : Links(first).filter(v -> v % 2 == 1)) {
+        value *= 10;
+    }
+    show(first);                            // output: 10
+                                            // output: 2
+                                            // output: 30
+                                            // output: 4
+                                            // output: 50
+
+    for (ref int value : Links(first).skip(1).take(2)) {
+        value = 0;
+    }
+    show(first);                            // output: 10
+                                            // output: 0
+                                            // output: 0
+                                            // output: 4
+                                            // output: 50
+
+    // A loop over an adapter may still bind 'in' or take copies.
+    for (in int value : Links(first).take(1)) {
+        std::print(value);                  // output: 10
+    }
+    for (mut int value : Links(first).skip(4)) {
+        value = 99;
+    }
+    std::print(first.value);                // output: 10
+
+    // The terminal operations.
+    std::print(Links(first).count());                           // output: 5
+    std::print(Links(first).filter(v -> v == 0).count());       // output: 2
+    std::print(Links(first).any(v -> v == 4));                  // output: true
+    std::print(Links(first).all(v -> v < 50));                  // output: false
+    std::print(Links(first).skip(3).first() ?? -1);             // output: 4
+    std::print(Links(null).first() ?? -1);                      // output: -1
+    List<int> copies = Links(first).toList();
+    copies[0] = 7;
+    std::print(copies.count());             // output: 5
+    std::print(first.value);                // output: 10
+}

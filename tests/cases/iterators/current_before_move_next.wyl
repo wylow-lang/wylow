@@ -3,6 +3,6 @@ import std::List;
 void main() {
     var values = new List<int>();
     values.add(1);
-    var iterator = values.iterator();
+    mut var iterator = values.iterator();
     std::print(iterator.current());         // panic: cannot read the current element of an iterator before 'moveNext' or after the last element
 }

@@ -1,6 +1,7 @@
 # 0076. Element iterators, and returned references that hold what they refer into
 
-- Status: accepted (2026-11-09)
+- Status: accepted (2026-11-09); its read-only `current` of `InIterator` is superseded by
+  [0082](0082-mutable-current-and-container-ref-iterators.md) (2026-11-10)
 - Spec: `functions.ref-returns`, `memory.holds`, `statements.for-each.iterators`, `library.iterator`
 
 ## Decision

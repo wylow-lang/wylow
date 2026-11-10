@@ -109,3 +109,5 @@ history and a reason can be found without searching the spec.
 | [0079](0079-iteration-module.md) | The module `std::iteration` declares the iterator interfaces and their adapters and terminal operations |
 | [0080](0080-extension-lookup.md) | An extension call looks past the places that have no extension of its name for the receiver |
 | [0081](0081-overloads-by-bounds.md) | Overloads may differ only in their bounds, and resolution drops an overload whose bounds fail |
+| [0082](0082-mutable-current-and-container-ref-iterators.md) | `current` is `mut`, containers give a `RefIterator`, and the shapes of the adapters |
+| [0083](0083-invisible-members-do-not-hide-extensions.md) | A member that a call cannot see does not hide an extension |

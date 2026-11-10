@@ -1,7 +1,9 @@
 // The values x operations matrix: a value at an edge crossed with what is done with it. The edges
 // are 0, 1, -1, INT_MAX, INT_MIN, a long past INT_MAX, -0.0 and an inexact double, an empty array,
 // a one-element list, the iterators of an empty list, a one-element list, a list holding a null,
-// and an empty array, the element iterators of an empty chain and a one-element chain, the last index, the empty and multi-byte strings, the code point past ASCII,
+// and an empty array, the element iterators of an empty chain and a one-element chain, the
+// iterator adapters and terminal operations over an empty list, a one-element list, and the
+// one-element element iterators, the last index, the empty and multi-byte strings, the code point past ASCII,
 // true, null as a value and as a reference, and an unequal pair. An operation is arithmetic,
 // comparison, indexing, iteration, conversion, formatting, or switch. A row only pairs with the
 // operations its value supports, so each cell is a meaningful program; a cell where the spec calls
@@ -346,6 +348,86 @@ static class MatrixValues
                 for (int value : ReadLinks(first)) {
                     print(value + 1);
                 }
+                """,
+        }, Chain);
+
+        yield return new("empty-list-adapters", "var values = new List<int>();", new()
+        {
+            ["iteration"] = """
+                print(values.iterator().filter(v -> true).count());
+                print(values.iterator().map(v -> v + 1).first() ?? -1);
+                print(values.iterator().take(1).count());
+                print(values.iterator().skip(0).count());
+                print(values.iterator().zip(values.iterator(), (a, b) -> a + b).count());
+                print(values.iterator().sum());
+                print(values.iterator().toList().count());
+                print(values.iterator().any(v -> true));
+                print(values.iterator().all(v -> false));
+                print(values.asReadOnlySpan().count(v -> true));
+                print(values.any(v -> true));
+                print(values.all(v -> false));
+                print(values.sum());
+                values.add(1);
+                print(values.count());
+                """,
+        });
+
+        yield return new("one-list-adapters", """
+            var values = new List<int>();
+            values.add(4);
+            """, new()
+        {
+            ["iteration"] = """
+                print(values.iterator().filter(v -> v == 4).first() ?? -1);
+                print(values.iterator().filter(v -> v != 4).first() ?? -1);
+                print(values.iterator().map(v -> v * 2).sum());
+                print(values.iterator().take(0).count());
+                print(values.iterator().take(1).sum());
+                print(values.iterator().skip(1).count());
+                print(values.iterator().skip(0).sum());
+                print(values.iterator().zip(new List<int>().iterator(), (a, b) -> a + b).count());
+                print(values.iterator().zip(values.iterator(), (a, b) -> a * b).sum());
+                print(values.iterator().toList()[0]);
+                print(values.asReadOnlySpan().first(v -> v > 3) ?? -1);
+                print(values.toList()[0]);
+                mut var adapted = values.iterator().skip(0);
+                print(adapted.moveNext());
+                print(adapted.current());
+                print(adapted.moveNext());
+                """,
+        });
+
+        yield return new("one-ref-iterator-adapters", "var first = new Link(4, null);", new()
+        {
+            ["iteration"] = """
+                for (ref int value : Links(first).filter(v -> v == 4)) {
+                    value += 1;
+                }
+                print(first.value);
+                for (ref int value : Links(first).skip(1)) {
+                    value = 0;
+                }
+                for (ref int value : Links(first).take(0)) {
+                    value = 0;
+                }
+                print(first.value);
+                print(Links(first).count());
+                print(Links(first).first() ?? -1);
+                print(Links(first).toList()[0]);
+                print(Links(null).any(v -> true));
+                """,
+        }, Chain);
+
+        yield return new("one-in-iterator-adapters", "var first = new Link(4, null);", new()
+        {
+            ["iteration"] = """
+                for (in int value : ReadLinks(first).filter(v -> v > 0).take(1)) {
+                    print(value);
+                }
+                print(ReadLinks(first).map(v -> v * 3).sum());
+                print(ReadLinks(first).skip(1).count());
+                print(ReadLinks(first).all(v -> v == 4));
+                print(ReadLinks(null).first() ?? -1);
                 """,
         }, Chain);
 

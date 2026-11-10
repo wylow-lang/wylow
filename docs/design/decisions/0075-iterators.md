@@ -1,6 +1,7 @@
 # 0075. Iteration: `Iterator<T>` with `moveNext` and `current`, and adapters as extension methods
 
-- Status: accepted (2026-11-09)
+- Status: accepted (2026-11-09); its `current` signature and its copying container iterators are
+  superseded by [0082](0082-mutable-current-and-container-ref-iterators.md) (2026-11-10)
 - Spec: `statements.for-each`, `statements.for-each.iterators`, `statements.for-each.indices`,
   `library.iterator`, `memory.borrows.borrowable`, `unsafe.blocks`
 

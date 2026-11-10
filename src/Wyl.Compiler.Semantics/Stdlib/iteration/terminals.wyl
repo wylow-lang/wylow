@@ -1,0 +1,178 @@
+import std::List;
+
+/// Returns the number of elements that remain in `source`.
+///
+/// # Panics
+///
+/// In a debug build, if more elements remain than an `int` can count.
+@CallerLocation
+pub int count<I extends Iterator<T>, T>(this I source) {
+    mut I rest = source;
+    mut int counted = 0;
+    while (rest.moveNext()) {
+        counted++;
+    }
+    return counted;
+}
+
+/// Returns the number of elements that remain in `source`.
+///
+/// # Panics
+///
+/// In a debug build, if more elements remain than an `int` can count.
+@CallerLocation
+pub int count<I extends RefIterator<T>, T>(this I source) {
+    mut I rest = source;
+    mut int counted = 0;
+    while (rest.moveNext()) {
+        counted++;
+    }
+    return counted;
+}
+
+/// Returns the number of elements that remain in `source`.
+///
+/// # Panics
+///
+/// In a debug build, if more elements remain than an `int` can count.
+@CallerLocation
+pub int count<I extends InIterator<T>, T>(this I source) {
+    mut I rest = source;
+    mut int counted = 0;
+    while (rest.moveNext()) {
+        counted++;
+    }
+    return counted;
+}
+
+/// Returns `true` if an element of `source` passes `test`, or `false` if none does.
+///
+/// The call stops advancing `source` at the first element that passes.
+pub bool any<I extends Iterator<T>, T>(this I source, fn(T) -> bool test) {
+    for (T item : source) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Returns `true` if an element of `source` passes `test`, or `false` if none does.
+///
+/// The call stops advancing `source` at the first element that passes.
+pub bool any<I extends RefIterator<T>, T>(this I source, fn(in T) -> bool test) {
+    for (in T item : source) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Returns `true` if an element of `source` passes `test`, or `false` if none does.
+///
+/// The call stops advancing `source` at the first element that passes.
+pub bool any<I extends InIterator<T>, T>(this I source, fn(in T) -> bool test) {
+    for (in T item : source) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Returns `true` if every element of `source` passes `test`, including when `source` has no
+/// elements, or `false` if one does not.
+///
+/// The call stops advancing `source` at the first element that fails.
+pub bool all<I extends Iterator<T>, T>(this I source, fn(T) -> bool test) {
+    for (T item : source) {
+        if (!test(item)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Returns `true` if every element of `source` passes `test`, including when `source` has no
+/// elements, or `false` if one does not.
+///
+/// The call stops advancing `source` at the first element that fails.
+pub bool all<I extends RefIterator<T>, T>(this I source, fn(in T) -> bool test) {
+    for (in T item : source) {
+        if (!test(item)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Returns `true` if every element of `source` passes `test`, including when `source` has no
+/// elements, or `false` if one does not.
+///
+/// The call stops advancing `source` at the first element that fails.
+pub bool all<I extends InIterator<T>, T>(this I source, fn(in T) -> bool test) {
+    for (in T item : source) {
+        if (!test(item)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Returns the next element of `source`, or null if `source` has no more elements.
+///
+/// If `T` is nullable, a null result may also be a null element.
+pub T? first<I extends Iterator<T>, T>(this I source) {
+    for (T item : source) {
+        return item;
+    }
+    return null;
+}
+
+/// Returns a copy of the next element of `source`, or null if `source` has no more elements.
+///
+/// If `T` is nullable, a null result may also be a null element.
+pub T? first<I extends RefIterator<T>, T extends copyable>(this I source) {
+    for (T item : source) {
+        return item;
+    }
+    return null;
+}
+
+/// Returns a copy of the next element of `source`, or null if `source` has no more elements.
+///
+/// If `T` is nullable, a null result may also be a null element.
+pub T? first<I extends InIterator<T>, T extends copyable>(this I source) {
+    for (T item : source) {
+        return item;
+    }
+    return null;
+}
+
+/// Returns a new list of the elements that remain in `source`, in order.
+pub List<T> toList<I extends Iterator<T>, T>(this I source) {
+    var list = new List<T>();
+    for (T item : source) {
+        list.add(item);
+    }
+    return list;
+}
+
+/// Returns a new list of copies of the elements that remain in `source`, in order.
+pub List<T> toList<I extends RefIterator<T>, T extends copyable>(this I source) {
+    var list = new List<T>();
+    for (T item : source) {
+        list.add(item);
+    }
+    return list;
+}
+
+/// Returns a new list of copies of the elements that remain in `source`, in order.
+pub List<T> toList<I extends InIterator<T>, T extends copyable>(this I source) {
+    var list = new List<T>();
+    for (T item : source) {
+        list.add(item);
+    }
+    return list;
+}

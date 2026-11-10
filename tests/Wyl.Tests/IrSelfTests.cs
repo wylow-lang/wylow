@@ -790,7 +790,7 @@ static partial class IrSelfTests
         public MethodReference Method(WylType owner, string name) => new(owner.Symbol!.Methods[name][0], owner, []);
 
         public MethodReference Function(string name) =>
-            new(Program.Functions.First(f => f.Symbol.Name == name && f.Symbol.ContainingType is null).Symbol, null, []);
+            new(Program.Functions.First(f => f.Symbol.Name == name && f.Symbol.ContainingType is null && f.Symbol.Declaration?.Location.Source.Module.Package == Program.Package).Symbol, null, []);
 
         public MethodReference Constructor(string type)
         {

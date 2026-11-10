@@ -434,6 +434,58 @@ out 4
 out 5
 exit 0
 
+=== empty-list-adapters/iteration
+out 0
+out -1
+out 0
+out 0
+out 0
+out 0
+out 0
+out false
+out true
+out 0
+out false
+out true
+out 0
+out 1
+exit 0
+
+=== one-list-adapters/iteration
+out 4
+out -1
+out 8
+out 0
+out 4
+out 0
+out 4
+out 0
+out 16
+out 4
+out 4
+out 4
+out true
+out 4
+out false
+exit 0
+
+=== one-ref-iterator-adapters/iteration
+out 5
+out 5
+out 1
+out 5
+out 5
+out false
+exit 0
+
+=== one-in-iterator-adapters/iteration
+out 4
+out 12
+out 0
+out true
+out -1
+exit 0
+
 === last-array/comparison
 out true
 out false

@@ -1,0 +1,59 @@
+import std::List;
+
+/// Returns the number of elements of `items` that pass `test`.
+pub int count<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
+    mut int counted = 0;
+    for (in T item : items) {
+        if (test(item)) {
+            counted++;
+        }
+    }
+    return counted;
+}
+
+/// Returns `true` if an element of `items` passes `test`, or `false` if none does.
+///
+/// The call tests no element after the first that passes.
+pub bool any<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
+    for (in T item : items) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Returns `true` if every element of `items` passes `test`, including when `items` is empty, or
+/// `false` if one does not.
+///
+/// The call tests no element after the first that fails.
+pub bool all<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
+    for (in T item : items) {
+        if (!test(item)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Returns a copy of the first element of `items` that passes `test`, or null if none does.
+///
+/// If `T` is nullable, a null result may also be a null element.
+pub T? first<T extends copyable>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
+    for (in T item : items) {
+        if (test(item)) {
+            return item;
+        }
+    }
+    return null;
+}
+
+/// Returns a new list of copies of the elements of `items`, in order.
+pub List<T> toList<T extends copyable>(this ReadOnlySpan<T> items) {
+    var list = new List<T>();
+    list.reserve(items.length());
+    for (T item : items) {
+        list.add(item);
+    }
+    return list;
+}

@@ -251,9 +251,9 @@ public sealed partial class Interpreter
         if (Invoke(function, frame) is not StructValue span)
             throw new InterpreterException($"'{method.Name}' did not return a span");
         var symbol = span.Type.Symbol!;
-        if (symbol.FindField("data") is not { } data || symbol.FindField("count") is not { } count)
-            throw new InterpreterException($"'{span.Type}' declares no 'data' and 'count'");
-        int length = (int)(long)Integer(span.Fields[symbol.Fields.IndexOf(count)].Value);
+        if (symbol.FindField("data") is not { } data || symbol.FindField("size") is not { } size)
+            throw new InterpreterException($"'{span.Type}' declares no 'data' and 'size'");
+        int length = (int)(long)Integer(span.Fields[symbol.Fields.IndexOf(size)].Value);
         // An empty span views a null pointer, which C++ never dereferences.
         if (length == 0)
             return;

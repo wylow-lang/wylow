@@ -1,0 +1,59 @@
+// An 'Iterator' returns a fresh value from each call of 'current', so the adapters and terminal
+// operations pass unique elements through by moving them. A list's iterator gives references, so it
+// reaches unique elements in place (spec library.iterator).
+import std::List;
+import std::iteration::*;
+
+unique struct Ticket {
+    pub int number;
+}
+
+struct Tickets implements Iterator<Ticket> {
+    int last;
+    int at;
+
+    pub Tickets(int last) {
+        this.last = last;
+    }
+
+    pub mut bool moveNext() {
+        at++;
+        return at <= last;
+    }
+
+    pub Ticket current() {
+        return Ticket(number: at);
+    }
+}
+
+void main() {
+    List<Ticket> odd = Tickets(5).filter(t -> t.number % 2 == 1).toList();
+    std::print(odd.count());                // output: 3
+    std::print(odd[2].number);              // output: 5
+
+    Ticket? found = Tickets(5).skip(3).first();
+    if (found is Ticket ticket) {
+        std::print(ticket.number);          // output: 4
+    }
+
+    // The adapter over a unique source is unique too, so it moves into the loop.
+    var numbers = Tickets(3).map(t -> t.number * 100);
+    for (int number : numbers) {
+        std::print(number);                 // output: 100
+                                            // output: 200
+                                            // output: 300
+    }
+
+    std::print(Tickets(4).zip(Tickets(2), (a, b) -> a.number + b.number).sum());   // output: 6
+
+    // A list of unique elements, changed in place through a filtered iterator.
+    var kept = new List<Ticket>();
+    kept.add(Ticket(number: 1));
+    kept.add(Ticket(number: 2));
+    for (ref Ticket ticket : kept.iterator().filter(t -> t.number > 1)) {
+        ticket = Ticket(number: 20);
+    }
+    std::print(kept[1].number);             // output: 20
+    std::print(kept.iterator().map(t -> t.number).sum());  // output: 21
+    std::print(kept.iterator().count());    // output: 2
+}

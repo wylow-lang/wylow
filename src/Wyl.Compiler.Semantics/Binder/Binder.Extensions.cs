@@ -88,7 +88,8 @@ public sealed partial class Binder
     /// Whether an extension accepts a receiver of type <paramref name="receiver"/>: the receiver
     /// converts to the <c>this</c> parameter, and the type arguments that the receiver alone
     /// determines satisfy their bounds. A bound that mentions a type parameter the receiver leaves
-    /// open is checked once the call's other arguments give it a type. A <c>this ref</c> parameter
+    /// open is checked once the call's other arguments give it a type, unless the type argument has
+    /// no instance of the bound's interface at all, which no type can repair. A <c>this ref</c> parameter
     /// takes only a receiver of exactly its type, or a <c>ref?</c> local that refers to one, as a
     /// <c>ref</c> argument does; with <paramref name="refers"/> false, it takes none.
     /// </summary>
@@ -106,9 +107,14 @@ public sealed partial class Binder
         return converts && extension.TypeParameters.All(p =>
         {
             var argument = map.Apply(p.Type);
-            return Open(argument) || !UnsatisfiedBounds(p, argument, map, currentFunction).Any(u => u.Interface is null || !Open(u.Interface));
+            return Open(argument) || !UnsatisfiedBounds(p, argument, map, currentFunction)
+                .Any(u => u.Interface is null || !Open(u.Interface) || !HasInstanceOf(argument, u.Interface));
         });
     }
+
+    /// <summary>Whether the type is, or implements, some instance of the generic interface's declaration.</summary>
+    bool HasInstanceOf(WylType type, WylType generic) =>
+        ((IEnumerable<WylType>)[type, .. Conversions.Supertypes(stdlib.MemberHost(type), currentFunction)]).Any(t => t.Symbol == generic.Symbol);
 
     /// <summary>
     /// Whether a receiver of type <paramref name="from"/> converts to a <c>this</c> parameter of type

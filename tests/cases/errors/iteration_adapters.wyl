@@ -1,0 +1,81 @@
+// The errors of the adapters and terminal operations of std::iteration (spec library.iterator).
+import std::List;
+import std::iteration::*;
+
+unique struct Key {
+    pub int id;
+}
+
+class Entry {
+    pub Key key;
+
+    pub Entry(Key key) {
+        this.key = key;
+    }
+}
+
+struct Keys implements InIterator<Key> {
+    List<Entry> entries;
+    int position;
+
+    pub Keys(List<Entry> entries) {
+        this.entries = entries;
+        position = -1;
+    }
+
+    pub mut bool moveNext() {
+        position++;
+        return position < entries.count();
+    }
+
+    pub in Key current() {
+        return ref entries[position].key;
+    }
+}
+
+// A type that implements two of the iterator interfaces.
+class Both implements Iterator<int>, InIterator<int> {
+    int value = 1;
+
+    pub bool moveNext() {
+        return false;
+    }
+
+    pub int current() {
+        return value;
+    }
+}
+
+class Cells implements RefIterator<int> {
+    List<int> values;
+
+    pub Cells(List<int> values) {
+        this.values = values;
+    }
+
+    pub bool moveNext() {
+        return false;
+    }
+
+    pub ref int current() {
+        return ref values[0];
+    }
+}
+
+void main() {
+    var both = new Both();
+    both.filter(v -> v > 0);                // error[WYL0237]: call to 'filter' is ambiguous
+    both.count();                           // error[WYL0237]: call to 'count' is ambiguous
+
+    var keys = new List<Key>();
+    var entries = new List<Entry>();
+    Keys(entries).first();                  // error[WYL0300]: cannot find method 'first' in 'Keys'
+    Keys(entries).toList();                 // error[WYL0300]: cannot find method 'toList' in 'Keys'
+    keys.toList();                          // error[WYL0300]: cannot find method 'toList' in 'List'
+
+    mut int seen = 0;
+    new List<int>().iterator().filter(v -> {
+        seen++;                             // error[WYL0351]: cannot assign to 'seen'
+        return true;
+    });
+}

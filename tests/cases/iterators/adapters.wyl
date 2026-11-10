@@ -1,0 +1,115 @@
+// The adapters of std::iteration on an 'Iterator' are lazy, and the terminal operations consume what
+// remains of an iterator (spec library.iterator).
+import std::List;
+import std::iteration;
+import std::iteration::*;
+
+// Counts the elements that it produces, so a test can see how far an adapter advanced it.
+class Counter {
+    pub mut int produced;
+}
+
+struct Upward implements Iterator<int> {
+    Counter counter;
+    int last;
+    int at;
+
+    pub Upward(Counter counter, int last) {
+        this.counter = counter;
+        this.last = last;
+        at = 0;
+    }
+
+    pub mut bool moveNext() {
+        if (at < last) {
+            at++;
+            counter.produced++;
+            return true;
+        }
+        return false;
+    }
+
+    pub int current() {
+        return at;
+    }
+}
+
+void main() {
+    var values = new List<int>();
+    for (int value : 1..=6) {
+        values.add(value);
+    }
+
+    // A chain on a list.
+    List<int> evens = values.iterator().filter(n -> n % 2 == 0).map(n -> n * 10).toList();
+    for (int value : evens) {
+        std::print(value);                  // output: 20
+                                            // output: 40
+                                            // output: 60
+    }
+
+    // 'map' may change the element type.
+    for (String text : values.iterator().take(2).map(n -> $"<{n}>")) {
+        std::print(text);                   // output: <1>
+                                            // output: <2>
+    }
+
+    // 'take' and 'skip' with a count past the end, zero, and below zero.
+    std::print(values.iterator().take(10).count());     // output: 6
+    std::print(values.iterator().take(0).count());      // output: 0
+    std::print(values.iterator().take(-1).count());     // output: 0
+    std::print(values.iterator().skip(4).sum());        // output: 11
+    std::print(values.iterator().skip(10).count());     // output: 0
+    std::print(values.iterator().skip(-3).count());     // output: 6
+    std::print(values.iterator().skip(1).take(3).toList().count());    // output: 3
+
+    // 'zip' ends with the shorter source.
+    for (String pair : values.iterator().zip(values.iterator().skip(4), (a, b) -> $"{a}:{b}")) {
+        std::print(pair);                   // output: 1:5
+                                            // output: 2:6
+    }
+
+    // The terminal operations.
+    std::print(values.iterator().count());              // output: 6
+    std::print(values.iterator().sum());                // output: 21
+    std::print(values.iterator().any(n -> n > 5));      // output: true
+    std::print(values.iterator().any(n -> n > 6));      // output: false
+    std::print(values.iterator().all(n -> n > 0));      // output: true
+    std::print(values.iterator().all(n -> n > 1));      // output: false
+    std::print(values.iterator().filter(n -> n > 3).first() ?? -1);    // output: 4
+    std::print(values.iterator().filter(n -> n > 9).first() ?? -1);    // output: -1
+    std::print(new List<int>().iterator().all(n -> false));             // output: true
+
+    // An adapter advances its source only when it is advanced, and 'any', 'all', 'take', and 'zip'
+    // stop advancing their sources early.
+    var counter = new Counter();
+    var lazy = Upward(counter, 100).map(n -> n * 2);
+    std::print(counter.produced);           // output: 0
+    std::print(lazy.first() ?? -1);         // output: 2
+    std::print(counter.produced);           // output: 1
+    std::print(Upward(counter, 100).any(n -> n == 3));     // output: true
+    std::print(counter.produced);           // output: 4
+    std::print(Upward(counter, 100).all(n -> n < 2));      // output: false
+    std::print(counter.produced);           // output: 6
+    std::print(Upward(counter, 100).take(2).count());      // output: 2
+    std::print(counter.produced);           // output: 8
+    std::print(Upward(counter, 1).zip(Upward(counter, 100), (a, b) -> a + b).count());    // output: 1
+    std::print(counter.produced);           // output: 10
+
+    // An extension may also be called as a function.
+    std::print(iteration::count(iteration::filter(values.iterator(), n -> n < 3)));    // output: 2
+
+    // The other numeric types have their own 'sum'.
+    var longs = new List<long>();
+    longs.add(3000000000L);
+    longs.add(4000000000L);
+    std::print(longs.iterator().sum());     // output: 7000000000
+    var doubles = new List<double>();
+    doubles.add(0.5);
+    doubles.add(0.25);
+    std::print(doubles.iterator().sum());   // output: 0.75
+    var bytes = new List<byte>();
+    bytes.add(200);
+    bytes.add(55);
+    std::print(bytes.iterator().sum());     // output: 255
+}

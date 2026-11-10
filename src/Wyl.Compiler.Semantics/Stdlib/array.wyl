@@ -1,4 +1,4 @@
-import std::iteration::Iterator;
+import std::iteration::RefIterator;
 
 /// A fixed-length array on the heap, written `T[]` and created with `new T[length]`.
 ///
@@ -74,10 +74,10 @@ pub final class Array<T> implements Spannable<T> {
         }
     }
 
-    /// Returns an iterator over copies of the elements, first to last.
+    /// Returns an iterator over references to the elements, first to last.
     ///
     /// The length of an array never changes, so the iterator does not borrow the array.
-    pub ArrayIterator<T> iterator() where T extends copyable {
+    pub ArrayIterator<T> iterator() {
         return ArrayIterator<T>(this);
     }
 
@@ -107,12 +107,12 @@ pub final class Array<T> implements Spannable<T> {
     }
 }
 
-/// An iterator over copies of the elements of an `Array`, first to last, which `Array.iterator()`
-/// returns.
+/// An iterator over references to the elements of an `Array`, first to last, which
+/// `Array.iterator()` returns.
 ///
-/// The iterator holds the array, and reads each element when `current` is called, so it sees a
+/// The iterator holds the array, and reaches each element when `current` is called, so it sees a
 /// change to an element that it has not reached yet.
-pub struct ArrayIterator<T extends copyable> implements Iterator<T> {
+pub struct ArrayIterator<T> implements RefIterator<T> {
     Array<T> array;
     int position;
 
@@ -130,15 +130,15 @@ pub struct ArrayIterator<T extends copyable> implements Iterator<T> {
         return position < array.length;
     }
 
-    /// Returns a copy of the element that the last call of `moveNext` advanced to.
+    /// Returns a reference to the element that the last call of `moveNext` advanced to.
     ///
     /// # Panics
     ///
     /// If `moveNext` has not been called yet, or its last call returned `false`.
-    pub T current() {
+    pub mut ref T current() {
         if (position < 0 || position >= array.length) {
             panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
         }
-        return array[position];
+        return ref array[position];
     }
 }

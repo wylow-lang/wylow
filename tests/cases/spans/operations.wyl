@@ -1,0 +1,52 @@
+// The terminal operations of std::iteration on spans take a non-escaping function, which reads each
+// element in place (spec library.iterator).
+import std::List;
+import std::iteration::*;
+
+unique struct Key {
+    pub int id;
+}
+
+void main() {
+    var values = new List<int>();
+    for (int value : 1..=5) {
+        values.add(value);
+    }
+    // A function that does not escape may change a local that it captures.
+    mut int tested = 0;
+    std::print(values.any(v -> {
+        tested++;
+        return v == 2;
+    }));                                    // output: true
+    std::print(tested);                     // output: 2
+    std::print(values.all(v -> v > 0));     // output: true
+    std::print(values.all(v -> v > 1));     // output: false
+    std::print(values.sum());               // output: 15
+    ReadOnlySpan<int> view = values;
+    std::print(view.count(v -> v % 2 == 0));                // output: 2
+    std::print(view.first(v -> v > 3) ?? -1);               // output: 4
+    std::print(view.first(v -> v > 9) ?? -1);               // output: -1
+    List<int> copies = view.slice(1, 2).toList();
+    std::print(copies.count());             // output: 2
+    std::print(copies[1]);                  // output: 3
+
+    // An empty span.
+    int[0] none = [];
+    std::print(none.any(v -> true));        // output: false
+    std::print(none.all(v -> false));       // output: true
+    std::print(none.sum());                 // output: 0
+    std::print(none.toList().count());      // output: 0
+
+    // A fixed array and the other numeric types.
+    double[3] halves = [0.5, 0.25, 0.125];
+    std::print(halves.sum());               // output: 0.875
+
+    // 'count', 'any', and 'all' read unique elements in place.
+    Key[2] keys = [Key(id: 1), Key(id: 2)];
+    std::print(keys.count(k -> k.id > 1));  // output: 1
+    std::print(keys.any(k -> k.id == 2));   // output: true
+
+    // A sum that overflows panics at the call in a debug build.
+    ulong[2] large = [10000000000000000000UL, 9000000000000000000UL];
+    std::print(large.sum());                // panic-here: integer overflow
+}

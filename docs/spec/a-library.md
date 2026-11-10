@@ -74,7 +74,7 @@ time:
 ```java unchecked
 pub interface Iterator<T> {
     mut bool moveNext();
-    T current();
+    mut T current();
 }
 
 pub interface RefIterator<T> {
@@ -84,7 +84,7 @@ pub interface RefIterator<T> {
 
 pub interface InIterator<T> {
     mut bool moveNext();
-    in T current();
+    mut in T current();
 }
 ```
 
@@ -105,6 +105,9 @@ pub interface InIterator<T> {
 - A type of the program may implement any of the three, to be looped over and passed where a bound
   on one of them is required ([Bounds](11-generics.md#generics.bounds)). Its methods are ordinary
   methods, which the language calls in for-each loops and a program may call directly.
+- The module also declares extension methods on the three interfaces and on `ReadOnlySpan<T>`
+  ([Extension methods](12-functions.md#functions.extensions)). The language does not call them. Their
+  doc comments state what each one does.
 
 <a id="library.printable"></a>
 ## A.4 `Printable`

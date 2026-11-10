@@ -83,9 +83,9 @@ public sealed partial class CppEmitter
                 {
                     var span = stdlib.ReadOnlySpan!;
                     var data = FieldName(span.FindField("data")!);
-                    var count = FieldName(span.FindField("count")!);
+                    var size = FieldName(span.FindField("size")!);
                     Line("auto span = this->m_asReadOnlySpan();");
-                    Line($"for (int32_t i = 0; i < span.{count}; ++i) wyl::Visit(visitor, span.{data}[i]);");
+                    Line($"for (int32_t i = 0; i < span.{size}; ++i) wyl::Visit(visitor, span.{data}[i]);");
                 }
             });
         }

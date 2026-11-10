@@ -1,0 +1,536 @@
+/// Returns an iterator over the elements of `source` that pass `test`, in order.
+///
+/// The iterator is lazy: each call of its `moveNext` advances `source` until an element passes
+/// `test`.
+pub FilterIterator<I, T> filter<I extends Iterator<T>, T>(this I source, escaping fn(T) -> bool test) {
+    return FilterIterator<I, T>(source, test);
+}
+
+/// Returns an iterator over references to the elements of `source` that pass `test`, in order.
+///
+/// The iterator is lazy: each call of its `moveNext` advances `source` until an element passes
+/// `test`. A loop over the iterator may change the elements that it reaches.
+pub RefFilterIterator<I, T> filter<I extends RefIterator<T>, T>(this I source, escaping fn(in T) -> bool test) {
+    return RefFilterIterator<I, T>(source, test);
+}
+
+/// Returns an iterator over read-only references to the elements of `source` that pass `test`, in
+/// order.
+///
+/// The iterator is lazy: each call of its `moveNext` advances `source` until an element passes
+/// `test`.
+pub InFilterIterator<I, T> filter<I extends InIterator<T>, T>(this I source, escaping fn(in T) -> bool test) {
+    return InFilterIterator<I, T>(source, test);
+}
+
+/// Returns an iterator over the results of `transform` applied to each element of `source`, in
+/// order.
+///
+/// The iterator is lazy: each call of its `current` applies `transform` to the current element of
+/// `source`.
+pub MapIterator<I, T, U> map<I extends Iterator<T>, T, U>(this I source, escaping fn(T) -> U transform) {
+    return MapIterator<I, T, U>(source, transform);
+}
+
+/// Returns an iterator over the results of `transform` applied to each element of `source`, in
+/// order.
+///
+/// The iterator is lazy: each call of its `current` applies `transform` to the current element of
+/// `source`.
+pub RefMapIterator<I, T, U> map<I extends RefIterator<T>, T, U>(this I source, escaping fn(in T) -> U transform) {
+    return RefMapIterator<I, T, U>(source, transform);
+}
+
+/// Returns an iterator over the results of `transform` applied to each element of `source`, in
+/// order.
+///
+/// The iterator is lazy: each call of its `current` applies `transform` to the current element of
+/// `source`.
+pub InMapIterator<I, T, U> map<I extends InIterator<T>, T, U>(this I source, escaping fn(in T) -> U transform) {
+    return InMapIterator<I, T, U>(source, transform);
+}
+
+/// Returns an iterator over the first `count` elements of `source`, or over all of them if `source`
+/// has fewer.
+///
+/// If `count` is zero or negative, the iterator has no elements.
+pub TakeIterator<I, T> take<I extends Iterator<T>, T>(this I source, int count) {
+    return TakeIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over references to the first `count` elements of `source`, or to all of them
+/// if `source` has fewer.
+///
+/// If `count` is zero or negative, the iterator has no elements.
+pub RefTakeIterator<I, T> take<I extends RefIterator<T>, T>(this I source, int count) {
+    return RefTakeIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over read-only references to the first `count` elements of `source`, or to
+/// all of them if `source` has fewer.
+///
+/// If `count` is zero or negative, the iterator has no elements.
+pub InTakeIterator<I, T> take<I extends InIterator<T>, T>(this I source, int count) {
+    return InTakeIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over the elements of `source` after the first `count`.
+///
+/// If `count` is zero or negative, the iterator skips no element.
+pub SkipIterator<I, T> skip<I extends Iterator<T>, T>(this I source, int count) {
+    return SkipIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over references to the elements of `source` after the first `count`.
+///
+/// If `count` is zero or negative, the iterator skips no element.
+pub RefSkipIterator<I, T> skip<I extends RefIterator<T>, T>(this I source, int count) {
+    return RefSkipIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over read-only references to the elements of `source` after the first
+/// `count`.
+///
+/// If `count` is zero or negative, the iterator skips no element.
+pub InSkipIterator<I, T> skip<I extends InIterator<T>, T>(this I source, int count) {
+    return InSkipIterator<I, T>(source, count);
+}
+
+/// Returns an iterator over the results of `combine` applied to the elements of `source` and
+/// `other` in pairs: the first element of each, then the second of each, and so on.
+///
+/// The iterator ends when either source ends. When `source` ends first, the iterator does not
+/// advance `other` again.
+pub ZipIterator<I, J, T, U, V> zip<I extends Iterator<T>, J extends Iterator<U>, T, U, V>(this I source, J other, escaping fn(T, U) -> V combine) {
+    return ZipIterator<I, J, T, U, V>(source, other, combine);
+}
+
+/// Returns an iterator over the results of `combine` applied to references to the elements of
+/// `source` and `other` in pairs: the first element of each, then the second of each, and so on.
+///
+/// The iterator ends when either source ends. When `source` ends first, the iterator does not
+/// advance `other` again.
+pub RefZipIterator<I, J, T, U, V> zip<I extends RefIterator<T>, J extends RefIterator<U>, T, U, V>(this I source, J other, escaping fn(in T, in U) -> V combine) {
+    return RefZipIterator<I, J, T, U, V>(source, other, combine);
+}
+
+/// Returns an iterator over the results of `combine` applied to read-only references to the
+/// elements of `source` and `other` in pairs: the first element of each, then the second of each,
+/// and so on.
+///
+/// The iterator ends when either source ends. When `source` ends first, the iterator does not
+/// advance `other` again.
+pub InZipIterator<I, J, T, U, V> zip<I extends InIterator<T>, J extends InIterator<U>, T, U, V>(this I source, J other, escaping fn(in T, in U) -> V combine) {
+    return InZipIterator<I, J, T, U, V>(source, other, combine);
+}
+
+/// An iterator over the elements of a source iterator that pass a test, which `filter` returns.
+pub struct FilterIterator<I extends Iterator<T>, T> implements Iterator<T> {
+    I source;
+    fn(T) -> bool test;
+
+    package FilterIterator(I source, escaping fn(T) -> bool test) {
+        this.source = source;
+        this.test = test;
+    }
+
+    /// Returns `true` after advancing the source to its next element that passes the test, or
+    /// `false` if no more elements of the source pass it.
+    pub mut bool moveNext() {
+        while (source.moveNext()) {
+            if (test(source.current())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Returns the current element of the source.
+    pub mut T current() {
+        return source.current();
+    }
+}
+
+/// An iterator over references to the elements of a source iterator that pass a test, which
+/// `filter` returns.
+pub struct RefFilterIterator<I extends RefIterator<T>, T> implements RefIterator<T> {
+    I source;
+    fn(in T) -> bool test;
+
+    package RefFilterIterator(I source, escaping fn(in T) -> bool test) {
+        this.source = source;
+        this.test = test;
+    }
+
+    /// Returns `true` after advancing the source to its next element that passes the test, or
+    /// `false` if no more elements of the source pass it.
+    pub mut bool moveNext() {
+        while (source.moveNext()) {
+            if (test(source.current())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Returns a reference to the current element of the source.
+    pub mut ref T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over read-only references to the elements of a source iterator that pass a test,
+/// which `filter` returns.
+pub struct InFilterIterator<I extends InIterator<T>, T> implements InIterator<T> {
+    I source;
+    fn(in T) -> bool test;
+
+    package InFilterIterator(I source, escaping fn(in T) -> bool test) {
+        this.source = source;
+        this.test = test;
+    }
+
+    /// Returns `true` after advancing the source to its next element that passes the test, or
+    /// `false` if no more elements of the source pass it.
+    pub mut bool moveNext() {
+        while (source.moveNext()) {
+            if (test(source.current())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Returns a read-only reference to the current element of the source.
+    pub mut in T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over the results of a function applied to the elements of a source iterator, which
+/// `map` returns.
+pub struct MapIterator<I extends Iterator<T>, T, U> implements Iterator<U> {
+    I source;
+    fn(T) -> U transform;
+
+    package MapIterator(I source, escaping fn(T) -> U transform) {
+        this.source = source;
+        this.transform = transform;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements.
+    pub mut bool moveNext() {
+        return source.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current element of the source.
+    pub mut U current() {
+        return transform(source.current());
+    }
+}
+
+/// An iterator over the results of a function applied to the elements of a source iterator of
+/// references, which `map` returns.
+pub struct RefMapIterator<I extends RefIterator<T>, T, U> implements Iterator<U> {
+    I source;
+    fn(in T) -> U transform;
+
+    package RefMapIterator(I source, escaping fn(in T) -> U transform) {
+        this.source = source;
+        this.transform = transform;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements.
+    pub mut bool moveNext() {
+        return source.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current element of the source.
+    pub mut U current() {
+        return transform(source.current());
+    }
+}
+
+/// An iterator over the results of a function applied to the elements of a source iterator of
+/// read-only references, which `map` returns.
+pub struct InMapIterator<I extends InIterator<T>, T, U> implements Iterator<U> {
+    I source;
+    fn(in T) -> U transform;
+
+    package InMapIterator(I source, escaping fn(in T) -> U transform) {
+        this.source = source;
+        this.transform = transform;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements.
+    pub mut bool moveNext() {
+        return source.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current element of the source.
+    pub mut U current() {
+        return transform(source.current());
+    }
+}
+
+/// An iterator over the first elements of a source iterator, which `take` returns.
+pub struct TakeIterator<I extends Iterator<T>, T> implements Iterator<T> {
+    I source;
+    int remaining;
+
+    package TakeIterator(I source, int count) {
+        this.source = source;
+        remaining = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the iterator
+    /// has taken its count of elements or the source has no more elements.
+    pub mut bool moveNext() {
+        if (remaining > 0) {
+            remaining--;
+            if (source.moveNext()) {
+                return true;
+            }
+            remaining = 0;
+        }
+        return false;
+    }
+
+    /// Returns the current element of the source.
+    pub mut T current() {
+        return source.current();
+    }
+}
+
+/// An iterator over references to the first elements of a source iterator, which `take` returns.
+pub struct RefTakeIterator<I extends RefIterator<T>, T> implements RefIterator<T> {
+    I source;
+    int remaining;
+
+    package RefTakeIterator(I source, int count) {
+        this.source = source;
+        remaining = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the iterator
+    /// has taken its count of elements or the source has no more elements.
+    pub mut bool moveNext() {
+        if (remaining > 0) {
+            remaining--;
+            if (source.moveNext()) {
+                return true;
+            }
+            remaining = 0;
+        }
+        return false;
+    }
+
+    /// Returns a reference to the current element of the source.
+    pub mut ref T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over read-only references to the first elements of a source iterator, which `take`
+/// returns.
+pub struct InTakeIterator<I extends InIterator<T>, T> implements InIterator<T> {
+    I source;
+    int remaining;
+
+    package InTakeIterator(I source, int count) {
+        this.source = source;
+        remaining = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the iterator
+    /// has taken its count of elements or the source has no more elements.
+    pub mut bool moveNext() {
+        if (remaining > 0) {
+            remaining--;
+            if (source.moveNext()) {
+                return true;
+            }
+            remaining = 0;
+        }
+        return false;
+    }
+
+    /// Returns a read-only reference to the current element of the source.
+    pub mut in T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over the elements of a source iterator after its first elements, which `skip`
+/// returns.
+pub struct SkipIterator<I extends Iterator<T>, T> implements Iterator<T> {
+    I source;
+    int skipping;
+
+    package SkipIterator(I source, int count) {
+        this.source = source;
+        skipping = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements. The first call also advances the source past the skipped elements, before
+    /// it advances to the next element.
+    pub mut bool moveNext() {
+        while (skipping > 0) {
+            skipping--;
+            if (!source.moveNext()) {
+                skipping = 0;
+                return false;
+            }
+        }
+        return source.moveNext();
+    }
+
+    /// Returns the current element of the source.
+    pub mut T current() {
+        return source.current();
+    }
+}
+
+/// An iterator over references to the elements of a source iterator after its first elements,
+/// which `skip` returns.
+pub struct RefSkipIterator<I extends RefIterator<T>, T> implements RefIterator<T> {
+    I source;
+    int skipping;
+
+    package RefSkipIterator(I source, int count) {
+        this.source = source;
+        skipping = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements. The first call also advances the source past the skipped elements, before
+    /// it advances to the next element.
+    pub mut bool moveNext() {
+        while (skipping > 0) {
+            skipping--;
+            if (!source.moveNext()) {
+                skipping = 0;
+                return false;
+            }
+        }
+        return source.moveNext();
+    }
+
+    /// Returns a reference to the current element of the source.
+    pub mut ref T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over read-only references to the elements of a source iterator after its first
+/// elements, which `skip` returns.
+pub struct InSkipIterator<I extends InIterator<T>, T> implements InIterator<T> {
+    I source;
+    int skipping;
+
+    package InSkipIterator(I source, int count) {
+        this.source = source;
+        skipping = count;
+    }
+
+    /// Returns `true` after advancing the source to its next element, or `false` if the source has
+    /// no more elements. The first call also advances the source past the skipped elements, before
+    /// it advances to the next element.
+    pub mut bool moveNext() {
+        while (skipping > 0) {
+            skipping--;
+            if (!source.moveNext()) {
+                skipping = 0;
+                return false;
+            }
+        }
+        return source.moveNext();
+    }
+
+    /// Returns a read-only reference to the current element of the source.
+    pub mut in T current() {
+        return ref source.current();
+    }
+}
+
+/// An iterator over the results of a function applied to the elements of two source iterators in
+/// pairs, which `zip` returns.
+pub struct ZipIterator<I extends Iterator<T>, J extends Iterator<U>, T, U, V> implements Iterator<V> {
+    I source;
+    J other;
+    fn(T, U) -> V combine;
+
+    package ZipIterator(I source, J other, escaping fn(T, U) -> V combine) {
+        this.source = source;
+        this.other = other;
+        this.combine = combine;
+    }
+
+    /// Returns `true` after advancing both sources to their next elements, or `false` if either
+    /// source has no more elements. If the first source has no more elements, the call does not
+    /// advance the second.
+    pub mut bool moveNext() {
+        return source.moveNext() && other.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current elements of the two sources.
+    pub mut V current() {
+        return combine(source.current(), other.current());
+    }
+}
+
+/// An iterator over the results of a function applied to references to the elements of two source
+/// iterators in pairs, which `zip` returns.
+pub struct RefZipIterator<I extends RefIterator<T>, J extends RefIterator<U>, T, U, V> implements Iterator<V> {
+    I source;
+    J other;
+    fn(in T, in U) -> V combine;
+
+    package RefZipIterator(I source, J other, escaping fn(in T, in U) -> V combine) {
+        this.source = source;
+        this.other = other;
+        this.combine = combine;
+    }
+
+    /// Returns `true` after advancing both sources to their next elements, or `false` if either
+    /// source has no more elements. If the first source has no more elements, the call does not
+    /// advance the second.
+    pub mut bool moveNext() {
+        return source.moveNext() && other.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current elements of the two sources.
+    pub mut V current() {
+        return combine(source.current(), other.current());
+    }
+}
+
+/// An iterator over the results of a function applied to read-only references to the elements of two source
+/// iterators in pairs, which `zip` returns.
+pub struct InZipIterator<I extends InIterator<T>, J extends InIterator<U>, T, U, V> implements Iterator<V> {
+    I source;
+    J other;
+    fn(in T, in U) -> V combine;
+
+    package InZipIterator(I source, J other, escaping fn(in T, in U) -> V combine) {
+        this.source = source;
+        this.other = other;
+        this.combine = combine;
+    }
+
+    /// Returns `true` after advancing both sources to their next elements, or `false` if either
+    /// source has no more elements. If the first source has no more elements, the call does not
+    /// advance the second.
+    pub mut bool moveNext() {
+        return source.moveNext() && other.moveNext();
+    }
+
+    /// Returns the result of the function applied to the current elements of the two sources.
+    pub mut V current() {
+        return combine(source.current(), other.current());
+    }
+}

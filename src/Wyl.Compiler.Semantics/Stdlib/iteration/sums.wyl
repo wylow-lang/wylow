@@ -1,0 +1,631 @@
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub sbyte sum<I extends Iterator<sbyte>>(this I source) {
+    mut sbyte total = 0;
+    for (sbyte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub byte sum<I extends Iterator<byte>>(this I source) {
+    mut byte total = 0;
+    for (byte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub short sum<I extends Iterator<short>>(this I source) {
+    mut short total = 0;
+    for (short item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ushort sum<I extends Iterator<ushort>>(this I source) {
+    mut ushort total = 0;
+    for (ushort item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub int sum<I extends Iterator<int>>(this I source) {
+    mut int total = 0;
+    for (int item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub uint sum<I extends Iterator<uint>>(this I source) {
+    mut uint total = 0;
+    for (uint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub long sum<I extends Iterator<long>>(this I source) {
+    mut long total = 0;
+    for (long item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ulong sum<I extends Iterator<ulong>>(this I source) {
+    mut ulong total = 0;
+    for (ulong item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nint sum<I extends Iterator<nint>>(this I source) {
+    mut nint total = 0;
+    for (nint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nuint sum<I extends Iterator<nuint>>(this I source) {
+    mut nuint total = 0;
+    for (nuint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub float sum<I extends Iterator<float>>(this I source) {
+    mut float total = 0;
+    for (float item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub double sum<I extends Iterator<double>>(this I source) {
+    mut double total = 0;
+    for (double item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub sbyte sum<I extends RefIterator<sbyte>>(this I source) {
+    mut sbyte total = 0;
+    for (sbyte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub byte sum<I extends RefIterator<byte>>(this I source) {
+    mut byte total = 0;
+    for (byte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub short sum<I extends RefIterator<short>>(this I source) {
+    mut short total = 0;
+    for (short item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ushort sum<I extends RefIterator<ushort>>(this I source) {
+    mut ushort total = 0;
+    for (ushort item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub int sum<I extends RefIterator<int>>(this I source) {
+    mut int total = 0;
+    for (int item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub uint sum<I extends RefIterator<uint>>(this I source) {
+    mut uint total = 0;
+    for (uint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub long sum<I extends RefIterator<long>>(this I source) {
+    mut long total = 0;
+    for (long item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ulong sum<I extends RefIterator<ulong>>(this I source) {
+    mut ulong total = 0;
+    for (ulong item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nint sum<I extends RefIterator<nint>>(this I source) {
+    mut nint total = 0;
+    for (nint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nuint sum<I extends RefIterator<nuint>>(this I source) {
+    mut nuint total = 0;
+    for (nuint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub float sum<I extends RefIterator<float>>(this I source) {
+    mut float total = 0;
+    for (float item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub double sum<I extends RefIterator<double>>(this I source) {
+    mut double total = 0;
+    for (double item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub sbyte sum<I extends InIterator<sbyte>>(this I source) {
+    mut sbyte total = 0;
+    for (sbyte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub byte sum<I extends InIterator<byte>>(this I source) {
+    mut byte total = 0;
+    for (byte item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub short sum<I extends InIterator<short>>(this I source) {
+    mut short total = 0;
+    for (short item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ushort sum<I extends InIterator<ushort>>(this I source) {
+    mut ushort total = 0;
+    for (ushort item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub int sum<I extends InIterator<int>>(this I source) {
+    mut int total = 0;
+    for (int item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub uint sum<I extends InIterator<uint>>(this I source) {
+    mut uint total = 0;
+    for (uint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub long sum<I extends InIterator<long>>(this I source) {
+    mut long total = 0;
+    for (long item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ulong sum<I extends InIterator<ulong>>(this I source) {
+    mut ulong total = 0;
+    for (ulong item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nint sum<I extends InIterator<nint>>(this I source) {
+    mut nint total = 0;
+    for (nint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nuint sum<I extends InIterator<nuint>>(this I source) {
+    mut nuint total = 0;
+    for (nuint item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub float sum<I extends InIterator<float>>(this I source) {
+    mut float total = 0;
+    for (float item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements that remain in `source`, or zero if none remain.
+pub double sum<I extends InIterator<double>>(this I source) {
+    mut double total = 0;
+    for (double item : source) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub sbyte sum(this ReadOnlySpan<sbyte> items) {
+    mut sbyte total = 0;
+    for (sbyte item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub byte sum(this ReadOnlySpan<byte> items) {
+    mut byte total = 0;
+    for (byte item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub short sum(this ReadOnlySpan<short> items) {
+    mut short total = 0;
+    for (short item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ushort sum(this ReadOnlySpan<ushort> items) {
+    mut ushort total = 0;
+    for (ushort item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub int sum(this ReadOnlySpan<int> items) {
+    mut int total = 0;
+    for (int item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub uint sum(this ReadOnlySpan<uint> items) {
+    mut uint total = 0;
+    for (uint item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub long sum(this ReadOnlySpan<long> items) {
+    mut long total = 0;
+    for (long item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub ulong sum(this ReadOnlySpan<ulong> items) {
+    mut ulong total = 0;
+    for (ulong item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nint sum(this ReadOnlySpan<nint> items) {
+    mut nint total = 0;
+    for (nint item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+///
+/// # Panics
+///
+/// In a debug build, if the sum overflows.
+@CallerLocation
+pub nuint sum(this ReadOnlySpan<nuint> items) {
+    mut nuint total = 0;
+    for (nuint item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+pub float sum(this ReadOnlySpan<float> items) {
+    mut float total = 0;
+    for (float item : items) {
+        total += item;
+    }
+    return total;
+}
+
+/// Returns the sum of the elements of `items`, or zero if `items` is empty.
+pub double sum(this ReadOnlySpan<double> items) {
+    mut double total = 0;
+    for (double item : items) {
+        total += item;
+    }
+    return total;
+}

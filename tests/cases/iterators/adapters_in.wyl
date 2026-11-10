@@ -1,0 +1,57 @@
+// The adapters and terminal operations on an 'InIterator' read the elements in place, so they work
+// on elements that cannot be copied (spec library.iterator).
+import std::List;
+import std::iteration::*;
+
+unique struct Key {
+    pub int id;
+}
+
+class Entry {
+    pub Key key;
+
+    pub Entry(Key key) {
+        this.key = key;
+    }
+}
+
+struct Keys implements InIterator<Key> {
+    List<Entry> entries;
+    int position;
+
+    pub Keys(List<Entry> entries) {
+        this.entries = entries;
+        position = -1;
+    }
+
+    pub mut bool moveNext() {
+        position++;
+        return position < entries.count();
+    }
+
+    pub in Key current() {
+        return ref entries[position].key;
+    }
+}
+
+void main() {
+    var entries = new List<Entry>();
+    for (int id : 1..=5) {
+        entries.add(new Entry(Key(id: id)));
+    }
+
+    for (in Key key : Keys(entries).filter(k -> k.id > 2).skip(1).take(5)) {
+        std::print(key.id);                 // output: 4
+                                            // output: 5
+    }
+
+    // 'map' on an 'InIterator' gives an 'Iterator' of the results.
+    List<int> doubled = Keys(entries).map(k -> k.id * 2).toList();
+    std::print(doubled[4]);                 // output: 10
+    std::print(Keys(entries).map(k -> k.id).sum());            // output: 15
+
+    std::print(Keys(entries).count());                          // output: 5
+    std::print(Keys(entries).any(k -> k.id == 3));              // output: true
+    std::print(Keys(entries).all(k -> k.id > 1));               // output: false
+    std::print(Keys(entries).take(0).count());                  // output: 0
+}
