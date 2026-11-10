@@ -179,8 +179,10 @@ void main() {
 Functions and methods of one name may be **overloaded**: each has its own parameter types. A call
 selects one of them by its arguments.
 
-- It is a compile-time error if two functions of one name have the same parameter types. Their
-  return types do not distinguish them.
+- It is a compile-time error if two functions of one name have the same parameter types and the
+  same bounds on their type parameters. Their return types do not distinguish them. Two generic
+  functions whose parameter types differ only in the names of their type parameters have the same
+  parameter types.
 - It is a compile-time error if two methods differ only in the nullability of a parameter whose type
   is a class, interface, or type parameter.
 - It is a compile-time error if two methods differ only in whether a parameter is `ref` or `ref?`,
@@ -210,13 +212,16 @@ A call is matched to an overload in these steps:
 3. Each remaining overload's parameters are checked against the arguments. An argument converts
    implicitly to a parameter's type ([Conversions](05-conversions.md#conversions)), and a `ref`
    argument has exactly the parameter's type.
+4. Each remaining overload whose type arguments, written or inferred, do not satisfy the bounds of
+   its type parameters is not kept ([Bounds](11-generics.md#generics.bounds)).
 
 - Among overloads that are equally good, one that leaves fewer parameters to their default values is
   chosen, and then a non-generic one over a generic one
   ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
 - It is a compile-time error if no overload takes the number of arguments or type arguments
   written, takes the names written, or accepts the arguments' types.
-- It is a compile-time error if more than one overload remains equally good.
+- It is a compile-time error if more than one overload remains equally good. Narrower bounds do not
+  make an overload better.
 - A lambda among the arguments narrows the candidates: an overload whose parameter takes another
   number of arguments is ruled out, and an overload that is left only after the other arguments are
   checked gives the lambda its parameter types
@@ -386,6 +391,26 @@ if (orders.any(o -> o.unpaid)) { ... }
 - An extension is an ordinary function: it sees the receiver's members that its file sees, it is
   called without dispatch, and it can be called as `any(orders, test)`.
 - An extension is found where it is visible and its name is imported, or in its own module.
+- A call `x.name(...)` takes its candidates from the first place that has an extension named
+  `name` that accepts the receiver. The places are searched in the order in which a file looks up a
+  name ([Imports](03-programs.md#programs.imports)). An extension accepts the receiver if the
+  receiver converts to the extension's `this` parameter, and the type arguments that the receiver
+  alone determines satisfy their bounds. A place whose functions named `name` include no such extension does
+  not hide the places after it.
+- A call written as a function call, `name(x, ...)`, finds `name` as any other use of a name does.
+
+**Example:**
+
+```java unchecked
+// orders/count.wyl
+import std::iteration::*;
+
+int count(Order o) { ... }       // the module's own 'count', which has no 'this' parameter
+
+int total(List<Order> orders) {
+    return orders.iterator().count();   // calls std::iteration's 'count'
+}
+```
 
 <a id="functions.indexers"></a>
 ## 12.8 Indexers

@@ -105,3 +105,7 @@ history and a reason can be found without searching the spec.
 | [0075](0075-iterators.md) | Iteration: `Iterator<T>` with `moveNext` and `current`, struct iterators through bounds, adapters as extension methods |
 | [0076](0076-element-iterators.md) | Element iterators `RefIterator` and `InIterator`, and returned references that hold what they refer into |
 | [0077](0077-inference-through-bounds.md) | A bound determines the type parameters it mentions, so `<I extends Iterator<T>, T>` infers `T` |
+| [0078](0078-extern-struct-bodies.md) | A method of an extern struct may have a body, and `String`'s methods are written in Wylow over a native floor |
+| [0079](0079-iteration-module.md) | The module `std::iteration` declares the iterator interfaces and their adapters and terminal operations |
+| [0080](0080-extension-lookup.md) | An extension call looks past the places that have no extension of its name for the receiver |
+| [0081](0081-overloads-by-bounds.md) | Overloads may differ only in their bounds, and resolution drops an overload whose bounds fail |

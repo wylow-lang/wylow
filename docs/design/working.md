@@ -40,6 +40,11 @@ easier: the language is young and churn is expected.
   interpreter included.
 - **The standard library prelude is provisional**: revisit it as the library changes. The user
   leans towards none, leaving imports to an editor.
+- **`std`'s root holds the foundation.** A declaration belongs in the root if most code builds on
+  it, as on `String`, `Result`, `Comparable`, and `Printable`. A declaration that is one of a family,
+  such as a collection, belongs in a module named for the family's subject. Before adding a
+  declaration to `std`, check the roadmap for similar declarations that are planned, and ask the
+  user whether the declaration starts or joins a module. The user decides where it goes.
 
 ## Design sessions
 

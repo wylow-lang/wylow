@@ -13,7 +13,7 @@ these of its declarations, and on nothing else in it:
 | `Array<T>` | The type `T[]` ([Arrays](04-types.md#types.arrays)) |
 | `Span<T>`, `ReadOnlySpan<T>` | Span types and their conversions ([Spans](04-types.md#types.spans)) |
 | `Spannable<T>`, `ReadOnlySpannable<T>` | Conversions to spans ([`Spannable`](#library.spannable)) |
-| `Iterator<T>`, `RefIterator<T>`, `InIterator<T>` | For-each loops over iterators ([Iterators](#library.iterator)) |
+| `std::iteration`: `Iterator<T>`, `RefIterator<T>`, `InIterator<T>` | For-each loops over iterators ([`std::iteration`](#library.iterator)) |
 | `Borrowable` | Borrows ([`Borrowable`](17-memory.md#memory.borrows.borrowable)) |
 | `Printable` | String interpolation ([`Printable`](#library.printable)) |
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
@@ -66,9 +66,10 @@ pub interface Spannable<T> extends ReadOnlySpannable<T> {
   directly.
 
 <a id="library.iterator"></a>
-## A.3 Iterators
+## A.3 `std::iteration`
 
-These are the interfaces of a value that produces elements one at a time:
+The module `std::iteration` declares the interfaces of a value that produces elements one at a
+time:
 
 ```java unchecked
 pub interface Iterator<T> {

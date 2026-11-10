@@ -52,7 +52,9 @@ An **extern struct** is a value type that the C++ class `wyl::Name` implements. 
 - Only the standard library declares an extern struct. Only an extern struct is named by a primitive
   type's keyword ([Methods of primitive types](04-types.md#types.primitives.methods)).
 - It has no fields and no constructors. Its default value is the C++ class's default constructor.
-- Its methods are all extern, and an instance method calls the member function of the same name.
+- Each of its methods is extern or has a body. An extern instance method calls the C++ member
+  function of the same name. A method with a body is a method of the struct, as in any other struct
+  ([Methods](07-structs.md#structs.methods)).
 - It has no `==`.
 
 <a id="interop.extern.names"></a>
