@@ -18,7 +18,7 @@ these of its declarations, and on nothing else in it:
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
-| `Isolated<T>` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
+| `Isolated<T>`, `List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
@@ -252,6 +252,8 @@ pub unique struct Isolated<T> {
     pub mut R open<R extends sendable>(shared fn(ref T) -> R body);
     pub T take(this Isolated<T> box);
 }
+// in List<T>
+pub Isolated<List<T>> isolate() where T extends sendable;
 ```
 
 - The constructor runs `build` immediately on the current thread, and the box holds what `build`
@@ -264,6 +266,9 @@ pub unique struct Isolated<T> {
   and its cycle buffer joins the current thread's.
 - A box is sendable for any `T`, and a sendable value converts to one by moving in.
 - Releasing a box without calling `take` releases the graph on the thread that releases the box.
+- `isolate` returns a box that holds a new list of the list's elements, and leaves the list with no
+  elements and no capacity. It copies no element.
+- `isolate` panics if the list is borrowed.
 
 <a id="library.mutex"></a>
 ### A.8.4 `Mutex<T>`

@@ -1,0 +1,38 @@
+// A list filled with ordinary code goes into a mutex through isolate, and two threads add to it under
+// the lock. Unique elements are moved into the box, and their destructors run on the thread that
+// releases the mutex.
+
+import std::threading;
+import std::threading::Mutex;
+import std::List;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() {
+        std::print($"buffer {length}");
+    }
+}
+
+void main() {
+    var buffers = new List<Buffer>();
+    buffers.add(Buffer(1));
+    buffers.add(Buffer(2));
+    var guarded = new Mutex<List<Buffer>>(buffers.isolate());
+    std::print(buffers.count());                                  // output: 0
+    var worker = threading::spawn(() -> guarded.lock(b -> b.add(Buffer(3))));
+    worker.join();
+    std::print(guarded.lock(b -> b.count()));                      // output: 3
+    std::print(guarded.lock(b -> b[2].length));                    // output: 3
+    std::print("parent done");
+    // output: parent done
+    // output: buffer 3
+    // output: buffer 2
+    // output: buffer 1
+}
+
+// tsan

@@ -1,0 +1,42 @@
+// isolate moves a list's elements into a new list inside an isolated box without copying them, and
+// leaves the list with no elements and no capacity. Another reference to the list sees it empty. The
+// box travels through a channel to another thread, which takes the list and grows it.
+
+import std::threading;
+import std::threading::{Channel, Isolated};
+import std::List;
+
+void main() {
+    var names = new List<String>();
+    names.add("alpha");
+    names.add("beta");
+    names.add("gamma");
+    var sameList = names;
+    Isolated<List<String>> box = names.isolate();
+    std::print(sameList.count());             // output: 0
+    std::print(sameList.capacity());          // output: 0
+
+    var channel = new Channel<Isolated<List<String>>>();
+    var sender = channel.sender();
+    var receiver = channel.receiver();
+    var worker = threading::spawn(() -> {
+        List<String> received = receiver.receive()!.take();
+        for (String name : received) {
+            std::print(name);
+        }
+        received.add("delta");
+        return received.count();
+    });
+    sender.send(box);
+    // output: alpha
+    // output: beta
+    // output: gamma
+    std::print(worker.join());                // output: 4
+
+    names.add("epsilon");
+    std::print(names.count());                // output: 1
+    var empty = new List<int>().isolate();
+    std::print(empty.take().count());         // output: 0
+}
+
+// tsan

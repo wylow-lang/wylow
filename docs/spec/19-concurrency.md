@@ -11,9 +11,9 @@ is, and how a list is frozen for every thread to read.
 
 A normal class object belongs to one thread at a time, and no other thread can reach it.
 
-- An object changes threads only inside a unique value that moves: a whole isolated object graph
-  ([Isolated object graphs](#concurrency.isolated)), or what a unique value of the standard library
-  owns.
+- An object changes threads only inside an isolated object graph that moves
+  ([Isolated object graphs](#concurrency.isolated)). `list.isolate()` makes an isolated graph of a
+  list's elements.
 - A value reaches another thread only by being captured by a function that thread runs, by being
   read from a static ([Statics](06-variables.md#variables.statics)), or by moving through a
   standard library type that carries a value to another thread, such as a channel, a mutex, or a
@@ -41,7 +41,6 @@ and type arguments; no declaration states it. A bound asks for it with `sendable
 | An escaping `shared fn` ([Shared functions](#concurrency.shared-functions)) | yes |
 | `Weak<T>` where `T` is a `shared class` | yes |
 | `Isolated<T>`, for any `T` | yes |
-| A unique struct of the standard library that owns class objects, when the values it owns are sendable | yes |
 | A reference to a normal class, an array, a `List`, or a class of the program | no |
 | `Weak<T>` where `T` is a normal class | no |
 | A function that is not `shared` | no |
@@ -155,12 +154,22 @@ reach those objects.
   that only changes the graph returns nothing, and `R` is then `Unit`
   ([Inferring type arguments](11-generics.md#generics.arguments.inference)).
 - `take` moves the value out and ends the box: the graph joins the current thread's objects.
+- `list.isolate()` moves the elements of a `List<T>` into a new list inside a box, without copying
+  them, when `T` is sendable. The new list and its elements are a graph that nothing outside refers
+  to. The list is left with no elements and no capacity, whatever other references to it exist.
+- `isolate` panics if the list is borrowed ([Borrows](17-memory.md#memory.borrows)), as `clear`
+  does, since a loop or a span could still be using the elements.
 - A mutex holds one, and its `lock` opens the graph while the thread holds the mutex's lock
   ([Mutexes and the lock rule](#concurrency.mutex)).
 
 ```java unchecked
 Isolated<Index> built = Isolated<Index>(() -> Index.build(entries));  // 'entries' is sendable
 channel.send(built);                                     // moves the box and the graph
+
+var orders = new List<Order>();                          // 'Order' is sendable
+orders.add(Order(1, 20));
+Isolated<List<Order>> batch = orders.isolate();          // moves the elements; 'orders' is now empty
+toWorker.send(batch);                                    // a channel of 'Isolated<List<Order>>'
 
 mut Isolated<Index> index = fromLoader.receive()!;
 index.open(i -> i.addEntry(7, "alpha"));                 // 'R' is 'Unit'; still isolated

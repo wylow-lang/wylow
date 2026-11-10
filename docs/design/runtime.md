@@ -334,7 +334,9 @@ creation counter after that counter had been reset.
 - `std::threading`'s `Frozen<T>` has no part in the runtime. It holds the pointer and the length of a
   buffer that `memory::allocate` took from the global heap, and its members are `unsafe` Wylow, as
   `List`'s are. `List.freeze` hands the list's buffer over, so any thread may release the last
-  reference and free it.
+  reference and free it. `List.isolate` hands the buffer to a new list in an isolated box in the same
+  way, and builds that list through `buildIsolated`, so the new list is buffered in the box's cycle
+  buffer if it is buffered at all.
 - `wyl::ThreadState` holds `HoldsLock`, which says whether the thread holds a mutex's lock. `lockMutex`
   panics when the flag is set, and `receiveValue`, `joinThread`, and `releaseThread` call
   `RefuseWaitWhileLocked`, which panics when it is set. A thread holds at most one lock and waits for

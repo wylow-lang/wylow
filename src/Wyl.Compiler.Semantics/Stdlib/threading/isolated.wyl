@@ -1,3 +1,5 @@
+import std::Unit;
+
 /// The cycle buffer of one isolated graph, which travels inside its box (spec `concurrency.isolated`).
 package extern struct IsolatedState {
 }
@@ -21,6 +23,13 @@ pub unique struct Isolated<T> {
         value = content;
     }
 
+    /// Returns a box that holds what `build` returns and the graph that result is. `build` need not
+    /// be a shared function, so the caller makes sure that it reaches nothing of the current
+    /// thread's.
+    package Isolated(fn() -> T build, Unit unchecked) {
+        value = buildIsolated<T>(ref state, build);
+    }
+
     /// Returns what `body` returns, after running `body` on the value. The graph stays the box's,
     /// since what `body` returns is sendable, and a lambda that only changes the graph returns
     /// `Unit`.
@@ -35,7 +44,7 @@ pub unique struct Isolated<T> {
     }
 }
 
-extern T buildIsolated<T>(ref IsolatedState state, shared fn() -> T build);
+extern T buildIsolated<T>(ref IsolatedState state, fn() -> T build);
 
 extern R openIsolated<T, R>(ref IsolatedState state, ref T value, shared fn(ref T) -> R body);
 

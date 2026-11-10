@@ -219,6 +219,32 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         }
     }
 
+    /// Returns an isolated box that holds a new list of this list's elements, and leaves this list
+    /// with no elements and no capacity. Another thread may receive the box. It copies no element.
+    ///
+    /// # Panics
+    ///
+    /// If the list is borrowed.
+    @CallerLocation
+    pub threading::Isolated<List<T>> isolate() where T extends sendable {
+        checkNotBorrowed();
+        T* moved = data;
+        int count = size;
+        int room = space;
+        data = null;
+        size = 0;
+        space = 0;
+        // The new list is made while the box's cycle buffer is the thread's, and the elements are
+        // sendable, so nothing of this thread's refers into the box.
+        return threading::Isolated<List<T>>(() -> {
+            var list = new List<T>();
+            list.data = moved;
+            list.size = count;
+            list.space = room;
+            return list;
+        }, Unit());
+    }
+
     /// Returns a span of the elements.
     pub Span<T> asSpan() {
         unsafe {
