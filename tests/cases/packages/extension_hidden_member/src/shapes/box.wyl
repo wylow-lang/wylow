@@ -1,0 +1,17 @@
+pub struct Box {
+    int width;
+    pub int height;
+
+    pub Box(int width, int height) {
+        this.width = width;
+        this.height = height;
+    }
+
+    int area() {
+        return width * height;
+    }
+
+    pub int depth() {
+        return 1;
+    }
+}

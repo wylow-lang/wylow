@@ -1,0 +1,26 @@
+// A member that a call cannot see does not hide an extension of the same name, and a member that
+// it can see still does (spec functions.extensions).
+import shapes::Box;
+
+// 'Box.width' is private to its file.
+int width(this Box box) {
+    return 10;
+}
+
+// 'Box.area' is private to its file.
+int area(this Box box) {
+    return 20;
+}
+
+// 'Box.depth' is visible, so it wins.
+int depth(this Box box) {
+    return 30;
+}
+
+void main() {
+    Box box = Box(2, 3);
+    std::print(box.width());                // output: 10
+    std::print(box.area());                 // output: 20
+    std::print(box.depth());                // output: 1
+    std::print(box.height);                 // output: 3
+}

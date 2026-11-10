@@ -222,12 +222,13 @@ public sealed partial class Binder
         {
             return BindInvocation(e, BindFieldAccess(member.Location, receiver, member.Name, member.NameLocation), pending);
         }
-        // A member of the receiver's type, a field included, wins over an extension (spec functions.extensions).
-        if (MethodCandidates(receiver.Type.Narrowed, member.Name).Count == 0 && LookupField(receiver.Type, member.Name) is null
-            && BindExtensionCall(e.Location, receiver, member.Name, member.NameLocation, typeArguments, pending) is { } extensionCall)
-        {
+        // A member of the receiver's type that the call can see, a field included, wins over an
+        // extension (spec functions.extensions).
+        var use = member.NameLocation.Source;
+        bool seesMember = MethodCandidates(receiver.Type.Narrowed, member.Name).Any(c => c.Symbol.Reach.Includes(use))
+            || (LookupField(receiver.Type, member.Name) is { } memberField && memberField.Field.Reach.Includes(use));
+        if (!seesMember && BindExtensionCall(e.Location, receiver, member.Name, member.NameLocation, typeArguments, pending) is { } extensionCall)
             return extensionCall;
-        }
         var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.Narrowed, member.Name));
         if (AnyError(receiverArguments))
             return new BoundErrorExpression(e.Location);

@@ -382,8 +382,10 @@ if (orders.any(o -> o.unpaid)) { ... }
   receiver requires a mutable place, as a `mut` struct method does, but the call writes no `ref`.
 - It is a compile-time error to declare `this ref` or `this in` on a function type.
 - A member of the receiver's type wins over an extension of the same name: the extensions of a type
-  are considered only when it has no member of the name. Among extensions, overload resolution
-  chooses as for functions ([Overload resolution](#functions.overloading.resolution)).
+  are considered only when it has no member of the name that is visible where the call is
+  ([Visibility](03-programs.md#programs.visibility)). A member that the call cannot see does not
+  hide an extension. Among extensions, overload resolution chooses as for functions
+  ([Overload resolution](#functions.overloading.resolution)).
 - The receiver converts to the `this` parameter's type by identity, by an upcast, and by the span
   conversions ([Span conversions](05-conversions.md#conversions.spans)). No other conversion
   applies, and type arguments are inferred from the receiver as from any argument.
