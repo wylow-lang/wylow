@@ -37,6 +37,30 @@ iterator, a generic function taking `I extends Iterator<T>`, an iterator over nu
 for-each source kinds are listed, and a fuzzer mutation if one can cross the new rules. Update
 `docs/design/architecture.md` if a rule gains a mechanism, and issue #6 when the step is done.
 
+## Then: element iterators (decision 0076)
+
+Read `docs/design/decisions/0076-element-iterators.md` and `functions.ref-returns`. This work is
+separate from the steps above and may follow them in the same session or the next.
+
+1. **Returned references reached through the receiver.** The binder accepts `return ref` of a place
+   in an object that the receiver refers to, and of a place that such an object's method returned.
+   `WYL0241` then reports only places in locals and parameters. The caller must receive what the
+   reference holds or borrows, so the lowering of a call that returns such a reference also returns
+   the object to hold or the container to borrow, and the caller releases it where a reference
+   variable's hold would end. Decide the representation with the IR in mind (`docs/design/ir.md`),
+   and describe any new instruction in `IrEffects` and `IrAccess`.
+2. **`ref` and `in` returns from virtual, abstract, and interface methods.** Retire `WYL0245`: decision
+   0003 keeps a retired code in the catalog, marked retired, and its page says the compiler no
+   longer emits it.
+3. **`RefIterator<T>` and `InIterator<T>`** in `std`, and for-each binding `ref`, `in`, or a copy
+   from them. Add catalog errors for `ref` over an `InIterator`, and extend the error for a type that
+   implements more than one iterator interface.
+
+Test a tree iterator written in a test file that changes values in place, a node unlinked from its
+tree while a loop variable refers into it (the node stays alive), replacing a unique element that a
+loop variable refers to (a panic), a map-like class whose keys come through an `InIterator`, and a
+virtual method that returns a reference.
+
 ## After this step
 
 Step 2 needs extension methods: the adapters (`filter`, `map`, `take`, `skip`, `zip`) and the
