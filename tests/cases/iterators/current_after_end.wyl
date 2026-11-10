@@ -1,0 +1,9 @@
+void main() {
+    int[] values = new int[1];
+    mut var iterator = values.iterator();
+    std::print(iterator.moveNext());        // output: true
+    std::print(iterator.current());         // output: 0
+    std::print(iterator.moveNext());        // output: false
+    std::print(iterator.moveNext());        // output: false
+    std::print(iterator.current());         // panic: cannot read the current element of an iterator before 'moveNext' or after the last element
+}

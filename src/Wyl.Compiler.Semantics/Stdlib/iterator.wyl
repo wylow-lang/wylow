@@ -1,0 +1,16 @@
+/// A value that produces elements one at a time (spec `library.iterator`).
+///
+/// A for-each loop over an iterator calls `moveNext` before each iteration and `current` once in
+/// each iteration that `moveNext` allows. The loop takes the iterator by value, so a unique iterator
+/// moves into the loop.
+pub interface Iterator<T> {
+    /// Returns `true` after advancing to the next element, or `false` if the iterator has no more
+    /// elements.
+    mut bool moveNext();
+
+    /// Returns the element that the last call of `moveNext` advanced to.
+    ///
+    /// What `current` does before the first call of `moveNext`, or after `moveNext` returns
+    /// `false`, is in the documentation of each type that implements the interface.
+    T current();
+}

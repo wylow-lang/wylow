@@ -5,9 +5,11 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Semantics;
 
 /// <summary>
-/// For-each loops over ranges become <see cref="BoundForRange"/>. Every other for-each is lowered to
-/// a counting <see cref="BoundFor"/> over a temporary that holds what is iterated, so the loop
-/// borrows it exactly as a <c>ref</c> or span variable would.
+/// For-each loops over ranges become <see cref="BoundForRange"/>. A for-each over an iterator
+/// becomes a <see cref="BoundFor"/> that calls <c>moveNext</c> on a temporary that the iterator
+/// moves or is copied into. Every other for-each is lowered to a counting <see cref="BoundFor"/>
+/// over a temporary that holds what is iterated, so the loop borrows it exactly as a <c>ref</c> or
+/// span variable would.
 /// </summary>
 public sealed partial class Binder
 {
@@ -78,6 +80,8 @@ public sealed partial class Binder
             Error(Catalog.LoopInsideNullable(s.Iterable.Location, root.Name));
             return ErrorStatement(s.Location);
         }
+        if (IteratorTypes(iterable.Type) is [_, ..] iterators)
+            return BindIteratorLoop(s, iterable, iterators);
         if (iterable.Type.IsFixedArray)
             return BindFixedArrayLoop(s, iterable);
         if (iterable.Type == WylType.String)
@@ -178,6 +182,100 @@ public sealed partial class Binder
     }
 
     /// <summary>
+    /// The <c>Iterator&lt;T&gt;</c> types that a type is or implements. A loop over a value of the
+    /// type iterates it only if there is exactly one.
+    /// </summary>
+    List<WylType> IteratorTypes(WylType type) => stdlib.Iterator is { } iterator
+        ? [.. ((IEnumerable<WylType>)[type, .. Conversions.Supertypes(type, currentFunction)]).Where(t => !t.IsNullable && t.Symbol == iterator)]
+        : [];
+
+    /// <summary>
+    /// Loops over an iterator, which the loop takes by value into a temporary, as
+    /// <c>{ var iterator = source; for (int i = 0; iterator.moveNext(); i++) { element = iterator.current(); ... } }</c>.
+    /// The temporary is released when the block ends, however the loop ends. The counter exists
+    /// only for an index.
+    /// </summary>
+    BoundStatement BindIteratorLoop(ForEachStmt s, BoundExpression iterable, List<WylType> iterators)
+    {
+        var location = s.Iterable.Location;
+        var type = iterable.Type;
+        Diagnostic? error = null;
+        if (iterators is [var first, var second, ..])
+            error = Catalog.IteratorTypeArguments(location, type.ToString(), first.ToString(), second.ToString());
+        else if (ViewedElement(type, readOnly: true) is not null)
+            error = Catalog.IteratorAndSpan(location, type.ToString(), TextOf(location));
+        if (error is not null)
+        {
+            DeclareLoopVariables(s, WylType.Error);
+            BindLoopBody(s.Body);
+            Error(error);
+            return ErrorStatement(s.Location);
+        }
+        if (s.Element.RefKind != RefKind.None)
+            Error(Catalog.IteratorValueBorrowed(s.Element.Location, FunctionSymbol.RefPrefix(s.Element.RefKind).Trim()));
+
+        var iterator = new LocalSymbol("iterator", type, isParameter: false) { IsTemporary = true, IsMutable = true };
+        BoundExpression Iterator() => new BoundLocalAccess(location, iterator);
+        var moveNext = BindMethodCall(location, Iterator(), "moveNext", location, null, []);
+        var current = BindMethodCall(location, Iterator(), "current", location, null, []);
+
+        var counter = s.Index is null ? null : new LocalSymbol("i", WylType.Int, isParameter: false) { IsTemporary = true, IsMutable = true };
+        var declarations = new List<BoundStatement>();
+        if (counter is not null)
+            declarations.Add(DeclareIndex(s.Index!, counter, location));
+        declarations.Add(DeclareElement(s.Element, current.Type == WylType.Error ? null : current, RefKind.None, loopElement: false));
+        var body = BindLoopBody(s.Body);
+        var loop = new BoundFor(
+            s.Location,
+            counter is null ? null : new BoundVariableDeclaration(location, counter, new BoundLiteral(location, WylType.Int, 0)),
+            moveNext,
+            counter is null ? null : Increment(counter, location),
+            new BoundBlock(s.Body.Location, [.. declarations, body]));
+        return new BoundBlock(s.Location, [new BoundVariableDeclaration(location, iterator, Convert(iterable, type)), loop]);
+    }
+
+    static BoundAssignment Increment(LocalSymbol counter, Location location) =>
+        new(location, new BoundLocalAccess(location, counter),
+            new BoundBinary(location, new BoundLocalAccess(location, counter), BoundBinaryOperator.Add, new BoundLiteral(location, WylType.Int, 1), WylType.Int));
+
+    /// <summary>Declares a loop's index variable, a copy of <paramref name="counter"/>.</summary>
+    BoundStatement DeclareIndex(ForEachVariable indexSyntax, LocalSymbol counter, Location location)
+    {
+        if (indexSyntax.RefKind != RefKind.None)
+            Error(Catalog.IndexBorrowed(indexSyntax.Location));
+        if (LoopVariableType(indexSyntax) is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != WylType.Int && bound != WylType.Error)
+            Error(Catalog.IndexType(indexType.Location, bound.ToString()));
+        var index = new LocalSymbol(indexSyntax.Name, WylType.Int, isParameter: false) { IsMutable = indexSyntax.IsMutable };
+        Declare(index, indexSyntax.NameLocation);
+        return new BoundVariableDeclaration(indexSyntax.Location, index, new BoundLocalAccess(location, counter));
+    }
+
+    /// <summary>
+    /// Declares a loop's element variable from <paramref name="element"/>, by <paramref name="refKind"/>.
+    /// <paramref name="loopElement"/> says whether the element is a place in what the loop holds,
+    /// which an unchanged copy may refer to in place instead.
+    /// </summary>
+    BoundStatement DeclareElement(ForEachVariable elementSyntax, BoundExpression? element, RefKind refKind, bool loopElement)
+    {
+        var declared = LoopVariableType(elementSyntax) is { } typeSyntax ? BindType(typeSyntax, allowVoid: false) : null;
+        var type = declared ?? element?.Type ?? WylType.Error;
+        BoundExpression? value = element;
+        if (element is null || type == WylType.Error)
+            value = null;
+        else if (refKind == RefKind.None)
+            value = Convert(element, type);
+        else if (!CheckReference(element, refKind, type, $"'{FunctionSymbol.RefPrefix(refKind).Trim()}' variable"))
+            value = null;
+        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, refKind)
+        {
+            LoopElement = loopElement && refKind == RefKind.None ? elementSyntax.Location : null,
+            IsMutable = elementSyntax.IsMutable,
+        };
+        Declare(local, elementSyntax.NameLocation);
+        return new BoundVariableDeclaration(elementSyntax.Location, local, value ?? new BoundErrorExpression(elementSyntax.Location));
+    }
+
+    /// <summary>
     /// <c>for (int counter = 0; counter &lt; length; counter = next)</c>, by default <c>counter + 1</c>,
     /// whose body declares the loop's variables from <paramref name="element"/> and the counter,
     /// then runs the loop's body.
@@ -185,43 +283,15 @@ public sealed partial class Binder
     BoundStatement BindCountingLoop(ForEachStmt s, LocalSymbol counter, BoundExpression length, BoundExpression? element, BoundExpression? next = null)
     {
         var location = s.Iterable.Location;
-        BoundExpression Counter() => new BoundLocalAccess(location, counter);
         var declarations = new List<BoundStatement>();
-
         if (s.Index is { } indexSyntax)
-        {
-            if (indexSyntax.RefKind != RefKind.None)
-                Error(Catalog.IndexBorrowed(indexSyntax.Location));
-            if (LoopVariableType(indexSyntax) is { } indexType && BindType(indexType, allowVoid: false) is var bound && bound != WylType.Int && bound != WylType.Error)
-                Error(Catalog.IndexType(indexType.Location, bound.ToString()));
-            var index = new LocalSymbol(indexSyntax.Name, WylType.Int, isParameter: false) { IsMutable = indexSyntax.IsMutable };
-            Declare(index, indexSyntax.NameLocation);
-            declarations.Add(new BoundVariableDeclaration(indexSyntax.Location, index, Counter()));
-        }
-
-        var elementSyntax = s.Element;
-        var declared = LoopVariableType(elementSyntax) is { } typeSyntax ? BindType(typeSyntax, allowVoid: false) : null;
-        var type = declared ?? element?.Type ?? WylType.Error;
-        BoundExpression? value = element;
-        if (element is null || type == WylType.Error)
-            value = null;
-        else if (elementSyntax.RefKind == RefKind.None)
-            value = Convert(element, type);
-        else if (!CheckReference(element, elementSyntax.RefKind, type, $"'{FunctionSymbol.RefPrefix(elementSyntax.RefKind).Trim()}' variable"))
-            value = null;
-        var local = new LocalSymbol(elementSyntax.Name, type, isParameter: false, elementSyntax.RefKind)
-        {
-            LoopElement = elementSyntax.RefKind == RefKind.None ? elementSyntax.Location : null,
-            IsMutable = elementSyntax.IsMutable,
-        };
-        Declare(local, elementSyntax.NameLocation);
-        declarations.Add(new BoundVariableDeclaration(elementSyntax.Location, local, value ?? new BoundErrorExpression(elementSyntax.Location)));
+            declarations.Add(DeclareIndex(indexSyntax, counter, location));
+        declarations.Add(DeclareElement(s.Element, element, s.Element.RefKind, loopElement: true));
 
         var body = BindLoopBody(s.Body);
         var start = new BoundVariableDeclaration(location, counter, new BoundLiteral(location, WylType.Int, 0));
-        var condition = new BoundBinary(location, Counter(), BoundBinaryOperator.Less, length, WylType.Bool);
-        next ??= new BoundBinary(location, Counter(), BoundBinaryOperator.Add, new BoundLiteral(location, WylType.Int, 1), WylType.Int);
-        var update = new BoundAssignment(location, Counter(), next);
+        var condition = new BoundBinary(location, new BoundLocalAccess(location, counter), BoundBinaryOperator.Less, length, WylType.Bool);
+        var update = next is null ? Increment(counter, location) : new BoundAssignment(location, new BoundLocalAccess(location, counter), next);
         return new BoundFor(s.Location, start, condition, update, new BoundBlock(s.Body.Location, [.. declarations, body]));
     }
 }

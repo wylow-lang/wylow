@@ -1,0 +1,14 @@
+// An iterator held in a variable borrows its list until the variable's scope ends.
+import std::List;
+
+void main() {
+    var values = new List<int>();
+    values.add(1);
+    {
+        var iterator = values.iterator();
+    }
+    values.add(2);
+    std::print(values.count());             // output: 2
+    var iterator = values.iterator();
+    values.add(3);                          // panic-here: cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop
+}

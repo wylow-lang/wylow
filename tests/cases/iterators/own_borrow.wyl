@@ -1,0 +1,44 @@
+// A program's own iterator holds a 'Borrow' of the list inside its container, so changing the
+// list's length while the iterator exists panics, and releasing the iterator ends the borrow.
+import std::Borrow;
+import std::Iterator;
+import std::List;
+
+class Queue {
+    List<int> items = new List<int>();
+
+    pub void push(int value) {
+        items.add(value);
+    }
+
+    pub QueueIterator iterator() {
+        return QueueIterator(items, Borrow(items), items.count());
+    }
+}
+
+unique struct QueueIterator implements Iterator<int> {
+    List<int> items;
+    Borrow borrow;
+    int next;
+
+    pub mut bool moveNext() {
+        next--;
+        return next >= 0;
+    }
+
+    pub int current() {
+        return items[next];
+    }
+}
+
+void main() {
+    var queue = new Queue();
+    queue.push(1);
+    queue.push(2);
+    for (int value : queue.iterator()) {
+        std::print(value);                  // output: 2
+    }                                       // output: 1
+    queue.push(3);
+    var iterator = queue.iterator();
+    queue.push(4);                          // panic: cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop
+}

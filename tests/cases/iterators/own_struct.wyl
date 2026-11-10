@@ -1,0 +1,27 @@
+// A loop copies an iterator that is not unique, so the variable keeps its position.
+import std::Iterator;
+
+struct Steps implements Iterator<int> {
+    int at;
+    int end;
+
+    pub mut bool moveNext() {
+        at++;
+        return at < end;
+    }
+
+    pub int current() {
+        return at * 10;
+    }
+}
+
+void main() {
+    mut var steps = Steps(-1, 3);
+    for (int i, int value : steps) {
+        std::print($"{i}: {value}");        // output: 0: 0
+                                            // output: 1: 10
+                                            // output: 2: 20
+    }
+    std::print(steps.moveNext());           // output: true
+    std::print(steps.current());            // output: 0
+}

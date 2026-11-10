@@ -1,0 +1,10 @@
+// An iterator borrows its list, so adding to the list while the loop runs panics.
+import std::List;
+
+void main() {
+    var values = new List<int>();
+    values.add(1);
+    for (int value : values.iterator()) {
+        values.add(value);                  // panic-here: cannot change the length or capacity of a list while it is borrowed by a reference, span, or loop
+    }
+}

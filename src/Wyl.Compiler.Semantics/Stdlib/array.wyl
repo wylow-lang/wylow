@@ -72,6 +72,13 @@ pub final class Array<T> implements Spannable<T> {
         }
     }
 
+    /// Returns an iterator over copies of the elements, first to last.
+    ///
+    /// The length of an array never changes, so the iterator does not borrow the array.
+    pub ArrayIterator<T> iterator() where T extends copyable {
+        return ArrayIterator<T>(this);
+    }
+
     /// Returns a span of the elements.
     pub Span<T> asSpan() {
         unsafe {
@@ -95,5 +102,41 @@ pub final class Array<T> implements Spannable<T> {
             }
             memory::free(data);
         }
+    }
+}
+
+/// An iterator over copies of the elements of an `Array`, first to last, which `Array.iterator()`
+/// returns.
+///
+/// The iterator holds the array, and reads each element when `current` is called, so it sees a
+/// change to an element that it has not reached yet.
+pub struct ArrayIterator<T extends copyable> implements Iterator<T> {
+    Array<T> array;
+    int position;
+
+    package ArrayIterator(Array<T> array) {
+        this.array = array;
+        position = -1;
+    }
+
+    /// Returns `true` after advancing to the next element, or `false` once the iterator has passed
+    /// the last element of the array.
+    pub mut bool moveNext() {
+        if (position < array.length) {
+            position++;
+        }
+        return position < array.length;
+    }
+
+    /// Returns a copy of the element that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub T current() {
+        if (position < 0 || position >= array.length) {
+            panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
+        }
+        return array[position];
     }
 }

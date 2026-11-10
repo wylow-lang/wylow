@@ -1,0 +1,18 @@
+import std::List;
+
+void main() {
+    var values = new List<int>();
+    values.add(1);
+    mut var iterator = values.iterator();
+    for (int value : iterator) { }
+    iterator.moveNext();                    // error[WYL0440]: 'iterator' is used after being moved
+    var other = values.iterator();
+    if (values.count() > 0) {
+        for (int value : other) { }
+    }
+    for (int value : other) { }             // error[WYL0440]: 'other' is used after being moved
+    var third = values.iterator();
+    for (int round : 0..2) {
+        for (int value : third) { }         // error[WYL0440]: 'third' is used after being moved
+    }
+}

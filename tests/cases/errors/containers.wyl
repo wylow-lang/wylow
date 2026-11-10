@@ -26,7 +26,7 @@ void main() {
     Account[] group = new Account[3];           // error[WYL0078]: cannot fill a new array with default values of 'Account'
     var team = new Array<Account>(3);         // error[WYL0078]: cannot fill a new array with default values of 'Account'
     var list = new List<int>();
-    list.beginBorrow();                     // error[WYL0419]: 'beginBorrow' cannot be called directly
+    list.beginBorrow();                     // error[WYL0419]: 'beginBorrow' can only be called in 'unsafe' code
     var numbers = new int[3];
     numbers.length = 4;                     // error[WYL0351]: cannot assign to 'numbers.length'
     std::print(list.size);                  // error[WYL0054]: field 'List.size' is not visible here

@@ -12,7 +12,8 @@ public static partial class Catalog
 
     [Error(419, "memory.borrows.borrowable")]
     public static Diagnostic BorrowHookCall(Location at, string name) =>
-        Make(at, $"'{name}' cannot be called directly").Note("the compiler calls it around every borrow");
+        Make(at, $"'{name}' can only be called in 'unsafe' code").Note("the compiler calls it around every borrow")
+            .Help("hold a 'std::Borrow' to borrow the object for longer");
 
     [Error(405, "memory.references")]
     public static Diagnostic ReferenceTypeMismatch(Location at, string what, string declared, string referenced) =>

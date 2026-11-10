@@ -1,0 +1,52 @@
+import std::Iterator;
+import std::List;
+import std::Borrow;
+
+struct Steps implements Iterator<int> {
+    int at;
+
+    pub mut bool moveNext() {
+        at++;
+        return at < 3;
+    }
+
+    pub int current() {
+        return at;
+    }
+}
+
+struct Buffer implements Iterator<int>, ReadOnlySpannable<int> {
+    int[2] values;
+
+    pub mut bool moveNext() {
+        return false;
+    }
+
+    pub int current() {
+        return 0;
+    }
+
+    pub ReadOnlySpan<int> asReadOnlySpan() {
+        return values;
+    }
+}
+
+void both<I extends Iterator<int> & Iterator<long>>(I source) {
+    for (var value : source) { }            // error[WYL0484]: cannot loop over 'I', which implements both 'Iterator<int>' and 'Iterator<long>'
+}
+
+void main() {
+    for (ref int value : Steps(-1)) { }     // error[WYL0483]: values of an iterator cannot be borrowed with 'ref'
+    for (int i, in int value : Steps(-1)) { }   // error[WYL0483]: values of an iterator cannot be borrowed with 'in'
+    for (long i, int value : Steps(-1)) { } // error[WYL0364]: loop index type: expected 'int', found 'long'
+    for (String text : Steps(-1)) { }       // error[WYL0079]: expected 'String', found 'int'
+    var buffer = Buffer([1, 2]);
+    for (int value : buffer) { }            // error[WYL0485]: cannot loop over 'Buffer', which is an iterator and converts to a span
+    var list = new List<int>();
+    list.endBorrow();                       // error[WYL0419]: 'endBorrow' can only be called in 'unsafe' code
+    unsafe {
+        list.beginBorrow();
+        list.endBorrow();
+    }
+    var borrow = Borrow(list);
+}

@@ -481,6 +481,19 @@ public static partial class Catalog
     public static Diagnostic IndexType(Location at, string type) =>
         Make(at, $"loop index type: expected 'int', found '{type}'");
 
+    [Error(483, "statements.for-each.iterators")]
+    public static Diagnostic IteratorValueBorrowed(Location at, string keyword) =>
+        Make(at, $"values of an iterator cannot be borrowed with '{keyword}'").Note("the iterator's 'current' returns a value");
+
+    [Error(484, "statements.for-each.iterators")]
+    public static Diagnostic IteratorTypeArguments(Location at, string type, string first, string second) =>
+        Make(at, $"cannot loop over '{type}', which implements both '{first}' and '{second}'");
+
+    [Error(485, "statements.for-each.iterators")]
+    public static Diagnostic IteratorAndSpan(Location at, string type, string text) =>
+        Make(at, $"cannot loop over '{type}', which is an iterator and converts to a span")
+            .Help($"loop over '{text}.asReadOnlySpan()' for the elements of the span");
+
     [Error(358, "statements.for-each")]
     public static Diagnostic LoopOverTemporaryView(Location at) =>
         Make(at, "cannot loop over the elements of a temporary value").Help("store the value in a variable first");

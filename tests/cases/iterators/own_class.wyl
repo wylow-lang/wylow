@@ -1,0 +1,58 @@
+// A class iterator is looped over through its reference, and an interface variable through dispatch.
+import std::Iterator;
+
+class Node {
+    pub int value;
+    pub Node? next;
+
+    pub Node(int value, Node? next) {
+        this.value = value;
+        this.next = next;
+    }
+}
+
+class Chain implements Iterator<int> {
+    Node? head;
+    mut Node? at;
+    mut bool started;
+
+    pub Chain(Node? head) {
+        this.head = head;
+    }
+
+    pub bool moveNext() {
+        if (!started) {
+            started = true;
+            at = head;
+        } else if (at is Node node) {
+            at = node.next;
+        }
+        return at != null;
+    }
+
+    pub int current() {
+        return at!.value;
+    }
+}
+
+int total(Iterator<int> values) {
+    mut int sum = 0;
+    for (int value : values) {
+        sum += value;
+    }
+    return sum;
+}
+
+void main() {
+    var chain = new Chain(new Node(1, new Node(2, new Node(3, null))));
+    for (int value : chain) {
+        std::print(value);                  // output: 1
+                                            // output: 2
+                                            // output: 3
+    }
+    // The loop shares the object, which has passed its last element.
+    for (int value : chain) {
+        std::print(value);
+    }
+    std::print(total(new Chain(new Node(4, new Node(5, null)))));   // output: 9
+}

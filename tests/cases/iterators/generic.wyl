@@ -1,0 +1,50 @@
+// A generic function takes any iterator through a bound, and calls it without dispatch.
+import std::Iterator;
+import std::List;
+
+struct Repeat implements Iterator<String> {
+    String text;
+    int times;
+
+    pub mut bool moveNext() {
+        times--;
+        return times >= 0;
+    }
+
+    pub String current() {
+        return text;
+    }
+}
+
+int count<I extends Iterator<T>, T>(I source) {
+    mut int n = 0;
+    for (T value : source) {
+        n++;
+    }
+    return n;
+}
+
+List<T> collect<I extends Iterator<T>, T>(I source) {
+    var result = new List<T>();
+    for (var value : source) {
+        result.add(value);
+    }
+    return result;
+}
+
+void main() {
+    var words = new List<String>();
+    words.add("a");
+    words.add("b");
+    std::print(count(words.iterator()));            // output: 2
+    std::print(count(Repeat("x", 4)));              // output: 4
+    var copies = collect(Repeat("y", 2));
+    for (String word : copies) {
+        std::print(word);                           // output: y
+                                                    // output: y
+    }
+    // The iterator passed to 'collect' ended its borrow, so the list can grow.
+    var again = collect(words.iterator());
+    words.add("c");
+    std::print(again.count());                      // output: 2
+}

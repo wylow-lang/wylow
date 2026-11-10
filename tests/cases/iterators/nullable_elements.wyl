@@ -1,0 +1,24 @@
+// An iterator over nullable elements tells a null element from the end.
+import std::List;
+
+class Order {
+    pub int total;
+
+    pub Order(int total) {
+        this.total = total;
+    }
+}
+
+void main() {
+    var orders = new List<Order?>();
+    orders.add(new Order(5));
+    orders.add(null);
+    orders.add(new Order(7));
+    for (int i, Order? order : orders.iterator()) {
+        if (order is Order o) {
+            std::print($"{i}: {o.total}");  // output: 0: 5
+        } else {                            // output: 1: none
+            std::print($"{i}: none");       // output: 2: 7
+        }
+    }
+}

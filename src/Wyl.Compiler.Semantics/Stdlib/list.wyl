@@ -245,6 +245,14 @@ pub final class List<T> implements Borrowable, Spannable<T> {
         }, Unit());
     }
 
+    /// Returns an iterator over copies of the elements, first to last.
+    ///
+    /// The iterator borrows the list until the iterator is released, so changing the length or
+    /// capacity of the list while the iterator exists panics.
+    pub ListIterator<T> iterator() where T extends copyable {
+        return ListIterator<T>(this);
+    }
+
     /// Returns a span of the elements.
     pub Span<T> asSpan() {
         unsafe {
@@ -298,5 +306,43 @@ pub final class List<T> implements Borrowable, Spannable<T> {
             }
             memory::free(data);
         }
+    }
+}
+
+/// An iterator over copies of the elements of a `List`, first to last, which `List.iterator()`
+/// returns.
+///
+/// The iterator borrows the list until the iterator is released, so changing the length or capacity
+/// of the list while the iterator exists panics.
+pub unique struct ListIterator<T extends copyable> implements Iterator<T> {
+    List<T> list;
+    Borrow borrow;
+    int position;
+
+    package ListIterator(List<T> list) {
+        this.list = list;
+        borrow = Borrow(list);
+        position = -1;
+    }
+
+    /// Returns `true` after advancing to the next element, or `false` once the iterator has passed
+    /// the last element of the list.
+    pub mut bool moveNext() {
+        if (position < list.count()) {
+            position++;
+        }
+        return position < list.count();
+    }
+
+    /// Returns a copy of the element that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub T current() {
+        if (position < 0 || position >= list.count()) {
+            panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
+        }
+        return list[position];
     }
 }

@@ -381,7 +381,7 @@ public sealed partial class Binder
             return new BoundErrorExpression(location);
         if (!CheckUnsafeCall(location, method) || !CheckTypeArguments(method.TypeArguments, location))
             return new BoundErrorExpression(location);
-        if (IsBorrowHook(method.Symbol))
+        if (IsBorrowHook(method.Symbol) && !InUnsafe)
             return ErrorExpression(Catalog.BorrowHookCall(location, method.Symbol.Name));
         QueueBoundChecks(method.Symbol.TypeParameters, method.TypeArguments, location);
         CheckMemberBounds(method, location);
@@ -408,7 +408,7 @@ public sealed partial class Binder
         return false;
     }
 
-    /// <summary>A call could unbalance the borrow count, so the borrow methods are left to the compiler.</summary>
+    /// <summary>A call could unbalance the borrow count, so only the compiler and unsafe code call the borrow methods.</summary>
     bool IsBorrowHook(FunctionSymbol method) =>
         stdlib.Borrowable is { } borrowable
         && method is { Name: "beginBorrow" or "endBorrow", Parameters.Count: 0, ContainingType: { } owner }

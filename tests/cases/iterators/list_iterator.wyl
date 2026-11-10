@@ -1,0 +1,21 @@
+import std::List;
+
+void main() {
+    var orders = new List<int>();
+    orders.add(10);
+    orders.add(20);
+    orders.add(30);
+    for (int order : orders.iterator()) {
+        std::print(order);                  // output: 10
+                                            // output: 20
+                                            // output: 30
+    }
+    var it = orders.iterator();
+    for (int i, var order : it) {
+        std::print($"{i}: {order}");       // output: 0: 10
+                                            // output: 1: 20
+                                            // output: 2: 30
+    }
+    orders.add(40);
+    std::print(orders.count());             // output: 4
+}

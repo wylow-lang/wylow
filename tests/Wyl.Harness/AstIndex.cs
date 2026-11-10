@@ -25,6 +25,8 @@ public enum SiteKind
     FieldPattern,
     /// <summary>The last pattern of a case with no guard and no <c>default</c>, which a guard would follow.</summary>
     CasePatterns,
+    /// <summary>What a for-each that is not over a range iterates.</summary>
+    ForEachSource,
 }
 
 /// <summary>
@@ -199,6 +201,8 @@ public sealed class AstIndex
                     Expression(@each.Iterable);
                     if (@each.RangeEnd is { } end)
                         Expression(end);
+                    else if (@each.Iterable.Location.Span.Length > 0)
+                        Sites.Add(new Site(SiteKind.ForEachSource, @each.Iterable.Location.Span, @each));
                     Statement(@each.Body, inList: false);
                     break;
                 case ReturnStmt @return:

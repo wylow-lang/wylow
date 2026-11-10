@@ -1,0 +1,19 @@
+// An array's iterator holds the array without borrowing it, and reads each element when it reaches it.
+void main() {
+    int[] values = new int[3];
+    values[0] = 1;
+    values[1] = 2;
+    values[2] = 3;
+    for (int i, int value : values.iterator()) {
+        if (i == 0) {
+            values[2] = 30;
+        }
+        std::print(value);                  // output: 1
+                                            // output: 2
+                                            // output: 30
+    }
+    long[] wide = new long[0];
+    for (long value : wide.iterator()) {
+        std::print(value);
+    }
+}

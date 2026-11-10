@@ -1,11 +1,37 @@
 /// A class that is told when references, spans, and loops into it start and end (spec
 /// `memory.borrows.borrowable`).
 ///
-/// Only classes can implement it, and only the compiler calls its methods.
+/// Only classes can implement it. The compiler calls its methods around every borrow, and only unsafe
+/// code may call them directly, as `Borrow` does.
 pub interface Borrowable {
     /// Called when a reference, span, or loop into the object starts.
     void beginBorrow();
 
     /// Called when a reference, span, or loop into the object ends.
     void endBorrow();
+}
+
+/// A borrow of a `Borrowable` object that lasts as long as the value (spec
+/// `memory.borrows.borrowable`).
+///
+/// Making a `Borrow` of an object starts a borrow of the object, and releasing the `Borrow` ends the
+/// borrow. While the `Borrow` exists, changing the length or capacity of a container that it borrows
+/// panics. A value that holds a `Borrow` therefore borrows the object for as long as the value
+/// exists, as an iterator over a list does.
+pub unique struct Borrow {
+    Borrowable borrowed;
+
+    /// Makes a borrow of `target`, which lasts until the value is released.
+    pub Borrow(Borrowable target) {
+        borrowed = target;
+        unsafe {
+            target.beginBorrow();
+        }
+    }
+
+    ~Borrow() {
+        unsafe {
+            borrowed.endBorrow();
+        }
+    }
 }

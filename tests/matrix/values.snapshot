@@ -385,6 +385,33 @@ out 1
 out 4
 exit 0
 
+=== empty-list-iterator/iteration
+out 0
+out 1
+exit 0
+
+=== one-list-iterator/iteration
+out 0
+out 4
+out true
+out 4
+out false
+out false
+exit 0
+
+=== null-element-iterator/iteration
+out 0
+out -1
+out 1
+out 3
+exit 0
+
+=== empty-array-iterator/iteration
+out false
+err panic: cannot read the current element of an iterator before 'moveNext' or after the last element
+err     at array.wyl:138:13
+exit 3
+
 === last-array/comparison
 out true
 out false

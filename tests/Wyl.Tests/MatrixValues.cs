@@ -1,6 +1,7 @@
 // The values x operations matrix: a value at an edge crossed with what is done with it. The edges
 // are 0, 1, -1, INT_MAX, INT_MIN, a long past INT_MAX, -0.0 and an inexact double, an empty array,
-// a one-element list, the last index, the empty and multi-byte strings, the code point past ASCII,
+// a one-element list, the iterators of an empty list, a one-element list, a list holding a null,
+// and an empty array, the last index, the empty and multi-byte strings, the code point past ASCII,
 // true, null as a value and as a reference, and an unequal pair. An operation is arithmetic,
 // comparison, indexing, iteration, conversion, formatting, or switch. A row only pairs with the
 // operations its value supports, so each cell is a meaningful program; a cell where the spec calls
@@ -240,6 +241,60 @@ static class MatrixValues
                 other.add(4);
                 print(values == other);
                 print(values == values);
+                """,
+        });
+
+        yield return new("empty-list-iterator", "var values = new List<int>();", new()
+        {
+            ["iteration"] = """
+                mut int count = 0;
+                for (int value : values.iterator()) {
+                    count++;
+                }
+                print(count);
+                values.add(1);
+                print(values.count());
+                """,
+        });
+
+        yield return new("one-list-iterator", """
+            var values = new List<int>();
+            values.add(4);
+            """, new()
+        {
+            ["iteration"] = """
+                for (int at, int value : values.iterator()) {
+                    print(at);
+                    print(value);
+                }
+                mut var iterator = values.iterator();
+                print(iterator.moveNext());
+                print(iterator.current());
+                print(iterator.moveNext());
+                print(iterator.moveNext());
+                """,
+        });
+
+        yield return new("null-element-iterator", """
+            var values = new List<int?>();
+            values.add(null);
+            values.add(3);
+            """, new()
+        {
+            ["iteration"] = """
+                for (int at, int? value : values.iterator()) {
+                    print(at);
+                    print(value ?? -1);
+                }
+                """,
+        });
+
+        yield return new("empty-array-iterator", "int[] values = new int[0];", new()
+        {
+            ["iteration"] = """
+                mut var iterator = values.iterator();
+                print(iterator.moveNext());
+                print(iterator.current());
                 """,
         });
 

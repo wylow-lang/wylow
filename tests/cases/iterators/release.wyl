@@ -1,0 +1,54 @@
+// A loop releases its iterator when it ends by 'break' or 'return', which ends the iterator's
+// borrow of the list.
+import std::Iterator;
+import std::List;
+
+unique struct Countdown implements Iterator<int> {
+    int left;
+
+    pub mut bool moveNext() {
+        left--;
+        return left >= 0;
+    }
+
+    pub int current() {
+        return left;
+    }
+
+    ~Countdown() {
+        std::print("released");
+    }
+}
+
+int firstBelow(List<int> values, int limit) {
+    for (int value : values.iterator()) {
+        if (value < limit) {
+            return value;
+        }
+    }
+    return -1;
+}
+
+void main() {
+    for (int n : Countdown(3)) {
+        std::print(n);                      // output: 2
+        if (n == 1) {                       // output: 1
+            break;
+        }
+    }
+    std::print("after");                    // output: released
+                                            // output: after
+    var values = new List<int>();
+    values.add(5);
+    values.add(2);
+    values.add(7);
+    std::print(firstBelow(values, 3));      // output: 2
+    values.add(1);
+    for (int value : values.iterator()) {
+        if (value == 2) {
+            break;
+        }
+    }
+    values.add(0);
+    std::print(values.count());             // output: 5
+}

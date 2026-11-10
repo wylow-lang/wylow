@@ -127,6 +127,13 @@ static class Mutations
         new("statement-if", SiteKind.Statement, _ => true, StatementIfBuild),
         new("statement-loop", SiteKind.Statement, _ => true, StatementLoopBuild),
         new("statement-array-loop", SiteKind.Statement, _ => true, StatementArrayLoopBuild),
+        // A loop over a temporary iterator, which the loop releases however the statement leaves it.
+        new("statement-iterator-loop", SiteKind.Statement, _ => true, StatementIteratorLoopBuild),
+        // Loops over a container's iterator instead of its span: a 'ref' or 'in' loop variable
+        // becomes an error, a unique element type fails the iterator's 'copyable' bound, and the
+        // loop variable becomes a copy that the loop's body may change.
+        new("foreach-iterator", SiteKind.ForEachSource, _ => true,
+            (context, site) => Single("foreach-iterator", site, "(" + context.Slice(site.Span) + ").iterator()")),
         new("statement-lambda", SiteKind.Statement, _ => true, StatementLambdaBuild),
         new("statement-lock", SiteKind.Statement, _ => true, StatementLockBuild),
         new("expression-conditional", SiteKind.Expression, Wrappable, ConditionalBuild),
@@ -396,6 +403,9 @@ static class Mutations
 
     static Candidate? StatementArrayLoopBuild(MutationContext context, Site site) =>
         Single("statement-array-loop", site, "{ for (int wylq : [0]) {\n" + context.Slice(site.Span) + "\n} }");
+
+    static Candidate? StatementIteratorLoopBuild(MutationContext context, Site site) =>
+        Single("statement-iterator-loop", site, "{ for (int wylq : (new int[1]).iterator()) {\n" + context.Slice(site.Span) + "\n} }");
 
     static Candidate? StatementLambdaBuild(MutationContext context, Site site)
     {

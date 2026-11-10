@@ -56,6 +56,9 @@ public sealed class StdlibSymbols
     /// <summary>Types in an order.</summary>
     public TypeSymbol? Comparable { get; private set; }
 
+    /// <summary>Values that produce elements one at a time, which a for-each loop iterates through <c>moveNext</c> and <c>current</c>.</summary>
+    public TypeSymbol? Iterator { get; private set; }
+
     /// <summary>
     /// The built-in types whose members and interfaces the standard library declares, each in an
     /// <c>extern struct</c> of its name. That declaration is not a type of its own: its name keeps
@@ -132,6 +135,7 @@ public sealed class StdlibSymbols
             case "IsolatedState": IsolatedState = symbol; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
+            case "Iterator": Iterator = symbol; break;
         }
     }
 
