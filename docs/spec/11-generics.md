@@ -85,6 +85,11 @@ A call of a generic function or method that gives no type arguments **infers** t
   from the type of a value, from the element type of a span a value converts to, from the value type of a
   nullable type for `T?`, and from the result type of a lambda
   ([Lambdas](12-functions.md#functions.lambdas.typing)).
+- A bound determines the type parameters it mentions once the parameter it bounds has a type: with
+  `<I extends Iterator<T>, T>`, an argument of a type that implements `Iterator<int>` determines `I`,
+  and through the bound determines `int` for `T`. The bound determines nothing if the arguments give
+  the bounded parameter more than one type, or if the bounded parameter's type implements the
+  bound's interface with more than one list of type arguments.
 - When the arguments give different types for a parameter, it is the type that the others convert to implicitly
   ([Numeric conversions](05-conversions.md#conversions.numeric)): `max(1, 2L)` infers `long`. An integer
   constant takes the type of another argument when that type holds it

@@ -1,0 +1,38 @@
+// A bound gives the type parameters it mentions their types from the bounded parameter's argument.
+interface Source<T> {
+    T get();
+}
+
+struct Constant implements Source<String> {
+    String value;
+
+    String get() {
+        return value;
+    }
+}
+
+class Counter implements Source<int> {
+    mut int n;
+
+    int get() {
+        n++;
+        return n;
+    }
+}
+
+T first<S extends Source<T>, T>(S source) {
+    return source.get();
+}
+
+T viaBound<S extends Source<T>, T>(S source) {
+    return first(source);
+}
+
+void main() {
+    std::print(first(Constant("a")));       // output: a
+    var counter = new Counter();
+    std::print(first(counter));             // output: 1
+    std::print(viaBound(counter));          // output: 2
+    Source<int> anySource = counter;
+    std::print(first(anySource));           // output: 3
+}

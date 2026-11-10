@@ -1,0 +1,19 @@
+interface Tag<T> {
+}
+
+interface Named extends Tag<String> {
+}
+
+interface Numbered extends Tag<int> {
+}
+
+class Label implements Named, Numbered {
+}
+
+void describe<S extends Tag<T>, T>(S source) {
+}
+
+void main() {
+    describe(new Label());                  // error[WYL0201]: cannot infer type argument 'T' of 'describe'
+    describe<Label, int>(new Label());
+}

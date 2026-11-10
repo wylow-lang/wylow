@@ -50,6 +50,42 @@ public sealed partial class Binder
                     }
                 }
             }
+            InferFromBounds();
+        }
+
+        /// <summary>
+        /// Gives the type parameters that a bound mentions their types from the argument of the
+        /// bounded parameter: with <c>&lt;I extends Iterator&lt;T&gt;, T&gt;</c> and <c>I</c> found to
+        /// be a type that implements <c>Iterator&lt;int&gt;</c>, <c>T</c> is <c>int</c>. A parameter
+        /// whose arguments disagree, or whose argument has the bound's interface with two lists of type
+        /// arguments, gives nothing. Repeats while a bound gives a parameter its first type.
+        /// </summary>
+        void InferFromBounds()
+        {
+            var done = new HashSet<TypeParameterSymbol>();
+            bool progress = true;
+            while (progress)
+            {
+                progress = false;
+                foreach (var parameter in function.TypeParameters)
+                {
+                    if (done.Contains(parameter) || bindings[parameter].Select(b => b.Type).Distinct().ToList() is not [var argument] || argument == WylType.Null)
+                        continue;
+                    done.Add(parameter);
+                    foreach (var bound in parameter.BoundsIn(function).Select(ownerMap.Apply))
+                    {
+                        if (bound.TypeArguments.Count == 0 || !bound.ContainedTypeParameters.Any(p => bindings.TryGetValue(p, out var b) && b.Count == 0))
+                            continue;
+                        var matches = ((IEnumerable<WylType>)[argument, .. Conversions.Supertypes(binder.stdlib.MemberHost(argument), binder.currentFunction)])
+                            .Where(t => t.Symbol == bound.Symbol).Distinct().ToList();
+                        if (matches is [var match])
+                        {
+                            Unify(bound, null, match);
+                            progress = true;
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>The type parameters nothing has given a type yet.</summary>
