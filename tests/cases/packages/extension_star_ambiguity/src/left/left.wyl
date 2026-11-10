@@ -1,0 +1,9 @@
+import orders::Order;
+
+pub int size(this Order o) {
+    return 1;
+}
+
+pub int only(this Order o) {
+    return 1;
+}

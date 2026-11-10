@@ -88,6 +88,20 @@ public sealed partial class Binder
             }
         }
 
+        /// <summary>
+        /// The type arguments that a receiver of type <paramref name="receiver"/> determines on its
+        /// own for <paramref name="extension"/>, directly or through bounds: each type parameter it
+        /// gives exactly one type. The others map to themselves (spec <c>functions.extensions</c>).
+        /// </summary>
+        public static TypeMap Determined(Binder binder, FunctionSymbol extension, WylType receiver)
+        {
+            var inference = new Inference(binder, new Candidate(extension, null), []);
+            inference.Unify(inference.ParameterType(0), null, receiver);
+            inference.InferFromBounds();
+            var determined = extension.TypeParameters.Where(p => inference.bindings[p].Select(b => b.Type).Distinct().Count() == 1).ToList();
+            return TypeMap.Empty.With(determined, [.. determined.Select(p => inference.bindings[p][0].Type)]);
+        }
+
         /// <summary>The type parameters nothing has given a type yet.</summary>
         public IReadOnlyList<TypeParameterSymbol> Unresolved => [.. function.TypeParameters.Where(p => bindings[p].Count == 0)];
 

@@ -379,8 +379,8 @@ Three operators work with `null`:
 - It is a compile-time error to apply `!`, `?.`, or `??` to a value whose type is not nullable.
 - It is a compile-time error to apply `??` to a nullable non-escaping function
   ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)).
-- `a?.m()` calls a `mut` struct method on a copy, so it is a compile-time error when `m` is `mut`:
-  the changes would be lost.
+- `a?.m()` calls a struct method on a copy, so it is a compile-time error when `m` is `mut` or an
+  extension with a `this ref` receiver: the changes would be lost.
 - `a!` and `a?.m()` work on a copy, so `a!.x = 1` and `a!.m()` are compile-time errors, as for any
   temporary ([`mut` methods](07-structs.md#structs.methods.mut)). The errors are the same when `a`'s
   type is not copyable.

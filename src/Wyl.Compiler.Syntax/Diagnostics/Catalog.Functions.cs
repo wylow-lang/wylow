@@ -366,4 +366,18 @@ public static partial class Catalog
     [Error(457, "functions.lambdas.captures")]
     public static Diagnostic LambdaMovesCapture(Location at, string name) =>
         Make(at, $"cannot move '{name}', which a lambda captures").Note("the lambda may run more than once");
+
+    [Error(487, "functions.extensions")]
+    public static Diagnostic RefReceiverOnTemporary(Location at, string extension) =>
+        Make(at, $"cannot call '{extension}' on a temporary value").Note($"'{extension}' takes its receiver as 'this ref', which needs a variable").Temporary();
+
+    [Error(488, "functions.extensions")]
+    public static Diagnostic RefReceiverOnReadOnly(Location at, string extension, string receiver, ReadOnlyReason reason) =>
+        Make(at, $"cannot call '{extension}' on '{receiver}'").Because(reason).Note($"'{extension}' takes its receiver as 'this ref', which it may change");
+
+    [Error(489, "functions.extensions")]
+    public static Diagnostic RefReceiverNullable(Location at, string extension, string receiver, string type) =>
+        Make(at, $"cannot call '{extension}' on '{receiver}' of nullable type '{type}'")
+            .Note($"'{extension}' takes its receiver as 'this ref', and nothing refers into a nullable value")
+            .Help($"declare the receiver as 'this ref {type}' to take the nullable value");
 }

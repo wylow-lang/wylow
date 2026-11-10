@@ -80,7 +80,7 @@ public static partial class Catalog
 
     [Error(447, "structs.methods.by-value")]
     public static Diagnostic ReceiverOutsideValueMethod(Location at) =>
-        Make(at, "'this' parameter is only for a method of a struct or enum").Note("a class, an interface, a constructor, and an indexer have no by-value receiver");
+        Make(at, "'this' parameter is only for a method of a struct or enum, or an extension method").Note("a class, an interface, a constructor, and an indexer have no by-value receiver").Help("declare a top-level function to write an extension method");
 
     [Error(448, "structs.methods.by-value")]
     public static Diagnostic ReceiverMode(Location at) =>

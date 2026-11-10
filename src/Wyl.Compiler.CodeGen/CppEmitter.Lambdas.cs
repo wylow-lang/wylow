@@ -76,8 +76,16 @@ public sealed partial class CppEmitter
         if (!overloaded.Contains(function))
             return "";
         var parts = function.Parameters.Select((p, i) => p.Type.IsFunction || MentionsPointerSized(p.Type) ? $"{i}{Mangle(p.Type)}" : "").ToList();
-        return parts.Any(p => p.Length > 0) ? "_" + string.Concat(parts) : "";
+        var suffix = parts.Any(p => p.Length > 0) ? "_" + string.Concat(parts) : "";
+        // Top-level overloads may differ only in their bounds (spec functions.overloading), which
+        // C++ templates of the same parameters cannot tell apart.
+        var bounds = function.ContainingType is null ? string.Concat(function.TypeParameters.Select(BoundsMangle)) : "";
+        return bounds.Length > 0 ? suffix + "_B" + bounds : suffix;
     }
+
+    static string BoundsMangle(TypeParameterSymbol parameter, int index) =>
+        parameter.Bounds.Count == 0 && !parameter.IsCopyableBound && !parameter.IsSendableBound ? ""
+        : $"{index}{(parameter.IsCopyableBound ? "c" : "")}{(parameter.IsSendableBound ? "s" : "")}{string.Concat(parameter.Bounds.Select(Mangle))}";
 
     static bool MentionsPointerSized(WylType type) =>
         type == WylType.NInt || type == WylType.NUInt || type.Parts.Any(MentionsPointerSized);

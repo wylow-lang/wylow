@@ -1,0 +1,13 @@
+import orders::Order;
+
+pub int count(this Order o) {
+    return o.amount;
+}
+
+pub int weight(this Order o) {
+    return 2;
+}
+
+pub int doubled(this Order o) {
+    return 2 * o.amount;
+}

@@ -12,7 +12,7 @@ class Cell {
         this.value = value;
     }
 
-    int read(this Cell cell) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+    int read(this Cell cell) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum, or an extension method
         return cell.value;
     }
 }
@@ -46,18 +46,16 @@ struct Item implements Named {
     }
 }
 
-void free(this Counter counter) { }           // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
-
 struct Made {
     int value;
 
-    Made(this Made made) { }                  // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+    Made(this Made made) { }                  // error[WYL0447]: 'this' parameter is only for a method of a struct or enum, or an extension method
 }
 
 struct Grid {
     int value;
 
-    int operator [](this Grid grid, int index) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum
+    int operator [](this Grid grid, int index) {   // error[WYL0447]: 'this' parameter is only for a method of a struct or enum, or an extension method
         return index;
     }
 }

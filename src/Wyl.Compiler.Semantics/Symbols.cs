@@ -117,6 +117,14 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public LocalSymbol? ReceiverParameter { get; init; }
 
     /// <summary>
+    /// A top-level function that marks its first parameter <c>this</c>, which may be called like a
+    /// method of that parameter's type (spec <c>functions.extensions</c>). Unlike a method's by-value
+    /// receiver, the receiver stays the first of <see cref="Parameters"/>, so a call passes it as an
+    /// ordinary argument.
+    /// </summary>
+    public bool IsExtension { get; init; }
+
+    /// <summary>
     /// Where it can be named from, already within its type's. A symbol the binder doesn't give one
     /// is visible nowhere, so a missed one is an error rather than a hole.
     /// </summary>
@@ -227,6 +235,20 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>A parameter's mode and type as written: <c>ref int</c>, or <c>ref? int</c>, whose type names its mode.</summary>
     public static string ParameterText(RefKind kind, WylType type) => type.IsNullableReference ? type.Name : RefPrefix(kind) + type;
+
+    /// <summary>The signature with its type parameters' bounds, which tell apart overloads that differ only in them.</summary>
+    public string BoundedSignature
+    {
+        get
+        {
+            static string Bounded(TypeParameterSymbol p)
+            {
+                List<string> bounds = [.. p.IsCopyableBound ? ["copyable"] : Array.Empty<string>(), .. p.IsSendableBound ? ["sendable"] : Array.Empty<string>(), .. p.Bounds.Select(b => b.ToString())];
+                return bounds.Count == 0 ? p.Name : $"{p.Name} extends {string.Join(" & ", bounds)}";
+            }
+            return IsGeneric ? $"{Name}<{string.Join(", ", TypeParameters.Select(Bounded))}>{Signature[Signature.IndexOf('(')..]}" : Signature;
+        }
+    }
 
     public override string ToString() => Signature;
 }

@@ -1,0 +1,118 @@
+// An extension method is called like a method of its receiver's type, and may also be called as a
+// function (spec functions.extensions).
+import std::List;
+
+struct Point {
+    int x;
+    int y;
+
+    int area() {
+        return 100;
+    }
+}
+
+class Node {
+    int value;
+
+    Node(int value) {
+        this.value = value;
+    }
+}
+
+class Leaf extends Node {
+    Leaf(int value) {
+        super(value);
+    }
+}
+
+int sum(this Point p) {
+    return p.x + p.y;
+}
+
+void shift(this ref Point p, int by) {
+    p.x += by;
+}
+
+int twice(this in Point p) {
+    return 2 * p.x;
+}
+
+// A member of the receiver's type wins over an extension of the same name.
+int area(this Point p) {
+    return -1;
+}
+
+int describe(this Node n) {
+    return n.value;
+}
+
+int total(this ReadOnlySpan<int> items) {
+    mut int t = 0;
+    for (int item : items) {
+        t += item;
+    }
+    return t;
+}
+
+bool any<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
+    for (in T item : items) {
+        if (test(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int orMinus(this Point? p) {
+    return p is Point q ? q.x : -1;
+}
+
+// A 'this ref' receiver of a nullable type refers to the nullable variable itself.
+void reset(this ref Point? p) {
+    p = Point(0, 0);
+}
+
+void bumped(this ref int value) {
+    value += 10;
+}
+
+void main() {
+    mut Point p = Point(1, 2);
+    std::print(p.sum());                    // output: 3
+    p.shift(10);
+    std::print(p.x);                        // output: 11
+    std::print(p.twice());                  // output: 22
+    std::print(Point(4, 5).twice());        // output: 8
+    std::print(sum(p));                     // output: 13
+    std::print(p.area());                   // output: 100
+    std::print(area(p));                    // output: -1
+
+    // The receiver converts by an upcast, and by a span conversion.
+    Leaf leaf = new Leaf(7);
+    std::print(leaf.describe());            // output: 7
+    List<int> numbers = new List<int>();
+    numbers.add(3);
+    numbers.add(4);
+    std::print(numbers.total());            // output: 7
+    int[3] fixed = [1, 2, 3];
+    std::print(fixed.total());              // output: 6
+
+    // Type arguments are inferred from the receiver, and a lambda takes its parameter types from them.
+    std::print(numbers.any(n -> n > 3));    // output: true
+    std::print(numbers.any(n -> n > 9));    // output: false
+
+    // A nullable receiver parameter takes a nullable receiver without a narrowing.
+    Point? none = null;
+    std::print(none.orMinus());             // output: -1
+    Point? some = p;
+    std::print(some?.sum() ?? 0);           // output: 13
+    std::print(none?.sum() ?? 0);           // output: 0
+    mut Point? cleared = null;
+    cleared.reset();
+    std::print(cleared?.x ?? -1);           // output: 0
+
+    // A primitive type takes extensions too.
+    mut int count = 1;
+    count.bumped();
+    std::print(count);                      // output: 11
+}

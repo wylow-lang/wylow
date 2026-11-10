@@ -174,19 +174,38 @@ public sealed partial class Binder
         // A check runs after every body is bound, so it carries the function its type was written in.
         foreach (var (argument, parameter, map, location, function) in boundChecks)
         {
-            if (argument == WylType.Error)
-                continue;
-            if (parameter.IsCopyableBound && !argument.IsCopyableIn(function))
-                Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "copyable", parameter.Name));
-            if (parameter.IsSendableBound && !argument.IsSendableIn(function))
-                Error(Catalog.PropertyNotSatisfied(location, argument.ToString(), "sendable", parameter.Name));
-            foreach (var bound in parameter.Bounds.Select(map.Apply))
+            foreach (var (name, bound) in UnsatisfiedBounds(parameter, argument, map, function))
             {
-                if (!stdlib.SatisfiesBound(argument, bound, function))
-                    Error(Catalog.BoundNotSatisfied(location, argument.ToString(), bound.ToString(), parameter.Name));
+                Error(bound is null
+                    ? Catalog.PropertyNotSatisfied(location, argument.ToString(), name, parameter.Name)
+                    : Catalog.BoundNotSatisfied(location, argument.ToString(), name, parameter.Name));
             }
         }
     }
+
+    /// <summary>
+    /// The bounds of <paramref name="parameter"/> that <paramref name="argument"/> fails (spec
+    /// <c>generics.bounds</c>), with <paramref name="map"/> applied to the interfaces: each as its
+    /// name, and the interface, or null for the properties <c>copyable</c> and <c>sendable</c>.
+    /// </summary>
+    IEnumerable<(string Name, WylType? Interface)> UnsatisfiedBounds(TypeParameterSymbol parameter, WylType argument, TypeMap map, FunctionSymbol? function)
+    {
+        if (argument == WylType.Error)
+            yield break;
+        if (parameter.IsCopyableBound && !argument.IsCopyableIn(function))
+            yield return ("copyable", null);
+        if (parameter.IsSendableBound && !argument.IsSendableIn(function))
+            yield return ("sendable", null);
+        foreach (var bound in parameter.Bounds.Select(map.Apply))
+        {
+            if (!stdlib.SatisfiesBound(argument, bound, function))
+                yield return (bound.ToString(), bound);
+        }
+    }
+
+    /// <summary>Whether a method's type arguments satisfy the bounds of its own type parameters.</summary>
+    bool SatisfiesBounds(MethodReference method) =>
+        method.Symbol.TypeParameters.Zip(method.TypeArguments).All(p => !UnsatisfiedBounds(p.First, p.Second, method.Map, currentFunction).Any());
 
     IReadOnlyList<WylType>? BindTypeArguments(IReadOnlyList<TypeSyntax> syntax) =>
         syntax.Count == 0 ? null : [.. syntax.Select(a => BindType(a, allowVoid: false))];

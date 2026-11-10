@@ -5,10 +5,13 @@
 
 ## Decision
 
-Two functions of one name may have the same parameter types if the bounds of their type parameters
-differ. Overload resolution drops each overload whose type arguments, written or inferred, do not
-satisfy its bounds. If more than one overload remains and neither is better by the existing rules,
-the call is ambiguous. No overload ranks above another because its bounds are narrower.
+Two top-level functions of one name may have the same parameter types if the bounds of their type
+parameters differ. Two methods may not, because a method that overrides or implements another is
+matched to it by its parameter types alone.
+
+Overload resolution drops each overload whose type arguments, written or inferred, do not satisfy
+its bounds. If more than one overload remains and neither is better by the existing rules, the call
+is ambiguous. No overload ranks above another because its bounds are narrower.
 
 The adapters of `std::iteration` (0079) use the rule. Each adapter is declared once for each
 iterator interface, for example:

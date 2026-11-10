@@ -1,0 +1,54 @@
+// Top-level functions with the same parameter types may be overloads if their bounds differ, and a
+// call chooses the overload whose bounds its type arguments satisfy (spec functions.overloading).
+interface Named {
+    String name();
+}
+
+interface Sized {
+    int size();
+}
+
+struct Tag implements Named {
+    String text;
+
+    String name() {
+        return text;
+    }
+}
+
+struct Box implements Sized {
+    int count;
+
+    int size() {
+        return count;
+    }
+}
+
+String show<T extends Named>(T value) {
+    return value.name();
+}
+
+String show<T extends Sized>(T value) {
+    return "size";
+}
+
+String label<T extends Named>(this T value) {
+    return "named";
+}
+
+String label<T extends Sized>(this T value) {
+    return "sized";
+}
+
+// A property bound is a bound too.
+String kind<T extends copyable>(T value) {
+    return "copyable";
+}
+
+void main() {
+    std::print(show(Tag("tag")));           // output: tag
+    std::print(show(Box(3)));               // output: size
+    std::print(Tag("tag").label());         // output: named
+    std::print(Box(3).label());             // output: sized
+    std::print(kind(1));                    // output: copyable
+}

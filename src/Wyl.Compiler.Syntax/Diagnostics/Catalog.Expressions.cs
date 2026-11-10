@@ -319,8 +319,9 @@ public static partial class Catalog
         Make(at, $"cannot call '{text}' of non-function type '{type}'");
 
     [Error(300, "expressions.calls")]
-    public static Diagnostic NoMethod(Location at, string type, string name) =>
-        Make(at, $"cannot find method '{name}' in '{type}'");
+    public static Diagnostic NoMethod(Location at, string type, string name, Location? extension = null) =>
+        extension is null ? Make(at, $"cannot find method '{name}' in '{type}'")
+            : Make(at, $"cannot find method '{name}' in '{type}'").Note(extension, $"no extension '{name}' accepts a receiver of type '{type}'");
 
     [Error(301, "expressions.calls")]
     public static Diagnostic FieldNotMethod(Location at, string field) =>
@@ -366,7 +367,7 @@ public static partial class Catalog
 
     [Error(317, "expressions.null")]
     public static Diagnostic ConditionalMutCall(Location at, string method, string text) =>
-        Make(at, $"'?.' would call 'mut' method '{method}' on a copy of '{text}'")
+        Make(at, $"'?.' would call '{method}', which changes its receiver, on a copy of '{text}'")
             .Note("the copy's changes would be lost").Help($"check it for null, then call '{method}' on a variable");
 
     [Error(318, "expressions.null")]

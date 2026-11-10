@@ -10,13 +10,15 @@ public sealed partial class Binder
     /// Binds a call's arguments. An argument expects its parameter's type when every candidate taking
     /// this many arguments agrees on it, so <c>f(Result.Ok(1))</c> and <c>f(East)</c> know their enum.
     /// A lambda without an agreed function type, or a choice between lambdas, is bound once overload
-    /// resolution chooses one.
+    /// resolution chooses one. The candidates' first <paramref name="receivers"/> parameters take
+    /// arguments that aren't written in the parentheses: an extension's receiver.
     /// </summary>
-    List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null)
+    List<Argument> BindArguments(IReadOnlyList<Expr> arguments, IReadOnlyList<Candidate>? candidates = null, int receivers = 0)
     {
         var names = ArgumentNames(arguments);
+        List<string?> arranged = [.. Enumerable.Repeat<string?>(null, receivers), .. names];
         var arrangements = (candidates is not null && arguments.Count > 0 ? VisibleFrom(candidates, arguments[0].Location.Source) : candidates)?
-            .Select(c => (Candidate: c, Arrangement: Arrange(c, names, out _)))
+            .Select(c => (Candidate: c, Arrangement: Arrange(c, arranged, out _)))
             .Where(c => c.Arrangement is not null)
             .ToList();
         return
@@ -26,7 +28,7 @@ public sealed partial class Binder
                 var (a, name, nameLocation) = syntax is NamedArgExpr n ? (n.Value, n.Name, n.NameLocation) : (syntax, null, default(Location));
                 if (a is RefArgExpr r)
                     return new Argument(BindExpression(r.Operand), true, syntax.Location, name, nameLocation);
-                var expected = arrangements is null ? null : ExpectedArgumentType(arrangements!, i);
+                var expected = arrangements is null ? null : ExpectedArgumentType(arrangements!, i + receivers);
                 var value = a is LambdaExpr or ConditionalExpr or SwitchExpr || ReferencedFunctions(a) is not null ? BindOption(a, expected) : BindExpression(a, expected);
                 // A positional argument after a named one has no parameter, which is already reported.
                 if (name is null && names.Take(i).Any(n => n is not null))
@@ -63,7 +65,7 @@ public sealed partial class Binder
     {
         List<Argument>? bound;
 
-        public List<Argument> Bind(IReadOnlyList<Candidate>? candidates) => bound ??= binder.BindArguments(syntax, candidates);
+        public List<Argument> Bind(IReadOnlyList<Candidate>? candidates, int receivers = 0) => bound ??= binder.BindArguments(syntax, candidates, receivers);
     }
 
     static bool AnyError(List<Argument> arguments) => arguments.Any(a => a.Expression.Type == WylType.Error);
@@ -220,6 +222,12 @@ public sealed partial class Binder
         {
             return BindInvocation(e, BindFieldAccess(member.Location, receiver, member.Name, member.NameLocation), pending);
         }
+        // A member of the receiver's type, a field included, wins over an extension (spec functions.extensions).
+        if (MethodCandidates(receiver.Type.Narrowed, member.Name).Count == 0 && LookupField(receiver.Type, member.Name) is null
+            && BindExtensionCall(e.Location, receiver, member.Name, member.NameLocation, typeArguments, pending) is { } extensionCall)
+        {
+            return extensionCall;
+        }
         var receiverArguments = pending.Bind(MethodCandidates(receiver.Type.Narrowed, member.Name));
         if (AnyError(receiverArguments))
             return new BoundErrorExpression(e.Location);
@@ -244,7 +252,7 @@ public sealed partial class Binder
         var candidates = MethodCandidates(receiverType, name);
         if (candidates.Count == 0)
         {
-            return ErrorExpression(LookupField(receiverType, name) is not null ? Catalog.FieldNotMethod(nameLocation, $"{DisplayName(receiverType)}.{name}") : Catalog.NoMethod(nameLocation, DisplayName(receiverType), name));
+            return ErrorExpression(LookupField(receiverType, name) is not null ? Catalog.FieldNotMethod(nameLocation, $"{DisplayName(receiverType)}.{name}") : Catalog.NoMethod(nameLocation, DisplayName(receiverType), name, NearestExtension(name, nameLocation)));
         }
 
         var description = name == SyntaxFacts.IndexerName ? $"indexer of '{receiverType}'" : $"overload of '{DisplayName(receiverType)}.{name}'";
@@ -321,10 +329,16 @@ public sealed partial class Binder
     {
         if (BindConditionalReceiver(access) is not var (receiver, value))
             return new BoundErrorExpression(e.Location);
+        var target = new BoundLocalAccess(access.Target.Location, value, AssumesNonNull: value.IsReferenceBinding);
+        if (MethodCandidates(value.Type.Narrowed, access.Name).Count == 0 && LookupField(value.Type, access.Name) is null
+            && BindExtensionCall(e.Location, target, access.Name, access.NameLocation, null, pending) is { } extensionCall)
+        {
+            return MakeConditionalAccess(e.Location, receiver, value, extensionCall);
+        }
         var arguments = pending.Bind(MethodCandidates(value.Type.Narrowed, access.Name));
         if (AnyError(arguments))
             return new BoundErrorExpression(e.Location);
-        var call = BindMethodCall(e.Location, new BoundLocalAccess(access.Target.Location, value, AssumesNonNull: value.IsReferenceBinding), access.Name, access.NameLocation, null, arguments);
+        var call = BindMethodCall(e.Location, target, access.Name, access.NameLocation, null, arguments);
         return MakeConditionalAccess(e.Location, receiver, value, call);
     }
 
@@ -336,6 +350,11 @@ public sealed partial class Binder
         if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: BoundLocalAccess { Local: var local }, Method.Symbol: { IsReadOnly: false } method } && local == value)
         {
             return ErrorExpression(Catalog.ConditionalMutCall(location, method.Name, TextOf(receiver.Location)));
+        }
+        if (receiver.Type.NonNull.IsStruct && access is BoundCall { Receiver: null, Method.Symbol: { IsExtension: true } extension, Arguments: [BoundLocalAccess { Local: var copy }, ..] }
+            && copy == value && extension.Parameters[0].RefKind == RefKind.Ref)
+        {
+            return ErrorExpression(Catalog.ConditionalMutCall(location, extension.Name, TextOf(receiver.Location)));
         }
         if (access.Type == WylType.Void)
             return new BoundConditionalAccess(location, receiver, value, access, access.Type);
@@ -443,7 +462,12 @@ public sealed partial class Binder
 
             var place = NarrowReference(argument.Expression);
             var (kind, reason) = ClassifyPlace(place);
-            if (kind == PlaceKind.Temporary)
+            // A `this ref` receiver needs a mutable place, as the receiver of a `mut` method does.
+            if (argument.IsReceiver && kind == PlaceKind.Temporary)
+                Error(Catalog.RefReceiverOnTemporary(argument.Location, method.Symbol.Name));
+            else if (argument.IsReceiver && kind == PlaceKind.ReadOnly)
+                Error(Catalog.RefReceiverOnReadOnly(argument.Location, method.Symbol.Name, TextOf(place.Location), reason));
+            else if (kind == PlaceKind.Temporary)
                 Error(Catalog.RefArgumentNotPlace(argument.Location, Elementless(place)));
             else if (kind == PlaceKind.ReadOnly)
                 Error(Catalog.RefArgumentReadOnly(argument.Location, TextOf(place.Location), reason));

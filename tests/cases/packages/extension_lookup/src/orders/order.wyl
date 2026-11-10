@@ -1,0 +1,8 @@
+pub struct Order {
+    pub int amount;
+}
+
+// Found only in its own module or through an import of its name.
+pub int weight(this Order o) {
+    return 1;
+}

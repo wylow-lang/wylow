@@ -7,10 +7,10 @@ out 1
 exit 0
 
 === local/assign
-error 35: cannot assign to 'x'
+error 43: cannot assign to 'x'
 
 === local/compound
-error 35: cannot assign to 'x'
+error 43: cannot assign to 'x'
 
 === local/pass
 out 1
@@ -18,6 +18,11 @@ out 1
 exit 0
 
 === local/pass-ref-in
+out 1
+out 1
+exit 0
+
+=== local/extend-ref-in
 out 1
 out 1
 exit 0
@@ -33,7 +38,7 @@ out 1
 exit 0
 
 === local/replace
-error 35: cannot pass 'x' by 'ref'
+error 43: cannot pass 'x' by 'ref'
 
 === local/span
 out 1
@@ -62,18 +67,18 @@ out 1
 exit 0
 
 === local/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === local/return
 out 1
 exit 0
 
 === local/return-ref
-error 36: cannot bind 'ref' to read-only 'x'
+error 44: cannot bind 'ref' to read-only 'x'
 
 === local/reassign
-error 35: cannot bind 'ref' to read-only 'x'
-error 36: cannot assign to 'x'
+error 43: cannot bind 'ref' to read-only 'x'
+error 44: cannot assign to 'x'
 
 === mut-local/read
 out 1
@@ -94,6 +99,10 @@ out 1
 exit 0
 
 === mut-local/pass-ref-in
+out 11
+exit 0
+
+=== mut-local/extend-ref-in
 out 11
 exit 0
 
@@ -127,17 +136,17 @@ out 5
 exit 0
 
 === mut-local/capture-escaping
-error 36: cannot assign to 'x'
+error 44: cannot assign to 'x'
 
 === mut-local/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === mut-local/return
 out 1
 exit 0
 
 === mut-local/return-ref
-error 36: returned 'ref' must point into the method's receiver
+error 44: returned 'ref' must point into the method's receiver
 
 === mut-local/reassign
 out 5
@@ -163,6 +172,10 @@ out 1
 exit 0
 
 === field/pass-ref-in
+out 11
+exit 0
+
+=== field/extend-ref-in
 out 11
 exit 0
 
@@ -196,10 +209,10 @@ out 5
 exit 0
 
 === field/capture-escaping
-error 36: cannot assign to 'p.value'
+error 44: cannot assign to 'p.value'
 
 === field/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === field/return
 out 1
@@ -236,6 +249,10 @@ exit 0
 out 11
 exit 0
 
+=== fixed-element-first/extend-ref-in
+out 11
+exit 0
+
 === fixed-element-first/take-ref-in
 out 5
 exit 0
@@ -266,10 +283,10 @@ out 5
 exit 0
 
 === fixed-element-first/capture-escaping
-error 36: cannot assign to 'a[0]'
+error 44: cannot assign to 'a[0]'
 
 === fixed-element-first/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-first/return
 out 1
@@ -306,6 +323,10 @@ exit 0
 out 13
 exit 0
 
+=== fixed-element-last/extend-ref-in
+out 13
+exit 0
+
 === fixed-element-last/take-ref-in
 out 5
 exit 0
@@ -336,10 +357,10 @@ out 5
 exit 0
 
 === fixed-element-last/capture-escaping
-error 36: cannot assign to 'a[2]'
+error 44: cannot assign to 'a[2]'
 
 === fixed-element-last/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-last/return
 out 3
@@ -376,6 +397,10 @@ exit 0
 out 11
 exit 0
 
+=== fixed-element-single/extend-ref-in
+out 11
+exit 0
+
 === fixed-element-single/take-ref-in
 out 5
 exit 0
@@ -406,10 +431,10 @@ out 5
 exit 0
 
 === fixed-element-single/capture-escaping
-error 36: cannot assign to 'a[0]'
+error 44: cannot assign to 'a[0]'
 
 === fixed-element-single/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === fixed-element-single/return
 out 1
@@ -443,6 +468,10 @@ out 1
 exit 0
 
 === list-element-first/pass-ref-in
+out 11
+exit 0
+
+=== list-element-first/extend-ref-in
 out 11
 exit 0
 
@@ -480,7 +509,7 @@ out 5
 exit 0
 
 === list-element-first/narrow
-error 38: '!' is used on a value of non-nullable type 'int'
+error 46: '!' is used on a value of non-nullable type 'int'
 
 === list-element-first/return
 out 1
@@ -514,6 +543,10 @@ out 3
 exit 0
 
 === list-element-last/pass-ref-in
+out 13
+exit 0
+
+=== list-element-last/extend-ref-in
 out 13
 exit 0
 
@@ -551,7 +584,7 @@ out 5
 exit 0
 
 === list-element-last/narrow
-error 38: '!' is used on a value of non-nullable type 'int'
+error 46: '!' is used on a value of non-nullable type 'int'
 
 === list-element-last/return
 out 3
@@ -585,6 +618,10 @@ out 1
 exit 0
 
 === list-element-single/pass-ref-in
+out 11
+exit 0
+
+=== list-element-single/extend-ref-in
 out 11
 exit 0
 
@@ -622,7 +659,7 @@ out 5
 exit 0
 
 === list-element-single/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === list-element-single/return
 out 1
@@ -659,6 +696,10 @@ exit 0
 out 11
 exit 0
 
+=== span-element-first/extend-ref-in
+out 11
+exit 0
+
 === span-element-first/take-ref-in
 out 5
 exit 0
@@ -689,17 +730,17 @@ out 5
 exit 0
 
 === span-element-first/capture-escaping
-error 37: escaping lambda cannot capture 's'
+error 45: escaping lambda cannot capture 's'
 
 === span-element-first/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === span-element-first/return
 out 1
 exit 0
 
 === span-element-first/return-ref
-error 38: returned 'ref' must point into the method's receiver
+error 46: returned 'ref' must point into the method's receiver
 
 === span-element-first/reassign
 out 5
@@ -725,6 +766,10 @@ out 3
 exit 0
 
 === span-element-last/pass-ref-in
+out 13
+exit 0
+
+=== span-element-last/extend-ref-in
 out 13
 exit 0
 
@@ -758,17 +803,17 @@ out 5
 exit 0
 
 === span-element-last/capture-escaping
-error 37: escaping lambda cannot capture 's'
+error 45: escaping lambda cannot capture 's'
 
 === span-element-last/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === span-element-last/return
 out 3
 exit 0
 
 === span-element-last/return-ref
-error 38: returned 'ref' must point into the method's receiver
+error 46: returned 'ref' must point into the method's receiver
 
 === span-element-last/reassign
 out 5
@@ -794,6 +839,10 @@ out 1
 exit 0
 
 === span-element-single/pass-ref-in
+out 11
+exit 0
+
+=== span-element-single/extend-ref-in
 out 11
 exit 0
 
@@ -827,17 +876,17 @@ out 5
 exit 0
 
 === span-element-single/capture-escaping
-error 37: escaping lambda cannot capture 's'
+error 45: escaping lambda cannot capture 's'
 
 === span-element-single/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === span-element-single/return
 out 1
 exit 0
 
 === span-element-single/return-ref
-error 38: returned 'ref' must point into the method's receiver
+error 46: returned 'ref' must point into the method's receiver
 
 === span-element-single/reassign
 out 5
@@ -863,6 +912,10 @@ out 1
 exit 0
 
 === ref-local/pass-ref-in
+out 11
+exit 0
+
+=== ref-local/extend-ref-in
 out 11
 exit 0
 
@@ -896,17 +949,17 @@ out 5
 exit 0
 
 === ref-local/capture-escaping
-error 37: cannot assign to 'r'
+error 45: cannot assign to 'r'
 
 === ref-local/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === ref-local/return
 out 1
 exit 0
 
 === ref-local/return-ref
-error 37: returned 'ref' must point into the method's receiver
+error 45: returned 'ref' must point into the method's receiver
 
 === ref-local/reassign
 out 5
@@ -919,10 +972,10 @@ out 1
 exit 0
 
 === in-local/assign
-error 36: cannot assign to 'r'
+error 44: cannot assign to 'r'
 
 === in-local/compound
-error 36: cannot assign to 'r'
+error 44: cannot assign to 'r'
 
 === in-local/pass
 out 1
@@ -930,6 +983,11 @@ out 1
 exit 0
 
 === in-local/pass-ref-in
+out 1
+out 1
+exit 0
+
+=== in-local/extend-ref-in
 out 1
 out 1
 exit 0
@@ -945,7 +1003,7 @@ out 1
 exit 0
 
 === in-local/replace
-error 36: cannot pass 'r' by 'ref'
+error 44: cannot pass 'r' by 'ref'
 
 === in-local/span
 out 1
@@ -969,21 +1027,21 @@ out 1
 exit 0
 
 === in-local/capture-escaping
-error 37: escaping lambda cannot capture 'r'
+error 45: escaping lambda cannot capture 'r'
 
 === in-local/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === in-local/return
 out 1
 exit 0
 
 === in-local/return-ref
-error 37: cannot bind 'ref' to read-only 'r'
+error 45: cannot bind 'ref' to read-only 'r'
 
 === in-local/reassign
-error 36: cannot bind 'ref' to read-only 'r'
-error 37: cannot assign to 'r'
+error 44: cannot bind 'ref' to read-only 'r'
+error 45: cannot assign to 'r'
 
 === ref-nullable-local/read
 out 1
@@ -1004,6 +1062,10 @@ out 1
 exit 0
 
 === ref-nullable-local/pass-ref-in
+out 11
+exit 0
+
+=== ref-nullable-local/extend-ref-in
 out 11
 exit 0
 
@@ -1037,7 +1099,7 @@ out 5
 exit 0
 
 === ref-nullable-local/capture-escaping
-error 37: cannot assign to 'q!'
+error 45: cannot assign to 'q!'
 
 === ref-nullable-local/narrow
 out 1
@@ -1049,7 +1111,7 @@ out 1
 exit 0
 
 === ref-nullable-local/return-ref
-error 37: returned 'ref' must point into the method's receiver
+error 45: returned 'ref' must point into the method's receiver
 
 === ref-nullable-local/reassign
 out 5
@@ -1062,10 +1124,10 @@ out 1
 exit 0
 
 === in-nullable-local/assign
-error 36: cannot assign to 'q!'
+error 44: cannot assign to 'q!'
 
 === in-nullable-local/compound
-error 36: cannot assign to 'q!'
+error 44: cannot assign to 'q!'
 
 === in-nullable-local/pass
 out 1
@@ -1073,6 +1135,11 @@ out 1
 exit 0
 
 === in-nullable-local/pass-ref-in
+out 1
+out 1
+exit 0
+
+=== in-nullable-local/extend-ref-in
 out 1
 out 1
 exit 0
@@ -1088,7 +1155,7 @@ out 1
 exit 0
 
 === in-nullable-local/replace
-error 36: cannot pass 'q!' by 'ref'
+error 44: cannot pass 'q!' by 'ref'
 
 === in-nullable-local/span
 out 1
@@ -1112,7 +1179,7 @@ out 1
 exit 0
 
 === in-nullable-local/capture-escaping
-error 37: escaping lambda cannot capture 'q'
+error 45: escaping lambda cannot capture 'q'
 
 === in-nullable-local/narrow
 out 1
@@ -1124,11 +1191,11 @@ out 1
 exit 0
 
 === in-nullable-local/return-ref
-error 37: cannot bind 'ref' to read-only 'q!'
+error 45: cannot bind 'ref' to read-only 'q!'
 
 === in-nullable-local/reassign
-error 36: cannot bind 'ref' to read-only 'q!'
-error 37: cannot assign to 'q!'
+error 44: cannot bind 'ref' to read-only 'q!'
+error 45: cannot assign to 'q!'
 
 === nullable-value/read
 out 1
@@ -1149,13 +1216,16 @@ out 1
 exit 0
 
 === nullable-value/pass-ref-in
-error 36: 'ref' argument: expected 'int', found 'int?'
+error 44: 'ref' argument: expected 'int', found 'int?'
+
+=== nullable-value/extend-ref-in
+error 44: cannot call 'bumped' on 'v' of nullable type 'int?'
 
 === nullable-value/take-ref-in
-error 36: 'ref' variable cannot refer to nullable variable 'v'
+error 44: 'ref' variable cannot refer to nullable variable 'v'
 
 === nullable-value/take-ref-nullable
-error 36: 'ref?' variable cannot refer to nullable variable 'v'
+error 44: 'ref?' variable cannot refer to nullable variable 'v'
 
 === nullable-value/replace
 out 1
@@ -1163,17 +1233,17 @@ out 5
 exit 0
 
 === nullable-value/span
-error 36: expected 'Span<int>', found 'int[3]?'
+error 44: expected 'Span<int>', found 'int[3]?'
 
 === nullable-value/loop
-error 36: cannot loop over elements inside nullable 'v'
+error 44: cannot loop over elements inside nullable 'v'
 
 === nullable-value/capture
 out 5
 exit 0
 
 === nullable-value/capture-escaping
-error 37: cannot assign to 'v'
+error 45: cannot assign to 'v'
 
 === nullable-value/narrow
 out 1
@@ -1185,10 +1255,10 @@ out 1
 exit 0
 
 === nullable-value/return-ref
-error 36: returned 'ref' cannot refer to nullable variable 'v'
+error 44: returned 'ref' cannot refer to nullable variable 'v'
 
 === nullable-value/reassign
-error 36: 'ref' variable cannot refer to nullable variable 'v'
+error 44: 'ref' variable cannot refer to nullable variable 'v'
 
 === captured-local/read
 out 1
@@ -1209,6 +1279,10 @@ out 1
 exit 0
 
 === captured-local/pass-ref-in
+out 11
+exit 0
+
+=== captured-local/extend-ref-in
 out 11
 exit 0
 
@@ -1242,17 +1316,17 @@ out 5
 exit 0
 
 === captured-local/capture-escaping
-error 37: cannot assign to 'x'
+error 45: cannot assign to 'x'
 
 === captured-local/narrow
-error 36: '!' is used on a value of non-nullable type 'int'
+error 44: '!' is used on a value of non-nullable type 'int'
 
 === captured-local/return
 out 1
 exit 0
 
 === captured-local/return-ref
-error 36: returned 'ref' must point into the method's receiver
+error 44: returned 'ref' must point into the method's receiver
 
 === captured-local/reassign
 out 5
@@ -1278,6 +1352,10 @@ out 1
 exit 0
 
 === this-field/pass-ref-in
+out 11
+exit 0
+
+=== this-field/extend-ref-in
 out 11
 exit 0
 
@@ -1315,7 +1393,7 @@ out 5
 exit 0
 
 === this-field/narrow
-error 38: '!' is used on a value of non-nullable type 'int'
+error 46: '!' is used on a value of non-nullable type 'int'
 
 === this-field/return
 out 1
@@ -1349,6 +1427,10 @@ out 1
 exit 0
 
 === chained-field/pass-ref-in
+out 11
+exit 0
+
+=== chained-field/extend-ref-in
 out 11
 exit 0
 
@@ -1386,7 +1468,7 @@ out 5
 exit 0
 
 === chained-field/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === chained-field/return
 out 1
@@ -1420,42 +1502,45 @@ out 1
 exit 0
 
 === setter-element/pass-ref-in
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
+
+=== setter-element/extend-ref-in
+error 43: cannot call 'bumped' on a temporary value
 
 === setter-element/take-ref-in
-error 35: 'ref' variable must refer to a variable, field, or element
+error 43: 'ref' variable must refer to a variable, field, or element
 
 === setter-element/take-ref-nullable
-error 35: 'ref?' variable must refer to a variable, field, or element
+error 43: 'ref?' variable must refer to a variable, field, or element
 
 === setter-element/replace
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
 
 === setter-element/span
-error 35: expected 'Span<int>', found 'int[3]'
+error 43: expected 'Span<int>', found 'int[3]'
 
 === setter-element/loop
-error 35: cannot loop over a temporary array by 'ref'
+error 43: cannot loop over a temporary array by 'ref'
 
 === setter-element/capture
 out 5
 exit 0
 
 === setter-element/capture-escaping
-error 36: cannot call 'mut' method 'operator []=' on 'c'
+error 44: cannot call 'mut' method 'operator []=' on 'c'
 
 === setter-element/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === setter-element/return
 out 1
 exit 0
 
 === setter-element/return-ref
-error 37: returned 'ref' must refer to a variable, field, or element
+error 45: returned 'ref' must refer to a variable, field, or element
 
 === setter-element/reassign
-error 35: 'ref' variable must refer to a variable, field, or element
+error 43: 'ref' variable must refer to a variable, field, or element
 
 === temporary-field/read
 out 1
@@ -1463,10 +1548,10 @@ out 1
 exit 0
 
 === temporary-field/assign
-error 35: cannot assign to a field of a temporary value
+error 43: cannot assign to a field of a temporary value
 
 === temporary-field/compound
-error 35: cannot assign to a field of a temporary value
+error 43: cannot assign to a field of a temporary value
 
 === temporary-field/pass
 out 1
@@ -1474,42 +1559,45 @@ out 1
 exit 0
 
 === temporary-field/pass-ref-in
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
+
+=== temporary-field/extend-ref-in
+error 43: cannot call 'bumped' on a temporary value
 
 === temporary-field/take-ref-in
-error 35: 'ref' variable must refer to a variable, field, or element
+error 43: 'ref' variable must refer to a variable, field, or element
 
 === temporary-field/take-ref-nullable
-error 35: 'ref?' variable must refer to a variable, field, or element
+error 43: 'ref?' variable must refer to a variable, field, or element
 
 === temporary-field/replace
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
 
 === temporary-field/span
-error 35: expected 'Span<int>', found 'int[3]'
+error 43: expected 'Span<int>', found 'int[3]'
 
 === temporary-field/loop
-error 35: cannot loop over a temporary array by 'ref'
+error 43: cannot loop over a temporary array by 'ref'
 
 === temporary-field/capture
-error 36: cannot assign to a field of a temporary value
+error 44: cannot assign to a field of a temporary value
 
 === temporary-field/capture-escaping
-error 36: cannot assign to a field of a temporary value
+error 44: cannot assign to a field of a temporary value
 
 === temporary-field/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === temporary-field/return
 out 1
 exit 0
 
 === temporary-field/return-ref
-error 36: returned 'ref' must refer to a variable, field, or element
+error 44: returned 'ref' must refer to a variable, field, or element
 
 === temporary-field/reassign
-error 35: 'ref' variable must refer to a variable, field, or element
-error 36: cannot assign to a field of a temporary value
+error 43: 'ref' variable must refer to a variable, field, or element
+error 44: cannot assign to a field of a temporary value
 
 === temporary-setter-element/read
 out 1
@@ -1517,10 +1605,10 @@ out 1
 exit 0
 
 === temporary-setter-element/assign
-error 35: cannot assign to an element of a temporary value
+error 43: cannot assign to an element of a temporary value
 
 === temporary-setter-element/compound
-error 35: cannot assign to an element of a temporary value
+error 43: cannot assign to an element of a temporary value
 
 === temporary-setter-element/pass
 out 1
@@ -1528,42 +1616,45 @@ out 1
 exit 0
 
 === temporary-setter-element/pass-ref-in
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
+
+=== temporary-setter-element/extend-ref-in
+error 43: cannot call 'bumped' on a temporary value
 
 === temporary-setter-element/take-ref-in
-error 35: 'ref' variable must refer to a variable, field, or element
+error 43: 'ref' variable must refer to a variable, field, or element
 
 === temporary-setter-element/take-ref-nullable
-error 35: 'ref?' variable must refer to a variable, field, or element
+error 43: 'ref?' variable must refer to a variable, field, or element
 
 === temporary-setter-element/replace
-error 35: 'ref' argument must be a variable, field, or element
+error 43: 'ref' argument must be a variable, field, or element
 
 === temporary-setter-element/span
-error 35: expected 'Span<int>', found 'int[3]'
+error 43: expected 'Span<int>', found 'int[3]'
 
 === temporary-setter-element/loop
-error 35: cannot loop over a temporary array by 'ref'
+error 43: cannot loop over a temporary array by 'ref'
 
 === temporary-setter-element/capture
-error 36: cannot assign to an element of a temporary value
+error 44: cannot assign to an element of a temporary value
 
 === temporary-setter-element/capture-escaping
-error 36: cannot assign to an element of a temporary value
+error 44: cannot assign to an element of a temporary value
 
 === temporary-setter-element/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === temporary-setter-element/return
 out 1
 exit 0
 
 === temporary-setter-element/return-ref
-error 36: returned 'ref' must refer to a variable, field, or element
+error 44: returned 'ref' must refer to a variable, field, or element
 
 === temporary-setter-element/reassign
-error 35: 'ref' variable must refer to a variable, field, or element
-error 36: cannot assign to an element of a temporary value
+error 43: 'ref' variable must refer to a variable, field, or element
+error 44: cannot assign to an element of a temporary value
 
 === static-field/read
 out 1
@@ -1571,10 +1662,10 @@ out 1
 exit 0
 
 === static-field/assign
-error 35: cannot assign to static 'Statics.value'
+error 43: cannot assign to static 'Statics.value'
 
 === static-field/compound
-error 35: cannot assign to static 'Statics.value'
+error 43: cannot assign to static 'Statics.value'
 
 === static-field/pass
 out 1
@@ -1582,6 +1673,11 @@ out 1
 exit 0
 
 === static-field/pass-ref-in
+out 1
+out 1
+exit 0
+
+=== static-field/extend-ref-in
 out 1
 out 1
 exit 0
@@ -1597,7 +1693,7 @@ out 1
 exit 0
 
 === static-field/replace
-error 35: cannot pass 'Statics.value' by 'ref'
+error 43: cannot pass 'Statics.value' by 'ref'
 
 === static-field/span
 out 1
@@ -1626,15 +1722,15 @@ out 1
 exit 0
 
 === static-field/narrow
-error 35: '!' is used on a value of non-nullable type 'int'
+error 43: '!' is used on a value of non-nullable type 'int'
 
 === static-field/return
 out 1
 exit 0
 
 === static-field/return-ref
-error 36: cannot bind 'ref' to read-only 'Statics.value'
+error 44: cannot bind 'ref' to read-only 'Statics.value'
 
 === static-field/reassign
-error 35: cannot bind 'ref' to read-only 'Statics.value'
-error 36: cannot assign to static 'Statics.value'
+error 43: cannot bind 'ref' to read-only 'Statics.value'
+error 44: cannot assign to static 'Statics.value'

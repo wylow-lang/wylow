@@ -1,0 +1,48 @@
+// The errors of extension methods that the binder reports (spec functions.extensions).
+struct Point {
+    int x;
+}
+
+void shift(this ref Point p) {
+    p.x += 1;
+}
+
+int wide(this long value) {
+    return 1;
+}
+
+int named(this Point p) {
+    return p.x;
+}
+
+void call(this ref fn() -> int f) { }      // error[WYL0409]: 'ref' cannot be used with type 'fn() -> int'
+
+Point make() {
+    return Point(1);
+}
+
+Point? find() {
+    return null;
+}
+
+void main() {
+    Point fixed = Point(1);
+    fixed.shift();                          // error[WYL0488]: cannot call 'shift' on 'fixed'
+    make().shift();                         // error[WYL0487]: cannot call 'shift' on a temporary value
+
+    // The receiver converts only by identity, by an upcast, or by a span conversion.
+    int small = 3;
+    std::print(small.wide());               // error[WYL0300]: cannot find method 'wide' in 'int'
+
+    // A nullable receiver needs a narrowing, unless the receiver parameter is nullable.
+    std::print(find().named());             // error[WYL0065]: 'find()' might be null
+
+    // '?.' would change a copy of the nullable value.
+    mut Point? maybe = fixed;
+    maybe?.shift();                         // error[WYL0317]: '?.' would call 'shift', which changes its receiver, on a copy of 'maybe'
+
+    // Nothing refers into a nullable value, even where it is narrowed.
+    if (maybe != null) {
+        maybe.shift();                      // error[WYL0489]: cannot call 'shift' on 'maybe' of nullable type 'Point?'
+    }
+}

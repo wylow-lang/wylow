@@ -1,0 +1,74 @@
+// The errors of overloads that differ only in their bounds (spec functions.overloading).
+interface Named {
+    String name();
+}
+
+interface Sized {
+    int size();
+}
+
+struct Both implements Named, Sized {
+    String name() {
+        return "both";
+    }
+
+    int size() {
+        return 2;
+    }
+}
+
+struct Plain { }
+
+String show<T extends Named>(T value) {
+    return value.name();
+}
+
+String show<T extends Sized>(T value) {
+    return "sized";
+}
+
+// The same bounds under another name are the same function.
+String show<U extends Sized>(U value) {     // error[WYL0232]: function 'show<U>(U)' is already defined
+    return "again";
+}
+
+String only<T extends Named>(T value) {
+    return value.name();
+}
+
+String label<T extends Named>(this T value) {
+    return "named";
+}
+
+String label<T extends Sized>(this T value) {
+    return "sized";
+}
+
+// Two generic overloads that are equally good are ambiguous.
+String pair<T>(T a, int b) {
+    return "first";
+}
+
+String pair<T>(int a, T b) {
+    return "second";
+}
+
+struct Holder {
+    String hold<T extends Named>(T value) {
+        return "named";
+    }
+
+    // Methods may not differ only in their bounds.
+    String hold<T extends Sized>(T value) { // error[WYL0232]: method 'hold<T>(T)' is already defined
+        return "sized";
+    }
+}
+
+void main() {
+    std::print(show(Both()));               // error[WYL0237]: call to 'show' is ambiguous
+    std::print(show(Plain()));              // error[WYL0236]: no overload of 'show' accepts (Plain)
+    std::print(only(Plain()));              // error[WYL0208]: 'Plain' does not implement 'Named'
+    std::print(Both().label());             // error[WYL0237]: call to 'label' is ambiguous
+    std::print(Plain().label());            // error[WYL0300]: cannot find method 'label' in 'Plain'
+    std::print(pair(1, 1));                 // error[WYL0237]: call to 'pair' is ambiguous
+}

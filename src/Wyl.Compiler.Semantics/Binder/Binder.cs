@@ -42,7 +42,14 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     }
 
     /// <summary>A call argument, with the name it was passed by, if any.</summary>
-    sealed record Argument(BoundExpression Expression, bool IsRef, Location Location, string? Name = null, Location NameLocation = default);
+    sealed record Argument(BoundExpression Expression, bool IsRef, Location Location, string? Name = null, Location NameLocation = default)
+    {
+        /// <summary>
+        /// The receiver of an extension call, passed to the <c>this</c> parameter: it converts only as a
+        /// receiver does, and a <c>this ref</c> parameter takes it without a written <c>ref</c>.
+        /// </summary>
+        public bool IsReceiver { get; init; }
+    }
 
     /// <summary>A method or constructor that may be called, as a member of <see cref="Owner"/>.</summary>
     sealed record Candidate(FunctionSymbol Symbol, WylType? Owner);

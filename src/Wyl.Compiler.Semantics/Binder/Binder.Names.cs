@@ -63,28 +63,49 @@ public sealed partial class Binder
         [.. FileNames(file).Functions.GetValueOrDefault(name) ?? [], .. ModuleNames(file.Module).Functions.GetValueOrDefault(name) ?? []];
 
     /// <summary>
-    /// The nearest meaning of a top-level name where it is used (spec programs.imports): the names the file
-    /// and its module declare or re-export, then the file's named imports, then its <c>*</c> imports,
-    /// which give way to both and are ambiguous only where used, then the types the language is
-    /// built on. The first that has the name hides the rest, so overloads never merge across them.
+    /// The places a file looks up a top-level name (spec programs.imports), nearest first, with what
+    /// the name means in each: the names the file and its module declare, those the module
+    /// re-exports, the file's named import, each of its <c>*</c> imports, and the types the language
+    /// is built on. The <c>*</c> imports are together one place, so each comes with the module it
+    /// imports from. Lazy, so a lookup that stops early reaches no farther.
+    /// </summary>
+    IEnumerable<(Entry Entry, Module? Star)> Places(string name, SourceText from)
+    {
+        var functions = OwnFunctions(name, from);
+        yield return (new Entry(OwnType(name, from), functions.Count > 0 ? functions : null, null), null);
+        yield return (ReExported(from.Module, name, from), null);
+        if (fileImports.TryGetValue(from, out var imports))
+        {
+            if (imports.Named.TryGetValue(name, out var imported))
+                yield return (Target(imported, from) with { Via = new ImportVia(imported.From, imported.Name, imported.Decl) }, null);
+            foreach (var all in imports.All)
+                yield return (VisibleTo(NamesOf(all.From, name, from), from) with { Module = null, Via = new ImportVia(all.From, name, all.Decl) }, all.From);
+        }
+        yield return (new Entry(stdlib.LanguageType(name), null, null), null);
+    }
+
+    /// <summary>
+    /// The nearest meaning of a top-level name where it is used: the first of <see cref="Places"/>
+    /// that has it, which hides the rest, so overloads never merge across them. The <c>*</c>
+    /// imports give way to the places before them and are ambiguous only where used.
     /// </summary>
     Entry ResolveName(string name, Location use)
     {
-        var from = use.Source;
-        var functions = OwnFunctions(name, from);
-        var own = new Entry(OwnType(name, from), functions.Count > 0 ? functions : null, null);
-        if (own.HasValue)
-            return own;
-        if (ReExported(from.Module, name, from) is { HasValue: true } reExported)
-            return reExported;
-        if (fileImports.TryGetValue(from, out var imports))
+        var stars = new List<(Entry Entry, Module From)>();
+        foreach (var (entry, star) in Places(name, use.Source))
         {
-            if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { HasValue: true } named)
-                return named with { Via = new ImportVia(imported.From, imported.Name, imported.Decl) };
-            if (FromAll(imports, name, from, use, modules: false) is { } all)
-                return all;
+            if (star is not null)
+            {
+                if (entry.HasValue && !stars.Any(f => f.Entry.SameAs(entry)))
+                    stars.Add((entry, star));
+                continue;
+            }
+            if (stars.Count > 0)
+                return OneOfStars(stars, name, use);
+            if (entry.HasValue)
+                return entry;
         }
-        return new Entry(stdlib.LanguageType(name), null, null);
+        return default;
     }
 
     /// <summary>
@@ -102,30 +123,34 @@ public sealed partial class Binder
         {
             if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { Module: { } module })
                 return module;
-            if (FromAll(imports, name, from, use, modules: true)?.Module is { } all)
+            if (FromAll(imports, name, from, use)?.Module is { } all)
                 return all;
         }
         return name == Package.Std.Name ? Package.Std.Root : null;
     }
 
-    /// <summary>
-    /// The one meaning a name has among a file's <c>*</c> imports, of those they make visible to it,
-    /// in the namespace of modules or of everything else. Two different ones are an error where the
-    /// name is used, and the first is taken.
-    /// </summary>
-    Entry? FromAll(ImportTable imports, string name, SourceText from, Location use, bool modules)
+    /// <summary>The one module a name means among a file's <c>*</c> imports, if any.</summary>
+    Entry? FromAll(ImportTable imports, string name, SourceText from, Location use)
     {
         var found = new List<(Entry Entry, Module From)>();
         foreach (var all in imports.All)
         {
-            var entry = VisibleTo(NamesOf(all.From, name, from), from);
-            entry = modules ? new Entry(null, null, entry.Module) : entry with { Module = null, Via = new ImportVia(all.From, name, all.Decl) };
+            var entry = new Entry(null, null, NamesOf(all.From, name, from).Module);
             if (!entry.IsEmpty && !found.Any(f => f.Entry.SameAs(entry)))
                 found.Add((entry, all.From));
         }
+        return found.Count > 0 ? OneOfStars(found, name, use) : null;
+    }
+
+    /// <summary>
+    /// The meaning a name takes from a file's <c>*</c> imports when they give it one or more. Two
+    /// different ones are an error where the name is used, reported once, and the first is taken.
+    /// </summary>
+    Entry OneOfStars(List<(Entry Entry, Module From)> found, string name, Location use)
+    {
         if (found.Count > 1 && reportedAmbiguities.Add((use, name)))
             Error(Catalog.AmbiguousStarImport(use, name, found[0].From, found[1].From));
-        return found.Count > 0 ? found[0].Entry : null;
+        return found[0].Entry;
     }
 
     /// <summary>Only what is visible to the file, as a <c>*</c> import brings in.</summary>

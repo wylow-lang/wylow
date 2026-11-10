@@ -1,0 +1,10 @@
+import orders::Order;
+
+pub int size(this Order o) {
+    return 2;
+}
+
+// Accepts no 'Order', so it does not make 'only' ambiguous.
+pub int only(this int value) {
+    return 2;
+}

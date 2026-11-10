@@ -1,0 +1,21 @@
+// A nullable local needs a narrowing before an extension whose receiver parameter is not nullable
+// takes it (spec functions.extensions).
+struct Point {
+    int x;
+}
+
+int named(this Point p) {
+    return p.x;
+}
+
+Point? find(bool found) {
+    return found ? Point(5) : null;
+}
+
+void main() {
+    Point? maybe = find(true);
+    std::print(maybe.named());              // error[WYL0397]: 'maybe' might be null
+    if (maybe != null) {
+        std::print(maybe.named());
+    }
+}

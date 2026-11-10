@@ -144,10 +144,12 @@ public sealed partial class Binder
         if (decl.Where.Count > 0)
             Error(Catalog.WhereNotAllowed(decl.Where[0].Location, "bound a free function's type parameter", "put the bound where the type parameter is declared"));
         var parameters = BindParameters(decl.Parameters, out var receiver);
+        // An extension's receiver is its first parameter (spec functions.extensions).
         if (receiver is not null)
-            Error(Catalog.ReceiverOutsideValueMethod(decl.NameLocation));
+            parameters.Insert(0, receiver);
         var function = new FunctionSymbol(decl.Name, parameters, BindType(decl.ReturnType!, allowVoid: true))
         {
+            IsExtension = receiver is not null,
             Declaration = decl,
             Body = decl.Body,
             TypeParameters = ownTypeParameters,
@@ -175,8 +177,8 @@ public sealed partial class Binder
 
         // Within what any one file sees, each signature is declared once: the overloads this file
         // sees, and if this one is visible beyond its file, the private ones of the module's others.
-        var existing = FindSameSignature(OwnFunctions(decl.Name, decl.Location.Source), function)
-            ?? (decl.Visibility == Visibility.File ? null : FindSameSignature(PrivateElsewhere(decl.Name, decl.Location.Source), function));
+        var existing = FindSameFunction(OwnFunctions(decl.Name, decl.Location.Source), function)
+            ?? (decl.Visibility == Visibility.File ? null : FindSameFunction(PrivateElsewhere(decl.Name, decl.Location.Source), function));
         if (existing is null)
             AddFunction(function, decl);
         else
@@ -194,18 +196,31 @@ public sealed partial class Binder
     /// </summary>
     static string MethodKey(FunctionSymbol function, TypeMap map)
     {
-        string Key(WylType type) =>
-            type is NullableReferenceType reference ? Key(reference.Referenced)
-            : type.IsNullable ? Key(type.NonNull)
-            : type is TypeParameterType { Parameter: var p } && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
-            : type.Symbol is { } s && type.TypeArguments.Count > 0 ? $"{s.Name}<{string.Join(",", type.TypeArguments.Select(Key))}>"
-            : type.Name;
-        var parameters = string.Join(",", function.Parameters.Select(p => p.RefKind + Key(map.Apply(p.Type))));
+        var parameters = string.Join(",", function.Parameters.Select(p => p.RefKind + TypeKey(function, map.Apply(p.Type))));
         return $"{function.Name}|{function.TypeParameters.Count}|{parameters}";
     }
 
+    static string TypeKey(FunctionSymbol function, WylType type) =>
+        type is NullableReferenceType reference ? TypeKey(function, reference.Referenced)
+        : type.IsNullable ? TypeKey(function, type.NonNull)
+        : type is TypeParameterType { Parameter: var p } && function.TypeParameters.Contains(p) ? $"#{function.TypeParameters.ToList().IndexOf(p)}"
+        : type.Symbol is { } s && type.TypeArguments.Count > 0 ? $"{s.Name}<{string.Join(",", type.TypeArguments.Select(a => TypeKey(function, a)))}>"
+        : type.Name;
+
+    /// <summary>
+    /// The bounds of a function's own type parameters, by position, in which two top-level
+    /// functions with the same parameter types may differ (spec <c>functions.overloading</c>).
+    /// </summary>
+    static string BoundsKey(FunctionSymbol function) =>
+        string.Join(";", function.TypeParameters.Select(p =>
+            $"{(p.IsCopyableBound ? "copyable&" : "")}{(p.IsSendableBound ? "sendable&" : "")}{string.Join("&", p.Bounds.Select(b => TypeKey(function, b)).Order(StringComparer.Ordinal))}"));
+
     static FunctionSymbol? FindSameSignature(IEnumerable<FunctionSymbol>? candidates, FunctionSymbol function) =>
         candidates?.FirstOrDefault(f => MethodKey(f, TypeMap.Empty) == MethodKey(function, TypeMap.Empty));
+
+    /// <summary>A top-level function of the same parameter types and the same bounds.</summary>
+    static FunctionSymbol? FindSameFunction(IEnumerable<FunctionSymbol>? candidates, FunctionSymbol function) =>
+        candidates?.FirstOrDefault(f => MethodKey(f, TypeMap.Empty) == MethodKey(function, TypeMap.Empty) && BoundsKey(f) == BoundsKey(function));
 
     /// <summary>Whether two methods have the same parameter and return types, including nullability.</summary>
     static bool HasSameTypes(MethodReference a, MethodReference b) =>

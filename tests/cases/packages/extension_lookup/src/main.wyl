@@ -1,0 +1,30 @@
+// A call 'x.name(...)' takes its candidates from the first place that has an extension named
+// 'name' that accepts the receiver; a place without one does not hide the places after it
+// (spec functions.extensions).
+import orders::Order;
+import tally::*;
+
+// The module's own 'count' has no 'this' parameter, so it does not hide tally's extension from a
+// '.' call. A call written as a function call still finds it first.
+int count(int value) {
+    return -value;
+}
+
+// The module's own extension hides the one that the '*' import brings in.
+int weight(this Order o) {
+    return 3;
+}
+
+// An extension for another receiver type does not hide tally's 'doubled' from an 'Order'.
+int doubled(this int value) {
+    return value + value;
+}
+
+void main() {
+    Order order = Order(5);
+    std::print(order.count());              // output: 5
+    std::print(count(4));                   // output: -4
+    std::print(order.weight());             // output: 3
+    std::print(order.doubled());            // output: 10
+    std::print(order.amount.doubled());     // output: 10
+}

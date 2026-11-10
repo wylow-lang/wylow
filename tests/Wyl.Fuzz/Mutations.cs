@@ -123,6 +123,9 @@ static class Mutations
         // returns a reference then gives its caller the hold of what the reference points into.
         new("method-virtual", SiteKind.TypeDecl, VirtualApplies, VirtualBuild),
         new("parameter-in", SiteKind.Parameter, ParameterInApplies, ParameterInBuild),
+        // Makes a top-level function an extension, which its calls written as function calls may
+        // still call. A method of the receiver's type of that name now hides it for '.' calls only.
+        new("parameter-this", SiteKind.Receiver, ReceiverApplies, (context, site) => Insert("parameter-this", site, site.Span.Start, "this ")),
         new("local-mut", SiteKind.Local, LocalMutApplies, LocalMutBuild),
         new("local-ref-nullable", SiteKind.Local, LocalRefNullableApplies, LocalRefNullableBuild),
         new("local-ref", SiteKind.Local, LocalRefApplies, LocalRefBuild),
@@ -335,6 +338,11 @@ static class Mutations
     static bool ParameterInApplies(Site site) =>
         site.Node is ParameterSyntax { RefKind: RefKind.None } parameter
         && !(parameter.Type.Shape == TypeShape.Named && parameter.Type.Name == "void");
+
+    static bool ReceiverApplies(Site site) =>
+        site.Node is FunctionDecl { Name: not "main", Parameters: [var first, ..] }
+        && first is { IsMutable: false, Escaping: null, Default: null, Annotations.Count: 0 }
+        && first.Type.Shape != TypeShape.NullableReference;
 
     static bool StaticFieldApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Struct or TypeKind.Class, TypeParameters.Count: 0 };

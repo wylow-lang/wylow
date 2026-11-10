@@ -1,0 +1,11 @@
+// Two '*' imports that each give an extension accepting the receiver are ambiguous where the call
+// is written (spec functions.extensions, programs.imports).
+import orders::Order;
+import left::*;
+import right::*;
+
+void main() {
+    Order order = Order(5);
+    std::print(order.size());               // error[WYL0045]: 'size' is ambiguous here
+    std::print(order.only());
+}

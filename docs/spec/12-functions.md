@@ -179,10 +179,11 @@ void main() {
 Functions and methods of one name may be **overloaded**: each has its own parameter types. A call
 selects one of them by its arguments.
 
-- It is a compile-time error if two functions of one name have the same parameter types and the
-  same bounds on their type parameters. Their return types do not distinguish them. Two generic
-  functions whose parameter types differ only in the names of their type parameters have the same
-  parameter types.
+- It is a compile-time error if two functions or methods of one name have the same parameter types.
+  Their return types do not distinguish them. Two generic functions whose parameter types differ
+  only in the names of their type parameters have the same parameter types.
+- Two top-level functions with the same parameter types may be overloads if the bounds of their type
+  parameters differ ([Bounds](11-generics.md#generics.bounds)). Two methods may not.
 - It is a compile-time error if two methods differ only in the nullability of a parameter whose type
   is a class, interface, or type parameter.
 - It is a compile-time error if two methods differ only in whether a parameter is `ref` or `ref?`,
@@ -364,7 +365,7 @@ ReceiverParameter = "this" [ "ref" | "in" ] Type Identifier .
 ```
 
 ```java unchecked
-bool any<T>(this ReadOnlySpan<T> items, fn(T) -> bool test) {
+bool any<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
     for (in T item : items) {
         if (test(item)) {
             return true;
@@ -388,6 +389,9 @@ if (orders.any(o -> o.unpaid)) { ... }
   applies, and type arguments are inferred from the receiver as from any argument.
 - A nullable receiver needs `?.` or a narrowing, unless the receiver parameter's type is itself
   nullable.
+- A `this ref` receiver parameter of a non-nullable type does not take a nullable variable, even
+  where a narrowing applies, because nothing refers into a nullable value
+  ([References](17-memory.md#memory.references)).
 - An extension is an ordinary function: it sees the receiver's members that its file sees, it is
   called without dispatch, and it can be called as `any(orders, test)`.
 - An extension is found where it is visible and its name is imported, or in its own module.

@@ -118,19 +118,38 @@ public sealed partial class Binder
                 Convert(onlyArguments[failing]!.Expression, only.ParameterType(failing));
                 return null;
             }
+            ReportNoneAccepts();
+            return null;
+        }
+        // Overloads may differ only in their bounds, so one whose bounds fail is dropped while
+        // another remains (spec functions.overloading.resolution). A lone candidate is kept, so
+        // that the bound check names the bound it fails.
+        if (applicable.Count > 1)
+        {
+            var bounded = applicable.Where(SatisfiesBounds).ToList();
+            if (bounded.Count == 0)
+            {
+                ReportNoneAccepts();
+                return null;
+            }
+            applicable = bounded;
+        }
+
+        void ReportNoneAccepts()
+        {
             var types = string.Join(", ", arguments.Select(a => (a.Name is null ? "" : a.Name + ": ") + (a.IsRef ? "ref " : "") + DescribeArgument(a.Expression)));
             Error(Catalog.NoOverloadAccepts(location, description, types));
-            return null;
         }
 
         MethodReference? Choose(List<MethodReference> best)
         {
             var fewest = best.Min(Defaults);
             best = [.. best.Where(m => Defaults(m) == fewest)];
-            // Overloads differ in their parameters, so only defaults can leave two non-generic ones equally good.
-            if (best.Count(m => !m.Symbol.IsGeneric) > 1)
+            // A non-generic overload wins over generic ones; two of either kind left equally good are ambiguous.
+            var nonGeneric = best.Where(m => !m.Symbol.IsGeneric).ToList();
+            if (nonGeneric.Count > 1 || (nonGeneric.Count == 0 && best.Count > 1))
             {
-                Error(Ambiguous(location, best.Where(m => !m.Symbol.IsGeneric)));
+                Error(Ambiguous(location, nonGeneric.Count > 1 ? nonGeneric : best));
                 return null;
             }
             var method = best.FirstOrDefault(m => !m.Symbol.IsGeneric) ?? best[0];
@@ -168,7 +187,11 @@ public sealed partial class Binder
     static Diagnostic Ambiguous(Location location, IEnumerable<MethodReference> candidates)
     {
         var list = candidates.ToList();
-        return Catalog.AmbiguousCall(location, list[0].Symbol.Name, list.Select(m => (m.Symbol.Declaration?.NameLocation, m.ToString())));
+        var texts = list.Select(m => m.ToString()).ToList();
+        // Overloads that differ only in their bounds would read alike without them.
+        if (texts.Distinct().Count() < texts.Count)
+            texts = [.. list.Select(m => m.Symbol.BoundedSignature)];
+        return Catalog.AmbiguousCall(location, list[0].Symbol.Name, list.Zip(texts, (m, text) => (m.Symbol.Declaration?.NameLocation, text)));
     }
 
     /// <summary>Whether every argument converts to its parameter. A parameter left out to its default takes none.</summary>
@@ -177,7 +200,9 @@ public sealed partial class Binder
 
     bool IsApplicable(MethodReference method, IReadOnlyList<Argument?> arguments, int i) =>
         arguments[i] is not { } argument
-        || (method.ParameterRefKind(i) == RefKind.Ref
+        || (argument.IsReceiver
+            ? method.ParameterRefKind(i) == RefKind.Ref ? RefArgumentFits(argument.Expression, method.ParameterType(i)) : ReceiverConverts(argument.Expression.Type, method.ParameterType(i))
+            : method.ParameterRefKind(i) == RefKind.Ref
             ? argument.IsRef ? RefArgumentFits(argument.Expression, method.ParameterType(i)) : IsNullForReference(argument, method.ParameterType(i))
             : !argument.IsRef && CanConvert(argument.Expression, method.ParameterType(i)));
 
@@ -199,7 +224,7 @@ public sealed partial class Binder
     {
         for (int i = 0; i < arguments.Count; i++)
         {
-            if (arguments[i] is not { } argument)
+            if (arguments[i] is not { IsReceiver: false } argument)
                 continue;
             var what = argument.Name is { } name ? $"argument '{name}'" : $"argument {i + 1}";
             var parameter = method.ParameterType(i);

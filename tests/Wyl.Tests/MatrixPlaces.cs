@@ -8,7 +8,7 @@ static class MatrixPlaces
 {
     static readonly string[] Operations =
     [
-        "read", "assign", "compound", "pass", "pass-ref-in", "take-ref-in", "take-ref-nullable",
+        "read", "assign", "compound", "pass", "pass-ref-in", "extend-ref-in", "take-ref-in", "take-ref-nullable",
         "replace", "span", "loop", "capture", "capture-escaping", "narrow", "return", "return-ref", "reassign",
     ];
 
@@ -203,6 +203,8 @@ static class MatrixPlaces
             "compound" => $"{place} += 2;",
             "pass" => $"print(take({place}));",
             "pass-ref-in" => use.Mutable ? $"bump(ref {place});" : $"print(peek({place}));",
+            // An extension's 'this ref' receiver takes the place without a written 'ref'.
+            "extend-ref-in" => use.Mutable ? $"{place}.bumped();" : $"print({place}.peeked());",
             "take-ref-in" => use.Mutable
                 ? $"ref {use.Type} {slot} = {place};\n{slot} = {value};"
                 : $"in {use.Type} {slot} = {place};\nprint({slot});",
@@ -442,6 +444,14 @@ static class MatrixPlaces
         }
 
         int peek(in int value) {
+            return value;
+        }
+
+        void bumped(this ref int value) {
+            value += 10;
+        }
+
+        int peeked(this in int value) {
             return value;
         }
 

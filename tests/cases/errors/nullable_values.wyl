@@ -96,7 +96,7 @@ void main() {
         ref? int q = b.first();         // error[WYL0406]: 'ref?' variable cannot refer into nullable 'b'
         ref? long w = b.first();        // error[WYL0405]: 'ref?' variable of type 'long' cannot refer to a 'int'
     }
-    v?.move(1);                         // error[WYL0317]: '?.' would call 'mut' method 'move' on a copy of 'v'
+    v?.move(1);                         // error[WYL0317]: '?.' would call 'move', which changes its receiver, on a copy of 'v'
     std::print(v!.x);
     v!.x = 2;                           // error[WYL0348]: cannot assign to a field of a temporary value
 }

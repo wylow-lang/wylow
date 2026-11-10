@@ -27,6 +27,8 @@ public enum SiteKind
     CasePatterns,
     /// <summary>What a for-each that is not over a range iterates.</summary>
     ForEachSource,
+    /// <summary>The first parameter of a top-level function, which <c>this</c> would make an extension's receiver.</summary>
+    Receiver,
 }
 
 /// <summary>
@@ -77,7 +79,7 @@ public sealed class AstIndex
         /// <summary>The spans whose code is <c>unsafe</c>: an <c>unsafe</c> block, or the body of an <c>unsafe</c> function.</summary>
         public List<TextSpan> UnsafeSpans { get; } = [];
 
-        public void Declaration(Declaration declaration)
+        public void Declaration(Declaration declaration, bool topLevel = true)
         {
             Deletable.Add(declaration.Location.Span);
             switch (declaration)
@@ -94,7 +96,7 @@ public sealed class AstIndex
                     foreach (var field in type.Fields)
                         Declaration(field);
                     foreach (var method in type.Methods)
-                        Declaration(method);
+                        Declaration(method, topLevel: false);
                     if (type.Destructor is { } destructor)
                         Statement(destructor.Body, inList: true);
                     foreach (var variant in type.Variants)
@@ -115,6 +117,8 @@ public sealed class AstIndex
                         UnsafeSpans.Add(function.Location.Span);
                     if (function.ReturnType is { } returnType)
                         Type(returnType);
+                    if (topLevel && function.Parameters is [{ IsReceiver: false } first, ..])
+                        Sites.Add(new Site(SiteKind.Receiver, first.Location.Span, function));
                     foreach (var parameter in function.Parameters)
                         Parameter(parameter);
                     if (function.Body is { } body)
