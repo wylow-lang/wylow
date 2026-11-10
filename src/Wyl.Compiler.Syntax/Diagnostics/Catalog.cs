@@ -28,18 +28,26 @@ public readonly record struct EscapingDifference(string Parameter, bool Escaping
 /// <summary>Why a value that does not convert implicitly could be made to, which the message suggests.</summary>
 public enum ConversionHelp { None, Cast, NullCheck, SpanInsideNullable, SpanOfTemporaryArray, SpanOfReadOnlyArray }
 
-/// <summary>Declares a catalog method's code and the spec section, by anchor, that makes it an error.</summary>
+/// <summary>Declares a catalog method's code, its severity, and the spec section, by anchor, that it is about.</summary>
 [AttributeUsage(AttributeTargets.Method)]
-sealed class ErrorAttribute(int number, string anchor) : Attribute
+abstract class CodeAttribute(int number, string anchor, DiagnosticSeverity severity, string? warningName = null) : Attribute
 {
     public int Number { get; } = number;
     public string Anchor { get; } = anchor;
+    public DiagnosticSeverity Severity { get; } = severity;
+    public string? WarningName { get; } = warningName;
 }
+
+/// <summary>An error, which the spec section makes one.</summary>
+sealed class ErrorAttribute(int number, string anchor) : CodeAttribute(number, anchor, DiagnosticSeverity.Error);
+
+/// <summary>A warning, which never makes a program invalid (spec introduction.errors), and the name <c>@SuppressWarnings</c> turns it off by.</summary>
+sealed class WarningAttribute(int number, string anchor, string name) : CodeAttribute(number, anchor, DiagnosticSeverity.Warning, name);
 
 /// <summary>
 /// Every diagnostic the compiler reports, one factory method each, split by spec chapter
 /// (decision 0003, wording by <c>docs/diagnostics/README.md</c>). A method's
-/// <see cref="ErrorAttribute"/> gives its code and spec section; its body gives the message and its
+/// <see cref="ErrorAttribute"/> or <see cref="WarningAttribute"/> gives its code and spec section; its body gives the message and its
 /// notes. The catalog test checks the codes, anchors, pages, and that a test produces each code.
 /// </summary>
 public static partial class Catalog
@@ -49,18 +57,21 @@ public static partial class Catalog
     /// <summary>Every code in use.</summary>
     public static IReadOnlyCollection<DiagnosticDescriptor> All => descriptors.Values;
 
+    /// <summary>The names <c>@SuppressWarnings</c> takes, one for each warning.</summary>
+    public static IReadOnlySet<string> WarningNames { get; } = descriptors.Values.Select(d => d.WarningName).OfType<string>().ToHashSet(StringComparer.Ordinal);
+
     /// <summary>Codes no longer emitted, which are never given to another diagnostic.</summary>
-    public static IReadOnlyList<int> Retired { get; } = [94, 198, 385, 444];
+    public static IReadOnlyList<int> Retired { get; } = [35, 94, 198, 385, 444];
 
     static Dictionary<string, DiagnosticDescriptor> Describe()
     {
         var found = new Dictionary<string, DiagnosticDescriptor>(StringComparer.Ordinal);
         foreach (var method in typeof(Catalog).GetMethods(BindingFlags.Public | BindingFlags.Static))
         {
-            if (method.GetCustomAttribute<ErrorAttribute>() is not { } error)
+            if (method.GetCustomAttribute<CodeAttribute>() is not { } code)
                 continue;
             // One method per name, so that a call finds its descriptor by name alone.
-            if (!found.TryAdd(method.Name, new DiagnosticDescriptor(error.Number, DiagnosticSeverity.Error, error.Anchor, method.Name)))
+            if (!found.TryAdd(method.Name, new DiagnosticDescriptor(code.Number, code.Severity, code.Anchor, method.Name, code.WarningName)))
                 throw new InvalidOperationException($"catalog method '{method.Name}' is overloaded");
         }
         return found;
@@ -132,6 +143,6 @@ public static partial class Catalog
     };
 
     static Diagnostic Make(Location at, string message, [CallerMemberName] string name = "") =>
-        new(descriptors.TryGetValue(name, out var descriptor) ? descriptor : throw new InvalidOperationException($"catalog method '{name}' has no [Error]"),
+        new(descriptors.TryGetValue(name, out var descriptor) ? descriptor : throw new InvalidOperationException($"catalog method '{name}' has no [Error] or [Warning]"),
             at, message, []);
 }

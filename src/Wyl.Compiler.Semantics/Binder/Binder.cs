@@ -59,6 +59,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
     {
         foreach (var (module, builtin) in Builtins.All)
             AddBuiltin(module, builtin);
+        RegisterSuppressions(units);
         RegisterImports(units);
         var declarations = units.SelectMany(u => u.Declarations).ToList();
 

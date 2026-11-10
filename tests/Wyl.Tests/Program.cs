@@ -13,9 +13,11 @@ using Wyl.Harness;
 
 // Runs every tests/cases/**/*.wyl file, and every package directory there (one with a package.wylcfg,
 // spec programs.packages) as one program. Expectations are comments in the file; in a package,
-// `// error[WYLnnnn]:` may be in any of its files, the manifest too, and the others only in the file with main:
+// `// error[WYLnnnn]:` and `// warning[WYLnnnn]:` may be in any of its files, the manifest too, and the others
+// only in the file with main:
 //   // output: <line>     expected stdout line (in order of appearance)
 //   // error[WYL0001]: <text>  an error on this line with this code and exactly this message
+//   // warning[WYL0480]: <text>  a compile-time warning, likewise; any warning not listed fails
 //   // panic: <text>      the program panics with a message starting with <text>
 //   // panic-here: <text> the same, reported at this line
 //   // warning: <text>    the program reports a performance warning containing <text>; any other fails
@@ -268,13 +270,14 @@ static string FindRepositoryRoot()
 sealed record TestResult(string Name, string? Failure);
 
 sealed record Expectations(
-    List<string> Output, List<(string File, int Line, string Code, string Text)> Errors, List<string> Warnings, string? Panic, int? PanicLine, bool Release,
+    List<string> Output, List<(string File, int Line, string Code, string Text)> Errors, List<(string File, int Line, string Code, string Text)> CompileWarnings,
+    List<string> Warnings, string? Panic, int? PanicLine, bool Release,
     Dictionary<int, int> Stack, Dictionary<int, int> InPlace, bool Optimized = false, string[]? Arguments = null, int Exit = 0);
 
 static partial class TestCase
 {
     // A line may hold several, as two errors reported at one location need.
-    [GeneratedRegex(@"//\s*(output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place|args|exit):(.*?)(?=//\s*(?:output|error(?:\[WYL\d{4}\])?|warning|panic|panic-here|mode|stack|in-place|args|exit):|$)")]
+    [GeneratedRegex(@"//\s*(output|error(?:\[WYL\d{4}\])?|warning(?:\[WYL\d{4}\])?|panic|panic-here|mode|stack|in-place|args|exit):(.*?)(?=//\s*(?:output|error(?:\[WYL\d{4}\])?|warning(?:\[WYL\d{4}\])?|panic|panic-here|mode|stack|in-place|args|exit):|$)")]
     private static partial Regex DirectivePattern();
 
     public static TestResult Run(string file, string casesDirectory, string outputDirectory, Toolchain? toolchain, CompileOptions options)
@@ -292,7 +295,7 @@ static partial class TestCase
 
     static Expectations Parse(string file)
     {
-        var expectations = new Expectations([], [], [], null, null, false, [], []);
+        var expectations = new Expectations([], [], [], [], null, null, false, [], []);
         var lines = File.ReadAllLines(file);
         for (int i = 0; i < lines.Length; i++)
         {
@@ -309,6 +312,11 @@ static partial class TestCase
             if (directive.StartsWith("error[", StringComparison.Ordinal))
             {
                 expectations.Errors.Add((Path.GetFullPath(file), i + 1, directive["error[".Length..^1], value));
+                return;
+            }
+            if (directive.StartsWith("warning[", StringComparison.Ordinal))
+            {
+                expectations.CompileWarnings.Add((Path.GetFullPath(file), i + 1, directive["warning[".Length..^1], value));
                 return;
             }
             switch (directive)
@@ -356,7 +364,7 @@ static partial class TestCase
             : null;
         var (mainFile, main) = marked.Count > 0 ? marked[0] : (files[0], parsed[0].Expected);
         var mainName = sources.Files.FirstOrDefault(f => Path.GetFullPath(f.Path) == mainFile)?.Name ?? Path.GetFileName(mainFile);
-        return new Case(sources, main with { Errors = [.. parsed.SelectMany(p => p.Expected.Errors)] }, mainFile, mainName,
+        return new Case(sources, main with { Errors = [.. parsed.SelectMany(p => p.Expected.Errors)], CompileWarnings = [.. parsed.SelectMany(p => p.Expected.CompileWarnings)] }, mainFile, mainName,
             string.Join("\n", files.Select(File.ReadAllText)), problem);
     }
 
@@ -371,10 +379,10 @@ static partial class TestCase
         if (toolchain == Toolchain.ThreadSanitized && !test.Text.Contains("// tsan", StringComparison.Ordinal))
             return null;
         var compilation = Compilation.Compile(test.Sources, options);
-        var errors = compilation.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-
-        if (expected.Errors.Count > 0 || errors.Count > 0)
-            return CompareErrors(expected.Errors, errors);
+        if (CompareDiagnostics(expected, compilation.Diagnostics) is { } diagnosticProblems)
+            return diagnosticProblems;
+        if (expected.Errors.Count > 0)
+            return null;
         if (test.Sources.Files.Count > 1 && compilation.Program?.Main?.Declaration?.Location.Source is { } mainSource
             && Path.GetFullPath(mainSource.Path) != test.MainFile && (expected.Output.Count > 0 || expected.Panic is not null))
             return $"the markers are in {test.MainName}, but 'main' is in {mainSource.Name}";
@@ -460,7 +468,19 @@ static partial class TestCase
             .Select(line => $"line {line}: expected {expected.GetValueOrDefault(line)} {what}, got {counts.GetValueOrDefault(line)}");
     }
 
-    static string? CompareErrors(List<(string File, int Line, string Code, string Text)> expected, List<Diagnostic> actual)
+    /// <summary>
+    /// The compile's errors and warnings against the markers, each kind on its own: a program with
+    /// errors is not run, and one with only warnings is.
+    /// </summary>
+    static string? CompareDiagnostics(Expectations expected, IEnumerable<Diagnostic> diagnostics)
+    {
+        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        var warnings = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).ToList();
+        var problems = new[] { CompareMarked("error", expected.Errors, errors), CompareMarked("warning", expected.CompileWarnings, warnings) }.OfType<string>().ToList();
+        return problems.Count > 0 ? string.Join('\n', problems) : null;
+    }
+
+    static string? CompareMarked(string kind, List<(string File, int Line, string Code, string Text)> expected, List<Diagnostic> actual)
     {
         var unmatched = new List<(string File, int Line, string Code, string Text)>(expected);
         var problems = new List<string>();
@@ -472,11 +492,11 @@ static partial class TestCase
             if (index >= 0)
                 unmatched.RemoveAt(index);
             else
-                problems.Add($"unexpected error: {diagnostic.Primary}");
+                problems.Add($"unexpected {kind}: {diagnostic.Primary}");
         }
         bool files = expected.Select(e => e.File).Distinct().Count() > 1;
         foreach (var (file, line, code, text) in unmatched)
-            problems.Add($"missing error on line {line}{(files ? $" of {Path.GetFileName(file)}" : "")}: [{code}] {text}");
+            problems.Add($"missing {kind} on line {line}{(files ? $" of {Path.GetFileName(file)}" : "")}: [{code}] {text}");
         return problems.Count == 0 ? null : string.Join('\n', problems);
     }
 }

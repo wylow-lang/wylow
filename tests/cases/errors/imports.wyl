@@ -9,6 +9,7 @@ import std::nowhere::Thing;         // error[WYL0039]: cannot find module 'nowhe
 import std::Weak as Shared;
 import std::memory::CycleStats as Box;          // error[WYL0044]: 'Box' is already a name of this module
 import std::memory;
+@Inline import std::Array;          // error[WYL0433]: cannot find annotation '@Inline'
 import std::memory::initializeDefault;          // error[WYL0054]: 'initializeDefault' is not visible here
 import Missing;                    // error[WYL0042]: cannot find 'Missing' as a top-level module, a package, or a name of the root module
 

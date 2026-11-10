@@ -449,6 +449,10 @@ public sealed partial class Binder
             {
                 CheckNoArguments(annotation);
             }
+            else if (annotation.Name == SuppressWarnings)
+            {
+                CheckSuppressWarnings(annotation);
+            }
             // '@Repr' is checked with the enum's variants.
             else if (annotation.Name != "Repr" || decl is not TypeDecl { Kind: TypeKind.Enum })
             {

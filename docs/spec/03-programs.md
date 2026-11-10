@@ -187,8 +187,9 @@ of one name found in two of these are never overloads of each other.
   re-exports of a module give the same name.
 - It is a compile-time error if two `*` imports bring in different meanings of a name, where the
   name is used. Where it is not used, the two imports are valid.
-- It is a compile-time error if an import comes after a declaration, has annotations, or has a
-  modifier other than a visibility.
+- It is a compile-time error if an import comes after a declaration, has a modifier other than a
+  visibility, or has an annotation other than `@SuppressWarnings`
+  ([`@SuppressWarnings`](22-annotations.md#annotations.suppress-warnings)).
 
 **Example:**
 

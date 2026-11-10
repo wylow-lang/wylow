@@ -1,5 +1,8 @@
 // Module 'world': its names may repeat the root module's, and nothing in the root uses them yet,
-// but they are compiled with the package, and equal names must stay apart in C++.
+// but they are compiled with the package, and equal names must stay apart in C++. No path reaches a
+// name of the root module, so a bare call of 'rootName' is no warning.
+
+import rootName;
 
 pub struct Point {
     pub float x;
@@ -14,5 +17,6 @@ String helper() {
 
 pub Point origin() {
     std::print(helper());
+    std::print(rootName());
     return Point(x: 0, z: 0);
 }

@@ -13,12 +13,13 @@ AnnotationArgument = Type | Literal .
 
 A declaration may have annotations before its visibility and its other modifiers:
 `@CallerLocation pub static void check(...)` ([Visibility](03-programs.md#programs.visibility)). An
-annotation is `@Name` or `@Name(arguments)`. An argument is a type, as in `@Repr(uint)`, or a
-literal, as in `@Align(16)`.
+import may have annotations before its visibility in the same way
+([Imports](03-programs.md#programs.imports)). An annotation is `@Name` or `@Name(arguments)`. An
+argument is a type, as in `@Repr(uint)`, or a literal, as in `@Align(16)`.
 
 Parentheses right after an annotation are its arguments, unless they begin with `fn` or
 `shared fn`. In that case they are the parentheses around the annotated declaration's function
-type, as in `@AllowLargeStack (fn(int) -> int)? handler;`.
+type, as in `@SuppressWarnings("unqualified-call") (fn(int) -> int)? handler;`.
 
 - It is a compile-time error to give an annotation arguments it does not take.
 - **An annotation never changes a type**: what can be assigned, converted, or captured. Whatever is
@@ -33,7 +34,7 @@ These are the annotations:
 | Annotation | Used on | Meaning | Rules |
 |---|---|---|---|
 | `@CallerLocation` | a function, method, constructor, or indexer | A panic inside it reports where it was called from | [`@CallerLocation`](#annotations.caller-location) |
-| `@AllowLargeStack` | a local variable | Suppresses the warning for a large local | [`@AllowLargeStack`](#annotations.allow-large-stack) |
+| `@SuppressWarnings("name", ...)` | a type, function, method, constructor, field, local variable, or import | Turns off the warnings it names | [`@SuppressWarnings`](#annotations.suppress-warnings) |
 | `@Align(n)` | a struct or field | Aligns it to `n` bytes, a power of two | [Layout](07-structs.md#structs.layout) |
 | `@Packed` | a struct | No padding between its fields | [Layout](07-structs.md#structs.layout) |
 | `@Repr(T)` | an enum | Its integer type | [Integer representations](09-enums.md#enums.repr) |
@@ -46,7 +47,8 @@ These are the annotations:
 | `@Export` | a top-level function | It has C++ linkage and a stable name | [Exporting functions](21-interop.md#interop.export) |
 
 - It is a compile-time error to use a name that is not one of these annotations.
-- It is a compile-time error to use an annotation on a declaration that its row does not name.
+- It is a compile-time error to use an annotation on a declaration or an import that its row does
+  not name.
 
 <a id="annotations.caller-location"></a>
 ## 22.3 `@CallerLocation`
@@ -78,8 +80,34 @@ void main() {
 }
 ```
 
-<a id="annotations.allow-large-stack"></a>
-## 22.4 `@AllowLargeStack`
+<a id="annotations.suppress-warnings"></a>
+## 22.4 `@SuppressWarnings`
 
-`@AllowLargeStack` on a local variable's declaration suppresses the warning an implementation may
-give for a local whose value is large. It has no other effect.
+`@SuppressWarnings("name", ...)` turns off the warnings that its arguments name. Each argument is a
+string literal. An implementation gives each warning that it reports a name. Which warnings exist,
+and their names, are not part of this specification
+([Errors and warnings](01-introduction.md#introduction.errors)).
+
+- On a type, function, method, constructor, field, or local variable, `@SuppressWarnings` turns off
+  each warning it names that would be reported inside the text of the declaration.
+- On an import, `@SuppressWarnings` turns off each warning it names that would be reported about a
+  use of a name that the import brings in.
+- `@SuppressWarnings` has no other effect. An argument that names no warning makes no program
+  invalid.
+- It is a compile-time error if `@SuppressWarnings` has no arguments, or has an argument that is not
+  a string literal.
+
+**Example:**
+
+```java
+import std::replace;
+
+@SuppressWarnings("unqualified-call")
+void reset(ref int value) {
+    replace(ref value, 0);
+}
+
+void main() {
+    @SuppressWarnings() int count = 0;      // error[WYL0482]
+}
+```

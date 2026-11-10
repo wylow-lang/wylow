@@ -26,6 +26,9 @@ public sealed partial class Binder
     /// </summary>
     readonly record struct Entry(TypeSymbol? Type, IReadOnlyList<FunctionSymbol>? Functions, Module? Module)
     {
+        /// <summary>The file's import the name was found through, if it was.</summary>
+        public ImportVia? Via { get; init; }
+
         public bool HasValue => Type is not null || Functions is not null;
 
         public bool IsEmpty => !HasValue && Module is null;
@@ -77,7 +80,7 @@ public sealed partial class Binder
         if (fileImports.TryGetValue(from, out var imports))
         {
             if (imports.Named.TryGetValue(name, out var imported) && Target(imported, from) is { HasValue: true } named)
-                return named;
+                return named with { Via = new ImportVia(imported.From, imported.Name, imported.Decl) };
             if (FromAll(imports, name, from, use, modules: false) is { } all)
                 return all;
         }
@@ -116,7 +119,7 @@ public sealed partial class Binder
         foreach (var all in imports.All)
         {
             var entry = VisibleTo(NamesOf(all.From, name, from), from);
-            entry = modules ? new Entry(null, null, entry.Module) : entry with { Module = null };
+            entry = modules ? new Entry(null, null, entry.Module) : entry with { Module = null, Via = new ImportVia(all.From, name, all.Decl) };
             if (!entry.IsEmpty && !found.Any(f => f.Entry.SameAs(entry)))
                 found.Add((entry, all.From));
         }

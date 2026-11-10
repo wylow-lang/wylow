@@ -93,7 +93,9 @@ Informative text adds no rule. Where it seems to disagree with normative text, t
 applies.
 
 A line of an example that is a compile-time error ends with a comment giving the code of the
-diagnostic it produces, as in `// error[WYL0397]`. An example produces exactly the errors it marks.
+diagnostic it produces, as in `// error[WYL0397]`. A line that produces a warning ends with a comment
+giving the warning's code in the same way, as in `// warning[WYL0480]`. An example produces exactly
+the errors and warnings it marks.
 
 **Example:**
 
@@ -157,7 +159,8 @@ rule, and reports at least one error for it. Rules about what a program may cont
 wording.
 
 An implementation may also report warnings. A warning never makes a program invalid and never
-changes what it does.
+changes what it does. `@SuppressWarnings` turns warnings off
+([`@SuppressWarnings`](22-annotations.md#annotations.suppress-warnings)).
 
 <a id="introduction.panics"></a>
 ### 1.6.2 Panics

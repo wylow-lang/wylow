@@ -153,7 +153,7 @@ public static class FuzzSelfTests
                         continue;
                     var diagnostics = new DiagnosticBag();
                     new Parser(new SourceText("<fuzz>", Mutations.Apply(file.Text, candidate.Edits)), diagnostics).ParseCompilationUnit();
-                    if (diagnostics.Count > 0)
+                    if (diagnostics.HasErrors)
                         return $"'{mutation.Name}' made a mutant of {file.Name} that doesn't parse: {diagnostics.First()}";
                     made++;
                 }

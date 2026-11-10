@@ -1,10 +1,12 @@
 // Names a '*' import brings in give way to the module's own and to named imports, and two of them
-// bringing one name in is an error only where it is used.
+// bringing one name in is an error only where it is used. The calls name what the imports bring in,
+// so they are bare, and the warning that asks for their modules is turned off.
 
 import alpha::*;
 import beta::*;
 import beta::named;
 
+@SuppressWarnings("unqualified-call")
 int fromAll() {
     return only() + named() + value();  // error[WYL0045]: 'value' is ambiguous here
 }

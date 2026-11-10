@@ -16,15 +16,18 @@ src/parser.wyl:10:15: note: 'buffer' was moved here
   the primary one.
 - **Codes** are `WYL` and four digits, numbered in order. A code is never reused. Each has a page,
   `WYLnnnn.md` in this directory: what it means, a short erroneous example, how to fix it, and the
-  spec section that makes it an error.
+  spec section that makes it an error, or that a warning is about.
+- **Warnings** never make a program invalid, and the spec does not list them. Each warning has a
+  name, such as `unqualified-call`, which `@SuppressWarnings` takes to turn it off. The catalog gives
+  the name in the warning's `[Warning]` attribute, and the warning's page states it.
 
 ## Codes and pages
 
 The catalog (`src/Wyl.Compiler.Syntax/Diagnostics/Catalog*.cs`, by spec chapter) is the list of
 codes: each factory method gives its code, its spec section, and its message. A code's page is
 `WYLnnnn.md` here: what it means, a short example, how to fix it, and the spec section. The page's
-first `wyl` block is a whole program that produces that code and no other error; the catalog test
-compiles it. A code only a package can produce, such as a manifest's, has a package as its example
+first `wyl` block is a whole program that produces that code and no other error or warning; the
+catalog test compiles it. A code only a package can produce, such as a manifest's, has a package as its example
 instead: each of its blocks names its file after the language, as in ```` ```wylcfg package.wylcfg ````
 and ```` ```wyl src/main.wyl ````, and the test writes them out and compiles the package. Codes whose
 page is not written are in `without-pages.txt`, which only shrinks. A code stays there when no

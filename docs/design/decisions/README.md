@@ -100,3 +100,4 @@ history and a reason can be found without searching the spec.
 | [0070](0070-frozen.md) | `Frozen<T>`: an immutable list that `freeze` moves a list's elements into |
 | [0071](0071-unit-return-is-implicit.md) | A function that returns `Unit` may leave out its return |
 | [0072](0072-std-is-a-path-root.md) | Every file sees `std` as a path root, and code calls functions through their module |
+| [0073](0073-suppress-warnings.md) | A warning for a bare call of an imported function, and `@SuppressWarnings` |

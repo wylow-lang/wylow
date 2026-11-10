@@ -2,5 +2,5 @@
 import world::local;                // error[WYL0054]: 'local' is not visible here
 import world::count;
 
-package int deep() { return count(); }
+@SuppressWarnings("unqualified-call") package int deep() { return count(); }
 module int nested() { return 4; }

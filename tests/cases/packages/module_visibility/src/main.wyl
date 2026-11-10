@@ -9,7 +9,7 @@ import world::Shared as WorldShared;
 module struct Shared { }
 
 void main() {
-    int a = count();
+    int a = count();                // warning[WYL0480]: function 'count' is called without its module
     int b = world::local();         // error[WYL0054]: function 'local' is not visible here
     int c = world::gen::deep();
     int d = world::gen::nested();   // error[WYL0054]: function 'nested' is not visible here

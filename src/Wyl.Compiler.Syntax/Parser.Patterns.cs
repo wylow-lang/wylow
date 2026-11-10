@@ -58,7 +58,7 @@ public sealed partial class Parser
                     cases.Add(new SwitchCase(LocationFrom(start), patterns, null, new ErrorExpr(LocationFrom(start))) { Default = defaultLocation, Guard = guard });
                     continue;
                 }
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var caseValue = ParseExpression();
                 FinishStatement(errors);
                 cases.Add(new SwitchCase(LocationFrom(start), patterns, null, caseValue) { Default = defaultLocation, Guard = guard });

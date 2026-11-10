@@ -57,7 +57,10 @@ public sealed record PathName(string Name, Location Location);
 /// and <see cref="Names"/> what is imported from it, empty for <c>*</c>.
 /// </summary>
 public sealed record ImportDecl(Location Location, Visibility Visibility, IReadOnlyList<PathName> Module, IReadOnlyList<ImportedName> Names, bool IsAll)
-    : Node(Location);
+    : Node(Location)
+{
+    public IReadOnlyList<AnnotationSyntax> Annotations { get; init; } = [];
+}
 
 /// <summary>A name an import brings in, and what the file calls it if <c>as</c> renames it.</summary>
 public sealed record ImportedName(PathName Name, PathName? Alias)

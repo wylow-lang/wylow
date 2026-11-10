@@ -278,7 +278,7 @@ public sealed partial class Parser
         if (kind == TypeKind.Struct)
             Disallow(modifiers, Modifiers.Mut, token => Catalog.MutStructField(Loc(token.Span)));
         Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => Catalog.ModifierOnField(Loc(token.Span), token.Text));
-        int errors = diagnostics.Count;
+        int errors = diagnostics.ErrorCount;
         while (true)
         {
             var initializer = Accept(TokenKind.Assign) ? ParseExpression() : null;

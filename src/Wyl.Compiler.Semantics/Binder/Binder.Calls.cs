@@ -124,7 +124,12 @@ public sealed partial class Binder
         }
 
         if (ResolveName(name.Name, name.Location) is { HasValue: true } entry)
-            return BindTopLevelCall(e, name, entry, typeArguments, pending);
+        {
+            var call = BindTopLevelCall(e, name, entry, typeArguments, pending);
+            if (call is not BoundErrorExpression)
+                CheckQualifiedCall(name, entry);
+            return call;
+        }
         if (typeArguments is null && ExpectedVariant(name.Name, expected) is { } variant)
             return BindVariant(e.Location, variant.Owner, expected, variant, pending);
         if (HiddenElsewhere(name.Name, name.Location) is { } hidden)

@@ -3,7 +3,8 @@
 import world::Chunk;                        // one name
 import world::{Block, Kind as BlockKind};   // several, one renamed
 import world::gen;                          // a module itself
-import world::gen::*;                       // every name of 'world::gen' visible here
+@SuppressWarnings("unqualified-call")
+import world::gen::*;                       // every name of 'world::gen' visible here, called bare
 
 void main() {
     var c = Chunk.make(3);

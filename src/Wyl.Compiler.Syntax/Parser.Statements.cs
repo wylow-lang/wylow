@@ -68,7 +68,7 @@ public sealed partial class Parser
             case TokenKind.ReturnKeyword:
             {
                 Advance();
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 bool isRef = Accept(TokenKind.RefKeyword);
                 var value = At(TokenKind.Semicolon) && !isRef ? null : ParseExpression();
                 FinishStatement(errors);
@@ -84,14 +84,14 @@ public sealed partial class Parser
                 return new ContinueStmt(LocationFrom(start));
             case TokenKind.RefKeyword or TokenKind.InKeyword or TokenKind.MutKeyword or TokenKind.EscapingKeyword:
             {
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var declaration = ParseVariableDeclaration();
                 FinishStatement(errors);
                 return declaration;
             }
             case TokenKind.At:
             {
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var annotations = ParseAnnotations();
                 var declaration = ParseVariableDeclaration(start) with { Annotations = annotations };
                 FinishStatement(errors);
@@ -100,7 +100,7 @@ public sealed partial class Parser
             case TokenKind.DiscardKeyword:
             {
                 Advance();
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var name = Expect(TokenKind.Identifier, "a parameter name");
                 FinishStatement(errors);
                 return new DiscardLocalStmt(LocationFrom(start), name.Text, Loc(name.Span));
@@ -111,7 +111,7 @@ public sealed partial class Parser
                 return new BlockStmt(LocationFrom(start), []);
             case TokenKind.SharedKeyword when Peek(1).Kind == TokenKind.FnKeyword:
             {
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var declaration = ParseVariableDeclaration();
                 FinishStatement(errors);
                 return declaration;
@@ -122,7 +122,7 @@ public sealed partial class Parser
                 return new BlockStmt(LocationFrom(start), []);
             default:
             {
-                int errors = diagnostics.Count;
+                int errors = diagnostics.ErrorCount;
                 var statement = ParseSimpleStatement(allowDeclaration: true);
                 FinishStatement(errors);
                 return statement;
@@ -132,7 +132,7 @@ public sealed partial class Parser
 
     void FinishStatement(int errorsBefore)
     {
-        if (diagnostics.Count > errorsBefore)
+        if (diagnostics.ErrorCount > errorsBefore)
             SkipStatement();
         else
             Expect(TokenKind.Semicolon, "';'");

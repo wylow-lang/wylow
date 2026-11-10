@@ -81,14 +81,12 @@ public sealed partial class Parser
             var modifiers = ParseModifiers();
             if (At(TokenKind.ImportKeyword))
             {
-                if (annotations.Count > 0)
-                    Report(Catalog.ImportWithAnnotations(annotations[0].Location));
                 Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnImport(Loc(token.Span), token.Text));
                 DisallowShared(modifiers);
                 // So a file's first lines say what it uses.
                 if (declarations.Count > 0)
                     Report(Catalog.ImportAfterDeclaration(Loc(Current.Span)));
-                imports.Add(ParseImport(start, modifiers.Visibility));
+                imports.Add(ParseImport(start, modifiers.Visibility) with { Annotations = annotations });
                 continue;
             }
             if (At(TokenKind.RefKeyword) && Peek(1).Kind == TokenKind.StructKeyword)

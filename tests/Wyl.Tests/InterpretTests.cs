@@ -35,9 +35,10 @@ static partial class TestCase
         if (expected.Optimized)
             return null;
         var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
-        var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-        if (expected.Errors.Count > 0 || errors.Count > 0)
-            return CompareErrors(expected.Errors, errors);
+        if (CompareDiagnostics(expected, interpreted.Diagnostics) is { } diagnosticProblems)
+            return diagnosticProblems;
+        if (expected.Errors.Count > 0)
+            return null;
         if (interpreted.Interpretation is not { } result)
             return "the pipeline produced no IR";
 

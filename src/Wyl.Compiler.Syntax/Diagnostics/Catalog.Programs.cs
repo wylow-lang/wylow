@@ -67,10 +67,6 @@ public static partial class Catalog
     public static Diagnostic StdModuleName(Location at) =>
         Make(at, "top-level module cannot be named 'std'").Note("'std' names the standard library");
 
-    [Error(35, "programs.imports")]
-    public static Diagnostic ImportWithAnnotations(Location at) =>
-        Make(at, "imports cannot have annotations");
-
     [Error(36, "programs.imports")]
     public static Diagnostic ImportAfterDeclaration(Location at) =>
         Make(at, "imports must come before the file's declarations");
@@ -161,6 +157,10 @@ public static partial class Catalog
     public static Diagnostic ModuleNotImported(Location at, string name) =>
         Make(at, $"module '{name}' is not imported here")
             .Note("a path starts with a module the file imports or one of its own submodules").Help($"write 'import {name};'");
+
+    [Warning(480, "programs.paths", "unqualified-call")]
+    public static Diagnostic UnqualifiedCall(Location at, string name, string path) =>
+        Make(at, $"function '{name}' is called without its module").Help($"write '{path}'");
 
     [Error(47, "programs.paths")]
     public static Diagnostic NotAModule(Location at, string name) =>

@@ -34,13 +34,17 @@ Other modes, the fuzzer, the generator, mutation testing, coverage, and the dash
 ## Writing tests
 
 `tests/cases/**/*.wyl`: each test is a program with `// output:`, `// error[WYLnnnn]: <message>` (on the
-erroring line; list every error, with its code and exact message), `// panic:` or `// panic-here:` (also checks the line),
+erroring line; list every error, with its code and exact message), `// warning[WYLnnnn]: <message>` (likewise
+for every compile-time warning: one no marker lists fails the test), `// warning: <text>` (a runtime
+performance warning), `// panic:` or `// panic-here:` (also checks the line),
 `// args:` (the program's arguments, split at spaces), `// exit:` (its exit status, otherwise 0),
 `// mode: release` comments, and `// tsan` on a test that starts a thread, which is the only kind
 `--cc tsan` runs. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the types it uses and calls functions through their module (decision 0072):
-`import std::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A directory with a
+`import std::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A
+bare call of an imported function draws warning `WYL0480`; a test about imports themselves turns it off
+with `@SuppressWarnings("unqualified-call")` on the import or the declaration (decision 0073). A directory with a
 `package.wylcfg` (`tests/cases/packages/`) is one test of all its files.
 
 ## Rules

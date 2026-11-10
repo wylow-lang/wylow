@@ -1,0 +1,56 @@
+// '@SuppressWarnings' turns the warnings it names off: on a declaration, inside the declaration; on
+// a local variable, in its initializer; and on an import, wherever a name the import brings in is used
+// (spec annotations.suppress-warnings).
+
+import std::{print, take};
+@SuppressWarnings("unqualified-call") import std::replace;
+@SuppressWarnings("unqualified-call") import std::threading::*;
+
+@SuppressWarnings("unqualified-call")
+int shown(int value) {
+    print(value);
+    return value;
+}
+
+@SuppressWarnings("unqualified-call")
+class Counter {
+    int count = shown(0);
+
+    void add() {
+        print("add");
+    }
+}
+
+class Logger {
+    @SuppressWarnings("unqualified-call")
+    int level = shown(1);
+
+    @SuppressWarnings("unqualified-call")
+    void log(String text) {
+        print(text);
+    }
+
+    void loud() {
+        print("loud");              // warning[WYL0480]: function 'print' is called without its module
+    }
+}
+
+void main() {
+    var counter = new Counter();    // output: 0
+    counter.add();                  // output: add
+    var logger = new Logger();      // output: 1
+    logger.log("log");              // output: log
+    logger.loud();                  // output: loud
+
+    mut int a = 1;
+    replace(ref a, 2);
+    std::print(a);                  // output: 2
+    var thread = spawn(() -> 3);
+    std::print(thread.join());      // output: 3
+
+    mut int? n = 4;
+    @SuppressWarnings("unqualified-call") int? taken = take(ref n);
+    std::print(taken ?? 0);         // output: 4
+    int? again = take(ref n);       // warning[WYL0480]: function 'take' is called without its module
+    std::print(again ?? 0);         // output: 0
+}

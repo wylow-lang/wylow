@@ -1,0 +1,31 @@
+// A function an import brings in is called through its module, so the call says where the function
+// comes from (decision 0073). A bare call of one is a warning, and the program still runs.
+
+import std::{List, replace, swap};
+import std::threading::*;
+
+struct Point {
+    int x;
+    int y;
+}
+
+int twice(int value) {
+    return value * 2;
+}
+
+void main() {
+    mut int a = 1;
+    mut int b = 2;
+    replace(ref a, 3);              // warning[WYL0480]: function 'replace' is called without its module
+    swap(ref a, ref b);             // warning[WYL0480]: function 'swap' is called without its module
+    std::print($"{a} {b}");         // output: 2 3
+    var thread = spawn(() -> 4);    // warning[WYL0480]: function 'spawn' is called without its module
+    std::print(thread.join());      // output: 4
+
+    // The module's own functions, types, and static methods are not imported, so they need no module.
+    std::print(twice(5));           // output: 10
+    var p = Point(1, 2);
+    var list = new List<int>();
+    list.add(p.x);
+    std::print(list.count());       // output: 1
+}

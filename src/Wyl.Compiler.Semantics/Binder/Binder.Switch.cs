@@ -13,12 +13,12 @@ public sealed partial class Binder
     /// </summary>
     List<BoundPattern> BindCasePatterns(SwitchCase c, BoundExpression value, ref bool broken)
     {
-        int errors = diagnostics.Count;
+        int errors = diagnostics.ErrorCount;
         var place = MatchPlace.Of(this, value);
         List<BoundPattern> patterns = [.. c.Patterns.Select(p => BindPattern(p, IsNullPattern(p) ? value.Type : value.Type.NonNull, canBind: c.Patterns.Count == 1, place))];
         if (c.Default is { } listed && !c.Patterns.All(IsNullPattern))
             Error(Catalog.DefaultListedWithPattern(listed));
-        broken |= diagnostics.Count > errors;
+        broken |= diagnostics.ErrorCount > errors;
         return patterns;
     }
 

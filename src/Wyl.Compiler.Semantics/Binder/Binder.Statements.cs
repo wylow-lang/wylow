@@ -101,9 +101,10 @@ public sealed partial class Binder
 
     BoundStatement BindVariableDeclaration(VarDeclStmt s)
     {
+        CheckLocalAnnotations(s);
         if (s.RefKind != RefKind.None)
             return BindRefLocal(s);
-        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Escaping, s.Annotations, isParameter: false);
+        var declared = s.Type is null ? null : BindVariableType(s.Type, s.Escaping, [], isParameter: false);
         var initializer = s.Initializer is null ? null : BindValue(s.Initializer, declared);
         WylType type;
         if (declared is not null)
@@ -159,8 +160,6 @@ public sealed partial class Binder
     {
         bool mayBeNull = s.Type is { Shape: TypeShape.NullableReference };
         var keyword = FunctionSymbol.RefPrefix(s.RefKind).Trim() + (mayBeNull ? "?" : "");
-        foreach (var annotation in s.Annotations)
-            ReportMisplacedAnnotation(annotation);
         if (s.Escaping is { } escaping)
             Error(Catalog.ReferenceEscaping(escaping, keyword));
         var typeSyntax = mayBeNull ? s.Type!.Element : s.Type;

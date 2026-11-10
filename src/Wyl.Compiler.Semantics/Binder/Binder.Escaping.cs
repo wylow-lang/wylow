@@ -56,8 +56,6 @@ public sealed partial class Binder
     /// </summary>
     (WylType Type, BoundExpression Initializer) InferVariableType(VarDeclStmt s, BoundExpression initializer)
     {
-        foreach (var annotation in s.Annotations)
-            ReportMisplacedAnnotation(annotation);
         var type = initializer.Type;
         if (IsDeclaredEscaping(s.Escaping, type, "variable"))
             type = EscapingForm(type);
@@ -81,7 +79,7 @@ public sealed partial class Binder
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
-    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure"
+    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure" or SuppressWarnings
         ? Catalog.MisplacedAnnotation(annotation.Location, annotation.Name)
         : Catalog.UnknownAnnotation(annotation.Location, annotation.Name));
 

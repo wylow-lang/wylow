@@ -1,12 +1,12 @@
 // `import std::panic;` brings in the module std::panic and the function panic that std re-exports
 // (spec programs.imports).
 
-import std::{panic, print};
+@SuppressWarnings("unqualified-call") import std::panic;
 
 void main() {
     panic::checkIndex(1, 2);
     panic::checkRange(0, 2, 2);
     panic::checkRange(2, 0, 2);
-    print("in bounds");                 // output: in bounds
+    std::print("in bounds");            // output: in bounds
     panic("closed");                    // panic-here: closed
 }

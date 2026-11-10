@@ -1,7 +1,6 @@
 import world::Chunk           // error[WYL0001]: expected ';'
 import world::{};               // error[WYL0001]: expected a name to import
 import ;                        // error[WYL0001]: expected a module or package name
-@Inline import world::Chunk;    // error[WYL0035]: imports cannot have annotations
 static import world::Chunk;     // error[WYL0037]: 'static' cannot be used on an import
 import world::Chunk as;         // error[WYL0001]: expected the name to import it as
 

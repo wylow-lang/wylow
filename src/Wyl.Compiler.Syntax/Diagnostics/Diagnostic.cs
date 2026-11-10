@@ -5,8 +5,11 @@ namespace Wyl.Compiler.Diagnostics;
 
 public enum DiagnosticSeverity { Error, Warning }
 
-/// <summary>What a catalog entry declares: its code, severity, and the spec section that makes it an error.</summary>
-public sealed record DiagnosticDescriptor(int Number, DiagnosticSeverity Severity, string Anchor, string Name)
+/// <summary>
+/// What a catalog entry declares: its code, severity, and spec section, and for a warning the name
+/// that <c>@SuppressWarnings</c> turns it off by.
+/// </summary>
+public sealed record DiagnosticDescriptor(int Number, DiagnosticSeverity Severity, string Anchor, string Name, string? WarningName = null)
 {
     public string Code => $"WYL{Number:D4}";
 }
@@ -77,12 +80,23 @@ public sealed class DiagnosticBag : IEnumerable<Diagnostic>
 {
     readonly List<Diagnostic> diagnostics = [];
 
-    public int Count => diagnostics.Count;
-    public bool HasErrors => diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);
+    /// <summary>The errors reported so far, which a warning never adds to, so a check of whether binding something failed counts these.</summary>
+    public int ErrorCount { get; private set; }
 
-    public void Add(Diagnostic diagnostic) => diagnostics.Add(diagnostic);
+    public bool HasErrors => ErrorCount > 0;
 
-    public void AddRange(IEnumerable<Diagnostic> reported) => diagnostics.AddRange(reported);
+    public void Add(Diagnostic diagnostic)
+    {
+        diagnostics.Add(diagnostic);
+        if (diagnostic.Severity == DiagnosticSeverity.Error)
+            ErrorCount++;
+    }
+
+    public void AddRange(IEnumerable<Diagnostic> reported)
+    {
+        foreach (var diagnostic in reported)
+            Add(diagnostic);
+    }
 
     public IReadOnlyList<Diagnostic> Sorted() =>
         [.. diagnostics.OrderBy(d => d.Location.Source.Path, StringComparer.Ordinal).ThenBy(d => d.Location.Span.Start)];

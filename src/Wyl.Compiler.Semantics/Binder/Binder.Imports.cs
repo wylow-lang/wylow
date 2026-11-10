@@ -17,9 +17,9 @@ public sealed partial class Binder
     /// the top of <see cref="Package"/>, where a top-level module, a package, and a name of the root
     /// module are found. A <c>pub import</c> reaches as far as its visibility, and others only their file.
     /// </summary>
-    sealed record Imported(Module? From, string Name, Package Package, Reach Reach, ImportedName Syntax);
+    sealed record Imported(Module? From, string Name, Package Package, Reach Reach, ImportedName Syntax, ImportDecl Decl);
 
-    sealed record ImportedAll(Module From, Reach Reach);
+    sealed record ImportedAll(Module From, Reach Reach, ImportDecl Decl);
 
     sealed class ImportTable
     {
@@ -78,6 +78,13 @@ public sealed partial class Binder
 
     void RegisterImport(SourceText source, ImportDecl import)
     {
+        foreach (var annotation in import.Annotations)
+        {
+            if (annotation.Name == SuppressWarnings)
+                CheckSuppressWarnings(annotation);
+            else
+                ReportMisplacedAnnotation(annotation);
+        }
         var package = source.Module.Package;
         var reach = new Reach(import.Visibility, source);
         Module? from = null;
@@ -95,15 +102,15 @@ public sealed partial class Binder
         var imports = TableIn(fileImports, source);
         if (import.IsAll)
         {
-            imports.All.Add(new ImportedAll(from!, reach));
+            imports.All.Add(new ImportedAll(from!, reach, import));
             if (import.Visibility != Visibility.File)
-                TableIn(reExports, source.Module).All.Add(new ImportedAll(from!, reach));
+                TableIn(reExports, source.Module).All.Add(new ImportedAll(from!, reach, import));
             return;
         }
         foreach (var name in import.Names)
         {
             var local = name.Local;
-            var imported = new Imported(from, name.Name.Name, package, reach, name);
+            var imported = new Imported(from, name.Name.Name, package, reach, name, import);
             if (!imports.Named.TryAdd(local.Name, imported))
             {
                 Error(Catalog.DuplicateImport(local.Location, local.Name));

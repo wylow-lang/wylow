@@ -25,12 +25,21 @@ public static partial class Catalog
             "CallerLocation" => "'@CallerLocation' can only be used on functions, methods, and constructors",
             "Acyclic" => "'@Acyclic' can only be used on classes",
             "Repr" => "'@Repr' can only be used on enums",
+            "SuppressWarnings" => "'@SuppressWarnings' can only be used on declarations, local variables, and imports",
             _ => "'@Pure' can only be used on extern functions of the standard library",
         });
 
     [Error(433, "annotations.list")]
     public static Diagnostic UnknownAnnotation(Location at, string name) =>
         Make(at, $"cannot find annotation '@{name}'");
+
+    [Error(482, "annotations.suppress-warnings")]
+    public static Diagnostic SuppressWarningsArguments(Location at) =>
+        Make(at, "'@SuppressWarnings' takes one or more string literals").Help("write '@SuppressWarnings(\"unqualified-call\")'");
+
+    [Warning(481, "annotations.suppress-warnings", "unknown-warning")]
+    public static Diagnostic UnknownWarning(Location at, string name) =>
+        Make(at, $"cannot find warning '{name}'");
 
     [Error(431, "annotations.syntax")]
     public static Diagnostic AnnotationArguments(Location at, string name) =>

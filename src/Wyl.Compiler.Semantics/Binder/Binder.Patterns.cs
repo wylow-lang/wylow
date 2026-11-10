@@ -58,10 +58,10 @@ public sealed partial class Binder
             DeclareErrorBindings(e.Pattern);
             return ErrorExpression(Catalog.TypeTestOnValue(e.Operand.Location, operand.Type.ToString()));
         }
-        int errors = diagnostics.Count;
+        int errors = diagnostics.ErrorCount;
         var pattern = BindPattern(e.Pattern, operand.Type, canBind: true, MatchPlace.Of(this, operand));
         // A type test that always passes is allowed: it states the type, as an upcast would.
-        if (diagnostics.Count == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern, currentFunction))
+        if (diagnostics.ErrorCount == errors && pattern is not BoundTypePattern && Patterns.AlwaysMatches(pattern, currentFunction))
             Error(Catalog.PatternAlwaysMatches(e.Pattern.Location));
         return new BoundIs(e.Location, operand, pattern);
     }

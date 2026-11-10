@@ -16,7 +16,7 @@ static partial class CatalogSelfTests
     [GeneratedRegex("""<a id="([^"]+)"></a>""")]
     private static partial Regex AnchorPattern();
 
-    [GeneratedRegex(@"error\[(WYL\d{4})\]")]
+    [GeneratedRegex(@"(?:error|warning)\[(WYL\d{4})\]")]
     private static partial Regex MarkerPattern();
 
     [GeneratedRegex(@"```wyl\r?\n(.*?)```", RegexOptions.Singleline)]
@@ -54,7 +54,7 @@ static partial class CatalogSelfTests
             yield return $"catalog method '{group.Key}' is overloaded";
         var described = Catalog.All.Select(d => d.Name).ToHashSet();
         foreach (var method in methods.Where(m => !described.Contains(m.Name)))
-            yield return $"catalog method '{method.Name}' has no [Error]";
+            yield return $"catalog method '{method.Name}' has no [Error] or [Warning]";
     }
 
     static IEnumerable<string> Anchors(string root)
@@ -66,7 +66,7 @@ static partial class CatalogSelfTests
             yield return $"{descriptor.Code} ({descriptor.Name}): the spec has no section '{descriptor.Anchor}'";
     }
 
-    /// <summary>Every code is one a test case expects, which its error markers say.</summary>
+    /// <summary>Every code is one a test case expects, which its error and warning markers say.</summary>
     static IEnumerable<string> Produced(string root)
     {
         var expected = new HashSet<string>();
@@ -118,9 +118,9 @@ static partial class CatalogSelfTests
                 continue;
             }
             var result = Compilation.Lower(sources);
-            var codes = result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
+            var codes = result.Diagnostics.Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
             if (!codes.SequenceEqual([descriptor.Code]))
-                yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no error" : string.Join(", ", codes))}";
+                yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no diagnostic" : string.Join(", ", codes))}";
         }
     }
 

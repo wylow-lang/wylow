@@ -3,7 +3,7 @@ using Wyl.Compiler;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Text;
 
-// The spec's code produces exactly the errors it marks (introduction.notation.examples). A block's
+// The spec's code produces exactly the errors and warnings it marks (introduction.normative). A block's
 // info string says how it is checked: `java` is a file, `java statements` is the body of main, and
 // `java unchecked` is not compiled, for what the compiler doesn't implement yet or a declaration of
 // std itself. Leaving a block out takes that word, so what isn't checked can be listed with a grep.
@@ -26,7 +26,7 @@ static partial class SpecExampleSelfTests
     [GeneratedRegex(@"```java(?: (\w+))?\r?\n(.*?)```", RegexOptions.Singleline)]
     private static partial Regex BlockPattern();
 
-    [GeneratedRegex(@"error\[(WYL\d{4})\]")]
+    [GeneratedRegex(@"(?:error|warning)\[(WYL\d{4})\]")]
     private static partial Regex MarkerPattern();
 
     [GeneratedRegex(@"\b(struct|class|interface|enum)(\s+\w+[^{]*)\{\s*\.\.\.\s*\}")]
@@ -117,7 +117,6 @@ static partial class SpecExampleSelfTests
         }
 
         return Compilation.Lower(new SourceText("example.wyl", source)).Diagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error)
             .Select(d => (d.Location.LineColumn.Line, d.Code, d.Message))
             .Where(e => e.Line <= lines.Length)
             .ToList();
