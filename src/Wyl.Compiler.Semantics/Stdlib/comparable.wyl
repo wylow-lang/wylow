@@ -1,5 +1,7 @@
 /// A type whose values are in an order, as for sorting.
-pub interface Comparable<T> {
+///
+/// `compareTo` returns zero exactly when `equals` returns `true`.
+pub interface Comparable<T> extends Equatable<T> {
     /// Returns a negative number, zero, or a positive number as this value sorts before, the same
     /// as, or after `other`.
     int compareTo(in T other);

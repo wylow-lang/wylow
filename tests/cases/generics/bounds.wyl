@@ -4,6 +4,10 @@ struct Score implements Comparable<Score> {
     pub int compareTo(in Score other) {
         return points - other.points;
     }
+
+    pub bool equals(in Score other) {
+        return points == other.points;
+    }
 }
 
 class Version implements Comparable<Version> {
@@ -15,6 +19,10 @@ class Version implements Comparable<Version> {
 
     pub int compareTo(in Version other) {
         return number - other.number;
+    }
+
+    pub bool equals(in Version other) {
+        return number == other.number;
     }
 }
 

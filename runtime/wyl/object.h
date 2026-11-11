@@ -585,8 +585,8 @@ inline B* As(const Borrow<T>& value) {
 template <class T>
 struct Builtin;
 
-// The methods with bodies of the extern struct that declares T's members: the compiler declares
-// a specialization of its static members for each such struct.
+// The interface methods that the standard library writes in Wylow for the primitive type or String
+// T: the compiler specializes it to forward each one to the function it writes.
 template <class T>
 struct MethodsOf;
 

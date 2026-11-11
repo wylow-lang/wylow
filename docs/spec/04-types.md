@@ -139,8 +139,8 @@ checks that the value is a scalar value ([Casts](05-conversions.md#conversions.c
 Each primitive type has a struct of its name in an extern block of the standard library
 ([The standard library's extern declarations](21-interop.md#interop.extern.std)). It gives the type
 its members and interfaces and changes nothing else about it: `int` still names the built-in type
-([The standard library](a-library.md#library.names)). Every primitive type implements `Printable`,
-and every one except `bool` implements `Comparable` of itself
+([The standard library](a-library.md#library.names)). Every primitive type implements `Printable`
+and `Hashable` of itself, and every one except `bool` implements `Comparable` of itself
 ([`Printable`](a-library.md#library.printable), [`Comparable`](a-library.md#library.comparable)).
 
 For an integer type `T`:

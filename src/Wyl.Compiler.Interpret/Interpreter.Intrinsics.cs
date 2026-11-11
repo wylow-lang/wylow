@@ -87,6 +87,10 @@ public sealed partial class Interpreter
                 table[$"{type.Name}::compareTo"] = (i, call, location, caller) =>
                     new IntValue(RuntimeArithmetic.CompareTotal(type, i.ReceiverOf(call, caller)!, i.ArgumentsOf(call, caller)[0]));
             }
+            if (type == WylType.Float)
+                table["float::toBits"] = (i, call, location, caller) => new IntValue(BitConverter.SingleToInt32Bits((float)((FloatValue)i.ReceiverOf(call, caller)!).Number));
+            if (type == WylType.Double)
+                table["double::toBits"] = (i, call, location, caller) => new IntValue(BitConverter.DoubleToInt64Bits(((FloatValue)i.ReceiverOf(call, caller)!).Number));
             if (type.IsInteger && type != WylType.Char)
             {
                 foreach (var (name, op) in (ReadOnlySpan<(string, char)>)[("Add", '+'), ("Sub", '-'), ("Mul", '*')])

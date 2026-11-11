@@ -8,6 +8,10 @@ struct Version implements Comparable<Version> {
         int byMajor = major.compareTo(other.major);
         return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
     }
+
+    pub bool equals(in Version other) {
+        return major == other.major && minor == other.minor;
+    }
 }
 
 class Score implements Comparable<Score> {
@@ -19,6 +23,10 @@ class Score implements Comparable<Score> {
 
     pub int compareTo(in Score other) {
         return points.compareTo(other.points);
+    }
+
+    pub bool equals(in Score other) {
+        return points == other.points;
     }
 }
 

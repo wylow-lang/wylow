@@ -3,7 +3,7 @@
 /// This declaration gives `String` its members and interfaces; `String` itself is a built-in type,
 /// not a struct (spec `types.string`). Offsets and lengths count bytes of UTF-8, which is what a
 /// string stores; a character (`char`) takes 1 to 4 of them.
-pub extern struct String implements Comparable<String>, Printable {
+pub extern struct String implements Comparable<String>, Hashable<String>, Printable {
     /// Returns the length in bytes, not in characters.
     @Pure
     pub extern int byteLength();
@@ -54,6 +54,16 @@ pub extern struct String implements Comparable<String>, Printable {
     /// Returns the string itself.
     @Pure
     pub extern String toString();
+
+    /// Returns whether this string has the same bytes as `other`.
+    pub bool equals(in String other) {
+        return this == other;
+    }
+
+    /// Adds the bytes of this string to `hasher`.
+    pub void hash(ref Hasher hasher) {
+        hasher.addBytes(bytes());
+    }
 
     // The character that starts at `offset`, which must be where one starts.
     @Pure

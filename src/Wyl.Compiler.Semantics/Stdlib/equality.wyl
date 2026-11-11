@@ -1,0 +1,59 @@
+/// A type whose values can be compared for equality.
+///
+/// `equals` is an equivalence: every value equals itself, `a.equals(b)` is `b.equals(a)`, and two
+/// values that equal a third equal each other.
+pub interface Equatable<T> {
+    /// Returns whether this value equals `other`.
+    bool equals(in T other);
+}
+
+/// A type whose values can be hashed, as the key of a `HashMap` or an element of a `HashSet`.
+///
+/// Two values that are equal by `equals` give a hasher the same input, so they hash alike.
+pub interface Hashable<T> extends Equatable<T> {
+    /// Adds the parts of this value that `equals` compares to `hasher`.
+    void hash(ref Hasher hasher);
+}
+
+/// The state of a hash being computed.
+///
+/// A hash depends on the values added and on their order. The standard library does not specify
+/// the number that a hash comes to, and a later version of it may compute a different number.
+pub struct Hasher {
+    ulong state = 0x243F_6A88_85A3_08D3UL;
+
+    /// Adds `value` to the hash.
+    pub mut void add(long value) {
+        state = (state ^ (ulong)value).wrappingMul(0x9E37_79B9_7F4A_7C15UL);
+        state = state ^ (state >> 29);
+    }
+
+    /// Adds `bytes` to the hash: their number, and then the bytes in order.
+    pub mut void addBytes(ReadOnlySpan<byte> bytes) {
+        add(bytes.length());
+        mut int i = 0;
+        while (i + 8 <= bytes.length()) {
+            mut long word = 0;
+            for (int j : 0..8) {
+                word = word | ((long)bytes[i + j] << (j * 8));
+            }
+            add(word);
+            i += 8;
+        }
+        if (i < bytes.length()) {
+            mut long rest = 0;
+            for (int j : 0..bytes.length() - i) {
+                rest = rest | ((long)bytes[i + j] << (j * 8));
+            }
+            add(rest);
+        }
+    }
+
+    /// Returns the hash of everything added so far.
+    pub long finish() {
+        mut ulong mixed = state;
+        mixed = (mixed ^ (mixed >> 30)).wrappingMul(0xBF58_476D_1CE4_E5B9UL);
+        mixed = (mixed ^ (mixed >> 27)).wrappingMul(0x94D0_49BB_1331_11EBUL);
+        return (long)(mixed ^ (mixed >> 31));
+    }
+}

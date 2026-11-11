@@ -1,0 +1,28 @@
+// Comparable extends Equatable, so a class that implements Comparable writes equals too.
+import std::{Equatable, Hashable};
+
+class Version implements Comparable<Version> { // error[WYL0185]: 'Version' does not implement 'Equatable<Version>.equals(in Version)'
+    int number;
+
+    pub int compareTo(in Version other) {
+        return number - other.number;
+    }
+}
+
+class Key implements Hashable<Key> {           // error[WYL0185]: 'Key' does not implement 'Hashable<Key>.hash(ref Hasher)'
+    int id;
+
+    pub bool equals(in Key other) {
+        return id == other.id;
+    }
+}
+
+bool same<T>(in T a, in T b) {
+    return a == b;                             // error[WYL0308]: operator '==' cannot be applied to 'T' and 'T'
+}
+
+bool sameBounded<T extends Equatable<T>>(in T a, in T b) {
+    return a == b;                             // error[WYL0308]: operator '==' cannot be applied to 'T' and 'T'
+}
+
+void main() { }

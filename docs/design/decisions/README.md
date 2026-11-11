@@ -117,3 +117,4 @@ history and a reason can be found without searching the spec.
 | [0087](0087-extern-calls-are-not-interpreted.md) | The interpreter runs only the extern functions it implements |
 | [0088](0088-memory-compare-and-the-string-floor.md) | `memory::compare` and `memory::equal`, and the native floor of `String` |
 | [0089](0089-collections-module.md) | The module `std::collections` holds `List<T>` and the other collections; `Array<T>` stays in the root |
+| [0090](0090-equatable-and-hashable.md) | `Equatable`, `Hashable`, and `Hasher`; `Comparable` extends `Equatable`; the built-in types implement `Hashable` |

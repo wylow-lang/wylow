@@ -134,7 +134,7 @@ properties the other bounds name.
 
 - A type satisfies an interface bound if it implements the interface: a class, struct, or enum by declaring
   it ([Implementing an interface](10-interfaces.md#interfaces.implementing)). The primitive types and `String`
-  implement `Printable` and `Comparable` ([Printable](a-library.md#library.printable),
+  implement `Printable`, `Hashable`, and, except `bool`, `Comparable` ([Printable](a-library.md#library.printable),
   [Comparable](a-library.md#library.comparable)).
 - A nullable type does not satisfy a bound: a method of the type could not be called on `null`.
 - A bound does not make `T` convert to the interface: `T` may be a struct, which does not

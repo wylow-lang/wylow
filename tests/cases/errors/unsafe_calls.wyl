@@ -32,6 +32,7 @@ struct Shown implements Printable {
 struct Ordered implements Comparable<Ordered> {
     int v;
     pub unsafe int compareTo(in Ordered other) { return 0; }   // error[WYL0189]: 'Ordered.compareTo' cannot be 'unsafe'
+    pub bool equals(in Ordered other) { return true; }
 }
 
 struct Grid {

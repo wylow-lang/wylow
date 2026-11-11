@@ -1,0 +1,61 @@
+// The built-in types implement Equatable and Hashable of themselves, and Comparable extends
+// Equatable, so a Comparable bound also gives `equals`.
+import std::{Equatable, Hashable, Hasher};
+
+bool same<T extends Equatable<T>>(in T a, in T b) {
+    return a.equals(b);
+}
+
+bool sameOrdered<T extends Comparable<T>>(in T a, in T b) {
+    return a.equals(b) && a.compareTo(b) == 0;
+}
+
+long hashOf<T extends Hashable<T>>(in T value) {
+    mut var hasher = Hasher();
+    value.hash(ref hasher);
+    return hasher.finish();
+}
+
+bool hashesAlike<T extends Hashable<T>>(in T a, in T b) {
+    return hashOf(a) == hashOf(b);
+}
+
+void main() {
+    std::print(5.equals(5));                    // output: true
+    std::print(5.equals(6));                    // output: false
+    std::print(same(true, true));               // output: true
+    std::print(same('a', 'b'));                 // output: false
+    byte b = 200;
+    std::print(same(b, (byte)200));             // output: true
+    std::print(same(-1L, -1L));                 // output: true
+    std::print(same(0xFFFF_FFFFu, 0xFFFF_FFFFu)); // output: true
+    std::print(same("text", "text"));           // output: true
+    std::print(same("text", "texts"));          // output: false
+    std::print(sameOrdered("a", "a"));          // output: true
+    std::print(sameOrdered(1.5, 1.5));          // output: true
+
+    // A float's equals follows compareTo's total order, not `==`.
+    double nan = 0.0d / 0.0d;
+    std::print(nan == nan);                     // output: false
+    std::print(nan.equals(nan));                // output: true
+    std::print(same(nan, -nan));                // output: true
+    std::print(0.0d == -0.0d);                  // output: true
+    std::print(same(0.0d, -0.0d));              // output: false
+    float nanF = 0.0f / 0.0f;
+    std::print(same(nanF, nanF));               // output: true
+    std::print(same(0.0f, -0.0f));              // output: false
+
+    // Values that equals finds equal hash alike, including NaNs of either sign.
+    std::print(hashesAlike(nan, -nan));         // output: true
+    std::print(hashesAlike(nanF, -nanF));       // output: true
+    std::print(hashesAlike(42, 42));            // output: true
+    std::print(hashesAlike(42, 43));            // output: false
+    std::print(hashesAlike(2.5, 2.5));          // output: true
+    std::print(hashesAlike(2.5, 2.25));         // output: false
+    std::print(hashesAlike('x', 'x'));          // output: true
+    std::print(hashesAlike(true, false));       // output: false
+    std::print(hashesAlike("abcdefghij", "abcdefghij")); // output: true
+    std::print(hashesAlike("abcdefghij", "abcdefghik")); // output: false
+    std::print(hashesAlike("", ""));            // output: true
+    std::print(hashesAlike("", "a"));           // output: false
+}

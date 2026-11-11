@@ -1,0 +1,31 @@
+// A hash depends on the values added and on their order. The numbers themselves are not
+// specified, so the test compares hashes and never prints one.
+import std::Hasher;
+
+long hashOfPair(long first, long second) {
+    mut var hasher = Hasher();
+    hasher.add(first);
+    hasher.add(second);
+    return hasher.finish();
+}
+
+void main() {
+    std::print(Hasher().finish() == Hasher().finish());         // output: true
+    std::print(hashOfPair(1, 2) == hashOfPair(1, 2));           // output: true
+    std::print(hashOfPair(1, 2) == hashOfPair(2, 1));           // output: false
+    std::print(hashOfPair(0, 0) == hashOfPair(0, 1));           // output: false
+
+    // addBytes adds the number of bytes first, so a split of the same bytes hashes differently.
+    mut var whole = Hasher();
+    whole.addBytes("abcd".bytes());
+    mut var split = Hasher();
+    split.addBytes("ab".bytes());
+    split.addBytes("cd".bytes());
+    std::print(whole.finish() == split.finish());               // output: false
+
+    // finish does not change the hasher.
+    mut var hasher = Hasher();
+    hasher.add(7);
+    long once = hasher.finish();
+    std::print(hasher.finish() == once);                        // output: true
+}

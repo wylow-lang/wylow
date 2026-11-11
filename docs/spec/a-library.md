@@ -134,15 +134,21 @@ pub interface Printable {
 `Comparable` is the interface of a type whose values are in an order:
 
 ```java unchecked
-pub interface Comparable<T> {
+pub interface Comparable<T> extends Equatable<T> {
     int compareTo(in T other);
 }
 ```
 
 `compareTo` returns a negative number, zero, or a positive number as this value sorts before, the
-same as, or after `other`.
+same as, or after `other`. `Comparable<T>` extends the standard library's `Equatable<T>`, so a type
+that implements `Comparable` also has `bool equals(in T other)`. A type that implements `Comparable`
+returns `true` from `equals` exactly when `compareTo` returns zero. The compiler does not check that
+the two methods agree.
 
 - The numbers, `char`, and `String` implement `Comparable` of themselves. `bool` does not.
+- Every primitive type and `String` implement the standard library's `Hashable` of themselves,
+  which extends `Equatable`. A `float` or `double` is equal to another by `equals` when `compareTo`
+  returns zero, so every NaN equals every other NaN, and `-0` does not equal `0`.
 - The standard library's `float` and `double` compare in a total order: `-0` sorts before `0`, and
   NaN sorts after every other value, infinity included, and the same as any other NaN. The
   operators order them differently: `-0 == 0`, and NaN is unequal to every value, itself included

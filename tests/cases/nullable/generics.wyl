@@ -10,6 +10,10 @@ struct Score implements Comparable<Score> {
     pub int compareTo(in Score other) {
         return points - other.points;
     }
+
+    pub bool equals(in Score other) {
+        return points == other.points;
+    }
 }
 
 class Node {

@@ -263,7 +263,7 @@ public sealed partial class CppEmitter
         var receiverType = receiverPlace.Type;
         var receiverText = receiver is IrRead value ? OperandText(value) : PlaceText(receiverPlace);
         if (function.IsExternStructBody)
-            return $"{ExternStructMethods(function.ContainingType!)}::{memberName}({string.Join(", ", texts.Prepend(receiverText))})";
+            return $"{ExternStructFunctionName(function)}{typeArguments}({string.Join(", ", texts.Prepend(receiverText))})";
         bool isThis = receiverPlace is { IsDeref: false, Projections.Count: 0, Local.IsThis: true } && emitting is not { Symbol.IsExternStructBody: true };
         var target = isThis ? ThisReceiverText(method, call.IsSuperCall) : ReceiverText(receiverType, method, receiverText);
         // An extern struct's instance methods are members of its C++ class, and a primitive's are

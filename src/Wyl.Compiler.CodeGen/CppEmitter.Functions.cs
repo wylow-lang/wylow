@@ -32,24 +32,49 @@ public sealed partial class CppEmitter
     /// <summary>The parameter that <c>this</c> is in a method with a body of an extern struct.</summary>
     const string SelfName = "self";
 
-    /// <summary>The C++ class whose static members are the methods with bodies of an extern struct, which <c>wyl::Builtin</c> calls through a bound.</summary>
-    string ExternStructMethods(TypeSymbol s) => $"wyl::MethodsOf<{CppType(stdlib.ThisType(s))}>";
+    /// <summary>The C++ function a method with a body of an extern struct is, named for its Wylow type so that no two collide.</summary>
+    string ExternStructFunctionName(FunctionSymbol method) => $"wyl_{method.ContainingType!.Name}_{MethodName(method)}";
 
     /// <summary>
-    /// Declares each extern struct's reached methods with bodies in its <c>wyl::MethodsOf</c>
-    /// specialization, after every type is complete and before any function uses one.
+    /// Declares the reached methods with bodies of the extern structs, after every type is complete
+    /// and before any function uses one. Then gives <c>wyl::Builtin</c>, through which a call on a
+    /// bound reaches a primitive or <c>String</c>, a <c>wyl::MethodsOf</c> that forwards each
+    /// interface method such a body implements. Two built-in types may be one C++ type, as <c>nint</c>
+    /// and <c>long</c> are on a 64-bit target, so a type whose C++ identity is another type's gets a
+    /// constrained partial specialization, which C++ uses only where the two types differ.
     /// </summary>
     void DeclareExternStructMethods(BoundProgram program)
     {
-        var reachedBodies = program.Functions.Select(f => f.Symbol).Where(f => f.IsExternStructBody && functions.Contains(f));
-        foreach (var owner in reachedBodies.GroupBy(f => f.ContainingType!))
+        var reached = program.Functions.Select(f => f.Symbol).Where(f => f.IsExternStructBody && functions.Contains(f)).ToList();
+        if (reached.Count == 0)
+            return;
+        Line();
+        foreach (var method in reached)
+            Line($"{ReturnType(method)} {ExternStructFunctionName(method)}({Parameters(method)});");
+        foreach (var owner in reached.Where(m => m.Overridden.Any(o => o.ContainingType is { Kind: TypeKind.Interface })).GroupBy(m => m.ContainingType!))
         {
+            var type = stdlib.ThisType(owner.Key);
             Line();
-            Line("template <>");
-            Line($"struct {ExternStructMethods(owner.Key)}");
+            if (type == type.CppIdentity)
+            {
+                Line("template <>");
+                Line($"struct wyl::MethodsOf<{CppType(type)}>");
+            }
+            else
+            {
+                Line("template <class T>");
+                Line($"    requires std::is_same_v<T, {CppType(type)}>");
+                Line("struct wyl::MethodsOf<T>");
+            }
             Line("{");
             foreach (var method in owner)
-                Line($"    static {ReturnType(method)} {MethodName(method)}({Parameters(method)});");
+            {
+                foreach (var name in method.Overridden.Where(o => o.ContainingType is { Kind: TypeKind.Interface }).Select(MethodName).Distinct())
+                {
+                    Line("    template <class... A>");
+                    Line($"    static decltype(auto) {name}(A&&... arguments) {{ return {ExternStructFunctionName(method)}(std::forward<A>(arguments)...); }}");
+                }
+            }
             Line("};");
         }
     }
@@ -115,7 +140,7 @@ public sealed partial class CppEmitter
         if (function.IsDestructor)
             return s.HasSeparateDestructor ? $"void {owner}::wyl_destructor()" : $"{owner}::~{OwnName(s)}()";
         if (function.IsExternStructBody)
-            return $"{ReturnType(function)} {ExternStructMethods(s)}::{MethodName(function)}({Parameters(function)})";
+            return $"{ReturnType(function)} {ExternStructFunctionName(function)}({Parameters(function)})";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly && !function.HasByValueReceiver ? signature + " const" : signature;
     }

@@ -98,6 +98,27 @@ struct Builtin {
         return MulOverflows(Value, other) ? Optional<T>() : Optional<T>(wrappingMul(other));
     }
 
+    // The IEEE 754 bits of a float or double.
+    auto toBits() const
+        requires std::is_floating_point_v<T>
+    {
+        if constexpr (std::is_same_v<T, float>) {
+            return std::bit_cast<int32_t>(Value);
+        } else {
+            return std::bit_cast<int64_t>(Value);
+        }
+    }
+
+    // Equatable and Hashable, whose methods the standard library writes in Wylow (MethodsOf).
+    bool m_equals(const T& other) const {
+        return MethodsOf<T>::m_equals(Value, other);
+    }
+
+    template <class H>
+    void m_hash(H& hasher) const {
+        MethodsOf<T>::m_hash(Value, hasher);
+    }
+
     int32_t m_compareTo(const T& other) const {
         return compareTo(other);
     }
