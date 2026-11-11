@@ -1,0 +1,9 @@
+import std::collections::HashMap;
+
+void main() {
+    var counts = new HashMap<String, int>();
+    counts.put("a", 1);
+    for (ref int count : counts.values()) {
+        counts.put("b", count);     // panic-here: cannot add or remove an entry of a map while it is borrowed by a reference, loop, or a key's 'equals' or 'hash'
+    }
+}

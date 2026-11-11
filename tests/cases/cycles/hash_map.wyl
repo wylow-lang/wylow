@@ -1,0 +1,49 @@
+// A HashMap reports its entries to the cycle collector, so a cycle through a map's values is
+// freed, and so is one through a key. Each node's two maps are freed with it.
+import std::{Hashable, Hasher, memory};
+import std::collections::HashMap;
+
+class Node implements Hashable<Node> {
+    int id;
+    pub HashMap<int, Node> children = new HashMap<int, Node>();
+    pub HashMap<Node, int> byNode = new HashMap<Node, int>();
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    pub bool equals(in Node other) {
+        return this == other;
+    }
+
+    pub void hash(ref Hasher hasher) {
+        hasher.add(id);
+    }
+
+    ~Node() {
+        std::print(id);
+    }
+}
+
+void main() {
+    {
+        var parent = new Node(1);
+        var child = new Node(2);
+        parent.children.put(2, child);
+        child.children.put(1, parent);
+    }
+    std::print("collect");                      // output: collect
+    memory::collectCycles();
+    // output: 1
+    // output: 2
+    std::print(memory::cycleStats().freed);     // output: 6
+
+    {
+        var node = new Node(3);
+        node.byNode.put(node, 3);
+    }
+    std::print("collect");                      // output: collect
+    memory::collectCycles();
+    // output: 3
+    std::print(memory::cycleStats().freed);     // output: 3
+}

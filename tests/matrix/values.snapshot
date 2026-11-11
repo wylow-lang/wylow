@@ -406,6 +406,37 @@ out 1
 out 3
 exit 0
 
+=== empty-hash-map/indexing
+out false
+err panic: the map has no entry for the key
+err     at indexing.wyl:18:7
+exit 3
+
+=== empty-hash-map/iteration
+out 0
+out false
+err panic: cannot read the current element of an iterator before 'moveNext' or after the last element
+err     at collections/hash_map.wyl:445:9
+exit 3
+
+=== one-hash-map/indexing
+out 4
+out 5
+out false
+exit 0
+
+=== one-hash-map/iteration
+out é
+out 4
+out 0
+exit 0
+
+=== one-hash-set/iteration
+out -2147483648
+out false
+out false
+exit 0
+
 === empty-array-iterator/iteration
 out false
 err panic: cannot read the current element of an iterator before 'moveNext' or after the last element

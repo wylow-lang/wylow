@@ -1,7 +1,7 @@
 // The values x operations matrix: a value at an edge crossed with what is done with it. The edges
 // are 0, 1, -1, INT_MAX, INT_MIN, a long past INT_MAX, -0.0 and an inexact double, an empty array,
 // a one-element list, the iterators of an empty list, a one-element list, a list holding a null,
-// and an empty array, the element iterators of an empty chain and a one-element chain, the
+// and an empty array, an empty and a one-entry hash map and a one-value hash set, the element iterators of an empty chain and a one-element chain, the
 // iterator adapters and terminal operations over an empty list, a one-element list, and the
 // one-element element iterators, the last index, the empty and multi-byte strings, the code point past ASCII,
 // true, null as a value and as a reference, and an unequal pair. An operation is arithmetic,
@@ -289,6 +289,61 @@ static class MatrixValues
                     print(at);
                     print(value ?? -1);
                 }
+                """,
+        });
+
+        yield return new("empty-hash-map", "var values = new HashMap<String, int>();", new()
+        {
+            ["indexing"] = """
+                print(values.containsKey(""));
+                print(values[""]);
+                """,
+            ["iteration"] = """
+                mut int count = 0;
+                for (in String key : values.keys()) {
+                    count++;
+                }
+                print(count);
+                mut var iterator = values.values();
+                print(iterator.moveNext());
+                print(iterator.current());
+                """,
+        });
+
+        yield return new("one-hash-map", """
+            var values = new HashMap<String, int>();
+            values.put("é", 4);
+            """, new()
+        {
+            ["indexing"] = """
+                print(values["é"]);
+                values["é"] += 1;
+                print(values["é"]);
+                print(values.containsKey("e"));
+                """,
+            ["iteration"] = """
+                for (in MapEntry<String, int> entry : values.entries()) {
+                    print(entry.key);
+                    print(entry.value);
+                }
+                for (ref int value : values.values()) {
+                    value = 0;
+                }
+                print(values["é"]);
+                """,
+        });
+
+        yield return new("one-hash-set", """
+            var values = new HashSet<int>();
+            values.add(-2147483648);
+            """, new()
+        {
+            ["iteration"] = """
+                for (in int value : values.iterator()) {
+                    print(value);
+                }
+                print(values.add(-2147483648));
+                print(values.contains(0));
                 """,
         });
 

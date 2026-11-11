@@ -27,7 +27,7 @@ easier: the language is young and churn is expected.
   proved X" is a later optimization pass, never a language rule that depends on inference.
 - **The language provides only what libraries can't.** Thread pools, jobs, parallel loops, pools of
   objects, and containers are library code.
-- **Unsafe code lives only in the standard library's floor** (`Array`, `List`, `Span`, native
+- **Unsafe code lives only in the standard library's floor** (`Array`, `List`, `HashMap`, `Span`, native
   `String`); every other container is built safely on them.
 - **Wylow is general-purpose.** No design is justified by what one kind of program (games, a
   particular port) needs, and examples are generic.

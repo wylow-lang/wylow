@@ -1,0 +1,52 @@
+// HashSet holds each value once, keeps the value it already holds when an equal one is added, and
+// its iterator visits every value once.
+import std::{Hashable, Hasher};
+import std::collections::HashSet;
+
+struct Named implements Hashable<Named> {
+    String name;
+    int serial;
+
+    // Two values with one name are equal, whatever their serials.
+    pub bool equals(in Named other) {
+        return name == other.name;
+    }
+
+    pub void hash(ref Hasher hasher) {
+        name.hash(ref hasher);
+    }
+}
+
+void main() {
+    var seen = new HashSet<String>();
+    std::print(seen.isEmpty());             // output: true
+    std::print(seen.add("a"));              // output: true
+    std::print(seen.add("b"));              // output: true
+    std::print(seen.add("a"));              // output: false
+    std::print(seen.count());               // output: 2
+    std::print(seen.contains("b"));         // output: true
+    std::print(seen.remove("b"));           // output: true
+    std::print(seen.remove("b"));           // output: false
+    std::print(seen.contains("b"));         // output: false
+
+    var numbers = new HashSet<int>(16);
+    for (int i : 0..500) {
+        numbers.add(i % 100);
+    }
+    std::print(numbers.count());            // output: 100
+    mut int sum = 0;
+    for (in int n : numbers.iterator()) {
+        sum += n;
+    }
+    std::print(sum);                        // output: 4950
+
+    var named = new HashSet<Named>();
+    named.add(Named("x", 1));
+    std::print(named.add(Named("x", 2)));   // output: false
+    for (in Named n : named.iterator()) {
+        std::print(n.serial);               // output: 1
+    }
+
+    numbers.clear();
+    std::print(numbers.count());            // output: 0
+}

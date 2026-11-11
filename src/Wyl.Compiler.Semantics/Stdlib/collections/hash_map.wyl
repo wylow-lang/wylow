@@ -1,0 +1,467 @@
+import std::{Borrow, Hashable, Hasher, memory, panic};
+import std::iteration::{InIterator, RefIterator};
+
+/// A key and the value a `HashMap` maps it to.
+pub struct MapEntry<K, V> {
+    /// The key, which the map compares and hashes to find the entry.
+    pub K key;
+
+    /// The value the key maps to.
+    pub V value;
+}
+
+/// A map from keys to values, in a hash table with open addressing.
+///
+/// Each slot of the table holds its entry in place, and a lookup probes the slots after the one the
+/// key's hash chooses, one by one, until it finds the key or an empty slot. The table doubles its
+/// size when an entry would fill more than seven eighths of its slots.
+///
+/// The order in which the map's iterators visit its entries depends on the keys' hashes, and is not
+/// specified. Adding or removing an entry may move the others, so while a reference or loop into the
+/// map exists, the map is borrowed, and adding or removing an entry panics (spec `memory.borrows`).
+/// The map also counts a borrow while it calls a key's `equals` or `hash`, so that code those
+/// methods run cannot change the map in the middle of a lookup.
+pub final class HashMap<K extends Hashable<K>, V> implements Borrowable, unsafe memory::ElementOwner<MapEntry<K, V>> {
+    mut MapEntry<K, V>* slots;
+    // A control byte for each slot: 0 for an empty slot, or the high bit and seven bits of the key's hash.
+    mut byte* control;
+    mut int capacity;
+    mut int size;
+    mut int borrows;
+
+    /// Makes an empty map, which allocates nothing until an entry is added.
+    pub HashMap() { }
+
+    /// Makes an empty map with room for at least `capacity` entries.
+    ///
+    /// # Panics
+    ///
+    /// If `capacity` entries are too large to address.
+    @CallerLocation
+    pub HashMap(int capacity) {
+        reserve(capacity);
+    }
+
+    /// Returns the number of entries.
+    pub int count() {
+        return size;
+    }
+
+    /// Returns whether the map has no entries.
+    pub bool isEmpty() {
+        return size == 0;
+    }
+
+    /// Returns whether an entry has a key equal to `key`.
+    pub bool containsKey(in K key) {
+        return find(key, hashOf(key)) >= 0;
+    }
+
+    /// Returns a reference to the value of the entry whose key equals `key`, or null if no entry has
+    /// such a key.
+    pub ref? V get(in K key) {
+        int slot = find(key, hashOf(key));
+        if (slot < 0) {
+            return null;
+        }
+        unsafe {
+            return ref slots[slot].value;
+        }
+    }
+
+    /// Returns a reference to the value of the entry whose key equals `key`.
+    ///
+    /// # Panics
+    ///
+    /// If no entry has a key equal to `key`.
+    @CallerLocation
+    pub ref V operator [](in K key) {
+        int slot = find(key, hashOf(key));
+        if (slot < 0) {
+            panic::panic("the map has no entry for the key");
+        }
+        unsafe {
+            return ref slots[slot].value;
+        }
+    }
+
+    /// Maps `key` to `value`, and returns the value that `key` was mapped to before, or null if no
+    /// entry had the key. If an entry has the key, the entry keeps its own key and takes `value`. A
+    /// value may be changed while the map is borrowed through the reference that `operator []`
+    /// returns.
+    ///
+    /// # Panics
+    ///
+    /// If the map is borrowed, or one more entry would be too large to address.
+    @CallerLocation
+    pub V? put(K key, V value) {
+        checkNotBorrowed();
+        long hash = hashOf(key);
+        int found = find(key, hash);
+        if (found >= 0) {
+            unsafe {
+                return std::replace(ref slots[found].value, value);
+            }
+        }
+        if ((size + 1) * 8 > capacity * 7) {
+            resize(capacity < 8 ? 8 : capacity * 2);
+        }
+        unsafe {
+            int slot = emptySlot(hash);
+            memory::initialize(slots + slot, MapEntry<K, V>(key, value));
+            control[slot] = tagOf(hash);
+        }
+        size++;
+        return null;
+    }
+
+    /// Removes the entry whose key equals `key`, and returns its value, or returns null if no entry
+    /// has such a key.
+    ///
+    /// # Panics
+    ///
+    /// If the map is borrowed.
+    @CallerLocation
+    pub V? remove(in K key) {
+        checkNotBorrowed();
+        int slot = find(key, hashOf(key));
+        if (slot < 0) {
+            return null;
+        }
+        // Moving the entry out keeps it alive, so no destructor runs while the table is rearranged.
+        // Its key is released when the method returns.
+        MapEntry<K, V> removed;
+        unsafe {
+            removed = memory::moveOut(slots + slot);
+            control[slot] = 0;
+        }
+        size--;
+        shiftBack(slot);
+        switch (removed) {
+            case MapEntry<K, V>(var removedKey, var value) -> {
+                return value;
+            }
+        }
+    }
+
+    /// Removes every entry. The capacity stays.
+    ///
+    /// # Panics
+    ///
+    /// If the map is borrowed.
+    @CallerLocation
+    pub void clear() {
+        checkNotBorrowed();
+        // Dropping an entry may run a destructor, which must not change the map meanwhile.
+        borrows++;
+        unsafe {
+            for (int i : 0..capacity) {
+                if (control[i] != 0) {
+                    control[i] = 0;
+                    memory::drop(slots + i);
+                }
+            }
+        }
+        size = 0;
+        borrows--;
+    }
+
+    /// Makes room for at least `minimum` entries, so that adding up to that many never moves them.
+    ///
+    /// # Panics
+    ///
+    /// If the map is borrowed, or `minimum` entries are too large to address.
+    @CallerLocation
+    pub void reserve(int minimum) {
+        checkNotBorrowed();
+        mut int wanted = capacity < 8 ? 8 : capacity;
+        while (minimum * 8 > wanted * 7) {
+            wanted = wanted * 2;
+        }
+        if (wanted > capacity && minimum > 0) {
+            resize(wanted);
+        }
+    }
+
+    /// Returns an iterator over read-only references to the entries.
+    pub HashMapEntries<K, V> entries() {
+        return HashMapEntries<K, V>(this);
+    }
+
+    /// Returns an iterator over read-only references to the keys.
+    pub HashMapKeys<K, V> keys() {
+        return HashMapKeys<K, V>(this);
+    }
+
+    /// Returns an iterator over references to the values, which the loop may change.
+    pub HashMapValues<K, V> values() {
+        return HashMapValues<K, V>(this);
+    }
+
+    /// Counts a borrow that starts. The compiler calls it; a program can't.
+    pub void beginBorrow() {
+        borrows++;
+    }
+
+    /// Counts a borrow that ends. The compiler calls it; a program can't.
+    pub void endBorrow() {
+        borrows--;
+    }
+
+    /// Passes each entry to `visitor`, for the cycle collector.
+    pub void visitElements(ref memory::ElementVisitor<MapEntry<K, V>> visitor) {
+        unsafe {
+            for (int i : 0..capacity) {
+                if (control[i] != 0) {
+                    visitor.visit(ref slots[i]);
+                }
+            }
+        }
+    }
+
+    package int slotCount() {
+        return capacity;
+    }
+
+    package bool isOccupied(int slot) {
+        unsafe {
+            return control[slot] != 0;
+        }
+    }
+
+    package ref MapEntry<K, V> entryAt(int slot) {
+        unsafe {
+            return ref slots[slot];
+        }
+    }
+
+    // The slot of the entry whose key equals `key`, or -1.
+    int find(in K key, long hash) {
+        if (size == 0) {
+            return -1;
+        }
+        byte tag = tagOf(hash);
+        mut int slot = homeOf(hash);
+        borrows++;
+        unsafe {
+            while (control[slot] != 0) {
+                if (control[slot] == tag && slots[slot].key.equals(key)) {
+                    borrows--;
+                    return slot;
+                }
+                slot = (slot + 1) & (capacity - 1);
+            }
+        }
+        borrows--;
+        return -1;
+    }
+
+    // The first empty slot at or after the one that `hash` chooses. The table always has one.
+    int emptySlot(long hash) {
+        mut int slot = homeOf(hash);
+        unsafe {
+            while (control[slot] != 0) {
+                slot = (slot + 1) & (capacity - 1);
+            }
+        }
+        return slot;
+    }
+
+    // Moves each entry after the empty slot back towards the slot its hash chooses, so that no
+    // lookup stops early at the empty slot and the table needs no marker for a removed entry.
+    void shiftBack(int emptied) {
+        mut int hole = emptied;
+        mut int slot = (emptied + 1) & (capacity - 1);
+        borrows++;
+        unsafe {
+            while (control[slot] != 0) {
+                int home = homeOf(hashOf(slots[slot].key));
+                // The entry may move to the hole if the hole lies between its home slot and its slot.
+                if (((slot - home) & (capacity - 1)) >= ((slot - hole) & (capacity - 1))) {
+                    memory::moveTo(slots + slot, slots + hole, 1);
+                    control[hole] = control[slot];
+                    control[slot] = 0;
+                    hole = slot;
+                }
+                slot = (slot + 1) & (capacity - 1);
+            }
+        }
+        borrows--;
+    }
+
+    @CallerLocation
+    void resize(int newCapacity) {
+        MapEntry<K, V>* oldSlots = slots;
+        byte* oldControl = control;
+        int oldCapacity = capacity;
+        unsafe {
+            slots = memory::allocate<MapEntry<K, V>>(newCapacity);
+            control = memory::allocate<byte>(newCapacity);
+            for (int i : 0..newCapacity) {
+                memory::initialize(control + i, (byte)0);
+            }
+        }
+        capacity = newCapacity;
+        borrows++;
+        unsafe {
+            for (int i : 0..oldCapacity) {
+                if (oldControl[i] != 0) {
+                    long hash = hashOf(oldSlots[i].key);
+                    int slot = emptySlot(hash);
+                    memory::moveTo(oldSlots + i, slots + slot, 1);
+                    control[slot] = oldControl[i];
+                }
+            }
+            memory::free(oldSlots);
+            memory::free(oldControl);
+        }
+        borrows--;
+    }
+
+    int homeOf(long hash) {
+        return (int)((ulong)hash & (ulong)(capacity - 1));
+    }
+
+    @CallerLocation
+    void checkNotBorrowed() {
+        if (borrows > 0) {
+            panic::panic("cannot add or remove an entry of a map while it is borrowed by a reference, loop, or a key's 'equals' or 'hash'");
+        }
+    }
+
+    ~HashMap() {
+        unsafe {
+            for (int i : 0..capacity) {
+                if (control[i] != 0) {
+                    memory::drop(slots + i);
+                }
+            }
+            memory::free(slots);
+            memory::free(control);
+        }
+    }
+}
+
+// The hash that a map gives the key: what the key adds to a new hasher.
+long hashOf<K extends Hashable<K>>(in K key) {
+    mut var hasher = Hasher();
+    key.hash(ref hasher);
+    return hasher.finish();
+}
+
+// The control byte of a slot that holds a key with the hash.
+byte tagOf(long hash) {
+    return (byte)(0x80 | (int)((ulong)hash >> 57));
+}
+
+/// An iterator over read-only references to the entries of a `HashMap`, which `HashMap.entries()`
+/// returns. The iterator borrows the map until the iterator is released.
+pub unique struct HashMapEntries<K extends Hashable<K>, V> implements InIterator<MapEntry<K, V>> {
+    HashMap<K, V> map;
+    Borrow borrow;
+    int slot;
+
+    package HashMapEntries(HashMap<K, V> map) {
+        this.map = map;
+        borrow = Borrow(map);
+        slot = -1;
+    }
+
+    /// Returns `true` after advancing to the next entry, or `false` once the iterator has passed the
+    /// last entry of the map.
+    pub mut bool moveNext() {
+        slot = nextOccupied(map, slot);
+        return slot < map.slotCount();
+    }
+
+    /// Returns a read-only reference to the entry that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub mut in MapEntry<K, V> current() {
+        checkCurrent(map, slot);
+        return ref map.entryAt(slot);
+    }
+}
+
+/// An iterator over read-only references to the keys of a `HashMap`, which `HashMap.keys()` returns.
+/// The iterator borrows the map until the iterator is released.
+pub unique struct HashMapKeys<K extends Hashable<K>, V> implements InIterator<K> {
+    HashMap<K, V> map;
+    Borrow borrow;
+    int slot;
+
+    package HashMapKeys(HashMap<K, V> map) {
+        this.map = map;
+        borrow = Borrow(map);
+        slot = -1;
+    }
+
+    /// Returns `true` after advancing to the next key, or `false` once the iterator has passed the
+    /// last key of the map.
+    pub mut bool moveNext() {
+        slot = nextOccupied(map, slot);
+        return slot < map.slotCount();
+    }
+
+    /// Returns a read-only reference to the key that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub mut in K current() {
+        checkCurrent(map, slot);
+        return ref map.entryAt(slot).key;
+    }
+}
+
+/// An iterator over references to the values of a `HashMap`, which the loop may change, and which
+/// `HashMap.values()` returns. The iterator borrows the map until the iterator is released.
+pub unique struct HashMapValues<K extends Hashable<K>, V> implements RefIterator<V> {
+    HashMap<K, V> map;
+    Borrow borrow;
+    int slot;
+
+    package HashMapValues(HashMap<K, V> map) {
+        this.map = map;
+        borrow = Borrow(map);
+        slot = -1;
+    }
+
+    /// Returns `true` after advancing to the next value, or `false` once the iterator has passed the
+    /// last value of the map.
+    pub mut bool moveNext() {
+        slot = nextOccupied(map, slot);
+        return slot < map.slotCount();
+    }
+
+    /// Returns a reference to the value that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub mut ref V current() {
+        checkCurrent(map, slot);
+        return ref map.entryAt(slot).value;
+    }
+}
+
+// The first occupied slot after `slot`, or the map's number of slots if none is.
+int nextOccupied<K extends Hashable<K>, V>(HashMap<K, V> map, int slot) {
+    mut int next = slot;
+    if (next < map.slotCount()) {
+        next++;
+    }
+    while (next < map.slotCount() && !map.isOccupied(next)) {
+        next++;
+    }
+    return next;
+}
+
+@CallerLocation
+void checkCurrent<K extends Hashable<K>, V>(HashMap<K, V> map, int slot) {
+    if (slot < 0 || slot >= map.slotCount()) {
+        panic::panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
+    }
+}

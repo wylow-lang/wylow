@@ -1,0 +1,142 @@
+// HashMap adds, finds, replaces, and removes entries; removing an entry shifts the entries after it
+// back, so every remaining key is still found; and the map grows past several table sizes.
+import std::{Hashable, Hasher};
+import std::collections::{HashMap, MapEntry};
+
+struct Point implements Hashable<Point> {
+    int x;
+    int y;
+}
+
+enum Color implements Hashable<Color> {
+    Red,
+    Green,
+    Custom(int rgb),
+}
+
+unique struct Token {
+    int id;
+}
+
+// A key whose hash puts every key in the same probe sequence, so removals shift long runs back.
+struct Clash implements Hashable<Clash> {
+    int id;
+
+    pub bool equals(in Clash other) {
+        return id == other.id;
+    }
+
+    pub void hash(ref Hasher hasher) {
+        hasher.add(0);
+    }
+}
+
+void main() {
+    var ages = new HashMap<String, int>();
+    std::print(ages.isEmpty());                         // output: true
+    std::print($"{ages.put("ada", 36)}");               // output: null
+    std::print($"{ages.put("alan", 41)}");              // output: null
+    std::print($"{ages.put("ada", 37)}");               // output: 36
+    std::print(ages.count());                           // output: 2
+    std::print(ages["ada"]);                            // output: 37
+    std::print(ages.containsKey("grace"));              // output: false
+    std::print(ages.get("grace") == null);              // output: true
+    ages["alan"] += 1;
+    std::print(ages["alan"]);                           // output: 42
+    if (ages.get("ada") is ref int age) {
+        age = 38;
+    }
+    std::print(ages["ada"]);                            // output: 38
+    std::print($"{ages.remove("ada")}");                // output: 38
+    std::print($"{ages.remove("ada")}");                // output: null
+    std::print(ages.count());                           // output: 1
+
+    // Growing past several table sizes keeps every entry.
+    var squares = new HashMap<int, int>();
+    for (int i : 0..1000) {
+        squares.put(i, i * i);
+    }
+    std::print(squares.count());                        // output: 1000
+    mut bool all = true;
+    for (int i : 0..1000) {
+        all = all && squares[i] == i * i;
+    }
+    std::print(all);                                    // output: true
+
+    // The iterators visit every entry once; values() lets the loop change each value.
+    mut long keySum = 0;
+    for (in int key : squares.keys()) {
+        keySum += key;
+    }
+    std::print(keySum);                                 // output: 499500
+    for (ref int value : squares.values()) {
+        value = 1;
+    }
+    mut int ones = 0;
+    for (in MapEntry<int, int> entry : squares.entries()) {
+        ones += entry.value;
+    }
+    std::print(ones);                                   // output: 1000
+
+    // Removals shift entries back, so a lookup never stops early.
+    for (int i : 0..1000) {
+        if (i % 3 != 0) {
+            squares.remove(i);
+        }
+    }
+    std::print(squares.count());                        // output: 334
+    mut int found = 0;
+    for (int i : 0..1000) {
+        if (squares.containsKey(i)) {
+            found++;
+        }
+    }
+    std::print(found);                                  // output: 334
+
+    // Keys that all collide make one long probe sequence.
+    var clashes = new HashMap<Clash, int>();
+    for (int i : 0..20) {
+        clashes.put(Clash(i), i);
+    }
+    clashes.remove(Clash(0));
+    clashes.remove(Clash(10));
+    clashes.remove(Clash(19));
+    mut int clashSum = 0;
+    for (int i : 0..20) {
+        if (clashes.get(Clash(i)) is ref int value) {
+            clashSum += value;
+        }
+    }
+    std::print(clashSum);                               // output: 161
+    std::print(clashes.count());                        // output: 17
+
+    // Keys whose equals and hash the compiler writes, and a NaN key, which equals itself.
+    var points = new HashMap<Point, String>();
+    points.put(Point(1, 2), "a");
+    points.put(Point(2, 1), "b");
+    std::print(points[Point(1, 2)]);                    // output: a
+    var colors = new HashMap<Color, int>();
+    colors.put(Color.Red, 1);
+    colors.put(Color.Custom(5), 2);
+    std::print(colors[Color.Custom(5)]);                // output: 2
+    std::print(colors.containsKey(Color.Custom(6)));    // output: false
+    var weights = new HashMap<double, int>();
+    weights.put(0.0d / 0.0d, 7);
+    std::print(weights[0.0d / 0.0d]);                   // output: 7
+
+    // Unique values move in and out.
+    var tokens = new HashMap<String, Token>(4);
+    tokens.put("a", Token(1));
+    if (tokens.put("a", Token(2)) is Token old) {
+        std::print(old.id);                             // output: 1
+    }
+    if (tokens.remove("a") is Token removed) {
+        std::print(removed.id);                         // output: 2
+    }
+
+    tokens.put("b", Token(3));
+    tokens.clear();
+    std::print(tokens.count());                         // output: 0
+    tokens.reserve(100);
+    std::print(tokens.isEmpty());                       // output: true
+}

@@ -1,0 +1,7 @@
+import std::collections::HashMap;
+
+void main() {
+    var counts = new HashMap<String, int>();
+    counts.put("a", 1);
+    std::print(counts["b"]);        // panic-here: the map has no entry for the key
+}

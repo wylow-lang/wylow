@@ -1,0 +1,114 @@
+import std::{Hashable, Unit};
+import std::iteration::InIterator;
+
+/// A set of values, each held at most once, in the hash table of a `HashMap` from each value to
+/// nothing.
+///
+/// The order in which its iterator visits the values depends on their hashes, and is not specified.
+/// While a loop over the set exists, the set is borrowed, and adding or removing a value panics
+/// (spec `memory.borrows`).
+pub final class HashSet<T extends Hashable<T>> {
+    HashMap<T, Unit> map;
+
+    /// Makes an empty set, which allocates nothing until a value is added.
+    pub HashSet() {
+        map = new HashMap<T, Unit>();
+    }
+
+    /// Makes an empty set with room for at least `capacity` values.
+    ///
+    /// # Panics
+    ///
+    /// If `capacity` values are too large to address.
+    @CallerLocation
+    pub HashSet(int capacity) {
+        map = new HashMap<T, Unit>(capacity);
+    }
+
+    /// Returns the number of values.
+    pub int count() {
+        return map.count();
+    }
+
+    /// Returns whether the set has no values.
+    pub bool isEmpty() {
+        return map.isEmpty();
+    }
+
+    /// Returns whether the set holds a value equal to `value`.
+    pub bool contains(in T value) {
+        return map.containsKey(value);
+    }
+
+    /// Adds `value`, and returns `true`, or returns `false` if the set already holds an equal value,
+    /// which the set keeps.
+    ///
+    /// # Panics
+    ///
+    /// If the set is borrowed, or one more value would be too large to address.
+    @CallerLocation
+    pub bool add(T value) {
+        return map.put(value, Unit()) == null;
+    }
+
+    /// Removes the value equal to `value`, and returns `true`, or returns `false` if the set holds no
+    /// such value.
+    ///
+    /// # Panics
+    ///
+    /// If the set is borrowed.
+    @CallerLocation
+    pub bool remove(in T value) {
+        return map.remove(value) != null;
+    }
+
+    /// Removes every value. The capacity stays.
+    ///
+    /// # Panics
+    ///
+    /// If the set is borrowed.
+    @CallerLocation
+    pub void clear() {
+        map.clear();
+    }
+
+    /// Makes room for at least `minimum` values, so that adding up to that many never moves them.
+    ///
+    /// # Panics
+    ///
+    /// If the set is borrowed, or `minimum` values are too large to address.
+    @CallerLocation
+    pub void reserve(int minimum) {
+        map.reserve(minimum);
+    }
+
+    /// Returns an iterator over read-only references to the values.
+    pub HashSetIterator<T> iterator() {
+        return HashSetIterator<T>(map.keys());
+    }
+}
+
+/// An iterator over read-only references to the values of a `HashSet`, which `HashSet.iterator()`
+/// returns. The iterator borrows the set until the iterator is released.
+pub unique struct HashSetIterator<T extends Hashable<T>> implements InIterator<T> {
+    HashMapKeys<T, Unit> keys;
+
+    package HashSetIterator(HashMapKeys<T, Unit> keys) {
+        this.keys = keys;
+    }
+
+    /// Returns `true` after advancing to the next value, or `false` once the iterator has passed the
+    /// last value of the set.
+    pub mut bool moveNext() {
+        return keys.moveNext();
+    }
+
+    /// Returns a read-only reference to the value that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub mut in T current() {
+        return ref keys.current();
+    }
+}

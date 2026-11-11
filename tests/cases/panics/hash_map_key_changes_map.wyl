@@ -1,0 +1,34 @@
+// The map counts a borrow while it calls a key's equals, so a key that changes the map in the
+// middle of a lookup panics instead of leaving the lookup reading moved entries.
+import std::{Hashable, Hasher};
+import std::collections::HashMap;
+
+class Registry {
+    pub HashMap<Key, int> entries = new HashMap<Key, int>();
+}
+
+class Key implements Hashable<Key> {
+    int id;
+    Registry registry;
+
+    Key(int id, Registry registry) {
+        this.id = id;
+        this.registry = registry;
+    }
+
+    pub bool equals(in Key other) {
+        registry.entries.remove(other);     // panic-here: cannot add or remove an entry of a map while it is borrowed by a reference, loop, or a key's 'equals' or 'hash'
+        return id == other.id;
+    }
+
+    pub void hash(ref Hasher hasher) {
+        hasher.add(id);
+    }
+}
+
+void main() {
+    var registry = new Registry();
+    var key = new Key(1, registry);
+    registry.entries.put(key, 1);
+    std::print(registry.entries.containsKey(key));
+}
