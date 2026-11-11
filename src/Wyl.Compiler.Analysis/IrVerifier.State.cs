@@ -26,6 +26,13 @@ public sealed partial class IrVerifier
 
         /// <summary>The locals moved on some path, and where each was moved, which any later use reports.</summary>
         public Dictionary<IrLocal, Location?> Moved { get; private init; } = [];
+
+        /// <summary>
+        /// The fields moved out of a temporary on some path, by <see cref="FieldPath"/>: a pattern with
+        /// several moving bindings moves each one out of the value it holds (spec patterns.bindings.moving).
+        /// A later use of a moved field, or of the whole temporary, is a compiler error.
+        /// </summary>
+        public Dictionary<IrLocal, HashSet<string>> MovedFields { get; private init; } = [];
         public HashSet<IrLocal> Ended { get; private init; } = [];
 
         /// <summary>Dependents that may no longer be used, and why.</summary>
@@ -62,6 +69,7 @@ public sealed partial class IrVerifier
             AssignedFields = [.. AssignedFields],
             MaybeAssigned = [.. MaybeAssigned],
             Moved = new(Moved),
+            MovedFields = MovedFields.ToDictionary(m => m.Key, m => new HashSet<string>(m.Value)),
             Ended = [.. Ended],
             Invalid = new(Invalid),
             Outcomes = new(Outcomes),
@@ -82,6 +90,14 @@ public sealed partial class IrVerifier
             var moved = new Dictionary<IrLocal, Location?>(a.Moved);
             foreach (var (local, at) in b.Moved)
                 moved.TryAdd(local, at);
+            var movedFields = a.MovedFields.ToDictionary(m => m.Key, m => new HashSet<string>(m.Value));
+            foreach (var (local, paths) in b.MovedFields)
+            {
+                if (movedFields.TryGetValue(local, out var both))
+                    both.UnionWith(paths);
+                else
+                    movedFields[local] = [.. paths];
+            }
             var outcomes = new Dictionary<IrLocal, Outcome>();
             foreach (var local in a.Outcomes.Keys.Union(b.Outcomes.Keys))
             {
@@ -97,6 +113,7 @@ public sealed partial class IrVerifier
                 AssignedFields = [.. a.AssignedFields.Intersect(b.AssignedFields)],
                 MaybeAssigned = [.. a.MaybeAssigned.Union(b.MaybeAssigned)],
                 Moved = moved,
+                MovedFields = movedFields,
                 Ended = [.. a.Ended.Union(b.Ended)],
                 Invalid = invalid,
                 Lambdas = [.. a.Lambdas.Union(b.Lambdas)],
@@ -107,7 +124,9 @@ public sealed partial class IrVerifier
         public bool SameAs(State other) =>
             Reachable == other.Reachable && Assigned.SetEquals(other.Assigned) && MaybeAssigned.SetEquals(other.MaybeAssigned)
             && NonNull.SetEquals(other.NonNull) && AssignedFields.SetEquals(other.AssignedFields)
-            && Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys) && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
+            && Moved.Keys.ToHashSet().SetEquals(other.Moved.Keys)
+            && MovedFields.Count == other.MovedFields.Count && MovedFields.All(m => other.MovedFields.TryGetValue(m.Key, out var same) && m.Value.SetEquals(same))
+            && Ended.SetEquals(other.Ended) && Invalid.Keys.ToHashSet().SetEquals(other.Invalid.Keys)
             && Lambdas.SetEquals(other.Lambdas) && Guards.SetEquals(other.Guards)
             && Outcomes.Count == other.Outcomes.Count && Outcomes.All(o => other.Outcomes.TryGetValue(o.Key, out var same) && o.Value.SameAs(same));
 
@@ -125,6 +144,7 @@ public sealed partial class IrVerifier
         public void ForgetMoved(IrLocal moved)
         {
             Moved.Remove(moved);
+            MovedFields.Remove(moved);
             foreach (var (condition, outcome) in Outcomes.ToList())
             {
                 if (outcome.WhenTrue?.Moved.ContainsKey(moved) == true || outcome.WhenFalse?.Moved.ContainsKey(moved) == true)

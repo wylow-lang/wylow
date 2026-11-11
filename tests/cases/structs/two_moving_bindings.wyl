@@ -1,0 +1,51 @@
+// A pattern may move several fields out of one value: each moving binding takes its field out of
+// what the pattern holds, in a switch and in an `is` test, and in generic code.
+unique struct Token {
+    int id;
+}
+
+unique struct Pair {
+    Token first;
+    Token second;
+}
+
+unique enum Choice {
+    Two(Token first, Token second),
+    None,
+}
+
+struct Box<A, B> {
+    A first;
+    B second;
+}
+
+int sum(Pair pair) {
+    switch (pair) {
+        case Pair(var a, var b) -> {
+            return a.id + b.id;
+        }
+    }
+}
+
+int sumChoice(Choice choice) {
+    if (choice is Two(var a, var b)) {
+        return a.id * 10 + b.id;
+    }
+    return 0;
+}
+
+B secondOf<A, B>(Box<A, B> box) {
+    switch (box) {
+        case Box<A, B>(var a, var b) -> {
+            return b;
+        }
+    }
+}
+
+void main() {
+    std::print(sum(Pair(Token(1), Token(4))));                                  // output: 5
+    std::print(sumChoice(Choice.Two(Token(3), Token(7))));                      // output: 37
+    std::print(sumChoice(Choice.None));                                         // output: 0
+    std::print(secondOf(Box<int, int>(1, 2)));                                  // output: 2
+    std::print(secondOf(Box<Token, Token>(Token(1), Token(9))).id);             // output: 9
+}

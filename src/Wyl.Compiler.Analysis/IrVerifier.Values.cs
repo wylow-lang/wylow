@@ -20,6 +20,30 @@ public sealed partial class IrVerifier
     readonly Dictionary<IrLocal, IrLocal> guardTargets = [];
     readonly List<IrLocal> pendingMoves = [];
 
+    /// <summary>Starts an instruction with nothing it moves yet.</summary>
+    void ClearPendingMoves()
+    {
+        pendingMoves.Clear();
+        pendingFieldMoves.Clear();
+    }
+
+    /// <summary>The fields of temporaries that the current instruction moves out.</summary>
+    readonly List<IrPlace> pendingFieldMoves = [];
+
+    /// <summary>The fields a place reaches into its local, as a path that one move's overlaps another's when either is a prefix.</summary>
+    static string FieldPath(IrPlace place) => string.Concat(place.Projections.Select(p => p switch
+    {
+        IrField field => "/" + field.Field.Name,
+        IrVariantField variant => $"/{variant.Variant.Name}.{variant.Field.Name}",
+        IrElement { Index: IrConstant constant } => $"/[{constant.Value}]",
+        IrElement => "/[]",
+        _ => "",
+    }));
+
+    static bool FieldPathsOverlap(string a, string b) =>
+        a == b || a.StartsWith(b + "/", StringComparison.Ordinal) || b.StartsWith(a + "/", StringComparison.Ordinal)
+        || a.Contains("[]", StringComparison.Ordinal) || b.Contains("[]", StringComparison.Ordinal);
+
     /// <summary>What each temporary, or <c>is ref</c> name, holds a copy of the value of, until either is given another.</summary>
     readonly Dictionary<IrLocal, IrLocal> copies = [];
 
@@ -72,6 +96,8 @@ public sealed partial class IrVerifier
     {
         var local = place.Local;
         Use(local, state, reads || place.IsDeref);
+        if (reads && !place.IsDeref && state.MovedFields.TryGetValue(local, out var movedFields) && movedFields.Any(m => FieldPathsOverlap(m, FieldPath(place))))
+            Error($"'{N(local)}' is used after a field of it is moved");
         CheckNullableOrder(place);
         if (local == constructed && !initializes)
             CheckConstructed(place, state);
@@ -151,6 +177,14 @@ public sealed partial class IrVerifier
         else if (MovedFromDestructorValue(read.Place) is { } holder)
         {
             Violation(l => Catalog.MoveOutOfDestructorValue(l, holder.ToString()));
+        }
+        else if (local.IsTemporary && read.Place.Projections.Any(p => p is not IrAssumed))
+        {
+            var path = FieldPath(read.Place);
+            if (pendingMoves.Contains(local) || pendingFieldMoves.Any(m => m.Local == local && FieldPathsOverlap(FieldPath(m), path)))
+                Error($"'{N(local)}' is moved twice");
+            else
+                pendingFieldMoves.Add(read.Place);
         }
         else if (pendingMoves.Contains(local))
         {
@@ -251,7 +285,7 @@ public sealed partial class IrVerifier
     /// <summary>Checks an rvalue's operands and types, applies its effects, and moves what it moves.</summary>
     void Rvalue(IrRvalue value, State state, IrLocal? defined)
     {
-        pendingMoves.Clear();
+        ClearPendingMoves();
         switch (value)
         {
             case IrUse use:
@@ -421,7 +455,7 @@ public sealed partial class IrVerifier
         }
     }
 
-    /// <summary>A temporary moved by an instruction is gone once the instruction is done.</summary>
+    /// <summary>A temporary moved by an instruction is gone once the instruction is done, and so is a field moved out of one.</summary>
     void CommitMoves(State state)
     {
         foreach (var moved in pendingMoves)
@@ -430,6 +464,13 @@ public sealed partial class IrVerifier
             DependentsOf(moved, state, () => $"'{N(moved)}' was moved");
         }
         pendingMoves.Clear();
+        foreach (var field in pendingFieldMoves)
+        {
+            if (!state.MovedFields.TryGetValue(field.Local, out var paths))
+                state.MovedFields[field.Local] = paths = [];
+            paths.Add(FieldPath(field));
+        }
+        pendingFieldMoves.Clear();
     }
 
     static string Describe(IrRvalue value) => value switch

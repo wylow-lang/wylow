@@ -394,7 +394,7 @@ public sealed partial class IrVerifier
     void Store(IrStore store, State state)
     {
         var target = store.Target;
-        pendingMoves.Clear();
+        ClearPendingMoves();
         Operand(store.Value, state);
         bool storesNonNull = OperandNonNull(store.Value, state);
         if (store.Value is IrRead { Ownership: IrOwnership.Borrow })
@@ -449,7 +449,7 @@ public sealed partial class IrVerifier
 
     void Check(IrCheck check, State state)
     {
-        pendingMoves.Clear();
+        ClearPendingMoves();
         foreach (var operand in check.Operands)
             Operand(operand, state);
         CheckLoc(check.Loc);
@@ -520,7 +520,7 @@ public sealed partial class IrVerifier
     /// <summary><c>discard x</c> moves the parameter, so a later use is a use after being moved.</summary>
     void Discard(IrDiscard discard, State state)
     {
-        pendingMoves.Clear();
+        ClearPendingMoves();
         var local = discard.Local;
         if (local.Kind != IrLocalKind.Value || local.IsThis)
         {

@@ -10,7 +10,7 @@ public sealed partial class IrVerifier
 {
     State If(IrIf conditional, State state)
     {
-        pendingMoves.Clear();
+        ClearPendingMoves();
         Operand(conditional.Condition, state);
         CommitMoves(state);
         if (conditional.Condition.Type != WylType.Bool)
@@ -100,7 +100,7 @@ public sealed partial class IrVerifier
                 Error($"returns nothing from a function returning '{returnType}'");
             return;
         }
-        pendingMoves.Clear();
+        ClearPendingMoves();
         bool returnsMade = function.Struct is { } made && ret.Value is IrRead { Place: { IsDeref: false, Projections.Count: 0 } place } && place.Local == made;
         // Returning what a struct constructor makes isn't a use of it.
         var making = constructed;
@@ -108,7 +108,7 @@ public sealed partial class IrVerifier
             constructed = null;
         Operand(ret.Value, state);
         constructed = making;
-        pendingMoves.Clear();
+        ClearPendingMoves();
         if (ret.Holds.Count > 0 && !function.Symbol.ReturnsHold)
             Error("gives holds from a method that returns none");
         foreach (var hold in ret.Holds)
@@ -118,7 +118,7 @@ public sealed partial class IrVerifier
                 Error($"gives '{N(hold.Local)}', which is not a hold, a holder, or what a hold refers to");
             Operand(IrRead.Borrow(hold), state);
         }
-        pendingMoves.Clear();
+        ClearPendingMoves();
         if (function.Struct is not null && !returnsMade)
             Error("a struct constructor returns its value");
         if (returnType == WylType.Void)

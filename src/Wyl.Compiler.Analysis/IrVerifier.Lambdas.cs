@@ -17,7 +17,7 @@ public sealed partial class IrVerifier
     void Lambda(IrFunction lambda, State state)
     {
         RecordLambda(lambda);
-        var (savedFunction, savedLoops, savedCurrent, savedMoves, savedNarrowed) = (function, loops, current, pendingMoves.ToList(), narrowedOutside);
+        var (savedFunction, savedLoops, savedCurrent, savedMoves, savedFieldMoves, savedNarrowed) = (function, loops, current, pendingMoves.ToList(), pendingFieldMoves.ToList(), narrowedOutside);
         function = lambda;
         loops = [];
         narrowedOutside = NarrowedAround(state);
@@ -37,8 +37,9 @@ public sealed partial class IrVerifier
         loopDepth--;
         capturedOutside = savedOutside;
         (function, loops, current, narrowedOutside) = (savedFunction, savedLoops, savedCurrent, savedNarrowed);
-        pendingMoves.Clear();
+        ClearPendingMoves();
         pendingMoves.AddRange(savedMoves);
+        pendingFieldMoves.AddRange(savedFieldMoves);
     }
 
     /// <summary>An escaping lambda's body sees only its parameters and the copies its closure holds.</summary>
@@ -46,16 +47,17 @@ public sealed partial class IrVerifier
     void Closure(IrFunction lambda, State state, IrLocal? capturedThis)
     {
         RecordLambda(lambda);
-        var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList(), narrowedOutside, constructed);
+        var saved = (function, loops, scopes, loopDepth, current, moves: pendingMoves.ToList(), fieldMoves: pendingFieldMoves.ToList(), narrowedOutside, constructed);
         narrowedOutside = NarrowedAround(state);
         constructed = capturedThis;
         var savedOutside = capturedOutside;
         capturedOutside = [.. capturedOutside, .. lambda.Captures];
         VerifyFunction(lambda, root, capturedThis is null ? [] : state.AssignedFields);
         capturedOutside = savedOutside;
-        (function, loops, scopes, loopDepth, current, _, narrowedOutside, constructed) = saved;
-        pendingMoves.Clear();
+        (function, loops, scopes, loopDepth, current, _, _, narrowedOutside, constructed) = saved;
+        ClearPendingMoves();
         pendingMoves.AddRange(saved.moves);
+        pendingFieldMoves.AddRange(saved.fieldMoves);
     }
 
     /// <summary>The source locals narrowed where a lambda is made, for explaining why they aren't in its body.</summary>
