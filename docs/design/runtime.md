@@ -361,18 +361,8 @@ class `wyl::Name` (`wyl::Weak`, `wyl::String`), except one named for a primitive
 of `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::Bound<I>` gives a primitive or a
 `String` as its `Builtin`, whose `m_`-named members are what a call through a generic bound names.
 
-For each extern struct declared with fields, the compiler emits size and offset checks into the
-generated C++:
-
-```cpp
-static_assert(sizeof(SDL_Rect) == 16);
-static_assert(offsetof(SDL_Rect, x) == 0);
-static_assert(offsetof(SDL_Rect, w) == 8);
-// ...
-```
-
-Extern calls are emitted through `noexcept` wrappers, so a C++ exception that would propagate into
-Wylow code calls `std::terminate`.
+Nothing else of [Interop](../spec/21-interop.md#interop) is built yet. The compiler emits no layout
+checks, and it calls the standard library's extern functions directly, without a `noexcept` wrapper.
 
 ## Panics
 

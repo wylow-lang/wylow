@@ -62,9 +62,40 @@ An entry's identifier is its **key**. An entry is a string (`key = "text";`), a 
 | *any name* | in `dependencies` | block |
 | `path` | in an entry of `dependencies` | string |
 | `native` | top level | block |
-| `include`, `link` | in `native` | list of strings |
+| `include`, `libraryPaths`, `link`, `copy`, `defines` | in `native`, or in a platform block of it | list of strings |
+| `windows`, `linux`, `macos` | in `native` | block |
 
 `name` gives the package's name, which need not be its directory's.
+
+`native` gives what the package's extern blocks and native source files need to build
+([Interop](21-interop.md#interop)). Each path in it is relative to the package's directory.
+
+- `include` lists directories that are searched for the headers that `@Include` names.
+- `libraryPaths` lists directories that are searched for the libraries that `link` names.
+- `link` lists libraries that are linked with the program. Each is named without the platform's file
+  prefix or extension: `"parser"` names `parser.lib` on Windows and `libparser` elsewhere.
+- `copy` lists files that are copied next to the built program, such as a shared library that it
+  loads when it starts.
+- `defines` lists preprocessor definitions, `"NAME"` or `"NAME=value"`, given to every C++ source
+  the program is built from.
+- A platform block, `windows`, `linux`, or `macos`, holds entries of the same keys. When the
+  program is built for that platform, each of its lists is added after the list of the same key in
+  `native`.
+
+**Example:**
+
+```
+// parser_tool/package.wylcfg
+name = "parser_tool";
+native {
+    include = ["vendor/parser/include"];
+    link = ["parser"];
+    windows {
+        libraryPaths = ["vendor/parser/lib/windows"];
+        copy = ["vendor/parser/lib/windows/parser.dll"];
+    }
+}
+```
 
 - It is a compile-time error if the manifest does not have the form above.
 - It is a compile-time error if a string in the manifest is an interpolated string with a hole.

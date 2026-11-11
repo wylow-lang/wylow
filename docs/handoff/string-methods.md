@@ -1,50 +1,89 @@
 # `String`'s methods in Wylow
 
-One piece of work remains from the extension-methods session, and it is decided. The iterator
-adapters and terminal operations of `std::iteration` are implemented (decisions 0079, 0081, and
-0082).
+This is the next piece of work, and it comes before interop (`docs/handoff/interop-slice-1.md`),
+because interop reuses the emitter form that this work builds. Implement decision 0078 with the floor
+that decision 0088 sets. The spec rules are in `interop.extern.extern-structs`, `interop.strings`,
+`types.string`, and `library.memory`.
 
-## Methods with bodies in extern structs, and `String`'s methods
+Write the declarations in today's syntax, `pub extern struct String` with `extern` on each native
+method. Interop slice 1 moves every declaration of `std` into extern blocks (decision 0084), so this
+work does not change the syntax.
 
-Implement decision 0078. The spec rule is in `interop.extern.extern-structs`.
+## 1. `memory::compare` and `memory::equal`
+
+- Declare both functions in `Stdlib/memory/memory.wyl` as safe, `@Pure` externs, with doc comments
+  as `library.memory` states them.
+- Implement `wyl::memory::compare` and `wyl::memory::equal` in the runtime with `std::memcmp`. Each
+  function returns early when a length is 0, because `memcmp` is undefined for a null pointer even
+  with a count of 0, and an empty span's pointer may be null. `compare` returns -1, 0, or 1, never
+  `memcmp`'s own result.
+- Implement both functions in the interpreter's intrinsics, by their C++ names.
+- Tests: equal spans, a smaller and a larger byte, a byte above 127 (bytes compare as unsigned), a
+  prefix in each order, two empty spans, and one empty span.
+
+## 2. Methods with bodies in extern structs
 
 - The binder refuses a method with a body in an extern struct with `WYL0430`
   (`Binder.Declarations.cs`, `NonExternMethodInExternStruct`). Retire the code. Decision 0003 keeps
   a retired code in the catalog, marked retired, and its page says that the compiler no longer
   emits it.
-- **The emitter has no form for such a method yet, and this is the design question of the work.**
-  A struct's instance method is a C++ member function (`CppEmitter.MemberDeclaration`), and a
-  method with a by-value receiver is a `static` member. Neither can be added to `wyl::String`, which
-  the runtime defines. A method with a body therefore needs a free C++ function that takes the
-  receiver as an explicit parameter. The body's `this`, and its calls of other members without a
-  receiver, then refer to that parameter. Decide the representation with `docs/design/ir.md` and
-  the architecture row "A by-value receiver is not a parameter of the signature" in mind.
-  `FunctionSymbol.ReceiverParameter`, `MethodReference.ReceiverCount`, and the lowering of by-value
-  receivers already line up a receiver that is passed as the first argument. Present the choice to
-  the user before building it.
+- **The emitter form is decided.** A method with a body of a type whose C++ definition the compiler
+  does not write becomes a free C++ function that takes the receiver as its first parameter, for
+  example `wyl_m_String_startsWith(const wyl::String& self, ...)`. The body's `this`, and its calls of
+  other members without a receiver, refer to that parameter. The by-value receiver lowering already
+  passes a receiver as the first argument (`FunctionSymbol.ReceiverParameter`,
+  `MethodReference.ReceiverCount`). Interop slice 1 uses the same form for a method with a body on a
+  struct or union of an extern block (decision 0085), so build the form for "a type the compiler does
+  not define", not for `String` by name. Describe the form in `docs/design/architecture.md`, and
+  check it against the row "A by-value receiver is not a parameter of the signature".
 - The interpreter sends every instance method of an extern type to its intrinsics
   (`Interpreter.Intrinsics.cs`, the check of `ContainingType.IsExtern`). A method with a body must
   run its body instead.
-- Then move `String`'s methods. Keep a native floor: the length in bytes, the bytes, and the
-  operations whose speed depends on the runtime. Write `startsWith`, `endsWith`, `contains`,
-  `indexOf`, `slice`, and `charCount` in `string.wyl` on top of it. Delete each moved method from
-  `runtime/wyl/core.h` and from the interpreter's intrinsics in the same change.
-- `bytes()` builds its span in Wylow from the runtime's data pointer and length. The runtime then
-  stops naming std's `ReadOnlySpan` (`StdlibSymbols.Register` marks it `IsNamedByRuntime`, and
-  `TypeSymbol.RuntimeName` gives the name). Remove that hook if nothing else needs it.
+
+## 3. The floor of `String`
+
+The floor that stays in C++ is `byteLength`, `cstr`, `toString`, and `copyOf`:
+
+- `pub unsafe byte* cstr()` returns the pointer to the bytes, which are null-terminated. `slice`
+  copies today (`runtime/wyl/strings.h`), so every `String` stays null-terminated, and `cstr()` never
+  copies. Keep that true.
+- `package unsafe static String copyOf(ReadOnlySpan<byte> bytes)` copies bytes that the caller
+  guarantees are valid UTF-8 into a new `String`.
+
+Write these in `string.wyl` on top of the floor and `std::memory`, and delete each one from
+`runtime/wyl/core.h` and from the interpreter's intrinsics in the same change:
+
+- `isEmpty`, `bytes` (`ReadOnlySpan<byte>(cstr(), byteLength())` in an `unsafe` block), `charCount`,
+  `charAt`, and `nextChar`.
+- `startsWith` and `endsWith`: a length check, then `memory::equal` on a slice of `bytes()`.
+- `indexOf` and `contains`: a loop over `memory::equal`.
+- `compareTo`: `memory::compare(bytes(), other.bytes())`.
+- `slice`: the bounds and character-boundary checks with today's panic messages, then `copyOf`. It
+  keeps `@CallerLocation`.
+- The new `pub unsafe static String fromCString(byte* p)`: find the terminator, check the UTF-8, and
+  call `copyOf`. It panics on invalid UTF-8, and the message names the offset of the first bad byte.
+
+Notes:
+
+- The interpreter must give `cstr()` a pointer that `ReadOnlySpan`'s constructor and `p[i]` accept:
+  a `PointerValue` into a read-only buffer over the string's bytes (`ValueKinds.cs`).
+- `bytes()` built in Wylow lets the runtime stop naming std's `ReadOnlySpan`
+  (`StdlibSymbols.Register` marks it `IsNamedByRuntime`, and `TypeSymbol.RuntimeName` gives the
+  name). Remove that hook if nothing else needs it.
 - The pipeline drops the functions of `std` that a program cannot reach (`Reached.Find`). The emitter
-  or the interpreter may call a moved method outside the IR, for example to print a `String`. If
-  one does, add it to the roots in `Reached.IsRoot`, and to the architecture row "Every program
+  or the interpreter may call a moved method outside the IR, for example to print a `String`. If one
+  does, add the method to the roots in `Reached.IsRoot`, and to the architecture row "Every program
   pays only for the `std` it reaches".
 
-Tests: every moved method keeps its tests in `tests/cases/values/` and passes in every mode, and
-the generated C++ of a program that calls them compiles without warnings.
+Tests: every moved method keeps its tests in `tests/cases/values/` and passes in every mode, and the
+generated C++ of a program that calls them compiles without warnings. `fromCString` and `cstr` get
+tests of their own, including invalid UTF-8 and an empty string.
 
 ## What the iteration session found
 
 - A test run used to take about five minutes, because every program verified all of `std`. A run of
-  the whole suite in the interpreter now takes about two and a half minutes. If the time grows
-  again, profile one `wyl check` with `dotnet-trace` before guessing.
+  the whole suite in the interpreter now takes about two and a half minutes. If the time grows again, profile
+  one `wyl check` with `dotnet-trace` before guessing.
 - A visible member still hides an extension of the same name (decision 0083). `List` has `count()`
   and `first()`, so a program reaches the span operations `count(test)` and `first(test)` on a list
   through `asReadOnlySpan()`.

@@ -46,8 +46,8 @@ for each.
   class.
 - It is a compile-time error if a field is declared with a body, as a property would be. A class has
   fields and methods.
-- It is a compile-time error if a field is declared `virtual`, `override`, `abstract`, `final`, `unsafe`,
-  or `extern`.
+- It is a compile-time error if a field is declared `virtual`, `override`, `abstract`, `final`, or
+  `unsafe`.
 - It is a compile-time error if a field's initializer uses `this`, another field, or an instance method.
 - It is a compile-time error if a field is `static` ([Statics](06-variables.md#variables.statics)), or if
   its type is a `ref` or `in` type ([References](17-memory.md#memory.references)).

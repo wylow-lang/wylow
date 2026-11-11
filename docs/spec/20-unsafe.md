@@ -17,7 +17,8 @@ unsafe code means the same inside it: indexing is checked, integer overflow is c
 mode says, and borrows are counted.
 
 - It is a compile-time error if safe code dereferences or indexes a pointer, does arithmetic on
-  one, takes an address, casts a pointer, calls an unsafe function, or calls `beginBorrow` or
+  one, takes an address, casts a pointer, calls an unsafe function, reads a field of a union
+  ([Structs and unions](21-interop.md#interop.extern.c-structs)), or calls `beginBorrow` or
   `endBorrow` ([`Borrowable`](17-memory.md#memory.borrows.borrowable)).
 - It is a compile-time error if a method declared `unsafe` overrides or implements a method that
   isn't. A method that overrides or implements an unsafe method may be safe.

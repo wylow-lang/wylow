@@ -41,8 +41,10 @@ These are the annotations:
 | `@Flags` | an enum | Its values combine as bits | [Flags](09-enums.md#enums.flags) |
 | `@Acyclic` | a class | Its objects never form cycles | [What the collector looks at](17-memory.md#memory.cycles.collected) |
 | `@Include("path")` | an extern block | The header that provides its declarations | [Extern declarations](21-interop.md#interop.extern) |
-| `@Safe` | an extern function | The function may be called from safe code | [Calling extern functions](21-interop.md#interop.safety) |
-| `@CppName("name")` | an extern declaration | The C++ name it declares | [C++ names](21-interop.md#interop.extern.names) |
+| `@CppNamespace("name")` | an extern block | The C++ namespace of its members' names | [C++ names](21-interop.md#interop.extern.names) |
+| `@Safe` | a function or method without a body in an extern block | It may be called from safe code | [Calling extern functions](21-interop.md#interop.safety) |
+| `@Pure` | a function or method without a body in an extern block | It neither panics nor changes anything | [Calling extern functions](21-interop.md#interop.safety) |
+| `@CppName("name")` | a member of an extern block, or a field of a struct or union in one | The C++ name it declares | [C++ names](21-interop.md#interop.extern.names) |
 | `@CCallback` | a static or top-level function | Its reference converts to a C++ function pointer | [Callbacks](21-interop.md#interop.callbacks) |
 | `@Export` | a top-level function | It has C++ linkage and a stable name | [Exporting functions](21-interop.md#interop.export) |
 

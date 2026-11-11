@@ -192,6 +192,14 @@ unsafe, since the compiler cannot check how the storage is used
 - `cycleStats()` returns what the collector did since the last call: the numbers of objects it
   buffered, visited, and freed, as `buffered`, `visited`, and `freed`.
 
+Two functions of `std::memory` compare bytes. They are safe, since a span carries its length:
+
+- `compare(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)` returns -1, 0, or 1 as `a` sorts before,
+  the same as, or after `b`. The two spans are compared byte by byte, each byte as an unsigned
+  number. If one span is a prefix of the other, the shorter span sorts first.
+- `equal(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)` returns whether `a` and `b` have the same
+  length and the same bytes.
+
 <a id="library.replace"></a>
 ## A.8 `replace`, `swap`, and `take`
 

@@ -111,3 +111,8 @@ history and a reason can be found without searching the spec.
 | [0081](0081-overloads-by-bounds.md) | Overloads may differ only in their bounds, and resolution drops an overload whose bounds fail |
 | [0082](0082-mutable-current-and-container-ref-iterators.md) | `current` is `mut`, containers give a `RefIterator`, and the shapes of the adapters |
 | [0083](0083-invisible-members-do-not-hide-extensions.md) | A member that a call cannot see does not hide an extension |
+| [0084](0084-extern-blocks-are-the-one-extern-form.md) | Extern blocks are the only extern declaration, the standard library uses them too, and signatures are checked |
+| [0085](0085-c-structs-unions-and-enums.md) | Structs and unions in extern blocks are the C++ types, and enums cross only as parameters |
+| [0086](0086-native-manifest-block.md) | The manifest's `native` block, and a package's `native/` directory |
+| [0087](0087-extern-calls-are-not-interpreted.md) | The interpreter runs only the extern functions it implements |
+| [0088](0088-memory-compare-and-the-string-floor.md) | `memory::compare` and `memory::equal`, and the native floor of `String` |

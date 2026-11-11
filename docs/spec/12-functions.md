@@ -11,7 +11,7 @@ function references, and the choice between functions.
 ## 12.1 Function declarations
 
 ```ebnf
-FunctionDeclaration = { Annotation } [ Visibility ] { "unsafe" | "extern" } Type Identifier
+FunctionDeclaration = { Annotation } [ Visibility ] [ "unsafe" ] Type Identifier
                       [ TypeParameters ] "(" [ Parameters ] ")" ( Block | ";" ) .
 ```
 
@@ -20,15 +20,14 @@ enum, or interface is a **method** ([Struct declarations](07-structs.md#structs.
 [Class declarations](08-classes.md#classes.declarations)). `main` is an ordinary function with a
 fixed signature ([The entry point](03-programs.md#programs.entry)).
 
-- It is a compile-time error if a function is declared with a modifier other than `unsafe` or
-  `extern`: `static`, `virtual`, `override`, `abstract`, `final`, `mut`, or `ref` is not a
-  function modifier.
-- It is a compile-time error if a function that is not `extern` has no body.
+- It is a compile-time error if a function is declared with a modifier other than `unsafe`:
+  `static`, `virtual`, `override`, `abstract`, `final`, `mut`, or `ref` is not a function modifier.
+- It is a compile-time error if a function outside an extern block has no body.
 - A function is generic when it has type parameters ([Type parameters](11-generics.md#generics.parameters)).
 - The functions of one name that a file sees are overloads of one function
   ([A module's names](03-programs.md#programs.names), [Overloading](#functions.overloading)).
-- An `extern` function is declared without a body and defined elsewhere
-  ([Extern declarations](21-interop.md#interop.extern)).
+- A function in an extern block is declared without a body, and C++ provides it
+  ([Extern blocks](21-interop.md#interop.extern)).
 
 **Example:**
 
@@ -247,7 +246,7 @@ void main() {
 ```ebnf
 Method     = { Annotation } [ Visibility ] { Modifier } ReturnType Identifier [ TypeParameters ]
              "(" [ Parameters ] ")" [ WhereClause ] ( Block | ";" ) .
-Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" | "extern" .
+Modifier   = "static" | "mut" | "virtual" | "override" | "abstract" | "final" | "unsafe" .
 ReturnType = [ ParameterMode ] Type .
 ```
 

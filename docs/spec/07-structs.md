@@ -9,7 +9,7 @@ has one owner, and the `ref struct`, which views storage it does not own.
 ## 7.1 Struct declarations
 
 ```ebnf
-StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" | "extern" ] "struct"
+StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" ] "struct"
                     ( Identifier | PrimitiveName )
                     [ TypeParameters ] [ "implements" TypeList ] "{" { StructMember } "}" .
 StructMember      = StructField | StructConstructor | Method | Indexer | Destructor .

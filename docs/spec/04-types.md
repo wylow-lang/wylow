@@ -136,7 +136,8 @@ checks that the value is a scalar value ([Casts](05-conversions.md#conversions.c
 <a id="types.primitives.methods"></a>
 ### 4.3.5 Methods of primitive types
 
-Each primitive type has an `extern struct` of its name in the standard library. It gives the type
+Each primitive type has a struct of its name in an extern block of the standard library
+([The standard library's extern declarations](21-interop.md#interop.extern.std)). It gives the type
 its members and interfaces and changes nothing else about it: `int` still names the built-in type
 ([The standard library](a-library.md#library.names)). Every primitive type implements `Printable`,
 and every one except `bool` implements `Comparable` of itself
@@ -329,8 +330,8 @@ type is not nullable, and its default value is the null pointer.
 ## 4.10 `String`
 
 `String` is the type of text: an immutable sequence of UTF-8 bytes. It is a value type. Its default
-value is the empty string. The standard library declares it as an `extern struct`, which gives it its
-members ([`String`](a-library.md#library.names)).
+value is the empty string. The standard library declares it as a struct backed by a C++ class, which gives
+it its members ([Structs backed by a C++ class](21-interop.md#interop.extern.extern-structs)).
 
 Offsets and lengths of a string count bytes, never characters: a `char` takes 1 to 4 bytes. The
 methods of `String` are in the doc comments of its declaration.
