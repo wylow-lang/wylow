@@ -98,7 +98,7 @@ public sealed class CyclicClasses
                 foreach (var field in t.Symbol!.Fields)
                     Hold(map.Apply(field.Type), references);
             }
-            if (stdlib.ContainerElement(type) is { } element)
+            foreach (var element in stdlib.OwnedElements(type))
                 Hold(element, references);
             foreach (var reference in references)
                 Add(reference);

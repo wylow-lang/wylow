@@ -166,6 +166,9 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
     public IReadOnlyList<FunctionTypeParameter> Parameters { get; init; } = [];
 
     public bool IsShared { get; init; }
+
+    /// <summary>Where <c>unsafe</c> is written before an interface in an <c>implements</c> list, if it is.</summary>
+    public Location? Unsafe { get; init; }
 }
 
 /// <summary>A parameter of a function type, which has a mode but no name: the <c>ref Vec3</c> of <c>fn(ref Vec3) -> void</c>.</summary>

@@ -439,6 +439,9 @@ public sealed class TypeSymbol
     /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
     public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 
+    /// <summary>An interface declared <c>unsafe</c>, whose implementations promise what the compiler cannot check (spec <c>interfaces.unsafe</c>).</summary>
+    public bool IsUnsafe => Kind == TypeKind.Interface && (Declaration.Modifiers & Modifiers.Unsafe) != 0;
+
     /// <summary>
     /// Whether a value of the type records that something refers into it (spec <c>memory.holds</c>):
     /// a struct with a destructor, and an enum that has a variant with data. The emitter gives such a
@@ -525,12 +528,15 @@ public sealed class TypeSymbol
 
     /// <summary>
     /// Whether its destructor body is a method of its own, which the collector runs before releasing
-    /// any field of a cycle's objects. The standard library's containers release their elements with
-    /// their fields, so their destructor bodies run after every destructor of the cycle
+    /// any field of a cycle's objects. A class that keeps values in raw memory releases them in its
+    /// destructor, so its destructor body runs with its fields, after every other destructor of the
+    /// cycle and after the collector clears the references among the cycle's objects
     /// (spec memory.cycles.destroying).
     /// </summary>
-    public bool HasSeparateDestructor =>
-        Kind == TypeKind.Class && Destructor is not null && !Declaration.Location.Source.Module.Package.IsStd;
+    public bool HasSeparateDestructor => Kind == TypeKind.Class && Destructor is not null && !OwnsElements;
+
+    /// <summary>A class that implements <c>memory::ElementOwner</c>, itself or through its base class, which the binder records.</summary>
+    public bool OwnsElements { get; internal set; }
 
     /// <summary>Declared constructors, methods, and the destructor, in source order.</summary>
     public List<FunctionSymbol> Members { get; } = [];

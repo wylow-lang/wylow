@@ -11,7 +11,7 @@ has one owner, and the `ref struct`, which views storage it does not own.
 ```ebnf
 StructDeclaration = { Annotation } [ Visibility ] [ "unique" | "ref" ] "struct"
                     ( Identifier | PrimitiveName )
-                    [ TypeParameters ] [ "implements" TypeList ] "{" { StructMember } "}" .
+                    [ TypeParameters ] [ "implements" ImplementsList ] "{" { StructMember } "}" .
 StructMember      = StructField | StructConstructor | Method | Indexer | Destructor .
 ```
 

@@ -151,7 +151,7 @@ public sealed partial class Interpreter
     /// <summary>
     /// Calls <paramref name="visit"/> on each strong reference the object holds, in the order its
     /// generated <c>Visit</c> visits them: a base's before its own, fields in declaration order,
-    /// a container's elements last, and a closure's captures in the order it holds them.
+    /// the values it keeps in raw memory last, and a closure's captures in the order it holds them.
     /// </summary>
     void ForEachReference(HeapObject heap, ReferenceVisitor visit)
     {
@@ -163,8 +163,8 @@ public sealed partial class Interpreter
                 {
                     foreach (var cell in obj.Fields[type.Symbol!])
                         VisitCellReferences(cell, visit);
-                    if (OwnsContainerElement(type))
-                        VisitContainerElements(obj, type, visit);
+                    foreach (var visitElements in stdlib.OwnElementVisits(type.Symbol!))
+                        VisitElements(obj, type, visitElements, visit);
                 }
                 break;
             case ClosureValue closure:
@@ -229,42 +229,21 @@ public sealed partial class Interpreter
         Released(closure, closure.ReleasedOne());
     }
 
-    /// <summary>Whether a class declares the container elements its own <c>Visit</c> walks, rather than inheriting them.</summary>
-    bool OwnsContainerElement(WylType type) =>
-        stdlib.ContainerElement(type) is not null
-        && (type.BaseType is not { } baseType || stdlib.ContainerElement(baseType) is null);
-
     /// <summary>
-    /// Visits a container's elements, which its generated <c>Visit</c> reaches through
-    /// <c>asReadOnlySpan</c>, so the interpreter never assumes the container's layout.
+    /// Visits the values a class keeps in raw memory by running its <c>visitElements</c> with a
+    /// visitor that reports each value it is given, as the class's generated <c>Visit</c> does.
     /// </summary>
-    void VisitContainerElements(ObjectRef obj, WylType type, ReferenceVisitor visit)
+    void VisitElements(ObjectRef obj, WylType type, FunctionSymbol visitElements, ReferenceVisitor visit)
     {
-        if (!type.Symbol!.Methods.TryGetValue("asReadOnlySpan", out var methods) || methods.FirstOrDefault() is not { } method)
-            return;
-        var reference = new MethodReference(method, type, []);
-        var function = program.Functions.Single(method)
-            ?? throw new InterpreterException($"no lowered function for '{method.Signature}'");
+        var reference = new MethodReference(visitElements, type, []);
+        var function = program.Functions.Single(visitElements)
+            ?? throw new InterpreterException($"no lowered function for '{visitElements.Signature}'");
         var frame = new Frame(reference.Map);
         if (function.This is { } self)
             frame.Locals[self] = new OwnedStorage(new Cell(type, obj));
-        if (Invoke(function, frame) is not StructValue span)
-            throw new InterpreterException($"'{method.Name}' did not return a span");
-        var symbol = span.Type.Symbol!;
-        if (symbol.FindField("data") is not { } data || symbol.FindField("size") is not { } size)
-            throw new InterpreterException($"'{span.Type}' declares no 'data' and 'size'");
-        int length = (int)(long)Integer(span.Fields[symbol.Fields.IndexOf(size)].Value);
-        // An empty span views a null pointer, which C++ never dereferences.
-        if (length == 0)
-            return;
-        if (span.Fields[symbol.Fields.IndexOf(data)].Value is not PointerValue pointer)
-            throw new InterpreterException($"'{span.Type}' does not view storage");
-        for (int i = 0; i < length; i++)
-        {
-            var element = pointer.Buffer.Read(pointer.Index + i)
-                ?? throw new InterpreterException("a container element was never initialized");
-            VisitCellReferences(element, visit);
-        }
+        var visitor = new Cell(reference.ParameterType(0), new ElementVisitorValue(element => VisitCellReferences(element, visit)));
+        frame.Locals[function.Parameters[0]] = new RefStorage(visitor);
+        Invoke(function, frame);
     }
 
     /// <summary>
@@ -454,8 +433,8 @@ public sealed partial class Interpreter
         foreach (var type in obj.Chain.ToList())
         {
             obj.Active = type;
-            // The standard library's containers release their elements with their fields, so their
-            // destructor bodies run after every destructor of the cycle, as their class's does.
+            // A class that keeps values in raw memory releases them with its fields, so its destructor
+            // body runs after every destructor of the cycle, as its class's does.
             if (!type.Symbol!.HasSeparateDestructor)
                 continue;
             if (type.Symbol.Destructor is { } destructor && program.Functions.Single(destructor) is { } function)

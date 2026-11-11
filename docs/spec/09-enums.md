@@ -10,7 +10,7 @@ that give an enum without data an integer representation.
 
 ```ebnf
 EnumDeclaration = { Annotation } [ Visibility ] [ "unique" ] "enum" Identifier [ TypeParameters ]
-                  [ "implements" TypeList ] "{" [ Variants ] [ ";" { Method } ] "}" .
+                  [ "implements" ImplementsList ] "{" [ Variants ] [ ";" { Method } ] "}" .
 Variants        = Variant { "," Variant } [ "," ] .
 Variant         = Identifier [ "=" [ "-" ] IntegerLiteral ] | Identifier "(" VariantField { "," VariantField } ")" .
 VariantField    = Type Identifier .

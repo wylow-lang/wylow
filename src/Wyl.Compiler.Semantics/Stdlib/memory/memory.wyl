@@ -57,6 +57,26 @@ pub unsafe extern T moveOut<T>(T* place);
 /// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
 pub unsafe extern void moveTo<T>(T* from, T* to, int count);
 
+/// A class that keeps values in raw memory and reports them to the cycle collector, which looks at
+/// a class through its fields otherwise (spec `library.memory`).
+///
+/// # Safety
+///
+/// `visitElements` passes each value that the class keeps in raw memory to `visitor.visit` exactly
+/// once, and passes nothing else. It changes no value, creates or releases no reference, does not
+/// panic, and does not call `collectCycles`.
+pub unsafe interface ElementOwner<T> {
+    /// Passes each value that the class keeps in raw memory to `visitor`.
+    void visitElements(ref ElementVisitor<T> visitor);
+}
+
+/// The cycle collector's view of the values that an `ElementOwner` reports. Only the collector makes
+/// a visitor that reports anything: a default value reports nothing.
+pub unique extern struct ElementVisitor<T> {
+    /// Reports `element` to the cycle collector.
+    pub mut extern void visit(ref T element);
+}
+
 /// Frees every cycle of objects that nothing outside the cycle refers to, which reference counting
 /// alone never frees. It runs only when called (spec `memory.cycles`).
 ///

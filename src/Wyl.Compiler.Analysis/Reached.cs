@@ -8,7 +8,7 @@ namespace Wyl.Compiler.Analysis;
 /// The lowered functions a program may run. Every function outside <c>std</c> counts, so that the
 /// verifier reports the errors of a function that nothing calls. A function of <c>std</c> counts if
 /// a function that counts may run it, or if code outside the IR may name it: a class's methods,
-/// which its vtable and forwarders name, its <c>asReadOnlySpan</c>, which the cycle collector calls,
+/// which its vtable and forwarders name, its <c>visitElements</c>, which the cycle collector calls,
 /// <c>programArguments</c>, which the emitted <c>main</c> calls, and the content constructor of
 /// <c>Isolated</c>, which a conversion to an isolated box runs. Functions without a declaration,
 /// such as static initializers and default makers, always count.

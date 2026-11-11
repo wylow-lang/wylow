@@ -6,7 +6,7 @@ import std::iteration::RefIterator;
 /// Adding or removing elements may move the others, so while a reference, span, or loop into the
 /// list exists, the list is borrowed, and changing its length or capacity panics (spec
 /// `memory.borrows`). Clearing or releasing the list releases its elements last to first.
-pub final class List<T> implements Borrowable, Spannable<T> {
+pub final class List<T> implements Borrowable, Spannable<T>, unsafe memory::ElementOwner<T> {
     mut T* data;
     mut int size;
     mut int space;
@@ -246,6 +246,15 @@ pub final class List<T> implements Borrowable, Spannable<T> {
             list.space = room;
             return list;
         }, Unit());
+    }
+
+    /// Passes each element to `visitor`, for the cycle collector.
+    pub void visitElements(ref memory::ElementVisitor<T> visitor) {
+        unsafe {
+            for (int i : 0..size) {
+                visitor.visit(ref data[i]);
+            }
+        }
     }
 
     /// Returns an iterator over references to the elements, first to last.

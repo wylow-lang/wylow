@@ -142,6 +142,7 @@ public static class Values
         : stdlib.IsAtomicState(type) ? new AtomicStateValue(null)
         : stdlib.IsIsolatedState(type) ? new IsolatedStateValue(new GraphBuffer())
         : type.Symbol is { IsWeak: true } ? new WeakValue(null, null)
+        : stdlib.IsElementVisitor(type) ? new ElementVisitorValue(null)
         : null;
 
     /// <summary>The fields of a struct type, with its type arguments applied, in declaration order.</summary>

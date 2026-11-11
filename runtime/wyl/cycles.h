@@ -31,6 +31,21 @@ inline void Visit(Visitor& visitor, T& value) {
     }
 }
 
+// std::memory's ElementVisitor: what a class that keeps values in raw memory reports them to, in
+// its visitElements. A default value reports nothing.
+template <class T>
+class ElementVisitor {
+    Visitor* m_Visitor = nullptr;
+
+public:
+    ElementVisitor() = default;
+    explicit ElementVisitor(Visitor& visitor) : m_Visitor(&visitor) {}
+
+    void visit(T& element) {
+        if (m_Visitor != nullptr) wyl::Visit(*m_Visitor, element);
+    }
+};
+
 template <class F>
 class FunctionVisitor final : public Visitor {
     F m_Function;

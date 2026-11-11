@@ -119,3 +119,4 @@ history and a reason can be found without searching the spec.
 | [0089](0089-collections-module.md) | The module `std::collections` holds `List<T>` and the other collections; `Array<T>` stays in the root |
 | [0090](0090-equatable-and-hashable.md) | `Equatable`, `Hashable`, and `Hasher`; `Comparable` extends `Equatable`; the built-in types implement `Hashable` |
 | [0091](0091-written-equality.md) | The compiler writes `equals` and `hash` for a struct or enum that implements `Equatable` or `Hashable` without them |
+| [0092](0092-unsafe-interfaces-and-element-owners.md) | Unsafe interfaces, and `memory::ElementOwner` reports the values a class keeps in raw memory to the cycle collector |

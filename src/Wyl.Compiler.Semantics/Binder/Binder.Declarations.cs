@@ -57,6 +57,12 @@ public sealed partial class Binder
                 Error(Catalog.InterfaceListedTwice(interfaceSyntax.Location, type.Symbol!.Name));
             else
             {
+                if (s.Kind == TypeKind.Interface && type.Symbol!.IsUnsafe && !s.IsUnsafe)
+                    Error(Catalog.SafeInterfaceExtendsUnsafe(interfaceSyntax.Location, s.Name, type.ToString()));
+                else if (s.Kind != TypeKind.Interface && type.Symbol!.IsUnsafe && interfaceSyntax.Unsafe is null)
+                    Error(Catalog.UnsafeInterfaceWithoutUnsafe(interfaceSyntax.Location, type.ToString()));
+                if (!type.Symbol!.IsUnsafe && interfaceSyntax.Unsafe is { } unsafeAt)
+                    Error(Catalog.UnsafeOnSafeInterface(unsafeAt, type.ToString()));
                 s.Interfaces.Add(type);
                 if (s.Kind is not (TypeKind.Class or TypeKind.Interface))
                     valueTypeInterfaces.Add((type, interfaceSyntax.Location));
@@ -73,12 +79,13 @@ public sealed partial class Binder
     /// </summary>
     void CheckBorrowableValueTypes()
     {
-        if (stdlib.Borrowable is not { } borrowable)
-            return;
         foreach (var (type, at) in valueTypeInterfaces)
         {
-            if (Conversions.IsSubtype(type, borrowable.Type, function: null))
+            if (stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type, function: null))
                 Error(Catalog.BorrowableNonClass(at));
+            // Only an object's Visit calls visitElements.
+            if (stdlib.ElementOwner is { } owner && Conversions.Supertypes(type, function: null).Prepend(type).FirstOrDefault(t => t.Symbol == owner) is { } owned)
+                Error(Catalog.ElementOwnerNonClass(at, owned.ToString()));
         }
     }
 

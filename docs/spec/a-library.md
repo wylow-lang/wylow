@@ -22,7 +22,7 @@ these of its declarations, and on nothing else in it:
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
 | `Isolated<T>`, `collections::List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
-| `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
+| `std::memory` | Raw memory and the cycle collector, and `ElementOwner<T>` and `ElementVisitor<T>`, through which the collector visits values in raw memory ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
@@ -264,6 +264,33 @@ unsafe, since the compiler cannot check how the storage is used
   panics. Both panic when called from a destructor ([Cycles](17-memory.md#memory.cycles)).
 - `cycleStats()` returns what the collector did since the last call: the numbers of objects it
   buffered, visited, and freed, as `buffered`, `visited`, and `freed`.
+
+A class that keeps values in raw memory reports them to the cycle collector through an unsafe
+interface ([Unsafe interfaces](10-interfaces.md#interfaces.unsafe)):
+
+```java unchecked
+pub unsafe interface ElementOwner<T> {
+    void visitElements(ref ElementVisitor<T> visitor);
+}
+
+pub unique extern struct ElementVisitor<T> {
+    pub mut extern void visit(ref T element);
+}
+```
+
+- The collector calls `visitElements` of each object it visits, after it visits the object's
+  fields, and the collector looks at what each value given to `visit` holds
+  ([What the collector looks at](17-memory.md#memory.cycles.collected)).
+- A class that implements `ElementOwner` promises that `visitElements` gives `visit` each value
+  that the class keeps in raw memory exactly once, and nothing else. The method changes no value,
+  creates or releases no reference, does not panic, and does not call `collectCycles`. It is
+  undefined behavior to break the promise.
+- It is a compile-time error for a struct or enum to implement `ElementOwner`.
+- A class implements `ElementOwner` of one type at most. A class that keeps values of several types
+  keeps them in one struct type.
+- Only the collector makes an `ElementVisitor` that reports anything. A default value reports
+  nothing.
+- `List<T>`, `Array<T>`, and `Frozen<T>` implement `ElementOwner<T>`.
 
 Two functions of `std::memory` compare bytes. They are safe, since a span carries its length:
 

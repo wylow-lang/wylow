@@ -28,6 +28,11 @@ public sealed partial class Interpreter
             ["wyl::panic::checkIndex"] = (i, call, location, caller) => BoundsCheck(i.ArgumentsOf(call, caller), location),
             ["wyl::panic::checkRange"] = (i, call, location, caller) => BoundsCheckRange(i.ArgumentsOf(call, caller), location),
             ["Weak::get"] = (i, call, location, caller) => i.WeakGet(call, caller),
+            ["ElementVisitor::visit"] = (i, call, location, caller) =>
+            {
+                (i.ReceiverOf(call, caller) as ElementVisitorValue)?.Visit?.Invoke(i.RefArgumentCell(call, 0, caller));
+                return null;
+            },
             ["wyl::argumentCount"] = (i, call, location, caller) => new IntValue((i.options.Arguments ?? []).Count),
             ["wyl::argument"] = (i, call, location, caller) => i.ProgramArgument(i.ArgumentsOf(call, caller)),
             ["wyl::replace"] = (i, call, location, caller) => i.Replace(call, caller, location),

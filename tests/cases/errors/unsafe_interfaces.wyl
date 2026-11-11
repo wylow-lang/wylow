@@ -1,0 +1,37 @@
+// An unsafe interface is implemented with 'unsafe' before its name, which marks a promise the
+// compiler cannot check; only an unsafe interface takes the word, and only a class owns elements.
+import std::memory;
+
+unsafe interface Checked {
+    void check();
+}
+
+class Missing implements Checked {          // error[WYL0492]: cannot implement unsafe interface 'Checked' without 'unsafe'
+    void check() { }
+}
+
+class Marked implements unsafe Checked {
+    void check() { }
+}
+
+interface Plain {
+    void run();
+}
+
+class Extra implements unsafe Plain {       // error[WYL0493]: 'Plain' is not an unsafe interface
+    void run() { }
+}
+
+interface Widened extends Checked { }       // error[WYL0494]: interface 'Widened' extends unsafe interface 'Checked' without being 'unsafe'
+
+unsafe interface Narrowed extends Checked { }
+
+class Both implements unsafe Narrowed {
+    void check() { }
+}
+
+struct Buffer implements unsafe memory::ElementOwner<int> { // error[WYL0495]: only a class can implement 'ElementOwner<int>'
+    pub void visitElements(ref memory::ElementVisitor<int> visitor) { }
+}
+
+void main() { }

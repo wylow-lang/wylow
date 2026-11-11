@@ -10,7 +10,7 @@ is declared, what a subclass inherits and overrides, how an object is constructe
 
 ```ebnf
 ClassDeclaration = { Annotation } [ Visibility ] [ "shared" ] [ "abstract" | "final" ] "class" Identifier
-                   [ TypeParameters ] [ "extends" Type ] [ "implements" TypeList ]
+                   [ TypeParameters ] [ "extends" Type ] [ "implements" ImplementsList ]
                    "{" { ClassMember } "}" .
 ClassMember      = ClassField | ClassConstructor | Method | Indexer | Destructor .
 ```

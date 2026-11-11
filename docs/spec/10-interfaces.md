@@ -8,7 +8,7 @@ declared, how a class, struct, or enum implements it, and where a value of an in
 ## 10.1 Interface declarations
 
 ```ebnf
-InterfaceDeclaration = { Annotation } [ Visibility ] "interface" Identifier [ TypeParameters ]
+InterfaceDeclaration = { Annotation } [ Visibility ] [ "unsafe" ] "interface" Identifier [ TypeParameters ]
                        [ "extends" TypeList ] "{" { InterfaceMember } "}" .
 InterfaceMember      = InterfaceMethod | Indexer .
 InterfaceMethod      = [ "mut" ] ReturnType Identifier "(" [ Parameters ] ")" ";" .
@@ -49,7 +49,8 @@ void main() {
 ## 10.2 Implementing an interface
 
 ```ebnf
-TypeList = Type { "," Type } .
+TypeList       = Type { "," Type } .
+ImplementsList = [ "unsafe" ] Type { "," [ "unsafe" ] Type } .
 ```
 
 A class, struct, or enum **implements** the interfaces after `implements`, and the interfaces they extend. A
@@ -109,8 +110,41 @@ void clear<T extends Resettable>(T value) {
 }
 ```
 
+<a id="interfaces.unsafe"></a>
+## 10.4 Unsafe interfaces
+
+An interface declared `unsafe` is one whose implementations make a promise that the compiler cannot
+check, which its documentation states. A class, struct, or enum implements it by writing `unsafe`
+before its name in the `implements` list: `class Slots implements unsafe memory::ElementOwner<Node>`.
+
+- Writing `unsafe` before an interface is unsafe code: if the type breaks the promise, the behavior
+  is undefined ([Unsafe code](20-unsafe.md#unsafe)).
+- It is a compile-time error to implement an unsafe interface without `unsafe` before its name, and
+  to write `unsafe` before an interface that is not unsafe.
+- It is a compile-time error for an interface that is not unsafe to extend an unsafe interface. An
+  interface that extends one is declared `unsafe` itself, so that every type that implements it
+  writes `unsafe`.
+
+**Example:**
+
+```java
+unsafe interface Checked {
+    void check();
+}
+
+class Missing implements Checked {          // error[WYL0492]
+    void check() { }
+}
+
+class Marked implements unsafe Checked {
+    void check() { }
+}
+
+void main() { }
+```
+
 <a id="interfaces.structs"></a>
-## 10.4 Interfaces of structs and enums
+## 10.5 Interfaces of structs and enums
 
 A struct or enum implements an interface for use as a bound ([Bounds](11-generics.md#generics.bounds)). Its
 value is not converted to the interface type: it is a compile-time error to store a struct or enum value in a

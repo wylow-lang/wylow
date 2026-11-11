@@ -62,6 +62,12 @@ public sealed class StdlibSymbols
     /// <summary>Types whose values hash, whose <c>hash</c> the compiler writes for a struct or enum.</summary>
     public TypeSymbol? Hashable { get; private set; }
 
+    /// <summary>A class that keeps values in raw memory and reports them to the cycle collector (spec <c>library.memory</c>).</summary>
+    public TypeSymbol? ElementOwner { get; private set; }
+
+    /// <summary>The collector's view of what an <see cref="ElementOwner"/> reports, which only the collector makes.</summary>
+    public TypeSymbol? ElementVisitor { get; private set; }
+
     /// <summary>Values that produce elements one at a time, which a for-each loop iterates through <c>moveNext</c> and <c>current</c>.</summary>
     public TypeSymbol? Iterator { get; private set; }
 
@@ -156,6 +162,8 @@ public sealed class StdlibSymbols
             case "Comparable": Comparable = symbol; break;
             case "Equatable": Equatable = symbol; break;
             case "Hashable": Hashable = symbol; break;
+            case "ElementOwner": ElementOwner = symbol; break;
+            case "ElementVisitor": ElementVisitor = symbol; break;
             case "Iterator": Iterator = symbol; break;
             case "RefIterator": RefIterator = symbol; break;
             case "InIterator": InIterator = symbol; break;
@@ -186,16 +194,23 @@ public sealed class StdlibSymbols
         Isolated?.Constructors.FirstOrDefault(c => c.Parameters.Count == 1 && c.Parameters[0].Type is not FunctionType);
 
     /// <summary>
-    /// The element type of a standard library container: a class implementing <see cref="ReadOnlySpannable"/>,
-    /// which stores its elements behind a pointer rather than in fields. The cycle collector visits
-    /// them through <c>asReadOnlySpan</c>. A user's class may return a span of its own fields, whose
-    /// references would then be counted twice, so only the standard library's classes qualify.
+    /// The types of the values a class keeps in raw memory: the <c>T</c> of each <c>ElementOwner&lt;T&gt;</c>
+    /// it implements, itself or through its base class. The cycle collector visits those values through
+    /// <c>visitElements</c>, so the class holds what they hold.
     /// </summary>
-    public WylType? ContainerElement(WylType type)
-    {
-        if (type.Symbol is not { Kind: TypeKind.Class } s || ReadOnlySpannable is not { } hook || !s.Declaration.Location.Source.Module.Package.IsStd)
-            return null;
-        IEnumerable<WylType> candidates = [type, .. Conversions.Supertypes(type, function: null)];
-        return candidates.FirstOrDefault(t => t.Symbol == hook)?.TypeArguments[0];
-    }
+    public IEnumerable<WylType> OwnedElements(WylType type) =>
+        type.IsClass && ElementOwner is { } owner
+            ? Conversions.Supertypes(type, function: null).Where(t => t.Symbol == owner).Select(t => t.TypeArguments[0])
+            : [];
+
+    /// <summary>
+    /// The <c>visitElements</c> methods a class declares itself, which its <c>Visit</c> calls after its
+    /// fields; a base class's are called by the base class's <c>Visit</c>.
+    /// </summary>
+    public IEnumerable<FunctionSymbol> OwnElementVisits(TypeSymbol s) =>
+        s.Kind == TypeKind.Class && ElementOwner is { } owner && s.Methods.TryGetValue("visitElements", out var methods)
+            ? methods.Where(m => m.Overridden.Any(o => o.ContainingType == owner))
+            : [];
+
+    public bool IsElementVisitor(WylType type) => type.Symbol is { } s && s == ElementVisitor;
 }

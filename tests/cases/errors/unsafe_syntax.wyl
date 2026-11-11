@@ -1,8 +1,7 @@
-// 'unsafe' marks functions, methods, constructors, and blocks; nothing else.
+// 'unsafe' marks functions, methods, constructors, blocks, and interfaces; nothing else.
 
 unsafe class K { }                      // error[WYL0210]: 'unsafe' cannot be used on a class
 unsafe struct S { }                     // error[WYL0210]: 'unsafe' cannot be used on a struct
-unsafe interface J { }                  // error[WYL0210]: 'unsafe' cannot be used on an interface
 unsafe enum E { A }                     // error[WYL0210]: 'unsafe' cannot be used on an enum
 
 class F {

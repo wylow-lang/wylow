@@ -16,7 +16,7 @@ package struct FrozenStorage<T> {
 /// Its elements are sendable and copyable, and nothing changes them, so threads read them without a
 /// lock. `List.freeze` moves a list's elements into one without copying them, and `copyOf` copies
 /// the elements of a span.
-pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpannable<T> {
+pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpannable<T>, unsafe memory::ElementOwner<T> {
     package FrozenStorage<T> storage;
 
     package Frozen(FrozenStorage<T> elements) {
@@ -72,6 +72,15 @@ pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpanna
     pub ReadOnlySpan<T> asReadOnlySpan() {
         unsafe {
             return ReadOnlySpan<T>(storage.data, storage.length);
+        }
+    }
+
+    /// Passes each element to `visitor`, for the cycle collector.
+    pub void visitElements(ref memory::ElementVisitor<T> visitor) {
+        unsafe {
+            for (int i : 0..storage.length) {
+                visitor.visit(ref storage.data[i]);
+            }
         }
     }
 

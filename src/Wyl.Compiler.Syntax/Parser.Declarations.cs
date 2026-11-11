@@ -61,7 +61,10 @@ public sealed partial class Parser
             if (kind == TypeKind.Interface)
                 Report(Catalog.InterfaceImplements(Loc(implements.Span)));
             do
-                interfaces.Add(ParseType());
+            {
+                Location? unsafeAt = At(TokenKind.UnsafeKeyword) ? Loc(Advance().Span) : null;
+                interfaces.Add(ParseType() with { Unsafe = unsafeAt });
+            }
             while (Accept(TokenKind.Comma));
         }
 

@@ -405,6 +405,15 @@ public sealed class IsolatedStateValue(GraphBuffer buffer) : Value
 }
 
 /// <summary>A pointer: a buffer and the element it points at, which may be one past the end. Null is <see cref="NullValue"/>.</summary>
+/// <summary>
+/// The cycle collector's view of the values a class keeps in raw memory: <c>visit</c> reports each
+/// one. A default value, which only the collector does not make, reports nothing.
+/// </summary>
+public sealed class ElementVisitorValue(Action<Cell>? visit) : Value
+{
+    public Action<Cell>? Visit { get; } = visit;
+}
+
 public sealed class PointerValue(Buffer buffer, int index) : Value
 {
     public Buffer Buffer { get; } = buffer;

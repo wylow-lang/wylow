@@ -231,8 +231,10 @@ interface.
   is decided like a class.
 - A generic class is decided for each instantiation: `List<Node>` may be cyclic, and `List<int>` is
   not.
-- The elements of the standard library's containers, `List` and `Array`, are the references they
-  hold. A class of the program is looked at through its fields, even if it is `Spannable`.
+- A class that implements `memory::ElementOwner<T>` also holds the `T` values that its
+  `visitElements` reports, as `List`, `Array`, and `Frozen` do
+  ([`std::memory`](a-library.md#library.memory)). A class is looked at through its fields and
+  these values alone, even if it is `Spannable`.
 - Objects of a class that is not cyclic are never buffered or visited, so the references they hold
   count as references from outside any cycle.
 - When a reference to a cyclic object is released and the object is not destroyed, the object is
@@ -253,9 +255,11 @@ A collection that frees a cycle does this, in order:
    destructor sees the rest of the cycle undestroyed. The destructors of every cycle that one call
    frees interleave in this way. For objects created 2^32 or more objects apart, the order is
    fixed, but it may not follow age.
-3. The fields are released and the memory is freed. The standard library's containers release
-   their elements here, with the fields, so their destructors run after every destructor of the
-   cycle.
+3. The references among the cycle's objects are cleared, then the fields are released and the
+   memory is freed. An object of a class that implements `memory::ElementOwner` runs its destructor
+   here, with its fields, so the destructor releases the values it keeps in raw memory after every
+   other destructor of the cycle, and finds the references they held to the cycle's objects
+   cleared.
 
 - A destructor that stores a reference to its object, or to another object of the cycle, outside
   the cycle panics ([Destructors](08-classes.md#classes.destructors)).

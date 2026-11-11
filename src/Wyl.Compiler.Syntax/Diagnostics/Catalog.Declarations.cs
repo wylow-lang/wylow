@@ -471,6 +471,23 @@ public static partial class Catalog
     public static Diagnostic EqualityHalfWritten(Location at, string type, string written, string missing) =>
         Make(at, $"'{type}' writes '{written}' without '{missing}'").Help($"write '{missing}' too, or neither method, so that the compiler writes both");
 
+    [Error(492, "interfaces.unsafe")]
+    public static Diagnostic UnsafeInterfaceWithoutUnsafe(Location at, string iface) =>
+        Make(at, $"cannot implement unsafe interface '{iface}' without 'unsafe'")
+            .Help($"write 'implements unsafe {iface}' once the type keeps the promise that the interface's documentation states");
+
+    [Error(493, "interfaces.unsafe")]
+    public static Diagnostic UnsafeOnSafeInterface(Location at, string iface) =>
+        Make(at, $"'{iface}' is not an unsafe interface").Help("remove 'unsafe'");
+
+    [Error(494, "interfaces.unsafe")]
+    public static Diagnostic SafeInterfaceExtendsUnsafe(Location at, string name, string iface) =>
+        Make(at, $"interface '{name}' extends unsafe interface '{iface}' without being 'unsafe'").Help($"declare it 'unsafe interface {name}'");
+
+    [Error(495, "library.memory")]
+    public static Diagnostic ElementOwnerNonClass(Location at, string iface) =>
+        Make(at, $"only a class can implement '{iface}'").Note("the cycle collector visits the elements of objects, and a struct or enum is not one");
+
     [Error(186, "interfaces.implementing")]
     public static Diagnostic StaticImplementation(Location at, string method, string required) =>
         Make(at, $"static method '{method}' cannot implement '{required}'");

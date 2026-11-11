@@ -1,0 +1,136 @@
+// A program's own class that keeps values in raw memory reports them to the cycle collector by
+// implementing memory::ElementOwner, so a cycle through those values is freed.
+import std::memory;
+
+class Node {
+    int id;
+    mut Slots? slots;
+    mut Pairs? pairs;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    ~Node() {
+        std::print(id);
+    }
+}
+
+// A fixed number of nullable references in raw memory.
+class Slots implements unsafe memory::ElementOwner<Node?> {
+    Node?* data;
+    int count;
+
+    Slots(int count) {
+        this.count = count;
+        unsafe {
+            data = memory::allocate<Node?>(count);
+            for (int i : 0..count) {
+                memory::initialize(data + i, null);
+            }
+        }
+    }
+
+    void set(int index, Node node) {
+        unsafe {
+            data[index] = node;
+        }
+    }
+
+    pub void visitElements(ref memory::ElementVisitor<Node?> visitor) {
+        unsafe {
+            for (int i : 0..count) {
+                visitor.visit(ref data[i]);
+            }
+        }
+    }
+
+    ~Slots() {
+        std::print(-count);
+        unsafe {
+            for (int i : 0..count) {
+                memory::drop(data + i);
+            }
+            memory::free(data);
+        }
+    }
+}
+
+// A subclass's elements are its base class's, which the base class's visit reports.
+class NamedSlots extends Slots {
+    NamedSlots(int count) {
+        super(count);
+    }
+}
+
+// A struct element, whose references the collector finds through the struct's fields.
+struct Entry {
+    String name;
+    Node node;
+}
+
+class Pairs implements unsafe memory::ElementOwner<Entry> {
+    Entry* entries;
+
+    Pairs(Node node, String name) {
+        unsafe {
+            entries = memory::allocate<Entry>(1);
+            memory::initialize(entries, Entry(name, node));
+        }
+    }
+
+    pub void visitElements(ref memory::ElementVisitor<Entry> visitor) {
+        unsafe {
+            visitor.visit(ref entries[0]);
+        }
+    }
+
+    ~Pairs() {
+        std::print("pairs");
+        unsafe {
+            memory::drop(entries);
+            memory::free(entries);
+        }
+    }
+}
+
+void main() {
+    {
+        // node 1 -> slots -> node 1.
+        var node = new Node(1);
+        var slots = new Slots(2);
+        slots.set(1, node);
+        node.slots = slots;
+    }
+    std::print("collect");                  // output: collect
+    memory::collectCycles();
+    // output: 1
+    // output: -2
+    std::print(memory::cycleStats().freed); // output: 2
+
+    {
+        // node 3 -> named slots -> node 3, and node 2 -> named slots, outside the cycle.
+        var two = new Node(2);
+        var three = new Node(3);
+        var slots = new NamedSlots(1);
+        slots.set(0, three);
+        two.slots = slots;
+        three.slots = slots;
+    }                                       // output: 2
+    std::print("collect");                  // output: collect
+    memory::collectCycles();
+    // output: 3
+    // output: -1
+    std::print(memory::cycleStats().freed); // output: 2
+
+    {
+        // node 4 -> pairs -> node 4.
+        var four = new Node(4);
+        four.pairs = new Pairs(four, "four");
+    }
+    std::print("collect");                  // output: collect
+    memory::collectCycles();
+    // output: 4
+    // output: pairs
+    std::print(memory::cycleStats().freed); // output: 2
+}

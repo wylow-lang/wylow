@@ -36,14 +36,9 @@ public sealed partial class CppEmitter
 
     static bool NeedsVisit(WylType fieldType) => fieldType.MayOwnObjects;
 
-    /// <summary>A class's own fields and container elements to visit; a base class visits its own.</summary>
+    /// <summary>A class's own fields and elements to visit; a base class visits its own.</summary>
     bool HasOwnReferences(TypeSymbol s) =>
-        s.Fields.Any(f => NeedsVisit(f.Type)) || OwnContainerElement(s) is not null;
-
-    WylType? OwnContainerElement(TypeSymbol s) =>
-        stdlib.ContainerElement(s.Type) is { } element && (s.Type.BaseType is not { } baseType || stdlib.ContainerElement(baseType) is null)
-            ? element
-            : null;
+        s.Fields.Any(f => NeedsVisit(f.Type)) || stdlib.OwnElementVisits(s).Any();
 
     void DeclareCollectorMembers(TypeSymbol s)
     {
@@ -79,13 +74,10 @@ public sealed partial class CppEmitter
                     Line($"{ObjectType(baseType)}::Visit(visitor);");
                 foreach (var field in s.Fields.Where(f => NeedsVisit(f.Type)))
                     Line($"wyl::Visit(visitor, this->{FieldName(field)});");
-                if (OwnContainerElement(s) is not null)
+                foreach (var visitElements in stdlib.OwnElementVisits(s))
                 {
-                    var span = stdlib.ReadOnlySpan!;
-                    var data = FieldName(span.FindField("data")!);
-                    var size = FieldName(span.FindField("size")!);
-                    Line("auto span = this->m_asReadOnlySpan();");
-                    Line($"for (int32_t i = 0; i < span.{size}; ++i) wyl::Visit(visitor, span.{data}[i]);");
+                    var visitorType = CppType(visitElements.Parameters[0].Type);
+                    Line($"{{ {visitorType} elements(visitor); this->{MethodName(visitElements)}(elements); }}");
                 }
             });
         }

@@ -10,7 +10,10 @@ UnsafeBlock = "unsafe" Block .
 
 A block preceded by `unsafe` is an **unsafe block**. A function, method, or constructor declared
 `unsafe` is an **unsafe function**. The code inside either is **unsafe code**; all other code is
-safe code.
+safe code. A type that writes `unsafe` before an interface it implements makes the promise that
+the interface's documentation states, which the compiler does not check
+([Unsafe interfaces](10-interfaces.md#interfaces.unsafe)). If the type breaks the promise, the
+behavior is undefined, as it is when unsafe code breaks a rule.
 
 Unsafe code may use the operations this chapter describes. Code that would also be valid outside
 unsafe code means the same inside it: indexing is checked, integer overflow is checked as the build

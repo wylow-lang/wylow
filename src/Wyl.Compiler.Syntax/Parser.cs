@@ -101,7 +101,7 @@ public sealed partial class Parser
                     TypeKind.Class => Modifiers.Abstract | Modifiers.Final | Modifiers.Shared,
                     TypeKind.Struct => Modifiers.Ref | Modifiers.Extern | Modifiers.Unique,
                     TypeKind.Enum => Modifiers.Ref | Modifiers.Unique,
-                    _ => Modifiers.Ref,
+                    _ => Modifiers.Ref | Modifiers.Unsafe,
                 };
                 Disallow(modifiers, ~allowed, token => Catalog.ModifierOnType(Loc(token.Span), token.Text, SyntaxFacts.KindNameWithArticle(kind)));
                 if (kind != TypeKind.Class)
