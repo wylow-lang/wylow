@@ -462,6 +462,15 @@ public static partial class Catalog
     public static Diagnostic MissingInterfaceImplementation(Location at, string type, string method) =>
         Make(at, $"'{type}' does not implement '{method}'");
 
+    [Error(490, "library.equatable")]
+    public static Diagnostic WrittenEqualityField(Location at, string field, string fieldType, string required, Location declaredAt, string type, string implemented) =>
+        Make(at, $"field '{field}' has type '{fieldType}', which does not implement '{required}'")
+            .Note(declaredAt, $"'{type}' implements '{implemented}' without writing its methods, so the compiler writes them from its fields");
+
+    [Error(491, "library.equatable")]
+    public static Diagnostic EqualityHalfWritten(Location at, string type, string written, string missing) =>
+        Make(at, $"'{type}' writes '{written}' without '{missing}'").Help($"write '{missing}' too, or neither method, so that the compiler writes both");
+
     [Error(186, "interfaces.implementing")]
     public static Diagnostic StaticImplementation(Location at, string method, string required) =>
         Make(at, $"static method '{method}' cannot implement '{required}'");

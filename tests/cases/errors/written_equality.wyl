@@ -1,0 +1,39 @@
+// The compiler writes equals and hash only from fields whose types implement the interface, and a
+// type that implements Hashable writes both methods or neither.
+import std::{Equatable, Hashable, Hasher};
+
+struct Label implements Hashable<Label> {
+    String? text;                       // error[WYL0490]: field 'text' has type 'String?', which does not implement 'Hashable<String?>'
+    int[2] pair;                        // error[WYL0490]: field 'pair' has type 'int[2]', which does not implement 'Hashable<int[2]>'
+}
+
+struct Holder<T> implements Equatable<Holder<T>> {
+    T value;                            // error[WYL0490]: field 'value' has type 'T', which does not implement 'Equatable<T>'
+}
+
+enum Choice implements Equatable<Choice> {
+    One(int? maybe),                    // error[WYL0490]: field 'maybe' has type 'int?', which does not implement 'Equatable<int?>'
+    Two,
+}
+
+// Equatable alone does not need hash, but Hashable does.
+struct Weak implements Hashable<Weak> {
+    double strength;
+    (fn() -> int)? callback;            // error[WYL0490]: field 'callback' has type '(fn() -> int)?', which does not implement 'Hashable<(fn() -> int)?>'
+}
+
+struct Half implements Hashable<Half> {
+    int x;
+
+    pub bool equals(in Half other) {    // error[WYL0491]: 'Half' writes 'equals' without 'hash'
+        return true;
+    }
+}
+
+enum Other implements Hashable<Other> {
+    A;
+
+    pub void hash(ref Hasher hasher) { } // error[WYL0491]: 'Other' writes 'hash' without 'equals'
+}
+
+void main() { }

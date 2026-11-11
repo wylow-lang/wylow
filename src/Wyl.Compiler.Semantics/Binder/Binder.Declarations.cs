@@ -296,7 +296,8 @@ public sealed partial class Binder
             }
         }
 
-        foreach (var decl in s.Declaration.Methods)
+        var writtenEquality = WrittenEquality(s);
+        foreach (var decl in s.Declaration.Methods.Concat(writtenEquality))
         {
             // A constructor has its type's name, which the type's declaration checked.
             if (!decl.IsConstructor)

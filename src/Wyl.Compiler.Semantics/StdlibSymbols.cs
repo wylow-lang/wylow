@@ -56,6 +56,12 @@ public sealed class StdlibSymbols
     /// <summary>Types in an order.</summary>
     public TypeSymbol? Comparable { get; private set; }
 
+    /// <summary>Types whose values compare for equality, whose <c>equals</c> the compiler writes for a struct or enum.</summary>
+    public TypeSymbol? Equatable { get; private set; }
+
+    /// <summary>Types whose values hash, whose <c>hash</c> the compiler writes for a struct or enum.</summary>
+    public TypeSymbol? Hashable { get; private set; }
+
     /// <summary>Values that produce elements one at a time, which a for-each loop iterates through <c>moveNext</c> and <c>current</c>.</summary>
     public TypeSymbol? Iterator { get; private set; }
 
@@ -148,6 +154,8 @@ public sealed class StdlibSymbols
             case "IsolatedState": IsolatedState = symbol; break;
             case "Printable": Printable = symbol; break;
             case "Comparable": Comparable = symbol; break;
+            case "Equatable": Equatable = symbol; break;
+            case "Hashable": Hashable = symbol; break;
             case "Iterator": Iterator = symbol; break;
             case "RefIterator": RefIterator = symbol; break;
             case "InIterator": InIterator = symbol; break;

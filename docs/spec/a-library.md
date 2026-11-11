@@ -17,6 +17,7 @@ these of its declarations, and on nothing else in it:
 | `Borrowable` | Borrows ([`Borrowable`](17-memory.md#memory.borrows.borrowable)) |
 | `Printable` | String interpolation ([`Printable`](#library.printable)) |
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
+| `Equatable<T>`, `Hashable<T>`, `Hasher` | The equality and hashing that the compiler writes for a struct or enum ([`Equatable` and `Hashable`](#library.equatable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
 | `Isolated<T>`, `collections::List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
@@ -140,15 +141,15 @@ pub interface Comparable<T> extends Equatable<T> {
 ```
 
 `compareTo` returns a negative number, zero, or a positive number as this value sorts before, the
-same as, or after `other`. `Comparable<T>` extends the standard library's `Equatable<T>`, so a type
-that implements `Comparable` also has `bool equals(in T other)`. A type that implements `Comparable`
-returns `true` from `equals` exactly when `compareTo` returns zero. The compiler does not check that
-the two methods agree.
+same as, or after `other`. `Comparable<T>` extends `Equatable<T>`
+([`Equatable` and `Hashable`](#library.equatable)), so a type that implements `Comparable` also has
+`bool equals(in T other)`. A type that implements `Comparable` returns `true` from `equals` exactly
+when `compareTo` returns zero. The compiler does not check that the two methods agree.
 
 - The numbers, `char`, and `String` implement `Comparable` of themselves. `bool` does not.
-- Every primitive type and `String` implement the standard library's `Hashable` of themselves,
-  which extends `Equatable`. A `float` or `double` is equal to another by `equals` when `compareTo`
-  returns zero, so every NaN equals every other NaN, and `-0` does not equal `0`.
+- Every primitive type and `String` implement `Hashable` of themselves, which extends `Equatable`.
+  A `float` or `double` is equal to another by `equals` when `compareTo` returns zero, so every NaN
+  equals every other NaN, and `-0` does not equal `0`.
 - The standard library's `float` and `double` compare in a total order: `-0` sorts before `0`, and
   NaN sorts after every other value, infinity included, and the same as any other NaN. The
   operators order them differently: `-0 == 0`, and NaN is unequal to every value, itself included
@@ -159,8 +160,74 @@ the two methods agree.
 - The methods of the built-in types are ordinary methods, found by ordinary lookup, so
   `5.compareTo(3)` calls `int`'s ([Methods of primitive types](04-types.md#types.primitives.methods)).
 
+<a id="library.equatable"></a>
+## A.6 `Equatable` and `Hashable`
+
+`Equatable` is the interface of a type whose values compare for equality, and `Hashable` is the
+interface of a type whose values also hash:
+
+```java unchecked
+pub interface Equatable<T> {
+    bool equals(in T other);
+}
+
+pub interface Hashable<T> extends Equatable<T> {
+    void hash(ref Hasher hasher);
+}
+```
+
+- `equals` returns whether this value equals `other`. A type that implements `Equatable` makes
+  `equals` an equivalence: every value equals itself, `a.equals(b)` is `b.equals(a)`, and two values
+  that equal a third equal each other.
+- `hash` adds the parts of the value that `equals` compares to `hasher`, a value of the standard
+  library's struct `Hasher`. Two values that `equals` finds equal give a hasher the same input. The
+  numbers that a hasher computes are not specified.
+- Every primitive type and `String` implement `Hashable` of themselves
+  ([`Comparable`](#library.comparable)). A nullable type implements neither interface.
+- `==` does not apply to a value of a type parameter, even one whose bound is `Equatable`. Generic
+  code calls `equals` ([Comparison](13-expressions.md#expressions.comparison)).
+
+A struct or enum that implements `Equatable` of itself, directly or through an interface that
+extends it, such as `Comparable` or `Hashable`, and that declares no method named `equals`, has an
+`equals` that the compiler writes. If it implements `Hashable` of itself and declares neither
+`equals` nor `hash`, it has a `hash` that the compiler writes as well:
+
+- The written `equals` of a struct returns `true` when the `equals` of each field returns `true`
+  for the field of the same name of `other`. The written `equals` of an enum returns `true` when
+  both values are the same variant and each field of the variant equals the field of `other`.
+- The written `hash` of a struct gives the hasher each field in declaration order, through the
+  field's own `hash`. The written `hash` of an enum first adds the index of the variant, counting
+  from 0, and then gives the hasher the variant's fields in order.
+- The written methods are `pub`, and they are ordinary methods of the type.
+- It is a compile-time error if the type of a field does not implement the interface of itself, as
+  a nullable type, a fixed array, a function type, and a type parameter whose bounds do not require
+  the interface do not.
+- It is a compile-time error if a struct or enum that implements `Hashable` of itself declares
+  exactly one of `equals` and `hash`.
+- The compiler never writes the methods of a class. A class that implements either interface
+  declares its methods.
+
+**Example:**
+
+```java
+import std::Hashable;
+
+struct Point implements Hashable<Point> {
+    int x;
+    int y;
+}
+
+struct Label implements Hashable<Label> {
+    String? text;                       // error[WYL0490]
+}
+
+void main() {
+    std::print(Point(1, 2).equals(Point(1, 2)));
+}
+```
+
 <a id="library.panic"></a>
-## A.6 `std::panic`
+## A.7 `std::panic`
 
 The module `std::panic` holds the panics the language names:
 
@@ -176,7 +243,7 @@ of a built-in array do ([`@CallerLocation`](22-annotations.md#annotations.caller
 are safe to call from safe code.
 
 <a id="library.memory"></a>
-## A.7 `std::memory`
+## A.8 `std::memory`
 
 The module `std::memory` holds raw memory and the cycle collector. Its raw-memory functions are
 unsafe, since the compiler cannot check how the storage is used
@@ -207,7 +274,7 @@ Two functions of `std::memory` compare bytes. They are safe, since a span carrie
   length and the same bytes.
 
 <a id="library.replace"></a>
-## A.8 `replace`, `swap`, and `take`
+## A.9 `replace`, `swap`, and `take`
 
 These functions of `std` take a value out of a place that cannot be moved from
 ([Moves](17-memory.md#memory.moves)):
@@ -227,13 +294,13 @@ pub T? take<T>(ref T? place);
   value in use.
 
 <a id="library.threading"></a>
-## A.9 `std::threading`
+## A.10 `std::threading`
 
 The module `std::threading` declares the types through which threads start, communicate, and share
 data ([Concurrency](19-concurrency.md#concurrency)).
 
 <a id="library.thread"></a>
-### A.9.1 Threads
+### A.10.1 Threads
 
 The module declares the type that a running thread is and the functions that start and join one:
 
@@ -261,7 +328,7 @@ pub T join(this Thread<T> thread);
   another thread.
 
 <a id="library.channel"></a>
-### A.9.2 Channels
+### A.10.2 Channels
 
 The module declares a channel, through which one thread sends values that another receives ([Interleaving](19-concurrency.md#concurrency.interleaving)):
 
@@ -301,7 +368,7 @@ pub shared class Receiver<T extends sendable> {
   ([Moving and sharing](19-concurrency.md#concurrency.sendable.moving)).
 
 <a id="library.isolated"></a>
-### A.9.3 `Isolated<T>`
+### A.10.3 `Isolated<T>`
 
 The module declares the box an isolated object graph travels in
 ([Isolated object graphs](19-concurrency.md#concurrency.isolated)):
@@ -331,7 +398,7 @@ pub Isolated<List<T>> isolate() where T extends sendable;
 - `isolate` panics if the list is borrowed.
 
 <a id="library.mutex"></a>
-### A.9.4 `Mutex<T>`
+### A.10.4 `Mutex<T>`
 
 The module declares a lock that guards an isolated graph
 ([Mutexes and the lock rule](19-concurrency.md#concurrency.mutex)):
@@ -355,7 +422,7 @@ pub shared class Mutex<T> {
 - Releasing the last reference to a mutex releases its graph on the thread that releases it.
 
 <a id="library.atomic"></a>
-### A.9.5 `Atomic<T>` and `AtomicBool`
+### A.10.5 `Atomic<T>` and `AtomicBool`
 
 The module declares the values that threads read and change without a lock
 ([Atomics](19-concurrency.md#concurrency.atomic)):
@@ -389,7 +456,7 @@ pub shared class AtomicBool {
 - Every operation is sequentially consistent.
 
 <a id="library.frozen"></a>
-### A.9.6 `Frozen<T>`
+### A.10.6 `Frozen<T>`
 
 The module declares a list that never changes, which every thread may read
 ([Frozen lists](19-concurrency.md#concurrency.frozen)), and `List<T>` declares the method that makes

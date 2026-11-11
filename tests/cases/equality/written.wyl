@@ -1,0 +1,128 @@
+// A struct or enum that implements Equatable or Hashable of itself without writing the methods
+// gets them written from its fields.
+import std::{Hashable, Hasher};
+
+struct Point implements Hashable<Point> {
+    int x;
+    int y;
+}
+
+enum Shape implements Hashable<Shape> {
+    Circle(double radius),
+    Rectangle(double width, double height),
+    Empty,
+}
+
+// A field of a type parameter qualifies when the parameter's bound requires the interface.
+struct Pair<A extends Hashable<A>, B extends Hashable<B>> implements Hashable<Pair<A, B>> {
+    A first;
+    B second;
+}
+
+// Comparable extends Equatable, so a struct that writes only compareTo gets equals written.
+struct Version implements Comparable<Version> {
+    int major;
+    int minor;
+
+    pub int compareTo(in Version other) {
+        int byMajor = major.compareTo(other.major);
+        return byMajor != 0 ? byMajor : minor.compareTo(other.minor);
+    }
+}
+
+// A struct that writes both methods keeps its own: this key ignores the case of ASCII letters.
+struct Word implements Hashable<Word> {
+    String text;
+
+    pub bool equals(in Word other) {
+        return lower(text).equals(lower(other.text));
+    }
+
+    pub void hash(ref Hasher hasher) {
+        lower(text).hash(ref hasher);
+    }
+}
+
+String lower(String text) {
+    return text == "HELLO" ? "hello" : text;
+}
+
+// A class field compares by the class's equals, not by identity.
+class Name implements Hashable<Name> {
+    String text;
+
+    Name(String text) {
+        this.text = text;
+    }
+
+    pub bool equals(in Name other) {
+        return text == other.text;
+    }
+
+    pub void hash(ref Hasher hasher) {
+        text.hash(ref hasher);
+    }
+}
+
+struct Tagged implements Hashable<Tagged> {
+    Name name;
+    double weight;
+}
+
+// Fields named like the written methods' parameters and locals stay apart from them.
+struct Shadowing implements Hashable<Shadowing> {
+    int other;
+    int hasher;
+    int state;
+}
+
+struct Unit implements Hashable<Unit> { }
+
+long hashOf<T extends Hashable<T>>(in T value) {
+    mut var hasher = Hasher();
+    value.hash(ref hasher);
+    return hasher.finish();
+}
+
+bool hashesAlike<T extends Hashable<T>>(in T a, in T b) {
+    return hashOf(a) == hashOf(b);
+}
+
+void main() {
+    std::print(Point(1, 2).equals(Point(1, 2)));                // output: true
+    std::print(Point(1, 2).equals(Point(2, 1)));                // output: false
+    std::print(hashesAlike(Point(1, 2), Point(1, 2)));          // output: true
+    std::print(hashesAlike(Point(1, 2), Point(2, 1)));          // output: false
+
+    std::print(Shape.Circle(1.0).equals(Shape.Circle(1.0)));    // output: true
+    std::print(Shape.Circle(1.0).equals(Shape.Circle(2.0)));    // output: false
+    std::print(Shape.Circle(1.0).equals(Shape.Rectangle(1.0, 1.0))); // output: false
+    std::print(Shape.Empty.equals(Shape.Empty));                // output: true
+    std::print(Shape.Rectangle(2.0, 3.0).equals(Shape.Rectangle(2.0, 3.0))); // output: true
+    std::print(hashesAlike(Shape.Rectangle(2.0, 3.0), Shape.Rectangle(2.0, 3.0))); // output: true
+    // The variant's index is hashed first, so equal fields of different variants hash apart.
+    std::print(hashesAlike(Shape.Circle(1.0), Shape.Rectangle(1.0, 1.0))); // output: false
+
+    std::print(Pair<int, String>(1, "a").equals(Pair<int, String>(1, "a"))); // output: true
+    std::print(Pair<int, String>(1, "a").equals(Pair<int, String>(1, "b"))); // output: false
+    std::print(hashesAlike(Pair<int, String>(1, "a"), Pair<int, String>(1, "a"))); // output: true
+
+    std::print(Version(1, 2).equals(Version(1, 2)));            // output: true
+    std::print(Version(1, 2).equals(Version(1, 3)));            // output: false
+
+    std::print(Word("HELLO").equals(Word("hello")));            // output: true
+    std::print(hashesAlike(Word("HELLO"), Word("hello")));      // output: true
+
+    // The double field compares by its total order, so a NaN weight equals itself.
+    double nan = 0.0d / 0.0d;
+    std::print(Tagged(new Name("a"), nan).equals(Tagged(new Name("a"), nan))); // output: true
+    std::print(Tagged(new Name("a"), 1.0).equals(Tagged(new Name("b"), 1.0))); // output: false
+    std::print(hashesAlike(Tagged(new Name("a"), 1.0), Tagged(new Name("a"), 1.0))); // output: true
+
+    std::print(Shadowing(1, 2, 3).equals(Shadowing(1, 2, 3)));  // output: true
+    std::print(Shadowing(1, 2, 3).equals(Shadowing(1, 2, 4)));  // output: false
+    std::print(hashesAlike(Shadowing(1, 2, 3), Shadowing(1, 2, 3))); // output: true
+
+    std::print(Unit().equals(Unit()));                          // output: true
+    std::print(hashesAlike(Unit(), Unit()));                    // output: true
+}

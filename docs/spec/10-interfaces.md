@@ -61,7 +61,9 @@ Implementing a method does not make it overridable: a method that is to be overr
 ([Virtual methods](08-classes.md#classes.overriding)).
 
 - It is a compile-time error if a type that is not abstract has no method for a method of an interface it
-  implements ([Abstract classes](08-classes.md#classes.abstract)).
+  implements ([Abstract classes](08-classes.md#classes.abstract)). The compiler writes `equals` and
+  `hash` for a struct or enum that implements `Equatable` or `Hashable` of itself without declaring
+  them ([`Equatable` and `Hashable`](a-library.md#library.equatable)).
 - It is a compile-time error if the type after `implements` is not an interface, or if an interface is listed
   twice.
 - It is a compile-time error if the implementing method is `static`, is `unsafe`, has a by-value receiver
